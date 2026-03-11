@@ -50,6 +50,7 @@ import {
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
+import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
@@ -158,6 +159,8 @@ export async function POST(req: Request) {
         typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
           ? (meta as { buildIntent?: string }).buildIntent
           : null;
+      const metaPlanMode =
+        (meta as { planMode?: unknown })?.planMode === true;
       const metaAppProjectId =
         typeof (meta as { appProjectId?: unknown })?.appProjectId === "string"
           ? String((meta as { appProjectId?: string }).appProjectId).trim()
@@ -329,6 +332,103 @@ export async function POST(req: Request) {
         projectId,
         slug: metaBuildMethod || metaBuildIntent || undefined,
       });
+
+      // ── Plan Mode Path ────────────────────────────────────────────────
+      if (metaPlanMode) {
+        const planSystemPrompt = buildPlannerSystemPrompt();
+        const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        const { createGenerationPipeline: createPipeline } = await import("@/lib/gen/fallback");
+
+        const pipelineStream = createPipeline({
+          prompt: optimizedMessage,
+          systemPrompt: planSystemPrompt,
+          model: engineModel,
+          thinking: resolvedThinking,
+        });
+
+        const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
+
+        const planStream = new ReadableStream({
+          async start(controller) {
+            const enc = new TextEncoder();
+            const reader = pipelineStream.getReader();
+            const decoder = new TextDecoder();
+            let sseBuffer = "";
+            let accumulatedContent = "";
+            let controllerClosed = false;
+
+            const safeEnqueue = (data: Uint8Array) => {
+              if (controllerClosed) return;
+              try { controller.enqueue(data); } catch { controllerClosed = true; }
+            };
+
+            safeEnqueue(enc.encode(formatSSEEvent("meta", {
+              modelId: engineModel,
+              modelTier: resolvedModelTier,
+              thinking: resolvedThinking,
+              planMode: true,
+            })));
+
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                sseBuffer += decoder.decode(value, { stream: true });
+                const lines = sseBuffer.split("\n");
+                sseBuffer = lines.pop() || "";
+
+                for (const line of lines) {
+                  if (!line.startsWith("data: ")) continue;
+                  const payload = line.slice(6).trim();
+                  if (payload === "[DONE]") continue;
+                  let parsed: Record<string, unknown> | null = null;
+                  try { parsed = JSON.parse(payload) as Record<string, unknown>; } catch { continue; }
+
+                  const eventType = typeof parsed.type === "string" ? parsed.type : "";
+
+                  if (eventType === "content" || eventType === "content_block_delta") {
+                    const text = extractContentText(parsed, payload);
+                    if (text) {
+                      accumulatedContent += text;
+                      safeEnqueue(enc.encode(formatSSEEvent("content", { text })));
+                    }
+                  } else if (eventType === "thinking") {
+                    const text = extractThinkingText(parsed);
+                    if (text) {
+                      safeEnqueue(enc.encode(formatSSEEvent("thinking", { text })));
+                    }
+                  }
+                }
+              }
+            } catch (err) {
+              if (!controllerClosed) {
+                safeEnqueue(enc.encode(formatSSEEvent("error", {
+                  message: err instanceof Error ? err.message : "Plan generation failed",
+                })));
+              }
+            }
+
+            const planData = parsePlanResponse(accumulatedContent);
+            const hasBlockers = Array.isArray(planData?.blockers) &&
+              (planData.blockers as unknown[]).length > 0;
+
+            safeEnqueue(enc.encode(formatSSEEvent("done", {
+              chatId: projectIdForChat,
+              planArtifact: planData,
+              awaitingInput: hasBlockers,
+              planMode: true,
+            })));
+
+            if (!controllerClosed) {
+              try { controller.close(); } catch { /* already closed */ }
+            }
+          },
+        });
+
+        return attachSessionCookie(new Response(planStream, {
+          headers: createSSEHeaders(),
+        }));
+      }
 
       // ── New Engine Path ───────────────────────────────────────────────
       if (!shouldUseV0Fallback()) {

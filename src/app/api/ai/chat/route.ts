@@ -41,7 +41,7 @@ const messageSchema = z.discriminatedUnion("role", [
 
 const chatRequestSchema = z.object({
   messages: z.array(messageSchema).min(1, "messages is required").max(40, "Too many messages"),
-  model: z.string().optional().default("anthropic-direct/claude-haiku-4-5-20251001"),
+  model: z.string().optional().default("openai/gpt-5.3-codex"),
   temperature: z.number().min(0).max(2).optional(),
   provider: z.enum(["gateway", "v0", "anthropic"]).optional(),
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
