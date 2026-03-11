@@ -24,6 +24,8 @@ export function getLastMaterializedUrls(): Set<string> {
   return _lastMaterializedUrls;
 }
 
+export type FinalizeProgressCallback = (event: string, data: Record<string, unknown>) => void;
+
 export interface FinalizeParams {
   accumulatedContent: string;
   chatId: string;
@@ -36,6 +38,8 @@ export interface FinalizeParams {
   logNote?: string;
   /** For follow-up: merge generated files against previous version instead of scaffold base */
   previousFiles?: CodeFile[];
+  /** Optional callback for emitting progress SSE events during finalization */
+  onProgress?: FinalizeProgressCallback;
 }
 
 export interface FinalizeResult {
@@ -66,12 +70,14 @@ export async function finalizeAndSaveVersion(
     tokenUsage,
     logNote,
     previousFiles,
+    onProgress,
   } = params;
 
   let contentForVersion = accumulatedContent;
 
   // 1. Autofix
   if (runAutofix) {
+    onProgress?.("autofix", { phase: "start", chatId });
     try {
       const autoFixResult = await runAutoFix(accumulatedContent, {
         chatId,
@@ -87,14 +93,31 @@ export async function finalizeAndSaveVersion(
           warnings: autoFixResult.warnings.slice(0, 20),
           dependencies: autoFixResult.dependencies,
         });
+        onProgress?.("autofix", {
+          phase: "done",
+          fixes: autoFixResult.fixes.length,
+          warnings: autoFixResult.warnings.length,
+        });
       }
     } catch (autofixErr) {
       console.warn("[autofix] Pipeline error, using raw content:", autofixErr);
+      onProgress?.("autofix", { phase: "error" });
     }
   }
 
-  // 2. Syntax validation + fix
-  const syntaxResult = await validateAndFix(contentForVersion, { chatId, model });
+  // 2. Syntax validation + multi-pass fix
+  onProgress?.("validation", { phase: "start" });
+  const syntaxResult = await validateAndFix(contentForVersion, {
+    chatId,
+    model,
+    onProgress: (evt) => {
+      onProgress?.("validation", {
+        pass: evt.pass,
+        phase: evt.phase,
+        errorCount: evt.errorCount,
+      });
+    },
+  });
   contentForVersion = syntaxResult.content;
 
   if (syntaxResult.fixerUsed) {

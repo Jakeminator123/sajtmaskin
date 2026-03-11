@@ -227,6 +227,86 @@ export async function handleSseStream(
             }
             break;
           }
+          case "tool-call": {
+            const toolData = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
+            const toolName = typeof toolData.toolName === "string" ? toolData.toolName : "";
+            const toolCallId = typeof toolData.toolCallId === "string"
+              ? toolData.toolCallId
+              : `tool-${Date.now()}`;
+            const toolArgs = (toolData.args as Record<string, unknown>) ?? {};
+
+            if (toolName === "askClarifyingQuestion") {
+              const questionText = typeof toolArgs.question === "string" ? toolArgs.question : "";
+              const options = Array.isArray(toolArgs.options) ? (toolArgs.options as string[]) : [];
+              const part = {
+                type: "tool:awaiting-input",
+                toolName: "Klargörande fråga",
+                toolCallId,
+                state: "approval-requested",
+                output: {
+                  question: questionText,
+                  options: options.length > 0 ? options : undefined,
+                  kind: typeof toolArgs.kind === "string" ? toolArgs.kind : "unclear",
+                  awaitingInput: true,
+                },
+              } as Parameters<typeof appendToolPartToMessage>[2];
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMessageId
+                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [part]) }
+                    : m,
+                ),
+              );
+            } else if (toolName === "emitPlanArtifact") {
+              const planPart = {
+                type: "plan" as const,
+                plan: {
+                  title: (typeof toolArgs.goal === "string" ? toolArgs.goal : "Plan") as string,
+                  description: Array.isArray(toolArgs.scope)
+                    ? (toolArgs.scope as string[]).join(", ")
+                    : "",
+                  steps: Array.isArray(toolArgs.steps)
+                    ? (toolArgs.steps as Array<Record<string, unknown>>).map((s) => ({
+                        title: String(s.title ?? ""),
+                        description: String(s.description ?? ""),
+                        status: String(s.phase ?? "build"),
+                      }))
+                    : [],
+                  raw: toolArgs,
+                },
+              };
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMessageId
+                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [planPart]) }
+                    : m,
+                ),
+              );
+            }
+            break;
+          }
+          case "progress": {
+            const progressData = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
+            const step = typeof progressData.step === "string" ? progressData.step : "";
+            const phase = typeof progressData.phase === "string" ? progressData.phase : "";
+            if (step && phase) {
+              const progressPart = {
+                type: `tool:engine-${step}` as const,
+                toolName: step === "autofix" ? "Autofix" : step === "validation" ? "Validering" : step,
+                toolCallId: `progress:${step}:${Date.now()}`,
+                state: phase === "passed" ? "output-available" : phase === "error" || phase === "gave-up" ? "output-error" : "input-streaming",
+                output: progressData,
+              } as Parameters<typeof appendToolPartToMessage>[2];
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMessageId
+                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [progressPart]) }
+                    : m,
+                ),
+              );
+            }
+            break;
+          }
           case "chatId": {
             const nextChatId =
               typeof data === "string"

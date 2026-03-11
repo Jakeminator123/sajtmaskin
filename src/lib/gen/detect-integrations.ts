@@ -13,81 +13,96 @@ export type DetectedIntegration = {
   intent: "env_vars" | "install" | "connect" | "configure";
   envVars: string[];
   status: string;
+  setupGuide?: string;
 };
 
 const ENV_VAR_PATTERN = /process\.env\.([A-Z][A-Z0-9_]{2,})/g;
 
-const KNOWN_INTEGRATIONS: Array<{
+type KnownIntegration = {
   pattern: RegExp;
   name: string;
   provider: string;
   envVars: string[];
-}> = [
+  setupGuide: string;
+};
+
+const KNOWN_INTEGRATIONS: KnownIntegration[] = [
   {
     pattern: /(?:@supabase\/|createClient.*supabase|SUPABASE_)/i,
     name: "Supabase",
     provider: "supabase",
     envVars: ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
+    setupGuide: "Skapa ett projekt på supabase.com. Kopiera Project URL och anon/public key från Settings > API.",
   },
   {
     pattern: /(?:stripe|STRIPE_)/i,
     name: "Stripe",
     provider: "stripe",
     envVars: ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY"],
+    setupGuide: "Logga in på dashboard.stripe.com. Kopiera nycklar från Developers > API keys. Använd test-nycklar under utveckling.",
   },
   {
     pattern: /(?:@clerk\/|CLERK_)/i,
     name: "Clerk",
     provider: "clerk",
     envVars: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
+    setupGuide: "Skapa en applikation på clerk.com. Kopiera Secret key och Publishable key från API Keys.",
   },
   {
     pattern: /(?:@auth\/|AUTH_SECRET|NEXTAUTH_)/i,
     name: "NextAuth / Auth.js",
     provider: "next-auth",
     envVars: ["AUTH_SECRET", "NEXTAUTH_URL"],
+    setupGuide: "Generera AUTH_SECRET med: npx auth secret. Sätt NEXTAUTH_URL till din site-URL (t.ex. http://localhost:3000).",
   },
   {
     pattern: /(?:resend|RESEND_)/i,
     name: "Resend",
     provider: "resend",
     envVars: ["RESEND_API_KEY"],
+    setupGuide: "Skapa konto på resend.com. Skapa en API-nyckel under API Keys. Verifiera din domän för produktion.",
   },
   {
     pattern: /(?:@upstash\/|UPSTASH_)/i,
     name: "Upstash",
     provider: "upstash",
     envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+    setupGuide: "Skapa en Redis-databas på console.upstash.com. Kopiera REST URL och REST Token.",
   },
   {
     pattern: /(?:@prisma\/|prisma\.)/i,
     name: "Prisma",
     provider: "prisma",
     envVars: ["DATABASE_URL"],
+    setupGuide: "Sätt DATABASE_URL till din PostgreSQL/MySQL connection string. Format: postgresql://user:pass@host:5432/dbname",
   },
   {
     pattern: /(?:openai|OPENAI_API_KEY)/i,
     name: "OpenAI",
     provider: "openai",
     envVars: ["OPENAI_API_KEY"],
+    setupGuide: "Hämta din API-nyckel från platform.openai.com/api-keys.",
   },
   {
     pattern: /(?:@vercel\/blob|BLOB_)/i,
     name: "Vercel Blob",
     provider: "vercel-blob",
     envVars: ["BLOB_READ_WRITE_TOKEN"],
+    setupGuide: "Lägg till Blob Store i ditt Vercel-projekt via Storage-fliken. Token skapas automatiskt.",
   },
   {
     pattern: /(?:@vercel\/kv|KV_REST_API_)/i,
     name: "Vercel KV",
     provider: "vercel-kv",
     envVars: ["KV_REST_API_URL", "KV_REST_API_TOKEN"],
+    setupGuide: "Lägg till KV Store i ditt Vercel-projekt via Storage-fliken. Variabler skapas automatiskt.",
   },
   {
     pattern: /(?:googleapis|GOOGLE_)/i,
     name: "Google APIs",
     provider: "google",
     envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    setupGuide: "Skapa OAuth-klient i Google Cloud Console > APIs & Services > Credentials.",
   },
 ];
 
@@ -115,6 +130,7 @@ export function detectIntegrations(code: string): DetectedIntegration[] {
         intent: "env_vars",
         envVars: integration.envVars,
         status: "Kräver konfiguration",
+        setupGuide: integration.setupGuide,
       });
     }
   }

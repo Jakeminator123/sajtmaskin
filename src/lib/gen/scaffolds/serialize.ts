@@ -53,7 +53,9 @@ export function serializeScaffoldForPrompt(
 
   const ctx = buildFileContext({
     files: scaffold.files.map((f) => ({ path: f.path, content: f.content, language: inferLang(f.path) })),
-    maxChars: 2400,
+    maxChars: 4000,
+    includeContents: true,
+    maxFilesWithContent: 4,
   });
 
   const fileBlocks = renderScaffoldFiles(scaffold);

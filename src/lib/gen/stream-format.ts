@@ -16,6 +16,9 @@ interface StreamTextLike {
     text?: string;
     textDelta?: string;
     error?: unknown;
+    toolName?: string;
+    toolCallId?: string;
+    args?: Record<string, unknown>;
   }>;
   usage: PromiseLike<{ inputTokens: number | undefined; outputTokens: number | undefined }>;
 }
@@ -70,6 +73,17 @@ export function createCodeGenSSEStream(
               const contentText = resolveStreamText(part);
               if (contentText) {
                 enqueue("content", { text: contentText });
+              }
+              break;
+            }
+
+            case "tool-call": {
+              if (part.toolName && part.args) {
+                enqueue("tool-call", {
+                  toolName: part.toolName,
+                  toolCallId: part.toolCallId,
+                  args: part.args,
+                });
               }
               break;
             }

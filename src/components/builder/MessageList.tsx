@@ -35,6 +35,8 @@ import {
 } from "@/components/ai-elements/plan";
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { GenerationSummary } from "@/components/builder/GenerationSummary";
+import { Streamdown } from "streamdown";
+import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat, hasToolData } from "@/lib/builder/messageAdapter";
 import type { AIElementsMessage, MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
@@ -667,7 +669,15 @@ const MessageListComponent = ({
                     textContent.includes('file="') ? (
                       <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
                     ) : (
-                      <MessageResponse>{textContent}</MessageResponse>
+                      <MessageResponse>
+                        <Streamdown
+                          plugins={{ code: streamdownCode }}
+                          isAnimating={Boolean(message.isStreaming)}
+                          caret={message.isStreaming ? "block" : undefined}
+                        >
+                          {textContent}
+                        </Streamdown>
+                      </MessageResponse>
                     )
                   ) : message.isStreaming && !reasoningPart && !hasStructuredParts ? (
                     <span className="text-sm text-gray-500">Ansluter...</span>
