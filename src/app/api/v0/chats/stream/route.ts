@@ -60,7 +60,7 @@ import {
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
+import { EmptyGenerationError, finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -605,6 +605,8 @@ export async function POST(req: Request) {
             let accumulatedContent = "";
             let didSendDone = false;
             const toolSignaledProviders = new Set<string>();
+            const toolCallNames = new Set<string>();
+            let sawBlockingToolCall = false;
             const suspense = new SuspenseLineProcessor(undefined, { urlMap });
 
             const safeEnqueue = (data: Uint8Array) => {
@@ -626,6 +628,62 @@ export async function POST(req: Request) {
               } catch {
                 // already closed
               }
+            };
+
+            const finishWithoutVersion = async (
+              reason: string,
+              options?: { userMessage?: string; awaitingInput?: boolean },
+            ) => {
+              didSendDone = true;
+              const toolCalls = Array.from(toolCallNames);
+              const awaitingInput = options?.awaitingInput ?? sawBlockingToolCall;
+
+              if (options?.userMessage) {
+                safeEnqueue(enc.encode(formatSSEEvent("content", options.userMessage)));
+              }
+
+              safeEnqueue(
+                enc.encode(
+                  formatSSEEvent("done", {
+                    chatId: engineChat.id,
+                    versionId: null,
+                    messageId: null,
+                    demoUrl: null,
+                    awaitingInput,
+                    toolCalls,
+                    reason,
+                  }),
+                ),
+              );
+
+              devLogAppend("in-progress", {
+                type: awaitingInput ? "site.awaiting_input" : "site.empty_generation",
+                chatId: engineChat.id,
+                reason,
+                toolCalls,
+                message: options?.userMessage ?? null,
+              });
+              devLogFinalizeSite();
+              await commitCreditsOnce();
+            };
+
+            const handleEmptyGeneration = async (reason: string, error: EmptyGenerationError) => {
+              const toolCalls = Array.from(toolCallNames);
+              warnLog("engine", "No code emitted before finalize", {
+                chatId: error.chatId,
+                scaffold: error.scaffoldId,
+                reason,
+                toolCalls,
+              });
+
+              if (toolCalls.length > 0) {
+                await finishWithoutVersion(reason, { awaitingInput: sawBlockingToolCall });
+                return;
+              }
+
+              await finishWithoutVersion(reason, {
+                userMessage: "Ingen kod genererades i första försöket. Försök igen med samma prompt.",
+              });
             };
 
             safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: engineChat.id })));
@@ -694,6 +752,7 @@ export async function POST(req: Request) {
                       const toolData = evt.data as Record<string, unknown>;
                       const toolName = typeof toolData?.toolName === "string" ? toolData.toolName : "";
                       const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
+                      if (toolName) toolCallNames.add(toolName);
 
                       if (toolName === "suggestIntegration") {
                         const envVars = Array.isArray(toolArgs.envVars) ? toolArgs.envVars as string[] : [];
@@ -723,6 +782,7 @@ export async function POST(req: Request) {
                           }],
                         })));
                       } else if (toolName === "askClarifyingQuestion") {
+                        sawBlockingToolCall = true;
                         safeEnqueue(enc.encode(formatSSEEvent("tool-call", {
                           toolName: "askClarifyingQuestion",
                           toolCallId: typeof toolData.toolCallId === "string" ? toolData.toolCallId : `q-${Date.now()}`,
@@ -746,21 +806,30 @@ export async function POST(req: Request) {
                       }
 
                       const doneData = evt.data as Record<string, unknown> | null;
-                      const finalized = await finalizeAndSaveVersion({
-                        accumulatedContent,
-                        chatId: engineChat.id,
-                        model: engineModel,
-                        resolvedScaffold,
-                        urlMap,
-                        startedAt: engineStartedAt,
-                        tokenUsage: {
-                          prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
-                          completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
-                        },
-                        onProgress: (event, data) => {
-                          safeEnqueue(enc.encode(formatSSEEvent("progress", { step: event, ...data })));
-                        },
-                      });
+                      let finalized;
+                      try {
+                        finalized = await finalizeAndSaveVersion({
+                          accumulatedContent,
+                          chatId: engineChat.id,
+                          model: engineModel,
+                          resolvedScaffold,
+                          urlMap,
+                          startedAt: engineStartedAt,
+                          tokenUsage: {
+                            prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
+                            completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
+                          },
+                          onProgress: (event, data) => {
+                            safeEnqueue(enc.encode(formatSSEEvent("progress", { step: event, ...data })));
+                          },
+                        });
+                      } catch (error) {
+                        if (error instanceof EmptyGenerationError) {
+                          await handleEmptyGeneration("done_empty_output", error);
+                          break;
+                        }
+                        throw error;
+                      }
 
                       didSendDone = true;
                       const { version, messageId: assistantMsgId, previewUrl } = finalized;
@@ -869,19 +938,28 @@ export async function POST(req: Request) {
                     }
 
                     const doneData = evt.data as Record<string, unknown> | null;
-                    const bufFinalized = await finalizeAndSaveVersion({
-                      accumulatedContent,
-                      chatId: engineChat.id,
-                      model: engineModel,
-                      resolvedScaffold,
-                      urlMap,
-                      startedAt: engineStartedAt,
-                      tokenUsage: {
-                        prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
-                        completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
-                      },
-                      logNote: "Done from buffer flush",
-                    });
+                    let bufFinalized;
+                    try {
+                      bufFinalized = await finalizeAndSaveVersion({
+                        accumulatedContent,
+                        chatId: engineChat.id,
+                        model: engineModel,
+                        resolvedScaffold,
+                        urlMap,
+                        startedAt: engineStartedAt,
+                        tokenUsage: {
+                          prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
+                          completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
+                        },
+                        logNote: "Done from buffer flush",
+                      });
+                    } catch (error) {
+                      if (error instanceof EmptyGenerationError) {
+                        await handleEmptyGeneration("buffer_flush_empty_output", error);
+                        break;
+                      }
+                      throw error;
+                    }
 
                     didSendDone = true;
                     safeEnqueue(
@@ -927,7 +1005,10 @@ export async function POST(req: Request) {
                       ),
                     );
                     await commitCreditsOnce();
-                  } catch {
+                  } catch (error) {
+                    if (error instanceof EmptyGenerationError) {
+                      await handleEmptyGeneration("fallback_flush_empty_output", error);
+                    }
                     // ignore persistence errors in cleanup
                   }
                 }

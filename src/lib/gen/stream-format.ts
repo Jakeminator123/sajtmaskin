@@ -1,4 +1,5 @@
 import { formatSSEEvent } from "@/lib/streaming";
+import { debugLog } from "@/lib/utils/debug";
 
 export interface StreamMeta {
   chatId?: string;
@@ -46,8 +47,25 @@ export function createCodeGenSSEStream(
 
   return new ReadableStream({
     async start(controller) {
+      const eventCounts = new Map<string, number>();
+      const toolCallCounts = new Map<string, number>();
       const enqueue = (event: string, data: unknown) => {
         controller.enqueue(encoder.encode(formatSSEEvent(event, data)));
+      };
+
+      const summarizeStream = (phase: "done" | "error", usage?: {
+        inputTokens: number | undefined;
+        outputTokens: number | undefined;
+      }) => {
+        debugLog("engine", "AI SDK stream event summary", {
+          phase,
+          chatId: meta?.chatId ?? null,
+          versionId: meta?.versionId ?? null,
+          eventCounts: Object.fromEntries(eventCounts),
+          toolCalls: Object.fromEntries(toolCallCounts),
+          promptTokens: usage?.inputTokens ?? null,
+          completionTokens: usage?.outputTokens ?? null,
+        });
       };
 
       try {
@@ -56,6 +74,11 @@ export function createCodeGenSSEStream(
         }
 
         for await (const part of result.fullStream) {
+          eventCounts.set(part.type, (eventCounts.get(part.type) ?? 0) + 1);
+          if (part.type === "tool-call" && part.toolName) {
+            toolCallCounts.set(part.toolName, (toolCallCounts.get(part.toolName) ?? 0) + 1);
+          }
+
           switch (part.type) {
             case "reasoning":
             case "reasoning-delta": {
@@ -100,11 +123,13 @@ export function createCodeGenSSEStream(
         }
 
         const usage = await result.usage;
+        summarizeStream("done", usage);
         enqueue("done", {
           promptTokens: usage?.inputTokens ?? 0,
           completionTokens: usage?.outputTokens ?? 0,
         });
       } catch (err) {
+        summarizeStream("error");
         try {
           enqueue("error", {
             message:

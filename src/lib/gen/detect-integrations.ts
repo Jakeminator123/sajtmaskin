@@ -31,8 +31,8 @@ const KNOWN_INTEGRATIONS: KnownIntegration[] = [
     pattern: /(?:@supabase\/|createClient.*supabase|SUPABASE_)/i,
     name: "Supabase",
     provider: "supabase",
-    envVars: ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
-    setupGuide: "Skapa ett projekt på supabase.com. Kopiera Project URL och anon/public key från Settings > API.",
+    envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+    setupGuide: "Skapa ett projekt pa supabase.com. Kopiera Project URL och anon/public key fran Settings > API.",
   },
   {
     pattern: /(?:stripe|STRIPE_)/i,
@@ -74,7 +74,14 @@ const KNOWN_INTEGRATIONS: KnownIntegration[] = [
     name: "Prisma",
     provider: "prisma",
     envVars: ["DATABASE_URL"],
-    setupGuide: "Sätt DATABASE_URL till din PostgreSQL/MySQL connection string. Format: postgresql://user:pass@host:5432/dbname",
+    setupGuide: "Satt DATABASE_URL till den databas du faktiskt valt. For SQLite: file:./dev.db. For hosted drift: anvand en Postgres- eller MySQL-anslutning. Valj inte provider pa chans.",
+  },
+  {
+    pattern: /(?:better-sqlite3|sqlite|drizzle-orm\/sqlite|file:\.\/.*\.db)/i,
+    name: "SQLite",
+    provider: "other",
+    envVars: ["DATABASE_URL"],
+    setupGuide: "SQLite passar lokalt eller i enklare demos. Anvand t.ex. DATABASE_URL=file:./dev.db. For Vercel-deployad datahantering ar en hostad databas ofta battre.",
   },
   {
     pattern: /(?:openai|OPENAI_API_KEY)/i,

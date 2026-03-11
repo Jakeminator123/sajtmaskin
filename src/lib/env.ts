@@ -34,6 +34,9 @@ export const serverSchema = z.object({
     .default("development"),
   RENDER: z.string().optional(),
   NEXT_PHASE: z.string().optional(),
+  VERCEL: z.string().optional(),
+  VERCEL_ENV: z.string().optional(),
+  VERCEL_URL: z.string().optional(),
 
   // Database
   POSTGRES_URL: z.string().optional(),
@@ -61,15 +64,24 @@ export const serverSchema = z.object({
 
   // API keys
   V0_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
   VERCEL_TOKEN: z.string().optional(),
+  VERCEL_TEAM_ID: z.string().optional(),
+  VERCEL_PROJECT_ID: z.string().optional(),
+  VERCEL_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_10_CREDITS: z.string().optional(),
+  STRIPE_PRICE_25_CREDITS: z.string().optional(),
+  STRIPE_PRICE_50_CREDITS: z.string().optional(),
   UNSPLASH_ACCESS_KEY: z.string().optional(),
   PEXELS_API_KEY: z.string().optional(),
   FIGMA_ACCESS_TOKEN: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   BRAVE_API_KEY: z.string().optional(),
+  LOOPIA_API_USER: z.string().optional(),
+  LOOPIA_API_PASSWORD: z.string().optional(),
 
   // OAuth – Google
   GOOGLE_CLIENT_ID: z.string().optional(),
@@ -92,8 +104,10 @@ export const serverSchema = z.object({
   BACKOFFICE_PASSWORD: z.string().optional(),
   BACKOFFICE_SESSION_VERSION: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
+  ADMIN_CREDENTIALS: z.string().optional(),
   SUPERADMIN_EMAIL: z.string().optional(),
   SUPERADMIN_PASSWORD: z.string().optional(),
+  SUPERADMIN_DIAMONDS: z.string().optional(),
   TEMPLATE_SYNC_GITHUB_TOKEN: z.string().optional(),
   TEMPLATE_SYNC_REPO_OWNER: z.string().optional(),
   TEMPLATE_SYNC_REPO_NAME: z.string().optional(),
@@ -107,6 +121,9 @@ export const serverSchema = z.object({
   // Test
   TEST_USER_EMAIL: z.string().optional(),
   TEST_USER_PASSWORD: z.string().optional(),
+  LEGACY_EMAIL_AUTO_VERIFY_BEFORE: z.string().optional(),
+  KOSTNADSFRI_API_KEY: z.string().optional(),
+  KOSTNADSFRI_PASSWORD_SEED: z.string().optional(),
 
   // OpenClaw (Sajtagenten)
   OPENCLAW_GATEWAY_URL: z.string().optional(),
@@ -116,6 +133,8 @@ export const serverSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
+  AI_BRIEF_MAX_TOKENS: z.string().optional(),
+  AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS: z.string().optional(),
@@ -131,12 +150,35 @@ export const serverSchema = z.object({
   AUDIT_WEB_SEARCH: z.string().optional(),
   V0_STREAMING_ENABLED: z.string().optional(),
   V0_FALLBACK_BUILDER: z.string().optional(),
+  NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
   CSP_ENFORCE: z.string().optional(),
   DB_SSL_REJECT_UNAUTHORIZED: z.string().optional(),
+  AUTH_DEBUG: z.string().optional(),
+  DEBUG: z.string().optional(),
+  SAJTMASKIN_DEV_LOG: z.string().optional(),
+  SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
+
+  // Inspector / capture worker
+  INSPECTOR_CAPTURE_WORKER_URL: z.string().optional(),
+  INSPECTOR_CAPTURE_WORKER_TOKEN: z.string().optional(),
+  INSPECTOR_FORCE_WORKER_ONLY: z.string().optional(),
+  INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS: z.string().optional(),
+
+  // Registry / remote component source
+  REGISTRY_BASE_URL: z.string().optional(),
+  REGISTRY_AUTH_TOKEN: z.string().optional(),
 
   // Public (validated server-side; client sees them via Next.js inlining)
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
+  NEXT_PUBLIC_BASE_URL: z.string().optional(),
+  NEXT_PUBLIC_ADMIN_EMAIL: z.string().optional(),
+  NEXT_PUBLIC_ADMIN_EMAILS: z.string().optional(),
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
+  NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

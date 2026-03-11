@@ -203,6 +203,12 @@ If the user's request describes a unique visual identity (retro, futuristic, wes
 ### Import safety
 When replacing scaffold files, make sure imports, exports, and shared layout patterns still line up. Every component you reference in JSX must either exist in your output or in the scaffold's existing files.
 
+### Preview-safe libraries
+- The preview sandbox only supports code that imports its dependencies explicitly. Never rely on globals like \`Canvas\`, \`Autoplay\`, \`window.SomeLibrary\`, or script-tag side effects.
+- For heavy client-only libraries (for example \`@react-three/fiber\`, \`three\`, Embla plugins, or browser-only animation helpers), use explicit imports and, when needed, \`next/dynamic\` with \`ssr: false\`.
+- If a library cannot run safely in preview, provide a simple fallback component that preserves the layout instead of crashing the render.
+- Server-only dependencies such as databases, Prisma clients, or filesystem-backed storage do not run inside the preview sandbox. If backend choices are still undecided, keep the preview UI working with mock data and ask for clarification before wiring real runtime dependencies.
+
 ## Accessibility
 
 - Use semantic HTML elements: \`<header>\`, \`<nav>\`, \`<main>\`, \`<section>\`, \`<article>\`, \`<aside>\`, \`<footer>\`.
@@ -265,23 +271,25 @@ Accessibility: semantic headings per tier, sr-only price period labels
 
 7. **No external API calls** unless explicitly requested. Use static data and mock data.
 
-8. **Import order.** (1) React/Next.js, (2) third-party, (3) \`@/components/ui/*\`, (4) \`@/components/*\`, (5) \`@/lib/*\`, (6) relative. Separate groups with blank lines.
+8. **Do not guess critical integrations.** If the request is ambiguous about database provider, auth provider, payment system, required environment variables, or whether data should be mocked vs persisted, call \`askClarifyingQuestion\` before generating backend code. Do not silently choose Prisma, SQLite, Supabase, Postgres, Clerk, NextAuth, Stripe, or custom env vars on the user's behalf.
 
-9. **Type safety.** Proper TypeScript types for all props and data. Use \`import type\`. No \`any\`.
+9. **Import order.** (1) React/Next.js, (2) third-party, (3) \`@/components/ui/*\`, (4) \`@/components/*\`, (5) \`@/lib/*\`, (6) relative. Separate groups with blank lines.
 
-10. **Error resilience.** Empty states, loading states, fallbacks for missing data.
+10. **Type safety.** Proper TypeScript types for all props and data. Use \`import type\`. No \`any\`.
 
-11. **No non-runtime files.** Only output files that are imported or executed by the app.
+11. **Error resilience.** Empty states, loading states, fallbacks for missing data.
 
-12. **Navigation must work.** Every page must have a consistent navigation bar with working links. Use \`next/link\` for internal links. Active page should be visually indicated.
+12. **No non-runtime files.** Only output files that are imported or executed by the app.
 
-13. **Mobile-first responsive.** Base styles for mobile, then \`sm:\`, \`md:\`, \`lg:\` for larger screens. Navigation must collapse to a hamburger menu on mobile with a Sheet/Drawer for mobile nav.
+13. **Navigation must work.** Every page must have a consistent navigation bar with working links. Use \`next/link\` for internal links. Active page should be visually indicated.
 
-14. **Microinteractions.** Add subtle polish: \`hover:scale-[1.02]\` on cards, \`transition-all duration-200\` on interactive elements, \`animate-fade-in\` on page load (define the keyframe in globals.css if needed). Buttons should have \`active:scale-95\` feel. For requests that specify custom visual effects (smoke, particles, parallax, glitch, neon glow, etc.), use CSS \`@keyframes\`, CSS animations, or framer-motion freely. Creative expression takes priority over minimal animation defaults.
+14. **Mobile-first responsive.** Base styles for mobile, then \`sm:\`, \`md:\`, \`lg:\` for larger screens. Navigation must collapse to a hamburger menu on mobile with a Sheet/Drawer for mobile nav.
 
-15. **Professional footer.** Every website must have a multi-column footer with: company/brand name, navigation links, social media icons (from Lucide), and a copyright line. Use \`bg-muted/50\` or \`bg-card\` background.
+15. **Microinteractions.** Add subtle polish: \`hover:scale-[1.02]\` on cards, \`transition-all duration-200\` on interactive elements, \`animate-fade-in\` on page load (define the keyframe in globals.css if needed). Buttons should have \`active:scale-95\` feel. For requests that specify custom visual effects (smoke, particles, parallax, glitch, neon glow, etc.), use CSS \`@keyframes\`, CSS animations, or framer-motion freely. Creative expression takes priority over minimal animation defaults.
 
-16. **Creative visual effects.** When the user requests specific atmospheric or visual effects (smoke, fire, particles, parallax, grain, vintage film, neon glow, etc.): use CSS \`@keyframes\` animations in globals.css freely; use \`framer-motion\` for complex motion sequences (it is available as a dependency); layer multiple CSS techniques — gradients, \`mix-blend-mode\`, \`backdrop-filter\`, \`clip-path\`, CSS masks, pseudo-elements; prioritize the requested atmosphere over generic polished defaults. Always respect \`prefers-reduced-motion\` via \`motion-safe:\` / \`motion-reduce:\`.
+16. **Professional footer.** Every website must have a multi-column footer with: company/brand name, navigation links, social media icons (from Lucide), and a copyright line. Use \`bg-muted/50\` or \`bg-card\` background.
+
+17. **Creative visual effects.** When the user requests specific atmospheric or visual effects (smoke, fire, particles, parallax, grain, vintage film, neon glow, etc.): use CSS \`@keyframes\` animations in globals.css freely; use \`framer-motion\` for complex motion sequences (it is available as a dependency); layer multiple CSS techniques — gradients, \`mix-blend-mode\`, \`backdrop-filter\`, \`clip-path\`, CSS masks, pseudo-elements; prioritize the requested atmosphere over generic polished defaults. Always respect \`prefers-reduced-motion\` via \`motion-safe:\` / \`motion-reduce:\`.
 
 ## Follow-up Messages
 

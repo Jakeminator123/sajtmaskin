@@ -9,6 +9,7 @@ export interface InferredCapabilities {
   needsMotion: boolean;
   needs3D: boolean;
   needsCharts: boolean;
+  needsDatabase: boolean;
   needsAuth: boolean;
   needsAppShell: boolean;
   needsDataUI: boolean;
@@ -42,6 +43,12 @@ const RULES: CapabilityRule[] = [
     key: "needsCharts",
     patterns: [
       /\b(chart|graph|diagram|analytics|visuali[sz]|recharts|line.?chart|bar.?chart|pie.?chart|area.?chart|statistik|graf|data.?viz)\b/i,
+    ],
+  },
+  {
+    key: "needsDatabase",
+    patterns: [
+      /\b(database|db|postgres|postgresql|mysql|sqlite|supabase|prisma|drizzle|sql|schema|migration|env\b.*database|databas)\b/i,
     ],
   },
   {
@@ -94,6 +101,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     needsMotion: false,
     needs3D: false,
     needsCharts: false,
+    needsDatabase: false,
     needsAuth: false,
     needsAppShell: false,
     needsDataUI: false,
@@ -129,6 +137,7 @@ export function capabilitiesToDocCategories(
   if (caps.needsMotion) hints.push("animation", "motion", "framer", "transition");
   if (caps.needs3D) hints.push("3d", "three", "webgl", "canvas", "react-three");
   if (caps.needsCharts) hints.push("chart", "recharts", "analytics", "graph");
+  if (caps.needsDatabase) hints.push("database", "postgres", "supabase", "sqlite", "prisma");
   if (caps.needsAuth) hints.push("auth", "login", "password", "session");
   if (caps.needsAppShell) hints.push("dashboard", "sidebar", "admin");
   if (caps.needsDataUI) hints.push("data-table", "tanstack", "sorting", "pagination");
@@ -163,6 +172,9 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
   }
   if (caps.needsForms) {
     lines.push("- **Forms requested**: Use react-hook-form + zod + shadcn Form components. Always define a zod schema.");
+  }
+  if (caps.needsDatabase) {
+    lines.push("- **Database or persistence requested**: Do not assume Prisma, SQLite, Supabase, or Postgres unless the user explicitly chose one. If the provider, auth coupling, or required env vars are unclear, ask a clarifying question before generating backend code. Keep preview-safe mock data in the UI until the backend choice is confirmed.");
   }
   if (caps.needsAuth) {
     lines.push("- **Auth pages requested**: Include login, register, and password reset flows. Use shadcn form components + zod validation.");

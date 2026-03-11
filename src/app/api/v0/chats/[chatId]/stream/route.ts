@@ -34,6 +34,7 @@ import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallbac
 import { compressUrls } from "@/lib/gen/url-compress";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
+import { getAgentTools } from "@/lib/gen/agent-tools";
 import {
   extractAppProjectIdFromMeta,
   extractBriefFromMeta,
@@ -49,7 +50,7 @@ import * as chatRepo from "@/lib/db/chat-repository";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context";
 import type { CodeFile } from "@/lib/gen/parser";
-import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
+import { EmptyGenerationError, finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { detectIntegrations } from "@/lib/gen/detect-integrations";
 
 export const runtime = "nodejs";
@@ -309,12 +310,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           fallback: false,
         });
         const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
+        const agentTools = getAgentTools();
         const pipelineStream = createGenerationPipeline({
           prompt: enginePrompt,
           systemPrompt: engineSystemPrompt,
           model: engineModel,
           chatHistory,
           thinking: resolvedThinking,
+          tools: agentTools,
+          maxSteps: 2,
           referenceAttachments: requestAttachments,
         });
 
@@ -340,6 +344,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             let sseBuffer = "";
             let accumulatedContent = "";
             let didSendDone = false;
+            const toolSignaledProviders = new Set<string>();
+            const toolCallNames = new Set<string>();
+            let sawBlockingToolCall = false;
             const suspense = new SuspenseLineProcessor(undefined, { urlMap });
 
             const safeEnqueue = (data: Uint8Array) => {
@@ -367,6 +374,58 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
               } catch {
                 // already closed
               }
+            };
+
+            const finishWithoutVersion = async (
+              reason: string,
+              options?: { userMessage?: string; awaitingInput?: boolean },
+            ) => {
+              didSendDone = true;
+              const toolCalls = Array.from(toolCallNames);
+              const awaitingInput = options?.awaitingInput ?? sawBlockingToolCall;
+              if (options?.userMessage) {
+                safeEnqueue(enc.encode(formatSSEEvent("content", options.userMessage)));
+              }
+              safeEnqueue(
+                enc.encode(
+                  formatSSEEvent("done", {
+                    chatId,
+                    versionId: null,
+                    messageId: null,
+                    demoUrl: null,
+                    awaitingInput,
+                    toolCalls,
+                    reason,
+                  }),
+                ),
+              );
+              devLogAppend("latest", {
+                type: awaitingInput ? "site.message.awaiting_input" : "site.message.empty_generation",
+                chatId,
+                reason,
+                toolCalls,
+                message: options?.userMessage ?? null,
+              });
+              await commitCreditsOnce();
+            };
+
+            const handleEmptyGeneration = async (reason: string, error: EmptyGenerationError) => {
+              warnLog("engine", "No follow-up code emitted before finalize", {
+                chatId: error.chatId,
+                scaffold: error.scaffoldId,
+                reason,
+                toolCalls: Array.from(toolCallNames),
+              });
+              if (toolCallNames.size > 0) {
+                await finishWithoutVersion(reason, {
+                  awaitingInput: sawBlockingToolCall,
+                });
+                return;
+              }
+              await finishWithoutVersion(reason, {
+                userMessage:
+                  "Ingen uppdaterad kod genererades i det här försöket. Försök igen eller omformulera ändringen.",
+              });
             };
 
             safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
@@ -428,6 +487,109 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       break;
                     }
 
+                    case "tool-call": {
+                      const toolData = evt.data as Record<string, unknown>;
+                      const toolName =
+                        typeof toolData?.toolName === "string" ? toolData.toolName : "";
+                      const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
+                      if (toolName) toolCallNames.add(toolName);
+
+                      if (toolName === "suggestIntegration") {
+                        const envVars = Array.isArray(toolArgs.envVars)
+                          ? (toolArgs.envVars as string[])
+                          : [];
+                        safeEnqueue(
+                          enc.encode(
+                            formatSSEEvent("integration", {
+                              items: [
+                                {
+                                  key:
+                                    typeof toolArgs.provider === "string"
+                                      ? toolArgs.provider
+                                      : "unknown",
+                                  name:
+                                    typeof toolArgs.name === "string"
+                                      ? toolArgs.name
+                                      : "Integration",
+                                  provider:
+                                    typeof toolArgs.provider === "string"
+                                      ? toolArgs.provider
+                                      : undefined,
+                                  intent: "env_vars" as const,
+                                  envVars,
+                                  status: "Kräver konfiguration",
+                                  reason:
+                                    typeof toolArgs.reason === "string"
+                                      ? toolArgs.reason
+                                      : undefined,
+                                  setupHint:
+                                    typeof toolArgs.setupHint === "string"
+                                      ? toolArgs.setupHint
+                                      : undefined,
+                                },
+                              ],
+                            }),
+                          ),
+                        );
+                        const providerKey =
+                          typeof toolArgs.provider === "string"
+                            ? toolArgs.provider
+                            : "unknown";
+                        toolSignaledProviders.add(providerKey);
+                      } else if (toolName === "requestEnvVar") {
+                        safeEnqueue(
+                          enc.encode(
+                            formatSSEEvent("integration", {
+                              items: [
+                                {
+                                  key: "custom-env",
+                                  name: "Miljövariabel",
+                                  intent: "env_vars" as const,
+                                  envVars: [
+                                    typeof toolArgs.key === "string"
+                                      ? toolArgs.key
+                                      : "UNKNOWN",
+                                  ],
+                                  status:
+                                    typeof toolArgs.description === "string"
+                                      ? toolArgs.description
+                                      : "Kräver konfiguration",
+                                },
+                              ],
+                            }),
+                          ),
+                        );
+                      } else if (toolName === "askClarifyingQuestion") {
+                        sawBlockingToolCall = true;
+                        safeEnqueue(
+                          enc.encode(
+                            formatSSEEvent("tool-call", {
+                              toolName: "askClarifyingQuestion",
+                              toolCallId:
+                                typeof toolData.toolCallId === "string"
+                                  ? toolData.toolCallId
+                                  : `q-${Date.now()}`,
+                              args: toolArgs,
+                            }),
+                          ),
+                        );
+                      } else if (toolName === "emitPlanArtifact") {
+                        safeEnqueue(
+                          enc.encode(
+                            formatSSEEvent("tool-call", {
+                              toolName: "emitPlanArtifact",
+                              toolCallId:
+                                typeof toolData.toolCallId === "string"
+                                  ? toolData.toolCallId
+                                  : `plan-${Date.now()}`,
+                              args: toolArgs,
+                            }),
+                          ),
+                        );
+                      }
+                      break;
+                    }
+
                     case "done": {
                       const flushed = suspense.flush();
                       if (flushed) {
@@ -440,22 +602,33 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                         prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
                         completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
                       };
-                      const finalized = await finalizeAndSaveVersion({
-                        accumulatedContent,
-                        chatId,
-                        model: engineModel,
-                        resolvedScaffold,
-                        urlMap,
-                        startedAt: engineStartedAt,
-                        previousFiles,
-                        tokenUsage,
-                        logNote: "Follow-up done",
-                        onProgress: emitFinalizeProgress,
-                      });
+                      let finalized;
+                      try {
+                        finalized = await finalizeAndSaveVersion({
+                          accumulatedContent,
+                          chatId,
+                          model: engineModel,
+                          resolvedScaffold,
+                          urlMap,
+                          startedAt: engineStartedAt,
+                          previousFiles,
+                          tokenUsage,
+                          logNote: "Follow-up done",
+                          onProgress: emitFinalizeProgress,
+                        });
+                      } catch (error) {
+                        if (error instanceof EmptyGenerationError) {
+                          await handleEmptyGeneration("followup_done_empty_output", error);
+                          break;
+                        }
+                        throw error;
+                      }
 
                       didSendDone = true;
 
-                      const detectedIntegrations = detectIntegrations(accumulatedContent);
+                      const detectedIntegrations = detectIntegrations(accumulatedContent).filter(
+                        (item) => !toolSignaledProviders.has(item.key),
+                      );
                       if (detectedIntegrations.length > 0) {
                         safeEnqueue(
                           enc.encode(
@@ -541,21 +714,32 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       safeEnqueue(enc.encode(formatSSEEvent("content", flushed)));
                     }
 
-                    const bufferFinalized = await finalizeAndSaveVersion({
-                      accumulatedContent,
-                      chatId,
-                      model: engineModel,
-                      resolvedScaffold,
-                      urlMap,
-                      startedAt: engineStartedAt,
-                      previousFiles,
-                      logNote: "Follow-up buffer flush",
-                      onProgress: emitFinalizeProgress,
-                    });
+                    let bufferFinalized;
+                    try {
+                      bufferFinalized = await finalizeAndSaveVersion({
+                        accumulatedContent,
+                        chatId,
+                        model: engineModel,
+                        resolvedScaffold,
+                        urlMap,
+                        startedAt: engineStartedAt,
+                        previousFiles,
+                        logNote: "Follow-up buffer flush",
+                        onProgress: emitFinalizeProgress,
+                      });
+                    } catch (error) {
+                      if (error instanceof EmptyGenerationError) {
+                        await handleEmptyGeneration("followup_buffer_empty_output", error);
+                        break;
+                      }
+                      throw error;
+                    }
 
                     didSendDone = true;
 
-                    const bufIntegrations = detectIntegrations(accumulatedContent);
+                    const bufIntegrations = detectIntegrations(accumulatedContent).filter(
+                      (item) => !toolSignaledProviders.has(item.key),
+                    );
                     if (bufIntegrations.length > 0) {
                       safeEnqueue(
                         enc.encode(
@@ -605,7 +789,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
                     didSendDone = true;
 
-                    const fbIntegrations = detectIntegrations(accumulatedContent);
+                    const fbIntegrations = detectIntegrations(accumulatedContent).filter(
+                      (item) => !toolSignaledProviders.has(item.key),
+                    );
                     if (fbIntegrations.length > 0) {
                       safeEnqueue(
                         enc.encode(
@@ -630,7 +816,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       contentLen: fallbackFinalized.contentForVersion.length,
                     });
                     await commitCreditsOnce();
-                  } catch {
+                  } catch (error) {
+                    if (error instanceof EmptyGenerationError) {
+                      await handleEmptyGeneration("followup_fallback_empty_output", error);
+                    }
                     // ignore persistence errors in cleanup
                   }
                 }

@@ -1,6 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-10 (efter Fas 4-5)
+> Senast uppdaterad: 2026-03-11 (env-audit + klargorande fragor)
 
 ## Arkitektur
 
@@ -92,6 +92,8 @@ Import-checker körs efter merge.
 | 7-stegs autofix | `src/lib/gen/autofix/*` | Fungerar |
 | Scaffold-import-checker | `src/lib/gen/autofix/rules/scaffold-import-checker.ts` | Ny |
 | finalizeAndSaveVersion | `src/lib/gen/stream/finalize-version.ts` | Ny |
+| Empty-output guard | `src/lib/gen/stream/finalize-version.ts` + stream routes | Ny |
+| AI SDK stream-event loggning | `src/lib/gen/stream-format.ts` | Ny |
 | Merge med varningar | `src/lib/gen/version-manager.ts` | Förbättrad |
 | esbuild syntax-validering | `src/lib/gen/autofix/syntax-validator.ts` | Fungerar |
 | LLM fixer | `src/lib/gen/autofix/llm-fixer.ts` | Fungerar |
@@ -108,3 +110,13 @@ Import-checker körs efter merge.
 - Preview stubs approximerar shadcn -- inte pixelperfekt
 - Ingen scaffold-medveten retry vid generingsfel
 - Ingen multipage-detection i prompts
+
+## Nya skydd och beteenden
+
+- Första generationer som returnerar `contentLen: 0` sparas inte längre som scaffold-baserade fejkversoner.
+- Create/send-streams loggar nu en sammanfattning av AI SDK-eventtyper och tool-calls för enklare felsökning av tomma streams.
+- Scaffold-serialisering känner nu igen fler svenska kreativa nyckelord (`djungel`, `70-talet`, `kamouflage`, `taktisk`, m.fl.) och instruerar modellen att skriva om placeholder-copy tydligare.
+- Systemprompten instruerar nu modellen att undvika preview-osäkra globala beroenden som `Canvas` och `Autoplay`; klienttunga bibliotek ska importeras explicit eller ges fallback.
+- Follow-up-streamen anvander nu samma agent-tools som create-streamen, sa modellen kan stanna och skicka `askClarifyingQuestion` / integrationssignaler aven efter forsta versionen.
+- Capability inference markerar nu databasprompter separat (`needsDatabase`) och hintar uttryckligen att modellen inte far gissa Prisma/Supabase/SQLite/provider utan bekraftelse.
+- Env-audit for admin skiljer nu pa `local_only`, `environment_specific`, `shared_runtime` och target-tackning pa Vercel, sa lokal `.env.local` och Vercel-targets kan granskas utan blind sync.

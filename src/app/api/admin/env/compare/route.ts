@@ -6,33 +6,21 @@ import {
   listEnvironmentVariables,
   isVercelConfigured,
 } from "@/lib/vercel/vercel-client";
-
-const EXTRA_KNOWN_KEYS = [
-  "OPENAI_API_KEY",
-  "ANTHROPIC_API_KEY",
-  "AI_GATEWAY_API_KEY",
-  "VERCEL_TEAM_ID",
-  "VERCEL_PROJECT_ID",
-  "INBOUND_WEBHOOK_SHARED_SECRET",
-  "UPSTASH_REDIS_REST_URL",
-  "UPSTASH_REDIS_REST_TOKEN",
-  "DB_SSL_REJECT_UNAUTHORIZED",
-  "V0_STREAMING_ENABLED",
-  "LOG_PROMPTS",
-  "CSP_ENFORCE",
-  "DATA_DIR",
-  "BACKOFFICE_SESSION_VERSION",
-  "STORAGE_BACKEND",
-  "BLOB_CONTENT_KEY",
-  "BLOB_COLORS_KEY",
-  "STRIPE_PRICE_10_CREDITS",
-  "STRIPE_PRICE_25_CREDITS",
-  "STRIPE_PRICE_50_CREDITS",
-  "NEXT_PUBLIC_ADMIN_EMAIL",
-  "ADMIN_EMAILS",
-];
+import {
+  getEnvRule,
+  getKnownEnvKeys,
+  hasAllTargets,
+  inspectEnvValue,
+  type EnvClassification,
+  type EnvValueState,
+} from "@/lib/env-audit";
 
 type CompareStatus = "both" | "local_only" | "vercel_only" | "schema_only";
+type SyncRecommendation =
+  | "none"
+  | "push_local_to_vercel"
+  | "pull_from_vercel"
+  | "review_manually";
 
 interface CompareRow {
   key: string;
@@ -40,18 +28,16 @@ interface CompareRow {
   inSchema: boolean;
   inLocal: boolean;
   inVercel: boolean;
+  localState: EnvValueState;
+  classification: EnvClassification;
+  syncRecommendation: SyncRecommendation;
+  notes?: string;
   vercelTargets: string[];
+  recommendedVercelTargets: string[];
+  hasTargetCoverage: boolean;
 }
 
 const TEST_USER_EMAIL = SECRETS.testUserEmail || SECRETS.superadminEmail || "";
-
-function isUnresolved(value: string | undefined): boolean {
-  if (!value) return true;
-  const t = value.trim();
-  if (!t) return true;
-  if (/^\$\{[A-Z0-9_]+\}$/.test(t) || /^\$[A-Z0-9_]+$/.test(t)) return true;
-  return false;
-}
 
 async function isAdmin(req: NextRequest): Promise<boolean> {
   const user = await getCurrentUser(req);
@@ -67,11 +53,11 @@ export async function GET(req: NextRequest) {
   }
 
   const schemaKeys = new Set(Object.keys(serverSchema.shape));
-  for (const k of EXTRA_KNOWN_KEYS) schemaKeys.add(k);
+  const knownKeys = new Set(getKnownEnvKeys());
 
-  const localKeys = new Map<string, boolean>();
-  for (const key of schemaKeys) {
-    localKeys.set(key, !isUnresolved(process.env[key]));
+  const localStates = new Map<string, EnvValueState>();
+  for (const key of knownKeys) {
+    localStates.set(key, inspectEnvValue(process.env[key]));
   }
 
   const vercelKeys = new Map<string, string[]>();
@@ -97,14 +83,20 @@ export async function GET(req: NextRequest) {
     vercelError = "Vercel not configured (VERCEL_TOKEN missing)";
   }
 
-  const allKeys = new Set([...schemaKeys, ...vercelKeys.keys()]);
+  const allKeys = new Set([...knownKeys, ...vercelKeys.keys()]);
 
   const rows: CompareRow[] = [];
   for (const key of allKeys) {
     const inSchema = schemaKeys.has(key);
-    const inLocal = localKeys.get(key) ?? false;
+    const localState = localStates.get(key) ?? inspectEnvValue(process.env[key]);
+    const inLocal = localState === "set";
     const inVercel = vercelKeys.has(key);
     const vercelTargets = vercelKeys.get(key) ?? [];
+    const rule = getEnvRule(key);
+    const hasTargetCoverage = hasAllTargets(
+      vercelTargets,
+      rule.recommendedVercelTargets,
+    );
 
     let status: CompareStatus;
     if (inLocal && inVercel) status = "both";
@@ -112,7 +104,39 @@ export async function GET(req: NextRequest) {
     else if (!inLocal && inVercel) status = "vercel_only";
     else status = "schema_only";
 
-    rows.push({ key, status, inSchema, inLocal, inVercel, vercelTargets });
+    let syncRecommendation: SyncRecommendation = "none";
+    if (
+      rule.classification !== "local_only" &&
+      rule.classification !== "vercel_managed"
+    ) {
+      if (rule.classification === "environment_specific") {
+        syncRecommendation =
+          !hasTargetCoverage || localState !== "set" || !inVercel
+            ? "review_manually"
+            : "none";
+      } else if (localState === "placeholder") {
+        syncRecommendation = "review_manually";
+      } else if (inLocal && (!inVercel || !hasTargetCoverage)) {
+        syncRecommendation = "push_local_to_vercel";
+      } else if (!inLocal && inVercel) {
+        syncRecommendation = "pull_from_vercel";
+      }
+    }
+
+    rows.push({
+      key,
+      status,
+      inSchema,
+      inLocal,
+      inVercel,
+      localState,
+      classification: rule.classification,
+      syncRecommendation,
+      notes: rule.notes,
+      vercelTargets,
+      recommendedVercelTargets: rule.recommendedVercelTargets,
+      hasTargetCoverage,
+    });
   }
 
   rows.sort((a, b) => {
@@ -131,6 +155,9 @@ export async function GET(req: NextRequest) {
     localOnly: rows.filter((r) => r.status === "local_only").length,
     vercelOnly: rows.filter((r) => r.status === "vercel_only").length,
     schemaOnly: rows.filter((r) => r.status === "schema_only").length,
+    pushToVercel: rows.filter((r) => r.syncRecommendation === "push_local_to_vercel").length,
+    pullFromVercel: rows.filter((r) => r.syncRecommendation === "pull_from_vercel").length,
+    reviewManually: rows.filter((r) => r.syncRecommendation === "review_manually").length,
   };
 
   return NextResponse.json({

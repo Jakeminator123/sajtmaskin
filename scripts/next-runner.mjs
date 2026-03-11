@@ -3,6 +3,7 @@ import { createConnection } from "node:net";
 import { dirname, resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { parse as parseDotenv } from "dotenv";
 
 const args = process.argv.slice(2);
 const nextCommand = args[0];
@@ -13,14 +14,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const envLocalPath = resolve(__dirname, "..", ".env.local");
 if (existsSync(envLocalPath)) {
   try {
-    const lines = readFileSync(envLocalPath, "utf-8").split(/\r?\n/);
-    for (const line of lines) {
-      if (!line.trim() || line.startsWith("#")) continue;
-      const eqIdx = line.indexOf("=");
-      if (eqIdx < 1) continue;
-      const key = line.slice(0, eqIdx).trim();
-      const raw = line.slice(eqIdx + 1).trim();
-      const val = raw.replace(/^["']|["']$/g, "");
+    const parsed = parseDotenv(readFileSync(envLocalPath, "utf-8"));
+    for (const [key, val] of Object.entries(parsed)) {
       if (!(key in env)) env[key] = val;
     }
   } catch {}

@@ -11,7 +11,7 @@ import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import type { CodeFile } from "@/lib/gen/parser";
 import * as chatRepo from "@/lib/db/chat-repository";
 import { devLogAppend } from "@/lib/logging/devLog";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, warnLog } from "@/lib/utils/debug";
 
 let _lastMaterializedUrls: Set<string> = new Set();
 
@@ -48,6 +48,18 @@ export interface FinalizeResult {
   previewUrl: string;
   filesJson: string;
   contentForVersion: string;
+}
+
+export class EmptyGenerationError extends Error {
+  readonly chatId: string;
+  readonly scaffoldId: string | null;
+
+  constructor(chatId: string, scaffoldId: string | null) {
+    super("Generation produced no code output");
+    this.name = "EmptyGenerationError";
+    this.chatId = chatId;
+    this.scaffoldId = scaffoldId;
+  }
 }
 
 /**
@@ -148,6 +160,15 @@ export async function finalizeAndSaveVersion(
     }
   } catch (imgErr) {
     console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
+  }
+
+  if (!contentForVersion.trim()) {
+    warnLog("engine", "Skipping empty generation output", {
+      chatId,
+      scaffold: resolvedScaffold?.id ?? null,
+      hadPreviousFiles: Boolean(previousFiles && previousFiles.length > 0),
+    });
+    throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
   }
 
   // 4. Save assistant message
