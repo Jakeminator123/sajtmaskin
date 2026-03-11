@@ -416,34 +416,63 @@ export async function POST(req: Request) {
               planMode: true,
             })));
 
+            let toolPlanArtifact: Record<string, unknown> | null = null;
+
             try {
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
                 sseBuffer += decoder.decode(value, { stream: true });
-                const lines = sseBuffer.split("\n");
-                sseBuffer = lines.pop() || "";
+                const { events: planEvents, remaining } = parseSSEBuffer(sseBuffer);
+                sseBuffer = remaining;
 
-                for (const line of lines) {
-                  if (!line.startsWith("data: ")) continue;
-                  const payload = line.slice(6).trim();
-                  if (payload === "[DONE]") continue;
-                  let parsed: Record<string, unknown> | null = null;
-                  try { parsed = JSON.parse(payload) as Record<string, unknown>; } catch { continue; }
+                for (const evt of planEvents) {
+                  if (controllerClosed) break;
 
-                  const eventType = typeof parsed.type === "string" ? parsed.type : "";
-
-                  if (eventType === "content" || eventType === "content_block_delta") {
-                    const text = extractContentText(parsed, payload);
-                    if (text) {
-                      accumulatedContent += text;
-                      safeEnqueue(enc.encode(formatSSEEvent("content", { text })));
+                  switch (evt.event) {
+                    case "thinking": {
+                      const text =
+                        typeof (evt.data as Record<string, unknown>)?.text === "string"
+                          ? (evt.data as Record<string, string>).text
+                          : "";
+                      if (text) {
+                        safeEnqueue(enc.encode(formatSSEEvent("thinking", { text })));
+                      }
+                      break;
                     }
-                  } else if (eventType === "thinking") {
-                    const text = extractThinkingText(parsed);
-                    if (text) {
-                      safeEnqueue(enc.encode(formatSSEEvent("thinking", { text })));
+                    case "content": {
+                      const text =
+                        typeof (evt.data as Record<string, unknown>)?.text === "string"
+                          ? (evt.data as Record<string, string>).text
+                          : "";
+                      if (text) {
+                        accumulatedContent += text;
+                        safeEnqueue(enc.encode(formatSSEEvent("content", { text })));
+                      }
+                      break;
                     }
+                    case "tool-call": {
+                      const toolData = evt.data as Record<string, unknown>;
+                      const toolName = typeof toolData?.toolName === "string" ? toolData.toolName : "";
+                      const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
+
+                      if (toolName === "emitPlanArtifact") {
+                        toolPlanArtifact = toolArgs;
+                        safeEnqueue(enc.encode(formatSSEEvent("tool-call", {
+                          toolName: "emitPlanArtifact",
+                          toolCallId: typeof toolData.toolCallId === "string" ? toolData.toolCallId : `plan-${Date.now()}`,
+                          args: toolArgs,
+                        })));
+                      } else if (toolName === "suggestIntegration" || toolName === "requestEnvVar") {
+                        safeEnqueue(enc.encode(formatSSEEvent("tool-call", toolData)));
+                      } else if (toolName === "askClarifyingQuestion") {
+                        safeEnqueue(enc.encode(formatSSEEvent("tool-call", toolData)));
+                      }
+                      break;
+                    }
+                    case "done":
+                    case "error":
+                      break;
                   }
                 }
               }
@@ -455,7 +484,7 @@ export async function POST(req: Request) {
               }
             }
 
-            const planData = parsePlanResponse(accumulatedContent);
+            const planData = toolPlanArtifact ?? parsePlanResponse(accumulatedContent);
             const hasBlockers = Array.isArray(planData?.blockers) &&
               (planData.blockers as unknown[]).length > 0;
             const blockerCount = hasBlockers
@@ -577,6 +606,7 @@ export async function POST(req: Request) {
             let sseBuffer = "";
             let accumulatedContent = "";
             let didSendDone = false;
+            const toolSignaledProviders = new Set<string>();
             const suspense = new SuspenseLineProcessor(undefined, { urlMap });
 
             const safeEnqueue = (data: Uint8Array) => {
@@ -681,7 +711,9 @@ export async function POST(req: Request) {
                             setupHint: typeof toolArgs.setupHint === "string" ? toolArgs.setupHint : undefined,
                           }],
                         })));
-                        debugLog("engine", "Tool: suggestIntegration", { provider: toolArgs.provider });
+                        const providerKey = typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown";
+                        toolSignaledProviders.add(providerKey);
+                        debugLog("engine", "Tool: suggestIntegration", { provider: providerKey });
                       } else if (toolName === "requestEnvVar") {
                         safeEnqueue(enc.encode(formatSSEEvent("integration", {
                           items: [{
@@ -735,20 +767,23 @@ export async function POST(req: Request) {
                       didSendDone = true;
                       const { version, messageId: assistantMsgId, previewUrl } = finalized;
 
-                      const detectedIntegrations = detectIntegrations(accumulatedContent);
-                      if (detectedIntegrations.length > 0) {
+                      const allDetected = detectIntegrations(accumulatedContent);
+                      const newDetected = allDetected.filter(
+                        (d) => !toolSignaledProviders.has(d.key),
+                      );
+                      if (newDetected.length > 0) {
                         safeEnqueue(
                           enc.encode(
                             formatSSEEvent("integration", {
-                              items: detectedIntegrations,
+                              items: newDetected,
                             }),
                           ),
                         );
                         devLogAppend("in-progress", {
                           type: "engine.integration_signals",
                           chatId: engineChat.id,
-                          integrations: detectedIntegrations.map((d) => d.key),
-                          envVars: detectedIntegrations.flatMap((d) => d.envVars),
+                          integrations: newDetected.map((d) => d.key),
+                          envVars: newDetected.flatMap((d) => d.envVars),
                         });
                       }
 
