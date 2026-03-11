@@ -11,6 +11,8 @@ export const GATEWAY_ASSIST_MODELS = [
   "openai/gpt-5.2",
   "openai/gpt-5.4",
   "openai/gpt-5.3-codex",
+  "anthropic/claude-opus-4.6",
+  "anthropic/claude-sonnet-4.6",
 ] as const;
 
 export const ANTHROPIC_ASSIST_MODELS = [

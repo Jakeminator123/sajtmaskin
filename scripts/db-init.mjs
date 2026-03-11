@@ -429,6 +429,62 @@ const updatedAtTriggers = [
   `CREATE TRIGGER set_updated_at_user_integrations BEFORE UPDATE ON user_integrations FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
 ];
 
+// ---------------------------------------------------------------------------
+// Row Level Security — block direct access from anon/authenticated roles.
+// All access goes through the backend (postgres / service_role).
+// ---------------------------------------------------------------------------
+
+const ALL_TABLES = [
+  "projects",
+  "chats",
+  "versions",
+  "version_error_logs",
+  "deployments",
+  "app_projects",
+  "prompt_handoffs",
+  "prompt_logs",
+  "project_data",
+  "project_files",
+  "images",
+  "media_library",
+  "users",
+  "user_integrations",
+  "transactions",
+  "guest_usage",
+  "company_profiles",
+  "template_cache",
+  "registry_cache",
+  "page_views",
+  "user_audits",
+  "kostnadsfri_pages",
+  "domain_orders",
+  "engine_chats",
+  "engine_messages",
+  "engine_versions",
+  "engine_generation_logs",
+];
+
+function buildRlsQueries() {
+  const queries = [];
+  for (const table of ALL_TABLES) {
+    queries.push(`ALTER TABLE IF EXISTS ${table} ENABLE ROW LEVEL SECURITY`);
+    queries.push(
+      `DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_policies WHERE tablename = '${table}' AND policyname = '${table}_backend_full_access'
+        ) THEN
+          CREATE POLICY ${table}_backend_full_access ON ${table}
+            FOR ALL
+            TO postgres, service_role
+            USING (true)
+            WITH CHECK (true);
+        END IF;
+      END $$`
+    );
+  }
+  return queries;
+}
+
 async function run() {
   try {
     for (const q of setupQueries) await pool.query(q);
@@ -436,6 +492,19 @@ async function run() {
     for (const q of cascadeQueries) await pool.query(q);
     await pool.query(updatedAtFunction);
     for (const q of updatedAtTriggers) await pool.query(q);
+
+    const rlsQueries = buildRlsQueries();
+    for (const q of rlsQueries) {
+      try {
+        await pool.query(q);
+      } catch (rlsErr) {
+        // Non-fatal: table may not exist yet (engine tables only on PG engine)
+        if (!rlsErr.message?.includes("does not exist")) {
+          console.warn(`[RLS] Warning for query: ${rlsErr.message}`);
+        }
+      }
+    }
+    console.info("Row Level Security enabled on all tables.");
 
     const dupes = await pool.query(
       `SELECT chat_id, v0_version_id, COUNT(*) as count

@@ -97,7 +97,7 @@ Output a JSON object matching the schema exactly. Do not include any explanation
  */
 export async function generateWebsiteSpec(userPrompt: string): Promise<WebsiteSpec> {
   try {
-    const model = gateway("anthropic/claude-sonnet-4.5");
+    const model = gateway("anthropic/claude-sonnet-4.6");
 
     const result = await generateObject({
       model,

@@ -99,9 +99,10 @@ function getGatewayPreferredProvider(model: string): string | null {
 
 function defaultGatewayFallbackModels(primaryModel: string): string[] {
   const ordered = [
+    "openai/gpt-5.4",
+    "anthropic/claude-opus-4.6",
+    "anthropic/claude-sonnet-4.6",
     "openai/gpt-5.2",
-    "anthropic/claude-opus-4.5",
-    "anthropic/claude-sonnet-4.5",
   ];
   return ordered.filter((x) => x !== primaryModel);
 }

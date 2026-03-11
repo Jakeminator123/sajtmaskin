@@ -48,6 +48,8 @@ import {
   detectScaffoldMode,
 } from "@/lib/gen/scaffolds";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
+import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import { inferCapabilities } from "@/lib/gen/capability-inference";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
@@ -468,6 +470,7 @@ export async function POST(req: Request) {
               }
             };
 
+            const engineCapabilities = inferCapabilities(optimizedMessage);
             safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: engineChat.id })));
             safeEnqueue(
               enc.encode(
@@ -479,6 +482,8 @@ export async function POST(req: Request) {
                   chatPrivacy: resolvedChatPrivacy,
                   scaffoldId: resolvedScaffold?.id ?? null,
                   scaffoldFamily: resolvedScaffold?.family ?? null,
+                  scaffoldLabel: resolvedScaffold?.label ?? null,
+                  capabilities: engineCapabilities,
                 }),
               ),
             );
@@ -724,9 +729,41 @@ export async function POST(req: Request) {
 
       const generationStartedAt = Date.now();
 
+      const v0Orchestration = await prepareGenerationContext({
+        prompt: optimizedMessage,
+        buildIntent: (metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
+          ? metaBuildIntent as BuildIntent
+          : "website"),
+        scaffoldMode: typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
+          ? String((meta as Record<string, string>).scaffoldMode) as "auto" | "manual" | "off"
+          : "auto",
+        scaffoldId: typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
+          ? String((meta as Record<string, string>).scaffoldId)
+          : null,
+        brief: (() => {
+          const raw = (meta as Record<string, unknown>)?.brief;
+          return raw && typeof raw === "object" ? raw as Record<string, unknown> : null;
+        })(),
+        themeColors: (() => {
+          const raw = (meta as Record<string, unknown>)?.themeColors;
+          if (!raw || typeof raw !== "object") return null;
+          const tc = raw as Record<string, unknown>;
+          const primary = typeof tc.primary === "string" ? tc.primary : "";
+          const secondary = typeof tc.secondary === "string" ? tc.secondary : "";
+          const accent = typeof tc.accent === "string" ? tc.accent : "";
+          return (primary || secondary || accent) ? { primary, secondary, accent } : null;
+        })(),
+        imageGenerations: resolvedImageGenerations,
+      });
+
+      const v0SystemPrompt = [
+        trimmedSystemPrompt,
+        v0Orchestration.v0EnrichmentContext,
+      ].filter(Boolean).join("\n\n---\n\n");
+
       const result = await v0.chats.create({
         message: optimizedMessage,
-        ...(hasSystemPrompt ? { system: trimmedSystemPrompt } : {}),
+        ...(v0SystemPrompt ? { system: v0SystemPrompt } : {}),
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {

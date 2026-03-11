@@ -38,6 +38,7 @@ import {
   detectScaffoldMode,
 } from "@/lib/gen/scaffolds";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
+import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
@@ -830,6 +831,38 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
       });
 
+      const v0Orchestration = await prepareGenerationContext({
+        prompt: optimizedMessage,
+        buildIntent: (metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
+          ? metaBuildIntent as BuildIntent
+          : "website"),
+        scaffoldMode: typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
+          ? String((meta as Record<string, string>).scaffoldMode) as "auto" | "manual" | "off"
+          : "auto",
+        scaffoldId: typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
+          ? String((meta as Record<string, string>).scaffoldId)
+          : null,
+        brief: (() => {
+          const raw = (meta as Record<string, unknown>)?.brief;
+          return raw && typeof raw === "object" ? raw as Record<string, unknown> : null;
+        })(),
+        themeColors: (() => {
+          const raw = (meta as Record<string, unknown>)?.themeColors;
+          if (!raw || typeof raw !== "object") return null;
+          const tc = raw as Record<string, unknown>;
+          const primary = typeof tc.primary === "string" ? tc.primary : "";
+          const secondary = typeof tc.secondary === "string" ? tc.secondary : "";
+          const accent = typeof tc.accent === "string" ? tc.accent : "";
+          return (primary || secondary || accent) ? { primary, secondary, accent } : null;
+        })(),
+        imageGenerations: resolvedImageGenerations,
+      });
+
+      const v0SystemPrompt = [
+        trimmedSystemPrompt,
+        v0Orchestration.v0EnrichmentContext,
+      ].filter(Boolean).join("\n\n---\n\n");
+
       let result: unknown;
       try {
         result = await (v0.chats as unknown as Record<string, (...args: unknown[]) => unknown>).sendMessage({
@@ -841,7 +874,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             thinking: resolvedThinking,
             imageGenerations: resolvedImageGenerations,
           },
-          ...(trimmedSystemPrompt ? { system: trimmedSystemPrompt } : {}),
+          ...(v0SystemPrompt ? { system: v0SystemPrompt } : {}),
           responseMode: "experimental_stream",
         });
       } catch (streamErr) {
