@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 """
-manage_env.py - Interactive env manager for Sajtmaskin.
+manage_env.py -- Env control panel for Sajtmaskin.
 
-Compares local .env files with Vercel, then lets you fix issues interactively.
-Supports add/edit/delete on both local files and Vercel project env vars.
+Single entry point to view, add, update, and sync env vars across:
+  - config/env-policy.json  (committed policy)
+  - .env.local              (local dev secrets)
+  - .env.production         (reference prod values)
+  - Vercel project          (live env vars)
 
 Usage:
-    python manage_env.py                    # interactive menu
-    python manage_env.py --dry-run          # show what would change, touch nothing
-    python manage_env.py --fix-report       # JSON report for AI agent consumption
+    python manage_env.py                   # interactive dashboard
+    python manage_env.py status            # show full status table
+    python manage_env.py add KEY           # guided add to all sources
+    python manage_env.py set KEY VALUE     # set in local files
+    python manage_env.py push KEY          # push local value to Vercel
+    python manage_env.py push --all        # push all missing to Vercel
+    python manage_env.py pull              # pull Vercel env to .env.local
+    python manage_env.py audit             # same as check_env.py
 
 Requires: pip install requests
 """
@@ -20,9 +28,7 @@ import json
 import os
 import re
 import sys
-import time
-from collections import Counter
-from copy import deepcopy
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
@@ -35,9 +41,10 @@ except ImportError:
 SCRIPT_DIR = Path(__file__).resolve().parent
 ENV_LOCAL = SCRIPT_DIR / ".env.local"
 ENV_PROD = SCRIPT_DIR / ".env.production"
+ENV_POLICY_FILE = SCRIPT_DIR / "config" / "env-policy.json"
+ENV_TS_FILE = SCRIPT_DIR / "src" / "lib" / "env.ts"
 
 VERCEL_API_BASE = "https://api.vercel.com"
-ALL_TARGETS = ["development", "preview", "production"]
 
 BOLD = "\033[1m"
 RED = "\033[31m"
@@ -47,26 +54,50 @@ CYAN = "\033[36m"
 DIM = "\033[2m"
 RESET = "\033[0m"
 
+ALL_TARGETS = ["development", "preview", "production"]
+DEPLOY_TARGETS = ["preview", "production"]
 
 # ---------------------------------------------------------------------------
-# .env parser + writer
+# Policy loader
 # ---------------------------------------------------------------------------
 
-class EnvEntry:
-    __slots__ = ("key", "value", "line_number", "raw_line")
-
-    def __init__(self, key: str, value: str, line_number: int, raw_line: str):
-        self.key = key
-        self.value = value
-        self.line_number = line_number
-        self.raw_line = raw_line
+def load_policy() -> dict[str, Any]:
+    if not ENV_POLICY_FILE.exists():
+        return {"knownEmptyOk": [], "runtimeOnlyKeys": [], "extraKnownKeys": [], "rules": []}
+    return json.loads(ENV_POLICY_FILE.read_text(encoding="utf-8"))
 
 
-def parse_env_file(path: Path) -> list[EnvEntry]:
+def save_policy(policy: dict[str, Any]) -> None:
+    ENV_POLICY_FILE.write_text(
+        json.dumps(policy, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def get_rule(policy: dict[str, Any], key: str) -> dict[str, Any]:
+    by_key = {r["key"]: r for r in policy.get("rules", [])}
+    if key in by_key:
+        return by_key[key]
+    if key in {"VERCEL", "VERCEL_ENV", "VERCEL_URL"}:
+        return {"key": key, "classification": "vercel_managed", "recommendedVercelTargets": []}
+    if key.startswith("NEXT_PUBLIC_") or key.endswith("_REDIRECT_URI"):
+        return {"key": key, "classification": "environment_specific", "recommendedVercelTargets": DEPLOY_TARGETS}
+    if key.startswith("SAJTMASKIN_"):
+        return {"key": key, "classification": "environment_specific", "recommendedVercelTargets": DEPLOY_TARGETS}
+    if any(t in key for t in ("TOKEN", "SECRET", "PASSWORD", "KEY", "URL")):
+        return {"key": key, "classification": "optional_runtime", "recommendedVercelTargets": ALL_TARGETS}
+    return {"key": key, "classification": "optional_runtime", "recommendedVercelTargets": ALL_TARGETS}
+
+
+# ---------------------------------------------------------------------------
+# .env file helpers
+# ---------------------------------------------------------------------------
+
+def parse_env_file(path: Path) -> OrderedDict[str, str]:
     if not path.exists():
-        return []
-    entries: list[EnvEntry] = []
-    for i, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        return OrderedDict()
+    result: OrderedDict[str, str] = OrderedDict()
+    for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
@@ -80,603 +111,492 @@ def parse_env_file(path: Path) -> list[EnvEntry]:
         if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
             value = value[1:-1]
         if key:
-            entries.append(EnvEntry(key, value, i, raw))
-    return entries
+            result[key] = value
+    return result
 
 
-def entries_to_dict(entries: list[EnvEntry]) -> dict[str, str]:
-    d: dict[str, str] = {}
-    for e in entries:
-        d[e.key] = e.value
-    return d
+def set_in_env_file(path: Path, key: str, value: str) -> None:
+    lines: list[str] = []
+    found = False
+    if path.exists():
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            stripped = raw.strip()
+            check = stripped
+            if check.lower().startswith("export "):
+                check = check[7:].strip()
+            if "=" in check and check.split("=", 1)[0].strip() == key:
+                needs_quote = " " in value or '"' in value or "'" in value or not value
+                quoted = f'"{value}"' if needs_quote else value
+                lines.append(f"{key}={quoted}")
+                found = True
+            else:
+                lines.append(raw)
+    if not found:
+        needs_quote = " " in value or '"' in value or "'" in value or not value
+        quoted = f'"{value}"' if needs_quote else value
+        lines.append(f"{key}={quoted}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def write_env_key(path: Path, key: str, value: str) -> str:
-    """Add or update a single key in a .env file. Returns description of action."""
-    needs_quotes = " " in value or '"' in value or "'" in value or "!" in value
-    formatted_value = f'"{value}"' if needs_quotes else value
-    new_line = f'{key}={formatted_value}'
-
+def remove_from_env_file(path: Path, key: str) -> bool:
     if not path.exists():
-        path.write_text(new_line + "\n", encoding="utf-8")
-        return f"created {path.name} with {key}"
-
-    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-    found_idx = None
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith("#") or not stripped:
+        return False
+    original = path.read_text(encoding="utf-8").splitlines()
+    filtered = []
+    removed = False
+    for raw in original:
+        stripped = raw.strip()
+        check = stripped
+        if check.lower().startswith("export "):
+            check = check[7:].strip()
+        if "=" in check and check.split("=", 1)[0].strip() == key:
+            removed = True
             continue
-        if "=" in stripped:
-            lk = stripped.split("=", 1)[0].strip()
-            if lk.lower().startswith("export "):
-                lk = lk[7:].strip()
-            if lk == key:
-                if found_idx is not None:
-                    # duplicate -- replace this one with empty (remove duplicate)
-                    lines[i] = ""
-                    continue
-                found_idx = i
-
-    if found_idx is not None:
-        lines[found_idx] = new_line + "\n"
-        action = f"updated {key} in {path.name}"
-    else:
-        if lines and not lines[-1].endswith("\n"):
-            lines[-1] += "\n"
-        lines.append(new_line + "\n")
-        action = f"added {key} to {path.name}"
-
-    path.write_text("".join(lines), encoding="utf-8")
-    return action
-
-
-def remove_env_key(path: Path, key: str) -> str:
-    """Remove all occurrences of a key from a .env file."""
-    if not path.exists():
-        return f"{path.name} does not exist"
-
-    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-    new_lines = []
-    removed = 0
-    for line in lines:
-        stripped = line.strip()
-        if stripped and not stripped.startswith("#") and "=" in stripped:
-            lk = stripped.split("=", 1)[0].strip()
-            if lk.lower().startswith("export "):
-                lk = lk[7:].strip()
-            if lk == key:
-                removed += 1
-                continue
-        new_lines.append(line)
-
-    if removed == 0:
-        return f"{key} not found in {path.name}"
-
-    path.write_text("".join(new_lines), encoding="utf-8")
-    return f"removed {key} from {path.name} ({removed} occurrence(s))"
+        filtered.append(raw)
+    if removed:
+        path.write_text("\n".join(filtered) + "\n", encoding="utf-8")
+    return removed
 
 
 # ---------------------------------------------------------------------------
-# Vercel API (read + write)
+# Vercel API helpers
 # ---------------------------------------------------------------------------
 
-def _vercel_headers(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+def vercel_creds() -> tuple[str, str, str | None]:
+    env = parse_env_file(ENV_LOCAL)
+    token = env.get("VERCEL_TOKEN", "").strip()
+    project_id = env.get("VERCEL_PROJECT_ID", "").strip()
+    team_id = env.get("VERCEL_TEAM_ID", "").strip() or None
+    return token, project_id, team_id
 
 
-def _vercel_params(team_id: str | None) -> dict[str, str]:
-    return {"teamId": team_id} if team_id else {}
-
-
-def vercel_list_env(token: str, project_id: str, team_id: str | None) -> list[dict[str, Any]] | None:
+def fetch_vercel_envs(token: str, project_id: str, team_id: str | None) -> list[dict[str, Any]] | None:
     url = f"{VERCEL_API_BASE}/v9/projects/{project_id}/env"
+    params: dict[str, str] = {"limit": "100"}
+    if team_id:
+        params["teamId"] = team_id
+    all_envs: list[dict[str, Any]] = []
+    while url:
+        try:
+            resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, params=params, timeout=15)
+        except requests.RequestException as e:
+            print(f"  {RED}Vercel API error: {e}{RESET}")
+            return None
+        if resp.status_code != 200:
+            print(f"  {RED}Vercel API {resp.status_code}: {resp.text[:200]}{RESET}")
+            return None
+        data = resp.json()
+        all_envs.extend(data.get("envs", []))
+        nxt = data.get("pagination", {}).get("next")
+        if nxt:
+            params["until"] = str(nxt)
+        else:
+            url = ""
+    return all_envs
+
+
+def push_to_vercel(token: str, project_id: str, team_id: str | None,
+                   key: str, value: str, targets: list[str], var_type: str = "encrypted") -> bool:
+    url = f"{VERCEL_API_BASE}/v10/projects/{project_id}/env"
+    params: dict[str, str] = {}
+    if team_id:
+        params["teamId"] = team_id
+    payload = {"key": key, "value": value, "target": targets, "type": var_type}
     try:
-        resp = requests.get(url, headers=_vercel_headers(token), params=_vercel_params(team_id), timeout=15)
+        resp = requests.post(url, headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }, params=params, json=payload, timeout=15)
     except requests.RequestException as e:
         print(f"  {RED}Vercel API error: {e}{RESET}")
-        return None
-    if resp.status_code != 200:
-        print(f"  {RED}Vercel API {resp.status_code}: {resp.text[:200]}{RESET}")
-        return None
-    return resp.json().get("envs", [])
-
-
-def vercel_create_env(token: str, project_id: str, team_id: str | None,
-                      key: str, value: str, targets: list[str], env_type: str = "encrypted") -> dict | None:
-    url = f"{VERCEL_API_BASE}/v10/projects/{project_id}/env"
-    params = _vercel_params(team_id)
-    params["upsert"] = "true"
-    body = {"key": key, "value": value, "type": env_type, "target": targets}
-    try:
-        resp = requests.post(url, headers=_vercel_headers(token), params=params, json=body, timeout=15)
-    except requests.RequestException as e:
-        print(f"  {RED}Vercel create error: {e}{RESET}")
-        return None
-    if resp.status_code not in (200, 201):
-        print(f"  {RED}Vercel create {resp.status_code}: {resp.text[:300]}{RESET}")
-        return None
-    return resp.json()
-
-
-def vercel_edit_env(token: str, project_id: str, team_id: str | None,
-                    env_id: str, key: str, value: str, targets: list[str], env_type: str = "encrypted") -> dict | None:
-    url = f"{VERCEL_API_BASE}/v9/projects/{project_id}/env/{env_id}"
-    body = {"key": key, "value": value, "type": env_type, "target": targets}
-    try:
-        resp = requests.patch(url, headers=_vercel_headers(token), params=_vercel_params(team_id), json=body, timeout=15)
-    except requests.RequestException as e:
-        print(f"  {RED}Vercel edit error: {e}{RESET}")
-        return None
-    if resp.status_code != 200:
-        print(f"  {RED}Vercel edit {resp.status_code}: {resp.text[:300]}{RESET}")
-        return None
-    return resp.json()
-
-
-def vercel_delete_env(token: str, project_id: str, team_id: str | None, env_id: str) -> bool:
-    url = f"{VERCEL_API_BASE}/v9/projects/{project_id}/env/{env_id}"
-    try:
-        resp = requests.delete(url, headers=_vercel_headers(token), params=_vercel_params(team_id), timeout=15)
-    except requests.RequestException as e:
-        print(f"  {RED}Vercel delete error: {e}{RESET}")
         return False
-    if resp.status_code != 200:
-        print(f"  {RED}Vercel delete {resp.status_code}: {resp.text[:300]}{RESET}")
+    if resp.status_code in (200, 201):
+        return True
+    if resp.status_code == 409:
+        print(f"  {YELLOW}{key} already exists on target(s); skipping (use Vercel UI to update).{RESET}")
         return False
-    return True
+    print(f"  {RED}Vercel API {resp.status_code}: {resp.text[:200]}{RESET}")
+    return False
 
 
 # ---------------------------------------------------------------------------
-# Analysis
+# Zod schema checker
 # ---------------------------------------------------------------------------
 
-def find_duplicates_local(entries: list[EnvEntry]) -> dict[str, list[int]]:
-    counts: dict[str, list[int]] = {}
-    for e in entries:
-        counts.setdefault(e.key, []).append(e.line_number)
-    return {k: lines for k, lines in counts.items() if len(lines) > 1}
-
-
-def find_duplicates_vercel(envs: list[dict[str, Any]]) -> dict[str, list[dict]]:
-    by_key: dict[str, list[dict]] = {}
-    for e in envs:
-        by_key.setdefault(e["key"], []).append(e)
-    return {k: entries for k, entries in by_key.items() if len(entries) > 1}
-
-
-def find_target_gaps(envs: list[dict[str, Any]]) -> dict[str, list[str]]:
-    expected = set(ALL_TARGETS)
-    gaps: dict[str, list[str]] = {}
-    for e in envs:
-        targets = set(t.lower() for t in (e.get("target") or []))
-        missing = sorted(expected - targets)
-        if missing:
-            gaps[e["key"]] = missing
-    return gaps
+def env_ts_keys() -> set[str]:
+    if not ENV_TS_FILE.exists():
+        return set()
+    content = ENV_TS_FILE.read_text(encoding="utf-8")
+    return set(re.findall(r"^\s+(\w+):\s*z\.", content, re.MULTILINE))
 
 
 # ---------------------------------------------------------------------------
-# Interactive helpers
+# Status command
 # ---------------------------------------------------------------------------
 
-def confirm(prompt: str) -> bool:
-    try:
-        answer = input(f"\n  {BOLD}{prompt} [y/N]{RESET} ").strip().lower()
-    except (KeyboardInterrupt, EOFError):
-        print()
-        return False
-    return answer in ("y", "yes", "ja", "j")
+def build_status_table(policy: dict[str, Any]) -> list[dict[str, Any]]:
+    local = parse_env_file(ENV_LOCAL)
+    prod = parse_env_file(ENV_PROD)
+    schema_keys = env_ts_keys()
+    known_empty = set(policy.get("knownEmptyOk", []))
+    runtime_only = set(policy.get("runtimeOnlyKeys", []))
+    policy_keys = set(r["key"] for r in policy.get("rules", []))
+    extra_keys = set(policy.get("extraKnownKeys", []))
+
+    all_keys = sorted(set(local.keys()) | set(prod.keys()) | schema_keys | policy_keys | extra_keys)
+
+    token, project_id, team_id = vercel_creds()
+    vercel_map: dict[str, list[str]] = {}
+    if token and project_id:
+        envs = fetch_vercel_envs(token, project_id, team_id)
+        if envs:
+            for e in envs:
+                k = e["key"]
+                targets = e.get("target", [])
+                if isinstance(targets, str):
+                    targets = [targets]
+                vercel_map.setdefault(k, []).extend(targets)
+
+    rows: list[dict[str, Any]] = []
+    for key in all_keys:
+        rule = get_rule(policy, key)
+        cls = rule.get("classification", "?")
+        rec_targets = rule.get("recommendedVercelTargets", [])
+
+        in_local = key in local and bool(local[key])
+        in_prod = key in prod and bool(prod[key])
+        in_schema = key in schema_keys
+        in_vercel = key in vercel_map
+        vercel_targets = sorted(set(vercel_map.get(key, [])))
+        target_ok = not rec_targets or set(rec_targets).issubset(set(vercel_targets))
+
+        is_empty_ok = key in known_empty
+        is_runtime_only = key in runtime_only
+
+        status = "ok"
+        if cls == "shared_runtime" and not in_vercel:
+            status = "MISSING_VERCEL"
+        elif cls == "shared_runtime" and not target_ok:
+            status = "TARGET_GAP"
+        elif cls == "shared_runtime" and not in_local and not is_empty_ok:
+            status = "MISSING_LOCAL"
+
+        rows.append({
+            "key": key,
+            "classification": cls,
+            "in_schema": in_schema,
+            "in_local": in_local,
+            "in_prod": in_prod,
+            "in_vercel": in_vercel,
+            "vercel_targets": ",".join(vercel_targets) if vercel_targets else "-",
+            "recommended_targets": ",".join(rec_targets) if rec_targets else "-",
+            "status": status,
+        })
+
+    return rows
 
 
-def pick_targets() -> list[str]:
-    print(f"  {DIM}Targets: 1=development  2=preview  3=production  a=all{RESET}")
-    try:
-        choice = input("  > ").strip().lower()
-    except (KeyboardInterrupt, EOFError):
-        return ALL_TARGETS
-    if choice in ("a", "all", ""):
-        return ALL_TARGETS
-    mapping = {"1": "development", "2": "preview", "3": "production"}
-    return [mapping[c] for c in choice.replace(",", " ").split() if c in mapping] or ALL_TARGETS
+def cmd_status(_args: argparse.Namespace) -> int:
+    policy = load_policy()
+    rows = build_status_table(policy)
 
+    col_w = {"key": 42, "cls": 22, "schema": 6, "local": 6, "prod": 6, "vercel": 6, "targets": 28, "status": 16}
+    header = (
+        f"{'KEY':<{col_w['key']}} "
+        f"{'CLASS':<{col_w['cls']}} "
+        f"{'SCHEMA':<{col_w['schema']}} "
+        f"{'LOCAL':<{col_w['local']}} "
+        f"{'PROD':<{col_w['prod']}} "
+        f"{'VRCL':<{col_w['vercel']}} "
+        f"{'VERCEL TARGETS':<{col_w['targets']}} "
+        f"{'STATUS':<{col_w['status']}}"
+    )
+    print(f"\n{BOLD}{header}{RESET}")
+    print("-" * len(header))
 
-def input_value(prompt: str, default: str = "") -> str:
-    suffix = f" [{default[:40]}...]" if len(default) > 40 else (f" [{default}]" if default else "")
-    try:
-        val = input(f"  {prompt}{suffix}: ").strip()
-    except (KeyboardInterrupt, EOFError):
-        return default
-    return val if val else default
+    for r in rows:
+        s_color = GREEN if r["status"] == "ok" else (RED if "MISSING" in r["status"] or "GAP" in r["status"] else YELLOW)
+        check = lambda b: f"{GREEN}Y{RESET}" if b else f"{DIM}-{RESET}"
+        print(
+            f"{r['key']:<{col_w['key']}} "
+            f"{r['classification']:<{col_w['cls']}} "
+            f"{check(r['in_schema']):<{col_w['schema']+9}} "
+            f"{check(r['in_local']):<{col_w['local']+9}} "
+            f"{check(r['in_prod']):<{col_w['prod']+9}} "
+            f"{check(r['in_vercel']):<{col_w['vercel']+9}} "
+            f"{r['vercel_targets']:<{col_w['targets']}} "
+            f"{s_color}{r['status']}{RESET}"
+        )
 
-
-# ---------------------------------------------------------------------------
-# Menu actions
-# ---------------------------------------------------------------------------
-
-def action_show_status(local_entries: dict[str, list[EnvEntry]], vercel_envs: list[dict] | None):
-    print(f"\n{BOLD}=== Status ==={RESET}\n")
-
-    for label, entries in local_entries.items():
-        dupes = find_duplicates_local(entries)
-        print(f"  {CYAN}{label}{RESET}: {len(entries)} keys, {len(dupes)} duplicate(s)")
-        for k, lines in sorted(dupes.items()):
-            print(f"    {RED}DUPLICATE{RESET} {k} on lines {', '.join(str(l) for l in lines)}")
-
-    if vercel_envs is not None:
-        vdupes = find_duplicates_vercel(vercel_envs)
-        gaps = find_target_gaps(vercel_envs)
-        unique_keys = set(e["key"] for e in vercel_envs)
-        print(f"\n  {CYAN}Vercel{RESET}: {len(vercel_envs)} entries, {len(unique_keys)} unique keys, {len(vdupes)} duplicate key(s)")
-        for k, entries in sorted(vdupes.items()):
-            ids = [e.get("id", "?")[:8] for e in entries]
-            print(f"    {RED}DUPLICATE{RESET} {k} ({len(entries)}x, ids: {', '.join(ids)})")
-        if gaps:
-            print(f"  {YELLOW}Target gaps:{RESET}")
-            for k, missing in sorted(gaps.items())[:15]:
-                print(f"    {k}: missing {', '.join(missing)}")
-            if len(gaps) > 15:
-                print(f"    ... and {len(gaps) - 15} more")
-
-    all_local_keys: set[str] = set()
-    for entries in local_entries.values():
-        all_local_keys.update(entries_to_dict(entries).keys())
-    if vercel_envs is not None:
-        vercel_keys = set(e["key"] for e in vercel_envs)
-        only_local = sorted(all_local_keys - vercel_keys)
-        only_vercel = sorted(vercel_keys - all_local_keys)
-        if only_local:
-            print(f"\n  {YELLOW}Only in local ({len(only_local)}):{RESET}")
-            for k in only_local[:20]:
-                print(f"    {k}")
-        if only_vercel:
-            print(f"\n  {YELLOW}Only on Vercel ({len(only_vercel)}):{RESET}")
-            for k in only_vercel[:20]:
-                print(f"    {k}")
-
-
-def action_fix_local_duplicates(local_entries: dict[str, list[EnvEntry]], dry_run: bool):
-    for label, entries in local_entries.items():
-        dupes = find_duplicates_local(entries)
-        if not dupes:
-            continue
-        path = ENV_LOCAL if label == ".env.local" else ENV_PROD
-        print(f"\n  {BOLD}Fixing duplicates in {label}:{RESET}")
-        for key, lines in sorted(dupes.items()):
-            last_entry = [e for e in entries if e.key == key][-1]
-            print(f"    {key}: keeping line {last_entry.line_number} value, removing {len(lines)-1} earlier occurrence(s)")
-            if not dry_run:
-                result = write_env_key(path, key, last_entry.value)
-                print(f"    {GREEN}{result}{RESET}")
-            else:
-                print(f"    {DIM}(dry-run, no changes){RESET}")
-
-
-def action_fix_vercel_duplicates(vercel_envs: list[dict], token: str, project_id: str, team_id: str | None, dry_run: bool):
-    vdupes = find_duplicates_vercel(vercel_envs)
-    if not vdupes:
-        print(f"  {GREEN}No Vercel duplicates found.{RESET}")
-        return
-
-    print(f"\n  {BOLD}Vercel duplicate keys:{RESET}")
-    for key, entries in sorted(vdupes.items()):
-        best = max(entries, key=lambda e: len(e.get("target") or []))
-        to_remove = [e for e in entries if e.get("id") != best.get("id")]
-        best_targets = ", ".join(best.get("target") or [])
-        print(f"    {key}: keeping id={best.get('id', '?')[:8]} (targets: {best_targets}), removing {len(to_remove)} duplicate(s)")
-
-        for dup in to_remove:
-            dup_id = dup.get("id", "")
-            dup_targets = ", ".join(dup.get("target") or [])
-            if dry_run:
-                print(f"      {DIM}would delete id={dup_id[:8]} (targets: {dup_targets}){RESET}")
-            else:
-                if confirm(f"Delete duplicate {key} id={dup_id[:8]} (targets: {dup_targets})?"):
-                    if vercel_delete_env(token, project_id, team_id, dup_id):
-                        print(f"      {GREEN}Deleted{RESET}")
-                    else:
-                        print(f"      {RED}Failed{RESET}")
-
-
-def action_fix_target_gaps(vercel_envs: list[dict], token: str, project_id: str, team_id: str | None, dry_run: bool):
-    gaps = find_target_gaps(vercel_envs)
-    if not gaps:
-        print(f"  {GREEN}No target gaps found.{RESET}")
-        return
-
-    print(f"\n  {BOLD}Fix target gaps on Vercel ({len(gaps)} keys):{RESET}")
-    for key, missing in sorted(gaps.items()):
-        env_entry = next((e for e in vercel_envs if e["key"] == key), None)
-        if not env_entry:
-            continue
-        current_targets = list(env_entry.get("target") or [])
-        new_targets = sorted(set(current_targets + missing))
-        env_id = env_entry.get("id", "")
-        print(f"    {key}: {', '.join(current_targets)} -> {', '.join(new_targets)}")
-
-        if dry_run:
-            print(f"      {DIM}(dry-run){RESET}")
-        else:
-            if confirm(f"Update targets for {key}?"):
-                result = vercel_edit_env(token, project_id, team_id, env_id, key,
-                                         env_entry.get("value", ""), new_targets,
-                                         env_entry.get("type", "encrypted"))
-                if result:
-                    print(f"      {GREEN}Updated{RESET}")
-                else:
-                    print(f"      {RED}Failed{RESET}")
-
-
-def action_push_missing_to_vercel(local_entries: dict[str, list[EnvEntry]], vercel_envs: list[dict],
-                                   token: str, project_id: str, team_id: str | None, dry_run: bool):
-    all_local: dict[str, str] = {}
-    for entries in local_entries.values():
-        all_local.update(entries_to_dict(entries))
-    vercel_keys = set(e["key"] for e in vercel_envs)
-
-    missing = sorted(set(all_local.keys()) - vercel_keys)
-    if not missing:
-        print(f"  {GREEN}All local keys exist on Vercel.{RESET}")
-        return
-
-    print(f"\n  {BOLD}Keys in local but missing on Vercel ({len(missing)}):{RESET}")
-    for i, key in enumerate(missing, 1):
-        val = all_local[key]
-        val_preview = val[:30] + "..." if len(val) > 30 else val
-        print(f"    {i}. {key} = {val_preview}")
-
-    if dry_run:
-        print(f"\n  {DIM}(dry-run, no changes){RESET}")
-        return
-
-    choice = input_value("Push which? (a=all, comma-separated numbers, s=skip)", "s")
-    if choice.lower() in ("s", "skip", ""):
-        return
-
-    if choice.lower() in ("a", "all"):
-        indices = list(range(len(missing)))
+    problems = [r for r in rows if r["status"] != "ok"]
+    print(f"\n{BOLD}Total: {len(rows)} vars, {GREEN}{len(rows)-len(problems)} ok{RESET}{BOLD}, ", end="")
+    if problems:
+        print(f"{YELLOW}{len(problems)} need attention{RESET}")
     else:
-        indices = []
-        for part in choice.replace(" ", "").split(","):
-            try:
-                idx = int(part) - 1
-                if 0 <= idx < len(missing):
-                    indices.append(idx)
-            except ValueError:
-                pass
-
-    targets = pick_targets()
-
-    for idx in indices:
-        key = missing[idx]
-        value = all_local[key]
-        print(f"\n  Pushing {key} to Vercel (targets: {', '.join(targets)})...")
-        if confirm(f"Confirm push {key}?"):
-            result = vercel_create_env(token, project_id, team_id, key, value, targets)
-            if result:
-                print(f"    {GREEN}Created/upserted on Vercel{RESET}")
-            else:
-                print(f"    {RED}Failed{RESET}")
+        print(f"{GREEN}all clean{RESET}")
+    return 0
 
 
-def action_add_or_edit_key(local_entries: dict[str, list[EnvEntry]], vercel_envs: list[dict] | None,
-                            token: str, project_id: str, team_id: str | None, dry_run: bool):
-    key = input_value("Key name (UPPER_SNAKE_CASE)").strip()
-    if not key:
-        return
+# ---------------------------------------------------------------------------
+# Add command
+# ---------------------------------------------------------------------------
 
-    current_local = ""
-    for entries in local_entries.values():
-        d = entries_to_dict(entries)
-        if key in d:
-            current_local = d[key]
+CLASSIFICATIONS = ["shared_runtime", "optional_runtime", "environment_specific", "local_only"]
+
+def cmd_add(args: argparse.Namespace) -> int:
+    key = args.key.strip().upper()
+    policy = load_policy()
+    existing_keys = {r["key"] for r in policy.get("rules", [])}
+
+    print(f"\n{BOLD}Adding: {key}{RESET}\n")
+
+    if key in existing_keys:
+        print(f"  {YELLOW}{key} already has a policy rule.{RESET}")
+    else:
+        print(f"  Classification options:")
+        for i, c in enumerate(CLASSIFICATIONS):
+            print(f"    {i+1}. {c}")
+        choice = input(f"  Pick classification [1-{len(CLASSIFICATIONS)}] (default 2): ").strip()
+        idx = int(choice) - 1 if choice.isdigit() and 1 <= int(choice) <= len(CLASSIFICATIONS) else 1
+        cls = CLASSIFICATIONS[idx]
+
+        if cls == "local_only":
+            targets: list[str] = []
+        elif cls == "environment_specific":
+            targets = DEPLOY_TARGETS[:]
+        else:
+            targets = ALL_TARGETS[:]
+
+        notes = input(f"  Notes (optional): ").strip() or f"Added via manage_env.py"
+
+        new_rule: dict[str, Any] = {
+            "key": key,
+            "classification": cls,
+            "recommendedVercelTargets": targets,
+            "notes": notes,
+        }
+        policy.setdefault("rules", []).append(new_rule)
+        policy["rules"].sort(key=lambda r: r["key"])
+        if key not in set(policy.get("extraKnownKeys", [])):
+            policy.setdefault("extraKnownKeys", []).append(key)
+            policy["extraKnownKeys"].sort()
+        save_policy(policy)
+        print(f"  {GREEN}Policy updated.{RESET}")
+
+    value = input(f"  Value for .env.local (leave empty to skip): ").strip()
+    if value:
+        set_in_env_file(ENV_LOCAL, key, value)
+        print(f"  {GREEN}Set in .env.local{RESET}")
+
+    prod_value = input(f"  Value for .env.production (Enter = same, 's' = skip): ").strip()
+    if prod_value == "s":
+        pass
+    elif prod_value:
+        set_in_env_file(ENV_PROD, key, prod_value)
+        print(f"  {GREEN}Set in .env.production{RESET}")
+    elif value:
+        set_in_env_file(ENV_PROD, key, value)
+        print(f"  {GREEN}Set in .env.production (same as local){RESET}")
+
+    push_q = input(f"  Push to Vercel? [y/N]: ").strip().lower()
+    if push_q == "y" and value:
+        token, project_id, team_id = vercel_creds()
+        if token and project_id:
+            rule = get_rule(policy, key)
+            vercel_targets = rule.get("recommendedVercelTargets", ALL_TARGETS)
+            if push_to_vercel(token, project_id, team_id, key, value, vercel_targets):
+                print(f"  {GREEN}Pushed to Vercel ({', '.join(vercel_targets)}){RESET}")
+        else:
+            print(f"  {YELLOW}Missing VERCEL_TOKEN or VERCEL_PROJECT_ID in .env.local{RESET}")
+
+    print(f"\n  {DIM}Remember to add {key} to src/lib/env.ts if the app reads it at runtime.{RESET}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Set command
+# ---------------------------------------------------------------------------
+
+def cmd_set(args: argparse.Namespace) -> int:
+    key = args.key.strip()
+    value = args.value
+    targets = []
+    if args.local:
+        targets.append("local")
+    if args.prod:
+        targets.append("prod")
+    if not targets:
+        targets = ["local", "prod"]
+
+    for t in targets:
+        path = ENV_LOCAL if t == "local" else ENV_PROD
+        set_in_env_file(path, key, value)
+        print(f"  {GREEN}{key} set in {path.name}{RESET}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Push command
+# ---------------------------------------------------------------------------
+
+def cmd_push(args: argparse.Namespace) -> int:
+    token, project_id, team_id = vercel_creds()
+    if not token or not project_id:
+        print(f"{RED}Missing VERCEL_TOKEN or VERCEL_PROJECT_ID in .env.local{RESET}")
+        return 1
+
+    policy = load_policy()
+    local = parse_env_file(ENV_LOCAL)
+
+    envs = fetch_vercel_envs(token, project_id, team_id)
+    if envs is None:
+        return 1
+    vercel_keys = {e["key"] for e in envs}
+
+    if args.all:
+        candidates = []
+        for key, value in local.items():
+            if not value:
+                continue
+            rule = get_rule(policy, key)
+            if rule.get("classification") in ("local_only", "vercel_managed"):
+                continue
+            if key not in vercel_keys:
+                candidates.append((key, value, rule))
+
+        if not candidates:
+            print(f"  {GREEN}Nothing to push -- Vercel is up to date.{RESET}")
+            return 0
+
+        print(f"\n{BOLD}Keys to push:{RESET}")
+        for key, _, rule in candidates:
+            targets = rule.get("recommendedVercelTargets", ALL_TARGETS)
+            print(f"  {key} -> {', '.join(targets)}")
+
+        confirm = input(f"\nPush {len(candidates)} key(s)? [y/N]: ").strip().lower()
+        if confirm != "y":
+            print("Aborted.")
+            return 0
+
+        pushed = 0
+        for key, value, rule in candidates:
+            targets = rule.get("recommendedVercelTargets", ALL_TARGETS)
+            if push_to_vercel(token, project_id, team_id, key, value, targets):
+                pushed += 1
+                print(f"  {GREEN}{key} pushed{RESET}")
+        print(f"\n{pushed}/{len(candidates)} pushed.")
+    else:
+        key = args.key
+        if not key:
+            print(f"{RED}Specify a KEY or use --all{RESET}")
+            return 1
+        value = local.get(key, "")
+        if not value:
+            print(f"{RED}{key} has no value in .env.local{RESET}")
+            return 1
+        rule = get_rule(policy, key)
+        targets = rule.get("recommendedVercelTargets", ALL_TARGETS)
+        if push_to_vercel(token, project_id, team_id, key, value, targets):
+            print(f"  {GREEN}{key} pushed to Vercel ({', '.join(targets)}){RESET}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Pull command
+# ---------------------------------------------------------------------------
+
+def cmd_pull(_args: argparse.Namespace) -> int:
+    token, project_id, team_id = vercel_creds()
+    if not token or not project_id:
+        print(f"{RED}Missing VERCEL_TOKEN or VERCEL_PROJECT_ID in .env.local{RESET}")
+        return 1
+
+    envs = fetch_vercel_envs(token, project_id, team_id)
+    if envs is None:
+        return 1
+
+    local = parse_env_file(ENV_LOCAL)
+    new_keys: list[str] = []
+    for e in envs:
+        key = e["key"]
+        if key not in local:
+            new_keys.append(key)
+
+    if not new_keys:
+        print(f"  {GREEN}Local file already has all Vercel keys.{RESET}")
+        return 0
+
+    print(f"\n{BOLD}Keys on Vercel but not in .env.local:{RESET}")
+    for k in sorted(new_keys):
+        print(f"  {k}")
+
+    print(f"\n  {DIM}Values are encrypted on Vercel and cannot be pulled automatically.")
+    print(f"  Use 'vercel env pull' or set them manually.{RESET}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Audit command (delegate to check_env.py)
+# ---------------------------------------------------------------------------
+
+def cmd_audit(_args: argparse.Namespace) -> int:
+    check_env = SCRIPT_DIR / "check_env.py"
+    if check_env.exists():
+        os.execv(sys.executable, [sys.executable, str(check_env)])
+    else:
+        print(f"{RED}check_env.py not found{RESET}")
+        return 1
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Interactive dashboard
+# ---------------------------------------------------------------------------
+
+def cmd_interactive(_args: argparse.Namespace) -> int:
+    os.system("")
+    while True:
+        print(f"\n{BOLD}{'=' * 50}")
+        print(f"  Sajtmaskin Env Control Panel")
+        print(f"{'=' * 50}{RESET}\n")
+        print(f"  {BOLD}1{RESET}  Status     -- full table of all env vars")
+        print(f"  {BOLD}2{RESET}  Add        -- add a new env var everywhere")
+        print(f"  {BOLD}3{RESET}  Set        -- update value in local files")
+        print(f"  {BOLD}4{RESET}  Push       -- push local value to Vercel")
+        print(f"  {BOLD}5{RESET}  Push all   -- push all missing to Vercel")
+        print(f"  {BOLD}6{RESET}  Pull       -- check what Vercel has that local doesn't")
+        print(f"  {BOLD}7{RESET}  Audit      -- run full read-only audit")
+        print(f"  {BOLD}q{RESET}  Quit")
+
+        choice = input(f"\n  Choose [1-7/q]: ").strip().lower()
+
+        if choice == "q":
             break
-
-    current_vercel = ""
-    vercel_entry = None
-    if vercel_envs:
-        for e in vercel_envs:
-            if e["key"] == key:
-                vercel_entry = e
-                current_vercel = e.get("value", "")
-                break
-
-    if current_local:
-        print(f"  Current local value: {current_local[:50]}{'...' if len(current_local) > 50 else ''}")
-    if vercel_entry:
-        targets = ", ".join(vercel_entry.get("target") or [])
-        print(f"  Current Vercel targets: {targets}")
-
-    value = input_value("New value", current_local or current_vercel)
-    if not value and not confirm("Set empty value?"):
-        return
-
-    where = input_value("Where? (1=local-only  2=vercel-only  3=both)", "3")
-
-    if dry_run:
-        print(f"  {DIM}(dry-run) Would set {key} in {'local' if where in ('1','3') else ''} {'vercel' if where in ('2','3') else ''}{RESET}")
-        return
-
-    if where in ("1", "3"):
-        r1 = write_env_key(ENV_LOCAL, key, value)
-        print(f"    {GREEN}{r1}{RESET}")
-        r2 = write_env_key(ENV_PROD, key, value)
-        print(f"    {GREEN}{r2}{RESET}")
-
-    if where in ("2", "3") and token and project_id:
-        targets = pick_targets() if not vercel_entry else list(vercel_entry.get("target") or ALL_TARGETS)
-        if vercel_entry and vercel_entry.get("id"):
-            if confirm(f"Update {key} on Vercel (targets: {', '.join(targets)})?"):
-                result = vercel_edit_env(token, project_id, team_id, vercel_entry["id"], key, value, targets)
-                print(f"    {GREEN if result else RED}{'Updated' if result else 'Failed'}{RESET}")
+        elif choice == "1":
+            cmd_status(argparse.Namespace())
+        elif choice == "2":
+            key = input("  Key name: ").strip()
+            if key:
+                cmd_add(argparse.Namespace(key=key))
+        elif choice == "3":
+            key = input("  Key name: ").strip()
+            value = input("  Value: ").strip()
+            if key:
+                cmd_set(argparse.Namespace(key=key, value=value, local=True, prod=True))
+        elif choice == "4":
+            key = input("  Key name: ").strip()
+            if key:
+                cmd_push(argparse.Namespace(key=key, all=False))
+        elif choice == "5":
+            cmd_push(argparse.Namespace(key=None, all=True))
+        elif choice == "6":
+            cmd_pull(argparse.Namespace())
+        elif choice == "7":
+            cmd_audit(argparse.Namespace())
         else:
-            if confirm(f"Create {key} on Vercel (targets: {', '.join(targets)})?"):
-                result = vercel_create_env(token, project_id, team_id, key, value, targets)
-                print(f"    {GREEN if result else RED}{'Created' if result else 'Failed'}{RESET}")
+            print(f"  {YELLOW}Unknown option.{RESET}")
 
-
-def action_delete_key(local_entries: dict[str, list[EnvEntry]], vercel_envs: list[dict] | None,
-                       token: str, project_id: str, team_id: str | None, dry_run: bool):
-    key = input_value("Key to delete").strip()
-    if not key:
-        return
-
-    found_local = any(key in entries_to_dict(entries) for entries in local_entries.values())
-    found_vercel = None
-    if vercel_envs:
-        found_vercel = [e for e in vercel_envs if e["key"] == key]
-
-    if not found_local and not found_vercel:
-        print(f"  {YELLOW}{key} not found anywhere.{RESET}")
-        return
-
-    if found_local:
-        print(f"  Found in local files")
-    if found_vercel:
-        print(f"  Found on Vercel ({len(found_vercel)} entry/entries)")
-
-    if dry_run:
-        print(f"  {DIM}(dry-run){RESET}")
-        return
-
-    if found_local and confirm(f"Remove {key} from local files?"):
-        r1 = remove_env_key(ENV_LOCAL, key)
-        print(f"    {GREEN}{r1}{RESET}")
-        r2 = remove_env_key(ENV_PROD, key)
-        print(f"    {GREEN}{r2}{RESET}")
-
-    if found_vercel and confirm(f"Delete {key} from Vercel ({len(found_vercel)} entries)?"):
-        for entry in found_vercel:
-            eid = entry.get("id", "")
-            if vercel_delete_env(token, project_id, team_id, eid):
-                print(f"    {GREEN}Deleted id={eid[:8]}{RESET}")
-            else:
-                print(f"    {RED}Failed id={eid[:8]}{RESET}")
-
-
-def generate_fix_report(local_entries: dict[str, list[EnvEntry]], vercel_envs: list[dict] | None) -> dict:
-    """Generate machine-readable JSON report of all issues and suggested fixes."""
-    report: dict[str, Any] = {"issues": [], "suggested_actions": []}
-
-    for label, entries in local_entries.items():
-        for k, lines in find_duplicates_local(entries).items():
-            report["issues"].append({
-                "type": "local_duplicate",
-                "source": label,
-                "key": k,
-                "lines": lines,
-            })
-            report["suggested_actions"].append({
-                "action": "deduplicate_local",
-                "file": label,
-                "key": k,
-                "keep_line": lines[-1],
-            })
-
-    if vercel_envs:
-        for k, entries in find_duplicates_vercel(vercel_envs).items():
-            report["issues"].append({
-                "type": "vercel_duplicate",
-                "key": k,
-                "count": len(entries),
-                "ids": [e.get("id") for e in entries],
-            })
-
-        for k, missing in find_target_gaps(vercel_envs).items():
-            report["issues"].append({
-                "type": "vercel_target_gap",
-                "key": k,
-                "missing_targets": missing,
-            })
-
-        all_local_keys: set[str] = set()
-        for entries in local_entries.values():
-            all_local_keys.update(entries_to_dict(entries).keys())
-        vercel_keys = set(e["key"] for e in vercel_envs)
-
-        for k in sorted(all_local_keys - vercel_keys):
-            report["issues"].append({"type": "missing_on_vercel", "key": k})
-        for k in sorted(vercel_keys - all_local_keys):
-            report["issues"].append({"type": "missing_locally", "key": k})
-
-    return report
-
-
-# ---------------------------------------------------------------------------
-# Auto-fix (non-interactive)
-# ---------------------------------------------------------------------------
-
-def _auto_fix_all(
-    local_data: dict[str, list[EnvEntry]],
-    vercel_envs: list[dict] | None,
-    token: str, project_id: str, team_id: str | None,
-    path_local: Path, path_prod: Path,
-) -> int:
-    ok = 0
-    fail = 0
-
-    print(f"\n{BOLD}Auto-fix: local duplicates{RESET}")
-    for label, entries in local_data.items():
-        path = path_local if label == ".env.local" else path_prod
-        for key, lines in find_duplicates_local(entries).items():
-            last = [e for e in entries if e.key == key][-1]
-            result = write_env_key(path, key, last.value)
-            print(f"  {GREEN}{result}{RESET}")
-            ok += 1
-
-    print(f"\n{BOLD}Auto-fix: sync missing keys between local files{RESET}")
-    dict_local = entries_to_dict(local_data.get(".env.local", []))
-    dict_prod = entries_to_dict(local_data.get(".env.production", []))
-    prod_should_have = [
-        "SUPERADMIN_EMAIL", "SUPERADMIN_PASSWORD", "SUPERADMIN_DIAMONDS",
-        "TEST_USER_EMAIL", "TEST_USER_PASSWORD", "ADMIN_CREDENTIALS",
-        "RESEND_API_KEY",
-    ]
-    for key in prod_should_have:
-        val = dict_local.get(key, "")
-        if key not in dict_prod or (not dict_prod[key] and val):
-            result = write_env_key(path_prod, key, val)
-            print(f"  {GREEN}{result}{RESET}")
-            ok += 1
-
-    if not vercel_envs or not token or not project_id:
-        print(f"\n{YELLOW}Vercel not connected, skipping remote fixes{RESET}")
-        print(f"\n{BOLD}Done: {ok} fixed, {fail} failed{RESET}")
-        return 1 if fail else 0
-
-    print(f"\n{BOLD}Auto-fix: Vercel duplicates{RESET}")
-    vdupes = find_duplicates_vercel(vercel_envs)
-    for key, entries in sorted(vdupes.items()):
-        best = max(entries, key=lambda e: len(e.get("target") or []))
-        for dup in [e for e in entries if e.get("id") != best.get("id")]:
-            dup_id = dup.get("id", "")
-            if vercel_delete_env(token, project_id, team_id, dup_id):
-                print(f"  {GREEN}Deleted duplicate {key} (id={dup_id[:8]}){RESET}")
-                ok += 1
-            else:
-                print(f"  {RED}Failed to delete {key} (id={dup_id[:8]}){RESET}")
-                fail += 1
-            time.sleep(0.2)
-
-    print(f"\n{BOLD}Auto-fix: Vercel target gaps -> all environments{RESET}")
-    vercel_envs = vercel_list_env(token, project_id, team_id) or []
-    for key, missing in sorted(find_target_gaps(vercel_envs).items()):
-        entry = next((e for e in vercel_envs if e["key"] == key), None)
-        if not entry:
-            continue
-        result = vercel_create_env(token, project_id, team_id, key,
-                                    entry.get("value", ""), ALL_TARGETS,
-                                    entry.get("type", "encrypted"))
-        if result:
-            print(f"  {GREEN}{key} -> all environments{RESET}")
-            ok += 1
-        else:
-            print(f"  {RED}{key} failed{RESET}")
-            fail += 1
-        time.sleep(0.2)
-
-    print(f"\n{BOLD}Done: {ok} fixed, {fail} failed{RESET}")
-    return 1 if fail else 0
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -686,111 +606,43 @@ def _auto_fix_all(
 def main() -> int:
     os.system("")
 
-    parser = argparse.ArgumentParser(description="Interactive env manager for Sajtmaskin")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would change without modifying anything")
-    parser.add_argument("--fix-report", action="store_true", help="Output JSON fix report (for AI agent)")
-    parser.add_argument("--auto-fix", action="store_true", help="Fix all issues automatically (no prompts)")
-    parser.add_argument("--env-local", default=str(ENV_LOCAL))
-    parser.add_argument("--env-prod", default=str(ENV_PROD))
+    parser = argparse.ArgumentParser(description="Sajtmaskin env control panel")
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser("status", help="Show full status table")
+
+    p_add = sub.add_parser("add", help="Add a new env var")
+    p_add.add_argument("key", help="Env var name")
+
+    p_set = sub.add_parser("set", help="Set value in local files")
+    p_set.add_argument("key", help="Env var name")
+    p_set.add_argument("value", help="Value to set")
+    p_set.add_argument("--local", action="store_true", help="Only .env.local")
+    p_set.add_argument("--prod", action="store_true", help="Only .env.production")
+
+    p_push = sub.add_parser("push", help="Push to Vercel")
+    p_push.add_argument("key", nargs="?", help="Env var name (or --all)")
+    p_push.add_argument("--all", action="store_true", help="Push all missing")
+
+    sub.add_parser("pull", help="Check what Vercel has that local doesn't")
+    sub.add_parser("audit", help="Run read-only audit")
+
     args = parser.parse_args()
 
-    path_local = Path(args.env_local)
-    path_prod = Path(args.env_prod)
-
-    entries_local = parse_env_file(path_local)
-    entries_prod = parse_env_file(path_prod)
-    local_data: dict[str, list[EnvEntry]] = {}
-    if entries_local:
-        local_data[".env.local"] = entries_local
-    if entries_prod:
-        local_data[".env.production"] = entries_prod
-
-    env_dict = entries_to_dict(entries_local) if entries_local else entries_to_dict(entries_prod)
-    vercel_token = env_dict.get("VERCEL_TOKEN", "").strip()
-    vercel_project_id = env_dict.get("VERCEL_PROJECT_ID", "").strip()
-    vercel_team_id = env_dict.get("VERCEL_TEAM_ID", "").strip() or None
-
-    vercel_envs: list[dict] | None = None
-    if vercel_token and vercel_project_id:
-        vercel_envs = vercel_list_env(vercel_token, vercel_project_id, vercel_team_id)
-
-    if args.fix_report:
-        report = generate_fix_report(local_data, vercel_envs)
-        print(json.dumps(report, indent=2, ensure_ascii=False))
-        return 1 if report["issues"] else 0
-
-    if args.auto_fix:
-        return _auto_fix_all(local_data, vercel_envs, vercel_token, vercel_project_id, vercel_team_id,
-                             path_local, path_prod)
-
-    dry = args.dry_run
-    if dry:
-        print(f"\n{BOLD}{YELLOW}DRY-RUN MODE -- no changes will be made{RESET}\n")
-
-    print(f"\n{BOLD}Sajtmaskin Env Manager{RESET}")
-    print(f"{DIM}Local: {path_local.name} ({len(entries_local)} keys), {path_prod.name} ({len(entries_prod)} keys){RESET}")
-    print(f"{DIM}Vercel: {'connected' if vercel_envs is not None else 'not connected'}{RESET}")
-
-    while True:
-        print(f"\n{BOLD}{'=' * 50}")
-        print(f"  Menu")
-        print(f"{'=' * 50}{RESET}")
-        print(f"  {CYAN}1{RESET}  Show status & issues")
-        print(f"  {CYAN}2{RESET}  Fix local duplicates")
-        print(f"  {CYAN}3{RESET}  Fix Vercel duplicates")
-        print(f"  {CYAN}4{RESET}  Fix Vercel target gaps")
-        print(f"  {CYAN}5{RESET}  Push missing keys to Vercel")
-        print(f"  {CYAN}6{RESET}  Add/edit a key (local + Vercel)")
-        print(f"  {CYAN}7{RESET}  Delete a key (local + Vercel)")
-        print(f"  {CYAN}r{RESET}  Reload all data")
-        print(f"  {CYAN}q{RESET}  Quit")
-
-        try:
-            choice = input(f"\n  {BOLD}>{RESET} ").strip().lower()
-        except (KeyboardInterrupt, EOFError):
-            print()
-            break
-
-        if choice == "q":
-            break
-        elif choice == "1":
-            action_show_status(local_data, vercel_envs)
-        elif choice == "2":
-            action_fix_local_duplicates(local_data, dry)
-        elif choice == "3":
-            if vercel_envs is None:
-                print(f"  {YELLOW}Vercel not connected{RESET}")
-            else:
-                action_fix_vercel_duplicates(vercel_envs, vercel_token, vercel_project_id, vercel_team_id, dry)
-        elif choice == "4":
-            if vercel_envs is None:
-                print(f"  {YELLOW}Vercel not connected{RESET}")
-            else:
-                action_fix_target_gaps(vercel_envs, vercel_token, vercel_project_id, vercel_team_id, dry)
-        elif choice == "5":
-            if vercel_envs is None:
-                print(f"  {YELLOW}Vercel not connected{RESET}")
-            else:
-                action_push_missing_to_vercel(local_data, vercel_envs, vercel_token, vercel_project_id, vercel_team_id, dry)
-        elif choice == "6":
-            action_add_or_edit_key(local_data, vercel_envs, vercel_token, vercel_project_id, vercel_team_id, dry)
-        elif choice == "7":
-            action_delete_key(local_data, vercel_envs, vercel_token, vercel_project_id, vercel_team_id, dry)
-        elif choice == "r":
-            entries_local = parse_env_file(path_local)
-            entries_prod = parse_env_file(path_prod)
-            local_data = {}
-            if entries_local:
-                local_data[".env.local"] = entries_local
-            if entries_prod:
-                local_data[".env.production"] = entries_prod
-            if vercel_token and vercel_project_id:
-                vercel_envs = vercel_list_env(vercel_token, vercel_project_id, vercel_team_id)
-            print(f"  {GREEN}Reloaded.{RESET}")
-        else:
-            print(f"  {DIM}Unknown option{RESET}")
-
-    return 0
+    if args.command == "status":
+        return cmd_status(args)
+    elif args.command == "add":
+        return cmd_add(args)
+    elif args.command == "set":
+        return cmd_set(args)
+    elif args.command == "push":
+        return cmd_push(args)
+    elif args.command == "pull":
+        return cmd_pull(args)
+    elif args.command == "audit":
+        return cmd_audit(args)
+    else:
+        return cmd_interactive(args)
 
 
 if __name__ == "__main__":

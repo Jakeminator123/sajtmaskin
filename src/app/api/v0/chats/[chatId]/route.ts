@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getChat, getLatestVersion } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
+import { getScaffoldById } from "@/lib/gen/scaffolds";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -20,6 +21,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const chat = await getChat(chatId);
       if (chat) {
         const latest = await getLatestVersion(chatId);
+        const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
 
         return NextResponse.json({
           id: chat.id,
@@ -27,6 +29,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           projectId: chat.project_id,
           title: chat.title,
           model: chat.model,
+          scaffoldId: chat.scaffold_id,
+          scaffoldFamily: resolvedScaffold?.family ?? null,
+          scaffoldLabel: resolvedScaffold?.label ?? null,
           createdAt: chat.created_at,
           updatedAt: chat.updated_at,
           messages: chat.messages.map((m) => ({

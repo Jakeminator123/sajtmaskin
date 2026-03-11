@@ -39,7 +39,7 @@ Use this checklist before promoting a curated template reference into an interna
 
 Promotion is complete only when:
 
-- the curated dossier remains available in `template_library/`
+- the curated reference dossier remains available in `research/external-templates/reference-library/`
 - scaffold research metadata is updated
 - internal scaffold manifests are updated intentionally
 - scaffold embeddings are refreshed

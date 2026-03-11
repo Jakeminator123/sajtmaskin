@@ -27,7 +27,12 @@ type RawTemplateRecord = {
 type RawSummary = Record<string, RawTemplateRecord[]>;
 
 const WORKSPACE_ROOT = process.cwd();
-const TEMPLATE_LIBRARY_ROOT = path.resolve(WORKSPACE_ROOT, "v0_vercel_agents", "template_library");
+const TEMPLATE_LIBRARY_ROOT = path.resolve(
+  WORKSPACE_ROOT,
+  "research",
+  "external-templates",
+  "reference-library",
+);
 const GENERATED_CATALOG_PATH = path.resolve(
   WORKSPACE_ROOT,
   "src/lib/gen/template-library/template-library.generated.json",
@@ -37,6 +42,7 @@ const GENERATED_SCAFFOLD_RESEARCH_PATH = path.resolve(
   "src/lib/gen/scaffolds/scaffold-research.generated.json",
 );
 const SOURCE_ROOT_CANDIDATES = [
+  path.resolve(WORKSPACE_ROOT, "research", "external-templates", "raw-discovery"),
   path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
   path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
   "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates",

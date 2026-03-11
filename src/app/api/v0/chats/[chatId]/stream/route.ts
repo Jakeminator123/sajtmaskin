@@ -57,6 +57,23 @@ export const runtime = "nodejs";
 export const maxDuration = 800;
 const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
 const STREAM_RESOLVE_DELAY_MS = 1200;
+const FOLLOW_UP_REFINE_PATTERNS = [
+  /\b(förfina|förbättra|justera|uppdatera|ändra|byt ut|lägg till|fixa|trimma)\b/i,
+  /\b(refine|improve|update|adjust|tweak|fix|keep the current design)\b/i,
+  /\b(förfina nuvarande design|behåll nuvarande design)\b/i,
+];
+const FOLLOW_UP_REDESIGN_PATTERNS = [
+  /\b(redesign|rebrand|restyle|start over|from scratch)\b/i,
+  /\b(gör om från grunden|helt ny riktning|helt annan stil|byt stil helt)\b/i,
+  /\b(tydlig redesign|starta om från en ny grund)\b/i,
+];
+const FOLLOW_UP_NEW_SITE_PATTERNS = [
+  /\b(hemsida|sajt|landningssida|startsida)\b/i,
+  /\b(website|site|homepage|landing page|one-pager)\b/i,
+];
+const FOLLOW_UP_BUILD_PATTERNS = [/\b(bygg|skapa|gör|designa)\b/i, /\b(build|create|make|design)\b/i];
+
+type FollowUpIntentMode = "clear-refine" | "clear-redesign" | "ambiguous-redesign" | "neutral";
 
 function appendPreview(current: string, incoming: string, max = 320): string {
   if (!incoming) return current;
@@ -91,6 +108,67 @@ function extractToolNames(parts: Array<Record<string, unknown>>): string[] {
     names.push(name);
   }
   return Array.from(new Set(names));
+}
+
+function classifyFollowUpIntent(message: string): FollowUpIntentMode {
+  const trimmed = message.trim();
+  if (!trimmed) return "neutral";
+  if (FOLLOW_UP_REFINE_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+    return "clear-refine";
+  }
+  if (FOLLOW_UP_REDESIGN_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+    return "clear-redesign";
+  }
+  const mentionsNewSite = FOLLOW_UP_NEW_SITE_PATTERNS.some((pattern) => pattern.test(trimmed));
+  const soundsLikeBuildRequest = FOLLOW_UP_BUILD_PATTERNS.some((pattern) => pattern.test(trimmed));
+  if (mentionsNewSite && soundsLikeBuildRequest) {
+    return "ambiguous-redesign";
+  }
+  return "neutral";
+}
+
+function buildAwaitingClarificationStream(chatId: string, question: string, options: string[]) {
+  const enc = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
+      controller.enqueue(
+        enc.encode(
+          formatSSEEvent("tool-call", {
+            toolName: "askClarifyingQuestion",
+            toolCallId: `clarify-redesign:${chatId}:${Date.now()}`,
+            args: {
+              question,
+              options,
+              kind: "scope",
+              blocking: true,
+            },
+          }),
+        ),
+      );
+      controller.enqueue(
+        enc.encode(
+          formatSSEEvent(
+            "content",
+            "Jag kan fortsätta direkt, men först behöver jag veta om du vill förfina den nuvarande sajten eller göra en verklig redesign.",
+          ),
+        ),
+      );
+      controller.enqueue(
+        enc.encode(
+          formatSSEEvent("done", {
+            chatId,
+            versionId: null,
+            messageId: null,
+            demoUrl: null,
+            awaitingInput: true,
+            reason: "followup_redesign_ambiguous",
+          }),
+        ),
+      );
+      controller.close();
+    },
+  });
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -139,7 +217,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         fallbackTier: DEFAULT_MODEL_ID,
       });
       let usingV0Fallback = shouldUseExplicitBuilderFallback(meta);
-      let engineChat = usingV0Fallback ? null : await chatRepo.getChat(chatId);
+      const engineChat = usingV0Fallback ? null : await chatRepo.getChat(chatId);
       if (!usingV0Fallback && !engineChat) {
         const mappedV0Chat = await getChatByV0ChatIdForRequest(req, chatId, { sessionId });
         if (mappedV0Chat) {
@@ -213,6 +291,26 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           } catch { /* ignore malformed JSON */ }
         }
 
+        const followUpIntent = previousFiles.length > 0 ? classifyFollowUpIntent(message) : "neutral";
+        if (followUpIntent === "ambiguous-redesign") {
+          devLogAppend("latest", {
+            type: "site.message.awaiting_input",
+            chatId,
+            reason: "followup_redesign_ambiguous",
+            promptPreview: message.slice(0, 160),
+          });
+          return attachSessionCookie(
+            new Response(
+              buildAwaitingClarificationStream(chatId, "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?", [
+                "Förfina nuvarande design",
+                "Gör en tydlig redesign i samma projekt",
+                "Starta om från en ny grund",
+              ]),
+              { headers: createSSEHeaders() },
+            ),
+          );
+        }
+
         if (previousFiles.length > 0) {
           const fileCtx = buildFileContext({
             files: previousFiles,
@@ -223,10 +321,21 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           optimizedMessage = [
             "## Follow-up Editing Mode",
             "",
-            "You are editing an existing project, not starting over.",
-            "Apply the user's requested changes directly to the current files below.",
-            "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
-            "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+            followUpIntent === "clear-redesign"
+              ? "The user wants a genuine redesign of the existing site, not a small refinement."
+              : "You are editing an existing project, not starting over.",
+            followUpIntent === "clear-redesign"
+              ? "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed."
+              : "Apply the user's requested changes directly to the current files below.",
+            followUpIntent === "clear-redesign"
+              ? "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files."
+              : "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
+            followUpIntent === "clear-redesign"
+              ? "Do not preserve the previous design language unless the user explicitly asked to keep parts of it."
+              : "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+            followUpIntent === "clear-redesign"
+              ? "You may still reuse useful content or information architecture from the current project when relevant."
+              : "",
             "",
             fileCtx.summary,
             "",

@@ -2,7 +2,7 @@ services:
   inspector-worker:
     container_name: sajtmaskin-inspector-worker
     build:
-      context: ./services/inspector-worker
+      context: ../../services/inspector-worker
       dockerfile: Dockerfile
     ports:
       - "3310:3310"

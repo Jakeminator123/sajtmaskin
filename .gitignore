@@ -82,9 +82,15 @@ environments.production
 vercel-env-deploy.txt
 git_env.txt
 
-old/
+/old/
 senaste_miljovariablar/
 sajtmaskin.code-workspace
+
+# Archived secret dumps should never be versioned
+docs/old/**/*.env.local
+docs/old/**/*.env.production
+docs/old/**/*.env
+docs/old/**/*env*.txt
 
 # Automation kit (local-only)
 automation/
@@ -127,6 +133,8 @@ playwright-report/
 test-results/
 node_modules/
 _scaffold_discovery/
+research/external-templates/raw-discovery/**
+!research/external-templates/raw-discovery/README.md
 vercel_usecase_next_react_templates/
 _sidor/
 research/_sidor/

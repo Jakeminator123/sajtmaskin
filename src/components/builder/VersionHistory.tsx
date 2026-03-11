@@ -63,6 +63,7 @@ export function VersionHistory({
   const [pinningVersionId, setPinningVersionId] = useState<string | null>(null);
   const [returnTo, setReturnTo] = useState("/projects");
   const [syncingElapsed, setSyncingElapsed] = useState(false);
+  const [showLocalTimes, setShowLocalTimes] = useState(false);
 
   useEffect(() => {
     if (isInitialized) return;
@@ -76,6 +77,10 @@ export function VersionHistory({
   }, []);
 
   useEffect(() => {
+    setShowLocalTimes(true);
+  }, []);
+
+  useEffect(() => {
     if (!chatId || versionList.length > 0) {
       setSyncingElapsed(false);
       return;
@@ -83,6 +88,19 @@ export function VersionHistory({
     const timer = setTimeout(() => setSyncingElapsed(true), 5000);
     return () => clearTimeout(timer);
   }, [chatId, versionList.length]);
+
+  const formatVersionTime = (value: string | Date | null | undefined): string => {
+    if (!value) return "Just now";
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "Just now";
+    if (!showLocalTimes) {
+      return `${date.toISOString().slice(11, 16)} UTC`;
+    }
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const handleDownload = async (e: React.MouseEvent, version: any) => {
     e.stopPropagation();
@@ -372,9 +390,7 @@ export function VersionHistory({
                       <div className="mb-1 flex items-center gap-2">
                         <Clock className="text-muted-foreground h-3 w-3" />
                         <span className="text-muted-foreground text-xs">
-                          {version.createdAt
-                            ? new Date(version.createdAt).toLocaleTimeString()
-                            : "Just now"}
+                          {formatVersionTime(version.createdAt)}
                         </span>
                         {isPinned && (
                           <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">

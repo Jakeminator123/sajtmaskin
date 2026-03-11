@@ -6,7 +6,7 @@
   Answers platform and API questions from MCP-backed documentation and curated local notes.
 
 - Template agent
-  Searches `v0_vercel_agents/template_library/` for structural references, implementation hints, and scaffold upgrade candidates.
+  Searches `research/external-templates/reference-library/` for structural references, implementation hints, and scaffold upgrade candidates.
 
 - Runtime scaffold agent
   Works only with the internal scaffold registry in `src/lib/gen/scaffolds/`.
@@ -38,8 +38,8 @@ This prevents prompts from mixing authoritative docs with example code and heuri
 
 For short, open-ended Vercel or v0 questions, local helpers may be used:
 
-- `v0_vercel_agent/talk_to_v0_doc/ask_v0.py`
-- `v0_vercel_agent/talk_to_vercel_doc/ask_vercel.py`
+- `tools/doc-browser/talk_to_v0_doc/ask_v0.py`
+- `tools/doc-browser/talk_to_vercel_doc/ask_vercel.py`
 
 Use them only when the user is already logged in or can quickly reopen the
 relevant session.

@@ -95,8 +95,7 @@ Use this as the baseline context for the next pass:
   - embeddings
   - scaffolds
   - own-engine default vs v0 fallback
-- untracked `v0_vercel_agent/` was intentionally left outside this pass and was
-  not included in the commit
+- `tools/doc-browser/` (formerly `v0_vercel_agent/`) was left outside this pass
 
 ## Suggested Next Pass
 

@@ -20,8 +20,8 @@ Do not copy large documentation trees here unless a specific offline snapshot is
 
 ## Existing related helpers
 
-- `v0_vercel_agent/talk_to_v0_doc/`
-- `v0_vercel_agent/talk_to_vercel_doc/`
+- `tools/doc-browser/talk_to_v0_doc/`
+- `tools/doc-browser/talk_to_vercel_doc/`
 
 Those remain local research helpers for short, open-ended questions when the
 user is already logged in. This folder is the stable, curated layer that future

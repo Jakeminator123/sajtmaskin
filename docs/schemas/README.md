@@ -12,6 +12,10 @@ This folder is the canonical human-readable schema area for Sajtmaskin.
 - `integrations-and-data.md`
   The most important data, validation, and template-library schema surfaces.
 
+Only stable, canonical schema docs belong in this folder. If a schema note is
+still exploratory, partially true, or comparing alternatives, place it in
+`docs/analyses/` while active or `docs/old/schemas/` when it becomes historical.
+
 ## Code sources of truth
 
 These docs summarize the system, but the runtime truth lives in:
@@ -23,7 +27,7 @@ These docs summarize the system, but the runtime truth lives in:
 - `src/lib/gen/scaffolds/types.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/template-library/types.ts`
-- `v0_vercel_agents/template_library/schema.template-manifest.json`
+- `research/external-templates/reference-library/schema.template-manifest.json`
 
 ## Archive note
 

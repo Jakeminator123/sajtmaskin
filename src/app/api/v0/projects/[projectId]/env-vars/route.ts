@@ -3,6 +3,14 @@ import { z } from "zod";
 import { assertV0Key, v0 } from "@/lib/v0";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getProjectByIdForRequest } from "@/lib/tenant";
+import { getProjectByIdForOwner } from "@/lib/db/services";
+import {
+  deleteStoredProjectEnvVars,
+  getStoredProjectEnvVars,
+  upsertStoredProjectEnvVars,
+} from "@/lib/project-env-vars";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 
 const SYNTHETIC_V0_PROJECT_PREFIXES = ["chat:", "registry:"];
@@ -144,11 +152,31 @@ async function fetchProjectEnvVars(v0ProjectId: string): Promise<EnvVarListItem[
   return normalizeEnvVarList(response);
 }
 
+async function resolveOwnedAppProject(req: Request, projectId: string) {
+  const user = await getCurrentUser(req);
+  const sessionId = getSessionIdFromRequest(req);
+  const project = await getProjectByIdForOwner(projectId, {
+    userId: user?.id ?? null,
+    sessionId,
+  });
+  return project ?? null;
+}
+
 export async function GET(req: Request, ctx: { params: Promise<{ projectId: string }> }) {
   return withRateLimit(req, "projects:env-vars:list", async () => {
     try {
-      assertV0Key();
       const { projectId } = await ctx.params;
+      const appProject = await resolveOwnedAppProject(req, projectId);
+      if (appProject) {
+        const envVars = await getStoredProjectEnvVars(appProject.id);
+        return NextResponse.json({
+          success: true,
+          projectId: appProject.id,
+          source: "app-project",
+          envVars,
+        });
+      }
+      assertV0Key();
       const resolved = await resolveOwnedV0ProjectId(req, projectId);
       if ("error" in resolved) {
         return NextResponse.json({ error: resolved.error }, { status: resolved.status });
@@ -173,7 +201,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ projectId: stri
 export async function POST(req: Request, ctx: { params: Promise<{ projectId: string }> }) {
   return withRateLimit(req, "projects:env-vars:create", async () => {
     try {
-      assertV0Key();
       const body = await req.json().catch(() => ({}));
       const validation = createEnvVarsSchema.safeParse(body);
       if (!validation.success) {
@@ -184,6 +211,24 @@ export async function POST(req: Request, ctx: { params: Promise<{ projectId: str
       }
 
       const { projectId } = await ctx.params;
+      const appProject = await resolveOwnedAppProject(req, projectId);
+      if (appProject) {
+        const envVars = await upsertStoredProjectEnvVars(
+          appProject.id,
+          validation.data.vars.map((envVar) => ({
+            key: envVar.key.trim().toUpperCase(),
+            value: envVar.value,
+            sensitive: envVar.sensitive ?? true,
+          })),
+        );
+        return NextResponse.json({
+          success: true,
+          projectId: appProject.id,
+          source: "app-project",
+          envVars,
+        });
+      }
+      assertV0Key();
       const resolved = await resolveOwnedV0ProjectId(req, projectId);
       if ("error" in resolved) {
         return NextResponse.json({ error: resolved.error }, { status: resolved.status });
@@ -220,7 +265,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ projectId: str
 export async function DELETE(req: Request, ctx: { params: Promise<{ projectId: string }> }) {
   return withRateLimit(req, "projects:env-vars:delete", async () => {
     try {
-      assertV0Key();
       const body = await req.json().catch(() => ({}));
       const validation = deleteEnvVarsSchema.safeParse(body);
       if (!validation.success) {
@@ -231,6 +275,25 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ projectId: s
       }
 
       const { projectId } = await ctx.params;
+      const appProject = await resolveOwnedAppProject(req, projectId);
+      if (appProject) {
+        const nextEnvVars = await deleteStoredProjectEnvVars(appProject.id, {
+          ids: validation.data.ids ?? [],
+          keys: validation.data.keys ?? [],
+        });
+        debugLog("v0", "Deleted stored app-project env vars", {
+          projectId: appProject.id,
+          deletedIds: validation.data.ids ?? [],
+          deletedKeys: validation.data.keys ?? [],
+        });
+        return NextResponse.json({
+          success: true,
+          projectId: appProject.id,
+          source: "app-project",
+          envVars: nextEnvVars,
+        });
+      }
+      assertV0Key();
       const resolved = await resolveOwnedV0ProjectId(req, projectId);
       if ("error" in resolved) {
         return NextResponse.json({ error: resolved.error }, { status: resolved.status });

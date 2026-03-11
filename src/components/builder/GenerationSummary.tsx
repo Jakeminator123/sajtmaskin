@@ -88,18 +88,20 @@ export const GenerationSummary = memo(function GenerationSummary({
 }: GenerationSummaryProps) {
   const [showRaw, setShowRaw] = useState(false);
   const parsed = useMemo(() => parseGenerationContent(content), [content]);
+  const streamingNotice =
+    "Buildern genererar nu komponenter och filer. Följ agentloggen för detaljer medan innehållet sammanställs.";
 
   if (!parsed.hasCodeBlocks) {
     return (
       <div className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 overflow-hidden wrap-break-word">
-        {content}
+        {isStreaming ? streamingNotice : content}
       </div>
     );
   }
 
   const previewText =
-    isStreaming && parsed.proseText.length > 320
-      ? `${parsed.proseText.slice(0, 320).trimEnd()}…`
+    isStreaming
+      ? streamingNotice
       : parsed.proseText;
   const generatedUnitLabel =
     parsed.files.length > 0
@@ -145,7 +147,7 @@ export const GenerationSummary = memo(function GenerationSummary({
               )}
             >
               {showRaw ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-              {showRaw ? "Dölj" : "Kod"}
+              {showRaw ? "Dölj" : "Råtext"}
             </button>
           )}
         </div>

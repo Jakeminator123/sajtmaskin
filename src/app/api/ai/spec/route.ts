@@ -15,6 +15,7 @@ const specRequestSchema = z.object({
     .trim()
     .min(1, "Prompt is required")
     .max(MAX_AI_SPEC_PROMPT_CHARS, `Prompt too long (max ${MAX_AI_SPEC_PROMPT_CHARS} chars)`),
+  model: z.string().trim().min(1).optional(),
 });
 
 /**
@@ -54,14 +55,15 @@ export async function POST(req: Request) {
         );
       }
 
-      const { prompt } = validationResult.data;
+      const { prompt, model } = validationResult.data;
       devLogAppend("latest", {
         type: "assist.spec.request",
         prompt,
+        model: model ?? null,
       });
 
       // Generate spec using the spec-first chain
-      const result = await processPromptWithSpec(prompt);
+      const result = await processPromptWithSpec(prompt, { model: model ?? null });
       devLogAppend("latest", {
         type: "assist.spec.response",
         enhancedPrompt: result.enhancedPrompt,

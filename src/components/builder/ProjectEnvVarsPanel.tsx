@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { detectIntegrations, type DetectedIntegration } from "@/lib/gen/detect-integrations";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -99,7 +100,10 @@ type McpPrioritiesResponse = {
 };
 
 interface ProjectSettingsPanelProps {
-  projectId: string | null;
+  v0ProjectId: string | null;
+  appProjectId: string | null;
+  chatId: string | null;
+  activeVersionId: string | null;
 }
 
 type Tab = "integrations" | "env";
@@ -108,16 +112,45 @@ type ProjectEnvVarsOpenDetail = {
   envKeys?: string[];
 };
 
+type VersionFilesResponse = {
+  versionId?: string | null;
+  files?: Array<{
+    name: string;
+    content: string;
+  }>;
+  error?: string;
+};
+
+type SiteIntegrationItem = DetectedIntegration & {
+  configuredEnvVars: string[];
+  missingEnvVars: string[];
+  statusLabel: string;
+  isConfigured: boolean;
+};
+
 const SYNTHETIC_V0_PROJECT_PREFIXES = ["chat:", "registry:"];
 function isSyntheticV0ProjectId(id: string): boolean {
   return SYNTHETIC_V0_PROJECT_PREFIXES.some((prefix) => id.startsWith(prefix));
+}
+
+function dedupeStrings(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function isValidEnvKey(value: string): boolean {
+  return /^[A-Z][A-Z0-9_]*$/.test(value.trim());
 }
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
+export function ProjectEnvVarsPanel({
+  v0ProjectId,
+  appProjectId,
+  chatId,
+  activeVersionId,
+}: ProjectSettingsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("integrations");
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -143,19 +176,46 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
   const [marketplaceRecords, setMarketplaceRecords] = useState<MarketplaceRecord[]>([]);
   const [isStartingInstall, setIsStartingInstall] = useState(false);
   const [mcpPriorities, setMcpPriorities] = useState<McpPriorityItem[]>([]);
+  const [detectedIntegrations, setDetectedIntegrations] = useState<DetectedIntegration[]>([]);
+  const [isLoadingDetectedIntegrations, setIsLoadingDetectedIntegrations] = useState(false);
+  const [detectedIntegrationsError, setDetectedIntegrationsError] = useState<string | null>(null);
 
   const envVarCount = envVars.length;
+  const hasRealV0Project = Boolean(v0ProjectId && !isSyntheticV0ProjectId(v0ProjectId));
+  const hasSyntheticV0Project = Boolean(v0ProjectId && isSyntheticV0ProjectId(v0ProjectId));
+  const effectiveEnvProjectId = hasRealV0Project ? v0ProjectId : appProjectId ?? v0ProjectId ?? null;
+  const marketplaceProjectId = hasRealV0Project ? v0ProjectId : null;
+  const hasProjectContext = Boolean(effectiveEnvProjectId);
+
+  const applyPreferredEnvKeys = useCallback((preferredKeys: string[]) => {
+    const firstKey = preferredKeys
+      .map((key) => key.trim().toUpperCase())
+      .find((key) => isValidEnvKey(key));
+    if (firstKey) {
+      setNewKey((current) => (current.trim().length > 0 ? current : firstKey));
+    }
+  }, []);
+
+  const openEnvTab = useCallback(
+    (preferredKeys: string[] = []) => {
+      applyPreferredEnvKeys(preferredKeys);
+      setActiveTab("env");
+      setExpanded(true);
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    [applyPreferredEnvKeys],
+  );
 
   // --- data loaders ---
 
   const loadEnvVars = useCallback(async () => {
-    if (!projectId) {
+    if (!effectiveEnvProjectId) {
       setEnvVars([]);
       setError(null);
       setSyntheticProject(false);
       return;
     }
-    if (isSyntheticV0ProjectId(projectId)) {
+    if (hasSyntheticV0Project && !appProjectId) {
       setEnvVars([]);
       setError(null);
       setSyntheticProject(true);
@@ -165,7 +225,9 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/v0/projects/${encodeURIComponent(projectId)}/env-vars`);
+      const response = await fetch(
+        `/api/v0/projects/${encodeURIComponent(effectiveEnvProjectId)}/env-vars`,
+      );
       const data = (await response.json().catch(() => null)) as EnvVarsResponse | null;
       if (!response.ok || !data?.success) {
         setEnvVars([]);
@@ -181,7 +243,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [appProjectId, effectiveEnvProjectId, hasSyntheticV0Project]);
 
   const loadIntegrationStatus = useCallback(async () => {
     try {
@@ -199,17 +261,18 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
   }, []);
 
   const loadMarketplaceMetadata = useCallback(async () => {
-    if (!projectId) {
+    if (!marketplaceProjectId || isSyntheticV0ProjectId(marketplaceProjectId)) {
       setStrategy(null);
       setIntegrationOptions([]);
       setMarketplaceRecords([]);
+      setMcpPriorities([]);
       return;
     }
     try {
       const [strategyRes, recordsRes, mcpRes] = await Promise.all([
         fetch("/api/integrations/marketplace/strategy"),
         fetch(
-          `/api/integrations/marketplace/records?projectId=${encodeURIComponent(projectId)}`,
+          `/api/integrations/marketplace/records?projectId=${encodeURIComponent(marketplaceProjectId)}`,
         ),
         fetch("/api/integrations/mcp/priorities"),
       ]);
@@ -246,19 +309,54 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
     } catch {
       setMcpPriorities([]);
     }
-  }, [projectId, selectedIntegration]);
+  }, [marketplaceProjectId, selectedIntegration]);
+
+  const loadDetectedIntegrations = useCallback(async () => {
+    if (!chatId || !activeVersionId) {
+      setDetectedIntegrations([]);
+      setDetectedIntegrationsError(null);
+      setIsLoadingDetectedIntegrations(false);
+      return;
+    }
+    setIsLoadingDetectedIntegrations(true);
+    setDetectedIntegrationsError(null);
+    try {
+      const response = await fetch(
+        `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}`,
+      );
+      const data = (await response.json().catch(() => null)) as VersionFilesResponse | null;
+      if (!response.ok) {
+        setDetectedIntegrations([]);
+        setDetectedIntegrationsError(data?.error || "Kunde inte analysera aktiv version");
+        return;
+      }
+      const files = Array.isArray(data?.files) ? data.files : [];
+      const combinedSource = files
+        .filter((file) => typeof file?.name === "string" && typeof file?.content === "string")
+        .map((file) => `// File: ${file.name}\n${file.content}`)
+        .join("\n\n");
+      setDetectedIntegrations(combinedSource ? detectIntegrations(combinedSource) : []);
+    } catch (loadError) {
+      setDetectedIntegrations([]);
+      setDetectedIntegrationsError(
+        loadError instanceof Error ? loadError.message : "Kunde inte analysera aktiv version",
+      );
+    } finally {
+      setIsLoadingDetectedIntegrations(false);
+    }
+  }, [chatId, activeVersionId]);
 
   // --- actions ---
 
   const handleStartMarketplaceInstall = useCallback(async () => {
-    if (!projectId || !selectedIntegration || isStartingInstall) return;
+    if (!marketplaceProjectId || !selectedIntegration || isStartingInstall) return;
     setIsStartingInstall(true);
     setError(null);
     try {
       const response = await fetch("/api/integrations/marketplace/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ integrationType: selectedIntegration, projectId }),
+        body: JSON.stringify({ integrationType: selectedIntegration, projectId: marketplaceProjectId }),
       });
       const data = (await response.json().catch(() => null)) as
         | { success?: boolean; installUrl?: string; error?: string }
@@ -278,7 +376,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
     } finally {
       setIsStartingInstall(false);
     }
-  }, [projectId, selectedIntegration, isStartingInstall, loadMarketplaceMetadata]);
+  }, [marketplaceProjectId, selectedIntegration, isStartingInstall, loadMarketplaceMetadata]);
 
   const canAdd = useMemo(() => {
     const key = newKey.trim().toUpperCase();
@@ -286,13 +384,13 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
   }, [newKey, newValue]);
 
   const handleAddEnvVar = useCallback(async () => {
-    if (!projectId || !canAdd || isSaving) return;
+    if (!effectiveEnvProjectId || !canAdd || isSaving) return;
     const key = newKey.trim().toUpperCase();
     setIsSaving(true);
     setError(null);
     try {
       const response = await fetch(
-        `/api/v0/projects/${encodeURIComponent(projectId)}/env-vars`,
+        `/api/v0/projects/${encodeURIComponent(effectiveEnvProjectId)}/env-vars`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -317,17 +415,17 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [projectId, canAdd, isSaving, newKey, newValue, newSensitive]);
+  }, [effectiveEnvProjectId, canAdd, isSaving, newKey, newValue, newSensitive]);
 
   const handleDeleteEnvVar = useCallback(
     async (item: EnvVarItem) => {
-      if (!projectId || isSaving) return;
+      if (!effectiveEnvProjectId || isSaving) return;
       setIsSaving(true);
       setError(null);
       try {
         const payload = item.id ? { ids: [item.id] } : { keys: [item.key] };
         const response = await fetch(
-          `/api/v0/projects/${encodeURIComponent(projectId)}/env-vars`,
+          `/api/v0/projects/${encodeURIComponent(effectiveEnvProjectId)}/env-vars`,
           {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
@@ -350,7 +448,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
         setIsSaving(false);
       }
     },
-    [projectId, isSaving],
+    [effectiveEnvProjectId, isSaving],
   );
 
   // --- effects ---
@@ -360,7 +458,14 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
     void loadEnvVars();
     void loadIntegrationStatus();
     void loadMarketplaceMetadata();
-  }, [expanded, loadEnvVars, loadIntegrationStatus, loadMarketplaceMetadata]);
+    void loadDetectedIntegrations();
+  }, [
+    expanded,
+    loadDetectedIntegrations,
+    loadEnvVars,
+    loadIntegrationStatus,
+    loadMarketplaceMetadata,
+  ]);
 
   useEffect(() => {
     const handleEnvOpen = (event: Event) => {
@@ -368,15 +473,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
       const preferredKeys = Array.isArray(customEvent.detail?.envKeys)
         ? customEvent.detail?.envKeys
         : [];
-      if (preferredKeys.length > 0) {
-        const firstKey = preferredKeys[0]?.trim().toUpperCase();
-        if (firstKey && /^[A-Z][A-Z0-9_]*$/.test(firstKey)) {
-          setNewKey((current) => (current.trim().length > 0 ? current : firstKey));
-        }
-      }
-      setActiveTab("env");
-      setExpanded(true);
-      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      openEnvTab(preferredKeys);
     };
     const handleIntOpen = () => {
       setActiveTab("integrations");
@@ -389,7 +486,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
       window.removeEventListener("project-env-vars-open", handleEnvOpen as EventListener);
       window.removeEventListener("integrations-panel-open", handleIntOpen as EventListener);
     };
-  }, []);
+  }, [openEnvTab]);
 
   // --- derived ---
 
@@ -400,13 +497,63 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
     return { missing, optional };
   }, [integrationStatus]);
 
-  const hasIssues = (statusSummary?.missing.length ?? 0) > 0;
+  const isRealProject = Boolean(effectiveEnvProjectId && !syntheticProject);
+  const configuredEnvKeys = useMemo(
+    () => new Set(envVars.map((item) => item.key.trim().toUpperCase()).filter(isValidEnvKey)),
+    [envVars],
+  );
+  const siteIntegrations = useMemo<SiteIntegrationItem[]>(() => {
+    return detectedIntegrations.map((integration) => {
+      const envKeys = dedupeStrings((integration.envVars ?? []).filter(isValidEnvKey));
+      const readyToCompare = Boolean(effectiveEnvProjectId) && !syntheticProject && !isLoading;
+      const configuredForIntegration = readyToCompare
+        ? envKeys.filter((key) => configuredEnvKeys.has(key))
+        : [];
+      const missingForIntegration = readyToCompare
+        ? envKeys.filter((key) => !configuredEnvKeys.has(key))
+        : envKeys;
+      const isConfigured = envKeys.length === 0 || (readyToCompare && missingForIntegration.length === 0);
+      const statusLabel =
+        envKeys.length === 0
+          ? "Detekterad i koden"
+          : isConfigured
+            ? "Konfigurerad i projektet"
+            : !effectiveEnvProjectId
+              ? "Väntar på chat och projekt"
+              : syntheticProject
+                ? "Väntar på riktigt projectId"
+                : isLoading
+                  ? "Kontrollerar miljövariabler"
+                  : `Saknar ${missingForIntegration.length} miljövariabler`;
+      return {
+        ...integration,
+        envVars: envKeys,
+        configuredEnvVars: configuredForIntegration,
+        missingEnvVars: missingForIntegration,
+        statusLabel,
+        isConfigured,
+      };
+    });
+  }, [configuredEnvKeys, detectedIntegrations, effectiveEnvProjectId, isLoading, syntheticProject]);
+  const likelyRequiredEnvKeys = useMemo(
+    () => dedupeStrings(siteIntegrations.flatMap((integration) => integration.envVars)),
+    [siteIntegrations],
+  );
+  const configuredRequiredEnvKeys = useMemo(
+    () => likelyRequiredEnvKeys.filter((key) => configuredEnvKeys.has(key)),
+    [configuredEnvKeys, likelyRequiredEnvKeys],
+  );
+  const missingRequiredEnvKeys = useMemo(
+    () => likelyRequiredEnvKeys.filter((key) => !configuredEnvKeys.has(key)),
+    [configuredEnvKeys, likelyRequiredEnvKeys],
+  );
+  const totalIssues = (statusSummary?.missing.length ?? 0) + missingRequiredEnvKeys.length;
 
   // --- header summary ---
   const headerLabel = expanded
     ? "Projektinställningar"
-    : hasIssues
-      ? `Projektinställningar • ${statusSummary?.missing.length} saknas`
+    : totalIssues > 0
+      ? `Projektinställningar • ${totalIssues} att konfigurera`
       : `Projektinställningar • ${envVarCount} variabler`;
 
   return (
@@ -417,7 +564,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
         className="flex w-full items-center justify-between gap-2"
       >
         <div className="flex items-center gap-2">
-          {hasIssues ? (
+          {totalIssues > 0 ? (
             <AlertCircle className="h-4 w-4 text-red-400" />
           ) : (
             <CheckCircle2 className="h-4 w-4 text-green-400" />
@@ -456,6 +603,88 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
           {/* Integrations tab */}
           <TabsContent value="integrations">
             <div className="space-y-2">
+              <div className="rounded-lg border border-border/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                Visar tre lager: vad den aktiva sajtkoden verkar använda, vad plattformen är redo
+                för och vad som redan installerats på projektet.
+              </div>
+
+              <div className="border-border rounded-md border p-2">
+                <div className="text-foreground text-xs font-medium">Aktiv sajt</div>
+                <div className="text-muted-foreground mt-1 text-[11px]">
+                  Detekterat direkt från koden i den valda versionen.
+                </div>
+                {isLoadingDetectedIntegrations ? (
+                  <div className="text-muted-foreground mt-2 flex items-center gap-2 text-[11px]">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Analyserar den aktiva versionen...
+                  </div>
+                ) : detectedIntegrationsError ? (
+                  <div className="mt-2 rounded-md border border-dashed border-amber-500/40 p-2 text-[11px] text-amber-200">
+                    {detectedIntegrationsError}
+                  </div>
+                ) : !chatId || !activeVersionId ? (
+                  <div className="mt-2 rounded-md border border-dashed p-2 text-[11px] text-muted-foreground">
+                    Generera eller öppna en version först för att se vilka integrationer sajten verkar använda.
+                  </div>
+                ) : siteIntegrations.length === 0 ? (
+                  <div className="mt-2 rounded-md border border-dashed p-2 text-[11px] text-muted-foreground">
+                    Inga tydliga integrationer upptäcktes i den aktiva versionen ännu.
+                  </div>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    {siteIntegrations.map((item) => (
+                      <div key={item.key} className="border-border rounded-md border p-2 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-gray-200">{item.name}</span>
+                          <span
+                            className={cn(
+                              "text-[11px]",
+                              item.isConfigured
+                                ? "text-green-400"
+                                : syntheticProject || !effectiveEnvProjectId
+                                  ? "text-amber-300"
+                                  : "text-red-400",
+                            )}
+                          >
+                            {item.statusLabel}
+                          </span>
+                        </div>
+                        <div className="text-muted-foreground mt-0.5">
+                          Detekterad i koden för den aktiva sajten.
+                        </div>
+                        {item.envVars.length > 0 && (
+                          <div className="text-muted-foreground mt-1 text-[11px]">
+                            Behöver: {item.envVars.join(", ")}
+                          </div>
+                        )}
+                        {item.missingEnvVars.length > 0 && (
+                          <div className="mt-1 text-[11px] text-amber-200">
+                            Saknas här: {item.missingEnvVars.join(", ")}
+                          </div>
+                        )}
+                        {item.setupGuide && (
+                          <div className="text-muted-foreground mt-1 text-[11px]">
+                            {item.setupGuide}
+                          </div>
+                        )}
+                        {item.envVars.length > 0 && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="mt-2 h-7 px-2 text-[11px]"
+                            onClick={() =>
+                              openEnvTab(item.missingEnvVars.length > 0 ? item.missingEnvVars : item.envVars)
+                            }
+                          >
+                            Öppna miljövariabler
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {integrationError && (
                 <div className="text-muted-foreground text-xs">
                   Kunde inte hämta integrationsstatus.
@@ -464,6 +693,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
 
               {integrationStatus && statusSummary && (
                 <div className="space-y-1">
+                  <div className="text-foreground text-xs font-medium">Plattformens status</div>
                   {integrationStatus.items.map((item) => {
                     const stateLabel = item.enabled
                       ? "OK"
@@ -496,12 +726,9 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
                 </div>
               )}
 
-              {/* Install new integration */}
-              {projectId && (
+              {isRealProject ? (
                 <div className="border-border mt-2 rounded-md border p-2">
-                  <div className="text-foreground text-xs font-medium">
-                    Lägg till databasintegration
-                  </div>
+                  <div className="text-foreground text-xs font-medium">Marketplace på projektet</div>
                   {strategy && (
                     <div className="text-muted-foreground mt-1 text-[11px]">
                       Du hanterar och bekostar integrationen själv.
@@ -553,12 +780,15 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
                     </div>
                   )}
                 </div>
+              ) : (
+                <div className="border-border mt-2 rounded-md border border-dashed p-2 text-[11px] text-muted-foreground">
+                  Marketplace-installationer visas när chatten har skapat ett riktigt projekt-ID.
+                </div>
               )}
 
-              {/* MCP priorities */}
               {mcpPriorities.length > 0 && (
                 <div className="border-border mt-2 rounded-md border p-2">
-                  <div className="text-foreground text-xs font-medium">Prioritering</div>
+                  <div className="text-foreground text-xs font-medium">MCP-prioritering</div>
                   <div className="mt-1 space-y-1">
                     {mcpPriorities.slice(0, 5).map((item) => (
                       <div
@@ -596,19 +826,78 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
           {/* Env vars tab */}
           <TabsContent value="env">
             <div className="space-y-2">
-              {!projectId && (
+              <div className="rounded-lg border border-border/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                Här visas miljövariabler för det genererade projektet, inte din lokala{" "}
+                <code>.env.local</code>.
+              </div>
+
+              {appProjectId && !hasRealV0Project && (
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-100">
+                  Egna motorn sparar dessa projektvariabler i Sajtmaskins projektdata och skickar dem
+                  vidare vid publicering. När ett riktigt v0-projekt finns används dess projektvariabler i
+                  stället.
+                </div>
+              )}
+
+              {(siteIntegrations.length > 0 || likelyRequiredEnvKeys.length > 0) && (
+                <div className="border-border rounded-md border p-2 text-xs">
+                  <div className="text-foreground font-medium">Det verkar krävas för aktiv sajt</div>
+                  <div className="text-muted-foreground mt-1 text-[11px]">
+                    Buildern har hittat {siteIntegrations.length} kodsignal
+                    {siteIntegrations.length === 1 ? "" : "er"} och {likelyRequiredEnvKeys.length} trolig
+                    {likelyRequiredEnvKeys.length === 1 ? "" : "a"} miljövariabel
+                    {likelyRequiredEnvKeys.length === 1 ? "" : "er"}.
+                  </div>
+                  {likelyRequiredEnvKeys.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {likelyRequiredEnvKeys.map((key) => {
+                        const isPresent = configuredEnvKeys.has(key);
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => openEnvTab([key])}
+                            className={cn(
+                              "rounded-full border px-2 py-0.5 text-[10px]",
+                              isPresent
+                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                                : "border-amber-500/40 bg-amber-500/10 text-amber-200",
+                            )}
+                          >
+                            {key}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {configuredRequiredEnvKeys.length > 0 && (
+                    <div className="mt-2 text-[11px] text-emerald-200">
+                      Redan satta i projektet: {configuredRequiredEnvKeys.join(", ")}
+                    </div>
+                  )}
+                  {missingRequiredEnvKeys.length > 0 && (
+                    <div className="mt-1 text-[11px] text-amber-200">
+                      Saknas fortfarande: {missingRequiredEnvKeys.join(", ")}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!hasProjectContext && (
                 <div className="text-muted-foreground rounded-md border border-dashed p-2 text-xs">
-                  Skapa eller öppna en chat först så att projektet får ett riktigt projectId.
+                  Skapa eller öppna en chat och generera en version först så att projektet får ett riktigt
+                  projectId.
                 </div>
               )}
 
-              {syntheticProject && (
+              {syntheticProject && !appProjectId && (
                 <div className="rounded-lg border border-border/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  Miljövariabler kan sättas efter att en sajt har genererats och ett riktigt projekt skapats.
+                  Projektet har just nu ett tillfälligt ID. Du kan redan se vilka nycklar sajten verkar
+                  behöva, men själva projektvariablerna kan först sättas när ett riktigt v0-project skapas.
                 </div>
               )}
 
-              {projectId && (
+              {isRealProject && (
                 <>
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
                     <Input

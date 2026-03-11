@@ -44,8 +44,8 @@ HEADLESS_ASK=n
 Run either helper from its own folder, or from the repo root:
 
 ```powershell
-python .\v0_vercel_agent\talk_to_v0_doc\ask_v0.py
-python .\v0_vercel_agent\talk_to_vercel_doc\ask_vercel.py
+python .\tools\doc-browser\talk_to_v0_doc\ask_v0.py
+python .\tools\doc-browser\talk_to_vercel_doc\ask_vercel.py
 ```
 
 Commands inside the interactive loop:

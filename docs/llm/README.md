@@ -25,6 +25,11 @@ This folder contains active AI, prompt, gateway, and own-engine documentation.
 - implementation plans
 - validation logs
 
+Related architecture doc:
+
+- `../architecture/generation-loop-and-error-memory.md`
+  Current generation, post-check, scaffold traceability, and error-memory flow.
+
 ## Schema docs
 
 Schema-heavy docs now live under `docs/schemas/`.

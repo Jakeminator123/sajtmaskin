@@ -3,7 +3,7 @@ services:
     name: openclaw-sajtagenten
     runtime: docker
     plan: starter
-    rootDir: docker_sajtbyggar-agent
+    rootDir: infra/openclaw
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:

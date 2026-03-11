@@ -1,0 +1,22 @@
+---
+description: Allow reasoned access to env and ignore files
+alwaysApply: true
+---
+
+# Env and ignore file access
+
+- You may read local env files and ignore files when there is a concrete reason.
+- Valid reasons include debugging setup, deployment issues, env mismatches,
+  integration failures, archive visibility, documentation cleanup, and repo
+  structure work.
+- This access includes files such as `.env*`, `ENV.md`, `config/env-policy.json`,
+  `.gitignore`, `.cursorignore`, `.dockerignore`, `.eslintignore`,
+  `.prettierignore`, `.npmignore`, and similar ignore/config files.
+- Prefer the smallest useful read first, but do not avoid these files when they
+  are the real source of truth for the issue.
+- You may edit ignore files when needed to improve project structure, indexing,
+  archival visibility, or maintenance workflows.
+- Never commit secrets, paste raw secret values into chat, or expose sensitive
+  env contents unless the user explicitly asks for the exact values.
+- When reporting on env files, summarize keys, categories, or mismatches unless
+  full values are necessary and explicitly requested.

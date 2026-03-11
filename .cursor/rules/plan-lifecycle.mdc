@@ -1,0 +1,16 @@
+---
+description: Keep plan files sorted by execution status
+alwaysApply: true
+---
+
+# Plan lifecycle
+
+- New execution-ready plans belong in `docs/plans/active/`.
+- Plans that are partially implemented, blocked, stale, or need verification belong in `docs/plans/review-needed/`.
+- Fully executed or superseded plans belong in `docs/plans/archived/`.
+- Keep only one canonical copy of a plan. Do not leave duplicate plan notes across root folders.
+- When a plan changes status, update:
+  - `docs/plans/README.md`
+  - `docs/architecture/agent-roadmap-and-handoff.md`
+  - the local README in the destination folder
+- During migration, if older numbered plans still physically live in `docs/plans/`, treat `docs/architecture/agent-roadmap-and-handoff.md` as the status source of truth.

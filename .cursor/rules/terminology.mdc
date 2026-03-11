@@ -49,7 +49,7 @@ When discussing generation architecture, prefer this mental model:
 | Lane | What belongs here | What it is not |
 |------|-------------------|----------------|
 | **Runtime lane** | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not raw external datasets |
-| **Research lane** | `v0_vercel_agents/official_docs/`, `v0_vercel_agents/template_library/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
+| **Research lane** | `v0_vercel_agents/official_docs/`, `research/external-templates/reference-library/`, raw discovery under `research/external-templates/raw-discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
 
 Important rule:
 - Treat the **template gallery** in `src/lib/templates/` as a product/UI discovery surface, not as a third generation lane.
@@ -64,7 +64,11 @@ These concepts are different and should NOT be mixed:
 | **Sajtmaskin template gallery item** | `hemsidemall`, `startmall`, or `kategori-mall` | A user-facing gallery entry from `src/lib/templates/`. Useful for browsing, filtering, and inspiration in the product UI. It is not the runtime scaffold registry. | Product/UI concept |
 | **Scaffold** | `grundmall` or `starter scaffold` | An internal, code-level starter project from `src/lib/gen/scaffolds/` that the engine modifies instead of generating everything from scratch. | Internal runtime concept |
 | **Vercel Template** | `extern Vercel-template` | A public starter repo from [vercel.com/templates](https://vercel.com/templates). External reference material only, not a live runtime dependency. | External ecosystem concept |
-| **Curated template reference** | `kuraterad referensmall` | A normalized dossier or generated JSON derived from external template research, typically under `v0_vercel_agents/template_library/` or `src/lib/gen/template-library/`. Used to improve scaffolds, not to replace them at runtime. | Research/curation concept |
+| **Curated template reference** | `kuraterad referensmall` | A normalized reference dossier or generated JSON derived from external template research, typically under `research/external-templates/reference-library/` or `src/lib/gen/template-library/`. Used to improve scaffolds, not to replace them at runtime. | Research/curation concept |
+| **Reference dossier** | `referensdossier` | One curated per-template research package containing a manifest, summary, and selected file excerpts. Stored under `research/external-templates/reference-library/dossiers/`. | Research/curation concept |
+| **Raw discovery** | `rå upptäckt` | Noisy local scrape/discovery output stored under `research/external-templates/raw-discovery/`. Useful for triage and audit work, not a runtime or canonical research source. | Research input concept |
+| **Raw template dataset** | `rå template-dataset` | Local `_sidor`-style datasets used as build-time input for curation scripts. Richer than raw discovery but still not runtime data. | Research input concept |
+| **Generated research artifact** | `genererad research-artefakt` | Committed JSON or embeddings derived from curated reference data, such as `src/lib/gen/template-library/` or `src/lib/gen/scaffolds/scaffold-research.generated.json`. | Build/runtime support concept |
 | **Multi-tenant** | `delad plattform` | One codebase / one deployment serving many tenants with different data/domains. Best term for the sajtmaskin app itself. | Hosting architecture concept |
 | **Multi-project** | `separata kundprojekt` | One isolated Vercel project per customer/app. Best term for generated user sites and deploy targets. | Hosting architecture concept |
 
@@ -73,13 +77,27 @@ Preferred terminology:
 - When referring to `src/lib/templates/`: say **`template gallery`** or **`gallery item`**
 - In engine/code discussions: say **`scaffold`** or **`starter scaffold`**
 - When referring to Vercel's public library: explicitly say **`Vercel template`**
-- When referring to normalized external research: say **`curated template reference`** or **`template library dossier`**
+- When referring to normalized external research: say **`curated template reference`** or **`reference dossier`**
+- When referring to noisy local scrape output: say **`raw discovery`**
+- When referring to committed JSON/embeddings derived from research: say **`generated research artifacts`**
 
 Important rule:
 - Do NOT call our internal scaffolds just `templates` without qualifier, since sajtmaskin already uses `templates` for another concept.
 - Do NOT call `src/lib/templates/` entries `Vercel templates` unless you explicitly mean their upstream source, not their role inside the product.
-- Do NOT describe `v0_vercel_agents/template_library/` as a second runtime scaffold registry.
+- Do NOT describe `research/external-templates/reference-library/` as a second runtime scaffold registry.
+- Do NOT describe `research/external-templates/raw-discovery/` as curated research. It is intentionally noisy input.
+- Do NOT imply that external reference templates are cloned into runtime generation by default. They inform prompts, embeddings, and scaffold improvements unless a separate import flow explicitly says otherwise.
 - Do NOT use `multi-tenant` or `multi-project` as if they were template concepts. They describe hosting/deployment architecture, not content/category selection.
+
+### Research pipeline terms
+
+Use this pipeline vocabulary consistently:
+
+1. `raw discovery` -> scrape output such as `research/external-templates/raw-discovery/`
+2. `raw template dataset` -> `_sidor`-style local datasets used for curation
+3. `reference dossier` -> curated per-template package under `research/external-templates/reference-library/dossiers/`
+4. `generated research artifacts` -> committed JSON/embeddings in `src/lib/gen/template-library/` and scaffold research JSON
+5. `runtime scaffold` -> internal starter used directly by generation
 
 ### Build method (`BuildMethod`)
 

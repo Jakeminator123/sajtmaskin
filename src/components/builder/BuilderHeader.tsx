@@ -57,7 +57,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useCallback, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
@@ -184,6 +184,7 @@ export function BuilderHeader(props: {
     Boolean(promptAssistModel) &&
     !assistModelOptions.some((option) => option.value === promptAssistModel);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
@@ -212,6 +213,9 @@ export function BuilderHeader(props: {
     window.requestAnimationFrame(action);
   }, []);
   const { isAuthenticated, logout } = useAuth();
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
   const handleLogout = useCallback(() => {
     logout();
     runDeferredAction(onGoHome);
@@ -229,7 +233,7 @@ export function BuilderHeader(props: {
         >
           Sajtmaskin
         </button>
-        {isAuthenticated && (
+        {hasMounted && isAuthenticated && (
           <Button variant="ghost" size="sm" onClick={handleLogout} title="Logga ut">
             <LogOut className="h-4 w-4" />
             <span className="hidden sm:inline">Logga ut</span>

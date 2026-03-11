@@ -105,6 +105,34 @@ export function useBuilderDeployActions({
     }
   }, [domainQuery, setDomainResults, setIsDomainSearching]);
 
+  const persistVersionErrorLogs = useCallback(
+    async (
+      errChatId: string,
+      versionId: string,
+      logs: Array<{
+        level: "info" | "warning" | "error";
+        category?: string | null;
+        message: string;
+        meta?: Record<string, unknown> | null;
+      }>,
+    ) => {
+      if (!logs.length) return;
+      try {
+        await fetch(
+          `/api/v0/chats/${encodeURIComponent(errChatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ logs }),
+          },
+        );
+      } catch (error) {
+        console.warn("[Builder] Failed to persist version error logs:", error);
+      }
+    },
+    [],
+  );
+
   const deployActiveVersionToVercel = useCallback(
     async (target: "production" | "preview" = "production", projectName?: string) => {
       if (!chatId) {
@@ -118,10 +146,10 @@ export function useBuilderDeployActions({
       if (isDeploying) return;
 
       setIsDeploying(true);
+      let resolvedStrategy: ImageAssetStrategy = enableBlobMedia && isMediaEnabled ? "blob" : "external";
       try {
         const wantsBlob = enableBlobMedia;
-        const resolvedStrategy: ImageAssetStrategy =
-          wantsBlob && isMediaEnabled ? "blob" : "external";
+        resolvedStrategy = wantsBlob && isMediaEnabled ? "blob" : "external";
         if (wantsBlob && !isMediaEnabled) {
           toast.error("Blob storage saknas – deploy körs med externa bild-URL:er.");
         }
@@ -132,6 +160,7 @@ export function useBuilderDeployActions({
           body: JSON.stringify({
             chatId,
             versionId: activeVersionId,
+            projectId: appProjectId,
             target,
             imageStrategy: resolvedStrategy,
             ...(projectName?.trim() ? { projectName: projectName.trim() } : {}),
@@ -172,12 +201,26 @@ export function useBuilderDeployActions({
         }
       } catch (error) {
         console.error("Deploy error:", error);
+        if (chatId && activeVersionId) {
+          void persistVersionErrorLogs(chatId, activeVersionId, [
+            {
+              level: "error",
+              category: "deploy",
+              message: error instanceof Error ? error.message : "Failed to deploy",
+              meta: {
+                target,
+                projectName: projectName?.trim() || null,
+                imageStrategy: resolvedStrategy,
+              },
+            },
+          ]);
+        }
         toast.error(error instanceof Error ? error.message : "Failed to deploy");
       } finally {
         setIsDeploying(false);
       }
     },
-    [chatId, activeVersionId, isDeploying, isMediaEnabled, enableBlobMedia, setIsDeploying, setLastDeployVercelProjectId, setActiveDeploymentId, setDomainManagerOpen],
+    [chatId, activeVersionId, isDeploying, isMediaEnabled, enableBlobMedia, appProjectId, setIsDeploying, setLastDeployVercelProjectId, setActiveDeploymentId, setDomainManagerOpen, persistVersionErrorLogs],
   );
 
   const handleConfirmDeploy = useCallback(async () => {
@@ -219,34 +262,6 @@ export function useBuilderDeployActions({
     setIsDeployNameSaving,
     setAppProjectName,
   ]);
-
-  const persistVersionErrorLogs = useCallback(
-    async (
-      errChatId: string,
-      versionId: string,
-      logs: Array<{
-        level: "info" | "warning" | "error";
-        category?: string | null;
-        message: string;
-        meta?: Record<string, unknown> | null;
-      }>,
-    ) => {
-      if (!logs.length) return;
-      try {
-        await fetch(
-          `/api/v0/chats/${encodeURIComponent(errChatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ logs }),
-          },
-        );
-      } catch (error) {
-        console.warn("[Builder] Failed to persist version error logs:", error);
-      }
-    },
-    [],
-  );
 
   const triggerAutoFix = useCallback((payload: {
     chatId: string;

@@ -1,0 +1,18 @@
+---
+description: Route docs and schemas by lifecycle state
+alwaysApply: true
+---
+
+# Documentation lifecycle
+
+- Use `docs/architecture/` for canonical system overviews, lifecycle docs, and agent handoff notes.
+- Use `docs/schemas/` only for stable human-readable schema docs whose runtime truth lives in code.
+- Use `docs/llm/` for AI, prompt, gateway, and generation-strategy notes.
+- Use `docs/analyses/` for investigations, comparisons, and temporary analysis artifacts.
+- Use `docs/old/` for historical or superseded material.
+- Before adding a new document, classify it as `active`, `review-needed`, or `archived`.
+- If a document is partial, stale, or waiting for truth-check, do not present it as canonical.
+- Prefer replacing or relocating overlapping documentation instead of leaving
+  multiple near-duplicate docs alive.
+- After larger documentation reorganizations, update `docs/README.md` and the relevant local README or index file in the same turn.
+- Consult `docs/architecture/documentation-lifecycle.md` for the canonical routing policy.

@@ -558,12 +558,17 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
         let res: Response;
         try {
+          const normalizedSpecModel = normalizeAssistModel(model);
+          const requestedSpecModel = isGatewayAssistModel(normalizedSpecModel)
+            ? normalizedSpecModel
+            : "openai/gpt-5.4";
           res = await fetch("/api/ai/spec", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: controller.signal,
             body: JSON.stringify({
               prompt: originalPrompt,
+              model: requestedSpecModel,
             }),
           });
         } finally {

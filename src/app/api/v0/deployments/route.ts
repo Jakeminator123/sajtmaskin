@@ -28,7 +28,8 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { getVersionById } from "@/lib/db/chat-repository-pg";
+import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
+import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 
 export const runtime = "nodejs";
 
@@ -357,7 +358,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const { chatId, versionId, projectName, target, imageStrategy } = validationResult.data;
+      const { chatId, versionId, projectName, target, imageStrategy, projectId } = validationResult.data;
       const resolvedImageStrategy: ImageAssetStrategy =
         imageStrategy ?? (process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "external");
       const deployTarget = target === "preview" ? "preview" : "production";
@@ -379,6 +380,8 @@ export async function POST(req: Request) {
         if (!engineVersion) {
           return NextResponse.json({ error: "Version not found" }, { status: 404 });
         }
+        const engineChat = await getChat(engineVersion.chat_id);
+        const engineProjectId = projectId?.trim() || engineChat?.project_id || null;
 
         const codeFiles = await getVersionFiles(versionId);
         if (!codeFiles || codeFiles.length === 0) {
@@ -402,6 +405,12 @@ export async function POST(req: Request) {
         const vercelProjectName = sanitizeVercelProjectName(
           projectName || `sajtmaskin-${chatId}`,
         );
+        const envVarsForDeploy = engineProjectId
+          ? await getStoredProjectEnvVarMap(engineProjectId).catch((error) => {
+              console.warn("[deploy] Failed to load app-project env vars:", error);
+              return {};
+            })
+          : {};
 
         const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
         if (fixesApplied.length > 0) {
@@ -438,10 +447,11 @@ export async function POST(req: Request) {
           projectName: vercelProjectName,
           target: deployTarget,
           files: vercelFiles,
+          envVars: envVarsForDeploy,
         });
 
         if (created.vercelProjectId) {
-          const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, {});
+          const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
           if (envSync.errors.length > 0) {
             console.warn("[deploy] env var project sync errors:", envSync.errors);
           }
@@ -456,6 +466,8 @@ export async function POST(req: Request) {
           source: "engine-postgres",
           status: mapped.status,
           readyState: created.readyState,
+          projectId: engineProjectId,
+          envVarCount: Object.keys(envVarsForDeploy).length,
           url: created.url ?? null,
           inspectorUrl: created.inspectorUrl ?? null,
         });
@@ -476,6 +488,8 @@ export async function POST(req: Request) {
           url: created.url,
           inspectorUrl: created.inspectorUrl,
           readyState: created.readyState,
+          projectId: engineProjectId,
+          envVarCount: Object.keys(envVarsForDeploy).length,
           fixesApplied,
           preDeployWarnings: warnings,
           imageStrategyRequested: imageStrategy ?? null,

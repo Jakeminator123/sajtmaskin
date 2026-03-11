@@ -1,7 +1,43 @@
 # Miljövariabler
 
 Översikt av env-variabler för lokal utveckling och Vercel-deploy.
-Fullständig validering finns i `src/lib/env.ts` och `src/app/api/admin/env/route.ts`.
+
+## Hur env-filerna hänger ihop
+
+```
+config/env-policy.json          (committad, delad policy -- klassificering, targets, known-empty-ok)
+        |
+        +-- check_env.py        (committad, read-only CLI audit)
+        +-- src/lib/env-audit.ts (committad, runtime audit i appen)
+        +-- src/lib/env.ts       (committad, Zod-schema med alla env-namn)
+
+.env.local                       (gitignored, lokala dev-hemligheter)
+.env.production                  (gitignored, referenskopia av prod-värden)
+
+Vercel Environment Variables      (web UI / CLI, de riktiga prod/preview/dev-värdena)
+```
+
+**Arbetsflöde vid ny env-variabel:**
+
+1. Lägg till i `src/lib/env.ts` (Zod-schema).
+2. Lägg till i `config/env-policy.json` (classification + recommendedVercelTargets).
+3. Lägg till i `.env.local` med dev-värde.
+4. Sätt i Vercel via web UI eller `vercel env add`.
+5. Kör `python check_env.py` för att verifiera att allt är konsistent.
+6. Uppdatera tabellerna nedan i `ENV.md` om variabeln är kritisk.
+
+**Kontrollpanel (manage_env.py):**
+
+```
+python manage_env.py                  # interaktiv meny
+python manage_env.py status           # full tabell med alla env vars
+python manage_env.py add KEY          # guidad tillägg till alla ställen
+python manage_env.py set KEY VALUE    # skriv värde i lokala filer
+python manage_env.py push KEY         # skicka lokalt värde till Vercel
+python manage_env.py push --all       # skicka alla saknade till Vercel
+python manage_env.py pull             # kolla vad Vercel har som lokalt saknar
+python manage_env.py audit            # read-only audit (delegerar till check_env.py)
+```
 
 ## Infrastruktur-topologi
 
@@ -16,6 +52,46 @@ Fullständig validering finns i `src/lib/env.ts` och `src/app/api/admin/env/rout
 **Separation:** Dev och prod MÅSTE använda separata Redis- och Postgres-instanser.
 Alla Redis-nycklar har automatisk prefix (`dev:` / `prod:`) via `REDIS_KEY_PREFIX` i
 `src/lib/config.ts`, men separata instanser ger äkta isolering.
+
+## Delade vs projektspecifika variabler
+
+Det finns två olika nivåer av env-variabler i Sajtmaskin:
+
+### 1. Delade app-variabler för själva Sajtmaskin
+
+Dessa driver plattformen, buildern och infrastrukturen och delas av hela
+Sajtmaskin-installationen:
+
+- databas och cache: `POSTGRES_URL`, `REDIS_URL`, `KV_URL`, `UPSTASH_*`
+- auth och sessioner: `JWT_SECRET`
+- AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `V0_API_KEY`
+- deploy och Vercel: `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, `BLOB_READ_WRITE_TOKEN`
+- interna tjänster: `OPENCLAW_*`, `INSPECTOR_*`, `RESEND_API_KEY`
+
+De här ska hanteras som delad driftkonfiguration för plattformen, inte som
+kund-/sajtdata.
+
+### 2. Projektspecifika variabler för den genererade sajten
+
+Detta är nycklar som den aktuella kundsajten verkar behöva utifrån sin egen kod,
+t.ex.:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `STRIPE_SECRET_KEY`
+- `RESEND_API_KEY`
+- `OPENAI_API_KEY`
+- andra koddetekterade nycklar i den aktiva versionen
+
+Nuvarande lagring:
+
+- v0-projekt: lagras i v0:s project env-vars
+- egen motor utan riktigt v0-projekt: lagras projektspecifikt i Sajtmaskins
+  `project_data.meta.projectEnvVars`
+
+Vid publicering med egen motor skickas dessa projektspecifika variabler vidare
+till Vercel-deployen, så att builderpanelen och publiceringsflödet använder samma
+källa.
 
 ## Kritiska (måste vara satta i produktion)
 
@@ -77,7 +153,7 @@ preview-URL:er, demo-URL:er och hemsidor. Lokal `npm run dev` räcker för utvec
 
 1. **Deploy** denna version (sajtmaskin-appen).
 2. Sätt env-variablerna i Vercel för rätt miljöer (production, preview, development).
-3. `manage_env.py` kan användas för att synka och jämföra lokala vs Vercel-env.
+3. `check_env.py` kan anvandas for att jamfora lokala vs Vercel-env read-only.
 
 ## Lokal utveckling (setup från scratch)
 
@@ -87,7 +163,11 @@ preview-URL:er, demo-URL:er och hemsidor. Lokal `npm run dev` räcker för utvec
 4. **Postgres (dev):** Skapa ett gratis Supabase-projekt, sätt `POSTGRES_URL`.
 5. Kör `npm run db:init` för att skapa databasschemat.
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
-7. MCP-servrar i Cursor (`.cursor/mcp.json`): `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx`.
+7. MCP-servrar i Cursor (`.cursor/mcp.json`): `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx tools/mcp/...`.
+8. Extern template-research:
+   - `npm run references:discover` skriver rå discovery till `research/external-templates/raw-discovery/`
+   - `npm run template-library:build` bygger den kuraterade referensytan i `research/external-templates/reference-library/`
+   - runtime fortsätter läsa genererade artefakter i `src/lib/gen/template-library/`
 
 ## Rate limits och budgetvarningar
 

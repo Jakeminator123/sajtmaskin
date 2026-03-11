@@ -19,6 +19,7 @@
 import { generateObject } from "ai";
 import { gateway } from "ai";
 import { z } from "zod";
+import { isGatewayAssistModel, normalizeAssistModel } from "./promptAssist";
 
 // Spec schema for structured output
 const websiteSpecSchema = z.object({
@@ -75,6 +76,7 @@ const DEFAULT_SPEC: WebsiteSpec = {
   mustHave: ["Responsive design", "Dark mode support", "Accessible"],
   avoid: ["Lorem ipsum", "Broken links"],
 };
+const DEFAULT_SPEC_MODEL = "openai/gpt-5.4";
 
 const SPEC_SYSTEM_PROMPT = `You are a senior product manager and UX designer. Your job is to transform a user's website request into a structured specification.
 
@@ -95,9 +97,14 @@ Output a JSON object matching the schema exactly. Do not include any explanation
  * @param userPrompt - The user's original website request
  * @returns A structured WebsiteSpec
  */
-export async function generateWebsiteSpec(userPrompt: string): Promise<WebsiteSpec> {
+export async function generateWebsiteSpec(
+  userPrompt: string,
+  modelOverride?: string | null,
+): Promise<WebsiteSpec> {
   try {
-    const model = gateway("anthropic/claude-sonnet-4.6");
+    const requestedModel = normalizeAssistModel(modelOverride ?? DEFAULT_SPEC_MODEL);
+    const resolvedModel = isGatewayAssistModel(requestedModel) ? requestedModel : DEFAULT_SPEC_MODEL;
+    const model = gateway(resolvedModel);
 
     const result = await generateObject({
       model,
@@ -179,11 +186,14 @@ Original request (for context): ${originalPrompt}`;
  * @param userPrompt - The user's original website request
  * @returns Object containing spec and formatted prompt
  */
-export async function processPromptWithSpec(userPrompt: string): Promise<{
+export async function processPromptWithSpec(
+  userPrompt: string,
+  options?: { model?: string | null },
+): Promise<{
   spec: WebsiteSpec;
   enhancedPrompt: string;
 }> {
-  const spec = await generateWebsiteSpec(userPrompt);
+  const spec = await generateWebsiteSpec(userPrompt, options?.model);
   const enhancedPrompt = buildPlatformPromptFromSpec(spec, userPrompt);
 
   return {

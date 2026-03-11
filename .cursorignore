@@ -27,7 +27,7 @@ services/mpc/docs/docgrab__*/
 services/mpc/logs/
 
 # Temp/dev
-old
+old/
 skrapning
 ovrigt
 sajtgen

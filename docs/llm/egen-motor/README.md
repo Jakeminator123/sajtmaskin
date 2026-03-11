@@ -62,7 +62,7 @@ flowchart TD
     end
 
     subgraph output [Output]
-        VER[Version sparas i SQLite]
+        VER[Version sparas i engine store]
         PRE[Preview i iframe<br/>preview.ts]
         DL[Nedladdning zip<br/>project-scaffold.ts]
     end
@@ -220,8 +220,15 @@ export function shouldUseV0Fallback(): boolean {
 | 2026-03-09 | Plan 11+13: Fler regler + säkerhet (85% paritet) |
 | 2026-03-10 | Systemprompt-kvalitet, retry-integration, scaffold, styled stubs (90% paritet) |
 | 2026-03-10 | Dialog onClose-fix, npm audit, konsoliderad dokumentation |
+| 2026-03-11 | Same-chat follow-up kan nu stanna upp och fråga om prompten verkar betyda redesign snarare än refinement |
+| 2026-03-11 | Spec-first-kedjan använder inte längre en hårdkodad Claude-modell utan väljer en gateway-kompatibel assistmodell |
 
 ## Dokumentation i denna mapp
+
+For the current generation loop, persisted error-memory behavior, scaffold
+traceability, and assistant-bubble rendering, see:
+
+- `../../architecture/generation-loop-and-error-memory.md`
 
 ```
 docs/llm/egen-motor/

@@ -9,10 +9,13 @@ This folder belongs to the research lane, not the runtime lane.
 - `Research lane`
   Uses this folder plus curated generated artifacts to improve prompts, docs context, and future scaffold upgrades.
 
-Inside the research lane, this folder has two sub-areas:
+Inside the research lane, this folder now focuses on documentation helpers:
 
 - `official_docs/` for agent-facing notes about official documentation and MCP-backed doc sources.
-- `template_library/` for curated template dossiers derived from the raw Vercel template dataset and cloned repos.
+
+The curated external reference library moved to:
+
+- `research/external-templates/reference-library/`
 
 This folder is not the runtime scaffold registry.
 
@@ -33,7 +36,7 @@ curation, and build-time improvements.
 ## Intended flow
 
 1. Crawl or sync raw references outside the runtime path.
-2. Normalize and validate those references into `template_library/`.
+2. Normalize and validate those references into `research/external-templates/reference-library/`.
 3. Use `official_docs/` for authoritative behavior and API guidance.
 4. Promote the strongest template references into internal scaffold improvements.
 5. Keep runtime scaffolds separate from the research lane.
@@ -42,4 +45,5 @@ curation, and build-time improvements.
 
 - `src/lib/gen/scaffolds/`
 - `src/lib/gen/template-library/`
-- `v0_vercel_agent/`
+- `research/external-templates/`
+- `tools/doc-browser/`

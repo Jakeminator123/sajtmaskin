@@ -1,0 +1,26 @@
+---
+description: Keep structural changes documented in canonical docs
+alwaysApply: true
+---
+
+# Documentation update rule
+
+When changing project structure, terminology, major data flow, or research/runtime
+boundaries:
+
+1. Update the existing canonical docs in the same turn.
+2. Prefer overwriting or extending the existing source-of-truth files instead of
+   creating parallel notes with overlapping meaning.
+3. Default to replacing stale or overlapping documentation rather than adding a
+   new sibling file.
+4. Only create a new document when the scope is genuinely new, or when the file
+   is serving as an index, lifecycle doc, or migration handoff.
+5. If a path is renamed or moved, update:
+   - `.cursor/rules/terminology.mdc`
+   - relevant files under `docs/`
+   - `scripts/README.md` if scripts or generated artifacts change
+   - `ENV.md` if local setup paths change
+6. If a larger intervention needs dedicated documentation, place it under
+   `docs/architecture/` and link to it from `docs/README.md`.
+7. Leave temporary compatibility notes only when needed for migration, and make
+   it explicit which new path is canonical.

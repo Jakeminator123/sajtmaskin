@@ -11,11 +11,11 @@
     },
     "sajtmaskin-engine": {
       "command": "npx",
-      "args": ["tsx", "services/mcp/engine-server.ts"]
+      "args": ["tsx", "tools/mcp/engine-server.ts"]
     },
     "sajtmaskin-scaffolds": {
       "command": "npx",
-      "args": ["tsx", "services/mcp/scaffold-server.ts"]
+      "args": ["tsx", "tools/mcp/scaffold-server.ts"]
     }
   }
 }

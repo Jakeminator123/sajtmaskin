@@ -208,7 +208,7 @@ export function UnifiedElementPicker({
     [uiCollections, uiActiveCollectionId],
   );
   const uiVisible = useMemo(() => {
-    let categories = uiActiveCategory === "all"
+    const categories = uiActiveCategory === "all"
       ? uiSearched
       : uiSearched.filter((category) => category.id === uiActiveCategory);
     if (uiActiveCollectionId === "all") return categories;

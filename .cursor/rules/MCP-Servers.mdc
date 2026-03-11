@@ -17,7 +17,7 @@ före web search eller träningsdata.
 | `sajtmaskin-engine` | Lokal own-engine MCP-server för generering, manifest, filer och runtime-URL:er utan HTTP-proxy via appens MCP-routes. |
 | `sajtmaskin-scaffolds` | Inspektera interna scaffolds -- manifests, filer, taggar, jämför. Läser direkt från registret. |
 
-Dessa körs lokalt via `npx tsx services/mcp/...` och ska användas för
+Dessa körs lokalt via `npx tsx tools/mcp/...` och ska användas för
 projektinterna arbetsflöden som inte hör hemma i produktionsrouten eller
 externa plattforms-MCP:er.
 

@@ -3,7 +3,7 @@
 ## Scope
 
 This document collects the most important non-scaffold schema surfaces: request
-validation, database shape, and curated template-library data.
+validation, database shape, and curated external-reference data.
 
 Primary code sources:
 
@@ -11,7 +11,7 @@ Primary code sources:
 - `scripts/db-init.mjs`
 - `src/lib/validations/chatSchemas.ts`
 - `src/lib/gen/template-library/types.ts`
-- `v0_vercel_agents/template_library/schema.template-manifest.json`
+- `research/external-templates/reference-library/schema.template-manifest.json`
 
 ## Database
 
@@ -42,12 +42,12 @@ This file defines:
 - deployment identifier payload validation
 - attachment payload validation
 
-## Template-library schema
+## External reference schema
 
 Curated external template data is documented by:
 
 - `src/lib/gen/template-library/types.ts`
-- `v0_vercel_agents/template_library/schema.template-manifest.json`
+- `research/external-templates/reference-library/schema.template-manifest.json`
 
 Key concepts:
 
@@ -56,7 +56,7 @@ Key concepts:
 - `TemplateLibraryRepoInfo`
 - `TemplateLibrarySignals`
 - per-dossier `manifest.json` files in
-  `v0_vercel_agents/template_library/dossiers/*`
+  `research/external-templates/reference-library/dossiers/*`
 
 ## Integration notes
 

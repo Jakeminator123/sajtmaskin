@@ -17,7 +17,7 @@ Det finns fyra olika saker som lätt blandas ihop. De ska hållas isär:
 
 | Begrepp | Vad det är | Var det lever | Rekommenderad term |
 |---------|------------|---------------|--------------------|
-| **Nuvarande templates i sajtmaskin** | Katalogobjekt/inspirationsobjekt med metadata, preview-bilder och kategorier. De är inte lokala körbara kodbaser. | `src/lib/templates/*` | `template-katalog` eller `extern template-katalog` |
+| **Nuvarande templates i sajtmaskin** | Katalogobjekt/inspirationsobjekt med metadata, preview-bilder och kategorier. De är inte lokala körbara kodbaser. | `src/lib/templates/*` | `template gallery` eller `gallery templates` |
 | **Hemsidemall / scaffold** | Intern startkod som motorn utgår från och modifierar. Ska vara ett minimalt men körbart Next.js-projekt/sektionpaket. | `src/lib/gen/scaffolds/*` | `hemsidemall`, `startmall`, `scaffold` |
 | **Vercel Template** | Publikt template/starter-repo från Vercels katalog. Bra som referens eller råmaterial, inte som live runtime-input. | [vercel.com/templates](https://vercel.com/templates) | `Vercel template` |
 | **Vercel for Platforms** | Hosting-/deploy-arkitektur för att driva en plattform som skapar och hostar användarsajter. Inte samma sak som en kodmall. | Vercel SDK / Platforms | `multi-tenant` eller `multi-project` |
@@ -148,7 +148,7 @@ Från analysen i `docs/llm/egen-motor/analys/`:
 
 ## Vercel Templates som scaffold-källa
 
-Vercels template-galleri (https://vercel.com/templates) har hundratals kategoriserade templates. Vi bör INTE kopiera deras kod, men vi kan:
+Vercels publika template-bibliotek (https://vercel.com/templates) har hundratals kategoriserade templates. Vi bör INTE kopiera deras kod, men vi kan:
 
 1. **Studera strukturen** — vilka filer, vilka sektioner, vilken layout
 2. **Skapa minimala egna versioner** — 3-5 filer per scaffold med shadcn/ui

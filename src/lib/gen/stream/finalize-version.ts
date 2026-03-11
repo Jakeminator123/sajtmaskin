@@ -175,6 +175,8 @@ export async function finalizeAndSaveVersion(
     throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
   }
 
+  onProgress?.("finalizing", { phase: "start" });
+
   // 4. Save assistant message
   const assistantMsg = await chatRepo.addMessage(chatId, "assistant", contentForVersion);
 
@@ -364,6 +366,12 @@ export async function finalizeAndSaveVersion(
     issueCount: preflightIssues.length,
     errorCount: preflightErrors.length,
     warningCount: preflightWarnings.length,
+  });
+  onProgress?.("finalizing", {
+    phase: "done",
+    versionId: version.id,
+    fileCount: preflightFileCount,
+    issueCount: preflightIssues.length,
   });
   try {
     await createEngineVersionErrorLogs(preflightLogs);

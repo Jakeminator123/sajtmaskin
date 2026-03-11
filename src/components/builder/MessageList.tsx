@@ -299,6 +299,11 @@ const MessageListComponent = ({
                                 {postCheckSummary.warnings !== null && (
                                   <div>Varningar: {postCheckSummary.warnings}</div>
                                 )}
+                                {postCheckSummary.provisional && (
+                                  <div className="text-amber-300">
+                                    Status: preliminär version medan efterkontroller eller autofix fortsätter
+                                  </div>
+                                )}
                                 {postCheckSummary.previousVersionId && (
                                   <div>
                                     Föregående version: {postCheckSummary.previousVersionId}
@@ -666,7 +671,9 @@ const MessageListComponent = ({
 
                 {message.role === "assistant" ? (
                   textContent ? (
-                    (textContent.includes('file="') || textContent.includes("```")) ? (
+                    (textContent.includes('file="') ||
+                      textContent.includes("```") ||
+                      (Boolean(message.isStreaming) && textContent.length > 400)) ? (
                       <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
                     ) : (
                       <MessageResponse>
@@ -717,7 +724,8 @@ const MessageListComponent = ({
                   Svar krävs för att fortsätta
                 </DialogTitle>
                 <DialogDescription>
-                  Buildern väntar på ditt val innan nästa steg i chatten kan fortsätta.
+                  Buildern väntar på ditt svar innan nästa steg kan fortsätta. Det kan gälla till
+                  exempel integrationer, innehåll, designval eller planblockerare.
                 </DialogDescription>
               </DialogHeader>
 
@@ -1537,6 +1545,7 @@ type PostCheckSummary = {
   warnings: number | null;
   demoUrl: string | null;
   previousVersionId: string | null;
+  provisional: boolean;
 };
 
 function getPostCheckSummary(output: unknown): PostCheckSummary | null {
@@ -1563,6 +1572,7 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
     warnings: warningsCount,
     demoUrl: toString(obj.demoUrl),
     previousVersionId: toString(obj.previousVersionId),
+    provisional: Boolean(summary?.provisional ?? obj.provisional),
   };
 
   const hasAnyValue = Object.values(summaryData).some((value) => value !== null);

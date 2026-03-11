@@ -15,8 +15,8 @@ Use MCP-backed documentation as the primary truth before falling back to local n
 
 ## Local helpers
 
-- `v0_vercel_agent/talk_to_v0_doc/`
-- `v0_vercel_agent/talk_to_vercel_doc/`
+- `tools/doc-browser/talk_to_v0_doc/`
+- `tools/doc-browser/talk_to_vercel_doc/`
 
 These are browser-based research helpers, not production integrations.
 They are best for short, open-ended questions when the user is already logged in
@@ -27,7 +27,7 @@ to the relevant docs "Ask AI" experience.
 1. MCP-backed official docs
 2. Local curated notes in `official_docs/`
 3. Local browser doc helpers for quick exploratory questions
-4. Curated external template dossiers in `template_library/`
+4. Curated external reference dossiers in `research/external-templates/reference-library/`
 5. Raw `_sidor` research only when a higher-quality source is missing
 
 ## Why MCP is still better

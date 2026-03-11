@@ -56,7 +56,11 @@ function buildErrorLogSummary(logs: ErrorLogRow[]) {
     latestPreflight:
       logs.find((log) => typeof log.category === "string" && log.category.startsWith("preflight:")) ?? null,
     latestQualityGate:
-      logs.find((log) => typeof log.category === "string" && log.category.startsWith("quality-gate:")) ?? null,
+      logs.find(
+        (log) =>
+          typeof log.category === "string" &&
+          (log.category === "preflight:quality-gate" || log.category.startsWith("quality-gate:")),
+      ) ?? null,
     latestRender:
       logs.find((log) => log.category === "render-telemetry" || log.category === "preview") ?? null,
   };

@@ -1,7 +1,8 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
-import { engineVersionErrorLogs, versionErrorLogs } from "@/lib/db/schema";
+import { getScaffoldById } from "@/lib/gen/scaffolds";
+import { engineChats, engineVersionErrorLogs, versionErrorLogs } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { VersionErrorLog } from "./shared";
 
@@ -13,6 +14,13 @@ type VersionErrorLogPayload = {
   category?: string | null;
   message: string;
   meta?: Record<string, unknown> | null;
+};
+
+type EngineScaffoldContext = {
+  scaffoldId: string;
+  scaffoldFamily: string | null;
+  scaffoldLabel: string | null;
+  persistedOn: "engine_chat";
 };
 
 function mapLogPayload(payload: VersionErrorLogPayload, now: Date) {
@@ -27,6 +35,67 @@ function mapLogPayload(payload: VersionErrorLogPayload, now: Date) {
     meta: payload.meta || null,
     created_at: now,
   };
+}
+
+function buildEngineScaffoldContext(scaffoldId: string | null): EngineScaffoldContext | null {
+  if (!scaffoldId) return null;
+  const manifest = getScaffoldById(scaffoldId);
+  return {
+    scaffoldId,
+    scaffoldFamily: manifest?.family ?? null,
+    scaffoldLabel: manifest?.label ?? null,
+    persistedOn: "engine_chat",
+  };
+}
+
+function mergeScaffoldContext(
+  meta: Record<string, unknown> | null | undefined,
+  scaffoldContext: EngineScaffoldContext | null,
+) {
+  const base =
+    meta && typeof meta === "object"
+      ? { ...meta }
+      : {};
+  if (!scaffoldContext) {
+    return Object.keys(base).length > 0 ? base : null;
+  }
+
+  const existing =
+    base.scaffoldContext && typeof base.scaffoldContext === "object"
+      ? (base.scaffoldContext as Record<string, unknown>)
+      : {};
+
+  return {
+    ...base,
+    scaffoldContext: {
+      ...existing,
+      ...scaffoldContext,
+    },
+  };
+}
+
+async function enrichEnginePayloads(
+  payloads: VersionErrorLogPayload[],
+): Promise<VersionErrorLogPayload[]> {
+  const chatIds = Array.from(new Set(payloads.map((payload) => payload.chatId).filter(Boolean)));
+  if (chatIds.length === 0) return payloads;
+
+  const rows = await db
+    .select({
+      id: engineChats.id,
+      scaffoldId: engineChats.scaffoldId,
+    })
+    .from(engineChats)
+    .where(inArray(engineChats.id, chatIds));
+
+  const byChatId = new Map(
+    rows.map((row) => [row.id, buildEngineScaffoldContext(row.scaffoldId ?? null)]),
+  );
+
+  return payloads.map((payload) => ({
+    ...payload,
+    meta: mergeScaffoldContext(payload.meta, byChatId.get(payload.chatId) ?? null),
+  }));
 }
 
 export async function createVersionErrorLog(payload: VersionErrorLogPayload): Promise<VersionErrorLog> {
@@ -66,9 +135,10 @@ export async function createEngineVersionErrorLog(
 ): Promise<VersionErrorLog> {
   assertDbConfigured();
   const now = new Date();
+  const [enrichedPayload] = await enrichEnginePayloads([payload]);
   const rows = await db
     .insert(engineVersionErrorLogs)
-    .values(mapLogPayload(payload, now))
+    .values(mapLogPayload(enrichedPayload, now))
     .returning();
   return rows[0] as VersionErrorLog;
 }
@@ -79,9 +149,10 @@ export async function createEngineVersionErrorLogs(
   assertDbConfigured();
   if (payloads.length === 0) return [];
   const now = new Date();
+  const enrichedPayloads = await enrichEnginePayloads(payloads);
   const rows = await db
     .insert(engineVersionErrorLogs)
-    .values(payloads.map((payload) => mapLogPayload(payload, now)))
+    .values(enrichedPayloads.map((payload) => mapLogPayload(payload, now)))
     .returning();
   return rows as VersionErrorLog[];
 }

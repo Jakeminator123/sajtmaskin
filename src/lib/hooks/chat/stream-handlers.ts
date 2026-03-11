@@ -59,6 +59,7 @@ export async function handleSseStream(
   let accumulatedContent = "";
   let progressivePreviewFired = false;
   let didReceiveDone = false;
+  let generationProgressStarted = false;
   const postCheckQueue: Array<{ chatId: string; versionId: string; demoUrl?: string | null }> = [];
   const materializeQueue: Array<{ chatId: string; versionId: string }> = [];
   let streamQuality: StreamQualitySignal = { hasCriticalAnomaly: false, reasons: [] };
@@ -85,6 +86,99 @@ export async function handleSseStream(
   } = ctx;
 
   const effectiveChatId = ctx.chatId;
+
+  const getProgressToolName = (step: string) => {
+    if (step === "generation") return "Generering";
+    if (step === "autofix") return "Autofix";
+    if (step === "validation") return "Validering";
+    if (step === "finalizing") return "Finalisering";
+    return step;
+  };
+
+  const buildProgressSteps = (step: string, phase: string, payload: Record<string, unknown>) => {
+    const errorCount =
+      typeof payload.errorCount === "number" && Number.isFinite(payload.errorCount)
+        ? payload.errorCount
+        : null;
+    const pass = typeof payload.pass === "number" && Number.isFinite(payload.pass) ? payload.pass : null;
+    const fixes = typeof payload.fixes === "number" && Number.isFinite(payload.fixes) ? payload.fixes : null;
+    const warnings =
+      typeof payload.warnings === "number" && Number.isFinite(payload.warnings) ? payload.warnings : null;
+    const fileCount =
+      typeof payload.fileCount === "number" && Number.isFinite(payload.fileCount) ? payload.fileCount : null;
+    const versionId =
+      typeof payload.versionId === "string" && payload.versionId.trim().length > 0
+        ? payload.versionId.trim()
+        : null;
+
+    if (step === "generation") {
+      if (phase === "streaming") return ["Genererar innehåll och filer från prompten."];
+      if (phase === "done") return ["Generering klar. Startar efterkontroller och slutsteg."];
+    }
+    if (step === "autofix") {
+      if (phase === "start") return ["Autofix startad."];
+      if (phase === "done") {
+        const summary: string[] = ["Autofix klar."];
+        if (fixes !== null || warnings !== null) {
+          summary.push(
+            `Fixar: ${fixes ?? 0}${warnings !== null ? `, varningar: ${warnings}` : ""}.`,
+          );
+        }
+        return summary;
+      }
+      if (phase === "error") return ["Autofix misslyckades. Fortsätter med rått innehåll."];
+    }
+    if (step === "validation") {
+      if (phase === "start" || phase === "validating") {
+        return [`Validerar genererad kod${pass ? ` (pass ${pass})` : ""}.`];
+      }
+      if (phase === "fixing") {
+        return [
+          `Försöker reparera syntaxfel${pass ? ` i pass ${pass}` : ""}${errorCount !== null ? ` (${errorCount} fel)` : ""}.`,
+        ];
+      }
+      if (phase === "retrying") {
+        return [`Kör om valideringen efter fixförsök${pass ? ` i pass ${pass}` : ""}.`];
+      }
+      if (phase === "passed") return ["Validering klar."];
+      if (phase === "gave-up") {
+        return [
+          `Valideringen gav upp${errorCount !== null ? ` med ${errorCount} kvarvarande fel` : ""}.`,
+        ];
+      }
+      if (phase === "error") return ["Valideringen misslyckades."];
+    }
+    if (step === "finalizing") {
+      if (phase === "start") return ["Finaliserar filer, gör project checks och sparar versionen."];
+      if (phase === "done") {
+        const details: string[] = ["Finalisering klar."];
+        if (fileCount !== null) details.push(`Filer i versionen: ${fileCount}.`);
+        if (versionId) details.push(`Version: ${versionId}.`);
+        return details;
+      }
+    }
+    return [`${getProgressToolName(step)}: ${phase}`];
+  };
+
+  const appendProgressPart = (step: string, phase: string, payload: Record<string, unknown> = {}) => {
+    appendToolPartToMessage(setMessages, assistantMessageId, {
+      type: `tool:engine-${step}` as const,
+      toolName: getProgressToolName(step),
+      toolCallId: `progress:${step}`,
+      state:
+        phase === "passed" || phase === "done"
+          ? "output-available"
+          : phase === "error" || phase === "gave-up"
+            ? "output-error"
+            : "input-streaming",
+      output: {
+        step,
+        phase,
+        ...payload,
+        steps: buildProgressSteps(step, phase, payload),
+      },
+    } as Parameters<typeof appendToolPartToMessage>[2]);
+  };
 
   try {
     await consumeSseResponse(
@@ -193,6 +287,10 @@ export async function handleSseStream(
                   (data as Record<string, unknown>)?.reasoning ||
                   null;
             if (thinkingText) {
+              if (!generationProgressStarted) {
+                generationProgressStarted = true;
+                appendProgressPart("generation", "streaming");
+              }
               const incoming = String(thinkingText);
               const previous = accumulatedThinking;
               const mergedThought = mergeStreamingText(previous, incoming);
@@ -219,6 +317,10 @@ export async function handleSseStream(
                   (data as Record<string, unknown>)?.delta ||
                   null;
             if (contentText) {
+              if (!generationProgressStarted) {
+                generationProgressStarted = true;
+                appendProgressPart("generation", "streaming");
+              }
               const incoming = String(contentText);
               const previous = accumulatedContent;
               const merged = mergeStreamingText(previous, incoming);
@@ -341,20 +443,7 @@ export async function handleSseStream(
             const step = typeof progressData.step === "string" ? progressData.step : "";
             const phase = typeof progressData.phase === "string" ? progressData.phase : "";
             if (step && phase) {
-              const progressPart = {
-                type: `tool:engine-${step}` as const,
-                toolName: step === "autofix" ? "Autofix" : step === "validation" ? "Validering" : step,
-                toolCallId: `progress:${step}:${Date.now()}`,
-                state: phase === "passed" ? "output-available" : phase === "error" || phase === "gave-up" ? "output-error" : "input-streaming",
-                output: progressData,
-              } as Parameters<typeof appendToolPartToMessage>[2];
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [progressPart]) }
-                    : m,
-                ),
-              );
+              appendProgressPart(step, phase, progressData);
             }
             break;
           }
@@ -400,6 +489,9 @@ export async function handleSseStream(
           case "done": {
             didReceiveDone = true;
             streamStats.didReceiveDone = true;
+            if (generationProgressStarted || accumulatedContent.trim().length > 0 || accumulatedThinking.trim().length > 0) {
+              appendProgressPart("generation", "done");
+            }
             const doneData =
               typeof data === "object" && data ? (data as Record<string, unknown>) : {};
             const doneV0ProjectId = doneData.v0ProjectId || doneData.v0_project_id || null;

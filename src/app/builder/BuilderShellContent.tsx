@@ -565,7 +565,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="border-border bg-background flex min-h-0 w-full flex-col border-r lg:w-96">
-          <ProjectEnvVarsPanel projectId={vm.v0ProjectId} />
+          <ProjectEnvVarsPanel
+            v0ProjectId={vm.v0ProjectId}
+            appProjectId={vm.appProjectId}
+            chatId={vm.chatId}
+            activeVersionId={vm.activeVersionId}
+          />
           <div className="relative min-h-0 flex-1 overflow-hidden">
             <MessageList
               chatId={vm.chatId}

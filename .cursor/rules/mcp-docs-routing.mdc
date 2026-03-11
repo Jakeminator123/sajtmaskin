@@ -33,8 +33,8 @@ up-to-date documentation and capabilities.
 For short, open-ended documentation or product-behavior questions about v0 or
 Vercel, local browser helpers may be used when the user is already logged in:
 
-- `v0_vercel_agent/talk_to_v0_doc/ask_v0.py`
-- `v0_vercel_agent/talk_to_vercel_doc/ask_vercel.py`
+- `tools/doc-browser/talk_to_v0_doc/ask_v0.py`
+- `tools/doc-browser/talk_to_vercel_doc/ask_vercel.py`
 
 Use them only as a local research fallback:
 

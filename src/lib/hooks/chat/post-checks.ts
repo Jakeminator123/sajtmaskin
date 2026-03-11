@@ -328,8 +328,9 @@ function buildPostCheckSummary(params: {
   changes: { added: string[]; modified: string[]; removed: string[] } | null;
   warnings: string[];
   demoUrl: string | null;
+  provisional?: boolean;
 }) {
-  const { changes, warnings, demoUrl } = params;
+  const { changes, warnings, demoUrl, provisional = false } = params;
   const lines: string[] = [];
 
   if (changes) {
@@ -345,6 +346,12 @@ function buildPostCheckSummary(params: {
 
   if (!demoUrl) {
     lines.push("Varning: Ingen preview-länk hittades för versionen.");
+  }
+
+  if (provisional) {
+    lines.push(
+      "Obs: Den här versionen är preliminär medan efterkontroller eller autofix fortfarande arbetar.",
+    );
   }
 
   warnings.forEach((warning) => {
@@ -599,6 +606,7 @@ export async function runPostGenerationChecks(params: {
       qualityGateFailures.push("project_sanity_errors");
     }
     const qualityGatePassed = qualityGateFailures.length === 0;
+    let provisionalVersion = !qualityGatePassed;
     steps.push(
       qualityGatePassed
         ? "Quality gate: PASS (changes + preview + stream quality)."
@@ -637,6 +645,7 @@ export async function runPostGenerationChecks(params: {
         modified: changes?.modified.length ?? 0,
         removed: changes?.removed.length ?? 0,
         warnings: warnings.length,
+        provisional: provisionalVersion,
       },
       warnings,
       sanityIssues: sanity.issues,
@@ -736,6 +745,10 @@ export async function runPostGenerationChecks(params: {
       autoFixReasons.push("misstankt irrelevanta bilder");
     }
     if (autoFixReasons.length > 0) {
+      provisionalVersion = true;
+      output.summary.provisional = true;
+    }
+    if (autoFixReasons.length > 0) {
       onAutoFix?.({
         chatId,
         versionId,
@@ -764,7 +777,12 @@ export async function runPostGenerationChecks(params: {
     appendPostCheckSummaryToMessage(
       setMessages,
       assistantMessageId,
-      buildPostCheckSummary({ changes, warnings, demoUrl: finalDemoUrl }),
+      buildPostCheckSummary({
+        changes,
+        warnings,
+        demoUrl: finalDemoUrl,
+        provisional: provisionalVersion,
+      }),
     );
 
     void runSandboxQualityGate({

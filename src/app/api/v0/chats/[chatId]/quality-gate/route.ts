@@ -4,7 +4,7 @@ import { z } from "zod";
 import { assertV0Key } from "@/lib/v0";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
-import { createVersionErrorLogs } from "@/lib/db/services";
+import { createEngineVersionErrorLogs, createVersionErrorLogs } from "@/lib/db/services";
 import { db, dbConfigured } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -216,7 +216,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             }),
           ];
           if (logs.length > 0 && dbConfigured) {
-            await createVersionErrorLogs(logs).catch((err) => {
+            await createEngineVersionErrorLogs(logs).catch((err) => {
               console.warn("[quality-gate] Failed to persist error logs:", err);
             });
           }

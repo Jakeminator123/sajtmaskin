@@ -1,4 +1,4 @@
-OpenClaw Setup Guide — Sajtagenten (docker_sajtbyggar-agent)
+OpenClaw Setup Guide — Sajtagenten (infra/openclaw)
 ============================================================
 
 Purpose
@@ -21,19 +21,19 @@ to your specific project before deploying.
 
 2) Repo Paths
 -------------
-- Docker root:       docker_sajtbyggar-agent/
-- Entrypoint:        docker_sajtbyggar-agent/docker-entrypoint.sh
-- Dockerfile:        docker_sajtbyggar-agent/Dockerfile
-- Health check:      docker_sajtbyggar-agent/docker-healthcheck.sh
-- Agent identity:    docker_sajtbyggar-agent/config/agents/sajtagenten/agent/IDENTITY.md
-- Workspace seed:    docker_sajtbyggar-agent/config/workspace/
+- Docker root:       infra/openclaw/
+- Entrypoint:        infra/openclaw/docker-entrypoint.sh
+- Dockerfile:        infra/openclaw/Dockerfile
+- Health check:      infra/openclaw/docker-healthcheck.sh
+- Agent identity:    infra/openclaw/config/agents/sajtagenten/agent/IDENTITY.md
+- Workspace seed:    infra/openclaw/config/workspace/
 
 
 3) Render Service Configuration
 -------------------------------
 Service type: Web Service
 Runtime:      Docker
-Root dir:     docker_sajtbyggar-agent
+Root dir:     infra/openclaw
 
 Disk:
 - Mount path: /root/.openclaw
@@ -104,7 +104,7 @@ Fix:     Set OPENAI_API_KEY on the hosting platform.
 -----------------
 - Never commit secrets to git.
 - Rotate OPENCLAW_GATEWAY_TOKEN after stabilization.
-- The agent has READ-ONLY access to the target site — it cannot modify content.
+- The agent has READ-ONLY access to the target site - it cannot modify content.
 
 
 8) Customization
