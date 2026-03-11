@@ -22,6 +22,7 @@ export type ChatAttachment = {
 export type MessageOptions = {
   attachments?: ChatAttachment[];
   attachmentPrompt?: string;
+  planMode?: boolean;
 };
 
 export type CreateChatLock = {
@@ -82,6 +83,8 @@ export type ModelInfoData = {
   promptAssistDeep?: boolean | null;
   scaffoldId?: string | null;
   scaffoldFamily?: string | null;
+  scaffoldLabel?: string | null;
+  capabilities?: Record<string, boolean> | null;
 };
 
 export type IntegrationSseSignal = {

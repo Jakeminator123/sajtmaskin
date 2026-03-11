@@ -13,6 +13,10 @@ const DEFAULT_CROP_WIDTH = 420;
 const DEFAULT_CROP_HEIGHT = 280;
 const WORKER_URL = process.env.INSPECTOR_CAPTURE_WORKER_URL?.trim() || "";
 const WORKER_TOKEN = process.env.INSPECTOR_CAPTURE_WORKER_TOKEN?.trim() || "";
+const FORCE_WORKER_ONLY = (() => {
+  const raw = process.env.INSPECTOR_FORCE_WORKER_ONLY?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+})();
 const WORKER_TIMEOUT_MS = (() => {
   const parsed = Number(process.env.INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS || "7000");
   if (!Number.isFinite(parsed)) return 7000;
@@ -520,6 +524,16 @@ export async function POST(req: Request) {
     cropHeight,
   });
   if (workerResult) return workerResult;
+
+  if (WORKER_URL && FORCE_WORKER_ONLY) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Inspector worker är konfigurerad men kunde inte nås. Lokal fallback är avstängd.",
+      },
+      { status: 503 },
+    );
+  }
 
   if (IS_SERVERLESS) {
     return NextResponse.json(

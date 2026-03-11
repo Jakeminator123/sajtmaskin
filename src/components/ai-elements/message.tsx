@@ -45,7 +45,7 @@ export function MessageAvatar({ children, className, ...props }: MessageAvatarPr
   return (
     <div
       className={cn(
-        "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
         "bg-zinc-800 text-sm font-medium text-zinc-300",
         className,
       )}
@@ -68,7 +68,7 @@ export function MessageContent({ children, className, ...props }: MessageContent
   return (
     <div
       className={cn(
-        "flex max-w-[80%] flex-col gap-2",
+        "flex max-w-[85%] min-w-0 flex-col gap-2",
         "group-data-[role=user]:items-end",
         className,
       )}
@@ -91,7 +91,7 @@ export function MessageResponse({ children, className, ...props }: MessageRespon
   return (
     <div
       className={cn(
-        "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+        "rounded-2xl px-4 py-3 text-sm leading-relaxed overflow-hidden wrap-break-word",
         "group-data-[role=user]:bg-brand-blue group-data-[role=user]:text-white",
         "group-data-[role=assistant]:bg-zinc-800 group-data-[role=assistant]:text-zinc-100",
         "group-data-[role=system]:bg-zinc-900 group-data-[role=system]:text-xs group-data-[role=system]:text-zinc-400",

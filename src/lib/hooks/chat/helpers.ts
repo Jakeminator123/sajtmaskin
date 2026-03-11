@@ -609,7 +609,19 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
     steps.push(`Deep brief: ${info.promptAssistDeep ? "på" : "av"}`);
   }
   if (info.scaffoldId) {
-    steps.push(`Scaffold: ${info.scaffoldId}${info.scaffoldFamily && info.scaffoldFamily !== info.scaffoldId ? ` (${info.scaffoldFamily})` : ""}`);
+    const label = info.scaffoldLabel || info.scaffoldId;
+    const family = info.scaffoldFamily && info.scaffoldFamily !== info.scaffoldId
+      ? ` (${info.scaffoldFamily})`
+      : "";
+    steps.push(`Scaffold: ${label}${family}`);
+  }
+  if (info.capabilities && typeof info.capabilities === "object") {
+    const active = Object.entries(info.capabilities)
+      .filter(([, v]) => v === true)
+      .map(([k]) => k.replace(/^needs/, "").replace(/([A-Z])/g, " $1").trim());
+    if (active.length > 0) {
+      steps.push(`Capabilities: ${active.join(", ")}`);
+    }
   }
   return steps;
 }

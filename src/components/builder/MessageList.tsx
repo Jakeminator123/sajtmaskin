@@ -34,6 +34,7 @@ import {
   PlanTrigger,
 } from "@/components/ai-elements/plan";
 import { CodeBlock } from "@/components/ai-elements/code-block";
+import { GenerationSummary } from "@/components/builder/GenerationSummary";
 import { toAIElementsFormat, hasToolData } from "@/lib/builder/messageAdapter";
 import type { AIElementsMessage, MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
@@ -577,12 +578,59 @@ const MessageListComponent = ({
                           </p>
                         )}
                         {part.plan.steps && part.plan.steps.length > 0 && (
-                          <ol className="text-muted-foreground mt-2 list-decimal space-y-1 pl-4 text-sm">
-                            {part.plan.steps.map((step) => (
-                              <li key={step}>{step}</li>
-                            ))}
+                          <ol className="text-muted-foreground mt-2 list-decimal space-y-1.5 pl-4 text-sm">
+                            {part.plan.steps.map((step, si) => {
+                              if (typeof step === "string") {
+                                return <li key={step}>{step}</li>;
+                              }
+                              const s = step as { title?: string; description?: string; status?: string };
+                              return (
+                                <li key={s.title || si}>
+                                  <span className="font-medium">{s.title}</span>
+                                  {s.description && (
+                                    <span className="text-muted-foreground/70"> — {s.description}</span>
+                                  )}
+                                  {s.status && s.status !== "build" && (
+                                    <span className="text-muted-foreground/50 ml-1 text-xs">({s.status})</span>
+                                  )}
+                                </li>
+                              );
+                            })}
                           </ol>
                         )}
+                        {(() => {
+                          const rawAssumptions = part.plan.raw?.assumptions;
+                          if (!Array.isArray(rawAssumptions) || rawAssumptions.length === 0) return null;
+                          return (
+                            <div className="mt-3">
+                              <p className="text-muted-foreground mb-1 text-xs font-semibold uppercase tracking-wide">Antaganden</p>
+                              <ul className="text-muted-foreground list-disc space-y-0.5 pl-4 text-xs">
+                                {rawAssumptions.map((a: Record<string, unknown>, ai: number) => (
+                                  <li key={ai}>{String(a.description ?? "")} → <span className="text-foreground/70">{String(a.defaultValue ?? "")}</span></li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })()}
+                        {(() => {
+                          const rawBlockers = part.plan.raw?.blockers;
+                          if (!Array.isArray(rawBlockers) || rawBlockers.length === 0) return null;
+                          return (
+                            <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-2">
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-300">Kräver svar</p>
+                              <ul className="space-y-1 text-xs text-amber-100">
+                                {rawBlockers.map((b: Record<string, unknown>, bi: number) => (
+                                  <li key={bi}>
+                                    {typeof b.kind === "string" && (
+                                      <span className="mr-1 rounded bg-amber-800/50 px-1 py-0.5 text-[10px] uppercase">{b.kind}</span>
+                                    )}
+                                    {String(b.question ?? "")}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })()}
                         {!part.plan.content &&
                           (!part.plan.steps || part.plan.steps.length === 0) &&
                           part.plan.raw && (
@@ -616,7 +664,11 @@ const MessageListComponent = ({
 
                 {message.role === "assistant" ? (
                   textContent ? (
-                    <MessageResponse>{textContent}</MessageResponse>
+                    textContent.includes('file="') ? (
+                      <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
+                    ) : (
+                      <MessageResponse>{textContent}</MessageResponse>
+                    )
                   ) : message.isStreaming && !reasoningPart && !hasStructuredParts ? (
                     <span className="text-sm text-gray-500">Ansluter...</span>
                   ) : null

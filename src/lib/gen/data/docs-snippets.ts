@@ -1,6 +1,6 @@
 export interface DocSnippet {
   id: string;
-  category: "shadcn" | "nextjs" | "tailwind" | "patterns" | "lucide" | "library";
+  category: "shadcn" | "nextjs" | "tailwind" | "patterns" | "lucide" | "library" | "example";
   keywords: string[];
   title: string;
   content: string;
@@ -889,5 +889,94 @@ All icons: import * as LucideIcons from "lucide-react"
 Animated: <Loader2 className="animate-spin h-4 w-4" />
 Custom size: <Icon size={24} strokeWidth={1.5} />
 Always import individually for tree-shaking: import { ArrowRight, Check } from "lucide-react"`,
+  },
+
+  // ── Code Examples (pattern packs) ────────────────────────────────────
+
+  {
+    id: "example-animated-hero",
+    category: "example",
+    keywords: ["hero", "animation", "motion", "landing", "fade", "slide", "entrance", "premium", "wow"],
+    title: "Animated Hero Section Pattern",
+    content: `"use client"
+import { motion } from "framer-motion"
+<motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: "easeOut" }}>
+  <h1 className="text-5xl font-bold tracking-tight">...</h1>
+</motion.div>
+<motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.6 }}>...</motion.p>
+<motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5 }}>
+  <Button size="lg">Get Started</Button>
+</motion.div>
+Stagger children: use variants + staggerChildren in parent transition.`,
+  },
+  {
+    id: "example-3d-floating-orb",
+    category: "example",
+    keywords: ["3d", "three", "orb", "sphere", "floating", "webgl", "canvas", "interactive", "premium"],
+    title: "3D Floating Orb Pattern",
+    content: `"use client"
+import { Canvas, useFrame } from "@react-three/fiber"
+import { MeshDistortMaterial, Float } from "@react-three/drei"
+import { useRef } from "react"
+function FloatingOrb() {
+  const ref = useRef<THREE.Mesh>(null!)
+  useFrame((state) => { ref.current.rotation.y = state.clock.elapsedTime * 0.3 })
+  return <Float speed={2} floatIntensity={1.5}><mesh ref={ref}><sphereGeometry args={[1.5, 64, 64]} /><MeshDistortMaterial color="#8b5cf6" distort={0.4} speed={2} /></mesh></Float>
+}
+export default function Hero3D() {
+  return <div className="h-[500px] w-full"><Canvas camera={{ position: [0, 0, 5] }}><ambientLight intensity={0.5} /><pointLight position={[10, 10, 10]} /><FloatingOrb /><Environment preset="city" /></Canvas></div>
+}
+Must be "use client". Add @react-three/fiber, @react-three/drei, three to deps.`,
+  },
+  {
+    id: "example-scroll-reveal",
+    category: "example",
+    keywords: ["scroll", "reveal", "intersection", "observer", "animate", "entrance", "section"],
+    title: "Scroll-Triggered Section Reveal",
+    content: `"use client"
+import { motion, useInView } from "framer-motion"
+import { useRef } from "react"
+function RevealSection({ children }: { children: React.ReactNode }) {
+  const ref = useRef(null)
+  const isInView = useInView(ref, { once: true, margin: "-100px" })
+  return <motion.div ref={ref} initial={{ opacity: 0, y: 40 }} animate={isInView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.7, ease: "easeOut" }}>{children}</motion.div>
+}
+Use once: true for one-time animation. Wrap each section for staggered reveals.`,
+  },
+  {
+    id: "example-particle-bg",
+    category: "example",
+    keywords: ["particle", "background", "ambient", "dots", "floating", "atmosphere", "effect"],
+    title: "CSS Particle Background",
+    content: `Pure CSS floating particles (no JS needed):
+In globals.css:
+@keyframes float { 0%,100% { transform: translateY(0) rotate(0deg); opacity: 0; } 50% { opacity: 0.6; } 100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; } }
+.particle { position: absolute; width: 6px; height: 6px; background: hsl(var(--primary) / 0.3); border-radius: 50%; animation: float linear infinite; }
+Generate 15-20 particles with randomized left%, animation-duration (8-25s), and animation-delay (0-10s).
+Wrap in a fixed/absolute container with overflow-hidden and pointer-events-none.`,
+  },
+  {
+    id: "example-gradient-text",
+    category: "example",
+    keywords: ["gradient", "text", "heading", "colorful", "premium", "glow", "hero"],
+    title: "Gradient Text Heading",
+    content: `<h1 className="bg-linear-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent text-5xl font-bold tracking-tight">
+  Premium Heading
+</h1>
+For animated gradient: add bg-[length:200%_auto] animate-gradient-x
+@keyframes gradient-x { 0% { background-position: 0% 50% } 50% { background-position: 100% 50% } 100% { background-position: 0% 50% } }
+animation: { "gradient-x": "gradient-x 3s ease infinite" }`,
+  },
+  {
+    id: "example-glass-card",
+    category: "example",
+    keywords: ["glass", "glassmorphism", "blur", "card", "frosted", "premium", "transparent"],
+    title: "Glassmorphism Card Pattern",
+    content: `<div className="rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl shadow-2xl">
+  <h3 className="text-xl font-semibold text-white">Feature</h3>
+  <p className="text-white/70">Description</p>
+</div>
+Works best on dark backgrounds. Layer with subtle gradient backgrounds.
+Add hover: hover:bg-white/10 hover:border-white/20 transition-all duration-300`,
   },
 ];

@@ -6,6 +6,7 @@ import { QUALITY_TO_MODEL, type CanonicalModelId, type QualityLevel } from "@/li
 export type CreateChatOptions = {
   attachments?: V0UserFileAttachment[];
   attachmentPrompt?: string;
+  planMode?: boolean;
 };
 
 const _inverted = Object.entries(QUALITY_TO_MODEL).reduce(

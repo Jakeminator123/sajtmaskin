@@ -34,6 +34,7 @@ const promptMetaSchema = z
     promptLength: z.number().int().nonnegative().optional(),
     formattedLength: z.number().int().nonnegative().optional(),
     attachmentsCount: z.number().int().nonnegative().optional(),
+    planMode: z.boolean().optional(),
   })
   .partial()
   .passthrough();

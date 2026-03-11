@@ -46,6 +46,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context";
 import type { CodeFile } from "@/lib/gen/parser";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
+import { detectIntegrations } from "@/lib/gen/detect-integrations";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -488,6 +489,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       });
 
                       didSendDone = true;
+
+                      const detectedIntegrations = detectIntegrations(accumulatedContent);
+                      if (detectedIntegrations.length > 0) {
+                        safeEnqueue(
+                          enc.encode(
+                            formatSSEEvent("integration", {
+                              items: detectedIntegrations,
+                            }),
+                          ),
+                        );
+                      }
+
                       safeEnqueue(
                         enc.encode(
                           formatSSEEvent("done", {
@@ -575,6 +588,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                     });
 
                     didSendDone = true;
+
+                    const bufIntegrations = detectIntegrations(accumulatedContent);
+                    if (bufIntegrations.length > 0) {
+                      safeEnqueue(
+                        enc.encode(
+                          formatSSEEvent("integration", { items: bufIntegrations }),
+                        ),
+                      );
+                    }
+
                     safeEnqueue(
                       enc.encode(
                         formatSSEEvent("done", {
@@ -614,6 +637,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                     });
 
                     didSendDone = true;
+
+                    const fbIntegrations = detectIntegrations(accumulatedContent);
+                    if (fbIntegrations.length > 0) {
+                      safeEnqueue(
+                        enc.encode(
+                          formatSSEEvent("integration", { items: fbIntegrations }),
+                        ),
+                      );
+                    }
+
                     safeEnqueue(
                       enc.encode(
                         formatSSEEvent("done", {

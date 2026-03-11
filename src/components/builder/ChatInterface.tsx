@@ -52,6 +52,7 @@ import { toast } from "sonner";
 type MessageOptions = {
   attachments?: V0UserFileAttachment[];
   attachmentPrompt?: string;
+  planMode?: boolean;
 };
 
 export type VisualPlacementRequest =
@@ -541,16 +542,7 @@ export function ChatInterface({
       return;
     }
 
-    const planPrompt = [
-      "Skapa en plan/PRD innan du skriver kod.",
-      "Beskriv mål, sidor/sektioner, UI/UX-krav, dataflöden vid behov och risker.",
-      "Ställ frågor om något är oklart. Skriv ingen kod ännu.",
-      "",
-      "Projektbeskrivning:",
-      current,
-    ].join("\n");
-
-    await sendMessagePayload(planPrompt, { clearDraft: false });
+    await sendMessagePayload(current, { clearDraft: false, planMode: true });
   };
 
   const resolveFigmaAttachment = async (
@@ -620,25 +612,24 @@ export function ChatInterface({
 
   const sendMessagePayload = async (
     baseMessage: string,
-    options: { clearDraft?: boolean } = {},
+    options: { clearDraft?: boolean; planMode?: boolean } = {},
   ) => {
     setIsSending(true);
     try {
       const payload = await buildMessagePayload(baseMessage);
       if (!payload.finalMessage.trim()) return;
+      const msgOpts: MessageOptions = {
+        attachments: payload.finalAttachments,
+        attachmentPrompt: payload.attachmentPrompt,
+        planMode: options.planMode,
+      };
       if (!chatId) {
         if (!onCreateChat) return;
-        const created = await onCreateChat(payload.finalMessage, {
-          attachments: payload.finalAttachments,
-          attachmentPrompt: payload.attachmentPrompt,
-        });
+        const created = await onCreateChat(payload.finalMessage, msgOpts);
         if (created === false) return;
       } else {
         if (!onSendMessage) return;
-        await onSendMessage(payload.finalMessage, {
-          attachments: payload.finalAttachments,
-          attachmentPrompt: payload.attachmentPrompt,
-        });
+        await onSendMessage(payload.finalMessage, msgOpts);
       }
       if (options.clearDraft !== false) {
         setInput("");
@@ -911,59 +902,47 @@ ${technicalPrompt}`;
         disabled={inputDisabled}
         className="border-input bg-background rounded-lg border shadow-sm"
       >
-        <PromptInputHeader className="flex-col items-stretch gap-3">
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-medium text-zinc-100" suppressHydrationWarning>
-              Förfina innan du skickar
-            </p>
-            <p className="text-[11px] leading-5 text-zinc-400" suppressHydrationWarning>
-              Ta texten i rutan nedan och gör den tydligare, bygg en plan först eller lägg till
-              element innan du skickar.
-            </p>
-          </div>
-          <div className="flex w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <PromptInputHeader className="flex-col items-stretch gap-2">
+          <p className="text-[11px] leading-4 text-zinc-500" suppressHydrationWarning>
+            Förfina innan du skickar
+          </p>
+          <div className="flex flex-wrap gap-1.5">
             {onEnhancePrompt && (
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 shrink-0 justify-start whitespace-nowrap"
+                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
                 onClick={handleEnhancePrompt}
                 disabled={inputDisabled || isEnhancing || !input.trim()}
-                title="Snabb polish: tar texten i rutan nedan och gör prompten tydligare utan att ändra innebörd"
+                title="Gör prompten tydligare utan att ändra innebörd"
               >
                 {isEnhancing ? (
-                  <Loader2 className="size-3.5 animate-spin" />
+                  <Loader2 className="size-3 animate-spin" />
                 ) : (
-                  <Wand2 className="size-3.5" />
+                  <Wand2 className="size-3" />
                 )}
-                Skriv om prompt
-              </Button>
+                Skriv om
+              </button>
             )}
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 shrink-0 justify-start gap-2 whitespace-nowrap"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
               onClick={handlePlanRequest}
               disabled={inputDisabled || !input.trim()}
-              title="Tyngre förbättring: gör en plan eller PRD innan kod"
+              title="Gör en plan eller PRD innan kod"
             >
-              <FileText className="size-3.5" />
-              Skapa plan
-            </Button>
-            <Button
+              <FileText className="size-3" />
+              Plan
+            </button>
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 shrink-0 justify-start gap-2 whitespace-nowrap"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
               onClick={() => setPickerTab("ui")}
               disabled={inputDisabled}
               title="Lägg till element, AI-block, mallar eller tema"
             >
-              <Plus className="size-3.5" />
-              Lägg till element
-            </Button>
+              <Plus className="size-3" />
+              Element
+            </button>
           </div>
         </PromptInputHeader>
         {(isFigmaInputOpen || figmaUrl.trim()) && (
@@ -1114,15 +1093,15 @@ ${technicalPrompt}`;
             className="min-h-[80px] border-0 shadow-none focus-visible:ring-0"
           />
         </PromptInputBody>
-        <PromptInputFooter className="flex-col items-stretch gap-2">
+        <PromptInputFooter className="flex-col items-stretch gap-1.5">
           {showPreparingPrompt && (
             <div className="text-muted-foreground flex items-center gap-2 text-xs">
               <Loader2 className="size-3.5 animate-spin" />
               Förbereder prompt...
             </div>
           )}
-          <div className="flex items-center justify-between gap-2">
-            <PromptInputTools className="flex flex-wrap items-center gap-2">
+          <div className="flex items-end justify-between gap-2">
+            <PromptInputTools className="flex flex-wrap items-center gap-1.5">
               {mediaEnabled && (
                 <>
                   <FileUploadZone
@@ -1136,21 +1115,21 @@ ${technicalPrompt}`;
                     type="button"
                     onClick={() => setIsMediaDrawerOpen(true)}
                     disabled={inputDisabled}
-                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
+                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] disabled:opacity-50"
                     title="Öppna mediabibliotek"
                   >
-                    <ImageIcon className="size-3.5" />
-                    Mediabibliotek
+                    <ImageIcon className="size-3" />
+                    Media
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsTextUploaderOpen(true)}
                     disabled={inputDisabled}
-                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
+                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] disabled:opacity-50"
                     title="Lägg till text eller PDF"
                   >
-                    <FileText className="size-3.5" />
-                    Text/PDF
+                    <FileText className="size-3" />
+                    Text
                   </button>
                 </>
               )}
@@ -1161,7 +1140,6 @@ ${technicalPrompt}`;
                   setInput((prev) => (prev ? `${prev} ${text}` : text))
                 }
               />
-              <span className="text-muted-foreground text-xs">Shift+Enter för ny rad</span>
             </PromptInputTools>
             <PromptInputSubmit disabled={submitDisabled}>
               {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}

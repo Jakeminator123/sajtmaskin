@@ -5,6 +5,10 @@ export const dynamic = "force-dynamic";
 
 const WORKER_URL = process.env.INSPECTOR_CAPTURE_WORKER_URL?.trim() || "";
 const WORKER_TOKEN = process.env.INSPECTOR_CAPTURE_WORKER_TOKEN?.trim() || "";
+const FORCE_WORKER_ONLY = (() => {
+  const raw = process.env.INSPECTOR_FORCE_WORKER_ONLY?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+})();
 const WORKER_TIMEOUT_MS = 15_000;
 const NAVIGATION_TIMEOUT_MS = 20_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
@@ -171,6 +175,16 @@ export async function POST(req: Request) {
     const data = await workerResult.json();
     cache.set(key, { data, ts: Date.now() });
     return NextResponse.json(data);
+  }
+
+  if (WORKER_URL && FORCE_WORKER_ONLY) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Inspector worker är konfigurerad men kunde inte nås. Lokal fallback är avstängd.",
+      },
+      { status: 503 },
+    );
   }
 
   if (IS_SERVERLESS) {

@@ -38,6 +38,7 @@ import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
+import { usePlanExecution } from "@/lib/hooks/chat/usePlanExecution";
 
 export function useBuilderPageController() {
   const router = useRouter();
@@ -209,7 +210,7 @@ export function useBuilderPageController() {
     setPreviewRefreshToken(Date.now());
   }, [setPreviewRefreshToken]);
 
-  const { isCreatingChat, createNewChat, sendMessage, cancelActiveGeneration } =
+  const { isCreatingChat, createNewChat, sendMessage: rawSendMessage, cancelActiveGeneration } =
     useChatMessaging({
       chatId: state.chatId,
       setChatId: state.setChatId,
@@ -240,6 +241,12 @@ export function useBuilderPageController() {
       setMessages: state.setMessages,
       resetBeforeCreateChat,
     });
+
+  const sendMessage = rawSendMessage;
+
+  const planExecution = usePlanExecution({
+    sendMessage: rawSendMessage,
+  });
 
   // ── Prompt assist ────────────────────────────────────────────────────
   const { maybeEnhanceInitialPrompt, generateDynamicInstructions } = usePromptAssist({
@@ -1333,6 +1340,9 @@ export function useBuilderPageController() {
     handleFixPreview: builderCallbacks.handleFixPreview,
     handleVersionSelect: builderCallbacks.handleVersionSelect,
     handleToggleVersionPanel: builderCallbacks.handleToggleVersionPanel,
+
+    // Plan execution
+    planExecution,
   };
 }
 

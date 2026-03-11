@@ -233,7 +233,7 @@ const features = [
   },
   {
     icon: Gauge,
-    title: "Lighthouse 100/100",
+    title: "Lighthouse 95+",
     description:
       "Inbyggd s\u00f6kmotoroptimering, tillg\u00e4nglighet (WCAG 2.1) och prestanda-optimering. Varje sajt siktar p\u00e5 gr\u00f6nt i alla Lighthouse-kategorier.",
     shape: "fast" as ShapeVariant,
@@ -384,7 +384,7 @@ const faqs = [
   },
   {
     q: "\u00c4r det GDPR-anpassat?",
-    a: "Absolut. All data lagras i Sverige via Vercel Edge och plattformen \u00e4r byggd med GDPR-compliance fr\u00e5n grunden.",
+    a: "Ja. Plattformen \u00e4r byggd med GDPR i \u00e5tanke. Databas och lagring k\u00f6rs inom EU (Supabase EU, Vercel Edge Network) och vi samlar inte in on\u00f6diga personuppgifter.",
   },
   {
     q: "Kan jag byta plan n\u00e4r som helst?",
@@ -1130,10 +1130,10 @@ function AnimatedBar({
 /* ──────────────────── LIGHTHOUSE GAUGES ──────────────────── */
 
 const lighthouseScores = [
-  { label: "Performance", score: 98 },
-  { label: "Tillg\u00e4nglighet", score: 100 },
+  { label: "Performance", score: 96 },
+  { label: "Tillg\u00e4nglighet", score: 98 },
   { label: "Best Practices", score: 100 },
-  { label: "SEO", score: 100 },
+  { label: "SEO", score: 98 },
 ]
 
 function LighthouseGauges() {
@@ -1983,7 +1983,7 @@ export function ChatArea({
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-border/15">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground/80 mb-2">Att t\u00e4nka p\u00e5</p>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground/80 mb-2">Att tänka på</p>
                   {selectedComparisonMethod.method.caveats.map((caveat) => (
                     <p key={caveat} className="text-sm text-muted-foreground leading-relaxed">
                       {caveat}

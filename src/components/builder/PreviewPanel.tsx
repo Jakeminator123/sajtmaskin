@@ -21,6 +21,7 @@ import { ElementRegistry } from "@/components/builder/ElementRegistry";
 import { FileExplorer } from "@/components/builder/FileExplorer";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import { useInspectorWorkerStatus } from "@/lib/hooks/useInspectorWorkerStatus";
+import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -709,6 +710,8 @@ export function PreviewPanel({
   }, [demoUrl, refreshToken]);
 
   useEffect(() => {
+    let renderReportedForVersion: string | null = null;
+
     const handlePreviewMessage = (event: MessageEvent<PreviewIframeMessage>) => {
       const iframeWindow = iframeRef.current?.contentWindow;
       if (!iframeWindow || event.source !== iframeWindow) return;
@@ -726,13 +729,38 @@ export function PreviewPanel({
         return;
       }
 
+      if (data.type === "preview-ready" && chatId && versionId && renderReportedForVersion !== versionId) {
+        renderReportedForVersion = versionId;
+        void reportRenderOutcome({
+          chatId,
+          versionId,
+          success: true,
+          source: "own-engine",
+          demoUrl: demoUrl ?? undefined,
+        });
+        return;
+      }
+
       if (data.type !== "preview-error") return;
       void reportPreviewIssue(data.payload ?? {});
+
+      if (chatId && versionId && renderReportedForVersion !== versionId) {
+        renderReportedForVersion = versionId;
+        const errorMsg = typeof data.payload?.message === "string" ? data.payload.message : "Preview render error";
+        void reportRenderOutcome({
+          chatId,
+          versionId,
+          success: false,
+          source: "own-engine",
+          demoUrl: demoUrl ?? undefined,
+          errorMessage: errorMsg,
+        });
+      }
     };
 
     window.addEventListener("message", handlePreviewMessage);
     return () => window.removeEventListener("message", handlePreviewMessage);
-  }, [demoUrl, isOwnEnginePreview, onNavigatePreviewUrl, reportPreviewIssue]);
+  }, [demoUrl, chatId, versionId, isOwnEnginePreview, onNavigatePreviewUrl, reportPreviewIssue]);
 
   useEffect(() => {
     if (!demoUrl) return;
@@ -787,14 +815,6 @@ export function PreviewPanel({
   const canShowCode = Boolean(chatId && versionId);
   const isCodeView = viewMode !== "preview";
   const showElementRegistry = viewMode === "registry";
-
-  const handleInspectInNewTab = useCallback(() => {
-    if (!demoUrl) return;
-    window.open(demoUrl, "_blank", "noopener,noreferrer");
-    toast("Sidan öppnades i ny flik.\nAnvänd Ctrl+Shift+C för att inspektera element.", {
-      duration: 6000,
-    });
-  }, [demoUrl]);
 
   const handleToggleCode = useCallback(() => {
     if (!canShowCode) return;
@@ -1084,10 +1104,6 @@ export function PreviewPanel({
               <span>Worker</span>
             </div>
           )}
-          <Button variant="ghost" size="sm" onClick={handleInspectInNewTab} disabled={!demoUrl} title="Öppna i ny flik för inspektion (Ctrl+Shift+C)" className="text-gray-400 hover:text-white">
-            <MousePointer2 className="mr-1 h-4 w-4" />
-            Inspektionsläge
-          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -1104,7 +1120,7 @@ export function PreviewPanel({
             )}
           >
             <Search className="mr-1 h-4 w-4" />
-            Inspektionstestknapp
+            Inspektera preview
           </Button>
           <Button variant="ghost" size="sm" onClick={handleToggleElementRegistry} disabled={!canShowCode || isViewSwitchPending} title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"} className={cn("text-gray-400 hover:text-white", showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100")}>
             <Code2 className="mr-1 h-4 w-4" />
@@ -1409,7 +1425,7 @@ export function PreviewPanel({
                       type="button"
                       onClick={handleToggleInspect}
                       className="rounded bg-zinc-800 px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:text-white"
-                      title="Stäng inspektionstest"
+                      title="Stäng inspektion"
                     >
                       <span className="inline-flex items-center gap-1">
                         <X className="h-3.5 w-3.5" />

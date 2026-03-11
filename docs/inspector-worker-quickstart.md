@@ -23,10 +23,12 @@ Add these keys to `.env.local` (already present if you cloned the starter):
 INSPECTOR_CAPTURE_WORKER_URL="http://localhost:3310"
 INSPECTOR_CAPTURE_WORKER_TOKEN="change-me-inspector-token"
 INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS="7000"
+INSPECTOR_FORCE_WORKER_ONLY="false"
 ```
 
 - `INSPECTOR_CAPTURE_WORKER_URL` enables worker forwarding.
 - `INSPECTOR_CAPTURE_WORKER_TOKEN` is optional but recommended in production.
+- `INSPECTOR_FORCE_WORKER_ONLY=true` disables local fallback when you want strict worker-only behavior.
 
 ## 2) First-time setup (once)
 
@@ -97,7 +99,7 @@ npm run dev
 ```
 
 Open `http://localhost:3000/builder?project=...&chatId=...`, activate
-**Inspektionstestknapp**, and hover/click in the preview.
+**Inspektera preview**, and hover/click in the preview.
 
 ## 6) Fallback test (no worker)
 

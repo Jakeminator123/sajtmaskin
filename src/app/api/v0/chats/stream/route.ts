@@ -51,6 +51,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
 import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
+import { detectIntegrations } from "@/lib/gen/detect-integrations";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
@@ -339,6 +340,17 @@ export async function POST(req: Request) {
         const engineModel = resolveEngineModelId(resolvedModelTier, false);
         const { createGenerationPipeline: createPipeline } = await import("@/lib/gen/fallback");
 
+        debugLog("plan", "Plan mode activated", {
+          model: engineModel,
+          promptLength: optimizedMessage.length,
+          thinking: resolvedThinking,
+        });
+        devLogAppend("in-progress", {
+          type: "plan.generation.start",
+          model: engineModel,
+          promptLength: optimizedMessage.length,
+        });
+
         const pipelineStream = createPipeline({
           prompt: optimizedMessage,
           systemPrompt: planSystemPrompt,
@@ -411,6 +423,25 @@ export async function POST(req: Request) {
             const planData = parsePlanResponse(accumulatedContent);
             const hasBlockers = Array.isArray(planData?.blockers) &&
               (planData.blockers as unknown[]).length > 0;
+            const blockerCount = hasBlockers
+              ? (planData!.blockers as unknown[]).length
+              : 0;
+            const stepCount = Array.isArray(planData?.steps)
+              ? (planData.steps as unknown[]).length
+              : 0;
+            const assumptionCount = Array.isArray(planData?.assumptions)
+              ? (planData.assumptions as unknown[]).length
+              : 0;
+
+            devLogAppend("in-progress", {
+              type: "plan.generation.done",
+              parsed: planData !== null,
+              steps: stepCount,
+              blockers: blockerCount,
+              assumptions: assumptionCount,
+              awaitingInput: hasBlockers,
+              contentLength: accumulatedContent.length,
+            });
 
             safeEnqueue(enc.encode(formatSSEEvent("done", {
               chatId: projectIdForChat,
@@ -656,6 +687,24 @@ export async function POST(req: Request) {
 
                       didSendDone = true;
                       const { version, messageId: assistantMsgId, previewUrl } = finalized;
+
+                      const detectedIntegrations = detectIntegrations(accumulatedContent);
+                      if (detectedIntegrations.length > 0) {
+                        safeEnqueue(
+                          enc.encode(
+                            formatSSEEvent("integration", {
+                              items: detectedIntegrations,
+                            }),
+                          ),
+                        );
+                        devLogAppend("in-progress", {
+                          type: "engine.integration_signals",
+                          chatId: engineChat.id,
+                          integrations: detectedIntegrations.map((d) => d.key),
+                          envVars: detectedIntegrations.flatMap((d) => d.envVars),
+                        });
+                      }
+
                       safeEnqueue(
                         enc.encode(
                           formatSSEEvent("done", {

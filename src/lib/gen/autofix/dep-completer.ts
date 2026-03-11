@@ -35,8 +35,8 @@ const BUILTIN_PACKAGES = new Set([
  */
 const KNOWN_PACKAGES: Record<string, string> = {
   "recharts": "^2",
-  "framer-motion": "^11",
-  "motion": "^11",
+  "framer-motion": "^12",
+  "motion": "^12",
   "@tanstack/react-table": "^8",
   "@tanstack/react-query": "^5",
   "date-fns": "^4",
@@ -82,9 +82,9 @@ const KNOWN_PACKAGES: Record<string, string> = {
   "sharp": "^0.33",
   "mapbox-gl": "^3",
   "react-map-gl": "^7",
-  "three": "^0.170",
-  "@react-three/fiber": "^8",
-  "@react-three/drei": "^9",
+  "three": "^0.183",
+  "@react-three/fiber": "^9",
+  "@react-three/drei": "^10",
   "gsap": "^3",
   "lottie-react": "^2",
   "react-icons": "^5",

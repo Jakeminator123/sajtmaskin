@@ -314,13 +314,37 @@ export async function handleSseStream(
             }
 
             if (awaitingInput) {
-              const contentTail = accumulatedContent.trim().slice(-300);
-              const looksLikeQuestion =
-                contentTail &&
-                (contentTail.slice(-25).includes("?") || contentTail.length <= 100);
-              const questionPreview = looksLikeQuestion
-                ? contentTail
-                : "AI väntar på ditt svar. Läs meddelandet ovan och svara i chatten.";
+              const planBlockers = (() => {
+                const pa = doneData.planArtifact as Record<string, unknown> | undefined;
+                if (!pa || !Array.isArray(pa.blockers)) return null;
+                const arr = pa.blockers as Array<Record<string, unknown>>;
+                return arr.length > 0 ? arr : null;
+              })();
+
+              const questionPreview = (() => {
+                if (planBlockers) {
+                  return planBlockers
+                    .map((b) => String(b.question ?? ""))
+                    .filter(Boolean)
+                    .join("\n") || "Planen kräver dina svar för att fortsätta.";
+                }
+                const contentTail = accumulatedContent.trim().slice(-300);
+                const looksLikeQuestion =
+                  contentTail &&
+                  (contentTail.slice(-25).includes("?") || contentTail.length <= 100);
+                return looksLikeQuestion
+                  ? contentTail
+                  : "AI väntar på ditt svar. Läs meddelandet ovan och svara i chatten.";
+              })();
+
+              const quickOptions = planBlockers
+                ? planBlockers.flatMap((b) =>
+                    Array.isArray(b.options)
+                      ? (b.options as string[]).slice(0, 4)
+                      : [],
+                  )
+                : [];
+
               setMessages((prev) => {
                 const assistantMsg = prev.find((m) => m.id === assistantMessageId);
                 const hasApprovalRequested = (assistantMsg?.uiParts ?? []).some(
@@ -331,11 +355,12 @@ export async function handleSseStream(
                 if (hasApprovalRequested) return prev;
                 const part = {
                   type: "tool:awaiting-input",
-                  toolName: "Awaiting input",
+                  toolName: planBlockers ? "Plan: svar krävs" : "Awaiting input",
                   toolCallId: `awaiting-input:${assistantMessageId}`,
                   state: "approval-requested",
                   output: {
                     question: questionPreview,
+                    options: quickOptions.length > 0 ? quickOptions : undefined,
                     chatId: nextId,
                     messageId:
                       doneData.messageId ||
@@ -343,6 +368,7 @@ export async function handleSseStream(
                       (doneData.latestVersion as Record<string, unknown> | undefined)?.messageId ||
                       null,
                     awaitingInput: true,
+                    planBlockers: planBlockers ?? undefined,
                   },
                 } as Parameters<typeof appendToolPartToMessage>[2];
                 return prev.map((m) =>
@@ -356,19 +382,50 @@ export async function handleSseStream(
                   if (m.id !== assistantMessageId || (m.content || "").trim()) return m;
                   return {
                     ...m,
-                    content:
-                      "Jag behöver ditt svar på en följdfråga innan nästa preview kan genereras.",
+                    content: planBlockers
+                      ? "Planen innehåller frågor som måste besvaras innan byggfasen kan starta."
+                      : "Jag behöver ditt svar på en följdfråga innan nästa preview kan genereras.",
                   };
                 }),
               );
-              toast("AI väntar på ditt svar för att fortsätta.");
+              toast(planBlockers ? "Planen kräver dina svar." : "AI väntar på ditt svar för att fortsätta.");
+            }
+
+            const planArtifact = doneData.planArtifact as Record<string, unknown> | undefined;
+            if (planArtifact && typeof planArtifact === "object") {
+              const planPart = {
+                type: "plan" as const,
+                plan: {
+                  title: (typeof planArtifact.goal === "string" ? planArtifact.goal : "Plan") as string,
+                  description: Array.isArray(planArtifact.scope)
+                    ? (planArtifact.scope as string[]).join(", ")
+                    : "",
+                  steps: Array.isArray(planArtifact.steps)
+                    ? (planArtifact.steps as Array<Record<string, unknown>>).map((s) => ({
+                        title: String(s.title ?? ""),
+                        description: String(s.description ?? ""),
+                        status: String(s.phase ?? "build"),
+                      }))
+                    : [],
+                  blockers: Array.isArray(planArtifact.blockers) ? planArtifact.blockers : [],
+                  assumptions: Array.isArray(planArtifact.assumptions) ? planArtifact.assumptions : [],
+                  raw: planArtifact,
+                },
+              };
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMessageId
+                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [planPart]) }
+                    : m,
+                ),
+              );
             }
 
             setMessages((prev) =>
               prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
             );
             if (ctx.streamType === "create") {
-              toast.success("Chat created!");
+              toast.success(planArtifact ? "Plan skapad!" : "Chat created!");
             }
             mutateVersions();
             onGenerationComplete?.({

@@ -170,6 +170,7 @@ export function useSendMessage(
         if (scaffoldId) promptMeta.scaffoldId = scaffoldId;
         if (appProjectId) promptMeta.appProjectId = appProjectId;
         if (themeColors) promptMeta.themeColors = themeColors;
+        if (options.planMode) promptMeta.planMode = true;
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
           pendingBriefRef.current = null;
