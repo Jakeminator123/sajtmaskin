@@ -1,0 +1,130 @@
+{
+  "id": "multi-tenant-apps-b2b-multi-tenant-starter-kit",
+  "slug": "multi-tenant-apps-b2b-multi-tenant-starter-kit",
+  "title": "B2B Multi-Tenant Starter Kit",
+  "categorySlug": "multi-tenant-apps",
+  "categoryName": "Multi-Tenant Apps",
+  "templateUrl": "https://vercel.com/templates/multi-tenant-apps/b2-b-multi-tenant-starter-kit",
+  "demoUrl": "https://stack-template.vercel.app/",
+  "description": "A minimalistic B2B Next.js starter template that includes a landing page, a dashboard, authentication, multi-tenancy, and account settings.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 82,
+  "repo": {
+    "url": "https://github.com/stack-auth/stack",
+    "normalizedUrl": "https://github.com/stack-auth/stack",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\multi-tenant-apps\\b2b-multi-tenant-starter-kit\\repo",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Related Templates",
+    "Platforms Starter Kit",
+    "Stripe Subscription Starter"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "A minimalistic B2B Next.js starter template that includes a landing page, a dashboard, authentication, multi-tenancy, and account settings.",
+    "Deploy",
+    "A minimalistic multi-tenant Next.js starter template with minimal setup and a modular design. Bring your own backend and database.",
+    "Getting Started",
+    "clone git@github.com:stack-auth/stack-template.git",
+    "Install dependencies",
+    "npm",
+    "install",
+    "Stack Auth",
+    ".env.local"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns",
+    "pricing or billing structure",
+    "multi-tenant or workspace patterns"
+  ],
+  "weaknesses": [
+    "large monorepo without a clear example path"
+  ],
+  "recommendedScaffoldFamilies": [
+    "app-shell",
+    "auth-pages",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": true,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": true,
+    "ai": true,
+    "multiTenant": true,
+    "cms": false
+  },
+  "summary": "B2B Multi-Tenant Starter Kit is a Multi-Tenant Apps reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "docs/README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Stack Auth Documentation\r\n\r\nThis is the documentation site for Stack Auth, built with [Next.js](https://nextjs.org) and [Fumadocs](https://fumadocs.dev).\r\n\r\n## Development\r\n\r\n```bash\r\npnpm dev\r\n```\r\n\r\nThe docs server runs on port `8104` by default (or `${NEXT_PUBLIC_STACK_PORT_PREFIX}04`).\r\n\r\n## Project Structure\r\n\r\n### Content (`/content`)\r\n\r\n| Directory | Description |\r\n|-----------|-------------|\r\n| `content/docs/` | Main documentation (guides, SDK reference, components) |\r\n| `content/api/` | REST API reference documentation |\r\n\r\n### App Routes (`/src/app`)\r\n\r\n| Route | Description |\r\n|-------|-------------|\r\n| `/docs` | Main documentation pages |\r\n| `/api` | API reference pages (rendered from OpenAPI specs) |\r\n| `/docs-embed` | Embedded docs for dashboard companion widget |\r\n| `/api-embed` | Embedded API docs for dashboard companion widget |\r\n| `/mcp-browser` | MCP documentation browser |\r\n| `/handler/[...stack]` | Stack Auth handler route |\r\n| `/api/search` | Search API endpoint |\r\n| `/api/chat` | AI documentation chat endpoint |\r\n| `/llms.txt` | LLM-friendly documentation (plain text) |\r\n| `/llms.mdx` | LLM-friendly documentation (MDX format) |\r\n\r\n### SDK Route Handlers\r\n\r\nThese routes serve SDK-specific documentation:\r\n\r\n- `/js/[...path]` - JavaScript SDK\r\n- `/next/[...path]` - Next.js SDK\r\n- `/react/[...path]` - React SDK\r\n- `/python/[...path]` - Python SDK\r\n- `/rest-api/[...path]` - REST API\r\n\r\n### Key Files\r\n\r\n| File | Description |\r\n|------|-------------|\r\n| `lib/source.ts` | Content source adapter using Fumadocs `loader()` |\r\n| `source.config.ts` | Fumadocs MDX configuration (frontmatter schema, etc.) |\r\n| `app/layout.config.tsx` | Shared layout options |\r\n| `lib/platform-config.ts` | Platform/framework configuration for code examples |\r\n\r\n### Components (`/src/components`)\r\n\r\n| Directory | Description |\r\n|-----------|-------------|\r\n| `api/` | API playground components |\r\n| `chat/` | AI chat interface |\r\n| `layout/` | Layout UI components (search, navigation) |\r\n| `layouts/` | Page layouts (docs, API) |\r\n| `mdx/` | Custom MDX components |\r\n| `stack-auth/` | Stack Auth demo components |\r\n| `ui/` | Base UI components (button, etc.) |\r\n\r\n### OpenAPI Specs (`/openapi`)\r\n\r\nContains OpenAPI JSON specifications organized by access level:\r\n- `client-*.json` - Client-side API endpoints\r\n- `server-*.json` - Server-side API endpoints\r\n- `admin-*.json` -\n\n// ... truncated"
+    },
+    {
+      "path": "docs/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\r\n  \"name\": \"@stackframe/stack-docs\",\r\n  \"version\": \"2.8.71\",\r\n  \"repository\": \"https://github.com/stack-auth/stack-auth\",\r\n  \"description\": \"\",\r\n  \"main\": \"index.js\",\r\n  \"private\": true,\r\n  \"type\": \"module\",\r\n  \"scripts\": {\r\n    \"build\": \"next build\",\r\n    \"dev\": \"next dev --port ${NEXT_PUBLIC_STACK_PORT_PREFIX:-81}04\",\r\n    \"start\": \"next start --port ${NEXT_PUBLIC_STACK_PORT_PREFIX:-81}04\",\r\n    \"typecheck\": \"tsc --noEmit\",\r\n    \"lint\": \"next lint\",\r\n    \"lint:fix\": \"next lint --fix\",\r\n    \"postinstall\": \"fumadocs-mdx\",\r\n    \"generate-openapi-docs\": \"node scripts/generate-functional-api-docs.mjs\",\r\n    \"clear-docs\": \"node scripts/clear-docs.js\"\r\n  },\r\n  \"dependencies\": {\r\n    \"@ai-sdk/react\": \"^1.2.12\",\r\n    \"@openrouter/ai-sdk-provider\": \"0.7.5\",\r\n    \"@modelcontextprotocol/sdk\": \"^1.17.2\",\r\n    \"@phosphor-icons/react\": \"^2.1.10\",\r\n    \"@radix-ui/react-collapsible\": \"^1.1.11\",\r\n    \"@radix-ui/react-popover\": \"^1.1.14\",\r\n    \"@radix-ui/react-presence\": \"^1.1.4\",\r\n    \"@radix-ui/react-scroll-area\": \"^1.2.9\",\r\n    \"@radix-ui/react-slot\": \"^1.2.3\",\r\n    \"@radix-ui/react-tabs\": \"^1.1.12\",\r\n    \"@stackframe/stack\": \"workspace:^\",\r\n    \"@stackframe/stack-shared\": \"workspace:^\",\r\n    \"@vercel/mcp-adapter\": \"^1.0.0\",\r\n    \"ai\": \"^4.3.17\",\r\n    \"class-variance-authority\": \"^0.7.1\",\r\n    \"fumadocs-core\": \"15.3.3\",\r\n    \"fumadocs-mdx\": \"11.6.4\",\r\n    \"fumadocs-openapi\": \"^8.1.12\",\r\n    \"fumadocs-typescript\": \"^4.0.5\",\r\n    \"fumadocs-ui\": \"15.3.3\",\r\n    \"jose\": \"^6.1.3\",\r\n    \"js-yaml\": \"^4.1.0\",\r\n    \"lucide-react\": \"^0.511.0\",\r\n    \"mermaid\": \"^11.6.0\",\r\n    \"minimatch\": \"^10.0.1\",\r\n    \"next\": \"15.5.10\",\r\n    \"next-themes\": \"^0.4.6\",\r\n    \"posthog-js\": \"^1.336.1\",\r\n    \"posthog-node\": \"^4.1.0\",\r\n    \"react\": \"^18.3.1\",\r\n    \"react-dom\": \"^18.3.1\",\r\n    \"react-medium-image-zoom\": \"^5.4.0\",\r\n    \"react-remove-scroll\": \"^2.7.0\",\r\n    \"remark\": \"^15.0.1\",\r\n    \"remark-gfm\": \"^4.0.1\",\r\n    \"remark-mdx\": \"^3.1.0\",\r\n    \"shiki\": \"^3.4.2\",\r\n    \"tailwind-merge\": \"^3.3.0\",\r\n    \"zod\": \"^3.23.8\"\r\n  },\r\n  \"devDependencies\": {\r\n    \"@tailwindcss/postcss\": \"^4.1.7\",\r\n    \"@types/mdx\": \"^2.0.13\",\r\n    \"@types/node\": \"22.15.18\",\r\n    \"@types/react\": \"^18.3.12\",\r\n    \"@types/react-dom\": \"^18.3.0\",\r\n    \"eslint\": \"^8.57.0\",\r\n    \"eslint-config-next\": \"15.3.2\",\r\n    \"glob\": \"^11.0.0\",\r\n    \"postcss\": \"^8.5.3\",\r\n    \"tailwindcss\": \"^4.1.7\",\r\n    \"typescript\": \"5.9.3\"\r\n  },\r\n  \"pack\n\n// ... truncated"
+    },
+    {
+      "path": "docs/src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { stackServerApp } from '@/stack';\r\nimport { StackProvider, StackTheme } from '@stackframe/stack';\r\nimport { RootProvider } from 'fumadocs-ui/provider';\r\nimport { Inter } from 'next/font/google';\r\nimport './global.css';\r\n\r\nconst inter = Inter({\r\n  subsets: ['latin'],\r\n});\r\n\r\nexport default function Layout({ children }: { children: React.ReactNode }) {\r\n  return (\r\n    <html lang=\"en\" className={inter.className} suppressHydrationWarning>\r\n      <head>\r\n      </head>\r\n      <body className=\"flex flex-col min-h-screen\" suppressHydrationWarning>\r\n        <StackProvider app={stackServerApp}>\r\n          <StackTheme>\r\n            <RootProvider\r\n              search={{\r\n                enabled: false, // Completely disable fumadocs search\r\n              }}\r\n            >\r\n              {children}\r\n            </RootProvider>\r\n          </StackTheme>\r\n        </StackProvider>\r\n      </body>\r\n    </html>\r\n  );\r\n}"
+    },
+    {
+      "path": "docs/src/middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { NextRequest, NextResponse } from 'next/server';\r\n\r\nexport function middleware(request: NextRequest) {\r\n  const { pathname } = request.nextUrl;\r\n\r\n  // Redirect old concepts paths to new apps paths\r\n  const movedToApps = [\r\n    'api-keys',\r\n    'emails',\r\n    'oauth',\r\n    'orgs-and-teams',\r\n    'permissions',\r\n    'webhooks',\r\n  ];\r\n\r\n  if (pathname.startsWith('/docs/concepts/')) {\r\n    const pageName = pathname.replace('/docs/concepts/', '');\r\n    if (movedToApps.includes(pageName)) {\r\n      const url = request.nextUrl.clone();\r\n      url.pathname = `/docs/apps/${pageName}`;\r\n      return NextResponse.redirect(url, 301); // 301 = permanent redirect\r\n    }\r\n  }\r\n\r\n  // Only apply to docs and api pages (not already .mdx requests)\r\n  // Match /docs, /docs/, /docs/... and /api, /api/, /api/...\r\n  const isDocsPath = pathname === '/docs' || pathname.startsWith('/docs/');\r\n  const isApiPath = pathname === '/api' || pathname.startsWith('/api/');\r\n\r\n  if ((isDocsPath || isApiPath) && !pathname.endsWith('.mdx')) {\r\n    const acceptHeader = request.headers.get('accept') || '';\r\n\r\n    // Parse Accept header by splitting on commas to properly handle MIME type ordering\r\n    const acceptTypes = acceptHeader.split(',').map(t => t.trim().split(';')[0]);\r\n\r\n    // Find the index of each MIME type in the Accept header\r\n    const plainIndex = acceptTypes.findIndex(\r\n      (t) => t === 'text/plain' || t === 'text/markdown'\r\n    );\r\n    const htmlIndex = acceptTypes.findIndex((t) => t === 'text/html');\r\n\r\n    // Prefer markdown if text/plain or text/markdown appears before text/html (or text/html doesn't exist)\r\n    const prefersMarkdown = plainIndex !== -1 && (htmlIndex === -1 || plainIndex < htmlIndex);\r\n\r\n    if (prefersMarkdown) {\r\n      // Rewrite to the LLM markdown endpoint\r\n      const url = request.nextUrl.clone();\r\n      url.pathname = `/llms.mdx${pathname.replace(/^\\/(docs|api)/, '')}`;\r\n\r\n      // Preserve query parameters (platform, framework, etc.)\r\n      return NextResponse.rewrite(url);\r\n    }\r\n  }\r\n\r\n  return NextResponse.next();\r\n}\r\n\r\nexport const config = {\r\n  matcher: [\r\n    '/docs/:path*',\r\n    '/api/:path*',\r\n  ],\r\n};"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "[![Stack Logo](/.github/assets/logo.png)](https://stack-auth.com)\r\n\r\n<h3 align=\"center\">\r\n  <a href=\"https://docs.stack-auth.com\">📘 Docs</a>\r\n  | <a href=\"https://stack-auth.com/\">☁️ Hosted Version</a>\r\n  | <a href=\"https://demo.stack-auth.com/\">✨ Demo</a>\r\n  | <a href=\"https://discord.stack-auth.com\">🎮 Discord</a>\r\n</h4>\r\n\r\n# Stack Auth: The open-source auth platform\r\n\r\nStack Auth is a managed user authentication solution. It is developer-friendly and fully open-source (licensed under MIT and AGPL).\r\n\r\nStack Auth gets you started in just five minutes, after which you'll be ready to use all of its features as you grow your project. Our managed service is completely optional and you can export your user data and self-host, for free, at any time.\r\n\r\nWe support Next.js, React, and JavaScript frontends, along with any backend that can use our [REST API](https://docs.stack-auth.com/api/overview). Check out our [setup guide](https://docs.stack-auth.com/docs/next/getting-started/setup) to get started.\r\n\r\n<div align=\"center\">\r\n<img alt=\"Stack Auth Setup\" src=\".github/assets/create-project.gif\" width=\"400\" />\r\n</div>\r\n\r\n## Table of contents\r\n\r\n<!-- START doctoc generated TOC please keep comment here to allow auto update -->\r\n<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->\r\n\r\n- [How is this different from X?](#how-is-this-different-from-x)\r\n- [✨ Features](#-features)\r\n- [📦 Installation & Setup](#-installation--setup)\r\n- [🌱 Some community projects built with Stack Auth](#-some-community-projects-built-with-stack-auth)\r\n  - [Templates](#templates)\r\n  - [Examples](#examples)\r\n- [🏗 Development & Contribution](#-development--contribution)\r\n  - [Requirements](#requirements)\r\n  - [Setup](#setup)\r\n  - [Useful commands](#useful-commands)\r\n- [❤ Contributors](#-contributors)\r\n\r\n<!-- END doctoc generated TOC please keep comment here to allow auto update -->\r\n\r\n## How is this different from X?\r\n\r\nAsk yourself about `X`:\r\n\r\n- Is `X` open-source?\r\n- Is `X` developer-friendly, well-documented, and lets you get started in minutes?\r\n- Besides authentication, does `X` also do authorization and user management (see feature list below)?\r\n\r\nIf you answered \"no\" to any of these questions, then that's how Stack Auth is different from `X`.\r\n\r\n## ✨ Features\r\n\r\nTo get notified first when we add new features, please subscribe to [our newsletter](https://stack-auth.beehiiv.\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\r\n  \"name\": \"@stackframe/monorepo\",\r\n  \"version\": \"0.0.0\",\r\n  \"private\": true,\r\n  \"repository\": \"https://github.com/stack-auth/stack-auth\",\r\n  \"scripts\": {\r\n    \"pre-no-codegen\": \"pnpx only-allow pnpm\",\r\n    \"pre-preinstall\": \"pnpx only-allow pnpm && node -e \\\"if(process.env.STACK_SKIP_TEMPLATE_GENERATION !== 'true') require('child_process').execSync('pnpx --package=tsx tsx ./scripts/generate-sdks.ts', {stdio: 'inherit'})\\\"\",\r\n    \"pre\": \"pnpm pre-preinstall\",\r\n    \"preinstall\": \"pnpm pre-preinstall\",\r\n    \"typecheck\": \"pnpm pre && turbo typecheck --\",\r\n    \"build:dev\": \"pnpm pre && NODE_ENV=development pnpm run build\",\r\n    \"build\": \"pnpm pre && turbo build\",\r\n    \"build:backend\": \"pnpm pre && turbo run build --filter=@stackframe/backend...\",\r\n    \"build:dashboard\": \"pnpm pre && turbo run build --filter=@stackframe/dashboard...\",\r\n    \"build:demo\": \"pnpm pre && turbo run build --filter=demo-app...\",\r\n    \"build:docs\": \"pnpm run build:packages && pnpm run codegen && pnpm run build:backend && pnpm run --filter=@stackframe/stack-docs generate-openapi-docs && turbo run build --filter=@stackframe/stack-docs\",\r\n    \"build:packages\": \"pnpm pre && turbo run build --filter=./packages/*\",\r\n    \"restart-dev-in-background\": \"pnpm pre && pnpm run kill-dev:named && (pnpm run dev:named > dev-server.log.untracked.txt 2>&1 &) && echo 'Starting dev server in background... (Logs are in dev-server.log.untracked.txt)' && pnpx wait-on http://localhost:${NEXT_PUBLIC_STACK_PORT_PREFIX:-81}02 -t 120000 && echo 'Dev server running.'\",\r\n    \"restart-dev-environment\": \"pnpm pre && pnpm run build:packages && pnpm run codegen && pnpm run restart-deps && pnpm run restart-dev-in-background\",\r\n    \"stop-dev-environment\": \"pnpm pre && pnpm run kill-dev:named && pnpm run stop-deps\",\r\n    \"clean\": \"pnpm pre-no-codegen && turbo run clean && rimraf --glob **/.next && rimraf --glob **/.turbo && rimraf .turbo && rimraf --glob **/node_modules && rimraf node_modules\",\r\n    \"codegen\": \"pnpm pre && turbo run codegen && pnpm run generate-sdks\",\r\n    \"codegen:backend\": \"pnpm pre && turbo run codegen --filter=@stackframe/backend...\",\r\n    \"deps-compose\": \"docker compose -p stack-dependencies-${NEXT_PUBLIC_STACK_PORT_PREFIX:-81} -f docker/dependencies/docker.compose.yaml\",\r\n    \"stop-deps\": \"POSTGRES_DELAY_MS=0 pnpm run deps-compose kill && POSTGRES_DELAY_MS=0 pnpm run deps-compose down -v\",\r\n    \"wait-\n\n// ... truncated"
+    },
+    {
+      "path": "docs/src/components/layout/sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "'use client';\r\nimport type {\r\n  CollapsibleContentProps,\r\n  CollapsibleTriggerProps,\r\n} from '@radix-ui/react-collapsible';\r\nimport { Presence } from '@radix-ui/react-presence';\r\nimport { type ScrollAreaProps } from '@radix-ui/react-scroll-area';\r\nimport { cva } from 'class-variance-authority';\r\nimport { usePathname } from 'fumadocs-core/framework';\r\nimport Link, { type LinkProps } from 'fumadocs-core/link';\r\nimport type { PageTree } from 'fumadocs-core/server';\r\nimport { useMediaQuery } from 'fumadocs-core/utils/use-media-query';\r\nimport { useOnChange } from 'fumadocs-core/utils/use-on-change';\r\nimport { useSidebar } from 'fumadocs-ui/contexts/sidebar';\r\nimport { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree';\r\nimport {\r\n  type ComponentProps,\r\n  createContext,\r\n  type FC,\r\n  Fragment,\r\n  type HTMLAttributes,\r\n  type ReactNode,\r\n  useContext,\r\n  useMemo,\r\n  useRef,\r\n  useState,\r\n} from 'react';\r\nimport { RemoveScroll } from 'react-remove-scroll';\r\nimport { cn } from '../../lib/cn';\r\nimport { isActive } from '../../lib/is-active';\r\nimport { ChevronDown, ExternalLink } from '../icons';\r\nimport {\r\n  Collapsible,\r\n  CollapsibleContent,\r\n  CollapsibleTrigger,\r\n} from '../ui/collapsible';\r\nimport { ScrollArea, ScrollViewport } from '../ui/scroll-area';\r\n\r\nexport type SidebarProps = {\r\n  /**\r\n   * Open folders by default if their level is lower or equal to a specific level\r\n   * (Starting from 1)\r\n   *\r\n   * @defaultValue 0\r\n   */\r\n  defaultOpenLevel?: number,\r\n\r\n  /**\r\n   * Prefetch links\r\n   *\r\n   * @defaultValue true\r\n   */\r\n  prefetch?: boolean,\r\n\r\n  /**\r\n   * Support collapsing the sidebar on desktop mode\r\n   *\r\n   * @defaultValue true\r\n   */\r\n  collapsible?: boolean,\r\n} & ComponentProps<'aside'>\r\n\r\ntype InternalContext = {\r\n  defaultOpenLevel: number,\r\n  prefetch: boolean,\r\n  level: number,\r\n}\r\n\r\nconst itemVariants = cva(\r\n  'relative flex flex-row items-center gap-2 text-start py-2.5 px-3 rounded-lg [overflow-wrap:anywhere] [&_svg]:size-4 [&_svg]:shrink-0',\r\n  {\r\n    variants: {\r\n      active: {\r\n        true: 'bg-fd-primary/10 text-fd-primary font-medium shadow-sm',\r\n        false:\r\n          'text-fd-muted-foreground hover:bg-fd-accent/50 hover:text-fd-accent-foreground/80',\r\n      },\r\n    },\r\n  },\r\n);\r\n\r\nconst Context = createContext<InternalContext | null>(null);\r\nconst FolderContext = createContext<{\r\n  open: boolean,\r\n  setOpen: React.\n\n// ... truncated"
+    },
+    {
+      "path": "examples/demo/src/components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client';\r\n\r\nimport { UserButton } from \"@stackframe/stack\";\r\nimport { useTheme } from \"next-themes\";\r\nimport Image from \"next/image\";\r\nimport Link from \"next/link\";\r\n\r\nexport default function Header() {\r\n  const { theme, setTheme } = useTheme();\r\n  return (\r\n    <>\r\n      <div className=\"fixed w-full z-50 p-4 h-12 flex items-center py-4 border-b justify-between bg-white dark:bg-black dark:border-gray-800\">\r\n        <div className=\"flex items-center gap-4\">\r\n          <Link href=\"/\" className=\"font-semibold flex items-center gap-2\">\r\n            <Image\r\n              src=\"/logo.svg\"\r\n              alt=\"Stack Auth Logo\"\r\n              width={64}\r\n              height={64}\r\n              className=\"dark:invert\"\r\n            />\r\n            Demo\r\n          </Link>\r\n          <Link href=\"/apikey-demo\" className=\"text-sm hover:text-gray-600 dark:hover:text-gray-300\">\r\n            API Key Demo\r\n          </Link>\r\n          <Link href=\"/anonymous-test\" className=\"text-sm hover:text-gray-600 dark:hover:text-gray-300\">\r\n            Anonymous Test\r\n          </Link>\r\n        </div>\r\n\r\n        <div className=\"flex items-center justify-end gap-5\">\r\n          <UserButton colorModeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />\r\n        </div>\r\n      </div>\r\n      <div className=\"min-h-12\"/> {/* Placeholder for fixed header */}\r\n    </>\r\n  );\r\n}"
+    },
+    {
+      "path": "examples/lovable-react-18-example/src/components/ui/sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import * as React from \"react\";\r\nimport { Slot } from \"@radix-ui/react-slot\";\r\nimport { VariantProps, cva } from \"class-variance-authority\";\r\nimport { PanelLeft } from \"lucide-react\";\r\n\r\nimport { useIsMobile } from \"@/hooks/use-mobile\";\r\nimport { cn } from \"@/lib/utils\";\r\nimport { Button } from \"@/components/ui/button\";\r\nimport { Input } from \"@/components/ui/input\";\r\nimport { Separator } from \"@/components/ui/separator\";\r\nimport { Sheet, SheetContent } from \"@/components/ui/sheet\";\r\nimport { Skeleton } from \"@/components/ui/skeleton\";\r\nimport { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from \"@/components/ui/tooltip\";\r\n\r\nconst SIDEBAR_COOKIE_NAME = \"sidebar:state\";\r\nconst SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;\r\nconst SIDEBAR_WIDTH = \"16rem\";\r\nconst SIDEBAR_WIDTH_MOBILE = \"18rem\";\r\nconst SIDEBAR_WIDTH_ICON = \"3rem\";\r\nconst SIDEBAR_KEYBOARD_SHORTCUT = \"b\";\r\n\r\ntype SidebarContext = {\r\n  state: \"expanded\" | \"collapsed\";\r\n  open: boolean;\r\n  setOpen: (open: boolean) => void;\r\n  openMobile: boolean;\r\n  setOpenMobile: (open: boolean) => void;\r\n  isMobile: boolean;\r\n  toggleSidebar: () => void;\r\n};\r\n\r\nconst SidebarContext = React.createContext<SidebarContext | null>(null);\r\n\r\nfunction useSidebar() {\r\n  const context = React.useContext(SidebarContext);\r\n  if (!context) {\r\n    throw new Error(\"useSidebar must be used within a SidebarProvider.\");\r\n  }\r\n\r\n  return context;\r\n}\r\n\r\nconst SidebarProvider = React.forwardRef<\r\n  HTMLDivElement,\r\n  React.ComponentProps<\"div\"> & {\r\n    defaultOpen?: boolean;\r\n    open?: boolean;\r\n    onOpenChange?: (open: boolean) => void;\r\n  }\r\n>(({ defaultOpen = true, open: openProp, onOpenChange: setOpenProp, className, style, children, ...props }, ref) => {\r\n  const isMobile = useIsMobile();\r\n  const [openMobile, setOpenMobile] = React.useState(false);\r\n\r\n  // This is the internal state of the sidebar.\r\n  // We use openProp and setOpenProp for control from outside the component.\r\n  const [_open, _setOpen] = React.useState(defaultOpen);\r\n  const open = openProp ?? _open;\r\n  const setOpen = React.useCallback(\r\n    (value: boolean | ((value: boolean) => boolean)) => {\r\n      const openState = typeof value === \"function\" ? value(open) : value;\r\n      if (setOpenProp) {\r\n        setOpenProp(openState);\r\n      } else {\r\n        _setOpen(openState);\r\n      }\r\n\r\n      // This sets the cookie to keep the sidebar state.\r\n      do\n\n// ... truncated"
+    }
+  ]
+}

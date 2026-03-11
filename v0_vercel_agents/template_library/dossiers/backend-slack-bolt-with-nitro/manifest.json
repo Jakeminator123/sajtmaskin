@@ -1,0 +1,97 @@
+{
+  "id": "backend-slack-bolt-with-nitro",
+  "slug": "backend-slack-bolt-with-nitro",
+  "title": "Slack Bolt with Nitro",
+  "categorySlug": "backend",
+  "categoryName": "Backend",
+  "templateUrl": "https://vercel.com/templates/backend/slack-bolt-with-nitro",
+  "demoUrl": "https://github.com/vercel-partner-solutions/slack-bolt-with-nitro",
+  "description": "This is a generic Bolt for JavaScript (TypeScript) template app used to build out Slack apps with the Nitro framework.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "non_next_template",
+  "qualityScore": 47,
+  "repo": {
+    "url": "https://github.com/vercel-partner-solutions/slack-bolt-with-nitro",
+    "normalizedUrl": "https://github.com/vercel-partner-solutions/slack-bolt-with-nitro",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\backend\\slack-bolt-with-nitro\\repo",
+    "packageManager": "pnpm",
+    "hasNext": false,
+    "hasReact": false,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Nitro",
+    "Related Templates",
+    "Slack Agent Template",
+    "Slack Bolt with Next.js",
+    "Slack Bolt with Hono"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "Before getting started, make sure you have a development workspace where you have permissions to install apps. You can use a",
+    "Getting Started",
+    "Clone and install dependencies",
+    "clone https://github.com/vercel-partner-solutions/slack-bolt-with-nitro.git",
+    "pnpm",
+    "install",
+    "https://api.slack.com/apps/new",
+    "into the text box that says \"Paste your manifest code here\" (JSON tab) and click Next",
+    "Review the configuration and click Create"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "auth flow reference",
+    "dashboard shell patterns",
+    "multi-tenant or workspace patterns"
+  ],
+  "weaknesses": [
+    "framework could not be verified from package.json"
+  ],
+  "recommendedScaffoldFamilies": [
+    "app-shell",
+    "auth-pages",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": true,
+    "cms": false
+  },
+  "summary": "Slack Bolt with Nitro is a Backend reference with auth flow reference, dashboard shell patterns, multi-tenant or workspace patterns. Verdict: non_next_template.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Slack Bolt with Nitro Template\r\n\r\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?demo-description=This%20is%20a%20generic%20Bolt%20for%20JavaScript%20(TypeScript)%20template%20app%20used%20to%20build%20out%20Slack%20apps%20with%20the%20Nitro%20framework.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2FSs9t7RkKlPtProrbDhZFM%2F0d11b9095ecf84c87a68fbdef6f12ad1%2FFrame__1_.png&demo-title=Slack%20Bolt%20with%20Nitro&demo-url=https%3A%2F%2Fgithub.com%2Fvercel-partner-solutions%2Fslack-bolt-with-nitro&env=SLACK_SIGNING_SECRET%2CSLACK_BOT_TOKEN&envDescription=These%20environment%20variables%20are%20required%20to%20deploy%20your%20Slack%20app%20to%20Vercel&envLink=https%3A%2F%2Fapi.slack.com%2Fapps&from=templates&project-name=Slack%20Bolt%20with%20Nitro&repository-name=slack-bolt-with-nitro&repository-url=https%3A%2F%2Fgithub.com%2Fvercel-partner-solutions%2Fslack-bolt-with-nitro&skippable-integrations=1&teamSlug=vercel-partnerships)\r\n\r\nThis is a generic Bolt for JavaScript (TypeScript) template app used to build Slack apps with Nitro\r\n\r\nBefore getting started, make sure you have a development workspace where you have permissions to install apps. You can use a [developer sandbox](https://api.slack.com/developer-program) or [create a workspace](https://slack.com/create)\r\n\r\n## Getting Started\r\n\r\n### Clone and install dependencies\r\n```bash\r\ngit clone https://github.com/vercel-partner-solutions/slack-bolt-with-nitro.git && cd slack-bolt-with-nitro && pnpm install\r\n```\r\n\r\n### Create a Slack App\r\n\r\n1. Open https://api.slack.com/apps/new and choose \"From an app manifest\"\r\n2. Choose the workspace you want to use\r\n3. Copy the contents of [`manifest.json`](./manifest.json) into the text box that says \"Paste your manifest code here\" (JSON tab) and click Next\r\n4. Review the configuration and click Create\r\n5. On the Install App tab, click Install to <Workspace_Name>. \r\n      - You will be redirected to the App Configuration dashboard\r\n6. Copy the Bot User OAuth Token into your environment as `SLACK_BOT_TOKEN`\r\n7. On the Basic Information tab, copy your Signing Secret into your environment as `SLACK_SIGNING_SECRET`\r\n\r\n### Prepare for Local Development\r\n\r\n1. Add your `NGROK_AUTH_TOKEN` to your `.env` file\r\n    - You can get a free token [here](https://dashboard.ngrok.com/login?state=X1FFBj9sgtS9-oFK_2-h15Xcg0zHPjp_b9edWYrpGBVvIluUPEAarKRIjp\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\r\n  \"name\": \"slack-bolt-with-nitro\",\r\n  \"version\": \"1.0.0\",\r\n  \"scripts\": {\r\n    \"build\": \"nitro build\",\r\n    \"dev\": \"nitro dev\",\r\n    \"dev:tunnel\": \"tsx scripts/dev.tunnel.ts\",\r\n    \"lint\": \"biome check\",\r\n    \"format\": \"biome check --write\"\r\n  },\r\n  \"author\": \"Vercel\",\r\n  \"license\": \"MIT\",\r\n  \"keywords\": [\r\n    \"slack\",\r\n    \"bolt\",\r\n    \"vercel\",\r\n    \"nitro\"\r\n  ],\r\n  \"dependencies\": {\r\n    \"@slack/bolt\": \"^4.6.0\",\r\n    \"@vercel/slack-bolt\": \"^1.0.2\"\r\n  },\r\n  \"devDependencies\": {\r\n    \"@biomejs/biome\": \"^2.3.3\",\r\n    \"@ngrok/ngrok\": \"^1.5.2\",\r\n    \"@slack/cli-hooks\": \"^1.2.1\",\r\n    \"dotenv\": \"^17.2.3\",\r\n    \"h3\": \"^1.15.4\",\r\n    \"nitropack\": \"^2.12.9\",\r\n    \"tsx\": \"^4.20.6\",\r\n    \"typescript\": \"^5.9.3\"\r\n  },\r\n  \"packageManager\": \"pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748\"\r\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Find these here: https://api.slack.com/apps\r\nSLACK_SIGNING_SECRET=\"your-slack-signing-secret\"\r\nSLACK_BOT_TOKEN=\"your-slack-bot-token\"\r\n\r\n# Sign up for free account: https://dashboard.ngrok.com/signup\r\n# Install your authtoken: https://dashboard.ngrok.com/get-started/your-authtoken\r\nNGROK_AUTH_TOKEN=\"your-ngrok-auth-token\""
+    }
+  ]
+}

@@ -29,6 +29,13 @@ function buildEmbeddingText(scaffold: ScaffoldManifest): string {
     `Tags: ${scaffold.tags.join(", ")}`,
     `Build intents: ${scaffold.buildIntents.join(", ")}`,
     `Prompt hints: ${scaffold.promptHints.join("; ")}`,
+    `Quality checklist: ${scaffold.qualityChecklist?.join("; ") ?? ""}`,
+    `Upgrade targets: ${scaffold.research?.upgradeTargets.join("; ") ?? ""}`,
+    `Reference templates: ${
+      scaffold.research?.referenceTemplates
+        .map((template) => `${template.title} (${template.categorySlug})`)
+        .join("; ") ?? ""
+    }`,
     `Files: ${filePaths}`,
   ].join("\n");
 }

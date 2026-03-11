@@ -1,0 +1,40 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "slack-bolt-with-nitro",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "nitro build",
+    "dev": "nitro dev",
+    "dev:tunnel": "tsx scripts/dev.tunnel.ts",
+    "lint": "biome check",
+    "format": "biome check --write"
+  },
+  "author": "Vercel",
+  "license": "MIT",
+  "keywords": [
+    "slack",
+    "bolt",
+    "vercel",
+    "nitro"
+  ],
+  "dependencies": {
+    "@slack/bolt": "^4.6.0",
+    "@vercel/slack-bolt": "^1.0.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.3",
+    "@ngrok/ngrok": "^1.5.2",
+    "@slack/cli-hooks": "^1.2.1",
+    "dotenv": "^17.2.3",
+    "h3": "^1.15.4",
+    "nitropack": "^2.12.9",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748"
+}
+```

@@ -1,0 +1,38 @@
+# examples/nextjs/package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+	"name": "slack-bolt-with-next",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev",
+		"build": "vercel-slack build --cleanup && next build",
+		"start": "next start",
+		"lint": "biome check",
+		"lint:fix": "biome format --write"
+	},
+	"dependencies": {
+		"@slack/bolt": "^4.6.0",
+		"@vercel/slack-bolt": "workspace:*",
+		"next": "16.1.6",
+		"react": "19.2.4",
+		"react-dom": "19.2.4"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.2.2",
+		"@ngrok/ngrok": "^1.7.0",
+		"@slack/cli-hooks": "^1.3.0",
+		"@tailwindcss/postcss": "^4.2.1",
+		"@types/node": "^24.11.0",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"dotenv": "^17.3.1",
+		"tailwindcss": "^4.2.1",
+		"tsx": "^4.21.0",
+		"typescript": "^5.9.3"
+	}
+}
+```

@@ -189,6 +189,41 @@ export const AI_ELEMENT_ITEMS: AiElementCatalogItem[] = [
       "Allow users to restore conversation state to a previous checkpoint.",
     ],
   },
+  {
+    id: "voice-input",
+    label: "Voice Input",
+    description: "Voice-first prompt composer with recording state, waveform feedback and transcript preview.",
+    category: "chat",
+    tags: ["voice", "microphone", "transcript", "multimodal"],
+    dependencies: ["ai"],
+    promptHints: [
+      "Add a microphone trigger with idle, recording and processing states.",
+      "Show waveform or volume feedback while recording and a transcript preview before send.",
+    ],
+  },
+  {
+    id: "assistant-dock",
+    label: "Assistant Dock",
+    description: "Sticky assistant launcher or side dock that keeps AI actions visible across the whole app.",
+    category: "chat",
+    tags: ["assistant", "dock", "launcher", "floating"],
+    promptHints: [
+      "Create a sticky dock or floating launcher that remains visible while the user scrolls.",
+      "Include primary AI actions such as ask, summarize, refine and generate.",
+    ],
+  },
+  {
+    id: "multimodal-dropzone",
+    label: "Multimodal Dropzone",
+    description: "Attachment-first composer for images, PDFs, audio and text snippets before prompting.",
+    category: "chat",
+    tags: ["attachments", "upload", "dropzone", "files"],
+    dependencies: ["ai"],
+    promptHints: [
+      "Support drag-and-drop plus click-to-upload with clear accepted file types.",
+      "Render uploaded items as removable chips or preview cards above the prompt input.",
+    ],
+  },
   // ── Code & Preview ──
   {
     id: "code-block",
@@ -223,6 +258,39 @@ export const AI_ELEMENT_ITEMS: AiElementCatalogItem[] = [
       "Display generated content (code, markdown, HTML) in the body.",
     ],
   },
+  {
+    id: "diff-viewer",
+    label: "Diff Viewer",
+    description: "Before/after code or content comparison with inline highlights and quick actions.",
+    category: "code",
+    tags: ["diff", "compare", "before-after", "review"],
+    promptHints: [
+      "Render additions and removals with clear inline highlights and a compact legend.",
+      "Include actions like copy, accept, reject or restore next to the diff header.",
+    ],
+  },
+  {
+    id: "file-tree",
+    label: "File Tree",
+    description: "Explorer-style sidebar showing generated files, folders and selection state.",
+    category: "code",
+    tags: ["files", "tree", "explorer", "sidebar"],
+    promptHints: [
+      "Show nested folders and files in an explorer layout with expand/collapse affordances.",
+      "Highlight the selected file and keep long paths readable with truncation.",
+    ],
+  },
+  {
+    id: "version-compare",
+    label: "Version Compare",
+    description: "Version switcher and comparison surface for demo URLs, revisions and generated outputs.",
+    category: "code",
+    tags: ["versions", "compare", "history", "demo-url"],
+    promptHints: [
+      "Render version cards with status, timestamp and optional demo URL badge.",
+      "Allow side-by-side compare or quick switching between selected versions.",
+    ],
+  },
   // ── Workflow ──
   {
     id: "canvas",
@@ -235,6 +303,41 @@ export const AI_ELEMENT_ITEMS: AiElementCatalogItem[] = [
       "Use ReactFlow as the canvas base with custom Node and Edge components.",
       "Include a minimap, zoom controls and a toolbar.",
       "Create Node components with header, content and footer slots.",
+    ],
+  },
+  {
+    id: "agent-timeline",
+    label: "Agent Timeline",
+    description: "Step-by-step agent execution timeline with statuses, outputs and expandable details.",
+    category: "workflow",
+    tags: ["timeline", "steps", "agents", "status"],
+    promptHints: [
+      "Render execution as a vertical timeline with timestamps, icons and status colors.",
+      "Allow each step to expand for logs, outputs and follow-up actions.",
+    ],
+  },
+  {
+    id: "agent-graph",
+    label: "Agent Graph",
+    description: "Graph view for multi-agent orchestration, handoffs and dependencies between tasks.",
+    category: "workflow",
+    tags: ["graph", "agents", "handoff", "dependencies"],
+    dependencies: ["@xyflow/react"],
+    promptHints: [
+      "Use a node-and-edge layout showing which agent produced which artifact or handoff.",
+      "Visually distinguish queued, running, completed and failed nodes.",
+    ],
+  },
+  {
+    id: "three-scene",
+    label: "Three.js Scene",
+    description: "Immersive 3D hero or feature section powered by react-three-fiber and drei.",
+    category: "workflow",
+    tags: ["3d", "three", "hero", "canvas"],
+    dependencies: ["three", "@react-three/fiber", "@react-three/drei"],
+    promptHints: [
+      "Use a lightweight 3D scene as a hero or feature background without blocking page performance.",
+      "Keep the scene interactive but accessible, with sensible fallbacks for low-power devices.",
     ],
   },
   // ── Tools & Status ──
@@ -259,6 +362,29 @@ export const AI_ELEMENT_ITEMS: AiElementCatalogItem[] = [
     promptHints: [
       "Render each task with a trigger showing name and status icon.",
       "Show file attachments and details in the collapsible content area.",
+    ],
+  },
+  {
+    id: "approval-drawer",
+    label: "Approval Drawer",
+    description: "Side drawer for reviewing risky AI actions before approval, execution or rollback.",
+    category: "tools",
+    tags: ["approval", "drawer", "review", "safety"],
+    dependencies: ["ai"],
+    promptHints: [
+      "Show pending actions in a drawer with clear approve, reject and edit controls.",
+      "Include a compact risk summary, parameter preview and secondary details below.",
+    ],
+  },
+  {
+    id: "deploy-console",
+    label: "Deploy Console",
+    description: "Live deployment and verification panel with logs, environment badges and outcomes.",
+    category: "tools",
+    tags: ["deploy", "logs", "console", "environment"],
+    promptHints: [
+      "Render live log lines in a terminal-inspired panel with statuses and timestamps.",
+      "Surface environment badges for dev, preview and production near the header.",
     ],
   },
   {
@@ -304,6 +430,86 @@ export const AI_ELEMENT_ITEMS: AiElementCatalogItem[] = [
     promptHints: [
       "Add a dropdown button with options for multiple AI platforms.",
       "Generate deep links to open the current content in each platform.",
+    ],
+  },
+  {
+    id: "badge-cluster",
+    label: "Badge Cluster",
+    description: "Dense cluster of badges, pills and chips for status, model, source or capability labels.",
+    category: "utility",
+    tags: ["badges", "chips", "status", "labels"],
+    promptHints: [
+      "Combine badges of different visual weights to show capability, status and metadata at a glance.",
+      "Use compact spacing so the cluster works in headers, cards and sidebars.",
+    ],
+  },
+  {
+    id: "modal-stack",
+    label: "Modal Stack",
+    description: "Layered modal or dialog system for nested flows, confirmations and quick-edit moments.",
+    category: "utility",
+    tags: ["modal", "dialog", "stack", "overlay"],
+    promptHints: [
+      "Design a modal system that supports nested flows without feeling chaotic.",
+      "Use clear hierarchy between primary dialog content and secondary confirmations or sheets.",
+    ],
+  },
+  {
+    id: "spotlight-hero",
+    label: "Spotlight Hero",
+    description: "Animated hero section with strong heading, CTA, social proof and light effects.",
+    category: "utility",
+    tags: ["hero", "animation", "cta", "landing-page"],
+    dependencies: ["framer-motion"],
+    promptHints: [
+      "Create a hero with animated entrance, strong headline hierarchy and primary CTA.",
+      "Add tasteful light, gradient or spotlight effects that enhance the design without overpowering content.",
+    ],
+  },
+  {
+    id: "header-command-bar",
+    label: "Header Command Bar",
+    description: "AI-forward header with global search, quick actions, badges and assistant entry point.",
+    category: "utility",
+    tags: ["header", "navigation", "command-bar", "quick-actions"],
+    promptHints: [
+      "Design a top header combining global search, primary actions and assistant shortcuts.",
+      "Include badges or compact indicators for model, environment or run status.",
+    ],
+  },
+  {
+    id: "footer-link-cloud",
+    label: "Footer Link Cloud",
+    description: "Rich footer with grouped links, badges, trust notes and a subtle final CTA band.",
+    category: "utility",
+    tags: ["footer", "links", "cta", "metadata"],
+    promptHints: [
+      "Build a footer with grouped navigation, metadata, trust notes and a final CTA strip.",
+      "Use separators, badges and subtle tonal contrast to make the footer feel intentional.",
+    ],
+  },
+  {
+    id: "metric-strip",
+    label: "Metric Strip",
+    description: "Animated KPI strip with counters, delta badges and compact supporting labels.",
+    category: "utility",
+    tags: ["metrics", "stats", "badges", "dashboard"],
+    dependencies: ["framer-motion"],
+    promptHints: [
+      "Display 3-6 headline metrics with delta badges and short supporting descriptions.",
+      "Use subtle motion or count-up effects to make the strip feel alive without distracting the user.",
+    ],
+  },
+  {
+    id: "animation-showcase",
+    label: "Animation Showcase",
+    description: "Section dedicated to motion patterns like reveal-on-scroll, marquee, shimmer and hover depth.",
+    category: "utility",
+    tags: ["animation", "motion", "microinteraction", "showcase"],
+    dependencies: ["framer-motion", "lottie-react"],
+    promptHints: [
+      "Combine scroll-reveal, hover depth and subtle looping motion in one cohesive section.",
+      "Prefer polished microinteractions over excessive animation density.",
     ],
   },
 ];

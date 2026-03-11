@@ -64,6 +64,31 @@ export interface ComponentItem {
 
 export type RegistryItemKind = "block" | "component";
 
+export interface CuratedUiCollectionDefinition {
+  id: string;
+  titleSv: string;
+  descriptionSv: string;
+  icon: string;
+  itemType: RegistryItemKind;
+  family:
+    | "headers"
+    | "footers"
+    | "modals"
+    | "badges"
+    | "animation"
+    | "forms"
+    | "data"
+    | "auth"
+    | "dashboard";
+  itemNames: string[];
+  dependencyHints?: string[];
+}
+
+export interface CuratedUiCollection extends Omit<CuratedUiCollectionDefinition, "itemNames"> {
+  items: ComponentItem[];
+  missingItemNames: string[];
+}
+
 // ============================================
 // CATEGORY CONFIGURATION
 // ============================================
@@ -477,7 +502,7 @@ export const FEATURED_BLOCKS = [
   {
     id: "sidebar",
     titleSv: "Sidofält",
-    descriptionSv: "Navigeringssidofält med olika stilar",
+    descriptionSv: "Navigeringssidofält från enkel meny till full app-shell",
     icon: "📋",
     blocks: [
       "sidebar-01",
@@ -488,6 +513,14 @@ export const FEATURED_BLOCKS = [
       "sidebar-06",
       "sidebar-07",
       "sidebar-08",
+      "sidebar-09",
+      "sidebar-10",
+      "sidebar-11",
+      "sidebar-12",
+      "sidebar-13",
+      "sidebar-14",
+      "sidebar-15",
+      "sidebar-16",
     ],
   },
   {
@@ -507,17 +540,336 @@ export const FEATURED_BLOCKS = [
     ],
   },
   {
-    id: "charts",
-    titleSv: "Diagram",
-    descriptionSv: "Interaktiva diagram och grafer",
+    id: "chart-area",
+    titleSv: "Area-diagram",
+    descriptionSv: "Interaktiva area charts för dashboards och analytics",
     icon: "📈",
     blocks: [
+      "chart-area-axes",
+      "chart-area-default",
+      "chart-area-gradient",
+      "chart-area-icons",
       "chart-area-interactive",
+      "chart-area-legend",
+      "chart-area-linear",
+      "chart-area-stacked-expand",
+      "chart-area-stacked",
+      "chart-area-step",
+    ],
+  },
+  {
+    id: "chart-bar",
+    titleSv: "Stapeldiagram",
+    descriptionSv: "Bar charts för KPI:er, jämförelser och breakdowns",
+    icon: "📊",
+    blocks: [
+      "chart-bar-active",
+      "chart-bar-default",
+      "chart-bar-horizontal",
       "chart-bar-interactive",
+      "chart-bar-label-custom",
+      "chart-bar-label",
+      "chart-bar-mixed",
+      "chart-bar-multiple",
+      "chart-bar-negative",
+      "chart-bar-stacked",
+    ],
+  },
+  {
+    id: "chart-line",
+    titleSv: "Linjediagram",
+    descriptionSv: "Trendlinjer för rapporter, tidsserier och status",
+    icon: "📉",
+    blocks: [
+      "chart-line-default",
+      "chart-line-dots-colors",
+      "chart-line-dots-custom",
+      "chart-line-dots",
       "chart-line-interactive",
+      "chart-line-label-custom",
+      "chart-line-label",
+      "chart-line-linear",
+      "chart-line-multiple",
+      "chart-line-step",
+    ],
+  },
+  {
+    id: "chart-pie",
+    titleSv: "Pie & Donut",
+    descriptionSv: "Pie- och donut-visualiseringar för fördelningar",
+    icon: "🥧",
+    blocks: [
+      "chart-pie-donut-active",
+      "chart-pie-donut-text",
+      "chart-pie-donut",
       "chart-pie-interactive",
+      "chart-pie-label-custom",
+      "chart-pie-label-list",
+      "chart-pie-label",
+      "chart-pie-legend",
+      "chart-pie-separator-none",
+      "chart-pie-simple",
+      "chart-pie-stacked",
+    ],
+  },
+  {
+    id: "chart-radar",
+    titleSv: "Radar & Radial",
+    descriptionSv: "Alternativa diagram för scorecards och fleraxliga jämförelser",
+    icon: "🕸️",
+    blocks: [
+      "chart-radar-default",
+      "chart-radar-dots",
+      "chart-radar-grid-circle-fill",
+      "chart-radar-grid-circle-no-lines",
+      "chart-radar-grid-circle",
+      "chart-radar-grid-custom",
+      "chart-radar-grid-fill",
+      "chart-radar-grid-none",
+      "chart-radar-icons",
+      "chart-radial-simple",
+    ],
+  },
+];
+
+export const CURATED_UI_COLLECTIONS: CuratedUiCollectionDefinition[] = [
+  {
+    id: "headers-navigation-components",
+    titleSv: "Headers & Navigation",
+    descriptionSv: "Navigation, app-shell och toppsektioner som bygger starka headers och menyfloden.",
+    icon: "🧭",
+    itemType: "component",
+    family: "headers",
+    itemNames: [
+      "navigation-menu",
+      "menubar",
+      "breadcrumb",
+      "dropdown-menu",
+      "context-menu",
+      "sheet",
+      "command",
+      "button",
+      "avatar",
+      "separator",
+      "sidebar",
+    ],
+  },
+  {
+    id: "footers-metadata-components",
+    titleSv: "Footers & Metadata",
+    descriptionSv: "Byggstenar för footers, avslutande CTA-band, trust badges och metadata-rader.",
+    icon: "🦶",
+    itemType: "component",
+    family: "footers",
+    itemNames: [
+      "separator",
+      "badge",
+      "button-group",
+      "card",
+      "accordion",
+      "hover-card",
+      "tooltip",
+      "breadcrumb",
+    ],
+  },
+  {
+    id: "modals-overlays-components",
+    titleSv: "Modaler & Overlays",
+    descriptionSv: "Dialoger, sheets och flytande paneler för fokuserade arbetsfloden.",
+    icon: "🪟",
+    itemType: "component",
+    family: "modals",
+    itemNames: [
+      "dialog",
+      "alert-dialog",
+      "drawer",
+      "sheet",
+      "popover",
+      "hover-card",
+      "tooltip",
+      "dropdown-menu",
+      "context-menu",
+    ],
+  },
+  {
+    id: "badges-status-components",
+    titleSv: "Badges & Status",
+    descriptionSv: "Små men viktiga element för status, feedback, etiketter och loading states.",
+    icon: "🏷️",
+    itemType: "component",
+    family: "badges",
+    itemNames: [
+      "badge",
+      "alert",
+      "progress",
+      "skeleton",
+      "sonner",
+      "spinner",
+      "tooltip",
+      "kbd",
+    ],
+  },
+  {
+    id: "motion-interaction-components",
+    titleSv: "Animation & Motion",
+    descriptionSv: "Interaktiva komponenter som lämpar sig för microinteractions, carousels och motion-heavy UI.",
+    icon: "✨",
+    itemType: "component",
+    family: "animation",
+    itemNames: [
+      "carousel",
+      "accordion",
+      "collapsible",
+      "drawer",
+      "sheet",
+      "hover-card",
+      "progress",
+      "tabs",
+      "tooltip",
+    ],
+    dependencyHints: ["framer-motion", "lottie-react"],
+  },
+  {
+    id: "forms-conversion-components",
+    titleSv: "Forms & Conversion",
+    descriptionSv: "Formulär, validering och inputs för onboarding, auth och conversion flows.",
+    icon: "📝",
+    itemType: "component",
+    family: "forms",
+    itemNames: [
+      "form",
+      "field",
+      "input",
+      "input-group",
+      "textarea",
+      "select",
+      "native-select",
+      "checkbox",
+      "radio-group",
+      "switch",
+      "calendar",
+      "input-otp",
+      "label",
+    ],
+  },
+  {
+    id: "dashboards-data-components",
+    titleSv: "Dashboards & Data",
+    descriptionSv: "Kort, tabeller, diagram och paneler för tyngre admin- och analytics-vyer.",
+    icon: "📈",
+    itemType: "component",
+    family: "data",
+    itemNames: [
+      "card",
+      "chart",
+      "table",
+      "tabs",
+      "pagination",
+      "scroll-area",
+      "resizable",
+      "accordion",
+      "sidebar",
+      "empty",
+    ],
+  },
+  {
+    id: "auth-form-blocks",
+    titleSv: "Auth-Blocks",
+    descriptionSv: "Startklara login-, signup- och verifieringsblock.",
+    icon: "🔐",
+    itemType: "block",
+    family: "auth",
+    itemNames: [
+      "login-01",
+      "login-02",
+      "login-03",
+      "login-04",
+      "login-05",
+      "signup-01",
+      "signup-02",
+      "signup-03",
+      "signup-04",
+      "signup-05",
+      "otp-01",
+      "otp-02",
+      "otp-03",
+      "otp-04",
+      "otp-05",
+    ],
+  },
+  {
+    id: "dashboard-shell-blocks",
+    titleSv: "Dashboards & Shells",
+    descriptionSv: "Sidofalt, dashboard-skal och datatunga block som ger app-kansla direkt.",
+    icon: "🗂️",
+    itemType: "block",
+    family: "dashboard",
+    itemNames: [
+      "dashboard-01",
+      "sidebar-01",
+      "sidebar-02",
+      "sidebar-03",
+      "sidebar-04",
+      "sidebar-05",
+      "sidebar-06",
+      "sidebar-07",
+      "sidebar-08",
+      "sidebar-09",
+      "sidebar-10",
+      "sidebar-11",
+      "sidebar-12",
+      "sidebar-13",
+      "sidebar-14",
+      "sidebar-15",
+      "sidebar-16",
+    ],
+  },
+  {
+    id: "chart-visualization-blocks",
+    titleSv: "Charts & Visualisering",
+    descriptionSv: "Stort urval av chart-blocks för KPI:er, trendlinjer, fördelningar och dashboards.",
+    icon: "📊",
+    itemType: "block",
+    family: "data",
+    itemNames: [
+      "chart-area-default",
+      "chart-area-interactive",
+      "chart-area-stacked",
+      "chart-bar-default",
+      "chart-bar-horizontal",
+      "chart-bar-interactive",
+      "chart-line-default",
+      "chart-line-interactive",
+      "chart-line-multiple",
+      "chart-pie-donut",
+      "chart-pie-interactive",
+      "chart-pie-simple",
       "chart-radar-default",
       "chart-radial-simple",
     ],
   },
 ];
+
+export function getCuratedUiCollections(
+  categories: ComponentCategory[],
+  itemType: RegistryItemKind,
+): CuratedUiCollection[] {
+  const itemMap = new Map<string, ComponentItem>();
+  categories.flatMap((category) => category.items).forEach((item) => {
+    itemMap.set(item.name, item);
+  });
+
+  return CURATED_UI_COLLECTIONS.filter((collection) => collection.itemType === itemType)
+    .map((collection) => {
+      const items = collection.itemNames
+        .map((name) => itemMap.get(name))
+        .filter(Boolean) as ComponentItem[];
+      const missingItemNames = collection.itemNames.filter((name) => !itemMap.has(name));
+      return {
+        ...collection,
+        items,
+        missingItemNames,
+      };
+    })
+    .filter((collection) => collection.items.length > 0);
+}

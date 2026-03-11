@@ -128,4 +128,6 @@ test-results/
 node_modules/
 _scaffold_discovery/
 vercel_usecase_next_react_templates/
+_sidor/
+research/_sidor/
 # <<< cursor-gpt automation local artifacts <<<

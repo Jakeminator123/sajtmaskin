@@ -1,0 +1,107 @@
+{
+  "id": "saas-envshare",
+  "slug": "saas-envshare",
+  "title": "EnvShare",
+  "categorySlug": "saas",
+  "categoryName": "SaaS",
+  "templateUrl": "https://vercel.com/templates/saas/envshare",
+  "demoUrl": "https://envshare.dev/",
+  "description": "Simple Next.js + Upstash app to share environment variables securely using AES-CBC encryption.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/chronark/envshare",
+    "normalizedUrl": "https://github.com/chronark/envshare",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\saas\\envshare\\repo",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Database",
+    "Upstash",
+    "Related Templates",
+    "Blog (with comments)"
+  ],
+  "usefulLines": [
+    "EnvShare",
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Simple Next.js + Upstash app to share environment variables securely using AES-CBC encryption.",
+    "Deploy",
+    "EnvShare is a simple tool to share environment variables securely. It uses",
+    "Features",
+    "Share your environment variables securely by sending a",
+    "Deployed on",
+    "Vercel",
+    "Deploy your own",
+    "All you need is a Redis database on Upstash and a Vercel account. Click the"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "dashboard shell patterns",
+    "editorial content hierarchy"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "saas-landing",
+    "app-shell",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": true,
+    "pricing": false,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "EnvShare is a SaaS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<div align=\"center\">\r\n    <h1 align=\"center\">EnvShare</h1>\r\n    <h5>Share Environment Variables Securely</h5>\r\n</div>\r\n\r\n<div align=\"center\">\r\n  <a href=\"https://envshare.dev\">envshare.dev</a>\r\n</div>\r\n<br/>\r\n\r\nEnvShare is a simple tool to share environment variables securely. It uses\r\n**AES-GCM** to encrypt your data before sending it to the server. The encryption\r\nkey never leaves your browser.\r\n\r\n## Features\r\n\r\n- **Shareable Links:** Share your environment variables securely by sending a\r\n  link\r\n- **End-to-End Encryption:** AES-GCM encryption is used to encrypt your data\r\n  before sending it to the server\r\n- **Limit number of reads:** Limit the number of times a link can be read\r\n- **Auto Expire:** Automatically expire links and delete data after a certain\r\n  time\r\n\r\n<br/>\r\n\r\n![](img/envshare.png)\r\n\r\n## Built with\r\n\r\n- [Next.js](https://nextjs.org)\r\n- [tailwindcss](https://tailwindcss.com)\r\n- Deployed on [Vercel](https://vercel.com?utm_source=envshare)\r\n- Data stored on [Upstash](https://upstash.com?utm_source=envshare)\r\n\r\n## Deploy your own\r\n\r\nDetailed instructions can be found [here](https://envshare.dev/deploy)\r\n\r\nAll you need is a Redis database on Upstash and a Vercel account. Click the\r\nbutton below to clone and deploy:\r\n\r\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?demo-title=EnvShare&demo-description=Simple%20Next.js%20%2B%20Upstash%20app%20to%20share%20environment%20variables%20securely%20using%20AES-GCM%20encryption.&demo-url=https%3A%2F%2Fenvshare.dev%2F&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F5SaFBHXp5FBFJbsTzVqIJ3%2Ff0f8382369b7642fd8103debb9025c11%2Fenvshare.png&project-name=EnvShare&repository-name=envshare&repository-url=https%3A%2F%2Fgithub.com%2Fchronark%2Fenvshare&from=templates&integration-ids=oac_V3R1GIpkoJorr6fqyiwdhl17)\r\n\r\n\r\n## Sponsors\r\n\r\n<table>\r\n<tr>\r\n<td>\r\n  <img width=\"1000\" height=\"0\">\r\n  <a href=\"https://upstash.com/?utm_source=envshare\" >\r\n  <img src=\"https://raw.githubusercontent.com/upstash/sponsorship/master/redis.png\" alt=\"Upstash\" width=\"260\" align=\"right\">\r\n  </a>\r\n<h3>Upstash: Serverless Database for Redis</h3>\r\n\r\n<ul>\r\n    <li>Serverless Redis with global replication and durable storage</li>\r\n    <li>Price scales to zero with per request pricing</li>\r\n    <li>Built-in REST API designed for serverless and edge functions</li>\r\n  </ul>\r\n\r\n[Start for free in 30 seconds!\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\r\n  \"name\": \"envshare\",\r\n  \"version\": \"0.1.0\",\r\n  \"private\": true,\r\n  \"scripts\": {\r\n    \"dev\": \"next dev\",\r\n    \"build\": \"next build\",\r\n    \"start\": \"next start\",\r\n    \"lint\": \"next lint\",\r\n    \"test\": \"jest --collect-coverage\",\r\n    \"fmt\": \"pnpm rome check . --apply-suggested && pnpm rome format . --write\"\r\n  },\r\n  \"dependencies\": {\r\n    \"@heroicons/react\": \"^2.0.13\",\r\n    \"@next/font\": \"13.1.1\",\r\n    \"@tailwindcss/forms\": \"^0.5.3\",\r\n    \"@types/node\": \"18.11.18\",\r\n    \"@types/react\": \"18.0.26\",\r\n    \"@types/react-dom\": \"18.0.10\",\r\n    \"@upstash/redis\": \"^1.19.1\",\r\n    \"@vercel/analytics\": \"0.1.7-beta.1\",\r\n    \"@vercel/og\": \"^0.0.27\",\r\n    \"base-x\": \"^4.0.0\",\r\n    \"eslint\": \"8.31.0\",\r\n    \"eslint-config-next\": \"13.1.1\",\r\n    \"next\": \"13.1.1\",\r\n    \"react\": \"18.2.0\",\r\n    \"react-dom\": \"18.2.0\",\r\n    \"typescript\": \"4.9.4\",\r\n    \"zod\": \"^3.20.2\"\r\n  },\r\n  \"devDependencies\": {\r\n    \"@jest/globals\": \"^29.3.1\",\r\n    \"@types/jest\": \"^29.2.5\",\r\n    \"autoprefixer\": \"^10.4.13\",\r\n    \"jest\": \"^29.3.1\",\r\n    \"postcss\": \"^8.4.21\",\r\n    \"rome\": \"^11.0.0\",\r\n    \"tailwindcss\": \"^3.2.4\",\r\n    \"ts-jest\": \"^29.0.5\"\r\n  }\r\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import \"./globals.css\";\r\nimport { Inter } from \"@next/font/google\";\r\nimport Link from \"next/link\";\r\nimport { Header } from \"./header\";\r\n\r\nimport { Analytics } from \"@components/analytics\";\r\nconst inter = Inter({ subsets: [\"latin\"], variable: \"--font-inter\" });\r\n\r\nexport default function RootLayout({\r\n  children,\r\n}: {\r\n  children: React.ReactNode;\r\n}) {\r\n  return (\r\n    <html lang=\"en\" className={inter.variable}>\r\n      <head />\r\n      <body className=\"relative min-h-screen bg-black bg-gradient-to-tr from-zinc-900/50 to-zinc-700/30\">\r\n        {\r\n          // Not everyone will want to host envshare on Vercel, so it makes sense to make this opt-in.\r\n          process.env.ENABLE_VERCEL_ANALYTICS ? <Analytics /> : null\r\n        }\r\n\r\n        <Header />\r\n\r\n        <main className=\" min-h-[80vh] \">{children}</main>\r\n\r\n        <footer className=\"bottom-0 border-t inset-2x-0 border-zinc-500/10\">\r\n          <div className=\"flex flex-col gap-1 px-6 py-12 mx-auto text-xs text-center text-zinc-700 max-w-7xl lg:px-8\">\r\n            <p>\r\n              Built by{\" \"}\r\n              <Link href=\"https://twitter.com/chronark_\" className=\"font-semibold duration-150 hover:text-zinc-200\">\r\n                @chronark_\r\n              </Link>\r\n              and{\" \"}\r\n              <Link\r\n                href=\"https://github.com/chronark/envshare/graphs/contributors\"\r\n                className=\"underline duration-150 hover:text-zinc-200\"\r\n              >\r\n                many others{\" \"}\r\n              </Link>\r\n            </p>\r\n            <p>\r\n              EnvShare is deployed on{\" \"}\r\n              <Link target=\"_blank\" href=\"https://vercel.com\" className=\"underline duration-150 hover:text-zinc-200\">\r\n                Vercel\r\n              </Link>{\" \"}\r\n              and uses{\" \"}\r\n              <Link target=\"_blank\" href=\"https://upstash.com\" className=\"underline duration-150 hover:text-zinc-200\">\r\n                Upstash\r\n              </Link>{\" \"}\r\n              for storing encrypted data.\r\n            </p>\r\n          </div>\r\n        </footer>\r\n      </body>\r\n    </html>\r\n  );\r\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Link from \"next/link\";\r\nimport { Stats } from \"./components/stats\";\r\nimport { Testimonials } from \"./components/testimony\";\r\n\r\nexport default function Home() {\r\n  return (\r\n    <div className=\"flex flex-col gap-8 pb-8 md:gap-16 md:pb-16 xl:pb-24\">\r\n      <div className=\"flex flex-col items-center justify-center max-w-3xl px-8 mx-auto mt-8 sm:min-h-screen sm:mt-0 sm:px-0\">\r\n        <div className=\"hidden sm:mb-8 sm:flex sm:justify-center\">\r\n          <Link\r\n            href=\"https://github.com/chronark/envshare\"\r\n            className=\"text-zinc-400 relative overflow-hidden rounded-full py-1.5 px-4 text-sm leading-6 ring-1 ring-zinc-100/10 hover:ring-zinc-100/30 duration-150\"\r\n          >\r\n            EnvShare is Open Source on{\" \"}\r\n            <span className=\"font-semibold text-zinc-200\">\r\n              GitHub <span aria-hidden=\"true\">&rarr;</span>\r\n            </span>\r\n          </Link>\r\n        </div>\r\n        <div>\r\n          <h1 className=\"py-4 text-5xl font-bold tracking-tight text-center text-transparent bg-gradient-to-t bg-clip-text from-zinc-100/50 to-white sm:text-7xl\">\r\n            Share Environment Variables Securely\r\n          </h1>\r\n          <p className=\"mt-6 leading-5 text-zinc-600 sm:text-center\">\r\n            Your document is encrypted in your browser before being stored for a limited period of time and read\r\n            operations. Unencrypted data never leaves your browser.\r\n          </p>\r\n          <div className=\"flex flex-col justify-center gap-4 mx-auto mt-8 sm:flex-row sm:max-w-lg \">\r\n            <Link\r\n              href=\"/deploy\"\r\n              className=\"sm:w-1/2 sm:text-center inline-block space-x-2 rounded px-4 py-1.5 md:py-2 text-base font-semibold leading-7 text-white  ring-1 ring-zinc-600 hover:bg-white hover:text-zinc-900 duration-150 hover:ring-white hover:drop-shadow-cta\"\r\n            >\r\n              Deploy\r\n            </Link>\r\n            <Link\r\n              href=\"/share\"\r\n              className=\"sm:w-1/2 sm:text-center inline-block transition-all space-x-2  rounded px-4 py-1.5 md:py-2 text-base font-semibold leading-7 text-zinc-800   bg-zinc-50 ring-1 ring-transparent hover:text-zinc-100 hover:ring-zinc-600/80  hover:bg-zinc-900/20 duration-150 hover:drop-shadow-cta\"\r\n            >\r\n              <span>Share</span>\r\n              <span aria-hidden=\"true\">&rarr;</span>\r\n            </Link>\r\n          </div>\n\n// ... truncated"
+    },
+    {
+      "path": "app/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\r\nimport React from \"react\";\r\nimport Link from \"next/link\";\r\nimport { usePathname } from \"next/navigation\";\r\n\r\nconst navigation = [\r\n  {\r\n    name: \"Share\",\r\n    href: \"/share\",\r\n  },\r\n  {\r\n    name: \"Unseal\",\r\n    href: \"/unseal\",\r\n  },\r\n\r\n  {\r\n    name: \"Deploy\",\r\n    href: \"/deploy\",\r\n  },\r\n  {\r\n    name: \"GitHub\",\r\n    href: \"https://github.com/chronark/envshare\",\r\n    external: true,\r\n  },\r\n] satisfies { name: string; href: string; external?: boolean }[];\r\n\r\nexport const Header: React.FC = () => {\r\n  const pathname = usePathname();\r\n  return (\r\n    <header className=\"top-0 z-30 w-full px-4 sm:fixed backdrop-blur bh-zinc-900/50\">\r\n      <div className=\"container mx-auto\">\r\n        <div className=\"flex flex-col items-center justify-between gap-2 pt-6 sm:h-20 sm:flex-row sm:pt-0\">\r\n          <Link href=\"/\" className=\"text-2xl font-semibold duration-150 text-zinc-100 hover:text-white\">\r\n            EnvShare\r\n          </Link>\r\n          {/* Desktop navigation */}\r\n          <nav className=\"flex items-center grow\">\r\n            <ul className=\"flex flex-wrap items-center justify-end gap-4 grow\">\r\n              {navigation.map((item) => (\r\n                <li className=\"\" key={item.href}>\r\n                  <Link\r\n                    className={`flex items-center px-3 py-2 duration-150 text-sm sm:text-base  hover:text-zinc-50\r\n                    ${pathname === item.href ? \"text-zinc-200\" : \"text-zinc-400\"}`}\r\n                    href={item.href}\r\n                    target={item.external ? \"_blank\" : undefined}\r\n                    rel={item.external ? \"noopener noreferrer\" : undefined}\r\n                  >\r\n                    {item.name}\r\n                  </Link>\r\n                </li>\r\n              ))}\r\n            </ul>\r\n          </nav>\r\n        </div>\r\n      </div>\r\n\r\n      {/* Fancy fading bottom border */}\r\n    </header>\r\n  );\r\n};"
+    }
+  ]
+}

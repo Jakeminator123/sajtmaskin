@@ -27,3 +27,20 @@ up-to-date documentation and capabilities.
 4. **AI SDK (Vercel)** -> Check web search.
 5. **Own-engine generation, generated site code, version files, runtime URLs** -> `sajtmaskin-engine` MCP server.
 6. **Internal scaffolds, scaffold files, scaffold comparison** -> `sajtmaskin-scaffolds` MCP server.
+
+## Local browser doc helpers
+
+For short, open-ended documentation or product-behavior questions about v0 or
+Vercel, local browser helpers may be used when the user is already logged in:
+
+- `v0_vercel_agent/talk_to_v0_doc/ask_v0.py`
+- `v0_vercel_agent/talk_to_vercel_doc/ask_vercel.py`
+
+Use them only as a local research fallback:
+
+- Prefer MCP docs/tools first when they can answer the question directly.
+- Prefer the Python helpers for quick exploratory questions where the site-level
+  "Ask AI" answer is likely useful.
+- Before relying on them, confirm the user is logged in or ask them to reopen
+  the relevant session/tab if needed.
+- Do NOT treat these helpers as runtime dependencies or production integrations.

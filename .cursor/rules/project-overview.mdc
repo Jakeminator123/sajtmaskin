@@ -26,8 +26,10 @@ and get a working site generated, previewed, and deployed.
 User prompt -> Builder UI -> Own engine (default) or v0 Platform API (fallback) -> Generated code -> Preview -> Deploy to Vercel
 ```
 
-- **Own engine**: `src/lib/gen/` — streamText, scaffolds, autofix, preview. Kräver OPENAI_API_KEY.
+- **Own engine**: `src/lib/gen/` — streamText, runtime scaffolds, autofix, preview. Kräver OPENAI_API_KEY.
 - **v0 fallback**: När V0_FALLBACK_BUILDER=y skickas till v0 Platform API. Kräver V0_API_KEY.
+- **Template gallery**: `src/lib/templates/` — user-facing browsing/search/discovery surface, not the runtime scaffold registry.
+- **Research lane**: `v0_vercel_agents/` + `src/lib/gen/template-library/` — curated docs/template references used to improve scaffolds, not to replace them at runtime.
 
 ### Key directories
 
@@ -36,7 +38,9 @@ User prompt -> Builder UI -> Own engine (default) or v0 Platform API (fallback) 
 | `src/app/builder/` | Main builder page (prompt -> generate -> preview -> deploy) |
 | `src/app/admin/` | Admin dashboard |
 | `src/app/api/v0/` | Chat/stream routes (own engine eller v0 proxy) |
-| `src/lib/gen/` | Own engine — scaffolds, system prompt, autofix, preview |
+| `src/lib/gen/` | Own engine — runtime scaffolds, system prompt, autofix, preview |
+| `src/lib/templates/` | Product template gallery and semantic search |
+| `v0_vercel_agents/` | Research/docs helpers and curated external references |
 | `src/app/api/auth/` | Authentication (email, Google, GitHub OAuth) |
 | `src/app/api/ai/` | AI Gateway routes (prompt assist, brief, spec) |
 | `src/components/builder/` | Builder UI components (ChatInterface, MessageList, PreviewPanel) |![1772500015428](image/project-overview/1772500015428.png)
@@ -49,7 +53,7 @@ User prompt -> Builder UI -> Own engine (default) or v0 Platform API (fallback) 
 | `src/lib/auth/` | Auth logic + Zustand store + edge-auth.ts for middleware |
 | `src/lib/brave-search.ts` | Brave Web Search API wrapper |
 | `src/proxy.ts` | Centralized auth redirects, CORS, security headers (Node.js runtime) |
-| `LLM/` | AI/prompt strategy notes |
+| `docs/llm/` | AI/prompt strategy notes |
 
 ### Core flow (builder)
 

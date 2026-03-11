@@ -324,6 +324,44 @@ const setupQueries = [
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS engine_chats (
+    id TEXT PRIMARY KEY,
+    project_id TEXT,
+    title TEXT,
+    model TEXT NOT NULL DEFAULT 'gpt-5.4',
+    system_prompt TEXT,
+    scaffold_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS engine_messages (
+    id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL REFERENCES engine_chats(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    token_count INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS engine_versions (
+    id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL REFERENCES engine_chats(id) ON DELETE CASCADE,
+    message_id TEXT,
+    version_number INTEGER NOT NULL,
+    files_json TEXT NOT NULL,
+    sandbox_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS engine_generation_logs (
+    id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL REFERENCES engine_chats(id) ON DELETE CASCADE,
+    model TEXT NOT NULL,
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    duration_ms INTEGER,
+    success BOOLEAN NOT NULL DEFAULT TRUE,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
 ];
 
 const schemaQueries = [
@@ -401,7 +439,8 @@ const updatedAtFunction = `
     NEW.updated_at = NOW();
     RETURN NEW;
   END;
-  $$ LANGUAGE plpgsql;
+  $$ LANGUAGE plpgsql
+  SET search_path = public, pg_temp;
 `;
 
 const updatedAtTriggers = [

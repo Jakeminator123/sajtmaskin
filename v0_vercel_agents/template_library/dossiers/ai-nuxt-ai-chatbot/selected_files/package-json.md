@@ -1,0 +1,93 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "nuxt-auth-utils",
+  "version": "0.5.29",
+  "description": "Add Authentication to Nuxt applications with secured & sealed cookies sessions.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atinux/nuxt-auth-utils.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.29.3",
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prepack": "nuxt-module-build build",
+    "dev": "nuxi dev playground",
+    "dev:build": "nuxi build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
+    "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "test:watch": "vitest watch"
+  },
+  "dependencies": {
+    "@adonisjs/hash": "^9.1.1",
+    "@nuxt/kit": "^4.3.1",
+    "defu": "^6.1.4",
+    "h3": "^1.15.4",
+    "hookable": "^6.0.1",
+    "jose": "^6.1.3",
+    "ofetch": "^1.5.1",
+    "openid-client": "^6.8.2",
+    "pathe": "^2.0.3",
+    "scule": "^1.3.0",
+    "uncrypto": "^0.1.3"
+  },
+  "peerDependencies": {
+    "@atproto/api": "^0.13.15",
+    "@atproto/oauth-client-node": "^0.2.0",
+    "@simplewebauthn/browser": "^11.0.0",
+    "@simplewebauthn/server": "^11.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@simplewebauthn/browser": {
+      "optional": true
+    },
+    "@simplewebauthn/server": {
+      "optional": true
+    },
+    "@atproto/oauth-client-node": {
+      "optional": true
+    },
+    "@atproto/api": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@iconify-json/simple-icons": "^1.2.71",
+    "@nuxt/devtools": "3.2.1",
+    "@nuxt/eslint-config": "^1.15.1",
+    "@nuxt/module-builder": "^1.0.2",
+    "@nuxt/schema": "^4.3.1",
+    "@nuxt/test-utils": "^4.0.0",
+    "@types/node": "latest",
+    "@nuxt/ui": "^4.4.0",
+    "@simplewebauthn/types": "^12.0.0",
+    "changelogen": "^0.6.2",
+    "eslint": "^10.0.
+
+// ... truncated
+```

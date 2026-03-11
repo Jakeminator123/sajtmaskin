@@ -1,0 +1,50 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "vercel-anycable-demo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "anycable-go": "anycable-go --broadcast_adapter=http --presets=broker --rpc_impl=http --rpc_host=http://localhost:3000/api/anycable"
+  },
+  "dependencies": {
+    "@anycable/anycable-go": "^1.5.2",
+    "@anycable/core": "^0.7.8",
+    "@anycable/serverless-js": "^0.1.0",
+    "@anycable/web": "^0.7.3",
+    "@headlessui/react": "^1.7.17",
+    "@nanostores/react": "^0.7.1",
+    "@types/md5": "^2.3.2",
+    "@types/node": "20.6.0",
+    "@types/react": "18.2.21",
+    "@types/react-dom": "18.2.7",
+    "autoprefixer": "10.4.15",
+    "class-variance-authority": "^0.7.0",
+    "jose": "^4.14.6",
+    "md5": "^2.3.0",
+    "nanoid": "^5.0.1",
+    "nanostores": "^0.9.3",
+    "next": "13.5.1",
+    "postcss": "8.4.29",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "tailwindcss": "3.3.3",
+    "typescript": "5.2.2"
+  },
+  "devDependencies": {
+    "eslint": "8.45.0",
+    "eslint-config-next": "13.4.16",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.3",
+    "prettier-plugin-tailwindcss": "^0.5.4"
+  }
+}
+```

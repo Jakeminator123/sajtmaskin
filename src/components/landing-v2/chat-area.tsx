@@ -1878,7 +1878,7 @@ export function ChatArea({
                 Olika s&auml;tt att bygga sajt
               </h2>
               <p className="text-muted-foreground max-w-3xl mx-auto leading-relaxed text-pretty">
-                H&auml;r j&auml;mf&ouml;r vi 9 metoder fr&aring;n matrisen i <code>sajtmaskin-matris.md</code> med 10 parametrar. V&auml;lj scenario
+                H&auml;r j&auml;mf&ouml;r vi 9 metoder fr&aring;n matrisen i <code>docs/analyses/sajtmaskin-matris.md</code> med 10 parametrar. V&auml;lj scenario
                 f&ouml;r att se hur rankingen f&ouml;r&auml;ndras beroende p&aring; vad som &auml;r viktigast f&ouml;r ditt bolag.
               </p>
             </div>

@@ -18,8 +18,9 @@ import { blogManifest } from "./blog/manifest";
 import { dashboardManifest } from "./dashboard/manifest";
 import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
+import { getScaffoldResearchOverrides } from "./scaffold-research";
 
-const ALL_SCAFFOLDS: ScaffoldManifest[] = [
+const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   baseNextjsManifest,
   landingPageManifest,
   saasLandingManifest,
@@ -31,6 +32,11 @@ const ALL_SCAFFOLDS: ScaffoldManifest[] = [
   contentSiteManifest,
   appShellManifest,
 ];
+
+const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => ({
+  ...scaffold,
+  ...getScaffoldResearchOverrides(scaffold.id),
+}));
 
 export function getScaffoldById(id: string): ScaffoldManifest | null {
   return ALL_SCAFFOLDS.find((s) => s.id === id) ?? null;

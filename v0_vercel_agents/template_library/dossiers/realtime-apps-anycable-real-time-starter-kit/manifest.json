@@ -1,0 +1,107 @@
+{
+  "id": "realtime-apps-anycable-real-time-starter-kit",
+  "slug": "realtime-apps-anycable-real-time-starter-kit",
+  "title": "AnyCable Real-time Starter Kit",
+  "categorySlug": "realtime-apps",
+  "categoryName": "Realtime Apps",
+  "templateUrl": "https://vercel.com/templates/realtime-apps/anycable",
+  "demoUrl": "https://vercel-anycable-demo.vercel.app/",
+  "description": "AnyCable/Next.js chat application demonstrating how to build real-time features, with all benefits of open-source. No PaaS bills.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/anycable/vercel-anycable-demo",
+    "normalizedUrl": "https://github.com/anycable/vercel-anycable-demo",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\realtime-apps\\anycable-real-time-starter-kit\\repo",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Related Templates",
+    "Chatbot",
+    "Chatbot UI"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "AnyCable/Next.js chat application demonstrating how to build real-time features, with all benefits of open-source. No PaaS bills.",
+    "Deploy",
+    "AnyCable Next.js/Vercel Example",
+    "Vercel",
+    "You will need to deploy an AnyCable-Go server to the platform of your choice. We recommend using",
+    "and provide an example configuration in",
+    "for seamless deployments. However, Anycable-Go server can be deployed on any platform.",
+    "fly CLI",
+    "--env",
+    "ANYCABLE_BROKER"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "AnyCable Real-time Starter Kit is a Realtime Apps reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# AnyCable Next.js/Vercel Example\r\n\r\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fanycable%2Fvercel-anycable-demo&env=CABLE_URL,ANYCABLE_HTTP_BROADCAST_URL,ANYCABLE_HTTP_BROADCAST_SECRET,ANYCABLE_JWT_ID_KEY&envDescription=Link%20Vercel%20application%20with%20AnyCable%20server&envLink=https%3A%2F%2Fgithub.com%2Fanycable%2Fvercel-anycable-demo&project-name=vercel-anycable-demo&repository-name=vercel-anycable-demo)\r\n\r\nThis is an example of how to use [AnyCable](https://anycable.io) with [Next.js](https://nextjs.org) and [Vercel](https://vercel.com) to build real-time applications.\r\n\r\nLearn more about AnyCable for serverless JavaScript apps in [the documentation](https://docs.anycable.io/guides/serverless).\r\n\r\n## Prerequisites\r\n\r\nYou will need to deploy an AnyCable-Go server to the platform of your choice. We recommend using [Fly.io](https://fly.io) and provide an example configuration in `fly.toml.example` for seamless deployments. However, Anycable-Go server can be deployed on any platform.\r\n\r\nUsing [fly CLI](https://fly.io/docs/hands-on/install-flyctl/), run the following command to create and launch a new AnyCable-Go application:\r\n\r\n```sh\r\n# Create a new Fly application\r\nfly launch --image anycable/anycable-go:1.4 --generate-name --ha=false --internal-port 8080 --env PORT=8080 --env ANYCABLE_BROKER=memory\r\n```\r\n\r\nAnswer \"No\" to all database-related questions and \"Yes\" to deployment. This will deploy your app and create a `fly.toml` file with the minimum configuration. See the `fly.toml.example` file to learn more about other available and recommended configuration options.\r\n\r\n## Deployment\r\n\r\n- Click the **Deploy** button\r\n\r\n- Fill in the required environment variables:\r\n\r\n  ```env\r\n  CABLE_URL=wss://<YOUR_ANYCABLE_GO_HOSTNAME>/cable\r\n  ANYCABLE_HTTP_BROADCAST_URL=https://<YOUR_ANYCABLE_GO_HOSTNAME>/_broadcast\r\n  ANYCABLE_HTTP_BROADCAST_SECRET=<YOUR_SECRET>\r\n  ANYCABLE_JWT_ID_KEY=<YOUR_JWT_SECRET>\r\n  ```\r\n\r\n  * The `ANYCABLE_HTTP_BROADCAST_SECRET` and `ANYCABLE_JWT_ID_KEY` can be any strings.\r\n  * You can create a secure value using this CLI command `openssl rand -hex 32`\r\n\r\n- Set the following environment variables on your AnyCable-Go server:\r\n\r\n  ```env\r\n  ANYCABLE_RPC_HOST=https://<YOUR_VERCEL_APP_HOSTNAME>/api/anycable\r\n  ANYCABLE_HTTP_BROADCAST_SECRET=<YOUR_SECRET>\r\n  ANYCABLE_\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\r\n  \"name\": \"vercel-anycable-demo\",\r\n  \"version\": \"0.1.0\",\r\n  \"private\": true,\r\n  \"scripts\": {\r\n    \"dev\": \"next dev\",\r\n    \"build\": \"next build\",\r\n    \"start\": \"next start\",\r\n    \"lint\": \"next lint\",\r\n    \"anycable-go\": \"anycable-go --broadcast_adapter=http --presets=broker --rpc_impl=http --rpc_host=http://localhost:3000/api/anycable\"\r\n  },\r\n  \"dependencies\": {\r\n    \"@anycable/anycable-go\": \"^1.5.2\",\r\n    \"@anycable/core\": \"^0.7.8\",\r\n    \"@anycable/serverless-js\": \"^0.1.0\",\r\n    \"@anycable/web\": \"^0.7.3\",\r\n    \"@headlessui/react\": \"^1.7.17\",\r\n    \"@nanostores/react\": \"^0.7.1\",\r\n    \"@types/md5\": \"^2.3.2\",\r\n    \"@types/node\": \"20.6.0\",\r\n    \"@types/react\": \"18.2.21\",\r\n    \"@types/react-dom\": \"18.2.7\",\r\n    \"autoprefixer\": \"10.4.15\",\r\n    \"class-variance-authority\": \"^0.7.0\",\r\n    \"jose\": \"^4.14.6\",\r\n    \"md5\": \"^2.3.0\",\r\n    \"nanoid\": \"^5.0.1\",\r\n    \"nanostores\": \"^0.9.3\",\r\n    \"next\": \"13.5.1\",\r\n    \"postcss\": \"8.4.29\",\r\n    \"react\": \"18.2.0\",\r\n    \"react-dom\": \"18.2.0\",\r\n    \"tailwindcss\": \"3.3.3\",\r\n    \"typescript\": \"5.2.2\"\r\n  },\r\n  \"devDependencies\": {\r\n    \"eslint\": \"8.45.0\",\r\n    \"eslint-config-next\": \"13.4.16\",\r\n    \"eslint-config-prettier\": \"^9.0.0\",\r\n    \"eslint-plugin-prettier\": \"^5.0.0\",\r\n    \"prettier\": \"^3.0.3\",\r\n    \"prettier-plugin-tailwindcss\": \"^0.5.4\"\r\n  }\r\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import \"./globals.css\";\r\nimport type { Metadata } from \"next\";\r\nimport { Inter } from \"next/font/google\";\r\nimport { MainLayout } from \"./components/main-layout\";\r\nimport { cx } from \"class-variance-authority\";\r\n\r\nconst inter = Inter({ subsets: [\"latin\"] });\r\n\r\nconst title = \"AnyCable Next.js Demo\",\r\n  description =\r\n    \"Next.js messaging application using AnyCable as a real-time server and deployed on Vercel\";\r\n\r\nexport const metadata: Metadata = {\r\n  title,\r\n  description,\r\n  openGraph: {\r\n    title,\r\n    description,\r\n    locale: \"en_US\",\r\n    type: \"website\",\r\n  },\r\n};\r\n\r\nexport default function RootLayout({\r\n  children,\r\n}: {\r\n  children: React.ReactNode;\r\n}) {\r\n  return (\r\n    <html lang=\"en\">\r\n      <head>\r\n        <meta name=\"viewport\" content=\"width=device-width\" />\r\n        <link\r\n          rel=\"icon\"\r\n          type=\"image/png\"\r\n          href=\"/favicon-32x32.png\"\r\n          sizes=\"32x32\"\r\n        />\r\n        <link\r\n          rel=\"icon\"\r\n          type=\"image/png\"\r\n          href=\"/favicon-16x16.png\"\r\n          sizes=\"16x16\"\r\n        />\r\n      </head>\r\n      <body className={cx(inter.className, \"bg-red-50\")}>\r\n        <MainLayout>{children}</MainLayout>\r\n      </body>\r\n    </html>\r\n  );\r\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { redirect } from \"next/navigation\";\r\nimport { Chat } from \"./components/chat\";\r\nimport { nanoid } from \"nanoid\";\r\nimport { getRoomLabel } from \"./utils/room-label\";\r\nimport { Header } from \"./components/header/header\";\r\nimport { cookies } from \"next/headers\";\r\nimport { Metadata } from \"next\";\r\nimport { Intro } from \"./components/intro\";\r\n\r\nexport async function generateMetadata({\r\n  searchParams: { roomId },\r\n}: {\r\n  searchParams: { [key: string]: string };\r\n}): Promise<Metadata> {\r\n  const roomLabel = getRoomLabel(roomId);\r\n\r\n  return {\r\n    title: `${roomLabel} | AnyCable Next.js Demo`,\r\n    openGraph: {\r\n      images: [\r\n        {\r\n          url: `/api/og/?roomLabel=${roomLabel}`,\r\n          width: 1200,\r\n          height: 630,\r\n        },\r\n      ],\r\n    },\r\n  };\r\n}\r\n\r\nexport default function Home({\r\n  searchParams,\r\n}: {\r\n  searchParams: { [key: string]: string };\r\n}) {\r\n  if (!searchParams.roomId) {\r\n    return redirect(`/?roomId=${nanoid()}`);\r\n  }\r\n  const showIntro = !cookies().get(\"introShown\")?.value;\r\n\r\n  async function introShownAction() {\r\n    \"use server\";\r\n\r\n    cookies().set(\"introShown\", \"1\");\r\n  }\r\n\r\n  return (\r\n    <>\r\n      <Chat\r\n        username={cookies().get(\"username\")!.value}\r\n        header={<Header roomLabel={getRoomLabel(searchParams.roomId)} />}\r\n      />\r\n      <Intro showIntro={showIntro} introShownAction={introShownAction} />\r\n    </>\r\n  );\r\n}"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { NextResponse, type NextRequest } from \"next/server\";\r\nimport { identifier } from \"./app/api/cable\";\r\n\r\nexport async function middleware(request: NextRequest) {\r\n  const token = request.cookies.get(\"token\")?.value;\r\n\r\n  if (token) {\r\n    try {\r\n      await identifier.verify(token);\r\n      return;\r\n    } catch (e) {\r\n      console.log(e);\r\n    }\r\n  }\r\n\r\n  const url = new URL(request.url);\r\n  url.pathname = \"/auth\";\r\n\r\n  return NextResponse.redirect(url);\r\n}\r\n\r\nexport const config = {\r\n  matcher: \"/\",\r\n};"
+    },
+    {
+      "path": "app/components/header/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { cookies } from \"next/headers\";\r\nimport { RoomActions } from \"./room-actions\";\r\nimport { redirect } from \"next/navigation\";\r\nimport { nanoid } from \"nanoid\";\r\nimport { AvatarActions } from \"./avatar-actions\";\r\n\r\nexport function Header({ roomLabel }: { roomLabel: string }) {\r\n  const username = cookies().get(\"username\")?.value!;\r\n\r\n  async function signOut() {\r\n    \"use server\";\r\n\r\n    cookies().delete(\"token\");\r\n    cookies().delete(\"username\");\r\n    return redirect(\"/auth\");\r\n  }\r\n\r\n  return (\r\n    <div className=\"rounded-b-lg border-gray-200 bg-white p-4 shadow-md\">\r\n      <div className=\"flex items-center justify-between\">\r\n        <div className=\"flex items-center gap-3\">\r\n          <RoomActions newRoomId={nanoid()} />\r\n          <div className=\"flex flex-col\">\r\n            <div className=\"text-2xs uppercase text-gray-500\">Room</div>\r\n            <div className=\"truncate font-semibold\">{roomLabel}</div>\r\n          </div>\r\n        </div>\r\n        <div>\r\n          <AvatarActions usernameOrEmail={username} signOutAction={signOut} />\r\n        </div>\r\n      </div>\r\n    </div>\r\n  );\r\n}"
+    }
+  ]
+}

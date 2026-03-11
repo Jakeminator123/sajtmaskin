@@ -19,6 +19,7 @@ import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palett
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { searchKnowledgeBaseAsync } from "./context/knowledge-base";
 import { enrichWithRegistry } from "./context/registry-enricher";
+import { searchTemplateLibrary } from "./template-library/search";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — never changes per request (prompt-cache optimized)
@@ -645,6 +646,30 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
         }
       } catch {
         // Registry unavailable -- continue without enrichment
+      }
+    }
+  }
+
+  if (originalPrompt) {
+    const templateMatches = await searchTemplateLibrary(originalPrompt, 3);
+    const usefulTemplateMatches = templateMatches.filter((match) => match.entry.qualityScore >= 55);
+    if (usefulTemplateMatches.length > 0) {
+      parts.push("## Relevant Template References", "");
+      for (const match of usefulTemplateMatches) {
+        parts.push(`### ${match.entry.title}`, "");
+        parts.push(`- Category: ${match.entry.categoryName}`);
+        parts.push(`- Scaffold fit: ${match.entry.recommendedScaffoldFamilies.join(", ")}`);
+        parts.push(`- Quality score: ${match.entry.qualityScore}`);
+        parts.push(`- Summary: ${match.entry.summary}`);
+        if (match.entry.selectedFiles.length > 0) {
+          parts.push(
+            `- Reference files: ${match.entry.selectedFiles
+              .slice(0, 4)
+              .map((file) => file.path)
+              .join(", ")}`,
+          );
+        }
+        parts.push("");
       }
     }
   }

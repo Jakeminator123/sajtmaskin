@@ -47,6 +47,7 @@ import type {
 import {
   getBlocksByCategory,
   getComponentsByCategory,
+  getCuratedUiCollections,
   searchBlocks,
   fetchRegistryItem,
   fetchRegistryItemWithOptions,
@@ -189,18 +190,46 @@ export function UnifiedElementPicker({
   const [uiLegacyAvailable, setUiLegacyAvailable] = useState<boolean | null>(null);
   const [uiError, setUiError] = useState<string | null>(null);
   const [uiPendingAction, setUiPendingAction] = useState<ShadcnBlockAction | null>(null);
-  const [uiItemType, setUiItemType] = useState<"block" | "component">("block");
+  const [uiItemType, setUiItemType] = useState<"block" | "component">(() =>
+    hasChat ? "component" : "block",
+  );
   const [uiActiveCategory, setUiActiveCategory] = useState("all");
+  const [uiActiveCollectionId, setUiActiveCollectionId] = useState("all");
   const [uiReloadKey, setUiReloadKey] = useState(0);
   const [uiFailedThumbs, setUiFailedThumbs] = useState<Set<string>>(new Set());
 
   const uiSearched = useMemo(() => searchBlocks(uiCategories, uiQuery), [uiCategories, uiQuery]);
+  const uiCollections = useMemo(
+    () => getCuratedUiCollections(uiCategories, uiItemType),
+    [uiCategories, uiItemType],
+  );
+  const activeUiCollection = useMemo(
+    () => uiCollections.find((collection) => collection.id === uiActiveCollectionId) ?? null,
+    [uiCollections, uiActiveCollectionId],
+  );
   const uiVisible = useMemo(() => {
-    if (uiActiveCategory === "all") return uiSearched;
-    return uiSearched.filter((c) => c.id === uiActiveCategory);
-  }, [uiSearched, uiActiveCategory]);
-  const _uiTotalCount = useMemo(() => uiCategories.reduce((a, c) => a + c.items.length, 0), [uiCategories]);
-  const _uiVisibleCount = useMemo(() => uiVisible.reduce((a, c) => a + c.items.length, 0), [uiVisible]);
+    let categories = uiActiveCategory === "all"
+      ? uiSearched
+      : uiSearched.filter((category) => category.id === uiActiveCategory);
+    if (uiActiveCollectionId === "all") return categories;
+
+    const allowedNames = new Set(activeUiCollection?.items.map((item) => item.name) ?? []);
+    return categories
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) => allowedNames.has(item.name)),
+      }))
+      .filter((category) => category.items.length > 0);
+  }, [uiSearched, uiActiveCategory, uiActiveCollectionId, activeUiCollection]);
+  const uiTotalCount = useMemo(() => uiCategories.reduce((a, c) => a + c.items.length, 0), [uiCategories]);
+  const uiVisibleCount = useMemo(() => uiVisible.reduce((a, c) => a + c.items.length, 0), [uiVisible]);
+
+  useEffect(() => {
+    if (open) {
+      setUiItemType(hasChat ? "component" : "block");
+      setUiActiveCollectionId("all");
+    }
+  }, [open, hasChat]);
 
   useEffect(() => {
     if (!open || activeTab !== "ui") return;
@@ -266,6 +295,11 @@ export function UnifiedElementPicker({
 
   useEffect(() => { setUiFailedThumbs(new Set()); }, [open, uiItemType, uiReloadKey]);
   useEffect(() => { if (!isSubmitting) setUiPendingAction(null); }, [isSubmitting]);
+  useEffect(() => {
+    if (uiActiveCollectionId !== "all" && !uiCollections.some((collection) => collection.id === uiActiveCollectionId)) {
+      setUiActiveCollectionId("all");
+    }
+  }, [uiActiveCollectionId, uiCollections]);
 
   const uiCanAct = Boolean(uiSelectedItem) && !isBusy && !isSubmitting && !uiLoadingItem && !uiItemError && !uiPendingAction;
   const handleUiReload = useCallback(() => setUiReloadKey((k) => k + 1), []);
@@ -497,6 +531,59 @@ export function UnifiedElementPicker({
                       <RefreshCw className="size-3" /> Uppdatera
                     </button>
                   </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {uiVisibleCount} av {uiTotalCount} {uiItemType === "block" ? "block" : "komponenter"}
+                    {uiCollections.length > 0 ? ` • ${uiCollections.length} kuraterade samlingar` : ""}
+                  </div>
+                  {uiCollections.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Snabbsamlingar
+                      </div>
+                      <div className="scrollbar-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                        <CategoryPill
+                          active={uiActiveCollectionId === "all"}
+                          onClick={() => setUiActiveCollectionId("all")}
+                          label="Alla samlingar"
+                        />
+                        {uiCollections.map((collection) => (
+                          <CategoryPill
+                            key={collection.id}
+                            active={uiActiveCollectionId === collection.id}
+                            onClick={() => setUiActiveCollectionId(collection.id)}
+                            label={`${collection.icon} ${collection.titleSv} (${collection.items.length})`}
+                          />
+                        ))}
+                      </div>
+                      {activeUiCollection && (
+                        <div className="rounded-xl border border-brand-teal/20 bg-brand-teal/5 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                <span>{activeUiCollection.icon}</span>
+                                <span>{activeUiCollection.titleSv}</span>
+                              </div>
+                              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                                {activeUiCollection.descriptionSv}
+                              </p>
+                            </div>
+                            <Badge variant="secondary" className="shrink-0">
+                              {activeUiCollection.items.length}
+                            </Badge>
+                          </div>
+                          {activeUiCollection.dependencyHints?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {activeUiCollection.dependencyHints.map((dependency) => (
+                                <Badge key={dependency} variant="outline" className="text-[10px]">
+                                  {dependency}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {!uiLoadingCategories && !uiError && uiCategories.length > 0 && (
                     <div className="scrollbar-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
                       <CategoryPill active={uiActiveCategory === "all"} onClick={() => setUiActiveCategory("all")} label="Alla" />

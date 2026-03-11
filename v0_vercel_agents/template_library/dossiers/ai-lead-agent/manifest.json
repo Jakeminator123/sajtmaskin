@@ -1,0 +1,109 @@
+{
+  "id": "ai-lead-agent",
+  "slug": "ai-lead-agent",
+  "title": "Lead Agent",
+  "categorySlug": "ai",
+  "categoryName": "AI",
+  "templateUrl": "https://vercel.com/templates/ai/lead-processing-agent",
+  "demoUrl": "https://lead-agent.vercel.sh",
+  "description": "An inbound lead qualification and research agent built with Next.js, AI SDK, Workflow DevKit, and the Vercel Slack Adapter.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 72,
+  "repo": {
+    "url": "https://github.com/vercel-labs/slack-bolt",
+    "normalizedUrl": "https://github.com/vercel-labs/slack-bolt",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\ai\\lead-agent\\repo",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Related Templates",
+    "Chat SDK Knowledge Agent",
+    "Sales Call Summary AI Agent"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "An inbound lead qualification and research agent built with Next.js, AI SDK, Workflow DevKit, and the Vercel Slack Adapter.",
+    "Deploy",
+    "Vercel Slack Adapter",
+    "Vercel AI Cloud",
+    "Slack Webhook",
+    "- Catches a webhook event from Slack to approve or deny the email",
+    "Deploy with Vercel",
+    "Vercel AI SDK",
+    "Slack Bolt + Vercel Slack Bolt adapter",
+    "Vercel Slack Bolt adapter"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [
+    "large monorepo without a clear example path"
+  ],
+  "recommendedScaffoldFamilies": [
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": true,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Lead Agent is a AI reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "examples/nextjs/README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Slack Bolt with Next.js Template\r\n\r\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?demo-description=This%20is%20a%20generic%20Bolt%20for%20JavaScript%20(TypeScript)%20template%20app%20used%20to%20build%20out%20Slack%20apps%20with%20Next.js&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F1BL852bc5uyQQuswDrLggh%2F7f91aaaebace15775b982649b153354a%2FFrame.png&demo-title=Slack%20Bolt%20with%20Next.js&demo-url=https%3A%2F%2Fgithub.com%2Fvercel-partner-solutions%2Fslack-bolt-with-nextjs&env=SLACK_SIGNING_SECRET%2CSLACK_BOT_TOKEN&envDescription=These%20environment%20variables%20are%20required%20to%20deploy%20your%20Slack%20app%20to%20Vercel&envLink=https%3A%2F%2Fapi.slack.com%2Fapps&from=templates&project-name=Slack%20Bolt%20with%20Next.js&project-names=Comma%20separated%20list%20of%20project%20names%2Cto%20match%20the%20root-directories&repository-name=slack-bolt-with-next-js&repository-url=https%3A%2F%2Fgithub.com%2Fvercel-partner-solutions%2Fslack-bolt-with-nextjs&root-directories=List%20of%20directory%20paths%20for%20the%20directories%20to%20clone%20into%20projects&skippable-integrations=1&teamSlug=vercel-partnerships)\r\n\r\nThis is a generic Bolt for JavaScript (TypeScript) template app used to build Slack apps with Next.js\r\n\r\nBefore getting started, make sure you have a development workspace where you have permissions to install apps. You can use a [developer sandbox](https://api.slack.com/developer-program) or [create a workspace](https://slack.com/create)\r\n\r\n## Installation\r\n\r\n### Clone and install dependencies\r\n```bash\r\ngit clone https://github.com/vercel-partner-solutions/slack-bolt-with-next.git && cd slack-bolt-with-next && pnpm install\r\n```\r\n\r\n### Create a Slack App\r\n\r\n1. Open https://api.slack.com/apps/new and choose \"From an app manifest\"\r\n2. Choose the workspace you want to use\r\n3. Copy the contents of [`manifest.json`](./manifest.json) into the text box that says \"Paste your manifest code here\" (JSON tab) and click Next\r\n4. Review the configuration and click Create\r\n5. On the Install App tab, click Install to <Workspace_Name>. \r\n      - You will be redirected to the App Configuration dashboard\r\n6. Copy the Bot User OAuth Token into your environment as `SLACK_BOT_TOKEN`\r\n7. On the Basic Information tab, copy your Signing Secret into your environment as `SLACK_SIGNING_SECRET`\r\n\r\n### Prepare for Local Development\n\n// ... truncated"
+    },
+    {
+      "path": "examples/nextjs/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\r\n\t\"name\": \"slack-bolt-with-next\",\r\n\t\"version\": \"0.1.0\",\r\n\t\"private\": true,\r\n\t\"scripts\": {\r\n\t\t\"dev\": \"next dev\",\r\n\t\t\"build\": \"vercel-slack build --cleanup && next build\",\r\n\t\t\"start\": \"next start\",\r\n\t\t\"lint\": \"biome check\",\r\n\t\t\"lint:fix\": \"biome format --write\"\r\n\t},\r\n\t\"dependencies\": {\r\n\t\t\"@slack/bolt\": \"^4.6.0\",\r\n\t\t\"@vercel/slack-bolt\": \"workspace:*\",\r\n\t\t\"next\": \"16.1.6\",\r\n\t\t\"react\": \"19.2.4\",\r\n\t\t\"react-dom\": \"19.2.4\"\r\n\t},\r\n\t\"devDependencies\": {\r\n\t\t\"@biomejs/biome\": \"2.2.2\",\r\n\t\t\"@ngrok/ngrok\": \"^1.7.0\",\r\n\t\t\"@slack/cli-hooks\": \"^1.3.0\",\r\n\t\t\"@tailwindcss/postcss\": \"^4.2.1\",\r\n\t\t\"@types/node\": \"^24.11.0\",\r\n\t\t\"@types/react\": \"^19.2.14\",\r\n\t\t\"@types/react-dom\": \"^19.2.3\",\r\n\t\t\"dotenv\": \"^17.3.1\",\r\n\t\t\"tailwindcss\": \"^4.2.1\",\r\n\t\t\"tsx\": \"^4.21.0\",\r\n\t\t\"typescript\": \"^5.9.3\"\r\n\t}\r\n}"
+    },
+    {
+      "path": "examples/nextjs/src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\r\nimport { Geist, Geist_Mono } from \"next/font/google\";\r\nimport \"./globals.css\";\r\n\r\nconst geistSans = Geist({\r\n  variable: \"--font-geist-sans\",\r\n  subsets: [\"latin\"],\r\n});\r\n\r\nconst geistMono = Geist_Mono({\r\n  variable: \"--font-geist-mono\",\r\n  subsets: [\"latin\"],\r\n});\r\n\r\nexport const metadata: Metadata = {\r\n  title: \"Create Next App\",\r\n  description: \"Generated by create next app\",\r\n};\r\n\r\nexport default function RootLayout({\r\n  children,\r\n}: Readonly<{\r\n  children: React.ReactNode;\r\n}>) {\r\n  return (\r\n    <html lang=\"en\">\r\n      <body\r\n        className={`${geistSans.variable} ${geistMono.variable} antialiased`}\r\n      >\r\n        {children}\r\n      </body>\r\n    </html>\r\n  );\r\n}"
+    },
+    {
+      "path": "examples/nextjs/src/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Image from \"next/image\";\r\n\r\nexport default function Home() {\r\n  return (\r\n    <div className=\"font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20\">\r\n      <main className=\"flex flex-col gap-[32px] row-start-2 items-center sm:items-start\">\r\n        <Image\r\n          className=\"dark:invert\"\r\n          src=\"/next.svg\"\r\n          alt=\"Next.js logo\"\r\n          width={180}\r\n          height={38}\r\n          priority\r\n        />\r\n        <ol className=\"font-mono list-inside list-decimal text-sm/6 text-center sm:text-left\">\r\n          <li className=\"mb-2 tracking-[-.01em]\">\r\n            Get started by editing{\" \"}\r\n            <code className=\"bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded\">\r\n              src/app/page.tsx\r\n            </code>\r\n            .\r\n          </li>\r\n          <li className=\"tracking-[-.01em]\">\r\n            Save and see your changes instantly.\r\n          </li>\r\n        </ol>\r\n\r\n        <div className=\"flex gap-4 items-center flex-col sm:flex-row\">\r\n          <a\r\n            className=\"rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto\"\r\n            href=\"https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app\"\r\n            target=\"_blank\"\r\n            rel=\"noopener noreferrer\"\r\n          >\r\n            <Image\r\n              className=\"dark:invert\"\r\n              src=\"/vercel.svg\"\r\n              alt=\"Vercel logomark\"\r\n              width={20}\r\n              height={20}\r\n            />\r\n            Deploy now\r\n          </a>\r\n          <a\r\n            className=\"rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]\"\r\n            href=\"https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app\"\r\n            target=\"_blank\"\r\n            rel=\"noopener noreferrer\"\r\n          >\r\n            Read our docs\r\n          </a>\n\n// ... truncated"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# slack-bolt\r\n\r\nMonorepo for [`@vercel/slack-bolt`](https://www.npmjs.com/package/@vercel/slack-bolt) — a custom [Slack Bolt](https://slack.dev/bolt-js/) receiver built for Vercel's [Fluid Compute](https://vercel.com/docs/fluid-compute).\r\n\r\n## Packages\r\n\r\n| Package | Description |\r\n| --- | --- |\r\n| [`@vercel/slack-bolt`](./packages/slack-bolt) | Core library and CLI |\r\n\r\n## Examples\r\n\r\n| Example | Description |\r\n| --- | --- |\r\n| [`slack-bolt-with-next`](./examples/nextjs) | Next.js starter template |\r\n\r\n## Contributing\r\n\r\nContributions are welcome! Please feel free to submit a Pull Request."
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\r\n\t\"name\": \"slack-bolt\",\r\n\t\"private\": true,\r\n\t\"scripts\": {\r\n\t\t\"build\": \"turbo run build\",\r\n\t\t\"dev\": \"turbo run dev\",\r\n\t\t\"lint\": \"turbo run lint\",\r\n\t\t\"lint:fix\": \"turbo run lint:fix\",\r\n\t\t\"test\": \"turbo run test\",\r\n\t\t\"changeset\": \"changeset\",\r\n\t\t\"version-packages\": \"changeset version\",\r\n\t\t\"release\": \"turbo run build --filter=@vercel/slack-bolt && changeset publish\",\r\n\t\t\"prepare\": \"husky\"\r\n\t},\r\n\t\"devDependencies\": {\r\n\t\t\"@biomejs/biome\": \"2.2.2\",\r\n\t\t\"@changesets/cli\": \"^2.29.8\",\r\n\t\t\"husky\": \"^9.1.7\",\r\n\t\t\"turbo\": \"latest\"\r\n\t},\r\n\t\"packageManager\": \"pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748\"\r\n}"
+    }
+  ]
+}

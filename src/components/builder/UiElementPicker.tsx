@@ -37,6 +37,7 @@ import {
   type ComponentItem,
   getBlocksByCategory,
   getComponentsByCategory,
+  getCuratedUiCollections,
   searchBlocks,
   fetchRegistryItem,
   fetchRegistryItemWithOptions,
@@ -130,7 +131,9 @@ export function UiElementPicker({
   const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
   const [placement, setPlacement] = useState<PlacementOption>("bottom");
   const [activeTab, setActiveTab] = useState<"popular" | "all">("all");
-  const [itemType, setItemType] = useState<"block" | "component">("block");
+  const [itemType, setItemType] = useState<"block" | "component">(() =>
+    hasChat ? "component" : "block",
+  );
   const [failedThumbnails, setFailedThumbnails] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [reloadKey, setReloadKey] = useState(0);
@@ -153,7 +156,15 @@ export function UiElementPicker({
     dynamicPlacementOptions[dynamicPlacementOptions.length - 1];
 
   const popularCategories = useMemo(() => {
-    if (itemType !== "block") return [];
+    if (itemType === "component") {
+      return getCuratedUiCollections(categories, "component").map((collection) => ({
+        id: collection.id,
+        label: collection.titleSv,
+        labelSv: collection.titleSv,
+        icon: collection.icon,
+        items: collection.items,
+      }));
+    }
     const result: ComponentCategory[] = [];
     for (const featured of FEATURED_BLOCKS) {
       const items = categories
@@ -188,6 +199,12 @@ export function UiElementPicker({
 
   const itemLabel = itemType === "block" ? "block" : "komponent";
   const itemLabelPlural = itemType === "block" ? "block" : "komponenter";
+
+  useEffect(() => {
+    if (open) {
+      setItemType(hasChat ? "component" : "block");
+    }
+  }, [open, hasChat]);
 
   // Load categories
   useEffect(() => {
@@ -266,7 +283,11 @@ export function UiElementPicker({
 
   useEffect(() => { setLegacyItemAvailable(null); }, [selectedItem?.name, reloadKey]);
   useEffect(() => { setFailedThumbnails(new Set()); }, [open, itemType, reloadKey]);
-  useEffect(() => { if (itemType === "component" && activeTab === "popular") setActiveTab("all"); }, [itemType, activeTab]);
+  useEffect(() => {
+    if (activeTab === "popular" && popularCategories.length === 0) {
+      setActiveTab("all");
+    }
+  }, [activeTab, popularCategories.length]);
   useEffect(() => { if (open) setActiveCategory("all"); }, [open, itemType, activeTab]);
   useEffect(() => {
     if (activeCategory !== "all" && !sourceCategories.some((c) => c.id === activeCategory)) {
@@ -395,13 +416,20 @@ export function UiElementPicker({
                 />
               </div>
               {!isLoadingCategories && !error && sourceItemCount > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">
-                    {visibleItemCount} av {sourceItemCount}
-                  </span>
-                  <button type="button" onClick={handleReload} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
-                    <RefreshCw className="h-3 w-3" /> Uppdatera
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                      {visibleItemCount} av {sourceItemCount}
+                    </span>
+                    <button type="button" onClick={handleReload} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
+                      <RefreshCw className="h-3 w-3" /> Uppdatera
+                    </button>
+                  </div>
+                  {itemType === "component" && activeTab === "popular" && popularCategories.length > 0 && (
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      Kuraterade samlingar för headers, footers, modaler, badges, motion och dataintensiva UI-ytor.
+                    </p>
+                  )}
                 </div>
               )}
               {!isLoadingCategories && !error && sourceCategories.length > 0 && (

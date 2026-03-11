@@ -1,0 +1,120 @@
+{
+  "id": "authentication-next-js-saas-starter",
+  "slug": "authentication-next-js-saas-starter",
+  "title": "Next.js SaaS Starter",
+  "categorySlug": "authentication",
+  "categoryName": "Authentication",
+  "templateUrl": "https://vercel.com/templates/authentication/next-js-saas-starter",
+  "demoUrl": null,
+  "description": "Get started building with Next.js quickly. This template handles Postgres, Auth, Tailwind, shadcn/ui, and more.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 96,
+  "repo": {
+    "url": "https://github.com/nextjs/saas-starter",
+    "normalizedUrl": "https://github.com/nextjs/saas-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\authentication\\next-js-saas-starter\\repo",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Database",
+    "Postgres",
+    "Related Templates",
+    "Blog Starter Kit"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Postgres, Auth, Tailwind, shadcn/ui, and more.",
+    "Deploy",
+    "with support for authentication, Stripe integration for payments, and a dashboard for logged-in users.",
+    "https://next-saas-start.vercel.app/",
+    "Features",
+    ") which connects to Stripe Checkout",
+    "Subscription management with Stripe Customer Portal",
+    "Email/password authentication with JWTs stored to cookies",
+    "Local middleware to protect Server Actions or validate Zod schemas",
+    "Database"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns",
+    "pricing or billing structure",
+    "storefront or checkout patterns",
+    "editorial content hierarchy"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "auth-pages",
+    "app-shell",
+    "ecommerce"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": true,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": true,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js SaaS Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Next.js SaaS Starter\r\n\r\nThis is a starter template for building a SaaS application using **Next.js** with support for authentication, Stripe integration for payments, and a dashboard for logged-in users.\r\n\r\n**Demo: [https://next-saas-start.vercel.app/](https://next-saas-start.vercel.app/)**\r\n\r\n## Features\r\n\r\n- Marketing landing page (`/`) with animated Terminal element\r\n- Pricing page (`/pricing`) which connects to Stripe Checkout\r\n- Dashboard pages with CRUD operations on users/teams\r\n- Basic RBAC with Owner and Member roles\r\n- Subscription management with Stripe Customer Portal\r\n- Email/password authentication with JWTs stored to cookies\r\n- Global middleware to protect logged-in routes\r\n- Local middleware to protect Server Actions or validate Zod schemas\r\n- Activity logging system for any user events\r\n\r\n## Tech Stack\r\n\r\n- **Framework**: [Next.js](https://nextjs.org/)\r\n- **Database**: [Postgres](https://www.postgresql.org/)\r\n- **ORM**: [Drizzle](https://orm.drizzle.team/)\r\n- **Payments**: [Stripe](https://stripe.com/)\r\n- **UI Library**: [shadcn/ui](https://ui.shadcn.com/)\r\n\r\n## Getting Started\r\n\r\n```bash\r\ngit clone https://github.com/nextjs/saas-starter\r\ncd saas-starter\r\npnpm install\r\n```\r\n\r\n## Running Locally\r\n\r\n[Install](https://docs.stripe.com/stripe-cli) and log in to your Stripe account:\r\n\r\n```bash\r\nstripe login\r\n```\r\n\r\nUse the included setup script to create your `.env` file:\r\n\r\n```bash\r\npnpm db:setup\r\n```\r\n\r\nRun the database migrations and seed the database with a default user and team:\r\n\r\n```bash\r\npnpm db:migrate\r\npnpm db:seed\r\n```\r\n\r\nThis will create the following user and team:\r\n\r\n- User: `test@test.com`\r\n- Password: `admin123`\r\n\r\nYou can also create new users through the `/sign-up` route.\r\n\r\nFinally, run the Next.js development server:\r\n\r\n```bash\r\npnpm dev\r\n```\r\n\r\nOpen [http://localhost:3000](http://localhost:3000) in your browser to see the app in action.\r\n\r\nYou can listen for Stripe webhooks locally through their CLI to handle subscription change events:\r\n\r\n```bash\r\nstripe listen --forward-to localhost:3000/api/stripe/webhook\r\n```\r\n\r\n## Testing Payments\r\n\r\nTo test Stripe payments, use the following test card details:\r\n\r\n- Card Number: `4242 4242 4242 4242`\r\n- Expiration: Any future date\r\n- CVC: Any 3-digit number\r\n\r\n## Going to Production\r\n\r\nWhen you're ready to deploy your SaaS application to production, follow these steps:\r\n\r\n### Set up a p\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\r\n  \"private\": true,\r\n  \"scripts\": {\r\n    \"dev\": \"next dev --turbopack\",\r\n    \"build\": \"next build\",\r\n    \"start\": \"next start\",\r\n    \"db:setup\": \"npx tsx lib/db/setup.ts\",\r\n    \"db:seed\": \"npx tsx lib/db/seed.ts\",\r\n    \"db:generate\": \"drizzle-kit generate\",\r\n    \"db:migrate\": \"drizzle-kit migrate\",\r\n    \"db:studio\": \"drizzle-kit studio\"\r\n  },\r\n  \"dependencies\": {\r\n    \"@tailwindcss/postcss\": \"4.1.7\",\r\n    \"@types/node\": \"^22.15.18\",\r\n    \"@types/react\": \"19.1.4\",\r\n    \"@types/react-dom\": \"19.1.5\",\r\n    \"autoprefixer\": \"^10.4.21\",\r\n    \"bcryptjs\": \"^3.0.2\",\r\n    \"class-variance-authority\": \"^0.7.1\",\r\n    \"clsx\": \"^2.1.1\",\r\n    \"dotenv\": \"^16.5.0\",\r\n    \"drizzle-kit\": \"^0.31.1\",\r\n    \"drizzle-orm\": \"^0.43.1\",\r\n    \"jose\": \"^6.0.11\",\r\n    \"lucide-react\": \"^0.511.0\",\r\n    \"next\": \"15.6.0-canary.59\",\r\n    \"postcss\": \"^8.5.3\",\r\n    \"postgres\": \"^3.4.5\",\r\n    \"radix-ui\": \"^1.4.2\",\r\n    \"react\": \"19.1.0\",\r\n    \"react-dom\": \"19.1.0\",\r\n    \"server-only\": \"^0.0.1\",\r\n    \"stripe\": \"^18.1.0\",\r\n    \"swr\": \"^2.3.3\",\r\n    \"tailwind-merge\": \"^3.3.0\",\r\n    \"tailwindcss\": \"4.1.7\",\r\n    \"tw-animate-css\": \"^1.3.0\",\r\n    \"typescript\": \"^5.8.3\",\r\n    \"zod\": \"^3.24.4\"\r\n  }\r\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import './globals.css';\r\nimport type { Metadata, Viewport } from 'next';\r\nimport { Manrope } from 'next/font/google';\r\nimport { getUser, getTeamForUser } from '@/lib/db/queries';\r\nimport { SWRConfig } from 'swr';\r\n\r\nexport const metadata: Metadata = {\r\n  title: 'Next.js SaaS Starter',\r\n  description: 'Get started quickly with Next.js, Postgres, and Stripe.'\r\n};\r\n\r\nexport const viewport: Viewport = {\r\n  maximumScale: 1\r\n};\r\n\r\nconst manrope = Manrope({ subsets: ['latin'] });\r\n\r\nexport default function RootLayout({\r\n  children\r\n}: {\r\n  children: React.ReactNode;\r\n}) {\r\n  return (\r\n    <html\r\n      lang=\"en\"\r\n      className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}\r\n    >\r\n      <body className=\"min-h-[100dvh] bg-gray-50\">\r\n        <SWRConfig\r\n          value={{\r\n            fallback: {\r\n              // We do NOT await here\r\n              // Only components that read this data will suspend\r\n              '/api/user': getUser(),\r\n              '/api/team': getTeamForUser()\r\n            }\r\n          }}\r\n        >\r\n          {children}\r\n        </SWRConfig>\r\n      </body>\r\n    </html>\r\n  );\r\n}"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { NextResponse } from 'next/server';\r\nimport type { NextRequest } from 'next/server';\r\nimport { signToken, verifyToken } from '@/lib/auth/session';\r\n\r\nconst protectedRoutes = '/dashboard';\r\n\r\nexport async function middleware(request: NextRequest) {\r\n  const { pathname } = request.nextUrl;\r\n  const sessionCookie = request.cookies.get('session');\r\n  const isProtectedRoute = pathname.startsWith(protectedRoutes);\r\n\r\n  if (isProtectedRoute && !sessionCookie) {\r\n    return NextResponse.redirect(new URL('/sign-in', request.url));\r\n  }\r\n\r\n  let res = NextResponse.next();\r\n\r\n  if (sessionCookie && request.method === 'GET') {\r\n    try {\r\n      const parsed = await verifyToken(sessionCookie.value);\r\n      const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);\r\n\r\n      res.cookies.set({\r\n        name: 'session',\r\n        value: await signToken({\r\n          ...parsed,\r\n          expires: expiresInOneDay.toISOString()\r\n        }),\r\n        httpOnly: true,\r\n        secure: true,\r\n        sameSite: 'lax',\r\n        expires: expiresInOneDay\r\n      });\r\n    } catch (error) {\r\n      console.error('Error updating session:', error);\r\n      res.cookies.delete('session');\r\n      if (isProtectedRoute) {\r\n        return NextResponse.redirect(new URL('/sign-in', request.url));\r\n      }\r\n    }\r\n  }\r\n\r\n  return res;\r\n}\r\n\r\nexport const config = {\r\n  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],\r\n  runtime: 'nodejs'\r\n};"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# This is an example of your .env file format, which pnpm db:setup will create.\r\n# Note: this must be .env, not .env.local, without further configuration changes.\r\nPOSTGRES_URL=postgresql://***\r\nSTRIPE_SECRET_KEY=sk_test_***\r\nSTRIPE_WEBHOOK_SECRET=whsec_***\r\nBASE_URL=http://localhost:3000\r\nAUTH_SECRET=***"
+    },
+    {
+      "path": "app/(dashboard)/dashboard/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client';\r\n\r\nimport { Button } from '@/components/ui/button';\r\nimport { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';\r\nimport {\r\n  Card,\r\n  CardContent,\r\n  CardHeader,\r\n  CardTitle,\r\n  CardFooter\r\n} from '@/components/ui/card';\r\nimport { customerPortalAction } from '@/lib/payments/actions';\r\nimport { useActionState } from 'react';\r\nimport { TeamDataWithMembers, User } from '@/lib/db/schema';\r\nimport { removeTeamMember, inviteTeamMember } from '@/app/(login)/actions';\r\nimport useSWR from 'swr';\r\nimport { Suspense } from 'react';\r\nimport { Input } from '@/components/ui/input';\r\nimport { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';\r\nimport { Label } from '@/components/ui/label';\r\nimport { Loader2, PlusCircle } from 'lucide-react';\r\n\r\ntype ActionState = {\r\n  error?: string;\r\n  success?: string;\r\n};\r\n\r\nconst fetcher = (url: string) => fetch(url).then((res) => res.json());\r\n\r\nfunction SubscriptionSkeleton() {\r\n  return (\r\n    <Card className=\"mb-8 h-[140px]\">\r\n      <CardHeader>\r\n        <CardTitle>Team Subscription</CardTitle>\r\n      </CardHeader>\r\n    </Card>\r\n  );\r\n}\r\n\r\nfunction ManageSubscription() {\r\n  const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);\r\n\r\n  return (\r\n    <Card className=\"mb-8\">\r\n      <CardHeader>\r\n        <CardTitle>Team Subscription</CardTitle>\r\n      </CardHeader>\r\n      <CardContent>\r\n        <div className=\"space-y-4\">\r\n          <div className=\"flex flex-col sm:flex-row justify-between items-start sm:items-center\">\r\n            <div className=\"mb-4 sm:mb-0\">\r\n              <p className=\"font-medium\">\r\n                Current Plan: {teamData?.planName || 'Free'}\r\n              </p>\r\n              <p className=\"text-sm text-muted-foreground\">\r\n                {teamData?.subscriptionStatus === 'active'\r\n                  ? 'Billed monthly'\r\n                  : teamData?.subscriptionStatus === 'trialing'\r\n                  ? 'Trial period'\r\n                  : 'No active subscription'}\r\n              </p>\r\n            </div>\r\n            <form action={customerPortalAction}>\r\n              <Button type=\"submit\" variant=\"outline\">\r\n                Manage Subscription\r\n              </Button>\r\n            </form>\r\n          </div>\r\n        </div>\r\n      </CardContent>\r\n    </Card>\r\n  );\r\n}\r\n\r\nfunction TeamMembersSkeleton() {\r\n  return (\r\n    <Card className=\"mb-8 h-[140p\n\n// ... truncated"
+    },
+    {
+      "path": "app/(dashboard)/pricing/page.tsx",
+      "reason": "Commerce or pricing reference",
+      "excerpt": "import { checkoutAction } from '@/lib/payments/actions';\r\nimport { Check } from 'lucide-react';\r\nimport { getStripePrices, getStripeProducts } from '@/lib/payments/stripe';\r\nimport { SubmitButton } from './submit-button';\r\n\r\n// Prices are fresh for one hour max\r\nexport const revalidate = 3600;\r\n\r\nexport default async function PricingPage() {\r\n  const [prices, products] = await Promise.all([\r\n    getStripePrices(),\r\n    getStripeProducts(),\r\n  ]);\r\n\r\n  const basePlan = products.find((product) => product.name === 'Base');\r\n  const plusPlan = products.find((product) => product.name === 'Plus');\r\n\r\n  const basePrice = prices.find((price) => price.productId === basePlan?.id);\r\n  const plusPrice = prices.find((price) => price.productId === plusPlan?.id);\r\n\r\n  return (\r\n    <main className=\"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12\">\r\n      <div className=\"grid md:grid-cols-2 gap-8 max-w-xl mx-auto\">\r\n        <PricingCard\r\n          name={basePlan?.name || 'Base'}\r\n          price={basePrice?.unitAmount || 800}\r\n          interval={basePrice?.interval || 'month'}\r\n          trialDays={basePrice?.trialPeriodDays || 7}\r\n          features={[\r\n            'Unlimited Usage',\r\n            'Unlimited Workspace Members',\r\n            'Email Support',\r\n          ]}\r\n          priceId={basePrice?.id}\r\n        />\r\n        <PricingCard\r\n          name={plusPlan?.name || 'Plus'}\r\n          price={plusPrice?.unitAmount || 1200}\r\n          interval={plusPrice?.interval || 'month'}\r\n          trialDays={plusPrice?.trialPeriodDays || 7}\r\n          features={[\r\n            'Everything in Base, and:',\r\n            'Early Access to New Features',\r\n            '24/7 Support + Slack Access',\r\n          ]}\r\n          priceId={plusPrice?.id}\r\n        />\r\n      </div>\r\n    </main>\r\n  );\r\n}\r\n\r\nfunction PricingCard({\r\n  name,\r\n  price,\r\n  interval,\r\n  trialDays,\r\n  features,\r\n  priceId,\r\n}: {\r\n  name: string;\r\n  price: number;\r\n  interval: string;\r\n  trialDays: number;\r\n  features: string[];\r\n  priceId?: string;\r\n}) {\r\n  return (\r\n    <div className=\"pt-6\">\r\n      <h2 className=\"text-2xl font-medium text-gray-900 mb-2\">{name}</h2>\r\n      <p className=\"text-sm text-gray-600 mb-4\">\r\n        with {trialDays} day free trial\r\n      </p>\r\n      <p className=\"text-4xl font-medium text-gray-900 mb-6\">\r\n        ${price / 100}{' '}\r\n        <span className=\"text-xl font-normal text-gray-600\">\n\n// ... truncated"
+    }
+  ]
+}

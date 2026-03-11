@@ -1,10 +1,12 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { REDIS_KEY_PREFIX } from "./config";
 
 const _resolvedRestUrl =
   process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
 const _resolvedRestToken =
   process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
+const _redisNamespace = REDIS_KEY_PREFIX.replace(/:$/, "");
 
 if (process.env.NODE_ENV === "production" && !_resolvedRestUrl) {
   console.warn(
@@ -90,7 +92,7 @@ function getLimiter(
       limits.maxRequests,
       `${Math.max(1, Math.floor(limits.windowMs / 1000))} s`,
     ),
-    prefix: `sajtmaskin:ratelimit:${endpoint}`,
+    prefix: `sajtmaskin:${_redisNamespace}:ratelimit:${endpoint}`,
   });
   _cachedLimiters.set(key, limiter);
   return { mode: "upstash", limiter };

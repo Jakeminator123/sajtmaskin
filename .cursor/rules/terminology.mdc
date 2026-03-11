@@ -42,25 +42,43 @@ Internal dashboard with tabs: Database, Environment, Analytics, Prompts.
 
 ## Key concepts
 
+### Two operational lanes
+
+When discussing generation architecture, prefer this mental model:
+
+| Lane | What belongs here | What it is not |
+|------|-------------------|----------------|
+| **Runtime lane** | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not raw external datasets |
+| **Research lane** | `v0_vercel_agents/official_docs/`, `v0_vercel_agents/template_library/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
+
+Important rule:
+- Treat the **template gallery** in `src/lib/templates/` as a product/UI discovery surface, not as a third generation lane.
+- Do NOT describe the system as if runtime generation alternates between "templates" and "scaffolds". Runtime generation should be described as scaffold-driven.
+
 ### Template vs scaffold vs Vercel template
 
-These three concepts are different and should NOT be mixed:
+These concepts are different and should NOT be mixed:
 
 | Term | Swedish label | Meaning | Scope |
 |------|---------------|---------|-------|
-| **Template** | `kategori-mall` or `mallkategori` | Our current user-facing template/category system in sajtmaskin. Used for inspiration, filtering, and starting points in the builder UI. | Product/UI concept |
-| **Scaffold** | `grundmall`, `startmall`, or `hemsidemall` | An internal, code-level starter project that the LLM modifies instead of generating everything from scratch. Usually 3-8 files with working navigation, footer, layout, and components. | Internal engine concept |
-| **Vercel Template** | `extern Vercel-template` | A public template/starter repo from [vercel.com/templates](https://vercel.com/templates). These are references or source material for building our own scaffolds, not something we should fetch live during every generation. | External ecosystem concept |
+| **Sajtmaskin template gallery item** | `hemsidemall`, `startmall`, or `kategori-mall` | A user-facing gallery entry from `src/lib/templates/`. Useful for browsing, filtering, and inspiration in the product UI. It is not the runtime scaffold registry. | Product/UI concept |
+| **Scaffold** | `grundmall` or `starter scaffold` | An internal, code-level starter project from `src/lib/gen/scaffolds/` that the engine modifies instead of generating everything from scratch. | Internal runtime concept |
+| **Vercel Template** | `extern Vercel-template` | A public starter repo from [vercel.com/templates](https://vercel.com/templates). External reference material only, not a live runtime dependency. | External ecosystem concept |
+| **Curated template reference** | `kuraterad referensmall` | A normalized dossier or generated JSON derived from external template research, typically under `v0_vercel_agents/template_library/` or `src/lib/gen/template-library/`. Used to improve scaffolds, not to replace them at runtime. | Research/curation concept |
 | **Multi-tenant** | `delad plattform` | One codebase / one deployment serving many tenants with different data/domains. Best term for the sajtmaskin app itself. | Hosting architecture concept |
 | **Multi-project** | `separata kundprojekt` | One isolated Vercel project per customer/app. Best term for generated user sites and deploy targets. | Hosting architecture concept |
 
 Preferred terminology:
 - In product copy for users: say **`hemsidemall`** or **`startmall`**
+- When referring to `src/lib/templates/`: say **`template gallery`** or **`gallery item`**
 - In engine/code discussions: say **`scaffold`** or **`starter scaffold`**
 - When referring to Vercel's public library: explicitly say **`Vercel template`**
+- When referring to normalized external research: say **`curated template reference`** or **`template library dossier`**
 
 Important rule:
 - Do NOT call our internal scaffolds just `templates` without qualifier, since sajtmaskin already uses `templates` for another concept.
+- Do NOT call `src/lib/templates/` entries `Vercel templates` unless you explicitly mean their upstream source, not their role inside the product.
+- Do NOT describe `v0_vercel_agents/template_library/` as a second runtime scaffold registry.
 - Do NOT use `multi-tenant` or `multi-project` as if they were template concepts. They describe hosting/deployment architecture, not content/category selection.
 
 ### Build method (`BuildMethod`)

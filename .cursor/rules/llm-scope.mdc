@@ -1,21 +1,24 @@
 ---
-description: LLM strategy docs in LLM/ folder
+description: LLM strategy docs in docs/llm and docs/schemas
 alwaysApply: false
 ---
 
 # LLM strategy documents
 
-The `LLM/` directory contains strategy and architecture notes about the
+The `docs/llm/` directory contains strategy and architecture notes about the
 AI/prompt/gateway logic.
+
+The `docs/schemas/` directory contains the canonical human-readable schema docs
+for build profiles, scaffold contracts, and integration/data schema surfaces.
 
 ## Key files
 
-- `LLM/AC-schema.txt` - Acceptance criteria for AI/gateway logic
-- `LLM/v0-prompt-guide.txt` - v0 prompt best practices
-- `LLM/DEPS-STATUS.txt` - Dependency versions and known issues
-- `LLM/schemas_overview.txt` - API call schemas overview
+- `docs/llm/AC-schema.txt` - Acceptance criteria for AI/gateway logic
+- `docs/llm/v0-prompt-guide.txt` - v0 prompt best practices
+- `docs/llm/DEPS-STATUS.txt` - Dependency versions and known issues
+- `docs/schemas/README.md` - Schema index and source-of-truth map
 
 ## When to consult
 
 Read these when changing AI/gateway/prompt-assist logic. After making
-such changes, update the relevant LLM/ files to keep them in sync.
+such changes, update the relevant docs/llm/ files to keep them in sync.

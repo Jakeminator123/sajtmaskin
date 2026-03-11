@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "categorySlug",
+    "verdict",
+    "qualityScore",
+    "recommendedScaffoldFamilies",
+    "summary"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "categorySlug": {
+      "type": "string"
+    },
+    "verdict": {
+      "type": "string"
+    },
+    "qualityScore": {
+      "type": "number"
+    },
+    "recommendedScaffoldFamilies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "summary": {
+      "type": "string"
+    }
+  }
+}

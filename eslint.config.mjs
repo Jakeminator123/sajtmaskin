@@ -27,6 +27,7 @@ export default defineConfig([
     "sajtmaskin/**/*",
     "base/**/*",
     "old/**/*",
+    "docs/old/**/*",
   ]),
 
   // Global rules

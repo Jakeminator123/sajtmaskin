@@ -16,6 +16,19 @@ export interface ScaffoldFile {
   content: string;
 }
 
+export interface ScaffoldReferenceTemplate {
+  id: string;
+  title: string;
+  categorySlug: string;
+  qualityScore: number;
+  strengths: string[];
+}
+
+export interface ScaffoldResearchMetadata {
+  upgradeTargets: string[];
+  referenceTemplates: ScaffoldReferenceTemplate[];
+}
+
 export interface ScaffoldManifest {
   id: string;
   family: ScaffoldFamily;
@@ -25,4 +38,6 @@ export interface ScaffoldManifest {
   tags: string[];
   promptHints: string[];
   files: ScaffoldFile[];
+  qualityChecklist?: string[];
+  research?: ScaffoldResearchMetadata;
 }

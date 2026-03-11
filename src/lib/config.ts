@@ -12,6 +12,15 @@ const env = getServerEnv();
 export const IS_PRODUCTION = env.NODE_ENV === "production";
 export const IS_RENDER = Boolean(env.RENDER);
 
+export function getRuntimeEnvironment(): "development" | "preview" | "production" {
+  const vercelEnv = env.VERCEL_ENV?.trim().toLowerCase();
+  if (vercelEnv === "preview") return "preview";
+  if (vercelEnv === "production") return "production";
+  return IS_PRODUCTION ? "production" : "development";
+}
+
+export const RUNTIME_ENVIRONMENT = getRuntimeEnvironment();
+
 function isBuildPhase(): boolean {
   return (
     env.NEXT_PHASE === "phase-production-build" ||
@@ -298,10 +307,15 @@ export const REDIS_CONFIG = {
 } as const;
 
 /**
- * Environment-aware key prefix so dev and prod never collide even if
- * they accidentally share the same Redis instance.
+ * Environment-aware key prefix so development, preview, and production
+ * never collide even if they accidentally share the same Redis instance.
  */
-export const REDIS_KEY_PREFIX = IS_PRODUCTION ? "prod:" : "dev:";
+export const REDIS_KEY_PREFIX =
+  RUNTIME_ENVIRONMENT === "production"
+    ? "prod:"
+    : RUNTIME_ENVIRONMENT === "preview"
+      ? "preview:"
+      : "dev:";
 
 /**
  * App URLs

@@ -67,3 +67,74 @@ node scripts/sync-scaffold-refs.mjs --only=nextjs-saas-starter,ibelick-nim
 - `dzlau/stripe-supabase-saas-template`
 - `vercel/examples` (`solutions/blog`)
 - `vercel/next.js` (`examples/blog-starter`, `examples/with-cloudinary`)
+
+## build-template-library.ts
+
+Auditerar den råa `_sidor`-dataseten och bygger en kuraterad template-library
+för agenter och scaffold-arbete.
+
+### Användning
+
+```bash
+npm run template-library:build
+npx tsx scripts/build-template-library.ts --source="C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates"
+```
+
+Skriptet letar annars automatiskt efter rådataseten i denna ordning:
+
+1. `_sidor/vercel_usecase_next_react_templates`
+2. `research/_sidor/vercel_usecase_next_react_templates`
+3. den äldre desktop-sökvägen
+
+### Vad skriptet gör
+
+1. Läser `summary.json`, `metadata.json`, `INFO_SV.md` och klonade repo-mappar
+2. Validerar repo-URL:er, framework-fit och monorepo-signaler
+3. Skapar `v0_vercel_agents/template_library/` med katalog + dossiers
+4. Genererar en kuraterad katalog för runtime-sökning i `src/lib/gen/template-library/`
+5. Genererar scaffold research metadata i `src/lib/gen/scaffolds/scaffold-research.generated.json`
+
+### Produktionsgräns
+
+Det här skriptet är build-time/research-time. Vercel-produktion ska läsa de
+kuraterade JSON-filerna som commitas i repot, inte den råa `_sidor`-mappen.
+
+## generate-template-library-embeddings.ts
+
+Genererar embeddings för den kuraterade template-libraryn så att agenter och
+framtida scaffold-logik kan söka semantiskt i externa referensmallar.
+
+### Användning
+
+```bash
+npm run template-library:embeddings
+```
+
+## scaffolds:validate
+
+Kör manifestvalidering för de interna runtime-scaffolds som redan finns i
+`src/lib/gen/scaffolds/`.
+
+```bash
+npm run scaffolds:validate
+```
+
+## devtest
+
+Kör en konservativ repo-smoke-test för vanlig utveckling efter större
+struktur- eller dokumentationsändringar.
+
+Ingår:
+
+1. `npm run typecheck`
+2. `npm run scaffolds:validate`
+3. `npm run test:ci`
+4. `npm run lint`
+
+```bash
+npm run devtest
+```
+
+Detta inkluderar inte `next build` som standard, så att kommandot förblir ett
+snabbare utvecklingstest snarare än en tyngre release-validering. `lint` körs
+sist för att ge mer verifieringssignal även när repot redan har kända lintfel.

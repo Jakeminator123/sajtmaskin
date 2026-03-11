@@ -1,0 +1,163 @@
+SAJTMASKIN - ROADMAP NEXT
+=========================
+Skapad: 2026-03-03
+Uppdaterad: 2026-03-06
+Baserat pa: Genomgang av hela kodbasen + MCP-servrar (v0, openaiDeveloperDocs) + webb.
+
+Status-nyckel: [ ] = ej paborjad, [~] = delvis, [x] = klart
+
+KLART (egen motor WL 01-20):
+- [x] gen/ pipeline med GPT 5.2 + AI SDK (default)
+- [x] V0_FALLBACK_BUILDER env-switch for v0 fallback
+- [x] Suspense-regler (shadcn-import-fix, lucide-icon-fix, url-alias-expand)
+- [x] Autofix (import-validering, JSX-check, dep-komplettering)
+- [x] URL-komprimering fore LLM, expansion efter
+- [x] Preview via @vercel/sandbox
+
+================================================================================
+A. DESIGN SYSTEM (v0 designSystemId)
+================================================================================
+Prioritet: HOG
+Insats: MEDEL (setup + integration)
+Varde: Konsistent design i ALLA genererade sajter utan extra prompt-text
+
+Bakgrund:
+- Koden har redan stod: src/lib/v0/v0-generator.ts rad 732-735 (TODO-cast).
+- v0 stodjer "registry" = en publik URL med tokens.css + layout.tsx + komponenter.
+- Nar designSystemId skickas med createChat far v0 automatiskt farg, typsnitt
+  och komponent-stil utan att det behover beskrivas i prompten.
+
+Steg:
+- [ ] A1. Skapa registry-repo fran Vercels starter: github.com/vercel/registry-starter
+- [ ] A2. Anpassa tokens.css (farger, radier, spacing) for Sajtmaskin-branding
+- [ ] A3. Lagg till egna anpassade shadcn-komponenter (header, footer, hero)
+- [ ] A4. Deploya registryt till Vercel (publik URL kravs)
+- [ ] A5. Hamta designSystemId fran v0 (skapa via v0.dev UI eller init-registry API)
+- [ ] A6. Koppla designSystemId i builder-flodet (ChatInterface -> stream routes)
+- [ ] A7. UI: Lat anvandare valja design system (dropdown i BuilderHeader)
+
+Not: Man kan INTE "ladda ned" ett design system fran v0 - det ar tvarttom:
+du skapar ett registry (en Next.js-app med CSS + komponenter) och ger v0
+dess URL. v0 laser fran ditt registry vid generation.
+
+================================================================================
+B. BRAVE SEARCH API - WEBSOK FOR WIZARD + MALLAR
+================================================================================
+Prioritet: HOG
+Insats: LAG-MEDEL
+Varde: Battre company-lookup, konkurrentanalys, och framtida template-sok
+
+Bakgrund:
+- BRAVE_API_KEY finns (se .env.local - COMMITTA ALDRIG nyckeln)
+- Idag: company-lookup kor Cheerio-scrape pa allabolag.se, fallback = AI gateway.
+  AI-fallbacken har INGEN websok - den "fantiserar" data fran traning.
+- Brave Search API: GET https://api.search.brave.com/res/v1/web/search
+  Header: X-Subscription-Token: <BRAVE_API_KEY>
+  Returnerar: { web: { results: [{ title, url, description }] } }
+
+Steg:
+- [x] B1. Lagg till BRAVE_API_KEY i .env.local och Vercel env vars
+- [x] B2. Skapa src/lib/brave-search.ts (tunn wrapper, ~30 rader)
+- [x] B3. Integrera i /api/wizard/company-lookup som steg 2 (mellan Cheerio och AI)
+- [x] B4. Integrera i /api/wizard/competitors (sokresultat -> AI-analys)
+- [ ] B5. FRAMTIDA: Template-sokning via Brave (sok "restaurang hemsida mall" etc)
+        Resultaten kan rankas med embeddings (se punkt E).
+
+================================================================================
+C. OPENAI RESPONSES API (ersatter Chat Completions)
+================================================================================
+Prioritet: MEDEL
+Insats: MEDEL-HOG (migration, testa noggrant)
+Varde: 40-80% billigare, inbyggd websok, structured outputs, battre caching
+
+Bakgrund:
+- Responses API ar OpenAIs nya standard (mars 2025+), ersatter Chat Completions.
+- Anrop: openai.responses.create({ model, input, tools: [{ type: "web_search" }] })
+- Inbyggda verktyg: web_search, file_search, code_interpreter
+- Idag: Bara src/app/api/text/analyze/route.ts anvander responses.create.
+  Resten (ai/chat, audit, wizard/enrich) kor Chat Completions via AI SDK streamText.
+
+OBS: web_search i Responses API ar INTE gratis - det ar OpenAIs eget websok
+(kostar per sokning). Det ar darfor Brave ar ett bra alternativ for saker
+som company-lookup - Brave ar billigare/gratis pa free tier.
+
+Steg:
+- [x] C1. Migrera /api/text/analyze fullt (redan halvvags, rensa manuell JSON-parse)
+- [x] C2. Migrera /api/audit -> responses.create med structured output
+        (eliminerar JSON-parsfel, ger garanterad schema)
+- [x] C3. Testa web_search i audit-routen (for SEO-kontext, konkurrentdata)
+- [x] C4. Migrera /api/wizard/enrich -> structured outputs for questions/suggestions
+- [ ] C5. Utvardera kostnad: OpenAI web_search vs Brave for company-lookup
+
+================================================================================
+D. MIDDLEWARE.TS (centraliserad auth + rate limiting)
+================================================================================
+Prioritet: MEDEL
+Insats: MEDEL
+Varde: Enklare kod, sakrare, battre UX (redirects)
+
+Bakgrund:
+- Saknas helt (project-overview namner den men den finns inte)
+- Idag: varje API-route kor getCurrentUser + withRateLimit manuellt
+- Next.js 16 middleware kan: auth-check, redirect, rate-limit headers, CORS
+
+Steg:
+- [x] D1. Skapa src/middleware.ts med auth-check for /builder, /admin, /projects
+- [x] D2. Redirect oinloggade till / (eller visa login-modal)
+- [x] D3. Centralisera rate-limit headers (flytta fran per-route)
+- [x] D4. CORS-setup for API-routes
+
+================================================================================
+E. EMBEDDINGS FOR TEMPLATE-SOKNING
+================================================================================
+Prioritet: LAG-MEDEL (spannande men inte akut)
+Insats: MEDEL
+Varde: Anvandare beskriver vad de vill ha -> hittar basta mallen
+
+Bakgrund:
+- Idag: Templates ar haardkodade i template-data.ts + templates.json
+  Filtrering: bara pa kategori (getTemplateCatalog({ intent }))
+- Med embeddings: "Jag vill ha en modern restaurangsida med bokning"
+  -> Semantisk matchning mot template-titlar + beskrivningar
+- OpenAI: POST /v1/embeddings, modell text-embedding-3-small (~$0.02/1M tokens)
+- Kan aven anvandas for: smart prompt-forslag, liknande-projekt-sokning
+
+Steg:
+- [x] E1. Generera embeddings for alla templates (titel + beskrivning + kategori)
+- [x] E2. Lagra i Supabase (pgvector) eller lokal JSON-cache
+- [x] E3. Vid sokning: embed anvandarprompt -> cosine similarity -> topp 5
+- [ ] E4. Visa i "Mallar"-fliken med "AI-foreslagna mallar baserat pa din beskrivning"
+- [ ] E5. FRAMTIDA: Koppla ihop med Brave-sok (E + B5) for att hitta
+        externa mallar/inspiration och ranka dem med embeddings.
+
+================================================================================
+F. RLS / DATA-ISOLATION (sakerhet)
+================================================================================
+Prioritet: HOG (sakerhetskritiskt)
+Insats: LAG-MEDEL
+Varde: Faktisk data-isolation mellan anvandare
+
+Bakgrund:
+- Supabase RLS ar aktiverat men med "Allow all" policies = ingen sakring pa DB-niva.
+- Beslut (tva22): Approach A — app-layer enforcement via tenant.ts
+  (INTE full RLS med custom session variables — for komplext med Drizzle + serverless)
+- tenant.ts har getRequestUserId, getChatByV0ChatIdForRequest, etc.
+
+Status (uppdaterad 2026-03-04):
+- [x] F1. proxy.ts med CSP nonce, HSTS, auth-gating, Vary: Origin, CSP-rapportering
+- [x] F2. SSRF-guard for URL-fetching (ssrf-guard.ts) + webscraper skyddat
+- [x] F3. Rate limiting (withRateLimit) pa 50+ routes, Redis cachad, prodvarning
+- [x] F4. Backoffice cookie-auth med HMAC + timingSafeEqual + GET-skydd
+- [x] F5. App-layer ownership: company-profiles, domains, download, tenant.ts
+- [x] F6. Kritiska fixar klara (M1-M6): JWT-secret, SSRF, DB-TLS, rate-limit, auth
+- [x] F7. Hardening klart (S1-S5): redirect-kedja, Redis, agarskap, CSP, CORS
+- [ ] F8. Polish (icke-bradskande) — se docs/analyses/upcoming_polish.md
+
+Se bygglan_2/99-HANDOFF-LOG.md for detaljerad genomgang.
+
+================================================================================
+PRIORITETSORDNING
+================================================================================
+1. A - Design System (stor forbattring i genererad kvalitet)
+2. B5/E - Template-sokning (Brave + Embeddings)
+3. F8 - Sakerhet: polish (docs/analyses/upcoming_polish.md) — nar tid finns
