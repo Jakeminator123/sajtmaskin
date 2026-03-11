@@ -2,6 +2,8 @@
 
 @custom-variant dark (&:is(.dark *));
 @config "../../tailwind.config.cjs";
+@source "../../node_modules/streamdown/dist/*.js";
+@source "../../node_modules/@streamdown/code/dist/*.js";
 
 @layer base {
   :root {

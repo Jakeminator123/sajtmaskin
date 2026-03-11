@@ -37,7 +37,8 @@
     "inspector:docker:ps": "docker compose -f docker-compose.inspector-worker.yml ps",
     "scaffolds:discover": "python big_scarfold/hamta_sidor.py --skip-download --output _scaffold_discovery --per-category 8 --delay 1.0",
     "scaffolds:discover:full": "python big_scarfold/hamta_sidor.py --output _scaffold_discovery --per-category 6 --delay 1.5",
-    "docs:embeddings": "npx tsx scripts/generate-docs-embeddings.ts"
+    "docs:embeddings": "npx tsx scripts/generate-docs-embeddings.ts",
+    "eval": "npx tsx scripts/run-eval.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

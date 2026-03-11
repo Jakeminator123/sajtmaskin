@@ -352,6 +352,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
               }
             };
 
+            const emitFinalizeProgress = (event: string, data: Record<string, unknown>) => {
+              safeEnqueue(
+                enc.encode(formatSSEEvent("progress", { step: event, ...data })),
+              );
+            };
+
             const safeClose = () => {
               if (engineControllerClosed) return;
               engineControllerClosed = true;
@@ -444,6 +450,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                         previousFiles,
                         tokenUsage,
                         logNote: "Follow-up done",
+                        onProgress: emitFinalizeProgress,
                       });
 
                       didSendDone = true;
@@ -543,6 +550,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       startedAt: engineStartedAt,
                       previousFiles,
                       logNote: "Follow-up buffer flush",
+                      onProgress: emitFinalizeProgress,
                     });
 
                     didSendDone = true;
@@ -592,6 +600,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       previousFiles,
                       runAutofix: false,
                       logNote: "Follow-up fallback flush",
+                      onProgress: emitFinalizeProgress,
                     });
 
                     didSendDone = true;
