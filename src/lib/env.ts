@@ -45,6 +45,9 @@ export const serverSchema = z.object({
   KV_URL: z.string().optional(),
   UPSTASH_REDIS_REST_URL: z.string().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  // Vercel Upstash integration uses these names instead
+  KV_REST_API_URL: z.string().optional(),
+  KV_REST_API_TOKEN: z.string().optional(),
 
   // Storage
   DATA_DIR: z.string().optional(),

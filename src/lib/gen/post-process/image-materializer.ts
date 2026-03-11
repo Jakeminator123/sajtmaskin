@@ -1,13 +1,6 @@
 import { SECRETS, FEATURES } from "@/lib/config";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 
-interface UnsplashSearchResult {
-  results: Array<{
-    urls: { raw: string };
-    alt_description: string | null;
-  }>;
-}
-
 const _PLACEHOLDER_RE =
   /\/placeholder\.svg\?(?:[^"'\s]*&)?text=([^&"'\s]+)(?:[^"'\s]*height=(\d+))?(?:[^"'\s]*width=(\d+))?/g;
 
@@ -23,11 +16,16 @@ function parseParams(qs: string): Record<string, string> {
   return out;
 }
 
+interface UnsplashSearchHit {
+  rawUrl: string;
+  downloadLocation: string | null;
+}
+
 async function searchUnsplash(
   query: string,
   accessKey: string,
   orientation: "landscape" | "portrait" | "squarish" = "landscape",
-): Promise<string | null> {
+): Promise<UnsplashSearchHit | null> {
   if (!query.trim() || !accessKey) return null;
   try {
     const res = await fetch(
@@ -41,13 +39,31 @@ async function searchUnsplash(
       },
     );
     if (!res.ok) return null;
-    const data = (await res.json()) as UnsplashSearchResult;
+    const data = (await res.json()) as {
+      results?: Array<{
+        urls: { raw: string };
+        alt_description: string | null;
+        links?: { download_location?: string };
+      }>;
+    };
     const photo = data.results?.[0];
     if (!photo?.urls?.raw) return null;
-    return photo.urls.raw;
+    return {
+      rawUrl: photo.urls.raw,
+      downloadLocation: photo.links?.download_location ?? null,
+    };
   } catch {
     return null;
   }
+}
+
+function trackUnsplashDownload(downloadLocation: string, accessKey: string): void {
+  fetch(downloadLocation, {
+    headers: {
+      Authorization: `Client-ID ${accessKey}`,
+      "Accept-Version": "v1",
+    },
+  }).catch(() => {});
 }
 
 function buildUnsplashUrl(rawUrl: string, width: number, height: number): string {
@@ -229,6 +245,8 @@ export interface MaterializeResult {
   content: string;
   replacedCount: number;
   queries: string[];
+  /** URLs that were freshly resolved from Unsplash -- safe to skip HEAD-check. */
+  resolvedUrls: Set<string>;
 }
 
 /**
@@ -239,7 +257,7 @@ export async function materializeImages(content: string): Promise<MaterializeRes
   const accessKey = SECRETS.unsplashAccessKey;
   if (!accessKey || !FEATURES.useUnsplash) {
     debugLog("images", "Image materialization skipped (no Unsplash key)");
-    return { content, replacedCount: 0, queries: [] };
+    return { content, replacedCount: 0, queries: [], resolvedUrls: new Set() };
   }
 
   const matches: Array<{
@@ -263,7 +281,7 @@ export async function materializeImages(content: string): Promise<MaterializeRes
   }
 
   if (matches.length === 0) {
-    return { content, replacedCount: 0, queries: [] };
+    return { content, replacedCount: 0, queries: [], resolvedUrls: new Set() };
   }
 
   debugLog("images", `Materializing ${matches.length} placeholder images`);
@@ -282,11 +300,14 @@ export async function materializeImages(content: string): Promise<MaterializeRes
       const orientation = chooseOrientation(match.width, match.height);
       const candidates = buildSearchCandidates(match.text);
       for (const candidate of candidates) {
-        const rawUrl = await searchUnsplash(candidate, accessKey, orientation);
-        if (!rawUrl) continue;
-        url = buildUnsplashUrl(rawUrl, match.width, match.height);
+        const hit = await searchUnsplash(candidate, accessKey, orientation);
+        if (!hit) continue;
+        url = buildUnsplashUrl(hit.rawUrl, match.width, match.height);
         queryUsed = candidate;
         seen.set(cacheKey, url);
+        if (hit.downloadLocation) {
+          trackUnsplashDownload(hit.downloadLocation, accessKey);
+        }
         break;
       }
     }
@@ -304,5 +325,5 @@ export async function materializeImages(content: string): Promise<MaterializeRes
   }
 
   debugLog("images", `Materialized ${replaced}/${matches.length} images`);
-  return { content: result, replacedCount: replaced, queries };
+  return { content: result, replacedCount: replaced, queries, resolvedUrls: new Set(seen.values()) };
 }

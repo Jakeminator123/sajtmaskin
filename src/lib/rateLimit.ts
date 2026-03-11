@@ -1,12 +1,14 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-if (
-  process.env.NODE_ENV === "production" &&
-  !process.env.UPSTASH_REDIS_REST_URL
-) {
+const _resolvedRestUrl =
+  process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
+const _resolvedRestToken =
+  process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
+
+if (process.env.NODE_ENV === "production" && !_resolvedRestUrl) {
   console.warn(
-    "[RateLimit] WARNING: Using in-memory rate limiting in production. This is unreliable in serverless. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.",
+    "[RateLimit] WARNING: Using in-memory rate limiting in production. This is unreliable in serverless. Set UPSTASH_REDIS_REST_URL (or KV_REST_API_URL via Vercel integration).",
   );
 }
 
@@ -66,10 +68,8 @@ const _cachedLimiters = new Map<string, Ratelimit>();
 
 function getRedis(): Redis | null {
   if (_cachedRedis) return _cachedRedis;
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
-  _cachedRedis = new Redis({ url, token });
+  if (!_resolvedRestUrl || !_resolvedRestToken) return null;
+  _cachedRedis = new Redis({ url: _resolvedRestUrl, token: _resolvedRestToken });
   return _cachedRedis;
 }
 

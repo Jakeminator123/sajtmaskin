@@ -75,6 +75,18 @@ const nextConfig: NextConfig = {
         hostname: "images.ctfassets.net",
         pathname: "/**",
       },
+      // Unsplash stock photos (used in generated sites)
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+      // Pexels stock photos
+      {
+        protocol: "https",
+        hostname: "images.pexels.com",
+        pathname: "/**",
+      },
       // v0 preview sandbox assets
       {
         protocol: "https",

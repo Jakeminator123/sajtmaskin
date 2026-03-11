@@ -297,6 +297,12 @@ export const REDIS_CONFIG = {
 } as const;
 
 /**
+ * Environment-aware key prefix so dev and prod never collide even if
+ * they accidentally share the same Redis instance.
+ */
+export const REDIS_KEY_PREFIX = IS_PRODUCTION ? "prod:" : "dev:";
+
+/**
  * App URLs
  */
 export const URLS = {

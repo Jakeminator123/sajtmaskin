@@ -7,33 +7,35 @@
  *
  * REDIS KEY STRUCTURE:
  * ====================
+ * All keys are prefixed with REDIS_KEY_PREFIX ("prod:" or "dev:")
+ * so dev and prod never collide even on a shared instance.
  *
  * User Sessions:
- *   user:session:{userId}       → CachedUser JSON (TTL: 7 days)
+ *   {prefix}user:session:{userId}       → CachedUser JSON (TTL: 7 days)
  *
  * Rate Limiting:
- *   ratelimit:{key}             → Counter (TTL: variable)
+ *   {prefix}ratelimit:{key}             → Counter (TTL: variable)
  *
  * General Cache:
- *   cache:{key}                 → Any JSON (TTL: 1 hour default)
+ *   {prefix}cache:{key}                 → Any JSON (TTL: 1 hour default)
  *
  * Audit Caching:
- *   audit:{auditId}             → Audit JSON (TTL: 24 hours)
- *   audit_list:{userId}         → Audit list JSON (TTL: 24 hours)
+ *   {prefix}audit:{auditId}             → Audit JSON (TTL: 24 hours)
+ *   {prefix}audit_list:{userId}         → Audit list JSON (TTL: 24 hours)
  *
  * Project Storage (Cache):
- *   project:files:{projectId}   → ProjectFile[] JSON (TTL: 1 hour, cache only; SQLite är källan)
- *   project:meta:{projectId}    → ProjectMeta JSON (TTL: 1 hour, cache only)
+ *   {prefix}project:files:{projectId}   → ProjectFile[] JSON (TTL: 1 hour)
+ *   {prefix}project:meta:{projectId}    → ProjectMeta JSON (TTL: 1 hour)
  *
  * Video Jobs (Sora):
- *   video:job:{videoId}         → VideoJob JSON (TTL: 1 hour)
+ *   {prefix}video:job:{videoId}         → VideoJob JSON (TTL: 1 hour)
  *
  * Preview Cache:
- *   preview:{templateId}        → CachedPreview JSON (TTL: 24 hours)
+ *   {prefix}preview:{templateId}        → CachedPreview JSON (TTL: 24 hours)
  */
 
 import Redis from "ioredis";
-import { REDIS_CONFIG, FEATURES } from "@/lib/config";
+import { REDIS_CONFIG, REDIS_KEY_PREFIX, FEATURES } from "@/lib/config";
 import { debugLog } from "@/lib/utils/debug";
 
 // Create Redis client (singleton)
@@ -99,7 +101,7 @@ export function getRedis(): Redis | null {
 
 // ============ User Session Cache ============
 
-const USER_SESSION_PREFIX = "user:session:";
+const USER_SESSION_PREFIX = `${REDIS_KEY_PREFIX}user:session:`;
 const USER_SESSION_TTL = 60 * 60 * 24 * 7; // 7 days
 
 export interface CachedUser {
@@ -187,7 +189,7 @@ export async function updateCachedUserDiamonds(userId: string, diamonds: number)
 
 // ============ Rate Limiting ============
 
-const RATE_LIMIT_PREFIX = "ratelimit:";
+const RATE_LIMIT_PREFIX = `${REDIS_KEY_PREFIX}ratelimit:`;
 
 export async function checkRateLimit(
   key: string,
@@ -255,7 +257,7 @@ export async function setCache(
   }
 
   try {
-    await redis.setex(`cache:${key}`, ttlSeconds, JSON.stringify(value));
+    await redis.setex(`${REDIS_KEY_PREFIX}cache:${key}`, ttlSeconds, JSON.stringify(value));
   } catch (error) {
     console.error("[Redis] Failed to set cache:", error);
   }
@@ -272,7 +274,7 @@ export async function getCache<T>(key: string): Promise<T | null> {
   }
 
   try {
-    const data = await redis.get(`cache:${key}`);
+    const data = await redis.get(`${REDIS_KEY_PREFIX}cache:${key}`);
     if (data) {
       return JSON.parse(data) as T;
     }
@@ -287,7 +289,7 @@ export async function deleteCache(key: string): Promise<void> {
   if (!redis) return;
 
   try {
-    await redis.del(`cache:${key}`);
+    await redis.del(`${REDIS_KEY_PREFIX}cache:${key}`);
   } catch (error) {
     console.error("[Redis] Failed to delete cache:", error);
   }
@@ -295,7 +297,7 @@ export async function deleteCache(key: string): Promise<void> {
 
 // ============ Prompt Handoff ============
 
-const PROMPT_HANDOFF_PREFIX = "prompt_handoff:";
+const PROMPT_HANDOFF_PREFIX = `${REDIS_KEY_PREFIX}prompt_handoff:`;
 const PROMPT_HANDOFF_TTL = 60 * 60 * 24 * 7; // 7 days
 
 export type CachedPromptHandoff = {
@@ -346,8 +348,8 @@ export async function deletePromptHandoffCache(id: string): Promise<void> {
 
 // ============ Audit Caching ============
 
-const AUDIT_CACHE_PREFIX = "audit:";
-const AUDIT_LIST_PREFIX = "audit_list:";
+const AUDIT_CACHE_PREFIX = `${REDIS_KEY_PREFIX}audit:`;
+const AUDIT_LIST_PREFIX = `${REDIS_KEY_PREFIX}audit_list:`;
 const AUDIT_CACHE_TTL = 86400; // 24 hours
 
 /**
@@ -503,8 +505,8 @@ export async function flushRedisCache(): Promise<boolean> {
 // ============ Project Files Storage ============
 // Cache for taken-over projects to speed up agent editing (SQLite is source-of-truth)
 
-const PROJECT_FILES_PREFIX = "project:files:";
-const PROJECT_META_PREFIX = "project:meta:";
+const PROJECT_FILES_PREFIX = `${REDIS_KEY_PREFIX}project:files:`;
+const PROJECT_META_PREFIX = `${REDIS_KEY_PREFIX}project:meta:`;
 const PROJECT_FILES_TTL = 60 * 60; // 1 hour cache - SQLite är källan
 
 export interface ProjectFile {
@@ -763,7 +765,7 @@ export async function listUserTakenOverProjects(userId: string): Promise<Project
 // ============ Video Job Storage ============
 // For async video generation tracking (Sora API)
 
-const VIDEO_JOB_PREFIX = "video:job:";
+const VIDEO_JOB_PREFIX = `${REDIS_KEY_PREFIX}video:job:`;
 const VIDEO_JOB_TTL = 60 * 60; // 1 hour - video jobs expire after completion
 
 export interface VideoJob {
@@ -842,7 +844,7 @@ export async function updateVideoJob(
 // ============ Preview Cache ============
 // For template preview caching (reduces v0 API calls)
 
-const PREVIEW_CACHE_PREFIX = "preview:";
+const PREVIEW_CACHE_PREFIX = `${REDIS_KEY_PREFIX}preview:`;
 const PREVIEW_CACHE_TTL = 60 * 60 * 24; // 24 hours
 
 export interface CachedPreview {

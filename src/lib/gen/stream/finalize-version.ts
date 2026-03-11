@@ -13,6 +13,17 @@ import * as chatRepo from "@/lib/db/chat-repository";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog } from "@/lib/utils/debug";
 
+let _lastMaterializedUrls: Set<string> = new Set();
+
+/**
+ * URLs the most recent materializeImages() call resolved from Unsplash.
+ * The image validator can skip HEAD-checking these since they were just
+ * fetched and confirmed valid seconds earlier.
+ */
+export function getLastMaterializedUrls(): Set<string> {
+  return _lastMaterializedUrls;
+}
+
 export interface FinalizeParams {
   accumulatedContent: string;
   chatId: string;
@@ -104,6 +115,7 @@ export async function finalizeAndSaveVersion(
     const imgResult = await materializeImages(contentForVersion);
     if (imgResult.replacedCount > 0) {
       contentForVersion = imgResult.content;
+      _lastMaterializedUrls = imgResult.resolvedUrls;
       devLogAppend("in-progress", {
         type: "image-materialization",
         chatId,

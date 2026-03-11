@@ -149,10 +149,11 @@ export function extractImageRefs(files: TextFile[]): ImageRef[] {
 // URL VALIDATION (server-side HEAD check)
 // ═══════════════════════════════════════════════════════════════
 
-const HEAD_TIMEOUT_MS = 5_000;
+const HEAD_TIMEOUT_MS = 8_000;
+const HEAD_RETRY_COUNT = 1;
 const MAX_CONCURRENT_CHECKS = 6;
 
-async function headCheck(url: string): Promise<number | "error"> {
+async function headCheckOnce(url: string): Promise<number | "error"> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), HEAD_TIMEOUT_MS);
   try {
@@ -170,18 +171,39 @@ async function headCheck(url: string): Promise<number | "error"> {
   }
 }
 
+async function headCheck(url: string): Promise<number | "error"> {
+  let result = await headCheckOnce(url);
+  if (result === "error" || (typeof result === "number" && result >= 500)) {
+    for (let attempt = 0; attempt < HEAD_RETRY_COUNT; attempt++) {
+      await new Promise((r) => setTimeout(r, 800));
+      result = await headCheckOnce(url);
+      if (typeof result === "number" && result >= 200 && result < 400) break;
+    }
+  }
+  if (result === "error" || (typeof result === "number" && result >= 400)) {
+    console.warn(`[image-validator] Broken image: ${url} (status: ${result})`);
+  }
+  return result;
+}
+
 /**
  * Check which image URLs are broken (non-2xx status).
  * Runs checks in parallel with a concurrency limit.
+ * @param skipUrls URLs known to be valid (e.g. freshly materialized from Unsplash)
  */
 export async function findBrokenImages(
   refs: ImageRef[],
+  skipUrls?: Set<string>,
 ): Promise<BrokenImage[]> {
+  const refsToCheck = skipUrls?.size
+    ? refs.filter((ref) => !skipUrls.has(ref.url))
+    : refs;
+
   const broken: BrokenImage[] = [];
   const batches: ImageRef[][] = [];
 
-  for (let i = 0; i < refs.length; i += MAX_CONCURRENT_CHECKS) {
-    batches.push(refs.slice(i, i + MAX_CONCURRENT_CHECKS));
+  for (let i = 0; i < refsToCheck.length; i += MAX_CONCURRENT_CHECKS) {
+    batches.push(refsToCheck.slice(i, i + MAX_CONCURRENT_CHECKS));
   }
 
   for (const batch of batches) {
@@ -344,8 +366,10 @@ export async function validateImages(params: {
   files: TextFile[];
   autoFix: boolean;
   unsplashAccessKey: string | null;
+  /** URLs known to be valid (freshly resolved by materializer). Skipped in HEAD checks. */
+  skipUrls?: Set<string>;
 }): Promise<ImageValidationResult> {
-  const { files, autoFix, unsplashAccessKey } = params;
+  const { files, autoFix, unsplashAccessKey, skipUrls } = params;
   const warnings: string[] = [];
 
   const refs = extractImageRefs(files);
@@ -355,7 +379,7 @@ export async function validateImages(params: {
 
   warnings.push(...findSemanticImageWarnings(refs));
 
-  let broken = await findBrokenImages(refs);
+  let broken = await findBrokenImages(refs, skipUrls);
   if (broken.length === 0) {
     return { total: refs.length, broken: [], replacedCount: 0, files, warnings };
   }

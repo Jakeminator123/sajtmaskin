@@ -1,4 +1,4 @@
-import { FEATURES } from "@/lib/config";
+import { FEATURES, SECRETS } from "@/lib/config";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -47,9 +47,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Track the download by calling Unsplash's download endpoint
-    // Per Unsplash guidelines: call download_location as-is (it already carries auth/params)
-    const response = await fetch(trackUrl);
+    const response = await fetch(trackUrl, {
+      headers: {
+        Authorization: `Client-ID ${SECRETS.unsplashAccessKey}`,
+        "Accept-Version": "v1",
+      },
+    });
 
     if (!response.ok) {
       console.error(
