@@ -579,6 +579,7 @@ export function ChatInterface({
         url: imageUrl,
         filename: `${safeFileName}.png`,
         mimeType: "image/png",
+        purpose: "figma-reference",
       };
     } catch {
       return null;

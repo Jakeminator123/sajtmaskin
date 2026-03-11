@@ -14,6 +14,7 @@ import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/p
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection } from "@/lib/v0/modelSelection";
 import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
+import { normalizeRequestAttachments } from "@/lib/gen/request-metadata";
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const session = ensureSessionIdFromRequest(req);
@@ -43,6 +44,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const { message, attachments, modelId, thinking, imageGenerations, system, meta } =
         validationResult.data;
+      const requestAttachments = normalizeRequestAttachments(attachments);
       const metaRequestedModelTier =
         typeof (meta as { modelTier?: unknown })?.modelTier === "string"
           ? String((meta as { modelTier?: string }).modelTier)
@@ -77,7 +79,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         buildMethod: metaBuildMethod,
         buildIntent: metaBuildIntent,
         isFirstPrompt: false,
-        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+        attachmentsCount: requestAttachments.length,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
       const optimizedMessage = promptOrchestration.finalMessage;
@@ -111,14 +113,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         optimizedLength: strategyMeta.optimizedLength,
         reductionRatio: strategyMeta.reductionRatio,
         strategyReason: strategyMeta.reason,
-        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+        attachmentsCount: requestAttachments.length,
       });
 
       const creditContext = {
         modelId: resolvedModelId,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
-        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+        attachmentsCount: requestAttachments.length,
       };
       const creditCheck = await prepareCredits(req, "prompt.refine", creditContext, { sessionId });
       if (!creditCheck.ok) {
@@ -128,7 +130,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const result = await (v0.chats as any).sendMessage({
         chatId,
         message: optimizedMessage,
-        attachments,
+        attachments: requestAttachments,
         modelConfiguration: {
           modelId: resolvedModelId,
           thinking: resolvedThinking,

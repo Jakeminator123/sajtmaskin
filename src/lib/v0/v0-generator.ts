@@ -561,7 +561,7 @@ export interface GenerateCodeOptions {
   mediaLibrary?: MediaLibraryItem[];
   /** Optional system prompt to guide v0 behavior */
   systemPrompt?: string;
-  /** v0 Design System ID to bind the chat to a specific design system */
+  /** External v0 registry-backed Design System ID. Separate from Sajtmaskin's internal theme presets. */
   designSystemId?: string;
   /** Callback for streaming updates (if v0Streaming feature is enabled) */
   onStream?: StreamingCallback;
@@ -1155,7 +1155,9 @@ export async function generateFromTemplate(
  * - Component registry items with dependencies
  *
  * @param registryUrl - Full URL to registry item JSON
- * @param options - Optional configuration
+ * @param options - Optional configuration.
+ * `designSystemId` here refers to v0's external registry-based design system,
+ * not the own engine's internal `designTheme` presets.
  */
 export async function initFromRegistry(
   registryUrl: string,

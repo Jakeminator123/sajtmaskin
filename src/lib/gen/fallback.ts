@@ -1,3 +1,4 @@
+import type { ToolSet } from "ai";
 import { generateCode as generateWithEngine, type GenerateOptions } from "./engine";
 
 const V0_FALLBACK_TRUTHY = new Set(["y", "yes", "true", "1"]);
@@ -20,6 +21,9 @@ export interface PipelineOptions {
   thinking?: boolean;
   maxTokens?: number;
   abortSignal?: AbortSignal;
+  tools?: ToolSet;
+  maxSteps?: number;
+  referenceAttachments?: GenerateOptions["referenceAttachments"];
 }
 
 /**
@@ -37,5 +41,8 @@ export function createGenerationPipeline(
     thinking: options.thinking,
     maxTokens: options.maxTokens,
     abortSignal: options.abortSignal,
+    tools: options.tools,
+    maxSteps: options.maxSteps,
+    referenceAttachments: options.referenceAttachments,
   });
 }

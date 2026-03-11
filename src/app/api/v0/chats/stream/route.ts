@@ -41,19 +41,22 @@ import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelec
 import { DEFAULT_MODEL_ID, MODEL_LABELS, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { AI } from "@/lib/config";
 import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
-import {
-  matchScaffoldWithEmbeddings,
-  getScaffoldById,
-  serializeScaffoldForPrompt,
-  detectScaffoldMode,
-} from "@/lib/gen/scaffolds";
-import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
-import { inferCapabilities } from "@/lib/gen/capability-inference";
 import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
 import { detectIntegrations } from "@/lib/gen/detect-integrations";
+import { getAgentTools } from "@/lib/gen/agent-tools";
 import { compressUrls } from "@/lib/gen/url-compress";
-import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen/system-prompt";
+import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
+import {
+  extractAppProjectIdFromMeta,
+  extractBriefFromMeta,
+  extractDesignThemePresetFromMeta,
+  extractPaletteStateFromMeta,
+  extractScaffoldSettingsFromMeta,
+  extractThemeColorsFromMeta,
+  normalizeRequestAttachments,
+  summarizeDesignReferences,
+} from "@/lib/gen/request-metadata";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -140,6 +143,7 @@ export async function POST(req: Request) {
         designSystemId: clientDesignSystemId,
         meta,
       } = validationResult.data;
+      const requestAttachments = normalizeRequestAttachments(attachments);
       const designSystemId = clientDesignSystemId || AI.designSystemId;
       const metaRequestedModelTier =
         typeof (meta as { modelTier?: unknown })?.modelTier === "string"
@@ -162,16 +166,13 @@ export async function POST(req: Request) {
           : null;
       const metaPlanMode =
         (meta as { planMode?: unknown })?.planMode === true;
-      const metaAppProjectId =
-        typeof (meta as { appProjectId?: unknown })?.appProjectId === "string"
-          ? String((meta as { appProjectId?: string }).appProjectId).trim()
-          : "";
+      const metaAppProjectId = extractAppProjectIdFromMeta(meta);
       const promptOrchestration = orchestratePromptMessage({
         message,
         buildMethod: metaBuildMethod,
         buildIntent: metaBuildIntent,
         isFirstPrompt: true,
-        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+        attachmentsCount: requestAttachments.length,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
       const optimizedMessage = promptOrchestration.finalMessage;
@@ -200,7 +201,7 @@ export async function POST(req: Request) {
         modelId: resolvedModelId,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
-        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+        attachmentsCount: requestAttachments.length,
       };
       const creditCheck = await prepareCredits(req, "prompt.create", creditContext, { sessionId });
       if (!creditCheck.ok) {
@@ -282,7 +283,7 @@ export async function POST(req: Request) {
           modelTier: resolvedModelTier,
           imageGenerations: resolvedImageGenerations,
           thinking: resolvedThinking,
-          attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+          attachmentsCount: requestAttachments.length,
           meta: metaPayload,
         });
       } catch (error) {
@@ -299,7 +300,7 @@ export async function POST(req: Request) {
           : v0TierToOpenAIModel(resolvedModelTier),
         promptLength: optimizedMessage.length,
         originalPromptLength: message.length,
-        attachments: Array.isArray(attachments) ? attachments.length : 0,
+        attachments: requestAttachments.length,
         systemProvided: hasSystemPrompt,
         systemApplied: hasSystemPrompt,
         systemIgnored: false,
@@ -322,7 +323,7 @@ export async function POST(req: Request) {
         optimizedLength: strategyMeta.optimizedLength,
         reductionRatio: strategyMeta.reductionRatio,
         strategyReason: strategyMeta.reason,
-        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+        attachmentsCount: requestAttachments.length,
       });
 
       devLogStartNewSite({
@@ -336,26 +337,60 @@ export async function POST(req: Request) {
 
       // ── Plan Mode Path ────────────────────────────────────────────────
       if (metaPlanMode) {
-        const planSystemPrompt = buildPlannerSystemPrompt();
         const engineModel = resolveEngineModelId(resolvedModelTier, false);
-        const { createGenerationPipeline: createPipeline } = await import("@/lib/gen/fallback");
+        const engineIntent: BuildIntent =
+          metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
+            ? (metaBuildIntent as BuildIntent)
+            : "website";
 
-        debugLog("plan", "Plan mode activated", {
+        const planOrchestration = await prepareGenerationContext({
+          prompt: optimizedMessage,
+          buildIntent: engineIntent,
+          scaffoldMode: typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
+            ? String((meta as Record<string, string>).scaffoldMode) as "auto" | "manual" | "off"
+            : "auto",
+          scaffoldId: typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
+            ? String((meta as Record<string, string>).scaffoldId)
+            : null,
+          brief: (() => {
+            const raw = (meta as Record<string, unknown>)?.brief;
+            return raw && typeof raw === "object" ? raw as Record<string, unknown> : null;
+          })(),
+          themeColors: (() => {
+            const raw = (meta as Record<string, unknown>)?.themeColors;
+            if (!raw || typeof raw !== "object") return null;
+            const tc = raw as Record<string, unknown>;
+            if (typeof tc.primary === "string" && typeof tc.secondary === "string" && typeof tc.accent === "string") {
+              return { primary: tc.primary, secondary: tc.secondary, accent: tc.accent };
+            }
+            return null;
+          })(),
+        });
+
+        const planPreamble = buildPlannerSystemPrompt();
+        const planSystemPrompt = `${planPreamble}\n\n---\n\n${planOrchestration.v0EnrichmentContext}`;
+        const planTools = getAgentTools();
+
+        debugLog("plan", "Plan mode activated (unified orchestration)", {
           model: engineModel,
           promptLength: optimizedMessage.length,
           thinking: resolvedThinking,
+          scaffold: planOrchestration.resolvedScaffold?.id ?? null,
         });
         devLogAppend("in-progress", {
           type: "plan.generation.start",
           model: engineModel,
           promptLength: optimizedMessage.length,
+          scaffold: planOrchestration.resolvedScaffold?.id ?? null,
         });
 
-        const pipelineStream = createPipeline({
+        const pipelineStream = createGenerationPipeline({
           prompt: optimizedMessage,
           systemPrompt: planSystemPrompt,
           model: engineModel,
           thinking: resolvedThinking,
+          tools: planTools,
+          maxSteps: 2,
         });
 
         const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
@@ -467,69 +502,29 @@ export async function POST(req: Request) {
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        const { scaffoldMode: metaScaffoldMode, scaffoldId: metaScaffoldId } =
+          extractScaffoldSettingsFromMeta(meta);
+        const metaThemeColors = extractThemeColorsFromMeta(meta);
+        const metaBrief = extractBriefFromMeta(meta);
+        const metaDesignThemePreset = extractDesignThemePresetFromMeta(meta);
+        const metaPalette = extractPaletteStateFromMeta(meta);
+        const designReferences = summarizeDesignReferences(requestAttachments);
 
-        const metaScaffoldMode =
-          typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
-            ? String((meta as Record<string, string>).scaffoldMode)
-            : "auto";
-        const metaScaffoldId =
-          typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
-            ? String((meta as Record<string, string>).scaffoldId)
-            : null;
-        const metaThemeColors = (() => {
-          const raw = (meta as Record<string, unknown>)?.themeColors;
-          if (!raw || typeof raw !== "object") return null;
-          const tc = raw as Record<string, unknown>;
-          if (typeof tc.primary === "string" && typeof tc.secondary === "string" && typeof tc.accent === "string") {
-            return { primary: tc.primary, secondary: tc.secondary, accent: tc.accent };
-          }
-          return null;
-        })();
-
-        const metaBrief = (() => {
-          const raw = (meta as Record<string, unknown>)?.brief;
-          if (!raw || typeof raw !== "object") return null;
-          return raw as Record<string, unknown>;
-        })();
-
-        let resolvedScaffold: ScaffoldManifest | null = null;
-        if (metaScaffoldMode === "manual" && metaScaffoldId) {
-          resolvedScaffold = getScaffoldById(metaScaffoldId);
-        } else if (metaScaffoldMode === "auto") {
-          resolvedScaffold = await matchScaffoldWithEmbeddings(
-            optimizedMessage,
-            engineIntent,
-          );
-        }
-
-        const promptForSystemContext = optimizedMessage;
-
-        let scaffoldContextForPrompt: string | undefined;
-        if (resolvedScaffold) {
-          const briefStyleKeywords = (() => {
-            const raw = (metaBrief as Record<string, unknown> | null)?.visualDirection;
-            if (!raw || typeof raw !== "object") return undefined;
-            const vd = raw as Record<string, unknown>;
-            return Array.isArray(vd.styleKeywords) ? (vd.styleKeywords as string[]) : undefined;
-          })();
-          const serializeMode = detectScaffoldMode(optimizedMessage, briefStyleKeywords);
-          scaffoldContextForPrompt = serializeScaffoldForPrompt(resolvedScaffold, serializeMode);
-          debugLog("engine", "Scaffold injected", {
-            scaffoldId: resolvedScaffold.id,
-            family: resolvedScaffold.family,
-            mode: metaScaffoldMode,
-            serializeMode,
-          });
-        }
-
-        const engineSystemPrompt = await buildSystemPrompt({
-          intent: engineIntent,
+        const orchestration = await prepareGenerationContext({
+          prompt: optimizedMessage,
+          buildIntent: engineIntent,
+          scaffoldMode: metaScaffoldMode,
+          scaffoldId: metaScaffoldId,
+          brief: metaBrief,
+          themeColors: metaThemeColors,
           imageGenerations: resolvedImageGenerations,
-          themeOverride: metaThemeColors,
-          originalPrompt: promptForSystemContext,
-          scaffoldContext: scaffoldContextForPrompt,
-          brief: metaBrief as Brief | null,
+          componentPalette: metaPalette,
+          designThemePreset: metaDesignThemePreset,
+          designReferences,
         });
+        const { resolvedScaffold, capabilities: engineCapabilities, engineSystemPrompt } =
+          orchestration;
+
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
@@ -540,11 +535,15 @@ export async function POST(req: Request) {
           fallback: false,
         });
         const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
+        const agentTools = getAgentTools();
         const pipelineStream = createGenerationPipeline({
           prompt: enginePrompt,
           systemPrompt: engineSystemPrompt,
           model: engineModel,
           thinking: resolvedThinking,
+          tools: agentTools,
+          maxSteps: 2,
+          referenceAttachments: requestAttachments,
         });
 
         const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
@@ -601,7 +600,6 @@ export async function POST(req: Request) {
               }
             };
 
-            const engineCapabilities = inferCapabilities(optimizedMessage);
             safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: engineChat.id })));
             safeEnqueue(
               enc.encode(
@@ -664,6 +662,52 @@ export async function POST(req: Request) {
                       break;
                     }
 
+                    case "tool-call": {
+                      const toolData = evt.data as Record<string, unknown>;
+                      const toolName = typeof toolData?.toolName === "string" ? toolData.toolName : "";
+                      const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
+
+                      if (toolName === "suggestIntegration") {
+                        const envVars = Array.isArray(toolArgs.envVars) ? toolArgs.envVars as string[] : [];
+                        safeEnqueue(enc.encode(formatSSEEvent("integration", {
+                          items: [{
+                            key: typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown",
+                            name: typeof toolArgs.name === "string" ? toolArgs.name : "Integration",
+                            provider: typeof toolArgs.provider === "string" ? toolArgs.provider : undefined,
+                            intent: "env_vars" as const,
+                            envVars,
+                            status: "Kräver konfiguration",
+                            reason: typeof toolArgs.reason === "string" ? toolArgs.reason : undefined,
+                            setupHint: typeof toolArgs.setupHint === "string" ? toolArgs.setupHint : undefined,
+                          }],
+                        })));
+                        debugLog("engine", "Tool: suggestIntegration", { provider: toolArgs.provider });
+                      } else if (toolName === "requestEnvVar") {
+                        safeEnqueue(enc.encode(formatSSEEvent("integration", {
+                          items: [{
+                            key: "custom-env",
+                            name: "Miljövariabel",
+                            intent: "env_vars" as const,
+                            envVars: [typeof toolArgs.key === "string" ? toolArgs.key : "UNKNOWN"],
+                            status: typeof toolArgs.description === "string" ? toolArgs.description : "Kräver konfiguration",
+                          }],
+                        })));
+                      } else if (toolName === "askClarifyingQuestion") {
+                        safeEnqueue(enc.encode(formatSSEEvent("tool-call", {
+                          toolName: "askClarifyingQuestion",
+                          toolCallId: typeof toolData.toolCallId === "string" ? toolData.toolCallId : `q-${Date.now()}`,
+                          args: toolArgs,
+                        })));
+                      } else if (toolName === "emitPlanArtifact") {
+                        safeEnqueue(enc.encode(formatSSEEvent("tool-call", {
+                          toolName: "emitPlanArtifact",
+                          toolCallId: typeof toolData.toolCallId === "string" ? toolData.toolCallId : `plan-${Date.now()}`,
+                          args: toolArgs,
+                        })));
+                      }
+                      break;
+                    }
+
                     case "done": {
                       const flushed = suspense.flush();
                       if (flushed) {
@@ -682,6 +726,9 @@ export async function POST(req: Request) {
                         tokenUsage: {
                           prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
                           completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
+                        },
+                        onProgress: (event, data) => {
+                          safeEnqueue(enc.encode(formatSSEEvent("progress", { step: event, ...data })));
                         },
                       });
 
@@ -878,31 +925,20 @@ export async function POST(req: Request) {
 
       const generationStartedAt = Date.now();
 
+      const v0ScaffoldSettings = extractScaffoldSettingsFromMeta(meta);
       const v0Orchestration = await prepareGenerationContext({
         prompt: optimizedMessage,
         buildIntent: (metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
           ? metaBuildIntent as BuildIntent
           : "website"),
-        scaffoldMode: typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
-          ? String((meta as Record<string, string>).scaffoldMode) as "auto" | "manual" | "off"
-          : "auto",
-        scaffoldId: typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
-          ? String((meta as Record<string, string>).scaffoldId)
-          : null,
-        brief: (() => {
-          const raw = (meta as Record<string, unknown>)?.brief;
-          return raw && typeof raw === "object" ? raw as Record<string, unknown> : null;
-        })(),
-        themeColors: (() => {
-          const raw = (meta as Record<string, unknown>)?.themeColors;
-          if (!raw || typeof raw !== "object") return null;
-          const tc = raw as Record<string, unknown>;
-          const primary = typeof tc.primary === "string" ? tc.primary : "";
-          const secondary = typeof tc.secondary === "string" ? tc.secondary : "";
-          const accent = typeof tc.accent === "string" ? tc.accent : "";
-          return (primary || secondary || accent) ? { primary, secondary, accent } : null;
-        })(),
+        scaffoldMode: v0ScaffoldSettings.scaffoldMode,
+        scaffoldId: v0ScaffoldSettings.scaffoldId,
+        brief: extractBriefFromMeta(meta),
+        themeColors: extractThemeColorsFromMeta(meta),
         imageGenerations: resolvedImageGenerations,
+        componentPalette: extractPaletteStateFromMeta(meta),
+        designThemePreset: extractDesignThemePresetFromMeta(meta),
+        designReferences: summarizeDesignReferences(requestAttachments),
       });
 
       const v0SystemPrompt = [
@@ -921,7 +957,7 @@ export async function POST(req: Request) {
           imageGenerations: resolvedImageGenerations,
         },
         responseMode: "experimental_stream",
-        ...(attachments ? { attachments } : {}),
+        ...(requestAttachments.length > 0 ? { attachments: requestAttachments } : {}),
         ...(designSystemId ? { designSystemId } : {}),
       } as Parameters<typeof v0.chats.create>[0] & { responseMode?: string; designSystemId?: string });
 

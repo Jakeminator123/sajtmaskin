@@ -1,7 +1,11 @@
-import { streamText, type ModelMessage } from "ai";
+import { streamText, type ModelMessage, type ToolSet } from "ai";
 
 import { ENGINE_MAX_OUTPUT_TOKENS } from "./defaults";
 import { getOpenAIModel, DEFAULT_MODEL } from "./models";
+import {
+  buildUserPromptContent,
+  type RequestAttachment,
+} from "./request-metadata";
 import { createCodeGenSSEStream, type StreamMeta } from "./stream-format";
 
 export interface GenerateOptions {
@@ -12,6 +16,9 @@ export interface GenerateOptions {
   thinking?: boolean;
   maxTokens?: number;
   abortSignal?: AbortSignal;
+  tools?: ToolSet;
+  maxSteps?: number;
+  referenceAttachments?: RequestAttachment[];
 }
 
 /**
@@ -21,6 +28,7 @@ export interface GenerateOptions {
  *  `meta`     — chat/version metadata
  *  `thinking` — model reasoning (when thinking=true)
  *  `content`  — generated code/text
+ *  `tool-call` — when the model invokes an agent tool
  *  `done`     — completion with token usage
  *  `error`    — if generation fails
  */
@@ -36,21 +44,25 @@ export function generateCode(
     thinking = true,
     maxTokens,
     abortSignal,
+    tools,
+    maxSteps,
+    referenceAttachments,
   } = options;
 
   const model = getOpenAIModel(modelId ?? DEFAULT_MODEL);
 
-  const messages: ModelMessage[] = [
+  const messages = [
     ...(chatHistory ?? []),
-    { role: "user", content: prompt },
+    { role: "user" as const, content: buildUserPromptContent(prompt, referenceAttachments) },
   ];
 
   const result = streamText({
     model,
     system: systemPrompt,
-    messages,
+    messages: messages as ModelMessage[],
     maxOutputTokens: maxTokens ?? ENGINE_MAX_OUTPUT_TOKENS,
     abortSignal,
+    ...(tools ? { tools, maxSteps: maxSteps ?? 2 } : {}),
   });
 
   return createCodeGenSSEStream(result, { thinking, meta });

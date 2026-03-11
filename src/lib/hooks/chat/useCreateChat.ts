@@ -44,7 +44,8 @@ export function useCreateChat(
     enableImageMaterialization = false,
     enableThinking,
     chatPrivacy,
-    designSystemId,
+    v0DesignSystemId,
+    designThemePreset,
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
@@ -54,6 +55,7 @@ export function useCreateChat(
     scaffoldMode,
     scaffoldId,
     themeColors,
+    paletteState,
     pendingBriefRef,
     mutateVersions,
     setCurrentDemoUrl,
@@ -262,7 +264,9 @@ export function useCreateChat(
         if (scaffoldMode && scaffoldMode !== "off") promptMeta.scaffoldMode = scaffoldMode;
         if (scaffoldId) promptMeta.scaffoldId = scaffoldId;
         if (appProjectId) promptMeta.appProjectId = appProjectId;
+        if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
+        if (paletteState?.selections?.length) promptMeta.palette = paletteState;
         if (options.planMode) promptMeta.planMode = true;
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
@@ -280,7 +284,7 @@ export function useCreateChat(
           chatPrivacy: chatPrivacy || "private",
           meta: promptMeta,
         };
-        if (designSystemId) requestBody.designSystemId = designSystemId;
+        if (v0DesignSystemId) requestBody.designSystemId = v0DesignSystemId;
         if (v0ProjectId) requestBody.projectId = v0ProjectId;
         if (trimmedSystemPrompt) {
           requestBody.system = trimmedSystemPrompt;
@@ -418,7 +422,8 @@ export function useCreateChat(
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
-      designSystemId,
+      v0DesignSystemId,
+      designThemePreset,
       systemPrompt,
       setMessages,
       setChatId,
@@ -437,6 +442,7 @@ export function useCreateChat(
       scaffoldMode,
       scaffoldId,
       themeColors,
+      paletteState,
       pendingBriefRef,
       promptAssistModel,
       promptAssistDeep,

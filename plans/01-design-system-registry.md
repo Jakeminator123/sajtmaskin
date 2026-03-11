@@ -4,6 +4,11 @@
 Ge v0 ett eget Sajtmaskin design system så alla genererade sajter automatiskt
 får konsistent design (färger, typsnitt, spacing, komponentstil) utan extra prompt-text.
 
+## Status / positionering
+- Detta är ett separat v0-spår för externa registry-baserade design systems.
+- Det är **inte** samma sak som Sajtmaskins interna `designTheme`/tema-preset i den egna motorn.
+- Egen motor förbättras först via prompt, brief, palette och visuella referenser; registry-spåret är fas 2.
+
 ## Bakgrund
 - v0 stödjer `designSystemId` i `createChat` – se `src/lib/v0/v0-generator.ts` rad 416, 532-535.
 - Koden har redan en TODO-cast: `(createRequest as V0SdkCreateRequest & { designSystemId?: string })`

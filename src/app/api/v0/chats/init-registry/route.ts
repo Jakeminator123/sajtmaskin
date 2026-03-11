@@ -37,6 +37,9 @@ const initRegistrySchema = z.object({
  * 2. Have v0 load the component code and dependencies
  * 3. Iterate on the component with natural language
  *
+ * Note: this route is intentionally v0-specific. It preserves the external
+ * registry/design-system workflow as a separate capability alongside the own engine.
+ *
  * Registry URLs follow the shadcn registry spec:
  * - https://ui.shadcn.com/r/styles/new-york-v4/{component}.json
  * - https://custom-registry.com/r/{component}.json

@@ -25,10 +25,21 @@ import {
   listChatsByProject,
 } from "@/lib/db/chat-repository";
 import { createVersionFromContent } from "@/lib/gen/version-manager";
-import { buildSystemPrompt } from "@/lib/gen/system-prompt";
+import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { streamText } from "ai";
 import { getOpenAIModel } from "@/lib/gen/models";
 import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
+import {
+  buildUserPromptContent,
+  extractAppProjectIdFromMeta,
+  extractBriefFromMeta,
+  extractDesignThemePresetFromMeta,
+  extractPaletteStateFromMeta,
+  extractScaffoldSettingsFromMeta,
+  extractThemeColorsFromMeta,
+  normalizeRequestAttachments,
+  summarizeDesignReferences,
+} from "@/lib/gen/request-metadata";
 
 export async function GET(req: Request) {
   if (shouldUseV0Fallback()) {
@@ -106,6 +117,7 @@ export async function POST(req: Request) {
         designSystemId: clientDesignSystemId,
         meta,
       } = validationResult.data;
+      const requestAttachments = normalizeRequestAttachments(attachments);
       const designSystemId = clientDesignSystemId || AI.designSystemId;
       const metaRequestedModelTier =
         typeof (meta as { modelTier?: unknown })?.modelTier === "string"
@@ -127,16 +139,13 @@ export async function POST(req: Request) {
         typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
           ? (meta as { buildIntent?: string }).buildIntent
           : null;
-      const metaAppProjectId =
-        typeof (meta as { appProjectId?: unknown })?.appProjectId === "string"
-          ? String((meta as { appProjectId?: string }).appProjectId).trim()
-          : "";
+      const metaAppProjectId = extractAppProjectIdFromMeta(meta);
       const promptOrchestration = orchestratePromptMessage({
         message,
         buildMethod: metaBuildMethod,
         buildIntent: metaBuildIntent,
         isFirstPrompt: true,
-        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+        attachmentsCount: requestAttachments.length,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
       const optimizedMessage = promptOrchestration.finalMessage;
@@ -168,7 +177,7 @@ export async function POST(req: Request) {
         modelTier: resolvedModelTier,
         promptLength: optimizedMessage.length,
         originalPromptLength: message.length,
-        attachments: Array.isArray(attachments) ? attachments.length : 0,
+        attachments: requestAttachments.length,
         systemProvided: hasSystemPrompt,
         systemApplied: hasSystemPrompt,
         systemIgnored: false,
@@ -190,7 +199,7 @@ export async function POST(req: Request) {
         optimizedLength: strategyMeta.optimizedLength,
         reductionRatio: strategyMeta.reductionRatio,
         strategyReason: strategyMeta.reason,
-        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+        attachmentsCount: requestAttachments.length,
         chatPrivacy: resolvedChatPrivacy,
       });
 
@@ -198,7 +207,7 @@ export async function POST(req: Request) {
         modelId: resolvedModelId,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
-        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+        attachmentsCount: requestAttachments.length,
       };
       const creditCheck = await prepareCredits(req, "prompt.create", creditContext, { sessionId });
       if (!creditCheck.ok) {
@@ -213,11 +222,19 @@ export async function POST(req: Request) {
         try {
           const intent =
             (metaBuildIntent as "template" | "website" | "app") || DEFAULT_BUILD_INTENT;
-          const ownSystemPrompt = await buildSystemPrompt({
-            intent,
-            originalPrompt: message,
+          const ownOrchestration = await prepareGenerationContext({
+            prompt: optimizedMessage,
+            buildIntent: intent,
+            scaffoldMode: extractScaffoldSettingsFromMeta(meta).scaffoldMode,
+            scaffoldId: extractScaffoldSettingsFromMeta(meta).scaffoldId,
+            brief: extractBriefFromMeta(meta),
+            themeColors: extractThemeColorsFromMeta(meta),
             imageGenerations: resolvedImageGenerations,
+            componentPalette: extractPaletteStateFromMeta(meta),
+            designThemePreset: extractDesignThemePresetFromMeta(meta),
+            designReferences: summarizeDesignReferences(requestAttachments),
           });
+          const ownSystemPrompt = ownOrchestration.engineSystemPrompt;
 
           const engineModel = resolveEngineModelId(resolvedModelTier, false);
           debugLog("engine", "Own engine model resolved", {
@@ -229,7 +246,7 @@ export async function POST(req: Request) {
           const genResult = streamText({
             model,
             system: ownSystemPrompt,
-            messages: [{ role: "user", content: optimizedMessage }],
+            messages: [{ role: "user", content: buildUserPromptContent(optimizedMessage, requestAttachments) }],
             maxOutputTokens: ENGINE_MAX_OUTPUT_TOKENS,
           });
 
@@ -237,7 +254,12 @@ export async function POST(req: Request) {
           const usage = await genResult.usage;
 
           const resolvedProjectId = metaAppProjectId || projectId || "default";
-          const chat = createSqliteChat(resolvedProjectId, engineModel, ownSystemPrompt);
+          const chat = createSqliteChat(
+            resolvedProjectId,
+            engineModel,
+            ownSystemPrompt,
+            ownOrchestration.resolvedScaffold?.id,
+          );
           addMessage(chat.id, "user", optimizedMessage);
           const assistantMsg = addMessage(
             chat.id,
@@ -306,7 +328,7 @@ export async function POST(req: Request) {
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
-        ...(attachments ? { attachments } : {}),
+        ...(requestAttachments.length > 0 ? { attachments: requestAttachments } : {}),
         ...(designSystemId ? { designSystemId } : {}),
       } as Parameters<typeof v0.chats.create>[0] & { designSystemId?: string });
 

@@ -3,9 +3,10 @@
  */
 import type { ChatMessage } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
+import type { PaletteState } from "@/lib/builder/palette";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
-import type { ThemeColors } from "@/lib/builder/theme-presets";
+import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import type { MutableRefObject } from "react";
 
 export type RouterLike = { replace: (href: string) => void };
@@ -124,7 +125,10 @@ export type ChatMessagingParams = {
   enableImageMaterialization?: boolean;
   enableThinking: boolean;
   chatPrivacy?: "private" | "unlisted";
-  designSystemId?: string;
+  /** External v0 registry-backed design system identifier. */
+  v0DesignSystemId?: string;
+  /** Internal Sajtmaskin theme preset used to derive theme colors. */
+  designThemePreset?: DesignTheme;
   systemPrompt?: string;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;
@@ -134,6 +138,7 @@ export type ChatMessagingParams = {
   scaffoldMode?: ScaffoldMode;
   scaffoldId?: string | null;
   themeColors?: ThemeColors | null;
+  paletteState?: PaletteState | null;
   pendingBriefRef?: MutableRefObject<Record<string, unknown> | null>;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;

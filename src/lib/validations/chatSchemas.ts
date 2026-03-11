@@ -14,7 +14,12 @@ export const acceptedModelIds = ACCEPTED_MODEL_IDS;
 const MAX_ATTACHMENTS_PER_MESSAGE = 24;
 
 const attachmentSchema = z.object({
+  type: z.string().optional(),
   url: z.string().url("Attachment must have a valid URL"),
+  filename: z.string().optional(),
+  mimeType: z.string().optional(),
+  size: z.number().nonnegative().optional(),
+  purpose: z.string().optional(),
 });
 
 const modelIdSchema = z.enum(
@@ -67,6 +72,7 @@ export const sendMessageSchema = z.object({
   modelId: modelIdSchema.optional(),
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
+  designSystemId: z.string().optional(),
   meta: promptMetaSchema.optional(),
 });
 

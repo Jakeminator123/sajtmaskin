@@ -69,7 +69,9 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
+  // Internal Sajtmaskin brand/theme preset used by the own engine.
   const [designTheme, setDesignTheme] = useState<DesignTheme>(DEFAULT_DESIGN_THEME);
+  // External v0 registry-backed design system id. Separate from `designTheme`.
   const [designSystemId, setDesignSystemId] = useState("");
   const [specMode] = useState(DEFAULT_SPEC_MODE);
   const pendingSpecRef = useRef<object | null>(null);

@@ -37,6 +37,8 @@ export function useSendMessage(
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
+    v0DesignSystemId,
+    designThemePreset,
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
@@ -45,6 +47,7 @@ export function useSendMessage(
     scaffoldMode,
     scaffoldId,
     themeColors,
+    paletteState,
     pendingBriefRef,
     mutateVersions,
     setCurrentDemoUrl,
@@ -169,7 +172,9 @@ export function useSendMessage(
         if (scaffoldMode && scaffoldMode !== "off") promptMeta.scaffoldMode = scaffoldMode;
         if (scaffoldId) promptMeta.scaffoldId = scaffoldId;
         if (appProjectId) promptMeta.appProjectId = appProjectId;
+        if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
+        if (paletteState?.selections?.length) promptMeta.palette = paletteState;
         if (options.planMode) promptMeta.planMode = true;
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
@@ -187,6 +192,7 @@ export function useSendMessage(
           imageGenerations: enableImageGenerations,
           meta: promptMeta,
         };
+        if (v0DesignSystemId) requestBody.designSystemId = v0DesignSystemId;
         const trimmedSystem = systemPrompt?.trim();
         const shouldSendSystem =
           Boolean(trimmedSystem) && trimmedSystem !== lastSentSystemPromptRef.current;
@@ -312,6 +318,8 @@ export function useSendMessage(
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
+      v0DesignSystemId,
+      designThemePreset,
       systemPrompt,
       setMessages,
       setCurrentDemoUrl,
@@ -320,6 +328,11 @@ export function useSendMessage(
       selectedModelTier,
       buildIntent,
       buildMethod,
+      scaffoldMode,
+      scaffoldId,
+      themeColors,
+      paletteState,
+      pendingBriefRef,
       promptAssistModel,
       promptAssistDeep,
       mutateVersions,

@@ -75,6 +75,26 @@ What the user wants to build:
 - `app` - interactive app with logic/flows
 - `template` - compact 1-2 page template
 
+### Internal theme vs Figma vs v0 design system
+
+These concepts are also different and should NOT be mixed:
+
+| Term | Variable/type name | Meaning | Scope |
+|------|--------------------|---------|-------|
+| **Internal theme preset** | `designTheme` / `themeColors` | Sajtmaskin's own theme preset and derived semantic colors used to steer the own engine's output. | Internal builder + own engine |
+| **Figma reference** | attachment with `purpose: "figma-reference"` | A visual reference used to guide hierarchy, spacing, composition, and styling. Not a reusable component system by itself. | Prompt/reference concept |
+| **v0 Design System** | `designSystemId` / `v0DesignSystemId` | External registry-backed design system consumed by v0. Tokens/components/registry concept, separate from our own theme presets. | External v0 integration |
+
+Preferred terminology:
+- Say **`designTheme`** or **`theme preset`** for Sajtmaskin's internal theme choice
+- Say **`Figma reference`** for linked/imported Figma used as visual inspiration
+- Say **`v0 design system`** or **`external design system`** for registry-backed `designSystemId`
+
+Important rule:
+- Do NOT call `designTheme` a `design system` without qualifier
+- Do NOT describe a Figma file as if it were the same thing as a registry-backed `designSystemId`
+- When needed in code discussions, prefer `v0DesignSystemId` as the clearer name for the external concept
+
 ### Project
 
 A sajtmaskin project that groups chats, versions, and deployments together.

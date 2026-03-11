@@ -6,6 +6,7 @@
  * needed so that callers never diverge in what signals reach the model.
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
@@ -19,6 +20,7 @@ import {
 import {
   buildSystemPrompt,
   buildDynamicContext,
+  type DesignReferenceAsset,
   type DynamicContextOptions,
 } from "./system-prompt";
 import {
@@ -35,6 +37,9 @@ export interface OrchestrationInput {
   brief?: Record<string, unknown> | null;
   themeColors?: ThemeColors | null;
   imageGenerations?: boolean;
+  componentPalette?: PaletteState | null;
+  designThemePreset?: string | null;
+  designReferences?: DesignReferenceAsset[];
   /** Optional persisted scaffold id from a previous turn in the same chat */
   persistedScaffoldId?: string | null;
 }
@@ -66,6 +71,9 @@ export async function prepareGenerationContext(
     brief = null,
     themeColors = null,
     imageGenerations = false,
+    componentPalette = null,
+    designThemePreset = null,
+    designReferences = [],
     persistedScaffoldId = null,
   } = input;
 
@@ -83,7 +91,11 @@ export async function prepareGenerationContext(
 
   let scaffoldContext: string | undefined;
   if (resolvedScaffold) {
-    const serializeMode = detectScaffoldMode(prompt);
+    const briefStyleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords)
+      ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords
+          ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
+      : undefined;
+    const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
     scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode);
   }
 
@@ -101,6 +113,9 @@ export async function prepareGenerationContext(
     imageGenerations,
     originalPrompt: prompt,
     scaffoldContext: scaffoldAndCapability || undefined,
+    componentPalette,
+    designThemePreset,
+    designReferences,
   };
 
   const engineSystemPrompt = await buildSystemPrompt({

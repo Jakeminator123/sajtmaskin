@@ -223,7 +223,8 @@ export function useBuilderPageController() {
       enableImageMaterialization: derived.mediaEnabled,
       enableThinking: state.effectiveThinking,
       chatPrivacy: state.chatPrivacy,
-      designSystemId: state.designSystemId || undefined,
+      v0DesignSystemId: state.designSystemId || undefined,
+      designThemePreset: state.designTheme,
       systemPrompt: state.customInstructions,
       promptAssistModel: state.promptAssistModel,
       promptAssistDeep: state.promptAssistDeep,
@@ -232,6 +233,7 @@ export function useBuilderPageController() {
       scaffoldMode: state.scaffoldMode,
       scaffoldId: state.scaffoldId,
       themeColors: state.themeColors,
+      paletteState: state.paletteState,
       pendingBriefRef: state.pendingBriefRef,
       mutateVersions,
       setCurrentDemoUrl: state.setCurrentDemoUrl,
@@ -583,7 +585,7 @@ export function useBuilderPageController() {
     }
   }, [designTheme]);
 
-  // Design system ID localStorage sync
+  // External v0 design system ID localStorage sync
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {

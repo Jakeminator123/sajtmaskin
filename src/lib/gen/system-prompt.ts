@@ -15,8 +15,9 @@
  */
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
-import { searchKnowledgeBase } from "./context/knowledge-base";
+import { searchKnowledgeBaseAsync } from "./context/knowledge-base";
 import { enrichWithRegistry } from "./context/registry-enricher";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -101,6 +102,13 @@ Derive the visual approach, layout rhythm, and atmosphere from the user's prompt
   - Creative/art → bold complementary pairs, not monochrome blue
   - If the user specifies colors, use exactly those. If not, choose based on the industry/mood, NOT blue by default.
 
+### Art Direction & Composition
+- Establish ONE memorable visual motif early and repeat it intentionally across the site: editorial rules, stitched borders, frosted glass panes, angular dividers, soft paper cards, chrome highlights, grain overlays, or another subject-fit signature.
+- Use 2-4 coordinated surface treatments maximum. Good combinations: tinted panels + thin borders + glow accents; or textured backgrounds + hard shadows + cutout imagery. Do NOT throw every effect at the page.
+- Create contrast in density. Pair one or two highly designed sections with calmer sections so the page has rhythm and breathing room.
+- Default-centered stacks are a last resort. Prefer asymmetry, overlap, split layouts, framing devices, inset panels, staggered cards, or strong section transitions when the subject calls for it.
+- Every page should answer: what is the signature visual idea here? If you cannot name it in a short phrase, the design is too generic.
+
 ### Typography & Spacing
 - Create clear typographic hierarchy: hero headings \`text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight\`, section headings \`text-3xl font-semibold\`, body \`text-lg text-muted-foreground leading-relaxed\`.
 - Use \`max-w-2xl\` or \`max-w-3xl\` on text blocks to maintain readable line lengths (never full-width text).
@@ -110,9 +118,9 @@ Derive the visual approach, layout rhythm, and atmosphere from the user's prompt
 
 ### Layout Patterns
 Choose the layout approach that best serves the site's subject and atmosphere. The examples below are common defaults — use them when they fit, but deviate when the prompt calls for something different:
-- **Hero sections**: Full-bleed with generous vertical padding, or split layouts, parallax, video backgrounds, full-screen immersive — whatever matches the mood. Common: \`mx-auto max-w-4xl text-center\` with heading + subtext + CTA.
-- **Content sections**: Grids (\`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6\`), alternating left-right, timelines, bento grids, masonry, or free-form editorial layouts. Pick what suits the content.
-- **Backgrounds**: Alternate between \`bg-background\` and \`bg-muted/50\` for rhythm, or use bold gradients, textures, and atmospheric effects when the theme demands it.
+- **Hero sections**: Full-bleed with generous vertical padding, or split layouts, parallax, video backgrounds, full-screen immersive — whatever matches the mood. Common: \`mx-auto max-w-4xl text-center\` with heading + subtext + CTA. Better: give the hero a framing move such as offset media, floating metrics, diagonal separators, layered captions, or an atmospheric backdrop.
+- **Content sections**: Grids (\`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6\`), alternating left-right, timelines, bento grids, masonry, or free-form editorial layouts. Pick what suits the content. Avoid repeating the exact same card grid structure section after section.
+- **Backgrounds**: Alternate between \`bg-background\` and \`bg-muted/50\` for rhythm, or use bold gradients, textures, and atmospheric effects when the theme demands it. Use section transitions to make adjacent sections feel intentionally different.
 - **CTAs**: \`<Button size="lg">\` for primary, \`<Button variant="outline" size="lg">\` for secondary. Group with \`flex gap-4\`.
 - **Footers**: Multi-column grid with company info, links, and social icons.
 - **Navigation**: Sticky header with \`border-b bg-background/95 backdrop-blur\` is a safe default, but creative themes may use transparent nav, sidebar nav, or other approaches.
@@ -125,6 +133,7 @@ Choose the layout approach that best serves the site's subject and atmosphere. T
 - Badge usage: Use \`<Badge>\` for status indicators, tags, and labels ("Popular", "New", "Pro").
 - Dividers: Use \`<Separator>\` between sections or \`border-b\` for subtle separation.
 - Icons next to text should be consistently sized (\`h-5 w-5\`) and colored (\`text-primary\` or \`text-muted-foreground\`).
+- Use subtle atmosphere when it fits: grain overlays, masked gradients, glass blur, glows, spotlight vignettes, or soft noise. Keep it cohesive with the site's subject, not as decoration for its own sake.
 
 ### Layout Variety
 Every generated page must feel visually unique. The site's subject matter should drive layout decisions — not a fixed formula.
@@ -390,6 +399,12 @@ export interface MediaCatalogItem {
   alt?: string;
 }
 
+export interface DesignReferenceAsset {
+  kind: "figma" | "image";
+  label: string;
+  note?: string;
+}
+
 export interface DynamicContextOptions {
   intent: BuildIntent;
   brief?: Brief | null;
@@ -398,6 +413,9 @@ export interface DynamicContextOptions {
   mediaCatalog?: MediaCatalogItem[];
   originalPrompt?: string;
   scaffoldContext?: string;
+  componentPalette?: PaletteState | null;
+  designThemePreset?: string | null;
+  designReferences?: DesignReferenceAsset[];
 }
 
 function str(v: unknown): string {
@@ -421,6 +439,9 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     mediaCatalog,
     originalPrompt,
     scaffoldContext,
+    componentPalette,
+    designThemePreset,
+    designReferences,
   } = options;
 
   const parts: string[] = [];
@@ -499,9 +520,15 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
   const briefPalette = brief?.visualDirection?.colorPalette;
   const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
   const typography = brief?.visualDirection?.typography;
+  const themePresetLabel = str(designThemePreset);
+  const paletteInstruction = buildPaletteInstruction(componentPalette);
 
-  if (hasTheme || briefPalette || styleKeywords.length > 0 || typography) {
+  if (themePresetLabel || hasTheme || briefPalette || styleKeywords.length > 0 || typography) {
     parts.push("## Visual Identity", "");
+
+    if (themePresetLabel) {
+      parts.push(`- **Internal theme preset:** ${themePresetLabel}`);
+    }
 
     if (styleKeywords.length > 0) {
       parts.push(`- **Style:** ${styleKeywords.join(", ")}`);
@@ -521,6 +548,25 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
       parts.push(`- **Typography:** headings ${typography.headings || "system"}, body ${typography.body || "system"}`);
     }
 
+    parts.push("");
+  }
+
+  if (paletteInstruction) {
+    parts.push(paletteInstruction, "");
+  }
+
+  if (designReferences && designReferences.length > 0) {
+    parts.push(
+      "## Design References",
+      "",
+      "- Use attached design references as visual direction, not as an excuse to produce a flat screenshot clone.",
+      "- Read references in this order: (1) structure and hierarchy, (2) spacing rhythm and alignment, (3) component vocabulary, (4) finishing details such as texture, glow, shadows, and gradients.",
+      "- Preserve the strongest layout ideas from the references, but still produce clean React/Tailwind code with reusable sections and accessible markup.",
+    );
+    for (const reference of designReferences.slice(0, 6)) {
+      const note = reference.note ? ` — ${reference.note}` : "";
+      parts.push(`- **${reference.kind === "figma" ? "Figma" : "Image"} reference:** ${reference.label}${note}`);
+    }
     parts.push("");
   }
 
@@ -577,7 +623,7 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
 
   // ── Relevant Documentation (KB search + registry enrichment) ────────────
   if (originalPrompt) {
-    const kbMatches = searchKnowledgeBase({ query: originalPrompt, maxResults: 7, maxChars: 4000 });
+    const kbMatches = await searchKnowledgeBaseAsync({ query: originalPrompt, maxResults: 7, maxChars: 4000 });
     if (kbMatches.length > 0) {
       parts.push("## Relevant Documentation", "");
       for (const match of kbMatches) {
@@ -618,6 +664,9 @@ export interface BuildSystemPromptOptions {
   mediaCatalog?: MediaCatalogItem[];
   originalPrompt?: string;
   scaffoldContext?: string;
+  componentPalette?: PaletteState | null;
+  designThemePreset?: string | null;
+  designReferences?: DesignReferenceAsset[];
 }
 
 /**
@@ -636,6 +685,9 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     mediaCatalog: options.mediaCatalog,
     originalPrompt: options.originalPrompt,
     scaffoldContext: options.scaffoldContext,
+    componentPalette: options.componentPalette,
+    designThemePreset: options.designThemePreset,
+    designReferences: options.designReferences,
   });
 
   return `${STATIC_CORE}${SYSTEM_PROMPT_SEPARATOR}${dynamicContext}`;
