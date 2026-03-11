@@ -362,6 +362,17 @@ const setupQueries = [
     error_message TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS engine_version_error_logs (
+    id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL REFERENCES engine_chats(id) ON DELETE CASCADE,
+    version_id TEXT NOT NULL REFERENCES engine_versions(id) ON DELETE CASCADE,
+    v0_version_id TEXT,
+    level TEXT NOT NULL,
+    category TEXT,
+    message TEXT NOT NULL,
+    meta JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
 ];
 
 const schemaQueries = [
@@ -372,6 +383,8 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_versions_chat_id ON versions(chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_version_error_logs_version_id ON version_error_logs(version_id)`,
   `CREATE INDEX IF NOT EXISTS idx_version_error_logs_chat_id ON version_error_logs(chat_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_version_id ON engine_version_error_logs(version_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_chat_id ON engine_version_error_logs(chat_id)`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE NOT NULL`,
   `ALTER TABLE users ALTER COLUMN diamonds SET DEFAULT 50`,
   `ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE`,
@@ -501,6 +514,7 @@ const ALL_TABLES = [
   "engine_messages",
   "engine_versions",
   "engine_generation_logs",
+  "engine_version_error_logs",
 ];
 
 function buildRlsQueries() {

@@ -11,7 +11,7 @@ import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import type { CodeFile } from "@/lib/gen/parser";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import { createVersionErrorLogs } from "@/lib/db/services";
+import { createEngineVersionErrorLogs } from "@/lib/db/services";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 
@@ -305,10 +305,20 @@ export async function finalizeAndSaveVersion(
     }
   } catch (sanityErr) {
     console.warn("[sanity] Project sanity check error:", sanityErr);
+    devLogAppend("in-progress", {
+      type: "project-sanity.error",
+      chatId,
+      message: sanityErr instanceof Error ? sanityErr.message : "Unknown sanity error",
+    });
   }
 
   // 6. Create version
   const version = await chatRepo.createVersion(chatId, assistantMsg.id, filesJson);
+  devLogAppend("in-progress", {
+    type: "version.created",
+    chatId,
+    versionId: version.id,
+  });
   const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
   const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
   const preflightLogs: Array<{
@@ -346,20 +356,66 @@ export async function finalizeAndSaveVersion(
       meta: { issues: preflightIssues.slice(0, 20) },
     });
   }
-  await createVersionErrorLogs(preflightLogs);
+  devLogAppend("in-progress", {
+    type: "preflight.summary",
+    chatId,
+    versionId: version.id,
+    filesChecked: preflightFileCount,
+    issueCount: preflightIssues.length,
+    errorCount: preflightErrors.length,
+    warningCount: preflightWarnings.length,
+  });
+  try {
+    await createEngineVersionErrorLogs(preflightLogs);
+    devLogAppend("in-progress", {
+      type: "preflight.logs.persisted",
+      chatId,
+      versionId: version.id,
+      logCount: preflightLogs.length,
+    });
+  } catch (logErr) {
+    console.warn("[preflight] Failed to persist engine version error logs:", logErr);
+    devLogAppend("in-progress", {
+      type: "preflight.logs.persist-error",
+      chatId,
+      versionId: version.id,
+      logCount: preflightLogs.length,
+      message: logErr instanceof Error ? logErr.message : "Unknown preflight log persistence error",
+    });
+  }
 
   // 7. Log generation
-  await chatRepo.logGeneration(
-    chatId,
-    model,
-    {
-      prompt: tokenUsage?.prompt,
-      completion: tokenUsage?.completion,
-    },
-    Date.now() - startedAt,
-    true,
-    logNote,
-  );
+  try {
+    await chatRepo.logGeneration(
+      chatId,
+      model,
+      {
+        prompt: tokenUsage?.prompt,
+        completion: tokenUsage?.completion,
+      },
+      Date.now() - startedAt,
+      true,
+      logNote,
+    );
+    devLogAppend("in-progress", {
+      type: "generation-log.persisted",
+      chatId,
+      versionId: version.id,
+      model,
+    });
+  } catch (generationLogErr) {
+    console.warn("[generation-log] Failed to persist engine generation log:", generationLogErr);
+    devLogAppend("in-progress", {
+      type: "generation-log.persist-error",
+      chatId,
+      versionId: version.id,
+      model,
+      message:
+        generationLogErr instanceof Error
+          ? generationLogErr.message
+          : "Unknown generation log persistence error",
+    });
+  }
 
   const previewUrl = buildPreviewUrl(chatId, version.id);
 

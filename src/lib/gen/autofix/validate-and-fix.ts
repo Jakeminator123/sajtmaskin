@@ -1,5 +1,6 @@
 import { runLlmFixer } from "./llm-fixer";
 import { runAutoFix } from "./pipeline";
+import { devLogAppend } from "@/lib/logging/devLog";
 
 export interface ValidateFixResult {
   content: string;
@@ -48,12 +49,25 @@ export async function validateAndFix(
     for (let pass = 1; pass <= MAX_FIX_PASSES; pass++) {
       passCount = pass;
       onProgress?.({ pass, phase: "validating", errorCount: 0 });
+      devLogAppend("in-progress", {
+        type: "syntax-validation.pass",
+        chatId: opts.chatId,
+        pass,
+        phase: "validating",
+      });
 
       const validation = await validateGeneratedCode(currentContent);
       if (pass === 1) initialErrorCount = validation.errors.length;
 
       if (validation.valid) {
         onProgress?.({ pass, phase: "passed", errorCount: 0 });
+        devLogAppend("in-progress", {
+          type: "syntax-validation.pass",
+          chatId: opts.chatId,
+          pass,
+          phase: "passed",
+          errorCount: 0,
+        });
         return {
           content: currentContent,
           hadErrors: initialErrorCount > 0,
@@ -70,8 +84,27 @@ export async function validateAndFix(
         bestContent = currentContent;
       }
 
+      devLogAppend("in-progress", {
+        type: "syntax-validation.pass",
+        chatId: opts.chatId,
+        pass,
+        phase: "invalid",
+        errorCount: validation.errors.length,
+        errors: validation.errors.slice(0, 8).map((error) => ({
+          file: error.file,
+          line: error.line,
+          message: error.message,
+        })),
+      });
+
       if (pass === MAX_FIX_PASSES) {
         onProgress?.({ pass, phase: "gave-up", errorCount: validation.errors.length });
+        devLogAppend("in-progress", {
+          type: "syntax-validation.gave-up",
+          chatId: opts.chatId,
+          pass,
+          errorCount: validation.errors.length,
+        });
         break;
       }
 
@@ -81,6 +114,13 @@ export async function validateAndFix(
       console.warn(`[engine] Pass ${pass}: ${validation.errors.length} syntax errors, attempting LLM fixer`);
 
       onProgress?.({ pass, phase: "fixing", errorCount: validation.errors.length });
+      devLogAppend("in-progress", {
+        type: "syntax-validation.fixer.start",
+        chatId: opts.chatId,
+        pass,
+        errorCount: validation.errors.length,
+        errors: errorSummary.slice(0, 8),
+      });
 
       try {
         const fixerResult = await runLlmFixer(currentContent, errorSummary);
@@ -101,6 +141,16 @@ export async function validateAndFix(
             fixerImproved = true;
           }
 
+          devLogAppend("in-progress", {
+            type: "syntax-validation.fixer.result",
+            chatId: opts.chatId,
+            pass,
+            errorsBefore: validation.errors.length,
+            errorsAfter: reValidation.errors.length,
+            improved: reValidation.errors.length < validation.errors.length,
+            valid: reValidation.valid,
+          });
+
           if (reValidation.valid) {
             console.info(`[engine] Pass ${pass}: LLM fixer resolved all errors`);
             onProgress?.({ pass, phase: "passed", errorCount: 0 });
@@ -116,9 +166,23 @@ export async function validateAndFix(
           }
 
           console.info(`[engine] Pass ${pass}: errors reduced ${validation.errors.length} -> ${reValidation.errors.length}`);
+        } else {
+          devLogAppend("in-progress", {
+            type: "syntax-validation.fixer.noop",
+            chatId: opts.chatId,
+            pass,
+            errorCount: validation.errors.length,
+          });
         }
       } catch (fixerError) {
         console.warn(`[engine] Pass ${pass}: LLM fixer failed`, fixerError);
+        devLogAppend("in-progress", {
+          type: "syntax-validation.fixer.error",
+          chatId: opts.chatId,
+          pass,
+          errorCount: validation.errors.length,
+          message: fixerError instanceof Error ? fixerError.message : "Unknown fixer error",
+        });
       }
     }
 
@@ -133,6 +197,11 @@ export async function validateAndFix(
     };
   } catch (err) {
     console.warn("[engine] Validation pipeline error, using original content", err);
+    devLogAppend("in-progress", {
+      type: "syntax-validation.pipeline-error",
+      chatId: opts.chatId,
+      message: err instanceof Error ? err.message : "Unknown validation pipeline error",
+    });
     return {
       content,
       hadErrors: false,

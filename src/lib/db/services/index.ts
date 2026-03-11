@@ -101,5 +101,8 @@ export { createPromptLog, getRecentPromptLogs } from "./prompt-logs";
 export {
   createVersionErrorLog,
   createVersionErrorLogs,
+  createEngineVersionErrorLog,
+  createEngineVersionErrorLogs,
   getVersionErrorLogs,
+  getEngineVersionErrorLogs,
 } from "./version-errors";

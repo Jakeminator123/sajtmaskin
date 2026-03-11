@@ -8,7 +8,14 @@ import {
   getChat as getEngineChat,
   getVersionById as getEngineVersion,
 } from "@/lib/db/chat-repository-pg";
-import { createVersionErrorLog, createVersionErrorLogs, getVersionErrorLogs } from "@/lib/db/services";
+import {
+  createEngineVersionErrorLog,
+  createEngineVersionErrorLogs,
+  createVersionErrorLog,
+  createVersionErrorLogs,
+  getEngineVersionErrorLogs,
+  getVersionErrorLogs,
+} from "@/lib/db/services";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
@@ -91,7 +98,7 @@ export async function POST(request: Request, ctx: RouteParams) {
       }
 
       if ("logs" in body && Array.isArray(body.logs)) {
-        const rows = await createVersionErrorLogs(
+        const rows = await createEngineVersionErrorLogs(
           body.logs.map((log) => ({
             chatId,
             versionId,
@@ -105,16 +112,14 @@ export async function POST(request: Request, ctx: RouteParams) {
       }
 
       const payload = body as ErrorLogPayload;
-      const [row] = await createVersionErrorLogs([
-        {
-          chatId,
-          versionId,
-          level: payload.level,
-          category: payload.category || null,
-          message: payload.message,
-          meta: payload.meta || null,
-        },
-      ]);
+      const row = await createEngineVersionErrorLog({
+        chatId,
+        versionId,
+        level: payload.level,
+        category: payload.category || null,
+        message: payload.message,
+        meta: payload.meta || null,
+      });
       return NextResponse.json({ success: true, stored: true, log: row });
     }
 
@@ -183,7 +188,7 @@ export async function GET(request: Request, ctx: RouteParams) {
       if (!version || version.chat_id !== chatId) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
-      const logs = await getVersionErrorLogs(versionId);
+      const logs = await getEngineVersionErrorLogs(versionId);
       return NextResponse.json({ success: true, stored: true, logs, summary: buildErrorLogSummary(logs) });
     }
 

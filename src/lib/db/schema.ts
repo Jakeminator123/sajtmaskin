@@ -445,6 +445,22 @@ export const engineGenerationLogs = pgTable("engine_generation_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const engineVersionErrorLogs = pgTable("engine_version_error_logs", {
+  id: text("id").primaryKey(),
+  chat_id: text("chat_id")
+    .references(() => engineChats.id, { onDelete: "cascade" })
+    .notNull(),
+  version_id: text("version_id")
+    .references(() => engineVersions.id, { onDelete: "cascade" })
+    .notNull(),
+  v0_version_id: text("v0_version_id"),
+  level: text("level").notNull(),
+  category: text("category"),
+  message: text("message").notNull(),
+  meta: jsonb("meta"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ---------------------------------------------------------------------------
 
 export const domainOrders = pgTable("domain_orders", {
