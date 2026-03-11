@@ -7,7 +7,7 @@
 import { getCurrentUser } from "@/lib/auth/auth";
 import { TEST_USER_EMAIL, getAnalyticsStats, recordPageView } from "@/lib/db/services";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
 // Safely parse JSON without throwing on empty/invalid bodies
 async function parseJsonBody<T>(req: NextRequest): Promise<T | Record<string, never>> {
@@ -32,12 +32,18 @@ export async function POST(req: NextRequest) {
     }
 
     const sessionId = getSessionIdFromRequest(req);
-    const user = await getCurrentUser(req);
     const ipAddress =
       req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const userAgent = req.headers.get("user-agent") || undefined;
 
-    await recordPageView(path, sessionId || undefined, user?.id, ipAddress, userAgent, referrer);
+    after(async () => {
+      try {
+        const user = await getCurrentUser(req);
+        await recordPageView(path, sessionId || undefined, user?.id, ipAddress, userAgent, referrer);
+      } catch (error) {
+        console.error("[API/analytics] Error recording page view:", error);
+      }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

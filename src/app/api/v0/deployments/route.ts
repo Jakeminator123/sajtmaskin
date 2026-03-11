@@ -380,10 +380,11 @@ export async function POST(req: Request) {
         if (!engineVersion) {
           return NextResponse.json({ error: "Version not found" }, { status: 404 });
         }
-        const engineChat = await getChat(engineVersion.chat_id);
+        const [engineChat, codeFiles] = await Promise.all([
+          getChat(engineVersion.chat_id),
+          getVersionFiles(versionId),
+        ]);
         const engineProjectId = projectId?.trim() || engineChat?.project_id || null;
-
-        const codeFiles = await getVersionFiles(versionId);
         if (!codeFiles || codeFiles.length === 0) {
           return NextResponse.json(
             { error: "No files found for this version" },

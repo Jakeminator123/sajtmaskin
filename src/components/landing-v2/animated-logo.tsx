@@ -5,6 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const FULL_TEXT = "SajtMaskin";
 const SCRAMBLE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz0123456789";
+const BOOST_PARTICLES = [
+  { size: 3.1, opacity: 0.48, bottom: -2, left: 14.6, duration: 0.34, delay: 0 },
+  { size: 4.2, opacity: 0.62, bottom: 1, left: 17.8, duration: 0.46, delay: 0.08 },
+  { size: 3.7, opacity: 0.72, bottom: 4, left: 19.2, duration: 0.39, delay: 0.16 },
+  { size: 5.1, opacity: 0.57, bottom: 7, left: 16.3, duration: 0.53, delay: 0.24 },
+];
 
 export function AnimatedLogo({ className = "" }: { className?: string }) {
   const [display, setDisplay] = useState("");
@@ -111,17 +117,17 @@ export function AnimatedLogo({ className = "" }: { className?: string }) {
 
         {rocketPhase === "boost" && (
           <>
-            {[...Array(4)].map((_, i) => (
+            {BOOST_PARTICLES.map((particle, i) => (
               <span
                 key={i}
                 className="absolute rounded-full"
                 style={{
-                  width: `${3 + Math.random() * 3}px`,
-                  height: `${3 + Math.random() * 3}px`,
-                  background: `rgba(45,212,191,${0.4 + Math.random() * 0.4})`,
-                  bottom: `${-2 + i * 3}px`,
-                  left: `${14 + Math.random() * 8}px`,
-                  animation: `exhaust-particle ${0.3 + Math.random() * 0.3}s ease-out ${i * 0.08}s infinite`,
+                  width: `${particle.size}px`,
+                  height: `${particle.size}px`,
+                  background: `rgba(45,212,191,${particle.opacity})`,
+                  bottom: `${particle.bottom}px`,
+                  left: `${particle.left}px`,
+                  animation: `exhaust-particle ${particle.duration}s ease-out ${particle.delay}s infinite`,
                   filter: "blur(1px)",
                 }}
               />

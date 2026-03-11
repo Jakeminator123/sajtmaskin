@@ -4,6 +4,9 @@ import path from "path";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["better-sqlite3", "esbuild"],
   outputFileTracingRoot: path.join(__dirname, "./"),
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
   images: {
     remotePatterns: [
       {

@@ -7,7 +7,7 @@
  * Based on Vercel AI Elements specification.
  */
 
-import { type HTMLAttributes, type ReactNode } from "react";
+import { type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/utils/utils";
 
 // ============================================================================
@@ -21,11 +21,17 @@ export interface MessageProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function Message({ from, children, className, ...props }: MessageProps) {
+const MESSAGE_ROW_PERF_STYLE: CSSProperties = {
+  contentVisibility: "auto",
+  containIntrinsicSize: "0 80px",
+};
+
+export function Message({ from, children, className, style, ...props }: MessageProps) {
   return (
     <div
       data-role={from}
       className={cn("group flex gap-3", from === "user" && "flex-row-reverse", className)}
+      style={{ ...MESSAGE_ROW_PERF_STYLE, ...style }}
       {...props}
     >
       {children}
