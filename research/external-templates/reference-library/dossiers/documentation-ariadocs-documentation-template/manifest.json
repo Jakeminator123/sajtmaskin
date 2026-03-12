@@ -5,17 +5,17 @@
   "categorySlug": "documentation",
   "categoryName": "Documentation",
   "templateUrl": "https://vercel.com/templates/documentation/documentation-template",
-  "demoUrl": null,
-  "description": "This open-source Next.js template provides a sleek and responsive design for comprehensive documentation and engaging blog content.",
+  "demoUrl": "https://v0.app/",
+  "description": "",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 80,
+  "qualityScore": 72,
   "repo": {
     "url": "https://github.com/nisabmohd/Aria-Docs",
     "normalizedUrl": "https://github.com/nisabmohd/Aria-Docs",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\documentation\\ariadocs-documentation-template\\repo",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\nisabmohd-aria-docs",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -24,80 +24,65 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
+    "Documentation",
     "Next.js",
-    "Tailwind",
-    "Related Templates",
-    "Next.js App Router Playground",
-    "Platforms Starter Kit"
+    "Tailwind"
   ],
   "usefulLines": [
-    "AI workflows in live environments",
-    "Deploy for every idea",
-    "Deploy",
-    "pnpm",
-    "are already set up to use the components from the",
-    "Examples of many Next.js App Router features.",
-    "Next.js template for building multi-tenant applications with the App Router and Redis."
+    "AriaDocs: Documentation Template",
+    "Documentation",
+    "Next.js",
+    "Tailwind"
   ],
-  "noiseLines": [
-    "Vercel Agent",
-    "Vercel documentation",
-    "Deploy at the speed of AI",
-    "Ship features, not infrastructure",
-    "SDKs by Vercel"
-  ],
+  "noiseLines": [],
   "strengths": [
     "verified Next.js codebase",
-    "App Router structure",
-    "editorial content hierarchy",
-    "multi-tenant or workspace patterns"
+    "App Router structure"
   ],
   "weaknesses": [
     "large monorepo without a clear example path"
   ],
   "recommendedScaffoldFamilies": [
-    "content-site",
-    "app-shell",
-    "blog"
+    "content-site"
   ],
   "signals": {
     "auth": false,
     "dashboard": false,
     "pricing": false,
-    "blog": true,
+    "blog": false,
     "portfolio": false,
     "ecommerce": false,
     "docs": true,
-    "ai": true,
-    "multiTenant": true,
+    "ai": false,
+    "multiTenant": false,
     "cms": false
   },
-  "summary": "AriaDocs: Documentation Template is a Documentation reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "summary": "AriaDocs: Documentation Template is a Documentation reference with verified Next.js codebase, App Router structure. Verdict: valid.",
   "selectedFiles": [
     {
       "path": "apps/web/package.json",
       "reason": "Dependency and script verification",
-      "excerpt": "{\r\n  \"name\": \"web\",\r\n  \"version\": \"0.0.1\",\r\n  \"type\": \"module\",\r\n  \"private\": true,\r\n  \"scripts\": {\r\n    \"dev\": \"next dev --turbopack\",\r\n    \"build\": \"next build\",\r\n    \"start\": \"next start\",\r\n    \"lint\": \"next lint\",\r\n    \"lint:fix\": \"next lint --fix\",\r\n    \"typecheck\": \"tsc --noEmit\"\r\n  },\r\n  \"dependencies\": {\r\n    \"@ariadocs/react\": \"workspace:*\",\r\n    \"@workspace/ui\": \"workspace:*\",\r\n    \"lucide-react\": \"^0.475.0\",\r\n    \"next\": \"15.4.9\",\r\n    \"next-themes\": \"^0.4.6\",\r\n    \"react\": \"^19.1.1\",\r\n    \"react-dom\": \"^19.1.1\"\r\n  },\r\n  \"devDependencies\": {\r\n    \"@types/node\": \"^20.19.9\",\r\n    \"@types/react\": \"^19.1.9\",\r\n    \"@types/react-dom\": \"^19.1.7\",\r\n    \"@workspace/eslint-config\": \"workspace:^\",\r\n    \"@workspace/typescript-config\": \"workspace:*\",\r\n    \"typescript\": \"^5.9.2\"\r\n  }\r\n}"
+      "excerpt": "{\n  \"name\": \"web\",\n  \"version\": \"0.0.1\",\n  \"type\": \"module\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"lint:fix\": \"next lint --fix\",\n    \"typecheck\": \"tsc --noEmit\"\n  },\n  \"dependencies\": {\n    \"@ariadocs/react\": \"workspace:*\",\n    \"@workspace/ui\": \"workspace:*\",\n    \"lucide-react\": \"^0.475.0\",\n    \"next\": \"15.4.9\",\n    \"next-themes\": \"^0.4.6\",\n    \"react\": \"^19.1.1\",\n    \"react-dom\": \"^19.1.1\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20.19.9\",\n    \"@types/react\": \"^19.1.9\",\n    \"@types/react-dom\": \"^19.1.7\",\n    \"@workspace/eslint-config\": \"workspace:^\",\n    \"@workspace/typescript-config\": \"workspace:*\",\n    \"typescript\": \"^5.9.2\"\n  }\n}"
     },
     {
       "path": "apps/web/app/layout.tsx",
       "reason": "Layout and navigation reference",
-      "excerpt": "import { Space_Grotesk, Space_Mono } from \"next/font/google\";\r\nimport { Providers } from \"@/components/providers\";\r\nimport \"@workspace/ui/globals.css\";\r\n\r\nimport \"@ariadocs/react/syntax.css\";\r\n\r\nconst sans = Space_Grotesk({\r\n  subsets: [\"latin\"],\r\n  variable: \"--font-sans\",\r\n});\r\n\r\nconst mono = Space_Mono({\r\n  subsets: [\"latin\"],\r\n  variable: \"--font-mono\",\r\n  weight: \"400\",\r\n});\r\n\r\nexport default function RootLayout({\r\n  children,\r\n}: Readonly<{\r\n  children: React.ReactNode;\r\n}>) {\r\n  return (\r\n    <html lang=\"en\" suppressHydrationWarning>\r\n      <body\r\n        className={`${sans.variable} ${mono.variable} font-sans antialiased dark mx-auto max-w-2xl px-4 py-10`}\r\n      >\r\n        <Providers>{children}</Providers>\r\n      </body>\r\n    </html>\r\n  );\r\n}"
+      "excerpt": "import { Space_Grotesk, Space_Mono } from \"next/font/google\";\nimport { Providers } from \"@/components/providers\";\nimport \"@workspace/ui/globals.css\";\n\nimport \"@ariadocs/react/syntax.css\";\n\nconst sans = Space_Grotesk({\n  subsets: [\"latin\"],\n  variable: \"--font-sans\",\n});\n\nconst mono = Space_Mono({\n  subsets: [\"latin\"],\n  variable: \"--font-mono\",\n  weight: \"400\",\n});\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body\n        className={`${sans.variable} ${mono.variable} font-sans antialiased dark mx-auto max-w-2xl px-4 py-10`}\n      >\n        <Providers>{children}</Providers>\n      </body>\n    </html>\n  );\n}"
     },
     {
       "path": "apps/web/app/page.tsx",
       "reason": "Useful structural reference",
-      "excerpt": "import Link from \"next/link\";\r\n\r\nexport default async function Page() {\r\n  return (\r\n    <section>\r\n      <h1 className=\"text-3xl font-bold mb-4\">Ariadocs</h1>\r\n      <p className=\"text-lg text-gray-600 mb-8\">\r\n        Ariadocs is a lightweight, React-first library for building\r\n        documentation sites. It works seamlessly with frameworks like{\" \"}\r\n        <span className=\"font-medium\">Next.js</span>,{\" \"}\r\n        <span className=\"font-medium\">TanStack Start</span>, and{\" \"}\r\n        <span className=\"font-medium\">React Router</span>, giving you full\r\n        control over content, styling, and rendering.\r\n      </p>\r\n\r\n      <div className=\"mb-10\">\r\n        <h2 className=\"text-xl font-semibold mb-3\">Get started</h2>\r\n        <ul className=\"space-y-2\">\r\n          <li>\r\n            <Link\r\n              href=\"/docs/getting-started/nextjs-app\"\r\n              className=\"text-blue-600 hover:underline\"\r\n            >\r\n              Next.js App Router\r\n            </Link>\r\n          </li>\r\n          <li>\r\n            <Link\r\n              href=\"/docs/getting-started/nextjs-pages\"\r\n              className=\"text-blue-600 hover:underline\"\r\n            >\r\n              Next.js Pages Router\r\n            </Link>\r\n          </li>\r\n          <li>\r\n            <Link\r\n              href=\"/docs/getting-started/react-router\"\r\n              className=\"text-blue-600 hover:underline\"\r\n            >\r\n              React Router\r\n            </Link>\r\n          </li>\r\n          <li>\r\n            <Link\r\n              href=\"/docs/getting-started/tanstack-start\"\r\n              className=\"text-blue-600 hover:underline\"\r\n            >\r\n              TanStack Start\r\n            </Link>\r\n          </li>\r\n          <li>\r\n            <Link\r\n              href=\"/docs/getting-started/whats-next\"\r\n              className=\"text-blue-600 hover:underline\"\r\n            >\r\n              What's next?\r\n            </Link>\r\n          </li>\r\n        </ul>\r\n      </div>\r\n\r\n      <p className=\"text-sm text-gray-500\">\r\n        🚀 Tune in for updates — new features and improvements coming soon.\r\n      </p>\r\n    </section>\r\n  );\r\n}"
+      "excerpt": "import Link from \"next/link\";\n\nexport default async function Page() {\n  return (\n    <section>\n      <h1 className=\"text-3xl font-bold mb-4\">Ariadocs</h1>\n      <p className=\"text-lg text-gray-600 mb-8\">\n        Ariadocs is a lightweight, React-first library for building\n        documentation sites. It works seamlessly with frameworks like{\" \"}\n        <span className=\"font-medium\">Next.js</span>,{\" \"}\n        <span className=\"font-medium\">TanStack Start</span>, and{\" \"}\n        <span className=\"font-medium\">React Router</span>, giving you full\n        control over content, styling, and rendering.\n      </p>\n\n      <div className=\"mb-10\">\n        <h2 className=\"text-xl font-semibold mb-3\">Get started</h2>\n        <ul className=\"space-y-2\">\n          <li>\n            <Link\n              href=\"/docs/getting-started/nextjs-app\"\n              className=\"text-blue-600 hover:underline\"\n            >\n              Next.js App Router\n            </Link>\n          </li>\n          <li>\n            <Link\n              href=\"/docs/getting-started/nextjs-pages\"\n              className=\"text-blue-600 hover:underline\"\n            >\n              Next.js Pages Router\n            </Link>\n          </li>\n          <li>\n            <Link\n              href=\"/docs/getting-started/react-router\"\n              className=\"text-blue-600 hover:underline\"\n            >\n              React Router\n            </Link>\n          </li>\n          <li>\n            <Link\n              href=\"/docs/getting-started/tanstack-start\"\n              className=\"text-blue-600 hover:underline\"\n            >\n              TanStack Start\n            </Link>\n          </li>\n          <li>\n            <Link\n              href=\"/docs/getting-started/whats-next\"\n              className=\"text-blue-600 hover:underline\"\n            >\n              What's next?\n            </Link>\n          </li>\n        </ul>\n      </div>\n\n      <p className=\"text-sm text-gray-500\">\n        🚀 Tune in for updates — new features and improvements coming soon.\n      </p>\n    </section>\n  );\n}"
     },
     {
       "path": "README.md",
       "reason": "Setup and architecture context",
-      "excerpt": "# shadcn/ui monorepo template\r\n\r\nThis template is for creating a monorepo with shadcn/ui.\r\n\r\n## Usage\r\n\r\n```bash\r\npnpm dlx shadcn@latest init\r\n```\r\n\r\n## Adding components\r\n\r\nTo add components to your app, run the following command at the root of your `web` app:\r\n\r\n```bash\r\npnpm dlx shadcn@latest add button -c apps/web\r\n```\r\n\r\nThis will place the ui components in the `packages/ui/src/components` directory.\r\n\r\n## Tailwind\r\n\r\nYour `tailwind.config.ts` and `globals.css` are already set up to use the components from the `ui` package.\r\n\r\n## Using components\r\n\r\nTo use the components in your app, import them from the `ui` package.\r\n\r\n```tsx\r\nimport { Button } from \"@workspace/ui/components/button\"\r\n```"
+      "excerpt": "# shadcn/ui monorepo template\n\nThis template is for creating a monorepo with shadcn/ui.\n\n## Usage\n\n```bash\npnpm dlx shadcn@latest init\n```\n\n## Adding components\n\nTo add components to your app, run the following command at the root of your `web` app:\n\n```bash\npnpm dlx shadcn@latest add button -c apps/web\n```\n\nThis will place the ui components in the `packages/ui/src/components` directory.\n\n## Tailwind\n\nYour `tailwind.config.ts` and `globals.css` are already set up to use the components from the `ui` package.\n\n## Using components\n\nTo use the components in your app, import them from the `ui` package.\n\n```tsx\nimport { Button } from \"@workspace/ui/components/button\"\n```"
     },
     {
       "path": "package.json",
       "reason": "Dependency and script verification",
-      "excerpt": "{\r\n  \"name\": \"shadcn-ui-monorepo\",\r\n  \"version\": \"0.0.1\",\r\n  \"private\": true,\r\n  \"scripts\": {\r\n    \"build\": \"turbo build\",\r\n    \"build:web\": \"turbo run build --filter=web\",\r\n    \"dev\": \"turbo dev\",\r\n    \"lint\": \"turbo lint\",\r\n    \"format\": \"prettier --write \\\"**/*.{ts,tsx,md}\\\"\"\r\n  },\r\n  \"devDependencies\": {\r\n    \"@workspace/eslint-config\": \"workspace:*\",\r\n    \"@workspace/typescript-config\": \"workspace:*\",\r\n    \"prettier\": \"^3.6.2\",\r\n    \"turbo\": \"^2.5.5\",\r\n    \"typescript\": \"5.7.3\"\r\n  },\r\n  \"packageManager\": \"pnpm@10.4.1\",\r\n  \"engines\": {\r\n    \"node\": \">=20\"\r\n  }\r\n}"
+      "excerpt": "{\n  \"name\": \"shadcn-ui-monorepo\",\n  \"version\": \"0.0.1\",\n  \"private\": true,\n  \"scripts\": {\n    \"build\": \"turbo build\",\n    \"build:web\": \"turbo run build --filter=web\",\n    \"dev\": \"turbo dev\",\n    \"lint\": \"turbo lint\",\n    \"format\": \"prettier --write \\\"**/*.{ts,tsx,md}\\\"\"\n  },\n  \"devDependencies\": {\n    \"@workspace/eslint-config\": \"workspace:*\",\n    \"@workspace/typescript-config\": \"workspace:*\",\n    \"prettier\": \"^3.6.2\",\n    \"turbo\": \"^2.5.5\",\n    \"typescript\": \"5.7.3\"\n  },\n  \"packageManager\": \"pnpm@10.4.1\",\n  \"engines\": {\n    \"node\": \">=20\"\n  }\n}"
     }
   ]
 }

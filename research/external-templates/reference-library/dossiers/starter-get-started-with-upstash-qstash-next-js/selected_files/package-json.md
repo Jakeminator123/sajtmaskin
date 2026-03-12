@@ -1,0 +1,36 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "nextjs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@upstash/qstash": "latest",
+    "next": "^14.2.23",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@types/micro": "^10.0.0",
+    "@types/node": "20.5.7",
+    "@types/react": "18.2.21",
+    "@types/react-dom": "18.2.7",
+    "autoprefixer": "^10.4.20",
+    "eslint": "8.48.0",
+    "eslint-config-next": "13.4.19",
+    "micro": "^10.0.1",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "5.2.2"
+  }
+}
+```

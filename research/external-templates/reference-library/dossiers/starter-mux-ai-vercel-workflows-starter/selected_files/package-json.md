@@ -1,0 +1,68 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "try-workflows",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio --port 4983",
+    "import-mux-assets": "tsx scripts/import-mux-assets.ts",
+    "remotion:studio": "remotion studio remotion/index.ts --port 5432",
+    "remotion:render:local": "remotion render",
+    "remotion:deploy": "node remotion/deploy.mjs",
+    "visualize:workflows": "npx workflow web"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.86",
+    "@mux/ai": "0.3.1",
+    "@mux/mux-node": "^12.8.1",
+    "@mux/mux-player-react": "^3.10.1",
+    "@remotion/cli": "4.0.390",
+    "@remotion/google-fonts": "4.0.390",
+    "@remotion/lambda": "4.0.390",
+    "@remotion/media-utils": "4.0.390",
+    "@remotion/player": "4.0.390",
+    "@remotion/tailwind-v4": "4.0.390",
+    "ai": "^5.0.113",
+    "dedent": "^1.7.0",
+    "drizzle-orm": "^0.45.1",
+    "motion": "^12.23.26",
+    "next": "16.0.10",
+    "pg": "^8.16.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.390",
+    "workflow": "^4.0.1-beta.29",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^6.6.1",
+    "@eslint-react/eslint-plugin": "^2.3.13",
+    "@remotion/eslint-plugin": "^4.0.390",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.16.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.8",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.6",
+    "eslint-plugin-format": "^1.1.0",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}
+```

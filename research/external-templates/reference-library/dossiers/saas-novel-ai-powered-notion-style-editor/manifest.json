@@ -1,0 +1,97 @@
+{
+  "id": "saas-novel-ai-powered-notion-style-editor",
+  "slug": "saas-novel-ai-powered-notion-style-editor",
+  "title": "Novel – AI-powered Notion-style editor",
+  "categorySlug": "saas",
+  "categoryName": "SaaS",
+  "templateUrl": "https://vercel.com/templates/ai/novel",
+  "demoUrl": "https://v0.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 72,
+  "repo": {
+    "url": "https://github.com/steven-tey/novel/assets/28986134/2099877f-4f2b-4b1c-8782-5d803d63be5c",
+    "normalizedUrl": "https://github.com/steven-tey/novel",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\steven-tey-novel",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "AI",
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Vercel Blob"
+  ],
+  "usefulLines": [
+    "Novel – AI-powered Notion-style editor",
+    "AI",
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Vercel Blob"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [
+    "large monorepo without a clear example path"
+  ],
+  "recommendedScaffoldFamilies": [
+    "saas-landing"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Novel – AI-powered Notion-style editor is a SaaS reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "apps/web/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"novel-next-app\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"biome lint .\",\n    \"format\": \"biome format . \",\n    \"typecheck\": \"tsc --noEmit\"\n  },\n  \"dependencies\": {\n    \"@ai-sdk/openai\": \"^1.1.0\",\n    \"@radix-ui/react-dialog\": \"^1.0.5\",\n    \"@radix-ui/react-popover\": \"^1.0.7\",\n    \"@radix-ui/react-scroll-area\": \"^1.0.5\",\n    \"@radix-ui/react-select\": \"^2.0.0\",\n    \"@radix-ui/react-separator\": \"^1.0.3\",\n    \"@radix-ui/react-slot\": \"^1.0.2\",\n    \"@tailwindcss/typography\": \"^0.5.10\",\n    \"@upstash/ratelimit\": \"^1.0.1\",\n    \"@vercel/analytics\": \"^1.2.2\",\n    \"@vercel/blob\": \"^0.22.1\",\n    \"@vercel/kv\": \"^1.0.1\",\n    \"ai\": \"^3.0.12\",\n    \"autoprefixer\": \"^10.4.17\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.1.0\",\n    \"cmdk\": \"^1.0.4\",\n    \"eventsource-parser\": \"^1.1.2\",\n    \"highlight.js\": \"^11.9.0\",\n    \"lowlight\": \"^3.1.0\",\n    \"lucide-react\": \"^0.358.0\",\n    \"next\": \"15.1.4\",\n    \"next-themes\": \"^0.2.1\",\n    \"novel\": \"workspace:^\",\n    \"openai\": \"^4.28.4\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\",\n    \"react-markdown\": \"^9.0.1\",\n    \"sonner\": \"^1.4.3\",\n    \"tailwind-merge\": \"^2.2.1\",\n    \"tailwindcss-animate\": \"^1.0.7\",\n    \"tippy.js\": \"^6.3.7\",\n    \"ts-pattern\": \"^5.0.8\",\n    \"typescript\": \"^5.4.2\",\n    \"use-debounce\": \"^10.0.0\"\n  },\n  \"devDependencies\": {\n    \"@biomejs/biome\": \"^1.7.2\",\n    \"@types/node\": \"20.11.24\",\n    \"@types/react\": \"^18.2.61\",\n    \"@types/react-dom\": \"18.2.19\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"tsconfig\": \"workspace:*\"\n  }\n}"
+    },
+    {
+      "path": "apps/web/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import \"@/styles/globals.css\";\nimport \"@/styles/prosemirror.css\";\nimport 'katex/dist/katex.min.css';\n\nimport type { Metadata, Viewport } from \"next\";\nimport type { ReactNode } from \"react\";\nimport Providers from \"./providers\";\n\nconst title = \"Novel - Notion-style WYSIWYG editor with AI-powered autocompletions\";\nconst description =\n  \"Novel is a Notion-style WYSIWYG editor with AI-powered autocompletions. Built with Tiptap, OpenAI, and Vercel AI SDK.\";\n\nexport const metadata: Metadata = {\n  title,\n  description,\n  openGraph: {\n    title,\n    description,\n  },\n  twitter: {\n    title,\n    description,\n    card: \"summary_large_image\",\n    creator: \"@steventey\",\n  },\n  metadataBase: new URL(\"https://novel.sh\"),\n};\n\nexport const viewport: Viewport = {\n  themeColor: \"#ffffff\",\n};\n\nexport default function RootLayout({ children }: { children: ReactNode }) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body>\n        <Providers>{children}</Providers>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "apps/web/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import TailwindAdvancedEditor from \"@/components/tailwind/advanced-editor\";\nimport { Button } from \"@/components/tailwind/ui/button\";\nimport { Dialog, DialogContent, DialogTrigger } from \"@/components/tailwind/ui/dialog\";\nimport Menu from \"@/components/tailwind/ui/menu\";\nimport { ScrollArea } from \"@/components/tailwind/ui/scroll-area\";\nimport { BookOpen, GithubIcon } from \"lucide-react\";\nimport Link from \"next/link\";\n\nexport default function Page() {\n  return (\n    <div className=\"flex min-h-screen flex-col items-center gap-4 py-4 sm:px-5\">\n      <div className=\"flex w-full max-w-screen-lg items-center gap-2 px-4 sm:mb-[calc(20vh)]\">\n        <Button size=\"icon\" variant=\"outline\">\n          <a href=\"https://github.com/steven-tey/novel\" target=\"_blank\" rel=\"noreferrer\">\n            <GithubIcon />\n          </a>\n        </Button>\n        <Dialog>\n          <DialogTrigger asChild>\n            <Button className=\"ml gap-2\">\n              <BookOpen className=\"h-4 w-4\" />\n              Usage in dialog\n            </Button>\n          </DialogTrigger>\n          <DialogContent className=\"flex max-w-3xl h-[calc(100vh-24px)]\">\n            <ScrollArea className=\"max-h-screen\">\n              <TailwindAdvancedEditor />\n            </ScrollArea>\n          </DialogContent>\n        </Dialog>\n        <Link href=\"/docs\" className=\"ml-auto\">\n          <Button variant=\"ghost\">Documentation</Button>\n        </Link>\n        <Menu />\n      </div>\n\n      <TailwindAdvancedEditor />\n    </div>\n  );\n}"
+    },
+    {
+      "path": "apps/web/.env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# This file will be committed to version control, so make sure not to have any\n# secrets in it. If you are cloning this repo, create a copy of this file named\n# \".env\" and populate it with your secrets.\n\n# Get your OpenAI API key here: https://platform.openai.com/account/api-keys\nOPENAI_API_KEY=\n# OPTIONAL: OpenAI Base URL (default to https://api.openai.com/v1)\nOPENAI_BASE_URL=\n\n# OPTIONAL: Vercel Blob (for uploading images)\n# Get your Vercel Blob credentials here: https://vercel.com/docs/storage/vercel-blob/quickstart#quickstart\nBLOB_READ_WRITE_TOKEN=\n\n# OPTIONAL: Vercel KV (for ratelimiting)\n# Get your Vercel KV credentials here: https://vercel.com/docs/storage/vercel-kv/quickstart#quickstart\nKV_REST_API_URL=\nKV_REST_API_TOKEN="
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<a href=\"https://novel.sh\">\n  <img alt=\"Novel is a Notion-style WYSIWYG editor with AI-powered autocompletions.\" src=\"https://novel.sh/opengraph-image.png\">\n  <h1 align=\"center\">Novel</h1>\n</a>\n\n<p align=\"center\">\n  An open-source Notion-style WYSIWYG editor with AI-powered autocompletions.\n</p>\n\n<p align=\"center\">\n  <a href=\"https://news.ycombinator.com/item?id=36360789\"><img src=\"https://img.shields.io/badge/Hacker%20News-369-%23FF6600\" alt=\"Hacker News\"></a>\n  <a href=\"https://github.com/steven-tey/novel/blob/main/LICENSE\">\n    <img src=\"https://img.shields.io/github/license/steven-tey/novel?label=license&logo=github&color=f80&logoColor=fff\" alt=\"License\" />\n  </a>\n  <a href=\"https://github.com/steven-tey/novel\"><img src=\"https://img.shields.io/github/stars/steven-tey/novel?style=social\" alt=\"Novel.sh's GitHub repo\"></a>\n</p>\n\n<p align=\"center\">\n  <a href=\"#introduction\"><strong>Introduction</strong></a> ·\n  <a href=\"#deploy-your-own\"><strong>Deploy Your Own</strong></a> ·\n  <a href=\"#setting-up-locally\"><strong>Setting Up Locally</strong></a> ·\n  <a href=\"#tech-stack\"><strong>Tech Stack</strong></a> ·\n  <a href=\"#contributing\"><strong>Contributing</strong></a> ·\n  <a href=\"#license\"><strong>License</strong></a>\n</p>\n<br/>\n\n## Docs (WIP)\n\nhttps://novel.sh/docs/introduction\n\n## Introduction\n\n[Novel](https://novel.sh/) is a Notion-style WYSIWYG editor with AI-powered autocompletions.\n\nhttps://github.com/steven-tey/novel/assets/28986134/2099877f-4f2b-4b1c-8782-5d803d63be5c\n\n<br />\n\n## Deploy Your Own\n\nYou can deploy your own version of Novel to Vercel with one click:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://stey.me/novel-deploy)\n\n## Setting Up Locally\n\nTo set up Novel locally, you'll need to clone the repository and set up the following environment variables:\n\n- `OPENAI_API_KEY` – your OpenAI API key (you can get one [here](https://platform.openai.com/account/api-keys))\n- `BLOB_READ_WRITE_TOKEN` – your Vercel Blob read/write token (currently [still in beta](https://vercel.com/docs/storage/vercel-blob/quickstart#quickstart), but feel free to [sign up on this form](https://vercel.fyi/blob-beta) for access)\n\nIf you've deployed this to Vercel, you can also use [`vc env pull`](https://vercel.com/docs/cli/env#exporting-development-environment-variables) to pull the environment variables from y\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"novel\",\n  \"private\": true,\n  \"scripts\": {\n    \"changeset\": \"changeset\",\n    \"publish:packages\": \"changeset publish\",\n    \"version:packages\": \"turbo build && changeset version\",\n    \"build\": \"turbo build\",\n    \"dev\": \"turbo dev\",\n    \"format\": \"turbo format --continue --\",\n    \"format:fix\": \"turbo format --continue -- --write\",\n    \"lint\": \"turbo lint --continue --\",\n    \"lint:fix\": \"turbo lint --continue -- --apply\",\n    \"clean\": \"turbo clean\",\n    \"release\": \"turbo run release\",\n    \"prepare\": \"husky install\",\n    \"typecheck\": \"turbo typecheck\"\n  },\n  \"dependencies\": {\n    \"@changesets/changelog-github\": \"^0.5.0\",\n    \"@changesets/cli\": \"^2.27.11\",\n    \"turbo\": \"^2.3.3\"\n  },\n  \"packageManager\": \"pnpm@9.5.0\",\n  \"devDependencies\": {\n    \"@biomejs/biome\": \"^1.9.4\",\n    \"@commitlint/cli\": \"^19.6.1\",\n    \"@commitlint/config-conventional\": \"^19.6.0\",\n    \"husky\": \"^9.1.7\",\n    \"postcss\": \"^8.5.1\"\n  },\n  \"commitlint\": {\n    \"extends\": [\n      \"@commitlint/config-conventional\"\n    ],\n    \"rules\": {\n      \"type-enum\": [\n        2,\n        \"always\",\n        [\n          \"build\",\n          \"chore\",\n          \"ci\",\n          \"clean\",\n          \"doc\",\n          \"feat\",\n          \"fix\",\n          \"perf\",\n          \"ref\",\n          \"revert\",\n          \"style\",\n          \"test\"\n        ]\n      ],\n      \"subject-case\": [\n        0,\n        \"always\",\n        \"sentence-case\"\n      ],\n      \"body-leading-blank\": [\n        2,\n        \"always\",\n        true\n      ],\n      \"body-max-line-length\": [\n        0,\n        \"always\",\n        100\n      ]\n    }\n  }\n}"
+    }
+  ]
+}

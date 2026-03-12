@@ -1,0 +1,36 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "combining-data-fetching-strategies",
+  "repository": "https://github.com/vercel/examples.git",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@vercel/examples-ui": "^1.0.5",
+    "next": "^16.0.10",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "swr": "^1.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "autoprefixer": "^10.4.14",
+    "eslint": "^8.36.0",
+    "eslint-config-next": "canary",
+    "postcss": "^8.4.21",
+    "tailwindcss": "^3.2.7",
+    "turbo": "^1.8.3",
+    "typescript": "^5"
+  }
+}
+```

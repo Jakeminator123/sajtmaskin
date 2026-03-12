@@ -1,0 +1,14 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+# Obtain a connection string for your database from the Clusters tab on the MongoDB Atlas Dashboard.
+# The connection string has the format `mongodb+srv://myDatabaseUser:D1fficultP%40ssw0rd@cluster0.example.mongodb.net/?retryWrites=true&w=majority`
+MONGODB_URI=your-string-here
+MONGODB_DB=better-auth # optional, defaults to "better-auth"
+
+# Better Auth Configuration
+BETTER_AUTH_URL=http://localhost:3000 # optional, auto-detected on Vercel
+BETTER_AUTH_SECRET=your-secure-secret-key-here-minimum-32-characters
+```

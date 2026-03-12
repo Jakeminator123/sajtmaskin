@@ -1,0 +1,90 @@
+{
+  "id": "authentication-agentgpt-ai-agents-with-langchain-openai",
+  "slug": "authentication-agentgpt-ai-agents-with-langchain-openai",
+  "title": "AgentGPT - AI Agents with Langchain & OpenAI",
+  "categorySlug": "authentication",
+  "categoryName": "Authentication",
+  "templateUrl": "https://vercel.com/templates/ai/agent-gpt",
+  "demoUrl": "https://agentgpt.reworkd.ai/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 82,
+  "repo": {
+    "url": "https://github.com/reworkd/AgentGPT/assets/50181239/5348e44a-29a5-4280-a06b-fe1429a8d99e",
+    "normalizedUrl": "https://github.com/reworkd/AgentGPT",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\reworkd-agentgpt",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "AI",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "PlanetScale",
+    "NextAuth.js"
+  ],
+  "usefulLines": [
+    "AgentGPT - AI Agents with Langchain & OpenAI",
+    "AI",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "PlanetScale",
+    "NextAuth.js"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "auth flow reference",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "auth-pages",
+    "app-shell",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "AgentGPT - AI Agents with Langchain & OpenAI is a Authentication reference with verified Next.js codebase, auth flow reference, dashboard shell patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "next/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"agent-gpt\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"engines\": {\n    \"node\": \">=18.0.0 <19.0.0\"\n  },\n  \"scripts\": {\n    \"build\": \"next build --no-lint\",\n    \"dev\": \"next dev\",\n    \"postinstall\": \"prisma generate\",\n    \"lint\": \"cross-env SKIP_ENV_VALIDATION=1 next lint --fix\",\n    \"start\": \"next start\",\n    \"prepare\": \"cd .. && husky install next/.husky\",\n    \"test\": \"cross-env SKIP_ENV_VALIDATION=1 jest\"\n  },\n  \"dependencies\": {\n    \"@headlessui/react\": \"^1.7.14\",\n    \"@next-auth/prisma-adapter\": \"^1.0.5\",\n    \"@prisma/client\": \"^4.9.0\",\n    \"@radix-ui/react-switch\": \"^1.0.2\",\n    \"@radix-ui/react-toast\": \"^1.1.4\",\n    \"@radix-ui/react-tooltip\": \"^1.0.5\",\n    \"@react-pdf/renderer\": \"^3.1.9\",\n    \"@sid-hq/sid\": \"^3.1.0\",\n    \"@splinetool/react-spline\": \"^2.2.6\",\n    \"@tailwindcss/forms\": \"^0.5.3\",\n    \"@tanstack/react-query\": \"^4.29.14\",\n    \"@trpc/client\": \"^10.21.1\",\n    \"@trpc/next\": \"^10.21.1\",\n    \"@trpc/react-query\": \"^10.21.1\",\n    \"@trpc/server\": \"^10.9.0\",\n    \"@types/lodash\": \"^4.14.194\",\n    \"@uiball/loaders\": \"^1.3.0\",\n    \"@vercel/analytics\": \"^1.0.1\",\n    \"@vercel/edge\": \"^0.3.4\",\n    \"axios\": \"^0.26.0\",\n    \"cheerio\": \"^1.0.0-rc.12\",\n    \"clsx\": \"^1.2.1\",\n    \"cobe\": \"^0.6.3\",\n    \"cookies-next\": \"^2.1.2\",\n    \"framer-motion\": \"^10.12.8\",\n    \"gray-matter\": \"^4.0.3\",\n    \"html-to-image\": \"^1.11.11\",\n    \"i18next\": \"^22.4.15\",\n    \"lodash\": \"^4.17.21\",\n    \"next\": \"^13.5.6\",\n    \"next-auth\": \"4.20.1\",\n    \"next-i18next\": \"^13.2.2\",\n    \"nextjs-google-analytics\": \"^2.3.3\",\n    \"openai\": \"^4.14.2\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\",\n    \"react-i18next\": \"^12.3.1\",\n    \"react-icons\": \"^4.11.0\",\n    \"react-markdown\": \"^8.0.7\",\n    \"react-type-animation\": \"^3.1.0\",\n    \"rehype-highlight\": \"^6.0.0\",\n    \"remark-gfm\": \"^3.0.1\",\n    \"superjson\": \"1.9.1\",\n    \"tailwindcss-radix\": \"^2.8.0\",\n    \"uuid\": \"^9.0.1\",\n    \"zod\": \"^3.22.2\",\n    \"zustand\": \"^4.3.7\"\n  },\n  \"devDependencies\": {\n    \"@svgr/webpack\": \"^8.0.1\",\n    \"@tailwindcss/typography\": \"^0.5.9\",\n    \"@testing-library/jest-dom\": \"^5.16.5\",\n    \"@testing-library/react\": \"^14.0.0\",\n    \"@types/node\": \"^18.11.18\",\n    \"@types/prettier\": \"^2.7.3\",\n    \"@types/react\": \"^18.0.26\",\n    \"@types/react-dom\": \"^18.2.7\",\n    \"@types/uuid\": \"^9.0.5\",\n    \"@typescript-eslint/eslint-plugin\": \"^5.59.8\",\n\n// ... truncated"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<p align=\"center\">\n  <img src=\"https://raw.githubusercontent.com/reworkd/AgentGPT/main/next/public/banner.png\" height=\"300\" alt=\"AgentGPT Logo\"/>\n</p>\n<p align=\"center\">\n  <em>🤖 Assemble, configure, and deploy autonomous AI Agent(s) in your browser. 🤖   </em>\n</p>\n<p align=\"center\">\n    <img alt=\"Node version\" src=\"https://img.shields.io/static/v1?label=node&message=%20%3E=18&logo=node.js&color=2334D058\" />\n      <a href=\"https://github.com/reworkd/AgentGPT/blob/master/README.md\"><img src=\"https://img.shields.io/badge/lang-English-blue.svg\" alt=\"English\"></a>\n  <a href=\"https://github.com/reworkd/AgentGPT/blob/master/docs/README.zh-HANS.md\"><img src=\"https://img.shields.io/badge/lang-简体中文-red.svg\" alt=\"简体中文\"></a>\n  <a href=\"https://github.com/reworkd/AgentGPT/blob/master/docs/README.hu-Cs4K1Sr4C.md\"><img src=\"https://img.shields.io/badge/lang-Hungarian-red.svg\" alt=\"Hungarian\"></a>\n</p>\n\n<p align=\"center\">\n<a href=\"https://agentgpt.reworkd.ai\">🔗 Short link</a>\n<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>\n<a href=\"https://reworkd.ai/docs\">📚 Docs</a>\n<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>\n<a href=\"https://twitter.com/reworkdai\">🐦 Twitter</a>\n<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>\n<a href=\"https://discord.gg/gcmNyAAFfV\">📢 Discord</a>\n</p>\n\nAgentGPT allows you to configure and deploy Autonomous AI agents.\nName your own custom AI and have it embark on any goal imaginable.\nIt will attempt to reach the goal by thinking of tasks to do, executing them, and learning from the results 🚀.\n\n---\n\n## ✨ Demo\nFor the best demo experience, try [our site](https://agentgpt.reworkd.ai) directly :)\n\n[Demo Video](https://github.com/reworkd/AgentGPT/assets/50181239/5348e44a-29a5-4280-a06b-fe1429a8d99e)\n\n\n## 👨‍🚀 Getting Started\n\nThe easiest way to get started with AgentGPT is automatic setup CLI bundled with the project.\nThe cli sets up the following for AgentGPT:\n- 🔐 [Environment variables](https://github.com/reworkd/AgentGPT/blob/main/.env.example) (and API Keys)\n- 🗂️ [Database](https://github.com/reworkd/AgentGPT/tree/main/db) (Mysql)\n- 🤖 [Backend](https://github.com/reworkd/AgentGPT/tree/main/platform) (FastAPI)\n- 🎨 [Frontend](https://github.com/reworkd/AgentGPT/tree/main/next) (Nextjs)\n\n## Prerequisites :point_up:\n\nBefore you get started, please make sure you have the following installed:\n\n- An editor of your choice. For exa\n\n// ... truncated"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Platform Config: (max loops determines how many times the agent may execute)\nNEXT_PUBLIC_MAX_LOOPS=\"100\"\nREWORKD_PLATFORM_MAX_LOOPS=${NEXT_PUBLIC_MAX_LOOPS}\n\n# Deployment Environment:\nNODE_ENV=\"development\"\nNEXT_PUBLIC_VERCEL_ENV=\"${NODE_ENV}\"\n\n# NextJS:\nNEXT_PUBLIC_BACKEND_URL=\"http://localhost:8000\"\n\n# Next Auth config:\nNEXTAUTH_SECRET=changeme\nNEXTAUTH_URL=\"http://localhost:3000\"\n\n# Auth providers (Use if you want to get out of development mode sign-in):\nGOOGLE_CLIENT_ID=\"***\"\nGOOGLE_CLIENT_SECRET=\"***\"\nGITHUB_CLIENT_ID=\"***\"\nGITHUB_CLIENT_SECRET=\"***\"\nDISCORD_CLIENT_SECRET=\"***\"\nDISCORD_CLIENT_ID=\"***\"\n\n# Backend:\nREWORKD_PLATFORM_ENVIRONMENT=\"${NODE_ENV}\"\nREWORKD_PLATFORM_FF_MOCK_MODE_ENABLED=\"false\"\nREWORKD_PLATFORM_OPENAI_API_KEY=\"changeme\"\nREWORKD_PLATFORM_FRONTEND_URL=\"http://localhost:3000\"\nREWORKD_PLATFORM_RELOAD=\"true\"\nREWORKD_PLATFORM_OPENAI_API_BASE=\"https://api.openai.com/v1\"\nREWORKD_PLATFORM_SERP_API_KEY=\"changeme\"\nREWORKD_PLATFORM_REPLICATE_API_KEY=\"changeme\"\nREWORKD_PLATFORM_SID_CLIENT_ID=\"changeme\"\nREWORKD_PLATFORM_SID_CLIENT_SECRET=\"changeme\"\nREWORKD_PLATFORM_SID_REDIRECT_URI=\"http://localhost:8000/api/auth/sid/callback\"\n\n# Database (Backend):\nREWORKD_PLATFORM_DATABASE_USER=\"reworkd_platform\"\nREWORKD_PLATFORM_DATABASE_PASSWORD=\"reworkd_platform\"\nREWORKD_PLATFORM_DATABASE_HOST=\"agentgpt_db\"\nREWORKD_PLATFORM_DATABASE_PORT=\"3307\"\nREWORKD_PLATFORM_DATABASE_NAME=\"reworkd_platform\"\nREWORKD_PLATFORM_DATABASE_URL=\"mysql://${REWORKD_PLATFORM_DATABASE_USER}:${REWORKD_PLATFORM_DATABASE_PASSWORD}@${REWORKD_PLATFORM_DATABASE_HOST}:${REWORKD_PLATFORM_DATABASE_PORT}/${REWORKD_PLATFORM_DATABASE_NAME}\"\n\n# Database (Frontend):\nDATABASE_USER=\"reworkd_platform\"\nDATABASE_PASSWORD=\"reworkd_platform\"\nDATABASE_HOST=\"agentgpt_db\"\nDATABASE_PORT=\"3307\"\nDATABASE_NAME=\"reworkd_platform\"\nDATABASE_URL=\"mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}\""
+    },
+    {
+      "path": "next/src/components/drawer/Sidebar.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { Transition } from \"@headlessui/react\";\nimport clsx from \"clsx\";\nimport type { ReactNode } from \"react\";\nimport { Fragment } from \"react\";\nimport { FaBars } from \"react-icons/fa\";\n\nexport type DisplayProps = {\n  show: boolean;\n  setShow: (boolean: boolean) => void;\n};\n\nexport type SidebarProps = DisplayProps & {\n  children: ReactNode;\n  side: \"left\" | \"right\";\n  className?: string;\n};\n\nconst Sidebar = ({ show, children, side, className }: SidebarProps) => {\n  return (\n    <SidebarTransition show={show} side={side}>\n      <nav\n        className={clsx(\n          \"flex flex-1 flex-col overflow-x-hidden bg-slate-3 p-4 ring-1 ring-white/10\",\n          className\n        )}\n      >\n        {children}\n      </nav>\n    </SidebarTransition>\n  );\n};\n\ntype SidebarTransitionProps = {\n  side: \"left\" | \"right\";\n  children: ReactNode;\n  show: boolean;\n  className?: string;\n};\n\nexport const SidebarTransition = ({ children, show, side, className }: SidebarTransitionProps) => {\n  return (\n    <Transition.Root show={show} as={Fragment}>\n      <div className=\"relative z-30\">\n        <Transition.Child\n          as={Fragment}\n          enter=\"transition-opacity ease-linear duration-300\"\n          enterFrom=\"opacity-0\"\n          enterTo=\"opacity-100\"\n          leave=\"transition-opacity ease-linear duration-300\"\n          leaveFrom=\"opacity-100\"\n          leaveTo=\"opacity-0\"\n        >\n          <div className=\"fixed inset-0 bg-neutral-900/80 lg:hidden\" />\n        </Transition.Child>\n        <div className={`fixed ${side}-0 flex`}>\n          <Transition.Child\n            as={Fragment}\n            enter=\"transition ease-in-out duration-300 transform\"\n            enterFrom={side === \"left\" ? \"-translate-x-full\" : \"translate-x-full\"}\n            enterTo=\"translate-x-0\"\n            leave=\"transition ease-in-out duration-300 transform\"\n            leaveFrom=\"translate-x-0\"\n            leaveTo={side === \"left\" ? \"-translate-x-full\" : \"translate-x-full\"}\n          >\n            <div\n              className={clsx(\"flex max-w-xs flex-1\", className || \"h-screen max-h-screen w-64\")}\n            >\n              {children}\n            </div>\n          </Transition.Child>\n        </div>\n      </div>\n    </Transition.Root>\n  );\n};\n\nexport const SidebarControlButton = ({\n  show,\n  setShow,\n  side,\n}: DisplayProps\n\n// ... truncated"
+    }
+  ]
+}

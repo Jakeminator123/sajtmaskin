@@ -1,0 +1,89 @@
+{
+  "id": "blog-next-js-wisp-corporate-blog-starter",
+  "slug": "blog-next-js-wisp-corporate-blog-starter",
+  "title": "Next.js × Wisp Corporate Blog Starter",
+  "categorySlug": "blog",
+  "categoryName": "Blog",
+  "templateUrl": "https://vercel.com/templates/blog/wisp-corporate-blog-starter",
+  "demoUrl": "https://nextjs-corporate-blog-starter.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 88,
+  "repo": {
+    "url": "https://github.com/Wisp-CMS/nextjs-corporate-blog-starter/tree/main/",
+    "normalizedUrl": "https://github.com/Wisp-CMS/nextjs-corporate-blog-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\wisp-cms-nextjs-corporate-blog-starter",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Blog",
+    "Next.js",
+    "Tailwind",
+    "Wisp"
+  ],
+  "usefulLines": [
+    "Next.js × Wisp Corporate Blog Starter",
+    "Blog",
+    "Next.js",
+    "Tailwind",
+    "Wisp"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "editorial content hierarchy"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "blog"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js × Wisp Corporate Blog Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Wisp CMS Corporate Blog Template - Next.js 15\n\n![Wisp CMS Corporate Blog Template](https://imagedelivery.net/lLmNeOP7HXG0OqaG97wimw/cm28hgkdk000wmu7nocgku1dl/5b9708ce-413d-4065-994e-af59bdef863d.png/public)\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FWisp-CMS%2Fnextjs-corporate-blog-starter&env=NEXT_PUBLIC_BLOG_ID,NEXT_PUBLIC_BASE_URL,NEXT_PUBLIC_BLOG_ORGANIZATION,NEXT_PUBLIC_BLOG_TITLE,NEXT_PUBLIC_BLOG_DESCRIPTION&demo-title=Demo%20Corporate%20Blog&demo-description=Next.js%20Blog%20Starter%20Kit%20with%20Tailwind%20%26%20Shadcn%20-%20Powered%20by%20Wisp&demo-url=https%3A%2F%2Fcorporate-blog-demo.wisp.blog%2F&demo-image=https%3A%2F%2Fimagedelivery.net%2FlLmNeOP7HXG0OqaG97wimw%2Fcm28hgkdk000wmu7nocgku1dl%2F5b9708ce-413d-4065-994e-af59bdef863d.png%2Fpublic)\n\n[View Demo Blog](https://nextjs-corporate-blog-starter.vercel.app)\n\n## Corporate Blog Starter Template for Modern Companies & Publications\n\nWelcome to the Wisp CMS Corporate Blog Template – the most powerful and flexible solution for creating stunning corporate websites and news portals. Built on [Next.js 15](https://nextjs.org/docs/getting-started/installation), [Tailwind CSS](https://tailwindcss.com/), [Shadcn](https://ui.shadcn.com/) & [Wisp CMS](https://wisp.blog/?utm_source=github&utm_medium=web&utm_campaign=nextjs-corporate-blog-starter), this template offers an unparalleled combination of performance, SEO optimization, and user-friendly content management.\n\n### Why Choose Wisp's Corporate Blog Template?\n\n- **Corporate-Focused Design**: Sleek, professional layout perfect for businesses and publications.\n- **Multi-Theme Support**: Choose between different styles to perfectly match your corporate branding.\n- **Advanced SEO Features**: Built-in SEO optimizations to ensure your content ranks high in search results.\n- **Dynamic Table of Contents**: Improve user navigation with an automatically generated table of contents for each article.\n- **Tabbed Category Navigation**: Intuitive top-level tabs for easy browsing through different categories of blog posts or articles.\n- **Responsive Design**: Perfectly optimized for all devices, from desktop to mobile.\n- **Customizable Themes**: Easily style the blog to suit your corporate branding and needs.\n- **Fast Performance**: Utilizing Next.js 14's server componen\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-corporate-blog\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbo\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@hookform/resolvers\": \"^3.10.0\",\n    \"@radix-ui/react-accordion\": \"^1.2.1\",\n    \"@radix-ui/react-aspect-ratio\": \"^1.1.0\",\n    \"@radix-ui/react-checkbox\": \"^1.1.3\",\n    \"@radix-ui/react-label\": \"^2.1.1\",\n    \"@radix-ui/react-slot\": \"^1.1.1\",\n    \"@radix-ui/react-toast\": \"^1.2.5\",\n    \"@tanstack/react-query\": \"^5.64.2\",\n    \"@types/jsdom\": \"^21.1.7\",\n    \"@types/rss\": \"^0.0.32\",\n    \"@wisp-cms/client\": \"^0.0.22\",\n    \"@wisp-cms/react-custom-component\": \"^0.0.1\",\n    \"axios\": \"^1.7.9\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.1.1\",\n    \"date-fns\": \"^4.1.0\",\n    \"lucide-react\": \"^0.451.0\",\n    \"next\": \"15.0.5\",\n    \"node-html-parser\": \"^6.1.13\",\n    \"react\": \"19.0.0-rc-66855b96-20241106\",\n    \"react-dom\": \"19.0.0-rc-66855b96-20241106\",\n    \"react-hook-form\": \"^7.54.2\",\n    \"rss\": \"^1.2.2\",\n    \"schema-dts\": \"^1.1.2\",\n    \"slugify\": \"^1.6.6\",\n    \"tailwind-merge\": \"^2.5.3\",\n    \"tailwindcss-animate\": \"^1.0.7\",\n    \"url-join\": \"^5.0.0\",\n    \"zod\": \"^3.24.1\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/typography\": \"^0.5.15\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"npm:types-react@19.0.0-rc.1\",\n    \"@types/react-dom\": \"npm:types-react-dom@19.0.0-rc.1\",\n    \"dotenv\": \"^16.4.5\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"15.0.5\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"^5\"\n  },\n  \"overrides\": {\n    \"@types/react\": \"npm:types-react@19.0.0-rc.1\",\n    \"@types/react-dom\": \"npm:types-react-dom@19.0.0-rc.1\"\n  }\n}"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { IBM_Plex_Sans } from \"next/font/google\";\nimport \"./globals.css\";\nimport { Footer } from \"@/components/Footer\";\nimport { Providers } from \"./providers\";\n\nconst fontSans = IBM_Plex_Sans({\n  subsets: [\"latin\"],\n  variable: \"--font-sans\",\n  weight: [\"100\", \"200\", \"300\", \"400\", \"500\", \"600\", \"700\"],\n});\n\nexport const metadata: Metadata = {\n  title: \"Create Next App\",\n  description: \"Generated by create next app\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className={`${fontSans.variable} antialiased font-sans`}>\n        <Providers>\n          {children}\n          <Footer />\n        </Providers>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "export const revalidate = 60; // 1 minute\n\nimport { BlogPostList } from \"@/components/BlogPostList\";\nimport { PostPagination } from \"@/components/PostPagination\";\nimport { getOgImageUrl } from \"@/lib/ogImage\";\nimport { wisp } from \"@/lib/wisp\";\nimport { Metadata } from \"next\";\nimport { FilterBar } from \"../components/FilterBar\";\nimport { FullWidthHeader } from \"../components/FullWidthHeader\";\nimport { config } from \"../config\";\n\nconst { title, description } = config;\n\nexport const metadata: Metadata = {\n  title: `${title} - Blog`,\n  description,\n  openGraph: {\n    title: `${title} - Blog`,\n    description,\n    images: [getOgImageUrl(title)],\n  },\n};\n\nexport default async function Page(\n  props: {\n    searchParams?: Promise<{ query: string; page: string }>;\n  }\n) {\n  const searchParams = await props.searchParams;\n  const page = searchParams?.page ? parseInt(searchParams.page) : 1;\n  const result = await wisp.getPosts({\n    limit: 6,\n    query: searchParams?.query,\n    page,\n  });\n\n  return (\n    <>\n      <FullWidthHeader title={title} description={description} />\n      <div className=\"container mx-auto max-w-6xl\">\n        <FilterBar active=\"latest\" className=\"my-8\" />\n        <BlogPostList posts={result.posts} />\n        <PostPagination\n          pagination={result.pagination}\n          className=\"my-16\"\n          query={searchParams?.query}\n        />\n      </div>\n    </>\n  );\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Obtain Blog ID from from https://www.wisp.blog/app/setup\nNEXT_PUBLIC_BLOG_ID=cluqyx1rl0000l5ds3f0vkfer\nNEXT_PUBLIC_BASE_URL=\"https://example.com\"\nNEXT_PUBLIC_BLOG_ORGANIZATION=\"My Organization\"\nNEXT_PUBLIC_BLOG_TITLE=\"My Blog Title\"\nNEXT_PUBLIC_BLOG_DESCRIPTION=\"My Blog Description\""
+    }
+  ]
+}

@@ -2,17 +2,16 @@
 
 - Category: SaaS (saas)
 - Verdict: valid
-- Quality score: 94
-- Scaffold families: saas-landing, app-shell, dashboard
+- Quality score: 90
+- Scaffold families: saas-landing, app-shell
 - Repo: https://github.com/vercel/platforms
 - Demo: https://vercel.pub/
 
-Platforms Starter Kit is a SaaS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.
+Platforms Starter Kit is a SaaS reference with verified Next.js codebase, App Router structure, multi-tenant or workspace patterns. Verdict: valid.
 
 ## Strengths
 - verified Next.js codebase
 - App Router structure
-- dashboard shell patterns
 - multi-tenant or workspace patterns
 
 ## Weaknesses

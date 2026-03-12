@@ -1,0 +1,34 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+# This file will be committed to version control, so make sure not to have any
+# secrets in it. If you are cloning this repo, create a copy of this file named
+# ".env" and populate it with your secrets.
+
+# When adding additional environment variables, the schema in "/src/env.js"
+# should be updated accordingly.
+
+DATABASE_URL='postgresql://postgres:root@database:5432/acme'
+NEXT_PUBLIC_APP_URL='http://localhost:3000'
+MOCK_SEND_EMAIL=true
+
+SMTP_HOST='smtp.example-host.com'
+SMTP_PORT=25
+SMTP_USER='smtp_example_username'
+SMTP_PASSWORD='smtp_example_password'
+
+DISCORD_CLIENT_ID='discord_client_id'
+DISCORD_CLIENT_SECRET='discord_client_secret'
+
+# Stripe
+# Stripe Secret Key found at https://dashboard.stripe.com/test/apikeys
+STRIPE_API_KEY='sk_test_'
+# Stripe Webhook Secret found at https://dashboard.stripe.com/test/webhooks/create?endpoint_location=local
+# This need to replaced with the webhook secret for your webhook endpoint in production
+STRIPE_WEBHOOK_SECRET='whsec_'
+# Stripe Product and Price IDs for your created products
+# found at https://dashboard.stripe.com/test/products
+STRIPE_PRO_MONTHLY_PLAN_ID='price_'
+```

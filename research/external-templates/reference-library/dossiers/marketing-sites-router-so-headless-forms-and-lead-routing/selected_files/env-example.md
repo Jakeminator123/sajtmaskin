@@ -1,0 +1,21 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+RESEND_API_KEY=your_resend_api_key_here
+AUTH_SECRET=your_nextauth_secret_here
+NODE_ENV=development
+
+# optional if you want to do GitHub OAuth
+AUTH_GITHUB_ID=github_client_id
+AUTH_GITHUB_SECRET=github_app_secret
+
+# Production database
+POSTGRES_URL="postgres://user:password@host:port/database?sslmode=require"
+
+# PostHog
+# You can get your PostHog key from https://app.posthog.com/organization/settings
+NEXT_PUBLIC_POSTHOG_KEY=your_posthog_key_here
+NEXT_PUBLIC_POSTHOG_HOST=app.posthog.com
+```

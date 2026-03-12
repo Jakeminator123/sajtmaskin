@@ -1,0 +1,109 @@
+{
+  "id": "saas-stripe-subscription-starter",
+  "slug": "saas-stripe-subscription-starter",
+  "title": "Stripe Subscription Starter",
+  "categorySlug": "saas",
+  "categoryName": "SaaS",
+  "templateUrl": "https://vercel.com/templates/ecommerce/subscription-starter",
+  "demoUrl": "https://subscription-payments.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 96,
+  "repo": {
+    "url": "https://github.com/vercel/nextjs-subscription-payments/tree/main/",
+    "normalizedUrl": "https://github.com/vercel/nextjs-subscription-payments",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-nextjs-subscription-payments",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Ecommerce",
+    "SaaS",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "Supabase",
+    "Supabase Auth"
+  ],
+  "usefulLines": [
+    "Stripe Subscription Starter",
+    "Ecommerce",
+    "SaaS",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "Supabase",
+    "Supabase Auth"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "pricing or billing structure",
+    "storefront or checkout patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "saas-landing",
+    "auth-pages",
+    "ecommerce"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": false,
+    "pricing": true,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": true,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Stripe Subscription Starter is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Next.js Subscription Payments Starter\n\n\n> [!WARNING]\n> This repo has been sunset and replaced by a new template: https://github.com/nextjs/saas-starter\n\n## Features\n\n- Secure user management and authentication with [Supabase](https://supabase.io/docs/guides/auth)\n- Powerful data access & management tooling on top of PostgreSQL with [Supabase](https://supabase.io/docs/guides/database)\n- Integration with [Stripe Checkout](https://stripe.com/docs/payments/checkout) and the [Stripe customer portal](https://stripe.com/docs/billing/subscriptions/customer-portal)\n- Automatic syncing of pricing plans and subscription statuses via [Stripe webhooks](https://stripe.com/docs/webhooks)\n\n## Demo\n\n- https://subscription-payments.vercel.app/\n\n[![Screenshot of demo](./public/demo.png)](https://subscription-payments.vercel.app/)\n\n## Architecture\n\n![Architecture diagram](./public/architecture_diagram.png)\n\n## Step-by-step setup\n\nWhen deploying this template, the sequence of steps is important. Follow the steps below in order to get up and running.\n\n### Initiate Deployment\n\n#### Vercel Deploy Button\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnextjs-subscription-payments&env=NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,STRIPE_SECRET_KEY&envDescription=Enter%20your%20Stripe%20API%20keys.&envLink=https%3A%2F%2Fdashboard.stripe.com%2Fapikeys&project-name=nextjs-subscription-payments&repository-name=nextjs-subscription-payments&integration-ids=oac_VqOgBHqhEoFTPzGkPd7L0iH6&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnextjs-subscription-payments%2Ftree%2Fmain)\n\nThe Vercel Deployment will create a new repository with this template on your GitHub account and guide you through a new Supabase project creation. The [Supabase Vercel Deploy Integration](https://vercel.com/integrations/supabase) will set up the necessary Supabase environment variables and run the [SQL migrations](./supabase/migrations/20230530034630_init.sql) to set up the Database schema on your account. You can inspect the created tables in your project's [Table editor](https://app.supabase.com/project/_/editor).\n\nShould the automatic setup fail, please [create a Supabase account](https://app.supabase.com/projects), and a new project if needed. In your project, navigate to the [SQL editor](https://app.su\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbo\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"prettier-fix\": \"prettier --write .\",\n    \"stripe:login\": \"stripe login\",\n    \"stripe:listen\": \"stripe listen --forward-to=localhost:3000/api/webhooks\",\n    \"stripe:fixtures\": \"stripe fixtures fixtures/stripe-fixtures.json\",\n    \"supabase:start\": \"npx supabase start\",\n    \"supabase:stop\": \"npx supabase stop\",\n    \"supabase:status\": \"npx supabase status\",\n    \"supabase:restart\": \"npm run supabase:stop && npm run supabase:start\",\n    \"supabase:reset\": \"npx supabase db reset\",\n    \"supabase:link\": \"npx supabase link\",\n    \"supabase:generate-types\": \"npx supabase gen types typescript --local --schema public > types_db.ts\",\n    \"supabase:generate-migration\": \"npx supabase db diff | npx supabase migration new\",\n    \"supabase:generate-seed\": \"npx supabase db dump --data-only -f supabase/seed.sql\",\n    \"supabase:push\": \"npx supabase db push\",\n    \"supabase:pull\": \"npx supabase db pull\"\n  },\n  \"dependencies\": {\n    \"@radix-ui/react-toast\": \"^1.1.5\",\n    \"@stripe/stripe-js\": \"2.4.0\",\n    \"@supabase/ssr\": \"^0.1.0\",\n    \"@supabase/supabase-js\": \"^2.43.4\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"classnames\": \"^2.5.1\",\n    \"clsx\": \"^2.1.1\",\n    \"lucide-react\": \"0.330.0\",\n    \"next\": \"14.2.3\",\n    \"react\": \"^18.3.1\",\n    \"react-dom\": \"^18.3.1\",\n    \"react-merge-refs\": \"^2.1.1\",\n    \"stripe\": \"^14.25.0\",\n    \"tailwind-merge\": \"^2.3.0\",\n    \"tailwindcss\": \"^3.4.4\",\n    \"tailwindcss-animate\": \"^1.0.7\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20.14.2\",\n    \"@types/react\": \"^18.3.3\",\n    \"@types/react-dom\": \"^18.3.0\",\n    \"autoprefixer\": \"^10.4.19\",\n    \"eslint\": \"^8.57.0\",\n    \"eslint-config-next\": \"14.1.0\",\n    \"eslint-config-prettier\": \"^9.1.0\",\n    \"eslint-plugin-react\": \"^7.34.2\",\n    \"eslint-plugin-tailwindcss\": \"^3.17.3\",\n    \"postcss\": \"^8.4.38\",\n    \"prettier\": \"^3.3.1\",\n    \"prettier-plugin-tailwindcss\": \"^0.5.14\",\n    \"supabase\": \"^1.172.2\",\n    \"typescript\": \"^5.4.5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { Metadata } from 'next';\nimport Footer from '@/components/ui/Footer';\nimport Navbar from '@/components/ui/Navbar';\nimport { Toaster } from '@/components/ui/Toasts/toaster';\nimport { PropsWithChildren, Suspense } from 'react';\nimport { getURL } from '@/utils/helpers';\nimport 'styles/main.css';\n\nconst title = 'Next.js Subscription Starter';\nconst description = 'Brought to you by Vercel, Stripe, and Supabase.';\n\nexport const metadata: Metadata = {\n  metadataBase: new URL(getURL()),\n  title: title,\n  description: description,\n  openGraph: {\n    title: title,\n    description: description\n  }\n};\n\nexport default async function RootLayout({ children }: PropsWithChildren) {\n  return (\n    <html lang=\"en\">\n      <body className=\"bg-black\">\n        <Navbar />\n        <main\n          id=\"skip\"\n          className=\"min-h-[calc(100dvh-4rem)] md:min-h[calc(100dvh-5rem)]\"\n        >\n          {children}\n        </main>\n        <Footer />\n        <Suspense>\n          <Toaster />\n        </Suspense>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Pricing from '@/components/ui/Pricing/Pricing';\nimport { createClient } from '@/utils/supabase/server';\nimport {\n  getProducts,\n  getSubscription,\n  getUser\n} from '@/utils/supabase/queries';\n\nexport default async function PricingPage() {\n  const supabase = createClient();\n  const [user, products, subscription] = await Promise.all([\n    getUser(supabase),\n    getProducts(supabase),\n    getSubscription(supabase)\n  ]);\n\n  return (\n    <Pricing\n      user={user}\n      products={products ?? []}\n      subscription={subscription}\n    />\n  );\n}"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { type NextRequest } from 'next/server';\nimport { updateSession } from '@/utils/supabase/middleware';\n\nexport async function middleware(request: NextRequest) {\n  return await updateSession(request);\n}\n\nexport const config = {\n  matcher: [\n    /*\n     * Match all request paths except:\n     * - _next/static (static files)\n     * - _next/image (image optimization files)\n     * - favicon.ico (favicon file)\n     * - images - .svg, .png, .jpg, .jpeg, .gif, .webp\n     * Feel free to modify this pattern to include more paths.\n     */\n    '/((?!_next/static|_next/image|favicon.ico|.*\\\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'\n  ]\n};"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "SUPABASE_AUTH_EXTERNAL_GITHUB_REDIRECT_URI=\"http://127.0.0.1:54321/auth/v1/callback\"\nSUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID=\nSUPABASE_AUTH_EXTERNAL_GITHUB_SECRET="
+    },
+    {
+      "path": ".env.local.example",
+      "reason": "Useful structural reference",
+      "excerpt": "NEXT_PUBLIC_SITE_URL=\"http://localhost:3000\"\n\n# These environment variables are used for Supabase Local Dev\nNEXT_PUBLIC_SUPABASE_ANON_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0\"\nNEXT_PUBLIC_SUPABASE_URL=\"http://127.0.0.1:54321\"\nSUPABASE_SERVICE_ROLE_KEY=\n\n# Get these from Stripe dashboard\nNEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=\nSTRIPE_SECRET_KEY=\nSTRIPE_WEBHOOK_SECRET="
+    }
+  ]
+}

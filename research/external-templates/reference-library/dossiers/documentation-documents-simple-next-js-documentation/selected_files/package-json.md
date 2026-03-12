@@ -1,0 +1,77 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "rubix-documents",
+  "version": "1.0.1",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "clean": "pnpm biome check --write",
+    "update": "pnpm update --latest --recursive && pnpm install && pnpm prune && pnpm dedupe && pnpm run clean",
+    "generate-content-json": "tsx scripts/content.ts",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@next/third-parties": "^16.1.6",
+    "@radix-ui/react-accordion": "^1.2.12",
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@tailwindcss/postcss": "^4.2.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "gray-matter": "^4.0.3",
+    "lib": "^5.1.0",
+    "mermaid": "^11.13.0",
+    "next": "16.1.6",
+    "next-mdx-remote": "^6.0.0",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-icons": "^5.6.0",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-code-titles": "^1.2.1",
+    "rehype-katex": "^7.0.1",
+    "rehype-prism-plus": "^2.0.2",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx": "^3.1.1",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss-animate": "^1.0.7",
+    "tw-animate-css": "^1.4.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.6",
+    "@tailwindcss/typography": "^0.5.19",
+    "@types/hast": "^3.0.4",
+    "@types/node": "^25.4.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/unist": "^3.0.3",
+    "husky": "^9.1.7",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "packageManager": "pnpm@10.32.1"
+}
+```

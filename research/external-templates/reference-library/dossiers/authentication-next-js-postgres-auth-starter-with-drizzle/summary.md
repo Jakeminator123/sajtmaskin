@@ -2,8 +2,8 @@
 
 - Category: Authentication (authentication)
 - Verdict: valid
-- Quality score: 82
-- Scaffold families: auth-pages, app-shell, dashboard
+- Quality score: 80
+- Scaffold families: auth-pages, dashboard, app-shell
 - Repo: https://github.com/vercel/next.js
 - Demo: https://nextjs-postgres-auth.vercel.app/
 
@@ -14,7 +14,6 @@ Next.js Postgres Auth Starter with Drizzle is a Authentication reference with ve
 - App Router structure
 - auth flow reference
 - dashboard shell patterns
-- editorial content hierarchy
 
 ## Weaknesses
 large monorepo without a clear example path

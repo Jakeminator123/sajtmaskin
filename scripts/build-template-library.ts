@@ -9,22 +9,19 @@ import type {
   TemplateLibrarySignals,
   TemplateLibraryVerdict,
 } from "../src/lib/gen/template-library/types";
-
-type RawTemplateRecord = {
-  category_slug: string;
-  category_name: string;
-  template_url: string;
-  title: string;
-  description: string;
-  repo_url?: string | null;
-  demo_url?: string | null;
-  framework_match: boolean;
-  framework_reason: string;
-  stack_tags?: string[];
-  important_lines?: string[];
-};
-
-type RawSummary = Record<string, RawTemplateRecord[]>;
+import {
+  RAW_DISCOVERY_CURRENT_ROOT,
+  RAW_DISCOVERY_ROOT,
+  normalizeLegacySummary,
+  normalizeRepoUrl,
+  readJson,
+  resolveExistingLegacySummaryPath,
+  resolveRepoCacheDir,
+  resolveSummaryPath,
+  slugify,
+  writeJson,
+  type RawTemplateRecord,
+} from "./template-library-discovery";
 
 const WORKSPACE_ROOT = process.cwd();
 const TEMPLATE_LIBRARY_ROOT = path.resolve(
@@ -41,11 +38,13 @@ const GENERATED_SCAFFOLD_RESEARCH_PATH = path.resolve(
   WORKSPACE_ROOT,
   "src/lib/gen/scaffolds/scaffold-research.generated.json",
 );
+const LEGACY_SUMMARY_PATH = resolveExistingLegacySummaryPath();
 const SOURCE_ROOT_CANDIDATES = [
-  path.resolve(WORKSPACE_ROOT, "research", "external-templates", "raw-discovery"),
+  RAW_DISCOVERY_CURRENT_ROOT,
+  RAW_DISCOVERY_ROOT,
   path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
   path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
-  "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates",
+  LEGACY_SUMMARY_PATH ? path.dirname(LEGACY_SUMMARY_PATH) : "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates",
 ];
 
 const NOISE_LINE_RE =
@@ -55,7 +54,6 @@ const INVALID_REPO_PATTERNS: Array<{ reason: TemplateLibraryVerdict; pattern: Re
   { reason: "bad_repo_link", pattern: /github\.com\/settings\//i },
   { reason: "bad_repo_link", pattern: /github\.com\/orgs\//i },
   { reason: "bad_repo_link", pattern: /user-attachments\//i },
-  { reason: "bad_repo_link", pattern: /app\.netlify\.com\/start\/deploy/i },
   { reason: "bad_repo_link", pattern: /\/blob\//i },
   { reason: "bad_repo_link", pattern: /\/tree\/[^/]+\/\.\//i },
 ];
@@ -132,27 +130,7 @@ function ensureDir(target: string): void {
   fs.mkdirSync(target, { recursive: true });
 }
 
-function readJson<T>(filePath: string): T {
-  return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
-}
-
-function writeJson(filePath: string, value: unknown): void {
-  ensureDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf-8");
-}
-
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 96);
-}
-
-function normalizeRepoUrl(rawUrl: string | null | undefined): {
+function assessRepoUrl(rawUrl: string | null | undefined): {
   url: string | null;
   normalizedUrl: string | null;
   subpath: string | null;
@@ -169,32 +147,17 @@ function normalizeRepoUrl(rawUrl: string | null | undefined): {
     }
   }
 
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname === "github.com") {
-      const parts = parsed.pathname.split("/").filter(Boolean);
-      if (parts.length < 2) {
-        return { url, normalizedUrl: null, subpath: null, verdict: "bad_repo_link" };
-      }
-
-      const baseUrl = `${parsed.protocol}//${parsed.hostname}/${parts[0]}/${parts[1]}`;
-      if (parts[2] === "tree" && parts.length >= 5) {
-        const subpath = parts.slice(4).join("/");
-        return { url, normalizedUrl: baseUrl, subpath: subpath || null, verdict: null };
-      }
-
-      return { url, normalizedUrl: baseUrl, subpath: null, verdict: null };
-    }
-
-    if (parsed.hostname === "vercel.com" && parsed.pathname.startsWith("/new/clone")) {
-      const repoCandidate = parsed.searchParams.get("repository-url");
-      return normalizeRepoUrl(repoCandidate);
-    }
-  } catch {
-    return { url, normalizedUrl: null, subpath: null, verdict: "bad_repo_link" };
+  const normalized = normalizeRepoUrl(url);
+  if (!normalized.normalizedUrl) {
+    return { url: normalized.url, normalizedUrl: null, subpath: normalized.subpath, verdict: "bad_repo_link" };
   }
 
-  return { url, normalizedUrl: null, subpath: null, verdict: "bad_repo_link" };
+  return {
+    url: normalized.url,
+    normalizedUrl: normalized.normalizedUrl,
+    subpath: normalized.subpath,
+    verdict: null,
+  };
 }
 
 function collectRepoFiles(root: string, maxFiles = 3000): string[] {
@@ -202,6 +165,18 @@ function collectRepoFiles(root: string, maxFiles = 3000): string[] {
 
   function walk(current: string): void {
     if (collected.length >= maxFiles) return;
+    let currentStats: fs.Stats;
+    try {
+      currentStats = fs.statSync(current);
+    } catch {
+      return;
+    }
+
+    if (!currentStats.isDirectory()) {
+      collected.push(current);
+      return;
+    }
+
     const entries = fs.readdirSync(current, { withFileTypes: true });
     for (const entry of entries) {
       if (collected.length >= maxFiles) break;
@@ -209,6 +184,17 @@ function collectRepoFiles(root: string, maxFiles = 3000): string[] {
       if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name)) continue;
         walk(fullPath);
+      } else if (entry.isSymbolicLink()) {
+        try {
+          const targetStats = fs.statSync(fullPath);
+          if (targetStats.isDirectory()) {
+            walk(fullPath);
+          } else {
+            collected.push(fullPath);
+          }
+        } catch {
+          continue;
+        }
       } else {
         collected.push(fullPath);
       }
@@ -356,7 +342,13 @@ function buildFileExcerpt(filePath: string, repoRoot: string): TemplateLibrarySe
   const content = readMaybe(filePath);
   if (!content) return null;
   const relativePath = path.relative(repoRoot, filePath).replace(/\\/g, "/");
-  const excerpt = content.length > 2400 ? `${content.slice(0, 2400).trim()}\n\n// ... truncated` : content.trim();
+  const excerptSource = content.length > 2400 ? content.slice(0, 2400) : content;
+  const normalizedExcerpt = excerptSource
+    .split(/\r?\n/)
+    .map((line) => line.replace(/[ \t]+$/g, ""))
+    .join("\n")
+    .trim();
+  const excerpt = content.length > 2400 ? `${normalizedExcerpt}\n\n// ... truncated` : normalizedExcerpt;
 
   let reason = "Useful structural reference";
   if (relativePath.endsWith("package.json")) reason = "Dependency and script verification";
@@ -522,20 +514,64 @@ function decideVerdict(
   return "research_only";
 }
 
+function resolveLegacyRepoDir(sourceRoot: string, template: RawTemplateRecord): string {
+  const folder = path.join(sourceRoot, template.category_slug, slugify(template.title));
+  return path.join(folder, "repo");
+}
+
+function resolveLinkedLegacyDatasetRoot(sourceRoot: string): string | null {
+  const metadataPath = path.join(sourceRoot, "source-metadata.json");
+  if (!fs.existsSync(metadataPath)) return null;
+
+  try {
+    const metadata = readJson<{ sourcePath?: string | null }>(metadataPath);
+    const sourcePath = metadata.sourcePath?.trim();
+    if (!sourcePath) return null;
+
+    const candidateRoot = sourcePath.endsWith(".json") ? path.dirname(sourcePath) : sourcePath;
+    return fs.existsSync(path.join(candidateRoot, "summary.json")) ? candidateRoot : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveRepoInspectionPaths(sourceRoot: string, template: RawTemplateRecord): {
+  cloneRoot: string;
+  inspectionRoot: string;
+} {
+  const repoUrl = assessRepoUrl(template.repo_url);
+  const cachedRepoDir = resolveRepoCacheDir(repoUrl.normalizedUrl);
+  const legacyRepoDir = resolveLegacyRepoDir(sourceRoot, template);
+  const linkedLegacyRoot = resolveLinkedLegacyDatasetRoot(sourceRoot);
+  const linkedLegacyRepoDir = linkedLegacyRoot ? resolveLegacyRepoDir(linkedLegacyRoot, template) : null;
+  const cloneRoot =
+    (cachedRepoDir && fs.existsSync(cachedRepoDir) && cachedRepoDir) ||
+    (linkedLegacyRepoDir && fs.existsSync(linkedLegacyRepoDir) && linkedLegacyRepoDir) ||
+    (fs.existsSync(legacyRepoDir) ? legacyRepoDir : legacyRepoDir);
+  const subpathRoot =
+    repoUrl.subpath && fs.existsSync(path.join(cloneRoot, repoUrl.subpath))
+      ? path.join(cloneRoot, repoUrl.subpath)
+      : cloneRoot;
+
+  return {
+    cloneRoot,
+    inspectionRoot: subpathRoot,
+  };
+}
+
 function buildEntry(
   template: RawTemplateRecord,
   sourceRoot: string,
 ): TemplateLibraryEntry {
   const slug = slugify(`${template.category_slug}-${template.title}`);
-  const folder = path.join(sourceRoot, template.category_slug, slugify(template.title));
-  const repoDir = path.join(folder, "repo");
-  const repoUrl = normalizeRepoUrl(template.repo_url);
-  const repoInspection = inspectRepo(repoDir);
+  const repoUrl = assessRepoUrl(template.repo_url);
+  const { cloneRoot, inspectionRoot } = resolveRepoInspectionPaths(sourceRoot, template);
+  const repoInspection = inspectRepo(inspectionRoot);
   const selectedFilePaths = repoInspection.packageDir || repoInspection.files.length > 0
-    ? findInterestingFiles(repoDir, repoInspection.packageDir, repoInspection.files)
+    ? findInterestingFiles(inspectionRoot, repoInspection.packageDir, repoInspection.files)
     : [];
   const selectedFiles = selectedFilePaths
-    .map((filePath) => buildFileExcerpt(filePath, repoDir))
+    .map((filePath) => buildFileExcerpt(filePath, inspectionRoot))
     .filter(Boolean) as TemplateLibrarySelectedFile[];
 
   const usefulLines = (template.important_lines ?? [])
@@ -548,6 +584,7 @@ function buildEntry(
     url: repoUrl.url,
     normalizedUrl: repoUrl.normalizedUrl,
     subpath: repoUrl.subpath,
+    clonePath: fs.existsSync(cloneRoot) ? cloneRoot : null,
   };
   const signals = detectSignals(template, selectedFiles);
   const strengths = deriveStrengths(signals, repoInfo);
@@ -591,6 +628,7 @@ function buildEntry(
 
 function writeTemplateLibraryDocs(catalog: TemplateLibraryCatalogFile, outputRoot: string): void {
   const dossierRoot = path.join(outputRoot, "dossiers");
+  fs.rmSync(dossierRoot, { recursive: true, force: true });
   ensureDir(dossierRoot);
 
   const lines = [
@@ -717,7 +755,7 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
 
 function resolveDefaultSourceRoot(): string {
   for (const candidate of SOURCE_ROOT_CANDIDATES) {
-    if (fs.existsSync(path.join(candidate, "summary.json"))) {
+    if (fs.existsSync(resolveSummaryPath(candidate))) {
       return candidate;
     }
   }
@@ -734,15 +772,16 @@ function parseArgs(): { sourceRoot: string } {
 
 function main(): void {
   const { sourceRoot } = parseArgs();
-  const summaryPath = path.join(sourceRoot, "summary.json");
+  const summaryPath = path.resolve(resolveSummaryPath(sourceRoot));
   if (!fs.existsSync(summaryPath)) {
     throw new Error(`Template dataset not found at ${summaryPath}`);
   }
 
-  const rawSummary = readJson<RawSummary>(summaryPath);
-  const rawEntries = Object.values(rawSummary).flat();
+  const normalizedSummary = normalizeLegacySummary(readJson<unknown>(summaryPath));
+  const sourceDir = fs.statSync(summaryPath).isFile() ? path.dirname(summaryPath) : sourceRoot;
+  const rawEntries = Object.values(normalizedSummary).flat();
   const entries = rawEntries
-    .map((entry) => buildEntry(entry, sourceRoot))
+    .map((entry) => buildEntry(entry, sourceDir))
     .sort((a, b) => b.qualityScore - a.qualityScore || a.title.localeCompare(b.title));
 
   const curatedEntries = entries.filter(
@@ -751,7 +790,7 @@ function main(): void {
 
   const catalog: TemplateLibraryCatalogFile = {
     generatedAt: new Date().toISOString(),
-    sourceRoot,
+    sourceRoot: sourceDir,
     totalTemplates: entries.length,
     curatedTemplates: curatedEntries.length,
     entries,
@@ -768,9 +807,9 @@ function main(): void {
   });
   writeJson(GENERATED_SCAFFOLD_RESEARCH_PATH, buildScaffoldResearch(curatedEntries));
 
-  console.log(`[template-library] Total templates audited: ${catalog.totalTemplates}`);
-  console.log(`[template-library] Curated templates: ${catalog.curatedTemplates}`);
-  console.log(`[template-library] Wrote agent library to ${TEMPLATE_LIBRARY_ROOT}`);
+  console.info(`[template-library] Total templates audited: ${catalog.totalTemplates}`);
+  console.info(`[template-library] Curated templates: ${catalog.curatedTemplates}`);
+  console.info(`[template-library] Wrote agent library to ${TEMPLATE_LIBRARY_ROOT}`);
 }
 
 main();

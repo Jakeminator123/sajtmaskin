@@ -6,16 +6,16 @@
   "categoryName": "SaaS",
   "templateUrl": "https://vercel.com/templates/saas/platforms-starter-kit",
   "demoUrl": "https://vercel.pub/",
-  "description": "Next.js template for building multi-tenant applications with the App Router and Redis.",
-  "frameworkReason": "Next.js, React",
+  "description": "",
+  "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 94,
+  "qualityScore": 90,
   "repo": {
     "url": "https://github.com/vercel/platforms",
     "normalizedUrl": "https://github.com/vercel/platforms",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\saas\\platforms-starter-kit\\repo",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-platforms",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -24,84 +24,69 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
+    "SaaS",
+    "Multi-Tenant Apps",
     "Next.js",
     "Tailwind",
-    "Database",
-    "Redis",
-    "Related Templates",
-    "Nextra: Docs Starter Kit"
+    "Redis"
   ],
   "usefulLines": [
-    "AI workflows in live environments",
-    "Deploy for every idea",
-    "Next.js template for building multi-tenant applications with the App Router and Redis.",
-    "Deploy",
-    "Features",
-    "✅ Redis for tenant data storage",
-    "✅ Support for local development with subdomains",
-    "✅ Compatible with Vercel preview deployments",
-    "Upstash Redis",
-    "Getting Started",
-    "pnpm (recommended) or npm/yarn",
-    "Upstash Redis account (for production)"
+    "Platforms Starter Kit",
+    "SaaS",
+    "Multi-Tenant Apps",
+    "Next.js",
+    "Tailwind",
+    "Redis"
   ],
-  "noiseLines": [
-    "Vercel Agent",
-    "Vercel documentation",
-    "Deploy at the speed of AI",
-    "Ship features, not infrastructure",
-    "SDKs by Vercel"
-  ],
+  "noiseLines": [],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
-    "dashboard shell patterns",
     "multi-tenant or workspace patterns"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
     "saas-landing",
-    "app-shell",
-    "dashboard"
+    "app-shell"
   ],
   "signals": {
     "auth": false,
-    "dashboard": true,
+    "dashboard": false,
     "pricing": false,
     "blog": false,
     "portfolio": false,
     "ecommerce": false,
-    "docs": true,
-    "ai": true,
+    "docs": false,
+    "ai": false,
     "multiTenant": true,
     "cms": false
   },
-  "summary": "Platforms Starter Kit is a SaaS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+  "summary": "Platforms Starter Kit is a SaaS reference with verified Next.js codebase, App Router structure, multi-tenant or workspace patterns. Verdict: valid.",
   "selectedFiles": [
     {
       "path": "README.md",
       "reason": "Setup and architecture context",
-      "excerpt": "# Next.js Multi-Tenant Example\r\n\r\nA production-ready example of a multi-tenant application built with Next.js 15, featuring custom subdomains for each tenant.\r\n\r\n## Features\r\n\r\n- ✅ Custom subdomain routing with Next.js middleware\r\n- ✅ Tenant-specific content and pages\r\n- ✅ Shared components and layouts across tenants\r\n- ✅ Redis for tenant data storage\r\n- ✅ Admin interface for managing tenants\r\n- ✅ Emoji support for tenant branding\r\n- ✅ Support for local development with subdomains\r\n- ✅ Compatible with Vercel preview deployments\r\n\r\n## Tech Stack\r\n\r\n- [Next.js 15](https://nextjs.org/) with App Router\r\n- [React 19](https://react.dev/)\r\n- [Upstash Redis](https://upstash.com/) for data storage\r\n- [Tailwind 4](https://tailwindcss.com/) for styling\r\n- [shadcn/ui](https://ui.shadcn.com/) for the design system\r\n\r\n## Getting Started\r\n\r\n### Prerequisites\r\n\r\n- Node.js 18.17.0 or later\r\n- pnpm (recommended) or npm/yarn\r\n- Upstash Redis account (for production)\r\n\r\n### Installation\r\n\r\n1. Clone the repository:\r\n\r\n   ```bash\r\n   git clone https://github.com/vercel/platforms.git\r\n   cd platforms\r\n   ```\r\n\r\n2. Install dependencies:\r\n\r\n   ```bash\r\n   pnpm install\r\n   ```\r\n\r\n3. Set up environment variables:\r\n   Create a `.env.local` file in the root directory with:\r\n\r\n   ```\r\n   KV_REST_API_URL=your_redis_url\r\n   KV_REST_API_TOKEN=your_redis_token\r\n   ```\r\n\r\n4. Start the development server:\r\n\r\n   ```bash\r\n   pnpm dev\r\n   ```\r\n\r\n5. Access the application:\r\n   - Main site: http://localhost:3000\r\n   - Admin panel: http://localhost:3000/admin\r\n   - Tenants: http://[tenant-name].localhost:3000\r\n\r\n## Multi-Tenant Architecture\r\n\r\nThis application demonstrates a subdomain-based multi-tenant architecture where:\r\n\r\n- Each tenant gets their own subdomain (`tenant.yourdomain.com`)\r\n- The middleware handles routing requests to the correct tenant\r\n- Tenant data is stored in Redis using a `subdomain:{name}` key pattern\r\n- The main domain hosts the landing page and admin interface\r\n- Subdomains are dynamically mapped to tenant-specific content\r\n\r\nThe middleware (`middleware.ts`) intelligently detects subdomains across various environments (local development, production, and Vercel preview deployments).\r\n\r\n## Deployment\r\n\r\nThis application is designed to be deployed on Vercel. To deploy:\r\n\r\n1. Push your repository to GitHub\r\n2. Connect your repository to Vercel\r\n3. Configure environment variable\n\n// ... truncated"
+      "excerpt": "# Next.js Multi-Tenant Example\n\nA production-ready example of a multi-tenant application built with Next.js 15, featuring custom subdomains for each tenant.\n\n## Features\n\n- ✅ Custom subdomain routing with Next.js middleware\n- ✅ Tenant-specific content and pages\n- ✅ Shared components and layouts across tenants\n- ✅ Redis for tenant data storage\n- ✅ Admin interface for managing tenants\n- ✅ Emoji support for tenant branding\n- ✅ Support for local development with subdomains\n- ✅ Compatible with Vercel preview deployments\n\n## Tech Stack\n\n- [Next.js 15](https://nextjs.org/) with App Router\n- [React 19](https://react.dev/)\n- [Upstash Redis](https://upstash.com/) for data storage\n- [Tailwind 4](https://tailwindcss.com/) for styling\n- [shadcn/ui](https://ui.shadcn.com/) for the design system\n\n## Getting Started\n\n### Prerequisites\n\n- Node.js 18.17.0 or later\n- pnpm (recommended) or npm/yarn\n- Upstash Redis account (for production)\n\n### Installation\n\n1. Clone the repository:\n\n   ```bash\n   git clone https://github.com/vercel/platforms.git\n   cd platforms\n   ```\n\n2. Install dependencies:\n\n   ```bash\n   pnpm install\n   ```\n\n3. Set up environment variables:\n   Create a `.env.local` file in the root directory with:\n\n   ```\n   KV_REST_API_URL=your_redis_url\n   KV_REST_API_TOKEN=your_redis_token\n   ```\n\n4. Start the development server:\n\n   ```bash\n   pnpm dev\n   ```\n\n5. Access the application:\n   - Main site: http://localhost:3000\n   - Admin panel: http://localhost:3000/admin\n   - Tenants: http://[tenant-name].localhost:3000\n\n## Multi-Tenant Architecture\n\nThis application demonstrates a subdomain-based multi-tenant architecture where:\n\n- Each tenant gets their own subdomain (`tenant.yourdomain.com`)\n- The middleware handles routing requests to the correct tenant\n- Tenant data is stored in Redis using a `subdomain:{name}` key pattern\n- The main domain hosts the landing page and admin interface\n- Subdomains are dynamically mapped to tenant-specific content\n\nThe middleware (`middleware.ts`) intelligently detects subdomains across various environments (local development, production, and Vercel preview deployments).\n\n## Deployment\n\nThis application is designed to be deployed on Vercel. To deploy:\n\n1. Push your repository to GitHub\n2. Connect your repository to Vercel\n3. Configure environment variable\n\n// ... truncated"
     },
     {
       "path": "package.json",
       "reason": "Dependency and script verification",
-      "excerpt": "{\r\n  \"private\": true,\r\n  \"scripts\": {\r\n    \"dev\": \"next dev --turbopack\",\r\n    \"build\": \"next build\",\r\n    \"start\": \"next start\"\r\n  },\r\n  \"dependencies\": {\r\n    \"@radix-ui/react-dialog\": \"^1.1.13\",\r\n    \"@radix-ui/react-label\": \"^2.1.6\",\r\n    \"@radix-ui/react-popover\": \"^1.1.13\",\r\n    \"@radix-ui/react-slot\": \"^1.2.2\",\r\n    \"@upstash/redis\": \"^1.34.9\",\r\n    \"@vercel/analytics\": \"^1.5.0\",\r\n    \"@vercel/speed-insights\": \"^1.2.0\",\r\n    \"class-variance-authority\": \"^0.7.1\",\r\n    \"clsx\": \"^2.1.1\",\r\n    \"frimousse\": \"^0.2.0\",\r\n    \"lucide-react\": \"^0.510.0\",\r\n    \"next\": \"^15.3.6\",\r\n    \"react\": \"^19.1.0\",\r\n    \"react-dom\": \"^19.1.0\",\r\n    \"tailwind-merge\": \"^3.3.0\"\r\n  },\r\n  \"devDependencies\": {\r\n    \"@tailwindcss/postcss\": \"^4.1.6\",\r\n    \"@types/node\": \"^22.15.17\",\r\n    \"@types/react\": \"^19.1.4\",\r\n    \"@types/react-dom\": \"^19.1.5\",\r\n    \"tailwindcss\": \"^4.1.6\",\r\n    \"tw-animate-css\": \"^1.2.9\",\r\n    \"typescript\": \"^5.8.3\"\r\n  },\r\n  \"packageManager\": \"pnpm@10.12.4+sha512.5ea8b0deed94ed68691c9bad4c955492705c5eeb8a87ef86bc62c74a26b037b08ff9570f108b2e4dbd1dd1a9186fea925e527f141c648e85af45631074680184\"\r\n}"
+      "excerpt": "{\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\"\n  },\n  \"dependencies\": {\n    \"@radix-ui/react-dialog\": \"^1.1.13\",\n    \"@radix-ui/react-label\": \"^2.1.6\",\n    \"@radix-ui/react-popover\": \"^1.1.13\",\n    \"@radix-ui/react-slot\": \"^1.2.2\",\n    \"@upstash/redis\": \"^1.34.9\",\n    \"@vercel/analytics\": \"^1.5.0\",\n    \"@vercel/speed-insights\": \"^1.2.0\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"frimousse\": \"^0.2.0\",\n    \"lucide-react\": \"^0.510.0\",\n    \"next\": \"^15.3.6\",\n    \"react\": \"^19.1.0\",\n    \"react-dom\": \"^19.1.0\",\n    \"tailwind-merge\": \"^3.3.0\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/postcss\": \"^4.1.6\",\n    \"@types/node\": \"^22.15.17\",\n    \"@types/react\": \"^19.1.4\",\n    \"@types/react-dom\": \"^19.1.5\",\n    \"tailwindcss\": \"^4.1.6\",\n    \"tw-animate-css\": \"^1.2.9\",\n    \"typescript\": \"^5.8.3\"\n  },\n  \"packageManager\": \"pnpm@10.12.4+sha512.5ea8b0deed94ed68691c9bad4c955492705c5eeb8a87ef86bc62c74a26b037b08ff9570f108b2e4dbd1dd1a9186fea925e527f141c648e85af45631074680184\"\n}"
     },
     {
       "path": "app/layout.tsx",
       "reason": "Layout and navigation reference",
-      "excerpt": "import type { Metadata } from 'next';\r\nimport { Geist } from 'next/font/google';\r\nimport { SpeedInsights } from '@vercel/speed-insights/next';\r\nimport './globals.css';\r\n\r\nconst geistSans = Geist({\r\n  variable: '--font-geist-sans',\r\n  subsets: ['latin']\r\n});\r\n\r\nexport const metadata: Metadata = {\r\n  title: 'Platforms Starter Kit',\r\n  description: 'Next.js template for building a multi-tenant SaaS.'\r\n};\r\n\r\nexport default function RootLayout({\r\n  children\r\n}: Readonly<{\r\n  children: React.ReactNode;\r\n}>) {\r\n  return (\r\n    <html lang=\"en\">\r\n      <body className={`${geistSans.variable} antialiased`}>\r\n        {children}\r\n        <SpeedInsights />\r\n      </body>\r\n    </html>\r\n  );\r\n}"
+      "excerpt": "import type { Metadata } from 'next';\nimport { Geist } from 'next/font/google';\nimport { SpeedInsights } from '@vercel/speed-insights/next';\nimport './globals.css';\n\nconst geistSans = Geist({\n  variable: '--font-geist-sans',\n  subsets: ['latin']\n});\n\nexport const metadata: Metadata = {\n  title: 'Platforms Starter Kit',\n  description: 'Next.js template for building a multi-tenant SaaS.'\n};\n\nexport default function RootLayout({\n  children\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className={`${geistSans.variable} antialiased`}>\n        {children}\n        <SpeedInsights />\n      </body>\n    </html>\n  );\n}"
     },
     {
       "path": "app/page.tsx",
       "reason": "Useful structural reference",
-      "excerpt": "import Link from 'next/link';\r\nimport { SubdomainForm } from './subdomain-form';\r\nimport { rootDomain } from '@/lib/utils';\r\n\r\nexport default async function HomePage() {\r\n  return (\r\n    <div className=\"flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white p-4 relative\">\r\n      <div className=\"absolute top-4 right-4\">\r\n        <Link\r\n          href=\"/admin\"\r\n          className=\"text-sm text-gray-500 hover:text-gray-700 transition-colors\"\r\n        >\r\n          Admin\r\n        </Link>\r\n      </div>\r\n\r\n      <div className=\"w-full max-w-md space-y-8\">\r\n        <div className=\"text-center\">\r\n          <h1 className=\"text-4xl font-bold tracking-tight text-gray-900\">\r\n            {rootDomain}\r\n          </h1>\r\n          <p className=\"mt-3 text-lg text-gray-600\">\r\n            Create your own subdomain with a custom emoji\r\n          </p>\r\n        </div>\r\n\r\n        <div className=\"mt-8 bg-white shadow-md rounded-lg p-6\">\r\n          <SubdomainForm />\r\n        </div>\r\n      </div>\r\n    </div>\r\n  );\r\n}"
+      "excerpt": "import Link from 'next/link';\nimport { SubdomainForm } from './subdomain-form';\nimport { rootDomain } from '@/lib/utils';\n\nexport default async function HomePage() {\n  return (\n    <div className=\"flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white p-4 relative\">\n      <div className=\"absolute top-4 right-4\">\n        <Link\n          href=\"/admin\"\n          className=\"text-sm text-gray-500 hover:text-gray-700 transition-colors\"\n        >\n          Admin\n        </Link>\n      </div>\n\n      <div className=\"w-full max-w-md space-y-8\">\n        <div className=\"text-center\">\n          <h1 className=\"text-4xl font-bold tracking-tight text-gray-900\">\n            {rootDomain}\n          </h1>\n          <p className=\"mt-3 text-lg text-gray-600\">\n            Create your own subdomain with a custom emoji\n          </p>\n        </div>\n\n        <div className=\"mt-8 bg-white shadow-md rounded-lg p-6\">\n          <SubdomainForm />\n        </div>\n      </div>\n    </div>\n  );\n}"
     },
     {
       "path": "middleware.ts",
       "reason": "Useful structural reference",
-      "excerpt": "import { type NextRequest, NextResponse } from 'next/server';\r\nimport { rootDomain } from '@/lib/utils';\r\n\r\nfunction extractSubdomain(request: NextRequest): string | null {\r\n  const url = request.url;\r\n  const host = request.headers.get('host') || '';\r\n  const hostname = host.split(':')[0];\r\n\r\n  // Local development environment\r\n  if (url.includes('localhost') || url.includes('127.0.0.1')) {\r\n    // Try to extract subdomain from the full URL\r\n    const fullUrlMatch = url.match(/http:\\/\\/([^.]+)\\.localhost/);\r\n    if (fullUrlMatch && fullUrlMatch[1]) {\r\n      return fullUrlMatch[1];\r\n    }\r\n\r\n    // Fallback to host header approach\r\n    if (hostname.includes('.localhost')) {\r\n      return hostname.split('.')[0];\r\n    }\r\n\r\n    return null;\r\n  }\r\n\r\n  // Production environment\r\n  const rootDomainFormatted = rootDomain.split(':')[0];\r\n\r\n  // Handle preview deployment URLs (tenant---branch-name.vercel.app)\r\n  if (hostname.includes('---') && hostname.endsWith('.vercel.app')) {\r\n    const parts = hostname.split('---');\r\n    return parts.length > 0 ? parts[0] : null;\r\n  }\r\n\r\n  // Regular subdomain detection\r\n  const isSubdomain =\r\n    hostname !== rootDomainFormatted &&\r\n    hostname !== `www.${rootDomainFormatted}` &&\r\n    hostname.endsWith(`.${rootDomainFormatted}`);\r\n\r\n  return isSubdomain ? hostname.replace(`.${rootDomainFormatted}`, '') : null;\r\n}\r\n\r\nexport async function middleware(request: NextRequest) {\r\n  const { pathname } = request.nextUrl;\r\n  const subdomain = extractSubdomain(request);\r\n\r\n  if (subdomain) {\r\n    // Block access to admin page from subdomains\r\n    if (pathname.startsWith('/admin')) {\r\n      return NextResponse.redirect(new URL('/', request.url));\r\n    }\r\n\r\n    // For the root path on a subdomain, rewrite to the subdomain page\r\n    if (pathname === '/') {\r\n      return NextResponse.rewrite(new URL(`/s/${subdomain}`, request.url));\r\n    }\r\n  }\r\n\r\n  // On the root domain, allow normal access\r\n  return NextResponse.next();\r\n}\r\n\r\nexport const config = {\r\n  matcher: [\r\n    /*\r\n     * Match all paths except for:\r\n     * 1. /api routes\r\n     * 2. /_next (Next.js internals)\r\n     * 3. all root files inside /public (e.g. /favicon.ico)\r\n     */\r\n    '/((?!api|_next|[\\\\w-]+\\\\.\\\\w+).*)'\r\n  ]\r\n};"
+      "excerpt": "import { type NextRequest, NextResponse } from 'next/server';\nimport { rootDomain } from '@/lib/utils';\n\nfunction extractSubdomain(request: NextRequest): string | null {\n  const url = request.url;\n  const host = request.headers.get('host') || '';\n  const hostname = host.split(':')[0];\n\n  // Local development environment\n  if (url.includes('localhost') || url.includes('127.0.0.1')) {\n    // Try to extract subdomain from the full URL\n    const fullUrlMatch = url.match(/http:\\/\\/([^.]+)\\.localhost/);\n    if (fullUrlMatch && fullUrlMatch[1]) {\n      return fullUrlMatch[1];\n    }\n\n    // Fallback to host header approach\n    if (hostname.includes('.localhost')) {\n      return hostname.split('.')[0];\n    }\n\n    return null;\n  }\n\n  // Production environment\n  const rootDomainFormatted = rootDomain.split(':')[0];\n\n  // Handle preview deployment URLs (tenant---branch-name.vercel.app)\n  if (hostname.includes('---') && hostname.endsWith('.vercel.app')) {\n    const parts = hostname.split('---');\n    return parts.length > 0 ? parts[0] : null;\n  }\n\n  // Regular subdomain detection\n  const isSubdomain =\n    hostname !== rootDomainFormatted &&\n    hostname !== `www.${rootDomainFormatted}` &&\n    hostname.endsWith(`.${rootDomainFormatted}`);\n\n  return isSubdomain ? hostname.replace(`.${rootDomainFormatted}`, '') : null;\n}\n\nexport async function middleware(request: NextRequest) {\n  const { pathname } = request.nextUrl;\n  const subdomain = extractSubdomain(request);\n\n  if (subdomain) {\n    // Block access to admin page from subdomains\n    if (pathname.startsWith('/admin')) {\n      return NextResponse.redirect(new URL('/', request.url));\n    }\n\n    // For the root path on a subdomain, rewrite to the subdomain page\n    if (pathname === '/') {\n      return NextResponse.rewrite(new URL(`/s/${subdomain}`, request.url));\n    }\n  }\n\n  // On the root domain, allow normal access\n  return NextResponse.next();\n}\n\nexport const config = {\n  matcher: [\n    /*\n     * Match all paths except for:\n     * 1. /api routes\n     * 2. /_next (Next.js internals)\n     * 3. all root files inside /public (e.g. /favicon.ico)\n     */\n    '/((?!api|_next|[\\\\w-]+\\\\.\\\\w+).*)'\n  ]\n};"
     }
   ]
 }

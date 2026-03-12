@@ -1,0 +1,97 @@
+{
+  "id": "starter-optimizely-feature-experimentation",
+  "slug": "starter-optimizely-feature-experimentation",
+  "title": "Optimizely Feature Experimentation",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/edge-middleware/optimizely-feature-experimentation",
+  "demoUrl": "https://nextjs-optimizely-experimentation.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 90,
+  "repo": {
+    "url": "https://github.com/vercel/nextjs-optimizely-experimentation",
+    "normalizedUrl": "https://github.com/vercel/nextjs-optimizely-experimentation",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-nextjs-optimizely-experimentation",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Edge Middleware",
+    "Edge Config",
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Optimizely Feature Experimentation",
+    "Edge Middleware",
+    "Edge Config",
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "storefront or checkout patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "ecommerce"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": true,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Optimizely Feature Experimentation is a Starter reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "## Next.js and Optimizely Feature Experimentation\n\nThis is a [Next.js](https://nextjs.org/) template that integrates with [Optimizely Feature Experimentation](https://www.optimizely.com/products/feature-experimentation/).\n\nThis project uses Next.js [App Router](https://nextjs.org/docs/app) and [Partial Prerendering (PPR)](https://nextjs.org/docs/app/building-your-application/rendering/partial-prerendering) to combine the benefits of static and dynamic rendering. This enables fast page loads to users with dynamic content and experiments.\nOptimizely experimentation data is saved to [Vercel Edge Config](https://vercel.com/docs/storage/edge-config) through [Optimizely webhooks](https://docs.developers.optimizely.com/feature-experimentation/docs/configure-webhooks) which allows [Edge Middleware](https://vercel.com/docs/functions/edge-middleware) and [React Server Components (RSC)](https://react.dev/reference/rsc/server-components) to perform decisions with minimal latency.\n\nThis project uses:\n\n- Next.js App Router\n- Partial Prerendering (PPR)\n- Vercel Edge Config\n- Edge Middleware\n- Tailwind CSS & shadcn/ui\n- Vercel Toolbar\n- Vercel Feature Flags\n- Optimizely Feature Experimentation\n\n## Deploy on Vercel\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnextjs-optimizely-experimentation&env=OPTIMIZELY_API_KEY,OPTIMIZELY_SDK_KEY,OPTIMIZELY_PROJECT_ID,OPTIMIZELY_WEBHOOK_SECRET,API_TOKEN,TEAM_ID,EDGE_CONFIG,FLAGS_SECRET&project-name=nextjs-optimizely-experimentation&repository-name=nextjs-optimizely-experimentation&demo-title=Next.js%20Optimizely%20Experimentation&demo-description=Fast%20and%20safe%20experimentation%20with%20Next.js%2C%20Vercel%2C%20and%20Optimizely%20Feature%20Experimentation&demo-url=https%3A%2F%2Fnextjs-optimizely-experimentation.vercel.app%2F&edge-config-stores=%7B%22EDGE_CONFIG%22%3A%7B%22stock%22%3A%7B%22cup%22%3A1%2C%22hat%22%3A4%2C%22mug%22%3A5%2C%22hoodie%22%3A4%7D%2C%22datafile%22%3A%7B%7D%7D%7D)\n\nThe easiest way to deploy your Next.js app is to use the Vercel Platform from the creators of Next.js.\n\nCheck out our [Next.js deployment documentation](https://vercel.com/docs/frameworks/nextjs) for more details.\n\n## Getting started\n\nSign up for a free [Optimizely Feature Flags account](https://www.optimizely.com/enhancements/free-feature\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"vercel-optimizely-experimentation\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"type-check\": \"tsc --noEmit\"\n  },\n  \"dependencies\": {\n    \"@optimizely/optimizely-sdk\": \"^5.3.0\",\n    \"@radix-ui/react-icons\": \"^1.3.0\",\n    \"@radix-ui/react-label\": \"^2.0.2\",\n    \"@radix-ui/react-radio-group\": \"^1.1.3\",\n    \"@radix-ui/react-select\": \"^2.0.0\",\n    \"@radix-ui/react-slot\": \"^1.0.2\",\n    \"@vercel/analytics\": \"^1.2.2\",\n    \"@vercel/edge-config\": \"^1.2.1\",\n    \"@vercel/toolbar\": \"0.1.24\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.1.0\",\n    \"flags\": \"^4.0.0\",\n    \"lucide-react\": \"^0.454.0\",\n    \"next\": \"15.6.0-canary.60\",\n    \"next-themes\": \"^0.4.3\",\n    \"react\": \"19.0.0-rc-02c0e824-20241028\",\n    \"react-dom\": \"19.0.0-rc-02c0e824-20241028\",\n    \"sonner\": \"^1.4.41\",\n    \"tailwind-merge\": \"^2.2.2\",\n    \"tailwindcss-animate\": \"^1.0.7\",\n    \"zod\": \"^3.23.8\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"npm:types-react@19.0.0-rc.1\",\n    \"@types/react-dom\": \"npm:types-react-dom@19.0.0-rc.1\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"15.0.2\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"^5\"\n  },\n  \"pnpm\": {\n    \"overrides\": {\n      \"@types/react\": \"npm:types-react@19.0.0-rc.1\",\n      \"@types/react-dom\": \"npm:types-react-dom@19.0.0-rc.1\"\n    }\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Cabin } from \"next/font/google\";\nimport \"./globals.css\";\nimport Header from \"@/components/header\";\nimport { VercelToolbar } from \"@vercel/toolbar/next\";\nimport { Analytics } from \"@vercel/analytics/react\";\nimport { Toaster } from \"@/components/ui/sonner\";\n\nconst cabin = Cabin({\n  subsets: [\"latin\"],\n  display: \"swap\",\n  variable: \"--font-cabin\",\n});\n\nexport const metadata: Metadata = {\n  title: \"Acme Store\",\n  description: \"Example Next.js site with Optimizely experimentation\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className={`${cabin.variable} max-w-7xl mx-auto`}>\n        <Header />\n        {children}\n        {/*\n          ⚠️ This shows the toolbar to all visitors\n          See detailed instructions to limit who can see the toolbar for real applications:\n          https://vercel.com/docs/workflow-collaboration/vercel-toolbar/in-production-and-localhost/add-to-production\n        */}\n        <VercelToolbar />\n        <Analytics />\n        <Toaster richColors />\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "OPTIMIZELY_API_KEY=\nOPTIMIZELY_SDK_KEY=\nOPTIMIZELY_PROJECT_ID=\nOPTIMIZELY_WEBHOOK_SECRET=\n# Generate a secret with: node -e \"console.log(crypto.randomBytes(32).toString('base64url'))\"\nFLAGS_SECRET=\nEDGE_CONFIG=\nTEAM_ID=\nAPI_TOKEN="
+    },
+    {
+      "path": "app/cart/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import PlaceOrderButton from \"@/components/place-order\";\nimport RemoveItemButton from \"@/components/remove-item\";\nimport { Button } from \"@/components/ui/button\";\nimport {\n  Card,\n  CardContent,\n  CardFooter,\n  CardHeader,\n  CardTitle,\n} from \"@/components/ui/card\";\nimport { products } from \"@/lib/products\";\nimport { formatUSD } from \"@/lib/utils\";\nimport { cookies } from \"next/headers\";\nimport Image from \"next/image\";\n\nexport default function CartPage() {\n  return (\n    <main className=\"max-w-5xl mx-auto py-6 px-4 md:px-6\">\n      <h1 className=\"font-bold text-3xl lg:text-4xl\">Checkout</h1>\n      <section className=\"grid md:grid-cols-2 gap-6 lg:gap-12 items-start py-4 md:py-8 lg:py-12\">\n        <div className=\"flex flex-col gap-y-2\">\n          <Card className=\"bg-gray-100\">\n            <CardHeader>\n              <CardTitle>Shipping</CardTitle>\n            </CardHeader>\n          </Card>\n          <Card className=\"bg-gray-100\">\n            <CardHeader>\n              <CardTitle>Billing</CardTitle>\n            </CardHeader>\n          </Card>\n          <Card className=\"bg-gray-100\">\n            <CardHeader>\n              <CardTitle>Payment</CardTitle>\n            </CardHeader>\n          </Card>\n          <Cart />\n        </div>\n        <OrderSummary />\n      </section>\n    </main>\n  );\n}\n\nasync function getProductsFromCookie() {\n  const cookieStore = await cookies();\n  const cart = cookieStore.get(\"cart\");\n  const cartProductIds = cart?.value\n    ? (JSON.parse(cart.value) as string[])\n    : [];\n  return cartProductIds.map((id) => ({\n    ...products.filter((p) => p.id === id)[0],\n  }));\n}\n\nasync function Cart() {\n  const products = await getProductsFromCookie();\n\n  const total = products.reduce((acc, product) => acc + product.price, 0);\n\n  const showEmptyCart = products.length === 0;\n\n  return (\n    <Card>\n      <CardHeader>\n        <CardTitle>Cart Summary</CardTitle>\n      </CardHeader>\n      <CardContent>\n        {showEmptyCart ? (\n          <div>Your cart is empty</div>\n        ) : (\n          <div className=\"space-y-4\">\n            {products.map((product) => (\n              <div key={product.id} className=\"flex items-center gap-4\">\n                <Image\n                  alt=\"Product Image\"\n                  className=\"rounded-md h-16 w-16\"\n                  height=\"64\"\n\n// ... truncated"
+    },
+    {
+      "path": "components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { GitHubLogoIcon } from \"@radix-ui/react-icons\";\nimport { Package2Icon } from \"lucide-react\";\nimport Link from \"next/link\";\nimport Image from \"next/image\";\nimport { Button } from \"./ui/button\";\n\nexport default function Header() {\n  return (\n    <header className=\"flex items-center justify-between p-4 bg-white\">\n      <Link\n        className=\"flex items-center gap-2 font-semibold\"\n        prefetch={true}\n        href=\"/\"\n      >\n        <Package2Icon className=\"h-6 w-6\" />\n        <span className=\"\">Acme Store</span>\n      </Link>\n      <nav className=\"flex items-center gap-4\">\n        <Button asChild className=\"pl-1\">\n          <Link\n            target=\"_blank\"\n            href=\"https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fvercel-optimizely-experimentation%2Ftree%main&env=OPTIMIZELY_API_KEY,OPTIMIZELY_SDK_KEY,OPTIMIZELY_PROJECT_ID,FLAGS_SECRET&envDescription=Execute%20the%20following%20command%20to%20create%20a%20secret%3A%20node%20-e%20%22console.log(crypto.randomBytes(32).toString('base64url'))%22&project-name=vercel-optimizely-experimentation&repository-name=vercel-optimizely-experimentation&demo-title=Vercel%20Experimentation&demo-description=A%20Next.js%20project%20using%20Optimizely%20for%20experimentation&demo-url=https%3A%2F%2Fvercel.com%2Fvercel-optimizely-experimentation.vercel.app\"\n            className=\"flex flex-row justify-center items-center\"\n          >\n            <Image\n              className=\"h-8 w-8\"\n              width={32}\n              height={32}\n              src=\"/logo.svg\"\n              alt=\"Deploy with Vercel\"\n            />\n            Deploy\n          </Link>\n        </Button>\n        <Button variant=\"secondary\" asChild>\n          <Link\n            target=\"_blank\"\n            className=\"space-x-2\"\n            href=\"https://github.com/vercel/vercel-optimizely-experimentation\"\n          >\n            <GitHubLogoIcon className=\"h-5 w-5\" />\n            <span className=\"hidden sm:block\">GitHub</span>\n          </Link>\n        </Button>\n        <Link target=\"_blank\" href=\"https://vercel.com\">\n          <Image className=\"h-7 w-fit\" src=\"/vercel-logotype-dark.png\" width={100} height={28} alt=\"Vercel Logo\" />\n        </Link>\n      </nav>\n    </header>\n  );\n}"
+    }
+  ]
+}

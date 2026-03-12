@@ -1,0 +1,99 @@
+{
+  "id": "saas-waitly",
+  "slug": "saas-waitly",
+  "title": "Waitly",
+  "categorySlug": "saas",
+  "categoryName": "SaaS",
+  "templateUrl": "https://vercel.com/templates/saas/waitly",
+  "demoUrl": "https://waitly.idee8.agency/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 72,
+  "repo": {
+    "url": "https://github.com/Idee8/waitly/tree/main/",
+    "normalizedUrl": "https://github.com/Idee8/waitly",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\idee8-waitly",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Upstash",
+    "Redis",
+    "Notion"
+  ],
+  "usefulLines": [
+    "Waitly",
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Upstash",
+    "Redis",
+    "Notion"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [
+    "large monorepo without a clear example path"
+  ],
+  "recommendedScaffoldFamilies": [
+    "saas-landing"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Waitly is a SaaS reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<h1>Next.js + Notion Waitlist Template</h1>\n\n![Waitly](/src/app/opengraph-image.png)\n\n<p>\n  Quickly launch a sleek waitlist page for your next project! This template leverages the power of Next.js, uses Notion as a simple CMS, incorporates Upstash Redis for rate limiting, and sends emails via Resend with your custom domain.\n</p>\n\n<p>\n  <strong>Live Demo:</strong> <a href=\"https://waitly.revoks.dev\" target=\"_blank\" rel=\"noopener noreferrer\">waitly.revoks.dev</a>\n</p>\n\n## Deploy to Vercel\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FIdee8%2FWaitly&env=UPSTASH_REDIS_REST_URL,UPSTASH_REDIS_REST_TOKEN,NOTION_SECRET,NOTION_DB,RESEND_API_KEY,RESEND_FROM_EMAIL&envDescription=Environment%20variables%20needed%20for%20the%20Waitly%20template.&project-name=my-waitlist&repository-name=my-waitlist-app&template=Waitly)\n\n## Core Features\n\n- **Next.js 16**: Built with the latest features of the leading React framework for performance and developer experience.\n- **Notion as CMS**: Seamlessly manage your waitlist entries directly within a Notion database.\n- **Upstash Redis**: Implement robust rate limiting for signups using serverless Redis.\n- **Resend Integration**: Send transactional emails (e.g., confirmation emails) through Resend using your custom domain.\n- **One-Click Vercel Deploy**: Get your waitlist live in minutes.\n- **Tailwind CSS & React**: Modern, responsive UI built with utility-first CSS and React components.\n- **TypeScript**: Type safety for a more robust codebase.\n\n## Why Notion as a CMS?\n\nNotion is a versatile tool renowned for its content management capabilities and user-friendly interface. This template demonstrates how to leverage Notion as a lightweight, free, and effective Content Management System (CMS) for your waitlist.\n\n**Key Advantages:**\n\n- **Simplicity**: Manage your waitlist data in a familiar Notion database.\n- **No Backend Needed**: Fetches data directly via Notion's API, reducing complexity.\n- **Flexibility**: Easily extendable to manage other types of content beyond a waitlist.\n- **Collaboration**: Utilize Notion's collaborative features if working with a team.\n\n## Prerequisites: Setting Up External Services\n\nBefore you can run this project, you'll need to configure a few external services:\n\n### 1. Upstash Redis\n\nUpstash pr\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-waitlist-template\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"email\": \"email dev --dir src/emails\"\n  },\n  \"dependencies\": {\n    \"@notionhq/client\": \"^3.0.1\",\n    \"@radix-ui/react-accordion\": \"^1.2.10\",\n    \"@radix-ui/react-slot\": \"^1.2.2\",\n    \"@react-email/components\": \"^0.0.41\",\n    \"@react-email/render\": \"^1.1.2\",\n    \"@types/canvas-confetti\": \"^1.9.0\",\n    \"@upstash/ratelimit\": \"^2.0.5\",\n    \"@upstash/redis\": \"^1.34.9\",\n    \"canvas-confetti\": \"^1.9.3\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"lucide-react\": \"^0.511.0\",\n    \"motion\": \"^12.12.1\",\n    \"next\": \"16.0.10\",\n    \"next-themes\": \"^0.4.6\",\n    \"react\": \"^19.2.3\",\n    \"react-dom\": \"^19.2.3\",\n    \"resend\": \"^4.5.1\",\n    \"sonner\": \"^2.0.3\",\n    \"tailwind-merge\": \"^3.3.0\"\n  },\n  \"devDependencies\": {\n    \"@biomejs/biome\": \"^1.9.4\",\n    \"@tailwindcss/postcss\": \"^4\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"prettier\": \"^3.5.3\",\n    \"react-email\": \"4.0.16\",\n    \"tailwindcss\": \"^4\",\n    \"tw-animate-css\": \"^1.3.0\",\n    \"typescript\": \"^5\"\n  },\n  \"packageManager\": \"pnpm@10.10.0\"\n}"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Geist_Mono, Inter_Tight } from \"next/font/google\";\nimport { Toaster } from \"sonner\";\n\nimport \"./globals.css\";\nimport Header from \"~/components/header\";\nimport { ThemeProvider } from \"~/providers/theme-provider\";\n\nconst geistMono = Geist_Mono({\n\tvariable: \"--font-geist-mono\",\n\tsubsets: [\"latin\"],\n});\n\nconst interTight = Inter_Tight({\n\tvariable: \"--font-inter-tight\",\n\tsubsets: [\"latin\"],\n\tweight: [\"400\", \"500\", \"600\", \"700\"],\n});\n\nexport const metadata: Metadata = {\n\ttitle: \"Revoks — Next.js + Notion Waitlist Template\",\n\tdescription:\n\t\t\"A simple Next.js waitlist template with Notion as CMS and Resend to send emails created with React Email and Upstash Redis for rate limiting. Deployed on Vercel.\",\n};\n\nexport default function RootLayout({\n\tchildren,\n}: Readonly<{\n\tchildren: React.ReactNode;\n}>) {\n\treturn (\n\t\t<html lang=\"en\" className=\"h-full\" suppressHydrationWarning>\n\t\t\t<body\n\t\t\t\tclassName={`${interTight.variable} ${geistMono.variable} antialiased flex flex-col h-full`}\n\t\t\t>\n\t\t\t\t<ThemeProvider>\n\t\t\t\t\t<Header />\n\t\t\t\t\t<Toaster />\n\t\t\t\t\t{children}\n\t\t\t\t</ThemeProvider>\n\t\t\t</body>\n\t\t</html>\n\t);\n}"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { LandingPage } from \"./page.client\";\nimport { connection } from \"next/server\";\nimport { getNotionDatabaseRowCount } from \"~/lib/utils\";\n\nexport const dyamic = \"force-dynamic\";\n\nexport default async function Home() {\n  const [waitlistPeople] = await Promise.all([\n    await getNotionDatabaseRowCount(process.env.NOTION_DB_ID as string),\n    // forces the page to be dyamically rendered\n    await connection(),\n  ]);\n\n  return <LandingPage waitlistPeople={waitlistPeople} />;\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "NOTION_SECRET=\"\"\nNOTION_DB_ID=\"\"\n\nRESEND_API_KEY=\"\"\nRESEND_FROM_EMAIL=\"\"\n\nUPSTASH_REDIS_REST_URL=\"\"\nUPSTASH_REDIS_REST_TOKEN=\"\""
+    },
+    {
+      "path": "src/components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\n\nimport { cn } from \"~/lib/utils\";\nimport { useScroll } from \"~/hooks/use-scroll\";\nimport { GithubLogo, NotionLogo } from \"./svgs\";\nimport { Button } from \"./ui/button\";\nimport Link from \"next/link\";\n\nexport default function Header() {\n\tconst scrolled = useScroll();\n\n\treturn (\n\t\t<header\n\t\t\tclassName={cn(\n\t\t\t\t\"py-4 flex flex-row gap-2 justify-between items-center md:px-10 sm:px-6 px-4 sticky top-0 z-50\",\n\t\t\t\tscrolled &&\n\t\t\t\t\t\"bg-background/50 md:bg-transparent md:backdrop-blur-none backdrop-blur-sm\",\n\t\t\t)}\n\t\t>\n\t\t\t<Link href=\"#\" className=\"cursor-pointer\">\n\t\t\t\t<Button variant=\"secondary\">\n\t\t\t\t\t<NotionLogo />\n\t\t\t\t\tNotion DB Sample\n\t\t\t\t</Button>\n\t\t\t</Link>\n\n\t\t\t<div className=\"flex items-center gap-2\">\n\t\t\t\t<Link\n\t\t\t\t\thref=\"https://github.com/new?template_name=Waitly&template_owner=revokslab\"\n\t\t\t\t\ttarget=\"_blank\"\n\t\t\t\t\trel=\"noopener noreferrer\"\n\t\t\t\t\tclassName=\"cursor-pointer\"\n\t\t\t\t>\n\t\t\t\t\t<Button variant=\"secondary\">\n\t\t\t\t\t\t<GithubLogo />\n\t\t\t\t\t\tUse this template\n\t\t\t\t\t</Button>\n\t\t\t\t</Link>\n\t\t\t</div>\n\t\t</header>\n\t);\n}"
+    }
+  ]
+}

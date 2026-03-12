@@ -1,0 +1,48 @@
+# frontend/package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "frontend",
+  "private": true,
+  "scripts": {
+    "prebuild": "sanity typegen generate",
+    "build": "next build",
+    "predev": "npm run sanity:typegen",
+    "dev": "next dev",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "sanity:typegen": "cd ../studio && sanity schema extract --enforce-required-fields --path ../sanity.schema.json && cd ../frontend && sanity typegen generate",
+    "start": "next start",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sanity/client": "^7.13.2",
+    "@sanity/image-url": "^1.2.0",
+    "@sanity/uuid": "^3.0.2",
+    "@tailwindcss/postcss": "^4.1.17",
+    "@tailwindcss/typography": "^0.5.19",
+    "@vercel/speed-insights": "^1.2.0",
+    "autoprefixer": "^10.4.22",
+    "date-fns": "^4.1.0",
+    "next": "16.1.5",
+    "next-sanity": "^12.0.5",
+    "postcss": "^8.5.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "sanity": "^5.1.0",
+    "sanity-image": "^1.0.0",
+    "sonner": "^2.0.7",
+    "tailwindcss": "^4.1.17"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "16.1.1",
+    "typescript": "5.9.3"
+  }
+}
+```

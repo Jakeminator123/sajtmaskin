@@ -1,0 +1,161 @@
+Hejsan, jag skulle vilja att du går in på den sajten som jag kommer att ge dig här i chatten. Jag kommer också att ge dig ett skript för att visa hur det ska hämta sidor. Jag vill att du berättar när du är inne och klickar. På vänster sida finns det något som heter use case, framework, CSS och så vidare. Klicka på olika modaler för att komma till sidor med vidare dokumentation och länkar till deras repos. Jag vill att du dokumenterar vad alla knappar är och hur allt ser ut i devtools. Detta är för att jag planerar att göra ett skript som ska hämta specifika typer av sidor och deras innehåll, men jag behöver veta hur jag ska kunna skripta fram det.: https://vercel.com/templates/next.js
+
+Här är rapporten om filterpanelens struktur och hur Vercel-sidan är uppbyggd i utvecklarverktyg. Jag gick igenom alla sektionerna, klickade på olika modaler och noterade elementklasser, sluggar och underkategorier. Rapporten innehåller även tabeller över alla filteralternativ och rekommendationer för hur ditt skript kan utökas för att hantera dessa.
+
+Vercel Templates (Next.js) – struktur för filter och mallkorten
+Översikt
+
+På sidan Next.js starter templates and themes visar Vercel olika mallar för Next.js‑applikationer tillsammans med ett filtersystem på vänster sida. Sidan använder Next.js/App Router och laddar mycket innehåll via client‑side rendering; därför ger view‑source inte allt, men det avslöjar hur filterelementen byggs upp. När man scrollar ned visas flera filtersektioner.
+
+Navigeringselement
+
+Filter Templates (vänster panel) innehåller rubrikerna Use Case, Framework, CSS, Database, CMS, Authentication och Experimentation. Varje rubrik är ett button‑element med en roterbar pil‑ikon. De har klasser som border-t pt-4 mb-4 ... och flex items-center w-full och när man klickar på en rubrik visar den underliggande kontrollernas lista. Use Case är öppen från början och visar samtliga användningsområden. Övriga rubriker är stängda till dess att man klickar på pil‑ikonen.
+
+Filtrens val listas som label‑element med klassen checkbox-module__Em-o0q__container och checkbox-module__Em-o0q__fullWidth. Inuti finns ett dolt input av typen checkbox (geist‑sr‑only checkbox-module__Em-o0q__input) och ett span med klassen checkbox-module__Em-o0q__text där själva etiketten står. Varje etikett innehåller ett ankar‑element (<a href="/templates/…">) som leder till sidan för en specifik kategorimall.
+
+Mallkorten visas i rutnätslayout (1–3 kolumner beroende på viewport) och varje kort är en länk (<a>) med klasser som group relative … border-gray-300 rounded-md. Inuti finns mallenamn (<h3>), kort beskrivning (<div class="text-label-14 …">) och en bild. Klick på kortet öppnar en detaljsida för mallen.
+
+Filtersektioner och deras val
+Use Case (användningsområde)
+
+Den första sektionen Use Case innehåller en lång lista med användningsområden. Varje post visas som en label med en checkruta och en dold länk. I HTML‑koden syns att varje label refererar till en route /templates/<slug>. De identifierade alternativen är:
+
+Slug	Visat namn
+ai	AI
+starter	Starter
+ecommerce	Ecommerce
+saas	SaaS
+blog	Blog
+portfolio	Portfolio
+cms	CMS
+backend	Backend
+edge-functions	Edge Functions
+edge-middleware	Edge Middleware
+edge-config	Edge Config
+cron	Cron
+multi-tenant-apps	Multi‑Tenant Apps
+realtime-apps	Realtime Apps
+documentation	Documentation
+virtual-event	Virtual Event
+monorepos	Monorepos
+web3	Web3
+vercel-firewall	Vercel Firewall
+microfrontends	Microfrontends
+authentication	Authentication
+marketing-sites	Marketing Sites
+cdn	CDN
+admin-dashboard	Admin Dashboard
+security	Security
+
+Den här listan överensstämmer med USE_CASES i skriptet hamta_sidor.py och varje slug motsvarar en undersida som listar mallar för det användningsområdet.
+
+Framework
+
+När man klickar på Framework expanderas en lista med olika frontend‑ramverk. En liten badge visar hur många val som är aktiverade; på Next.js‑sidan är “Next.js” redan valt (badge med tal 1). På sidan syns följande rutor
+vercel.com
+:
+
+Framework	Notering
+Vue	Vue‑ramverket.
+Nuxt	Nuxt (Vue‑baserat SSR).
+React Router	Klassisk React med React Router.
+Remix	Remix‑ramverket.
+Qwik	Qwik (builder.io).
+Astro	Astro web framework.
+Gatsby	Gatsby (React‑baserad SSG).
+Angular	Angular‑ramverket.
+Hugo	Hugo static site generator.
+Express	Express server‑ramverk.
+Other	Övriga ramverk.
+
+Varje ramverk presenteras med en ikon och text; de ligger i en vertikal lista under rubriken.
+
+CSS
+
+Sektionen CSS innehåller några stylingbibliotek. När den expanderas visas en kort lista med alternativ
+vercel.com
+:
+
+CSS‑teknik
+Material UI
+Styled Components
+Vanilla CSS
+Pinceau
+Database
+
+Under Database visas en omfattande lista med databaser och back‑end‑tjänster
+vercel.com
+vercel.com
+. Urvalet omfattar:
+
+Postgres, Vercel Blob, Upstash
+
+PlanetScale, Supabase, Neon, MongoDB, Grafbase
+
+Azure MySQL, Azure CosmosDB, Firebase, Redis, Railway, Liveblocks, TiDB
+
+CockroachDB, Tigris, Couchbase, Xata, Astra DB
+
+Gel, Convex, Turso, AWS S3, Prisma
+
+Varje namn visas med en tom checkruta; en klick filtrerar mallarna efter användning av den databasen.
+
+CMS
+
+I CMS‑sektionen listas innehållshanteringssystem och andra plattformar
+vercel.com
+. Alternativen inkluderar:
+
+WordPress, Sanity, Contentful, Sitecore, Storyblok, Prismic, Mux, Builder.io, Notion, Agility
+
+ButterCMS, BaseHub, Glide Publishing Platform, Strapi, Payload, Optimizely
+
+Crystallize, Decap, Wisp
+
+Varje CMS presenteras med en checkruta och ikon.
+
+Authentication
+
+Autentiseringssektionen listar några autentiseringsleverantörer
+vercel.com
+:
+
+Auth‑leverantör
+NextAuth.js
+Auth0
+Clerk Auth
+Supabase Auth
+Whop Auth
+Experimentation (A/B‑testning och experiment)
+
+Den sista sektionen är Experimentation där man kan välja verktyg för experiment/A‑B‑testning
+vercel.com
+:
+
+Verktyg
+LaunchDarkly
+Statsig
+Split
+Hypertune
+Growthbook
+Struktur för mallens detaljsida
+
+Varje mallkort leder till en detaljsida med mer information. I den statiska HTML‑koden visas de viktigaste sektionerna:
+
+Titel (h1) och beskrivning – <h1> visar mallens namn och <meta property="og:description"> eller första paragraf beskriver mallen.
+
+Repo‑länk och View Demo – sidorna innehåller knappar/länkar med texten “View Demo” och “GitHub Repo”, varifrån skriptet kan extrahera repositoriens URL och demo‑länk.
+
+Stack – en sektion med rubriken “Stack” listar teknikerna (t.ex. “Next.js”, “CSS Modules”) inom några rader efter rubriken; dessa kan extraheras som stack‑taggar.
+
+Getting Started – en kodsektion med kommandon som npm install, npm run dev etc. Skriptet hamta_sidor.py extraherar dessa rader för att hitta relevanta kommandon och miljövariabler.
+
+Slutsatser för skriptning
+
+Filterelementen i vänster panel är konsekvent strukturerade: varje grupp har en button‑rubrik och underliggande label‑element med klassen checkbox-module__Em-o0q__container. Slugen för varje användningsfall eller filter kan hittas i href‑attributet på ankar‑elementet inom label. Därmed kan man programmässigt härleda alla kategorier och deras undermappar genom att parsa DOM:en.
+
+Use Case‑listan innehåller cirka 25 olika kategorier. Vercel använder dessa sluggar i URL:en (/templates/<category>/<template>), vilket gör det möjligt att generera mall‑URL:er för scraping. Skriptet hamta_sidor.py gör just det genom att besöka /templates/{slug} och samla alla mallar som matchar Next.js/React.
+
+De övriga filtersektionerna (Framework, CSS, Database, CMS, Authentication, Experimentation) används på webbplatsen för att kombinera filtrering men de påverkar inte slugs i URL:en, utan växlar client‑side filters. Om man vill automatiskt samla mallar för dessa kategorier krävs att man extraherar attributen i DOM‑strukturen eller att man skapar en lista manuellt (som ovan).
+
+Denna kartläggning visar hur filterpanelens HTML‑struktur ser ut och vilka val som erbjuds. Informationen kan användas för att utöka skriptet så att det även hämtar mallar för specifika ramverk, CSS‑bibliotek, databaser, CMS, autentisering och experimentverktyg.

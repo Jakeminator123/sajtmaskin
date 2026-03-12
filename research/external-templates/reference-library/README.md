@@ -39,9 +39,10 @@ when a reference dossier is generated.
 
 Typical upstream inputs include:
 
-- raw discovery under `research/external-templates/raw-discovery/`
-- local `_sidor`-style datasets
-- cloned reference repos discovered from public template pages
+- canonical raw discovery under `research/external-templates/raw-discovery/current/`
+- local repo cache under `research/external-templates/repo-cache/`
+- legacy `_sidor` datasets only through normalized import or transitional fallback
 
-The curation/build scripts may prefer repo-local paths before falling back to an
-older desktop path convention.
+The curation/build scripts should prefer the repo-local cache and canonical raw
+discovery lane. Legacy desktop paths are migration inputs, not the preferred
+steady state.

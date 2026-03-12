@@ -1,0 +1,98 @@
+{
+  "id": "authentication-chatbot",
+  "slug": "authentication-chatbot",
+  "title": "Chatbot",
+  "categorySlug": "authentication",
+  "categoryName": "Authentication",
+  "templateUrl": "https://vercel.com/templates/ai/chatbot",
+  "demoUrl": "https://chatbot.ai-sdk.dev/demo",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/vercel/chatbot/tree/main/",
+    "normalizedUrl": "https://github.com/vercel/chatbot",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-chatbot",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "AI",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "Vercel Blob",
+    "Postgres",
+    "NextAuth.js"
+  ],
+  "usefulLines": [
+    "Chatbot",
+    "AI",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "Vercel Blob",
+    "Postgres",
+    "NextAuth.js"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "auth-pages",
+    "app-shell",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Chatbot is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<a href=\"https://chat.vercel.ai/\">\n  <img alt=\"Chatbot\" src=\"app/(chat)/opengraph-image.png\">\n  <h1 align=\"center\">Chatbot</h1>\n</a>\n\n<p align=\"center\">\n    Chatbot (formerly AI Chatbot) is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.\n</p>\n\n<p align=\"center\">\n  <a href=\"https://chatbot.dev\"><strong>Read Docs</strong></a> ·\n  <a href=\"#features\"><strong>Features</strong></a> ·\n  <a href=\"#model-providers\"><strong>Model Providers</strong></a> ·\n  <a href=\"#deploy-your-own\"><strong>Deploy Your Own</strong></a> ·\n  <a href=\"#running-locally\"><strong>Running locally</strong></a>\n</p>\n<br/>\n\n## Features\n\n- [Next.js](https://nextjs.org) App Router\n  - Advanced routing for seamless navigation and performance\n  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance\n- [AI SDK](https://ai-sdk.dev/docs/introduction)\n  - Unified API for generating text, structured objects, and tool calls with LLMs\n  - Hooks for building dynamic chat and generative user interfaces\n  - Supports OpenAI, Anthropic, Google, xAI, and other model providers via AI Gateway\n- [shadcn/ui](https://ui.shadcn.com)\n  - Styling with [Tailwind CSS](https://tailwindcss.com)\n  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility\n- Data Persistence\n  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data\n  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage\n- [Auth.js](https://authjs.dev)\n  - Simple and secure authentication\n\n## Model Providers\n\nThis template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default model is [OpenAI](https://openai.com) GPT-4.1 Mini, with support for Anthropic, Google, and xAI models.\n\n### AI Gateway Authentication\n\n**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.\n\n**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.\n\nWith the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthro\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"chatbot\",\n  \"version\": \"3.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbo\",\n    \"build\": \"tsx lib/db/migrate && next build\",\n    \"start\": \"next start\",\n    \"lint\": \"ultracite check\",\n    \"format\": \"ultracite fix\",\n    \"db:generate\": \"drizzle-kit generate\",\n    \"db:migrate\": \"npx tsx lib/db/migrate.ts\",\n    \"db:studio\": \"drizzle-kit studio\",\n    \"db:push\": \"drizzle-kit push\",\n    \"db:pull\": \"drizzle-kit pull\",\n    \"db:check\": \"drizzle-kit check\",\n    \"db:up\": \"drizzle-kit up\",\n    \"test\": \"export PLAYWRIGHT=True && pnpm exec playwright test\"\n  },\n  \"dependencies\": {\n    \"@ai-sdk/gateway\": \"^3.0.15\",\n    \"@ai-sdk/provider\": \"^3.0.3\",\n    \"@ai-sdk/react\": \"3.0.39\",\n    \"@codemirror/lang-javascript\": \"^6.2.2\",\n    \"@codemirror/lang-python\": \"^6.1.6\",\n    \"@codemirror/state\": \"^6.5.0\",\n    \"@codemirror/theme-one-dark\": \"^6.1.2\",\n    \"@codemirror/view\": \"^6.35.3\",\n    \"@icons-pack/react-simple-icons\": \"^13.7.0\",\n    \"@opentelemetry/api\": \"^1.9.0\",\n    \"@opentelemetry/api-logs\": \"^0.200.0\",\n    \"@radix-ui/react-collapsible\": \"^1.1.12\",\n    \"@radix-ui/react-dialog\": \"^1.1.15\",\n    \"@radix-ui/react-dropdown-menu\": \"^2.1.16\",\n    \"@radix-ui/react-hover-card\": \"^1.1.15\",\n    \"@radix-ui/react-icons\": \"^1.3.0\",\n    \"@radix-ui/react-progress\": \"^1.1.8\",\n    \"@radix-ui/react-scroll-area\": \"^1.2.10\",\n    \"@radix-ui/react-select\": \"^2.2.6\",\n    \"@radix-ui/react-separator\": \"^1.1.8\",\n    \"@radix-ui/react-slot\": \"^1.2.4\",\n    \"@radix-ui/react-tooltip\": \"^1.2.8\",\n    \"@radix-ui/react-use-controllable-state\": \"^1.2.2\",\n    \"@radix-ui/react-visually-hidden\": \"^1.1.0\",\n    \"@vercel/analytics\": \"^1.3.1\",\n    \"@vercel/blob\": \"^0.24.1\",\n    \"@vercel/functions\": \"^2.0.0\",\n    \"@vercel/otel\": \"^1.12.0\",\n    \"@xyflow/react\": \"^12.10.0\",\n    \"ai\": \"6.0.37\",\n    \"bcrypt-ts\": \"^5.0.2\",\n    \"botid\": \"1.5.11\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"classnames\": \"^2.5.1\",\n    \"clsx\": \"^2.1.1\",\n    \"cmdk\": \"^1.1.1\",\n    \"codemirror\": \"^6.0.1\",\n    \"date-fns\": \"^4.1.0\",\n    \"diff-match-patch\": \"^1.0.5\",\n    \"dotenv\": \"^16.4.5\",\n    \"drizzle-orm\": \"^0.34.0\",\n    \"embla-carousel-react\": \"^8.6.0\",\n    \"fast-deep-equal\": \"^3.1.3\",\n    \"framer-motion\": \"^11.3.19\",\n    \"geist\": \"^1.3.1\",\n    \"katex\": \"^0.16.25\",\n    \"lucide-react\": \"^0.446.0\",\n    \"motion\": \"^12.23.26\",\n    \"nanoid\": \"^5.1.3\"\n\n// ... truncated"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Geist, Geist_Mono } from \"next/font/google\";\nimport { Toaster } from \"sonner\";\nimport { ThemeProvider } from \"@/components/theme-provider\";\n\nimport \"./globals.css\";\nimport { SessionProvider } from \"next-auth/react\";\n\nexport const metadata: Metadata = {\n  metadataBase: new URL(\"https://chat.vercel.ai\"),\n  title: \"Next.js Chatbot Template\",\n  description: \"Next.js chatbot template using the AI SDK.\",\n};\n\nexport const viewport = {\n  maximumScale: 1, // Disable auto-zoom on mobile Safari\n};\n\nconst geist = Geist({\n  subsets: [\"latin\"],\n  display: \"swap\",\n  variable: \"--font-geist\",\n});\n\nconst geistMono = Geist_Mono({\n  subsets: [\"latin\"],\n  display: \"swap\",\n  variable: \"--font-geist-mono\",\n});\n\nconst LIGHT_THEME_COLOR = \"hsl(0 0% 100%)\";\nconst DARK_THEME_COLOR = \"hsl(240deg 10% 3.92%)\";\nconst THEME_COLOR_SCRIPT = `\\\n(function() {\n  var html = document.documentElement;\n  var meta = document.querySelector('meta[name=\"theme-color\"]');\n  if (!meta) {\n    meta = document.createElement('meta');\n    meta.setAttribute('name', 'theme-color');\n    document.head.appendChild(meta);\n  }\n  function updateThemeColor() {\n    var isDark = html.classList.contains('dark');\n    meta.setAttribute('content', isDark ? '${DARK_THEME_COLOR}' : '${LIGHT_THEME_COLOR}');\n  }\n  var observer = new MutationObserver(updateThemeColor);\n  observer.observe(html, { attributes: true, attributeFilter: ['class'] });\n  updateThemeColor();\n})();`;\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html\n      className={`${geist.variable} ${geistMono.variable}`}\n      // `next-themes` injects an extra classname to the body element to avoid\n      // visual flicker before hydration. Hence the `suppressHydrationWarning`\n      // prop is necessary to avoid the React hydration mismatch warning.\n      // https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app\n      lang=\"en\"\n      suppressHydrationWarning\n    >\n      <head>\n        <script\n          // biome-ignore lint/security/noDangerouslySetInnerHtml: \"Required\"\n          dangerouslySetInnerHTML={{\n            __html: THEME_COLOR_SCRIPT,\n          }}\n        />\n      </head>\n      <body className=\"antialiased\">\n        <ThemeProvider\n          attribute=\"clas\n\n// ... truncated"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Generate a random secret: https://generate-secret.vercel.app/32 or `openssl rand -base64 32`\nAUTH_SECRET=****\n\n# The following keys below are automatically created and\n# added to your environment when you deploy on Vercel\n\n# Instructions to create an AI Gateway API key here: https://vercel.com/ai-gateway\n# API key required for non-Vercel deployments\n# For Vercel deployments, OIDC tokens are used automatically\n# https://vercel.com/ai-gateway\nAI_GATEWAY_API_KEY=****\n\n\n# Instructions to create a Vercel Blob Store here: https://vercel.com/docs/vercel-blob\nBLOB_READ_WRITE_TOKEN=****\n\n# Instructions to create a PostgreSQL database here: https://vercel.com/docs/postgres\nPOSTGRES_URL=****\n\n\n# Instructions to create a Redis store here:\n# https://vercel.com/docs/redis\nREDIS_URL=****"
+    },
+    {
+      "path": "components/ui/sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "\"use client\";\n\nimport { cva, type VariantProps } from \"class-variance-authority\";\nimport { PanelLeft } from \"lucide-react\";\nimport { Slot as SlotPrimitive } from \"radix-ui\";\nimport * as React from \"react\";\nimport { Button } from \"@/components/ui/button\";\nimport { Input } from \"@/components/ui/input\";\nimport { Separator } from \"@/components/ui/separator\";\nimport {\n  Sheet,\n  SheetContent,\n  SheetDescription,\n  SheetHeader,\n  SheetTitle,\n} from \"@/components/ui/sheet\";\nimport { Skeleton } from \"@/components/ui/skeleton\";\nimport {\n  Tooltip,\n  TooltipContent,\n  TooltipProvider,\n  TooltipTrigger,\n} from \"@/components/ui/tooltip\";\nimport { useIsMobile } from \"@/hooks/use-mobile\";\nimport { cn } from \"@/lib/utils\";\n\nconst SIDEBAR_COOKIE_NAME = \"sidebar_state\";\nconst SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;\nconst SIDEBAR_WIDTH = \"16rem\";\nconst SIDEBAR_WIDTH_MOBILE = \"18rem\";\nconst SIDEBAR_WIDTH_ICON = \"3rem\";\nconst SIDEBAR_KEYBOARD_SHORTCUT = \"b\";\n\ntype SidebarContextProps = {\n  state: \"expanded\" | \"collapsed\";\n  open: boolean;\n  setOpen: (open: boolean) => void;\n  openMobile: boolean;\n  setOpenMobile: (open: boolean) => void;\n  isMobile: boolean;\n  toggleSidebar: () => void;\n};\n\nconst SidebarContext = React.createContext<SidebarContextProps | null>(null);\n\nfunction useSidebar() {\n  const context = React.useContext(SidebarContext);\n  if (!context) {\n    throw new Error(\"useSidebar must be used within a SidebarProvider.\");\n  }\n\n  return context;\n}\n\nconst SidebarProvider = React.forwardRef<\n  HTMLDivElement,\n  React.ComponentProps<\"div\"> & {\n    defaultOpen?: boolean;\n    open?: boolean;\n    onOpenChange?: (open: boolean) => void;\n  }\n>(\n  (\n    {\n      defaultOpen = true,\n      open: openProp,\n      onOpenChange: setOpenProp,\n      className,\n      style,\n      children,\n      ...props\n    },\n    ref\n  ) => {\n    const isMobile = useIsMobile();\n    const [openMobile, setOpenMobile] = React.useState(false);\n\n    // This is the internal state of the sidebar.\n    // We use openProp and setOpenProp for control from outside the component.\n    const [_open, _setOpen] = React.useState(defaultOpen);\n    const open = openProp ?? _open;\n    const setOpen = React.useCallback(\n      (value: boolean | ((value: boolean) => boolean)) => {\n        const openState = typeof value === \"function\" ? valu\n\n// ... truncated"
+    }
+  ]
+}

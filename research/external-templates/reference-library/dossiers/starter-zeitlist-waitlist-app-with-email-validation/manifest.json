@@ -1,0 +1,90 @@
+{
+  "id": "starter-zeitlist-waitlist-app-with-email-validation",
+  "slug": "starter-zeitlist-waitlist-app-with-email-validation",
+  "title": "Zeitlist: Waitlist App with Email Validation",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/zeitlist",
+  "demoUrl": "https://v0.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/zeitgg/zeitlist/tree/main/",
+    "normalizedUrl": "https://github.com/zeitgg/zeitlist",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\zeitgg-zeitlist",
+    "packageManager": "bun",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Redis",
+    "Upstash"
+  ],
+  "usefulLines": [
+    "Zeitlist: Waitlist App with Email Validation",
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Redis",
+    "Upstash"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Zeitlist: Waitlist App with Email Validation is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Zeitlist\n\nthis is a waitlist app. it uses redis. and arcjet to validate emails.\n\n![](zeitlist.gif)\n\n## Core Functionality\n\n- Provides a simple form for users to submit their email.\n- Validates submitted emails using Arcjet before processing.\n- Stores valid emails in a Redis list managed by Upstash.\n- Displays a live count of total signups.\n\n## Tech Used\n\n- **Framework:** Next.js\n- **Database:** Upstash (Redis)\n- **Email Validation:** Arcjet\n- **Styling:** Tailwind CSS\n- **Language:** TypeScript\n\n## Local Setup\n\nTo get this running on your machine:\n\n1.  **Clone it:**\n\n    ```bash\n    git clone ``https://github.com/zeitgg/zeitlist.git`\n    cd zeitlist\n    ```\n\n2.  **Install dependencies:**\n\n    ```bash\n    bun i\n    ```\n\n3.  **Set up environment variables:**\n    You'll need API keys/URLs. Create a `.env.local` file in the root directory and dd these variables:\n\n    ```plaintext\n    # Get from your Upstash dashboard\n    UPSTASH_REDIS_REST_URL=\"YOUR_UPSTASH_REDIS_URL\"\n    UPSTASH_REDIS_REST_TOKEN=\"YOUR_UPSTASH_REDIS_TOKEN\"\n\n    # Get from your Arcjet dashboard\n    ARCJET_SITE_KEY=\"YOUR_ARCJET_SITE_KEY\"\n    ```\n\n4.  **Run the dev server:**\n\n    ```bash\n    bun dev\n    ```\n\n5.  **Open in browser:** `http://localhost:3000`\n\n## How it Works (Quick Overview)\n\n1.  User submits their email via the frontend.\n2.  The submission hits an API route (e.g., `/api/waitlist/`).\n3.  This API route first passes the email to Arcjet for validation.\n4.  If Arcjet approves, the email is added to a list in Redis using the Upstash SDK.\n5.  A separate API route (e.g., `/api/waitlist/count`) reads the length of the Redis list to get the current signup count.\n6.  The frontend fetches from the count endpoint and displays the number.\n\n## Contributing\n\nIssues and PRs welcome.\n\n## License\n\n[MIT License](LICENSE)"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"waitlist-template\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@arcjet/next\": \"^1.0.0-beta.5\",\n    \"@hookform/resolvers\": \"^5.0.1\",\n    \"@radix-ui/react-dropdown-menu\": \"^2.1.7\",\n    \"@radix-ui/react-label\": \"^2.1.3\",\n    \"@radix-ui/react-slot\": \"^1.2.0\",\n    \"@upstash/redis\": \"^1.34.7\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"geist\": \"^1.3.1\",\n    \"lucide-react\": \"^0.487.0\",\n    \"motion\": \"^12.6.3\",\n    \"motion-plus\": \"^0.1.6\",\n    \"next\": \"15.2.7\",\n    \"next-themes\": \"^0.4.6\",\n    \"react\": \"^19.0.0\",\n    \"react-dom\": \"^19.0.0\",\n    \"react-hook-form\": \"^7.55.0\",\n    \"react-icons\": \"^5.5.0\",\n    \"sonner\": \"^2.0.3\",\n    \"tailwind-merge\": \"^3.2.0\",\n    \"tw-animate-css\": \"^1.2.5\",\n    \"zod\": \"^3.24.2\"\n  },\n  \"devDependencies\": {\n    \"typescript\": \"^5\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"@tailwindcss/postcss\": \"^4\",\n    \"tailwindcss\": \"^4\"\n  }\n}"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Geist, Geist_Mono } from \"next/font/google\";\nimport \"./globals.css\";\nimport { ThemeProvider } from \"@/components/themes/theme-provider\";\nimport { Toaster } from \"@/components/ui/sonner\";\n\nconst geistSans = Geist({\n  variable: \"--font-geist-sans\",\n  subsets: [\"latin\"],\n});\n\nconst geistMono = Geist_Mono({\n  variable: \"--font-geist-mono\",\n  subsets: [\"latin\"],\n});\n\nexport const metadata: Metadata = {\n  title: \"Zeitlist\",\n  description: \"A simple Next.js Waitlist application with email validation.\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body\n        className={`${geistSans.className} ${geistMono.variable} antialiased`}\n      >\n        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"system\"\n          enableSystem\n          disableTransitionOnChange\n        >\n          <Toaster position=\"bottom-center\" />\n          {children}\n        </ThemeProvider>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { Counter } from \"@/components/counter\";\nimport { Button } from \"@/components/ui/button\";\nimport SplitText from \"@/components/ui/split-text\";\nimport { WaitlistForm } from \"@/components/waitlist-form\";\nimport Link from \"next/link\";\nimport { FaGithub } from \"react-icons/fa\";\n\nexport default function Home() {\n  return (\n    <div className=\"flex flex-col h-screen justify-center items-center text-center\">\n      <div className=\"mb-8\">\n        <SplitText className=\"text-5xl tracking-tighter font-medium\">\n          Get early access\n        </SplitText>\n        <SplitText className=\"tracking-tight text-xl\">\n          Be amongst the first to experience our services.\n        </SplitText>\n      </div>\n      <WaitlistForm />\n      <div className=\"mt-4\">\n        <Counter />\n      </div>\n      <footer className=\"sticky top-[100vh]\">\n        <Button size=\"icon\" variant=\"ghost\">\n          <Link href=\"https://github.com/zeitgg/zeitlist\" target=\"_blank\">\n            <FaGithub />\n          </Link>\n        </Button>\n      </footer>\n    </div>\n  );\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Redis tokens retrieved here: https://console.upstash.com/\nUPSTASH_REDIS_REST_URL=\nUPSTASH_REDIS_REST_TOKEN=\n# Arcjet API key retrieved here: https://arcjet.com\nARCJET_KEY="
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "root",
+  "version": "0.0.0",
+  "private": true,
+  "repository": "https://github.com/nextauthjs/next-auth.git",
+  "scripts": {
+    "build:app": "turbo run build --filter=next-auth-app",
+    "build:docs": "turbo run build --filter=docs",
+    "build": "turbo run build --filter=next-auth --filter=@auth/*",
+    "test": "turbo run test --concurrency=1 --filter=[HEAD^1] --filter=./packages/* --filter=!*app* --filter=!*dynamo* --filter=!*edgedb* --filter=!*hasura* --filter=!*mikro* --filter=!*dgraph* --filter=!*xata* --filter=!*typeorm*",
+    "test:e2e": "turbo run test:e2e --filter=next-auth",
+    "test:e2e:watch": "turbo run test:e2e -- --ui",
+    "clean": "turbo run clean --no-cache",
+    "dev": "pnpm dev:next",
+    "dev:next": "turbo run dev --parallel --continue --filter=next-auth-app... --filter=@auth/core --filter=!./packages/adapter-*",
+    "dev:e2e:next": "turbo run dev --filter=next-auth-app",
+    "dev:db": "turbo run dev --parallel --continue --filter=next-auth-app...",
+    "dev:sveltekit": "turbo run dev --parallel --continue --filter=sveltekit-auth-app...",
+    "dev:express": "turbo run dev --parallel --continue --filter=express-auth-app...",
+    "dev:qwik": "turbo run dev --parallel --continue --filter=qwik-auth-app...",
+    "dev:docs": "turbo run dev --filter=docs",
+    "email": "fake-smtp-server",
+    "lint": "eslint --cache .",
+    "format": "prettier --cache --check .",
+    "format:write": "prettier --cache --write .",
+    "release": "release",
+    "peek": "pnpm release --peek",
+    "setup-fw-integration": "pnpm clean --filter=@auth/frameworks-template && node packages/utils/scripts/setup-fw-integration.js"
+  },
+  "devDependencies": {
+    "@actions/core": "^1.10.0",
+    "@balazsorban/monorepo-release": "0.5.1",
+    "@eslint/compat": "^1.1.1",
+    "@eslint/js": "^9.9.1",
+    "@playwright/test": "1.40.0",
+    "@types/node": "^20.8.10",
+    "@typescript-eslint/eslint-plugin": "v6.19.1",
+    "@typescript-eslint/parser": "v6.19.1",
+    "@vitest/coverage-v8": "1.2.1",
+    "@vitest/ui": "^1.2.2",
+    "eslint": "9.9.1",
+    "eslint-config-prettier": "^8.10.0",
+    "eslint-plugin-import-x": "^4.1.1",
+    "eslint-plugin-jsdoc": "^39.9.1",
+    "eslint-plugin-promise": "^6.0.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-svelte": "^2.38.0",
+    "fake-smtp-server": "^0.8.0",
+    "lefthoo
+
+// ... truncated
+```

@@ -1,0 +1,100 @@
+{
+  "id": "cms-launchpad-next-js-strapi-starter",
+  "slug": "cms-launchpad-next-js-strapi-starter",
+  "title": "LaunchPad: Next.js × Strapi Starter",
+  "categorySlug": "cms",
+  "categoryName": "CMS",
+  "templateUrl": "https://vercel.com/templates/blog/strapi",
+  "demoUrl": "https://v0.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/strapi/LaunchPad",
+    "normalizedUrl": "https://github.com/strapi/LaunchPad",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\strapi-launchpad",
+    "packageManager": "yarn",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Blog",
+    "SaaS",
+    "CMS",
+    "Next.js",
+    "Tailwind",
+    "Strapi"
+  ],
+  "usefulLines": [
+    "LaunchPad: Next.js × Strapi Starter",
+    "Blog",
+    "SaaS",
+    "CMS",
+    "Next.js",
+    "Tailwind",
+    "Strapi"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "editorial content hierarchy",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "content-site",
+    "blog"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "LaunchPad: Next.js × Strapi Starter is a CMS reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "next/README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# 🌟 Next.js Multilingual Blog Template\n\nWelcome to our cutting-edge Next.js Multilingual Blog Template! This powerful and flexible template is designed to help you create stunning, multilingual blogs with ease.\n\n## ✨ Features\n\n- 🌐 Multilingual support (English and French)\n- 📱 Fully responsive design\n- 🎨 Customizable themes\n- 🖼️ Image optimization\n- 🔍 SEO-friendly\n- 🚀 Fast performance with Next.js\n\n## 🚀 Getting Started\n\n1. Clone this repository\n2. Install dependencies: `npm install`\n3. Copy `.env.example` to `.env.local` and update the variables\n4. Run the development server: `npm run dev`\n5. Open [http://localhost:3000](http://localhost:3000) in your browser\n\n## 🛠️ Customization\n\n- Modify `config.ts` to change language settings\n- Update `next.config.mjs` for advanced configurations\n- Add your own MDX files in the `blog` page directly\n\n## 🤝 Contributing\n\nWe welcome contributions! Please see our [contributing guidelines](link-to-contributing-guidelines) for more information.\n\n## 📄 License\n\nThis project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.\n\n---\n\n<footer>\n<p align=\"center\">\n  Made by <a href=\"https://aceternity.com\">Aceternity</a><br>\n  Powered by <a href=\"https://nextjs.org/\">Next.js</a> | <a href=\"https://tailwindcss.com/\">Tailwind CSS</a> | <a href=\"https://framer.com/motion\">Framer Motion</a> | <a href=\"https://ui.aceternity.com\">Aceternity UI</a>\n</p>\n</footer>\n\n++ Deploy"
+    },
+    {
+      "path": "next/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"clean\": \"rm -rf .next && rm -rf node_modules && npm i\"\n  },\n  \"dependencies\": {\n    \"@emotion/is-prop-valid\": \"^1.3.0\",\n    \"@formatjs/intl-localematcher\": \"^0.5.4\",\n    \"@headlessui/react\": \"^2.1.2\",\n    \"@mapbox/rehype-prism\": \"^0.9.0\",\n    \"@react-three/drei\": \"^9.109.2\",\n    \"@react-three/fiber\": \"^9.3.0\",\n    \"@strapi/blocks-react-renderer\": \"^1.0.1\",\n    \"@strapi/client\": \"^1.6.0\",\n    \"@tabler/icons-react\": \"^3.11.0\",\n    \"@tailwindcss/typography\": \"^0.5.13\",\n    \"@tsparticles/engine\": \"^3.5.0\",\n    \"@tsparticles/react\": \"^3.0.0\",\n    \"@tsparticles/slim\": \"^3.5.0\",\n    \"@types/fuzzy-search\": \"^2.1.5\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.1.1\",\n    \"date-fns\": \"^3.6.0\",\n    \"framer-motion\": \"^12.23.12\",\n    \"fuzzy-search\": \"^3.2.1\",\n    \"mini-svg-data-uri\": \"^1.4.4\",\n    \"negotiator\": \"^0.6.3\",\n    \"next\": \"^16.0.0\",\n    \"next-view-transitions\": \"^0.2.0\",\n    \"qs\": \"^6.14.0\",\n    \"react\": \"^19.2.0\",\n    \"react-dom\": \"^19.2.0\",\n    \"react-fast-marquee\": \"^1.6.5\",\n    \"react-icons\": \"^5.2.1\",\n    \"react-wrap-balancer\": \"^1.1.1\",\n    \"sharp\": \"^0.33.5\",\n    \"tailwind-merge\": \"^2.4.0\",\n    \"tailwindcss-animate\": \"^1.0.7\",\n    \"three\": \"^0.168.0\",\n    \"three-globe\": \"^2.31.1\"\n  },\n  \"devDependencies\": {\n    \"@types/negotiator\": \"^0.6.3\",\n    \"@types/node\": \"^20\",\n    \"@types/qs\": \"^6.9.16\",\n    \"@types/react\": \"^19.2.0\",\n    \"@types/react-dom\": \"^19.2.0\",\n    \"@types/three\": \"^0.179.0\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"^16.0.0\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"5.6.2\"\n  },\n  \"resolutions\": {\n    \"@types/react\": \"^19.2.0\",\n    \"@types/react-dom\": \"^19.2.0\"\n  }\n}"
+    },
+    {
+      "path": "next/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Viewport } from 'next';\nimport { Suspense } from 'react';\n\nimport { i18n } from '@/i18n.config';\n\nimport './globals.css';\n\nimport { SlugProvider } from '@/app/context/SlugContext';\nimport { Preview } from '@/components/preview';\n\nexport const viewport: Viewport = {\n  themeColor: [\n    { media: '(prefers-color-scheme: light)', color: '#06b6d4' },\n    { media: '(prefers-color-scheme: dark)', color: '#06b6d4' },\n  ],\n};\n\nexport async function generateStaticParams() {\n  return i18n.locales.map((locale) => ({ lang: locale }));\n}\n\nfunction RootLoading() {\n  return (\n    <div className=\"flex min-h-screen items-center justify-center bg-charcoal\">\n      <div className=\"h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent\" />\n    </div>\n  );\n}\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body suppressHydrationWarning>\n        <Preview />\n        <SlugProvider>\n          <Suspense fallback={<RootLoading />}>{children}</Suspense>\n        </SlugProvider>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "next/.env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "WEBSITE_URL=http://localhost:3000 # Add the correct ENV var for this onto your hosting platform, point it to your production website.\nENVIRONMENT=development\nPORT=3000\n\nNEXT_PUBLIC_API_URL=http://localhost:1337\nPREVIEW_SECRET=preview_secret"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# LaunchPad - Official Strapi Demo\n\n![LaunchPad](./LaunchPad.jpg)\n\nWelcome aboard **LaunchPad**, the official Strapi demo application, where we launch your content into the stratosphere at the speed of _\"we-can't-even-measure-it!\"_.\nThis repository contains the following:\n\n- A Strapi project with content-types and data already onboard\n- A Next.js client that's primed and ready to fetch the content from Strapi faster than you can say \"blast off!\"\n\n## 🌌 Get started\n\nStrap yourself in! You can get started with this project on your local machine by following the instructions below, or you can [request a private instance on our website](https://strapi.io/demo)\n\n### Prerequisites\n\n- **Node.js** v18 or higher\n- **Yarn** as your package manager (this project uses Yarn internally for its scripts)\n\n> **Don't have Yarn installed?** You can enable it via Node.js Corepack:\n> ```sh\n> corepack enable\n> ```\n> Or install it globally via npm:\n> ```sh\n> npm install -g yarn\n> ```\n\n## 1. Clone and Install\n\nTo infinity and beyond! Clone the repo and install root dependencies:\n\n```sh\ngit clone https://github.com/strapi/launchpad.git\ncd launchpad\nyarn install\n```\n\n## 2. Setup\n\nRun the setup script to install dependencies in both projects (Strapi and Next.js) and copy the environment files:\n\n```sh\nyarn setup\n```\n\n## 3. Seed the Data\n\nPopulate your Strapi instance with demo content:\n\n```sh\nyarn seed\n```\n\n## 4. Start the Development Servers\n\nLaunch both Strapi and Next.js concurrently from the root:\n\n```sh\nyarn dev\n```\n\nThis starts the Strapi server first, waits for it to be ready, then starts the Next.js frontend. You're now a spacefaring content master!\n\nVisit http://localhost:1337/admin to create your first Strapi user, and http://localhost:3000 to discover your space rocket website.\n\n## Features Overview ✨\n\n### User\n\n<br />\n\n - **An intuitive, minimal editor** The editor allows you to pull in dynamic blocks of content. It’s 100% open-source, and it’s fully extensible.<br />\n - **Media Library** Upload images, video or any files and crop and optimize their sizes, without quality loss.<br />\n - **Flexible content management** Build any type of category, section, format or flow to adapt to your needs. <br />\n - **Sort and Filter** Built-in sorting and filtering: you can manage thousands of entries without eff\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"strapi-next-launchpad-example\",\n  \"version\": \"1.0.0\",\n  \"description\": \"Next.js Launchpad Example powered by Strapi\",\n  \"type\": \"module\",\n  \"scripts\": {\n    \"prepare\": \"husky\",\n    \"next\": \"yarn dev --prefix ../next/\",\n    \"strapi\": \"yarn dev --prefix ../strapi/\",\n    \"setup:next\": \"cd next && yarn && node --loader ts-node/esm ../scripts/copy-env.mts ../next\",\n    \"setup:strapi\": \"cd strapi && yarn && node --loader ts-node/esm ../scripts/copy-env.mts  ../strapi\",\n    \"setup\": \"yarn && yarn setup:next && yarn setup:strapi\",\n    \"dev\": \"yarn concurrently \\\"cd strapi && yarn develop\\\" \\\"npx wait-on http://localhost:1337 && cd next && yarn dev\\\"\",\n    \"seed\": \"cd strapi && yarn strapi import -f ./data/export_20250116105447.tar.gz --force\",\n    \"export\": \"cd strapi && yarn strapi export --no-encrypt -f ./data/export_20250116105447\",\n    \"repo:upstream\": \"git fetch upstream && git merge upstream/main\",\n    \"check:format\": \"prettier . --check --cache\",\n    \"fix:format\": \"prettier . --write --cache\",\n    \"fix\": \"yarn fix:format\",\n    \"lint-staged\": \"lint-staged\"\n  },\n  \"dependencies\": {\n    \"@types/node\": \"^22.5.2\",\n    \"concurrently\": \"^8.2.2\",\n    \"typescript\": \"^5.0.0\",\n    \"wait-on\": \"^8.0.1\"\n  },\n  \"devDependencies\": {\n    \"@trivago/prettier-plugin-sort-imports\": \"^5.2.2\",\n    \"dotenv\": \"^17.2.3\",\n    \"husky\": \"^9.1.7\",\n    \"lint-staged\": \"^15.2.10\",\n    \"prettier\": \"^3.5.3\",\n    \"ts-node\": \"^10.9.2\",\n    \"uuid\": \"^13.0.0\"\n  },\n  \"lint-staged\": {\n    \"*.{js,jsx,ts,tsx,json,md,yml,yaml}\": [\n      \"yarn fix:format\"\n    ],\n    \"next/**/*.{js,jsx,ts,tsx}\": [\n      \"cd next && yarn lint --fix\"\n    ]\n  },\n  \"packageManager\": \"yarn@4.5.0\"\n}"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "id": "documentation-next-image-loading-offset",
+  "slug": "documentation-next-image-loading-offset",
+  "title": "next/image loading offset",
+  "categorySlug": "documentation",
+  "categoryName": "Documentation",
+  "templateUrl": "https://vercel.com/templates/documentation/image-offset",
+  "demoUrl": "https://solutions-image-offset.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 60,
+  "repo": {
+    "url": "https://github.com/vercel/examples/tree/main/solutions/image-offset",
+    "normalizedUrl": "https://github.com/vercel/examples",
+    "subpath": "solutions/image-offset",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-examples",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": false,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Documentation",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "next/image loading offset",
+    "Documentation",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": true,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "next/image loading offset is a Documentation reference with verified Next.js codebase. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "---\nname: next/image loading offset\nslug: image-offset\ndescription: Learn how lazy loading works on next/image.\nframework: Next.js\nuseCase: Documentation\ncss: Tailwind\ndeployUrl: https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/solutions/image-offset&project-name=image-offset&repository-name=image-offset\ndemoUrl: https://solutions-image-offset.vercel.app\n---\n\n# next/image offset example\n\nThis example shows how lazy loading works on next/image.\n\n## Demo\n\nhttps://solutions-image-offset.vercel.app\n\n## How to Use\n\nYou can choose from one of the following two methods to use this repository:\n\n### One-Click Deploy\n\nDeploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=vercel-examples):\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/solutions/image-offset&project-name=image-offset&repository-name=image-offset)\n\n### Clone and Deploy\n\nExecute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [pnpm](https://pnpm.io/installation) to bootstrap the example:\n\n```bash\npnpm create next-app --example https://github.com/vercel/examples/tree/main/solutions/image-offset image-offset\n```\n\nNext, run Next.js in development mode:\n\n```bash\npnpm dev\n```\n\nDeploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&utm_medium=readme&utm_campaign=edge-middleware-eap) ([Documentation](https://nextjs.org/docs/deployment))."
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"image-offset\",\n  \"repository\": \"https://github.com/vercel/examples.git\",\n  \"license\": \"MIT\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@vercel/examples-ui\": \"^1.0.5\",\n    \"next\": \"^16.0.10\",\n    \"react\": \"^19.2.1\",\n    \"react-dom\": \"^19.2.1\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"autoprefixer\": \"^10.4.14\",\n    \"eslint\": \"^8.36.0\",\n    \"eslint-config-next\": \"canary\",\n    \"postcss\": \"^8.4.21\",\n    \"tailwindcss\": \"^3.2.7\",\n    \"turbo\": \"^1.8.3\",\n    \"typescript\": \"^5\"\n  }\n}"
+    }
+  ]
+}

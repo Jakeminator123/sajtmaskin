@@ -1,0 +1,99 @@
+{
+  "id": "starter-admin-dashboard",
+  "slug": "starter-admin-dashboard",
+  "title": "Admin Dashboard",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/admin-dashboard",
+  "demoUrl": "https://next-admin-dash.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/vercel/nextjs-postgres-nextauth-tailwindcss-template",
+    "normalizedUrl": "https://github.com/vercel/nextjs-postgres-nextauth-tailwindcss-template",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-nextjs-postgres-nextauth-tailwindcss-template",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Postgres",
+    "NextAuth.js"
+  ],
+  "usefulLines": [
+    "Admin Dashboard",
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Postgres",
+    "NextAuth.js"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "auth-pages",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Admin Dashboard is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<div align=\"center\"><strong>Next.js 15 Admin Dashboard Template</strong></div>\n<div align=\"center\">Built with the Next.js App Router</div>\n<br />\n<div align=\"center\">\n<a href=\"https://next-admin-dash.vercel.app/\">Demo</a>\n<span> · </span>\n<a href=\"https://vercel.com/templates/next.js/admin-dashboard-tailwind-postgres-react-nextjs\">Clone & Deploy</a>\n<span>\n</div>\n\n## Overview\n\nThis is a starter template using the following stack:\n\n- Framework - [Next.js (App Router)](https://nextjs.org)\n- Language - [TypeScript](https://www.typescriptlang.org)\n- Auth - [Auth.js](https://authjs.dev)\n- Database - [Postgres](https://vercel.com/postgres)\n- Deployment - [Vercel](https://vercel.com/docs/concepts/next.js/overview)\n- Styling - [Tailwind CSS](https://tailwindcss.com)\n- Components - [Shadcn UI](https://ui.shadcn.com/)\n- Analytics - [Vercel Analytics](https://vercel.com/analytics)\n- Formatting - [Prettier](https://prettier.io)\n\nThis template uses the new Next.js App Router. This includes support for enhanced layouts, colocation of components, tests, and styles, component-level data fetching, and more.\n\n## Getting Started\n\nDuring the deployment, Vercel will prompt you to create a new Postgres database. This will add the necessary environment variables to your project.\n\nInside the Vercel Postgres dashboard, create a table based on the schema defined in this repository.\n\n```sql\nCREATE TYPE status AS ENUM ('active', 'inactive', 'archived');\n\nCREATE TABLE products (\n  id SERIAL PRIMARY KEY,\n  image_url TEXT NOT NULL,\n  name TEXT NOT NULL,\n  status status NOT NULL,\n  price NUMERIC(10, 2) NOT NULL,\n  stock INTEGER NOT NULL,\n  available_at TIMESTAMP NOT NULL\n);\n```\n\nThen, uncomment `app/api/seed.ts` and hit `http://localhost:3000/api/seed` to seed the database with products.\n\nNext, copy the `.env.example` file to `.env` and update the values. Follow the instructions in the `.env.example` file to set up your GitHub OAuth application.\n\n```bash\nnpm i -g vercel\nvercel link\nvercel env pull\n```\n\nFinally, run the following commands to start the development server:\n\n```bash\npnpm install\npnpm dev\n```\n\nYou should now be able to access the application at http://localhost:3000."
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\"\n  },\n  \"dependencies\": {\n    \"@neondatabase/serverless\": \"^0.9.5\",\n    \"@radix-ui/react-dialog\": \"^1.1.4\",\n    \"@radix-ui/react-dropdown-menu\": \"^2.1.4\",\n    \"@radix-ui/react-slot\": \"^1.1.1\",\n    \"@radix-ui/react-tabs\": \"^1.1.2\",\n    \"@radix-ui/react-tooltip\": \"^1.1.6\",\n    \"@types/node\": \"20.17.6\",\n    \"@types/react\": \"19.0.0\",\n    \"@types/react-dom\": \"19.0.0\",\n    \"@vercel/analytics\": \"^1.4.1\",\n    \"autoprefixer\": \"^10.4.20\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"drizzle-kit\": \"^0.22.8\",\n    \"drizzle-orm\": \"^0.31.4\",\n    \"drizzle-zod\": \"^0.5.1\",\n    \"lucide-react\": \"^0.400.0\",\n    \"next\": \"^15.1.9\",\n    \"next-auth\": \"5.0.0-beta.25\",\n    \"postcss\": \"^8.4.49\",\n    \"prettier\": \"^3.4.2\",\n    \"prop-types\": \"^15.8.1\",\n    \"react\": \"19.0.0\",\n    \"react-dom\": \"19.0.0\",\n    \"server-only\": \"^0.0.1\",\n    \"tailwind-merge\": \"^2.6.0\",\n    \"tailwindcss\": \"^3.4.17\",\n    \"tailwindcss-animate\": \"^1.0.7\",\n    \"typescript\": \"5.7.2\",\n    \"zod\": \"^3.24.1\"\n  },\n  \"prettier\": {\n    \"arrowParens\": \"always\",\n    \"singleQuote\": true,\n    \"tabWidth\": 2,\n    \"trailingComma\": \"none\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import './globals.css';\n\nimport { Analytics } from '@vercel/analytics/react';\n\nexport const metadata = {\n  title: 'Next.js App Router + NextAuth + Tailwind CSS',\n  description:\n    'A user admin dashboard configured with Next.js, Postgres, NextAuth, Tailwind CSS, TypeScript, and Prettier.'\n};\n\nexport default function RootLayout({\n  children\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\">\n      <body className=\"flex min-h-screen w-full flex-col\">{children}</body>\n      <Analytics />\n    </html>\n  );\n}"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "export { auth as middleware } from '@/lib/auth';\n\n// Don't invoke Middleware on some paths\nexport const config = {\n  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']\n};"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# https://vercel.com/docs/storage/vercel-postgres\nPOSTGRES_URL=\n\nNEXTAUTH_URL=http://localhost:3000\nAUTH_SECRET= # https://generate-secret.vercel.app/32\n\n# https://authjs.dev/getting-started/providers/github\nAUTH_GITHUB_ID=\nAUTH_GITHUB_SECRET="
+    },
+    {
+      "path": "app/login/page.tsx",
+      "reason": "Auth flow reference",
+      "excerpt": "import { Button } from '@/components/ui/button';\nimport {\n  Card,\n  CardDescription,\n  CardFooter,\n  CardHeader,\n  CardTitle\n} from '@/components/ui/card';\nimport { signIn } from '@/lib/auth';\n\nexport default function LoginPage() {\n  return (\n    <div className=\"min-h-screen flex justify-center items-start md:items-center p-8\">\n      <Card className=\"w-full max-w-sm\">\n        <CardHeader>\n          <CardTitle className=\"text-2xl\">Login</CardTitle>\n          <CardDescription>\n            This demo uses GitHub for authentication.\n          </CardDescription>\n        </CardHeader>\n        <CardFooter>\n          <form\n            action={async () => {\n              'use server';\n              await signIn('github', {\n                redirectTo: '/'\n              });\n            }}\n            className=\"w-full\"\n          >\n            <Button className=\"w-full\">Sign in with GitHub</Button>\n          </form>\n        </CardFooter>\n      </Card>\n    </div>\n  );\n}"
+    }
+  ]
+}

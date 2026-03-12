@@ -1,0 +1,11 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+OPENAI_API_KEY=REPLACE_ME
+ASTRA_DB_ID=REPLACE_ME
+ASTRA_DB_REGION=REPLACE_ME
+ASTRA_DB_APPLICATION_TOKEN=REPLACE_ME
+ASTRA_DB_NAMESPACE=default_keyspace
+```

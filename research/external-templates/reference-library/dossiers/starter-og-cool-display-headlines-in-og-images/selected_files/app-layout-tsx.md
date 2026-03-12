@@ -1,0 +1,25 @@
+# app/layout.tsx
+
+Reason: Layout and navigation reference
+
+```text
+import { constructMetadata } from "@/lib/utils";
+import "./globals.css";
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata = constructMetadata();
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>{children}</body>
+    </html>
+  );
+}
+```

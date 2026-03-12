@@ -1,0 +1,94 @@
+{
+  "id": "marketing-sites-bulk-redirects-via-a-cms",
+  "slug": "marketing-sites-bulk-redirects-via-a-cms",
+  "title": "Bulk Redirects via a CMS",
+  "categorySlug": "marketing-sites",
+  "categoryName": "Marketing Sites",
+  "templateUrl": "https://vercel.com/templates/cdn/bulk-redirects-via-a-cms",
+  "demoUrl": "https://cms-bulk-redirects.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 90,
+  "repo": {
+    "url": "https://github.com/vercel/examples/tree/main/cdn/cms-bulk-redirects",
+    "normalizedUrl": "https://github.com/vercel/examples",
+    "subpath": "cdn/cms-bulk-redirects",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-examples",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "CDN",
+    "CMS",
+    "Marketing Sites",
+    "Next.js",
+    "Tailwind",
+    "Contentful"
+  ],
+  "usefulLines": [
+    "Bulk Redirects via a CMS",
+    "CDN",
+    "CMS",
+    "Marketing Sites",
+    "Next.js",
+    "Tailwind",
+    "Contentful"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "Bulk Redirects via a CMS is a Marketing Sites reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "---\nname: Contentful CMS bulk redirects (vercel.ts)\nslug: cms-bulk-redirects\ndescription: Sync redirect entries from Contentful into Vercel bulk redirects using vercel.ts.\nframework: Next.js\nuseCase: Redirects\ncss: Tailwind\ndeployUrl: https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/cdn/cms-bulk-redirects&project-name=cms-bulk-redirects&repository-name=cms-bulk-redirects&env=CONTENTFUL_SPACE_ID,CONTENTFUL_ACCESS_TOKEN\ndemoUrl: https://cms-bulk-redirects.vercel.app\n---\n\n# Contentful CMS bulk redirects (vercel.ts) example\n\nThis example shows how to pull redirect entries from Contentful at build time, write them to a bulk redirects file, and publish them with the new `vercel.ts` config. The demo uses an e-commerce catalog so marketing can rotate seasonal URLs without shipping code.\n\n## Demo\n\nhttps://cms-bulk-redirects.vercel.app\n\n## How to Use\n\nYou can choose from one of the following two methods to use this repository:\n\n### One-Click Deploy\n\nDeploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=vercel-examples):\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/cdn/cms-bulk-redirects&project-name=cms-bulk-redirects&repository-name=cms-bulk-redirects&env=CONTENTFUL_SPACE_ID,CONTENTFUL_ACCESS_TOKEN)\n\n### Clone and Deploy\n\nExecute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init) or [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:\n\n```bash\npnpm create next-app --example https://github.com/vercel/examples/tree/main/cdn/cms-bulk-redirects\n```\n\nNext, run Next.js in development mode:\n\n```bash\npnpm dev\n```\n\n## Environment variables\n\n- `CONTENTFUL_SPACE_ID` – Contentful space ID\n- `CONTENTFUL_ACCESS_TOKEN` – Content Delivery API token (CDA)\n\nThe example ships a small `generated-redirects.json` for local runs. When the environment variables are present, `vercel.ts` fetches real entries from Contentful and rewrites the bulk redirects file before build.\n\n## How it works\n\n1. `vercel.ts` runs at build time. It pulls `redirect` entries from Contentful, transforms them into Vercel bulk redirect objects, and writes `generated-redirects.\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"cms-bulk-redirects\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"repository\": \"https://github.com/vercel/examples.git\",\n  \"license\": \"MIT\",\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@vercel/config\": \"^0.0.22\",\n    \"geist\": \"^1.5.1\",\n    \"next\": \"^16.0.7\",\n    \"react\": \"^19.2.1\",\n    \"react-dom\": \"^19.2.1\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/postcss\": \"^4\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"tailwindcss\": \"^4\",\n    \"typescript\": \"^5\"\n  },\n  \"packageManager\": \"pnpm@10.24.0+sha512.01ff8ae71b4419903b65c60fb2dc9d34cf8bb6e06d03bde112ef38f7a34d6904c424ba66bea5cdcf12890230bf39f9580473140ed9c946fef328b6e5238a345a\"\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from 'next'\nimport type { ReactNode } from 'react'\nimport { GeistSans } from 'geist/font/sans'\nimport { GeistMono } from 'geist/font/mono'\nimport Navbar from '../components/Navbar'\nimport './globals.css'\n\nexport const metadata: Metadata = {\n  title: 'Essential Carry - Bulk Redirects Demo',\n  description: 'A catalog site showcasing Vercel bulk redirects with vercel.ts',\n}\n\nexport default function RootLayout({ children }: { children: ReactNode }) {\n  return (\n    <html lang=\"en\" className={`${GeistSans.variable} ${GeistMono.variable}`}>\n      <body className=\"antialiased bg-white dark:bg-black text-gray-900 dark:text-gray-100\">\n        <Navbar />\n        {children}\n      </body>\n    </html>\n  )\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Link from 'next/link'\n\nexport default function Home() {\n  return (\n    <main className=\"min-h-screen\">\n      {/* Hero Section */}\n      <section className=\"py-24 px-4 border-b border-gray-200 dark:border-gray-800\">\n        <div className=\"max-w-4xl mx-auto text-center\">\n          <h1 className=\"text-5xl md:text-6xl font-bold tracking-tight text-black dark:text-white mb-6\">\n            Essential Carry\n          </h1>\n          <p className=\"text-xl text-gray-600 dark:text-gray-400 mb-10 max-w-2xl mx-auto\">\n            Thoughtfully designed everyday essentials for work, travel, and life.\n            Minimalist aesthetics meet maximum functionality.\n          </p>\n          <div className=\"flex flex-col sm:flex-row gap-4 justify-center\">\n            <Link\n              href=\"/catalog/fall\"\n              className=\"inline-flex items-center justify-center bg-black dark:bg-white text-white dark:text-black px-8 py-3 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors\"\n            >\n              Shop Fall Collection\n            </Link>\n            <Link\n              href=\"/catalog/latest\"\n              className=\"inline-flex items-center justify-center border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 px-8 py-3 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors\"\n            >\n              View Latest\n            </Link>\n          </div>\n        </div>\n      </section>\n\n      {/* Collections Grid */}\n      <section className=\"py-20 px-4\">\n        <div className=\"max-w-6xl mx-auto\">\n          <div className=\"text-center mb-16\">\n            <h2 className=\"text-3xl font-bold text-black dark:text-white mb-4\">\n              Shop by Season\n            </h2>\n            <p className=\"text-gray-600 dark:text-gray-400 max-w-xl mx-auto\">\n              Discover our curated collections, each designed for specific moments and seasons.\n            </p>\n          </div>\n\n          <div className=\"grid md:grid-cols-2 lg:grid-cols-3 gap-6\">\n            {/* Fall */}\n            <Link href=\"/catalog/fall\" className=\"group block\">\n              <div className=\"border border-gray-200 dark:border-gray-800 rounded-xl p-8 h-64 flex flex-col justify-between hover:border-black dark:hover:border-white transition-colors\">\n                <div>\n\n// ... truncated"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "CONTENTFUL_SPACE_ID=your_space_id\nCONTENTFUL_ACCESS_TOKEN=your_cda_token"
+    }
+  ]
+}

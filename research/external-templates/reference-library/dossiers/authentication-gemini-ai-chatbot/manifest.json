@@ -1,0 +1,116 @@
+{
+  "id": "authentication-gemini-ai-chatbot",
+  "slug": "authentication-gemini-ai-chatbot",
+  "title": "Gemini AI Chatbot",
+  "categorySlug": "authentication",
+  "categoryName": "Authentication",
+  "templateUrl": "https://vercel.com/templates/ai/gemini-ai-chatbot",
+  "demoUrl": "https://gemini.vercel.ai/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 80,
+  "repo": {
+    "url": "https://github.com/nextauthjs/next-auth",
+    "normalizedUrl": "https://github.com/nextauthjs/next-auth",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\nextauthjs-next-auth",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "AI",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "NextAuth.js"
+  ],
+  "usefulLines": [
+    "Gemini AI Chatbot",
+    "AI",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "NextAuth.js"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [
+    "large monorepo without a clear example path"
+  ],
+  "recommendedScaffoldFamilies": [
+    "auth-pages",
+    "app-shell",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": true,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Gemini AI Chatbot is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "docs/README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<img src=\"public/img/logo-sm.png\" alt=\"Logo\" width=\"118\" height=\"128\" align=\"right\" />\n\n# Auth.js Docs\n\n## Quick Start\n\nFirst, run `pnpm i` to install the dependencies.\n\nThen, run `pnpm dev` to start the development server and visit localhost:3000.\n\n## License\n\nThis project is licensed under the MIT License."
+    },
+    {
+      "path": "docs/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"docs\",\n  \"description\": \"Auth.js Documentation\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"typedoc\": \"typedoc\",\n    \"dev\": \"TYPEDOC_SKIP_ADAPTERS=1 typedoc & next dev\",\n    \"dev:adapters\": \"typedoc & next dev\",\n    \"build\": \"typedoc && next build\",\n    \"start\": \"next start\",\n    \"lint\": \"eslint ./{components,pages,utils}\",\n    \"lint:fix\": \"eslint ./{components,pages,utils} --fix\",\n    \"build:sitemap\": \"next-sitemap --config next-sitemap.config.cjs\",\n    \"clean\": \"rm -rf .next build pages/reference/*.mdx pages/reference/**/*\"\n  },\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/nextauthjs/next-auth\"\n  },\n  \"author\": \"Auth.js Team (https://authjs.dev/contributors)\",\n  \"license\": \"ISC\",\n  \"bugs\": {\n    \"url\": \"https://github.com/nextauthjs/next-auth/issues\"\n  },\n  \"homepage\": \"https://authjs.dev\",\n  \"dependencies\": {\n    \"@ariakit/react\": \"^0.4.13\",\n    \"@docsearch/react\": \"3\",\n    \"@inkeep/widgets\": \"^0.2.289\",\n    \"@next/third-parties\": \"^14.2.15\",\n    \"@radix-ui/react-accordion\": \"^1.2.1\",\n    \"@radix-ui/react-tabs\": \"^1.1.1\",\n    \"@vercel/analytics\": \"^1.3.1\",\n    \"@vercel/kv\": \"^1.0.1\",\n    \"algoliasearch\": \"^4.24.0\",\n    \"better-auth\": \"^1.3.18\",\n    \"classnames\": \"^2.5.1\",\n    \"framer-motion\": \"^11.11.8\",\n    \"next\": \"14.2.21\",\n    \"next-sitemap\": \"^4.2.3\",\n    \"nextra\": \"3.0.15\",\n    \"nextra-theme-docs\": \"3.0.15\",\n    \"react\": \"18.3.1\",\n    \"react-dom\": \"18.3.1\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"20.12.7\",\n    \"@types/react\": \"18.2.78\",\n    \"autoprefixer\": \"^10.4.20\",\n    \"postcss\": \"^8.4.47\",\n    \"shiki\": \"^1.22.0\",\n    \"tailwindcss\": \"^3.4.13\",\n    \"typedoc\": \"^0.27.6\",\n    \"typedoc-plugin-markdown\": \"4.3.3\",\n    \"typedoc-plugin-mdn-links\": \"4.0.11\",\n    \"typedoc-plugin-no-inherit\": \"^1.5.0\"\n  }\n}"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<p align=\"center\">\n  <br/>\n  <a href=\"https://authjs.dev\" target=\"_blank\"><img width=\"96px\" src=\"https://authjs.dev/img/logo-sm.png\" /></a>\n  <h3 align=\"center\">Auth.js</h3>\n  <p align=\"center\">Authentication for the Web.</p>\n  <p align=\"center\">Open Source. Full Stack. Own Your Data.</p>\n  <p align=\"center\" style=\"align: center;\">\n    <a href=\"https://x.com/authjs\" ><img src=\"https://shields.io/badge/Follow @authjs-000?logo=x&style=flat-square\" alt=\"X (formerly known Twitter)\" /></a>\n    <a href=\"https://github.com/nextauthjs/next-auth/releases\"><img src=\"https://img.shields.io/npm/v/next-auth/latest?style=flat-square&label=latest%20stable\" alt=\"NPM next-auth@latest release\" /></a>\n    <!-- TODO: Should count `@auth/core` when NextAuth.js v5 is released as stable. -->\n    <a href=\"https://www.npmtrends.com/next-auth\"><img src=\"https://img.shields.io/npm/dm/next-auth?style=flat-square&color=cyan\" alt=\"Downloads\" /></a>\n    <a href=\"https://github.com/nextauthjs/next-auth/stargazers\"><img src=\"https://img.shields.io/github/stars/nextauthjs/next-auth?style=flat-square&color=orange\" alt=\"GitHub Stars\" /></a>\n    <!-- <a href=\"https://codecov.io/gh/nextauthjs/next-auth\" ><img alt=\"Codecov\" src=\"https://img.shields.io/codecov/c/github/nextauthjs/next-auth?token=o2KN5GrPsY&style=flat-square&logo=codecov\"></a> -->\n    <img src=\"https://shields.io/badge/TypeScript-3178C6?logo=TypeScript&logoColor=fff&style=flat-square\" alt=\"TypeScript\" />\n  </p>\n  <p align=\"center\">\n    Auth.js is a set of open-source packages that are built on standard Web APIs for authentication in modern applications with any framework on any platform in any JS runtime.\n  </p>\n</p>\n\n> Auth js is now part of [Better Auth](https://better-auth.com/blog/authjs-joins-better-auth). We recommend new projects to start with Better Auth unless there are some very specific feature gaps (most notably stateless session management without a database).\n\n## Features\n\n### Flexible and easy to use\n\n- Designed to work with any OAuth service, it supports 2.0+, OIDC\n- Built-in support for [many popular sign-in services](https://github.com/nextauthjs/next-auth/tree/main/packages/core/src/providers)\n- Email/Passwordless authentication\n- Passkeys/WebAuthn support\n- Bring Your Database - or none! - stateless authentication with any backend (Active Directory, LDAP, etc.)\n- Runtime-agnostic,\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"root\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"repository\": \"https://github.com/nextauthjs/next-auth.git\",\n  \"scripts\": {\n    \"build:app\": \"turbo run build --filter=next-auth-app\",\n    \"build:docs\": \"turbo run build --filter=docs\",\n    \"build\": \"turbo run build --filter=next-auth --filter=@auth/*\",\n    \"test\": \"turbo run test --concurrency=1 --filter=[HEAD^1] --filter=./packages/* --filter=!*app* --filter=!*dynamo* --filter=!*edgedb* --filter=!*hasura* --filter=!*mikro* --filter=!*dgraph* --filter=!*xata* --filter=!*typeorm*\",\n    \"test:e2e\": \"turbo run test:e2e --filter=next-auth\",\n    \"test:e2e:watch\": \"turbo run test:e2e -- --ui\",\n    \"clean\": \"turbo run clean --no-cache\",\n    \"dev\": \"pnpm dev:next\",\n    \"dev:next\": \"turbo run dev --parallel --continue --filter=next-auth-app... --filter=@auth/core --filter=!./packages/adapter-*\",\n    \"dev:e2e:next\": \"turbo run dev --filter=next-auth-app\",\n    \"dev:db\": \"turbo run dev --parallel --continue --filter=next-auth-app...\",\n    \"dev:sveltekit\": \"turbo run dev --parallel --continue --filter=sveltekit-auth-app...\",\n    \"dev:express\": \"turbo run dev --parallel --continue --filter=express-auth-app...\",\n    \"dev:qwik\": \"turbo run dev --parallel --continue --filter=qwik-auth-app...\",\n    \"dev:docs\": \"turbo run dev --filter=docs\",\n    \"email\": \"fake-smtp-server\",\n    \"lint\": \"eslint --cache .\",\n    \"format\": \"prettier --cache --check .\",\n    \"format:write\": \"prettier --cache --write .\",\n    \"release\": \"release\",\n    \"peek\": \"pnpm release --peek\",\n    \"setup-fw-integration\": \"pnpm clean --filter=@auth/frameworks-template && node packages/utils/scripts/setup-fw-integration.js\"\n  },\n  \"devDependencies\": {\n    \"@actions/core\": \"^1.10.0\",\n    \"@balazsorban/monorepo-release\": \"0.5.1\",\n    \"@eslint/compat\": \"^1.1.1\",\n    \"@eslint/js\": \"^9.9.1\",\n    \"@playwright/test\": \"1.40.0\",\n    \"@types/node\": \"^20.8.10\",\n    \"@typescript-eslint/eslint-plugin\": \"v6.19.1\",\n    \"@typescript-eslint/parser\": \"v6.19.1\",\n    \"@vitest/coverage-v8\": \"1.2.1\",\n    \"@vitest/ui\": \"^1.2.2\",\n    \"eslint\": \"9.9.1\",\n    \"eslint-config-prettier\": \"^8.10.0\",\n    \"eslint-plugin-import-x\": \"^4.1.1\",\n    \"eslint-plugin-jsdoc\": \"^39.9.1\",\n    \"eslint-plugin-promise\": \"^6.0.0\",\n    \"eslint-plugin-react\": \"^7.33.2\",\n    \"eslint-plugin-svelte\": \"^2.38.0\",\n    \"fake-smtp-server\": \"^0.8.0\",\n    \"lefthoo\n\n// ... truncated"
+    },
+    {
+      "path": "apps/dev/nextjs/app/dashboard/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "export default function Page() {\n  return <h1>This page is protected.</h1>\n}"
+    },
+    {
+      "path": "apps/dev/nextjs/components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import type { Session } from \"next-auth\"\nimport Link from \"next/link\"\nimport styles from \"./header.module.css\"\n\nexport function Header({\n  session,\n  signIn,\n  signOut,\n}: {\n  session: Session | null\n  signIn: any\n  signOut: any\n}) {\n  return (\n    <header className={styles.header}>\n      <div className={styles.signedInStatus}>\n        <img\n          src={\n            session?.user?.image ??\n            `https://api.dicebear.com/9.x/thumbs/svg?seed=${Math.floor(Math.random() * 100000) + 1}&randomizeIds=true`\n          }\n          className={styles.avatar}\n        />\n        {session?.user ? (\n          <>\n            <span className={styles.signedInText}>\n              <small>Signed in as</small>\n              <br />\n              <strong>{session.user?.email} </strong>\n              {session.user?.name ? `(${session.user.name})` : null}\n            </span>\n            {signOut}\n          </>\n        ) : (\n          <>\n            <span className={styles.notSignedInText}>\n              You are not signed in\n            </span>\n            {signIn}\n          </>\n        )}\n      </div>\n      <nav>\n        <ul className={styles.navItems}>\n          <Link href=\"/\" className={styles.navItem}>\n            Home (app)\n          </Link>\n          <Link className={styles.navItem} href=\"/dashboard\">\n            Dashboard (app)\n          </Link>\n          <Link className={styles.navItem} href=\"/policy\">\n            Policy (pages)\n          </Link>\n          <Link className={styles.navItem} href=\"/credentials\">\n            Credentials (pages)\n          </Link>\n          <Link className={styles.navItem} href=\"/protected-ssr\">\n            getServerSideProps (pages)\n          </Link>\n          <Link className={styles.navItem} href=\"/api/examples/protected\">\n            API Route (pages)\n          </Link>\n        </ul>\n      </nav>\n    </header>\n  )\n}"
+    },
+    {
+      "path": "apps/examples/nextjs/components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { MainNav } from \"./main-nav\"\nimport UserButton from \"./user-button\"\n\nexport default function Header() {\n  return (\n    <header className=\"sticky flex justify-center border-b\">\n      <div className=\"mx-auto flex h-16 w-full max-w-3xl items-center justify-between px-4 sm:px-6\">\n        <MainNav />\n        <UserButton />\n      </div>\n    </header>\n  )\n}"
+    },
+    {
+      "path": "apps/examples/nextjs-pages/components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { MainNav } from \"./main-nav\"\nimport UserButton from \"./user-button\"\n\nexport default function Header() {\n  return (\n    <header className=\"sticky flex justify-center border-b\">\n      <div className=\"mx-auto flex h-[4.5rem] w-full max-w-3xl items-center justify-between px-4 sm:px-6\">\n        <MainNav />\n        <UserButton />\n      </div>\n    </header>\n  )\n}"
+    },
+    {
+      "path": "apps/examples/qwik/src/components/header/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { component$ } from \"@builder.io/qwik\";\nimport { Link } from \"@builder.io/qwik-city\";\nimport { useSession, useSignIn, useSignOut } from \"~/routes/plugin@auth\";\nimport { QwikIcon } from \"../icones/qwik\";\nimport { Avatar } from \"../avatar/avatar\";\n\nexport const Header = component$(() => {\n  const session = useSession();\n  const signInSig = useSignIn();\n  const signOutSig = useSignOut();\n\n  return (\n    <header class=\"flex h-20 items-center gap-3 border-b px-6 py-3\">\n      <Link href=\"/\">\n        <QwikIcon width=\"46\" height=\"50\" />\n      </Link>\n      <span class=\"text-xl font-bold text-slate-800\">Auth.js with Qwik</span>\n\n      {session.value?.user ? (\n        <div class=\"ml-auto flex items-center justify-center gap-8\">\n          <Avatar\n            src={session.value.user.image ?? \"\"}\n            alt={session.value.user.name ?? \"\"}\n          />\n          <Link\n            class=\"cursor-pointer text-xl font-bold text-slate-800\"\n            onClick$={() => signOutSig.submit({ redirectTo: \"/\" })}\n          >\n            Logout\n          </Link>\n        </div>\n      ) : (\n        <div class=\"ml-auto flex items-center justify-center gap-8\">\n          <Link\n            class=\"cursor-pointer text-xl font-bold text-slate-800\"\n            onClick$={() => signInSig.submit({ redirectTo: \"/\" })}\n          >\n            SignIn\n          </Link>\n        </div>\n      )}\n    </header>\n  );\n});"
+    }
+  ]
+}

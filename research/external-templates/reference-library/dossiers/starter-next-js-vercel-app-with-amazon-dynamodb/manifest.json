@@ -1,0 +1,81 @@
+{
+  "id": "starter-next-js-vercel-app-with-amazon-dynamodb",
+  "slug": "starter-next-js-vercel-app-with-amazon-dynamodb",
+  "title": "Next.js Vercel app with Amazon DynamoDB",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/next-js-vercel-app-with-amazon-dynamodb",
+  "demoUrl": "https://aws-dynamodb-demo.labs.vercel.dev/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/vercel/aws-dynamodb-demo",
+    "normalizedUrl": "https://github.com/vercel/aws-dynamodb-demo",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-aws-dynamodb-demo",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Next.js Vercel app with Amazon DynamoDB",
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js Vercel app with Amazon DynamoDB is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Amazon DynamoDB Movies Demo\n\nThis demo uses Amazon DynamoDB with Next.js to fetch movies from the database. It is able to securely connect to DynamoDB without using hardcoded access tokens through Vercel's [OIDC Federation](https://vercel.com/docs/security/secure-backend-access/oidc).\n\n[![This is an alt text.](/public/Vercel-AWS-GitHub-DDB.png)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Faws-dynamodb-demo&project-name=aws-dynamodb-demo&repository-name=aws-dynamodb-demo&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22aws%22%2C%22productSlug%22%3A%22aws-dynamodb%22%2C%22protocol%22%3A%22storage%22%7D%5D)\n\n**Demo:**\n[View Demo](https://aws-dynamodb-demo.labs.vercel.dev)\n\n**Getting Started:**\nClick the \"Deploy\" button to clone this repo, create a new Vercel project, setup the AWS integration, and provision a new DynamoDB table:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Faws-dynamodb-demo&project-name=aws-dynamodb-demo&repository-name=aws-dynamodb-demo&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22aws%22%2C%22productSlug%22%3A%22aws-dynamodb%22%2C%22protocol%22%3A%22storage%22%7D%5D)\n\nOnce the process is complete, you can clone the newly created GitHub repository and start making changes locally.\n\n## Requirements\n\n- Installed Amazon DynamoDB. You can do that via [Vercel Marketplace](https://vercel.com/marketplace/aws)\n\n## Local Setup\n\n1. Pull vercel environment variables locally\n\n```bash\nvercel env pull\n```\n\n2. Install dependencies:\n\n```bash\npnpm install\n```\n\n3. Seed the DynamoDB table with movie data:\n\n```bash\npnpm run db:seed\n```\n\n4. Start the development server:\n\n```bash\npnpm run dev\n```\n\n5. View local development: http://localhost:3000"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"db:seed\": \"npx tsx lib/db/seed.ts\",\n    \"db:migrate\": \"npx tsx lib/db/migrate.ts\"\n  },\n  \"dependencies\": {\n    \"@aws-sdk/client-dynamodb\": \"^3.693.0\",\n    \"@aws-sdk/lib-dynamodb\": \"^3.693.0\",\n    \"@radix-ui/react-slot\": \"^1.1.0\",\n    \"@vercel/functions\": \"^3.3.4\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"dotenv\": \"^16.4.7\",\n    \"lucide-react\": \"^0.468.0\",\n    \"next\": \"^16.0.9\",\n    \"react\": \"^19.0.0\",\n    \"react-dom\": \"^19.0.0\",\n    \"tailwind-merge\": \"^2.5.5\",\n    \"tailwindcss-animate\": \"^1.0.7\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^22.10.1\",\n    \"@types/react\": \"^19.0.1\",\n    \"@types/react-dom\": \"^19.0.1\",\n    \"csv-parser\": \"^3.0.0\",\n    \"postcss\": \"^8.4.49\",\n    \"prettier\": \"^3.7.4\",\n    \"tailwindcss\": \"^3.4.16\",\n    \"tsx\": \"^4.19.2\",\n    \"typescript\": \"^5.7.2\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport \"./globals.css\";\nimport { Geist_Mono } from \"next/font/google\";\n\nexport const metadata: Metadata = {\n  title: \"DynamoDB Movies Demo\",\n  description: \"List movies from an Amazon DynamoDB table.\",\n};\n\nconst geist = Geist_Mono({\n  subsets: [\"latin\"],\n});\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className={`${geist.className} antialiased bg-white dark:bg-black`}>\n        {children}\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Explanation from \"@/components/explanation\";\nimport Loading from \"@/components/loading\";\nimport { MovieVoting } from \"@/components/movie-voting\";\nimport { getMovies } from \"@/lib/db/queries\";\nimport { cookies } from \"next/headers\";\nimport { Suspense } from \"react\";\n\ntype Props = {\n  searchParams: Promise<{ filter: string | undefined }>;\n};\n\nexport default async function HomePage({ searchParams }: Props) {\n  return (\n    <div className=\"container mx-auto p-4 max-w-3xl\">\n      <Explanation />\n      <Suspense fallback={<Loading />}>\n        <Movies searchParams={searchParams} />\n      </Suspense>\n    </div>\n  );\n}\n\nasync function Movies({ searchParams }: Props) {\n  const { filter } = await searchParams;\n  const cookieStore = await cookies();\n  const sessionId = cookieStore.get(\"sessionId\")?.value;\n  const { movies, totalRecords, queryTimeMs } = await getMovies(\n    sessionId,\n    filter,\n  );\n\n  return (\n    <MovieVoting\n      movies={movies}\n      highlight={filter || \"\"}\n      queryTimeMs={queryTimeMs}\n      totalRecords={totalRecords}\n    />\n  );\n}"
+    }
+  ]
+}

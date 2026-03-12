@@ -1,0 +1,108 @@
+{
+  "id": "blog-clean-next-js-sanity-app",
+  "slug": "blog-clean-next-js-sanity-app",
+  "title": "Clean Next.js + Sanity App",
+  "categorySlug": "blog",
+  "categoryName": "Blog",
+  "templateUrl": "https://vercel.com/templates/blog/sanity-template-nextjs-clean",
+  "demoUrl": "https://template-nextjs-clean.sanity.build/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/sanity-io/sanity-template-nextjs-clean/tree/main/",
+    "normalizedUrl": "https://github.com/sanity-io/sanity-template-nextjs-clean",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\sanity-io-sanity-template-nextjs-clean",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Blog",
+    "CMS",
+    "Next.js",
+    "Tailwind",
+    "Sanity"
+  ],
+  "usefulLines": [
+    "Clean Next.js + Sanity App",
+    "Blog",
+    "CMS",
+    "Next.js",
+    "Tailwind",
+    "Sanity"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "editorial content hierarchy",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "blog",
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "Clean Next.js + Sanity App is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "frontend/README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).\n\n## Getting Started\n\nFirst, run the development server:\n\n```bash\nnpm run dev\n# or\nyarn dev\n# or\npnpm dev\n# or\nbun dev\n```\n\nOpen [http://localhost:3000](http://localhost:3000) with your browser to see the result.\n\nYou can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.\n\nThis project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.\n\n## Learn More\n\nTo learn more about Next.js, take a look at the following resources:\n\n- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.\n- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.\n\nYou can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!\n\n## Deploy on Vercel\n\nThe easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.\n\nCheck out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details."
+    },
+    {
+      "path": "frontend/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"frontend\",\n  \"private\": true,\n  \"scripts\": {\n    \"prebuild\": \"sanity typegen generate\",\n    \"build\": \"next build\",\n    \"predev\": \"npm run sanity:typegen\",\n    \"dev\": \"next dev\",\n    \"lint\": \"eslint .\",\n    \"lint:fix\": \"eslint . --fix\",\n    \"sanity:typegen\": \"cd ../studio && sanity schema extract --enforce-required-fields --path ../sanity.schema.json && cd ../frontend && sanity typegen generate\",\n    \"start\": \"next start\",\n    \"type-check\": \"tsc --noEmit\"\n  },\n  \"dependencies\": {\n    \"@sanity/client\": \"^7.13.2\",\n    \"@sanity/image-url\": \"^1.2.0\",\n    \"@sanity/uuid\": \"^3.0.2\",\n    \"@tailwindcss/postcss\": \"^4.1.17\",\n    \"@tailwindcss/typography\": \"^0.5.19\",\n    \"@vercel/speed-insights\": \"^1.2.0\",\n    \"autoprefixer\": \"^10.4.22\",\n    \"date-fns\": \"^4.1.0\",\n    \"next\": \"16.1.5\",\n    \"next-sanity\": \"^12.0.5\",\n    \"postcss\": \"^8.5.6\",\n    \"react\": \"19.2.3\",\n    \"react-dom\": \"19.2.3\",\n    \"sanity\": \"^5.1.0\",\n    \"sanity-image\": \"^1.0.0\",\n    \"sonner\": \"^2.0.7\",\n    \"tailwindcss\": \"^4.1.17\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20.19.25\",\n    \"@types/react\": \"19.2.7\",\n    \"@types/react-dom\": \"19.2.3\",\n    \"eslint\": \"^9.39.1\",\n    \"eslint-config-next\": \"16.1.1\",\n    \"typescript\": \"5.9.3\"\n  }\n}"
+    },
+    {
+      "path": "frontend/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import './globals.css'\n\nimport {SpeedInsights} from '@vercel/speed-insights/next'\nimport type {Metadata} from 'next'\nimport {Inter, IBM_Plex_Mono} from 'next/font/google'\nimport {draftMode} from 'next/headers'\nimport {toPlainText} from 'next-sanity'\nimport {VisualEditing} from 'next-sanity/visual-editing'\nimport {Toaster} from 'sonner'\n\nimport DraftModeToast from '@/app/components/DraftModeToast'\nimport Footer from '@/app/components/Footer'\nimport Header from '@/app/components/Header'\nimport * as demo from '@/sanity/lib/demo'\nimport {sanityFetch, SanityLive} from '@/sanity/lib/live'\nimport {settingsQuery} from '@/sanity/lib/queries'\nimport {resolveOpenGraphImage} from '@/sanity/lib/utils'\nimport {handleError} from '@/app/client-utils'\n\n/**\n * Generate metadata for the page.\n * Learn more: https://nextjs.org/docs/app/api-reference/functions/generate-metadata#generatemetadata-function\n */\nexport async function generateMetadata(): Promise<Metadata> {\n  const {data: settings} = await sanityFetch({\n    query: settingsQuery,\n    // Metadata should never contain stega\n    stega: false,\n  })\n  const title = settings?.title || demo.title\n  const description = settings?.description || demo.description\n\n  const ogImage = resolveOpenGraphImage(settings?.ogImage)\n  let metadataBase: URL | undefined = undefined\n  try {\n    metadataBase = settings?.ogImage?.metadataBase\n      ? new URL(settings.ogImage.metadataBase)\n      : undefined\n  } catch {\n    // ignore\n  }\n  return {\n    metadataBase,\n    title: {\n      template: `%s | ${title}`,\n      default: title,\n    },\n    description: toPlainText(description),\n    openGraph: {\n      images: ogImage ? [ogImage] : [],\n    },\n  }\n}\n\nconst inter = Inter({\n  variable: '--font-inter',\n  subsets: ['latin'],\n  display: 'swap',\n})\n\nconst ibmPlexMono = IBM_Plex_Mono({\n  variable: '--font-ibm-plex-mono',\n  weight: ['400'],\n  subsets: ['latin'],\n  display: 'swap',\n})\n\nexport default async function RootLayout({children}: {children: React.ReactNode}) {\n  const {isEnabled: isDraftMode} = await draftMode()\n\n  return (\n    <html lang=\"en\" className={`${inter.variable} ${ibmPlexMono.variable} bg-white text-black`}>\n      <body>\n        <section className=\"min-h-screen pt-24\">\n          {/* The <Toaster> component is responsible for rendering toast notifications used in /\n\n// ... truncated"
+    },
+    {
+      "path": "frontend/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import {Suspense} from 'react'\nimport Link from 'next/link'\nimport {PortableText} from '@portabletext/react'\n\nimport {AllPosts} from '@/app/components/Posts'\nimport GetStartedCode from '@/app/components/GetStartedCode'\nimport SideBySideIcons from '@/app/components/SideBySideIcons'\nimport {settingsQuery} from '@/sanity/lib/queries'\nimport {sanityFetch} from '@/sanity/lib/live'\nimport {dataAttr} from '@/sanity/lib/utils'\n\nexport default async function Page() {\n  const {data: settings} = await sanityFetch({\n    query: settingsQuery,\n  })\n\n  return (\n    <>\n      <div className=\"relative\">\n        <div className=\"relative bg-[url(/images/tile-1-black.png)] bg-size-[5px]\">\n          <div className=\"bg-gradient-to-b from-white w-full h-full absolute top-0\"></div>\n          <div className=\"container\">\n            <div className=\"relative min-h-[40vh] mx-auto max-w-2xl pt-10 xl:pt-20 pb-30 space-y-6 lg:max-w-4xl lg:px-12 flex flex-col items-center justify-center\">\n              <div className=\"flex flex-col gap-4 items-center\">\n                <div className=\"text-md leading-6 prose uppercase py-1 px-3 bg-white font-mono italic\">\n                  A starter template for\n                </div>\n                <h1 className=\"text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tighter text-black\">\n                  <Link\n                    className=\"underline decoration-brand hover:text-brand underline-offset-8 hover:underline-offset-4 transition-all ease-out\"\n                    href=\"https://sanity.io/\"\n                  >\n                    Sanity\n                  </Link>\n                  +\n                  <Link\n                    className=\"underline decoration-black text-framework underline-offset-8 hover:underline-offset-4 transition-all ease-out\"\n                    href=\"https://nextjs.org/\"\n                  >\n                    Next.js\n                  </Link>\n                </h1>\n              </div>\n            </div>\n          </div>\n        </div>\n        <div className=\" flex flex-col items-center\">\n          <SideBySideIcons />\n          <div className=\"container relative mx-auto max-w-2xl pb-20 pt-10 space-y-6 lg:max-w-4xl lg:px-12 flex flex-col items-center\">\n            <div className=\"prose sm:prose-lg md:prose-xl xl:prose-2xl text-gray-700 prose-a:text-gray-700 font-light text-\n\n// ... truncated"
+    },
+    {
+      "path": "frontend/.env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "NEXT_PUBLIC_SANITY_PROJECT_ID=\"<paste your project here>\" # Required - The ID of your Sanity project\nNEXT_PUBLIC_SANITY_DATASET=\"production\" # Required - The dataset of your Sanity project\nNEXT_PUBLIC_SANITY_API_VERSION=\"2025-09-25\" # Optional - The API version provided to the Sanity Client\nNEXT_PUBLIC_SANITY_STUDIO_URL=\"\" #Optional, defaults to http://localhost:3333\nSANITY_API_READ_TOKEN=\"<paste your token here>\" # Required - The read token for your Sanity project"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Clean Next.js + Sanity app\n\nThis template includes a [Next.js](https://nextjs.org/) app with a [Sanity Studio](https://www.sanity.io/) – an open-source React application that connects to your Sanity project’s hosted dataset. The Studio is configured locally and can then be deployed for content collaboration.\n\n![Screenshot of Sanity Studio using Presentation Tool to do Visual Editing](/sanity-next-preview.png)\n\n## Features\n\n- **Next.js 16 for Performance:** Leverage the power of Next.js 16 App Router for blazing-fast performance and SEO-friendly static sites.\n- **Real-time Visual Editing:** Edit content live with Sanity's [Presentation Tool](https://www.sanity.io/docs/presentation) and see updates in real time.\n- **Live Content:** The [Live Content API](https://www.sanity.io/live) allows you to deliver live, dynamic experiences to your users without the complexity and scalability challenges that typically come with building real-time functionality.\n- **Customizable Pages with Drag-and-Drop:** Create and manage pages using a page builder with dynamic components and [Drag-and-Drop Visual Editing](https://www.sanity.io/visual-editing-for-structured-content).\n- **Powerful Content Management:** Collaborate with team members in real-time, with fine-grained revision history.\n- **AI-powered Media Support:** Auto-generate alt text with [Sanity AI Assist](https://www.sanity.io/ai-assist).\n- **On-demand Publishing:** No waiting for rebuilds—new content is live instantly with Incremental Static Revalidation.\n- **Easy Media Management:** [Integrated Unsplash support](https://www.sanity.io/plugins/sanity-plugin-asset-source-unsplash) for seamless media handling.\n\n## Demo\n\nhttps://template-nextjs-clean.sanity.dev\n\n## Getting Started\n\n### Installing the template\n\n> **Already deployed with Vercel?** If you've already deployed using the **Sanity + Vercel Integration** or **one-click Vercel button**, please visit our [Vercel deployment instructions](vercel-installation-instructions.md) to set up your local environment and deploy Sanity Studio.\n\n#### 1. Initialize template with Sanity CLI\n\nRun the command in your Terminal to initialize this template on your local computer.\n\n```shell\nnpm create sanity@latest -- --template sanity-io/sanity-template-nextjs-clean\n```\n\nSee the documentation if you are [having issues with the CLI](https://www.sanit\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"sanity-template-nextjs-clean\",\n  \"description\": \"Next.js + Sanity: A Powerful Website Starter with Real-time Visual Editing\",\n  \"keywords\": [\n    \"Sanity\",\n    \"Next.js\",\n    \"Headless CMS\",\n    \"Visual Editing\",\n    \"Live Content API (LCAPI)\",\n    \"Real-time\"\n  ],\n  \"homepage\": \"https://github.com/sanity-io/sanity-template-nextjs-clean#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/sanity-io/sanity-template-nextjs-clean/issues\"\n  },\n  \"workspaces\": [\n    \"studio\",\n    \"frontend\"\n  ],\n  \"scripts\": {\n    \"dev\": \"npx run-p --print-label dev:*\",\n    \"dev:next\": \"npm run dev --workspace=frontend\",\n    \"dev:studio\": \"npm run dev --workspace=studio\",\n    \"format\": \"prettier --cache --write .\",\n    \"import-sample-data\": \"cd studio && sanity dataset import sample-data.tar.gz --replace\",\n    \"lint\": \"npm run lint --workspace=frontend\",\n    \"type-check\": \"npm run type-check --workspaces\"\n  },\n  \"prettier\": \"@sanity/prettier-config\",\n  \"devDependencies\": {\n    \"@sanity/prettier-config\": \"^2.0.2\",\n    \"npm-run-all2\": \"^5.0.2\",\n    \"prettier\": \"^3.7.3\"\n  }\n}"
+    },
+    {
+      "path": "frontend/app/components/Header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Link from 'next/link'\nimport {settingsQuery} from '@/sanity/lib/queries'\nimport {sanityFetch} from '@/sanity/lib/live'\n\nexport default async function Header() {\n  const {data: settings} = await sanityFetch({\n    query: settingsQuery,\n  })\n\n  return (\n    <header className=\"fixed z-50 h-24 inset-0 bg-white/80 flex items-center backdrop-blur-lg\">\n      <div className=\"container py-6 px-2 sm:px-6\">\n        <div className=\"flex items-center justify-between gap-5\">\n          <Link className=\"flex items-center gap-2\" href=\"/\">\n            <span className=\"text-lg sm:text-2xl pl-2 font-semibold\">\n              {settings?.title || 'Sanity + Next.js'}\n            </span>\n          </Link>\n\n          <nav>\n            <ul\n              role=\"list\"\n              className=\"flex items-center gap-4 md:gap-6 leading-5 text-xs sm:text-base tracking-tight font-mono\"\n            >\n              <li>\n                <Link href=\"/about\" className=\"hover:underline\">\n                  About\n                </Link>\n              </li>\n\n              <li className=\"sm:before:w-[1px] sm:before:bg-gray-200 before:block flex sm:gap-4 md:gap-6\">\n                <Link\n                  className=\"rounded-full flex gap-4 items-center bg-black hover:bg-blue focus:bg-blue py-2 px-4 justify-center sm:py-3 sm:px-6 text-white transition-colors duration-200\"\n                  href=\"https://github.com/sanity-io/sanity-template-nextjs-clean\"\n                  target=\"_blank\"\n                  rel=\"noopener noreferrer\"\n                >\n                  <span className=\"whitespace-nowrap\">View on GitHub</span>\n                  <svg\n                    xmlns=\"http://www.w3.org/2000/svg\"\n                    viewBox=\"0 0 24 24\"\n                    fill=\"currentColor\"\n                    className=\"hidden sm:block h-4 sm:h-6\"\n                  >\n                    <path d=\"M12.001 2C6.47598 2 2.00098 6.475 2.00098 12C2.00098 16.425 4.86348 20.1625 8.83848 21.4875C9.33848 21.575 9.52598 21.275 9.52598 21.0125C9.52598 20.775 9.51348 19.9875 9.51348 19.15C7.00098 19.6125 6.35098 18.5375 6.15098 17.975C6.03848 17.6875 5.55098 16.8 5.12598 16.5625C4.77598 16.375 4.27598 15.9125 5.11348 15.9C5.90098 15.8875 6.46348 16.625 6.65098 16.925C7.55098 18.4375 8.98848 18.0125 9.56348 17.75C9.65098 17.1 9.91348 16.6625 10.201 16.4125C7.97598 16.1625 5.65098 15.\n\n// ... truncated"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+CONTENTFUL_SPACE_ID=your_space_id
+CONTENTFUL_ACCESS_TOKEN=your_cda_token
+```

@@ -1,0 +1,104 @@
+{
+  "id": "documentation-pinexio-documentation-template",
+  "slug": "documentation-pinexio-documentation-template",
+  "title": "Pinexio - Documentation Template",
+  "categorySlug": "documentation",
+  "categoryName": "Documentation",
+  "templateUrl": "https://vercel.com/templates/documentation/pinexio-documentation-template",
+  "demoUrl": "https://pinexio.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/sanjayc208/pinexio",
+    "normalizedUrl": "https://github.com/sanjayc208/pinexio",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\sanjayc208-pinexio",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Documentation",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Pinexio - Documentation Template",
+    "Documentation",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "content-site",
+    "dashboard",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": true,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Pinexio - Documentation Template is a Documentation reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<a href=\"https://pinexio.vercel.app/\">\n<p align=\"center\">\n  <img src=\"./public/logos/pinedocs.png\"  align=\"center\" alt=\"fox logo\" width=\"200px\">\n  <h1 align=\"center\"> PINEXIO </h1>\n  <p align=\"center\">\n   Pinexio is a modern, customizable documentation template built for Next.js 15, Tailwind CSS 4, and MDX. It makes creating, managing, and presenting your project documentation effortless.\n  </p>\n</p>\n</a>\n\n## Why Pinexio?\n\n- **Customizable UI** 🌈: Tailor the design to your needs with light/dark themes and minimal UI libraries.\n- **MDX Support** 📚: Write rich, interactive documentation with JSX components.\n- **Automatic Content Indexing** 🔍: Thanks to Contentlayer, MDX pages are automatically indexed and searchable.\n- **Zero Setup Hassle** 🚀: Add an MDX file to `/docs`, and it’s instantly live.\n\n## Key Technologies\n\n- **Next.js 15** for SEO-friendly, performant documentation.\n- **Tailwind CSS 4** for responsive design.\n- **MDX** to blend documentation with React components.\n- **Contentlayer** for seamless content management.\n\n## Get Started\n\n1. Clone the repo.\n2. Add your documentation as MDX files in the `/docs` folder.\n3. Start building!\n\n## Links\n\n- [View Demo](https://pinexio.vercel.app)\n- [GitHub Repo](https://github.com/sanjayc208/pinexio)\n\n---\n\n## 🚀 Deploy to Vercel in Seconds\n\nWant to get your Next.js app live with zero hassle? Vercel, built by the creators of Next.js, makes deployment a breeze!\n\nCheck out the [Next.js deployment guide](https://nextjs.org/docs/deployment) for all the details and tips on how to deploy like a pro.\n\nReady to go live? Click the button below and deploy your app in just a few clicks! 🔥\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/sanjayc208/pinexio)\n\n_Pinexio is open-source and free to use. Happy documenting!_ 🚀"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"documentation-template-nextjs\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"author\": \"Sanjay Rajeev\",\n  \"license\": \"MIT\",\n  \"bugs\": {\n    \"url\": \"https://github.com/sanjayc208/pinexio/issues\"\n  },\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"build:content\": \"contentlayer2 build\",\n    \"format\": \"prettier --write .\",\n    \"prepare\": \"husky\"\n  },\n  \"lint-staged\": {\n    \"*.{js,jsx,ts,tsx,json,css,md, mdx}\": [\n      \"prettier --write\",\n      \"eslint --fix\"\n    ]\n  },\n  \"keywords\": [\n    \"nextjs\",\n    \"documentation\",\n    \"template\",\n    \"docs\",\n    \"nextjs-template\",\n    \"static-site\",\n    \"mdx\",\n    \"documentation-template\",\n    \"nextjs-docs\",\n    \"nextjs-starter\"\n  ],\n  \"dependencies\": {\n    \"@emotion/is-prop-valid\": \"^1.3.1\",\n    \"@radix-ui/themes\": \"^3.2.1\",\n    \"@types/mdx\": \"^2.0.13\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"contentlayer2\": \"0.5.4\",\n    \"date-fns\": \"^4.1.0\",\n    \"framer-motion\": \"^12.5.0\",\n    \"gray-matter\": \"^4.0.3\",\n    \"lucide-react\": \"^0.476.0\",\n    \"next\": \"15.2.7\",\n    \"next-contentlayer2\": \"0.5.4\",\n    \"next-themes\": \"^0.4.4\",\n    \"react\": \"^19.0.0\",\n    \"react-dom\": \"^19.0.0\",\n    \"react-fox-toast\": \"^1.10.15\",\n    \"react-syntax-highlighter\": \"^15.6.1\",\n    \"rehype-highlight\": \"^7.0.2\",\n    \"rehype-slug\": \"^6.0.0\",\n    \"remark-code-import\": \"^1.2.0\",\n    \"remark-gfm\": \"^4.0.1\",\n    \"remark-slug\": \"^8.0.0\",\n    \"tailwind-merge\": \"^3.0.2\",\n    \"tailwindcss-animated\": \"^2.0.0\"\n  },\n  \"devDependencies\": {\n    \"@eslint/eslintrc\": \"^3\",\n    \"@tailwindcss/postcss\": \"^4.0.13\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"@types/react-syntax-highlighter\": \"^15.5.13\",\n    \"autoprefixer\": \"^10.4.20\",\n    \"concurrently\": \"^9.1.2\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"15.2.0\",\n    \"husky\": \"^9.1.7\",\n    \"lint-staged\": \"^15.5.0\",\n    \"postcss\": \"^8.5.3\",\n    \"tailwindcss\": \"^4.1.3\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { Geist } from 'next/font/google';\nimport './globals.css';\nimport { ThemeProvider } from '@/components/theme-provider';\nimport { Metadata } from 'next';\nimport { meta } from '../../config/meta';\n\nconst geistSans = Geist({\n  variable: '--font-geist-sans',\n  subsets: ['latin'],\n});\n\nexport const metadata: Metadata = meta;\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body\n        className={`\n          ${geistSans.className}\n          text-sm\n          font-regular tracking-wide antialiased`}\n      >\n        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"light\"\n          enableSystem\n          disableTransitionOnChange\n        >\n          {children}\n        </ThemeProvider>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client';\nimport { Github } from 'lucide-react';\nimport { ModeToggle } from '@/components/mode-toggle';\nimport Image from 'next/image';\nimport { Button } from '@/components/button';\nimport { useRouter } from 'next/navigation';\nimport { motion } from 'framer-motion';\n\nexport default function Home() {\n  const router = useRouter();\n\n  return (\n    <div className=\"flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white\">\n      {/* Sticky Header */}\n      <header className=\"sticky top-0 z-10 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800\">\n        <div className=\"container mx-auto px-4 py-2 flex justify-between items-center\">\n          <div className=\"flex-1\">{/* Empty space for layout balance */}</div>\n          <nav className=\"flex-1 flex justify-center\">\n            {/* Navigation links can be added here */}\n          </nav>\n          <div className=\"flex-1 flex gap-2 justify-end\">\n            <ModeToggle />\n            <Button\n              onClick={() =>\n                router.push('https://github.com/sanjayc208/pinexio')\n              }\n            >\n              <Github className=\"h-[1.2rem] w-[1.2rem] transition-all\" />\n            </Button>\n          </div>\n        </div>\n      </header>\n\n      {/* Main Content */}\n      <main className=\"flex-grow flex flex-col justify-center items-center px-4 py-4 md:py-8\">\n        <motion.div\n          initial={{ opacity: 0, y: 20 }}\n          animate={{ opacity: 1, y: 0 }}\n          transition={{ duration: 0.6 }}\n          className=\"container mx-auto flex flex-col items-center max-w-6xl\"\n        >\n          {/* Logo and Title */}\n          <div className=\"text-center mb-8\">\n            <motion.div\n              initial={{ opacity: 0, scale: 0.9 }}\n              animate={{ opacity: 1, scale: 1 }}\n              transition={{ duration: 0.6, delay: 0.2 }}\n              className=\"flex gap-2 lg:gap-4 justify-center xs:px-2\"\n            >\n              <Image\n                alt=\"logo\"\n                className=\"h-auto w-auto dark:invert\"\n                width={100}\n                height={100}\n                src={`/logos/pinedocs.png`}\n              />\n              <h1 className=\"text-5xl content-center md:text-7xl font-stretch-110% -tracking-tighter text-gray-900 dark:text-white\">\n\n// ... truncated"
+    },
+    {
+      "path": "src/middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { NextRequest, NextResponse } from 'next/server';\n\nexport function middleware(req: NextRequest) {\n  console.log('req.nextUrl==>', req.nextUrl.pathname);\n  // Check if the request path starts with `/documentation`\n  if (req.nextUrl.pathname.startsWith('/docs')) {\n    // Redirect to /documentation/getting-started\n    return NextResponse.redirect(\n      new URL('/docs/getting-started/introduction', req.url)\n    );\n  }\n\n  // Return the response unchanged if the condition is not met\n  return NextResponse.next();\n}\n\n// Optionally, specify the routes to match\nexport const config = {\n  matcher: ['/docs', '/docs/getting-started'], // Matches any URL starting with /documentation\n};"
+    },
+    {
+      "path": "config/sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { Component, Paintbrush, Rocket, Search, Wrench } from 'lucide-react';\n\nexport const sidebarNav = [\n  {\n    title: 'Getting Started',\n    icon: <Rocket className=\"h-5 w-5\" />,\n    defaultOpen: true,\n    pages: [\n      {\n        title: 'Introduction',\n        href: '/docs/getting-started/introduction',\n      },\n      {\n        title: 'Installation',\n        href: '/docs/getting-started/installation',\n      },\n      {\n        title: 'Quick Start',\n        href: '/docs/getting-started/quick-start',\n      },\n    ],\n  },\n  {\n    title: 'Components',\n    icon: <Component className=\"h-5 w-5\" />,\n    defaultOpen: false,\n    pages: [\n      {\n        title: 'Button',\n        href: '/docs/components/button',\n      },\n      {\n        title: 'Input',\n        href: '/docs/components/input',\n      },\n      {\n        title: 'Label',\n        href: '/docs/components/label',\n      },\n      {\n        title: 'Checkbox',\n        href: '/docs/components/checkbox',\n      },\n      {\n        title: 'Search Button',\n        href: '/docs/components/search-button',\n      },\n      {\n        title: 'Tabs',\n        href: '/docs/components/tabs',\n      },\n      {\n        title: 'Sidebar',\n        href: '/docs/components/sidebar',\n      },\n      {\n        title: 'Steps',\n        href: '/docs/components/steps',\n      },\n      {\n        title: 'Syntax Highlighter',\n        href: '/docs/components/syntax-highlighter',\n      },\n      {\n        title: 'Folder Tree',\n        href: '/docs/components/folder-tree',\n      },\n      {\n        title: 'Note',\n        href: '/docs/components/note',\n      },\n      {\n        title: 'Menu',\n        href: '/docs/components/menu',\n      },\n      {\n        title: 'Popover',\n        href: '/docs/components/popover',\n      },\n      {\n        title: 'Dialog',\n        href: '/docs/components/dialog',\n      },\n      {\n        title: 'Select',\n        href: '/docs/components/select',\n      },\n    ],\n  },\n  {\n    title: 'Customization',\n    icon: <Wrench className=\"h-5 w-5\" />,\n    defaultOpen: true,\n    pages: [\n      {\n        title: 'Sidebar',\n        href: '/docs/customization/sidebar',\n      },\n      {\n        title: 'Toc',\n        href: '/docs/customization/toc',\n      },\n      {\n        title: 'Font',\n        href: '/docs/customization/font',\n      },\n\n// ... truncated"
+    },
+    {
+      "path": "src/components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import React from 'react';\nimport { cn } from '@/lib/utils';\n\nconst Header: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({\n  className,\n  ...props\n}) => {\n  return (\n    <header\n      className={cn(\n        'sticky top-0 z-1 flex items-center justify-between xs:min-h-auto md:min-h-16 border-b px-3 bg-defaultBase/60 backdrop-blur',\n        className\n      )}\n      {...props}\n    />\n  );\n};\n\nexport default Header;"
+    },
+    {
+      "path": "src/components/sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "'use client';\n\nimport * as React from 'react';\nimport Link from 'next/link';\nimport { usePathname } from 'next/navigation';\nimport { ChevronLeft, ChevronRight, Menu } from 'lucide-react';\nimport clsx from 'clsx';\nimport { cn } from '@/lib/utils';\n\ntype SidebarContextType = {\n  isOpen: boolean;\n  setIsOpen: (value: boolean) => void;\n  side: 'left' | 'right';\n  isMobile: boolean;\n  maxWidth: number;\n  toggleSidebar: () => void;\n  showIconsOnCollapse: boolean;\n};\n\nconst SidebarContext = React.createContext<SidebarContextType | undefined>(\n  undefined\n);\n\nfunction useSidebar() {\n  const context = React.useContext(SidebarContext);\n  if (!context) {\n    throw new Error('useSidebar must be used within a SidebarProvider');\n  }\n  return context;\n}\n\nfunction useIsMobile() {\n  const [isMobile, setIsMobile] = React.useState(false);\n\n  React.useEffect(() => {\n    const checkIsMobile = () => {\n      setIsMobile(window.innerWidth < 768);\n    };\n\n    checkIsMobile();\n    window.addEventListener('resize', checkIsMobile);\n\n    return () => {\n      window.removeEventListener('resize', checkIsMobile);\n    };\n  }, []);\n\n  return isMobile;\n}\n\ninterface SidebarProviderProps extends React.HTMLAttributes<HTMLDivElement> {\n  defaultOpen?: boolean;\n  defaultSide?: 'left' | 'right';\n  defaultMaxWidth?: number;\n  showIconsOnCollapse?: boolean;\n  mobileView?: boolean;\n}\n\nexport function SidebarProvider({\n  defaultOpen = true,\n  defaultSide = 'left',\n  defaultMaxWidth = 280,\n  showIconsOnCollapse = true,\n  mobileView = true,\n  ...props\n}: SidebarProviderProps) {\n  const useMobile = useIsMobile();\n\n  const isMobile = mobileView ? useMobile : false;\n\n  const [isOpen, setIsOpen] = React.useState(defaultOpen);\n  const [side] = React.useState<'left' | 'right'>(defaultSide);\n  const [maxWidth] = React.useState(defaultMaxWidth);\n\n  const toggleSidebar = React.useCallback(() => {\n    setIsOpen((prev) => !prev);\n  }, []);\n\n  // Add keyboard shortcut (Ctrl+B) to toggle sidebar\n  React.useEffect(() => {\n    const handleKeyDown = (e: KeyboardEvent) => {\n      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {\n        e.preventDefault();\n        toggleSidebar();\n      }\n    };\n\n    window.addEventListener('keydown', handleKeyDown);\n    return () => window.removeEventListener('keydown', handleKeyDown);\n  }, [toggleSi\n\n// ... truncated"
+    }
+  ]
+}

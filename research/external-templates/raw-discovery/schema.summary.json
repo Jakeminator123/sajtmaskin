@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/research/external-templates/raw-discovery/schema.summary.json",
+  "title": "External Template Raw Discovery Summary",
+  "type": "object",
+  "description": "Grouped raw discovery records keyed by category slug.",
+  "additionalProperties": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "required": [
+        "category_slug",
+        "category_name",
+        "template_url",
+        "title",
+        "description",
+        "repo_url",
+        "demo_url",
+        "framework_match",
+        "framework_reason",
+        "stack_tags",
+        "important_lines"
+      ],
+      "properties": {
+        "category_slug": {
+          "type": "string"
+        },
+        "category_name": {
+          "type": "string"
+        },
+        "template_url": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "repo_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "demo_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "framework_match": {
+          "type": "boolean"
+        },
+        "framework_reason": {
+          "type": "string"
+        },
+        "stack_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "important_lines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "id": "starter-v0-clone-v0-platform-api-demo",
+  "slug": "starter-v0-clone-v0-platform-api-demo",
+  "title": "v0 Clone: v0 Platform API Demo",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/ai/v0-clone",
+  "demoUrl": "https://clone-demo.v0-sdk.dev/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/vercel/v0-sdk/tree/main/examples/v0-clone",
+    "normalizedUrl": "https://github.com/vercel/v0-sdk",
+    "subpath": "examples/v0-clone",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-v0-sdk",
+    "packageManager": "unknown",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "AI",
+    "Next.js",
+    "Tailwind",
+    "Neon",
+    "NextAuth.js"
+  ],
+  "usefulLines": [
+    "v0 Clone: v0 Platform API Demo",
+    "Starter",
+    "AI",
+    "Next.js",
+    "Tailwind",
+    "Neon",
+    "NextAuth.js"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "app-shell",
+    "auth-pages"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "v0 Clone: v0 Platform API Demo is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# v0 clone\n\n> **⚠️ Developer Preview**: This SDK is currently in beta and is subject to change. Use in production at your own risk.\n\n<p align=\"center\">\n    <img src=\"./screenshot.png\" alt=\"v0 Clone Screenshot\" width=\"800\" />\n</p>\n\n<p align=\"center\">\n    An example of how to use the AI Elements to build a v0 clone with authentication and multi-tenant support.\n</p>\n\n<p align=\"center\">\n  <a href=\"#features\"><strong>Features</strong></a> ·\n  <a href=\"#deploy-your-own\"><strong>Deploy Your Own</strong></a> ·\n  <a href=\"#setup\"><strong>Setup</strong></a> ·\n  <a href=\"#getting-started\"><strong>Getting Started</strong></a> ·\n  <a href=\"#usage\"><strong>Usage</strong></a>\n</p>\n<br/>\n\n## Deploy Your Own\n\nYou can deploy your own version of the v0 clone to Vercel with one click:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fv0-sdk%2Ftree%2Fmain%2Fexamples%2Fv0-clone&env=V0_API_KEY,AUTH_SECRET&envDescription=Get+your+v0+API+key&envLink=https%3A%2F%2Fv0.app%2Fchat%2Fsettings%2Fkeys&products=%255B%257B%2522type%2522%253A%2522integration%2522%252C%2522protocol%2522%253A%2522storage%2522%252C%2522productSlug%2522%253A%2522neon%2522%252C%2522integrationSlug%2522%253A%2522neon%2522%257D%255D&project-name=v0-clone&repository-name=v0-clone&demo-title=v0+Clone&demo-description=A+full-featured+v0+clone+built+with+Next.js%2C+AI+Elements%2C+and+the+v0+SDK&demo-url=https%3A%2F%2Fclone-demo.v0-sdk.dev)\n\n## Setup\n\n### Environment Variables\n\nCreate a `.env` file with all required variables:\n\n```bash\n# Auth Secret - Generate a random string for production\n# Generate with: openssl rand -base64 32\n# Or visit: https://generate-secret.vercel.app/32\nAUTH_SECRET=your-auth-secret-here\n\n# Database URL - PostgreSQL connection string\nPOSTGRES_URL=postgresql://user:password@localhost:5432/v0_clone\n# For Vercel Postgres, use the connection string from your dashboard\n\n# Get your API key from https://v0.dev/chat/settings/keys\nV0_API_KEY=your_v0_api_key_here\n\n# Optional: Use a custom API URL\n# V0_API_URL=http://localhost:3001/v1\n```\n\n### Database Setup\n\nThis project uses PostgreSQL with Drizzle ORM. Set up your database:\n\n1. **Generate Database Schema**:\n\n   ```bash\n   pnpm db:generate\n   ```\n\n2. **Run Database Migrations**:\n\n   ```bash\n   pnpm db:migrate\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"v0-clone\",\n  \"version\": \"0.3.4\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"tsx lib/db/migrate && next build --turbopack\",\n    \"start\": \"next start\",\n    \"db:generate\": \"drizzle-kit generate\",\n    \"db:migrate\": \"npx tsx lib/db/migrate.ts\",\n    \"db:studio\": \"drizzle-kit studio\",\n    \"db:push\": \"drizzle-kit push\"\n  },\n  \"dependencies\": {\n    \"@ai-sdk/react\": \"^2.0.22\",\n    \"@radix-ui/react-avatar\": \"^1.1.10\",\n    \"@radix-ui/react-collapsible\": \"^1.1.12\",\n    \"@radix-ui/react-dialog\": \"^1.1.15\",\n    \"@radix-ui/react-dropdown-menu\": \"^2.1.16\",\n    \"@radix-ui/react-hover-card\": \"^1.1.15\",\n    \"@radix-ui/react-scroll-area\": \"^1.2.10\",\n    \"@radix-ui/react-select\": \"^2.2.6\",\n    \"@radix-ui/react-slot\": \"^1.2.3\",\n    \"@radix-ui/react-tooltip\": \"^1.2.8\",\n    \"@radix-ui/react-use-controllable-state\": \"^1.2.2\",\n    \"@v0-sdk/react\": \"workspace:*\",\n    \"@vercel/postgres\": \"^0.10.0\",\n    \"ai\": \"^5.0.22\",\n    \"bcrypt-ts\": \"^7.1.0\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.1.1\",\n    \"dotenv\": \"^16.4.5\",\n    \"drizzle-kit\": \"^0.31.4\",\n    \"drizzle-orm\": \"^0.44.5\",\n    \"embla-carousel-react\": \"^8.6.0\",\n    \"lucide-react\": \"^0.540.0\",\n    \"nanoid\": \"^5.1.5\",\n    \"next\": \"15.5.9\",\n    \"next-auth\": \"5.0.0-beta.25\",\n    \"postgres\": \"^3.4.7\",\n    \"react\": \"19.1.2\",\n    \"react-dom\": \"19.1.2\",\n    \"react-syntax-highlighter\": \"^15.6.6\",\n    \"shiki\": \"^3.12.2\",\n    \"streamdown\": \"^1.0.12\",\n    \"swr\": \"^2.3.6\",\n    \"tailwind-merge\": \"^2.5.5\",\n    \"tsx\": \"^4.19.2\",\n    \"use-stick-to-bottom\": \"^1.1.1\",\n    \"v0-sdk\": \"workspace:*\",\n    \"zod\": \"^4.1.1\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/postcss\": \"^4\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"@types/react-syntax-highlighter\": \"^15.5.13\",\n    \"tailwindcss\": \"^4\",\n    \"tw-animate-css\": \"^1.3.7\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from 'next'\nimport { Geist, Geist_Mono } from 'next/font/google'\nimport './globals.css'\nimport { StreamingProvider } from '@/contexts/streaming-context'\nimport { SWRProvider } from '@/components/providers/swr-provider'\nimport { SessionProvider } from '@/components/providers/session-provider'\n\nconst geistSans = Geist({\n  variable: '--font-geist-sans',\n  subsets: ['latin'],\n})\n\nconst geistMono = Geist_Mono({\n  variable: '--font-geist-mono',\n  subsets: ['latin'],\n})\n\nexport const metadata: Metadata = {\n  title: 'v0 Clone',\n  description:\n    'A clone of v0.dev built with the v0 SDK - Generate and preview React components with AI',\n}\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode\n}>) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <head>\n        <script\n          dangerouslySetInnerHTML={{\n            __html: `\n              (function() {\n                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {\n                  document.documentElement.classList.add('dark');\n                } else {\n                  document.documentElement.classList.remove('dark');\n                }\n\n                // Listen for changes in system preference\n                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {\n                  if (e.matches) {\n                    document.documentElement.classList.add('dark');\n                  } else {\n                    document.documentElement.classList.remove('dark');\n                  }\n                });\n              })();\n            `,\n          }}\n        />\n      </head>\n      <body\n        className={`${geistSans.variable} ${geistMono.variable} antialiased`}\n      >\n        <SessionProvider>\n          <SWRProvider>\n            <StreamingProvider>{children}</StreamingProvider>\n          </SWRProvider>\n        </SessionProvider>\n      </body>\n    </html>\n  )\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { HomeClient } from '@/components/home/home-client'\nimport { EnvSetup } from '@/components/env-setup'\nimport { hasEnvVars, checkRequiredEnvVars } from '@/lib/env-check'\n\nexport default function Home() {\n  const isDevelopment = process.env.NODE_ENV === 'development'\n\n  // Only show setup screen in development if environment variables are missing\n  if (!hasEnvVars && isDevelopment) {\n    const missingVars = checkRequiredEnvVars()\n    return <EnvSetup missingVars={missingVars} />\n  }\n\n  return <HomeClient />\n}"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { NextResponse, type NextRequest } from 'next/server'\nimport { getToken } from 'next-auth/jwt'\nimport { guestRegex, isDevelopmentEnvironment } from './lib/constants'\n\nexport async function middleware(request: NextRequest) {\n  const { pathname } = request.nextUrl\n\n  /*\n   * Playwright starts the dev server and requires a 200 status to\n   * begin the tests, so this ensures that the tests can start\n   */\n  if (pathname.startsWith('/ping')) {\n    return new Response('pong', { status: 200 })\n  }\n\n  if (pathname.startsWith('/api/auth')) {\n    return NextResponse.next()\n  }\n\n  // Check for required environment variables\n  if (!process.env.AUTH_SECRET) {\n    console.error(\n      '❌ Missing AUTH_SECRET environment variable. Please check your .env file.',\n    )\n    return NextResponse.next() // Let the app handle the error with better UI\n  }\n\n  const token = await getToken({\n    req: request,\n    secret: process.env.AUTH_SECRET,\n    secureCookie: !isDevelopmentEnvironment,\n  })\n\n  if (!token) {\n    // Allow API routes to proceed without authentication for anonymous chat creation\n    if (pathname.startsWith('/api/')) {\n      return NextResponse.next()\n    }\n\n    // Allow homepage for anonymous users\n    if (pathname === '/') {\n      return NextResponse.next()\n    }\n\n    // Redirect protected pages to login\n    if (['/chats', '/projects'].some((path) => pathname.startsWith(path))) {\n      return NextResponse.redirect(new URL('/login', request.url))\n    }\n\n    // Allow login and register pages\n    if (['/login', '/register'].includes(pathname)) {\n      return NextResponse.next()\n    }\n\n    // For any other protected routes, redirect to login\n    return NextResponse.redirect(new URL('/login', request.url))\n  }\n\n  const isGuest = guestRegex.test(token?.email ?? '')\n\n  if (token && !isGuest && ['/login', '/register'].includes(pathname)) {\n    return NextResponse.redirect(new URL('/', request.url))\n  }\n\n  return NextResponse.next()\n}\n\nexport const config = {\n  matcher: [\n    '/',\n    '/chats/:path*',\n    '/projects/:path*',\n    '/api/:path*',\n    '/login',\n    '/register',\n\n    /*\n     * Match all request paths except for the ones starting with:\n     * - _next/static (static files)\n     * - _next/image (image optimization files)\n     * - favicon.ico, sitemap.xml, robots.txt (metadata files\n\n// ... truncated"
+    }
+  ]
+}

@@ -14,8 +14,8 @@ documentation.
 - `docs/schemas/`
   Canonical human docs for important schemas, model/build-profile mappings, and
   scaffold contracts.
-- `docs/llm/`
-  AI, prompt, gateway, and own-engine strategy notes.
+- `docs/architecture/engine-status.md`
+  Own engine status, model tiers, scaffold system, generation capabilities.
 - `docs/plans/`
   Planning material split by lifecycle state:
   `active/`, `review-needed/`, and `archived/`.
@@ -75,7 +75,8 @@ Not runtime dependencies:
 
 - MCP server availability
 - browser-driven doc helpers in `tools/doc-browser/`
-- raw discovery under `research/external-templates/raw-discovery/`
+- raw discovery under `research/external-templates/raw-discovery/current/`
+- local shallow clone cache under `research/external-templates/repo-cache/`
 - raw local `_sidor` datasets
 
 ## Migration note

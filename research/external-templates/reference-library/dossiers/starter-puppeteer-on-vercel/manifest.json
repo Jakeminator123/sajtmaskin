@@ -1,0 +1,81 @@
+{
+  "id": "starter-puppeteer-on-vercel",
+  "slug": "starter-puppeteer-on-vercel",
+  "title": "Puppeteer on Vercel",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/puppeteer-on-vercel",
+  "demoUrl": "https://puppeteer-on-vercel-zeta.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/gabenunez/puppeteer-on-vercel",
+    "normalizedUrl": "https://github.com/gabenunez/puppeteer-on-vercel",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\gabenunez-puppeteer-on-vercel",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Puppeteer on Vercel",
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Puppeteer on Vercel is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Puppeteer on Vercel\n\nA demonstration of how to run [Puppeteer](https://pptr.dev/) on [Vercel](https://vercel.com).\n\n<img width=\"1546\" height=\"874\" alt=\"Puppeteer on Vercel\" src=\"https://github.com/user-attachments/assets/e94645f2-9095-414d-8032-410182ae6543\" />\n\n## Deploy on Vercel\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/gabenunez/puppeteer-on-vercel)\n\n## Purpose\n\nThis repository demonstrates how to successfully deploy and run Puppeteer on Vercel. Puppeteer is a powerful Node.js library that provides a high-level API to control headless Chrome/Chromium browsers, commonly used for:\n\n- 📸 Taking screenshots of web pages\n- 📄 Generating PDFs from web content\n- 🧪 Automated testing\n- ⚡ Performance testing\n\nRunning Puppeteer on Vercel requires special configuration due to the large size of the Chromium binary and the size constraints of functions. This project shows you exactly how to do it.\n\n## What It Does\n\nThis Next.js application provides a simple web interface where you can:\n\n1. Enter any URL (e.g., `https://vercel.com`)\n2. Click \"Capture\" to take a screenshot\n3. View the generated screenshot instantly\n\nBehind the scenes, the app:\n\n- Uses **regular Puppeteer** with bundled Chromium for local development\n- Uses **`@sparticuz/chromium-min`** with a pre-packaged Chromium binary for Vercel deployment\n- Automatically caches the Chromium executable path to improve cold start performance\n- Handles URL validation and error management\n- Defaults to the provided example Chromium .tar file if no production deployment is found to allow you to use the application without a publically accessible version.\n\n## How It Works\n\n### Local Development\n\n- Uses `puppeteer` package with its bundled Chromium binary\n- Works out of the box with no special configuration\n\n### Vercel Deployment\n\n1. **Build Time**: The `postinstall` script extracts Chromium binaries from `@sparticuz/chromium` and packages them into `public/chromium-pack.tar`\n2. **Runtime**: The API route uses `@sparticuz/chromium-min` to download and extract the Chromium binary from the hosted tar file\n3. **Caching**: The executable path is cached in memory to avoid re-downloading on subsequent requests\n\n## Troubleshooting\n\n### Timeout errors on Vercel\n\nNote that Vercel functions have a 10-seco\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"puppy\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"eslint\",\n    \"postinstall\": \"node scripts/postinstall.mjs\"\n  },\n  \"dependencies\": {\n    \"@sparticuz/chromium-min\": \"^141.0.0\",\n    \"next\": \"16.0.7\",\n    \"puppeteer-core\": \"^23.11.0\",\n    \"react\": \"19.2.0\",\n    \"react-dom\": \"19.2.0\"\n  },\n  \"devDependencies\": {\n    \"@sparticuz/chromium\": \"^141.0.0\",\n    \"@tailwindcss/postcss\": \"^4\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"16.0.1\",\n    \"puppeteer\": \"^23.11.0\",\n    \"tailwindcss\": \"^4\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Geist, Geist_Mono } from \"next/font/google\";\nimport \"./globals.css\";\n\nconst geistSans = Geist({\n  variable: \"--font-geist-sans\",\n  subsets: [\"latin\"],\n});\n\nconst geistMono = Geist_Mono({\n  variable: \"--font-geist-mono\",\n  subsets: [\"latin\"],\n});\n\nexport const metadata: Metadata = {\n  title: \"Create Next App\",\n  description: \"Generated by create next app\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body\n        className={`${geistSans.variable} ${geistMono.variable} antialiased`}\n      >\n        {children}\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\n\nimport { useState } from \"react\";\n\nexport default function HomePage() {\n  const [url, setUrl] = useState(\"\");\n  const [screenshot, setScreenshot] = useState<string | null>(null);\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  const handleScreenshot = async () => {\n    if (!url) {\n      setError(\"Please enter a valid URL.\");\n      return;\n    }\n    // Client-side URL validation: must start with http:// or https:// and be a valid URL\n    if (!/^https?:\\/\\//i.test(url.trim())) {\n      setError(\"URL must start with http:// or https://\");\n      return;\n    }\n    try {\n      new URL(url.trim());\n    } catch {\n      setError(\"Invalid URL format. Please enter a valid URL.\");\n      return;\n    }\n    setLoading(true);\n    setError(null);\n    setScreenshot(null);\n\n    try {\n      const response = await fetch(\n        `/api/screenshot?url=${encodeURIComponent(url)}`\n      );\n      if (!response.ok) {\n        if (response.status === 429) {\n          throw new Error(\n            \"Rate limit reached. To ensure this example can be used by others, please try again later.\"\n          );\n        }\n        throw new Error(\"Failed to capture screenshot.\");\n      }\n      const blob = await response.blob();\n      setScreenshot(URL.createObjectURL(blob));\n    } catch (err) {\n      setError(\n        err instanceof Error ? err.message : \"An unknown error occurred.\"\n      );\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return (\n    <main className=\"flex min-h-screen flex-col items-center justify-center p-24 bg-gray-50\">\n      <div className=\"w-full max-w-2xl text-center\">\n        <h1 className=\"text-4xl font-bold mb-4 text-gray-800\">\n          Puppeteer on Vercel\n        </h1>\n        <p className=\"text-lg text-gray-600 mb-8\">\n          Enter a URL below to generate a screenshot using Puppeteer running in\n          a Vercel Function.\n        </p>\n        <div className=\"flex gap-2\">\n          <input\n            type=\"text\"\n            value={url}\n            onChange={(e) => setUrl(e.target.value)}\n            placeholder=\"https://vercel.com\"\n            className=\"flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black focus:outline-none\"\n          />\n          <button\n            onClick={h\n\n// ... truncated"
+    }
+  ]
+}

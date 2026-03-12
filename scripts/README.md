@@ -1,45 +1,5 @@
 # Scripts
 
-## download-docs.py
-
-Ett enkelt Python-skript för att ladda ner dokumentation till MCP-servern.
-
-### Användning
-
-```bash
-python scripts/download-docs.py
-```
-
-Skriptet frågar interaktivt efter en URL och laddar ner dokumentationen till
-`services/mpc/docs/` där MCP-servern automatiskt kan använda den.
-
-### Exempel
-
-När du kör skriptet:
-
-```
-📥 URL: https://ai-sdk.dev/docs
-```
-
-Skriptet kommer att:
-
-1. Ladda ner dokumentationen från URL:en
-2. Spara den i `services/mpc/docs/docgrab__[domän]__[sökväg]/`
-3. Göra den sökbar via MCP-serverns `search_docs` tool
-
-### Tips
-
-- Ange fullständig URL (t.ex. `https://ai-sdk.dev/docs`)
-- Dokumentationen indexeras automatiskt av MCP-servern
-- Starta om MCP-servern (eller vänta tills Cursor startar den) för att den nya dokumentationen ska bli sökbar
-
-### Vanliga dokumentationskällor
-
-- `https://ai-sdk.dev/docs` - AI SDK dokumentation
-- `https://platform.openai.com/docs` - OpenAI API dokumentation
-- `https://v0.dev/docs` - v0 API dokumentation
-- `https://vercel.com/docs` - Vercel platform dokumentation
-
 ## sync-scaffold-refs.mjs
 
 Hämtar externa GitHub-referenser till `_template_refs/` för scaffold- och hemsidemallsarbete.
@@ -77,30 +37,74 @@ Auditerar rå extern template-research och bygger ett kuraterat
 
 ```bash
 npm run template-library:build
-npx tsx scripts/build-template-library.ts --source="C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates"
+npx tsx scripts/build-template-library.ts --source="research/external-templates/raw-discovery/current"
 ```
 
 Skriptet letar annars automatiskt efter råinput i denna ordning:
 
-1. `research/external-templates/raw-discovery`
-2. `_sidor/vercel_usecase_next_react_templates`
-3. `research/_sidor/vercel_usecase_next_react_templates`
-4. den äldre desktop-sökvägen
+1. `research/external-templates/raw-discovery/current`
+2. `research/external-templates/raw-discovery`
+3. `_sidor/vercel_usecase_next_react_templates`
+4. `research/_sidor/vercel_usecase_next_react_templates`
+5. den äldre desktop-sökvägen
+
+### Viktig arbetsordning
+
+Kör i denna ordning när du vill bygga om forskningsytan reproducerbart:
+
+```bash
+npm run template-library:import-legacy
+npm run template-library:hydrate-cache
+npm run template-library:build
+npm run template-library:embeddings
+```
 
 ### Vad skriptet gör
 
-1. Läser `summary.json`, `metadata.json`, `INFO_SV.md` och klonade repo-mappar
-2. Validerar repo-URL:er, framework-fit och monorepo-signaler
-3. Skapar `research/external-templates/reference-library/` med katalog + dossiers
-4. Genererar kuraterade research-artefakter för runtime-sökning i `src/lib/gen/template-library/`
-5. Genererar scaffold research metadata i `src/lib/gen/scaffolds/scaffold-research.generated.json`
+1. Läser det kanoniska `summary.json`-kontraktet från raw discovery
+2. Inspekterar shallow-clonade repos från `research/external-templates/repo-cache/`
+3. Faller bara tillbaka till äldre `_sidor`-repo paths om den valda source-roten
+   fortfarande pekar på en legacy-datasetmapp
+4. Skapar `research/external-templates/reference-library/` med katalog + dossiers
+5. Genererar kuraterade research-artefakter för runtime-sökning i `src/lib/gen/template-library/`
+6. Genererar scaffold research metadata i `src/lib/gen/scaffolds/scaffold-research.generated.json`
 
 ### Produktionsgräns
 
 Det här skriptet är build-time/research-time. Vercel-produktion ska läsa de
-kuraterade JSON-filerna som commitas i repot, inte rå discovery eller råa
-lokala datasetmappar.
+kuraterade JSON-filerna som commitas i repot, inte rå discovery, repo-cache
+eller råa lokala datasetmappar.
 
+## import-template-discovery.ts
+
+Normaliserar discovery-data till den kanoniska research-lanen under
+`research/external-templates/raw-discovery/current/`.
+
+### Användning
+
+```bash
+npm run template-library:import-legacy
+npx tsx scripts/import-template-discovery.ts --from="C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\summary.json"
+npx tsx scripts/import-template-discovery.ts --from="research/external-templates/raw-discovery/current/playwright-catalog.json" --format=playwright-catalog
+```
+
+## hydrate-template-library-cache.ts
+
+Gor shallow clones av GitHub-repon som refereras i den kanoniska raw-discoveryn.
+
+### Användning
+
+```bash
+npm run template-library:hydrate-cache
+npx tsx scripts/hydrate-template-library-cache.ts --max=20
+```
+
+### Regler
+
+- shallow clone only
+- ingen `install` eller `build`
+- output hamnar i `research/external-templates/repo-cache/` som ar git-ignorerad
+- `repo-cache` betyder lokal repo-spegel, inte runtime-cache
 ### Begrepp
 
 - `research/external-templates/raw-discovery/`
@@ -154,13 +158,15 @@ sist för att ge mer verifieringssignal även när repot redan har kända lintfe
 
 ## references:discover / scaffolds:discover
 
-Historiskt har discovery-skriptet hetat `scaffolds:discover`, men det producerar
-inte interna runtime-scaffolds. Det producerar rå extern template-discovery.
+Historiskt hette discovery-flödet `scaffolds:discover`, men det producerar inte
+interna runtime-scaffolds. Nu kör det Playwright-baserad extern
+template-discovery som normaliseras till `research/external-templates/raw-discovery/current/`.
 
 Använd i första hand:
 
 ```bash
 npm run references:discover
+npm run references:discover:second-pass
 npm run references:discover:full
 ```
 

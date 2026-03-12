@@ -1,0 +1,84 @@
+{
+  "id": "starter-next-js-motherduck-wasm-analytics-quickstart",
+  "slug": "starter-next-js-motherduck-wasm-analytics-quickstart",
+  "title": "Next.js MotherDuck Wasm analytics quickstart",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/next-js-motherduck-wasm-analytics-quickstart",
+  "demoUrl": "https://motherduck-wasm-analytics-quickstart.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/MotherDuck-Open-Source/nextjs-motherduck-wasm-analytics-quickstart-minimal",
+    "normalizedUrl": "https://github.com/MotherDuck-Open-Source/nextjs-motherduck-wasm-analytics-quickstart-minimal",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\motherduck-open-source-nextjs-motherduck-wasm-analytics-quickstart-minimal",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Next.js MotherDuck Wasm analytics quickstart",
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "dashboard",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js MotherDuck Wasm analytics quickstart is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Next.js MotherDuck Wasm analytics quickstart (minimal)\n\nThis is a minimal example of how to use Next.js with the MotherDuck Wasm client, which you can use as the starting point of your data analytics app.\n\nDocs: [MotherDuck](https://motherduck.com/docs/), [MotherDuck Wasm client](https://motherduck.com/docs/key-tasks/data-apps/wasm-client/)\n\n## Deploy your own\n\nDeploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme):\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FMotherDuck-Open-Source%2Fnextjs-motherduck-wasm-analytics-quickstart-minimal&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22motherduck%22%2C%22productSlug%22%3A%22motherduck%22%7D%5D)\n\n## How to use\n\nExecute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init), [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/), [pnpm](https://pnpm.io), or [Bun](https://bun.sh/docs/cli/bunx) to bootstrap the example:\n\n```bash\nnpx create-next-app --example https://github.com/MotherDuck-Open-Source/nextjs-motherduck-wasm-analytics-quickstart-minimal\n```\n\n```bash\nyarn create next-app --example https://github.com/MotherDuck-Open-Source/nextjs-motherduck-wasm-analytics-quickstart-minimal\n```\n\n```bash\npnpm create next-app --example https://github.com/MotherDuck-Open-Source/nextjs-motherduck-wasm-analytics-quickstart-minimal\n```\n\n```bash\nbunx create-next-app --example https://github.com/MotherDuck-Open-Source/nextjs-motherduck-wasm-analytics-quickstart-minimal\n```\n\n\n## Getting Started\n\nFirst, run the development server:\n\n```bash\nnpm run dev\n# or\nyarn dev\n# or\npnpm dev\n# or\nbun dev\n```\n\nOpen [http://localhost:3000](http://localhost:3000) with your browser to see the result.\n\nYou can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file."
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-with-motherduck-wasm-example\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@motherduck/wasm-client\": \"^0.6.6\",\n    \"core-js\": \"^3.39.0\",\n    \"next\": \"latest\",\n    \"react\": \"19.0.0-rc-66855b96-20241106\",\n    \"react-dom\": \"19.0.0-rc-66855b96-20241106\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^18\",\n    \"@types/react-dom\": \"^18\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"15.0.3\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport localFont from \"next/font/local\";\nimport \"./globals.css\";\n\nconst geistSans = localFont({\n  src: \"./fonts/GeistVF.woff\",\n  variable: \"--font-geist-sans\",\n  weight: \"100 900\",\n});\nconst geistMono = localFont({\n  src: \"./fonts/GeistMonoVF.woff\",\n  variable: \"--font-geist-mono\",\n  weight: \"100 900\",\n});\n\nexport const metadata: Metadata = {\n  title: \"Create Next App\",\n  description: \"Generated by create next app\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body\n        className={`${geistSans.variable} ${geistMono.variable} antialiased antialiased dark:bg-gray-900`}\n      >\n          {children}\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\"\n\nimport { MotherDuckClientProvider, useMotherDuckClientState } from \"@/lib/motherduck/context/motherduckClientContext\";\nimport HintComponent from \"./components/hint\";\nimport { useCallback, useState, useEffect } from \"react\";\n\nconst SQL_QUERY_STRING = `SELECT\n    u.username,\n    u.email,\n    o.total_amount,\n    o.order_date::VARCHAR as order_date\nFROM\n    my_db.main.orders o\nJOIN\n    my_db.main.users u ON o.user_id = u.user_id;`;\n\nconst useFetchCustomerOrdersData = () => {\n    const { safeEvaluateQuery } = useMotherDuckClientState();\n    const [error, setError] = useState<string | null>(null);\n\n    const fetchCustomerOrdersData = useCallback(async () => {\n        try {\n            const safeResult = await safeEvaluateQuery(SQL_QUERY_STRING);\n            if (safeResult.status === \"success\") {\n                setError(null);\n                return safeResult.result.data.toRows().map((row) => {\n                    return {\n                        username: row.username?.valueOf() as string,\n                        email: row.email?.valueOf() as string,\n                        totalAmount: row.total_amount?.valueOf() as number,\n                        orderDate: row.order_date?.valueOf() as string,\n                    };\n                });\n\n            } else {\n                setError(safeResult.err.message);\n                return [];\n            }\n        } catch (error) {\n            setError(\"fetchCustomerOrdersData failed with error: \" + error);\n            return [];\n        }\n\n    }, [safeEvaluateQuery]);\n\n    return { fetchCustomerOrdersData, error };\n}\n\n\nfunction CustomerOrdersTable() {\n    const { fetchCustomerOrdersData, error } = useFetchCustomerOrdersData();\n    const [customerOrdersData, setCustomerOrdersData] = useState<{ username: string, email: string, totalAmount: number, orderDate: string }[]>([]);\n    const [loading, setLoading] = useState(false);\n\n    const handleFetchCustomerOrdersData = async () => {\n        setLoading(true);\n        const result = await fetchCustomerOrdersData();\n        setCustomerOrdersData(result);\n        setLoading(false);\n    };\n\n    useEffect(() => {\n        const fetch = async () => {\n            setLoading(true);\n            const result = await fetchCustomerOrdersData();\n            setCustomerOrdersData(result);\n            se\n\n// ... truncated"
+    }
+  ]
+}

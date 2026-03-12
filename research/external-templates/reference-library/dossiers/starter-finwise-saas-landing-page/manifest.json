@@ -1,0 +1,93 @@
+{
+  "id": "starter-finwise-saas-landing-page",
+  "slug": "starter-finwise-saas-landing-page",
+  "title": "Finwise: SaaS Landing Page",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/saas/finwise-saas-landing-page",
+  "demoUrl": "https://finwise-omega.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/nexi-launch/finwise-landing-page",
+    "normalizedUrl": "https://github.com/nexi-launch/finwise-landing-page",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\nexi-launch-finwise-landing-page",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Starter",
+    "SaaS",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Finwise: SaaS Landing Page",
+    "Starter",
+    "SaaS",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Finwise: SaaS Landing Page is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnexi-launch%2Ffinwise-landing-page)\n\n# Finwise - Next.js + Tailwind Landing Page Template\n\nFinwise is a lightweight, easily configurable, and customizable **Next.js** and **Tailwind CSS** landing page template. It’s built to be adaptable, performant, and perfect for any product launch, portfolio, or promotional site.\n\nTry out the demo here: [https://finwise-omega.vercel.app](https://finwise-omega.vercel.app).\n\nPlease check out the documentation below to get started.\n\n---\n\n## Features\n\n- **Next.js** app router with **TypeScript**\n- **Tailwind CSS** v3 for flexible styling customization\n- Smooth transitions powered by **Framer Motion**\n- Built-in **font optimization** with [next/font](https://nextjs.org/docs/app/api-reference/components/font)\n- Automatic **image optimization** via [next/image](https://nextjs.org/docs/app/building-your-application/optimizing/images)\n- Access to **31+ icon packs** via [React Icons](https://react-icons.github.io/react-icons/)\n- Near-perfect **Lighthouse score**\n- Modular, responsive, and **scalable components**\n- **Free lifetime updates**\n\n---\n\n## Sections\n\n- Hero\n- Partners or Clients Logos\n- Features\n- Pricing\n- Testimonials\n- FAQ\n- Statistics\n- CTA\n- Footer\n\n---\n\n## Getting Started\n\n### Prerequisites\n\nBefore starting, make sure you have the following installed:\n\n- **Node.js**: Version 18 or later\n- **npm**: Version 8 or later (bundled with Node.js)\n- **Code editor**: [VS Code](https://code.visualstudio.com/) is recommended.\n\n### Steps\n\n1. **Install dependencies**: Run `npm install`\n2. **Run the development server**: `npm run dev`\n3. **View your project**: Open [localhost:3000](http://localhost:3000)\n\n---\n\n## Customization\n\n1. **Edit colors**: Update `globals.css` for primary, secondary, background, and accent colors.\n2. **Update site details**: Customize `siteDetails.ts` in `/src/data` to reflect your brand and site info.\n3. **Modify content**: Files in `/src/data` handle data for navigation, features, pricing, testimonials, and more.\n4. **Replace favicon**: Add your icon to `/src/app/favicon.ico`.\n5. **Add images**: Update `public/images` for Open Graph metadata (e.g., `og-image.jpg`, `twitter-image.jpg`).\n\n---\n\n## Deploying on Vercel\n\nT\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"finwise\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@headlessui/react\": \"^2.1.8\",\n    \"@next/third-parties\": \"^14.2.13\",\n    \"clsx\": \"^2.1.1\",\n    \"framer-motion\": \"^11.11.9\",\n    \"next\": \"^14.2.13\",\n    \"react\": \"^18\",\n    \"react-dom\": \"^18\",\n    \"react-icons\": \"^5.3.0\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^18\",\n    \"@types/react-dom\": \"^18\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"14.2.13\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { GoogleAnalytics } from '@next/third-parties/google';\nimport { Source_Sans_3, Manrope } from \"next/font/google\";\n\nimport Header from \"@/components/Header\";\nimport Footer from \"@/components/Footer\";\nimport { siteDetails } from '@/data/siteDetails';\n\nimport \"./globals.css\";\n\nconst manrope = Manrope({ subsets: ['latin'] });\nconst sourceSans = Source_Sans_3({ subsets: ['latin'] });\n\nexport const metadata: Metadata = {\n  title: siteDetails.metadata.title,\n  description: siteDetails.metadata.description,\n  openGraph: {\n    title: siteDetails.metadata.title,\n    description: siteDetails.metadata.description,\n    url: siteDetails.siteUrl,\n    type: 'website',\n    images: [\n      {\n        url: '/images/og-image.jpg',\n        width: 1200,\n        height: 675,\n        alt: siteDetails.siteName,\n      },\n    ],\n  },\n  twitter: {\n    card: 'summary_large_image',\n    title: siteDetails.metadata.title,\n    description: siteDetails.metadata.description,\n    images: ['/images/twitter-image.jpg'],\n  },\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body\n        className={`${manrope.className} ${sourceSans.className} antialiased`}\n      >\n        {siteDetails.googleAnalyticsId && <GoogleAnalytics gaId={siteDetails.googleAnalyticsId} />}\n        <Header />\n        <main>\n          {children}\n        </main>\n        <Footer />\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Hero from \"@/components/Hero\";\nimport Testimonials from \"@/components/Testimonials\";\nimport Pricing from \"@/components/Pricing/Pricing\";\nimport FAQ from \"@/components/FAQ\";\nimport Logos from \"@/components/Logos\";\nimport Benefits from \"@/components/Benefits/Benefits\";\nimport Container from \"@/components/Container\";\nimport Section from \"@/components/Section\";\nimport Stats from \"@/components/Stats\";\nimport CTA from \"@/components/CTA\";\n\nconst HomePage: React.FC = () => {\n  return (\n    <>\n      <Hero />\n      <Logos />\n      <Container>\n        <Benefits />\n\n        <Section\n          id=\"pricing\"\n          title=\"Pricing\"\n          description=\"Simple, transparent pricing. No surprises.\"\n        >\n          <Pricing />\n        </Section>\n\n        <Section\n          id=\"testimonials\"\n          title=\"What Our Clients Say\"\n          description=\"Hear from those who have partnered with us.\"\n        >\n          <Testimonials />\n        </Section>\n\n        <FAQ />\n\n        <Stats />\n\n        <CTA />\n      </Container>\n    </>\n  );\n};\n\nexport default HomePage;"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Retrieve your GA ID from your GA dashboard\nGOOGLE_ANALYTICS_ID=G-XXXXXXX"
+    },
+    {
+      "path": "src/components/Header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client';\n\nimport Link from 'next/link';\nimport React, { useState } from 'react';\nimport { Transition } from '@headlessui/react';\nimport { HiOutlineXMark, HiBars3 } from 'react-icons/hi2';\nimport { FaFingerprint } from 'react-icons/fa';\n\nimport Container from './Container';\nimport { siteDetails } from '@/data/siteDetails';\nimport { menuItems } from '@/data/menuItems';\n\nconst Header: React.FC = () => {\n    const [isOpen, setIsOpen] = useState(false);\n\n    const toggleMenu = () => {\n        setIsOpen(!isOpen);\n    };\n\n    return (\n        <header className=\"bg-transparent fixed top-0 left-0 right-0 md:absolute z-50 mx-auto w-full\">\n            <Container className=\"!px-0\">\n                <nav className=\"shadow-md md:shadow-none bg-white md:bg-transparent mx-auto flex justify-between items-center py-2 px-5 md:py-10\">\n                    {/* Logo */}\n                    <Link href=\"/\" className=\"flex items-center gap-2\">\n                        <FaFingerprint className=\"text-foreground min-w-fit w-7 h-7\" />\n                        <span className=\"manrope text-xl font-semibold text-foreground cursor-pointer\">\n                            {siteDetails.siteName}\n                        </span>\n                    </Link>\n\n                    {/* Desktop Menu */}\n                    <ul className=\"hidden md:flex space-x-6\">\n                        {menuItems.map(item => (\n                            <li key={item.text}>\n                                <Link href={item.url} className=\"text-foreground hover:text-foreground-accent transition-colors\">\n                                    {item.text}\n                                </Link>\n                            </li>\n                        ))}\n                        <li>\n                            <Link href=\"#cta\" className=\"text-black bg-primary hover:bg-primary-accent px-8 py-3 rounded-full transition-colors\">\n                                Download\n                            </Link>\n                        </li>\n                    </ul>\n\n                    {/* Mobile Menu Button */}\n                    <div className=\"md:hidden flex items-center\">\n                        <button\n                            onClick={toggleMenu}\n                            type=\"button\"\n                            className=\"bg-primary text-black focus:outline-none ro\n\n// ... truncated"
+    }
+  ]
+}

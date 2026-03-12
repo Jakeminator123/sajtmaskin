@@ -1,0 +1,122 @@
+{
+  "id": "saas-saasfly",
+  "slug": "saas-saasfly",
+  "title": "Saasfly",
+  "categorySlug": "saas",
+  "categoryName": "SaaS",
+  "templateUrl": "https://vercel.com/templates/saas/saasfly",
+  "demoUrl": "https://show.saasfly.io/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 82,
+  "repo": {
+    "url": "https://github.com/saasfly/saasfly",
+    "normalizedUrl": "https://github.com/saasfly/saasfly",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\saasfly-saasfly",
+    "packageManager": "bun",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Postgres",
+    "NextAuth.js"
+  ],
+  "usefulLines": [
+    "Saasfly",
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Postgres",
+    "NextAuth.js"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns",
+    "pricing or billing structure"
+  ],
+  "weaknesses": [
+    "large monorepo without a clear example path"
+  ],
+  "recommendedScaffoldFamilies": [
+    "saas-landing",
+    "auth-pages",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": true,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Saasfly is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "apps/nextjs/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"@saasfly/nextjs\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"build\": \"contentlayer2 build && bun with-env next build\",\n    \"clean\": \"git clean -xdf .next .turbo node_modules\",\n    \"dev\": \"bun with-env next dev\",\n    \"lint\": \" bun with-env next lint --quiet\",\n    \"format\": \"prettier --write '**/*.{js,cjs,mjs,ts,tsx,md,json}'  --ignore-path .prettierignore\",\n    \"start\": \"bun with-env next start\",\n    \"with-env\": \"dotenv -e ../../.env.local --\"\n  },\n  \"dependencies\": {\n    \"@dinero.js/currencies\": \"2.0.0-alpha.14\",\n    \"@formatjs/intl-localematcher\": \"0.5.4\",\n    \"@hookform/resolvers\": \"3.3.4\",\n    \"@next/mdx\": \"14.2.5\",\n    \"@saasfly/api\": \"workspace:*\",\n    \"@saasfly/auth\": \"workspace:*\",\n    \"@saasfly/db\": \"workspace:*\",\n    \"@saasfly/stripe\": \"workspace:*\",\n    \"@t3-oss/env-nextjs\": \"0.8.0\",\n    \"@tanstack/react-query\": \"5.36.0\",\n    \"@tanstack/react-query-devtools\": \"5.36.0\",\n    \"@tanstack/react-table\": \"8.17.0\",\n    \"@trpc/client\": \"10.44.1\",\n    \"@trpc/next\": \"10.44.1\",\n    \"@trpc/react-query\": \"10.44.1\",\n    \"@trpc/server\": \"10.44.1\",\n    \"date-fns\": \"3.3.1\",\n    \"framer-motion\": \"11.0.3\",\n    \"negotiator\": \"0.6.3\",\n    \"next\": \"14.2.5\",\n    \"next-themes\": \"0.2.1\",\n    \"react\": \"18.3.1\",\n    \"react-day-picker\": \"8.10.0\",\n    \"react-dom\": \"18.3.1\",\n    \"react-image-crop\": \"11.0.5\",\n    \"react-wrap-balancer\": \"1.1.0\",\n    \"recharts\": \"2.11.0\",\n    \"superjson\": \"2.2.1\",\n    \"tailwindcss-animate\": \"1.0.7\",\n    \"zod\": \"3.22.4\",\n    \"zustand\": \"4.5.0\",\n    \"vaul\": \"0.9.0\",\n    \"@vercel/analytics\": \"1.1.3\",\n    \"@vercel/speed-insights\": \"1.0.9\",\n    \"posthog-js\": \"1.105.0\",\n    \"posthog-node\": \"3.6.2\",\n    \"fetch-ponyfill\": \"7.1.0\"\n  },\n  \"devDependencies\": {\n    \"@saasfly/eslint-config\": \"workspace:*\",\n    \"@saasfly/prettier-config\": \"workspace:*\",\n    \"@saasfly/tailwind-config\": \"workspace:*\",\n    \"@saasfly/typescript-config\": \"workspace:*\",\n    \"@types/mdx\": \"2.0.10\",\n    \"@types/negotiator\": \"0.6.3\",\n    \"@types/node\": \"20.12.12\",\n    \"@types/react\": \"18.3.3\",\n    \"@types/react-dom\": \"18.3.0\",\n    \"autoprefixer\": \"10.4.17\",\n    \"dotenv-cli\": \"7.3.0\",\n    \"eslint\": \"8.57.0\",\n    \"prettier\": \"3.2.5\",\n    \"tailwindcss\": \"3.4.1\",\n    \"typescript\": \"5.4.5\",\n    \"contentlayer2\": \"0.4.6\",\n    \"next-contentlayer2\": \"0.4.6\",\n    \"rehype\": \"13.0.1\",\n    \"rehype-au\n\n// ... truncated"
+    },
+    {
+      "path": "apps/nextjs/src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { ClerkProvider } from \"@clerk/nextjs\";\nimport { Inter as FontSans } from \"next/font/google\";\nimport localFont from \"next/font/local\";\n\nimport \"~/styles/globals.css\";\n\nimport { NextDevtoolsProvider } from \"@next-devtools/core\";\nimport { Analytics } from \"@vercel/analytics/react\";\nimport { SpeedInsights } from \"@vercel/speed-insights/next\";\n\nimport { cn } from \"@saasfly/ui\";\nimport { Toaster } from \"@saasfly/ui/toaster\";\n\nimport { TailwindIndicator } from \"~/components/tailwind-indicator\";\nimport { ThemeProvider } from \"~/components/theme-provider\";\nimport { i18n } from \"~/config/i18n-config\";\nimport { siteConfig } from \"~/config/site\";\n\n// import { Suspense } from \"react\";\n// import { PostHogPageview } from \"~/config/providers\";\n\nconst fontSans = FontSans({\n  subsets: [\"latin\"],\n  variable: \"--font-sans\",\n});\n\n// Font files can be colocated inside of `pages`\nconst fontHeading = localFont({\n  src: \"../styles/fonts/CalSans-SemiBold.woff2\",\n  variable: \"--font-heading\",\n});\n\nexport function generateStaticParams() {\n  return i18n.locales.map((locale) => ({ lang: locale }));\n}\n\nexport const metadata = {\n  title: {\n    default: siteConfig.name,\n    template: `%s | ${siteConfig.name}`,\n  },\n  description: siteConfig.description,\n  keywords: [\n    \"Next.js\",\n    \"Shadcn ui\",\n    \"Sass\",\n    \"Fast \",\n    \"Simple \",\n    \"Easy\",\n    \"Cloud Native\",\n  ],\n  authors: [\n    {\n      name: \"saasfly\",\n    },\n  ],\n  creator: \"Saasfly\",\n  openGraph: {\n    type: \"website\",\n    locale: \"en_US\",\n    url: siteConfig.url,\n    title: siteConfig.name,\n    description: siteConfig.description,\n    siteName: siteConfig.name,\n  },\n  icons: {\n    icon: \"/logo.svg\",\n    // shortcut: \"/favicon-16x16.png\",\n    apple: \"/apple-touch-icon.png\",\n  },\n  metadataBase: new URL(\"https://show.saasfly.io/\"),\n  // manifest: `${siteConfig.url}/site.webmanifest`,\n};\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <ClerkProvider>\n      <html lang=\"en\" suppressHydrationWarning>\n        <head />\n        {/*<Suspense>*/}\n        {/*  <PostHogPageview />*/}\n        {/*</Suspense>*/}\n        <body\n          className={cn(\n            \"min-h-screen bg-background font-sans antialiased\",\n            fontSans.variable,\n            fontHeading.variable,\n          )\n\n// ... truncated"
+    },
+    {
+      "path": "apps/nextjs/src/middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { middleware } from \"./utils/clerk\";\n\nexport const config = {\n  matcher: [\n    \"/((?!.*\\\\..*|_next).*)\",\n    \"/\",\n    \"/(api|trpc)(.*)\",\n    \"/((?!_next|[^?]*\\\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)\"\n  ],\n};\n\nexport default middleware"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<div align=\"center\" width=\"100%\">\n    <img src=\"./saasfly-logo.svg\" width=\"128\" alt=\"\" />\n</div>\n\n# Saasfly </br>\n<a href=\"https://trendshift.io/repositories/8929\" target=\"_blank\"><img src=\"https://trendshift.io/api/badge/repositories/8929\" alt=\"saasfly%2Fsaasfly | Trendshift\" style=\"width: 250px; height: 55px;\" width=\"250\" height=\"55\"/></a>\n\n[![GitHub Actions Workflow Status][check-workflow-badge]][check-workflow-badge-link] [![GitHub License][github-license-badge]][github-license-badge-link]  [![Discord][discord-badge]][discord-badge-link] [![Saasfly][made-by-nextify-badge]][made-by-nextify-badge-link]\n[![Chinese](https://img.shields.io/badge/-Chinese-red.svg)](README_zh.md)\n[![German](https://img.shields.io/badge/-German-yellow.svg)](README_de.md)\n[![Vietnamese](https://img.shields.io/badge/-Vietnamese-yellow.svg)](README_vi.md) </br>\n![COMMIT_ACTIVITY](https://img.shields.io/github/commit-activity/m/saasfly/saasfly?style=for-the-badge\">)\n[![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2Fsaasfly%2Fsaasfly&labelColor=%23f47373&countColor=%23263759)](https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2Fsaasfly%2Fsaasfly)\n\nAn easy-to-use and enterprise-grade Next.js boilerplate.\n\nYou don't need to buy templates anymore; Saasfly provides a complete, open-source solution for building SaaS applications quickly and easily.\n\n> **[Nextify](https://nextify.ltd)** provides a complete Enterprise SaaS solution. Contact us at [contact@nextify.ltd](mailto:contact@nextify.ltd) if you're interested in discussing your project, or if you'd simply like to have a conversation with us, please feel free to reach out.\n\n> ❤️ We provide **free technical support and deployment services to non-profit organizations**.\n>\n> 🙌 All profits obtained from our open source projects will be **entirely dedicated to supporting open source initiatives and charitable causes**.\n\n## ⚡ Live Demo\n\nTry it out for yourself!\n\nDemo Server (Location: Washington - USA): <https://show.saasfly.io>\n\nSee more documentation at <https://document.saasfly.io>\n\n## 🌟 Star History\n\n[![Star History Chart](https://app.repohistory.com/api/svg?repo=saasfly/saasfly&type=Timeline)](https://repohistory.com)\n\n## Sponsors\n\n<table>\n  <tr>\n   <td style=\"width: 64px;\">\n      <a href=\"https://libra.dev/\">\n        <div style=\"width: 64px;\">\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-template\",\n  \"private\": true,\n  \"scripts\": {\n    \"build\": \"turbo build \",\n    \"clean\": \"git clean -xdf node_modules\",\n    \"clean:workspaces\": \"turbo clean\",\n    \"db:push\": \"cd ./packages/db/ && bun db:push\",\n    \"dev\": \"turbo dev --parallel\",\n    \"dev:web\": \"turbo dev --parallel --filter !stripe\",\n    \"format\": \"turbo format --continue -- --cache --cache-location='node_modules/.cache/.prettiercache' --ignore-path='../../.gitignore'\",\n    \"format:fix\": \"turbo format --continue -- --write --cache --cache-location='node_modules/.cache/.prettiercache' --ignore-path='../../.gitignore'\",\n    \"lint\": \"turbo lint -- --quiet -- --cache --cache-location 'node_modules/.cache/.eslintcache' && manypkg check\",\n    \"lint:fix\": \"turbo lint --continue -- --fix --cache --cache-location 'node_modules/.cache/.eslintcache' \",\n    \"typecheck\": \"turbo typecheck\",\n    \"postinstall\": \"bun run check-deps\",\n    \"check-deps\": \"check-dependency-version-consistency .\",\n    \"gen\": \"turbo gen --config 'turbo/generators/config.ts'\"\n  },\n  \"devDependencies\": {\n    \"@turbo/gen\": \"1.13.3\",\n    \"check-dependency-version-consistency\": \"4.1.0\",\n    \"prettier\": \"3.2.5\",\n    \"tailwind-config-viewer\": \"^2.0.4\",\n    \"turbo\": \"1.13.3\",\n    \"typescript\": \"5.4.5\"\n  },\n  \"engines\": {\n    \"node\": \">=18\"\n  },\n  \"prettier\": \"@saasfly/prettier-config\",\n  \"workspaces\": [\n    \"apps/*\",\n    \"packages/*\",\n    \"tooling/*\"\n  ],\n  \"packageManager\": \"bun@v1.1.10\",\n  \"dependencies\": {\n    \"@clerk/nextjs\": \"^6.20.0\"\n  }\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# -----------------------------------------------------------------------------\n# App\n# -----------------------------------------------------------------------------\nNEXT_PUBLIC_APP_URL='http://localhost:3000'\n# -----------------------------------------------------------------------------\n# Authentication (NextAuth.js)\n# openssl rand -base64 32\n# -----------------------------------------------------------------------------\nNEXTAUTH_URL='http://localhost:3000'\nNEXTAUTH_SECRET='1'\n\nNEXT_PUBLIC_CLERK_PUBLISHABLE_KEY='1'\nCLERK_SECRET_KEY='1'\n\nGITHUB_CLIENT_ID='1'\nGITHUB_CLIENT_SECRET='1'\n\n# -----------------------------------------------------------------------------\n# Email (RESEND)\n# -----------------------------------------------------------------------------\nRESEND_API_KEY='1'\nRESEND_FROM='1'\n\n# -----------------------------------------------------------------------------\n# Subscriptions (Stripe)\n# -----------------------------------------------------------------------------\n# Stripe\nSTRIPE_API_KEY=\"1\"\nSTRIPE_WEBHOOK_SECRET=\"1\"\nNEXT_PUBLIC_STRIPE_STD_PRODUCT_ID=\"prod_\"\nNEXT_PUBLIC_STRIPE_STD_MONTHLY_PRICE_ID=\"price_\"\n\nNEXT_PUBLIC_STRIPE_PRO_PRODUCT_ID=\"prod_\"\nNEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID=\"price_\"\nNEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID=\"price_\"\nNEXT_PUBLIC_STRIPE_BUSINESS_PRODUCT_ID=\"prod_\"\nNEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID=\"price_\"\nNEXT_PUBLIC_STRIPE_BUSINESS_YEARLY_PRICE_ID=\"price_\"\n\n# posthog\nNEXT_PUBLIC_POSTHOG_KEY=\" \"\nNEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com\n\n# admin account\nADMIN_EMAIL=\"admin@saasfly.io,root@saasfly.io\"\n\n# next auth debug\nIS_DEBUG=false"
+    },
+    {
+      "path": "apps/nextjs/src/app/admin/(dashboard)/dashboard/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Link from \"next/link\";\nimport {\n  Activity,\n  ArrowUpRight,\n  CircleUser,\n  CreditCard,\n  DollarSign,\n  Menu,\n  Package2,\n  Search,\n  Users,\n} from \"lucide-react\";\n\nimport { Avatar, AvatarFallback, AvatarImage } from \"@saasfly/ui/avatar\";\nimport { Button } from \"@saasfly/ui/button\";\nimport {\n  Card,\n  CardContent,\n  CardDescription,\n  CardHeader,\n  CardTitle,\n} from \"@saasfly/ui/card\";\nimport {\n  DropdownMenu,\n  DropdownMenuContent,\n  DropdownMenuItem,\n  DropdownMenuLabel,\n  DropdownMenuSeparator,\n  DropdownMenuTrigger,\n} from \"@saasfly/ui/dropdown-menu\";\nimport { Input } from \"@saasfly/ui/input\";\nimport { Sheet, SheetContent, SheetTrigger } from \"@saasfly/ui/sheet\";\nimport {\n  Table,\n  TableBody,\n  TableCell,\n  TableHead,\n  TableHeader,\n  TableRow,\n} from \"@saasfly/ui/table\";\n\nexport default function Dashboard() {\n  return (\n    <div className=\"flex min-h-screen w-full flex-col\">\n      <header className=\"sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6\">\n        <nav className=\"hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6\">\n          <Link\n            href=\"#\"\n            className=\"flex items-center gap-2 text-lg font-semibold md:text-base\"\n          >\n            <Package2 className=\"h-6 w-6\" />\n            <span className=\"sr-only\">Acme Inc</span>\n          </Link>\n          <Link\n            href=\"#\"\n            className=\"text-foreground transition-colors hover:text-foreground\"\n          >\n            Dashboard\n          </Link>\n          <Link\n            href=\"#\"\n            className=\"text-muted-foreground transition-colors hover:text-foreground\"\n          >\n            Orders\n          </Link>\n          <Link\n            href=\"#\"\n            className=\"text-muted-foreground transition-colors hover:text-foreground\"\n          >\n            Products\n          </Link>\n          <Link\n            href=\"#\"\n            className=\"text-muted-foreground transition-colors hover:text-foreground\"\n          >\n            Customers\n          </Link>\n          <Link\n            href=\"#\"\n            className=\"text-muted-foreground transition-colors hover:text-foreground\"\n          >\n            Analytics\n          </Link>\n        </nav>\n        <Sheet>\n          <SheetTrigger asChild\n\n// ... truncated"
+    },
+    {
+      "path": "apps/nextjs/src/app/[lang]/(dashboard)/dashboard/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import React from \"react\";\nimport { redirect } from \"next/navigation\";\n\nimport { authOptions, getCurrentUser } from \"@saasfly/auth\";\nimport {\n  Table,\n  TableCaption,\n  TableHead,\n  TableHeader,\n  TableRow,\n} from \"@saasfly/ui/table\";\n\nimport { EmptyPlaceholder } from \"~/components/empty-placeholder\";\nimport { DashboardHeader } from \"~/components/header\";\nimport { K8sCreateButton } from \"~/components/k8s/cluster-create-button\";\nimport { ClusterItem } from \"~/components/k8s/cluster-item\";\nimport { DashboardShell } from \"~/components/shell\";\nimport type { Locale } from \"~/config/i18n-config\";\nimport { getDictionary } from \"~/lib/get-dictionary\";\nimport { trpc } from \"~/trpc/server\";\nimport type { ClustersArray } from \"~/types/k8s\";\n\nexport const metadata = {\n  title: \"Dashboard\",\n};\n\n// export type ClusterType = RouterOutputs[\"k8s\"][\"getClusters\"][number];\nexport default async function DashboardPage({\n  params: { lang },\n}: {\n  params: {\n    lang: Locale;\n  };\n}) {\n  //don't need to check auth here, because we have a global auth check in _app.tsx\n  const user = await getCurrentUser();\n  if (!user) {\n    redirect(authOptions?.pages?.signIn ?? \"/login-clerk\");\n  }\n  const customer = await trpc.customer.queryCustomer.query({\n    userId: user.id,\n  });\n  if (!customer) {\n    await trpc.customer.insertCustomer.mutate({\n      userId: user.id,\n    });\n  }\n  // const accout\n  const result: ClustersArray = await trpc.k8s.getClusters.query();\n  if (result) {\n    const clusters = result;\n    const dict = await getDictionary(lang);\n    return (\n      <DashboardShell>\n        <DashboardHeader\n          heading=\"kubernetes\"\n          text={dict.common.dashboard.title_text}\n        >\n          <K8sCreateButton dict={dict.business} />\n        </DashboardHeader>\n        <div>\n          {clusters.length ? (\n            <div className=\"divide-y divide-border rounded-md border\">\n              <div className=\"flex items-center justify-between p-4\">\n                <Table className=\"divide-y divide-gray-200\">\n                  <TableCaption>A list of your k8s cluster .</TableCaption>\n                  <TableHeader>\n                    <TableRow className=\"hover:bg-gray-50\">\n                      <TableHead className=\"w-[100px]\">Name</TableHead>\n                      <TableHead>Location</TableHead>\n\n// ... truncated"
+    },
+    {
+      "path": "apps/nextjs/src/app/[lang]/(marketing)/pricing/page.tsx",
+      "reason": "Commerce or pricing reference",
+      "excerpt": "import { getCurrentUser } from \"@saasfly/auth\";\n\nimport { PricingCards } from \"~/components/price/pricing-cards\";\nimport { PricingFaq } from \"~/components/price/pricing-faq\";\nimport type { Locale } from \"~/config/i18n-config\";\nimport { getDictionary } from \"~/lib/get-dictionary\";\nimport { trpc } from \"~/trpc/server\";\n\nexport const metadata = {\n  title: \"Pricing\",\n};\n\nexport default async function PricingPage({\n  params: { lang },\n}: {\n  params: {\n    lang: Locale;\n  };\n}) {\n  const user = await getCurrentUser();\n  const dict = await getDictionary(lang);\n  let subscriptionPlan;\n\n  if (user) {\n    subscriptionPlan = await trpc.stripe.userPlans.query();\n  }\n  return (\n    <div className=\"flex w-full flex-col gap-16 py-8 md:py-8\">\n      <PricingCards\n        userId={user?.id}\n        subscriptionPlan={subscriptionPlan}\n        dict={dict.price}\n        params={{ lang }}\n      />\n      <hr className=\"container\" />\n      <PricingFaq params={{ lang }} dict={dict.price} />\n    </div>\n  );\n}"
+    },
+    {
+      "path": "apps/nextjs/src/components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "interface DashboardHeaderProps {\n  heading: string;\n  text?: string;\n  children?: React.ReactNode;\n}\n\nexport function DashboardHeader({\n  heading,\n  text,\n  children,\n}: DashboardHeaderProps) {\n  return (\n    <div className=\"flex items-center justify-between px-2\">\n      <div className=\"grid gap-1\">\n        <h1 className=\"font-heading text-3xl md:text-4xl\">{heading}</h1>\n        {text && <p className=\"text-lg text-muted-foreground\">{text}</p>}\n      </div>\n      {children}\n    </div>\n  );\n}"
+    }
+  ]
+}

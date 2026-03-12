@@ -1,0 +1,15 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+# https://vercel.com/docs/storage/vercel-postgres
+POSTGRES_URL=
+
+NEXTAUTH_URL=http://localhost:3000
+AUTH_SECRET= # https://generate-secret.vercel.app/32
+
+# https://authjs.dev/getting-started/providers/github
+AUTH_GITHUB_ID=
+AUTH_GITHUB_SECRET=
+```

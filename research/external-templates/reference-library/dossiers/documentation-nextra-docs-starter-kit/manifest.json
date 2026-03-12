@@ -6,16 +6,16 @@
   "categoryName": "Documentation",
   "templateUrl": "https://vercel.com/templates/documentation/documentation-starter-kit",
   "demoUrl": "https://nextra-docs-template.vercel.app/",
-  "description": "Simple, powerful and flexible markdown-powered docs site. Built with Next.js.",
-  "frameworkReason": "Next.js, React",
+  "description": "",
+  "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 74,
+  "qualityScore": 68,
   "repo": {
     "url": "https://github.com/shuding/nextra-docs-template",
     "normalizedUrl": "https://github.com/shuding/nextra-docs-template",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\documentation\\nextra-docs-starter-kit\\repo",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\shuding-nextra-docs-template",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -24,40 +24,23 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
+    "Documentation",
     "Next.js",
-    "Tailwind",
-    "Related Templates",
-    "Docus",
-    "Next.js Boilerplate"
+    "Tailwind"
   ],
   "usefulLines": [
-    "AI workflows in live environments",
-    "Deploy for every idea",
-    "Deploy",
-    "Click the button to clone this repository and deploy it on Vercel:",
-    "Local Development",
-    "pnpm i",
-    "to install the dependencies.",
-    "pnpm dev",
-    "to start the development server and visit localhost:3000.",
-    "Next.js template for building multi-tenant applications with the App Router and Redis."
+    "Nextra: Docs Starter Kit",
+    "Documentation",
+    "Next.js",
+    "Tailwind"
   ],
-  "noiseLines": [
-    "Vercel Agent",
-    "Vercel documentation",
-    "Deploy at the speed of AI",
-    "Ship features, not infrastructure",
-    "SDKs by Vercel"
-  ],
+  "noiseLines": [],
   "strengths": [
-    "verified Next.js codebase",
-    "multi-tenant or workspace patterns"
+    "verified Next.js codebase"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
-    "content-site",
-    "app-shell",
-    "saas-landing"
+    "content-site"
   ],
   "signals": {
     "auth": false,
@@ -67,21 +50,21 @@
     "portfolio": false,
     "ecommerce": false,
     "docs": true,
-    "ai": true,
-    "multiTenant": true,
+    "ai": false,
+    "multiTenant": false,
     "cms": false
   },
-  "summary": "Nextra: Docs Starter Kit is a Documentation reference with verified Next.js codebase, multi-tenant or workspace patterns. Verdict: valid.",
+  "summary": "Nextra: Docs Starter Kit is a Documentation reference with verified Next.js codebase. Verdict: valid.",
   "selectedFiles": [
     {
       "path": "README.md",
       "reason": "Setup and architecture context",
-      "excerpt": "# Nextra Docs Template \r\n\r\nThis is a template for creating documentation with [Nextra](https://nextra.site).\r\n\r\n[**Live Demo →**](https://nextra-docs-template.vercel.app)\r\n\r\n[![](.github/screenshot.png)](https://nextra-docs-template.vercel.app)\r\n\r\n## Quick Start\r\n\r\nClick the button to clone this repository and deploy it on Vercel:\r\n\r\n[![](https://vercel.com/button)](https://vercel.com/new/clone?s=https%3A%2F%2Fgithub.com%2Fshuding%2Fnextra-docs-template&showOptionalTeamCreation=false)\r\n\r\n## Local Development\r\n\r\nFirst, run `pnpm i` to install the dependencies.\r\n\r\nThen, run `pnpm dev` to start the development server and visit localhost:3000.\r\n\r\n## License\r\n\r\nThis project is licensed under the MIT License."
+      "excerpt": "# Nextra Docs Template\n\nThis is a template for creating documentation with [Nextra](https://nextra.site).\n\n[**Live Demo →**](https://nextra-docs-template.vercel.app)\n\n[![](.github/screenshot.png)](https://nextra-docs-template.vercel.app)\n\n## Quick Start\n\nClick the button to clone this repository and deploy it on Vercel:\n\n[![](https://vercel.com/button)](https://vercel.com/new/clone?s=https%3A%2F%2Fgithub.com%2Fshuding%2Fnextra-docs-template&showOptionalTeamCreation=false)\n\n## Local Development\n\nFirst, run `pnpm i` to install the dependencies.\n\nThen, run `pnpm dev` to start the development server and visit localhost:3000.\n\n## License\n\nThis project is licensed under the MIT License."
     },
     {
       "path": "package.json",
       "reason": "Dependency and script verification",
-      "excerpt": "{\r\n  \"name\": \"nextra-docs-template\",\r\n  \"version\": \"0.0.1\",\r\n  \"description\": \"Nextra docs template\",\r\n  \"scripts\": {\r\n    \"dev\": \"next dev\",\r\n    \"build\": \"next build\",\r\n    \"start\": \"next start\"\r\n  },\r\n  \"repository\": {\r\n    \"type\": \"git\",\r\n    \"url\": \"git+https://github.com/shuding/nextra-docs-template.git\"\r\n  },\r\n  \"author\": \"Shu Ding <g@shud.in>\",\r\n  \"license\": \"MIT\",\r\n  \"bugs\": {\r\n    \"url\": \"https://github.com/shuding/nextra-docs-template/issues\"\r\n  },\r\n  \"homepage\": \"https://github.com/shuding/nextra-docs-template#readme\",\r\n  \"dependencies\": {\r\n    \"next\": \"^13.0.6\",\r\n    \"nextra\": \"latest\",\r\n    \"nextra-theme-docs\": \"latest\",\r\n    \"react\": \"^18.2.0\",\r\n    \"react-dom\": \"^18.2.0\"\r\n  },\r\n  \"devDependencies\": {\r\n    \"@types/node\": \"18.11.10\",\r\n    \"typescript\": \"^4.9.3\"\r\n  }\r\n}"
+      "excerpt": "{\n  \"name\": \"nextra-docs-template\",\n  \"version\": \"0.0.1\",\n  \"description\": \"Nextra docs template\",\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\"\n  },\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/shuding/nextra-docs-template.git\"\n  },\n  \"author\": \"Shu Ding <g@shud.in>\",\n  \"license\": \"MIT\",\n  \"bugs\": {\n    \"url\": \"https://github.com/shuding/nextra-docs-template/issues\"\n  },\n  \"homepage\": \"https://github.com/shuding/nextra-docs-template#readme\",\n  \"dependencies\": {\n    \"next\": \"^13.0.6\",\n    \"nextra\": \"latest\",\n    \"nextra-theme-docs\": \"latest\",\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"18.11.10\",\n    \"typescript\": \"^4.9.3\"\n  }\n}"
     }
   ]
 }

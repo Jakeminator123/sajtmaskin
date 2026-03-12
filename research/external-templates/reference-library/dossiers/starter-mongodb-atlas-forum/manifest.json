@@ -1,0 +1,101 @@
+{
+  "id": "starter-mongodb-atlas-forum",
+  "slug": "starter-mongodb-atlas-forum",
+  "title": "MongoDB Atlas Forum",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/mongodb-atlas-forum",
+  "demoUrl": "https://mongodb-news-template-nextjs.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/mongodb-developer/nextjs-news-template-mongodb",
+    "normalizedUrl": "https://github.com/mongodb-developer/nextjs-news-template-mongodb",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\mongodb-developer-nextjs-news-template-mongodb",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "MongoDB"
+  ],
+  "usefulLines": [
+    "MongoDB Atlas Forum",
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "MongoDB"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "auth-pages",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "MongoDB Atlas Forum is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "![Next.js with MongoDB and Better Auth](./public/og.png)\n\n-> View demo: [mongodb-news-template-nextjs.vercel.app](https://mongodb-news-template-nextjs.vercel.app/)\n\n# Next.js with MongoDB and Better Auth\n\nA modern full-stack template for building React applications using Next.js, MongoDB, and Better Auth for authentication. Features a Hacker News-style post submission and voting system with optimistic updates, server actions, and email/password authentication.\n\n## Features\n\n- **🔐 Authentication**: Email/password authentication with Better Auth\n- **📝 Post System**: Hacker News-style post submission and voting\n- **⚡ Optimistic Updates**: Real-time UI updates with React's useOptimistic\n- **🎨 Modern UI**: Built with shadcn/ui and Tailwind CSS\n- **📱 Responsive Design**: Mobile-first design with dark mode support\n- **🗄️ MongoDB Integration**: Native MongoDB driver with optimized queries\n- **🔄 Server Actions**: Form handling without client-side API calls\n- **📊 Real-time Status**: Database connection monitoring\n- **🚀 Production Ready**: TypeScript, ESLint, and Vercel deployment optimized\n\n## Getting Started\n\nClick the \"Deploy\" button to clone this repo, create a new Vercel project, setup the MongoDB integration, and provision a new MongoDB database:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmongodb-developer%2Fnextjs-news-template-mongodb&project-name=mongodb-news-nextjs&repository-name=mongodb-news-nextjs&demo-title=MongoDB%20%26%20Next.js%20Auth%20Starter%20Template&demo-description=A%20minimal%20template%20for%20building%20full-stack%20React%20applications%20using%20Next.js%2C%20Vercel%2C%2C%20Better%20Auth%20and%20MongoDB.&demo-url=https%3A%2F%2Fnews.mongodb.com&demo-image=https%3A%2F%2Fnews.mongodb.com%2Fog.png&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22mongodbatlas%22%2C%22productSlug%22%3A%22atlas%22%2C%22protocol%22%3A%22storage%22%7D%5D&env=BETTER_AUTH_SECRET&envDescription=Generate%20a%20random%20secret%20by%20clicking%20here%20%E2%86%92%20&envLink=https%3A%2F%2Fgenerate-secret.vercel.app%2F32)\n\n## Local Setup\n\n### Installation\n\nInstall the dependencies:\n\n```bash\nnpm install\n```\n\n### Development\n\n#### Create a .env file in the project root\n\n```bash\ncp .env.example .env\n```\n\n#### Configure envi\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-news-template-mongodb\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"description\": \"A Next.js template for building applications with MongoDB, featuring TypeScript, Better Auth, and shadcn/ui / Tailwind CSS integration\",\n  \"author\": {\n    \"name\": \"Jesse Hall\",\n    \"url\": \"https://github.com/codeSTACKr\"\n  },\n  \"homepage\": \"https://github.com/mongodb-developer/nextjs-news-template-mongodb#readme\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/mongodb-developer/nextjs-news-template-mongodb.git\"\n  },\n  \"bugs\": {\n    \"url\": \"https://github.com/mongodb-developer/nextjs-news-template-mongodb/issues\"\n  },\n  \"keywords\": [\n    \"nextjs\",\n    \"mongodb\",\n    \"typescript\",\n    \"tailwindcss\",\n    \"vercel\",\n    \"template\",\n    \"shadcn\",\n    \"better-auth\",\n    \"react\",\n    \"react-hook-form\",\n    \"zod\"\n  ],\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"setup-indexes\": \"node --env-file=.env scripts/setup-indexes.mjs\"\n  },\n  \"dependencies\": {\n    \"@hookform/resolvers\": \"^5.2.1\",\n    \"@radix-ui/react-dropdown-menu\": \"^2.1.16\",\n    \"@radix-ui/react-label\": \"^2.1.7\",\n    \"@radix-ui/react-slot\": \"^1.2.3\",\n    \"@vercel/functions\": \"^3.1.0\",\n    \"better-auth\": \"^1.3.9\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"lucide-react\": \"^0.510.0\",\n    \"mongodb\": \"^6.3.0\",\n    \"next\": \"^15.1.9\",\n    \"next-themes\": \"^0.4.6\",\n    \"react\": \"^19.0.1\",\n    \"react-dom\": \"^19.0.1\",\n    \"react-hook-form\": \"^7.62.0\",\n    \"sonner\": \"^2.0.7\",\n    \"tailwind-merge\": \"^3.3.0\",\n    \"tailwindcss-animate\": \"^1.0.7\",\n    \"zod\": \"^4.1.8\"\n  },\n  \"devDependencies\": {\n    \"@eslint/eslintrc\": \"^3\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"15.1.6\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"^5\"\n  },\n  \"packageManager\": \"pnpm@10.11.1+sha512.e519b9f7639869dc8d5c3c5dfef73b3f091094b0a006d7317353c72b124e80e1afd429732e28705ad6bfa1ee879c1fce46c128ccebd3192101f43dd67c667912\"\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport \"./globals.css\";\nimport { inter } from \"./fonts\";\nimport { Toaster } from \"@/components/ui/sonner\";\n\nexport const metadata: Metadata = {\n  title: \"Next.js + MongoDB + Better Auth\",\n  description: \"Use MongoDB with Next.js and Better Auth for authentication\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\" className={`${inter.variable} dark`}>\n      <body>\n        {children}\n        <Toaster />\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Image from \"next/image\";\nimport logo from \"@/assets/logo.svg\";\nimport logoDark from \"@/assets/logo-dark.svg\";\nimport vercelLogotypeLight from \"@/assets/vercel-logotype-light.svg\";\nimport vercelLogotypeDark from \"@/assets/vercel-logotype-dark.svg\";\nimport Link from \"next/link\";\nimport { ArrowRight } from \"lucide-react\";\nimport { Button } from \"@/components/ui/button\";\nimport { DatabaseStatusBadge } from \"@/components/DatabaseStatusBadge\";\nimport { AuthButton } from \"@/components/AuthButton\";\nimport { PostSection } from \"@/components/PostSection\";\n\nconst DATA = {\n  title: \"Next.js with MongoDB\",\n  description:\n    \"A full-stack React template with Next.js, Vercel, and MongoDB. Ships with forum and auth, or strip it all out.\",\n  buttons: {\n    primary: {\n      className: \"rounded-full bg-[#00ED64] px-5 py-2.5 font-semibold tracking-tight text-[#001E2B] transition-colors duration-200 hover:bg-[#58C860] lg:px-7 lg:py-3\"\n    },\n    ghost: {\n      className: \"group flex items-center gap-2 leading-none tracking-tight dark:hover:bg-white/10 hover:bg-black/5 dark:hover:text-white hover:text-black\"\n    }\n  },\n  link: {\n    text: \"View on Github\",\n    href: \"https://github.com/mongodb-developer/nextjs-news-template-mongodb\",\n  },\n  footerLinks: {\n    nextjs: {\n      text: \"Next.js\",\n      href: \"https://nextjs.org\"\n    },\n    mongodb: {\n      text: \"MongoDB\",\n      href: \"https://www.mongodb.com/?utm_campaign=devrel&utm_source=third-party-content&utm_medium=cta&utm_content=template-nextjs-news-mongodb&utm_term=jesse.hall\"\n    },\n    vercel: {\n      text: \"Vercel\",\n      href: \"https://vercel.com/marketplace/mongodbatlas\"\n    },\n    betterAuth: {\n      text: \"Better Auth\",\n      href: \"https://better-auth.com\"\n    },\n    github: {\n      text: \"GitHub\",\n      href: \"https://github.com/mongodb-developer/nextjs-news-template-mongodb\"\n    }\n  },\n};\n\ninterface HomeProps {\n  searchParams: Promise<{ page?: string }>;\n}\n\nexport default async function Home({ searchParams }: HomeProps) {\n  const resolvedSearchParams = await searchParams;\n  const currentPage = parseInt(resolvedSearchParams.page || '1', 10);\n\n  return (\n    <div className=\"flex min-h-screen flex-col justify-center\">\n      <div className=\"mx-auto flex w-full max-w-md flex-1 flex-col p-8 px-5 md:max-w-lg md:px-0 lg:max-w-xl max-h-[1000px]\">\n\n// ... truncated"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Obtain a connection string for your database from the Clusters tab on the MongoDB Atlas Dashboard.\n# The connection string has the format `mongodb+srv://myDatabaseUser:D1fficultP%40ssw0rd@cluster0.example.mongodb.net/?retryWrites=true&w=majority`\nMONGODB_URI=your-string-here\nMONGODB_DB=better-auth # optional, defaults to \"better-auth\"\n\n# Better Auth Configuration\nBETTER_AUTH_URL=http://localhost:3000 # optional, auto-detected on Vercel\nBETTER_AUTH_SECRET=your-secure-secret-key-here-minimum-32-characters"
+    },
+    {
+      "path": "app/login/page.tsx",
+      "reason": "Auth flow reference",
+      "excerpt": "import Image from \"next/image\"\nimport Link from \"next/link\"\nimport logo from \"@/assets/logo.svg\"\nimport logoDark from \"@/assets/logo-dark.svg\"\n\nimport { AuthForm } from \"@/components/auth-form\"\n\nexport default function LoginPage() {\n  return (\n    <div className=\"flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10\">\n      <div className=\"flex w-full max-w-sm flex-col gap-6\">\n        <Link href=\"/\" className=\"flex items-center gap-2 self-center font-medium\">\n          <Image\n            className=\"h-6 w-auto dark:hidden\"\n            src={logo}\n            alt=\"MongoDB logo\"\n            width={88}\n            height={24}\n            priority\n          />\n          <Image\n            className=\"hidden h-6 w-auto dark:block\"\n            src={logoDark}\n            alt=\"MongoDB logo\"\n            width={88}\n            height={24}\n            priority\n          />\n        </Link>\n        <AuthForm mode=\"login\" />\n      </div>\n    </div>\n  )\n}"
+    },
+    {
+      "path": "app/signup/page.tsx",
+      "reason": "Auth flow reference",
+      "excerpt": "import Image from \"next/image\"\nimport Link from \"next/link\"\nimport logo from \"@/assets/logo.svg\"\nimport logoDark from \"@/assets/logo-dark.svg\"\n\nimport { AuthForm } from \"@/components/auth-form\"\n\nexport default function SignupPage() {\n  return (\n    <div className=\"flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10\">\n      <div className=\"flex w-full max-w-sm flex-col gap-6\">\n        <Link href=\"/\" className=\"flex items-center gap-2 self-center font-medium\">\n          <Image\n            className=\"h-6 w-auto dark:hidden\"\n            src={logo}\n            alt=\"MongoDB logo\"\n            width={88}\n            height={24}\n            priority\n          />\n          <Image\n            className=\"hidden h-6 w-auto dark:block\"\n            src={logoDark}\n            alt=\"MongoDB logo\"\n            width={88}\n            height={24}\n            priority\n          />\n        </Link>\n        <AuthForm mode=\"signup\" />\n      </div>\n    </div>\n  )\n}"
+    }
+  ]
+}

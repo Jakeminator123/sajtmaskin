@@ -1,0 +1,86 @@
+{
+  "id": "blog-next-js-portfolio-with-blog",
+  "slug": "blog-next-js-portfolio-with-blog",
+  "title": "Next.js Portfolio with Blog",
+  "categorySlug": "blog",
+  "categoryName": "Blog",
+  "templateUrl": "https://vercel.com/templates/portfolio/nextjs-portfolio",
+  "demoUrl": "https://portfolio-blog-starter.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/vercel/examples/tree/main/solutions/blog",
+    "normalizedUrl": "https://github.com/vercel/examples",
+    "subpath": "solutions/blog",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-examples",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Portfolio",
+    "Blog",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Next.js Portfolio with Blog",
+    "Portfolio",
+    "Blog",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "editorial content hierarchy",
+    "portfolio or gallery presentation"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "blog",
+    "portfolio"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": true,
+    "portfolio": true,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js Portfolio with Blog is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Portfolio Blog Starter\n\nThis is a porfolio site template complete with a blog. Includes:\n\n- MDX and Markdown support\n- Optimized for SEO (sitemap, robots, JSON-LD schema)\n- RSS Feed\n- Dynamic OG images\n- Syntax highlighting\n- Tailwind v4\n- Vercel Speed Insights / Web Analytics\n- Geist font\n\n## Demo\n\nhttps://portfolio-blog-starter.vercel.app\n\n## How to Use\n\nYou can choose from one of the following two methods to use this repository:\n\n### One-Click Deploy\n\nDeploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=vercel-examples):\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/solutions/blog&project-name=blog&repository-name=blog)\n\n### Clone and Deploy\n\nExecute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [pnpm](https://pnpm.io/installation) to bootstrap the example:\n\n```bash\npnpm create next-app --example https://github.com/vercel/examples/tree/main/solutions/blog blog\n```\n\nThen, run Next.js in development mode:\n\n```bash\npnpm dev\n```\n\nDeploy it to the cloud with [Vercel](https://vercel.com/templates) ([Documentation](https://nextjs.org/docs/app/building-your-application/deploying))."
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\"\n  },\n  \"dependencies\": {\n    \"@tailwindcss/postcss\": \"4.0.0-alpha.13\",\n    \"@types/node\": \"20.11.17\",\n    \"@types/react\": \"18.2.55\",\n    \"@types/react-dom\": \"18.2.19\",\n    \"@vercel/analytics\": \"^1.1.3\",\n    \"@vercel/speed-insights\": \"^1.0.9\",\n    \"geist\": \"1.2.2\",\n    \"next\": \"^16.0.10\",\n    \"next-mdx-remote\": \"^4.4.1\",\n    \"postcss\": \"^8.4.35\",\n    \"react\": \"^19.2.1\",\n    \"react-dom\": \"^19.2.1\",\n    \"sugar-high\": \"^0.6.0\",\n    \"tailwindcss\": \"4.0.0-alpha.13\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import './global.css'\nimport type { Metadata } from 'next'\nimport { GeistSans } from 'geist/font/sans'\nimport { GeistMono } from 'geist/font/mono'\nimport { Navbar } from './components/nav'\nimport { Analytics } from '@vercel/analytics/react'\nimport { SpeedInsights } from '@vercel/speed-insights/next'\nimport Footer from './components/footer'\nimport { baseUrl } from './sitemap'\n\nexport const metadata: Metadata = {\n  metadataBase: new URL(baseUrl),\n  title: {\n    default: 'Next.js Portfolio Starter',\n    template: '%s | Next.js Portfolio Starter',\n  },\n  description: 'This is my portfolio.',\n  openGraph: {\n    title: 'My Portfolio',\n    description: 'This is my portfolio.',\n    url: baseUrl,\n    siteName: 'My Portfolio',\n    locale: 'en_US',\n    type: 'website',\n  },\n  robots: {\n    index: true,\n    follow: true,\n    googleBot: {\n      index: true,\n      follow: true,\n      'max-video-preview': -1,\n      'max-image-preview': 'large',\n      'max-snippet': -1,\n    },\n  },\n}\n\nconst cx = (...classes) => classes.filter(Boolean).join(' ')\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode\n}) {\n  return (\n    <html\n      lang=\"en\"\n      className={cx(\n        'text-black bg-white dark:text-white dark:bg-black',\n        GeistSans.variable,\n        GeistMono.variable\n      )}\n    >\n      <body className=\"antialiased max-w-xl mx-4 mt-8 lg:mx-auto\">\n        <main className=\"flex-auto min-w-0 mt-6 flex flex-col px-2 md:px-0\">\n          <Navbar />\n          {children}\n          <Footer />\n          <Analytics />\n          <SpeedInsights />\n        </main>\n      </body>\n    </html>\n  )\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { BlogPosts } from 'app/components/posts'\n\nexport default function Page() {\n  return (\n    <section>\n      <h1 className=\"mb-8 text-2xl font-semibold tracking-tighter\">\n        My Portfolio\n      </h1>\n      <p className=\"mb-4\">\n        {`I'm a Vim enthusiast and tab advocate, finding unmatched efficiency in\n        Vim's keystroke commands and tabs' flexibility for personal viewing\n        preferences. This extends to my support for static typing, where its\n        early error detection ensures cleaner code, and my preference for dark\n        mode, which eases long coding sessions by reducing eye strain.`}\n      </p>\n      <div className=\"my-8\">\n        <BlogPosts />\n      </div>\n    </section>\n  )\n}"
+    }
+  ]
+}

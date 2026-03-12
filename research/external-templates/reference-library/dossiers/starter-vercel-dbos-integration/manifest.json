@@ -1,0 +1,83 @@
+{
+  "id": "starter-vercel-dbos-integration",
+  "slug": "starter-vercel-dbos-integration",
+  "title": "Vercel + DBOS Integration",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/cron/vercel-dbos-integration",
+  "demoUrl": "https://dbos-vercel-integration.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/dbos-inc/dbos-vercel-integration",
+    "normalizedUrl": "https://github.com/dbos-inc/dbos-vercel-integration",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\dbos-inc-dbos-vercel-integration",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Cron",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Vercel + DBOS Integration",
+    "Starter",
+    "Cron",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Vercel + DBOS Integration is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "This is a reference showing how to run durable background tasks on Vercel using DBOS. To learn more, check out the [integration guide](https://docs.dbos.dev/integrations/vercel).\n\n## How it Works\n\nThis app contains a Next.js frontend and a serverless Vercel Functions \"backend\" that runs durable background workflows.\n\nThe Next.js frontend uses a [DBOS Client](https://docs.dbos.dev/typescript/reference/client) (backed by Postgres) to enqueue workflows and display workflow status.\n\nPeriodically, a worker running in a Vercel Function checks if there are any enqueued workflows and executes them.\nThis worker is triggered automatically by a Vercel cron, but can also be triggered through a button in the app.\n\nNote that the cron schedule is set to once a day because of free tier limitations, but on non-free plans you can set it to run as often as you want (We'd recommend once a minute).\n\n## How to Run\n\nDeploy the app and its Supabase integration in one click:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdbos-inc%2Fdbos-vercel-integration&demo-title=dbos.dev&demo-description=A%20free%20and%20open-source%20template%20for%20running%20durable%20background%20jobs%20on%20Vercel&demo-url=https%3A%2F%2Fdbos.dev&demo-image=https%3A%2F%2Fdbos-blog-posts.s3.us-west-1.amazonaws.com%2Flogos%2Fwhite_logotype_square%252Bblack_bg_h500px.png&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22supabase%22%2C%22productSlug%22%3A%22supabase%22%2C%22protocol%22%3A%22storage%22%7D%5D)"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"dbos-vercel-integration\",\n  \"version\": \"0.5.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"eslint\"\n  },\n  \"dependencies\": {\n    \"@dbos-inc/dbos-sdk\": \"^4.5.13\",\n    \"@dbos-inc/otel\": \"^4.5.13\",\n    \"@vercel/functions\": \"^3.3.4\",\n    \"next\": \"^16.0.10\",\n    \"react\": \"^19.2.3\",\n    \"react-dom\": \"^19.2.3\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/postcss\": \"^4\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"16.0.1\",\n    \"tailwindcss\": \"^4\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from 'next';\nimport { Geist, Geist_Mono } from 'next/font/google';\nimport './globals.css';\n\nconst geistSans = Geist({\n  variable: '--font-geist-sans',\n  subsets: ['latin'],\n});\n\nconst geistMono = Geist_Mono({\n  variable: '--font-geist-mono',\n  subsets: ['latin'],\n});\n\nexport const metadata: Metadata = {\n  title: 'Vercel + DBOS',\n  description: 'Run durable workflows from your Vercel app',\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client';\n\nimport { enqueueWorkflow, listWorkflows } from './actions';\nimport { useEffect, useState } from 'react';\nimport { WorkflowStatus } from '@dbos-inc/dbos-sdk';\n\nexport default function Home() {\n  const [workflows, setWorkflows] = useState<WorkflowStatus[]>([]);\n  const [loading, setLoading] = useState(true);\n  const [enqueueing, setEnqueueing] = useState(false);\n  const [startingWorker, setStartingWorker] = useState(false);\n\n  const fetchWorkflows = async () => {\n    try {\n      const data = await listWorkflows();\n      setWorkflows(data);\n    } catch (error) {\n      console.error('Failed to fetch workflows:', error);\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  useEffect(() => {\n    fetchWorkflows();\n    const interval = setInterval(fetchWorkflows, 3000); // Refresh every 3 seconds\n    return () => clearInterval(interval);\n  }, []);\n\n  const handleEnqueue = async () => {\n    setEnqueueing(true);\n    try {\n      await enqueueWorkflow();\n      await fetchWorkflows();\n    } catch (error) {\n      console.error('Failed to enqueue workflow:', error);\n    } finally {\n      setEnqueueing(false);\n    }\n  };\n\n  const handleStartWorker = async () => {\n    setStartingWorker(true);\n    try {\n      const response = await fetch('/api/dbos');\n      const data = await response.text();\n      console.log('API response:', data);\n    } catch (error) {\n      console.error('Failed to start worker:', error);\n    } finally {\n      setStartingWorker(false);\n    }\n  };\n\n  const getStatusColor = (status: string) => {\n    switch (status.toLowerCase()) {\n      case 'success':\n        return 'bg-green-100 text-green-800 border-green-200';\n      case 'enqueued':\n        return 'bg-yellow-100 text-yellow-800 border-yellow-200';\n      case 'pending':\n        return 'bg-blue-100 text-blue-800 border-blue-200';\n      case 'error':\n        return 'bg-red-100 text-red-800 border-red-200';\n      default:\n        return 'bg-gray-100 text-gray-800 border-gray-200';\n    }\n  };\n\n  const formatTimestamp = (epochMs: number) => {\n    const date = new Date(epochMs);\n    return date.toLocaleString('en-US', {\n      month: 'short',\n      day: 'numeric',\n      year: 'numeric',\n      hour: '2-digit',\n      minute: '2-digit',\n    });\n  };\n\n  return (\n    <div className=\"min-h-screen bg-gradient-to-br from-s\n\n// ... truncated"
+    }
+  ]
+}

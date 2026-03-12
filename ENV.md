@@ -165,7 +165,9 @@ preview-URL:er, demo-URL:er och hemsidor. Lokal `npm run dev` räcker för utvec
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
 7. MCP-servrar i Cursor (`.cursor/mcp.json`): `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx tools/mcp/...`.
 8. Extern template-research:
-   - `npm run references:discover` skriver rå discovery till `research/external-templates/raw-discovery/`
+   - `npm run references:discover` skriver kanonisk rå discovery till `research/external-templates/raw-discovery/current/`
+   - `npm run template-library:import-legacy` importerar legacy `_sidor`-summary till samma plats
+   - `npm run template-library:hydrate-cache` bygger lokal shallow-clone cache i `research/external-templates/repo-cache/`
    - `npm run template-library:build` bygger den kuraterade referensytan i `research/external-templates/reference-library/`
    - runtime fortsätter läsa genererade artefakter i `src/lib/gen/template-library/`
 

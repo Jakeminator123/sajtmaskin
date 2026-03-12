@@ -1,0 +1,98 @@
+{
+  "id": "starter-next-js-postgres-auth-starter-with-drizzle",
+  "slug": "starter-next-js-postgres-auth-starter-with-drizzle",
+  "title": "Next.js Postgres Auth Starter with Drizzle",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/authentication/drizzle-postgres-auth-starter",
+  "demoUrl": "https://nextjs-postgres-auth.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 80,
+  "repo": {
+    "url": "https://github.com/vercel/next.js/",
+    "normalizedUrl": "https://github.com/vercel/next.js",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-next-js",
+    "packageManager": "unknown",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "Postgres",
+    "NextAuth.js"
+  ],
+  "usefulLines": [
+    "Next.js Postgres Auth Starter with Drizzle",
+    "Starter",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "Postgres",
+    "NextAuth.js"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [
+    "large monorepo without a clear example path"
+  ],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "auth-pages",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js Postgres Auth Starter with Drizzle is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "apps/bundle-analyzer/README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Bundle Analyzer\n\nA Next.js application for visualizing bundle sizes and analyzing dependencies using interactive treemaps.\n\nThis package is not published to npm. Instead it's built and vendored into the main `next` package during its build process.\n\n\n## Features\n\n- 📊 **Interactive Treemap**: Visualize bundle sizes with an interactive treemap interface\n- 🎯 **Route-based Analysis**: Analyze bundle data for specific routes in your application\n- 🔍 **Dependency Tracking**: View import chains and dependency relationships\n- 🎨 **Filter Controls**: Filter by environment (client/server) and file types (JS/CSS/JSON/Assets)\n- 🔎 **Search Functionality**: Search through files in your bundle\n\n## Updating\n\nWhen landing non-trivial changes, consider updating the demo site:\n* Site: https://turbopack-bundle-analyzer-demo.vercel.sh/\n* Repo: https://github.com/vercel/turbopack-bundle-analyzer-demo"
+    },
+    {
+      "path": "apps/bundle-analyzer/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"@next/bundle-analyzer-ui\",\n  \"version\": \"16.0.2-canary.16\",\n  \"private\": true,\n  \"scripts\": {\n    \"build\": \"cross-env NEXT_TEST_NATIVE_IGNORE_LOCAL_INSTALL=true NEXT_TEST_NATIVE_DIR=no next build --no-mangling\",\n    \"dev\": \"cross-env NEXT_TEST_NATIVE_IGNORE_LOCAL_INSTALL=true NEXT_TEST_NATIVE_DIR=no next dev\",\n    \"lint\": \"eslint .\",\n    \"start\": \"cross-env NEXT_TEST_NATIVE_IGNORE_LOCAL_INSTALL=true NEXT_TEST_NATIVE_DIR=no next start\"\n  },\n  \"dependencies\": {\n    \"@radix-ui/react-dialog\": \"1.1.4\",\n    \"@radix-ui/react-popover\": \"1.1.4\",\n    \"@radix-ui/react-select\": \"2.2.6\",\n    \"@radix-ui/react-slot\": \"1.1.1\",\n    \"@radix-ui/react-toggle-group\": \"1.1.1\",\n    \"@radix-ui/react-tooltip\": \"1.1.4\",\n    \"autoprefixer\": \"^10.4.20\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"cmdk\": \"1.0.4\",\n    \"lucide-react\": \"^0.554.0\",\n    \"next\": \"16.0.8\",\n    \"next-themes\": \"^0.4.6\",\n    \"polished\": \"^4.3.1\",\n    \"react\": \"19.2.0\",\n    \"react-dom\": \"19.2.0\",\n    \"swr\": \"^2.2.4\",\n    \"tailwind-merge\": \"^2.5.5\",\n    \"tailwindcss-animate\": \"^1.0.7\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/postcss\": \"^4.1.9\",\n    \"@types/node\": \"^22\",\n    \"@types/react\": \"^18\",\n    \"@types/react-dom\": \"^18\",\n    \"cross-env\": \"10.1.0\",\n    \"inliner\": \"1.13.1\",\n    \"postcss\": \"^8.5\",\n    \"tailwindcss\": \"^4.1.9\",\n    \"tw-animate-css\": \"1.3.3\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "apps/bundle-analyzer/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from 'next'\nimport type React from 'react'\nimport './globals.css'\n\nexport const metadata: Metadata = {\n  title: 'Next.js Bundle Analyzer',\n  description:\n    'Visualize and analyze your Next.js bundle sizes with interactive treemap and dependency analysis',\n}\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode\n}>) {\n  return (\n    <html\n      lang=\"en\"\n      // Suppress hydration warnings here specifically because we'll modify the\n      // classname for the theme before React hydates. This is to prevent a flash\n      // of incorrect theme.\n      suppressHydrationWarning\n    >\n      <head>\n        <script\n          // biome-ignore lint/security/noDangerouslySetInnerHtml: Needed to prevent flash of incorrect theme\n          dangerouslySetInnerHTML={{\n            __html: `\n              (function() {\n                const theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';\n                document.documentElement.classList.toggle('dark', theme === 'dark');\n\n                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {\n                  document.documentElement.classList.toggle('dark', e.matches);\n                });\n              })();\n            `,\n          }}\n        />\n      </head>\n      <body className=\"font-sans antialiased\">{children}</body>\n    </html>\n  )\n}"
+    },
+    {
+      "path": "apps/bundle-analyzer/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client'\n\nimport type React from 'react'\n\nimport { useEffect, useMemo, useState } from 'react'\nimport useSWR from 'swr'\nimport { ErrorState } from '@/components/error-state'\nimport { FileSearch } from '@/components/file-search'\nimport { RouteTypeahead } from '@/components/route-typeahead'\nimport { Sidebar } from '@/components/sidebar'\nimport { TreemapVisualizer } from '@/components/treemap-visualizer'\n\nimport { Badge } from '@/components/ui/badge'\nimport { TreemapSkeleton } from '@/components/ui/skeleton'\nimport {\n  Select,\n  SelectContent,\n  SelectItem,\n  SelectTrigger,\n  SelectValue,\n} from '@/components/ui/select'\nimport { MultiSelect } from '@/components/ui/multi-select'\nimport { AnalyzeData, ModulesData } from '@/lib/analyze-data'\nimport { computeActiveEntries, computeModuleDepthMap } from '@/lib/module-graph'\nimport { fetchStrict } from '@/lib/utils'\nimport { formatBytes } from '@/lib/utils'\nimport { SizeMode } from '@/lib/treemap-layout'\nimport {\n  Monitor,\n  Server,\n  FileCode,\n  FileJson,\n  Palette,\n  Package,\n} from 'lucide-react'\n\nenum Environment {\n  Client = 'client',\n  Server = 'server',\n}\n\nexport default function Home() {\n  const [selectedRoute, setSelectedRoute] = useState<string | null>(null)\n  const [environmentFilter, setEnvironmentFilter] = useState<Environment>(\n    Environment.Client\n  )\n  const [typeFilter, setTypeFilter] = useState(['js', 'css', 'json'])\n  const [selectedSourceIndex, setSelectedSourceIndex] = useState<number | null>(\n    null\n  )\n  const [focusedSourceIndex, setFocusedSourceIndex] = useState<number | null>(\n    null\n  )\n\n  const {\n    data: modulesData,\n    isLoading: isModulesLoading,\n    error: modulesError,\n  } = useSWR<ModulesData>('data/modules.data', fetchModulesData)\n\n  let analyzeDataPath\n  if (selectedRoute && selectedRoute === '/') {\n    analyzeDataPath = 'data/analyze.data'\n  } else if (selectedRoute) {\n    analyzeDataPath = `data/${selectedRoute.replace(/^\\//, '')}/analyze.data`\n  } else {\n    analyzeDataPath = null\n  }\n\n  const {\n    data: analyzeData,\n    isLoading: isAnalyzeLoading,\n    error: analyzeError,\n  } = useSWR<AnalyzeData>(analyzeDataPath, fetchAnalyzeData, {\n    revalidateOnFocus: false,\n    revalidateOnReconnect: false,\n    onSuccess: (newData) => {\n      const newRootSourceIndex = getRootSourceIndex(newData)\n      setSelectedSourceIndex(newRootSourceIndex)\n      setFocusedSourceIndex(ne\n\n// ... truncated"
+    },
+    {
+      "path": "apps/bundle-analyzer/components/sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "'use client'\n\nimport type React from 'react'\nimport { CircleHelp } from 'lucide-react'\nimport {\n  Tooltip,\n  TooltipContent,\n  TooltipProvider,\n  TooltipTrigger,\n} from './ui/tooltip'\nimport { ImportChain } from '@/components/import-chain'\nimport { Skeleton } from '@/components/ui/skeleton'\nimport { AnalyzeData, ModulesData } from '@/lib/analyze-data'\nimport { SpecialModule } from '@/lib/types'\nimport { getSpecialModuleType } from '@/lib/utils'\nimport { Badge } from './ui/badge'\n\ninterface SidebarProps {\n  sidebarWidth: number\n  analyzeData: AnalyzeData | null\n  modulesData: ModulesData | null\n  selectedSourceIndex: number | null\n  moduleDepthMap: Map<number, number>\n  environmentFilter: 'client' | 'server'\n  filterSource?: (sourceIndex: number) => boolean\n  isLoading?: boolean\n}\n\nfunction formatBytes(bytes: number): string {\n  if (bytes === 0) return '0 B'\n  if (bytes < 1024) return `${bytes} B`\n  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`\n  if (bytes < 1024 * 1024 * 1024)\n    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`\n  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`\n}\n\nexport function Sidebar({\n  sidebarWidth,\n  analyzeData,\n  modulesData,\n  selectedSourceIndex,\n  moduleDepthMap,\n  environmentFilter,\n  filterSource,\n  isLoading = false,\n}: SidebarProps) {\n  filterSource = filterSource ?? (() => true)\n\n  if (isLoading || !analyzeData) {\n    return (\n      <div\n        className=\"flex-none bg-muted border-l border-border overflow-y-auto\"\n        style={{ width: `${sidebarWidth}%` }}\n      >\n        <div className=\"flex-1 p-3 space-y-4 overflow-y-auto\">\n          <Skeleton className=\"h-4 w-3/4\" />\n          <Skeleton className=\"h-4 w-full\" />\n          <Skeleton className=\"h-4 w-5/6\" />\n          <div className=\"mt-4 space-y-2\">\n            <Skeleton className=\"h-3 w-full\" />\n            <Skeleton className=\"h-3 w-full\" />\n            <Skeleton className=\"h-3 w-4/5\" />\n          </div>\n        </div>\n      </div>\n    )\n  }\n\n  return (\n    <div\n      className=\"flex-none bg-muted border-l border-border overflow-y-auto\"\n      style={{ width: `${sidebarWidth}%` }}\n    >\n      {selectedSourceIndex != null ? (\n        <SelectionDetails\n          analyzeData={analyzeData}\n          modulesData={modulesData}\n          selectedSourceIndex={selectedSourceIndex}\n          filterSource={filterSource}\n          moduleDepthMap={modu\n\n// ... truncated"
+    }
+  ]
+}

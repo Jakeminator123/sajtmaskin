@@ -5,8 +5,8 @@
   "categorySlug": "cms",
   "categoryName": "CMS",
   "templateUrl": "https://vercel.com/templates/cms/sanity-next-js-personal-website",
-  "demoUrl": "https://nextjs-personal-website.sanity.dev",
-  "description": "A personal website built with Next.js and Sanity featuring visual editing, live previews, real-time collaboration, and editable projects.",
+  "demoUrl": "https://nextjs-personal-website.sanity.dev/",
+  "description": "",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
@@ -15,7 +15,7 @@
     "url": "https://github.com/vercel/next.js",
     "normalizedUrl": "https://github.com/vercel/next.js",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\cms\\sanity-next-js-personal-website\\repo",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-next-js",
     "packageManager": "unknown",
     "hasNext": true,
     "hasReact": true,
@@ -24,35 +24,21 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
+    "CMS",
+    "Starter",
     "Next.js",
     "Tailwind",
-    "CMS",
-    "Sanity",
-    "Products",
-    "AI",
-    "Enterprise"
+    "Sanity"
   ],
   "usefulLines": [
-    "AI workflows in live environments",
-    "Deploy for every idea",
-    "Deploy",
-    "A Next.js Personal Website with a Native Authoring Experience",
-    "to handle its content. It comes with a native Sanity Studio that offers features like real-time collaboration and visual editing with live updates using",
-    "Features",
-    "A native and customizable authoring environment, accessible on",
-    "Getting Started",
-    "Step 1. Initialize template with Sanity CLI",
-    "Step 2. Run app locally in development mode",
-    "Deploying your application and inviting editors",
-    "Step 1. Deploy Next.js app to Vercel"
+    "Sanity + Next.js Personal Website",
+    "CMS",
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Sanity"
   ],
-  "noiseLines": [
-    "Vercel Agent",
-    "Vercel documentation",
-    "Deploy at the speed of AI",
-    "Ship features, not infrastructure",
-    "SDKs by Vercel"
-  ],
+  "noiseLines": [],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
@@ -64,8 +50,8 @@
   ],
   "recommendedScaffoldFamilies": [
     "content-site",
-    "app-shell",
-    "dashboard"
+    "dashboard",
+    "app-shell"
   ],
   "signals": {
     "auth": false,
@@ -75,7 +61,7 @@
     "portfolio": false,
     "ecommerce": false,
     "docs": false,
-    "ai": true,
+    "ai": false,
     "multiTenant": false,
     "cms": true
   },

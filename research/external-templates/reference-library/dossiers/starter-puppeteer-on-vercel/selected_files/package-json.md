@@ -1,0 +1,37 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "puppy",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "postinstall": "node scripts/postinstall.mjs"
+  },
+  "dependencies": {
+    "@sparticuz/chromium-min": "^141.0.0",
+    "next": "16.0.7",
+    "puppeteer-core": "^23.11.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@sparticuz/chromium": "^141.0.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.1",
+    "puppeteer": "^23.11.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+```

@@ -1,0 +1,105 @@
+{
+  "id": "starter-next-js-prisma-postgres-auth-starter",
+  "slug": "starter-next-js-prisma-postgres-auth-starter",
+  "title": "Next.js & Prisma Postgres Auth Starter",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/prisma-postgres",
+  "demoUrl": "https://nextjs-auth-starter-mu.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/prisma/nextjs-auth-starter",
+    "normalizedUrl": "https://github.com/prisma/nextjs-auth-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\prisma-nextjs-auth-starter",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Postgres",
+    "Prisma",
+    "NextAuth.js"
+  ],
+  "usefulLines": [
+    "Next.js & Prisma Postgres Auth Starter",
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Postgres",
+    "Prisma",
+    "NextAuth.js"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "auth-pages",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js & Prisma Postgres Auth Starter is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Next.js & Prisma Postgres Auth Starter\n\nThis repository provides a boilerplate to quickly set up a Next.js demo application with authentication using [NextAuth.js v4](https://next-auth.js.org/), [Prisma Postgres](https://www.prisma.io/postgres) and [Prisma ORM](https://www.prisma.io/orm), and deploy it to Vercel. It includes an easy setup process and example routes that demonstrate basic CRUD operations against the database.\n\n## Features\n\n- Next.js 15 app with App Router, Server Actions & API Routes\n- Data modeling, database migrations, seeding & querying\n- Log in and sign up authentication flows\n- CRUD operations to create, view and delete blog posts\n- Pagination, filtering & relations queries\n\n## Getting started\n\n### 1. Install dependencies\n\nAfter cloning the repo and navigating into it, install dependencies:\n\n```\nnpm install\n```\n\n### 1. Create a Prisma Postgres instance\n\nCreate a Prisma Postgres instance by running the following command:\n\n```\nnpx prisma init --db\n```\n\nThis command is interactive and will prompt you to:\n\n1. Log in to the [Prisma Console](https://console.prisma.io)\n1. Select a **region** for your Prisma Postgres instance\n1. Give a **name** to your Prisma project\n\nOnce the command has terminated, copy the **Database URL** from the terminal output. You'll need it in the next step when you configure your `.env` file.\n\n<!-- Create a Prisma Postgres database instance using [Prisma Data Platform](https://console.prisma.io):\n\n1. Navigate to [Prisma Data Platform](https://console.prisma.io).\n2. Click **New project** to create a new project.\n3. Enter a name for your project in the **Name** field.\n4. Inside the **Prisma Postgres** section, click **Get started**.\n5. Choose a region close to your location from the **Region** dropdown.\n6. Click **Create project** to set up your database. This redirects you to the database setup page.\n7. In the **Set up database access** section, copy the `DATABASE_URL`. You will use this in the next steps. -->\n\n### 2. Set up your `.env` file\n\nYou now need to configure your database connection via an environment variable.\n\nFirst, create an `.env` file:\n\n```bash\ntouch .env\n```\n\nThen update the `.env` file by replacing the existing `DATABASE_URL` value with the one you previously copied. It will look similar to this:\n\n```bash\nDATABASE_URL=\"prisma+postgres://acc\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"my-nextjs-app\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"npx prisma migrate deploy && next build\",\n    \"start\": \"next start\",\n    \"lint\": \"eslint .\",\n    \"postinstall\": \"npx prisma generate\"\n  },\n  \"dependencies\": {\n    \"@prisma/adapter-pg\": \"7.0.0\",\n    \"@prisma/client\": \"7.0.0\",\n    \"bcryptjs\": \"^3.0.2\",\n    \"lucide-react\": \"^0.503.0\",\n    \"next\": \"16.0.7\",\n    \"next-auth\": \"^4.24.11\",\n    \"react\": \"19.2.0\",\n    \"react-dom\": \"19.2.0\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/postcss\": \"^4.1.17\",\n    \"@types/bcryptjs\": \"^3.0.0\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"19.2.5\",\n    \"@types/react-dom\": \"19.2.3\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"16.0.3\",\n    \"postcss\": \"^8\",\n    \"prisma\": \"7.0.0\",\n    \"tailwindcss\": \"^4.1.17\",\n    \"tsx\": \"^4.19.2\",\n    \"typescript\": \"^5\"\n  },\n  \"overrides\": {\n    \"@types/react\": \"19.2.5\",\n    \"@types/react-dom\": \"19.2.3\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "// app/layout.tsx\nimport \"./globals.css\";\nimport Header from \"./Header\";\nimport Providers from \"./providers\";\n\nexport const metadata = {\n  title: \"Superblog\",\n  description: \"A blog app using Next.js and Prisma\",\n};\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\">\n      <body>\n        <Providers>\n          <div className=\"min-h-screen flex flex-col\">\n            <Header />\n            <main className=\"flex-1\">{children}</main>\n          </div>\n        </Providers>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "export const dynamic = \"force-dynamic\"; // This disables SSG and ISR\n\nimport prisma from \"@/lib/prisma\";\nimport Link from \"next/link\";\nimport { redirect } from \"next/navigation\";\nimport { checkPostTableExists } from \"@/lib/db-utils\";\n\nexport default async function Home() {\n  // Check if the post table exists\n  const tableExists = await checkPostTableExists();\n\n  // If the post table doesn't exist, redirect to setup page\n  if (!tableExists) {\n    redirect(\"/setup\");\n  }\n\n  const posts = await prisma.post.findMany({\n    orderBy: {\n      createdAt: \"desc\",\n    },\n    take: 6,\n    include: {\n      author: {\n        select: {\n          name: true,\n        },\n      },\n    },\n  });\n\n  return (\n    <div className=\"min-h-screen bg-gray-50 flex flex-col items-center py-24 px-8\">\n      <h1 className=\"text-5xl font-extrabold mb-12 text-[#333333]\">Recent Posts</h1>\n      <div className=\"grid gap-8 md:grid-cols-2 lg:grid-cols-3 w-full max-w-6xl mb-8\">\n        {posts.map((post) => (\n          <Link key={post.id} href={`/posts/${post.id}`} className=\"group\">\n            <div className=\"border rounded-lg shadow-md bg-white p-6 hover:shadow-lg transition-shadow duration-300\">\n              <h2 className=\"text-2xl font-semibold text-gray-900 group-hover:underline mb-2\">{post.title}</h2>\n              <p className=\"text-sm text-gray-500\">by {post.author ? post.author.name : \"Anonymous\"}</p>\n              <p className=\"text-xs text-gray-400 mb-4\">\n                {new Date(post.createdAt).toLocaleDateString(\"en-US\", {\n                  year: \"numeric\",\n                  month: \"long\",\n                  day: \"numeric\",\n                })}\n              </p>\n              <div className=\"relative\">\n                <p className=\"text-gray-700 leading-relaxed line-clamp-2\">{post.content || \"No content available.\"}</p>\n                <div className=\"absolute bottom-0 left-0 w-full h-12 bg-linear-to-t from-gray-50 to-transparent\" />\n              </div>\n            </div>\n          </Link>\n        ))}\n      </div>\n    </div>\n  );\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Use the Prisma Postgres integration from Vercel Marketeplace to automatically connect a Prisma Postgres instance\n# Or manually run `npx prisma init --db` to create a Prisma Postgres and manually set the `DATABASE_URL` below\nDATABASE_URL=\"prisma+postgres://accelerate.prisma-data.net/?api_key=PRISMA_POSTGRES_API_KEY\"\n\n# Create a random 32-character string or run `npx auth secret` to obtain one and set it as the `AUTH_SECRET` below\nAUTH_SECRET=\"RANDOM_32_CHARACTER_STRING\""
+    },
+    {
+      "path": "app/login/page.tsx",
+      "reason": "Auth flow reference",
+      "excerpt": "\"use client\";\n\nimport { signIn } from \"next-auth/react\";\nimport { useRouter } from \"next/navigation\";\nimport { useState } from \"react\";\nimport Link from \"next/link\";\n\nexport default function LoginPage() {\n  const router = useRouter();\n  const [error, setError] = useState<string | null>(null);\n\n  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {\n    try {\n      event.preventDefault();\n      const formData = new FormData(event.currentTarget);\n      const response = await signIn(\"credentials\", {\n        ...Object.fromEntries(formData),\n        redirect: false,\n      });\n\n      if (response?.error) {\n        setError(\"Invalid credentials\");\n        return;\n      }\n\n      router.push(\"/\");\n      router.refresh();\n    } catch {\n      setError(\"An error occurred during login\");\n    }\n  }\n\n  return (\n    <div className=\"min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8\">\n      <div className=\"max-w-md w-full space-y-8\">\n        <div>\n          <h2 className=\"mt-6 text-center text-3xl font-extrabold text-gray-900\">\n            Sign in to your account\n          </h2>\n        </div>\n        <form className=\"mt-8 space-y-6\" onSubmit={handleSubmit}>\n          <div className=\"rounded-md shadow-xs -space-y-px\">\n            <div>\n              <label htmlFor=\"email\" className=\"sr-only\">\n                Email address\n              </label>\n              <input\n                id=\"email\"\n                name=\"email\"\n                type=\"email\"\n                required\n                className=\"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm\"\n                placeholder=\"Email address\"\n              />\n            </div>\n            <div>\n              <label htmlFor=\"password\" className=\"sr-only\">\n                Password\n              </label>\n              <input\n                id=\"password\"\n                name=\"password\"\n                type=\"password\"\n                required\n                className=\"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-hidden focus:ring-blue-500 focus:border-\n\n// ... truncated"
+    },
+    {
+      "path": "app/Header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\n\nimport Link from \"next/link\";\nimport { useSession, signOut } from \"next-auth/react\";\n\nexport default function Header() {\n  const { data: session } = useSession();\n\n  return (\n    <header className=\"w-full bg-white shadow-md py-4 px-8\">\n      <nav className=\"flex justify-between items-center\">\n        <Link href=\"/\" className=\"text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors\">\n          Superblog\n        </Link>\n        <div className=\"flex items-center space-x-4\">\n          <Link\n            href=\"/posts\"\n            className=\"bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition\"\n          >\n            Posts\n          </Link>\n          {session ? (\n            <>\n              <Link\n                href=\"/posts/new\"\n                className=\"bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition\"\n              >\n                New Post\n              </Link>\n              <div className=\"flex items-center space-x-4\">\n                <div className=\"text-sm text-gray-500\">\n                  {session.user?.name && <div>{session.user.name}</div>}\n                  <div>{session.user?.email}</div>\n                </div>\n                <button\n                  onClick={() => signOut()}\n                  className=\"bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition\"\n                >\n                  Sign Out\n                </button>\n              </div>\n            </>\n          ) : (\n            <Link href=\"/login\" className=\"bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition\">\n              Sign In\n            </Link>\n          )}\n        </div>\n      </nav>\n    </header>\n  );\n}"
+    }
+  ]
+}

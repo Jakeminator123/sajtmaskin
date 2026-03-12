@@ -1,0 +1,86 @@
+{
+  "id": "starter-starhive-next-js-starter",
+  "slug": "starter-starhive-next-js-starter",
+  "title": "Starhive Next.js Starter",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/starhive-next-js-starter",
+  "demoUrl": "https://starhive-nextjs-starter.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/starhive-labs/starhive-nextjs-starter",
+    "normalizedUrl": "https://github.com/starhive-labs/starhive-nextjs-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\starhive-labs-starhive-nextjs-starter",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Starhive Next.js Starter",
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Starhive Next.js Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "This is a starter project using [Next.js](https://nextjs.org/) and [Starhive](https://www.starhive.com).\n\n## Getting Started\n\nFirst, run the development server:\n\n```bash\nnpm run dev\n# or\nyarn dev\n# or\npnpm dev\n# or\nbun dev\n```\n\nOpen [http://localhost:3000](http://localhost:3000) with your browser to see the result.\n\nYou can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.\n\nThis project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.\n\n## Learn More\n\nTo learn more about Next.js, take a look at the following resources:\n\n- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.\n- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.\n\nTo learn more about Starhive, take a look at the following resources:\n- [Starhive main website](https://www.starhive.com) - learn about Starhive features and use cases.\n- [Starhive Docs](https://help.starhive.com/space/DOC) - Starhive official product documentation.\n\n\n## Deploy on Vercel\n\nThe easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fstarhive-labs%2Fstarhive-nextjs-starter)"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs\",\n  \"type\": \"module\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"axios\": \"^1.6.0\",\n    \"next\": \"14.2.10\",\n    \"react\": \"^18\",\n    \"react-dom\": \"^18\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^18\",\n    \"@types/react-dom\": \"^18\",\n    \"@vercel/node\": \"^2.10.3\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"14.2.4\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type {Metadata} from \"next\";\nimport {Inter} from \"next/font/google\";\nimport \"./globals.css\";\n\nconst inter = Inter({subsets: [\"latin\"]});\n\nexport const metadata: Metadata = {\n    title: \"Starhive starter\",\n    description: \"Starhive & Next.js Starter\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n    children: React.ReactNode;\n}>) {\n    return (\n        <html lang=\"en\">\n        <body className={`gradient-background ${inter.className}`}>\n        {children}\n        </body>\n        </html>\n    );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import React from \"react\";\nimport Image from \"next/image\";\nimport Link from \"next/link\";\n\nimport {createClient, starhiveApiToken, starhiveWorkspaceId} from \"@/app/api/ClientFactory\";\nimport {OnboardingStep} from \"@/app/components/OnboardingStep\";\nimport {StarhivePage} from \"@/app/api/starhive/client/StarhivePage\";\nimport {StarhiveTypeEnriched} from \"@/app/api/starhive/client/StarhiveTypeEnriched\";\nimport CodeBlock from \"@/app/components/CodeBlock\";\n\nexport default async function Home() {\n\n    const workspaceIdSetupCompleted = starhiveWorkspaceId() !== undefined\n    const apiKeySetupCompleted = starhiveApiToken() !== undefined\n\n    let types: StarhivePage<StarhiveTypeEnriched> | undefined = undefined\n    let schemaGenerated = false\n    let client\n    if (workspaceIdSetupCompleted && apiKeySetupCompleted) {\n        client = createClient()\n        types = await client.getTypesEnriched();\n        if (client.decoders.size > 0) {\n            schemaGenerated = true\n        }\n    }\n    const typeCreationCompleted = types !== undefined && types.total > 0\n\n    return (\n        <>\n            <div className=\"container mx-auto py-20\">\n                <Link href=\"https://www.starhive.com\" style={{display: \"block\"}}>\n                    <Image\n                        src=\"/logo.svg\"\n                        alt=\"Logo\"\n                        width=\"250\"\n                        height=\"10\"\n                        className=\"relative\"\n                    />\n                </Link>\n                <h1 className=\"title\">Build business apps\n                    for <em>any</em> purpose in hours, not weeks</h1>\n                <div className=\"text-2xl md:text-3xl pt-8 font-semibold text-blue-600\">\n                Starhive + Next.js starter\n                </div>\n                <div className=\"paragraph\">\n                    This is a demo page that helps you get started with your Next.js app using Starhive platform as\n                    a backend.\n                </div>\n                <div className=\"paragraph\">\n                    Follow the onboarding steps to set up your workspace, define your types and auto generate domain\n                    classes.\n                </div>\n                <div className=\"mx-auto\">\n                    <OnboardingStep title=\"Create an Account and Workspace\" completed={workspaceIdSetupComp\n\n// ... truncated"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Workspace id of your Starhive account. Can be found in Starhive app url https://app.starhive.com/workspace/<workspace id>/home\nSTARHIVE_WORKSPACE_ID=\n\n# API token to access Starhive API. Can be generated in Settings -> Personal access tokens\nSTARHIVE_API_TOKEN="
+    }
+  ]
+}

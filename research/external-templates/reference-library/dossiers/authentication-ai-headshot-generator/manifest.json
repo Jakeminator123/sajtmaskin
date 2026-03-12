@@ -1,0 +1,104 @@
+{
+  "id": "authentication-ai-headshot-generator",
+  "slug": "authentication-ai-headshot-generator",
+  "title": "AI Headshot Generator",
+  "categorySlug": "authentication",
+  "categoryName": "Authentication",
+  "templateUrl": "https://vercel.com/templates/ai/headshot-ai",
+  "demoUrl": "https://www.getheadshots.ai/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 90,
+  "repo": {
+    "url": "https://github.com/leap-ai/headshots-starter/tree/main/",
+    "normalizedUrl": "https://github.com/leap-ai/headshots-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\leap-ai-headshots-starter",
+    "packageManager": "yarn",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "AI",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "Supabase",
+    "Supabase Auth"
+  ],
+  "usefulLines": [
+    "AI Headshot Generator",
+    "AI",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "Supabase",
+    "Supabase Auth"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "auth-pages",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "AI Headshot Generator is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# 👨‍💼 [Headshot AI](https://headshots-starter.vercel.app/) - Professional Headshots with AI (powered by Astria.ai)\n\nIntroducing Headshot AI, an open-source project from [Astria](https://www.astria.ai/) that generates Professional AI Headshots in minutes.\n\nThis project was built to give developers & makers a great starting point into building AI applications. This is your launch pad - fork the code, modify it, and make it your own to build a popular AI SaaS app.\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fleap-ai%2Fheadshots-starter%2Ftree%2Fmain&env=ASTRIA_API_KEY,APP_WEBHOOK_SECRET&envDescription=Set%20up%20environment%20variables%20for%20Leap%20AI%20and%20redirect%20URL%20in%20Supabase%20Auth%20dashboard.%20See%20.env.local.example%20for%20full%20config%20with%20Resend%20and%20Stripe.&envLink=https%3A%2F%2Fgithub.com%2Fleap-ai%2Fheadshots-starter%2Fblob%2Fmain%2F.env.local.example&project-name=headshots-starter-clone&repository-name=headshots-starter-clone&demo-title=AI%20Headshot%20Generator&demo-description=A%20Professional%20AI%20headshot%20generator%20starter%20kit%20powered%20by%20Next.js%2C%20Leap%20AI%2C%20and%20Vercel&demo-url=https%3A%2F%2Fwww.getheadshots.ai%2F&demo-image=https%3A%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F1CEDfTwO5vPEiNMgN2Y1t6%2F245d1e0c11c4d8e734fbe345b9ecdc7c%2Fdemo.png&integration-ids=oac_VqOgBHqhEoFTPzGkPd7L0iH6&external-id=https%3A%2F%2Fgithub.com%2Fleap-ai%2Fheadshots-starter%2Ftree%2Fmain)\n\n[![Headshot AI Demo](/public/new-demo.png)](https://headshots-starter.vercel.app/)\n\n## Incoming changes\n\nIncoming [PR]((https://github.com/astriaai/headshots-starter/pull/121)) has been merged to allow usage of  Astria's packs API which helps you avoid hardcoding prompts in your code as well as offering different packs of prompts, and switching to the new Flux model fine-tuning easily.\nRead more on advantage of using packs [Astria's documentation](https://docs.astria.ai/docs/api/pack/pack/).\n\nWhen migrating to the new packs api, add to your vercel environment:\n```text\nNEXT_PUBLIC_TUNE_TYPE=packs\nPACK_QUERY_TYPE=both\n```\n\n![Headshot AI Packs](assets/headshots-packs.png)\nHere is how it looks\n\n## Important Environment Variable Change\n\n**Note:** The environment variable `VERCEL_URL` has been renamed to `DEPLOYMENT_URL` for consistenc\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"headshots-ai-by-astria\",\n  \"author\": {\n    \"name\": \"Astria\",\n    \"email\": \"support@astria.ai\"\n  },\n  \"license\": \"MIT\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"update-types\": \"npx supabase gen types typescript --project-id \\\"hzcgbsakzagvgfuektjb\\\" > types/supabase.ts\"\n  },\n  \"dependencies\": {\n    \"@hookform/resolvers\": \"^3.3.1\",\n    \"@radix-ui/react-aspect-ratio\": \"^1.0.3\",\n    \"@radix-ui/react-avatar\": \"^1.0.3\",\n    \"@radix-ui/react-context-menu\": \"^2.1.4\",\n    \"@radix-ui/react-dialog\": \"^1.0.4\",\n    \"@radix-ui/react-dropdown-menu\": \"^2.0.5\",\n    \"@radix-ui/react-hover-card\": \"^1.0.6\",\n    \"@radix-ui/react-icons\": \"^1.3.0\",\n    \"@radix-ui/react-label\": \"^2.0.2\",\n    \"@radix-ui/react-progress\": \"^1.0.3\",\n    \"@radix-ui/react-radio-group\": \"^1.1.3\",\n    \"@radix-ui/react-scroll-area\": \"^1.0.4\",\n    \"@radix-ui/react-select\": \"^1.2.2\",\n    \"@radix-ui/react-separator\": \"^1.0.3\",\n    \"@radix-ui/react-slot\": \"^1.0.2\",\n    \"@radix-ui/react-tabs\": \"^1.1.3\",\n    \"@radix-ui/react-toast\": \"^1.1.4\",\n    \"@radix-ui/react-tooltip\": \"^1.0.6\",\n    \"@supabase/auth-helpers-nextjs\": \"^0.9.0\",\n    \"@supabase/supabase-js\": \"^2.40.0\",\n    \"@types/formidable\": \"^3.4.2\",\n    \"@types/node-fetch\": \"^2.6.4\",\n    \"@vercel/analytics\": \"^1.2.2\",\n    \"@vercel/blob\": \"^0.22.1\",\n    \"autoprefixer\": \"10.4.14\",\n    \"axios\": \"^1.6.8\",\n    \"bufferutil\": \"^4.0.8\",\n    \"busboy\": \"^1.6.0\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.0.0\",\n    \"cmdk\": \"^0.2.0\",\n    \"disposable-email-domains\": \"^1.0.62\",\n    \"formidable\": \"^3.5.2\",\n    \"lucide-react\": \"^0.274.0\",\n    \"motion\": \"^12.5.0\",\n    \"next\": \"^14.1.4\",\n    \"next-themes\": \"^0.4.6\",\n    \"node\": \"^18.20.0\",\n    \"node-fetch\": \"2\",\n    \"npm\": \"^10.5.0\",\n    \"postcss\": \"^8.5.3\",\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\",\n    \"react-dropzone\": \"^14.2.3\",\n    \"react-hook-form\": \"^7.46.1\",\n    \"react-icons\": \"^4.11.0\",\n    \"resend\": \"^3.2.0\",\n    \"stripe\": \"^13.6.0\",\n    \"supports-color\": \"^9.4.0\",\n    \"tailwind-merge\": \"^1.14.0\",\n    \"tailwindcss\": \"3.3.2\",\n    \"tailwindcss-animate\": \"^1.0.7\",\n    \"typescript\": \"5.1.3\",\n    \"utf-8-validate\": \"^6.0.3\",\n    \"zod\": \"^3.22.2\"\n  },\n  \"devDependencies\": {\n    \"@types/busboy\": \"^1.5.0\",\n    \"@types/node\": \"20.3.1\",\n    \"@type\n\n// ... truncated"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import Footer from \"@/components/Footer\";\nimport Navbar from \"@/components/Navbar\";\nimport { Toaster } from \"@/components/ui/toaster\";\nimport \"./globals.css\";\nimport { Suspense } from \"react\";\nimport AnnouncementBar from \"@/components/homepage/announcement-bar\"\nimport { Analytics } from \"@vercel/analytics/react\";\nimport { ThemeProvider } from \"@/components/homepage/theme-provider\"\nimport { validateConfig } from \"@/lib/config\";\n\n// Validate configuration at app initialization\nvalidateConfig();\n\nexport const viewport = {\n  width: 'device-width',\n  initialScale: 1,\n  maximumScale: 1,\n};\n\nexport const metadata = {\n  title: \"Headshots AI\",\n  description: \"Generate awesome headshots in minutes using AI\",\n};\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body className=\"min-h-screen flex flex-col bg-background\">\n        <ThemeProvider attribute=\"class\" defaultTheme=\"system\" enableSystem>\n          <AnnouncementBar />\n          {/* Remove the section wrapper as it's interfering with sticky positioning */}\n          <Suspense\n            fallback={\n              <div className=\"sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60\">\n                <div className=\"container h-16\" />\n              </div>\n            }\n          >\n            <Navbar />\n          </Suspense>\n          <main className=\"flex-1\">\n            {children}\n          </main>\n          <Footer />\n          <Toaster />\n          <Analytics />\n        </ThemeProvider>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { createServerComponentClient } from \"@supabase/auth-helpers-nextjs\"\nimport { cookies } from \"next/headers\"\nimport { redirect } from \"next/navigation\"\nimport HeroSection from \"@/components/homepage/HeroSection\"\nimport BrandsSection from \"@/components/homepage/BrandsSection\"\nimport ProcessSection from \"@/components/homepage/ProcessSection\"\nimport FeaturesSection from \"@/components/homepage/FeaturesSection\"\nimport ExamplesSection from \"@/components/homepage/ExamplesSection\"\nimport TestimonialsSection from \"@/components/homepage/TestimonialsSection\"\nimport PricingSection from \"@/components/homepage/PricingSection\"\nimport FAQSection from \"@/components/homepage/FAQSection\"\nimport CTASection from \"@/components/homepage/CTASection\"\n\nexport const dynamic = \"force-dynamic\"\n\nexport default async function Index() {\n  const supabase = createServerComponentClient({ cookies })\n\n  const {\n    data: { user },\n  } = await supabase.auth.getUser()\n\n  if (user) {\n    return redirect(\"/overview\")\n  }\n\n  return (\n    <div className=\"flex min-h-screen flex-col\">\n      <div className=\"flex-1\">\n        <HeroSection />\n        <BrandsSection />\n        <ProcessSection />\n        <FeaturesSection />\n        <ExamplesSection />\n        <TestimonialsSection />\n        <PricingSection />\n        <FAQSection />\n        <CTASection />\n      </div>\n    </div>\n  )\n}"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'\nimport { NextResponse } from 'next/server'\n\nimport type { NextRequest } from 'next/server'\nimport { Database } from './types/supabase'\n\nexport async function middleware(req: NextRequest) {\n  const res = NextResponse.next()\n  const supabase = createMiddlewareClient<Database>({ req, res })\n  await supabase.auth.getSession()\n  return res\n}"
+    },
+    {
+      "path": ".env.local.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Astria Vars (AI service)\n# Get API key - https://www.astria.ai/users/edit#api\nASTRIA_API_KEY=your-astria-api-key\n# If enabled, Astria will be enabled in test mode which will not charge you, but will return dummy results.\nASTRIA_TEST_MODE=true\nPACK_QUERY_TYPE=both # Options: 'users', 'gallery', 'both'\nNEXT_PUBLIC_TUNE_TYPE=packs #Options: 'packs', 'tune'\n\n\n# This can be any random string, it is used to secure the webhook endpoint.\nAPP_WEBHOOK_SECRET=your-webhook-secret\n\n# With vercel deploy supabase env vars are auto generated!\n# Configure auth magic link & redirect urls > https://github.com/leap-ai/headshots-starter#5-magic-link-auth-supabase\n# Locally get Supabase details from your project settings > API - https://app.supabase.com/project/_/settings/api\nNEXT_PUBLIC_SUPABASE_URL=your-project-url\nNEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key\nSUPABASE_SERVICE_ROLE_KEY=your-service-role-key\n\n# VERCEL BLOB VARS (Image storage service)\nBLOB_READ_WRITE_TOKEN=your-blob-read-write-token\n\n# RESEND VARS (Email service)\nRESEND_API_KEY=your-resend-api-key\n\n# STRIPE VARS (Payment service)\nSTRIPE_SECRET_KEY=your-stripe-secret-key\nSTRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret\nSTRIPE_PRICE_ID_ONE_CREDIT=your-stripe-price-id-one-credit\nSTRIPE_PRICE_ID_THREE_CREDITS=your-stripe-price-id-three-credit\nSTRIPE_PRICE_ID_FIVE_CREDITS=your-stripe-price-id-five-credit\nNEXT_PUBLIC_STRIPE_IS_ENABLED=false # set to true to enable Stripe payments\n\n# DEPLOYMENT\nDEPLOYMENT_PROVIDER=vercel # or replit\nDEPLOYMENT_URL=your-deployment-url # eg. headshots-starter.vercel.app to catch webhooks from Astria. Use ngrok locally (example: 0aaf-204-11-230-50.ngrok-free.app)\n\n# Announcement Bar Configuration\nNEXT_PUBLIC_ANNOUNCEMENT_ENABLED=true # set to true to enable the announcement bar\nNEXT_PUBLIC_ANNOUNCEMENT_MESSAGE=\"🎉 We just improved our homepage, Packs now available and launched the image inspection feature!\" # set the message to display in the announcement bar"
+    },
+    {
+      "path": "app/login/page.tsx",
+      "reason": "Auth flow reference",
+      "excerpt": "import { createServerComponentClient } from \"@supabase/auth-helpers-nextjs\";\nimport { cookies, headers } from \"next/headers\";\nimport { redirect } from \"next/navigation\";\nimport { Database } from \"../../types/supabase\";\nimport { Login } from \"./components/Login\";\n\nexport const dynamic = \"force-dynamic\";\n\nexport default async function LoginPage({\n  searchParams,\n}: {\n  searchParams?: { [key: string]: string | string[] | undefined };\n}) {\n  const supabase = createServerComponentClient<Database>({ cookies });\n\n  const {\n    data: { user },\n  } = await supabase.auth.getUser();\n\n  if (user) {\n    redirect(\"/\");\n  }\n\n  const headersList = headers();\n  const host = headersList.get(\"host\");\n\n  return (\n    <div className=\"flex flex-col flex-1 w-full h-[calc(100vh-73px)]\">\n      <Login host={host} searchParams={searchParams} />\n    </div>\n  );\n}"
+    }
+  ]
+}

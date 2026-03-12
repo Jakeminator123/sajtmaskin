@@ -6,16 +6,16 @@
   "categoryName": "Authentication",
   "templateUrl": "https://vercel.com/templates/authentication/drizzle-postgres-auth-starter",
   "demoUrl": "https://nextjs-postgres-auth.vercel.app/",
-  "description": "Email/pass login with NextAuth.js, Drizzle, and Postgres.",
-  "frameworkReason": "Next.js, React",
+  "description": "",
+  "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 82,
+  "qualityScore": 80,
   "repo": {
     "url": "https://github.com/vercel/next.js/",
     "normalizedUrl": "https://github.com/vercel/next.js",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\authentication\\next-js-postgres-auth-starter-with-drizzle\\repo",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-next-js",
     "packageManager": "unknown",
     "hasNext": true,
     "hasReact": true,
@@ -24,59 +24,46 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
+    "Starter",
+    "Authentication",
     "Next.js",
     "Tailwind",
-    "Database",
     "Postgres",
-    "Auth",
-    "NextAuth.js",
-    "Related Templates"
+    "NextAuth.js"
   ],
   "usefulLines": [
     "Next.js Postgres Auth Starter with Drizzle",
-    "AI workflows in live environments",
-    "Deploy for every idea",
-    "Email/pass login with NextAuth.js, Drizzle, and Postgres.",
-    "Deploy",
-    "Next.js + PostgreSQL Auth Starter",
-    "NextAuth.js",
-    "Neon Postgres",
-    "database to persist the data.",
-    "Deploy Your Own",
-    "You can clone & deploy it to Vercel with one click:",
-    "Developing Locally"
+    "Starter",
+    "Authentication",
+    "Next.js",
+    "Tailwind",
+    "Postgres",
+    "NextAuth.js"
   ],
-  "noiseLines": [
-    "Vercel Agent",
-    "Vercel documentation",
-    "Deploy at the speed of AI",
-    "Ship features, not infrastructure",
-    "SDKs by Vercel"
-  ],
+  "noiseLines": [],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
     "auth flow reference",
-    "dashboard shell patterns",
-    "editorial content hierarchy"
+    "dashboard shell patterns"
   ],
   "weaknesses": [
     "large monorepo without a clear example path"
   ],
   "recommendedScaffoldFamilies": [
     "auth-pages",
-    "app-shell",
-    "dashboard"
+    "dashboard",
+    "app-shell"
   ],
   "signals": {
     "auth": true,
     "dashboard": true,
     "pricing": false,
-    "blog": true,
+    "blog": false,
     "portfolio": false,
     "ecommerce": false,
     "docs": false,
-    "ai": true,
+    "ai": false,
     "multiTenant": false,
     "cms": false
   },

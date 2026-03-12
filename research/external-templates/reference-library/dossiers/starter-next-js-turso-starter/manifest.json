@@ -1,0 +1,88 @@
+{
+  "id": "starter-next-js-turso-starter",
+  "slug": "starter-next-js-turso-starter",
+  "title": "Next.js Turso Starter",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/turso-starter",
+  "demoUrl": "https://nextjs-turso-starter.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/tursodatabase/nextjs-turso-starter",
+    "normalizedUrl": "https://github.com/tursodatabase/nextjs-turso-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\tursodatabase-nextjs-turso-starter",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Turso"
+  ],
+  "usefulLines": [
+    "Next.js Turso Starter",
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Turso"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js Turso Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Next.js Turso Starter\n\nThis repository is a starter template for building a Next.js application with Turso and Drizzle ORM.\n\n<img width=\"1200\" alt=\"Next.js Starter\" src=\"https://github.com/user-attachments/assets/b78fd54e-574b-43b9-8f8f-943d14722e64\" />\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?demo-description=Simple%20Next.js%20starter%20for%20using%20SQLite%20over%20HTTP%20with%20Turso.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F2bMt29jx0XHekOO2lYlj6R%2Fc902d38ad15abf0c6d52f05bf60d54c5%2Fzi0I1GXrZoKub1NCL6i3VKe8a2UE5HMITQn1WCyquvoSZxwk&demo-title=Next.js%20Turso%20Starter&demo-url=https%3A%2F%2Fnextjs-turso-starter.vercel.app&from=templates&products=%255B%257B%2522type%2522%253A%2522integration%2522%252C%2522protocol%2522%253A%2522storage%2522%252C%2522productSlug%2522%253A%2522database%2522%252C%2522integrationSlug%2522%253A%2522tursocloud%2522%257D%255D&project-name=Next.js%20Turso%20Starter&repository-name=turso-starter&repository-url=https%3A%2F%2Fgithub.com%2Ftursodatabase%2Fnextjs-turso-starter&skippable-integrations=1)\n\n## Stack\n\n- Next.js 15\n- App Router\n- Server Actions\n- Drizzle ORM\n- Turso Database\n- Todo CRUD\n- TypeScript\n- Tailwind CSS\n\n## Local Development\n\n1. Clone this repository\n2. Install dependencies:\n\n   ```bash\n   npm install\n   ```\n\n3. Set up your environment variables:\n\n   ```bash\n   cp .env.example .env\n   ```\n\n   Fill in your Turso database credentials:\n\n   ```\n   TURSO_DATABASE_URL=your_turso_database_url\n   TURSO_AUTH_TOKEN=your_turso_auth_token\n   ```\n\n4. Set up your database:\n\n   ```bash\n   npm run db:generate\n   npm run db:push\n   ```\n\n5. Start the development server:\n   ```bash\n   npm run dev\n   ```\n\n## Database Management\n\nThis project uses Drizzle ORM for database operations. Here are the available commands:\n\n- `npm run db:generate` - Generate migration files from schema changes\n- `npm run db:push` - Push schema changes directly to the database (use with caution)\n- `npm run db:migrate` - Run migrations against the database\n- `npm run db:studio` - Open the Drizzle Studio for database management\n\n## Need Help?\n\n1. Open an issue on GitHub\n2. Submit a Pull Request to improve this starter\n3. [Join us on Discord](https://tur.so/discord)"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-turso-starter\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"npx drizzle-kit migrate && next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"db:generate\": \"drizzle-kit generate\",\n    \"db:push\": \"drizzle-kit push\",\n    \"db:migrate\": \"drizzle-kit migrate\",\n    \"db:studio\": \"drizzle-kit studio\"\n  },\n  \"dependencies\": {\n    \"@libsql/client\": \"^0.15.8\",\n    \"drizzle-kit\": \"^0.31.1\",\n    \"drizzle-orm\": \"^0.44.2\",\n    \"next\": \"15.3.6\",\n    \"react\": \"^19.0.1\",\n    \"react-confetti\": \"^6.4.0\",\n    \"react-dom\": \"^19.0.0\"\n  },\n  \"devDependencies\": {\n    \"@eslint/eslintrc\": \"^3\",\n    \"@tailwindcss/postcss\": \"^4\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"15.3.2\",\n    \"tailwindcss\": \"^4\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Geist } from \"next/font/google\";\nimport \"./globals.css\";\n\nconst geistSans = Geist({\n  variable: \"--font-geist-sans\",\n  subsets: [\"latin\"],\n});\n\nexport const metadata: Metadata = {\n  title: \"Next.js Turso Starter\",\n  description: \"Get started with Next.js and Turso\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className={`${geistSans.variable} antialiased`}>{children}</body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { Todos } from \"./todos\";\n\nexport default async function Page() {\n  return (\n    <div className=\"space-y-3\">\n      <div className=\"pb-6 text-center\">\n        <h1 className=\"text-3xl font-black tracking-tight text-white\">Todos</h1>\n        <p className=\"text-white/60\">\n          The todos you add below are created inside your own database.\n        </p>\n      </div>\n      <Todos />\n    </div>\n  );\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "TURSO_DATABASE_URL=\nTURSO_AUTH_TOKEN="
+    }
+  ]
+}

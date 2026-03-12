@@ -1,0 +1,81 @@
+{
+  "id": "starter-kubiks-next-js-starter",
+  "slug": "starter-kubiks-next-js-starter",
+  "title": "Kubiks Next.js Starter",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/kubiks-next-js-starter",
+  "demoUrl": "https://nextjs-starter-kubiks.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/kubiks-inc/nextjs-starter-kubiks",
+    "normalizedUrl": "https://github.com/kubiks-inc/nextjs-starter-kubiks",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\kubiks-inc-nextjs-starter-kubiks",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Kubiks Next.js Starter",
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Kubiks Next.js Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Kubiks Next.js Starter Template\n\n<div align=\"center\">\n  <img src=\"./public/kubiks.svg\" alt=\"Kubiks Logo\" width=\"120\" />\n  <p><strong>Modern observability platform for Next.js applications</strong></p>\n</div>\n\nA Next.js 15 starter template ready for [Kubiks](https://kubiks.ai) - the OpenTelemetry-native observability platform. Includes baseline OpenTelemetry configuration so you can add integrations and start monitoring immediately.\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/kubiks-inc/nextjs-starter-kubiks&integration-ids=oac_2wJzHeC4AgDFmeeiknGF9uq1)\n\n## What's Included\n\n- **Next.js 15** with App Router\n- **TypeScript** with strict mode\n- **Tailwind CSS v4** for styling\n- **OpenTelemetry** baseline via `@vercel/otel`\n- **Branded landing page** showcasing Kubiks platform\n- **Ready to deploy** to Vercel\n\n## Kubiks Platform Features\n\n- **Distributed Tracing** - Follow requests from your app through all your integrations\n- **Real-time Monitoring** - Automatic error detection with instant alerts\n- **Performance Analytics** - Track latency, throughput, and error rates\n- **Custom Dashboards** - Build dashboards with metrics that matter\n\n## Documentation\n\n- [Kubiks Documentation](https://docs.kubiks.ai)\n- [Kubiks GitHub](https://github.com/kubiks-inc)\n- [Next.js Documentation](https://nextjs.org/docs)\n- [Vercel Observability](https://vercel.com/docs/observability)\n\n## License\n\nThis project is licensed under the MIT License.\n\n## Acknowledgments\n\nBuilt with ❤️ by [Kubiks](https://kubiks.ai)\n\nPowered by:\n- [Next.js](https://nextjs.org)\n- [OpenTelemetry](https://opentelemetry.io)\n- [Vercel](https://vercel.com)"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-starter-kubiks\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"description\": \"Next.js starter template for Kubiks\",\n  \"author\": \"Kubiks\",\n  \"license\": \"MIT\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"https://github.com/kubiks-inc/nextjs-starter-kubiks\"\n  },\n  \"keywords\": [\n    \"nextjs\",\n    \"opentelemetry\",\n    \"observability\",\n    \"kubiks\",\n    \"telemetry\",\n    \"monitoring\",\n    \"tracing\"\n  ],\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build --turbopack\",\n    \"start\": \"next start\",\n    \"lint\": \"eslint\"\n  },\n  \"dependencies\": {\n    \"@vercel/otel\": \"^2.0.1\",\n    \"next\": \"15.5.9\",\n    \"react\": \"19.1.0\",\n    \"react-dom\": \"19.1.0\"\n  },\n  \"devDependencies\": {\n    \"@eslint/eslintrc\": \"^3\",\n    \"@tailwindcss/postcss\": \"^4\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"15.5.6\",\n    \"tailwindcss\": \"^4\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Geist, Geist_Mono } from \"next/font/google\";\nimport \"./globals.css\";\n\nconst geistSans = Geist({\n  variable: \"--font-geist-sans\",\n  subsets: [\"latin\"],\n});\n\nconst geistMono = Geist_Mono({\n  variable: \"--font-geist-mono\",\n  subsets: [\"latin\"],\n});\n\nexport const metadata: Metadata = {\n\ttitle: \"Kubiks Next.js Starter\",\n\tdescription:\n\t\t\"Next.js starter template for use with Kubiks. The only Telemetry SDK you'll ever need for TypeScript observability.\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body\n        className={`${geistSans.variable} ${geistMono.variable} antialiased`}\n      >\n        {children}\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\n\nimport Image from \"next/image\";\nimport { useState } from \"react\";\n\nconst integrations = [\n\t{\n\t\tname: \"@kubiks/otel-drizzle\",\n\t\tdescription: \"OpenTelemetry instrumentation for Drizzle ORM\",\n\t\tnpm: \"https://www.npmjs.com/package/@kubiks/otel-drizzle\",\n\t\tgithub: \"https://github.com/kubiks-inc/otel/tree/main/packages/otel-drizzle\",\n\t\tstatus: \"available\",\n\t},\n\t{\n\t\tname: \"@kubiks/otel-better-auth\",\n\t\tdescription: \"OpenTelemetry instrumentation for Better Auth\",\n\t\tnpm: \"https://www.npmjs.com/package/@kubiks/otel-better-auth\",\n\t\tgithub: \"https://github.com/kubiks-inc/otel/tree/main/packages/otel-better-auth\",\n\t\tstatus: \"available\",\n\t},\n\t{\n\t\tname: \"@kubiks/otel-resend\",\n\t\tdescription: \"OpenTelemetry instrumentation for Resend\",\n\t\tnpm: \"https://www.npmjs.com/package/@kubiks/otel-resend\",\n\t\tgithub: \"https://github.com/kubiks-inc/otel/tree/main/packages/otel-resend\",\n\t\tstatus: \"available\",\n\t},\n\t{\n\t\tname: \"@kubiks/otel-autumn\",\n\t\tdescription: \"OpenTelemetry instrumentation for Autumn\",\n\t\tnpm: \"https://www.npmjs.com/package/@kubiks/otel-autumn\",\n\t\tgithub: \"https://github.com/kubiks-inc/otel/tree/main/packages/otel-autumn\",\n\t\tstatus: \"available\",\n\t},\n\t{\n\t\tname: \"@kubiks/otel-upstash-queues\",\n\t\tdescription: \"OpenTelemetry instrumentation for Upstash Queues\",\n\t\tnpm: \"https://www.npmjs.com/package/@kubiks/otel-upstash-queues\",\n\t\tgithub: \"https://github.com/kubiks-inc/otel/tree/main/packages/otel-upstash-queues\",\n\t\tstatus: \"available\",\n\t},\n];\n\nconst features = [\n\t{\n\t\ttitle: \"Real-time Dashboards\",\n\t\tdescription:\n\t\t\t\"Monitor your entire application with customizable dashboards. Track requests, errors, performance metrics, and more in real-time.\",\n\t},\n\t{\n\t\ttitle: \"Distributed Tracing\",\n\t\tdescription:\n\t\t\t\"Follow requests across your entire stack. See database queries, API calls, and third-party integrations in a single trace view.\",\n\t},\n\t{\n\t\ttitle: \"Error Tracking\",\n\t\tdescription:\n\t\t\t\"Automatic error detection and grouping with full stack traces. Get notified immediately when issues occur in production.\",\n\t},\n\t{\n\t\ttitle: \"Performance Analytics\",\n\t\tdescription:\n\t\t\t\"Track latency, throughput, and error rates. Identify bottlenecks with p50, p95, and p99 metrics.\",\n\t},\n];\n\nconst screenshots = [\n\t{\n\t\timage: \"/feat-dashboard.png\",\n\t\talt: \"Kubiks dashboard showing real-time metrics\",\n\t},\n\t{\n\t\timage: \"\n\n// ... truncated"
+    }
+  ]
+}

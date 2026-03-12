@@ -1,0 +1,84 @@
+{
+  "id": "blog-next-js-microblog",
+  "slug": "blog-next-js-microblog",
+  "title": "Next.js Microblog",
+  "categorySlug": "blog",
+  "categoryName": "Blog",
+  "templateUrl": "https://vercel.com/templates/blog/microblog",
+  "demoUrl": "https://astro-microblog.withheadlesscms.com/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 88,
+  "repo": {
+    "url": "https://github.com/hygraph/hygraph-next-microblog-starter",
+    "normalizedUrl": "https://github.com/hygraph/hygraph-next-microblog-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\hygraph-hygraph-next-microblog-starter",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Blog",
+    "Next.js",
+    "Tailwind",
+    "Hygraph"
+  ],
+  "usefulLines": [
+    "Next.js Microblog",
+    "Blog",
+    "Next.js",
+    "Tailwind",
+    "Hygraph"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "editorial content hierarchy"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "blog"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js Microblog is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Hygraph Microblog Starter Next\n\nThis is a demo that corresponds to [this article](https://hygraph.com/blog/lazy-load-content-astro-hygraph-pagination) about Hygraph pagination.\n\n## Getting Started\n\nFor the quickest start, use the button below to clone the Hygraph project with schemas and content.\n\n[![Clone project](https://hygraph.com/button)](https://app.hygraph.com/clone/17eb970b42d544c595b5772ba3614551?name=Microblog)\n\nFor a slightly slower start, you'll need a new Hygraph project with a `post` schema that has a `slug` and `content` field. `content` should be a Rich Text field.\n\nTo run the site locally run the following commands in your CLI.\n\n```\nnpx degit git@github.com:hygraph/hygraph-next-microblog-starter.git\n\ncd hygraph-next-microblog-starter && npm install\n```"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"hyhraph-readmore-next\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"codegen\": \"graphql-codegen --config codegen.ts\"\n  },\n  \"dependencies\": {\n    \"@graphql-codegen/cli\": \"^5.0.2\",\n    \"@tailwindcss/typography\": \"^0.5.10\",\n    \"@tanstack/react-query\": \"^5.22.2\",\n    \"graphql-request\": \"^6.1.0\",\n    \"next\": \"14.1.0\",\n    \"react\": \"^18\",\n    \"react-dom\": \"^18\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^18\",\n    \"@types/react-dom\": \"^18\",\n    \"autoprefixer\": \"^10.0.1\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"14.1.0\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.3.0\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport \"./globals.css\";\n\nexport const metadata: Metadata = {\n  title: \"My Microblog\",\n  description: \"My Microblog\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body>\n        <div className=\"container max-w-full min-h-screen bg-brand\">\n          <div className=\"mx-auto max-w-xl px-4 py-8\">\n            <h1 className=\"text-4xl text-white font-bold mb-4\">My Microblog</h1>\n            {children}\n          </div>\n        </div>\n\n        <footer className=\"text-center bg-indigo-900 text-white p-3\">\n          Copyright {new Date().getFullYear()} | Powered by\n          <a href=\"https://hygraph.com\">Hygraph</a>\n        </footer>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import List from \"../components/List\";\n\nexport default function Home() {\n  return (\n    <main>\n      <List />\n    </main>\n  );\n}"
+    }
+  ]
+}

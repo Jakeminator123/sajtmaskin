@@ -1,0 +1,96 @@
+{
+  "id": "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
+  "slug": "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
+  "title": "Your Next Store — Commerce with Next.js and Stripe",
+  "categorySlug": "ecommerce",
+  "categoryName": "Ecommerce",
+  "templateUrl": "https://vercel.com/templates/ecommerce/yournextstore",
+  "demoUrl": "https://demo.yournextstore.com/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 96,
+  "repo": {
+    "url": "https://github.com/yournextstore/yournextstore/tree/main/",
+    "normalizedUrl": "https://github.com/yournextstore/yournextstore",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\yournextstore-yournextstore",
+    "packageManager": "bun",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Ecommerce",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Your Next Store — Commerce with Next.js and Stripe",
+    "Ecommerce",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "dashboard shell patterns",
+    "pricing or billing structure",
+    "storefront or checkout patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "ecommerce",
+    "dashboard",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": true,
+    "pricing": true,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": true,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Your Next Store — Commerce with Next.js and Stripe is a Ecommerce reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<p align=\"center\">\n  <a href=\"https://yournextstore.com\">\n    <img src=\"public/logo.svg\" height=\"128\">\n  </a>\n</p>\n\n<h1 align=\"center\">Your Next Store</h1>\n\n<p align=\"center\">\n  <strong>Open-source AI-native Next.js e-commerce template.</strong>\n</p>\n<p align=\"center\">\nPowered by Stripe. Built for AI coding tools.\n</p>\n\n<div align=\"center\">\n  <a href=\"https://demo.yournextstore.com\">\n    <img src=\"public/screenshot.png\" alt=\"Your Next Store Demo\" width=\"800\" />\n  </a>\n  <p><strong>Live Demo:</strong> <a href=\"https://demo.yournextstore.com\">demo.yournextstore.com</a></p>\n</div>\n\n<div align=\"center\">\n  <a href=\"https://github.com/yournextstore/yournextstore/stargazers\"><img src=\"https://img.shields.io/github/stars/yournextstore/yournextstore?style=for-the-badge&logo=github&labelColor=181717&color=181717\" alt=\"GitHub Stars\" /></a>\n  <a href=\"https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyournextstore%2Fyournextstore&env=ENABLE_EXPERIMENTAL_COREPACK,YNS_API_KEY&envDescription=Read%20more%20about%20required%20env%20variables%20in%20YNS&envLink=https%3A%2F%2Fgithub.com%2Fyournextstore%2Fyournextstore%2Ftree%2Fupcoming%3Ftab%3Dreadme-ov-file%23add-environmental-variables&project-name=yournextstore&repository-name=yournextstore&demo-title=Your%20Next%20Store&demo-description=A%20Next.js%20boilerplate%20for%20building%20your%20online%20store%20instantly%3A%20simple%2C%20quick%2C%20powerful.&demo-url=https%3A%2F%2Fdemo.yournextstore.com%2F&demo-image=https%3A%2F%2Fyournextstore.com%2Fdemo.png\"><img src=\"https://img.shields.io/badge/Deploy-Vercel-000?style=for-the-badge&logo=vercel&labelColor=000\" alt=\"Deploy with Vercel\" /></a>\n  <a href=\"https://yournextstore.com/discord\"><img src=\"https://img.shields.io/discord/1206629600483082341?style=for-the-badge&logo=discord&logoColor=white&labelColor=5865F2&color=5865F2\" alt=\"Discord\" /></a>\n  <a href=\"https://www.producthunt.com/posts/your-next-store\"><img src=\"https://img.shields.io/badge/Product%20Hunt-720-DA552F?style=for-the-badge&logo=producthunt&logoColor=white&labelColor=DA552F\" alt=\"Product Hunt\" /></a>\n</div>\n\n<br/>\n\n| | |\n|:---|:---|\n| **AI-Friendly Codebase** | Ships with [AGENTS.md](AGENTS.md) — idiomatic patterns, Commerce Kit SDK with typed methods. Claude Code, Cursor, and Codex work out of the box |\n| **Stripe-Native** | Direct Stripe API integration\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n\t\"name\": \"yournextstore\",\n\t\"version\": \"0.1.0\",\n\t\"private\": true,\n\t\"scripts\": {\n\t\t\"dev\": \"bun next dev\",\n\t\t\"build\": \"bun next build\",\n\t\t\"start\": \"bun next start\",\n\t\t\"prepare\": \"husky\",\n\t\t\"lint\": \"bun run biome check --write --unsafe\"\n\t},\n\t\"dependencies\": {\n\t\t\"@hookform/resolvers\": \"5.2.2\",\n\t\t\"@radix-ui/react-accordion\": \"1.2.12\",\n\t\t\"@radix-ui/react-alert-dialog\": \"1.1.15\",\n\t\t\"@radix-ui/react-aspect-ratio\": \"1.1.8\",\n\t\t\"@radix-ui/react-avatar\": \"1.1.11\",\n\t\t\"@radix-ui/react-checkbox\": \"1.3.3\",\n\t\t\"@radix-ui/react-collapsible\": \"1.1.12\",\n\t\t\"@radix-ui/react-context-menu\": \"2.2.16\",\n\t\t\"@radix-ui/react-dialog\": \"1.1.15\",\n\t\t\"@radix-ui/react-dropdown-menu\": \"2.1.16\",\n\t\t\"@radix-ui/react-hover-card\": \"1.1.15\",\n\t\t\"@radix-ui/react-label\": \"2.1.8\",\n\t\t\"@radix-ui/react-menubar\": \"1.1.16\",\n\t\t\"@radix-ui/react-navigation-menu\": \"1.2.14\",\n\t\t\"@radix-ui/react-popover\": \"1.1.15\",\n\t\t\"@radix-ui/react-progress\": \"1.1.8\",\n\t\t\"@radix-ui/react-radio-group\": \"1.3.8\",\n\t\t\"@radix-ui/react-scroll-area\": \"1.2.10\",\n\t\t\"@radix-ui/react-select\": \"2.2.6\",\n\t\t\"@radix-ui/react-separator\": \"1.1.8\",\n\t\t\"@radix-ui/react-slider\": \"1.3.6\",\n\t\t\"@radix-ui/react-slot\": \"1.2.4\",\n\t\t\"@radix-ui/react-switch\": \"1.2.6\",\n\t\t\"@radix-ui/react-tabs\": \"1.1.13\",\n\t\t\"@radix-ui/react-toggle\": \"1.1.10\",\n\t\t\"@radix-ui/react-toggle-group\": \"1.1.11\",\n\t\t\"@radix-ui/react-tooltip\": \"1.2.8\",\n\t\t\"@tailwindcss/typography\": \"^0.5.19\",\n\t\t\"@typescript/native-preview\": \"7.0.0-dev.20260311.1\",\n\t\t\"class-variance-authority\": \"0.7.1\",\n\t\t\"clsx\": \"2.1.1\",\n\t\t\"cmdk\": \"1.1.1\",\n\t\t\"commerce-kit\": \"0.22.0\",\n\t\t\"date-fns\": \"4.1.0\",\n\t\t\"embla-carousel-react\": \"8.6.0\",\n\t\t\"input-otp\": \"1.4.2\",\n\t\t\"lucide-react\": \"0.577.0\",\n\t\t\"next\": \"16.2.0-canary.91\",\n\t\t\"next-themes\": \"0.4.6\",\n\t\t\"react\": \"19.3.0-canary-8c34556c-20260126\",\n\t\t\"react-day-picker\": \"9.14.0\",\n\t\t\"react-dom\": \"19.3.0-canary-8c34556c-20260126\",\n\t\t\"react-hook-form\": \"7.71.2\",\n\t\t\"react-resizable-panels\": \"4.7.2\",\n\t\t\"recharts\": \"2.15.4\",\n\t\t\"safe-try\": \"0.0.4\",\n\t\t\"sonner\": \"2.0.7\",\n\t\t\"tailwind-merge\": \"3.5.0\",\n\t\t\"vaul\": \"1.1.2\",\n\t\t\"zod\": \"4.3.6\"\n\t},\n\t\"devDependencies\": {\n\t\t\"@biomejs/biome\": \"2.4.6\",\n\t\t\"@tailwindcss/postcss\": \"4.2.1\",\n\t\t\"@types/bun\": \"1.3.10\",\n\t\t\"@types/node\": \"25.4.0\",\n\t\t\"@types/react\": \"19.2.14\",\n\t\t\"@types/react-dom\": \"19.2.3\",\n\t\t\"babel-plugin-react-compiler\": \"1.0.0\",\n\t\t\"husky\": \"9.1.7\",\n\t\t\"lint-staged\": \"16.3.3\",\n\n// ... truncated"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import \"@/app/globals.css\";\n\nimport type { Metadata } from \"next\";\nimport { Geist, Geist_Mono } from \"next/font/google\";\nimport { Suspense } from \"react\";\nimport { CartProvider } from \"@/app/cart/cart-context\";\nimport { CartSidebar } from \"@/app/cart/cart-sidebar\";\nimport { CartButton } from \"@/app/cart-button\";\nimport { Footer } from \"@/app/footer\";\nimport { Navbar } from \"@/app/navbar\";\nimport { SearchInput } from \"@/app/search-input\";\nimport { ErrorOverlayRemover, NavigationReporter } from \"@/components/devtools\";\nimport { ReferralBadge } from \"@/components/referral-badge\";\nimport { YnsLink } from \"@/components/yns-link\";\nimport { commerce } from \"@/lib/commerce\";\nimport { getCartCookieJson } from \"@/lib/cookies\";\n\nconst geistSans = Geist({\n\tvariable: \"--font-geist-sans\",\n\tsubsets: [\"latin\"],\n});\n\nconst geistMono = Geist_Mono({\n\tvariable: \"--font-geist-mono\",\n\tsubsets: [\"latin\"],\n});\n\nexport const metadata: Metadata = {\n\ttitle: \"Your Next Store\",\n\tdescription: \"Your next e-commerce store\",\n};\n\nasync function getInitialCart() {\n\tconst cartCookie = await getCartCookieJson();\n\n\tif (!cartCookie?.id) {\n\t\treturn { cart: null, cartId: null };\n\t}\n\n\ttry {\n\t\tconst cart = await commerce.cartGet({ cartId: cartCookie.id });\n\t\treturn { cart: cart ?? null, cartId: cartCookie.id };\n\t} catch {\n\t\treturn { cart: null, cartId: cartCookie.id };\n\t}\n}\n\nasync function CartProviderWrapper({ children }: { children: React.ReactNode }) {\n\tconst { cart, cartId } = await getInitialCart();\n\n\treturn (\n\t\t<CartProvider initialCart={cart} initialCartId={cartId}>\n\t\t\t<div className=\"flex min-h-screen flex-col\">\n\t\t\t\t<header className=\"sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md\">\n\t\t\t\t\t<div className=\"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8\">\n\t\t\t\t\t\t<div className=\"flex items-center justify-between h-16\">\n\t\t\t\t\t\t\t<div className=\"flex items-center gap-8\">\n\t\t\t\t\t\t\t\t<YnsLink prefetch={\"eager\"} href=\"/\" className=\"text-xl font-bold\">\n\t\t\t\t\t\t\t\t\tYour Next Store\n\t\t\t\t\t\t\t\t</YnsLink>\n\t\t\t\t\t\t\t\t<Navbar />\n\t\t\t\t\t\t\t</div>\n\t\t\t\t\t\t\t<div className=\"flex items-center gap-2\">\n\t\t\t\t\t\t\t\t<Suspense>\n\t\t\t\t\t\t\t\t\t<SearchInput />\n\t\t\t\t\t\t\t\t</Suspense>\n\t\t\t\t\t\t\t\t<CartButton />\n\t\t\t\t\t\t\t</div>\n\t\t\t\t\t\t</div>\n\t\t\t\t\t</div>\n\t\t\t\t</header>\n\t\t\t\t<div className=\"flex-1\">{children}</div>\n\t\t\t\t<Footer />\n\t\t\t\t<ReferralBadge />\n\t\t\t</div>\n\t\t\t<CartSide\n\n// ... truncated"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { Suspense } from \"react\";\nimport { About } from \"@/components/sections/about\";\nimport { Hero } from \"@/components/sections/hero\";\nimport { Newsletter } from \"@/components/sections/newsletter\";\nimport { ProductGrid } from \"@/components/sections/product-grid\";\n\nfunction ProductGridSkeleton() {\n\treturn (\n\t\t<section className=\"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24\">\n\t\t\t<div className=\"flex items-end justify-between mb-12\">\n\t\t\t\t<div>\n\t\t\t\t\t<div className=\"h-8 w-48 bg-secondary rounded animate-pulse\" />\n\t\t\t\t\t<div className=\"mt-2 h-5 w-64 bg-secondary rounded animate-pulse\" />\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t\t<div className=\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8\">\n\t\t\t\t{Array.from({ length: 6 }).map((_, i) => (\n\t\t\t\t\t<div key={`skeleton-${i}`}>\n\t\t\t\t\t\t<div className=\"aspect-square bg-secondary rounded-2xl mb-4 animate-pulse\" />\n\t\t\t\t\t\t<div className=\"space-y-2\">\n\t\t\t\t\t\t\t<div className=\"h-5 w-3/4 bg-secondary rounded animate-pulse\" />\n\t\t\t\t\t\t\t<div className=\"h-5 w-1/4 bg-secondary rounded animate-pulse\" />\n\t\t\t\t\t\t</div>\n\t\t\t\t\t</div>\n\t\t\t\t))}\n\t\t\t</div>\n\t\t</section>\n\t);\n}\n\nexport default function Home() {\n\treturn (\n\t\t<main>\n\t\t\t<Hero />\n\t\t\t<Suspense fallback={<ProductGridSkeleton />}>\n\t\t\t\t<ProductGrid title=\"Featured Products\" limit={6} />\n\t\t\t</Suspense>\n\t\t\t<About />\n\t\t\t<Newsletter />\n\t\t</main>\n\t);\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# URL of the YNS instance\nYNS_API_KEY=your_api_token_here"
+    },
+    {
+      "path": "components/ui/sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "\"use client\"\n\nimport * as React from \"react\"\nimport { Slot } from \"@radix-ui/react-slot\"\nimport { cva, type VariantProps } from \"class-variance-authority\"\nimport { PanelLeftIcon } from \"lucide-react\"\n\nimport { useIsMobile } from \"@/hooks/use-mobile\"\nimport { cn } from \"@/lib/utils\"\nimport { Button } from \"@/components/ui/button\"\nimport { Input } from \"@/components/ui/input\"\nimport { Separator } from \"@/components/ui/separator\"\nimport {\n  Sheet,\n  SheetContent,\n  SheetDescription,\n  SheetHeader,\n  SheetTitle,\n} from \"@/components/ui/sheet\"\nimport { Skeleton } from \"@/components/ui/skeleton\"\nimport {\n  Tooltip,\n  TooltipContent,\n  TooltipProvider,\n  TooltipTrigger,\n} from \"@/components/ui/tooltip\"\n\nconst SIDEBAR_COOKIE_NAME = \"sidebar_state\"\nconst SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7\nconst SIDEBAR_WIDTH = \"16rem\"\nconst SIDEBAR_WIDTH_MOBILE = \"18rem\"\nconst SIDEBAR_WIDTH_ICON = \"3rem\"\nconst SIDEBAR_KEYBOARD_SHORTCUT = \"b\"\n\ntype SidebarContextProps = {\n  state: \"expanded\" | \"collapsed\"\n  open: boolean\n  setOpen: (open: boolean) => void\n  openMobile: boolean\n  setOpenMobile: (open: boolean) => void\n  isMobile: boolean\n  toggleSidebar: () => void\n}\n\nconst SidebarContext = React.createContext<SidebarContextProps | null>(null)\n\nfunction useSidebar() {\n  const context = React.useContext(SidebarContext)\n  if (!context) {\n    throw new Error(\"useSidebar must be used within a SidebarProvider.\")\n  }\n\n  return context\n}\n\nfunction SidebarProvider({\n  defaultOpen = true,\n  open: openProp,\n  onOpenChange: setOpenProp,\n  className,\n  style,\n  children,\n  ...props\n}: React.ComponentProps<\"div\"> & {\n  defaultOpen?: boolean\n  open?: boolean\n  onOpenChange?: (open: boolean) => void\n}) {\n  const isMobile = useIsMobile()\n  const [openMobile, setOpenMobile] = React.useState(false)\n\n  // This is the internal state of the sidebar.\n  // We use openProp and setOpenProp for control from outside the component.\n  const [_open, _setOpen] = React.useState(defaultOpen)\n  const open = openProp ?? _open\n  const setOpen = React.useCallback(\n    (value: boolean | ((value: boolean) => boolean)) => {\n      const openState = typeof value === \"function\" ? value(open) : value\n      if (setOpenProp) {\n        setOpenProp(openState)\n      } else {\n        _setOpen(openState)\n      }\n\n      // This sets the cookie to\n\n// ... truncated"
+    }
+  ]
+}

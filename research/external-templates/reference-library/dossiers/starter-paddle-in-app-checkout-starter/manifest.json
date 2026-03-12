@@ -1,0 +1,102 @@
+{
+  "id": "starter-paddle-in-app-checkout-starter",
+  "slug": "starter-paddle-in-app-checkout-starter",
+  "title": "Paddle In-App Checkout Starter",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/ecommerce/paddle-in-app-checkout-starter",
+  "demoUrl": "https://paddle-mobile-web-payments-starter.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/PaddleHQ/paddle-mobile-web-payments-starter",
+    "normalizedUrl": "https://github.com/PaddleHQ/paddle-mobile-web-payments-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\paddlehq-paddle-mobile-web-payments-starter",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Starter",
+    "Ecommerce",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Paddle In-App Checkout Starter",
+    "Starter",
+    "Ecommerce",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "pricing or billing structure",
+    "storefront or checkout patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "ecommerce",
+    "saas-landing"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": true,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": true,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Paddle In-App Checkout Starter is a Starter reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Paddle Mobile Web Payments Starter\n\n[Paddle Billing](https://www.paddle.com/solutions/web-stores?utm_source=dx&utm_medium=paddle-in-app-checkout-starter) is the developer-first merchant of record. We take care of payments, tax, subscriptions, and metrics with one unified API that does it all.\n\nThis is a Next.js starter project for implementing marketing pages, including a pricing page, and Paddle checkout on Web for an iOS app.\n\nAs of April 30, 2025, Apple's updated App Store rules allow app developers to use third-party payment processors like Paddle for in-app purchases. This starter shows you how to implement a web-based checkout that can be opened from iOS apps.\n\nEven though you're redirecting users to Web to complete their purchase, **Apple pay is still supported**.\n\n## ⚡️ Instantly clone & deploy\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FPaddleHQ%2Fpaddle-mobile-web-payments-starter&env=APPLE_TEAM_ID,NEXT_PUBLIC_BUNDLE_IDENTIFIER,NEXT_PUBLIC_APP_REDIRECT_URL,NEXT_PUBLIC_PADDLE_CLIENT_TOKEN,NEXT_PUBLIC_PADDLE_ENV)\n\n## 🔦 About\n\nThis starter project provides a fully functional implementation of a Paddle checkout within a Next.js application that can be easily embedded into iOS apps.\n\n## ✨ Features\n\n- Global tax compliance — As a merchant of record, Paddle handles all tax calculations, collections, and remittances so you don't have to.\n- Chargeback protection — Paddle manages chargebacks, combats fraud, and prevents card attacks, keeping your business secure.\n- Lower fees than IAPs — Connect directly with your users to reduce fees while increasing customer lifetime value.\n- Integrated with Paddle Retain — Minimize churn and maximize revenue with our comprehensive suite of retention tools.\n- Buyer support included — Customers can self-serve through our portal, while Paddle handles all order inquiries.\n- All-in-one payment platform — Enable new payment methods instantly without additional code or merchant accounts.\n\n## 📦 Included packages\n\n- Next.js 15\n- `@paddle/paddle-js` for launching a checkout\n- React 19\n- TypeScript\n- Tailwind CSS\n\n## 🏁 Getting started\n\n### Development\n\nFirst, run the development server:\n\n```bash\nnpm run dev\n# or\nyarn dev\n# or\npnpm dev\n# or\nbun dev\n```\n\nOpen [http://localhost:3000](http://localhost:30\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"paddle-mobile-web-payments-starter\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"format\": \"prettier --write .\"\n  },\n  \"dependencies\": {\n    \"@paddle/paddle-js\": \"^1.4.1\",\n    \"@radix-ui/react-accordion\": \"^1.2.11\",\n    \"@radix-ui/react-avatar\": \"^1.1.10\",\n    \"@radix-ui/react-dialog\": \"^1.1.14\",\n    \"@radix-ui/react-navigation-menu\": \"^1.2.13\",\n    \"@radix-ui/react-radio-group\": \"^1.3.7\",\n    \"@radix-ui/react-separator\": \"^1.1.7\",\n    \"@radix-ui/react-slot\": \"^1.2.3\",\n    \"@radix-ui/react-tabs\": \"^1.1.12\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"embla-carousel-react\": \"^8.6.0\",\n    \"lucide-react\": \"^0.513.0\",\n    \"motion\": \"^12.16.0\",\n    \"next\": \"15.4.11\",\n    \"react\": \"^19.2.4\",\n    \"react-dom\": \"^19.2.4\",\n    \"react-use-measure\": \"^2.1.7\",\n    \"sonner\": \"^2.0.5\",\n    \"tailwind-merge\": \"^3.3.0\",\n    \"vaul\": \"^1.1.2\"\n  },\n  \"devDependencies\": {\n    \"@eslint/eslintrc\": \"^3\",\n    \"@tailwindcss/postcss\": \"^4\",\n    \"@types/node\": \"^22\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"15.3.3\",\n    \"prettier\": \"^3.5.3\",\n    \"prettier-plugin-tailwindcss\": \"^0.6.11\",\n    \"tailwindcss\": \"^4\",\n    \"tw-animate-css\": \"^1.3.4\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Inter } from \"next/font/google\";\nimport { Toaster } from \"sonner\";\nimport \"./globals.css\";\n\nconst inter = Inter({\n  variable: \"--font-inter\",\n  subsets: [\"latin\"],\n});\n\nexport const metadata: Metadata = {\n  title: \"Paddle Web Payments Starter\",\n  description: \"A vercel template for taking web payments for mobile apps with Paddle\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className={`${inter.variable} antialiased`}>\n        {children}\n        <Toaster />\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\n\nimport { FAQs } from \"@/components/faqs/faqs\";\nimport { Features } from \"@/components/features/features\";\nimport { Footer } from \"@/components/footer/footer\";\nimport { Hero } from \"@/components/hero/hero\";\nimport { Quote } from \"@/components/quote/quote\";\nimport { Showcase } from \"@/components/showcase/showcase\";\nimport { Testimonials } from \"@/components/testimonials/testimonials\";\nimport { useRedirectWarning } from \"@/lib/redirect\";\n\nexport default function Home() {\n  useRedirectWarning();\n\n  return (\n    <>\n      <Hero />\n      <Showcase />\n      <Quote />\n      <Features />\n      <Testimonials />\n      <FAQs />\n      <Footer />\n    </>\n  );\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "APPLE_TEAM_ID=ABCDE12345\nNEXT_PUBLIC_BUNDLE_IDENTIFIER=com.example.yourapp\n\nNEXT_PUBLIC_APP_REDIRECT_URL=yourapp://checkout_redirect/success\nNEXT_PUBLIC_PADDLE_ENV=sandbox # or `production`\nNEXT_PUBLIC_PADDLE_CLIENT_TOKEN="
+    },
+    {
+      "path": "src/app/checkout/page.tsx",
+      "reason": "Commerce or pricing reference",
+      "excerpt": "import { Checkout } from \"@/components/checkout/checkout\";\nimport { CheckoutQueryParams, SnakeCaseCheckoutQueryParams } from \"@/lib/types\";\nimport { Environments } from \"@paddle/paddle-js\";\n\nimport type { Metadata } from \"next\";\n\nexport const metadata: Metadata = {\n  title: \"Checkout - Paddle Web Payments Starter\",\n  description: \"Complete your purchase securely\",\n};\n\ntype Props = {\n  searchParams: Promise<SnakeCaseCheckoutQueryParams>;\n};\n\nexport default async function CheckoutPage({ searchParams }: Props) {\n  const clientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;\n  const redirectUrl = process.env.NEXT_PUBLIC_APP_REDIRECT_URL;\n  const environment = process.env.NEXT_PUBLIC_PADDLE_ENV as Environments;\n\n  if (!clientToken || !redirectUrl || !environment) {\n    return <div className=\"grid place-items-center p-8 text-xl\">Missing required environment variables</div>;\n  }\n\n  const {\n    app_user_id: appUserId,\n    country_code: countryCode,\n    discount_code: discountCode,\n    discount_id: discountId,\n    locale,\n    paddle_customer_id: paddleCustomerId,\n    postal_code: postalCode,\n    price_id: urlPriceId,\n    theme,\n    transaction_id: transactionId,\n    user_email: userEmail,\n  } = await searchParams;\n\n  const checkoutQueryParams: CheckoutQueryParams = {\n    appUserId,\n    countryCode,\n    discountCode,\n    discountId,\n    locale,\n    paddleCustomerId,\n    postalCode,\n    priceId: urlPriceId,\n    theme,\n    transactionId,\n    userEmail,\n  };\n\n  if (!urlPriceId && !transactionId) {\n    return <div className=\"grid place-items-center p-8 text-xl\">Missing price ID</div>;\n  }\n\n  return (\n    <Checkout\n      checkoutQueryParams={checkoutQueryParams}\n      environment={environment}\n      clientToken={clientToken}\n      redirectUrl={redirectUrl}\n    />\n  );\n}"
+    },
+    {
+      "path": "src/app/pricing/page.tsx",
+      "reason": "Commerce or pricing reference",
+      "excerpt": "import { Nav } from \"@/components/hero/nav\";\nimport { Plans } from \"@/components/pricing/plans\";\nimport { RadialBlur } from \"@/components/pricing/radial-blur\";\nimport type { Metadata } from \"next\";\n\nexport const metadata: Metadata = {\n  title: \"Pricing - Paddle Web Payments Starter\",\n  description: \"Unlock Scam Protection, VPN, and more\",\n};\n\nexport default function Pricing() {\n  return (\n    <div className=\"bg-card isolate flex h-full min-h-screen w-full flex-col p-8\">\n      <RadialBlur />\n      <Nav />\n      <Plans />\n    </div>\n  );\n}"
+    }
+  ]
+}

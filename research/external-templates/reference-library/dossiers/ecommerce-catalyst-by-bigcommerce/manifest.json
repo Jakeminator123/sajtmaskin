@@ -1,0 +1,103 @@
+{
+  "id": "ecommerce-catalyst-by-bigcommerce",
+  "slug": "ecommerce-catalyst-by-bigcommerce",
+  "title": "Catalyst by BigCommerce",
+  "categorySlug": "ecommerce",
+  "categoryName": "Ecommerce",
+  "templateUrl": "https://vercel.com/templates/ecommerce/catalyst-by-bigcommerce",
+  "demoUrl": "https://v0.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 74,
+  "repo": {
+    "url": "https://github.com/bigcommerce/catalyst/tree/main/",
+    "normalizedUrl": "https://github.com/bigcommerce/catalyst",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\bigcommerce-catalyst",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Ecommerce",
+    "Monorepos",
+    "Next.js",
+    "Tailwind",
+    "Upstash"
+  ],
+  "usefulLines": [
+    "Catalyst by BigCommerce",
+    "Ecommerce",
+    "Monorepos",
+    "Next.js",
+    "Tailwind",
+    "Upstash"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "storefront or checkout patterns"
+  ],
+  "weaknesses": [
+    "large monorepo without a clear example path"
+  ],
+  "recommendedScaffoldFamilies": [
+    "ecommerce"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": true,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Catalyst by BigCommerce is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "core/README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<a href=\"https://catalyst.dev\" target=\"_blank\" rel=\"noopener norerrer\">\n  <img src=\"https://storage.googleapis.com/bigcommerce-developers/images/catalyst_readme_banner.png\" alt=\"Catalyst for Composable Commerce Image Banner\" title=\"Catalyst\">\n</a>\n\n<br />\n<br />\n\n<div align=\"center\">\n\n[![MIT License](https://img.shields.io/github/license/bigcommerce/catalyst)](LICENSE.md)\n[![Lighthouse Report](https://github.com/bigcommerce/catalyst/actions/workflows/lighthouse.yml/badge.svg)](https://github.com/bigcommerce/catalyst/actions/workflows/lighthouse.yml) [![Lint, Typecheck, gql.tada](https://github.com/bigcommerce/catalyst/actions/workflows/basic.yml/badge.svg)](https://github.com/bigcommerce/catalyst/actions/workflows/basic.yml)\n\n</div>\n\n**Catalyst** is the composable, fully customizable headless commerce framework for\n[BigCommerce](https://www.bigcommerce.com/). Catalyst is built with [Next.js](https://nextjs.org/), uses\nour [React](https://react.dev/) storefront components, and is backed by the\n[GraphQL Storefront API](https://developer.bigcommerce.com/docs/storefront/graphql).\n\nBy choosing Catalyst, you'll have a fully-functional storefront within a few seconds, and spend zero time on wiring\nup APIs or building SEO, Accessibility, and Performance-optimized ecommerce components you've probably written many\ntimes before. You can instead go straight to work building your brand and making this your own.\n\n## Demo\n\n- [Catalyst Demo](https://catalyst-demo.site)\n\n![-----------------------------------------------------](https://storage.googleapis.com/bigcommerce-developers/images/catalyst_readme_hr.png)\n\n<p align=\"center\">\n <a href=\"https://www.catalyst.dev\">🚀 catalyst.dev</a> •\n <a href=\"https://developer.bigcommerce.com/community\">🤗 BigCommerce Developer Community</a> •\n <a href=\"https://github.com/bigcommerce/catalyst/discussions\">💬 GitHub Discussions</a> •\n <a href=\"/docs\">💡 Docs in this repo</a>\n</p>\n\n![-----------------------------------------------------](https://storage.googleapis.com/bigcommerce-developers/images/catalyst_readme_hr.png)\n\n## Deploy via One-Click Catalyst App\n\nThe easiest way to deploy your Catalyst Storefront is to use the [One-Click Catalyst App](http://login.bigcommerce.com/deep-links/app/53284) available in the BigCommerce App Marketplace.\n\nCheck out the [Catalyst.dev One-Click Catalyst Document\n\n// ... truncated"
+    },
+    {
+      "path": "core/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"@bigcommerce/catalyst-core\",\n  \"description\": \"BigCommerce Catalyst is a Next.js starter kit for building headless BigCommerce storefronts.\",\n  \"version\": \"1.4.2\",\n  \"private\": true,\n  \"engines\": {\n    \"node\": \">=24.0.0\"\n  },\n  \"scripts\": {\n    \"dev\": \"npm run generate && next dev\",\n    \"generate\": \"dotenv -e .env.local -- node ./scripts/generate.cjs\",\n    \"build\": \"npm run generate && next build\",\n    \"build:analyze\": \"ANALYZE=true npm run build\",\n    \"start\": \"next start\",\n    \"prelint\": \"next typegen\",\n    \"lint\": \"eslint . --ext .js,.jsx,.ts,.tsx\",\n    \"typecheck\": \"tsc --noEmit\"\n  },\n  \"dependencies\": {\n    \"@bigcommerce/catalyst-client\": \"workspace:^\",\n    \"@c15t/nextjs\": \"^1.8.2\",\n    \"@conform-to/react\": \"^1.6.1\",\n    \"@conform-to/zod\": \"^1.6.1\",\n    \"@icons-pack/react-simple-icons\": \"^11.2.0\",\n    \"@opentelemetry/api\": \"^1.9.0\",\n    \"@opentelemetry/api-logs\": \"^0.208.0\",\n    \"@opentelemetry/instrumentation\": \"^0.208.0\",\n    \"@opentelemetry/sdk-logs\": \"^0.208.0\",\n    \"@radix-ui/react-accordion\": \"^1.2.11\",\n    \"@radix-ui/react-checkbox\": \"^1.3.2\",\n    \"@radix-ui/react-dialog\": \"^1.1.14\",\n    \"@radix-ui/react-dropdown-menu\": \"^2.1.15\",\n    \"@radix-ui/react-label\": \"^2.1.7\",\n    \"@radix-ui/react-navigation-menu\": \"^1.2.13\",\n    \"@radix-ui/react-popover\": \"^1.1.14\",\n    \"@radix-ui/react-portal\": \"^1.1.9\",\n    \"@radix-ui/react-radio-group\": \"^1.3.7\",\n    \"@radix-ui/react-select\": \"^2.2.5\",\n    \"@radix-ui/react-switch\": \"^1.2.5\",\n    \"@radix-ui/react-toggle\": \"^1.1.9\",\n    \"@radix-ui/react-toggle-group\": \"^1.1.10\",\n    \"@radix-ui/react-tooltip\": \"^1.2.7\",\n    \"@t3-oss/env-core\": \"^0.13.6\",\n    \"@upstash/redis\": \"^1.35.0\",\n    \"@vercel/analytics\": \"^1.5.0\",\n    \"@vercel/functions\": \"^2.2.12\",\n    \"@vercel/otel\": \"^2.1.0\",\n    \"@vercel/speed-insights\": \"^1.2.0\",\n    \"clsx\": \"^2.1.1\",\n    \"content-security-policy-builder\": \"^2.3.0\",\n    \"deepmerge\": \"^4.3.1\",\n    \"embla-carousel\": \"9.0.0-rc01\",\n    \"embla-carousel-autoplay\": \"9.0.0-rc01\",\n    \"embla-carousel-fade\": \"9.0.0-rc01\",\n    \"embla-carousel-react\": \"9.0.0-rc01\",\n    \"gql.tada\": \"^1.8.10\",\n    \"graphql\": \"^16.11.0\",\n    \"dompurify\": \"^3.3.1\",\n    \"jose\": \"^5.10.0\",\n    \"lodash.debounce\": \"^4.0.8\",\n    \"lru-cache\": \"^11.1.0\",\n    \"lucide-react\": \"^0.474.0\",\n    \"next\": \"^16.1.6\",\n    \"next-auth\": \"5.0.0-beta.30\",\n    \"next-int\n\n// ... truncated"
+    },
+    {
+      "path": "core/.env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# The hash visible in the subject store's URL when signed in to the store control panel.\n# The control panel URL is of the form `https://store-{hash}.mybigcommerce.com`.\nBIGCOMMERCE_STORE_HASH=\n\n# A JWT Token for accessing the Storefront API. Enables server-to-server requests if allowed_cors_origins is omitted.\n# See https://developer.bigcommerce.com/docs/rest-authentication/tokens#storefront-tokens\nBIGCOMMERCE_STOREFRONT_TOKEN=\n\n# The Channel ID for the selling channel being serviced by this Catalyst storefront.\n# Channel ID 1 will allow you to load the same data being used on the default Stencil storefront on your store,\n# but it is strongly recommended to create a new channel instead for production.\n# The CLI can do this for you.\nBIGCOMMERCE_CHANNEL_ID=1\n\n# Set to true to allow the /admin route to redirect to the BigCommerce control panel.\n# `false` is recommended for production. Defaults to false when not specified.\n# You may also delete /admin/route.ts if you wish.\nENABLE_ADMIN_ROUTE=true\n\n# Used by Auth.js, formerly NextAuth. To generate, run `openssl rand -hex 32` in your terminal.\nAUTH_SECRET=\n\n# Recommended so that you can use Turborepo's Remote Cache feature with signed artifacts\n# https://turbo.build/repo/docs/core-concepts/remote-caching#artifact-integrity-and-authenticity-verification\n# This can also be generated with `openssl rand -hex 32`, but do not re-use the value from AUTH_SECRET\nTURBO_REMOTE_CACHE_SIGNATURE_KEY=\n\n# NextJS will persists cached queries in Data Cache\n# The time persisted is not defined\n# https://nextjs.org/docs/app/building-your-application/caching#data-cache\n# This sets a sensible revalidation target for cached requests\nDEFAULT_REVALIDATE_TARGET=3600\n\n# OpenTelemetry Configuration (Optional)\n# See OPENTELEMETRY.md for detailed setup and usage instructions\n# See https://nextjs.org/docs/app/guides/open-telemetry for Next.js guide\n\n# Set a custom service name for your traces (defaults to 'next-app')\n# OTEL_SERVICE_NAME=catalyst-storefront\n\n# Enable verbose tracing to see all spans (useful for debugging, increases data volume)\n# NEXT_OTEL_VERBOSE=1\n\n# Disable automatic fetch instrumentation (not recommended unless using custom instrumentation)\n# NEXT_OTEL_FETCH_DISABLED=1"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<a href=\"https://catalyst.dev\" target=\"_blank\" rel=\"noopener norerrer\">\n  <img src=\"https://storage.googleapis.com/bigcommerce-developers/images/catalyst_readme_banner.png\" alt=\"Catalyst for Composable Commerce Image Banner\" title=\"Catalyst\">\n</a>\n\n<br />\n<br />\n\n<div align=\"center\">\n\n[![MIT License](https://img.shields.io/github/license/bigcommerce/catalyst)](LICENSE.md)\n[![Lighthouse Report](https://github.com/bigcommerce/catalyst/actions/workflows/lighthouse.yml/badge.svg)](https://github.com/bigcommerce/catalyst/actions/workflows/lighthouse.yml) [![Lint, Typecheck, gql.tada](https://github.com/bigcommerce/catalyst/actions/workflows/basic.yml/badge.svg)](https://github.com/bigcommerce/catalyst/actions/workflows/basic.yml)\n[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/bigcommerce/catalyst)\n\n</div>\n\n**Catalyst** is the composable, fully customizable headless commerce framework for\n[BigCommerce](https://www.bigcommerce.com/). Catalyst is built with [Next.js](https://nextjs.org/), uses\nour [React](https://react.dev/) storefront components, and is backed by the\n[GraphQL Storefront API](https://developer.bigcommerce.com/docs/storefront/graphql).\n\nBy choosing Catalyst, you'll have a fully-functional storefront within a few seconds, and spend zero time on wiring\nup APIs or building SEO, Accessibility, and Performance-optimized ecommerce components you've probably written many\ntimes before. You can instead go straight to work building your brand and making this your own.\n\n## Demo\n\n- [Catalyst Demo](https://catalyst-demo.site)\n\n![-----------------------------------------------------](https://storage.googleapis.com/bigcommerce-developers/images/catalyst_readme_hr.png)\n\n<p align=\"center\">\n <a href=\"https://www.catalyst.dev\">🚀 catalyst.dev</a> •\n <a href=\"https://developer.bigcommerce.com/community\">🤗 BigCommerce Developer Community</a> •\n <a href=\"https://github.com/bigcommerce/catalyst/discussions\">💬 GitHub Discussions</a> •\n <a href=\"/docs\">💡 Docs in this repo</a>\n</p>\n\n![-----------------------------------------------------](https://storage.googleapis.com/bigcommerce-developers/images/catalyst_readme_hr.png)\n\n## Deploy via One-Click Catalyst App\n\nThe easiest way to deploy your Catalyst Storefront is to use the [One-Click Catalyst App](http://login.bigcommerce.com/deep-links/app/53284) available\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"@bigcommerce/catalyst\",\n  \"description\": \"Catalyst is BigCommerce's composable front-end framework designed for building custom ecommerce storefronts.\",\n  \"keywords\": [\n    \"bigcommerce\",\n    \"ecommerce\",\n    \"storefront\",\n    \"headless\",\n    \"composable\",\n    \"nextjs\"\n  ],\n  \"license\": \"MIT\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"packageManager\": \"pnpm@10.12.4+sha512.5ea8b0deed94ed68691c9bad4c955492705c5eeb8a87ef86bc62c74a26b037b08ff9570f108b2e4dbd1dd1a9186fea925e527f141c648e85af45631074680184\",\n  \"scripts\": {\n    \"dev\": \"dotenv -e .env.local -- turbo run dev\",\n    \"build\": \"dotenv -e .env.local -- turbo run build\",\n    \"lint\": \"dotenv -e .env.local -- turbo lint\",\n    \"test\": \"turbo run test\",\n    \"test:scripts\": \"node --test .github/scripts/__tests__/*.test.mts\",\n    \"typecheck\": \"turbo typecheck\"\n  },\n  \"devDependencies\": {\n    \"@changesets/changelog-github\": \"^0.5.1\",\n    \"@changesets/cli\": \"^2.29.4\",\n    \"@types/node\": \"^22.15.30\",\n    \"dotenv-cli\": \"^8.0.0\",\n    \"prettier\": \"^3.6.2\",\n    \"prettier-plugin-tailwindcss\": \"^0.6.12\",\n    \"turbo\": \"^2.5.4\",\n    \"typescript\": \"^5.8.3\",\n    \"unlighthouse\": \"^0.16.3\"\n  }\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# The hash visible in the subject store's URL when signed in to the store control panel.\n# The control panel URL is of the form `https://store-{hash}.mybigcommerce.com`.\nBIGCOMMERCE_STORE_HASH=\n\n# A JWT Token for accessing the Storefront API. Enables server-to-server requests if allowed_cors_origins is omitted.\n# See https://developer.bigcommerce.com/docs/rest-authentication/tokens#storefront-tokens\nBIGCOMMERCE_STOREFRONT_TOKEN=\n\n# The Channel ID for the selling channel being serviced by this Catalyst storefront.\n# Channel ID 1 will allow you to load the same data being used on the default Stencil storefront on your store,\n# but it is strongly recommended to create a new channel instead for production.\n# The CLI can do this for you.\nBIGCOMMERCE_CHANNEL_ID=1\n\n# Set to true to allow the /admin route to redirect to the BigCommerce control panel.\n# `false` is recommended for production. Defaults to false when not specified.\n# You may also delete /admin/route.ts if you wish.\nENABLE_ADMIN_ROUTE=true\n\n# Used by Auth.js, formerly NextAuth. To generate, run `openssl rand -hex 32` in your terminal.\nAUTH_SECRET=\n\n# Recommended so that you can use Turborepo's Remote Cache feature with signed artifacts\n# https://turbo.build/repo/docs/core-concepts/remote-caching#artifact-integrity-and-authenticity-verification\n# This can also be generated with `openssl rand -hex 32`, but do not re-use the value from AUTH_SECRET\nTURBO_REMOTE_CACHE_SIGNATURE_KEY=\n\n# NextJS will persists cached queries in Data Cache\n# The time persisted is not defined\n# https://nextjs.org/docs/app/building-your-application/caching#data-cache\n# This sets a sensible revalidation target for cached requests\nDEFAULT_REVALIDATE_TARGET=3600"
+    },
+    {
+      "path": "core/app/[locale]/(default)/cart/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { Metadata } from 'next';\nimport { getFormatter, getTranslations, setRequestLocale } from 'next-intl/server';\n\nimport { Streamable } from '@/vibes/soul/lib/streamable';\nimport { Cart as CartComponent, CartEmptyState } from '@/vibes/soul/sections/cart';\nimport { CartAnalyticsProvider } from '~/app/[locale]/(default)/cart/_components/cart-analytics-provider';\nimport { getCartId } from '~/lib/cart';\nimport { getPreferredCurrencyCode } from '~/lib/currency';\nimport { exists } from '~/lib/utils';\n\nimport { updateCouponCode } from './_actions/update-coupon-code';\nimport { updateGiftCertificate } from './_actions/update-gift-certificate';\nimport { updateLineItem } from './_actions/update-line-item';\nimport { updateShippingInfo } from './_actions/update-shipping-info';\nimport { CartViewed } from './_components/cart-viewed';\nimport { CheckoutPreconnect } from './_components/checkout-preconnect';\nimport { getCart, getShippingCountries } from './page-data';\n\ninterface Props {\n  params: Promise<{ locale: string }>;\n}\n\nconst CHECKOUT_URL = process.env.TRAILING_SLASH !== 'false' ? '/checkout/' : '/checkout';\n\nexport async function generateMetadata({ params }: Props): Promise<Metadata> {\n  const { locale } = await params;\n\n  const t = await getTranslations({ locale, namespace: 'Cart' });\n\n  return {\n    title: t('title'),\n  };\n}\n\nconst getAnalyticsData = async (cartId: string) => {\n  const data = await getCart({ cartId });\n\n  const cart = data.site.cart;\n\n  if (!cart) {\n    return [];\n  }\n\n  const lineItems = [...cart.lineItems.physicalItems, ...cart.lineItems.digitalItems].filter(\n    (item) => !item.parentEntityId, // Only include top-level items\n  );\n\n  return lineItems.map((item) => {\n    return {\n      entityId: item.entityId,\n      id: item.productEntityId,\n      name: item.name,\n      brand: item.brand ?? '',\n      sku: item.sku ?? '',\n      price: item.listPrice.value,\n      quantity: item.quantity,\n      currency: item.listPrice.currencyCode,\n    };\n  });\n};\n\n// eslint-disable-next-line complexity\nexport default async function Cart({ params }: Props) {\n  const { locale } = await params;\n\n  setRequestLocale(locale);\n\n  const t = await getTranslations('Cart');\n  const tGiftCertificates = await getTranslations('GiftCertificates');\n  const format = await getFormatter();\n  const cartId = await\n\n// ... truncated"
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "id": "authentication-kinde-next-js-starter",
+  "slug": "authentication-kinde-next-js-starter",
+  "title": "Kinde Next.js Starter",
+  "categorySlug": "authentication",
+  "categoryName": "Authentication",
+  "templateUrl": "https://vercel.com/templates/authentication/kinde-next-js-starter",
+  "demoUrl": "https://kinde-nextjs-starter.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/kinde-starter-kits/kinde-nextjs-vercel-starter",
+    "normalizedUrl": "https://github.com/kinde-starter-kits/kinde-nextjs-vercel-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\kinde-starter-kits-kinde-nextjs-vercel-starter",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Starter",
+    "Authentication",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Kinde Next.js Starter",
+    "Starter",
+    "Authentication",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "auth-pages",
+    "dashboard",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Kinde Next.js Starter is a Authentication reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Kinde Next.js Starter\n\n![Composite of the project running in a browser window](/public/demo-image.png)\n\nA starter template using [Next.js](https://nextjs.org) and [Kinde](https://kinde.com) for authentication. See [live demo](https://kinde-nextjs-starter.vercel.app/).\n\n## Pre-requisites\n\n### 1. Create a Kinde account\n\nCreate a [Kinde](https://app.kinde.com/register) account if you don't already have one.\n\n### 2. Add a back-end application in Kinde\n\n1. Go to `Settings > Applications`.\n2. Select `Add application` in the top right.\n3. Give your application a name and make sure you select `Back-end web` as the application type.\n4. Select `Save`.\n5. In the `Quick start` screen, select `Next.js` as the technology and `Save`.\n\n### 3. Create a Vercel account\n\nCreate a [Vercel](https://vercel.com/signup) account if you don't already have one.\n\n## Get your environment variables from Kinde\n\n1. In Kinde, go to `Settings > Applications > [Your app] > Details`.\n2. Copy the following values in the `App keys` section:\n   - `Domain`\n   - `Client ID`\n   - `Client secret`\n\n## Deploy this template\n\nWhen you click the **deploy** button below, you will be prompted to fill in the environment variables you copied previously. These are required to successfully deploy this template.\n\n<a href=\"https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkinde-starter-kits%2Fkinde-nextjs-vercel-starter&env=KINDE_CLIENT_ID,KINDE_CLIENT_SECRET,KINDE_ISSUER_URL&envDescription=Find%20your%20application%20keys&envLink=https%3A%2F%2Fdocs.kinde.com%2Fget-started%2Fconnect%2Fgetting-app-keys%2F&project-name=kinde-nextjs-starter&repository-name=kinde-nextjs-starter&demo-title=Kinde%20Next.js%20Starter&demo-description=A%20Next.js%20authentication%20starter%20template%20using%20Kinde%2C%20TypeScript%20and%20tailwindcss.&demo-url=https%3A%2F%2Fkinde-nextjs-starter.vercel.app\"><img src=\"https://vercel.com/button\" alt=\"Deploy with Vercel\"/></a>\n\n- `KINDE_ISSUER_URL`: `Domain` value.\n- `KINDE_CLIENT_ID`: `Client ID` value.\n- `KINDE_CLIENT_SECRET`: `Client secret` value.\n\n## After you deploy\n\n### Set callback URLs\n\n> [!IMPORTANT]\n> Make sure to replace `[your-vercel-slug]` in the code examples below with your Vercel project or team slug, but keep the `*` (asterisk).\n> [More info on wild card callback URLs in Kinde](https://docs.kinde.com/get\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"kinde-nextjs-vercel-starter\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@kinde-oss/kinde-auth-nextjs\": \"^2.4.6\",\n    \"next\": \"15.0.4\",\n    \"react\": \"^19.0.0\",\n    \"react-dom\": \"^19.0.0\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"15.0.4\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "src/middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { withAuth } from \"@kinde-oss/kinde-auth-nextjs/middleware\";\n\nexport default function middleware(req: Request) {\n  return withAuth(req);\n}\n\nexport const config = {\n  matcher: [\"/dashboard/:path*\"],\n};"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "KINDE_CLIENT_ID=\nKINDE_CLIENT_SECRET=\nKINDE_ISSUER_URL=\nKINDE_SITE_URL=http://localhost:3000\nKINDE_POST_LOGOUT_REDIRECT_URL=http://localhost:3000\nKINDE_POST_LOGIN_REDIRECT_URL=http://localhost:3000/dashboard"
+    },
+    {
+      "path": "src/app/(protected)/dashboard/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Topics from \"@/components/Topics\";\nimport { getKindeServerSession } from \"@kinde-oss/kinde-auth-nextjs/server\";\n\nexport default async function Dashboard() {\n  const { getUser, isAuthenticated } = getKindeServerSession();\n  const user = await getUser();\n  const contentToExplore = [\n    {\n      title: \"Sign up and sign in\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#sign-up-and-sign-in\",\n    },\n    {\n      title: \"Redirecting after authentication\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#redirecting-after-authentication\",\n    },\n    {\n      title: \"Log out\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#logout\",\n    },\n\n    {\n      title: \"Create organizations\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#create-organizations\",\n    },\n    {\n      title: \"Sign in to organizations\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#sign-into-organizations\",\n    },\n\n    {\n      title: \"Server side methods\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#kinde-auth-data---server\",\n    },\n    {\n      title: \"Client side methods\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#kinde-auth-data---client\",\n    },\n    {\n      title: \"Refreshing Kinde data\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#refreshing-kinde-data\",\n    },\n    {\n      title: \"Kinde Management API\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#kinde-management-api\",\n    },\n    {\n      title: \"Analytics\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#analytics\",\n    },\n    {\n      title: \"Internationalization\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#internationalization\",\n    },\n    {\n      title: \"Audience\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#audience\",\n    },\n    {\n      title: \"Protecting routes\",\n      link: \"https://docs.kinde.com/developer-tools/sdks/backend/nextjs-sdk/#protecting-routes\",\n    },\n  ];\n\n  return (\n    <main className=\"mx-auto flex h-full w-full max-w-6xl animate-fade-in-up flex-col gap-8 px-4 py-12 opacity-0 md:px-8\n\n// ... truncated"
+    }
+  ]
+}

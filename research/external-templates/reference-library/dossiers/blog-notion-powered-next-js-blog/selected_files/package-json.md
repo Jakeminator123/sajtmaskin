@@ -1,0 +1,66 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "notion-blog",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm run cache:posts && next dev --turbopack",
+    "build": "pnpm run cache:posts && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "cache:posts": "tsx scripts/cache-posts.ts"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.0.1",
+    "@notion-render/client": "^0.0.2",
+    "@notionhq/client": "^3.1.3",
+    "@radix-ui/react-checkbox": "^1.3.2",
+    "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-dropdown-menu": "^2.1.15",
+    "@radix-ui/react-icons": "^1.3.2",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-popover": "^1.1.14",
+    "@radix-ui/react-progress": "^1.1.7",
+    "@radix-ui/react-scroll-area": "^1.2.9",
+    "@radix-ui/react-select": "^2.2.5",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-tooltip": "^1.2.7",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.513.0",
+    "next": "15.3.3",
+    "next-themes": "^0.4.6",
+    "notion-to-md": "^3.1.9",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.57.0",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^15.6.1",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "sonner": "^2.0.5",
+    "tailwind-merge": "^3.3.0",
+    "zod": "^3.25.56"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/typography": "^0.5.16",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.3.4",
+    "tsx": "^4.7.2",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.11.0"
+}
+```

@@ -1,0 +1,8 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+# URL of the YNS instance
+YNS_API_KEY=your_api_token_here
+```

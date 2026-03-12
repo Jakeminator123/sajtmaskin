@@ -1,0 +1,101 @@
+{
+  "id": "saas-next-js-waitlist-with-notion-cms",
+  "slug": "saas-next-js-waitlist-with-notion-cms",
+  "title": "Next.js Waitlist with Notion CMS",
+  "categorySlug": "saas",
+  "categoryName": "SaaS",
+  "templateUrl": "https://vercel.com/templates/cms/next-js-waitlist-with-notion-cms",
+  "demoUrl": "https://nextjs-notion-waitlist.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 90,
+  "repo": {
+    "url": "https://github.com/lakshaybhushan/nextjs-notion-waitlist-template/tree/yoda",
+    "normalizedUrl": "https://github.com/lakshaybhushan/nextjs-notion-waitlist-template",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\lakshaybhushan-nextjs-notion-waitlist-template",
+    "packageManager": "bun",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "CMS",
+    "Starter",
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Upstash",
+    "Notion"
+  ],
+  "usefulLines": [
+    "Next.js Waitlist with Notion CMS",
+    "CMS",
+    "Starter",
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Upstash",
+    "Notion"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "saas-landing",
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "Next.js Waitlist with Notion CMS is a SaaS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<h1 align=\"center\">Next.js + Notion — Wailtist Template</h1>\n\n<p align=\"center\">\n\n<img src =\"https://img.shields.io/badge/Next.js-000000.svg?style=for-the-badge&logo=nextdotjs&logoColor=white\">\n<img src =\"https://img.shields.io/badge/Upstash-00E9A3.svg?style=for-the-badge&logo=Upstash&logoColor=white\">\n<img src =\"https://img.shields.io/badge/Notion-000000.svg?style=for-the-badge&logo=Notion&logoColor=white\">\n<img src =\"https://img.shields.io/badge/Resend-000000.svg?style=for-the-badge&logo=Resend&logoColor=white\">\n<img src =\"https://img.shields.io/badge/shadcn/ui-000000.svg?style=for-the-badge&logo=shadcn/ui&logoColor=white\">\n<img src =\"https://img.shields.io/badge/Vercel-000000.svg?style=for-the-badge&logo=Vercel&logoColor=white\">\n\n</p>\n\n![GithubBanner](./app/opengraph-image.png)\n\nThis is a template repository for creating a waitlist using Next.js 14, Notion as a CMS, Upstash Redis for rate limiting and Resend for sending emails with a custom domain.\n\nThe UI is built using a mix of shadcn/ui, Magic UI and Tailwind CSS.\n\n**Demo:** [https://nextjs-notion-waitlist.vercel.app](https://nextjs-notion-waitlist.vercel.app)\n\n**Sample Database** ([Link](https://lakshaybhushan.notion.site/15e45b25609e80408f83ebb97b45882b?v=c949c24dff4a42b3baa31bfb3e8a3354))\n<a href=\"https://lakshaybhushan.notion.site/15e45b25609e80408f83ebb97b45882b?v=c949c24dff4a42b3baa31bfb3e8a3354\" target=\"_blank\" rel=\"noopener noreferrer\">\n <img src =\"./public/sample-db.png\">\n</a>\n\n## Features\n\n- **Next.js 14**: The most popular React framework.\n- **Notion as a CMS**: Use Notion to manage your waitlist users.\n- **Upstash Redis**: Use Upstash Redis to rate limit the number of signups in a given time period.\n- **Resend**: Use Resend to send emails to users who sign up.\n- **Vercel**: Deploy the app to Vercel with a single click.\n- **shadcn/ui**: Use shadcn/ui for building the UI components.\n\n## Why Notion?\n\nNotion is used everywhere nowadays. It's a great tool for managing content and it's free to use. But a lot of people don't know that they can use Notion as a CMS for their websites which stands for Content Management System. This template is a very basic implementation of using Notion as a CMS for a waitlist.\n\nHowever, You can extend it to use Notion for other types of content as well. Using Notion as a CMS is a great way to manage content without having to b\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-notion-waitlist-template\",\n  \"version\": \"1.5.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"email\": \"email dev\"\n  },\n  \"dependencies\": {\n    \"@notionhq/client\": \"^2.2.15\",\n    \"@radix-ui/react-label\": \"^2.1.0\",\n    \"@radix-ui/react-slot\": \"^1.1.0\",\n    \"@react-email/components\": \"0.0.19\",\n    \"@react-email/render\": \"^1.0.3\",\n    \"@svgr/webpack\": \"^8.1.0\",\n    \"@upstash/ratelimit\": \"^1.2.1\",\n    \"@upstash/redis\": \"^1.31.6\",\n    \"@vercel/analytics\": \"^1.3.1\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.1.1\",\n    \"framer-motion\": \"^11.15.0\",\n    \"lucide-react\": \"^0.396.0\",\n    \"next\": \"14.2.4\",\n    \"next-themes\": \"^0.3.0\",\n    \"react\": \"^18\",\n    \"react-dom\": \"^18\",\n    \"react-email\": \"2.1.4\",\n    \"react-icons\": \"^5.2.1\",\n    \"resend\": \"^3.3.0\",\n    \"sonner\": \"^1.5.0\",\n    \"tailwind-merge\": \"^2.3.0\",\n    \"tailwindcss-animate\": \"^1.0.7\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^18\",\n    \"@types/react-dom\": \"^18\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"14.2.4\",\n    \"postcss\": \"^8\",\n    \"prettier\": \"^3.3.3\",\n    \"prettier-plugin-tailwindcss\": \"^0.6.6\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import \"./globals.css\";\nimport type { Metadata } from \"next\";\nimport { Figtree } from \"next/font/google\";\nimport { Toaster } from \"@/components/ui/sonner\";\nimport { Analytics } from \"@vercel/analytics/react\";\n\nconst FigtreeFont = Figtree({ subsets: [\"latin\"] });\n\nexport const metadata: Metadata = {\n  title: \"Next.js + Notion — Waitlist Template\",\n  description:\n    \"A simple Next.js waitlist template with Notion as CMS and Resend to send emails created with React Email and Upstash Redis for rate limiting. Deployed on Vercel.\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\" className=\"dark\" suppressHydrationWarning>\n      <meta property=\"og:image\" content=\"/opengraph-image.png\" />\n      <meta property=\"og:image:type\" content=\"image/png\" />\n      <meta property=\"og:image:width\" content=\"1280\" />\n      <meta property=\"og:image:height\" content=\"832\" />\n      <meta\n        property=\"og:site_name\"\n        content=\"Next.js + Notion — Waitlist Template\"\n      />\n      <meta\n        property=\"og:url\"\n        content=\"https://nextjs-notion-waitlist.vercel.app/\"\n      />\n      <meta name=\"twitter:image\" content=\"/twitter-image.png\" />\n      <meta name=\"twitter:image:type\" content=\"image/png\" />\n      <meta name=\"twitter:image:width\" content=\"1280\" />\n      <meta name=\"twitter:image:height\" content=\"832\" />\n      <body className={FigtreeFont.className}>\n        {children}\n        <Toaster richColors position=\"top-center\" />\n        <Analytics />\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\n\nimport { toast } from \"sonner\";\nimport { useState } from \"react\";\nimport CTA from \"@/components/cta\";\nimport Form from \"@/components/form\";\nimport Logos from \"@/components/logos\";\nimport Particles from \"@/components/ui/particles\";\nimport Header from \"@/components/header\";\nimport Footer from \"@/components/footer\";\n\nexport default function Home() {\n  const [name, setName] = useState<string>(\"\");\n  const [email, setEmail] = useState<string>(\"\");\n  const [loading, setLoading] = useState<boolean>(false);\n\n  const handleEmailChange = (event: React.ChangeEvent<HTMLInputElement>) => {\n    setEmail(event.target.value);\n  };\n\n  const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {\n    setName(event.target.value);\n  };\n\n  const isValidEmail = (email: string) => {\n    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n    return emailRegex.test(email);\n  };\n\n  const handleSubmit = async () => {\n    if (!name || !email) {\n      toast.error(\"Please fill in all fields 😠\");\n      return;\n    }\n\n    if (!isValidEmail(email)) {\n      toast.error(\"Please enter a valid email address 😠\");\n      return;\n    }\n\n    setLoading(true);\n\n    const promise = new Promise(async (resolve, reject) => {\n      try {\n        // First, attempt to send the email\n        const mailResponse = await fetch(\"/api/mail\", {\n          cache: \"no-store\",\n          method: \"POST\",\n          headers: {\n            \"Content-Type\": \"application/json\",\n          },\n          body: JSON.stringify({ firstname: name, email }),\n        });\n\n        if (!mailResponse.ok) {\n          if (mailResponse.status === 429) {\n            reject(\"Rate limited\");\n          } else {\n            reject(\"Email sending failed\");\n          }\n          return; // Exit the promise early if mail sending fails\n        }\n\n        // If email sending is successful, proceed to insert into Notion\n        const notionResponse = await fetch(\"/api/notion\", {\n          method: \"POST\",\n          headers: {\n            \"Content-Type\": \"application/json\",\n          },\n          body: JSON.stringify({ name, email }),\n        });\n\n        if (!notionResponse.ok) {\n          if (notionResponse.status === 429) {\n            reject(\"Rate limited\");\n          } else {\n            reject(\"Notion insertion failed\");\n          }\n        } e\n\n// ... truncated"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "NOTION_SECRET=\"\"\nNOTION_DB=\"\"\n\nRESEND_API_KEY=\"\"\n\nUPSTASH_REDIS_REST_URL=\"\"\nUPSTASH_REDIS_REST_TOKEN=\"\""
+    },
+    {
+      "path": "components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Link from \"next/link\";\nimport { Button } from \"./ui/button\";\nimport { motion } from \"framer-motion\";\nimport { FaGithub } from \"react-icons/fa6\";\nimport { SiNotion } from \"react-icons/si\";\n\nimport { containerVariants, itemVariants } from \"@/lib/animation-variants\";\n\nexport default function Header() {\n  return (\n    <motion.div\n      variants={containerVariants}\n      initial=\"hidden\"\n      animate=\"visible\"\n      className=\"fixed flex right-0 left-0 justify-between top-0 z-[50] m-4\">\n      <motion.div variants={itemVariants}>\n        <Link href=\"https://lakshaybhushan.notion.site/15e45b25609e80408f83ebb97b45882b?v=c949c24dff4a42b3baa31bfb3e8a3354\" rel=\"noopener noreferrer\" target=\"_blank\">\n          <Button\n            size=\"sm\"\n            variant=\"secondary\"\n            className=\"text-yellow-50 transition-all duration-150 ease-linear md:hover:text-yellow-200\">\n            <SiNotion className=\"md:mr-1.5\" />\n            <span className=\"hidden md:inline\">Notion DB sample</span>\n          </Button>\n        </Link>\n      </motion.div>\n      <motion.div variants={itemVariants}>\n        <Link href=\"https://github.com/lakshaybhushan/nextjs-notion-waitlist-template/fork\" rel=\"noopener noreferrer\" target=\"_blank\">\n          <Button\n            size=\"sm\"\n            variant=\"secondary\"\n            className=\"text-yellow-50 transition-all duration-150 ease-linear md:hover:text-yellow-200\">\n            <FaGithub className=\"md:mr-1.5\" />\n            <span className=\"hidden md:inline\">Use this template</span>\n          </Button>\n        </Link>\n      </motion.div>\n    </motion.div>\n  );\n}"
+    }
+  ]
+}

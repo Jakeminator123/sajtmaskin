@@ -1,0 +1,93 @@
+{
+  "id": "starter-minimal-next-js-saas-website-starter",
+  "slug": "starter-minimal-next-js-saas-website-starter",
+  "title": "Minimal Next.js SaaS Website Starter",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/saas/next-js-saas-website-starter",
+  "demoUrl": "https://nextjs-saas-starter-template.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/talhatahir/nextjs-saas-starter-template",
+    "normalizedUrl": "https://github.com/talhatahir/nextjs-saas-starter-template",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\talhatahir-nextjs-saas-starter-template",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "SaaS",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Minimal Next.js SaaS Website Starter",
+    "Starter",
+    "SaaS",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Minimal Next.js SaaS Website Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Free Next JS Starter Template\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?demo-description=A%20minimal%20Next.js%20template%20for%20building%20SaaS%20websites%20with%20only%20the%20essential%20dependencies.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F7guUYce8M9UWWL2id1Out%2F432b98af389e3b9605804849a726a258%2Fsaas.png&demo-title=Minimal%20Next.js%20SaaS%20Website%20Starter&demo-url=https%3A%2F%2Fnextjs-saas-starter-template.vercel.app%2F&from=templates&project-name=Minimal%20Next.js%20SaaS%20Website%20Starter&repository-name=next-js-saas-website-starter&repository-url=https%3A%2F%2Fgithub.com%2Ftalhatahir%2Fnextjs-saas-starter-template&skippable-integrations=1)\n\nThis is a starter template for a SaaS application built with Next.js. It uses the minimum amount of dependencies and tools to get you started.\nTailwind CSS is used for styling, and Next Themes is used for dark mode. React Icons is used for icons.\n\n<img width=\"1525\" alt=\"image\" src=\"https://github.com/user-attachments/assets/68db6585-3807-49c0-89fc-7a298c2abb02\">\n\n### How to use\n\n1. Clone the repository\n2. Install dependencies `npm install`\n3. Run the development server `npm run dev`\n\n### Features\n\n- Next.js 14 with app router\n- Prebuilt components for a quick start\n- Tailwind CSS\n- Next Themes for dark mode\n- React Icons\n\n[![\"Buy Me A Coffee\"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/talhatahir)"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-saas-starter-template\",\n  \"version\": \"1.0.0\",\n  \"description\": \"Nextjs Saas Starter Template\",\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"author\": \"\",\n  \"license\": \"ISC\",\n  \"dependencies\": {\n    \"next\": \"14.2.35\",\n    \"next-themes\": \"^0.3.0\",\n    \"react\": \"^18.3.1\",\n    \"react-dom\": \"^18.3.1\",\n    \"react-icons\": \"^5.3.0\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"22.7.5\",\n    \"@types/react\": \"18.3.11\",\n    \"autoprefixer\": \"^10.4.20\",\n    \"postcss\": \"^8.4.47\",\n    \"tailwindcss\": \"^3.4.14\",\n    \"typescript\": \"5.6.3\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { ThemeProvider } from \"next-themes\";\n\nimport \"styles/globals.css\";\n\nexport const metadata: Metadata = {\n  title: \"Next JS SaaS Starter Template\",\n  description: \"Next JS SaaS Starter Template\",\n};\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <head>\n        <link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\" />\n        <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />\n        <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossOrigin=\"anonymous\" />\n        <link\n          href=\"https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap\"\n          rel=\"stylesheet\"\n        />\n      </head>\n      <body className=\"bg-white dark:bg-black min-h-screen\">\n        <ThemeProvider attribute=\"class\" defaultTheme=\"dark\" enableSystem>\n          {children}\n        </ThemeProvider>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Header from \"components/Header\";\nimport Hero from \"components/Hero\";\nimport Features from \"components/Features\";\nimport Section from \"components/Section\";\nimport Footer from \"components/Footer\";\nimport Customers from \"components/Customers\";\nimport Image from \"next/image\";\nimport Accordion from \"components/Accordion\";\nimport Reviews from \"components/Reviews\";\nimport Download from \"components/Download\";\n\nexport default function Page() {\n  return (\n    <div className=\"flex flex-col min-h-screen bg-white dark:bg-black\">\n      <Header />\n      <main>\n        <Hero />\n        <Features />\n        <Section\n          leftHalf={\n            <>\n              <h2 className=\"text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-gray-900 dark:text-white mb-4\">\n                Effortlessly highlight the key features of your app\n              </h2>\n              <p className=\"text-xl font-light\">\n                Our app makes it easy to showcase your key features. With customizable sections, you can highlight the\n                most important aspects of your product. More to come.\n              </p>\n            </>\n          }\n          rightHalf={\n            <Image src={\"/products/phone.png\"} alt=\"section-image\" width={500} height={100} className=\"w-1/2 h-auto\" />\n          }\n        />\n        <Customers />\n        <Section\n          leftHalf={<Accordion />}\n          rightHalf={\n            <div className=\"flex flex-col justify-end\">\n              <h2 className=\"text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-gray-900 dark:text-white mb-4\">\n                Highlight the key features\n              </h2>\n              <p className=\"text-xl font-light\">\n                Talk about some of the key features of your app that you want to highlight. Use the beautiful accordion\n                to highlight the key features of your app.\n              </p>\n            </div>\n          }\n        />\n        <Reviews />\n        <Download />\n      </main>\n      <Footer />\n    </div>\n  );\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "## Add your env variables here, this repo does not require any"
+    },
+    {
+      "path": "components/Header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Link from \"next/link\";\nimport ThemeSwitch from \"./ThemeSwitch\";\n\nexport default function Header() {\n  return (\n    <header className=\"bg-white dark:bg-black shadow-sm dark:border-b dark:border-gray-800\">\n      <div className=\"container mx-auto px-4 py-4 flex justify-between items-center\">\n        <div className=\"flex items-center\">\n          <span className=\"text-xl dark:text-gray-100\">Next JS Starter Template</span>\n        </div>\n        <nav className=\"flex items-center\">\n          <ul className=\"flex space-x-2 mr-2\">\n            <li>\n              <Link\n                href=\"/\"\n                className=\"text-sm text-gray-800 dark:text-white px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors\"\n              >\n                Home\n              </Link>\n            </li>\n            <li>\n              <Link\n                href=\"/contact\"\n                className=\"text-sm text-gray-800 dark:text-white px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors\"\n              >\n                Contact\n              </Link>\n            </li>\n          </ul>\n          <ThemeSwitch />\n        </nav>\n      </div>\n    </header>\n  );\n}"
+    }
+  ]
+}

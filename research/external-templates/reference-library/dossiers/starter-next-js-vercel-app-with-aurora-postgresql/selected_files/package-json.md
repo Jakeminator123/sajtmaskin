@@ -1,0 +1,46 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "db:seed": "npx tsx lib/db/seed.ts",
+    "db:migrate": "npx tsx lib/db/migrate.ts",
+    "load-test": "k6 run scripts/load-test.ts",
+    "clean-load-test-entries": "npx tsx scripts/clean-load-test-entries"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sts": "^3.948.0",
+    "@aws-sdk/rds-signer": "^3.705.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@types/pg": "^8.11.10",
+    "@vercel/functions": "^3.3.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "dotenv": "^16.4.7",
+    "lucide-react": "^0.468.0",
+    "next": "^16.0.9",
+    "pg": "^8.13.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.5.5",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/k6": "^1.4.0",
+    "@types/node": "^22.10.1",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.1",
+    "csv-parser": "^3.0.0",
+    "postcss": "^8.4.49",
+    "prettier": "^3.7.4",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2"
+  }
+}
+```

@@ -1,0 +1,77 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "nextjs-news-template-mongodb",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Next.js template for building applications with MongoDB, featuring TypeScript, Better Auth, and shadcn/ui / Tailwind CSS integration",
+  "author": {
+    "name": "Jesse Hall",
+    "url": "https://github.com/codeSTACKr"
+  },
+  "homepage": "https://github.com/mongodb-developer/nextjs-news-template-mongodb#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mongodb-developer/nextjs-news-template-mongodb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mongodb-developer/nextjs-news-template-mongodb/issues"
+  },
+  "keywords": [
+    "nextjs",
+    "mongodb",
+    "typescript",
+    "tailwindcss",
+    "vercel",
+    "template",
+    "shadcn",
+    "better-auth",
+    "react",
+    "react-hook-form",
+    "zod"
+  ],
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "setup-indexes": "node --env-file=.env scripts/setup-indexes.mjs"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.1",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@vercel/functions": "^3.1.0",
+    "better-auth": "^1.3.9",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.510.0",
+    "mongodb": "^6.3.0",
+    "next": "^15.1.9",
+    "next-themes": "^0.4.6",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "react-hook-form": "^7.62.0",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.3.0",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.1.6",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.11.1+sha512.e519b9f7639869dc8d5c3c5dfef73b3f091094b0a006d7317353c72b124e80e1afd429732e28705ad6bfa1ee879c1fce46c128ccebd3192101f43dd67c667912"
+}
+```

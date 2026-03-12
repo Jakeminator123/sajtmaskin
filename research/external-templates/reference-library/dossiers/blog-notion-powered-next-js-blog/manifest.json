@@ -1,0 +1,97 @@
+{
+  "id": "blog-notion-powered-next-js-blog",
+  "slug": "blog-notion-powered-next-js-blog",
+  "title": "Notion-Powered Next.js Blog",
+  "categorySlug": "blog",
+  "categoryName": "Blog",
+  "templateUrl": "https://vercel.com/templates/blog/notion-powered-blog",
+  "demoUrl": "https://v0.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/thegesturs/notion-blogs",
+    "normalizedUrl": "https://github.com/thegesturs/notion-blogs",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\thegesturs-notion-blogs",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Blog",
+    "Next.js",
+    "Tailwind",
+    "Notion"
+  ],
+  "usefulLines": [
+    "Notion-Powered Next.js Blog",
+    "Blog",
+    "Next.js",
+    "Tailwind",
+    "Notion"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "dashboard shell patterns",
+    "editorial content hierarchy"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "blog",
+    "dashboard",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": true,
+    "pricing": false,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Notion-Powered Next.js Blog is a Blog reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Notion-Powered Next.js Blog Template\n\nA modern, fast, and customizable blog template powered by Notion as a CMS and Next.js. This template allows you to use Notion as your content management system while serving your blog with Next.js.\n\n## Features\n\n- 🚀 Built with Next.js 14+ and App Router\n- 📝 Use Notion as a CMS\n- 🎨 Beautiful and responsive design\n- ⚡ Fast page loads with static generation\n- 🔍 SEO optimized\n- 📱 Mobile-friendly\n- 🌙 Dark mode support\n- ✨ Syntax highlighting for code blocks\n- 📊 Table support\n- 🖼️ Image optimization\n- 📅 Reading time and word count\n\n## Prerequisites\n\n- Node.js 18.17.1 or later\n- A Notion account\n- Basic knowledge of Next.js and React\n\n## Getting Started\n\n### 1. Clone the Template\n\n1. Visit this Notion template: [Blog Template](https://exclusive-gatsby-850.notion.site/20a186dad999800dbb94f239f907215d?v=20a186dad99980228480000c8707478c&source=github)\n2. Click \"Duplicate\" to clone it to your workspace\n3. Clone this repository to your local machine\n\n### 2. Set Up Notion Integration\n\n1. Go to [Notion Developers](https://www.notion.so/my-integrations)\n2. Click \"New integration\"\n3. Fill in the integration details:\n   - Name: Choose a name for your integration\n   - Select the workspace where you cloned the blog template\n   - Choose \"Internal integration\"\n4. Under \"Capabilities\", select only \"Read content\" (uncheck Insert content and Update content)\n5. Copy the \"Internal Integration Token\" (this will be your `NOTION_TOKEN`)\n\n### 3. Connect Integration to Your Database\n\n1. Go to your cloned Notion blog page\n2. Click the \"•••\" (three dots) in the top right corner\n3. Go to \"Connections\" -> find your integration and click \"Connect\"\n\n### 4. Get Your Database ID\n\n1. Open your Notion database in the browser\n2. Copy the ID from the URL. For example:\n   ```\n   https://www.notion.so/20bf471a8ac78080a3d4dad6ed77ca17?v=...\n                        └───────── Database ID ─────────┘\n   ```\n\n### 5. Environment Setup\n\n1. Create a `.env.local` file in your project root:\n   ```env\n   NOTION_TOKEN=your_integration_token_here\n   NOTION_DATABASE_ID=your_database_id_here\n   NEXT_PUBLIC_SITE_URL=your_site_url_here\n   ```\n\n### 6. Install and Run\n\n```bash\nnpm install\nnpm run dev\n```\n\nVisit `http://localhost:3000` to see your blog.\n\n## Customizing the Template\n\n### Adding New\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"notion-blog\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"pnpm run cache:posts && next dev --turbopack\",\n    \"build\": \"pnpm run cache:posts && next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"cache:posts\": \"tsx scripts/cache-posts.ts\"\n  },\n  \"dependencies\": {\n    \"@hookform/resolvers\": \"^5.0.1\",\n    \"@notion-render/client\": \"^0.0.2\",\n    \"@notionhq/client\": \"^3.1.3\",\n    \"@radix-ui/react-checkbox\": \"^1.3.2\",\n    \"@radix-ui/react-dialog\": \"^1.1.14\",\n    \"@radix-ui/react-dropdown-menu\": \"^2.1.15\",\n    \"@radix-ui/react-icons\": \"^1.3.2\",\n    \"@radix-ui/react-label\": \"^2.1.7\",\n    \"@radix-ui/react-popover\": \"^1.1.14\",\n    \"@radix-ui/react-progress\": \"^1.1.7\",\n    \"@radix-ui/react-scroll-area\": \"^1.2.9\",\n    \"@radix-ui/react-select\": \"^2.2.5\",\n    \"@radix-ui/react-separator\": \"^1.1.7\",\n    \"@radix-ui/react-slot\": \"^1.2.3\",\n    \"@radix-ui/react-tabs\": \"^1.1.12\",\n    \"@radix-ui/react-tooltip\": \"^1.2.7\",\n    \"@types/react-syntax-highlighter\": \"^15.5.13\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"date-fns\": \"^4.1.0\",\n    \"lucide-react\": \"^0.513.0\",\n    \"next\": \"15.3.3\",\n    \"next-themes\": \"^0.4.6\",\n    \"notion-to-md\": \"^3.1.9\",\n    \"react\": \"^19.0.0\",\n    \"react-dom\": \"^19.0.0\",\n    \"react-hook-form\": \"^7.57.0\",\n    \"react-markdown\": \"^10.1.0\",\n    \"react-syntax-highlighter\": \"^15.6.1\",\n    \"rehype-raw\": \"^7.0.0\",\n    \"remark-gfm\": \"^4.0.1\",\n    \"sonner\": \"^2.0.5\",\n    \"tailwind-merge\": \"^3.3.0\",\n    \"zod\": \"^3.25.56\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/postcss\": \"^4\",\n    \"@tailwindcss/typography\": \"^0.5.16\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"tailwindcss\": \"^4\",\n    \"tw-animate-css\": \"^1.3.4\",\n    \"tsx\": \"^4.7.2\",\n    \"typescript\": \"^5\"\n  },\n  \"packageManager\": \"pnpm@10.11.0\"\n}"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata, Viewport } from \"next\";\nimport { Inter } from \"next/font/google\";\nimport \"./globals.css\";\nimport Layout from \"@/components/layout\";\nimport { ThemeProvider } from \"@/components/theme-provider\";\n\nconst inter = Inter({ subsets: [\"latin\"] });\n\nconst siteUrl = process.env.NEXT_PUBLIC_SITE_URL || \"https://your-site.com\";\n\nexport const metadata: Metadata = {\n  metadataBase: new URL(siteUrl),\n  title: {\n    default: \"Gesturs - The Notion Blog\",\n    template: `%s | Gesturs`,\n  },\n  description: \"A blog built with Next.js and Notion\",\n  openGraph: {\n    title: \"Gesturs - The Notion Blog\",\n    description: \"A blog built with Next.js and Notion\",\n    url: siteUrl,\n    siteName: \"Gesturs\",\n    images: [\n      {\n        url: `${siteUrl}/opengraph-image.png`,\n        width: 1200,\n        height: 630,\n        alt: \"Gesturs - The Notion Blog\",\n      },\n    ],\n    locale: \"en_US\",\n    type: \"website\",\n  },\n  twitter: {\n    card: \"summary_large_image\",\n    title: \"Gesturs - The Notion Blog\",\n    description: \"A blog built with Next.js and Notion\",\n    images: [`${siteUrl}/opengraph-image.png`],\n  },\n  robots: {\n    index: true,\n    follow: true,\n    googleBot: {\n      index: true,\n      follow: true,\n      \"max-video-preview\": -1,\n      \"max-image-preview\": \"large\",\n      \"max-snippet\": -1,\n    },\n  },\n  icons: {\n    icon: \"/favicon.ico\",\n    shortcut: \"/favicon-16x16.png\",\n    apple: \"/apple-touch-icon.png\",\n  },\n  manifest: `${siteUrl}/site.webmanifest`,\n};\n\nexport const viewport: Viewport = {\n  themeColor: [\n    { media: \"(prefers-color-scheme: light)\", color: \"white\" },\n    { media: \"(prefers-color-scheme: dark)\", color: \"black\" },\n  ],\n};\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body className={inter.className}>\n        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"system\"\n          enableSystem\n          disableTransitionOnChange\n        >\n          <Layout>{children}</Layout>\n        </ThemeProvider>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { getPostsFromCache, Post } from \"@/lib/notion\";\nimport PostCard from \"@/components/post-card\";\n\nexport default function Home() {\n  const posts = getPostsFromCache();\n\n  return (\n    <div>\n      <div className=\"max-w-2xl mx-auto text-center mb-12\">\n        <h1 className=\"text-4xl font-bold tracking-tight text-foreground sm:text-5xl mb-4\">\n          Welcome to My Blog\n        </h1>\n        <p className=\"text-lg text-muted-foreground\">\n          Discover interesting articles and insights\n        </p>\n      </div>\n\n      <div className=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8\">\n        {posts.map((post) => (\n          <PostCard key={post.id} post={post} />\n        ))}\n      </div>\n    </div>\n  );\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "NOTION_TOKEN=\nNOTION_DATABASE_ID=\nNEXT_PUBLIC_SITE_URL=https://example.com"
+    },
+    {
+      "path": "src/components/ui/sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "\"use client\"\n\nimport * as React from \"react\"\nimport { Slot } from \"@radix-ui/react-slot\"\nimport { cva, VariantProps } from \"class-variance-authority\"\nimport { PanelLeftIcon } from \"lucide-react\"\n\nimport { useIsMobile } from \"@/hooks/use-mobile\"\nimport { cn } from \"@/lib/utils\"\nimport { Button } from \"@/components/ui/button\"\nimport { Input } from \"@/components/ui/input\"\nimport { Separator } from \"@/components/ui/separator\"\nimport {\n  Sheet,\n  SheetContent,\n  SheetDescription,\n  SheetHeader,\n  SheetTitle,\n} from \"@/components/ui/sheet\"\nimport { Skeleton } from \"@/components/ui/skeleton\"\nimport {\n  Tooltip,\n  TooltipContent,\n  TooltipProvider,\n  TooltipTrigger,\n} from \"@/components/ui/tooltip\"\n\nconst SIDEBAR_COOKIE_NAME = \"sidebar_state\"\nconst SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7\nconst SIDEBAR_WIDTH = \"16rem\"\nconst SIDEBAR_WIDTH_MOBILE = \"18rem\"\nconst SIDEBAR_WIDTH_ICON = \"3rem\"\nconst SIDEBAR_KEYBOARD_SHORTCUT = \"b\"\n\ntype SidebarContextProps = {\n  state: \"expanded\" | \"collapsed\"\n  open: boolean\n  setOpen: (open: boolean) => void\n  openMobile: boolean\n  setOpenMobile: (open: boolean) => void\n  isMobile: boolean\n  toggleSidebar: () => void\n}\n\nconst SidebarContext = React.createContext<SidebarContextProps | null>(null)\n\nfunction useSidebar() {\n  const context = React.useContext(SidebarContext)\n  if (!context) {\n    throw new Error(\"useSidebar must be used within a SidebarProvider.\")\n  }\n\n  return context\n}\n\nfunction SidebarProvider({\n  defaultOpen = true,\n  open: openProp,\n  onOpenChange: setOpenProp,\n  className,\n  style,\n  children,\n  ...props\n}: React.ComponentProps<\"div\"> & {\n  defaultOpen?: boolean\n  open?: boolean\n  onOpenChange?: (open: boolean) => void\n}) {\n  const isMobile = useIsMobile()\n  const [openMobile, setOpenMobile] = React.useState(false)\n\n  // This is the internal state of the sidebar.\n  // We use openProp and setOpenProp for control from outside the component.\n  const [_open, _setOpen] = React.useState(defaultOpen)\n  const open = openProp ?? _open\n  const setOpen = React.useCallback(\n    (value: boolean | ((value: boolean) => boolean)) => {\n      const openState = typeof value === \"function\" ? value(open) : value\n      if (setOpenProp) {\n        setOpenProp(openState)\n      } else {\n        _setOpen(openState)\n      }\n\n      // This sets the cookie to keep\n\n// ... truncated"
+    }
+  ]
+}

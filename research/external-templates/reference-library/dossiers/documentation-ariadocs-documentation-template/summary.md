@@ -2,18 +2,16 @@
 
 - Category: Documentation (documentation)
 - Verdict: valid
-- Quality score: 80
-- Scaffold families: content-site, app-shell, blog
+- Quality score: 72
+- Scaffold families: content-site
 - Repo: https://github.com/nisabmohd/Aria-Docs
-- Demo: missing
+- Demo: https://v0.app/
 
-AriaDocs: Documentation Template is a Documentation reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.
+AriaDocs: Documentation Template is a Documentation reference with verified Next.js codebase, App Router structure. Verdict: valid.
 
 ## Strengths
 - verified Next.js codebase
 - App Router structure
-- editorial content hierarchy
-- multi-tenant or workspace patterns
 
 ## Weaknesses
 large monorepo without a clear example path

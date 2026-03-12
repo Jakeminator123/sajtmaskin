@@ -1,0 +1,118 @@
+{
+  "id": "starter-stripe-supabase-saas-starter-kit",
+  "slug": "starter-stripe-supabase-saas-starter-kit",
+  "title": "Stripe & Supabase SaaS Starter Kit",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/stripe-supabase-saas-starter-kit",
+  "demoUrl": "https://stripe-supabase-saas-template.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 96,
+  "repo": {
+    "url": "https://github.com/dzlau/stripe-supabase-saas-template/tree/main/",
+    "normalizedUrl": "https://github.com/dzlau/stripe-supabase-saas-template",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\dzlau-stripe-supabase-saas-template",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Supabase Auth"
+  ],
+  "usefulLines": [
+    "Stripe & Supabase SaaS Starter Kit",
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Supabase Auth"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns",
+    "pricing or billing structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "auth-pages",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": true,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Stripe & Supabase SaaS Starter Kit is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# NextJs SaaS Starter Template\n\n<img width=\"1122\" alt=\"image\" src=\"https://github.com/user-attachments/assets/63e761c4-aece-47c2-a320-f1cc18bf916b\">\n\n<img width=\"920\" alt=\"image\" src=\"https://github.com/user-attachments/assets/55384d22-cd09-46e4-b92d-e535b7d948fd\">\n<img width=\"1115\" alt=\"image\" src=\"https://github.com/user-attachments/assets/9ec724e6-d46f-4849-a790-efca329d1102\">\n<img width=\"1115\" alt=\"image\" src=\"https://github.com/user-attachments/assets/c5c1a61b-7ff3-49fd-9dea-8104026dd1e6\">\n<img width=\"1141\" alt=\"image\" src=\"https://github.com/user-attachments/assets/06559a5a-ca19-40bb-bf00-d3d2cbd94ee1\">\n\n\nThis is the ultimate [Next.js](https://nextjs.org/) SAAS starter kit that includes a landing page, integrations with Supabase auth(Oauth, forget password, etc), PostgresDB with DrizzleORM and Stripe to collect payments, setup subscriptions and allow users to edit subscriptions/payment options.\n\n- Full sign up/ sign in/ logout/ forget password/ password reset flow\n- Oauth with Google and Github\n- Utilize Stripe Pricing Table and Stripe Checkout to setup customer billing\n- Integration with Stripe Customer Portal to allow users to manage billing settings\n- Protected routes under /dashboard\n- Drizzle ORM/Postgres integration\n- Tailwind CSS/shadcn\n- Stripe webhooks/ API hook to get customer current plan\n\n## Getting Started\n\nAs we will be setting up both dev and prod environments, simply use `.env.local` to develop locally and `.env` for production environments\n\n### Setup Supabase\n1. Create a new project on [Supabase](https://app.supabase.io/)\n2. ADD `SUPABASE_URL` and `SUPABASE_ANON_KEY` to your .env file\n3.\n![image](https://github.com/user-attachments/assets/c8eb5236-96f1-4824-9998-3c54a4bcce12)\n4. Add `NEXT_PUBLIC_WEBSITE_URL` to let Supabase know where to redirect the user after the Oauth flow(if using oauth).\n\n#### Setup Google OAUTH Social Auth\nYou can easily set up social auth with this template. First navigate to google cloud and create a new project. All code is written. You just need to add the `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` to your `.env` file.\n\n1. Follow these [instructions](https://supabase.com/docs/guides/auth/social-login/auth-google?queryGroups=environment&environment=server) to set up Google OAuth.\n\n#### Setup Github OAUTH Social Auth\nYou can easily set up social auth with th\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"drizzle-kit migrate && next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"db:generate\": \"drizzle-kit generate\",\n    \"db:migrate\": \"drizzle-kit migrate\",\n    \"db:push\": \"drizzle-kit push\",\n    \"db:studio\": \"drizzle-kit studio\",\n    \"format\": \"prettier --write .\",\n    \"format:check\": \"prettier --check .\",\n    \"stripe:setup\": \"tsx --env-file=.env stripeSetup.ts\",\n    \"stripe:listen\": \"stripe listen --forward-to localhost:3000/webhook/stripe\"\n  },\n  \"dependencies\": {\n    \"@radix-ui/react-dropdown-menu\": \"^2.1.1\",\n    \"@radix-ui/react-label\": \"^2.1.0\",\n    \"@radix-ui/react-slot\": \"^1.1.0\",\n    \"@supabase/auth-ui-react\": \"^0.4.7\",\n    \"@supabase/auth-ui-shared\": \"^0.1.8\",\n    \"@supabase/ssr\": \"^0.5.0\",\n    \"@supabase/supabase-js\": \"^2.45.1\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.1.1\",\n    \"dotenv\": \"^16.4.5\",\n    \"drizzle-kit\": \"^0.24.2\",\n    \"drizzle-orm\": \"^0.33.0\",\n    \"lucide-react\": \"^0.428.0\",\n    \"next\": \"14.2.35\",\n    \"postgres\": \"^3.4.4\",\n    \"react\": \"^18\",\n    \"react-dom\": \"^18\",\n    \"react-icons\": \"^5.3.0\",\n    \"stripe\": \"^16.9.0\",\n    \"tailwind-merge\": \"^2.5.2\",\n    \"tailwindcss-animate\": \"^1.0.7\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^20.17.8\",\n    \"@types/react\": \"^18\",\n    \"@types/react-dom\": \"^18\",\n    \"dotenv\": \"^16.4.5\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"14.2.5\",\n    \"postcss\": \"^8\",\n    \"prettier\": \"^3.2.0\",\n    \"prettier-plugin-tailwindcss\": \"^0.5.0\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"tsx\": \"^4.19.4\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Inter } from \"next/font/google\";\nimport \"./globals.css\";\n\nconst inter = Inter({ subsets: [\"latin\"] });\n\nexport const metadata: Metadata = {\n  title: \"SAAS Starter Kit\",\n  description: \"SAAS Starter Kit with Stripe, Supabase, Postgres\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      {/* Required for pricing table */}\n      <script async src=\"https://js.stripe.com/v3/pricing-table.js\"></script>\n      <body className={inter.className}>{children}</body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { Button } from \"@/components/ui/button\"\nimport Image from \"next/image\"\nimport { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from \"@/components/ui/card\"\nimport Link from \"next/link\"\nimport { Star, Check, Coins, UserCheck, Database } from \"lucide-react\"\nimport Stripe from 'stripe'\n\n// Types\ninterface StripeProduct {\n  id: string;\n  name: string;\n  description: string | null;\n  features: string[];\n  price: Stripe.Price;\n}\n\n// This makes the page dynamic instead of static\nexport const revalidate = 3600 // Revalidate every hour\n\nasync function getStripeProducts(): Promise<StripeProduct[]> {\n  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {\n    apiVersion: '2024-06-20'\n  });\n\n  const products = await stripe.products.list({\n    active: true,\n    expand: ['data.default_price']\n  });\n\n  return products.data.map(product => ({\n    id: product.id,\n    name: product.name,\n    description: product.description,\n    features: product.metadata?.features ? JSON.parse(product.metadata.features) : [],\n    price: product.default_price as Stripe.Price\n  }));\n}\n\nexport default async function LandingPage() {\n  const products = await getStripeProducts();\n\n  return (\n    <div className=\"flex flex-col min-h-[100dvh]\">\n      <header className=\"px-4 lg:px-6 h-16 flex items-center  bg-white border-b fixed border-b-slate-200 w-full\">\n        <Link className=\"flex items-center justify-center\" href=\"#\">\n          <Image src=\"/logo.png\" alt=\"logo\" width={50} height={50} />\n          <span className=\"sr-only\">Acme Inc</span>\n        </Link>\n        <nav className=\"ml-auto flex gap-4 sm:gap-6\">\n          <a className=\"text-sm font-medium hover:underline underline-offset-4\" href=\"#features\">\n            Features\n          </a>\n          <a className=\"text-sm font-medium hover:underline underline-offset-4\" href=\"#testimonials\">\n            Testimonials\n          </a>\n          <a className=\"text-sm font-medium hover:underline underline-offset-4\" href=\"#pricing\">\n            Pricing\n          </a>\n        </nav>\n        <Button className=\"mx-2 md:mx-4 lg:mx-6 xl:mx-10\" >\n          <Link className=\"text-sm font-medium hover:underline underline-offset-4\" href=\"/login\">\n            Get Started\n          </Link>\n        </Button>\n      </header>\n      <main className=\"flex-1\">\n        <se\n\n// ... truncated"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { type NextRequest } from 'next/server'\nimport { updateSession } from '@/utils/supabase/middleware'\n\nexport async function middleware(request: NextRequest) {\n    return await updateSession(request)\n}\n\nexport const config = {\n    matcher: [\n        /*\n         * Match all request paths except for the ones starting with:\n         * - _next/static (static files)\n         * - _next/image (image optimization files)\n         * - favicon.ico (favicon file)\n         * Feel free to modify this pattern to include more paths.\n         */\n        '/((?!_next/static|_next/image|favicon.ico|.*\\\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',\n    ],\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# PLACE YOUR SUPABASE PROJECT URL AND ANON KEY HERE\nNEXT_PUBLIC_SUPABASE_URL=xxx\nNEXT_PUBLIC_SUPABASE_ANON_KEY=xxxx\nNEXT_PUBLIC_WEBSITE_URL=http://localhost:3000\n\n# PLACE YOUR POSTGRES DATABBASE UEL AND PASSWORD HERE\nDATABASE_URL=xxxxx\n\n# PLACE YOUR GOOGLE CLIENT ID AND SECRET HERE TO ENABLE OAUTH SOCIAL LOGIN (https://supabase.com/docs/guides/auth/social-login/auth-google)\nGOOGLE_OAUTH_CLIENT_ID=xxxx\nGOOGLE_OAUTH_CLIENT_SECRET=xxxx\n\n# Place GITHUB client id and secret to easily enable github oauth login\nGITHUB_OAUTH_CLIENT_ID=xxxxx\nGITHUB_OAUTH_CLIENT_SECRET=xxxxx\n# STRIPE PRICING TABLE PUBLIC KEY AND API\nNEXT_PUBLIC_STRIPE_PRICING_TABLE_ID=xxxxx\nNEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxxxx\nSTRIPE_SECRET_KEY=sk_test_xxxx"
+    },
+    {
+      "path": "app/login/page.tsx",
+      "reason": "Auth flow reference",
+      "excerpt": "import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from \"@/components/ui/card\"\n\nimport Link from 'next/link'\nimport Image from 'next/image'\n\nimport ProviderSigninBlock from '@/components/ProviderSigninBlock'\nimport LoginForm from \"@/components/LoginForm\"\nexport default function Login() {\n    return (\n        <div className=\"flex items-center justify-center bg-muted min-h-screen\">\n            <Card className=\"w-[350px] mx-auto\">\n                <CardHeader className=\"space-y-1\">\n                    <div className=\"flex justify-center py-4\">\n                        <Link href='/'>\n                            <Image src=\"/logo.png\" alt=\"logo\" width={50} height={50} />\n                        </Link>\n                    </div>\n\n                    <CardTitle className=\"text-2xl font-bold\">Login</CardTitle>\n                    <CardDescription>Choose your preferred login method</CardDescription>\n                </CardHeader>\n                <CardContent className=\"grid gap-4\">\n                    <LoginForm />\n                    <div className=\"relative\">\n                        <div className=\"absolute inset-0 flex items-center\">\n                            <span className=\"w-full border-t\" />\n                        </div>\n                        <div className=\"relative flex justify-center text-xs uppercase\">\n                            <span className=\"bg-background px-2 text-muted-foreground\">Or continue with</span>\n                        </div>\n                    </div>\n                    <ProviderSigninBlock />\n                </CardContent>\n                <CardFooter className=\"flex-col text-center\">\n                    <Link className=\"w-full text-sm text-muted-foreground \" href=\"/forgot-password\">\n                        Forgot password?\n                    </Link>\n                    <Link className=\"w-full text-sm text-muted-foreground\" href=\"/signup\">\n                        Don&apos;t have an account? Signup\n                    </Link>\n                </CardFooter>\n            </Card>\n        </div >\n\n    )\n}"
+    },
+    {
+      "path": "app/signup/page.tsx",
+      "reason": "Auth flow reference",
+      "excerpt": "import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from \"@/components/ui/card\"\nimport Link from 'next/link'\nimport Image from 'next/image'\nimport SignupForm from \"@/components/SignupForm\"\nimport ProviderSigninBlock from \"@/components/ProviderSigninBlock\"\n\nexport default function Signup() {\n    return (\n        <div className=\"flex items-center justify-center bg-muted min-h-screen\">\n\n            <Card className=\"w-[350px] mx-auto\">\n                <CardHeader className=\"space-y-1\">\n                    <div className=\"flex justify-center py-4\">\n                        <Link href='/'>\n                            <Image src=\"/logo.png\" alt=\"logo\" width={50} height={50} />\n                        </Link>\n                    </div>\n\n                    <CardTitle className=\"text-2x\\l font-bold\">Signup</CardTitle>\n                    <CardDescription>Create your account now!</CardDescription>\n                </CardHeader>\n                <CardContent className=\"grid gap-4\">\n                    <SignupForm />\n                    <div className=\"relative\">\n                        <div className=\"absolute inset-0 flex items-center\">\n                            <span className=\"w-full border-t\" />\n                        </div>\n                        <div className=\"relative flex justify-center text-xs uppercase\">\n                            <span className=\"bg-background px-2 text-muted-foreground\">Or continue with</span>\n                        </div>\n                    </div>\n                    <ProviderSigninBlock />\n                </CardContent>\n                <CardFooter className=\"flex-col text-center\">\n                    <Link className=\"w-full text-sm text-muted-foreground\" href=\"/login\">\n                        Have an account? Login\n                    </Link>\n                </CardFooter>\n            </Card>\n        </div >\n\n    )\n}"
+    },
+    {
+      "path": "app/forgot-password/page.tsx",
+      "reason": "Auth flow reference",
+      "excerpt": "import Link from 'next/link'\nimport Image from 'next/image'\nimport { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from \"@/components/ui/card\"\nimport ForgotPasswordForm from '@/components/ForgotPasswordForm'\nexport default function ForgotPassword() {\n    return (\n        <div className=\"flex items-center justify-center bg-muted min-h-screen\" >\n            <Card className=\"w-[350px] mx-auto\">\n                <CardHeader className=\"space-y-1\">\n                    <div className=\"flex justify-center py-4\">\n                        <Image src=\"/logo.png\" alt=\"logo\" width={50} height={50} />\n                    </div>\n\n                    <CardTitle className=\"text-2xl font-bold\">Forgot Your Password?</CardTitle>\n                    <CardDescription>Enter your email address</CardDescription>\n                </CardHeader>\n                <CardContent className=\"grid gap-4\">\n                    <ForgotPasswordForm />\n                </CardContent>\n                <CardFooter className=\"flex-col text-center\">\n                    <Link className=\"w-full text-sm text-muted-foreground \" href=\"/login\">\n                        Back to login\n                    </Link>\n                    <Link className=\"w-full text-sm text-muted-foreground\" href=\"/signup\">\n                        Don&apos;t have an account? Signup\n                    </Link>\n                </CardFooter>\n            </Card>\n        </div>\n    )\n}"
+    },
+    {
+      "path": "app/dashboard/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { redirect } from 'next/navigation'\n\nimport { createClient } from '@/utils/supabase/server'\n\nexport default async function Dashboard() {\n    const supabase = createClient()\n\n    const { data, error } = await supabase.auth.getUser()\n    if (error || !data?.user) {\n        redirect('/login')\n    }\n\n    return (\n        <main className=\"flex-1\">\n            <div className=\"container\">\n                Hello {data.user.email}\n            </div>\n        </main>)\n\n}"
+    }
+  ]
+}

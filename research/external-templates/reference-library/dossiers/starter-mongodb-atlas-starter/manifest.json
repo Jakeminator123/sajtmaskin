@@ -1,0 +1,88 @@
+{
+  "id": "starter-mongodb-atlas-starter",
+  "slug": "starter-mongodb-atlas-starter",
+  "title": "MongoDB Atlas Starter",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/mongo-db-starter",
+  "demoUrl": "https://nextjs.mongodb.com/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/mongodb-developer/nextjs-template-mongodb",
+    "normalizedUrl": "https://github.com/mongodb-developer/nextjs-template-mongodb",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\mongodb-developer-nextjs-template-mongodb",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "MongoDB"
+  ],
+  "usefulLines": [
+    "MongoDB Atlas Starter",
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "MongoDB"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "MongoDB Atlas Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "![Next.js with MongoDB](./public/og.png)\n\n-> View demo: [nextjs.mongodb.com](https://nextjs.mongodb.com/?utm_campaign=devrel&utm_source=third-party-content&utm_medium=cta&utm_content=template-nextjs-mongodb&utm_term=jesse.hall)\n\n# Next.js with MongoDB\n\nA minimal template for building full-stack React applications using Next.js, Vercel, and MongoDB.\n\n## Getting Started\n\nClick the \"Deploy\" button to clone this repo, create a new Vercel project, setup the MongoDB integration, and provision a new MongoDB database:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?demo-description=Minimal%20template%20for%20building%20full-stack%20React%20applications%20using%20Next.js%2C%20Vercel%2C%20and%20MongoDB.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F4N50YqRe7FHsd0ysfGM8bC%2F1201fe6929b842ec3ee15ee036625471%2Fog.png&demo-title=MongoDB%20%26%20Next.js%20Starter%20Template%20&demo-url=https%3A%2F%2Fnextjs.mongodb.com%2F&products=%255B%257B%2522type%2522%253A%2522integration%2522%252C%2522protocol%2522%253A%2522storage%2522%252C%2522productSlug%2522%253A%2522atlas%2522%252C%2522integrationSlug%2522%253A%2522mongodbatlas%2522%257D%255D&project-name=MongoDB%20%26%20Next.js%20Starter%20Template%20&repository-name=mongo-db-and-next-js-starter-template&repository-url=https%3A%2F%2Fgithub.com%2Fmongodb-developer%2Fnextjs-template-mongodb&root-directories=List%20of%20directory%20paths%20for%20the%20directories%20to%20clone%20into%20projects&skippable-integrations=1)\n\n## Local Setup\n\n### Installation\n\nInstall the dependencies:\n\n```bash\nnpm install\n```\n\n### Development\n\n#### Create a .env file in the project root\n\n```bash\ncp .env.example .env\n```\n\n#### Get your database URL\n\nObtain the database connection string from the Cluster tab on the [MongoDB Atlas Dashboard](https://account.mongodb.com/account/login/?utm_campaign=devrel&utm_source=third-party-content&utm_medium=cta&utm_content=template-nextjs-mongodb&utm_term=jesse.hall).\n\n#### Add the database URL to the .env file\n\nUpdate the `.env` file with your database connection string:\n\n```txt\nMONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/<database>?retryWrites=true&w=majority\n```\n\n#### Start the development server\n\n```bash\nnpm run dev\n```\n\nOpen [http://localhost:3000](http://localhost:3000) with your browser to see the result.\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-template-mongodb\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"description\": \"A Next.js template for building applications with MongoDB, featuring TypeScript and shadcn/ui / Tailwind CSS integration\",\n  \"author\": {\n    \"name\": \"Jesse Hall\",\n    \"url\": \"https://github.com/codeSTACKr\"\n  },\n  \"homepage\": \"https://github.com/mongodb-developer/nextjs-template-mongodb#readme\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/mongodb-developer/nextjs-template-mongodb.git\"\n  },\n  \"bugs\": {\n    \"url\": \"https://github.com/mongodb-developer/nextjs-template-mongodb/issues\"\n  },\n  \"keywords\": [\n    \"nextjs\",\n    \"mongodb\",\n    \"typescript\",\n    \"tailwindcss\",\n    \"vercel\",\n    \"template\",\n    \"shadcn\"\n  ],\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@radix-ui/react-slot\": \"^1.2.2\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"lucide-react\": \"^0.510.0\",\n    \"mongodb\": \"^6.3.0\",\n    \"next\": \"^15.1.9\",\n    \"react\": \"^19.0.1\",\n    \"react-dom\": \"^19.0.1\",\n    \"tailwind-merge\": \"^3.3.0\",\n    \"tailwindcss-animate\": \"^1.0.7\"\n  },\n  \"devDependencies\": {\n    \"@eslint/eslintrc\": \"^3\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"15.1.6\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3.4.1\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport \"./globals.css\";\nimport { inter } from \"./fonts\";\n\nexport const metadata: Metadata = {\n  title: \"Next.js + MongoDB\",\n  description: \"Use MongoDB with Next.js\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\" className={`${inter.variable} dark`}>\n      <body>{children}</body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Image from \"next/image\";\nimport logo from \"@/assets/logo.svg\";\nimport logoDark from \"@/assets/logo-dark.svg\";\nimport vercelLogotypeLight from \"@/assets/vercel-logotype-light.svg\";\nimport vercelLogotypeDark from \"@/assets/vercel-logotype-dark.svg\";\nimport Link from \"next/link\";\nimport { ArrowRight, FileText, LogIn } from \"lucide-react\";\nimport { dbConnectionStatus } from \"@/db/connection-status\";\nimport { Button } from \"@/components/ui/button\";\nimport { Badge } from \"@/components/ui/badge\";\n\nconst DATA = {\n  title: \"Next.js with MongoDB\",\n  description:\n    \"A minimal template for building full-stack React applications using Next.js, Vercel, and MongoDB.\",\n  button: {\n    text: \"Deploy to Vercel\",\n    href: \"https://vercel.com/new/clone?repository-name=mongodb-nextjs&repository-url=https%3A%2F%2Fgithub.com%2Fmongodb-developer%2Fvercel-template-mongodb&project-name=mongodb-nextjs&demo-title=MongoDB%20%26%20Next.js%20Starter%20Template&demo-description=A%20minimal%20template%20for%20building%20full-stack%20React%20applications%20using%20Next.js%2C%20Vercel%2C%20and%20MongoDB.&demo-url=https%3A%2F%2Fnextjs.mongodb.com%2F&demo-image=https%3A%2F%2Fnextjs.mongodb.com%2Fog.png&integration-ids=oac_jnzmjqM10gllKmSrG0SGrHOH&from=templates\",\n  },\n  link: {\n    text: \"View on GitHub\",\n    href: \"https://github.com/mongodb-developer/nextjs-template-mongodb\",\n  },\n  footerLinks: [\n    {\n      text: \"Docs\",\n      href: \"https://www.mongodb.com/docs/?utm_campaign=devrel&utm_source=third-party-content&utm_medium=cta&utm_content=template-nextjs-mongodb&utm_term=jesse.hall\",\n      icon: \"FileText\",\n    },\n    {\n      text: \"MongoDB Atlas Login\",\n      href: \"https://account.mongodb.com/account/login/?utm_campaign=devrel&utm_source=third-party-content&utm_medium=cta&utm_content=template-nextjs-mongodb&utm_term=jesse.hall\",\n      icon: \"LogIn\",\n    },\n  ],\n};\n\nexport default async function Home() {\n  const result = await dbConnectionStatus();\n  return (\n    <div className=\"flex min-h-screen flex-col\">\n      <div className=\"mx-auto flex w-full max-w-md flex-1 flex-col px-5 md:max-w-lg md:px-0 lg:max-w-xl\">\n          <main className=\"flex flex-1 flex-col justify-center\">\n            <div className=\"flex gap-6 lg:gap-8 items-center mb-6 md:mb-7\">\n              <Image\n                className=\"lg:h-8 lg:w-auto dark:hidden\"\n\n// ... truncated"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Obtain a connection string for your database from the Clusters tab on the MongoDB Atlas Dashboard.\n# The connection string has the format `mongodb+srv://myDatabaseUser:D1fficultP%40ssw0rd@cluster0.example.mongodb.net/?retryWrites=true&w=majority`\nMONGODB_URI=your-string-here"
+    }
+  ]
+}

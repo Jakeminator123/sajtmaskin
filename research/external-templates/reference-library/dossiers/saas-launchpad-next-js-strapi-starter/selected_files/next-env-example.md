@@ -1,0 +1,12 @@
+# next/.env.example
+
+Reason: Useful structural reference
+
+```text
+WEBSITE_URL=http://localhost:3000 # Add the correct ENV var for this onto your hosting platform, point it to your production website.
+ENVIRONMENT=development
+PORT=3000
+
+NEXT_PUBLIC_API_URL=http://localhost:1337
+PREVIEW_SECRET=preview_secret
+```

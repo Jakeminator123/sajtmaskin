@@ -1,0 +1,106 @@
+{
+  "id": "admin-dashboard-next-js-saas-starter",
+  "slug": "admin-dashboard-next-js-saas-starter",
+  "title": "Next.js SaaS Starter",
+  "categorySlug": "admin-dashboard",
+  "categoryName": "Admin Dashboard",
+  "templateUrl": "https://vercel.com/templates/authentication/next-js-saas-starter",
+  "demoUrl": "https://next-saas-start.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/nextjs/saas-starter",
+    "normalizedUrl": "https://github.com/nextjs/saas-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\nextjs-saas-starter",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Authentication",
+    "Admin Dashboard",
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Postgres"
+  ],
+  "usefulLines": [
+    "Next.js SaaS Starter",
+    "Authentication",
+    "Admin Dashboard",
+    "SaaS",
+    "Next.js",
+    "Tailwind",
+    "Postgres"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "dashboard shell patterns",
+    "pricing or billing structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "dashboard",
+    "app-shell",
+    "saas-landing"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": true,
+    "pricing": true,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js SaaS Starter is a Admin Dashboard reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Next.js SaaS Starter\n\nThis is a starter template for building a SaaS application using **Next.js** with support for authentication, Stripe integration for payments, and a dashboard for logged-in users.\n\n**Demo: [https://next-saas-start.vercel.app/](https://next-saas-start.vercel.app/)**\n\n## Features\n\n- Marketing landing page (`/`) with animated Terminal element\n- Pricing page (`/pricing`) which connects to Stripe Checkout\n- Dashboard pages with CRUD operations on users/teams\n- Basic RBAC with Owner and Member roles\n- Subscription management with Stripe Customer Portal\n- Email/password authentication with JWTs stored to cookies\n- Global middleware to protect logged-in routes\n- Local middleware to protect Server Actions or validate Zod schemas\n- Activity logging system for any user events\n\n## Tech Stack\n\n- **Framework**: [Next.js](https://nextjs.org/)\n- **Database**: [Postgres](https://www.postgresql.org/)\n- **ORM**: [Drizzle](https://orm.drizzle.team/)\n- **Payments**: [Stripe](https://stripe.com/)\n- **UI Library**: [shadcn/ui](https://ui.shadcn.com/)\n\n## Getting Started\n\n```bash\ngit clone https://github.com/nextjs/saas-starter\ncd saas-starter\npnpm install\n```\n\n## Running Locally\n\n[Install](https://docs.stripe.com/stripe-cli) and log in to your Stripe account:\n\n```bash\nstripe login\n```\n\nUse the included setup script to create your `.env` file:\n\n```bash\npnpm db:setup\n```\n\nRun the database migrations and seed the database with a default user and team:\n\n```bash\npnpm db:migrate\npnpm db:seed\n```\n\nThis will create the following user and team:\n\n- User: `test@test.com`\n- Password: `admin123`\n\nYou can also create new users through the `/sign-up` route.\n\nFinally, run the Next.js development server:\n\n```bash\npnpm dev\n```\n\nOpen [http://localhost:3000](http://localhost:3000) in your browser to see the app in action.\n\nYou can listen for Stripe webhooks locally through their CLI to handle subscription change events:\n\n```bash\nstripe listen --forward-to localhost:3000/api/stripe/webhook\n```\n\n## Testing Payments\n\nTo test Stripe payments, use the following test card details:\n\n- Card Number: `4242 4242 4242 4242`\n- Expiration: Any future date\n- CVC: Any 3-digit number\n\n## Going to Production\n\nWhen you're ready to deploy your SaaS application to production, follow these steps:\n\n### Set up a p\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"db:setup\": \"npx tsx lib/db/setup.ts\",\n    \"db:seed\": \"npx tsx lib/db/seed.ts\",\n    \"db:generate\": \"drizzle-kit generate\",\n    \"db:migrate\": \"drizzle-kit migrate\",\n    \"db:studio\": \"drizzle-kit studio\"\n  },\n  \"dependencies\": {\n    \"@tailwindcss/postcss\": \"4.1.7\",\n    \"@types/node\": \"^22.15.18\",\n    \"@types/react\": \"19.1.4\",\n    \"@types/react-dom\": \"19.1.5\",\n    \"autoprefixer\": \"^10.4.21\",\n    \"bcryptjs\": \"^3.0.2\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"dotenv\": \"^16.5.0\",\n    \"drizzle-kit\": \"^0.31.1\",\n    \"drizzle-orm\": \"^0.43.1\",\n    \"jose\": \"^6.0.11\",\n    \"lucide-react\": \"^0.511.0\",\n    \"next\": \"15.6.0-canary.59\",\n    \"postcss\": \"^8.5.3\",\n    \"postgres\": \"^3.4.5\",\n    \"radix-ui\": \"^1.4.2\",\n    \"react\": \"19.1.0\",\n    \"react-dom\": \"19.1.0\",\n    \"server-only\": \"^0.0.1\",\n    \"stripe\": \"^18.1.0\",\n    \"swr\": \"^2.3.3\",\n    \"tailwind-merge\": \"^3.3.0\",\n    \"tailwindcss\": \"4.1.7\",\n    \"tw-animate-css\": \"^1.3.0\",\n    \"typescript\": \"^5.8.3\",\n    \"zod\": \"^3.24.4\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import './globals.css';\nimport type { Metadata, Viewport } from 'next';\nimport { Manrope } from 'next/font/google';\nimport { getUser, getTeamForUser } from '@/lib/db/queries';\nimport { SWRConfig } from 'swr';\n\nexport const metadata: Metadata = {\n  title: 'Next.js SaaS Starter',\n  description: 'Get started quickly with Next.js, Postgres, and Stripe.'\n};\n\nexport const viewport: Viewport = {\n  maximumScale: 1\n};\n\nconst manrope = Manrope({ subsets: ['latin'] });\n\nexport default function RootLayout({\n  children\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html\n      lang=\"en\"\n      className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}\n    >\n      <body className=\"min-h-[100dvh] bg-gray-50\">\n        <SWRConfig\n          value={{\n            fallback: {\n              // We do NOT await here\n              // Only components that read this data will suspend\n              '/api/user': getUser(),\n              '/api/team': getTeamForUser()\n            }\n          }}\n        >\n          {children}\n        </SWRConfig>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { NextResponse } from 'next/server';\nimport type { NextRequest } from 'next/server';\nimport { signToken, verifyToken } from '@/lib/auth/session';\n\nconst protectedRoutes = '/dashboard';\n\nexport async function middleware(request: NextRequest) {\n  const { pathname } = request.nextUrl;\n  const sessionCookie = request.cookies.get('session');\n  const isProtectedRoute = pathname.startsWith(protectedRoutes);\n\n  if (isProtectedRoute && !sessionCookie) {\n    return NextResponse.redirect(new URL('/sign-in', request.url));\n  }\n\n  let res = NextResponse.next();\n\n  if (sessionCookie && request.method === 'GET') {\n    try {\n      const parsed = await verifyToken(sessionCookie.value);\n      const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);\n\n      res.cookies.set({\n        name: 'session',\n        value: await signToken({\n          ...parsed,\n          expires: expiresInOneDay.toISOString()\n        }),\n        httpOnly: true,\n        secure: true,\n        sameSite: 'lax',\n        expires: expiresInOneDay\n      });\n    } catch (error) {\n      console.error('Error updating session:', error);\n      res.cookies.delete('session');\n      if (isProtectedRoute) {\n        return NextResponse.redirect(new URL('/sign-in', request.url));\n      }\n    }\n  }\n\n  return res;\n}\n\nexport const config = {\n  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],\n  runtime: 'nodejs'\n};"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# This is an example of your .env file format, which pnpm db:setup will create.\n# Note: this must be .env, not .env.local, without further configuration changes.\nPOSTGRES_URL=postgresql://***\nSTRIPE_SECRET_KEY=sk_test_***\nSTRIPE_WEBHOOK_SECRET=whsec_***\nBASE_URL=http://localhost:3000\nAUTH_SECRET=***"
+    },
+    {
+      "path": "app/(dashboard)/dashboard/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client';\n\nimport { Button } from '@/components/ui/button';\nimport { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';\nimport {\n  Card,\n  CardContent,\n  CardHeader,\n  CardTitle,\n  CardFooter\n} from '@/components/ui/card';\nimport { customerPortalAction } from '@/lib/payments/actions';\nimport { useActionState } from 'react';\nimport { TeamDataWithMembers, User } from '@/lib/db/schema';\nimport { removeTeamMember, inviteTeamMember } from '@/app/(login)/actions';\nimport useSWR from 'swr';\nimport { Suspense } from 'react';\nimport { Input } from '@/components/ui/input';\nimport { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';\nimport { Label } from '@/components/ui/label';\nimport { Loader2, PlusCircle } from 'lucide-react';\n\ntype ActionState = {\n  error?: string;\n  success?: string;\n};\n\nconst fetcher = (url: string) => fetch(url).then((res) => res.json());\n\nfunction SubscriptionSkeleton() {\n  return (\n    <Card className=\"mb-8 h-[140px]\">\n      <CardHeader>\n        <CardTitle>Team Subscription</CardTitle>\n      </CardHeader>\n    </Card>\n  );\n}\n\nfunction ManageSubscription() {\n  const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);\n\n  return (\n    <Card className=\"mb-8\">\n      <CardHeader>\n        <CardTitle>Team Subscription</CardTitle>\n      </CardHeader>\n      <CardContent>\n        <div className=\"space-y-4\">\n          <div className=\"flex flex-col sm:flex-row justify-between items-start sm:items-center\">\n            <div className=\"mb-4 sm:mb-0\">\n              <p className=\"font-medium\">\n                Current Plan: {teamData?.planName || 'Free'}\n              </p>\n              <p className=\"text-sm text-muted-foreground\">\n                {teamData?.subscriptionStatus === 'active'\n                  ? 'Billed monthly'\n                  : teamData?.subscriptionStatus === 'trialing'\n                  ? 'Trial period'\n                  : 'No active subscription'}\n              </p>\n            </div>\n            <form action={customerPortalAction}>\n              <Button type=\"submit\" variant=\"outline\">\n                Manage Subscription\n              </Button>\n            </form>\n          </div>\n        </div>\n      </CardContent>\n    </Card>\n  );\n}\n\nfunction TeamMembersSkeleton() {\n  return (\n    <Card className=\"mb-8 h-[140p\n\n// ... truncated"
+    },
+    {
+      "path": "app/(dashboard)/pricing/page.tsx",
+      "reason": "Commerce or pricing reference",
+      "excerpt": "import { checkoutAction } from '@/lib/payments/actions';\nimport { Check } from 'lucide-react';\nimport { getStripePrices, getStripeProducts } from '@/lib/payments/stripe';\nimport { SubmitButton } from './submit-button';\n\n// Prices are fresh for one hour max\nexport const revalidate = 3600;\n\nexport default async function PricingPage() {\n  const [prices, products] = await Promise.all([\n    getStripePrices(),\n    getStripeProducts(),\n  ]);\n\n  const basePlan = products.find((product) => product.name === 'Base');\n  const plusPlan = products.find((product) => product.name === 'Plus');\n\n  const basePrice = prices.find((price) => price.productId === basePlan?.id);\n  const plusPrice = prices.find((price) => price.productId === plusPlan?.id);\n\n  return (\n    <main className=\"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12\">\n      <div className=\"grid md:grid-cols-2 gap-8 max-w-xl mx-auto\">\n        <PricingCard\n          name={basePlan?.name || 'Base'}\n          price={basePrice?.unitAmount || 800}\n          interval={basePrice?.interval || 'month'}\n          trialDays={basePrice?.trialPeriodDays || 7}\n          features={[\n            'Unlimited Usage',\n            'Unlimited Workspace Members',\n            'Email Support',\n          ]}\n          priceId={basePrice?.id}\n        />\n        <PricingCard\n          name={plusPlan?.name || 'Plus'}\n          price={plusPrice?.unitAmount || 1200}\n          interval={plusPrice?.interval || 'month'}\n          trialDays={plusPrice?.trialPeriodDays || 7}\n          features={[\n            'Everything in Base, and:',\n            'Early Access to New Features',\n            '24/7 Support + Slack Access',\n          ]}\n          priceId={plusPrice?.id}\n        />\n      </div>\n    </main>\n  );\n}\n\nfunction PricingCard({\n  name,\n  price,\n  interval,\n  trialDays,\n  features,\n  priceId,\n}: {\n  name: string;\n  price: number;\n  interval: string;\n  trialDays: number;\n  features: string[];\n  priceId?: string;\n}) {\n  return (\n    <div className=\"pt-6\">\n      <h2 className=\"text-2xl font-medium text-gray-900 mb-2\">{name}</h2>\n      <p className=\"text-sm text-gray-600 mb-4\">\n        with {trialDays} day free trial\n      </p>\n      <p className=\"text-4xl font-medium text-gray-900 mb-6\">\n        ${price / 100}{' '}\n        <span className=\"text-xl font-normal text-gray-600\">\n\n// ... truncated"
+    }
+  ]
+}

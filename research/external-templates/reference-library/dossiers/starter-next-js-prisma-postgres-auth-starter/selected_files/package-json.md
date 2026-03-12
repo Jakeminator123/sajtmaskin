@@ -1,0 +1,46 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "my-nextjs-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "npx prisma migrate deploy && next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "postinstall": "npx prisma generate"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.0.0",
+    "@prisma/client": "7.0.0",
+    "bcryptjs": "^3.0.2",
+    "lucide-react": "^0.503.0",
+    "next": "16.0.7",
+    "next-auth": "^4.24.11",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.17",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/node": "^20",
+    "@types/react": "19.2.5",
+    "@types/react-dom": "19.2.3",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.3",
+    "postcss": "^8",
+    "prisma": "7.0.0",
+    "tailwindcss": "^4.1.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  },
+  "overrides": {
+    "@types/react": "19.2.5",
+    "@types/react-dom": "19.2.3"
+  }
+}
+```

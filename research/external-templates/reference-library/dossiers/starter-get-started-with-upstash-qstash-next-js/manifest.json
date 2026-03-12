@@ -1,0 +1,78 @@
+{
+  "id": "starter-get-started-with-upstash-qstash-next-js",
+  "slug": "starter-get-started-with-upstash-qstash-next-js",
+  "title": "Get Started with Upstash QStash & Next.js",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/get-started-with-upstash-qs-tash-and-next-js",
+  "demoUrl": "https://qstash-nextjs.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 82,
+  "repo": {
+    "url": "https://github.com/upstash/qstash-js/tree/main/examples/nextjs",
+    "normalizedUrl": "https://github.com/upstash/qstash-js",
+    "subpath": "examples/nextjs",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\upstash-qstash-js",
+    "packageManager": "unknown",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Upstash"
+  ],
+  "usefulLines": [
+    "Get Started with Upstash QStash & Next.js",
+    "Starter",
+    "Next.js",
+    "Tailwind",
+    "Upstash"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Get Started with Upstash QStash & Next.js is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# QStash With Next.js\n\nThis project is a simple example of how to use QStash with Next.js.\n\nRoutes in the project:\n\n- `/api/edge` (pages router)\n- `/api/receiver` (pages router)\n- `/api/serverless` (pages router)\n\n- `/edge` (app router)\n- `/serverless` (app router)\n- '/publish' (app router)\n\nOn the landing page of the project, you will find an introduction to QStash. You can click a button to call the `/publish` endpoint and observe the requests delivered by QStash.\n\n## Local Development\n\n### 1. Install dependencies\n\n```bash\nnpm install\n```\n\n### 2. Set environment variables\n\nCreate a `.env.local` file in the root of the project and add the following environment variables:\n\n```bash\nQSTASH_CURRENT_SIGNING_KEY=\nQSTASH_CURRENT_SIGNING_KEY_ID=\n```\n\nYou can get these values from the Upstash Console.\n\n### 3. Start the development server\n\n```bash\nnpm run dev\n```\n\n### 4. Start a local tunnel\n\nTo test the application, QStash needs to send requests to your local server. You can use a tool like [ngrok](https://ngrok.com/) to create a secure tunnel to your localhost.\n\n```bash\nngrok http 3000\n```\n\nCopy the resulting url and. Go to the Upstash Console and send a simple request to `<ngrok-url>/api/receiver`"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@upstash/qstash\": \"latest\",\n    \"next\": \"^14.2.23\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\"\n  },\n  \"devDependencies\": {\n    \"@types/micro\": \"^10.0.0\",\n    \"@types/node\": \"20.5.7\",\n    \"@types/react\": \"18.2.21\",\n    \"@types/react-dom\": \"18.2.7\",\n    \"autoprefixer\": \"^10.4.20\",\n    \"eslint\": \"8.48.0\",\n    \"eslint-config-next\": \"13.4.19\",\n    \"micro\": \"^10.0.1\",\n    \"postcss\": \"^8.4.47\",\n    \"tailwindcss\": \"^3.4.13\",\n    \"typescript\": \"5.2.2\"\n  }\n}"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { verifySignatureEdge } from \"@upstash/qstash/nextjs\";\nimport { type NextFetchEvent, type NextRequest, NextResponse } from \"next/server\";\n\nexport default verifySignatureEdge(async (\n  request: NextRequest,\n  context?: NextFetchEvent,\n): Promise<Response> => {\n  return NextResponse.next()\n})\n\nexport const config = {\n  matcher: \"/api/middleware-endpoint\",\n};"
+    }
+  ]
+}

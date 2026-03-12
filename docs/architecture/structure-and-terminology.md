@@ -23,6 +23,8 @@ organizes:
   Raw, noisy local discovery output from scrape/discovery scripts.
 - `v0_vercel_agents/template_library/` -> `research/external-templates/reference-library/`
   Curated external reference library containing per-template reference dossiers.
+- local repo hydration cache -> `research/external-templates/repo-cache/`
+  Ignored shallow-clone cache used during curation, not runtime.
 
 Compatibility note:
 
@@ -32,6 +34,7 @@ Compatibility note:
 ## What should be archived or treated as non-canonical
 
 - raw scrape output in `research/external-templates/raw-discovery/`
+- repo cache in `research/external-templates/repo-cache/`
 - local `_sidor` datasets and ad-hoc desktop datasets
 - temporary migration notes that duplicate the canonical terminology docs
 

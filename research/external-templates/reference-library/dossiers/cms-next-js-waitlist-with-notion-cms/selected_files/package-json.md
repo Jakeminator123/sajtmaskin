@@ -1,0 +1,55 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "nextjs-notion-waitlist-template",
+  "version": "1.5.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "email": "email dev"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@react-email/components": "0.0.19",
+    "@react-email/render": "^1.0.3",
+    "@svgr/webpack": "^8.1.0",
+    "@upstash/ratelimit": "^1.2.1",
+    "@upstash/redis": "^1.31.6",
+    "@vercel/analytics": "^1.3.1",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.15.0",
+    "lucide-react": "^0.396.0",
+    "next": "14.2.4",
+    "next-themes": "^0.3.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-email": "2.1.4",
+    "react-icons": "^5.2.1",
+    "resend": "^3.3.0",
+    "sonner": "^1.5.0",
+    "tailwind-merge": "^2.3.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.4",
+    "postcss": "^8",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.6",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
+```

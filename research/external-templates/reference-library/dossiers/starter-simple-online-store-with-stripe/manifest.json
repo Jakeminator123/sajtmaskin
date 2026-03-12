@@ -1,0 +1,90 @@
+{
+  "id": "starter-simple-online-store-with-stripe",
+  "slug": "starter-simple-online-store-with-stripe",
+  "title": "Simple Online Store with Stripe",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/next.js/simple-online-store-with-stripe",
+  "demoUrl": "https://nextjs-stripe-template.vercel.sh/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/vercel/nextjs-stripe-template/tree/main/",
+    "normalizedUrl": "https://github.com/vercel/nextjs-stripe-template",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-nextjs-stripe-template",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Simple Online Store with Stripe",
+    "Starter",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "pricing or billing structure",
+    "storefront or checkout patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page",
+    "ecommerce",
+    "saas-landing"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": true,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": true,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Simple Online Store with Stripe is a Starter reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Simple Online Store with Stripe\n\nA responsive online store built with Next.js and Stripe for selling a single product. Features a clean design with product showcase, secure checkout, and payment processing.\n\n## Tech Stack\n\n- **Framework**: Next.js 14 with App Router\n- **Styling**: Tailwind CSS v4\n- **UI Components**: shadcn/ui\n- **Payments**: Stripe\n- **TypeScript**: Full type safety\n- **Deployment**: Vercel (recommended)\n\n## Getting Started\n\nClick the \"Deploy\" button to clone this repo, create a new Vercel project, setup the Stripe integration, and provision a new Stripe sandbox:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnextjs-stripe-template&project-name=nextjs-stripe-template&repository-name=nextjs-stripe-template&demo-title=Stripe+%26+Next.js+Starter+Template&demo-description=A+template+for+building+full-stack+Stripe+applications+using+Next.js+and+Vercel&demo-url=https%3A%2F%2Fnextjs-stripe-template.vercel.sh%2F&demo-image=https%3A%2F%2Fimages.stripeassets.com%2Ffzn2n1nzq965%2F4vVgZi0ZMoEzOhkcv7EVwK%2F74a13565998b4c56003c5ddc5aae43ce%2Ffavicon.png%3Fw%3D180%26h%3D180&products=%5B%7B%22integrationSlug%22%3A%22stripe%22%2C%22productSlug%22%3A%22stripe%22%2C%22protocol%22%3A%22other%22%2C%22type%22%3A%22integration%22%7D%5D)\n\n### Prerequisites\n\n- Node.js 20+\n- A Stripe account (Vercel integration recommended)\n- Vercel account (optional, for deployment)\n\n### Installation\n\n1. **Install dependencies**:\n   ```bash\n   pnpm install\n   ```\n\n2. **Set up Stripe**:\n\n### Option 1: Use Vercel Stripe integration\n\nUse \"Create Sandbox\" or \"Link Existing Account\" for the Vercel Stripe integration.\n\n### Option 2: Setup Stripe manually\n\n- Create a Stripe account at [stripe.com](https://stripe.com)\n- Get your API keys from the Stripe Dashboard\n- Add the following environment variables to your Vercel project:\n  - `STRIPE_SECRET_KEY` - Your Stripe secret key\n  - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Your Stripe publishable key\n- Call `vercel env pull` or update `.env.local` file manually\n\n3. **Run the development server**:\n   ```bash\n   pnpm dev\n   ```\n\n4. **Open** [http://localhost:3000](http://localhost:3000) in your browser\n\n## Deployment\n\n### Deploy to Vercel\n\n1. **Push to GitHub**\n2. **Connect to Vercel**:\n   - Go to [ver\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"my-v0-project\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"build\": \"next build\",\n    \"dev\": \"next dev\",\n    \"lint\": \"next lint\",\n    \"start\": \"next start\"\n  },\n  \"dependencies\": {\n    \"@hookform/resolvers\": \"^3.10.0\",\n    \"@radix-ui/react-checkbox\": \"1.1.3\",\n    \"@radix-ui/react-collapsible\": \"1.1.2\",\n    \"@radix-ui/react-context-menu\": \"2.2.4\",\n    \"@radix-ui/react-dropdown-menu\": \"2.1.4\",\n    \"@radix-ui/react-hover-card\": \"1.1.4\",\n    \"@radix-ui/react-label\": \"2.1.1\",\n    \"@radix-ui/react-navigation-menu\": \"1.2.3\",\n    \"@radix-ui/react-popover\": \"1.1.4\",\n    \"@radix-ui/react-radio-group\": \"1.2.2\",\n    \"@radix-ui/react-scroll-area\": \"1.2.2\",\n    \"@radix-ui/react-select\": \"2.1.4\",\n    \"@radix-ui/react-separator\": \"1.1.1\",\n    \"@radix-ui/react-slot\": \"1.1.1\",\n    \"@radix-ui/react-switch\": \"1.1.2\",\n    \"@radix-ui/react-toast\": \"1.2.4\",\n    \"@radix-ui/react-toggle\": \"1.1.1\",\n    \"@radix-ui/react-toggle-group\": \"1.1.1\",\n    \"@radix-ui/react-tooltip\": \"1.1.6\",\n    \"@stripe/react-stripe-js\": \"latest\",\n    \"@stripe/stripe-js\": \"latest\",\n    \"@vercel/analytics\": \"1.3.1\",\n    \"autoprefixer\": \"^10.4.20\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.1\",\n    \"cmdk\": \"1.0.4\",\n    \"date-fns\": \"4.1.0\",\n    \"geist\": \"^1.3.1\",\n    \"input-otp\": \"1.4.1\",\n    \"lucide-react\": \"^0.454.0\",\n    \"next\": \"14.2.16\",\n    \"next-themes\": \"^0.4.6\",\n    \"react\": \"^18\",\n    \"react-day-picker\": \"9.8.0\",\n    \"react-dom\": \"^18\",\n    \"react-hook-form\": \"^7.60.0\",\n    \"server-only\": \"latest\",\n    \"sonner\": \"^1.7.4\",\n    \"stripe\": \"latest\",\n    \"tailwind-merge\": \"^2.5.5\",\n    \"tailwindcss-animate\": \"^1.0.7\",\n    \"vaul\": \"^0.9.9\",\n    \"zod\": \"3.25.67\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/postcss\": \"^4.1.9\",\n    \"@types/node\": \"^22\",\n    \"@types/react\": \"^18\",\n    \"@types/react-dom\": \"^18\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"15.5.4\",\n    \"postcss\": \"^8.5\",\n    \"tailwindcss\": \"^4.1.9\",\n    \"tw-animate-css\": \"1.3.3\",\n    \"typescript\": \"^5\"\n  },\n  \"packageManager\": \"pnpm@8.15.7+sha512.c85cd21b6da10332156b1ca2aa79c0a61ee7ad2eb0453b88ab299289e9e8ca93e6091232b25c07cbf61f6df77128d9c849e5c9ac6e44854dbd211c49f3a67adc\"\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { GeistSans } from \"geist/font/sans\";\nimport { GeistMono } from \"geist/font/mono\";\nimport { Analytics } from \"@vercel/analytics/next\";\nimport \"./globals.css\";\n\nexport const metadata: Metadata = {\n  title: \"v0 App\",\n  description: \"Created with v0\",\n  generator: \"v0.app\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>\n        {children}\n        <Analytics />\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { Button } from \"@/components/ui/button\";\nimport { Badge } from \"@/components/ui/badge\";\nimport { Check, Star, ShoppingCart } from \"lucide-react\";\nimport { PRODUCTS } from \"@/lib/products\";\nimport Link from \"next/link\";\nimport Image from \"next/image\";\n\nexport default function HomePage() {\n  const product = PRODUCTS[0]; // Get our single product\n\n  return (\n    <div className=\"min-h-screen bg-background\">\n      {/* Header */}\n      <header className=\"border-b\">\n        <div className=\"container mx-auto px-4 py-4\">\n          <div className=\"flex items-center justify-between\">\n            <h1 className=\"text-2xl font-bold\">AudioStore</h1>\n            <Badge variant=\"secondary\" className=\"text-sm\">\n              Free Shipping\n            </Badge>\n          </div>\n        </div>\n      </header>\n\n      {/* Hero Section */}\n      <section className=\"py-12 lg:py-20\">\n        <div className=\"container mx-auto px-4\">\n          <div className=\"grid lg:grid-cols-2 gap-12 items-center\">\n            {/* Product Image */}\n            <div className=\"relative\">\n              <div className=\"aspect-square rounded-2xl overflow-hidden bg-muted\">\n                <Image\n                  src={\n                    product.images?.[0] ||\n                    \"/placeholder.svg?height=500&width=500&query=premium headphones\"\n                  }\n                  alt={product.name}\n                  width={500}\n                  height={500}\n                  className=\"w-full h-full object-cover\"\n                />\n              </div>\n              <div className=\"absolute top-4 left-4\">\n                <Badge className=\"bg-primary text-primary-foreground\">\n                  Best Seller\n                </Badge>\n              </div>\n            </div>\n\n            {/* Product Details */}\n            <div className=\"space-y-6\">\n              <div>\n                <div className=\"flex items-center gap-2 mb-2\">\n                  {[...Array(5)].map((_, i) => (\n                    <Star\n                      key={i}\n                      className=\"w-5 h-5 fill-yellow-400 text-yellow-400\"\n                    />\n                  ))}\n                  <span className=\"text-sm text-muted-foreground\">\n                    (4.9/5 from 2,847 reviews)\n                  </span>\n                </div>\n                <h2 classNam\n\n// ... truncated"
+    },
+    {
+      "path": "app/checkout/page.tsx",
+      "reason": "Commerce or pricing reference",
+      "excerpt": "import {\n  Card,\n  CardContent,\n  CardDescription,\n  CardHeader,\n  CardTitle,\n} from \"@/components/ui/card\";\nimport { Badge } from \"@/components/ui/badge\";\nimport { ArrowLeft, Shield, CreditCard } from \"lucide-react\";\nimport { PRODUCTS } from \"@/lib/products\";\nimport Link from \"next/link\";\nimport Image from \"next/image\";\nimport Checkout from \"@/components/checkout\";\n\nexport default function CheckoutPage() {\n  const product = PRODUCTS[0];\n\n  return (\n    <div className=\"min-h-screen bg-background\">\n      {/* Header */}\n      <header className=\"border-b\">\n        <div className=\"container mx-auto px-4 py-4\">\n          <div className=\"flex items-center gap-4\">\n            <Link\n              href=\"/\"\n              className=\"flex items-center gap-2 text-muted-foreground hover:text-foreground\"\n            >\n              <ArrowLeft className=\"w-4 h-4\" />\n              Back to store\n            </Link>\n            <h1 className=\"text-xl font-semibold\">Secure Checkout</h1>\n          </div>\n        </div>\n      </header>\n\n      <div className=\"container mx-auto px-4 py-8\">\n        <div className=\"grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto\">\n          {/* Order Summary */}\n          <div className=\"space-y-6\">\n            <Card>\n              <CardHeader>\n                <CardTitle className=\"flex items-center gap-2\">\n                  <Shield className=\"w-5 h-5 text-green-600\" />\n                  Order Summary\n                </CardTitle>\n                <CardDescription>Review your purchase details</CardDescription>\n              </CardHeader>\n              <CardContent className=\"space-y-4\">\n                <div className=\"flex gap-4\">\n                  <div className=\"w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0\">\n                    <Image\n                      src={\n                        product.images?.[0] ||\n                        \"/placeholder.svg?height=80&width=80&query=headphones\"\n                      }\n                      alt={product.name}\n                      width={80}\n                      height={80}\n                      className=\"w-full h-full object-cover\"\n                    />\n                  </div>\n                  <div className=\"flex-1\">\n                    <h3 className=\"font-semibold\">{product.name}</h3>\n                    <p className=\"text-sm tex\n\n// ... truncated"
+    }
+  ]
+}

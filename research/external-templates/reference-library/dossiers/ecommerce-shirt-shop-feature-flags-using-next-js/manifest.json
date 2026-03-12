@@ -1,0 +1,82 @@
+{
+  "id": "ecommerce-shirt-shop-feature-flags-using-next-js",
+  "slug": "ecommerce-shirt-shop-feature-flags-using-next-js",
+  "title": "Shirt Shop — Feature Flags using Next.js",
+  "categorySlug": "ecommerce",
+  "categoryName": "Ecommerce",
+  "templateUrl": "https://vercel.com/templates/ecommerce/shirt-shop-feature-flags",
+  "demoUrl": "https://shirt-shop.labs.vercel.dev/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 88,
+  "repo": {
+    "url": "https://github.com/vercel/flags/tree/main/examples/shirt-shop",
+    "normalizedUrl": "https://github.com/vercel/flags",
+    "subpath": "examples/shirt-shop",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-flags",
+    "packageManager": "unknown",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Ecommerce",
+    "Next.js",
+    "Tailwind"
+  ],
+  "usefulLines": [
+    "Shirt Shop — Feature Flags using Next.js",
+    "Ecommerce",
+    "Next.js",
+    "Tailwind"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "storefront or checkout patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "ecommerce"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": true,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Shirt Shop — Feature Flags using Next.js is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Shirt Shop Flags SDK Example\n\nThis example uses the [Flags SDK](https://flags-sdk.dev) along with the [Flags Explorer](https://vercel.com/docs/workflow-collaboration/feature-flags/using-vercel-toolbar) and `@vercel/analytics`.\n\n## Demo\n\n[https://shirt-shop.labs.vercel.dev/](https://shirt-shop.labs.vercel.dev/)\n\n## How it works\n\nThis demo uses two feature flags defined in code control the visibility of two banners on the page.\nBoth flags are configured to show/hide each banner 50% of the time.\n\nOnce you visit the page, you can see a variation of both/one/none of the banners.\nSince this example is using a stable id to identify users, you will see the same variation all the time.\n\nTo test different variations, you can use the Dev Tools at the bottom to reset the stable id and reload the page.\nThis allows you to test different variations of the banners.\n\nThis templates also tracks analytics events in Vercel Analytics.\n\nIf you deployed your own instance of this example you can also use the [Flags Explorer](https://vercel.com/docs/workflow-collaboration/feature-flags/using-vercel-toolbar) to test different variations by creating overrides.\n\n## Deploy this template\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fflags%2Ftree%2Fmain%2Fexamples%2Fshirt-shop&env=FLAGS_SECRET&envDescription=The+FLAGS_SECRET+will+be+used+by+the+Flags+Explorer+to+securely+overwrite+feature+flags.+Must+be+32+random+bytes%2C+base64-encoded.+Use+the+generated+value+or+set+your+own.&envLink=https%3A%2F%2Fvercel.com%2Fdocs%2Fworkflow-collaboration%2Ffeature-flags%2Fsupporting-feature-flags%23flags_secret-environment-variable&project-name=shirt-shop-flags-sdk-example&repository-name=shirt-shop-flags-sdk-example)\n\n### Step 1: Link the project\n\nIn order to use the Flags Explorer, you need to link the project on your local machine.\n\n```bash\nvercel link\n```\n\nSelect the project from the list you just deployed.\n\n### Step 2: Pull all environment variables\n\nThis allows the Flags SDK and the Flags Explorer to work correctly, by getting additional metadata.\n\n```bash\nvercel env pull\n```\n\n### Step 3: Install dependencies\n\n```bash\nnpm install\n```\n\n### Step 4: Run the project\n\n```bash\nnpm run dev\n```"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"shirt-shop\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"build\": \"next build\",\n    \"dev\": \"next dev\",\n    \"install:compat\": \"node scripts/install.mjs\",\n    \"check\": \"biome check\",\n    \"start\": \"next start\"\n  },\n  \"dependencies\": {\n    \"@headlessui/react\": \"^2.2.0\",\n    \"@heroicons/react\": \"2.2.0\",\n    \"@tailwindcss/aspect-ratio\": \"0.4.2\",\n    \"@tailwindcss/forms\": \"0.5.10\",\n    \"@tailwindcss/postcss\": \"^4.0.9\",\n    \"@tailwindcss/typography\": \"0.5.16\",\n    \"@vercel/analytics\": \"1.5.0\",\n    \"@vercel/edge\": \"1.2.1\",\n    \"@vercel/edge-config\": \"^1.4.3\",\n    \"@vercel/toolbar\": \"0.1.36\",\n    \"clsx\": \"2.1.1\",\n    \"flags\": \"workspace:*\",\n    \"js-xxhash\": \"4.0.0\",\n    \"motion\": \"12.12.1\",\n    \"nanoid\": \"5.1.2\",\n    \"next\": \"16.1.5\",\n    \"react\": \"^19.0.0\",\n    \"react-dom\": \"^19.0.0\",\n    \"sonner\": \"2.0.1\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"^22.13.5\",\n    \"@types/react\": \"catalog:\",\n    \"@types/react-dom\": \"catalog:\",\n    \"postcss\": \"^8.5.3\",\n    \"tailwindcss\": \"^4.0.9\",\n    \"typescript\": \"^5.7.3\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { Analytics } from '@vercel/analytics/next';\nimport { VercelToolbar } from '@vercel/toolbar/next';\nimport type { Metadata } from 'next';\nimport { Toaster } from 'sonner';\n\nimport './globals.css';\nimport { ExamplesBanner } from '@/components/banners/examples-banner';\n\nexport const metadata: Metadata = {\n  title: 'Flags SDK Example',\n  description: 'A Flags SDK example for Ecommerce',\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className=\"antialiased\">\n        <ExamplesBanner />\n        {children}\n        <Toaster />\n        <Analytics />\n        <VercelToolbar />\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/[code]/cart/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { Main } from '@/components/main';\nimport { OrderSummarySection } from '@/components/shopping-cart/order-summary-section';\nimport { ShoppingCart } from '@/components/shopping-cart/shopping-cart';\nimport {\n  proceedToCheckoutColorFlag,\n  productFlags,\n  showFreeDeliveryBannerFlag,\n  showSummerBannerFlag,\n} from '@/flags';\nimport { ProceedToCheckout } from './proceed-to-checkout';\n\nexport default async function CartPage({\n  params,\n}: {\n  params: Promise<{ code: string }>;\n}) {\n  const { code } = await params;\n  const showSummerBanner = await showSummerBannerFlag(code, productFlags);\n  const freeDeliveryBanner = await showFreeDeliveryBannerFlag(\n    code,\n    productFlags,\n  );\n  const proceedToCheckoutColor = await proceedToCheckoutColorFlag(\n    code,\n    productFlags,\n  );\n\n  return (\n    <Main>\n      <div className=\"lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-12 xl:gap-x-16\">\n        <ShoppingCart />\n        <OrderSummarySection\n          showSummerBanner={showSummerBanner}\n          freeDelivery={freeDeliveryBanner}\n          proceedToCheckout={\n            <ProceedToCheckout color={proceedToCheckoutColor} />\n          }\n        />\n      </div>\n    </Main>\n  );\n}"
+    }
+  ]
+}

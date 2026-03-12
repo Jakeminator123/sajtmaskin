@@ -1,0 +1,90 @@
+{
+  "id": "starter-ragbot-starter-an-astra-db-and-openai-chatbot",
+  "slug": "starter-ragbot-starter-an-astra-db-and-openai-chatbot",
+  "title": "RAGBot Starter — An Astra DB and OpenAI chatbot",
+  "categorySlug": "starter",
+  "categoryName": "Starter",
+  "templateUrl": "https://vercel.com/templates/ai/ragbot-starter",
+  "demoUrl": "https://ragbot-starter.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/datastax/ragbot-starter",
+    "normalizedUrl": "https://github.com/datastax/ragbot-starter",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\datastax-ragbot-starter",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Starter",
+    "AI",
+    "Next.js",
+    "Tailwind",
+    "Astra DB"
+  ],
+  "usefulLines": [
+    "RAGBot Starter — An Astra DB and OpenAI chatbot",
+    "Starter",
+    "AI",
+    "Next.js",
+    "Tailwind",
+    "Astra DB"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "RAGBot Starter — An Astra DB and OpenAI chatbot is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# RAGBot Starter\n\nThis project is a starter for creating a chatbot using Astra DB and OpenAI. It's designed to be easy to deploy and use, with a focus on performance and usability.\n\n## Features\n\n- **Astra DB Integration**: Store and retrieve data from your Astra DB database with ease.\n- **OpenAI Integration**: Leverage the power of OpenAI to generate intelligent responses.\n- **Easy Deployment**: Deploy your chatbot to Vercel with just a few clicks.\n- **Customizable**: Modify and extend the chatbot to suit your needs.\n\n## Getting Started\n\n### Prerequisites\n\n- An Astra DB account. You can [create one here](https://astra.datastax.com/register).\n    - An Astra Vector Database\n- An OpenAI account. You can [create one here](https://platform.openai.com/).\n\n## Deployment\n\nEasily deploy your chatbot to Vercel by clicking the button below:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/datastax/ragbot-starter&integration-ids=oac_HrgeXUSyqANAtm3MAOaTJ43a&env=OPENAI_API_KEY)\n\nConfigure the Astra DB integration and add your `OPENAI_API_KEY` environment variable.\n\nNote: Before you deploying to prod, you will want to remove seed script (`npm run seed`) from the build step.\n\n### Local Development\n\n1. Clone this repository to your local machine.\n2. Install the dependencies by running `npm install` in your terminal.\n3. Set up the following environment variables in your IDE or `.env` file:\n    - `OPENAI_API_KEY`: Your API key for OpenAI\n    - `ASTRA_DB_API_ENDPOINT`: Your Astra DB vector database endpoint\n    - `ASTRA_DB_APPLICATION_TOKEN`: The generated app token for your Astra database\n        - To create a new token go to your database's `Connect` tab and click `Generate Token`. (your Application Token begins with `AstraCS:...`)\n    - `ASTRA_DB_NAMESPACE`: (Optional) The existing Astra Namespace/Keyspace **_in a vector-enabled DB_**\n4. Populate your database with sample data by running `npm run seed` in your terminal.\n\n### Running the Project\n\nTo start the development server, run `npm run dev` in your terminal. Open [http://localhost:3000](http://localhost:3000) to view the chatbot in your browser."
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"ragbot-starter\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build && npm run seed\",\n    \"start\": \"next start\",\n    \"seed\": \"ts-node ./scripts/populateDb.ts\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@datastax/astra-db-ts\": \"0.1.4\",\n    \"@types/node\": \"^20.8.10\",\n    \"ai\": \"^2.2.20\",\n    \"geist\": \"^1.1.0\",\n    \"langchain\": \"^0.0.179\",\n    \"next\": \"14.0.1\",\n    \"openai\": \"^4.14.2\",\n    \"react\": \"^18\",\n    \"react-dom\": \"^18\",\n    \"react-markdown\": \"^9.0.0\",\n    \"remark-gfm\": \"^4.0.0\",\n    \"ts-node\": \"^10.9.1\",\n    \"typescript\": \"5.2.2\"\n  },\n  \"devDependencies\": {\n    \"@types/react\": \"^18.2.37\",\n    \"autoprefixer\": \"^10\",\n    \"dotenv\": \"^16.3.1\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"13.5.5\",\n    \"eslint-config-prettier\": \"^9.0.0\",\n    \"postcss\": \"^8\",\n    \"tailwindcss\": \"^3\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { GeistSans } from \"geist/font/sans\";\nimport \"./globals.css\";\n\nexport const metadata = {\n  title: \"RAGBot Starter\",\n  description: \"RAGBot Starter - Powered by DataStax and Vercel\",\n};\n\nexport default function RootLayout({ children }) {\n  return (\n    <html lang=\"en\" className={GeistSans.variable}>\n      <body>{children}</body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\nimport {useEffect, useRef, useState} from 'react';\nimport Bubble from '../components/Bubble'\nimport { useChat, Message } from 'ai/react';\nimport Footer from '../components/Footer';\nimport Configure from '../components/Configure';\nimport PromptSuggestionRow from '../components/PromptSuggestions/PromptSuggestionsRow';\nimport ThemeButton from '../components/ThemeButton';\nimport useConfiguration from './hooks/useConfiguration';\n\n\nexport default function Home() {\n  const { append, messages, input, handleInputChange, handleSubmit } = useChat();\n  const { useRag, llm, similarityMetric, setConfiguration } = useConfiguration();\n\n  const messagesEndRef = useRef(null);\n  const [configureOpen, setConfigureOpen] = useState(false);\n\n  const scrollToBottom = () => {\n    messagesEndRef.current?.scrollIntoView({ behavior: \"smooth\" });\n  };\n\n  useEffect(() => {\n    scrollToBottom();\n  }, [messages]);\n\n  const handleSend = (e) => {\n    handleSubmit(e, { options: { body: { useRag, llm, similarityMetric}}});\n  }\n\n  const handlePrompt = (promptText) => {\n    const msg: Message = { id: crypto.randomUUID(),  content: promptText, role: 'user' };\n    append(msg, { options: { body: { useRag, llm, similarityMetric}}});\n  };\n\n  return (\n    <>\n    <main className=\"flex h-screen flex-col items-center justify-center\">\n      <section className='chatbot-section flex flex-col origin:w-[800px] w-full origin:h-[735px] h-full rounded-md p-2 md:p-6'>\n        <div className='chatbot-header pb-6'>\n          <div className='flex justify-between'>\n            <div className='flex items-center gap-2'>\n              <svg width=\"24\" height=\"25\" viewBox=\"0 0 24 25\">\n                <path d=\"M20 9.96057V7.96057C20 6.86057 19.1 5.96057 18 5.96057H15C15 4.30057 13.66 2.96057 12 2.96057C10.34 2.96057 9 4.30057 9 5.96057H6C4.9 5.96057 4 6.86057 4 7.96057V9.96057C2.34 9.96057 1 11.3006 1 12.9606C1 14.6206 2.34 15.9606 4 15.9606V19.9606C4 21.0606 4.9 21.9606 6 21.9606H18C19.1 21.9606 20 21.0606 20 19.9606V15.9606C21.66 15.9606 23 14.6206 23 12.9606C23 11.3006 21.66 9.96057 20 9.96057ZM7.5 12.4606C7.5 11.6306 8.17 10.9606 9 10.9606C9.83 10.9606 10.5 11.6306 10.5 12.4606C10.5 13.2906 9.83 13.9606 9 13.9606C8.17 13.9606 7.5 13.2906 7.5 12.4606ZM16 17.9606H8V15.9606H16V17.9606ZM15 13.9606C14.17 13.9606 13.5 13.2906 13.5 12.4606C13.5 11.6306 14.17 10.9606 15\n\n// ... truncated"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "OPENAI_API_KEY=REPLACE_ME\nASTRA_DB_ID=REPLACE_ME\nASTRA_DB_REGION=REPLACE_ME\nASTRA_DB_APPLICATION_TOKEN=REPLACE_ME\nASTRA_DB_NAMESPACE=default_keyspace"
+    }
+  ]
+}

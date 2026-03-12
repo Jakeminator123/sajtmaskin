@@ -3,7 +3,7 @@
 Reason: Setup and architecture context
 
 ```text
-# Nextra Docs Template 
+# Nextra Docs Template
 
 This is a template for creating documentation with [Nextra](https://nextra.site).
 

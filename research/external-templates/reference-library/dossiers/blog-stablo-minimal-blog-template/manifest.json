@@ -1,0 +1,88 @@
+{
+  "id": "blog-stablo-minimal-blog-template",
+  "slug": "blog-stablo-minimal-blog-template",
+  "title": "Stablo – Minimal Blog Template",
+  "categorySlug": "blog",
+  "categoryName": "Blog",
+  "templateUrl": "https://vercel.com/templates/blog/stablo-blog",
+  "demoUrl": "https://stablo-template.vercel.app/",
+  "description": "",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/web3templates/stablo/",
+    "normalizedUrl": "https://github.com/web3templates/stablo",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\web3templates-stablo",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Blog",
+    "CMS",
+    "Next.js",
+    "Tailwind",
+    "Sanity"
+  ],
+  "usefulLines": [
+    "Stablo – Minimal Blog Template",
+    "Blog",
+    "CMS",
+    "Next.js",
+    "Tailwind",
+    "Sanity"
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "editorial content hierarchy",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "blog",
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "Stablo – Minimal Blog Template is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Stablo Blog Template - Next.js & Sanity CMS\n\nStablo is a JAMStack Blog template built with Next.js, Tailwind CSS & Sanity CMS by [Web3Templates](https://web3templates.com/). It comes with free & pro version.\n\n## [Installation ↓](#installation)\n\n## Live Demo\n\n**[Free Version Demo →](https://stablo.web3templates.com/)**\n\n**[Pro Version Demo →](https://stablo-pro.web3templates.com/)**\n\n## Features\n\n<!-- prettier-ignore -->\n| Feature | Free Version | Pro Version |\n| --- | ------ | --- |\n| Next.js v13 | ✅  | ✅ |\n| /app Directory | ✅  | ✅ |\n| Tailwind CSS   | ✅  | ✅ |\n| Sanity CMS (v3) | ✅  | ✅ |\n| On-demand Revalidation  | ❌  | ✅ |\n| Auto-Update New Posts | Time-Based | ✅ |\n| Mobile Responsive | ✅  | ✅ |\n| Dark & Light Mode | ✅  | ✅ |\n| Working Contact Page | ✅  | ✅ |\n| Archive (Pagination) | ✅  | ✅ |\n| Category Pages  | ❌  | ✅ |\n| Author Pages    | ❌  | ✅ |\n| Search Page     | ❌  | ✅ |\n| Homepage - Default | ✅  | ✅ |\n| Homepage - Alternate       | ❌  | ✅ |\n| Homepage - Minimal | ❌  | ✅ |\n| Homepage - Lifestlye       | ❌  | ✅ |\n| Homepage - Two Column      | ❌  | ✅ |\n| Blog Post - Default        | ✅  | ✅ |\n| Blog Post - Minimal        | ❌  | ✅ |\n| Blog Post - Lifestlye      | ❌  | ✅ |\n| Blog Post - with Sidebar   | ❌  | ✅ |\n| 6 Months Support| ❌  | ✅  |\n| Free Updates    | ✅  | ✅  |\n| License         | GPL-2.0 | Commercial |\n| &nbsp; | &nbsp;| &nbsp;|\n| Pricing| Free|**$49**|\n| &nbsp; | [Deploy for free](https://vercel.com/new/web3templates/clone?demo-title=Stablo%20%E2%80%93%20Minimal%20Blog%20Template&demo-description=A%20minimal%20blog%20website%20template%20built%20with%20Next.js%2C%20TailwindCSS%20%26%20Sanity%20CMS%0A&demo-url=https%3A%2F%2Fstablo-template.vercel.app%2F&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F6p72KDrdJ8SjyvOBrgRbnr%2F0760db43f2cb08504a2f67601e74d986%2FCleanShot_2022-07-15_at_16.54.17.png&project-name=Stablo%20%E2%80%93%20Minimal%20Blog%20Template&repository-name=stablo-blog&repository-url=https%3A%2F%2Fgithub.com%2Fweb3templates%2Fstablo&from=templates&integration-ids=oac_hb2LITYajhRQ0i4QznmKH7gx) | [Purchase Pro](https://web3templates.com/templates/stablo-minimal-blog-website-template) |\n\n<a href=\"https://web3templates.com/templates/stablo-minimal-blog-website-template\">\n<img width=\"160\" alt=\"Upgrade to Pro\" src=\"https://user-images.githubusercontent.com/1884712/199181300-37c2\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"stablo-free\",\n  \"version\": \"3.0.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"postbuild\": \"next-sitemap\",\n    \"start\": \"next start\",\n    \"sanity\": \"sanity dev\",\n    \"sanity-import\": \"sanity dataset import lib/sanity/data/production.tar.gz production\",\n    \"sanity-export\": \"sanity dataset export production lib/sanity/data/production.tar.gz\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@headlessui/react\": \"^1.7.18\",\n    \"@heroicons/react\": \"^2.1.1\",\n    \"@portabletext/react\": \"^3.0.11\",\n    \"@sanity/code-input\": \"^4.1.2\",\n    \"@sanity/icons\": \"^2.8.0\",\n    \"@sanity/image-url\": \"^1.0.2\",\n    \"@sanity/table\": \"^1.1.2\",\n    \"@sanity/types\": \"^3.26.0\",\n    \"@sanity/ui\": \"^2.0.1\",\n    \"@sanity/vision\": \"^3.26.0\",\n    \"@tailwindcss/typography\": \"^0.5.10\",\n    \"@vercel/og\": \"^0.6.2\",\n    \"@web3forms/react\": \"^1.1.3\",\n    \"clsx\": \"^2.1.0\",\n    \"date-fns\": \"^3.3.1\",\n    \"get-video-id\": \"^3.6.5\",\n    \"next\": \"^14.1.0\",\n    \"next-sanity\": \"^7.0.12\",\n    \"next-seo\": \"^6.4.0\",\n    \"next-sitemap\": \"^4.2.3\",\n    \"next-themes\": \"^0.2.1\",\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\",\n    \"react-hook-form\": \"^7.49.3\",\n    \"react-iframe\": \"^1.8.5\",\n    \"react-refractor\": \"^2.1.7\",\n    \"sanity\": \"^3.26.0\",\n    \"sanity-plugin-asset-source-unsplash\": \"^1.1.2\",\n    \"styled-components\": \"^6.1.8\",\n    \"swr\": \"^2.2.4\",\n    \"typescript\": \"^5.3.3\"\n  },\n  \"devDependencies\": {\n    \"autoprefixer\": \"^10.4.17\",\n    \"eslint\": \"^8.56.0\",\n    \"eslint-config-next\": \"^14.1.0\",\n    \"eslint-config-sanity\": \"^7.0.1\",\n    \"postcss\": \"^8.4.33\",\n    \"prettier\": \"^3.2.4\",\n    \"prettier-plugin-tailwindcss\": \"^0.5.11\",\n    \"sharp\": \"^0.33.2\",\n    \"tailwindcss\": \"^3.4.1\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import \"@/styles/tailwind.css\";\nimport { Providers } from \"./providers\";\nimport { cx } from \"@/utils/all\";\nimport { Inter, Lora } from \"next/font/google\";\n\nconst inter = Inter({\n  subsets: [\"latin\"],\n  variable: \"--font-inter\"\n});\n\nconst lora = Lora({\n  subsets: [\"latin\"],\n  variable: \"--font-lora\"\n});\n\nexport default function RootLayout({\n  children\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html\n      lang=\"en\"\n      suppressHydrationWarning\n      className={cx(inter.variable, lora.variable)}>\n      <body className=\"antialiased text-gray-800 dark:bg-black dark:text-gray-400\">\n        <Providers>{children}</Providers>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": ".env.local.example",
+      "reason": "Useful structural reference",
+      "excerpt": "## Sanity Project ID\n## Add the ID to both NEXT_PUBLIC_ & SANITY_STUDIO_\n## Which is mandatory for localhost:3333 and localhost:3000\n\nNEXT_PUBLIC_SANITY_PROJECT_ID=\nSANITY_STUDIO_PROJECT_ID=\n\nNEXT_PUBLIC_SANITY_DATASET=production\nSANITY_REVALIDATE_SECRET=your-secret-key-here"
+    }
+  ]
+}

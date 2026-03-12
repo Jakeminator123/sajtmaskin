@@ -6,16 +6,16 @@
   "categoryName": "Blog",
   "templateUrl": "https://vercel.com/templates/blog/nextjs-contentlayer",
   "demoUrl": "https://next-contentlayer.vercel.app/",
-  "description": "A blog template with Next.js 13 App Router, Contentlayer, Tailwind CSS and dark mode.",
+  "description": "",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 92,
+  "qualityScore": 88,
   "repo": {
     "url": "https://github.com/shadcn/next-contentlayer",
     "normalizedUrl": "https://github.com/shadcn/next-contentlayer",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\blog\\next-js-contentlayer-blog-starter\\repo",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\shadcn-next-contentlayer",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -24,46 +24,37 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
+    "Blog",
+    "Starter",
     "Next.js",
-    "Tailwind",
-    "Related Templates",
-    "Next.js Portfolio with Pageview Counter",
-    "Astro Blog"
+    "Tailwind"
   ],
   "usefulLines": [
-    "AI workflows in live environments",
-    "Deploy for every idea",
-    "Deploy",
-    "https://next-contentlayer.vercel.app",
-    "Portfolio site with pageview counter, built with Next.js 13 App Router, Contentlayer, and Upstash Redis."
+    "Next.js Contentlayer Blog Starter",
+    "Blog",
+    "Starter",
+    "Next.js",
+    "Tailwind"
   ],
-  "noiseLines": [
-    "Vercel Agent",
-    "Vercel documentation",
-    "Deploy at the speed of AI",
-    "Ship features, not infrastructure",
-    "SDKs by Vercel"
-  ],
+  "noiseLines": [],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
-    "editorial content hierarchy",
-    "portfolio or gallery presentation"
+    "editorial content hierarchy"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
-    "blog",
-    "portfolio"
+    "blog"
   ],
   "signals": {
     "auth": false,
     "dashboard": false,
     "pricing": false,
     "blog": true,
-    "portfolio": true,
+    "portfolio": false,
     "ecommerce": false,
     "docs": false,
-    "ai": true,
+    "ai": false,
     "multiTenant": false,
     "cms": false
   },
@@ -72,22 +63,22 @@
     {
       "path": "README.md",
       "reason": "Setup and architecture context",
-      "excerpt": "# Next.js + Contentlayer\r\n\r\nA template with Next.js 13 app dir, Contentlayer, Tailwind CSS and dark mode.\r\n\r\nhttps://next-contentlayer.vercel.app"
+      "excerpt": "# Next.js + Contentlayer\n\nA template with Next.js 13 app dir, Contentlayer, Tailwind CSS and dark mode.\n\nhttps://next-contentlayer.vercel.app"
     },
     {
       "path": "package.json",
       "reason": "Dependency and script verification",
-      "excerpt": "{\r\n  \"name\": \"next-contentlayer\",\r\n  \"version\": \"0.1.0\",\r\n  \"private\": true,\r\n  \"scripts\": {\r\n    \"dev\": \"next dev\",\r\n    \"build\": \"next build\",\r\n    \"preview\": \"next build && next start\",\r\n    \"start\": \"next start\",\r\n    \"lint\": \"next lint\"\r\n  },\r\n  \"dependencies\": {\r\n    \"@tailwindcss/typography\": \"^0.5.9\",\r\n    \"@types/node\": \"18.16.1\",\r\n    \"@types/react\": \"18.2.0\",\r\n    \"@types/react-dom\": \"18.2.1\",\r\n    \"@vercel/analytics\": \"^1.0.0\",\r\n    \"autoprefixer\": \"10.4.14\",\r\n    \"contentlayer\": \"^0.3.2\",\r\n    \"eslint\": \"8.39.0\",\r\n    \"eslint-config-next\": \"13.3.1\",\r\n    \"next\": \"13.4.1\",\r\n    \"next-contentlayer\": \"^0.3.2\",\r\n    \"next-themes\": \"^0.2.1\",\r\n    \"postcss\": \"8.4.23\",\r\n    \"react\": \"18.2.0\",\r\n    \"react-dom\": \"18.2.0\",\r\n    \"tailwindcss\": \"3.3.2\",\r\n    \"typescript\": \"5.0.4\"\r\n  }\r\n}"
+      "excerpt": "{\n  \"name\": \"next-contentlayer\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"preview\": \"next build && next start\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@tailwindcss/typography\": \"^0.5.9\",\n    \"@types/node\": \"18.16.1\",\n    \"@types/react\": \"18.2.0\",\n    \"@types/react-dom\": \"18.2.1\",\n    \"@vercel/analytics\": \"^1.0.0\",\n    \"autoprefixer\": \"10.4.14\",\n    \"contentlayer\": \"^0.3.2\",\n    \"eslint\": \"8.39.0\",\n    \"eslint-config-next\": \"13.3.1\",\n    \"next\": \"13.4.1\",\n    \"next-contentlayer\": \"^0.3.2\",\n    \"next-themes\": \"^0.2.1\",\n    \"postcss\": \"8.4.23\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\",\n    \"tailwindcss\": \"3.3.2\",\n    \"typescript\": \"5.0.4\"\n  }\n}"
     },
     {
       "path": "app/layout.tsx",
       "reason": "Layout and navigation reference",
-      "excerpt": "import Link from \"next/link\"\r\nimport \"./globals.css\"\r\nimport { Inter } from \"next/font/google\"\r\nimport { ThemeProvider } from \"@/components/theme-provider\"\r\nimport { Analytics } from \"@/components/analytics\"\r\nimport { ModeToggle } from \"@/components/mode-toggle\"\r\n\r\nconst inter = Inter({ subsets: [\"latin\"] })\r\n\r\nexport const metadata = {\r\n  title: \"Create Next App\",\r\n  description: \"Generated by create next app\",\r\n}\r\n\r\ninterface RootLayoutProps {\r\n  children: React.ReactNode\r\n}\r\n\r\nexport default function RootLayout({ children }: RootLayoutProps) {\r\n  return (\r\n    <html lang=\"en\">\r\n      <body\r\n        className={`antialiased min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 ${inter.className}`}\r\n      >\r\n        <ThemeProvider attribute=\"class\" defaultTheme=\"system\" enableSystem>\r\n          <div className=\"max-w-2xl mx-auto py-10 px-4\">\r\n            <header>\r\n              <div className=\"flex items-center justify-between\">\r\n                <ModeToggle />\r\n                <nav className=\"ml-auto text-sm font-medium space-x-6\">\r\n                  <Link href=\"/\">Home</Link>\r\n                  <Link href=\"/about\">About</Link>\r\n                </nav>\r\n              </div>\r\n            </header>\r\n            <main>{children}</main>\r\n          </div>\r\n          <Analytics />\r\n        </ThemeProvider>\r\n      </body>\r\n    </html>\r\n  )\r\n}"
+      "excerpt": "import Link from \"next/link\"\nimport \"./globals.css\"\nimport { Inter } from \"next/font/google\"\nimport { ThemeProvider } from \"@/components/theme-provider\"\nimport { Analytics } from \"@/components/analytics\"\nimport { ModeToggle } from \"@/components/mode-toggle\"\n\nconst inter = Inter({ subsets: [\"latin\"] })\n\nexport const metadata = {\n  title: \"Create Next App\",\n  description: \"Generated by create next app\",\n}\n\ninterface RootLayoutProps {\n  children: React.ReactNode\n}\n\nexport default function RootLayout({ children }: RootLayoutProps) {\n  return (\n    <html lang=\"en\">\n      <body\n        className={`antialiased min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 ${inter.className}`}\n      >\n        <ThemeProvider attribute=\"class\" defaultTheme=\"system\" enableSystem>\n          <div className=\"max-w-2xl mx-auto py-10 px-4\">\n            <header>\n              <div className=\"flex items-center justify-between\">\n                <ModeToggle />\n                <nav className=\"ml-auto text-sm font-medium space-x-6\">\n                  <Link href=\"/\">Home</Link>\n                  <Link href=\"/about\">About</Link>\n                </nav>\n              </div>\n            </header>\n            <main>{children}</main>\n          </div>\n          <Analytics />\n        </ThemeProvider>\n      </body>\n    </html>\n  )\n}"
     },
     {
       "path": "app/page.tsx",
       "reason": "Useful structural reference",
-      "excerpt": "import { allPosts } from \"@/.contentlayer/generated\"\r\nimport Link from \"next/link\"\r\n\r\nexport default function Home() {\r\n  return (\r\n    <div className=\"prose dark:prose-invert\">\r\n      {allPosts.map((post) => (\r\n        <article key={post._id}>\r\n          <Link href={post.slug}>\r\n            <h2>{post.title}</h2>\r\n          </Link>\r\n          {post.description && <p>{post.description}</p>}\r\n        </article>\r\n      ))}\r\n    </div>\r\n  )\r\n}"
+      "excerpt": "import { allPosts } from \"@/.contentlayer/generated\"\nimport Link from \"next/link\"\n\nexport default function Home() {\n  return (\n    <div className=\"prose dark:prose-invert\">\n      {allPosts.map((post) => (\n        <article key={post._id}>\n          <Link href={post.slug}>\n            <h2>{post.title}</h2>\n          </Link>\n          {post.description && <p>{post.description}</p>}\n        </article>\n      ))}\n    </div>\n  )\n}"
     }
   ]
 }

@@ -1,0 +1,14 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+NOTION_SECRET=""
+NOTION_DB_ID=""
+
+RESEND_API_KEY=""
+RESEND_FROM_EMAIL=""
+
+UPSTASH_REDIS_REST_URL=""
+UPSTASH_REDIS_REST_TOKEN=""
+```
