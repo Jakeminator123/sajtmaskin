@@ -34,6 +34,9 @@ data/*.db-shm
 data/*.db-wal
 data/uploads/
 
+# Local generated reports (recreate from scripts when needed)
+data/scaffold-candidates-curated.json
+
 # MCP scraped documentation (60+ MB, regenerate with doc.py)
 services/mpc/docs/docgrab__*/
 services/mpc/docs/local/
@@ -72,10 +75,12 @@ _env.development
 
 # Avoid accidentally committing a nested clone/repo
 sajtgen
+_template_refs/
 
 # Large local docs/specs (keep out of git unless intentionally added)
 SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
 ANALYS-*.txt
+next_sidan_skrapning.txt
 
 # Local env dumps (often contain secrets)
 environments.production
@@ -142,3 +147,4 @@ vercel_usecase_next_react_templates/
 _sidor/
 research/_sidor/
 # <<< cursor-gpt automation local artifacts <<<
+

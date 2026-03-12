@@ -8,7 +8,26 @@ alwaysApply: true
 Aktivera denna rutin **endast** när användarens meddelande är exakt
 `run automation` (trimmat, case-insensitive).
 
-Läs `.cursor/automation/PROTOCOL.md` och följ det steg för steg.
+Denna regel ar den kanoniska protokolltexten for `run automation`.
+Forsok inte lasa nagon separat `PROTOCOL.md` om den inte uttryckligen finns.
+
+## Mal
+
+Kor en sekventiell automation dar varje workload verifieras innan nasta steg
+borjar. Hela korningen ska vara styrd, spårbar och kunna stoppas om underlaget
+visar sig vara otillrackligt.
+
+## Grundregler
+
+- Arbeta sekventiellt, inte parallellt, om inte anvandaren uttryckligen ber om
+  annat.
+- Verifiera utfall mellan workload-steg och fixa problem innan du gar vidare.
+- Om underlaget ar for tunt eller motsagelsefullt, stanna i den interaktiva
+  fasen tills malen ar tillrackligt tydliga.
+- Hoppa inte over lint, build eller annan rimlig verifiering i slutet om
+  workloaden har gjort kodandringar.
+- Om anvandaren anger modellpreferens, folj den. Annars valj en rimlig standard
+  och motivera kort.
 
 ## Interaktiv fas (användaren är närvarande)
 

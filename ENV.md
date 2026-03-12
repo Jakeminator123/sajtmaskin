@@ -68,7 +68,7 @@ Sajtmaskin-installationen:
 - databas och cache: `POSTGRES_URL`, `REDIS_URL`, `KV_URL`, `UPSTASH_*`
 - auth och sessioner: `JWT_SECRET`
 - AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `V0_API_KEY`
-- deploy och Vercel: `VERCEL_TOKEN`, `VERCEL_TEAM_ID`, `BLOB_READ_WRITE_TOKEN`
+- deploy och Vercel: `VERCEL_TOKEN`, valfritt `VERCEL_TEAM_ID`, `BLOB_READ_WRITE_TOKEN`
 - interna tjänster: `OPENCLAW_*`, `INSPECTOR_*`, `RESEND_API_KEY`
 
 De här ska hanteras som delad driftkonfiguration för plattformen, inte som

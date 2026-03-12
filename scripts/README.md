@@ -153,6 +153,10 @@ npx tsx scripts/curate-scaffold-candidates.ts --input="src/lib/gen/template-libr
 Det gamla `scripts/curate-scaffold-candidates.mjs` finns kvar som
 kompatibilitetswrapper men delegerar nu till den nya TypeScript-pipelinen.
 
+Rapporten i `data/scaffold-candidates-curated.json` ar en reproducerbar
+arbetsartefakt for scaffold-triage, inte en runtime-kalla. Behandla den som en
+kandidat for lokal-only output och regenerera den vid behov.
+
 ## promote-to-scaffold.ts / scaffolds:promote
 
 Semi-automatisk scaffold-promotion från ett dossier-manifest till ett nytt

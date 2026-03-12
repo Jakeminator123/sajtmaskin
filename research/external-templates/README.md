@@ -35,3 +35,12 @@ Runtime generation still depends on:
 - `src/lib/gen/scaffolds/`
 - `src/lib/gen/template-library/`
 - `src/lib/gen/scaffolds/scaffold-research.generated.json`
+
+## Local cleanup
+
+The heaviest local folder in this lane is usually `repo-cache/`.
+
+That folder, along with `raw-discovery/current/`, can be removed locally and
+rebuilt from scripts when needed. See `docs/architecture/repo-hygiene.md` for
+the current cleanup routine, keep/archive guidance, and the decision criteria
+for whether `reference-library/` should remain in this repo.

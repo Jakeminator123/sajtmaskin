@@ -81,7 +81,7 @@ Summarize findings → Stop monitoring
 
 ### Preview Not Loading
 - **Symptom**: Preview panel blank/stuck
-- **Check**: Sandpack errors in console
+- **Check**: iframe load errors, preview URL failures, and preview-related console/network errors
 - **Files**: `src/components/builder/PreviewPanel.tsx`
 
 ### Auth Session Issues

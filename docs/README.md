@@ -9,7 +9,7 @@ documentation.
   Canonical structure, terminology, and major system-boundary overviews.
   Notable docs:
   `structure-and-terminology.md`, `generation-loop-and-error-memory.md`,
-  `project-settings-and-builder-questions.md`,
+  `project-settings-and-builder-questions.md`, `repo-hygiene.md`,
   `documentation-lifecycle.md`, `agent-roadmap-and-handoff.md`
 - `docs/schemas/`
   Canonical human docs for important schemas, model/build-profile mappings, and

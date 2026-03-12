@@ -27,6 +27,7 @@ These docs summarize the system, but the runtime truth lives in:
 - `src/lib/v0/modelSelection.ts`
 - `src/lib/validations/chatSchemas.ts`
 - `src/lib/db/schema.ts`
+- `src/lib/gen/plan-schema.ts`
 - `src/lib/gen/scaffolds/types.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/template-library/types.ts`

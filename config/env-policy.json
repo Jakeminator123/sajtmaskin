@@ -10,6 +10,7 @@
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET_DEV",
     "GOOGLE_REDIRECT_URI",
+    "GITHUB_REDIRECT_URI",
     "DATA_DIR",
     "POSTGRES_PRISMA_URL",
     "POSTGRES_URL_NON_POOLING",
@@ -244,13 +245,13 @@
     },
     {
       "key": "VERCEL_TEAM_ID",
-      "classification": "shared_runtime",
+      "classification": "optional_runtime",
       "recommendedVercelTargets": [
         "development",
         "preview",
         "production"
       ],
-      "notes": "Binds API access to the correct Vercel team."
+      "notes": "Optional scope for Vercel API access. Leave unset when using a personal account; set it only when requests must target a specific team."
     },
     {
       "key": "VERCEL_PROJECT_ID",
@@ -300,21 +301,15 @@
     },
     {
       "key": "GOOGLE_REDIRECT_URI",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "preview",
-        "production"
-      ],
-      "notes": "OAuth callback differs between localhost and deployment."
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Optional override. If unset, the Google callback is derived from the current app base URL."
     },
     {
       "key": "GITHUB_REDIRECT_URI",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "preview",
-        "production"
-      ],
-      "notes": "OAuth callback differs between localhost and deployment."
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Optional override. If unset, the GitHub callback is derived from the current app base URL."
     },
     {
       "key": "DATA_DIR",

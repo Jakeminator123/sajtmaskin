@@ -22,6 +22,9 @@ Code sources of truth:
 
 - `src/lib/db/schema.ts`
 - `src/lib/db/chat-repository-pg.ts`
+- `src/lib/gen/plan-schema.ts`
+- `src/app/api/v0/chats/stream/route.ts`
+- `src/app/api/v0/chats/[chatId]/stream/route.ts`
 - `src/app/api/v0/chats/[chatId]/route.ts`
 - `src/lib/hooks/usePersistedChatMessages.ts`
 
@@ -67,8 +70,9 @@ type StoredPlanUiPart = {
 
 Notes:
 
-- `raw` contains the normalized `PlanArtifact` payload used by the builder
-  review UI.
+- `raw` contains the enriched planner payload that is persisted alongside the
+  normalized review shape. It may be the normalized `PlanArtifact`, but it can
+  also be the richer pre-normalized `planData` object when that is available.
 - `steps`, `blockers`, and `assumptions` are included so the planner card can
   restore without recomputing the entire display shape from text.
 - This contract is stable enough for own-engine plan review, but not yet a

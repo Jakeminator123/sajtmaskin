@@ -49,6 +49,13 @@ Curated external template data is documented by:
 - `src/lib/gen/template-library/types.ts`
 - `research/external-templates/reference-library/schema.template-manifest.json`
 
+Important boundary:
+
+- `TemplateLibraryEntry` is the full runtime/generated TypeScript shape.
+- `schema.template-manifest.json` documents the per-dossier manifest and minimal
+  schema surface used in the curated reference library. It should not be treated
+  as a complete JSON schema for every field on `TemplateLibraryEntry`.
+
 Key concepts:
 
 - `TemplateLibraryEntry`

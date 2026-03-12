@@ -11,4 +11,5 @@ Current active roadmap, pending physical migration:
 - `../10-world-class-builder-phase-4-learning-moat.md`
 
 When a plan is completed or superseded, move it to `../archived/`
-and update `docs/architecture/agent-roadmap-and-handoff.md`.
+and update both `docs/plans/README.md` and
+`docs/architecture/agent-roadmap-and-handoff.md`.
