@@ -1,14 +1,25 @@
 # Inspector Worker Quickstart
 
+The builder now uses a single inspector architecture with three selectable
+engines in `PreviewPanel`:
+
+1. `Map` - precomputed element map for fast hover and click selection
+2. `AI` - code-based matching via `/api/inspector-ai-match`
+3. `Playwright` - screenshot + DOM capture via `/api/inspector-capture`
+
+There is no longer any proxy-preview or injected iframe inspector pipeline in
+the app. The inspector worker only supports the Playwright-based routes used by
+the active builder flow.
+
 The inspector worker is a standalone Playwright micro-service that powers the
-element inspector in the builder preview. It runs on port **3310** and exposes
+Playwright parts of the builder inspector. It runs on port **3310** and exposes
 three endpoints:
 
 | Endpoint        | Method | Description                                        |
 | --------------- | ------ | -------------------------------------------------- |
 | `/health`       | GET    | Returns `{"ok":true}` when the worker is ready     |
 | `/capture`      | POST   | Screenshot + DOM element at a viewport coordinate   |
-| `/element-map`  | POST   | Full element map (bounding boxes) for hover overlay |
+| `/element-map`  | POST   | Full element map (bounding boxes) for Map hover     |
 
 When the worker is unreachable the app falls back to local Playwright inside
 the Next.js API routes, but this is slower and heavier on the dev machine.
@@ -99,14 +110,19 @@ npm run dev
 ```
 
 Open `http://localhost:3000/builder?project=...&chatId=...`, activate
-**Inspektera preview**, and hover/click in the preview.
+**Inspektera preview**, then test the active engines directly in the preview.
+
+- `Map` should show hover boxes and let you select an element instantly.
+- `PW` should return a point screenshot plus DOM details.
+- `AI` should still work without the worker, since it uses the AI route.
 
 ## 6) Fallback test (no worker)
 
 1. Stop the worker (Ctrl+C or `npm run inspector:docker:down`).
 2. Keep `INSPECTOR_CAPTURE_WORKER_URL` set in `.env.local`.
-3. Click in the preview — capture still works via the local API fallback.
-4. The Worker lamp turns red but functionality is preserved.
+3. Click in the preview with the `PW` engine selected — capture should still
+   work via the local API fallback.
+4. The Worker lamp turns red but `Map` and local `PW` fallback remain usable.
 
 ## 7) npm scripts reference
 

@@ -569,7 +569,7 @@ export function BuilderHeader(props: {
                 <TooltipContent side="left" className="max-w-xs">
                   <p className="text-xs">
                     Gör demo-sidan tillgänglig via URL (unlisted). Krävs för att inspektionsläget ska
-                    fungera. Privata sidor kan inte proxas.
+                    fungera eftersom inspector-rutterna måste kunna läsa previewn server-side.
                   </p>
                 </TooltipContent>
               </Tooltip>

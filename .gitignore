@@ -101,7 +101,6 @@ config.browser.txt
 config.example.txt
 INSTALERA.py
 INSTALLERA.py
-check_env.py
 
 # Vercel
 .vercel

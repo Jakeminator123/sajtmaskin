@@ -16,7 +16,8 @@ Usage:
     python manage_env.py push KEY          # push local value to Vercel
     python manage_env.py push --all        # push all missing to Vercel
     python manage_env.py pull              # pull Vercel env to .env.local
-    python manage_env.py audit             # same as check_env.py
+    python manage_env.py audit             # read-only env comparison
+    python manage_env.py audit --strict    # include over-target/local-only drift checks
 
 Requires: pip install requests
 """
@@ -28,7 +29,7 @@ import json
 import os
 import re
 import sys
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,7 @@ ENV_POLICY_FILE = SCRIPT_DIR / "config" / "env-policy.json"
 ENV_TS_FILE = SCRIPT_DIR / "src" / "lib" / "env.ts"
 
 VERCEL_API_BASE = "https://api.vercel.com"
+V0_API_BASE = "https://api.v0.dev/v1"
 
 BOLD = "\033[1m"
 RED = "\033[31m"
@@ -195,6 +197,52 @@ def fetch_vercel_envs(token: str, project_id: str, team_id: str | None) -> list[
     return all_envs
 
 
+def delete_vercel_env_by_id(token: str, project_id: str, team_id: str | None, env_id: str) -> bool:
+    url = f"{VERCEL_API_BASE}/v9/projects/{project_id}/env/{env_id}"
+    params: dict[str, str] = {}
+    if team_id:
+        params["teamId"] = team_id
+    try:
+        resp = requests.delete(
+            url,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            params=params,
+            timeout=15,
+        )
+    except requests.RequestException as e:
+        print(f"  {RED}Vercel API error: {e}{RESET}")
+        return False
+    if resp.status_code in (200, 204):
+        return True
+    print(f"  {RED}Vercel API {resp.status_code}: {resp.text[:200]}{RESET}")
+    return False
+
+
+def fetch_v0_envs(api_key: str, project_id: str) -> list[dict[str, Any]] | None:
+    url = f"{V0_API_BASE}/projects/{project_id}/env-vars"
+    try:
+        resp = requests.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+    except requests.RequestException as e:
+        print(f"  {RED}v0 API error: {e}{RESET}")
+        return None
+
+    if resp.status_code != 200:
+        print(f"  {RED}v0 API {resp.status_code}: {resp.text[:200]}{RESET}")
+        return None
+
+    data = resp.json()
+    if isinstance(data, list):
+        return data
+    return data.get("envVars", data.get("data", []))
+
+
 def push_to_vercel(token: str, project_id: str, team_id: str | None,
                    key: str, value: str, targets: list[str], var_type: str = "encrypted") -> bool:
     url = f"{VERCEL_API_BASE}/v10/projects/{project_id}/env"
@@ -274,10 +322,16 @@ def build_status_table(policy: dict[str, Any]) -> list[dict[str, Any]]:
         is_runtime_only = key in runtime_only
 
         status = "ok"
-        if cls == "shared_runtime" and not in_vercel:
+        if cls == "local_only" and in_vercel:
+            status = "LOCAL_ONLY_ON_VERCEL"
+        elif cls == "shared_runtime" and not in_vercel:
             status = "MISSING_VERCEL"
         elif cls == "shared_runtime" and not target_ok:
             status = "TARGET_GAP"
+        elif cls == "environment_specific" and in_vercel and rec_targets and not target_ok:
+            status = "TARGET_GAP"
+        elif in_vercel and rec_targets and (set(vercel_targets) - set(rec_targets)):
+            status = "TARGET_OVERREACH"
         elif cls == "shared_runtime" and not in_local and not is_empty_ok:
             status = "MISSING_LOCAL"
 
@@ -315,7 +369,7 @@ def cmd_status(_args: argparse.Namespace) -> int:
     print("-" * len(header))
 
     for r in rows:
-        s_color = GREEN if r["status"] == "ok" else (RED if "MISSING" in r["status"] or "GAP" in r["status"] else YELLOW)
+        s_color = GREEN if r["status"] == "ok" else (RED if ("MISSING" in r["status"] or "GAP" in r["status"] or "OVERREACH" in r["status"] or "LOCAL_ONLY" in r["status"]) else YELLOW)
         check = lambda b: f"{GREEN}Y{RESET}" if b else f"{DIM}-{RESET}"
         print(
             f"{r['key']:<{col_w['key']}} "
@@ -536,17 +590,500 @@ def cmd_pull(_args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Audit command (delegate to check_env.py)
+# Audit command (read-only comparison in this script)
 # ---------------------------------------------------------------------------
 
-def cmd_audit(_args: argparse.Namespace) -> int:
-    check_env = SCRIPT_DIR / "check_env.py"
-    if check_env.exists():
-        os.execv(sys.executable, [sys.executable, str(check_env)])
-    else:
-        print(f"{RED}check_env.py not found{RESET}")
+class AuditEnvEntry:
+    __slots__ = ("key", "value", "line_number", "raw_line")
+
+    def __init__(self, key: str, value: str, line_number: int, raw_line: str):
+        self.key = key
+        self.value = value
+        self.line_number = line_number
+        self.raw_line = raw_line
+
+
+def parse_env_entries(path: Path) -> list[AuditEnvEntry]:
+    if not path.exists():
+        return []
+
+    entries: list[AuditEnvEntry] = []
+    for i, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.lower().startswith("export "):
+            line = line[7:].strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        if key:
+            entries.append(AuditEnvEntry(key, value, i, raw))
+    return entries
+
+
+def audit_entries_to_dict(entries: list[AuditEnvEntry]) -> dict[str, str]:
+    data: dict[str, str] = {}
+    for e in entries:
+        data[e.key] = e.value
+    return data
+
+
+def expects_target(policy: dict[str, Any], key: str, target: str) -> bool:
+    rule = get_rule(policy, key)
+    return target in set(rule.get("recommendedVercelTargets", []))
+
+
+def expected_target_gap(policy: dict[str, Any], key: str, actual_targets: list[str]) -> list[str]:
+    rule = get_rule(policy, key)
+    expected = set(rule.get("recommendedVercelTargets", []))
+    actual = set(t.lower() for t in actual_targets)
+    return sorted(expected - actual)
+
+
+def expected_target_overreach(policy: dict[str, Any], key: str, actual_targets: list[str]) -> list[str]:
+    rule = get_rule(policy, key)
+    expected = set(rule.get("recommendedVercelTargets", []))
+    if not expected:
+        return []
+    actual = set(t.lower() for t in actual_targets)
+    return sorted(actual - expected)
+
+
+def should_compare_between_local_files(policy: dict[str, Any], key: str) -> bool:
+    return get_rule(policy, key).get("classification") == "shared_runtime"
+
+
+def should_track_remote(policy: dict[str, Any], key: str) -> bool:
+    return get_rule(policy, key).get("classification") == "shared_runtime"
+
+
+def should_track_target_coverage(policy: dict[str, Any], key: str) -> bool:
+    rule = get_rule(policy, key)
+    if rule.get("classification") == "shared_runtime":
+        return True
+    if rule.get("classification") != "environment_specific":
+        return False
+    return any(target in {"preview", "production"} for target in rule.get("recommendedVercelTargets", []))
+
+
+def audit_local_health(label: str, entries: list[AuditEnvEntry], known_empty_ok: set[str]) -> list[str]:
+    issues: list[str] = []
+    counts = Counter(e.key for e in entries)
+    for key, count in counts.items():
+        if count > 1:
+            lines = [str(e.line_number) for e in entries if e.key == key]
+            issues.append(f"DUPLICATE  {label}:{key} appears {count}x (lines {', '.join(lines)})")
+
+    for e in entries:
+        if not e.value and e.key not in known_empty_ok:
+            issues.append(f"EMPTY      {label}:{e.key} (line {e.line_number}) has no value")
+        if e.raw_line != e.raw_line.rstrip():
+            issues.append(f"TRAILING   {label}:{e.key} (line {e.line_number}) has trailing whitespace")
+        if "\n" in e.value or "\r" in e.value:
+            issues.append(f"NEWLINE    {label}:{e.key} (line {e.line_number}) value contains embedded newline")
+        if e.value and re.match(r"^\$\{?[A-Z_]+\}?$", e.value):
+            issues.append(f"UNRESOLVED {label}:{e.key} (line {e.line_number}) looks like uninterpolated variable: {e.value}")
+
+    return issues
+
+
+def audit_local_vs_local(
+    policy: dict[str, Any],
+    runtime_only: set[str],
+    entries_a: list[AuditEnvEntry],
+    entries_b: list[AuditEnvEntry],
+    label_a: str,
+    label_b: str,
+    verbose: bool,
+) -> list[str]:
+    issues: list[str] = []
+    keys_a = set(audit_entries_to_dict(entries_a).keys())
+    keys_b = set(audit_entries_to_dict(entries_b).keys())
+    dict_a = audit_entries_to_dict(entries_a)
+    dict_b = audit_entries_to_dict(entries_b)
+
+    only_a = sorted(keys_a - keys_b - runtime_only)
+    only_b = sorted(keys_b - keys_a - runtime_only)
+    target_a = "development" if label_a == ".env.local" else "production"
+    target_b = "development" if label_b == ".env.local" else "production"
+
+    for key in only_a:
+        if expects_target(policy, key, target_b) and should_compare_between_local_files(policy, key):
+            issues.append(f"ONLY_IN    {label_a}: {key}")
+    for key in only_b:
+        if expects_target(policy, key, target_a) and should_compare_between_local_files(policy, key):
+            issues.append(f"ONLY_IN    {label_b}: {key}")
+
+    if verbose:
+        for key in sorted(keys_a & keys_b):
+            va = dict_a[key]
+            vb = dict_b[key]
+            if va != vb:
+                va_short = va[:40] + "..." if len(va) > 40 else va
+                vb_short = vb[:40] + "..." if len(vb) > 40 else vb
+                issues.append(f"MISMATCH   {key}: {label_a}={va_short} vs {label_b}={vb_short}")
+
+    return issues
+
+
+def audit_local_vs_remote(
+    policy: dict[str, Any],
+    runtime_only: set[str],
+    local_keys: set[str],
+    remote_keys: set[str],
+    remote_label: str,
+    remote_targets: dict[str, list[str]] | None = None,
+    strict: bool = False,
+) -> list[str]:
+    issues: list[str] = []
+    missing_remote = sorted(
+        key
+        for key in local_keys
+        if key not in remote_keys and key not in runtime_only and should_track_remote(policy, key)
+    )
+    missing_local = sorted(
+        key for key in remote_keys - local_keys if get_rule(policy, key).get("classification") == "shared_runtime"
+    )
+
+    for key in missing_remote:
+        issues.append(f"MISSING_REMOTE  {key} is in local files but NOT on {remote_label}")
+    for key in missing_local:
+        issues.append(f"MISSING_LOCAL   {key} is on {remote_label} but NOT in local files")
+
+    if remote_targets:
+        for key, targets in sorted(remote_targets.items()):
+            missing_targets = expected_target_gap(policy, key, targets or [])
+            if missing_targets and should_track_target_coverage(policy, key):
+                issues.append(
+                    f"TARGET_GAP      {key} on {remote_label} missing targets: {', '.join(sorted(missing_targets))}"
+                )
+            if strict:
+                extra_targets = expected_target_overreach(policy, key, targets or [])
+                if extra_targets:
+                    issues.append(
+                        f"TARGET_OVERREACH {key} on {remote_label} has extra targets: {', '.join(extra_targets)}"
+                    )
+                if get_rule(policy, key).get("classification") == "local_only":
+                    issues.append(f"LOCAL_ONLY_ON_REMOTE {key} should not exist on {remote_label}")
+
+    return issues
+
+
+def print_audit_section(title: str) -> None:
+    print(f"\n{BOLD}{'=' * 60}")
+    print(f"  {title}")
+    print(f"{'=' * 60}{RESET}\n")
+
+
+def print_audit_issues(issues: list[str], indent: str = "  ") -> int:
+    if not issues:
+        print(f"{indent}{GREEN}No issues found.{RESET}")
+        return 0
+
+    for issue in issues:
+        if issue.startswith(("DUPLICATE", "NEWLINE", "UNRESOLVED")):
+            color = RED
+        elif issue.startswith(("EMPTY", "TRAILING", "MISSING_LOCAL", "ONLY_IN")):
+            color = YELLOW
+        elif issue.startswith(("MISSING_REMOTE", "TARGET_GAP", "TARGET_OVERREACH", "LOCAL_ONLY_ON_REMOTE")):
+            color = RED
+        elif issue.startswith("MISMATCH"):
+            color = CYAN
+        else:
+            color = ""
+        print(f"{indent}{color}{issue}{RESET}")
+    return len(issues)
+
+
+def build_vercel_cleanup_plan(policy: dict[str, Any], remote_targets: dict[str, list[str]]) -> list[str]:
+    commands: list[str] = []
+    for key, targets in sorted(remote_targets.items()):
+        cls = get_rule(policy, key).get("classification")
+        if cls == "local_only":
+            for target in sorted(set(targets)):
+                commands.append(f"vercel env rm {key} {target}")
+            continue
+
+        extra_targets = expected_target_overreach(policy, key, targets)
+        for target in extra_targets:
+            commands.append(f"vercel env rm {key} {target}")
+
+    # Keep stable order and remove duplicates.
+    seen: set[str] = set()
+    unique: list[str] = []
+    for cmd in commands:
+        if cmd in seen:
+            continue
+        seen.add(cmd)
+        unique.append(cmd)
+    return unique
+
+
+def build_vercel_cleanup_actions(
+    policy: dict[str, Any],
+    vercel_envs: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    actions: list[dict[str, str]] = []
+
+    for item in vercel_envs:
+        key = str(item.get("key", "")).strip()
+        env_id = str(item.get("id", "")).strip()
+        raw_targets = item.get("target")
+        if not key or not env_id:
+            continue
+        targets: list[str]
+        if isinstance(raw_targets, list):
+            targets = [str(t).lower() for t in raw_targets]
+        elif isinstance(raw_targets, str):
+            targets = [raw_targets.lower()]
+        else:
+            targets = []
+
+        rule = get_rule(policy, key)
+        cls = str(rule.get("classification", ""))
+        recommended = set(str(t).lower() for t in rule.get("recommendedVercelTargets", []))
+
+        remove = False
+        reason = ""
+        if cls == "local_only":
+            remove = True
+            reason = "local_only"
+            note = "safe_delete"
+        elif recommended and any(t not in recommended for t in targets):
+            actual = set(targets)
+            overlap = actual & recommended
+            remove = True
+            reason = "target_overreach"
+            # Deleting an entry with mixed targets removes both valid+invalid targets.
+            note = "unsafe_mixed_targets" if overlap else "safe_delete"
+        else:
+            note = "safe_delete"
+
+        if remove:
+            actions.append(
+                {
+                    "id": env_id,
+                    "key": key,
+                    "targets": ",".join(sorted(set(targets))) if targets else "-",
+                    "reason": reason,
+                    "note": note,
+                }
+            )
+
+    # stable unique by env id
+    by_id: dict[str, dict[str, str]] = {}
+    for action in actions:
+        by_id[action["id"]] = action
+    return sorted(by_id.values(), key=lambda a: (a["key"], a["targets"], a["id"]))
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    policy = load_policy()
+    known_empty_ok = set(policy.get("knownEmptyOk", []))
+    runtime_only = set(policy.get("runtimeOnlyKeys", []))
+
+    path_local = Path(args.env_local)
+    path_prod = Path(args.env_prod)
+
+    print(f"\n{BOLD}Sajtmaskin Env Audit (read-only){RESET}")
+    print(f"{DIM}Local:  {path_local}{RESET}")
+    print(f"{DIM}Prod:   {path_prod}{RESET}")
+
+    entries_local = parse_env_entries(path_local)
+    entries_prod = parse_env_entries(path_prod)
+
+    if not entries_local and not entries_prod:
+        print(f"\n{RED}No env files found. Nothing to check.{RESET}")
         return 1
-    return 0
+
+    total_issues = 0
+
+    print_audit_section("1. Local file health")
+    if entries_local:
+        print(f"  {BOLD}.env.local ({len(entries_local)} entries){RESET}")
+        total_issues += print_audit_issues(audit_local_health(".env.local", entries_local, known_empty_ok), "    ")
+    else:
+        print(f"  {YELLOW}.env.local not found{RESET}")
+
+    if entries_prod:
+        print(f"\n  {BOLD}.env.production ({len(entries_prod)} entries){RESET}")
+        total_issues += print_audit_issues(
+            audit_local_health(".env.production", entries_prod, known_empty_ok),
+            "    ",
+        )
+    else:
+        print(f"\n  {YELLOW}.env.production not found{RESET}")
+
+    if entries_local and entries_prod:
+        print_audit_section("2. Local vs Local (.env.local vs .env.production)")
+        issues = audit_local_vs_local(
+            policy,
+            runtime_only,
+            entries_local,
+            entries_prod,
+            ".env.local",
+            ".env.production",
+            args.verbose,
+        )
+        total_issues += print_audit_issues(issues)
+
+    env_dict = audit_entries_to_dict(entries_local) if entries_local else audit_entries_to_dict(entries_prod)
+    vercel_token = env_dict.get("VERCEL_TOKEN", "").strip()
+    vercel_project_id = env_dict.get("VERCEL_PROJECT_ID", "").strip()
+    vercel_team_id = env_dict.get("VERCEL_TEAM_ID", "").strip() or None
+    v0_api_key = env_dict.get("V0_API_KEY", "").strip()
+
+    all_local_keys = set(audit_entries_to_dict(entries_local).keys()) | set(audit_entries_to_dict(entries_prod).keys())
+
+    if not args.local_only:
+        print_audit_section("3. Local vs Vercel")
+        if not vercel_token:
+            print(f"  {YELLOW}Skipped: VERCEL_TOKEN not found in local env files{RESET}")
+        elif not vercel_project_id:
+            print(f"  {YELLOW}Skipped: VERCEL_PROJECT_ID not found in local env files{RESET}")
+        else:
+            print(f"  {DIM}Fetching env vars from Vercel project {vercel_project_id}...{RESET}")
+            vercel_envs = fetch_vercel_envs(vercel_token, vercel_project_id, vercel_team_id)
+            if vercel_envs is not None:
+                remote_keys = set(item["key"] for item in vercel_envs)
+                remote_targets: dict[str, list[str]] = {}
+                for item in vercel_envs:
+                    key = item["key"]
+                    seen = set(remote_targets.get(key, []))
+                    raw_targets = item.get("target")
+                    if isinstance(raw_targets, list):
+                        seen.update(str(t).lower() for t in raw_targets)
+                    elif isinstance(raw_targets, str):
+                        seen.add(raw_targets.lower())
+                    remote_targets[key] = sorted(seen)
+
+                print(f"  {DIM}Found {len(vercel_envs)} env vars on Vercel{RESET}\n")
+                issues = audit_local_vs_remote(
+                    policy,
+                    runtime_only,
+                    all_local_keys,
+                    remote_keys,
+                    "Vercel",
+                    remote_targets,
+                    strict=args.strict,
+                )
+                total_issues += print_audit_issues(issues)
+                if args.strict:
+                    cleanup_plan = build_vercel_cleanup_plan(policy, remote_targets)
+                    if cleanup_plan:
+                        print(f"\n  {BOLD}Suggested Vercel cleanup commands (manual review first):{RESET}")
+                        for cmd in cleanup_plan:
+                            print(f"    {cmd}")
+            else:
+                print(f"  {RED}Failed to fetch Vercel env vars (see error above){RESET}")
+                total_issues += 1
+
+        if args.v0_project_id:
+            print_audit_section("4. Local vs v0")
+            if not v0_api_key:
+                print(f"  {YELLOW}Skipped: V0_API_KEY not found in local env files{RESET}")
+            else:
+                print(f"  {DIM}Fetching env vars from v0 project {args.v0_project_id}...{RESET}")
+                v0_envs = fetch_v0_envs(v0_api_key, args.v0_project_id)
+                if v0_envs is not None:
+                    remote_keys = set()
+                    for item in v0_envs:
+                        key = item.get("key") or item.get("name", "")
+                        if key:
+                            remote_keys.add(key)
+                    print(f"  {DIM}Found {len(v0_envs)} env vars on v0{RESET}\n")
+                    issues = audit_local_vs_remote(
+                        policy,
+                        runtime_only,
+                        all_local_keys,
+                        remote_keys,
+                        "v0",
+                        strict=False,
+                    )
+                    total_issues += print_audit_issues(issues)
+                else:
+                    print(f"  {RED}Failed to fetch v0 env vars (see error above){RESET}")
+                    total_issues += 1
+    else:
+        print(f"\n{DIM}  (API checks skipped: --local-only){RESET}")
+
+    print_audit_section("Summary")
+    if total_issues == 0:
+        print(f"  {GREEN}All clean! No issues detected.{RESET}\n")
+    else:
+        print(f"  {YELLOW}{total_issues} issue(s) found.{RESET}")
+        if args.strict:
+            print(f"  {DIM}Strict mode includes over-target and local-only remote drift checks.{RESET}")
+        print(f"  {DIM}This command is read-only and made no changes.{RESET}\n")
+
+    return 1 if total_issues > 0 else 0
+
+
+# ---------------------------------------------------------------------------
+# Reconcile command (apply drift cleanup on Vercel)
+# ---------------------------------------------------------------------------
+
+def cmd_reconcile(args: argparse.Namespace) -> int:
+    token, project_id, team_id = vercel_creds()
+    if not token or not project_id:
+        print(f"{RED}Missing VERCEL_TOKEN or VERCEL_PROJECT_ID in .env.local{RESET}")
+        return 1
+
+    policy = load_policy()
+    vercel_envs = fetch_vercel_envs(token, project_id, team_id)
+    if vercel_envs is None:
+        return 1
+
+    actions = build_vercel_cleanup_actions(policy, vercel_envs)
+    if not actions:
+        print(f"{GREEN}No cleanup actions required. Vercel env targets align with policy.{RESET}")
+        return 0
+
+    print(f"\n{BOLD}Vercel cleanup plan ({len(actions)} entries){RESET}")
+    for action in actions:
+        print(f"  {action['key']:<42} {action['targets']:<30} {action['reason']} [{action['note']}]")
+
+    if not args.apply:
+        print(f"\n{DIM}Dry-run only. Re-run with --apply to perform deletes.{RESET}")
+        return 0
+
+    safe_actions = [a for a in actions if a.get("note") == "safe_delete"]
+    unsafe_actions = [a for a in actions if a.get("note") != "safe_delete"]
+
+    if unsafe_actions:
+        print(f"\n{YELLOW}Skipping {len(unsafe_actions)} unsafe mixed-target entries in apply mode.{RESET}")
+        print(f"{DIM}These need rewrite (recreate with allowed targets) instead of direct delete.{RESET}")
+        for action in unsafe_actions:
+            print(f"  {action['key']} ({action['targets']})")
+
+    if not safe_actions:
+        print(f"{YELLOW}No safe delete actions to apply.{RESET}")
+        return 0
+
+    if not args.yes:
+        confirm = input(f"\nApply cleanup and delete {len(safe_actions)} env entries from Vercel? [y/N]: ").strip().lower()
+        if confirm != "y":
+            print("Aborted.")
+            return 0
+
+    deleted = 0
+    failed = 0
+    for action in safe_actions:
+        ok = delete_vercel_env_by_id(token, project_id, team_id, action["id"])
+        if ok:
+            deleted += 1
+            print(f"  {GREEN}deleted{RESET} {action['key']} ({action['targets']})")
+        else:
+            failed += 1
+            print(f"  {RED}failed{RESET}   {action['key']} ({action['targets']})")
+
+    print(f"\n{BOLD}Done:{RESET} deleted={deleted}, failed={failed}, skipped_unsafe={len(unsafe_actions)}")
+    return 1 if failed > 0 else 0
 
 
 # ---------------------------------------------------------------------------
@@ -566,9 +1103,11 @@ def cmd_interactive(_args: argparse.Namespace) -> int:
         print(f"  {BOLD}5{RESET}  Push all   -- push all missing to Vercel")
         print(f"  {BOLD}6{RESET}  Pull       -- check what Vercel has that local doesn't")
         print(f"  {BOLD}7{RESET}  Audit      -- run full read-only audit")
+        print(f"  {BOLD}8{RESET}  Audit+     -- run strict read-only audit")
+        print(f"  {BOLD}9{RESET}  Reconcile  -- cleanup target drift on Vercel")
         print(f"  {BOLD}q{RESET}  Quit")
 
-        choice = input(f"\n  Choose [1-7/q]: ").strip().lower()
+        choice = input(f"\n  Choose [1-9/q]: ").strip().lower()
 
         if choice == "q":
             break
@@ -592,7 +1131,29 @@ def cmd_interactive(_args: argparse.Namespace) -> int:
         elif choice == "6":
             cmd_pull(argparse.Namespace())
         elif choice == "7":
-            cmd_audit(argparse.Namespace())
+            cmd_audit(
+                argparse.Namespace(
+                    local_only=False,
+                    v0_project_id=None,
+                    verbose=False,
+                    strict=False,
+                    env_local=str(ENV_LOCAL),
+                    env_prod=str(ENV_PROD),
+                )
+            )
+        elif choice == "8":
+            cmd_audit(
+                argparse.Namespace(
+                    local_only=False,
+                    v0_project_id=None,
+                    verbose=False,
+                    strict=True,
+                    env_local=str(ENV_LOCAL),
+                    env_prod=str(ENV_PROD),
+                )
+            )
+        elif choice == "9":
+            cmd_reconcile(argparse.Namespace(apply=False, yes=False))
         else:
             print(f"  {YELLOW}Unknown option.{RESET}")
 
@@ -625,7 +1186,17 @@ def main() -> int:
     p_push.add_argument("--all", action="store_true", help="Push all missing")
 
     sub.add_parser("pull", help="Check what Vercel has that local doesn't")
-    sub.add_parser("audit", help="Run read-only audit")
+    p_audit = sub.add_parser("audit", help="Run read-only audit")
+    p_audit.add_argument("--local-only", action="store_true", help="Skip API calls")
+    p_audit.add_argument("--v0-project-id", help="v0 project ID to compare against")
+    p_audit.add_argument("--verbose", action="store_true", help="Show local value mismatches")
+    p_audit.add_argument("--strict", action="store_true", help="Also flag over-target and local-only remote drift")
+    p_audit.add_argument("--env-local", default=str(ENV_LOCAL), help="Path to .env.local")
+    p_audit.add_argument("--env-prod", default=str(ENV_PROD), help="Path to .env.production")
+
+    p_reconcile = sub.add_parser("reconcile", help="Cleanup Vercel env drift based on policy")
+    p_reconcile.add_argument("--apply", action="store_true", help="Perform deletes on Vercel (default is dry-run)")
+    p_reconcile.add_argument("--yes", action="store_true", help="Skip confirmation prompt when used with --apply")
 
     args = parser.parse_args()
 
@@ -641,6 +1212,8 @@ def main() -> int:
         return cmd_pull(args)
     elif args.command == "audit":
         return cmd_audit(args)
+    elif args.command == "reconcile":
+        return cmd_reconcile(args)
     else:
         return cmd_interactive(args)
 

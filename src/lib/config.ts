@@ -391,6 +391,11 @@ export const FEATURES = {
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),
 } as const;
 
+function isV0FallbackEnabled(): boolean {
+  const raw = env.V0_FALLBACK_BUILDER?.trim().toLowerCase() ?? "";
+  return raw === "y" || raw === "yes" || raw === "true" || raw === "1";
+}
+
 function resolveDbLogLabel(): string {
   const dbEnvCandidates = [
     "POSTGRES_URL",
@@ -442,7 +447,9 @@ export function logConfig(): void {
  * Call this at app startup to fail fast if critical config is missing
  */
 export function validateEnv(): { valid: boolean; missing: string[] } {
-  const coreSecrets: SecretName[] = IS_PRODUCTION ? ["jwtSecret", "v0ApiKey"] : [];
+  const coreSecrets: SecretName[] = IS_PRODUCTION
+    ? ["jwtSecret", isV0FallbackEnabled() ? "v0ApiKey" : "openaiApiKey"]
+    : [];
   const missing = validateRequiredSecrets(coreSecrets);
   const dbConfigured = resolveDbLogLabel() !== "not-configured";
   if (!dbConfigured) {

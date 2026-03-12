@@ -7,7 +7,7 @@
 ```
 config/env-policy.json          (committad, delad policy -- klassificering, targets, known-empty-ok)
         |
-        +-- check_env.py        (committad, read-only CLI audit)
+        +-- manage_env.py        (committad, canonical CLI för audit/status/sync)
         +-- src/lib/env-audit.ts (committad, runtime audit i appen)
         +-- src/lib/env.ts       (committad, Zod-schema med alla env-namn)
 
@@ -23,7 +23,7 @@ Vercel Environment Variables      (web UI / CLI, de riktiga prod/preview/dev-vä
 2. Lägg till i `config/env-policy.json` (classification + recommendedVercelTargets).
 3. Lägg till i `.env.local` med dev-värde.
 4. Sätt i Vercel via web UI eller `vercel env add`.
-5. Kör `python check_env.py` för att verifiera att allt är konsistent.
+5. Kör `python manage_env.py audit --strict` för att verifiera att allt är konsistent.
 6. Uppdatera tabellerna nedan i `ENV.md` om variabeln är kritisk.
 
 **Kontrollpanel (manage_env.py):**
@@ -36,8 +36,11 @@ python manage_env.py set KEY VALUE    # skriv värde i lokala filer
 python manage_env.py push KEY         # skicka lokalt värde till Vercel
 python manage_env.py push --all       # skicka alla saknade till Vercel
 python manage_env.py pull             # kolla vad Vercel har som lokalt saknar
-python manage_env.py audit            # read-only audit (delegerar till check_env.py)
-```
+python manage_env.py audit            # read-only audit
+python manage_env.py audit --strict   # flaggar även over-target/local-only-drift på Vercel
+python manage_env.py reconcile         # dry-run cleanup-plan för Vercel drift
+python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga entries på Vercel)
+![1773293856987](image/ENV/1773293856987.png)```
 
 ## Infrastruktur-topologi
 
@@ -153,7 +156,7 @@ preview-URL:er, demo-URL:er och hemsidor. Lokal `npm run dev` räcker för utvec
 
 1. **Deploy** denna version (sajtmaskin-appen).
 2. Sätt env-variablerna i Vercel för rätt miljöer (production, preview, development).
-3. `check_env.py` kan anvandas for att jamfora lokala vs Vercel-env read-only.
+3. `manage_env.py audit` kan anvandas for att jamfora lokala vs Vercel-env read-only.
 
 ## Lokal utveckling (setup från scratch)
 

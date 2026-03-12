@@ -26,11 +26,11 @@ public/video/
 services/mpc/docs/docgrab__*/
 services/mpc/logs/
 
-# Temp/dev
+# Tillfälliga filer / dev-mapp
 old/
-skrapning
-ovrigt
-sajtgen
+skrapning/
+ovrigt/
+sajtgen/
 .preprompt_history.json
-.git
-plans/archived/
+.git/
+docs/plans/archived/
