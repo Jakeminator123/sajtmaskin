@@ -20,7 +20,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     if (!shouldUseV0Fallback()) {
       const chat = await getEngineChatByIdForRequest(req, chatId);
       if (chat) {
-        const latest = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
+        const resolvedChatId = chat.id;
+        const latest =
+          (await getPreferredVersion(resolvedChatId)) ??
+          (await getLatestVersion(resolvedChatId));
         const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
 
         return NextResponse.json({
@@ -32,7 +35,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           scaffoldId: chat.scaffold_id,
           scaffoldFamily: resolvedScaffold?.family ?? null,
           scaffoldLabel: resolvedScaffold?.label ?? null,
-          demoUrl: latest ? buildPreviewUrl(chatId, latest.id) : null,
+          demoUrl: latest ? buildPreviewUrl(resolvedChatId, latest.id) : null,
           createdAt: chat.created_at,
           updatedAt: chat.updated_at,
           messages: chat.messages.map((m) => ({
@@ -47,7 +50,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             ? {
                 id: latest.id,
                 versionId: latest.id,
-                demoUrl: buildPreviewUrl(chatId, latest.id),
+                demoUrl: buildPreviewUrl(resolvedChatId, latest.id),
                 createdAt: latest.created_at,
                 versionNumber: latest.version_number,
                 messageId: latest.message_id,
