@@ -635,6 +635,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             ? (metaBuildIntent as BuildIntent)
             : "website";
         const persistedScaffoldId = engineChat.scaffold_id;
+        const trimmedSystem = typeof system === "string" ? system.trim() : "";
         const orchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
           buildIntent: engineIntent,
@@ -647,6 +648,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           designThemePreset: metaDesignThemePreset,
           designReferences,
           persistedScaffoldId,
+          customInstructions: trimmedSystem || undefined,
         });
         const { resolvedScaffold, engineSystemPrompt } = orchestration;
         if (resolvedScaffold && !persistedScaffoldId) {

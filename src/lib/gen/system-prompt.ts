@@ -425,6 +425,8 @@ export interface DynamicContextOptions {
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
+  /** User-supplied custom instructions from the builder UI */
+  customInstructions?: string;
 }
 
 function str(v: unknown): string {
@@ -451,9 +453,16 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     componentPalette,
     designThemePreset,
     designReferences,
+    customInstructions,
   } = options;
 
   const parts: string[] = [];
+
+  // ── Custom Instructions (user-supplied from builder UI) ────────────────
+  const trimmedCustom = customInstructions?.trim();
+  if (trimmedCustom) {
+    parts.push("## Custom Instructions (from the user)", "", trimmedCustom, "");
+  }
 
   // ── Build Intent ────────────────────────────────────────────────────────
   const guidance = BUILD_INTENT_GUIDANCE[intent];

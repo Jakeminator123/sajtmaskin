@@ -42,6 +42,8 @@ export interface OrchestrationInput {
   designReferences?: DesignReferenceAsset[];
   /** Optional persisted scaffold id from a previous turn in the same chat */
   persistedScaffoldId?: string | null;
+  /** User-supplied custom instructions from the builder UI */
+  customInstructions?: string;
 }
 
 export interface OrchestrationResult {
@@ -75,6 +77,7 @@ export async function prepareGenerationContext(
     designThemePreset = null,
     designReferences = [],
     persistedScaffoldId = null,
+    customInstructions,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
@@ -116,6 +119,7 @@ export async function prepareGenerationContext(
     componentPalette,
     designThemePreset,
     designReferences,
+    customInstructions,
   };
 
   const engineSystemPrompt = await buildSystemPrompt({

@@ -600,6 +600,7 @@ export async function POST(req: Request) {
           componentPalette: metaPalette,
           designThemePreset: metaDesignThemePreset,
           designReferences,
+          customInstructions: trimmedSystemPrompt || undefined,
         });
         const { resolvedScaffold, capabilities: engineCapabilities, engineSystemPrompt } =
           orchestration;

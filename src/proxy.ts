@@ -12,11 +12,14 @@ import { getAppBaseUrl } from "@/lib/app-url";
 
 const ADMIN_PREFIX = "/admin";
 
-const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits", "/inspector"]);
+const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits"]);
 
-const ALLOWED_ORIGINS = new Set([
-  getAppBaseUrl(),
-]);
+const ALLOWED_ORIGINS = new Set(
+  [
+    getAppBaseUrl(),
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
+  ].filter(Boolean),
+);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,6 +38,8 @@ function needsUserAuth(pathname: string): boolean {
 }
 
 function buildCspPolicy(pathname: string, nonce: string): string {
+  const isDev = process.env.NODE_ENV !== "production";
+
   if (pathname.startsWith("/api/preview-render")) {
     return [
       "default-src 'self' https: data: blob:",
@@ -52,14 +57,23 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     ].join("; ");
   }
 
+  const scriptSrc = [`'self'`, `'nonce-${nonce}'`];
+  const connectSrc = [`'self'`, "*.vusercontent.net", "wss:"];
+
+  if (isDev) {
+    // Turbopack and Vercel's local analytics debug script trip CSP in dev.
+    scriptSrc.push("'unsafe-eval'", "https://va.vercel-scripts.com");
+    connectSrc.push("ws:");
+  }
+
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
+    `script-src ${scriptSrc.join(" ")}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: *.vusercontent.net *.blob.vercel-storage.com api.dicebear.com quickchart.io images.unsplash.com images.pexels.com ui.shadcn.com https://ui.shadcn.com",
     "font-src 'self' data:",
     "frame-src 'self' *.vusercontent.net",
-    "connect-src 'self' *.vusercontent.net wss:",
+    `connect-src ${connectSrc.join(" ")}`,
     "media-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
