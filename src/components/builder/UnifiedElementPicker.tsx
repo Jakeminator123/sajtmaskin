@@ -61,6 +61,7 @@ import {
   generatePlacementOptions,
   type DetectedSection,
 } from "@/lib/builder/sectionAnalyzer";
+import type { PlacementOption } from "@/lib/builder/placement-utils";
 import { UiElementPickerPreview } from "./UiElementPickerPreview";
 
 import {
@@ -87,7 +88,7 @@ import {
   type DesignTheme,
 } from "@/lib/builder/theme-presets";
 
-import type { ShadcnBlockAction, ShadcnBlockSelection, PlacementOption } from "./UiElementPicker";
+import type { ShadcnBlockAction, ShadcnBlockSelection } from "./UiElementPicker";
 import { DEFAULT_PLACEMENT_OPTIONS } from "./UiElementPicker";
 
 // ── Types ──

@@ -51,13 +51,12 @@ import {
   generatePlacementOptions,
   type DetectedSection,
 } from "@/lib/builder/sectionAnalyzer";
+import type { PlacementOption } from "@/lib/builder/placement-utils";
 import { UiElementPickerPreview } from "./UiElementPickerPreview";
 
 // ── Exported types ──
 
 export type ShadcnBlockAction = "add" | "start";
-
-export type PlacementOption = string;
 
 export const DEFAULT_PLACEMENT_OPTIONS: {
   value: string;

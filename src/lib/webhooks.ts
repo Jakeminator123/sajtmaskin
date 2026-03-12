@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 export function validateWebhookSecret(request: Request, secret: string): boolean {
   const headerSecret = request.headers.get("x-webhook-secret");
   if (!headerSecret) return false;
@@ -6,8 +8,7 @@ export function validateWebhookSecret(request: Request, secret: string): boolean
   const b = Buffer.from(secret, "utf-8");
   if (a.byteLength !== b.byteLength) return false;
 
-  const nodeCrypto = require("node:crypto") as typeof import("node:crypto");
-  return nodeCrypto.timingSafeEqual(a, b);
+  return timingSafeEqual(a, b);
 }
 
 export function getWebhookSecret(): string {

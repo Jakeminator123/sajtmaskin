@@ -96,17 +96,6 @@ function getLatestUserMessage(messages: ChatMessage[]): ChatMessage | null {
   return null;
 }
 
-function buildCustomizationInstruction(customization: string): string {
-  const trimmed = customization.trim();
-  if (!trimmed) return "";
-  return [
-    "",
-    "Ytterligare implementeringsinstruktion från användaren:",
-    trimmed,
-    "Följ instruktionen ovan samtidigt som du håller vald placering exakt.",
-  ].join("\n");
-}
-
 function buildPlacementPromptMessage(
   request: VisualPlacementRequest,
   placement: PlacementSelectEventDetail,

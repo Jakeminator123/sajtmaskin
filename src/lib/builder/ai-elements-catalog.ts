@@ -1,6 +1,8 @@
-import type { PlacementOption } from "@/components/builder/UiElementPicker";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
-import { getPlacementInstruction } from "@/lib/shadcn-registry-utils";
+import {
+  getPlacementInstruction,
+  type PlacementOption,
+} from "@/lib/builder/placement-utils";
 
 export type AiElementCategory = "chat" | "code" | "workflow" | "tools" | "utility";
 
@@ -13,6 +15,8 @@ export type AiElementCatalogItem = {
   dependencies?: string[];
   promptHints?: string[];
 };
+
+export const AI_ELEMENTS_COMPONENT_TARGET = "src/components/ai-elements/";
 
 export const AI_ELEMENT_CATEGORIES: {
   id: AiElementCategory;
@@ -519,6 +523,7 @@ export function buildAiElementPrompt(
   options: {
     placement?: PlacementOption;
     detectedSections?: DetectedSection[];
+    componentTargetPath?: string;
   } = {},
 ): string {
   const lines: string[] = [];
@@ -531,7 +536,9 @@ export function buildAiElementPrompt(
   } else {
     lines.push("Add it as a new section on the homepage (`app/page.tsx`) below existing content.");
   }
-  lines.push("Create any missing AI element components under `src/components/ai-elements/`.");
+  lines.push(
+    `Create any missing AI element components under \`${options.componentTargetPath ?? AI_ELEMENTS_COMPONENT_TARGET}\`.`,
+  );
   lines.push("Use Tailwind CSS for styling and match the existing design tokens.");
   lines.push("Keep all existing content intact; only append the new section and required components.");
   if (item.promptHints?.length) {
