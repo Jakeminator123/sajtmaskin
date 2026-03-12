@@ -4,7 +4,6 @@ import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manage
 import { buildPreviewHtml } from "@/lib/gen/preview";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
-import { getProjectByIdForRequest } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 
@@ -34,26 +33,19 @@ export async function GET(req: Request) {
     );
   }
 
-  const chat = await getChat(chatId);
-  if (!chat) {
-    return new Response(
-      errorPage("Chat hittades inte", "Chatten kunde inte verifieras för preview-rendering."),
-      { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } },
-    );
-  }
-
-  if (!chat.project_id || !(await getProjectByIdForRequest(req, chat.project_id))) {
-    return new Response(
-      errorPage("Ingen åtkomst", "Du har inte åtkomst till den här preview-versionen."),
-      { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } },
-    );
-  }
-
   if (versionId) {
     const version = await getVersionById(versionId);
     if (!version || version.chat_id !== chatId) {
       return new Response(
         errorPage("Version hittades inte", "Versionen tillhör inte den valda chatten."),
+        { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } },
+      );
+    }
+  } else {
+    const chat = await getChat(chatId);
+    if (!chat) {
+      return new Response(
+        errorPage("Chat hittades inte", "Chatten kunde inte verifieras för preview-rendering."),
         { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } },
       );
     }
