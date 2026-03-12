@@ -20,6 +20,7 @@ export interface Message {
   chat_id: string;
   role: "system" | "user" | "assistant" | "thinking";
   content: string;
+  ui_parts?: Record<string, unknown>[] | null;
   token_count: number | null;
   created_at: string;
 }
@@ -69,6 +70,32 @@ function uuid(): string {
   return crypto.randomUUID();
 }
 
+function parseUiParts(value: unknown): Record<string, unknown>[] | null {
+  if (Array.isArray(value)) {
+    return value.filter(
+      (part): part is Record<string, unknown> => Boolean(part) && typeof part === "object",
+    );
+  }
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (part): part is Record<string, unknown> => Boolean(part) && typeof part === "object",
+        )
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function hydrateMessage(row: Message): Message {
+  return {
+    ...row,
+    ui_parts: parseUiParts((row as Message & { ui_parts?: unknown }).ui_parts),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // CRUD
 // ---------------------------------------------------------------------------
@@ -96,7 +123,8 @@ export function getChat(id: string): ChatWithMessages | null {
 
   const messages = db
     .prepare(`SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC`)
-    .all(chat.id) as Message[];
+    .all(chat.id)
+    .map((row) => hydrateMessage(row as Message));
 
   return { ...chat, messages };
 }
@@ -106,17 +134,25 @@ export function addMessage(
   role: Message["role"],
   content: string,
   tokenCount?: number,
+  uiParts?: Record<string, unknown>[] | null,
 ): Message {
   const db = getDb();
   const id = uuid();
 
   db.prepare(
-    `INSERT INTO messages (id, chat_id, role, content, token_count) VALUES (?, ?, ?, ?, ?)`,
-  ).run(id, chatId, role, content, tokenCount ?? null);
+    `INSERT INTO messages (id, chat_id, role, content, ui_parts, token_count) VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    chatId,
+    role,
+    content,
+    Array.isArray(uiParts) ? JSON.stringify(uiParts) : null,
+    tokenCount ?? null,
+  );
 
   db.prepare(`UPDATE chats SET updated_at = datetime('now') WHERE id = ?`).run(chatId);
 
-  return db.prepare(`SELECT * FROM messages WHERE id = ?`).get(id) as Message;
+  return hydrateMessage(db.prepare(`SELECT * FROM messages WHERE id = ?`).get(id) as Message);
 }
 
 export function createVersion(

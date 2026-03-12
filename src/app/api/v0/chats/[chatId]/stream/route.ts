@@ -36,6 +36,7 @@ import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
 import {
   buildPlanSummaryMessage,
+  buildPlanUiPart,
   enrichPlanArtifactForReview,
 } from "@/lib/gen/plan-review";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
@@ -578,10 +579,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 Array.isArray(planData?.blockers) && (planData.blockers as unknown[]).length > 0;
 
               try {
+                const storedPlanPart = buildPlanUiPart(planData);
                 await chatRepo.addMessage(
                   chatId,
                   "assistant",
                   buildPlanSummaryMessage(planData, hasBlockers),
+                  undefined,
+                  storedPlanPart ? [storedPlanPart] : undefined,
                 );
               } catch (error) {
                 console.warn("[plan] Failed to persist planner assistant summary:", error);

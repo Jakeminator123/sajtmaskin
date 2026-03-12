@@ -1,12 +1,15 @@
 # Phase 8: Plan Persistence And Orchestration Gap
 
+> Resolved on 2026-03-12. Kept as implementation trace for why Plan 8 could be
+> archived after the persistence/orchestration pass.
+
 This note captures the last meaningful Phase 8 uncertainty after the March 2026
 planning pass.
 
 It is intentionally placed in `docs/analyses/` rather than `docs/schemas/`
 because the runtime contract is not fully settled yet.
 
-## Current runtime truth
+## Original gap
 
 - Own-engine chats now support a real plan-mode pass for both new chats and
   follow-up turns.
@@ -16,10 +19,10 @@ because the runtime contract is not fully settled yet.
   follow-up plus `Godkänn plan och bygg`.
 - The approve path already has a canonical execution bridge:
   `buildApprovedPlanExecutionPrompt(plan)` -> regular build message.
-- Engine chat storage still persists only summary text for planner replies.
-  The full plan card lives in message `uiParts`, which currently survive through
-  client state and explicit project saves, not through the raw engine chat
-  history itself.
+- Engine chat storage still persisted only summary text for planner replies.
+  The full plan card lived in message `uiParts`, which survived through client
+  state and explicit project saves, not through the raw engine chat history
+  itself.
 - V0 fallback still bypasses plan mode entirely.
 
 ## Why this is the real remaining gap
@@ -36,6 +39,17 @@ It is that planning is only partially first-class in persistence:
   approve/build flow now runs through the stream routes and prompt handoff
 
 That mismatch makes the implementation look more complete than it actually is.
+
+## Resolution implemented on 2026-03-12
+
+The repo now implements the recommended path:
+
+- `engine_messages` persists `ui_parts` in the own-engine storage path
+- plan-mode stream routes persist the summary text and canonical plan part
+- own-engine chat reload returns `uiParts` from the server path
+- the restore hook can prefer richer server data over an older local snapshot
+- `usePlanExecution.ts` was removed so approve -> build has one clear owner
+- v0 fallback remains explicitly documented as out of scope for plan-mode parity
 
 ## Recommended completion path
 
@@ -102,7 +116,7 @@ Phase 8 can be considered clear when all of the following are true:
 
 ## Lifecycle note
 
-Keep Plan 8 as `active` while this gap remains open.
+This analysis is now historical context rather than an open blocker.
 
-Archive this analysis only when the persistence/orchestration decision is
-implemented and reflected back into the canonical architecture and plan docs.
+Plan 8 can be archived because the persistence/orchestration decision has been
+implemented and reflected back into the canonical docs.

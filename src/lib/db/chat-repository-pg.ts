@@ -38,6 +38,7 @@ export interface Message {
   chat_id: string;
   role: "system" | "user" | "assistant" | "thinking";
   content: string;
+  ui_parts?: Record<string, unknown>[] | null;
   token_count: number | null;
   created_at: string;
 }
@@ -132,6 +133,7 @@ export async function addMessage(
   role: Message["role"],
   content: string,
   tokenCount?: number,
+  uiParts?: Record<string, unknown>[] | null,
 ): Promise<Message> {
   const id = uuid();
   await db.insert(engineMessages).values({
@@ -139,6 +141,7 @@ export async function addMessage(
     chatId,
     role,
     content,
+    uiParts: Array.isArray(uiParts) ? uiParts : null,
     tokenCount: tokenCount ?? null,
   });
   await db

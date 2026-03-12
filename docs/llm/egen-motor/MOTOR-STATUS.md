@@ -1,6 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-12 (plan-mode + trust/readiness-pass)
+> Senast uppdaterad: 2026-03-12 (plan-mode persistence + Phase 8 closure)
 
 ## Arkitektur
 
@@ -113,8 +113,8 @@ Import-checker körs efter merge.
 - KB-sökning är keyword-baserad (embedding planerad men ej implementerad)
 - Preview stubs approximerar shadcn -- inte pixelperfekt
 - Ingen scaffold-medveten retry vid generingsfel
-- Multipage/site-planering finns nu i planartefakten, men inte som fullt
-  persistad chat-sanning eller scaffold-medveten retry
+- Multipage/site-planering finns nu i planartefakten och persisteras for
+  own-engine-chatten, men scaffold-medveten retry saknas fortfarande
 - Plan-mode är i praktiken own-engine-only; v0-fallback bypassar fortfarande den
   review-driven vägen
 
@@ -130,6 +130,8 @@ Import-checker körs efter merge.
 - Create/send-streams kan nu koras i ett riktigt plan-lage for own-engine chats,
   med rikare `PlanArtifact`, blocker-fragor, review-card och en explicit
   approve -> build-brygga.
-- Planner-svaret persisteras idag som sammanfattad chat-text, medan den fulla
-  review-kortstrukturen fortfarande lever i `uiParts`; det ar sista stora
-  Phase 8-glappet innan planner-lagret ar helt serverforankrat.
+- Planner-svaret persisteras nu med canonical `uiParts` i chat-lagret, sa
+  own-engine-chat reload kan aterskapa review-kortet utan att vara beroende av
+  lokal-only state.
+- Den gamla klientorkestratorn `usePlanExecution.ts` ar borttagen; approve ->
+  build ags nu av den serverdrivna promptbryggan.

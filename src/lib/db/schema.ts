@@ -419,6 +419,7 @@ export const engineMessages = pgTable("engine_messages", {
   chatId: text("chat_id").notNull().references(() => engineChats.id),
   role: text("role").notNull(),
   content: text("content").notNull(),
+  uiParts: jsonb("ui_parts").$type<Record<string, unknown>[] | null>(),
   tokenCount: integer("token_count"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

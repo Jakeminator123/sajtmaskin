@@ -48,6 +48,7 @@ import { getAgentTools } from "@/lib/gen/agent-tools";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildPlanSummaryMessage,
+  buildPlanUiPart,
   enrichPlanArtifactForReview,
 } from "@/lib/gen/plan-review";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
@@ -544,10 +545,13 @@ export async function POST(req: Request) {
             });
 
             try {
+              const storedPlanPart = buildPlanUiPart(planData);
               await chatRepo.addMessage(
                 plannerChat.id,
                 "assistant",
                 buildPlanSummaryMessage(planData, hasBlockers),
+                undefined,
+                storedPlanPart ? [storedPlanPart] : undefined,
               );
             } catch (error) {
               console.warn("[plan] Failed to persist planner assistant summary:", error);
@@ -1458,7 +1462,7 @@ export async function POST(req: Request) {
                           chatId: v0ChatId,
                           demoUrl: finalDemoUrl || null,
                           versionId: finalVersionId || null,
-                          messageId: messageId || null,
+                          messageId: lastMessageId,
                           projectId: internalProjectId || null,
                           awaitingInput,
                         }),
@@ -1474,14 +1478,14 @@ export async function POST(req: Request) {
                             id: nanoid(),
                             chatId: internalChatId,
                             v0VersionId: finalVersionId,
-                            v0MessageId: messageId || null,
+                            v0MessageId: lastMessageId,
                             demoUrl: finalDemoUrl || null,
                             metadata: sanitizeV0Metadata(parsed),
                           })
                           .onConflictDoUpdate({
                             target: [versions.chatId, versions.v0VersionId],
                             set: {
-                              v0MessageId: messageId || null,
+                              v0MessageId: lastMessageId,
                               demoUrl: finalDemoUrl ?? null,
                               metadata: sanitizeV0Metadata(parsed),
                             },

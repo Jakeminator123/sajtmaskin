@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS messages (
   chat_id TEXT NOT NULL REFERENCES chats(id),
   role TEXT NOT NULL CHECK(role IN ('system','user','assistant','thinking')),
   content TEXT NOT NULL,
+  ui_parts TEXT,
   token_count INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -98,6 +99,14 @@ function runMigrations(db: Database.Database): void {
   const hasScaffoldId = columns.some((c) => c.name === "scaffold_id");
   if (!hasScaffoldId) {
     db.exec("ALTER TABLE chats ADD COLUMN scaffold_id TEXT;");
+  }
+
+  const messageColumns = db
+    .prepare("PRAGMA table_info(messages)")
+    .all() as Array<{ name: string }>;
+  const hasUiParts = messageColumns.some((c) => c.name === "ui_parts");
+  if (!hasUiParts) {
+    db.exec("ALTER TABLE messages ADD COLUMN ui_parts TEXT;");
   }
 
   const versionColumns = db

@@ -11,6 +11,9 @@ This folder is the canonical human-readable schema area for Sajtmaskin.
   The runtime scaffold manifest contract and validation expectations.
 - `integrations-and-data.md`
   The most important data, validation, and template-library schema surfaces.
+- `chat-message-ui-parts.md`
+  The stable own-engine storage contract for structured builder message parts,
+  including persisted plan-review cards.
 
 Only stable, canonical schema docs belong in this folder. If a schema note is
 still exploratory, partially true, or comparing alternatives, place it in

@@ -15,6 +15,7 @@ Archived plans currently include:
 - `03-v0-env-vars-proper-sdk.md`
 - `04-deploy-sse-webhooks.md`
 - `05-template-search-ui.md`
+- `08-world-class-builder-phase-2-site-planning.md`
 - `11-next-vercel-build-plan-core-config.md`
 - `12-next-vercel-build-plan-server-routes.md`
 - `13-next-vercel-build-plan-ui-performance.md`

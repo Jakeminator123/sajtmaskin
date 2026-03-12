@@ -1,5 +1,8 @@
 # Plan 8: World-Class Builder Phase 2 - Site Planning
 
+> Archived on 2026-03-12 after planner `uiParts` persistence, raw chat reload
+> restore, and removal of the stale client-side plan runner.
+
 ## Goal
 Move more quality decisions before code generation starts.
 
@@ -12,7 +15,6 @@ scaffold strategy before the main generation pass begins.
 Relevant current systems:
 
 - `src/lib/builder/promptAssistContext.ts`
-- `src/lib/hooks/chat/usePlanExecution.ts`
 - `src/lib/gen/agent-tools.ts`
 - `src/lib/gen/orchestrate.ts`
 - `src/lib/gen/scaffolds/`
@@ -34,7 +36,7 @@ Also already in place:
 - earlier message-list performance work gives this phase headroom for richer
   `Build plan` cards and plan review UI
 
-## Implementation status (2026-03-12)
+## Final implementation status (2026-03-12)
 
 Substantial Phase 8 groundwork is now live:
 
@@ -46,19 +48,18 @@ Substantial Phase 8 groundwork is now live:
 - approval already flows into generation through
   `buildApprovedPlanExecutionPrompt(plan)`
 
-The main remaining gap is not the visible review UI, but persistence and
-orchestration clarity:
+The Phase 8 completion pass closed the last coherence gap:
 
-- planner summaries are persisted in chat history, but the full plan card still
-  depends on message `uiParts`
-- raw engine-chat reloads therefore do not yet restore the full structured
-  review state as first-class server truth
-- `usePlanExecution.ts` no longer matches the actual canonical flow and should
-  either be removed or rewritten after persistence lands
-- v0 fallback is still not a plan-mode parity path
+- planner assistant messages now persist canonical `uiParts` in engine chat
+  storage
+- own-engine chat reload can restore the plan review surface from server data
+- `usePlanExecution.ts` has been removed so approve -> build has one canonical
+  owner
+- v0 fallback remains explicitly out of scope for this phase and is documented
+  as a separate limitation rather than a hidden gap
 
-See `docs/analyses/phase-08-plan-persistence-and-orchestration.md` for the
-recommended completion path.
+Any later work on v0 parity or broader planner orchestration should be treated
+as new roadmap work, not as unfinished Plan 8 debt.
 
 ## Workstreams
 
@@ -81,7 +82,7 @@ Implementation direction:
 Primary code:
 - `src/lib/builder/promptAssistContext.ts`
 - `src/lib/gen/plan-schema.ts`
-- `src/lib/hooks/chat/usePlanExecution.ts`
+- `src/lib/gen/plan-review.ts`
 - builder UI under `src/components/builder/`
 
 ### 2. Pre-generation contracts for integrations, databases, and env vars
@@ -166,7 +167,7 @@ Implementation direction:
   truth
 
 Primary code:
-- `src/lib/hooks/chat/usePlanExecution.ts`
+- `src/lib/gen/plan-review.ts`
 - `src/components/builder/MessageList.tsx`
 - `src/components/builder/BuilderHeader.tsx`
 - plan artifact rendering surfaces

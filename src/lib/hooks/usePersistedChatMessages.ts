@@ -24,6 +24,13 @@ function normalizeServerMessages(input: ChatMessage[] | undefined): ChatMessage[
     }));
 }
 
+function countUiParts(messages: ChatMessage[]): number {
+  return messages.reduce(
+    (total, message) => total + (Array.isArray(message.uiParts) ? message.uiParts.length : 0),
+    0,
+  );
+}
+
 export function usePersistedChatMessages(params: {
   chatId: string | null;
   isCreatingChat: boolean;
@@ -50,23 +57,33 @@ export function usePersistedChatMessages(params: {
     if (messages.length > 0) return;
 
     const restored = loadPersistedMessages(chatId);
-    if (restored.length > 0) {
-      setMessages(restored);
-      return;
-    }
+    const normalizedServerMessages = normalizeServerMessages(serverMessages);
 
     if (serverMessagesChatId && serverMessagesChatId !== chatId) {
+      if (restored.length > 0) {
+        setMessages(restored);
+      }
       return;
     }
 
-    const normalizedServerMessages = normalizeServerMessages(serverMessages);
-    if (normalizedServerMessages.length > 0) {
+    const shouldUseServer =
+      normalizedServerMessages.length > 0 &&
+      (restored.length === 0 ||
+        countUiParts(normalizedServerMessages) > countUiParts(restored) ||
+        normalizedServerMessages.length > restored.length);
+
+    if (shouldUseServer) {
       console.info(
-        "[usePersistedChatMessages] Restoring %d messages from server (localStorage was empty)",
+        "[usePersistedChatMessages] Restoring %d messages from server",
         normalizedServerMessages.length,
       );
       setMessages(normalizedServerMessages);
       persistMessages(chatId, normalizedServerMessages);
+      return;
+    }
+
+    if (restored.length > 0) {
+      setMessages(restored);
     }
   }, [
     chatId,

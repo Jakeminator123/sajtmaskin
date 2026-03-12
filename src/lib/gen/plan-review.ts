@@ -101,6 +101,32 @@ export function buildPlanSummaryMessage(
   return `Plan skapad${siteType}: ${pageCount || plan.scope.length} sida/sidor och ${integrationCount} integration(er) är redo för granskning.`;
 }
 
+export function buildPlanUiPart(
+  planData: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  const plan = normalizePlanArtifact(planData);
+  if (!plan) return null;
+
+  return {
+    type: "plan",
+    plan: {
+      title: plan.goal || "Plan",
+      description: plan.scope.join(", "),
+      steps: plan.steps.map((step) => {
+        if (typeof step === "string") return step;
+        return {
+          title: step.title ?? "",
+          description: step.description ?? "",
+          status: step.status ?? "build",
+        };
+      }),
+      blockers: plan.blockers,
+      assumptions: plan.assumptions,
+      raw: planData ?? plan,
+    },
+  };
+}
+
 export function buildApprovedPlanExecutionPrompt(rawPlan: Record<string, unknown>): string {
   const normalized = normalizePlanArtifact(rawPlan);
   if (!normalized) {

@@ -389,6 +389,7 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_version_error_logs_chat_id ON version_error_logs(chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_version_id ON engine_version_error_logs(version_id)`,
   `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_chat_id ON engine_version_error_logs(chat_id)`,
+  `ALTER TABLE engine_messages ADD COLUMN IF NOT EXISTS ui_parts JSONB`,
   `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS release_state TEXT`,
   `UPDATE engine_versions SET release_state = 'promoted' WHERE release_state IS NULL`,
   `ALTER TABLE engine_versions ALTER COLUMN release_state SET DEFAULT 'draft'`,

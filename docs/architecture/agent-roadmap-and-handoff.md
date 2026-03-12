@@ -23,7 +23,7 @@ which ones are old references.
 | `05-template-search-ui.md` | `archived` | Template search UI is implemented; any future context-aware recommendations belong under Phase 2 planning/onboarding |
 | `06-world-class-builder-roadmap.md` | `active` | Strategic top-level roadmap |
 | `07-world-class-builder-phase-1-trust-launch.md` | `active` | Phase 1 implementation scope |
-| `08-world-class-builder-phase-2-site-planning.md` | `active` | Phase 2 planning layer scope |
+| `08-world-class-builder-phase-2-site-planning.md` | `archived` | Completed planning-layer phase for the own-engine path; remaining future parity/orchestration work should be treated as new roadmap scope |
 | `09-world-class-builder-phase-3-smb-growth.md` | `active` | Phase 3 SMB product scope |
 | `10-world-class-builder-phase-4-learning-moat.md` | `active` | Phase 4 differentiation and learning systems scope |
 | `11-next-vercel-build-plan-core-config.md` | `archived` | Completed phased optimization plan (core Next.js config) |
@@ -35,10 +35,12 @@ which ones are old references.
 - Phase `7` is complete enough to build on: lifecycle-aware readiness,
   diagnostics, preview labeling, and deploy gating are now part of the active
   builder path.
-- Phase `8` now has a real planning/review surface in the own-engine path. The
-  remaining completion gap is first-class server persistence of planner
-  `uiParts` plus cleanup of the stale `usePlanExecution.ts` ownership model. See
-  `docs/analyses/phase-08-plan-persistence-and-orchestration.md`.
+- Phase `8` is complete for the own-engine path and can now be treated as
+  archived roadmap work. Planner `uiParts` now round-trip through engine chat
+  storage, raw chat reload restores the review card, and the stale
+  `usePlanExecution.ts` path has been removed. See
+  `docs/analyses/phase-08-plan-persistence-and-orchestration.md` for the
+  closure trace.
 - Phase `9` has started with SEO readiness, scaffold metadata defaults, and
   readiness surfacing, but editorial mode, analytics/conversion setup, SMB
   integration packs, and compare/restore are still ahead.

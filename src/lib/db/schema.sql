@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS messages (
   chat_id TEXT NOT NULL REFERENCES chats(id),
   role TEXT NOT NULL CHECK(role IN ('system','user','assistant','thinking')),
   content TEXT NOT NULL,
+  ui_parts TEXT,
   token_count INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

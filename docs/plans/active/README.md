@@ -8,7 +8,6 @@ Current active roadmap, pending physical migration:
 
 - `../06-world-class-builder-roadmap.md`
 - `../07-world-class-builder-phase-1-trust-launch.md`
-- `../08-world-class-builder-phase-2-site-planning.md`
 - `../09-world-class-builder-phase-3-smb-growth.md`
 - `../10-world-class-builder-phase-4-learning-moat.md`
 

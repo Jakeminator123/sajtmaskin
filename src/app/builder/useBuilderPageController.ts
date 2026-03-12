@@ -39,7 +39,6 @@ import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
-import { usePlanExecution } from "@/lib/hooks/chat/usePlanExecution";
 
 export function useBuilderPageController() {
   const router = useRouter();
@@ -253,10 +252,6 @@ export function useBuilderPageController() {
 
   const sendMessage = rawSendMessage;
 
-  const planExecution = usePlanExecution({
-    sendMessage: rawSendMessage,
-  });
-
   // ── Prompt assist ────────────────────────────────────────────────────
   const { maybeEnhanceInitialPrompt, generateDynamicInstructions } = usePromptAssist({
     model: state.promptAssistModel,
@@ -323,6 +318,12 @@ export function useBuilderPageController() {
     setIsVersionPanelCollapsed: state.setIsVersionPanelCollapsed,
   });
 
+  const routeMessages = Array.isArray((chat as { messages?: unknown[] } | null)?.messages)
+    ? (((chat as { messages?: ChatMessage[] }).messages) ?? [])
+    : [];
+  const restoreMessages = routeMessages.length > 0 ? routeMessages : state.serverProjectMessages;
+  const restoreMessagesChatId = routeMessages.length > 0 ? state.chatId : state.serverProjectChatId;
+
   // ── Persisted messages ───────────────────────────────────────────────
   usePersistedChatMessages({
     chatId: state.chatId,
@@ -330,8 +331,8 @@ export function useBuilderPageController() {
     isAnyStreaming: derived.isAnyStreaming,
     messages: state.messages,
     setMessages: state.setMessages,
-    serverMessages: state.serverProjectMessages,
-    serverMessagesChatId: state.serverProjectChatId,
+    serverMessages: restoreMessages,
+    serverMessagesChatId: restoreMessagesChatId,
   });
 
   // ── Template init effects ────────────────────────────────────────────
@@ -1352,8 +1353,6 @@ export function useBuilderPageController() {
     handleVersionSelect: builderCallbacks.handleVersionSelect,
     handleToggleVersionPanel: builderCallbacks.handleToggleVersionPanel,
 
-    // Plan execution
-    planExecution,
   };
 }
 
