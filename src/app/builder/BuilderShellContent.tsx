@@ -719,6 +719,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       </div>
 
       <PlacementConfirmDialog
+        key={`${pendingPlacementItem?.title}-${placementSelection?.placementLabel}`}
         open={placementConfirmOpen && Boolean(pendingPlacementRequest) && Boolean(placementSelection)}
         elementName={pendingPlacementItem?.title || "Element"}
         elementDescription={pendingPlacementItem?.description}
