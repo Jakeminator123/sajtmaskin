@@ -5,10 +5,17 @@ import type {
   TemplateLibraryEmbeddingsFile,
   TemplateLibraryEmbeddingEntry,
 } from "./embeddings-core";
-import type { TemplateLibraryEntry, TemplateLibrarySearchResult } from "./types";
+import type {
+  TemplateLibraryEntry,
+  TemplateLibrarySearchResult,
+  TemplateLibrarySelectedFile,
+} from "./types";
 
 const DEFAULT_TOP_K = 3;
 const MIN_EMBEDDING_SCORE = 0.3;
+const DEFAULT_MAX_REFERENCE_FILES = 2;
+const DEFAULT_MAX_EXCERPT_CHARS = 900;
+const DEFAULT_MAX_TOTAL_CHARS = 1800;
 const STOPWORDS = new Set([
   "en", "ett", "och", "med", "som", "för", "att", "jag", "vill", "ha", "den", "det", "är", "ska",
   "a", "an", "the", "and", "with", "for", "that", "this", "is", "it", "to", "of", "in", "my", "me",
@@ -90,6 +97,48 @@ function cosineSimilarity(a: number[], b: number[]): number {
   }
   const denom = Math.sqrt(normA) * Math.sqrt(normB);
   return denom === 0 ? 0 : dot / denom;
+}
+
+function trimExcerpt(excerpt: string, maxChars: number): string {
+  const normalized = excerpt.trim();
+  if (normalized.length <= maxChars) return normalized;
+  const slice = normalized.slice(0, maxChars);
+  const lastFence = slice.lastIndexOf("```");
+  const lastNewline = slice.lastIndexOf("\n");
+  const safeEnd = Math.max(lastFence > maxChars - 12 ? -1 : lastFence, lastNewline);
+  const trimmed = (safeEnd > 120 ? slice.slice(0, safeEnd) : slice).trimEnd();
+  return `${trimmed}\n\n// ... truncated for prompt budget`;
+}
+
+export function selectTemplateReferenceFiles(
+  entry: TemplateLibraryEntry,
+  options?: {
+    maxFiles?: number;
+    maxExcerptChars?: number;
+    maxTotalChars?: number;
+  },
+): TemplateLibrarySelectedFile[] {
+  const maxFiles = options?.maxFiles ?? DEFAULT_MAX_REFERENCE_FILES;
+  const maxExcerptChars = options?.maxExcerptChars ?? DEFAULT_MAX_EXCERPT_CHARS;
+  const maxTotalChars = options?.maxTotalChars ?? DEFAULT_MAX_TOTAL_CHARS;
+
+  let totalChars = 0;
+  const selected: TemplateLibrarySelectedFile[] = [];
+
+  for (const file of entry.selectedFiles) {
+    if (selected.length >= maxFiles) break;
+    const excerpt = trimExcerpt(file.excerpt, maxExcerptChars);
+    const nextTotal = totalChars + excerpt.length;
+    if (selected.length > 0 && nextTotal > maxTotalChars) break;
+
+    selected.push({
+      ...file,
+      excerpt,
+    });
+    totalChars = nextTotal;
+  }
+
+  return selected;
 }
 
 export async function searchTemplateLibrary(

@@ -243,6 +243,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               chatId: vm.chatId,
               activeVersionId: vm.activeVersionId,
               demoUrl: vm.currentDemoUrl,
+              uiSurfaces: [
+                "vänster chatpanel",
+                "Launch readiness-kortet",
+                "previewpanelen",
+                "sidchipsen under Preview",
+                "Kodvy",
+                "Elementregister",
+                "versionspanelen till höger",
+                "Projektets miljövariabler",
+                "Publicera-knappen",
+                "den genererade sidan/koden",
+              ],
               recentMessages: buildRecentContextMessages(vm.messages),
               latestUserMessage: latestUser?.content?.slice(0, TIP_USER_MESSAGE_MAX_CHARS) || "",
               latestAssistantMessage: assistantMessage.content.slice(

@@ -44,15 +44,47 @@ type PreviewValidationIssue = {
   severity: "error" | "warning";
 };
 
+const PREVIEW_BUILTIN_SOURCES = new Set([
+  "react",
+  "next/image",
+  "next/link",
+  "next/navigation",
+  "lucide-react",
+  "framer-motion",
+  "motion/react",
+  "recharts",
+  "three",
+  "@react-three/fiber",
+  "@react-three/drei",
+  "sonner",
+  "embla-carousel-react",
+  "react-hook-form",
+  "@hookform/resolvers",
+  "@hookform/resolvers/zod",
+  "zod",
+  "date-fns",
+  "date-fns/format",
+  "date-fns/locale",
+  "cmdk",
+  "vaul",
+  "zustand",
+  "swr",
+  "next-themes",
+  "react-day-picker",
+  "input-otp",
+  "react-resizable-panels",
+  "class-variance-authority",
+  "clsx",
+  "tailwind-merge",
+  "@tanstack/react-table",
+  "@tanstack/react-query",
+]);
+
 function isPreviewBuiltinImportSource(source: string): boolean {
-  return (
-    source === "react" ||
-    source === "next/image" ||
-    source === "next/link" ||
-    source === "next/navigation" ||
-    source === "lucide-react" ||
-    isRuntimeProvidedImport(source)
-  );
+  if (PREVIEW_BUILTIN_SOURCES.has(source)) return true;
+  if (source.startsWith("@radix-ui/")) return true;
+  if (source.startsWith("date-fns/")) return true;
+  return isRuntimeProvidedImport(source);
 }
 
 function escapeRegExp(value: string): string {
@@ -453,6 +485,20 @@ function normalizeTranspiledModule(
       result = result.replace(fullMatch, "");
       result = result.replace(defaultRe, "React");
       result = result.replace(memberRe, "React.$1");
+      continue;
+    }
+
+    if (source === "framer-motion" || source === "motion/react") {
+      result = result.replace(fullMatch, "");
+      result = result.replace(memberRe, "$1");
+      result = result.replace(defaultRe, "motion");
+      continue;
+    }
+
+    if (PREVIEW_BUILTIN_SOURCES.has(source) || source.startsWith("@radix-ui/") || source.startsWith("date-fns/")) {
+      result = result.replace(fullMatch, "");
+      result = result.replace(memberRe, "$1");
+      result = result.replace(defaultRe, varName);
       continue;
     }
 
@@ -913,6 +959,130 @@ function buildPreviewPrelude(modules: PreparedModule[], routePath: string): stri
     "    );",
     "  });",
     "}",
+    "var motion = new Proxy({}, {",
+    "  get: function(_, tag) {",
+    "    if (typeof tag !== 'string') return undefined;",
+    "    return React.forwardRef(function MotionShim(props, ref) {",
+    "      var { initial, animate, exit, transition, whileHover, whileInView, whileTap, whileFocus, whileDrag, variants, drag, dragConstraints, layout, layoutId, onAnimationComplete, onAnimationStart, onDrag, onDragEnd, onDragStart, viewport, ...rest } = props || {};",
+    "      return React.createElement(tag, { ...rest, ref });",
+    "    });",
+    "  }",
+    "});",
+    "var AnimatePresence = function AnimatePresence(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var useMotionValue = function() { return { get: function() { return 0; }, set: function() {}, on: function() { return function(){}; } }; };",
+    "var useTransform = function() { return { get: function() { return 0; } }; };",
+    "var useSpring = function(v) { return v || { get: function() { return 0; } }; };",
+    "var useScroll = function() { return { scrollY: { get: function() { return 0; } }, scrollYProgress: { get: function() { return 0; } }, scrollX: { get: function() { return 0; } }, scrollXProgress: { get: function() { return 0; } } }; };",
+    "var useInView = function() { return false; };",
+    "var useAnimation = function() { return { start: function() { return Promise.resolve(); }, stop: function() {}, set: function() {} }; };",
+
+    "var __chartShim = React.forwardRef(function ChartShim(props, ref) {",
+    "  var { children, data, width, height, className, style, ...rest } = props || {};",
+    "  var w = width || '100%'; var h = height || 300;",
+    "  return React.createElement('div', { ref, className, style: { width: typeof w === 'number' ? w + 'px' : w, height: typeof h === 'number' ? h + 'px' : h, background: 'var(--muted, #1e293b)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-foreground, #94a3b8)', fontSize: '14px', ...style } },",
+    "    children || '[Chart]'",
+    "  );",
+    "});",
+    "var __chartChildShim = function(props) { return null; };",
+    "var AreaChart = __chartShim; var BarChart = __chartShim; var LineChart = __chartShim;",
+    "var PieChart = __chartShim; var RadarChart = __chartShim; var RadialBarChart = __chartShim;",
+    "var ComposedChart = __chartShim; var ScatterChart = __chartShim; var Treemap = __chartShim;",
+    "var ResponsiveContainer = function(props) { return React.createElement('div', { style: { width: '100%', height: props?.height || 300 } }, props?.children); };",
+    "var Area = __chartChildShim; var Bar = __chartChildShim; var Line = __chartChildShim;",
+    "var Pie = __chartChildShim; var Cell = __chartChildShim; var Scatter = __chartChildShim;",
+    "var XAxis = __chartChildShim; var YAxis = __chartChildShim; var ZAxis = __chartChildShim;",
+    "var CartesianGrid = __chartChildShim; var Tooltip = function(p){ return null; };",
+    "var Legend = __chartChildShim; var Brush = __chartChildShim; var ReferenceLine = __chartChildShim;",
+    "var ReferenceArea = __chartChildShim; var Radar = __chartChildShim; var PolarGrid = __chartChildShim;",
+    "var PolarAngleAxis = __chartChildShim; var PolarRadiusAxis = __chartChildShim;",
+    "var RadialBar = __chartChildShim; var Funnel = __chartChildShim; var FunnelChart = __chartShim;",
+
+    "var Canvas = function(props) { return React.createElement('div', { style: { width: '100%', height: '400px', background: '#0a0a0a', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: '14px' } }, '[3D Canvas]'); };",
+    "var useFrame = function() {};",
+    "var useThree = function() { return { gl: {}, scene: {}, camera: {}, size: { width: 800, height: 600 }, viewport: { width: 8, height: 6 } }; };",
+    "var useLoader = function() { return {}; };",
+    "var Html = function(props) { return React.createElement('div', null, props?.children); };",
+    "var OrbitControls = function() { return null; };",
+    "var PerspectiveCamera = function() { return null; };",
+    "var Environment = function() { return null; };",
+    "var Stars = function() { return null; };",
+    "var Float = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var Text3D = function(props) { return React.createElement('span', null, props?.children || ''); };",
+    "var Center = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var useGLTF = function() { return { scene: {}, nodes: {}, materials: {} }; };",
+    "var MeshDistortMaterial = function() { return null; };",
+    "var Sphere = function() { return null; };",
+    "var Box = function() { return null; };",
+
+    "var toast = function() {};",
+    "toast.success = function() {}; toast.error = function() {}; toast.info = function() {};",
+    "toast.warning = function() {}; toast.loading = function() {}; toast.dismiss = function() {};",
+    "toast.promise = function(p) { return p; }; toast.custom = function() {};",
+
+    "var useEmblaCarousel = function() { return [function(node){}, { canScrollPrev: function(){return false}, canScrollNext: function(){return false}, scrollPrev: function(){}, scrollNext: function(){}, on: function(){return function(){}}, off: function(){} }]; };",
+
+    "var useForm = function(opts) { return { register: function(n){return{name:n,onChange:function(){},onBlur:function(){},ref:function(){}}}, handleSubmit: function(fn){return function(e){e&&e.preventDefault&&e.preventDefault();fn({})}}, formState: {errors:{},isSubmitting:false,isValid:true,isDirty:false}, watch: function(){return undefined}, setValue: function(){}, getValues: function(){return {}}, reset: function(){}, control: {}, trigger: function(){return Promise.resolve(true)} }; };",
+    "var FormProvider = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var useFormContext = function() { return useForm(); };",
+    "var Controller = function(props) { return props?.render ? props.render({ field: { value: '', onChange: function(){}, onBlur: function(){}, name: props.name || '', ref: function(){} }, fieldState: { error: undefined }, formState: { errors: {} } }) : null; };",
+    "var zodResolver = function() { return function() { return { values: {}, errors: {} }; }; };",
+    "var z = { string: function(){return z}, number: function(){return z}, boolean: function(){return z}, object: function(){return z}, array: function(){return z}, enum: function(){return z}, optional: function(){return z}, min: function(){return z}, max: function(){return z}, email: function(){return z}, url: function(){return z}, regex: function(){return z}, refine: function(){return z}, transform: function(){return z}, default: function(){return z}, nullable: function(){return z}, union: function(){return z}, intersection: function(){return z}, literal: function(){return z}, coerce: { string: function(){return z}, number: function(){return z} }, infer: undefined, parse: function(v){return v}, safeParse: function(v){return {success:true,data:v}} };",
+
+    "var format = function(d, f) { try { return new Date(d).toLocaleDateString(); } catch { return String(d); } };",
+    "var formatDistance = function() { return ''; };",
+    "var formatRelative = function() { return ''; };",
+    "var parseISO = function(s) { return new Date(s); };",
+    "var isValid = function(d) { return d instanceof Date && !isNaN(d.getTime()); };",
+    "var addDays = function(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; };",
+    "var subDays = function(d, n) { return addDays(d, -n); };",
+    "var isBefore = function(a, b) { return new Date(a) < new Date(b); };",
+    "var isAfter = function(a, b) { return new Date(a) > new Date(b); };",
+    "var startOfMonth = function(d) { var r = new Date(d); r.setDate(1); return r; };",
+    "var endOfMonth = function(d) { var r = new Date(d); r.setMonth(r.getMonth() + 1, 0); return r; };",
+
+    "var Command = __previewPrimitive('div');",
+    "var CommandDialog = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var CommandEmpty = __previewStyled('div', { padding: '24px', textAlign: 'center', color: 'var(--muted-foreground)', fontSize: '14px' });",
+    "var CommandGroup = __previewPrimitive('div');",
+    "var CommandInput = __previewStyled('input', { width: '100%', padding: '8px 12px', border: 'none', background: 'transparent', outline: 'none', fontSize: '14px', color: 'inherit' });",
+    "var CommandItem = __previewStyled('div', { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', cursor: 'pointer', fontSize: '14px' });",
+    "var CommandList = __previewPrimitive('div');",
+    "var CommandSeparator = __previewStyled('hr', { border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' });",
+
+    "var Drawer = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var DrawerPortal = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var DrawerOverlay = function() { return null; };",
+
+    "var create = function(fn) { var state = typeof fn === 'function' ? fn(function(){}, function(){return state}, { getState: function(){return state} }) : fn; return function(selector) { return selector ? selector(state) : state; }; };",
+
+    "var useSWR = function(key, fetcher) { return { data: undefined, error: undefined, isLoading: false, isValidating: false, mutate: function(){} }; };",
+
+    "var ThemeProvider = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var useTheme = function() { return { theme: 'dark', setTheme: function(){}, resolvedTheme: 'dark', themes: ['light','dark'], systemTheme: 'dark' }; };",
+
+    "var DayPicker = function(props) { return React.createElement('div', { style: { padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', color: 'var(--foreground)' } }, '[Calendar]'); };",
+
+    "var OTPInput = __previewStyled('input', { width: '40px', height: '40px', textAlign: 'center', fontSize: '18px', border: '1px solid var(--border)', borderRadius: 'var(--radius, 0.5rem)', background: 'var(--background)', color: 'var(--foreground)' });",
+    "var REGEXP_ONLY_DIGITS = /^\\d+$/;",
+    "var REGEXP_ONLY_DIGITS_AND_CHARS = /^[a-zA-Z0-9]+$/;",
+
+    "var Panel = __previewStyled('div', { overflow: 'auto', height: '100%' });",
+    "var PanelGroup = __previewStyled('div', { display: 'flex', height: '100%', width: '100%' });",
+    "var PanelResizeHandle = __previewStyled('div', { width: '4px', background: 'var(--border)', cursor: 'col-resize', flexShrink: 0 });",
+
+    "var cva = function(base) { return function(props) { return base || ''; }; };",
+
+    "var flexRender = function(comp, props) { if (typeof comp === 'function') return comp(props); return comp; };",
+    "var getCoreRowModel = function() { return function() { return { rows: [] }; }; };",
+    "var useReactTable = function(opts) { return { getHeaderGroups: function(){return []}, getRowModel: function(){return {rows: []}}, getCanPreviousPage: function(){return false}, getCanNextPage: function(){return false}, previousPage: function(){}, nextPage: function(){}, getState: function(){return {sorting:[],columnFilters:[],pagination:{pageIndex:0,pageSize:10}}}, setSorting: function(){}, setColumnFilters: function(){}, setGlobalFilter: function(){} }; };",
+    "var getSortedRowModel = function() { return function() { return { rows: [] }; }; };",
+    "var getFilteredRowModel = function() { return function() { return { rows: [] }; }; };",
+    "var getPaginationRowModel = function() { return function() { return { rows: [] }; }; };",
+
+    "var QueryClient = function() { return {}; };",
+    "var QueryClientProvider = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var useQuery = function() { return { data: undefined, error: null, isLoading: false, isError: false, refetch: function(){} }; };",
+    "var useMutation = function() { return { mutate: function(){}, mutateAsync: function(){return Promise.resolve()}, isLoading: false, isError: false, error: null }; };",
   ];
 
   const emitted = new Set<string>();
@@ -977,6 +1147,232 @@ function buildPreviewPrelude(modules: PreparedModule[], routePath: string): stri
         for (const binding of imp.namedImports) {
           emitBinding(binding.local, `__previewGetIcon(${JSON.stringify(binding.imported)})`);
         }
+        continue;
+      }
+
+      if (imp.source === "framer-motion" || imp.source === "motion/react") {
+        if (imp.defaultImport) {
+          emitBinding(imp.defaultImport, "motion");
+        }
+        if (imp.namespaceImport) {
+          emitBinding(imp.namespaceImport, "{ motion, AnimatePresence, useMotionValue, useTransform, useSpring, useScroll, useInView, useAnimation }");
+        }
+        for (const binding of imp.namedImports) {
+          const knownShims: Record<string, string> = {
+            motion: "motion",
+            AnimatePresence: "AnimatePresence",
+            useMotionValue: "useMotionValue",
+            useTransform: "useTransform",
+            useSpring: "useSpring",
+            useScroll: "useScroll",
+            useInView: "useInView",
+            useAnimation: "useAnimation",
+          };
+          const shimValue = knownShims[binding.imported];
+          if (shimValue) {
+            emitBinding(binding.local, shimValue);
+          } else {
+            emitBinding(binding.local, "() => undefined");
+          }
+        }
+        continue;
+      }
+
+      if (imp.source === "recharts") {
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported);
+        }
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "{}");
+        continue;
+      }
+
+      if (imp.source === "three" || imp.source === "@react-three/fiber" || imp.source === "@react-three/drei") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "{}");
+        if (imp.namespaceImport) emitBinding(imp.namespaceImport, "{}");
+        for (const binding of imp.namedImports) {
+          const knownR3f: Record<string, string> = {
+            Canvas: "Canvas", useFrame: "useFrame", useThree: "useThree", useLoader: "useLoader",
+            Html: "Html", OrbitControls: "OrbitControls", PerspectiveCamera: "PerspectiveCamera",
+            Environment: "Environment", Stars: "Stars", Float: "Float", Text3D: "Text3D",
+            Center: "Center", useGLTF: "useGLTF", MeshDistortMaterial: "MeshDistortMaterial",
+            Sphere: "Sphere", Box: "Box",
+          };
+          const shimValue = knownR3f[binding.imported];
+          emitBinding(binding.local, shimValue || "function() { return null; }");
+        }
+        continue;
+      }
+
+      if (imp.source === "sonner") {
+        for (const binding of imp.namedImports) {
+          if (binding.imported === "toast") emitBinding(binding.local, "toast");
+          else if (binding.imported === "Toaster") emitBinding(binding.local, "function() { return null; }");
+          else emitBinding(binding.local, "function() {}");
+        }
+        continue;
+      }
+
+      if (imp.source === "embla-carousel-react") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "useEmblaCarousel");
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported === "default" ? "useEmblaCarousel" : "useEmblaCarousel");
+        }
+        continue;
+      }
+
+      if (imp.source === "react-hook-form") {
+        for (const binding of imp.namedImports) {
+          const knownRhf: Record<string, string> = {
+            useForm: "useForm", FormProvider: "FormProvider",
+            useFormContext: "useFormContext", Controller: "Controller",
+          };
+          emitBinding(binding.local, knownRhf[binding.imported] || "function() {}");
+        }
+        continue;
+      }
+
+      if (imp.source === "zod") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "z");
+        if (imp.namespaceImport) emitBinding(imp.namespaceImport, "z");
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported === "z" ? "z" : "z");
+        }
+        continue;
+      }
+
+      if (imp.source === "@hookform/resolvers" || imp.source === "@hookform/resolvers/zod") {
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported === "zodResolver" ? "zodResolver" : "function() { return function() { return { values: {}, errors: {} }; }; }");
+        }
+        continue;
+      }
+
+      if (imp.source === "date-fns" || imp.source.startsWith("date-fns/")) {
+        const knownDateFns: Record<string, string> = {
+          format: "format", formatDistance: "formatDistance", formatRelative: "formatRelative",
+          parseISO: "parseISO", isValid: "isValid", addDays: "addDays", subDays: "subDays",
+          isBefore: "isBefore", isAfter: "isAfter", startOfMonth: "startOfMonth", endOfMonth: "endOfMonth",
+        };
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, knownDateFns[binding.imported] || "function() { return ''; }");
+        }
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "format");
+        continue;
+      }
+
+      if (imp.source === "cmdk") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "Command");
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported);
+        }
+        continue;
+      }
+
+      if (imp.source === "vaul") {
+        for (const binding of imp.namedImports) {
+          const knownVaul: Record<string, string> = { Drawer: "Drawer", DrawerPortal: "DrawerPortal", DrawerOverlay: "DrawerOverlay" };
+          emitBinding(binding.local, knownVaul[binding.imported] || "__previewPrimitive('div')");
+        }
+        continue;
+      }
+
+      if (imp.source === "zustand") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "create");
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported === "create" ? "create" : "function() {}");
+        }
+        continue;
+      }
+
+      if (imp.source === "swr") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "useSWR");
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported === "default" ? "useSWR" : "useSWR");
+        }
+        continue;
+      }
+
+      if (imp.source === "next-themes") {
+        for (const binding of imp.namedImports) {
+          const knownNT: Record<string, string> = { ThemeProvider: "ThemeProvider", useTheme: "useTheme" };
+          emitBinding(binding.local, knownNT[binding.imported] || "function() {}");
+        }
+        continue;
+      }
+
+      if (imp.source === "react-day-picker") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "DayPicker");
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported === "DayPicker" ? "DayPicker" : "function() { return null; }");
+        }
+        continue;
+      }
+
+      if (imp.source === "input-otp") {
+        for (const binding of imp.namedImports) {
+          const knownOtp: Record<string, string> = {
+            OTPInput: "OTPInput", REGEXP_ONLY_DIGITS: "REGEXP_ONLY_DIGITS",
+            REGEXP_ONLY_DIGITS_AND_CHARS: "REGEXP_ONLY_DIGITS_AND_CHARS",
+          };
+          emitBinding(binding.local, knownOtp[binding.imported] || "__previewPrimitive('input')");
+        }
+        continue;
+      }
+
+      if (imp.source === "react-resizable-panels") {
+        const knownPanels: Record<string, string> = {
+          Panel: "Panel", PanelGroup: "PanelGroup", PanelResizeHandle: "PanelResizeHandle",
+        };
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, knownPanels[binding.imported] || "__previewPrimitive('div')");
+        }
+        continue;
+      }
+
+      if (imp.source === "class-variance-authority") {
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, binding.imported === "cva" ? "cva" : "function() { return ''; }");
+        }
+        continue;
+      }
+
+      if (imp.source === "clsx" || imp.source === "tailwind-merge") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "__previewCn");
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, "__previewCn");
+        }
+        continue;
+      }
+
+      if (imp.source === "@tanstack/react-table") {
+        const knownTable: Record<string, string> = {
+          flexRender: "flexRender", getCoreRowModel: "getCoreRowModel",
+          useReactTable: "useReactTable", getSortedRowModel: "getSortedRowModel",
+          getFilteredRowModel: "getFilteredRowModel", getPaginationRowModel: "getPaginationRowModel",
+        };
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, knownTable[binding.imported] || "function() {}");
+        }
+        continue;
+      }
+
+      if (imp.source === "@tanstack/react-query") {
+        const knownRQ: Record<string, string> = {
+          QueryClient: "QueryClient", QueryClientProvider: "QueryClientProvider",
+          useQuery: "useQuery", useMutation: "useMutation",
+        };
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, knownRQ[binding.imported] || "function() {}");
+        }
+        continue;
+      }
+
+      if (imp.source.startsWith("@radix-ui/")) {
+        for (const binding of imp.namedImports) {
+          emitBinding(binding.local, "__previewPrimitive('div')");
+        }
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "__previewPrimitive('div')");
+        if (imp.namespaceImport) emitBinding(imp.namespaceImport, "new Proxy({}, { get: () => __previewPrimitive('div') })");
         continue;
       }
 

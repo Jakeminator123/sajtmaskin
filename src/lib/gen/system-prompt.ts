@@ -19,7 +19,7 @@ import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palett
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { searchKnowledgeBaseAsync } from "./context/knowledge-base";
 import { enrichWithRegistry } from "./context/registry-enricher";
-import { searchTemplateLibrary } from "./template-library/search";
+import { searchTemplateLibrary, selectTemplateReferenceFiles } from "./template-library/search";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — never changes per request (prompt-cache optimized)
@@ -679,6 +679,32 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
           );
         }
         parts.push("");
+      }
+
+      const snippetMatches = usefulTemplateMatches
+        .slice(0, 2)
+        .map((match) => ({
+          match,
+          files: selectTemplateReferenceFiles(match.entry),
+        }))
+        .filter((item) => item.files.length > 0);
+
+      if (snippetMatches.length > 0) {
+        parts.push(
+          "## Reference Code Snippets",
+          "",
+          "Use these as structural inspiration only. Adapt them to the selected scaffold, prompt, and current project constraints.",
+          "",
+        );
+        for (const { match, files } of snippetMatches) {
+          parts.push(`### ${match.entry.title}`, "");
+          for (const file of files) {
+            parts.push(`- ${file.path} — ${file.reason}`, "");
+            parts.push("```text");
+            parts.push(file.excerpt);
+            parts.push("```", "");
+          }
+        }
       }
     }
   }

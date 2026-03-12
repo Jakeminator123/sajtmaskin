@@ -120,6 +120,68 @@ function buildOwnEngineRoutePreviewUrl(currentUrl: string, nextHref: string): st
   }
 }
 
+function buildExternalRoutePreviewUrl(currentUrl: string, nextHref: string): string | null {
+  const href = nextHref.trim();
+  if (!href.startsWith("/")) return null;
+
+  try {
+    const url = new URL(currentUrl, window.location.origin);
+    url.pathname = href;
+    return currentUrl.startsWith("/") ? `${url.pathname}${url.search}` : url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function extractPreviewRoutesFromFileNames(fileNames: string[]): string[] {
+  const routes = new Set<string>();
+
+  const pushRoute = (segments: string[]) => {
+    const normalized = segments
+      .filter(Boolean)
+      .map((segment) => segment.trim())
+      .filter((segment) => segment && !segment.startsWith("(") && !segment.startsWith("@"));
+    if (normalized.some((segment) => segment.includes("[") || segment.includes("]"))) return;
+    routes.add(normalized.length > 0 ? `/${normalized.join("/")}` : "/");
+  };
+
+  for (const rawName of fileNames) {
+    const name = rawName.replace(/\\/g, "/");
+
+    const appMatch = name.match(/^(?:src\/)?app\/(.+)$/);
+    if (appMatch) {
+      const relative = appMatch[1];
+      if (relative === "page.tsx" || relative.endsWith("/page.tsx")) {
+        const routeDir = relative.replace(/\/?page\.tsx$/, "");
+        pushRoute(routeDir ? routeDir.split("/") : []);
+      }
+      continue;
+    }
+
+    const pagesMatch = name.match(/^pages\/(.+)$/);
+    if (pagesMatch) {
+      const relative = pagesMatch[1];
+      if (relative.startsWith("api/")) continue;
+      if (!/\.(tsx|ts|jsx|js)$/.test(relative)) continue;
+      const routeFile = relative.replace(/\.(tsx|ts|jsx|js)$/, "");
+      const routePath = routeFile.endsWith("/index")
+        ? routeFile.slice(0, -"/index".length)
+        : routeFile === "index"
+          ? ""
+          : routeFile;
+      pushRoute(routePath ? routePath.split("/") : []);
+    }
+  }
+
+  const orderedRoutes = Array.from(routes).sort((a, b) => {
+    if (a === "/") return -1;
+    if (b === "/") return 1;
+    if (a.length !== b.length) return a.length - b.length;
+    return a.localeCompare(b);
+  });
+  return orderedRoutes;
+}
+
 interface PreviewPanelProps {
   chatId: string | null;
   versionId: string | null;
@@ -189,6 +251,8 @@ export function PreviewPanel({
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesError, setFilesError] = useState<string | null>(null);
+  const [previewRoutes, setPreviewRoutes] = useState<string[]>([]);
+  const [previewRoutesLoading, setPreviewRoutesLoading] = useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
   const { integrationStatus, integrationError } = useIntegrationStatus(demoUrl);
@@ -304,6 +368,33 @@ export function PreviewPanel({
       /* best-effort */
     }
   }, [chatId, versionId, files.length]);
+
+  const fetchPreviewRoutes = useCallback(async () => {
+    if (!chatId || !versionId) {
+      setPreviewRoutes([]);
+      return;
+    }
+
+    setPreviewRoutesLoading(true);
+    try {
+      const response = await fetch(
+        `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
+      );
+      const data = (await response.json().catch(() => null)) as {
+        files?: Array<{ name: string }>;
+      } | null;
+      if (!response.ok) {
+        setPreviewRoutes([]);
+        return;
+      }
+      const fileNames = Array.isArray(data?.files) ? data.files.map((file) => file.name) : [];
+      setPreviewRoutes(extractPreviewRoutesFromFileNames(fileNames));
+    } catch {
+      setPreviewRoutes([]);
+    } finally {
+      setPreviewRoutesLoading(false);
+    }
+  }, [chatId, versionId]);
 
   const fetchElementMap = useCallback(async (
     url: string,
@@ -727,6 +818,10 @@ export function PreviewPanel({
   }, [demoUrl, refreshToken]);
 
   useEffect(() => {
+    void fetchPreviewRoutes();
+  }, [fetchPreviewRoutes]);
+
+  useEffect(() => {
     let renderReportedForVersion: string | null = null;
 
     const handlePreviewMessage = (event: MessageEvent<PreviewIframeMessage>) => {
@@ -1044,6 +1139,34 @@ export function PreviewPanel({
     if (demoUrl) window.open(demoUrl, "_blank", "noopener,noreferrer");
   };
 
+  const activePreviewRoute = useMemo(() => {
+    if (!demoUrl) return null;
+    try {
+      if (isOwnEnginePreview) {
+        const current = new URL(demoUrl, window.location.origin);
+        return current.searchParams.get("route") || "/";
+      }
+      const current = new URL(demoUrl, window.location.origin);
+      return current.pathname || "/";
+    } catch {
+      return null;
+    }
+  }, [demoUrl, isOwnEnginePreview]);
+
+  const handleNavigateRoute = useCallback(
+    (route: string) => {
+      if (!demoUrl) return;
+      const nextUrl = isOwnEnginePreview
+        ? buildOwnEngineRoutePreviewUrl(demoUrl, route)
+        : buildExternalRoutePreviewUrl(demoUrl, route);
+      if (!nextUrl || nextUrl === demoUrl) return;
+      onNavigatePreviewUrl?.(nextUrl);
+      setIframeLoading(true);
+      setIframeError(false);
+    },
+    [demoUrl, isOwnEnginePreview, onNavigatePreviewUrl],
+  );
+
   const handleClear = () => {
     if (!onClear) return;
     clearPreviewReadyTimer();
@@ -1218,6 +1341,33 @@ export function PreviewPanel({
       <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
         {surfaceDescriptor.detail}
       </div>
+      {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0) && (
+        <div className="border-b border-gray-800 bg-black/30 px-4 py-2">
+          <div className="mb-1 text-[11px] font-medium text-gray-300">Sidor i skapad preview</div>
+          <div className="flex flex-wrap gap-1.5">
+            {previewRoutesLoading && previewRoutes.length === 0 ? (
+              <span className="text-[11px] text-gray-500">Läser routes från versionens filer...</span>
+            ) : (
+              previewRoutes.map((route) => (
+                <Button
+                  key={route}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "h-6 border-gray-700 px-2 text-[11px] text-gray-300 hover:bg-gray-800 hover:text-white",
+                    activePreviewRoute === route && "border-sky-500/60 bg-sky-500/10 text-sky-200",
+                  )}
+                  onClick={() => handleNavigateRoute(route)}
+                  title={`Visa ${route}`}
+                >
+                  {route}
+                </Button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
       {!isCodeView && !isOwnEnginePreview && (showBlobWarning || showExternalWarning || showSandboxWarning || integrationError || showImagesDisabledWarning || showImagesUnsupportedWarning || showBlobConfigWarning) && (
         <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
           {showExternalWarning && <div>Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media via mediabiblioteket för publika Blob‑URL:er.</div>}

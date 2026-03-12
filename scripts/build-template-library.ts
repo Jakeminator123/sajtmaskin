@@ -22,6 +22,7 @@ import {
   writeJson,
   type RawTemplateRecord,
 } from "./template-library-discovery";
+import { writeScaffoldCandidateReport } from "./scaffold-candidate-report";
 
 const WORKSPACE_ROOT = process.cwd();
 const TEMPLATE_LIBRARY_ROOT = path.resolve(
@@ -37,6 +38,10 @@ const GENERATED_CATALOG_PATH = path.resolve(
 const GENERATED_SCAFFOLD_RESEARCH_PATH = path.resolve(
   WORKSPACE_ROOT,
   "src/lib/gen/scaffolds/scaffold-research.generated.json",
+);
+const SCAFFOLD_CANDIDATE_REPORT_PATH = path.resolve(
+  WORKSPACE_ROOT,
+  "data/scaffold-candidates-curated.json",
 );
 const LEGACY_SUMMARY_PATH = resolveExistingLegacySummaryPath();
 const SOURCE_ROOT_CANDIDATES = [
@@ -70,7 +75,7 @@ const SKIP_DIRS = new Set([
   ".vercel",
 ]);
 
-const SCAFFOLD_CHECKLISTS: Record<string, string[]> = {
+const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
   "base-nextjs": [
     "Keep a minimal App Router structure with layout, page, and globals.css.",
     "Preserve @theme inline tokens and stable path aliases.",
@@ -113,7 +118,7 @@ const SCAFFOLD_CHECKLISTS: Record<string, string[]> = {
   ],
 };
 
-const SCAFFOLD_UPGRADE_TARGETS: Record<string, string[]> = {
+const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
   "base-nextjs": ["Cleaner starter structure", "Better default docs and env hints"],
   "landing-page": ["Stronger hero and CTA rhythm", "More realistic section hierarchy"],
   "saas-landing": ["Better pricing and product proof", "More convincing product preview patterns"],
@@ -717,6 +722,24 @@ function writeTemplateLibraryDocs(catalog: TemplateLibraryCatalogFile, outputRoo
   });
 }
 
+function pickBaseNextjsReferences(entries: TemplateLibraryEntry[]): TemplateLibraryEntry[] {
+  return entries
+    .filter((entry) => entry.verdict === "valid")
+    .map((entry) => {
+      let score = entry.qualityScore;
+      if (entry.categorySlug === "starter") score += 20;
+      if (/starter/i.test(entry.title)) score += 10;
+      if (entry.repo.hasAppDir || entry.repo.hasSrcAppDir) score += 8;
+      if (entry.recommendedScaffoldFamilies.includes("landing-page")) score += 4;
+      if (entry.recommendedScaffoldFamilies.includes("content-site")) score += 4;
+      if (!entry.signals.auth && !entry.signals.dashboard && !entry.signals.ecommerce) score += 6;
+      return { entry, score };
+    })
+    .sort((a, b) => b.score - a.score || b.entry.qualityScore - a.entry.qualityScore)
+    .slice(0, 5)
+    .map(({ entry }) => entry);
+}
+
 function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
   const grouped = new Map<string, TemplateLibraryEntry[]>();
   for (const entry of entries.filter((item) => item.verdict === "valid")) {
@@ -727,7 +750,14 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
   }
 
   const scaffolds: Record<string, { qualityChecklist: string[]; research: { upgradeTargets: string[]; referenceTemplates: Array<{ id: string; title: string; categorySlug: string; qualityScore: number; strengths: string[]; }>; }; }> = {};
-  for (const [family, references] of grouped) {
+  const families = Array.from(new Set([
+    ...(Object.keys(SCAFFOLD_CHECKLISTS) as ScaffoldFamily[]),
+    ...(Object.keys(SCAFFOLD_UPGRADE_TARGETS) as ScaffoldFamily[]),
+    ...(Array.from(grouped.keys()) as ScaffoldFamily[]),
+  ]));
+
+  for (const family of families) {
+    const references = family === "base-nextjs" ? pickBaseNextjsReferences(entries) : (grouped.get(family) ?? []);
     scaffolds[family] = {
       qualityChecklist: SCAFFOLD_CHECKLISTS[family] ?? [],
       research: {
@@ -806,10 +836,16 @@ function main(): void {
     entries: curatedEntries,
   });
   writeJson(GENERATED_SCAFFOLD_RESEARCH_PATH, buildScaffoldResearch(curatedEntries));
+  writeScaffoldCandidateReport(curatedEntries, {
+    outputPath: SCAFFOLD_CANDIDATE_REPORT_PATH,
+    source: "scripts/build-template-library.ts",
+    input: summaryPath,
+  });
 
   console.info(`[template-library] Total templates audited: ${catalog.totalTemplates}`);
   console.info(`[template-library] Curated templates: ${catalog.curatedTemplates}`);
   console.info(`[template-library] Wrote agent library to ${TEMPLATE_LIBRARY_ROOT}`);
+  console.info(`[template-library] Wrote scaffold candidate report to ${SCAFFOLD_CANDIDATE_REPORT_PATH}`);
 }
 
 main();

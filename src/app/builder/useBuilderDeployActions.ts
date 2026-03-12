@@ -23,6 +23,7 @@ type Args = {
   pendingSpecRef: MutableRefObject<object | null>;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
+  setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
   setIsDeploying: Dispatch<SetStateAction<boolean>>;
   setDomainManagerOpen: Dispatch<SetStateAction<boolean>>;
   setLastDeployVercelProjectId: Dispatch<SetStateAction<string | null>>;
@@ -63,6 +64,7 @@ export function useBuilderDeployActions({
   pendingSpecRef,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
+  setSelectedVersionId,
   setIsDeploying,
   setDomainManagerOpen,
   setLastDeployVercelProjectId,
@@ -285,6 +287,9 @@ export function useBuilderDeployActions({
     async (data: { chatId: string; versionId?: string; demoUrl?: string }) => {
       const normalized = pendingInstructionsRef.current?.trim() || "";
       const shouldApplyOnce = pendingInstructionsOnceRef.current ?? applyInstructionsOnce;
+      if (data.versionId) {
+        setSelectedVersionId(data.versionId);
+      }
       if (data.chatId) {
         if (normalized && !shouldApplyOnce) {
           try {
@@ -460,6 +465,7 @@ export function useBuilderDeployActions({
       pendingSpecRef,
       pendingInstructionsRef,
       pendingInstructionsOnceRef,
+      setSelectedVersionId,
       setCustomInstructions,
       setApplyInstructionsOnce,
     ],

@@ -68,6 +68,7 @@ npm run template-library:embeddings
 4. Skapar `research/external-templates/reference-library/` med katalog + dossiers
 5. Genererar kuraterade research-artefakter för runtime-sökning i `src/lib/gen/template-library/`
 6. Genererar scaffold research metadata i `src/lib/gen/scaffolds/scaffold-research.generated.json`
+7. Skriver en prioriterad scaffold-kandidatsrapport till `data/scaffold-candidates-curated.json`
 
 ### Produktionsgräns
 
@@ -135,6 +136,45 @@ Kör manifestvalidering för de interna runtime-scaffolds som redan finns i
 ```bash
 npm run scaffolds:validate
 ```
+
+## curate-scaffold-candidates.ts / scaffolds:curate
+
+Bygger eller uppdaterar den prioriterade scaffold-kandidatsrapporten från samma
+kuraterade template-library-data som `build-template-library.ts` använder.
+
+### Användning
+
+```bash
+npm run scaffolds:curate
+npx tsx scripts/curate-scaffold-candidates.ts
+npx tsx scripts/curate-scaffold-candidates.ts --input="src/lib/gen/template-library/template-library.generated.json"
+```
+
+Det gamla `scripts/curate-scaffold-candidates.mjs` finns kvar som
+kompatibilitetswrapper men delegerar nu till den nya TypeScript-pipelinen.
+
+## promote-to-scaffold.ts / scaffolds:promote
+
+Semi-automatisk scaffold-promotion från ett dossier-manifest till ett nytt
+runtime scaffold under `src/lib/gen/scaffolds/`.
+
+### Användning
+
+```bash
+npm run scaffolds:promote -- starter-image-gallery-starter --dry-run
+npx tsx scripts/promote-to-scaffold.ts starter-image-gallery-starter --id=image-gallery-pro --base=portfolio
+```
+
+Skriptet:
+
+1. Läser dossier-manifest + `selectedFiles`
+2. Väljer ett befintligt runtime-scaffold som bas
+3. Genererar ett nytt `manifest.ts`
+4. Uppdaterar `src/lib/gen/scaffolds/types.ts`
+5. Uppdaterar `src/lib/gen/scaffolds/registry.ts`
+
+Detta är avsiktligt semi-automatiskt: du får en snabb scaffold-startpunkt, men
+bör fortfarande granska filinnehåll, matcher-regler och embeddings efteråt.
 
 ## devtest
 

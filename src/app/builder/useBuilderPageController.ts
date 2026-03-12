@@ -182,6 +182,7 @@ export function useBuilderPageController() {
     pendingSpecRef: state.pendingSpecRef,
     pendingInstructionsRef: state.pendingInstructionsRef,
     pendingInstructionsOnceRef: state.pendingInstructionsOnceRef,
+    setSelectedVersionId: state.setSelectedVersionId,
     setIsDeploying: state.setIsDeploying,
     setDomainManagerOpen: state.setDomainManagerOpen,
     setLastDeployVercelProjectId: state.setLastDeployVercelProjectId,

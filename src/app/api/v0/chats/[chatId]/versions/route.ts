@@ -77,9 +77,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         }
       }
 
-      {
-        // Template/category flows may provide a v0 chat id even in own-engine mode.
-        // Surface at least the latest v0 version so the builder can recover.
+      // Only attempt v0 lookup for non-UUID chat IDs (template/category flows
+      // that originated on v0). Own-engine chats use UUIDs and will never exist
+      // on v0, so the lookup would always 404 and pollute the logs.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chatId);
+      if (!isUuid) {
         try {
           assertV0Key();
           const v0Chat = await v0.chats.getById({ chatId }) as V0ChatLike;

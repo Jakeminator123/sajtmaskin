@@ -1,0 +1,5393 @@
+{
+  "_meta": {
+    "generated": "2026-03-12T06:27:06.940Z",
+    "source": "scripts/curate-scaffold-candidates.ts",
+    "input": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\src\\lib\\gen\\template-library\\template-library.generated.json",
+    "total": 134,
+    "high": 125,
+    "medium": 5,
+    "ignored": 4
+  },
+  "high_priority": [
+    {
+      "id": "saas-paddle-billing-subscription-starter",
+      "title": "Paddle Billing Subscription Starter",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 96,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Paddle Billing Subscription Starter is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/paddle-billing-subscription-starter",
+      "demoUrl": "https://paddle-billing.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "auth-pages",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-stripe-supabase-saas-starter-kit",
+      "title": "Stripe & Supabase SaaS Starter Kit",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 96,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Stripe & Supabase SaaS Starter Kit is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/stripe-supabase-saas-starter-kit",
+      "demoUrl": "https://stripe-supabase-saas-template.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "auth-pages",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-stripe-subscription-starter",
+      "title": "Stripe Subscription Starter",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 96,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Stripe Subscription Starter is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/subscription-starter",
+      "demoUrl": "https://subscription-payments.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "auth-pages",
+        "ecommerce"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "pricing or billing structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-stripe-subscription-starter",
+      "title": "Stripe Subscription Starter",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 96,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Stripe Subscription Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/subscription-starter",
+      "demoUrl": "https://subscription-payments.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "ecommerce",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "pricing or billing structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-stripe-subscription-starter",
+      "title": "Stripe Subscription Starter",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 96,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Stripe Subscription Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/subscription-starter",
+      "demoUrl": "https://subscription-payments.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce",
+        "auth-pages",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "pricing or billing structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
+      "title": "Your Next Store — Commerce with Next.js and Stripe",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 96,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Your Next Store — Commerce with Next.js and Stripe is a Ecommerce reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/yournextstore",
+      "demoUrl": "https://demo.yournextstore.com/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "pricing or billing structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-admin-dashboard",
+      "title": "Admin Dashboard",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Admin Dashboard is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/admin-dashboard",
+      "demoUrl": "https://next-admin-dash.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "auth-pages",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "middleware.ts",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-chatbot",
+      "title": "Chatbot",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Chatbot is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ai/chatbot",
+      "demoUrl": "https://chatbot.ai-sdk.dev/demo",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "app-shell",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-launchpad-next-js-strapi-starter",
+      "title": "LaunchPad: Next.js × Strapi Starter",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "LaunchPad: Next.js × Strapi Starter is a SaaS reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/strapi",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "blog",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "next/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "next/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "next/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "next/.env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-app-router-playground",
+      "title": "Next.js App Router Playground",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js App Router Playground is a Starter reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/app-directory",
+      "demoUrl": "https://app-dir.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "ecommerce",
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "pricing or billing structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-lucia-email-password-auth-with-drizzle",
+      "title": "Next.js Lucia Email/Password Auth with Drizzle",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Lucia Email/Password Auth with Drizzle is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/nextjs-lucia-auth-email-password-reset-drizzle",
+      "demoUrl": "https://next-lucia.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "auth-pages",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/middleware.ts",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-next-js-saas-starter",
+      "title": "Next.js SaaS Starter",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js SaaS Starter is a SaaS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/authentication/next-js-saas-starter",
+      "demoUrl": "https://next-saas-start.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "pricing or billing structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "middleware.ts",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-next-js-saas-starter",
+      "title": "Next.js SaaS Starter",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js SaaS Starter is a Authentication reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/authentication/next-js-saas-starter",
+      "demoUrl": "https://next-saas-start.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "pricing or billing structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "middleware.ts",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "admin-dashboard-next-js-saas-starter",
+      "title": "Next.js SaaS Starter",
+      "categorySlug": "admin-dashboard",
+      "categoryName": "Admin Dashboard",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js SaaS Starter is a Admin Dashboard reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/authentication/next-js-saas-starter",
+      "demoUrl": "https://next-saas-start.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "dashboard",
+        "app-shell",
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "pricing or billing structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "middleware.ts",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-notion-powered-next-js-blog",
+      "title": "Notion-Powered Next.js Blog",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Notion-Powered Next.js Blog is a Blog reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/notion-powered-blog",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-paddle-in-app-checkout-starter",
+      "title": "Paddle In-App Checkout Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Paddle In-App Checkout Starter is a Starter reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/paddle-in-app-checkout-starter",
+      "demoUrl": "https://paddle-mobile-web-payments-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "ecommerce",
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "pricing or billing structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-paddle-mobile-web-payments-starter",
+      "title": "Paddle Mobile Web Payments Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Paddle Mobile Web Payments Starter is a Starter reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/paddle-mobile-web-payments-starter",
+      "demoUrl": "https://paddle-mobile-web-payments-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "ecommerce",
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "pricing or billing structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-router-so-headless-forms-and-lead-routing",
+      "title": "Router.so - Headless Forms and Lead Routing",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Router.so - Headless Forms and Lead Routing is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/headless-forms",
+      "demoUrl": "https://router.so/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "auth-pages",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "marketing-sites-router-so-headless-forms-and-lead-routing",
+      "title": "Router.so - Headless Forms and Lead Routing",
+      "categorySlug": "marketing-sites",
+      "categoryName": "Marketing Sites",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Router.so - Headless Forms and Lead Routing is a Marketing Sites reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/headless-forms",
+      "demoUrl": "https://router.so/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "auth-pages",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-simple-online-store-with-stripe",
+      "title": "Simple Online Store with Stripe",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Simple Online Store with Stripe is a Starter reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/simple-online-store-with-stripe",
+      "demoUrl": "https://nextjs-stripe-template.vercel.sh/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "ecommerce",
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "pricing or billing structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-update-starter-subscriptions-and-auth-for-saas",
+      "title": "Update Starter: Subscriptions and Auth for SaaS",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 94,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Update Starter: Subscriptions and Auth for SaaS is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/update-starter",
+      "demoUrl": "https://nextjs-supabase-stripe-update.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "auth-pages",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "pricing or billing structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-clean-next-js-sanity-app",
+      "title": "Clean Next.js + Sanity App",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Clean Next.js + Sanity App is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/sanity-template-nextjs-clean",
+      "demoUrl": "https://template-nextjs-clean.sanity.build/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "frontend/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "frontend/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "frontend/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "frontend/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-clean-next-js-sanity-app",
+      "title": "Clean Next.js + Sanity App",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Clean Next.js + Sanity App is a CMS reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/sanity-template-nextjs-clean",
+      "demoUrl": "https://template-nextjs-clean.sanity.build/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "frontend/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "frontend/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "frontend/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "frontend/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-kinde-next-js-starter",
+      "title": "Kinde Next.js Starter",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Kinde Next.js Starter is a Authentication reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/authentication/kinde-next-js-starter",
+      "demoUrl": "https://kinde-nextjs-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/middleware.ts",
+          "reason": "Useful structural reference"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-launchpad-next-js-strapi-starter",
+      "title": "LaunchPad: Next.js × Strapi Starter",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "LaunchPad: Next.js × Strapi Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/strapi",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "next/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "next/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "next/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "next/.env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-launchpad-next-js-strapi-starter",
+      "title": "LaunchPad: Next.js × Strapi Starter",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "LaunchPad: Next.js × Strapi Starter is a CMS reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/strapi",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "next/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "next/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "next/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "next/.env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-mongodb-atlas-forum",
+      "title": "MongoDB Atlas Forum",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "MongoDB Atlas Forum is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/mongodb-atlas-forum",
+      "demoUrl": "https://mongodb-news-template-nextjs.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "auth-pages",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-prisma-postgres-auth-starter",
+      "title": "Next.js & Prisma Postgres Auth Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js & Prisma Postgres Auth Starter is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/prisma-postgres",
+      "demoUrl": "https://nextjs-auth-starter-mu.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "auth-pages",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-motherduck-wasm-analytics-quickstart",
+      "title": "Next.js MotherDuck Wasm analytics quickstart",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js MotherDuck Wasm analytics quickstart is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/next-js-motherduck-wasm-analytics-quickstart",
+      "demoUrl": "https://motherduck-wasm-analytics-quickstart.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-next-js-portfolio-with-blog",
+      "title": "Next.js Portfolio with Blog",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Portfolio with Blog is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/portfolio/nextjs-portfolio",
+      "demoUrl": "https://portfolio-blog-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "portfolio"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "portfolio or gallery presentation"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "portfolio-next-js-portfolio-with-blog",
+      "title": "Next.js Portfolio with Blog",
+      "categorySlug": "portfolio",
+      "categoryName": "Portfolio",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Portfolio with Blog is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/portfolio/nextjs-portfolio",
+      "demoUrl": "https://portfolio-blog-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "portfolio",
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "portfolio or gallery presentation"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-paddle-in-app-checkout-starter",
+      "title": "Paddle In-App Checkout Starter",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Paddle In-App Checkout Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/paddle-in-app-checkout-starter",
+      "demoUrl": "https://paddle-mobile-web-payments-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce",
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "pricing or billing structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-paddle-mobile-web-payments-starter",
+      "title": "Paddle Mobile Web Payments Starter",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Paddle Mobile Web Payments Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/paddle-mobile-web-payments-starter",
+      "demoUrl": "https://paddle-mobile-web-payments-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce",
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "pricing or billing structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "documentation-pinexio-documentation-template",
+      "title": "Pinexio - Documentation Template",
+      "categorySlug": "documentation",
+      "categoryName": "Documentation",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Pinexio - Documentation Template is a Documentation reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/documentation/pinexio-documentation-template",
+      "demoUrl": "https://pinexio.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-portfolio-starter-kit",
+      "title": "Portfolio Starter Kit",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Portfolio Starter Kit is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/portfolio/portfolio-starter-kit",
+      "demoUrl": "https://portfolio-blog-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "portfolio"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "portfolio or gallery presentation"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "portfolio-portfolio-starter-kit",
+      "title": "Portfolio Starter Kit",
+      "categorySlug": "portfolio",
+      "categoryName": "Portfolio",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Portfolio Starter Kit is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/portfolio/portfolio-starter-kit",
+      "demoUrl": "https://portfolio-blog-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "portfolio",
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "portfolio or gallery presentation"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-stablo-minimal-blog-template",
+      "title": "Stablo – Minimal Blog Template",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Stablo – Minimal Blog Template is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/stablo-blog",
+      "demoUrl": "https://stablo-template.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": ".env.local.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-stablo-minimal-blog-template",
+      "title": "Stablo – Minimal Blog Template",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Stablo – Minimal Blog Template is a CMS reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/stablo-blog",
+      "demoUrl": "https://stablo-template.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": ".env.local.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-v0-clone-v0-platform-api-demo",
+      "title": "v0 Clone: v0 Platform API Demo",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "v0 Clone: v0 Platform API Demo is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ai/v0-clone",
+      "demoUrl": "https://clone-demo.v0-sdk.dev/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "app-shell",
+        "auth-pages"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-visactor-next-js-template",
+      "title": "VisActor Next.js Template",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 92,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "VisActor Next.js Template is a SaaS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/visactor-nextjs-template",
+      "demoUrl": "https://visactor-next-template.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-ai-headshot-generator",
+      "title": "AI Headshot Generator",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 90,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "AI Headshot Generator is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ai/headshot-ai",
+      "demoUrl": "https://www.getheadshots.ai/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "marketing-sites-basehub-marketing-website",
+      "title": "BaseHub Marketing Website",
+      "categorySlug": "marketing-sites",
+      "categoryName": "Marketing Sites",
+      "verdict": "valid",
+      "qualityScore": 90,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "BaseHub Marketing Website is a Marketing Sites reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cms/basehub-marketing-website",
+      "demoUrl": "https://nextjs-marketing-website.basehub.com/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "marketing-sites-bulk-redirects-via-a-cms",
+      "title": "Bulk Redirects via a CMS",
+      "categorySlug": "marketing-sites",
+      "categoryName": "Marketing Sites",
+      "verdict": "valid",
+      "qualityScore": 90,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Bulk Redirects via a CMS is a Marketing Sites reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cdn/bulk-redirects-via-a-cms",
+      "demoUrl": "https://cms-bulk-redirects.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-contentlayer-blog-starter",
+      "title": "Next.js Contentlayer Blog Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 90,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Contentlayer Blog Starter is a Starter reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/nextjs-contentlayer",
+      "demoUrl": "https://next-contentlayer.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-next-js-waitlist-with-notion-cms",
+      "title": "Next.js Waitlist with Notion CMS",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 90,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Waitlist with Notion CMS is a SaaS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cms/next-js-waitlist-with-notion-cms",
+      "demoUrl": "https://nextjs-notion-waitlist.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-optimizely-feature-experimentation",
+      "title": "Optimizely Feature Experimentation",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 90,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Optimizely Feature Experimentation is a Starter reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/edge-middleware/optimizely-feature-experimentation",
+      "demoUrl": "https://nextjs-optimizely-experimentation.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "ecommerce"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-platforms-starter-kit",
+      "title": "Platforms Starter Kit",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 90,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Platforms Starter Kit is a SaaS reference with verified Next.js codebase, App Router structure, multi-tenant or workspace patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/platforms-starter-kit",
+      "demoUrl": "https://vercel.pub/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "multi-tenant or workspace patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-sanity-next-js-clean-app",
+      "title": "Sanity + Next.js Clean App",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 90,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Sanity + Next.js Clean App is a Starter reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/sanity-next-js-clean-app",
+      "demoUrl": "https://template-nextjs-clean.sanity.build/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "frontend/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "frontend/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "frontend/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "frontend/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "admin-dashboard-visactor-next-js-template",
+      "title": "VisActor Next.js Template",
+      "categorySlug": "admin-dashboard",
+      "categoryName": "Admin Dashboard",
+      "verdict": "valid",
+      "qualityScore": 90,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "VisActor Next.js Template is a Admin Dashboard reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/visactor-nextjs-template",
+      "demoUrl": "https://visactor-next-template.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-a-next-js-14-blog-with-server-components",
+      "title": "A Next.js 14 Blog with Server Components",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "A Next.js 14 Blog with Server Components is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/14-blog-server-components",
+      "demoUrl": "https://nextjs-blog-cms-wisp.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-auth-for-subdomains",
+      "title": "Auth for subdomains",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Auth for subdomains is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/authentication/subdomains-auth",
+      "demoUrl": "https://solutions-subdomain-auth.vercel.sh/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-basehub-marketing-website",
+      "title": "BaseHub Marketing Website",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "BaseHub Marketing Website is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cms/basehub-marketing-website",
+      "demoUrl": "https://nextjs-marketing-website.basehub.com/",
+      "recommendedScaffoldFamilies": [
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-builder-io-personalization-starter",
+      "title": "Builder.io Personalization Starter",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Builder.io Personalization Starter is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cms/personalization-builder-io",
+      "demoUrl": "https://nextjs-edge-personalization-demo.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-bulk-redirects-via-a-cms",
+      "title": "Bulk Redirects via a CMS",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Bulk Redirects via a CMS is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cdn/bulk-redirects-via-a-cms",
+      "demoUrl": "https://cms-bulk-redirects.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-isr-blog-with-next-js-and-wordpress",
+      "title": "ISR Blog with Next.js and WordPress",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "ISR Blog with Next.js and WordPress is a Blog reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/isr-blog-nextjs-wordpress",
+      "demoUrl": "https://next-blog-wordpress.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "dashboard",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-isr-blog-with-next-js-and-wordpress",
+      "title": "ISR Blog with Next.js and WordPress",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "ISR Blog with Next.js and WordPress is a CMS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/isr-blog-nextjs-wordpress",
+      "demoUrl": "https://next-blog-wordpress.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "dashboard",
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-next-js-salesforce-commerce-cloud",
+      "title": "Next.js + Salesforce Commerce Cloud",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js + Salesforce Commerce Cloud is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/next-js-salesforce-commerce-cloud",
+      "demoUrl": "https://nextjs-salesforce-commerce-cloud.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-next-js-wisp-corporate-blog-starter",
+      "title": "Next.js × Wisp Corporate Blog Starter",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js × Wisp Corporate Blog Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/wisp-corporate-blog-starter",
+      "demoUrl": "https://nextjs-corporate-blog-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-next-js-commerce",
+      "title": "Next.js Commerce",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Commerce is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/nextjs-commerce",
+      "demoUrl": "https://next-commerce-v2.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-next-js-contentlayer-blog-starter",
+      "title": "Next.js Contentlayer Blog Starter",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Contentlayer Blog Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/nextjs-contentlayer",
+      "demoUrl": "https://next-contentlayer.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-next-js-microblog",
+      "title": "Next.js Microblog",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Microblog is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/microblog",
+      "demoUrl": "https://astro-microblog.withheadlesscms.com/",
+      "recommendedScaffoldFamilies": [
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-next-js-waitlist-with-notion-cms",
+      "title": "Next.js Waitlist with Notion CMS",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Waitlist with Notion CMS is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cms/next-js-waitlist-with-notion-cms",
+      "demoUrl": "https://nextjs-notion-waitlist.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-shirt-shop-feature-flags-using-next-js",
+      "title": "Shirt Shop — Feature Flags using Next.js",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Shirt Shop — Feature Flags using Next.js is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/shirt-shop-feature-flags",
+      "demoUrl": "https://shirt-shop.labs.vercel.dev/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/[code]/cart/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-update-redirects-in-realtime",
+      "title": "Update Redirects in Realtime",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 88,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Update Redirects in Realtime is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cdn/update-redirects-in-realtime",
+      "demoUrl": "https://cms-webhook-update-redirects.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-mux-ai-vercel-workflows-starter",
+      "title": "@mux/ai + Vercel Workflows Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "@mux/ai + Vercel Workflows Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ai/mux-ai-vercel-workflows-starter",
+      "demoUrl": "https://nextjs-video-ai-workflows.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-blog-with-comments",
+      "title": "Blog (with comments)",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Blog (with comments) is a Blog reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/blog-with-comments",
+      "demoUrl": "https://blog-with-comment.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-blog-with-comments",
+      "title": "Blog (with comments)",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Blog (with comments) is a Authentication reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/blog-with-comments",
+      "demoUrl": "https://blog-with-comment.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "dashboard",
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-contentstack-commerce",
+      "title": "Contentstack Commerce",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Contentstack Commerce is a Ecommerce reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/cms-contentstack-commerce",
+      "demoUrl": "https://solutions-cms-contentstack-commerce.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "documentation-documents-simple-next-js-documentation",
+      "title": "Documents: Simple Next.js Documentation",
+      "categorySlug": "documentation",
+      "categoryName": "Documentation",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Documents: Simple Next.js Documentation is a Documentation reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/documentation/documents-simple-next-js-documentation",
+      "demoUrl": "https://rubix-documents.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-envshare",
+      "title": "EnvShare",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "EnvShare is a SaaS reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/envshare",
+      "demoUrl": "https://envshare.dev/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-finwise-saas-landing-page",
+      "title": "Finwise: SaaS Landing Page",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Finwise: SaaS Landing Page is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/finwise-saas-landing-page",
+      "demoUrl": "https://finwise-omega.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-finwise-saas-landing-page",
+      "title": "Finwise: SaaS Landing Page",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Finwise: SaaS Landing Page is a SaaS reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/finwise-saas-landing-page",
+      "demoUrl": "https://finwise-omega.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-foru-ms-starter",
+      "title": "Foru.ms Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Foru.ms Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/forums-starter",
+      "demoUrl": "https://foru-ms-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-get-started-with-upstash-redis-next-js",
+      "title": "Get Started with Upstash Redis & Next.js",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Get Started with Upstash Redis & Next.js is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/get-started-with-upstash-redis-and-next-js",
+      "demoUrl": "https://nextjs-with-redis.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-get-started-with-upstash-vector-next-js",
+      "title": "Get Started with Upstash Vector & Next.js",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Get Started with Upstash Vector & Next.js is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/get-started-with-upstash-vector-and-next-js",
+      "demoUrl": "https://vector-nextjs.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-image-gallery-starter",
+      "title": "Image Gallery Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Image Gallery Starter is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/image-gallery-starter",
+      "demoUrl": "https://nextjsconf-pics.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "portfolio"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "portfolio or gallery presentation"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-kubiks-next-js-starter",
+      "title": "Kubiks Next.js Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Kubiks Next.js Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/kubiks-next-js-starter",
+      "demoUrl": "https://nextjs-starter-kubiks.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-langchain-next-js-starter",
+      "title": "LangChain + Next.js Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "LangChain + Next.js Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ai/langchain-starter",
+      "demoUrl": "https://langchain-nextjs-template.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-makeswift-next-js-starter",
+      "title": "Makeswift Next.js Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Makeswift Next.js Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/makeswift-starter",
+      "demoUrl": "https://makeswift-examples-basic-typescript.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-minimal-next-js-saas-website-starter",
+      "title": "Minimal Next.js SaaS Website Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Minimal Next.js SaaS Website Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/next-js-saas-website-starter",
+      "demoUrl": "https://nextjs-saas-starter-template.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-minimal-next-js-saas-website-starter",
+      "title": "Minimal Next.js SaaS Website Starter",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Minimal Next.js SaaS Website Starter is a SaaS reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/next-js-saas-website-starter",
+      "demoUrl": "https://nextjs-saas-starter-template.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-mongodb-atlas-starter",
+      "title": "MongoDB Atlas Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "MongoDB Atlas Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/mongo-db-starter",
+      "demoUrl": "https://nextjs.mongodb.com/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-baselime-template-with-opentelemetry",
+      "title": "Next.js Baselime Template with OpenTelemetry",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Baselime Template with OpenTelemetry is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/nextjs-baselime-opentelemetry",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-turso-starter",
+      "title": "Next.js Turso Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Turso Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/turso-starter",
+      "demoUrl": "https://nextjs-turso-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-vercel-app-with-amazon-dynamodb",
+      "title": "Next.js Vercel app with Amazon DynamoDB",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Vercel app with Amazon DynamoDB is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/next-js-vercel-app-with-amazon-dynamodb",
+      "demoUrl": "https://aws-dynamodb-demo.labs.vercel.dev/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-vercel-app-with-aurora-dsql",
+      "title": "Next.js Vercel app with Aurora DSQL",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Vercel app with Aurora DSQL is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/next-js-vercel-app-with-aurora-dsql",
+      "demoUrl": "https://aws-dsql-movies-demo.labs.vercel.dev/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-vercel-app-with-aurora-postgresql",
+      "title": "Next.js Vercel app with Aurora PostgreSQL",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Next.js Vercel app with Aurora PostgreSQL is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/next-js-vercel-app-with-aurora-postgresql",
+      "demoUrl": "https://aws-aurora-postgresql-demo.labs.vercel.dev/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-og-cool-display-headlines-in-og-images",
+      "title": "OG.cool – Display headlines in OG images",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "OG.cool – Display headlines in OG images is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/og-cool",
+      "demoUrl": "https://dub.co/tools/metatags?url=https%3A%2F%2Fog.cool%2Fnytimes.com%2F2023%2F08%2F23%2Fclimate%2Focean-warming-fish.html",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-puppeteer-on-vercel",
+      "title": "Puppeteer on Vercel",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Puppeteer on Vercel is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/puppeteer-on-vercel",
+      "demoUrl": "https://puppeteer-on-vercel-zeta.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-ragbot-starter-an-astra-db-and-openai-chatbot",
+      "title": "RAGBot Starter — An Astra DB and OpenAI chatbot",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "RAGBot Starter — An Astra DB and OpenAI chatbot is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ai/ragbot-starter",
+      "demoUrl": "https://ragbot-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-starhive-next-js-starter",
+      "title": "Starhive Next.js Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Starhive Next.js Starter is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/starhive-next-js-starter",
+      "demoUrl": "https://starhive-nextjs-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-vercel-dbos-integration",
+      "title": "Vercel + DBOS Integration",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Vercel + DBOS Integration is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cron/vercel-dbos-integration",
+      "demoUrl": "https://dbos-vercel-integration.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-wix-bookings-next-js-classes-and-pricing-plans",
+      "title": "Wix Bookings: Next.js classes and pricing plans",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Wix Bookings: Next.js classes and pricing plans is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/wix-classes-subscriptions",
+      "demoUrl": "https://vercel.bookings-classes-demo.wix.dev/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "pricing or billing structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-wix-cms-next-js-cms-starter",
+      "title": "Wix CMS: Next.js CMS starter",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Wix CMS: Next.js CMS starter is a CMS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cms/wix-cms",
+      "demoUrl": "https://vercel.cms-demo.wix.dev/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-wix-events-and-ecommerce-next-js-starter",
+      "title": "Wix Events and eCommerce Next.js starter",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Wix Events and eCommerce Next.js starter is a Ecommerce reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/wix-commerce-ticketing",
+      "demoUrl": "https://vercel.commerce-ticketing-demo.wix.dev/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-zeitlist-waitlist-app-with-email-validation",
+      "title": "Zeitlist: Waitlist App with Email Validation",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 86,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "Zeitlist: Waitlist App with Email Validation is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/zeitlist",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-agentgpt-ai-agents-with-langchain-openai",
+      "title": "AgentGPT - AI Agents with Langchain & OpenAI",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 82,
+      "relevance_score": 100,
+      "relevance_tier": "high",
+      "summary": "AgentGPT - AI Agents with Langchain & OpenAI is a Authentication reference with verified Next.js codebase, auth flow reference, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ai/agent-gpt",
+      "demoUrl": "https://agentgpt.reworkd.ai/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "app-shell",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "next/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        },
+        {
+          "path": "next/src/components/drawer/Sidebar.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "documentation-headlesshost-knowledgebase",
+      "title": "Headlesshost Knowledgebase",
+      "categorySlug": "documentation",
+      "categoryName": "Documentation",
+      "verdict": "valid",
+      "qualityScore": 84,
+      "relevance_score": 99,
+      "relevance_tier": "high",
+      "summary": "Headlesshost Knowledgebase is a Documentation reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/documentation/headlesshost-knowledgebase",
+      "demoUrl": "https://react-nextjs-knowledgebase.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "documentation-loading-ads-with-the-script-component",
+      "title": "Loading Ads with the Script Component",
+      "categorySlug": "documentation",
+      "categoryName": "Documentation",
+      "verdict": "valid",
+      "qualityScore": 84,
+      "relevance_score": 99,
+      "relevance_tier": "high",
+      "summary": "Loading Ads with the Script Component is a Documentation reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/documentation/script-component-ad",
+      "demoUrl": "https://solutions-script-component-ad.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-motherduck-wasm-minimal",
+      "title": "Next.js MotherDuck Wasm minimal",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 84,
+      "relevance_score": 99,
+      "relevance_tier": "high",
+      "summary": "Next.js MotherDuck Wasm minimal is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/next-js-motherduck-wasm-minimal",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-prisma-azure-mysql-starter",
+      "title": "Next.js Prisma Azure MySQL Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 84,
+      "relevance_score": 99,
+      "relevance_tier": "high",
+      "summary": "Next.js Prisma Azure MySQL Starter is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/nextjs-prisma-azure-mysql-starter",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-v14-internationalization-starter-kit",
+      "title": "Next.js v14 Internationalization Starter Kit",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 84,
+      "relevance_score": 99,
+      "relevance_tier": "high",
+      "summary": "Next.js v14 Internationalization Starter Kit is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/nextjs-v14-starterkit",
+      "demoUrl": "https://nextjs-template-amber-three.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "documentation-pagination-with-ssg",
+      "title": "Pagination with SSG",
+      "categorySlug": "documentation",
+      "categoryName": "Documentation",
+      "verdict": "valid",
+      "qualityScore": 84,
+      "relevance_score": 99,
+      "relevance_tier": "high",
+      "summary": "Pagination with SSG is a Documentation reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/documentation/pagination-with-ssg",
+      "demoUrl": "https://pagination-with-ssg.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-postgres-next-js-starter",
+      "title": "Postgres Next.js Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 84,
+      "relevance_score": 99,
+      "relevance_tier": "high",
+      "summary": "Postgres Next.js Starter is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/postgres-starter",
+      "demoUrl": "https://postgres-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-roadmap-voting-starter-kit",
+      "title": "Roadmap Voting Starter Kit",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 84,
+      "relevance_score": 99,
+      "relevance_tier": "high",
+      "summary": "Roadmap Voting Starter Kit is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/roadmap-voting-starter-kit",
+      "demoUrl": "https://roadmap-redis.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-vercel-blob-next-js-starter",
+      "title": "Vercel Blob Next.js Starter",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 84,
+      "relevance_score": 99,
+      "relevance_tier": "high",
+      "summary": "Vercel Blob Next.js Starter is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/blob-starter",
+      "demoUrl": "https://blob-starter.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-get-started-with-upstash-qstash-next-js",
+      "title": "Get Started with Upstash QStash & Next.js",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 82,
+      "relevance_score": 98.5,
+      "relevance_tier": "high",
+      "summary": "Get Started with Upstash QStash & Next.js is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/get-started-with-upstash-qs-tash-and-next-js",
+      "demoUrl": "https://qstash-nextjs.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "middleware.ts",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-email-client",
+      "title": "Next.js Email Client",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 82,
+      "relevance_score": 98.5,
+      "relevance_tier": "high",
+      "summary": "Next.js Email Client is a Starter reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/next.js/next-js-email-client",
+      "demoUrl": "https://next-email-client.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-beam-internal-blog",
+      "title": "Beam Internal Blog",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 78,
+      "relevance_score": 95.5,
+      "relevance_tier": "high",
+      "summary": "Beam Internal Blog is a Blog reference with verified Next.js codebase, auth flow reference, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/beam-internal-blog",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "auth-pages",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "auth flow reference",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-beam-internal-blog",
+      "title": "Beam Internal Blog",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 78,
+      "relevance_score": 95.5,
+      "relevance_tier": "high",
+      "summary": "Beam Internal Blog is a Authentication reference with verified Next.js codebase, auth flow reference, editorial content hierarchy. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/beam-internal-blog",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "blog",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "auth flow reference",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-partner-gallery",
+      "title": "Partner Gallery",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 78,
+      "relevance_score": 95.5,
+      "relevance_tier": "high",
+      "summary": "Partner Gallery is a Starter reference with verified Next.js codebase, auth flow reference, portfolio or gallery presentation. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/authentication/supabase-partner-gallery",
+      "demoUrl": "https://supabase.com/partners/integrations",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "auth-pages",
+        "portfolio"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "auth flow reference",
+        "portfolio or gallery presentation"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "app/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/.env.local.example",
+          "reason": "Useful structural reference"
+        },
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        }
+      ]
+    },
+    {
+      "id": "authentication-partner-gallery",
+      "title": "Partner Gallery",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 78,
+      "relevance_score": 95.5,
+      "relevance_tier": "high",
+      "summary": "Partner Gallery is a Authentication reference with verified Next.js codebase, auth flow reference, portfolio or gallery presentation. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/authentication/supabase-partner-gallery",
+      "demoUrl": "https://supabase.com/partners/integrations",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "portfolio",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "auth flow reference",
+        "portfolio or gallery presentation"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "app/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "app/.env.local.example",
+          "reason": "Useful structural reference"
+        },
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        }
+      ]
+    },
+    {
+      "id": "blog-next-js-blog-with-draft-mode",
+      "title": "Next.js Blog with Draft Mode",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 82,
+      "relevance_score": 95,
+      "relevance_tier": "high",
+      "summary": "Next.js Blog with Draft Mode is a Blog reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/nextjs-blog-draft-mode",
+      "demoUrl": "https://next-blog-contentful.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "dashboard",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-next-js-blog-with-draft-mode",
+      "title": "Next.js Blog with Draft Mode",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 82,
+      "relevance_score": 95,
+      "relevance_tier": "high",
+      "summary": "Next.js Blog with Draft Mode is a CMS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/nextjs-blog-draft-mode",
+      "demoUrl": "https://next-blog-contentful.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "dashboard",
+        "blog"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-saasfly",
+      "title": "Saasfly",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 82,
+      "relevance_score": 95,
+      "relevance_tier": "high",
+      "summary": "Saasfly is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/saasfly",
+      "demoUrl": "https://show.saasfly.io/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing",
+        "auth-pages",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/nextjs/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/nextjs/src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/nextjs/src/middleware.ts",
+          "reason": "Useful structural reference"
+        },
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        }
+      ]
+    },
+    {
+      "id": "authentication-gemini-ai-chatbot",
+      "title": "Gemini AI Chatbot",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 80,
+      "relevance_score": 93,
+      "relevance_tier": "high",
+      "summary": "Gemini AI Chatbot is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ai/gemini-ai-chatbot",
+      "demoUrl": "https://gemini.vercel.ai/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "app-shell",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "docs/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "docs/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        }
+      ]
+    },
+    {
+      "id": "starter-next-js-postgres-auth-starter-with-drizzle",
+      "title": "Next.js Postgres Auth Starter with Drizzle",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 80,
+      "relevance_score": 93,
+      "relevance_tier": "high",
+      "summary": "Next.js Postgres Auth Starter with Drizzle is a Starter reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/authentication/drizzle-postgres-auth-starter",
+      "demoUrl": "https://nextjs-postgres-auth.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "auth-pages",
+        "dashboard"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "authentication-next-js-postgres-auth-starter-with-drizzle",
+      "title": "Next.js Postgres Auth Starter with Drizzle",
+      "categorySlug": "authentication",
+      "categoryName": "Authentication",
+      "verdict": "valid",
+      "qualityScore": 80,
+      "relevance_score": 93,
+      "relevance_tier": "high",
+      "summary": "Next.js Postgres Auth Starter with Drizzle is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/authentication/drizzle-postgres-auth-starter",
+      "demoUrl": "https://nextjs-postgres-auth.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "auth-pages",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-sanity-next-js-personal-website",
+      "title": "Sanity + Next.js Personal Website",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 80,
+      "relevance_score": 93,
+      "relevance_tier": "high",
+      "summary": "Sanity + Next.js Personal Website is a Starter reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cms/sanity-next-js-personal-website",
+      "demoUrl": "https://nextjs-personal-website.sanity.dev/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "dashboard",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "CMS integration hints"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "cms-sanity-next-js-personal-website",
+      "title": "Sanity + Next.js Personal Website",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "verdict": "valid",
+      "qualityScore": 80,
+      "relevance_score": 93,
+      "relevance_tier": "high",
+      "summary": "Sanity + Next.js Personal Website is a CMS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/cms/sanity-next-js-personal-website",
+      "demoUrl": "https://nextjs-personal-website.sanity.dev/",
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "CMS integration hints"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "blog-sitecore-xm-cloud-next-js-starter",
+      "title": "Sitecore XM Cloud Next.js Starter",
+      "categorySlug": "blog",
+      "categoryName": "Blog",
+      "verdict": "valid",
+      "qualityScore": 80,
+      "relevance_score": 93,
+      "relevance_tier": "high",
+      "summary": "Sitecore XM Cloud Next.js Starter is a Blog reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/blog/sitecore-starter",
+      "demoUrl": "https://vercel-sitecore-xmcloud-demo.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "blog",
+        "dashboard",
+        "app-shell"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "dashboard shell patterns",
+        "editorial content hierarchy"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/bundle-analyzer/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/bundle-analyzer/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/bundle-analyzer/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "documentation-monorepo-with-turborepo",
+      "title": "Monorepo with Turborepo",
+      "categorySlug": "documentation",
+      "categoryName": "Documentation",
+      "verdict": "valid",
+      "qualityScore": 78,
+      "relevance_score": 90,
+      "relevance_tier": "high",
+      "summary": "Monorepo with Turborepo is a Documentation reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/monorepos/monorepo-turborepo",
+      "demoUrl": "https://examples-basic-web.vercel.sh/",
+      "recommendedScaffoldFamilies": [
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "apps/docs/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "apps/docs/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/docs/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/docs/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-next-js-saleor-commerce",
+      "title": "Next.js Saleor Commerce",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 78,
+      "relevance_score": 90,
+      "relevance_tier": "high",
+      "summary": "Next.js Saleor Commerce is a Ecommerce reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/nextjs-saleor-commerce",
+      "demoUrl": "https://storefront.saleor.io/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce",
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "pricing or billing structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "starter-drupal-marketing-site",
+      "title": "Drupal Marketing Site",
+      "categorySlug": "starter",
+      "categoryName": "Starter",
+      "verdict": "valid",
+      "qualityScore": 74,
+      "relevance_score": 89.5,
+      "relevance_tier": "high",
+      "summary": "Drupal Marketing Site is a Starter reference with verified Next.js codebase, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/marketing-sites/drupal-nextjs-marketing-site",
+      "demoUrl": "https://next-example-marketing.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "marketing-sites-drupal-marketing-site",
+      "title": "Drupal Marketing Site",
+      "categorySlug": "marketing-sites",
+      "categoryName": "Marketing Sites",
+      "verdict": "valid",
+      "qualityScore": 74,
+      "relevance_score": 89.5,
+      "relevance_tier": "high",
+      "summary": "Drupal Marketing Site is a Marketing Sites reference with verified Next.js codebase, CMS integration hints. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/marketing-sites/drupal-nextjs-marketing-site",
+      "demoUrl": "https://next-example-marketing.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    }
+  ],
+  "medium_priority": [
+    {
+      "id": "ecommerce-catalyst-by-bigcommerce",
+      "title": "Catalyst by BigCommerce",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "verdict": "valid",
+      "qualityScore": 74,
+      "relevance_score": 84,
+      "relevance_tier": "medium",
+      "summary": "Catalyst by BigCommerce is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ecommerce/catalyst-by-bigcommerce",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "ecommerce"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "storefront or checkout patterns"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "core/README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "core/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "core/.env.example",
+          "reason": "Useful structural reference"
+        },
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        }
+      ]
+    },
+    {
+      "id": "documentation-ariadocs-documentation-template",
+      "title": "AriaDocs: Documentation Template",
+      "categorySlug": "documentation",
+      "categoryName": "Documentation",
+      "verdict": "valid",
+      "qualityScore": 72,
+      "relevance_score": 81,
+      "relevance_tier": "medium",
+      "summary": "AriaDocs: Documentation Template is a Documentation reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/documentation/documentation-template",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/web/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/web/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/web/app/page.tsx",
+          "reason": "Useful structural reference"
+        },
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        }
+      ]
+    },
+    {
+      "id": "saas-novel-ai-powered-notion-style-editor",
+      "title": "Novel – AI-powered Notion-style editor",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 72,
+      "relevance_score": 81,
+      "relevance_tier": "medium",
+      "summary": "Novel – AI-powered Notion-style editor is a SaaS reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/ai/novel",
+      "demoUrl": "https://v0.app/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "apps/web/package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "apps/web/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "apps/web/app/page.tsx",
+          "reason": "Useful structural reference"
+        },
+        {
+          "path": "apps/web/.env.example",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "saas-waitly",
+      "title": "Waitly",
+      "categorySlug": "saas",
+      "categoryName": "SaaS",
+      "verdict": "valid",
+      "qualityScore": 72,
+      "relevance_score": 81,
+      "relevance_tier": "medium",
+      "summary": "Waitly is a SaaS reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/saas/waitly",
+      "demoUrl": "https://waitly.idee8.agency/",
+      "recommendedScaffoldFamilies": [
+        "saas-landing"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path"
+      ],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference"
+        },
+        {
+          "path": "src/app/page.tsx",
+          "reason": "Useful structural reference"
+        }
+      ]
+    },
+    {
+      "id": "documentation-nextra-docs-starter-kit",
+      "title": "Nextra: Docs Starter Kit",
+      "categorySlug": "documentation",
+      "categoryName": "Documentation",
+      "verdict": "valid",
+      "qualityScore": 68,
+      "relevance_score": 80,
+      "relevance_tier": "medium",
+      "summary": "Nextra: Docs Starter Kit is a Documentation reference with verified Next.js codebase. Verdict: valid.",
+      "templateUrl": "https://vercel.com/templates/documentation/documentation-starter-kit",
+      "demoUrl": "https://nextra-docs-template.vercel.app/",
+      "recommendedScaffoldFamilies": [
+        "content-site"
+      ],
+      "strengths": [
+        "verified Next.js codebase"
+      ],
+      "weaknesses": [],
+      "representativeFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification"
+        }
+      ]
+    }
+  ],
+  "low_priority_ignored": [
+    {
+      "id": "documentation-combining-data-fetching-strategies",
+      "title": "Combining data fetching strategies",
+      "slug": "documentation-combining-data-fetching-strategies",
+      "reason": "Lower research priority for runtime scaffold promotion"
+    },
+    {
+      "id": "starter-handling-custom-web-fonts",
+      "title": "Handling custom web fonts",
+      "slug": "starter-handling-custom-web-fonts",
+      "reason": "Lower research priority for runtime scaffold promotion"
+    },
+    {
+      "id": "documentation-next-image-loading-offset",
+      "title": "next/image loading offset",
+      "slug": "documentation-next-image-loading-offset",
+      "reason": "Lower research priority for runtime scaffold promotion"
+    },
+    {
+      "id": "documentation-reusing-responses-at-build-time",
+      "title": "Reusing responses at build time",
+      "slug": "documentation-reusing-responses-at-build-time",
+      "reason": "Lower research priority for runtime scaffold promotion"
+    }
+  ]
+}

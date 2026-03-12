@@ -11,6 +11,19 @@ interface TipsRequestBody {
   context?: Record<string, unknown> | null;
 }
 
+const DEFAULT_UI_SURFACES = [
+  "vänster chatpanel",
+  "Launch readiness-kortet",
+  "previewpanelen",
+  "sidchipsen under Preview",
+  "Kodvy",
+  "Elementregister",
+  "versionspanelen till höger",
+  "Projektets miljövariabler",
+  "Publicera-knappen",
+  "den genererade sidan/koden",
+];
+
 const TIPS_SYSTEM_PROMPT = `Du är Sajtagenten i Sajtmaskin. Du ger KORTA, konkreta och handlingsbara tips i buildern.
 
 Regler:
@@ -18,6 +31,10 @@ Regler:
 - Ge 1-2 korta tips (max 2).
 - Varje tips ska vara max ~180 tecken och börja med ett verb.
 - Håll fokus på nästa praktiska steg i buildern (innehåll, struktur, CTA, UX, tydlighet).
+- Hitta ALDRIG på UI-ytor som inte uttryckligen finns i kontexten.
+- Nämn inte "sida", "panel", "flik", "dialog" eller liknande om den ytan inte finns i listan över tillgängliga builder-ytor.
+- Om en ändring hör hemma i den genererade appen och inte i builder-UI:t: säg det uttryckligen, t.ex. "uppdatera i den genererade sidan/koden" eller nämn relevant fil om den syns i filmanifestet.
+- Om du är osäker på exakt UI-plats: beskriv handlingen utan att hitta på en plats.
 - Upprepa inte hela chatten. Summera inte lång text.
 - Nämn aldrig intern infrastruktur eller leverantörer.
 - Om kontext saknas: ge ett generellt men användbart byggtips i 1 punkt.
@@ -40,12 +57,19 @@ function buildTipsContextBlock(ctx: Record<string, unknown>): string {
   const projectId = normalizeText(ctx.projectId, 120);
   const latestAssistantMessage = normalizeText(ctx.latestAssistantMessage, 800);
   const latestUserMessage = normalizeText(ctx.latestUserMessage, 500);
+  const uiSurfaces = Array.isArray(ctx.uiSurfaces)
+    ? ctx.uiSurfaces.map((value) => normalizeText(value, 120)).filter(Boolean)
+    : DEFAULT_UI_SURFACES;
 
   if (page) parts.push(`Sida: ${page}`);
   if (projectId) parts.push(`Projekt-ID: ${projectId}`);
   if (chatId) parts.push(`Chatt-ID: ${chatId}`);
   if (activeVersionId) parts.push(`Aktiv version: ${activeVersionId}`);
   if (demoUrl) parts.push(`Demo-URL: ${demoUrl}`);
+  if (uiSurfaces.length > 0) {
+    parts.push("\nTillgängliga builder-ytor:");
+    parts.push(...uiSurfaces.map((surface) => `- ${surface}`));
+  }
 
   if (latestUserMessage) {
     parts.push(`\nSenaste användarmeddelande:\n${latestUserMessage}`);
@@ -105,6 +129,46 @@ function extractAssistantText(payload: unknown): string {
     .trim();
 
   return text;
+}
+
+const UI_LOCATION_REWRITES: Array<[RegExp, string]> = [
+  [/\bSEO-panelen\b/giu, "Launch readiness-kortet"],
+  [/\bSEO-sidan\b/giu, "Launch readiness-kortet"],
+];
+
+const GENERIC_UNKNOWN_UI_RE =
+  /\b(?:gå till|öppna|visa|använd|kolla)\s+[^.!?\n]{0,80}?(?:sidan|panelen|fliken|dialogen|vyn)\b/iu;
+
+function mentionsKnownSurface(text: string): boolean {
+  const known = [
+    "launch readiness",
+    "preview",
+    "kodvy",
+    "elementregister",
+    "versionspanelen",
+    "miljövariabler",
+    "publicera-knappen",
+    "genererade sidan",
+    "koden",
+  ];
+  const lower = text.toLowerCase();
+  return known.some((surface) => lower.includes(surface));
+}
+
+function normalizeTipText(text: string): string {
+  let normalized = text.trim();
+  for (const [pattern, replacement] of UI_LOCATION_REWRITES) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+
+  if (GENERIC_UNKNOWN_UI_RE.test(normalized) && !mentionsKnownSurface(normalized)) {
+    normalized = normalized.replace(
+      GENERIC_UNKNOWN_UI_RE,
+      "uppdatera det i den genererade sidan/koden eller i rätt synlig builder-yta",
+    );
+  }
+
+  return normalized;
 }
 
 export async function POST(req: NextRequest) {
@@ -170,7 +234,7 @@ export async function POST(req: NextRequest) {
       }
 
       const payload = (await upstream.json().catch(() => null)) as unknown;
-      const tipText = extractAssistantText(payload).slice(0, 700);
+      const tipText = normalizeTipText(extractAssistantText(payload)).slice(0, 700);
       if (!tipText) {
         return NextResponse.json(
           { success: false, error: "Tomt svar från tipsgeneratorn" },

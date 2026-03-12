@@ -47,6 +47,8 @@
     "references:discover:full": "npx playwright test vercel_templates_levels/tests/scrape-catalog.spec.ts -g \"automated: scrape with broad preset filters\"",
     "scaffolds:discover": "npm run references:discover",
     "scaffolds:discover:full": "npm run references:discover:full",
+    "scaffolds:curate": "npx tsx scripts/curate-scaffold-candidates.ts",
+    "scaffolds:promote": "npx tsx scripts/promote-to-scaffold.ts",
     "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts",
     "docs:embeddings": "npx tsx scripts/generate-docs-embeddings.ts",
     "eval": "npx tsx scripts/run-eval.ts"
