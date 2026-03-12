@@ -79,6 +79,7 @@ _template_refs/
 
 # Large local docs/specs (keep out of git unless intentionally added)
 SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
+Arkitektur och teknikstack.pdf
 ANALYS-*.txt
 next_sidan_skrapning.txt
 
