@@ -9,6 +9,12 @@ Scope 1 - Reversible flag
 - Exposed the flag and OpenClaw gateway presence in admin env status.
 - Documented the flag in config/env-policy.json with development/preview/production targets.
 
+Scope 2 - Branded launcher and panel polish
+- Added a homepage-first OpenClaw teaser card above the floating launcher.
+- Restyled the floating launcher to feel more like a premium assistant entrypoint.
+- Upgraded the chat panel with clearer OpenClaw branding, better empty state copy and starter prompts.
+- Updated chat message styling to fit the darker OpenClaw panel theme.
+
 Validation notes
 - Local .env.local now sets IMPLEMENT_UNDERSCORE_CLAW="y".
 - Active local dev server detected in a separate terminal.
@@ -18,6 +24,9 @@ Validation notes
   - gateway + flag => surface on
   - flag without gateway => surface off
   - gateway without flag => surface off
+- Scope 2 browser validation passed on http://localhost:3000/.
+- Launcher teaser rendered on the homepage and opened the panel correctly.
+- Starter prompt click triggered POST /api/openclaw/chat with 200 response.
 - Full project typecheck is currently blocked by an unrelated existing error in src/app/api/prompts/[id]/route.ts.
 
 Commit boundary
@@ -27,6 +36,9 @@ Commit boundary
   src/app/layout.tsx
   src/app/api/admin/env/route.ts
   config/env-policy.json
+  src/components/openclaw/OpenClawChat.tsx
+  src/components/openclaw/OpenClawChatPanel.tsx
+  src/components/openclaw/OpenClawMessage.tsx
   roadmap.txt
 - Do not include:
   .env.local

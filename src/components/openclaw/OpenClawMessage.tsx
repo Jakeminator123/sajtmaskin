@@ -12,15 +12,15 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
         className={cn(
           "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
           isUser
-            ? "bg-primary text-primary-foreground rounded-br-md"
-            : "bg-muted text-muted-foreground rounded-bl-md",
+            ? "rounded-br-md bg-cyan-400 text-slate-950"
+            : "rounded-bl-md border border-white/10 bg-white/5 text-slate-100",
         )}
       >
         {msg.content || (
           <span className="inline-flex items-center gap-1 opacity-60">
-            <span className="bg-muted-foreground/60 h-1.5 w-1.5 animate-pulse rounded-full" />
-            <span className="bg-muted-foreground/60 h-1.5 w-1.5 animate-pulse rounded-full [animation-delay:150ms]" />
-            <span className="bg-muted-foreground/60 h-1.5 w-1.5 animate-pulse rounded-full [animation-delay:300ms]" />
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70" />
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70 [animation-delay:150ms]" />
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70 [animation-delay:300ms]" />
           </span>
         )}
       </div>
