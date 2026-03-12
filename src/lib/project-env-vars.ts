@@ -1,4 +1,5 @@
 import { getProjectData, saveProjectData } from "@/lib/db/services";
+import { encryptValue, decryptValue } from "@/lib/crypto/env-var-cipher";
 
 export type ProjectEnvVarItem = {
   id: string;
@@ -38,10 +39,11 @@ function normalizeProjectEnvVarItem(value: unknown): ProjectEnvVarItem | null {
     typeof obj.createdAt === "string" && obj.createdAt.trim().length > 0 ? obj.createdAt : null;
   const updatedAt =
     typeof obj.updatedAt === "string" && obj.updatedAt.trim().length > 0 ? obj.updatedAt : null;
+  const rawValue = typeof obj.value === "string" ? obj.value : null;
   return {
     id,
     key,
-    value: typeof obj.value === "string" ? obj.value : null,
+    value: rawValue ? decryptValue(rawValue) : null,
     sensitive: typeof obj.sensitive === "boolean" ? obj.sensitive : true,
     createdAt,
     updatedAt,
@@ -91,11 +93,12 @@ export async function upsertStoredProjectEnvVars(
   vars.forEach((item) => {
     const key = normalizeEnvKey(item.key);
     const previous = byKey.get(key);
+    const shouldEncrypt = item.sensitive ?? previous?.sensitive ?? true;
     byKey.set(key, {
       id: previous?.id ?? crypto.randomUUID(),
       key,
-      value: item.value,
-      sensitive: item.sensitive ?? previous?.sensitive ?? true,
+      value: shouldEncrypt ? encryptValue(item.value) : item.value,
+      sensitive: shouldEncrypt,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
     });

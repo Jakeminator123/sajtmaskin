@@ -1,7 +1,11 @@
 import { assertV0Key, v0 } from "@/lib/v0";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import {
+  getChatByV0ChatIdForRequest,
+  getEngineChatByIdForRequest,
+  getEngineVersionForChatByIdForRequest,
+} from "@/lib/tenant";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq, or } from "drizzle-orm";
@@ -13,7 +17,6 @@ import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manage
 import {
   getPreferredVersion,
   getLatestVersion as getLatestEngineVersion,
-  getVersionById,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
@@ -125,17 +128,31 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       const { searchParams } = new URL(req.url);
       const requestedVersionId = searchParams.get("versionId");
       const shouldMaterialize = searchParams.get("materialize") === "1";
+      const engineChat = await getEngineChatByIdForRequest(req, chatId);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chatId);
+
+      if (!engineChat && isUuid) {
+        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+      }
 
       let files;
       let resolvedVersionId: string | null = null;
 
-      if (requestedVersionId) {
-        files = await getVersionFiles(requestedVersionId);
-        resolvedVersionId = requestedVersionId;
-      } else {
-        files = await getLatestVersionFiles(chatId);
-        resolvedVersionId =
-          (await getPreferredVersion(chatId))?.id ?? (await getLatestEngineVersion(chatId))?.id ?? null;
+      if (engineChat) {
+        if (requestedVersionId) {
+          const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, requestedVersionId);
+          if (!scopedVersion) {
+            return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+          }
+          files = await getVersionFiles(scopedVersion.version.id);
+          resolvedVersionId = scopedVersion.version.id;
+        } else {
+          files = await getLatestVersionFiles(engineChat.id);
+          resolvedVersionId =
+            (await getPreferredVersion(engineChat.id))?.id ??
+            (await getLatestEngineVersion(engineChat.id))?.id ??
+            null;
+        }
       }
 
       if (files) {
@@ -187,6 +204,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
           versionId: resolvedVersionId,
           files: formattedFiles,
         });
+      }
+
+      if (engineChat) {
+        return NextResponse.json({ error: "No files found for version" }, { status: 404 });
       }
     }
 
@@ -299,9 +320,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
     const { versionId, files } = validationResult.data;
 
     if (!shouldUseV0Fallback()) {
-      const version = await getVersionById(versionId);
-      if (version && version.chat_id === chatId) {
-        const existingFiles = (await getVersionFiles(versionId)) ?? [];
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+      if (!scopedVersion) {
+        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+      }
+      const existingFiles = (await getVersionFiles(scopedVersion.version.id)) ?? [];
         const nextFiles = [...existingFiles];
 
         for (const file of files) {
@@ -320,21 +343,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
           }
         }
 
-        const updated = await updateVersionFiles(versionId, JSON.stringify(nextFiles));
-        if (!updated) {
-          return NextResponse.json({ error: "Failed to update version files" }, { status: 500 });
-        }
-
-        return NextResponse.json({
-          success: true,
-          versionId,
-          files: nextFiles.map((file) => ({
-            name: file.path,
-            content: file.content,
-          })),
-          demoUrl: null,
-        });
+      const updated = await updateVersionFiles(scopedVersion.version.id, JSON.stringify(nextFiles));
+      if (!updated) {
+        return NextResponse.json({ error: "Failed to update version files" }, { status: 500 });
       }
+
+      return NextResponse.json({
+        success: true,
+        versionId: scopedVersion.version.id,
+        files: nextFiles.map((file) => ({
+          name: file.path,
+          content: file.content,
+        })),
+        demoUrl: null,
+      });
     }
 
     assertV0Key();

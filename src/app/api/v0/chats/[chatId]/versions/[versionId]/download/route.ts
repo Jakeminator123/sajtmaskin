@@ -3,7 +3,7 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
@@ -22,7 +22,11 @@ export async function GET(
     // Non-fallback: build archive from Postgres engine files
     // -----------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const codeFiles = await getVersionFiles(versionId);
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+      if (!scopedVersion) {
+        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+      }
+      const codeFiles = await getVersionFiles(scopedVersion.version.id);
       if (codeFiles && codeFiles.length > 0) {
         const completeProject = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
         const JSZip = (await import("jszip")).default;
@@ -33,7 +37,7 @@ export async function GET(
 
         const buffer = await zip.generateAsync({ type: "nodebuffer" });
         const ext = format === "tar" ? "zip" : "zip";
-        const filename = `version-${versionId.slice(0, 8)}.${ext}`;
+        const filename = `version-${scopedVersion.version.id.slice(0, 8)}.${ext}`;
 
         return new Response(new Uint8Array(buffer), {
           headers: {
@@ -42,6 +46,8 @@ export async function GET(
           },
         });
       }
+
+      return NextResponse.json({ error: "No files found for version" }, { status: 404 });
     }
 
     // -----------------------------------------------------------------

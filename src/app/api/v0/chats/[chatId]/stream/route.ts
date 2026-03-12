@@ -18,7 +18,7 @@ import {
 } from "@/lib/v0Stream";
 import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
 import { withRateLimit } from "@/lib/rateLimit";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -223,7 +223,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         fallbackTier: DEFAULT_MODEL_ID,
       });
       let usingV0Fallback = shouldUseExplicitBuilderFallback(meta);
-      const engineChat = usingV0Fallback ? null : await chatRepo.getChat(chatId);
+      const engineChat = usingV0Fallback
+        ? null
+        : await getEngineChatByIdForRequest(req, chatId, { sessionId });
       if (!usingV0Fallback && !engineChat) {
         const mappedV0Chat = await getChatByV0ChatIdForRequest(req, chatId, { sessionId });
         if (mappedV0Chat) {
@@ -257,6 +259,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
             ? (meta as { buildIntent?: string }).buildIntent
             : null;
+        const metaPromptSourceKind =
+          typeof (meta as { promptSourceKind?: unknown })?.promptSourceKind === "string"
+            ? (meta as { promptSourceKind?: string }).promptSourceKind
+            : null;
+        const metaPromptSourceTechnical =
+          (meta as { promptSourceTechnical?: unknown })?.promptSourceTechnical === true;
+        const metaPromptSourcePreservePayload =
+          (meta as { promptSourcePreservePayload?: unknown })?.promptSourcePreservePayload === true;
         const metaPlanMode =
           (meta as { planMode?: unknown })?.planMode === true;
         const metaAppProjectId = extractAppProjectIdFromMeta(meta);
@@ -288,6 +298,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           buildIntent: metaBuildIntent,
           isFirstPrompt: false,
           attachmentsCount: requestAttachments.length,
+          promptSourceKind: metaPromptSourceKind,
+          promptSourceTechnical: metaPromptSourceTechnical,
+          promptSourcePreservePayload: metaPromptSourcePreservePayload,
         });
         let optimizedMessage = promptOrchestration.finalMessage;
 
@@ -1321,6 +1334,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
           ? (meta as { buildIntent?: string }).buildIntent
           : null;
+      const metaPromptSourceKind =
+        typeof (meta as { promptSourceKind?: unknown })?.promptSourceKind === "string"
+          ? (meta as { promptSourceKind?: string }).promptSourceKind
+          : null;
+      const metaPromptSourceTechnical =
+        (meta as { promptSourceTechnical?: unknown })?.promptSourceTechnical === true;
+      const metaPromptSourcePreservePayload =
+        (meta as { promptSourcePreservePayload?: unknown })?.promptSourcePreservePayload === true;
       const metaScaffoldMode = (() => {
         const raw = typeof (meta as { scaffoldMode?: unknown })?.scaffoldMode === "string"
           ? String((meta as { scaffoldMode?: string }).scaffoldMode)
@@ -1354,6 +1375,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         buildIntent: metaBuildIntent,
         isFirstPrompt: false,
         attachmentsCount: requestAttachments.length,
+        promptSourceKind: metaPromptSourceKind,
+        promptSourceTechnical: metaPromptSourceTechnical,
+        promptSourcePreservePayload: metaPromptSourcePreservePayload,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
       const optimizedMessage = promptOrchestration.finalMessage;

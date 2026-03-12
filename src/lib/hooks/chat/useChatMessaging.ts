@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { warnLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, ChatMessagingParams, ChatMessagingReturn } from "./types";
@@ -28,19 +29,12 @@ export function useChatMessaging(params: ChatMessagingParams): ChatMessagingRetu
         streamingTimerRef.current = null;
         warnLog("v0", "Stream safety timeout reached — force-clearing isStreaming");
         streamAbortRef.current?.abort();
-        setMessages((prev) => {
-          const timeoutNotice =
-            "Varning: Stream timeout nåddes innan ett stabilt slut kom tillbaka. Försök igen eller kör reparera preview.";
-          return prev.map((m) => {
-            if (!m.isStreaming) return m;
-            const content = m.content || "";
-            if (content.includes("Stream timeout")) {
-              return { ...m, isStreaming: false };
-            }
-            const nextContent = content.trim() ? `${content}\n\n${timeoutNotice}` : timeoutNotice;
-            return { ...m, content: nextContent, isStreaming: false };
-          });
+        toast.error("Genereringen tog för lång tid. Försök igen eller kör reparera preview.", {
+          duration: 8000,
         });
+        setMessages((prev) =>
+          prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
+        );
       }, resolvedTimeoutMs);
     },
     [setMessages],

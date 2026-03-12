@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
 
       const user = await getCurrentUser(request);
       const sessionId = getSessionIdFromRequest(request);
+      if (!user?.id && !sessionId) {
+        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      }
 
       const created = await createPromptHandoff({
         prompt: trimmedPrompt,
@@ -50,6 +53,8 @@ export async function POST(request: NextRequest) {
         prompt: created.prompt,
         source: created.source || null,
         projectId: created.project_id || null,
+        userId: created.user_id || null,
+        sessionId: created.session_id || null,
         createdAt: created.created_at ? String(created.created_at) : null,
       });
 

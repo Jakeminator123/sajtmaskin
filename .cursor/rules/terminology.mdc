@@ -49,7 +49,7 @@ When discussing generation architecture, prefer this mental model:
 | Lane | What belongs here | What it is not |
 |------|-------------------|----------------|
 | **Runtime lane** | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not raw external datasets |
-| **Research lane** | `v0_vercel_agents/official_docs/`, `research/external-templates/reference-library/`, raw discovery under `research/external-templates/raw-discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
+| **Research lane** | `research/external-templates/reference-library/`, raw discovery under `research/external-templates/raw-discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
 
 Important rule:
 - Treat the **template gallery** in `src/lib/templates/` as a product/UI discovery surface, not as a third generation lane.

@@ -268,6 +268,9 @@ export const SECRETS = {
   get superadminPassword() {
     return env.SUPERADMIN_PASSWORD ?? "";
   },
+  get envVarEncryptionKey() {
+    return env.ENV_VAR_ENCRYPTION_KEY ?? "";
+  },
 } as const;
 
 type SecretName = Exclude<keyof typeof SECRETS, "prototype">;

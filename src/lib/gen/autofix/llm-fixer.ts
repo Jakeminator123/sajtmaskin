@@ -74,7 +74,19 @@ function mergeFixedFiles(originalContent: string, fixedFiles: CodeFile[]): strin
   for (const orig of originalProject.files) {
     const replacement = fixedByPath.get(orig.path);
     if (!replacement || replacement.content === orig.content) continue;
-    result = result.replace(orig.content, replacement.content);
+
+    const escapedPath = orig.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const fenceRe = new RegExp(
+      "(```\\w+\\s+file=\"" + escapedPath + "\"[^\\n]*\\n)" +
+        "([\\s\\S]*?)" +
+        "(\\n```)",
+    );
+    const match = result.match(fenceRe);
+    if (match) {
+      result = result.replace(fenceRe, `$1${replacement.content}$3`);
+    } else {
+      result = result.replace(orig.content, replacement.content);
+    }
   }
 
   return result;

@@ -21,15 +21,14 @@ import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth";
 import { useAuthStore } from "@/lib/auth/auth-store";
-import { buildAiElementPrompt } from "@/lib/builder/ai-elements-catalog";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
-import { buildApprovedPlanExecutionPrompt } from "@/lib/gen/plan-review";
 import {
-  buildShadcnBlockPrompt,
-  buildShadcnComponentPrompt,
-} from "@/lib/shadcn-registry-utils";
+  buildPromptSourceMessage,
+  type PromptSourceMeta,
+} from "@/lib/builder/prompt-builder";
 import type { ChatMessage } from "@/lib/builder/types";
 import { cn } from "@/lib/utils";
+import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BuilderLayout } from "./BuilderLayout";
@@ -108,66 +107,20 @@ function buildCustomizationInstruction(customization: string): string {
   ].join("\n");
 }
 
-function buildUiPlacementMessage(
-  request: Extract<VisualPlacementRequest, { kind: "ui" }>,
+function buildPlacementPromptMessage(
+  request: VisualPlacementRequest,
   placement: PlacementSelectEventDetail,
   customization: string,
-  existingUiComponents?: string[],
-): string {
-  const selection = request.selection;
-  const technicalPrompt = request.isComponent
-    ? buildShadcnComponentPrompt(selection.registryItem, {
-        style: selection.style,
-        displayName: selection.block.title,
-        description: selection.block.description,
-        dependencyItems: selection.dependencyItems,
-        placement: placement.placement,
-        detectedSections: selection.detectedSections,
-        existingUiComponents,
-      })
-    : buildShadcnBlockPrompt(selection.registryItem, {
-        style: selection.style,
-        displayName: selection.block.title,
-        description: selection.block.description,
-        dependencyItems: selection.dependencyItems,
-        placement: placement.placement,
-        detectedSections: selection.detectedSections,
-        existingUiComponents,
-      });
-
-  const anchorLine = placement.anchorSection
-    ? `\n🧭 Ankare: ${placement.anchorSection.label}`
-    : "";
-  const extraInstruction = buildCustomizationInstruction(customization);
-
-  return `Lägg till UI‑element (${request.isComponent ? "komponent" : "block"}): **${request.itemTitle}**${request.deps}
-📍 Placering: ${placement.placementLabel}${anchorLine}
-
----
-
-${technicalPrompt}${extraInstruction}`;
-}
-
-function buildAiPlacementMessage(
-  request: Extract<VisualPlacementRequest, { kind: "ai" }>,
-  placement: PlacementSelectEventDetail,
-  customization: string,
-): string {
-  const technicalPrompt = buildAiElementPrompt(request.item, {
-    placement: placement.placement,
-    detectedSections: request.options.detectedSections,
+): { message: string; meta: PromptSourceMeta } {
+  const built = buildPromptSourceMessage(request.source, {
+    placementLabel: placement.placementLabel,
+    anchorLabel: placement.anchorSection?.label ?? null,
+    customization,
   });
-  const anchorLine = placement.anchorSection
-    ? `\n🧭 Ankare: ${placement.anchorSection.label}`
-    : "";
-  const extraInstruction = buildCustomizationInstruction(customization);
-
-  return `Lägg till AI‑element: **${request.item.label}**${request.deps}
-📍 Placering: ${placement.placementLabel}${anchorLine}
-
----
-
-${technicalPrompt}${extraInstruction}`;
+  return {
+    message: built.message,
+    meta: built.meta,
+  };
 }
 
 export function BuilderShellContent(vm: BuilderViewModel) {
@@ -193,6 +146,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           : vm.isDeploying
             ? "Publicering pågår redan."
             : deployReadinessBlocker?.detail || deployReadinessBlocker?.title || null;
+  const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [tipPanelOpen, setTipPanelOpen] = useState(false);
   const [tipText, setTipText] = useState<string | null>(null);
@@ -211,8 +165,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const placementResolverRef = useRef<((decision: VisualPlacementDecision) => void) | null>(null);
   const handleApproveBuildPlan = useCallback(
     async (plan: Record<string, unknown>) => {
-      const prompt = buildApprovedPlanExecutionPrompt(plan);
-      await sendMessage(prompt);
+      const built = buildPromptSourceMessage({ kind: "approved-plan", rawPlan: plan });
+      await sendMessage(built.message, { promptSourceMeta: built.meta });
     },
     [sendMessage],
   );
@@ -489,21 +443,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
       setIsPlacementSubmitting(true);
       try {
-        const fullMessage =
-          pendingPlacementRequest.kind === "ui"
-            ? buildUiPlacementMessage(
-                pendingPlacementRequest,
-                placementSelection,
-                customization,
-                vm.existingUiComponents,
-              )
-            : buildAiPlacementMessage(
-                pendingPlacementRequest,
-                placementSelection,
-                customization,
-              );
-
-        await vm.sendMessage(fullMessage);
+        const built = buildPlacementPromptMessage(
+          pendingPlacementRequest,
+          placementSelection,
+          customization,
+        );
+        await vm.sendMessage(built.message, { promptSourceMeta: built.meta });
         resolvePlacementFlow("handled");
       } catch (error) {
         const message =
@@ -525,15 +470,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const pendingPlacementItem = pendingPlacementRequest
     ? pendingPlacementRequest.kind === "ui"
       ? {
-          title: pendingPlacementRequest.itemTitle,
+          title:
+            pendingPlacementRequest.source.displayName ||
+            pendingPlacementRequest.source.registryItem.name ||
+            "Block",
           description:
-            pendingPlacementRequest.selection.block.description ||
-            pendingPlacementRequest.selection.registryItem.description ||
+            pendingPlacementRequest.source.description ||
+            pendingPlacementRequest.source.registryItem.description ||
             null,
         }
       : {
-          title: pendingPlacementRequest.item.label,
-          description: pendingPlacementRequest.item.description,
+          title: pendingPlacementRequest.source.item.label,
+          description: pendingPlacementRequest.source.item.description,
         }
     : null;
 
@@ -606,8 +554,52 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deployDisabledReason={deployDisabledReason}
       />
 
+      {/* Mobile tab bar (visible < lg) */}
+      <div className="border-border bg-background flex border-b lg:hidden" role="tablist" aria-label="Byggarvyer">
+        <button
+          role="tab"
+          aria-selected={mobileTab === "chat"}
+          aria-controls="builder-chat-panel"
+          onClick={() => setMobileTab("chat")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors",
+            mobileTab === "chat"
+              ? "border-brand-blue text-brand-blue border-b-2"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <MessageSquare className="h-4 w-4" />
+          Chat
+        </button>
+        <button
+          role="tab"
+          aria-selected={mobileTab === "preview"}
+          aria-controls="builder-preview-panel"
+          onClick={() => setMobileTab("preview")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors",
+            mobileTab === "preview"
+              ? "border-brand-blue text-brand-blue border-b-2"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Eye className="h-4 w-4" />
+          Preview
+          {vm.currentDemoUrl && mobileTab !== "preview" && (
+            <span className="bg-brand-blue h-2 w-2 rounded-full" />
+          )}
+        </button>
+      </div>
+
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="border-border bg-background flex min-h-0 w-full flex-col border-r lg:w-96">
+        <div
+          id="builder-chat-panel"
+          role="tabpanel"
+          className={cn(
+            "border-border bg-background min-h-0 w-full flex-col border-r lg:flex lg:w-96",
+            mobileTab === "chat" ? "flex" : "hidden",
+          )}
+        >
           <LaunchReadinessCard
             readiness={vm.deployReadiness}
             isLoading={vm.isDeployReadinessLoading}
@@ -691,7 +683,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           />
         </div>
 
-        <div className="hidden min-h-0 flex-1 overflow-hidden lg:flex">
+        <div
+          id="builder-preview-panel"
+          role="tabpanel"
+          className={cn(
+            "min-h-0 flex-1 overflow-hidden",
+            mobileTab === "preview" ? "flex" : "hidden lg:flex",
+          )}
+        >
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <PreviewPanel
               chatId={vm.chatId}

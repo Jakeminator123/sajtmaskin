@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertV0Key, v0 } from "@/lib/v0";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { validateFiles, formatIssuesForDisplay, fixCssIssues } from "@/lib/utils/css-validator";
 import { z } from "zod";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
@@ -34,7 +34,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     // Non-fallback: fetch & update via Postgres engine store
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const codeFiles = await getVersionFiles(versionId);
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+      if (!scopedVersion) {
+        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+      }
+      const codeFiles = await getVersionFiles(scopedVersion.version.id);
       if (codeFiles && codeFiles.length > 0) {
         const filePairs = codeFiles.map((f) => ({ name: f.path, content: f.content }));
         const results = validateFiles(filePairs);
@@ -71,7 +75,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
             return file;
           });
 
-          await updateVersionFiles(versionId, JSON.stringify(updatedFiles));
+          await updateVersionFiles(scopedVersion.version.id, JSON.stringify(updatedFiles));
 
           return NextResponse.json({
             valid: false,
@@ -93,6 +97,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           formattedIssues: formatIssuesForDisplay(results),
         });
       }
+
+      return NextResponse.json(
+        {
+          valid: true,
+          issues: [],
+          message: "No files to validate",
+        },
+        { status: 404 },
+      );
     }
 
     // ---------------------------------------------------------------

@@ -2,12 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
-import {
-  getChat as getEngineChat,
-  getVersionById as getEngineVersion,
-} from "@/lib/db/chat-repository-pg";
 import {
   createEngineVersionErrorLog,
   createEngineVersionErrorLogs,
@@ -85,14 +81,12 @@ export async function POST(request: Request, ctx: RouteParams) {
   try {
     const { chatId, versionId } = await ctx.params;
     if (!shouldUseV0Fallback()) {
-      const chat = await getEngineChat(chatId);
-      if (!chat) {
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-      }
-      const version = await getEngineVersion(versionId);
-      if (!version || version.chat_id !== chatId) {
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(request, chatId, versionId);
+      if (!scopedVersion) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
+      const internalChatId = scopedVersion.chat.id;
+      const internalVersionId = scopedVersion.version.id;
       const body = (await request.json().catch(() => null)) as
         | { logs?: ErrorLogPayload[] }
         | ErrorLogPayload
@@ -104,8 +98,8 @@ export async function POST(request: Request, ctx: RouteParams) {
       if ("logs" in body && Array.isArray(body.logs)) {
         const rows = await createEngineVersionErrorLogs(
           body.logs.map((log) => ({
-            chatId,
-            versionId,
+            chatId: internalChatId,
+            versionId: internalVersionId,
             level: log.level,
             category: log.category || null,
             message: log.message,
@@ -117,8 +111,8 @@ export async function POST(request: Request, ctx: RouteParams) {
 
       const payload = body as ErrorLogPayload;
       const row = await createEngineVersionErrorLog({
-        chatId,
-        versionId,
+        chatId: internalChatId,
+        versionId: internalVersionId,
         level: payload.level,
         category: payload.category || null,
         message: payload.message,
@@ -184,15 +178,11 @@ export async function GET(request: Request, ctx: RouteParams) {
   try {
     const { chatId, versionId } = await ctx.params;
     if (!shouldUseV0Fallback()) {
-      const chat = await getEngineChat(chatId);
-      if (!chat) {
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-      }
-      const version = await getEngineVersion(versionId);
-      if (!version || version.chat_id !== chatId) {
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(request, chatId, versionId);
+      if (!scopedVersion) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
-      const logs = await getEngineVersionErrorLogs(versionId);
+      const logs = await getEngineVersionErrorLogs(scopedVersion.version.id);
       return NextResponse.json({ success: true, stored: true, logs, summary: buildErrorLogSummary(logs) });
     }
 

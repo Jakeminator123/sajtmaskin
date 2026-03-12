@@ -3,7 +3,7 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { db, dbConfigured } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { eq, desc, and, or } from "drizzle-orm";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionsByChat } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
@@ -29,12 +29,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     // Non-fallback: fetch versions from Postgres-backed own engine data
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const engineVersions = await getVersionsByChat(chatId);
+      const engineChat = await getEngineChatByIdForRequest(req, chatId);
+      const engineVersions = engineChat ? await getVersionsByChat(engineChat.id) : [];
+      const engineChatId = engineChat?.id ?? chatId;
       if (engineVersions.length > 0) {
         const versionsList = engineVersions.map((v) => ({
           id: v.id,
           versionId: v.id,
-          demoUrl: buildPreviewUrl(chatId, v.id),
+          demoUrl: buildPreviewUrl(engineChatId, v.id),
           createdAt: v.created_at,
           versionNumber: v.version_number,
           messageId: v.message_id,

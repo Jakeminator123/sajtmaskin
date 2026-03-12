@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { assertV0Key, v0 } from "@/lib/v0";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { normalizeUnicodeEscapes } from "@/lib/utils/unicode-normalizer";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
@@ -34,7 +34,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     // Non-fallback: fetch & update via Postgres engine store
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const files = await getVersionFiles(versionId);
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+      if (!scopedVersion) {
+        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+      }
+      const files = await getVersionFiles(scopedVersion.version.id);
       if (files && files.length > 0) {
         let changedFiles = 0;
         let replacements = 0;
@@ -58,7 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           });
         }
 
-        await updateVersionFiles(versionId, JSON.stringify(updatedFiles));
+        await updateVersionFiles(scopedVersion.version.id, JSON.stringify(updatedFiles));
 
         return NextResponse.json({
           normalized: true,
@@ -69,6 +73,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           demoUrl: null,
         });
       }
+
+      return NextResponse.json(
+        {
+          normalized: true,
+          changed: false,
+          changedFiles: 0,
+          replacements: 0,
+          message: "No files to normalize",
+        },
+        { status: 404 },
+      );
     }
 
     // ---------------------------------------------------------------

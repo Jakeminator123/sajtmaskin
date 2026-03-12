@@ -5,7 +5,12 @@ import { db } from "@/lib/db/client";
 import { chats, versions } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
-import { ensureProjectForRequest, resolveV0ProjectId, generateProjectName } from "@/lib/tenant";
+import {
+  ensureProjectForRequest,
+  resolveV0ProjectId,
+  generateProjectName,
+  getAppProjectByIdForRequest,
+} from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { debugLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -67,7 +72,11 @@ export async function GET(req: Request) {
     if (!projectId) {
       return NextResponse.json({ chats: [] });
     }
-    const chatList = await listChatsByProject(projectId);
+    const ownedProject = await getAppProjectByIdForRequest(req, projectId);
+    if (!ownedProject) {
+      return NextResponse.json({ chats: [] });
+    }
+    const chatList = await listChatsByProject(ownedProject.id);
     return NextResponse.json({ chats: chatList });
   } catch (err) {
     return NextResponse.json(
@@ -138,6 +147,14 @@ export async function POST(req: Request) {
         typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
           ? (meta as { buildIntent?: string }).buildIntent
           : null;
+      const metaPromptSourceKind =
+        typeof (meta as { promptSourceKind?: unknown })?.promptSourceKind === "string"
+          ? (meta as { promptSourceKind?: string }).promptSourceKind
+          : null;
+      const metaPromptSourceTechnical =
+        (meta as { promptSourceTechnical?: unknown })?.promptSourceTechnical === true;
+      const metaPromptSourcePreservePayload =
+        (meta as { promptSourcePreservePayload?: unknown })?.promptSourcePreservePayload === true;
       const metaAppProjectId = extractAppProjectIdFromMeta(meta);
       const promptOrchestration = orchestratePromptMessage({
         message,
@@ -145,6 +162,9 @@ export async function POST(req: Request) {
         buildIntent: metaBuildIntent,
         isFirstPrompt: true,
         attachmentsCount: requestAttachments.length,
+        promptSourceKind: metaPromptSourceKind,
+        promptSourceTechnical: metaPromptSourceTechnical,
+        promptSourcePreservePayload: metaPromptSourcePreservePayload,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
       const optimizedMessage = promptOrchestration.finalMessage;

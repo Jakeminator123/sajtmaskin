@@ -1330,9 +1330,14 @@ export function useBuilderPageController() {
     applyAppProjectId: projectActions.applyAppProjectId,
     handleSaveProject: projectActions.handleSaveProject,
     resetToNewChat: useCallback(() => {
+      if (state.chatId && state.messages.length > 0) {
+        if (!window.confirm("Vill du verkligen starta en ny chat? Osparade ändringar försvinner.")) {
+          return;
+        }
+      }
       autoProjectInitRef.current = false;
       projectActions.resetToNewChat();
-    }, [projectActions, autoProjectInitRef]),
+    }, [projectActions, autoProjectInitRef, state.chatId, state.messages.length]),
 
     // Deploy actions
     handleOpenDeployDialog: deployActions.handleOpenDeployDialog,

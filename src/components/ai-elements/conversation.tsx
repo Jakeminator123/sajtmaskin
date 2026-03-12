@@ -124,6 +124,7 @@ export function ConversationScrollButton({
     <button
       type="button"
       onClick={scrollToBottom}
+      aria-label="Scrolla ned till senaste meddelande"
       className={cn(
         "fixed bottom-24 left-1/2 z-10 -translate-x-1/2",
         "rounded-full bg-zinc-800 px-4 py-2 text-sm text-white shadow-lg",

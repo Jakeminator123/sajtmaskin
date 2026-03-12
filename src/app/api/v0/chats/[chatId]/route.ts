@@ -3,10 +3,10 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq, desc } from "drizzle-orm";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { nanoid } from "nanoid";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
-import { getChat, getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
+import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
 
@@ -18,7 +18,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     // Non-fallback: fetch from Postgres-backed own engine data
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const chat = await getChat(chatId);
+      const chat = await getEngineChatByIdForRequest(req, chatId);
       if (chat) {
         const latest = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
         const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
@@ -92,6 +92,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       // Template/category builds can still return raw v0 chat IDs even when
       // the own engine path is active. If the DB mapping is missing or stale,
       // fall back to a direct v0 lookup instead of hard 404.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chatId);
+      if (isUuid) {
+        return NextResponse.json(
+          { error: "Chat not found" },
+          { status: 404 },
+        );
+      }
       try {
         assertV0Key();
         const v0Chat = await v0.chats.getById({ chatId });

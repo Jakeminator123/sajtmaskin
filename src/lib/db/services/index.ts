@@ -44,7 +44,9 @@ export { getOrCreateGuestUsage, incrementGuestUsage } from "./guests";
 export {
   createPromptHandoff,
   getPromptHandoffById,
+  getPromptHandoffByIdForOwner,
   consumePromptHandoff,
+  consumePromptHandoffForOwner,
   createProject,
   getAllProjectsForOwner,
   getProjectById,

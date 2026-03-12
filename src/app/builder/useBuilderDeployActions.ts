@@ -141,11 +141,11 @@ export function useBuilderDeployActions({
   const deployActiveVersionToVercel = useCallback(
     async (target: "production" | "preview" = "production", projectName?: string) => {
       if (!chatId) {
-        toast.error("No chat selected");
+        toast.error("Ingen chat vald");
         return;
       }
       if (!activeVersionId) {
-        toast.error("No version selected");
+        toast.error("Ingen version vald");
         return;
       }
       if (deployReadiness && !deployReadiness.canDeploy) {
@@ -197,7 +197,7 @@ export function useBuilderDeployActions({
           setActiveDeploymentId(returnedDeploymentId);
         }
 
-        toast.success(url ? "Deployment started (Vercel building...)" : "Deployment started");
+        toast.success(url ? "Publicering startad (Vercel bygger...)" : "Publicering startad");
         if (url) {
           toast(`Vercel URL: ${url}`, {
             duration: 15000,
@@ -216,7 +216,7 @@ export function useBuilderDeployActions({
             {
               level: "error",
               category: "deploy",
-              message: error instanceof Error ? error.message : "Failed to deploy",
+              message: error instanceof Error ? error.message : "Publicering misslyckades",
               meta: {
                 target,
                 projectName: projectName?.trim() || null,
@@ -225,7 +225,7 @@ export function useBuilderDeployActions({
             },
           ]);
         }
-        toast.error(error instanceof Error ? error.message : "Failed to deploy");
+        toast.error(error instanceof Error ? error.message : "Publicering misslyckades");
       } finally {
         setIsDeploying(false);
       }

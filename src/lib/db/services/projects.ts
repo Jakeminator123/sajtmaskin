@@ -38,6 +38,25 @@ function buildProjectOwnerCondition(scope: ProjectOwnerScope) {
   return null;
 }
 
+function buildPromptHandoffOwnerCondition(scope: ProjectOwnerScope) {
+  const userId = scope.userId?.trim();
+  const sessionId = scope.sessionId?.trim();
+
+  if (userId && sessionId) {
+    return or(
+      eq(promptHandoffs.user_id, userId),
+      and(isNull(promptHandoffs.user_id), eq(promptHandoffs.session_id, sessionId)),
+    );
+  }
+  if (userId) {
+    return eq(promptHandoffs.user_id, userId);
+  }
+  if (sessionId) {
+    return and(isNull(promptHandoffs.user_id), eq(promptHandoffs.session_id, sessionId));
+  }
+  return null;
+}
+
 export async function createPromptHandoff(params: {
   prompt: string;
   source?: string | null;
@@ -69,6 +88,21 @@ export async function getPromptHandoffById(id: string): Promise<PromptHandoff | 
   return rows[0] ?? null;
 }
 
+export async function getPromptHandoffByIdForOwner(
+  id: string,
+  scope: ProjectOwnerScope,
+): Promise<PromptHandoff | null> {
+  assertDbConfigured();
+  const ownerCondition = buildPromptHandoffOwnerCondition(scope);
+  if (!ownerCondition) return null;
+  const rows = await db
+    .select()
+    .from(promptHandoffs)
+    .where(and(eq(promptHandoffs.id, id), ownerCondition))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function consumePromptHandoff(id: string): Promise<PromptHandoff | null> {
   assertDbConfigured();
   const now = new Date();
@@ -76,6 +110,22 @@ export async function consumePromptHandoff(id: string): Promise<PromptHandoff | 
     .update(promptHandoffs)
     .set({ consumed_at: now })
     .where(and(eq(promptHandoffs.id, id), isNull(promptHandoffs.consumed_at)))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function consumePromptHandoffForOwner(
+  id: string,
+  scope: ProjectOwnerScope,
+): Promise<PromptHandoff | null> {
+  assertDbConfigured();
+  const ownerCondition = buildPromptHandoffOwnerCondition(scope);
+  if (!ownerCondition) return null;
+  const now = new Date();
+  const rows = await db
+    .update(promptHandoffs)
+    .set({ consumed_at: now })
+    .where(and(eq(promptHandoffs.id, id), isNull(promptHandoffs.consumed_at), ownerCondition))
     .returning();
   return rows[0] ?? null;
 }

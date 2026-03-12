@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Sandbox } from "@vercel/sandbox";
 import { z } from "zod";
 import { assertV0Key } from "@/lib/v0";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
 import { createEngineVersionErrorLogs, createVersionErrorLogs } from "@/lib/db/services";
 import { db, dbConfigured } from "@/lib/db/client";
@@ -12,7 +12,6 @@ import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   failVersionVerification,
-  getVersionById,
   markVersionVerifying,
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
@@ -196,13 +195,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     // Non-fallback: fetch files from Postgres engine store
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const versionObj = await getVersionById(versionId);
-      if (versionObj && versionObj.chat_id !== chatId) {
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+      if (!scopedVersion) {
         return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
       }
-
-      const codeFiles = await getVersionFiles(versionId);
-      if (versionObj && codeFiles && codeFiles.length > 0) {
+      const internalVersionId = scopedVersion.version.id;
+      const codeFiles = await getVersionFiles(internalVersionId);
+      if (codeFiles && codeFiles.length > 0) {
         if (!isSandboxConfigured()) {
           return NextResponse.json(
             { error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)" },
@@ -215,7 +214,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           .filter((f) => f.content != null)
           .map((f) => ({ name: f.path, content: f.content }));
 
-        await markVersionVerifying(versionId).catch((err) => {
+        await markVersionVerifying(internalVersionId).catch((err) => {
           console.warn("[quality-gate] Failed to mark version verifying:", err);
         });
 
@@ -231,7 +230,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           const logs = [
             {
               chatId,
-              versionId,
+              versionId: internalVersionId,
               ...buildQualityGateSummaryLog({
                 checkResults: results,
                 sandboxDurationMs,
@@ -242,7 +241,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             .map((r) => {
               return {
                 chatId,
-                versionId,
+                versionId: internalVersionId,
                 level: "error" as const,
                 category: `quality-gate:${r.check}`,
                 message: `${r.check} failed (exit ${r.exitCode})`,
@@ -258,18 +257,21 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
           const verificationSummary = buildVerificationSummary(results);
           if (gateResult.passed) {
-            await promoteVersion(versionId, verificationSummary).catch((err) => {
+            await promoteVersion(internalVersionId, verificationSummary).catch((err) => {
               console.warn("[quality-gate] Failed to promote version:", err);
             });
           } else {
-            await failVersionVerification(versionId, verificationSummary).catch((err) => {
+            await failVersionVerification(internalVersionId, verificationSummary).catch((err) => {
               console.warn("[quality-gate] Failed to mark version failed:", err);
             });
           }
 
           return NextResponse.json(gateResult);
         } catch (err) {
-          await failVersionVerification(versionId, "Automatic verification could not complete.").catch(
+          await failVersionVerification(
+            internalVersionId,
+            "Automatic verification could not complete.",
+          ).catch(
             (updateErr) => {
               console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
             },

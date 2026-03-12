@@ -244,7 +244,7 @@ export function useCreateChat(
         if (pendingCreateKeyRef.current) {
           updateCreateChatLockChatId(pendingCreateKeyRef.current, String(newChatId));
         }
-        toast.success("Chat created!");
+        toast.success("Sajt skapad!");
 
         if (latestVersion?.demoUrl) {
           setCurrentDemoUrl(latestVersion.demoUrl as string);
@@ -315,6 +315,11 @@ export function useCreateChat(
         if (themeColors) promptMeta.themeColors = themeColors;
         if (paletteState?.selections?.length) promptMeta.palette = paletteState;
         if (options.planMode) promptMeta.planMode = true;
+        if (options.promptSourceMeta) {
+          promptMeta.promptSourceKind = options.promptSourceMeta.sourceKind;
+          promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
+          promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
+        }
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
           pendingBriefRef.current = null;

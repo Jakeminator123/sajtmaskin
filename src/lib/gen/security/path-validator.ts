@@ -3,11 +3,16 @@ const VALID_CHARS_RE = /^[a-zA-Z0-9\-_./]+$/;
 
 const ALLOWED_ROOT_PREFIXES = [
   "app/",
+  "src/",
   "components/",
   "lib/",
   "public/",
   "hooks/",
   "styles/",
+  "utils/",
+  "types/",
+  "config/",
+  "data/",
 ];
 
 const BLOCKED_SEGMENTS = [
@@ -34,11 +39,12 @@ export function validateFilePath(filePath: string): { valid: boolean; reason?: s
     return { valid: false, reason: "Path traversal (..) not allowed" };
   }
 
-  if (filePath.startsWith("/")) {
-    const withoutSlash = filePath.slice(1);
-    const isAllowed = ALLOWED_ROOT_PREFIXES.some((p) => withoutSlash.startsWith(p));
+  const normalized = filePath.startsWith("/") ? filePath.slice(1) : filePath;
+  const isNested = normalized.includes("/");
+  if (isNested) {
+    const isAllowed = ALLOWED_ROOT_PREFIXES.some((p) => normalized.startsWith(p));
     if (!isAllowed) {
-      return { valid: false, reason: "Absolute path outside allowed directories" };
+      return { valid: false, reason: "Path outside allowed directories" };
     }
   }
 

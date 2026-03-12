@@ -1,3 +1,5 @@
+import { validateFilePath, sanitizeFilePath } from "./security/path-validator";
+
 export interface CodeFile {
   path: string;
   content: string;
@@ -35,10 +37,15 @@ export function parseCodeProject(content: string): CodeProject {
 
   for (const match of content.matchAll(CODE_BLOCK_RE)) {
     const language = match[1];
-    const path = match[2].trim();
+    const rawPath = match[2].trim();
     const fileContent = match[3];
 
-    if (!path || !fileContent.trim()) continue;
+    if (!rawPath || !fileContent.trim()) continue;
+
+    const validation = validateFilePath(rawPath);
+    const path = validation.valid ? rawPath : sanitizeFilePath(rawPath);
+    if (!path || path === "unnamed-file.txt") continue;
+
     if (seen.has(path)) continue;
     seen.add(path);
 

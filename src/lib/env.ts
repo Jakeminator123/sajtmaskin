@@ -116,6 +116,7 @@ export const serverSchema = z.object({
   SUPERADMIN_EMAIL: z.string().optional(),
   SUPERADMIN_PASSWORD: z.string().optional(),
   SUPERADMIN_DIAMONDS: z.string().optional(),
+  ENV_VAR_ENCRYPTION_KEY: z.string().optional(),
   TEMPLATE_SYNC_GITHUB_TOKEN: z.string().optional(),
   TEMPLATE_SYNC_REPO_OWNER: z.string().optional(),
   TEMPLATE_SYNC_REPO_NAME: z.string().optional(),

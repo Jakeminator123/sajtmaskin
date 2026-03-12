@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL, getRecentPromptLogs } from "@/lib/db/services";
+import { isAdminEmail, getRecentPromptLogs } from "@/lib/db/services";
 
 async function isAdmin(req: NextRequest): Promise<boolean> {
   const user = await getCurrentUser(req);
-  return Boolean(user?.email && user.email === TEST_USER_EMAIL);
+  return Boolean(user?.email && isAdminEmail(user.email));
 }
 
 export async function GET(req: NextRequest) {
