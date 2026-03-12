@@ -63,21 +63,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
       await deletePromptHandoffCache(promptId);
 
-      if (existing.consumed_at) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Prompt already consumed",
-            consumedAt: String(existing.consumed_at),
-          },
-          { status: 410 },
-        );
-      }
-
       return NextResponse.json({
-        success: false,
-        error: "Prompt could not be consumed",
-        retryable: true,
+        success: true,
+        prompt: cachedPrompt ?? existing.prompt,
+        source: existing.source || null,
+        projectId: existing.project_id || null,
+        consumedAt: existing.consumed_at ? String(existing.consumed_at) : null,
+        alreadyConsumed: Boolean(existing.consumed_at),
       });
     }
 
