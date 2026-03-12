@@ -88,6 +88,7 @@
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
     "NEXT_PUBLIC_REGISTRY_STYLE",
+    "IMPLEMENT_UNDERSCORE_CLAW",
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
     "OPENCLAW_GATEWAY_TOKEN",
     "OPENCLAW_GATEWAY_URL",
@@ -407,6 +408,16 @@
         "production"
       ],
       "notes": "Required where OpenClaw-backed flows should work."
+    },
+    {
+      "key": "IMPLEMENT_UNDERSCORE_CLAW",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Feature flag for exposing the OpenClaw UI surface. Accepts y/yes/true/1."
     },
     {
       "key": "REDIS_URL",

@@ -42,6 +42,13 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "UPSTASH_REDIS_REST_TOKEN", required: false, notes: "Rate limits" },
   { key: "REDIS_URL", required: false, notes: "Redis cache" },
   { key: "KV_URL", required: false, notes: "Redis cache" },
+  { key: "OPENCLAW_GATEWAY_URL", required: false, notes: "OpenClaw gateway URL" },
+  { key: "OPENCLAW_GATEWAY_TOKEN", required: false, notes: "OpenClaw gateway auth" },
+  {
+    key: "IMPLEMENT_UNDERSCORE_CLAW",
+    required: false,
+    notes: "Enables the OpenClaw UI surface when the gateway is configured",
+  },
   {
     key: "OPENAI_API_KEY",
     required: () => !isV0FallbackEnabled(),

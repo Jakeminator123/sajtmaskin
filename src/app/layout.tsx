@@ -13,7 +13,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { OpenClawChatLazy } from "@/components/openclaw/OpenClawChatLazy";
 import { OPENCLAW, URLS } from "@/lib/config";
 
-const openclawEnabled = OPENCLAW.enabled;
+const openclawSurfaceEnabled = OPENCLAW.surfaceEnabled;
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -93,7 +93,7 @@ export default async function RootLayout({
           <BetaBanner />
           {children}
           <Toaster position="top-right" />
-          {openclawEnabled && <OpenClawChatLazy />}
+          {openclawSurfaceEnabled && <OpenClawChatLazy />}
           <CookieBanner />
         </ThemeProvider>
       </body>

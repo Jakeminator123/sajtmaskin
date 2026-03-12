@@ -1,0 +1,33 @@
+OpenClaw rollout roadmap
+Updated: 2026-03-12
+
+Scope 1 - Reversible flag
+- Added IMPLEMENT_UNDERSCORE_CLAW to env validation.
+- Added affirmative env parsing for y/yes/true/1/on.
+- Split OpenClaw gateway availability from OpenClaw UI surface availability.
+- Gated the global OpenClaw chat surface behind gateway + IMPLEMENT_UNDERSCORE_CLAW.
+- Exposed the flag and OpenClaw gateway presence in admin env status.
+- Documented the flag in config/env-policy.json with development/preview/production targets.
+
+Validation notes
+- Local .env.local now sets IMPLEMENT_UNDERSCORE_CLAW="y".
+- Active local dev server detected in a separate terminal.
+- Other parallel changes are present in unrelated files and are intentionally excluded from the Scope 1 commit.
+- Targeted ESLint passed for all Scope 1 code files.
+- Scope 1 gating smoke test passed:
+  - gateway + flag => surface on
+  - flag without gateway => surface off
+  - gateway without flag => surface off
+- Full project typecheck is currently blocked by an unrelated existing error in src/app/api/prompts/[id]/route.ts.
+
+Commit boundary
+- Include only:
+  src/lib/env.ts
+  src/lib/config.ts
+  src/app/layout.tsx
+  src/app/api/admin/env/route.ts
+  config/env-policy.json
+  roadmap.txt
+- Do not include:
+  .env.local
+  unrelated v0/chat/backend changes from other parallel work

@@ -24,6 +24,13 @@ function sanitizeProcessEnv(): Record<string, string | undefined> {
   return out;
 }
 
+const AFFIRMATIVE_ENV_VALUES = new Set(["1", "true", "yes", "y", "on"]);
+
+export function isAffirmativeEnvValue(value: string | undefined): boolean {
+  const normalized = sanitize(value)?.toLowerCase();
+  return normalized ? AFFIRMATIVE_ENV_VALUES.has(normalized) : false;
+}
+
 // ---------------------------------------------------------------------------
 // Schema – single source of truth for every env var the app reads
 // ---------------------------------------------------------------------------
@@ -151,6 +158,7 @@ export const serverSchema = z.object({
   AUDIT_WEB_SEARCH: z.string().optional(),
   V0_STREAMING_ENABLED: z.string().optional(),
   V0_FALLBACK_BUILDER: z.string().optional(),
+  IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
   CSP_ENFORCE: z.string().optional(),
