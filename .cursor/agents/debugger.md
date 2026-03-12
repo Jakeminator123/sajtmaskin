@@ -100,7 +100,7 @@ Watch for these anti-patterns:
 5. **Memory leaks** - Uncleared intervals/subscriptions in hooks
 
 ### Critical Hooks to Watch
-- `useV0ChatMessaging` - Main chat state
+- `useChatMessaging` - Main chat state
 - `usePromptAssist` - AI prompt enhancement
 - `useVersions` - Version history
 - `usePersistedChatMessages` - Local storage sync
