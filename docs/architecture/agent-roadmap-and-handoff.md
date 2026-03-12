@@ -4,6 +4,8 @@ This file is the operational handoff index for plan artifacts. Use it when a new
 agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
+Status re-verified against the numbered plan set on `2026-03-12`.
+
 ## Status legend
 
 | Status | Meaning |
@@ -22,7 +24,7 @@ which ones are old references.
 | `04-deploy-sse-webhooks.md` | `archived` | SSE/webhook architecture is implemented; remaining deployment-event access hardening is carried into Phase 1 |
 | `05-template-search-ui.md` | `archived` | Template search UI is implemented; any future context-aware recommendations belong under Phase 2 planning/onboarding |
 | `06-world-class-builder-roadmap.md` | `active` | Strategic top-level roadmap |
-| `07-world-class-builder-phase-1-trust-launch.md` | `active` | Phase 1 implementation scope |
+| `07-world-class-builder-phase-1-trust-launch.md` | `archived` | Completed trust/launch phase: version lifecycle, readiness, diagnostics, preview labeling, deploy gating |
 | `08-world-class-builder-phase-2-site-planning.md` | `archived` | Completed planning-layer phase for the own-engine path; remaining future parity/orchestration work should be treated as new roadmap scope |
 | `09-world-class-builder-phase-3-smb-growth.md` | `active` | Phase 3 SMB product scope |
 | `10-world-class-builder-phase-4-learning-moat.md` | `active` | Phase 4 differentiation and learning systems scope |
@@ -32,9 +34,9 @@ which ones are old references.
 
 ## Current active-phase notes
 
-- Phase `7` is complete enough to build on: lifecycle-aware readiness,
-  diagnostics, preview labeling, and deploy gating are now part of the active
-  builder path.
+- Phase `7` is archived: lifecycle-aware readiness, diagnostics, preview
+  labeling, and deploy gating are implemented and part of the active builder
+  path.
 - Phase `8` is complete for the own-engine path and can now be treated as
   archived roadmap work. Planner `uiParts` now round-trip through engine chat
   storage, raw chat reload restores the review card, and the stale

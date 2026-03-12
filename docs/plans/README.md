@@ -21,10 +21,12 @@ folder structure is being normalized. Until they are moved, treat
 
 ## Current status map
 
+Verified against `docs/architecture/agent-roadmap-and-handoff.md` on
+`2026-03-12`.
+
 `active`
 
 - `06-world-class-builder-roadmap.md`
-- `07-world-class-builder-phase-1-trust-launch.md`
 - `09-world-class-builder-phase-3-smb-growth.md`
 - `10-world-class-builder-phase-4-learning-moat.md`
 
@@ -39,6 +41,7 @@ folder structure is being normalized. Until they are moved, treat
 - `archived/03-v0-env-vars-proper-sdk.md`
 - `archived/04-deploy-sse-webhooks.md`
 - `archived/05-template-search-ui.md`
+- `archived/07-world-class-builder-phase-1-trust-launch.md`
 - `archived/08-world-class-builder-phase-2-site-planning.md`
 - `archived/11-next-vercel-build-plan-core-config.md`
 - `archived/12-next-vercel-build-plan-server-routes.md`

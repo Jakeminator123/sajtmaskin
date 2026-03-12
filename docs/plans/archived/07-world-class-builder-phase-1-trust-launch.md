@@ -1,5 +1,8 @@
 # Plan 7: World-Class Builder Phase 1 - Trust And Launch
 
+> Archived on 2026-03-12 after lifecycle-aware readiness, diagnostics, preview
+> labeling, deploy gating, and version lifecycle were implemented.
+
 ## Goal
 Make every generation feel trustworthy, inspectable, and close to publishable.
 
