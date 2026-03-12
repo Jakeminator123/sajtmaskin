@@ -45,6 +45,7 @@ export function OpenClawChatPanel({ onClose }: { onClose: () => void }) {
   const handleStarterPrompt = (prompt: string) => {
     if (isStreaming) return;
     void send(prompt);
+    setInput("");
   };
 
   return (
