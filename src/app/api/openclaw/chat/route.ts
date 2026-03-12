@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { OPENCLAW } from "@/lib/config";
+import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { resolveFileContext } from "@/lib/openclaw/resolve-file-context";
 
 export const runtime = "nodejs";
@@ -68,12 +69,17 @@ function buildContextBlock(
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "openclaw:chat", async () => {
+    const surface = getOpenClawSurfaceStatus();
     const gatewayUrl = OPENCLAW.gatewayUrl;
     const gatewayToken = OPENCLAW.gatewayToken;
 
-    if (!gatewayUrl) {
+    if (!surface.surfaceEnabled) {
       return NextResponse.json(
-        { error: "OpenClaw gateway not configured" },
+        {
+          error: "OpenClaw surface disabled",
+          surfaceStatus: surface.surfaceStatus,
+          blockers: surface.blockers,
+        },
         { status: 503 },
       );
     }

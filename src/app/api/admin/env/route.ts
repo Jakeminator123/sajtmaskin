@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
 import { FEATURES, URLS } from "@/lib/config";
+import { checkOpenClawGatewayHealth } from "@/lib/openclaw/status";
 
 type EnvKeyStatus = {
   key: string;
@@ -142,6 +143,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
+  const openclaw = await checkOpenClawGatewayHealth();
   const keys = ENV_KEYS.map((item) => ({
     ...item,
     required: typeof item.required === "function" ? item.required() : item.required,
@@ -161,6 +163,10 @@ export async function GET(req: NextRequest) {
     vercel: {
       teamId: process.env.VERCEL_TEAM_ID || null,
       projectId: process.env.VERCEL_PROJECT_ID || null,
+    },
+    openclaw: {
+      ...openclaw,
+      healthEndpoint: "/api/openclaw/health",
     },
     features: FEATURES,
     keys,

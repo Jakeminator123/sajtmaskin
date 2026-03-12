@@ -27,6 +27,12 @@ Scope 4 - Configurable company copy
 - Extracted and normalized the public OpenClaw config when reading company data so UI copy can stay typed and fallback-safe.
 - Wired `kostnadsfri/[slug]` to publish route context into `window.__SITEMASKIN_CONTEXT`, allowing the global OpenClaw surface to pick up company config without a new API route.
 
+Scope 5 - Hardening and rollout visibility
+- Added a shared OpenClaw status helper that describes rollout blockers and gateway health in one place.
+- Hardened `/api/openclaw/chat` so the chat surface now respects the same rollout gate as the UI and returns clear blocker reasons when disabled.
+- Upgraded `/api/openclaw/health` to return structured rollout and gateway status instead of only a bare health string.
+- Exposed an explicit `openclaw` status block in `admin/env`, so admins can see gateway config, flag state, surface state and health endpoint details together.
+
 Validation notes
 - Local .env.local now sets IMPLEMENT_UNDERSCORE_CLAW="y".
 - Active local dev server detected in a separate terminal.
@@ -46,6 +52,8 @@ Validation notes
 - Scope 4 smoke test passed for OpenClaw config normalization and company-data extraction.
 - Scope 4 browser regression check passed on `http://localhost:3000/kostnadsfri/ikea-ab`.
 - The `kostnadsfri` route still exposed the company-specific OpenClaw surface, and the new context wiring kept the route stable without breaking the password flow.
+- Scope 5 status smoke test passed for enabled and disabled rollout combinations.
+- Scope 5 runtime check passed on `http://localhost:3000/api/openclaw/health`, returning structured rollout status with `surfaceEnabled: true`.
 - Full project typecheck is currently blocked by an unrelated existing error in src/app/api/prompts/[id]/route.ts.
 
 Commit boundary
@@ -55,6 +63,8 @@ Commit boundary
   src/app/layout.tsx
   src/app/api/admin/env/route.ts
   src/app/api/kostnadsfri/route.ts
+  src/app/api/openclaw/chat/route.ts
+  src/app/api/openclaw/health/route.ts
   config/env-policy.json
   src/app/kostnadsfri/[slug]/page.tsx
   src/components/kostnadsfri/kostnadsfri-page.tsx
@@ -64,6 +74,7 @@ Commit boundary
   src/lib/kostnadsfri/company-name.ts
   src/lib/kostnadsfri/index.ts
   src/lib/kostnadsfri/openclaw-config.ts
+  src/lib/openclaw/status.ts
   roadmap.txt
 - Do not include:
   .env.local
