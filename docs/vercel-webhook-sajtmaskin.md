@@ -30,7 +30,14 @@ Compatibility note: `deployment.checkrun.cancel` is treated as `cancelled` in th
 
 - `VERCEL_WEBHOOK_SECRET`
 - `VERCEL_PROJECT_ID` (`prj_AK7FqC8NwKorjoxGpkXi6nKGUsoe`)
-- `VERCEL_TEAM_ID` (`team_j7KE5zKTm5rdg7zfWzOZhJ89`)
+
+`VERCEL_TEAM_ID` is not required by the webhook route itself.
+
+If the only active webhook points at production
+(`https://sajtmaskin.vercel.app/api/webhooks/vercel`), then only the production
+value must match the secret configured in Vercel. Keeping the same
+`VERCEL_WEBHOOK_SECRET` in `preview`, `development`, `.env.local`, and
+`.env.production` is still fine as a temporary simplification until you rotate.
 
 ## Verification checklist
 
@@ -43,7 +50,9 @@ Compatibility note: `deployment.checkrun.cancel` is treated as `cancelled` in th
 
 1. Create or update project-scoped webhook in Vercel.
 2. Copy the new secret immediately (shown once).
-3. Update `VERCEL_WEBHOOK_SECRET` in Vercel (`production`, `preview`, `development`).
+3. Update `VERCEL_WEBHOOK_SECRET` in Vercel for every environment that should
+   accept signed test traffic. Production is the only mandatory one for the
+   live webhook endpoint.
 4. Sync local `.env.local` and `.env.production`.
 5. Redeploy production.
 6. Re-run signed/invalid-signature checks.

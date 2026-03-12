@@ -61,6 +61,7 @@ export const serverSchema = z.object({
 
   // Auth
   JWT_SECRET: z.string().optional(),
+  INBOUND_WEBHOOK_SHARED_SECRET: z.string().optional(),
 
   // API keys
   V0_API_KEY: z.string().optional(),

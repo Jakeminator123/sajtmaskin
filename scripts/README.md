@@ -150,8 +150,8 @@ npx tsx scripts/curate-scaffold-candidates.ts
 npx tsx scripts/curate-scaffold-candidates.ts --input="src/lib/gen/template-library/template-library.generated.json"
 ```
 
-Det gamla `scripts/curate-scaffold-candidates.mjs` finns kvar som
-kompatibilitetswrapper men delegerar nu till den nya TypeScript-pipelinen.
+Behandla `npm run scaffolds:curate` och TypeScript-skriptet ovan som det
+kanoniska gränssnittet för curation.
 
 Rapporten i `data/scaffold-candidates-curated.json` ar en reproducerbar
 arbetsartefakt for scaffold-triage, inte en runtime-kalla. Behandla den som en
@@ -179,6 +179,18 @@ Skriptet:
 
 Detta är avsiktligt semi-automatiskt: du får en snabb scaffold-startpunkt, men
 bör fortfarande granska filinnehåll, matcher-regler och embeddings efteråt.
+
+## generate-scaffold-embeddings.ts / scaffolds:embeddings
+
+Regenererar `src/lib/gen/scaffolds/scaffold-embeddings.json` från de interna
+runtime-scaffolds som redan ligger i repot.
+
+### Användning
+
+```bash
+npm run scaffolds:embeddings
+npx tsx scripts/generate-scaffold-embeddings.ts
+```
 
 ## devtest
 

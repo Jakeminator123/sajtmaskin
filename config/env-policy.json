@@ -65,10 +65,6 @@
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET",
     "GITHUB_CLIENT_SECRET_DEV",
-    "GODADDY_API_KEY",
-    "GODADDY_API_SECRET",
-    "GODADY_PROD_API_KEY",
-    "GODADY_PROD_SECRET",
     "GOOGLE_API_KEY",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_ID_DEV",
@@ -80,7 +76,6 @@
     "INSPECTOR_FORCE_WORKER_ONLY",
     "KOSTNADSFRI_API_KEY",
     "KOSTNADSFRI_PASSWORD_SEED",
-    "KV_REST_API_READ_ONLY_TOKEN",
     "KV_REST_API_TOKEN",
     "KV_REST_API_URL",
     "KV_URL",
@@ -579,30 +574,6 @@
         "production"
       ],
       "notes": "Optional image sourcing key for placeholder materialization."
-    },
-    {
-      "key": "GODADDY_API_KEY",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Used by manual GoDaddy helper scripts, not normal app runtime."
-    },
-    {
-      "key": "GODADDY_API_SECRET",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Used by manual GoDaddy helper scripts, not normal app runtime."
-    },
-    {
-      "key": "GODADY_PROD_API_KEY",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Used by manual GoDaddy helper scripts, not normal app runtime."
-    },
-    {
-      "key": "GODADY_PROD_SECRET",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Used by manual GoDaddy helper scripts, not normal app runtime."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
