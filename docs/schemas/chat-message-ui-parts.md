@@ -22,7 +22,6 @@ Code sources of truth:
 
 - `src/lib/db/schema.ts`
 - `src/lib/db/chat-repository-pg.ts`
-- `src/lib/db/chat-repository.ts`
 - `src/app/api/v0/chats/[chatId]/route.ts`
 - `src/lib/hooks/usePersistedChatMessages.ts`
 

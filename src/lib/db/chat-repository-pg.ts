@@ -1,11 +1,8 @@
 /**
  * Postgres-based engine chat repository (Drizzle).
  *
- * Drop-in replacement for the SQLite-based chat-repository.ts.
- * Activate by setting USE_PG_ENGINE_STORE=true in env.
- *
- * The API surface matches chat-repository.ts exactly so callers
- * do not need to change.
+ * This is the canonical own-engine chat store.
+ * The exported API remains stable for stream routes and builder flows.
  */
 import { db } from "./client";
 import {

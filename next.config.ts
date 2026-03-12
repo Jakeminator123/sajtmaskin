@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["better-sqlite3", "esbuild"],
+  serverExternalPackages: ["esbuild"],
   outputFileTracingRoot: path.join(__dirname, "./"),
   experimental: {
     optimizePackageImports: ["lucide-react"],
