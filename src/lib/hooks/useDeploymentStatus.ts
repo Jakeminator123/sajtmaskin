@@ -30,8 +30,8 @@ export function useDeploymentStatus(deploymentId: string | null) {
       try {
         const data: DeploymentStatusEvent = JSON.parse(event.data);
         setStatus(data.status);
-        if (data.url) setUrl(data.url);
-        if (data.inspectorUrl) setInspectorUrl(data.inspectorUrl);
+        setUrl(data.url ?? null);
+        setInspectorUrl(data.inspectorUrl ?? null);
 
         if (["ready", "error", "cancelled"].includes(data.status)) {
           es.close();

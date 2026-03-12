@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL } from "@/lib/db/services";
+import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
 import { FEATURES, URLS } from "@/lib/config";
 
 type EnvKeyStatus = {
@@ -10,14 +10,21 @@ type EnvKeyStatus = {
   notes?: string;
 };
 
-type EnvKeyDefinition = Omit<EnvKeyStatus, "present">;
+type EnvKeyDefinition = Omit<EnvKeyStatus, "present" | "required"> & {
+  required: boolean | (() => boolean);
+};
+
+function isV0FallbackEnabled(): boolean {
+  const raw = process.env.V0_FALLBACK_BUILDER?.trim().toLowerCase() ?? "";
+  return raw === "y" || raw === "yes" || raw === "true" || raw === "1";
+}
 
 const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "POSTGRES_URL", required: true, notes: "Primär databas (Supabase)" },
   { key: "DB_SSL_REJECT_UNAUTHORIZED", required: false, notes: "DB TLS strictness" },
   {
     key: "V0_API_KEY",
-    required: true,
+    required: () => isV0FallbackEnabled(),
     notes: "v0 Platform API (required when V0_FALLBACK_BUILDER=y for fallback mode)",
   },
   { key: "V0_STREAMING_ENABLED", required: false, notes: "v0 streaming feature flag" },
@@ -37,7 +44,7 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "KV_URL", required: false, notes: "Redis cache" },
   {
     key: "OPENAI_API_KEY",
-    required: false,
+    required: () => !isV0FallbackEnabled(),
     notes: "Code generation (default engine), prompt-assist. Required when V0_FALLBACK_BUILDER is not set.",
   },
   {
@@ -120,7 +127,7 @@ function hasEnv(key: string): boolean {
 
 async function isAdmin(req: NextRequest): Promise<boolean> {
   const user = await getCurrentUser(req);
-  return Boolean(user?.email && user.email === TEST_USER_EMAIL);
+  return Boolean(user?.email && isAdminEmailEdge(user.email));
 }
 
 export async function GET(req: NextRequest) {
@@ -130,6 +137,7 @@ export async function GET(req: NextRequest) {
 
   const keys = ENV_KEYS.map((item) => ({
     ...item,
+    required: typeof item.required === "function" ? item.required() : item.required,
     present: hasEnv(item.key),
   }));
 

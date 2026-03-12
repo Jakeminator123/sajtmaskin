@@ -46,7 +46,15 @@ export function LocationPicker({
 
   useEffect(() => {
     if (!apiKey) return;
-    loadGoogleMaps(apiKey).then(() => setScriptLoaded(true));
+    let cancelled = false;
+    loadGoogleMaps(apiKey).then(() => {
+      if (!cancelled) {
+        setScriptLoaded(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [apiKey]);
 
   const movePin = useCallback(

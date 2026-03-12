@@ -22,7 +22,11 @@ import {
   syncEnvVarsToVercelProject,
   toVercelFilesFromTextFiles,
 } from "@/lib/vercelDeploy";
-import { getChatByIdForRequest, getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import {
+  getChatByIdForRequest,
+  getChatByV0ChatIdForRequest,
+  getProjectByIdForRequest,
+} from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
@@ -358,7 +362,8 @@ export async function POST(req: Request) {
         );
       }
 
-      const { chatId, versionId, projectName, target, imageStrategy, projectId } = validationResult.data;
+      const { chatId, versionId, projectName, target, imageStrategy, projectId } =
+        validationResult.data;
       const resolvedImageStrategy: ImageAssetStrategy =
         imageStrategy ?? (process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "external");
       const deployTarget = target === "preview" ? "preview" : "production";
@@ -380,11 +385,34 @@ export async function POST(req: Request) {
         if (!engineVersion) {
           return NextResponse.json({ error: "Version not found" }, { status: 404 });
         }
+        if (engineVersion.chat_id !== chatId) {
+          return NextResponse.json({ error: "Version does not belong to chat" }, { status: 404 });
+        }
         const [engineChat, codeFiles] = await Promise.all([
           getChat(engineVersion.chat_id),
           getVersionFiles(versionId),
         ]);
-        const engineProjectId = projectId?.trim() || engineChat?.project_id || null;
+        if (!engineChat) {
+          return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+        }
+        const requestedProjectId = projectId?.trim() || null;
+        if (requestedProjectId && engineChat.project_id && requestedProjectId !== engineChat.project_id) {
+          return NextResponse.json(
+            { error: "Project does not match chat ownership" },
+            { status: 409 },
+          );
+        }
+        const engineProjectId = requestedProjectId || engineChat.project_id || null;
+        if (!engineProjectId) {
+          return NextResponse.json(
+            { error: "Chat is not linked to a project" },
+            { status: 403 },
+          );
+        }
+        const ownedProject = await getProjectByIdForRequest(req, engineProjectId);
+        if (!ownedProject) {
+          return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+        }
         if (!codeFiles || codeFiles.length === 0) {
           return NextResponse.json(
             { error: "No files found for this version" },

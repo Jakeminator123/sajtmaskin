@@ -55,6 +55,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "ai:brief": { maxRequests: 30, windowMs: 60 * 1000 },
   "figma:preview": { maxRequests: 20, windowMs: 60 * 1000 },
   "github:export": { maxRequests: 8, windowMs: 60 * 1000 },
+  "fetch:html": { maxRequests: 12, windowMs: 60 * 1000 },
   read: { maxRequests: 150, windowMs: 60 * 1000 },
   default: { maxRequests: 90, windowMs: 60 * 1000 },
   "webhook:v0": { maxRequests: 180, windowMs: 60 * 1000 },

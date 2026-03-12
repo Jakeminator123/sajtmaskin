@@ -46,22 +46,31 @@ export async function updateDeploymentStatus(
   deploymentId: string,
   status: DeploymentStatus,
   updates?: {
-    url?: string;
-    inspectorUrl?: string;
-    vercelDeploymentId?: string;
-    vercelProjectId?: string;
+    url?: string | null;
+    inspectorUrl?: string | null;
+    vercelDeploymentId?: string | null;
+    vercelProjectId?: string | null;
   },
 ): Promise<void> {
+  const nextValues: Record<string, string | Date | null> = {
+    status,
+    updatedAt: new Date(),
+  };
+  if (updates && Object.prototype.hasOwnProperty.call(updates, "url")) {
+    nextValues.url = updates.url ?? null;
+  }
+  if (updates && Object.prototype.hasOwnProperty.call(updates, "inspectorUrl")) {
+    nextValues.inspectorUrl = updates.inspectorUrl ?? null;
+  }
+  if (updates && Object.prototype.hasOwnProperty.call(updates, "vercelDeploymentId")) {
+    nextValues.vercelDeploymentId = updates.vercelDeploymentId ?? null;
+  }
+  if (updates && Object.prototype.hasOwnProperty.call(updates, "vercelProjectId")) {
+    nextValues.vercelProjectId = updates.vercelProjectId ?? null;
+  }
   await db
     .update(deployments)
-    .set({
-      status,
-      ...(updates?.url && { url: updates.url }),
-      ...(updates?.inspectorUrl && { inspectorUrl: updates.inspectorUrl }),
-      ...(updates?.vercelDeploymentId && { vercelDeploymentId: updates.vercelDeploymentId }),
-      ...(updates?.vercelProjectId && { vercelProjectId: updates.vercelProjectId }),
-      updatedAt: new Date(),
-    })
+    .set(nextValues)
     .where(eq(deployments.id, deploymentId));
 }
 

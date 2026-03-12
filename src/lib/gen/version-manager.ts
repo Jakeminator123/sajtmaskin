@@ -32,6 +32,23 @@ export async function createVersionFromContent(
   return createVersion(chatId, messageId, filesJson, sandboxUrl);
 }
 
+function parseStoredVersionFiles(
+  filesJson: string,
+  context: { versionId?: string; chatId?: string },
+): CodeFile[] | null {
+  try {
+    const parsed = JSON.parse(filesJson);
+    return Array.isArray(parsed) ? (parsed as CodeFile[]) : null;
+  } catch (error) {
+    console.error("[version-manager] Failed to parse stored version files", {
+      versionId: context.versionId ?? null,
+      chatId: context.chatId ?? null,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
 /**
  * Retrieves parsed files for a given version ID.
  * Returns null if the version doesn't exist.
@@ -39,12 +56,10 @@ export async function createVersionFromContent(
 export async function getVersionFiles(versionId: string): Promise<CodeFile[] | null> {
   const version = await getVersionById(versionId);
   if (!version) return null;
-
-  try {
-    return JSON.parse(version.files_json) as CodeFile[];
-  } catch {
-    return [];
-  }
+  return parseStoredVersionFiles(version.files_json, {
+    versionId: version.id,
+    chatId: version.chat_id,
+  });
 }
 
 /**
@@ -54,12 +69,10 @@ export async function getVersionFiles(versionId: string): Promise<CodeFile[] | n
 export async function getLatestVersionFiles(chatId: string): Promise<CodeFile[] | null> {
   const version = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
   if (!version) return null;
-
-  try {
-    return JSON.parse(version.files_json) as CodeFile[];
-  } catch {
-    return [];
-  }
+  return parseStoredVersionFiles(version.files_json, {
+    versionId: version.id,
+    chatId: version.chat_id,
+  });
 }
 
 export interface MergeWarning {

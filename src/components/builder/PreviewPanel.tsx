@@ -213,6 +213,7 @@ export function PreviewPanel({
   const previewReadyTimerRef = useRef<number | null>(null);
   const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
   const previewIssueKeysRef = useRef<Set<string>>(new Set());
+  const inspectFetchTokenRef = useRef(0);
 
   const clearPreviewReadyTimer = useCallback(() => {
     if (previewReadyTimerRef.current) {
@@ -304,7 +305,13 @@ export function PreviewPanel({
     }
   }, [chatId, versionId, files.length]);
 
-  const fetchElementMap = useCallback(async (url: string, width: number, height: number) => {
+  const fetchElementMap = useCallback(async (
+    url: string,
+    width: number,
+    height: number,
+    requestToken = inspectFetchTokenRef.current,
+  ) => {
+    if (requestToken !== inspectFetchTokenRef.current) return 0;
     setElementMapLoading(true);
     setInspectorUnavailable(false);
     try {
@@ -321,9 +328,11 @@ export function PreviewPanel({
       });
       const data = (await res.json().catch(() => null)) as ElementMapResponse | null;
       if (res.ok && data?.success && Array.isArray(data.elements)) {
+        if (requestToken !== inspectFetchTokenRef.current) return 0;
         setElementMap(data.elements);
         return data.elements.length;
       }
+      if (requestToken !== inspectFetchTokenRef.current) return 0;
       setElementMap([]);
       setInspectorUnavailable(true);
       if (isOwnEnginePreview) {
@@ -331,11 +340,14 @@ export function PreviewPanel({
       }
       return 0;
     } catch {
+      if (requestToken !== inspectFetchTokenRef.current) return 0;
       setElementMap([]);
       setInspectorUnavailable(true);
       return 0;
     } finally {
-      setElementMapLoading(false);
+      if (requestToken === inspectFetchTokenRef.current) {
+        setElementMapLoading(false);
+      }
     }
   }, []);
 
@@ -343,6 +355,7 @@ export function PreviewPanel({
     if (!demoUrl) return;
     setInspectMode((prev) => {
       const next = !prev;
+      const requestToken = ++inspectFetchTokenRef.current;
       if (next) {
         setIframeLoading(true);
         setIframeError(false);
@@ -354,12 +367,15 @@ export function PreviewPanel({
         const container = iframeRef.current?.parentElement;
         const w = container?.clientWidth || 1280;
         const h = container?.clientHeight || 800;
-        fetchElementMap(demoUrl, w, h).then((count) => {
-          if (count > 0) setInspectStatus(`Elementkarta laddad: ${count} element. Hovra för att identifiera.`);
+        fetchElementMap(demoUrl, w, h, requestToken).then((count) => {
+          if (requestToken === inspectFetchTokenRef.current && count > 0) {
+            setInspectStatus(`Elementkarta laddad: ${count} element. Hovra för att identifiera.`);
+          }
         });
       } else {
         setHoveredMapElement(null);
         setElementMap([]);
+        setElementMapLoading(false);
       }
       return next;
     });
