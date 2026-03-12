@@ -34,6 +34,7 @@ import {
   PlanTrigger,
 } from "@/components/ai-elements/plan";
 import { CodeBlock } from "@/components/ai-elements/code-block";
+import { BuildPlanCard } from "@/components/builder/BuildPlanCard";
 import { GenerationSummary } from "@/components/builder/GenerationSummary";
 import { Streamdown } from "streamdown";
 import { code as streamdownCode } from "@streamdown/code";
@@ -49,7 +50,8 @@ interface MessageListProps {
   chatId: string | null;
   messages?: Array<ChatMessage>;
   showStructuredParts?: boolean;
-  onQuickReply?: (text: string) => Promise<void> | void;
+  onQuickReply?: (text: string, options?: { planMode?: boolean }) => Promise<void> | void;
+  onApproveBuildPlan?: (plan: Record<string, unknown>) => Promise<void> | void;
   quickReplyDisabled?: boolean;
 }
 
@@ -58,6 +60,7 @@ const MessageListComponent = ({
   messages: externalMessages = [],
   showStructuredParts = false,
   onQuickReply,
+  onApproveBuildPlan,
   quickReplyDisabled = false,
 }: MessageListProps) => {
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
@@ -66,12 +69,17 @@ const MessageListComponent = ({
   const lastAutoOpenedReplyKeyRef = useRef<string | null>(null);
   const lastAutoOpenedEnvRequirementRef = useRef<string | null>(null);
 
-  const sendQuickReply = async (messageId: string, optionIndex: number, text: string) => {
+  const sendQuickReply = async (
+    messageId: string,
+    optionIndex: number,
+    text: string,
+    options?: { planMode?: boolean },
+  ) => {
     if (!onQuickReply) return false;
     const key = `${messageId}:${optionIndex}:${text}`;
     setPendingQuickReplyKey(key);
     try {
-      await onQuickReply(text);
+      await onQuickReply(text, options);
       return true;
     } catch (error) {
       console.error("Quick reply failed:", error);
@@ -109,7 +117,9 @@ const MessageListComponent = ({
 
   const handleModalQuickReply = async (option: string, optionIndex: number) => {
     if (!pendingReply) return;
-    const success = await sendQuickReply(pendingReply.messageId, optionIndex, option);
+    const success = await sendQuickReply(pendingReply.messageId, optionIndex, option, {
+      planMode: pendingReply.planMode,
+    });
     if (success) {
       setIsReplyDialogOpen(false);
     }
@@ -258,7 +268,9 @@ const MessageListComponent = ({
                                         variant="secondary"
                                         disabled={!canQuickReply || pendingQuickReplyKey !== null}
                                         onClick={() =>
-                                          void sendQuickReply(message.id, optionIndex, option)
+                                          void sendQuickReply(message.id, optionIndex, option, {
+                                            planMode: isPlanAwaitingInput(tool),
+                                          })
                                         }
                                       >
                                         {isPending ? (
@@ -484,7 +496,9 @@ const MessageListComponent = ({
                                         variant="secondary"
                                         disabled={!canQuickReply || pendingQuickReplyKey !== null}
                                         onClick={() =>
-                                          void sendQuickReply(message.id, optionIndex, option)
+                                          void sendQuickReply(message.id, optionIndex, option, {
+                                            planMode: isPlanAwaitingInput(tool),
+                                          })
                                         }
                                       >
                                         {isPending ? (
@@ -584,70 +598,11 @@ const MessageListComponent = ({
                             {part.plan.content}
                           </p>
                         )}
-                        {part.plan.steps && part.plan.steps.length > 0 && (
-                          <ol className="text-muted-foreground mt-2 list-decimal space-y-1.5 pl-4 text-sm">
-                            {part.plan.steps.map((step, si) => {
-                              if (typeof step === "string") {
-                                return <li key={step}>{step}</li>;
-                              }
-                              const s = step as { title?: string; description?: string; status?: string };
-                              return (
-                                <li key={s.title || si}>
-                                  <span className="font-medium">{s.title}</span>
-                                  {s.description && (
-                                    <span className="text-muted-foreground/70"> — {s.description}</span>
-                                  )}
-                                  {s.status && s.status !== "build" && (
-                                    <span className="text-muted-foreground/50 ml-1 text-xs">({s.status})</span>
-                                  )}
-                                </li>
-                              );
-                            })}
-                          </ol>
-                        )}
-                        {(() => {
-                          const rawAssumptions = part.plan.raw?.assumptions;
-                          if (!Array.isArray(rawAssumptions) || rawAssumptions.length === 0) return null;
-                          return (
-                            <div className="mt-3">
-                              <p className="text-muted-foreground mb-1 text-xs font-semibold uppercase tracking-wide">Antaganden</p>
-                              <ul className="text-muted-foreground list-disc space-y-0.5 pl-4 text-xs">
-                                {rawAssumptions.map((a: Record<string, unknown>, ai: number) => (
-                                  <li key={ai}>{String(a.description ?? "")} → <span className="text-foreground/70">{String(a.defaultValue ?? "")}</span></li>
-                                ))}
-                              </ul>
-                            </div>
-                          );
-                        })()}
-                        {(() => {
-                          const rawBlockers = part.plan.raw?.blockers;
-                          if (!Array.isArray(rawBlockers) || rawBlockers.length === 0) return null;
-                          return (
-                            <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-2">
-                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-300">Kräver svar</p>
-                              <ul className="space-y-1 text-xs text-amber-100">
-                                {rawBlockers.map((b: Record<string, unknown>, bi: number) => (
-                                  <li key={bi}>
-                                    {typeof b.kind === "string" && (
-                                      <span className="mr-1 rounded bg-amber-800/50 px-1 py-0.5 text-[10px] uppercase">{b.kind}</span>
-                                    )}
-                                    {String(b.question ?? "")}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          );
-                        })()}
-                        {!part.plan.content &&
-                          (!part.plan.steps || part.plan.steps.length === 0) &&
-                          part.plan.raw && (
-                            <div className="bg-muted/50 rounded-md p-3">
-                              <CodeBlock
-                                code={JSON.stringify(part.plan.raw, null, 2)}
-                                language="json"
-                              />
-                            </div>
-                          )}
+                        <BuildPlanCard
+                          rawPlan={part.plan.raw}
+                          onApproveBuild={onApproveBuildPlan}
+                          approveDisabled={quickReplyDisabled}
+                        />
                       </PlanContent>
                       {part.plan.actions && part.plan.actions.length > 0 && (
                         <PlanFooter>
@@ -980,6 +935,7 @@ type PendingReplyModalData = {
   messageId: string;
   question: string;
   options: string[];
+  planMode?: boolean;
 };
 
 type EnvRequirementHint = {
@@ -1019,6 +975,7 @@ function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModal
         messageId: message.id,
         question: replyPrompt.question,
         options: replyPrompt.options,
+        planMode: isPlanAwaitingInput(tool),
       };
     }
     // Fallback: awaiting-input tool present but question could not be extracted
@@ -1026,16 +983,37 @@ function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModal
       const t = p.tool as { type?: string; state?: string };
       return t.type === "tool:awaiting-input" || t.state === "approval-requested";
     });
+    const hasPlanAwaitingInput = toolParts.some((p) =>
+      isPlanAwaitingInput(
+        p.tool as Partial<ToolUIPart> & {
+          input?: unknown;
+          output?: unknown;
+          type?: string;
+          toolName?: string;
+        },
+      ),
+    );
     if (hasAwaitingInput) {
       return {
         key: `${message.id}:awaiting-input-fallback`,
         messageId: message.id,
         question: "V0 väntar på ditt svar. Kontrollera meddelandet ovan och skriv ett svar.",
         options: [],
+        planMode: hasPlanAwaitingInput,
       };
     }
   }
   return null;
+}
+
+function isPlanAwaitingInput(
+  tool: Partial<ToolUIPart> & { input?: unknown; output?: unknown; type?: string; toolName?: string },
+) {
+  const outputObj =
+    tool.output && typeof tool.output === "object" ? (tool.output as Record<string, unknown>) : null;
+  if (Array.isArray(outputObj?.planBlockers)) return true;
+  const toolName = typeof tool.toolName === "string" ? tool.toolName.toLowerCase() : "";
+  return toolName.includes("plan");
 }
 
 function getLatestEnvRequirement(messages: AIElementsMessage[]): EnvRequirementHint | null {

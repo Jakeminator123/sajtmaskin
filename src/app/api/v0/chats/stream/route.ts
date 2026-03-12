@@ -46,6 +46,10 @@ import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prom
 import { detectIntegrations } from "@/lib/gen/detect-integrations";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import { compressUrls } from "@/lib/gen/url-compress";
+import {
+  buildPlanSummaryMessage,
+  enrichPlanArtifactForReview,
+} from "@/lib/gen/plan-review";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {
   extractAppProjectIdFromMeta,
@@ -344,13 +348,15 @@ export async function POST(req: Request) {
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        const planScaffoldMode =
+          typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
+            ? (String((meta as Record<string, string>).scaffoldMode) as "auto" | "manual" | "off")
+            : "auto";
 
         const planOrchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
           buildIntent: engineIntent,
-          scaffoldMode: typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
-            ? String((meta as Record<string, string>).scaffoldMode) as "auto" | "manual" | "off"
-            : "auto",
+          scaffoldMode: planScaffoldMode,
           scaffoldId: typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
             ? String((meta as Record<string, string>).scaffoldId)
             : null,
@@ -396,6 +402,13 @@ export async function POST(req: Request) {
         });
 
         const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
+        const plannerChat = await chatRepo.createChat(
+          projectIdForChat,
+          engineModel,
+          planSystemPrompt,
+          planOrchestration.resolvedScaffold?.id,
+        );
+        await chatRepo.addMessage(plannerChat.id, "user", optimizedMessage);
 
         const planStream = new ReadableStream({
           async start(controller) {
@@ -470,11 +483,15 @@ export async function POST(req: Request) {
                       const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
 
                       if (toolName === "emitPlanArtifact") {
-                        toolPlanArtifact = toolArgs;
+                        const enrichedPlanArtifact = enrichPlanArtifactForReview(toolArgs, {
+                          resolvedScaffold: planOrchestration.resolvedScaffold,
+                          scaffoldMode: planScaffoldMode,
+                        });
+                        toolPlanArtifact = enrichedPlanArtifact;
                         safeEnqueue(enc.encode(formatSSEEvent("tool-call", {
                           toolName: "emitPlanArtifact",
                           toolCallId: typeof toolData.toolCallId === "string" ? toolData.toolCallId : `plan-${Date.now()}`,
-                          args: toolArgs,
+                          args: enrichedPlanArtifact,
                         })));
                       } else if (toolName === "suggestIntegration" || toolName === "requestEnvVar") {
                         safeEnqueue(enc.encode(formatSSEEvent("tool-call", toolData)));
@@ -497,7 +514,13 @@ export async function POST(req: Request) {
               }
             }
 
-            const planData = toolPlanArtifact ?? parsePlanResponse(accumulatedContent);
+            const planData = enrichPlanArtifactForReview(
+              toolPlanArtifact ?? parsePlanResponse(accumulatedContent),
+              {
+                resolvedScaffold: planOrchestration.resolvedScaffold,
+                scaffoldMode: planScaffoldMode,
+              },
+            );
             const hasBlockers = Array.isArray(planData?.blockers) &&
               (planData.blockers as unknown[]).length > 0;
             const blockerCount = hasBlockers
@@ -520,8 +543,18 @@ export async function POST(req: Request) {
               contentLength: accumulatedContent.length,
             });
 
+            try {
+              await chatRepo.addMessage(
+                plannerChat.id,
+                "assistant",
+                buildPlanSummaryMessage(planData, hasBlockers),
+              );
+            } catch (error) {
+              console.warn("[plan] Failed to persist planner assistant summary:", error);
+            }
+
             safeEnqueue(enc.encode(formatSSEEvent("done", {
-              chatId: projectIdForChat,
+              chatId: plannerChat.id,
               planArtifact: planData,
               awaitingInput: hasBlockers,
               planMode: true,

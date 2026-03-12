@@ -19,10 +19,23 @@ Relevant existing building blocks:
 - `src/app/api/v0/chats/[chatId]/quality-gate/route.ts`
 - `src/app/api/v0/chats/[chatId]/versions/[versionId]/error-log/route.ts`
 - `docs/architecture/generation-loop-and-error-memory.md`
+- `src/components/builder/DomainManager.tsx`
+- `src/components/builder/DomainSearchDialog.tsx`
+- `src/app/api/v0/deployments/[deploymentId]/events/route.ts`
+- `src/lib/hooks/useDeploymentStatus.ts`
 
 The repo already supports provisional versions, post-checks, quality gate,
 persisted error logs, and deploy preparation. Phase 1 extends these into a
 coherent release model instead of separate signals.
+
+Additional baseline already exists from earlier tactical work:
+
+- custom-domain setup and deployment-domain persistence are already present
+- project-scoped env-var management is already live in both builder and deploy
+- deployment webhook plus SSE status streaming exist, but still need final
+  trust/access hardening
+- builder message rendering has received a baseline performance pass, which
+  gives this phase more room for richer diagnostics surfaces
 
 ## Workstreams
 
@@ -106,6 +119,9 @@ Implementation direction:
   - autofix follow-up
   - open affected files
   - compare with previous version
+- carry forward remaining deployment-status hardening:
+  - ensure deployment event/SSE routes enforce the same ownership checks as the
+    normal deployment read path
 
 Primary code:
 - `src/app/api/v0/chats/[chatId]/versions/[versionId]/error-log/route.ts`

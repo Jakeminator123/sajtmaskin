@@ -430,6 +430,10 @@ export const engineVersions = pgTable("engine_versions", {
   versionNumber: integer("version_number").notNull(),
   filesJson: text("files_json").notNull(),
   sandboxUrl: text("sandbox_url"),
+  releaseState: text("release_state").notNull().default("draft"),
+  verificationState: text("verification_state").notNull().default("pending"),
+  verificationSummary: text("verification_summary"),
+  promotedAt: timestamp("promoted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -44,8 +44,8 @@ the source of truth for their lifecycle status.
 Current classification:
 
 - `active`: `06-world-class-builder-roadmap.md` through `10-world-class-builder-phase-4-learning-moat.md`
-- `review-needed`: `01-design-system-registry.md` through `05-template-search-ui.md`
-- `archived`: no numbered plan has been migrated into archive yet
+- `review-needed`: no numbered plan currently sits in this bucket
+- `archived`: `01-design-system-registry.md` through `05-template-search-ui.md`, plus `11-next-vercel-build-plan-core-config.md` through `13-next-vercel-build-plan-ui-performance.md`
 
 ## Schema rule
 

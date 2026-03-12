@@ -23,6 +23,7 @@ import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
 import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
 import { useChatMessaging } from "@/lib/hooks/chat";
 import { useVersions } from "@/lib/hooks/useVersions";
+import { useChatReadiness } from "@/lib/hooks/useChatReadiness";
 import { useAuth } from "@/lib/auth/auth-store";
 import { useDeploymentStatus } from "@/lib/hooks/useDeploymentStatus";
 import { useLocalStorageBooleanSync } from "@/lib/hooks/useLocalStorageSync";
@@ -108,6 +109,11 @@ export function useBuilderPageController() {
     enableBlobMedia: state.enableBlobMedia,
   });
 
+  const { readiness: deployReadiness, isLoading: isDeployReadinessLoading } = useChatReadiness(
+    state.chatId,
+    derived.activeVersionId,
+  );
+
   // ── CSS validation ───────────────────────────────────────────────────
   const { validateAndFix: validateCss } = useCssValidation({ autoFix: true, showToasts: true });
 
@@ -164,6 +170,7 @@ export function useBuilderPageController() {
   const deployActions = useBuilderDeployActions({
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
+    deployReadiness,
     isDeploying: state.isDeploying,
     isMediaEnabled: state.isMediaEnabled,
     enableBlobMedia: state.enableBlobMedia,
@@ -1263,6 +1270,8 @@ export function useBuilderPageController() {
     deploymentStatus: deploymentStatus.status,
     deploymentUrl: deploymentStatus.url,
     deploymentInspectorUrl: deploymentStatus.inspectorUrl,
+    deployReadiness,
+    isDeployReadinessLoading,
     v0ProjectId: state.v0ProjectId,
     paletteState: state.paletteState,
     currentDemoUrl: state.currentDemoUrl,

@@ -1,6 +1,7 @@
 "use client";
 
 import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
+import type { ChatReadiness } from "@/lib/chat-readiness";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import { saveProjectData, updateProject } from "@/lib/project-client";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 type Args = {
   chatId: string | null;
   activeVersionId: string | null;
+  deployReadiness: ChatReadiness | null;
   isDeploying: boolean;
   isMediaEnabled: boolean;
   enableBlobMedia: boolean;
@@ -48,6 +50,7 @@ type Args = {
 export function useBuilderDeployActions({
   chatId,
   activeVersionId,
+  deployReadiness,
   isDeploying,
   isMediaEnabled,
   enableBlobMedia,
@@ -143,6 +146,11 @@ export function useBuilderDeployActions({
         toast.error("No version selected");
         return;
       }
+      if (deployReadiness && !deployReadiness.canDeploy) {
+        const firstBlocker = deployReadiness.blockers[0];
+        toast.error(firstBlocker?.detail || firstBlocker?.title || "Versionen är inte redo att publicera.");
+        return;
+      }
       if (isDeploying) return;
 
       setIsDeploying(true);
@@ -220,7 +228,7 @@ export function useBuilderDeployActions({
         setIsDeploying(false);
       }
     },
-    [chatId, activeVersionId, isDeploying, isMediaEnabled, enableBlobMedia, appProjectId, setIsDeploying, setLastDeployVercelProjectId, setActiveDeploymentId, setDomainManagerOpen, persistVersionErrorLogs],
+    [chatId, activeVersionId, deployReadiness, isDeploying, isMediaEnabled, enableBlobMedia, appProjectId, setIsDeploying, setLastDeployVercelProjectId, setActiveDeploymentId, setDomainManagerOpen, persistVersionErrorLogs],
   );
 
   const handleConfirmDeploy = useCallback(async () => {

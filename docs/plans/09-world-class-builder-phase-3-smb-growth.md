@@ -19,6 +19,20 @@ iteration over versions.
 
 Phase 3 closes that practical SMB gap.
 
+## Current foundation
+
+Relevant baseline already exists:
+
+- a generic internal pageview pipeline via
+  `src/components/layout/analytics-tracker.tsx`,
+  `src/app/api/analytics/route.ts`, and
+  `src/lib/db/services/analytics.ts`
+- faster deploy-path plumbing from archived performance/server work
+
+That means the analytics work in this phase should start from configuration,
+conversion semantics, and verification UX, not from zero on raw pageview
+capture.
+
 ## Workstreams
 
 ### 1. Editorial / CMS mode

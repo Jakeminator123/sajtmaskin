@@ -17,12 +17,22 @@ Relevant current systems:
 - `src/lib/gen/orchestrate.ts`
 - `src/lib/gen/scaffolds/`
 - `src/lib/hooks/chat/post-checks.ts`
+- `src/components/builder/UnifiedElementPicker.tsx`
+- `src/app/api/templates/search/route.ts`
 - `docs/llm/egen-motor/MOTOR-STATUS.md`
 - `docs/llm/egen-motor/scaffold-status-and-plan.md`
 
 The repo already supports briefs, plan artifacts, clarification questions,
 scaffold matching, and post-hoc route/env detection. This phase promotes those
 features into a planning layer that shapes the build before code exists.
+
+Also already in place:
+
+- gallery template search and "start from template" flows exist today
+- the remaining template-related opportunity is context-aware recommendation
+  from builder/brief data, not rebuilding search from scratch
+- earlier message-list performance work gives this phase headroom for richer
+  `Build plan` cards and plan review UI
 
 ## Workstreams
 
@@ -125,6 +135,9 @@ Implementation direction:
   - env/database assumptions
   - open blockers
 - allow the user to approve or edit the plan before generation starts
+- where useful, attach optional gallery-template recommendations derived from
+  brief/context data, while keeping scaffold choice as the runtime source of
+  truth
 
 Primary code:
 - `src/lib/hooks/chat/usePlanExecution.ts`

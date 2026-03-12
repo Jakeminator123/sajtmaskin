@@ -315,7 +315,7 @@ export async function finalizeAndSaveVersion(
   }
 
   // 6. Create version
-  const version = await chatRepo.createVersion(chatId, assistantMsg.id, filesJson);
+  const version = await chatRepo.createDraftVersion(chatId, assistantMsg.id, filesJson);
   devLogAppend("in-progress", {
     type: "version.created",
     chatId,

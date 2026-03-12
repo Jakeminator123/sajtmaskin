@@ -16,16 +16,19 @@ which ones are old references.
 
 | Plan file | Status | Notes |
 |------|--------|-------|
-| `01-design-system-registry.md` | `review-needed` | Older tactical plan; parts of the design-system wiring exist, but this is not a trustworthy execution guide anymore |
-| `02-custom-domain-self-service.md` | `review-needed` | Domain groundwork exists, but the plan needs a fresh end-to-end truth check before reuse |
-| `03-v0-env-vars-proper-sdk.md` | `review-needed` | Partially implemented and partly overtaken by the broader own-engine env-var work |
-| `04-deploy-sse-webhooks.md` | `review-needed` | Large parts appear implemented, but it should be verified before treating it as done |
-| `05-template-search-ui.md` | `review-needed` | Search and embeddings groundwork exists, but the full UI plan is not a clean current roadmap |
+| `01-design-system-registry.md` | `archived` | Legacy v0 registry-design-system plan; remaining ideas are optional follow-up, not current roadmap work |
+| `02-custom-domain-self-service.md` | `archived` | Domain flow is largely implemented; any remaining domain readiness belongs under Phase 1 launch readiness |
+| `03-v0-env-vars-proper-sdk.md` | `archived` | Env-var plan is implemented and overtaken; remaining work is maintenance plus Phase 1-3 hardening |
+| `04-deploy-sse-webhooks.md` | `archived` | SSE/webhook architecture is implemented; remaining deployment-event access hardening is carried into Phase 1 |
+| `05-template-search-ui.md` | `archived` | Template search UI is implemented; any future context-aware recommendations belong under Phase 2 planning/onboarding |
 | `06-world-class-builder-roadmap.md` | `active` | Strategic top-level roadmap |
 | `07-world-class-builder-phase-1-trust-launch.md` | `active` | Phase 1 implementation scope |
 | `08-world-class-builder-phase-2-site-planning.md` | `active` | Phase 2 planning layer scope |
 | `09-world-class-builder-phase-3-smb-growth.md` | `active` | Phase 3 SMB product scope |
 | `10-world-class-builder-phase-4-learning-moat.md` | `active` | Phase 4 differentiation and learning systems scope |
+| `11-next-vercel-build-plan-core-config.md` | `archived` | Completed phased optimization plan (core Next.js config) |
+| `12-next-vercel-build-plan-server-routes.md` | `archived` | Completed phased optimization plan (server/API improvements) |
+| `13-next-vercel-build-plan-ui-performance.md` | `archived` | Completed phased optimization plan (UI rendering improvements) |
 
 ## Read order for a new agent
 
@@ -36,6 +39,17 @@ which ones are old references.
 5. `docs/architecture/generation-loop-and-error-memory.md`
 6. `docs/plans/README.md`
 7. The relevant `active` plan files
+
+## Legacy carryovers already absorbed
+
+- Phase `1` should absorb remaining domain readiness, env-var readiness, and
+  deployment-event hardening from legacy plans `02` to `04`
+- Phase `2` can treat context-aware template recommendations as an optional
+  planning/onboarding extension rather than a fresh template-search rebuild
+- Phase `3` should start from the fact that generic pageview collection already
+  exists
+- Archived plans `11` through `13` provide useful performance groundwork, but
+  do not change the `07` -> `08` -> `09` -> `10` execution order
 
 ## Working rule
 
@@ -49,6 +63,6 @@ When picking up old roadmap work:
 ## Migration note
 
 The folder structure now reserves explicit buckets for `active`,
-`review-needed`, and `archived` plan material. Some numbered plans still live in
-`docs/plans/` root during migration, so this file is the canonical status map
-until those files are physically moved.
+`review-needed`, and `archived` plan material. The active numbered plans still
+live in `docs/plans/` root during migration, so this file is the canonical
+status map until those files are physically moved.

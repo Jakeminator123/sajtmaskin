@@ -273,6 +273,173 @@ function findLucideLinkMisuse(files: FileEntry[]): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// SEO readiness
+// ---------------------------------------------------------------------------
+
+type SeoIssue = {
+  severity: "warning" | "error";
+  code:
+    | "missing-metadata"
+    | "missing-title"
+    | "missing-description"
+    | "missing-open-graph"
+    | "missing-twitter"
+    | "missing-robots"
+    | "missing-sitemap"
+    | "missing-json-ld"
+    | "missing-h1"
+    | "multiple-h1";
+  message: string;
+  file?: string | null;
+};
+
+type SeoReview = {
+  passed: boolean;
+  issues: SeoIssue[];
+  signals: {
+    metadata: boolean;
+    title: boolean;
+    description: boolean;
+    openGraph: boolean;
+    twitter: boolean;
+    robots: boolean;
+    sitemap: boolean;
+    jsonLd: boolean;
+    homeH1Count: number | null;
+  };
+};
+
+function findFileBySuffix(files: FileEntry[], suffixes: string[]): FileEntry | null {
+  return (
+    files.find((file) =>
+      suffixes.some((suffix) => file.name === suffix || file.name.endsWith(`/${suffix}`)),
+    ) ?? null
+  );
+}
+
+function countMatches(content: string, regex: RegExp): number {
+  return (content.match(regex) || []).length;
+}
+
+function buildSeoReview(files: FileEntry[]): SeoReview {
+  const layoutFile = findFileBySuffix(files, ["app/layout.tsx", "src/app/layout.tsx"]);
+  const homePageFile = findFileBySuffix(files, ["app/page.tsx", "src/app/page.tsx"]);
+  const robotsFile = findFileBySuffix(files, ["app/robots.ts", "src/app/robots.ts"]);
+  const sitemapFile = findFileBySuffix(files, ["app/sitemap.ts", "src/app/sitemap.ts"]);
+
+  const layoutContent = layoutFile?.content ?? "";
+  const metadata = /\bexport\s+const\s+metadata\b/.test(layoutContent);
+  const title = metadata && /\btitle\s*:/.test(layoutContent);
+  const description = metadata && /\bdescription\s*:/.test(layoutContent);
+  const openGraph = metadata && /\bopenGraph\s*:/.test(layoutContent);
+  const twitter = metadata && /\btwitter\s*:/.test(layoutContent);
+  const robots = Boolean(robotsFile);
+  const sitemap = Boolean(sitemapFile);
+  const jsonLd = files.some((file) =>
+    /application\/ld\+json|json-ld/i.test(file.content ?? ""),
+  );
+  const homeH1Count = homePageFile?.content ? countMatches(homePageFile.content, /<h1\b/gi) : null;
+
+  const issues: SeoIssue[] = [];
+
+  if (!metadata) {
+    issues.push({
+      severity: "warning",
+      code: "missing-metadata",
+      message: "Layouten saknar export av metadata för title/description.",
+      file: layoutFile?.name ?? null,
+    });
+  }
+  if (metadata && !title) {
+    issues.push({
+      severity: "warning",
+      code: "missing-title",
+      message: "Metadata saknar title.",
+      file: layoutFile?.name ?? null,
+    });
+  }
+  if (metadata && !description) {
+    issues.push({
+      severity: "warning",
+      code: "missing-description",
+      message: "Metadata saknar description.",
+      file: layoutFile?.name ?? null,
+    });
+  }
+  if (metadata && !openGraph) {
+    issues.push({
+      severity: "warning",
+      code: "missing-open-graph",
+      message: "Metadata saknar Open Graph-falt.",
+      file: layoutFile?.name ?? null,
+    });
+  }
+  if (metadata && !twitter) {
+    issues.push({
+      severity: "warning",
+      code: "missing-twitter",
+      message: "Metadata saknar Twitter-kort.",
+      file: layoutFile?.name ?? null,
+    });
+  }
+  if (!robots) {
+    issues.push({
+      severity: "warning",
+      code: "missing-robots",
+      message: "Projektet saknar app/robots.ts.",
+      file: null,
+    });
+  }
+  if (!sitemap) {
+    issues.push({
+      severity: "warning",
+      code: "missing-sitemap",
+      message: "Projektet saknar app/sitemap.ts.",
+      file: null,
+    });
+  }
+  if (!jsonLd) {
+    issues.push({
+      severity: "warning",
+      code: "missing-json-ld",
+      message: "Ingen JSON-LD/schema.org-markup hittades.",
+      file: null,
+    });
+  }
+  if (homeH1Count === 0) {
+    issues.push({
+      severity: "warning",
+      code: "missing-h1",
+      message: "Startsidan saknar h1-rubrik.",
+      file: homePageFile?.name ?? null,
+    });
+  } else if (homeH1Count !== null && homeH1Count > 1) {
+    issues.push({
+      severity: "warning",
+      code: "multiple-h1",
+      message: "Startsidan har flera h1-rubriker.",
+      file: homePageFile?.name ?? null,
+    });
+  }
+
+  return {
+    passed: issues.length === 0,
+    issues,
+    signals: {
+      metadata,
+      title,
+      description,
+      openGraph,
+      twitter,
+      robots,
+      sitemap,
+      jsonLd,
+      homeH1Count,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Post-check summary formatting
 // ---------------------------------------------------------------------------
 
@@ -471,6 +638,7 @@ export async function runPostGenerationChecks(params: {
     const internalLinks = extractStaticInternalLinks(currentFiles);
     const missingRoutes = findMissingRoutes(internalLinks, routePaths);
     const lucideLinkMisuse = findLucideLinkMisuse(currentFiles);
+    const seoReview = buildSeoReview(currentFiles);
     const sanity = runProjectSanityChecks(
       currentFiles.map((file) => ({
         path: file.name,
@@ -493,6 +661,14 @@ export async function runPostGenerationChecks(params: {
     if (sanityErrors.length > 0 || sanityWarnings.length > 0) {
       const summary = `Kodsanity: ${sanityErrors.length} error, ${sanityWarnings.length} warning.`;
       warnings.push(summary);
+    }
+    if (!seoReview.passed) {
+      const preview = seoReview.issues
+        .slice(0, 4)
+        .map((issue) => issue.message)
+        .join(" | ");
+      const suffix = seoReview.issues.length > 4 ? " …" : "";
+      warnings.push(`SEO: ${preview}${suffix}`);
     }
     const versionEntry = versions.find(
       (entry) => entry.versionId === versionId || entry.id === versionId,
@@ -535,6 +711,16 @@ export async function runPostGenerationChecks(params: {
       const preview = names.slice(0, 8).join(", ");
       const suffix = names.length > 8 ? " …" : "";
       steps.push(`Design tokens (${designTokens.source}): ${preview}${suffix}`);
+    }
+    if (seoReview.passed) {
+      steps.push("SEO: metadata, robots, sitemap och grundlaggande struktur ser bra ut.");
+    } else {
+      steps.push(`SEO: ${seoReview.issues.length} launch-varning(ar) hittades.`);
+      steps.push(
+        ...seoReview.issues.slice(0, 6).map((issue) =>
+          issue.file ? `${issue.message} (${issue.file})` : issue.message,
+        ),
+      );
     }
 
     let imageValidation: {
@@ -660,6 +846,7 @@ export async function runPostGenerationChecks(params: {
         passed: qualityGatePassed,
         failures: qualityGateFailures,
       },
+      seoReview,
       regressionMatrix,
     };
 
@@ -702,6 +889,17 @@ export async function runPostGenerationChecks(params: {
         category: "project-sanity",
         message: "Kodsanity rapporterade problem.",
         meta: { issues: sanity.issues.slice(0, 20) },
+      });
+    }
+    if (!seoReview.passed) {
+      logItems.push({
+        level: "warning",
+        category: "seo",
+        message: `SEO review hittade ${seoReview.issues.length} launch-varning(ar).`,
+        meta: {
+          issues: seoReview.issues,
+          signals: seoReview.signals,
+        },
       });
     }
     if (imageValidation?.broken?.length) {

@@ -6,7 +6,7 @@ import { and, eq, desc } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { nanoid } from "nanoid";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
-import { getChat, getLatestVersion } from "@/lib/db/chat-repository-pg";
+import { getChat, getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
 
@@ -20,7 +20,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     if (!shouldUseV0Fallback()) {
       const chat = await getChat(chatId);
       if (chat) {
-        const latest = await getLatestVersion(chatId);
+        const latest = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
         const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
 
         return NextResponse.json({
@@ -32,6 +32,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           scaffoldId: chat.scaffold_id,
           scaffoldFamily: resolvedScaffold?.family ?? null,
           scaffoldLabel: resolvedScaffold?.label ?? null,
+          demoUrl: latest ? buildPreviewUrl(chatId, latest.id) : null,
           createdAt: chat.created_at,
           updatedAt: chat.updated_at,
           messages: chat.messages.map((m) => ({
@@ -50,6 +51,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
                 versionNumber: latest.version_number,
                 messageId: latest.message_id,
                 sandboxUrl: latest.sandbox_url,
+                releaseState: latest.release_state,
+                verificationState: latest.verification_state,
+                verificationSummary: latest.verification_summary,
+                promotedAt: latest.promoted_at,
               }
             : null,
         });

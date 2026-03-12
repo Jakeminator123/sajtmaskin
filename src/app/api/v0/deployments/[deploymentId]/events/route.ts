@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
 import { updateDeploymentStatus } from "@/lib/deployment";
 import { createRedisSubscriber, deployStatusChannel } from "@/lib/redis-pubsub";
+import { getChatByIdForRequest } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -32,6 +33,13 @@ export async function GET(
   }
 
   const deployment = result[0];
+  const ownedChat = await getChatByIdForRequest(req, deployment.chatId);
+  if (!ownedChat) {
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({

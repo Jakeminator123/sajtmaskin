@@ -95,7 +95,25 @@ export const emitPlanArtifact = tool({
     "the plan as a structured artifact instead of free text.",
   inputSchema: z.object({
     goal: z.string().describe("One-sentence project goal"),
+    siteType: z
+      .enum(["one-page", "brochure", "content-heavy", "app-shell"])
+      .optional()
+      .describe("High-level project classification"),
     scope: z.array(z.string()).describe("Pages or sections to build"),
+    pages: z
+      .array(
+        z.object({
+          id: z.string(),
+          path: z.string(),
+          name: z.string(),
+          intent: z.string().describe("What this page is supposed to achieve"),
+          sections: z.array(z.string()).default([]),
+          primaryCta: z.string().optional(),
+          inNavigation: z.boolean().optional(),
+        }),
+      )
+      .optional()
+      .default([]),
     steps: z.array(
       z.object({
         id: z.string(),
@@ -118,6 +136,59 @@ export const emitPlanArtifact = tool({
           ]),
           question: z.string(),
           options: z.array(z.string()).optional(),
+        }),
+      )
+      .optional()
+      .default([]),
+    contracts: z
+      .object({
+        dataMode: z
+          .enum(["none", "mocked", "persisted", "mixed", "unknown"])
+          .describe("How data should behave before generation"),
+        databaseProvider: z.string().optional(),
+        authProvider: z.string().optional(),
+        paymentProvider: z.string().optional(),
+        integrations: z
+          .array(
+            z.object({
+              provider: z.string(),
+              name: z.string(),
+              reason: z.string(),
+              status: z.enum(["chosen", "unresolved", "optional"]).default("unresolved"),
+              envVars: z.array(z.string()).optional().default([]),
+            }),
+          )
+          .optional()
+          .default([]),
+        envVars: z
+          .array(
+            z.object({
+              key: z.string(),
+              reason: z.string(),
+              required: z.boolean().optional().default(true),
+            }),
+          )
+          .optional()
+          .default([]),
+      })
+      .optional(),
+    scaffold: z
+      .object({
+        id: z.string().optional(),
+        family: z.string().optional(),
+        label: z.string(),
+        reason: z.string().optional(),
+        source: z.enum(["planner", "runtime", "manual", "auto"]).optional(),
+      })
+      .optional(),
+    templateRecommendations: z
+      .array(
+        z.object({
+          id: z.string().optional(),
+          title: z.string(),
+          categorySlug: z.string().optional(),
+          reason: z.string().optional(),
+          qualityScore: z.number().optional(),
         }),
       )
       .optional()

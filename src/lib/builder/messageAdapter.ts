@@ -12,11 +12,18 @@ type SourcePart = { type: "source"; source: SourceItem };
 type PlanData = {
   title: string;
   description?: string;
-  steps?: string[];
+  steps?: PlanStepDisplay[];
   actions?: string[];
   content?: string;
   raw?: Record<string, unknown>;
 };
+type PlanStepDisplay =
+  | string
+  | {
+      title?: string;
+      description?: string;
+      status?: string;
+    };
 type PlanPart = { type: "plan"; plan: PlanData; isStreaming?: boolean };
 
 export type MessagePart = TextPart | ReasoningPart | ToolPart | SourcesPart | SourcePart | PlanPart;
@@ -184,20 +191,23 @@ function extractSource(value: unknown): SourceItem | null {
 }
 
 function toPlanData(value: Record<string, unknown>): PlanData {
+  const raw = isRecord(value.raw) ? value.raw : value;
   const title =
     (typeof value.title === "string" && value.title) ||
     (typeof value.name === "string" && value.name) ||
+    (typeof raw.goal === "string" && raw.goal) ||
     "Plan";
   const description =
     (typeof value.description === "string" && value.description) ||
     (typeof value.summary === "string" && value.summary) ||
+    (Array.isArray(raw.scope) ? raw.scope.map((item) => String(item)).join(", ") : undefined) ||
     undefined;
   const content =
     (typeof value.content === "string" && value.content) ||
     (typeof value.text === "string" && value.text) ||
     undefined;
 
-  const steps = coerceStringArray(value.steps ?? value.items ?? value.checklist);
+  const steps = coercePlanSteps(value.steps ?? raw.steps ?? value.items ?? value.checklist);
   const actions = coerceStringArray(value.actions ?? value.nextActions);
 
   return {
@@ -206,11 +216,39 @@ function toPlanData(value: Record<string, unknown>): PlanData {
     content,
     steps: steps.length > 0 ? steps : undefined,
     actions: actions.length > 0 ? actions : undefined,
-    raw: value,
+    raw,
   };
 }
 
 function coerceStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item)).filter((item) => item.trim().length > 0);
+}
+
+function coercePlanSteps(value: unknown): PlanStepDisplay[] {
+  if (!Array.isArray(value)) return [];
+
+  const steps: PlanStepDisplay[] = [];
+  for (const item of value) {
+    if (typeof item === "string") {
+      const text = item.trim();
+      if (text) steps.push(text);
+      continue;
+    }
+    if (isRecord(item)) {
+      const title = typeof item.title === "string" ? item.title : "";
+      const description = typeof item.description === "string" ? item.description : "";
+      const status =
+        (typeof item.status === "string" && item.status) ||
+        (typeof item.phase === "string" && item.phase) ||
+        undefined;
+      if (title || description) {
+        steps.push({ title, description, status });
+      }
+      continue;
+    }
+    const fallback = String(item).trim();
+    if (fallback) steps.push(fallback);
+  }
+  return steps;
 }

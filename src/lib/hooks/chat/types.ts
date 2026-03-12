@@ -69,6 +69,12 @@ export type VersionEntry = {
   id?: string | null;
   demoUrl?: string | null;
   createdAt?: string | null;
+  versionNumber?: number | null;
+  sandboxUrl?: string | null;
+  releaseState?: string | null;
+  verificationState?: string | null;
+  verificationSummary?: string | null;
+  promotedAt?: string | null;
 };
 
 export type FileEntry = { name: string; content: string };

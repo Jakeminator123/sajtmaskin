@@ -33,6 +33,11 @@ import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId, v0TierToOpenAIModel 
 import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
+import {
+  buildPlanSummaryMessage,
+  enrichPlanArtifactForReview,
+} from "@/lib/gen/plan-review";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import {
@@ -251,6 +256,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
             ? (meta as { buildIntent?: string }).buildIntent
             : null;
+        const metaPlanMode =
+          (meta as { planMode?: unknown })?.planMode === true;
         const metaAppProjectId = extractAppProjectIdFromMeta(meta);
         const { scaffoldMode: metaScaffoldMode, scaffoldId: metaScaffoldId } =
           extractScaffoldSettingsFromMeta(meta);
@@ -369,6 +376,249 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             console.error("[credits] Failed to charge refine:", error);
           }
         };
+
+        if (metaPlanMode) {
+          await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+
+          const planEngineIntent: BuildIntent =
+            metaBuildIntent === "template" ||
+            metaBuildIntent === "website" ||
+            metaBuildIntent === "app"
+              ? (metaBuildIntent as BuildIntent)
+              : "website";
+          const persistedScaffoldId = engineChat.scaffold_id;
+          const planOrchestration = await prepareGenerationContext({
+            prompt: optimizedMessage,
+            buildIntent: planEngineIntent,
+            scaffoldMode: metaScaffoldMode,
+            scaffoldId: metaScaffoldId,
+            brief: metaBrief,
+            themeColors: metaThemeColors,
+            imageGenerations: resolvedImageGenerations,
+            componentPalette: metaPalette,
+            designThemePreset: metaDesignThemePreset,
+            designReferences,
+            persistedScaffoldId,
+          });
+          const planResolvedScaffold = planOrchestration.resolvedScaffold;
+          if (planResolvedScaffold && !persistedScaffoldId) {
+            try {
+              await chatRepo.updateChatScaffoldId(chatId, planResolvedScaffold.id);
+            } catch {
+              /* best-effort persist */
+            }
+          }
+
+          const planSystemPrompt = `${buildPlannerSystemPrompt()}\n\n---\n\n${planOrchestration.v0EnrichmentContext}`;
+          const planChatHistory = engineChat.messages
+            .filter((m) => m.role === "user" || m.role === "assistant")
+            .map((m) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            }));
+          const planModel = resolveEngineModelId(resolvedModelTier, false);
+          const planPipelineStream = createGenerationPipeline({
+            prompt: optimizedMessage,
+            systemPrompt: planSystemPrompt,
+            model: planModel,
+            chatHistory: planChatHistory,
+            thinking: resolvedThinking,
+            tools: getAgentTools(),
+            maxSteps: 2,
+            referenceAttachments: requestAttachments,
+          });
+
+          const planStream = new ReadableStream({
+            async start(controller) {
+              const enc = new TextEncoder();
+              const reader = planPipelineStream.getReader();
+              const decoder = new TextDecoder();
+              let sseBuffer = "";
+              let accumulatedContent = "";
+              let controllerClosed = false;
+              let toolPlanArtifact: Record<string, unknown> | null = null;
+
+              const safeEnqueue = (data: Uint8Array) => {
+                if (controllerClosed) return;
+                try {
+                  controller.enqueue(data);
+                } catch {
+                  controllerClosed = true;
+                }
+              };
+
+              safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
+              safeEnqueue(
+                enc.encode(
+                  formatSSEEvent("meta", {
+                    modelId: planModel,
+                    modelTier: resolvedModelTier,
+                    buildProfileId,
+                    buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+                    enginePath: "plan-mode",
+                    thinking: resolvedThinking,
+                    planMode: true,
+                    scaffoldId: planResolvedScaffold?.id ?? null,
+                    scaffoldFamily: planResolvedScaffold?.family ?? null,
+                    promptStrategy: promptOrchestration.strategyMeta.strategy,
+                    promptType: promptOrchestration.strategyMeta.promptType,
+                  }),
+                ),
+              );
+
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  sseBuffer += decoder.decode(value, { stream: true });
+                  const { events, remaining } = parseSSEBuffer(sseBuffer);
+                  sseBuffer = remaining;
+
+                  for (const evt of events) {
+                    if (controllerClosed) break;
+
+                    switch (evt.event) {
+                      case "thinking": {
+                        const text =
+                          typeof (evt.data as Record<string, unknown>)?.text === "string"
+                            ? (evt.data as Record<string, string>).text
+                            : "";
+                        if (text) {
+                          safeEnqueue(enc.encode(formatSSEEvent("thinking", { text })));
+                        }
+                        break;
+                      }
+                      case "content": {
+                        const text =
+                          typeof (evt.data as Record<string, unknown>)?.text === "string"
+                            ? (evt.data as Record<string, string>).text
+                            : "";
+                        if (text) {
+                          accumulatedContent += text;
+                          safeEnqueue(enc.encode(formatSSEEvent("content", { text })));
+                        }
+                        break;
+                      }
+                      case "tool-call": {
+                        const toolData = evt.data as Record<string, unknown>;
+                        const toolName =
+                          typeof toolData?.toolName === "string" ? toolData.toolName : "";
+                        const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
+
+                        if (toolName === "emitPlanArtifact") {
+                          const enrichedPlanArtifact = enrichPlanArtifactForReview(toolArgs, {
+                            resolvedScaffold: planResolvedScaffold,
+                            scaffoldMode: metaScaffoldMode,
+                          });
+                          toolPlanArtifact = enrichedPlanArtifact;
+                          safeEnqueue(
+                            enc.encode(
+                              formatSSEEvent("tool-call", {
+                                toolName: "emitPlanArtifact",
+                                toolCallId:
+                                  typeof toolData.toolCallId === "string"
+                                    ? toolData.toolCallId
+                                    : `plan-${Date.now()}`,
+                                args: enrichedPlanArtifact,
+                              }),
+                            ),
+                          );
+                        } else if (
+                          toolName === "suggestIntegration" ||
+                          toolName === "requestEnvVar" ||
+                          toolName === "askClarifyingQuestion"
+                        ) {
+                          safeEnqueue(
+                            enc.encode(
+                              formatSSEEvent(
+                                toolName === "askClarifyingQuestion" ? "tool-call" : "tool-call",
+                                toolName === "askClarifyingQuestion"
+                                  ? {
+                                      toolName,
+                                      toolCallId:
+                                        typeof toolData.toolCallId === "string"
+                                          ? toolData.toolCallId
+                                          : `q-${Date.now()}`,
+                                      args: toolArgs,
+                                    }
+                                  : toolData,
+                              ),
+                            ),
+                          );
+                        }
+                        break;
+                      }
+                      case "done":
+                      case "error":
+                        break;
+                    }
+                  }
+                }
+              } catch (error) {
+                if (!controllerClosed) {
+                  safeEnqueue(
+                    enc.encode(
+                      formatSSEEvent("error", {
+                        message:
+                          error instanceof Error ? error.message : "Plan generation failed",
+                      }),
+                    ),
+                  );
+                }
+              }
+
+              const planData = enrichPlanArtifactForReview(
+                toolPlanArtifact ?? parsePlanResponse(accumulatedContent),
+                {
+                  resolvedScaffold: planResolvedScaffold,
+                  scaffoldMode: metaScaffoldMode,
+                },
+              );
+              const hasBlockers =
+                Array.isArray(planData?.blockers) && (planData.blockers as unknown[]).length > 0;
+
+              try {
+                await chatRepo.addMessage(
+                  chatId,
+                  "assistant",
+                  buildPlanSummaryMessage(planData, hasBlockers),
+                );
+              } catch (error) {
+                console.warn("[plan] Failed to persist planner assistant summary:", error);
+              }
+
+              safeEnqueue(
+                enc.encode(
+                  formatSSEEvent("done", {
+                    chatId,
+                    versionId: null,
+                    messageId: null,
+                    demoUrl: null,
+                    awaitingInput: hasBlockers,
+                    planArtifact: planData,
+                    planMode: true,
+                  }),
+                ),
+              );
+
+              await commitCreditsOnce();
+
+              if (!controllerClosed) {
+                try {
+                  controller.close();
+                } catch {
+                  /* already closed */
+                }
+              }
+            },
+          });
+
+          return attachSessionCookie(
+            new Response(planStream, {
+              headers: createSSEHeaders(),
+            }),
+          );
+        }
 
         await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
 

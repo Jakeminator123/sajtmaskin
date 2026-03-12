@@ -11,6 +11,7 @@ import { normalizeV0Error } from "@/lib/v0/errors";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
 import {
+  getPreferredVersion,
   getLatestVersion as getLatestEngineVersion,
   getVersionById,
   updateVersionFiles,
@@ -133,7 +134,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
         resolvedVersionId = requestedVersionId;
       } else {
         files = await getLatestVersionFiles(chatId);
-        resolvedVersionId = (await getLatestEngineVersion(chatId))?.id ?? null;
+        resolvedVersionId =
+          (await getPreferredVersion(chatId))?.id ?? (await getLatestEngineVersion(chatId))?.id ?? null;
       }
 
       if (files) {

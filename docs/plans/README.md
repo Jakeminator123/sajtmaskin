@@ -15,7 +15,7 @@ equally current.
 
 ## Transitional note
 
-Some numbered plans still physically live in `docs/plans/` root while the
+The active numbered plans still physically live in `docs/plans/` root while the
 folder structure is being normalized. Until they are moved, treat
 `docs/architecture/agent-roadmap-and-handoff.md` as the canonical status map.
 
@@ -31,11 +31,18 @@ folder structure is being normalized. Until they are moved, treat
 
 `review-needed`
 
-- `01-design-system-registry.md`
-- `02-custom-domain-self-service.md`
-- `03-v0-env-vars-proper-sdk.md`
-- `04-deploy-sse-webhooks.md`
-- `05-template-search-ui.md`
+- no numbered plans currently sit in this bucket
+
+`archived`
+
+- `archived/01-design-system-registry.md`
+- `archived/02-custom-domain-self-service.md`
+- `archived/03-v0-env-vars-proper-sdk.md`
+- `archived/04-deploy-sse-webhooks.md`
+- `archived/05-template-search-ui.md`
+- `archived/11-next-vercel-build-plan-core-config.md`
+- `archived/12-next-vercel-build-plan-server-routes.md`
+- `archived/13-next-vercel-build-plan-ui-performance.md`
 
 These are planning artifacts, not runtime documentation. New plan files should
 be created in `docs/plans/active/`, not in this root folder.

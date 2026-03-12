@@ -39,6 +39,10 @@ CREATE TABLE IF NOT EXISTS versions (
   version_number INTEGER NOT NULL,
   files_json TEXT NOT NULL,
   sandbox_url TEXT,
+  release_state TEXT NOT NULL DEFAULT 'draft',
+  verification_state TEXT NOT NULL DEFAULT 'pending',
+  verification_summary TEXT,
+  promoted_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -94,6 +98,28 @@ function runMigrations(db: Database.Database): void {
   const hasScaffoldId = columns.some((c) => c.name === "scaffold_id");
   if (!hasScaffoldId) {
     db.exec("ALTER TABLE chats ADD COLUMN scaffold_id TEXT;");
+  }
+
+  const versionColumns = db
+    .prepare("PRAGMA table_info(versions)")
+    .all() as Array<{ name: string }>;
+  const hasReleaseState = versionColumns.some((c) => c.name === "release_state");
+  if (!hasReleaseState) {
+    db.exec("ALTER TABLE versions ADD COLUMN release_state TEXT NOT NULL DEFAULT 'draft';");
+    db.exec("UPDATE versions SET release_state = 'promoted';");
+  }
+  const hasVerificationState = versionColumns.some((c) => c.name === "verification_state");
+  if (!hasVerificationState) {
+    db.exec("ALTER TABLE versions ADD COLUMN verification_state TEXT NOT NULL DEFAULT 'pending';");
+    db.exec("UPDATE versions SET verification_state = 'passed';");
+  }
+  const hasVerificationSummary = versionColumns.some((c) => c.name === "verification_summary");
+  if (!hasVerificationSummary) {
+    db.exec("ALTER TABLE versions ADD COLUMN verification_summary TEXT;");
+  }
+  const hasPromotedAt = versionColumns.some((c) => c.name === "promoted_at");
+  if (!hasPromotedAt) {
+    db.exec("ALTER TABLE versions ADD COLUMN promoted_at TEXT;");
   }
 
   db.exec(`

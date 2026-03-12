@@ -10,7 +10,12 @@ import { versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { getVersionById } from "@/lib/db/chat-repository-pg";
+import {
+  failVersionVerification,
+  getVersionById,
+  markVersionVerifying,
+  promoteVersion,
+} from "@/lib/db/chat-repository-pg";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 
@@ -61,10 +66,18 @@ function buildQualityGateSummaryLog(params: {
   };
 }
 
+function buildVerificationSummary(checkResults: CheckResult[]): string {
+  const failedChecks = checkResults.filter((result) => !result.passed).map((result) => result.check);
+  if (failedChecks.length === 0) {
+    return "Automatic verification passed.";
+  }
+  return `Automatic verification failed: ${failedChecks.join(", ")}.`;
+}
+
 const CHECK_COMMANDS: Record<string, string> = {
-  typecheck: "npx tsc --noEmit 2>&1 || true",
-  build: "npx next build 2>&1 || true",
-  lint: "npx eslint . --max-warnings=0 2>&1 || true",
+  typecheck: "npx tsc --noEmit 2>&1",
+  build: "npx next build 2>&1",
+  lint: "npx eslint . --max-warnings=0 2>&1",
 };
 
 function isSafeRelativePath(path: string): boolean {
@@ -156,6 +169,14 @@ class SandboxNotConfiguredError extends Error {
   }
 }
 
+function isSandboxConfigured(): boolean {
+  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
+  const token = process.env.VERCEL_TOKEN;
+  const teamId = process.env.VERCEL_TEAM_ID;
+  const projectId = process.env.VERCEL_PROJECT_ID;
+  return Boolean(oidcToken || (token && teamId && projectId));
+}
+
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
@@ -175,12 +196,28 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     // Non-fallback: fetch files from Postgres engine store
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
+      const versionObj = await getVersionById(versionId);
+      if (versionObj && versionObj.chat_id !== chatId) {
+        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+      }
+
       const codeFiles = await getVersionFiles(versionId);
-      if (codeFiles && codeFiles.length > 0) {
+      if (versionObj && codeFiles && codeFiles.length > 0) {
+        if (!isSandboxConfigured()) {
+          return NextResponse.json(
+            { error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)" },
+            { status: 501 },
+          );
+        }
+
         const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
         const sandboxFiles = completeProjectFiles
           .filter((f) => f.content != null)
           .map((f) => ({ name: f.path, content: f.content }));
+
+        await markVersionVerifying(versionId).catch((err) => {
+          console.warn("[quality-gate] Failed to mark version verifying:", err);
+        });
 
         try {
           const { results, sandboxDurationMs } = await runSandboxChecks(sandboxFiles, checks);
@@ -191,11 +228,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             sandboxDurationMs,
           };
 
-          const versionObj = await getVersionById(versionId);
-          const resolvedChatId = versionObj?.chat_id ?? chatId;
           const logs = [
             {
-              chatId: resolvedChatId,
+              chatId,
               versionId,
               ...buildQualityGateSummaryLog({
                 checkResults: results,
@@ -206,7 +241,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             .filter((r) => !r.passed)
             .map((r) => {
               return {
-                chatId: resolvedChatId,
+                chatId,
                 versionId,
                 level: "error" as const,
                 category: `quality-gate:${r.check}`,
@@ -221,14 +256,32 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             });
           }
 
+          const verificationSummary = buildVerificationSummary(results);
+          if (gateResult.passed) {
+            await promoteVersion(versionId, verificationSummary).catch((err) => {
+              console.warn("[quality-gate] Failed to promote version:", err);
+            });
+          } else {
+            await failVersionVerification(versionId, verificationSummary).catch((err) => {
+              console.warn("[quality-gate] Failed to mark version failed:", err);
+            });
+          }
+
           return NextResponse.json(gateResult);
         } catch (err) {
+          await failVersionVerification(versionId, "Automatic verification could not complete.").catch(
+            (updateErr) => {
+              console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
+            },
+          );
           if (err instanceof SandboxNotConfiguredError) {
             return NextResponse.json({ error: err.message }, { status: 501 });
           }
           throw err;
         }
       }
+
+      return NextResponse.json({ error: "No files found for version" }, { status: 404 });
     }
 
     // ---------------------------------------------------------------

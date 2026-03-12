@@ -26,6 +26,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { createVersionFromContent } from "@/lib/gen/version-manager";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import { buildPreviewUrl } from "@/lib/gen/preview";
 import { streamText } from "ai";
 import { getOpenAIModel } from "@/lib/gen/models";
 import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
@@ -291,10 +292,17 @@ export async function POST(req: Request) {
               id: chat.id,
               internalChatId: chat.id,
               model: engineModel,
+              demoUrl: buildPreviewUrl(chat.id, version.id),
               latestVersion: {
                 id: version.id,
+                versionId: version.id,
                 versionNumber: version.version_number,
+                demoUrl: buildPreviewUrl(chat.id, version.id),
                 sandboxUrl: version.sandbox_url,
+                releaseState: version.release_state,
+                verificationState: version.verification_state,
+                verificationSummary: version.verification_summary,
+                promotedAt: version.promoted_at,
               },
               usage: {
                 promptTokens: usage?.inputTokens ?? 0,

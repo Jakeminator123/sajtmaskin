@@ -1,5 +1,6 @@
 import {
   createVersion,
+  getPreferredVersion,
   getLatestVersion,
   getVersionById,
   type Version,
@@ -51,7 +52,7 @@ export async function getVersionFiles(versionId: string): Promise<CodeFile[] | n
  * Returns null if no versions exist.
  */
 export async function getLatestVersionFiles(chatId: string): Promise<CodeFile[] | null> {
-  const version = await getLatestVersion(chatId);
+  const version = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
   if (!version) return null;
 
   try {

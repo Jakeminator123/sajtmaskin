@@ -39,6 +39,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           versionNumber: v.version_number,
           messageId: v.message_id,
           sandboxUrl: v.sandbox_url,
+          releaseState: v.release_state,
+          verificationState: v.verification_state,
+          verificationSummary: v.verification_summary,
+          promotedAt: v.promoted_at,
         }));
         return NextResponse.json({ versions: versionsList });
       }
@@ -93,6 +97,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
                   versionNumber: null,
                   messageId: latest?.messageId ?? null,
                   sandboxUrl: null,
+                  releaseState: null,
+                  verificationState: null,
+                  verificationSummary: null,
+                  promotedAt: null,
                 },
               ],
             });

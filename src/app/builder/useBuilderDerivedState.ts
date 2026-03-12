@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChatMessage } from "@/lib/builder/types";
+import { selectPreferredEngineVersion } from "@/lib/db/engine-version-lifecycle";
 import { useMemo } from "react";
 
 export type VersionSummary = {
@@ -8,6 +9,12 @@ export type VersionSummary = {
   versionId?: string | null;
   demoUrl?: string | null;
   createdAt?: string | Date | null;
+  versionNumber?: number | null;
+  sandboxUrl?: string | null;
+  releaseState?: string | null;
+  verificationState?: string | null;
+  verificationSummary?: string | null;
+  promotedAt?: string | Date | null;
 };
 
 export type ChatData = {
@@ -72,6 +79,12 @@ export function useBuilderDerivedState({
       id: latest?.id || null,
       demoUrl: latest?.demoUrl ?? null,
       createdAt: latest?.createdAt ?? new Date().toISOString(),
+      versionNumber: latest?.versionNumber ?? null,
+      sandboxUrl: latest?.sandboxUrl ?? null,
+      releaseState: latest?.releaseState ?? null,
+      verificationState: latest?.verificationState ?? null,
+      verificationSummary: latest?.verificationSummary ?? null,
+      promotedAt: latest?.promotedAt ?? null,
     });
     return list;
   }, [versionsList, chat]);
@@ -87,12 +100,17 @@ export function useBuilderDerivedState({
   );
 
   const latestVersionId = useMemo(() => {
-    const sortedByTime = [...effectiveVersionsList].sort((a, b) => {
-      const aTime = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
-      const bTime = b.createdAt ? new Date(b.createdAt as string).getTime() : 0;
-      return bTime - aTime;
-    });
-    const latestFromVersions = sortedByTime[0]?.versionId || sortedByTime[0]?.id || null;
+    const preferredVersion = selectPreferredEngineVersion(
+      effectiveVersionsList.map((version) => ({
+        ...version,
+        createdAt:
+          typeof version.createdAt === "string" || version.createdAt instanceof Date
+            ? version.createdAt
+            : null,
+        versionNumber: typeof version.versionNumber === "number" ? version.versionNumber : null,
+      })),
+    );
+    const latestFromVersions = preferredVersion?.versionId || preferredVersion?.id || null;
     const latestFromChat = chat?.latestVersion?.versionId || chat?.latestVersion?.id || null;
     return latestFromVersions || latestFromChat;
   }, [effectiveVersionsList, chat]);

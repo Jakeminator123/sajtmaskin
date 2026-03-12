@@ -2,6 +2,7 @@
 
 import { AlertCircle, BrainCircuit, Code2, ExternalLink, FileText, Loader2, MessageCircleQuestion, MousePointer2, RefreshCw, Search, Wand2, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type MouseEvent } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
@@ -1043,6 +1044,58 @@ export function PreviewPanel({
     if (!demoUrl) return false;
     try { return /sandbox/i.test(new URL(demoUrl).hostname); } catch { return demoUrl.toLowerCase().includes("sandbox"); }
   }, [demoUrl]);
+  const isV0Preview = Boolean(demoUrl && !isOwnEnginePreview && demoUrl.includes("vusercontent.net"));
+  const surfaceDescriptor = useMemo(() => {
+    if (viewMode === "registry") {
+      return {
+        label: "Elementregister",
+        detail: "Kodläge för att matcha UI-element mot filer och rader.",
+        className: "border-purple-900/40 bg-purple-950/25 text-purple-100",
+        badgeClassName: "border-purple-500/30 bg-purple-500/10 text-purple-200",
+      };
+    }
+    if (viewMode === "code") {
+      return {
+        label: "Kodvy",
+        detail: "Visar versionsfilerna direkt i buildern.",
+        className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
+        badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
+      };
+    }
+    if (isOwnEnginePreview) {
+      return {
+        label: "Runtime preview",
+        detail:
+          "Primär sanningsyta under iteration. Renderas från den genererade koden i builderns egen runtime och fångar previewfel direkt.",
+        className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
+        badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
+      };
+    }
+    if (isSandboxPreview) {
+      return {
+        label: "Sandbox preview",
+        detail:
+          "Närmare riktig Next.js-runtime än fallback-preview, men kan fortfarande ha separat miljö och token-setup.",
+        className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
+        badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+      };
+    }
+    if (isV0Preview) {
+      return {
+        label: "Fallback preview",
+        detail:
+          "Visar en extern previewyta. Bra för snabb kontroll, men den kan avvika från lokal runtime och publicerad build.",
+        className: "border-yellow-900/40 bg-yellow-950/30 text-yellow-100",
+        badgeClassName: "border-yellow-500/30 bg-yellow-500/10 text-yellow-200",
+      };
+    }
+    return {
+      label: "Extern preview",
+      detail: "Visar den aktuella preview-URL:en för vald version.",
+      className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
+      badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
+    };
+  }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview]);
   if (!demoUrl && !isCodeView) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
     const title = awaitingInput ? "AI väntar på ditt svar" : isInitialEmpty ? "Välkommen" : "Ingen förhandsvisning ännu";
@@ -1067,7 +1120,6 @@ export function PreviewPanel({
 
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = demoUrl ? buildPreviewSrc(demoUrl, refreshToken) : "";
-  const isV0Preview = Boolean(demoUrl && !isOwnEnginePreview && demoUrl.includes("vusercontent.net"));
   const showBlobWarning = Boolean(demoUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled);
   const showExternalWarning = Boolean(demoUrl && isV0Preview);
   const showSandboxWarning = Boolean(demoUrl && !isOwnEnginePreview && isSandboxPreview);
@@ -1093,7 +1145,12 @@ export function PreviewPanel({
   return (
     <div className="flex h-full flex-col bg-black/40">
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
-        <h3 className="font-semibold tracking-tight text-white">Preview</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold tracking-tight text-white">Preview</h3>
+          <Badge variant="outline" className={surfaceDescriptor.badgeClassName}>
+            {surfaceDescriptor.label}
+          </Badge>
+        </div>
         <div className="flex items-center gap-1">
           {showWorkerLamp && (
             <div
@@ -1124,11 +1181,11 @@ export function PreviewPanel({
           </Button>
           <Button variant="ghost" size="sm" onClick={handleToggleElementRegistry} disabled={!canShowCode || isViewSwitchPending} title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"} className={cn("text-gray-400 hover:text-white", showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100")}>
             <Code2 className="mr-1 h-4 w-4" />
-            Inspektera kod
+            Elementregister
           </Button>
           <Button variant="ghost" size="sm" onClick={handleToggleCode} disabled={!canShowCode || isViewSwitchPending} title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"} className={cn("text-gray-400 hover:text-white", viewMode === "code" && "bg-gray-800 text-white hover:text-white")}>
             <FileText className="mr-1 h-4 w-4" />
-            Kod
+            Kodvy
           </Button>
           {demoUrl && onClear && (
             <Button variant="ghost" size="sm" onClick={handleClear} disabled={isLoading} title="Rensa preview" className="text-gray-400 hover:text-white">Rensa</Button>
@@ -1142,11 +1199,9 @@ export function PreviewPanel({
           </Button>
         </div>
       </div>
-      {!isCodeView && isOwnEnginePreview && (
-        <div className="border-b border-sky-900/40 bg-sky-950/30 px-4 py-2 text-xs text-sky-200">
-                  <div>Egen motor — preview renderas lokalt med React + Tailwind. Interna länkar kan nu växla mellan genererade `app/.../page.tsx`-routes här, men sandbox är fortfarande säkrare för full Next.js-runtime, server components och exakt build-verifiering.</div>
-        </div>
-      )}
+      <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
+        {surfaceDescriptor.detail}
+      </div>
       {!isCodeView && !isOwnEnginePreview && (showBlobWarning || showExternalWarning || showSandboxWarning || integrationError || showImagesDisabledWarning || showImagesUnsupportedWarning || showBlobConfigWarning) && (
         <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
           {showExternalWarning && <div>Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media via mediabiblioteket för publika Blob‑URL:er.</div>}

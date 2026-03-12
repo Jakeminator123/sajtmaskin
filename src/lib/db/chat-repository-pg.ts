@@ -9,6 +9,11 @@
  */
 import { db } from "./client";
 import {
+  type EngineVersionReleaseState,
+  type EngineVersionVerificationState,
+  selectPreferredEngineVersion,
+} from "./engine-version-lifecycle";
+import {
   engineChats,
   engineMessages,
   engineVersions,
@@ -44,6 +49,10 @@ export interface Version {
   version_number: number;
   files_json: string;
   sandbox_url: string | null;
+  release_state: EngineVersionReleaseState;
+  verification_state: EngineVersionVerificationState;
+  verification_summary: string | null;
+  promoted_at: string | null;
   created_at: string;
 }
 
@@ -140,7 +149,12 @@ export async function addMessage(
   return toRow(rows[0]) as unknown as Message;
 }
 
-export async function createVersion(
+async function getStoredVersion(versionId: string): Promise<Version> {
+  const rows = await db.select().from(engineVersions).where(eq(engineVersions.id, versionId)).limit(1);
+  return toRow(rows[0]) as unknown as Version;
+}
+
+export async function createDraftVersion(
   chatId: string,
   messageId: string | null,
   filesJson: string,
@@ -160,9 +174,21 @@ export async function createVersion(
     versionNumber,
     filesJson,
     sandboxUrl: sandboxUrl ?? null,
+    releaseState: "draft",
+    verificationState: "pending",
+    verificationSummary: null,
+    promotedAt: null,
   });
-  const rows = await db.select().from(engineVersions).where(eq(engineVersions.id, id)).limit(1);
-  return toRow(rows[0]) as unknown as Version;
+  return getStoredVersion(id);
+}
+
+export async function createVersion(
+  chatId: string,
+  messageId: string | null,
+  filesJson: string,
+  sandboxUrl?: string,
+): Promise<Version> {
+  return createDraftVersion(chatId, messageId, filesJson, sandboxUrl);
 }
 
 export async function getLatestVersion(chatId: string): Promise<Version | null> {
@@ -173,6 +199,11 @@ export async function getLatestVersion(chatId: string): Promise<Version | null> 
     .orderBy(desc(engineVersions.versionNumber))
     .limit(1);
   return rows.length > 0 ? (toRow(rows[0]) as unknown as Version) : null;
+}
+
+export async function getPreferredVersion(chatId: string): Promise<Version | null> {
+  const versions = await getVersionsByChat(chatId);
+  return selectPreferredEngineVersion(versions) ?? null;
 }
 
 export async function listChatsByProject(projectId: string): Promise<Chat[]> {
@@ -224,6 +255,64 @@ export async function updateVersionFiles(versionId: string, filesJson: string): 
     .set({ filesJson })
     .where(eq(engineVersions.id, versionId));
   return (result.rowCount ?? 0) > 0;
+}
+
+export async function markVersionVerifying(
+  versionId: string,
+  verificationSummary: string | null = "Automatic verification in progress.",
+): Promise<Version | null> {
+  const result = await db
+    .update(engineVersions)
+    .set({
+      releaseState: "draft",
+      verificationState: "verifying",
+      verificationSummary,
+      promotedAt: null,
+    })
+    .where(eq(engineVersions.id, versionId));
+  if ((result.rowCount ?? 0) === 0) {
+    return null;
+  }
+  return getStoredVersion(versionId);
+}
+
+export async function promoteVersion(
+  versionId: string,
+  verificationSummary: string | null = "Automatic verification passed.",
+): Promise<Version | null> {
+  const promotedAt = new Date();
+  const result = await db
+    .update(engineVersions)
+    .set({
+      releaseState: "promoted",
+      verificationState: "passed",
+      verificationSummary,
+      promotedAt,
+    })
+    .where(eq(engineVersions.id, versionId));
+  if ((result.rowCount ?? 0) === 0) {
+    return null;
+  }
+  return getStoredVersion(versionId);
+}
+
+export async function failVersionVerification(
+  versionId: string,
+  verificationSummary: string | null = "Automatic verification failed.",
+): Promise<Version | null> {
+  const result = await db
+    .update(engineVersions)
+    .set({
+      releaseState: "draft",
+      verificationState: "failed",
+      verificationSummary,
+      promotedAt: null,
+    })
+    .where(eq(engineVersions.id, versionId));
+  if ((result.rowCount ?? 0) === 0) {
+    return null;
+  }
+  return getStoredVersion(versionId);
 }
 
 export async function logGeneration(

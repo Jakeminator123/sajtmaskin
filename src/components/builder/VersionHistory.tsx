@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import {
+  AlertCircle,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -16,10 +18,40 @@ import { useVersions } from "@/lib/hooks/useVersions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { VersionDiagnosticsDialog } from "@/components/builder/VersionDiagnosticsDialog";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-store";
+
+type VersionSummary = {
+  id?: string | null;
+  versionId?: string | null;
+  demoUrl?: string | null;
+  createdAt?: string | Date | null;
+  versionNumber?: number | null;
+  releaseState?: string | null;
+  verificationState?: string | null;
+  verificationSummary?: string | null;
+  promotedAt?: string | Date | null;
+  pinned?: boolean;
+};
+
+type BlobExportResponse = {
+  blob?: {
+    url?: string;
+  };
+  error?: string;
+};
+
+type GitHubExportResponse = {
+  repoUrl?: string;
+  error?: string;
+};
+
+type PinVersionResponse = {
+  error?: string;
+};
 
 interface VersionHistoryProps {
   chatId: string | null;
@@ -28,7 +60,7 @@ interface VersionHistoryProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   /** Pre-fetched versions from parent to avoid duplicate polling */
-  versions?: unknown[];
+  versions?: VersionSummary[];
   /** Mutate function from parent's useVersions instance */
   mutateVersions?: () => void;
 }
@@ -48,19 +80,13 @@ export function VersionHistory({
   const versions = externalVersions ?? internal.versions;
   const isLoading = externalVersions ? false : internal.isLoading;
   const mutate = externalMutate ?? internal.mutate;
-  type VersionSummary = {
-    id?: string | null;
-    versionId?: string | null;
-    demoUrl?: string | null;
-    createdAt?: string | Date | null;
-    pinned?: boolean;
-  };
   const versionList = Array.isArray(versions) ? (versions as VersionSummary[]) : [];
   const pinnedCount = versionList.filter((version) => Boolean(version?.pinned)).length;
   const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null);
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
   const [pinningVersionId, setPinningVersionId] = useState<string | null>(null);
+  const [diagnosticsVersionId, setDiagnosticsVersionId] = useState<string | null>(null);
   const [returnTo, setReturnTo] = useState("/projects");
   const [syncingElapsed, setSyncingElapsed] = useState(false);
   const [showLocalTimes, setShowLocalTimes] = useState(false);
@@ -102,11 +128,12 @@ export function VersionHistory({
     });
   };
 
-  const handleDownload = async (e: React.MouseEvent, version: any) => {
+  const handleDownload = async (e: React.MouseEvent, version: VersionSummary) => {
     e.stopPropagation();
     if (!chatId) return;
 
-    const versionId = version.id || version.versionId;
+    const versionId = version.id || version.versionId || null;
+    if (!versionId) return;
     setDownloadingVersionId(versionId);
 
     try {
@@ -120,26 +147,25 @@ export function VersionHistory({
     }
   };
 
-  const handleExportToBlob = async (e: React.MouseEvent, version: any) => {
+  const handleExportToBlob = async (e: React.MouseEvent, version: VersionSummary) => {
     e.stopPropagation();
     if (!chatId) return;
 
-    const versionId = version.id || version.versionId;
+    const versionId = version.id || version.versionId || null;
+    if (!versionId) return;
     setExportingVersionId(versionId);
 
     try {
       const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/export?format=zip`, {
         method: "POST",
       });
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as BlobExportResponse | null;
       if (!res.ok) {
-        const message =
-          (data && typeof data === "object" && (data as any).error) ||
-          `Export failed (HTTP ${res.status})`;
+        const message = data?.error || `Export failed (HTTP ${res.status})`;
         throw new Error(String(message));
       }
 
-      const url = (data as any)?.blob?.url as string | undefined;
+      const url = data?.blob?.url;
       if (url) {
         window.open(url, "_blank");
       }
@@ -152,7 +178,7 @@ export function VersionHistory({
     }
   };
 
-  const handleExportToGitHub = async (e: React.MouseEvent, version: any) => {
+  const handleExportToGitHub = async (e: React.MouseEvent, version: VersionSummary) => {
     e.stopPropagation();
     if (!chatId) return;
     if (!isAuthenticated) {
@@ -164,7 +190,8 @@ export function VersionHistory({
       return;
     }
 
-    const versionId = version.id || version.versionId;
+    const versionId = version.id || version.versionId || null;
+    if (!versionId) return;
     const suggestedRepo = `sajtmaskin-${chatId.slice(0, 8)}`;
     const repoInput = window.prompt("GitHub repo (owner/name eller bara namn)", suggestedRepo);
     if (!repoInput) return;
@@ -184,15 +211,13 @@ export function VersionHistory({
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as GitHubExportResponse | null;
       if (!res.ok) {
-        const message =
-          (data && typeof data === "object" && (data as any).error) ||
-          `GitHub export failed (HTTP ${res.status})`;
+        const message = data?.error || `GitHub export failed (HTTP ${res.status})`;
         throw new Error(String(message));
       }
 
-      const url = (data as any)?.repoUrl as string | undefined;
+      const url = data?.repoUrl;
       if (url) {
         window.open(url, "_blank");
       }
@@ -205,11 +230,12 @@ export function VersionHistory({
     }
   };
 
-  const handleTogglePin = async (e: React.MouseEvent, version: any) => {
+  const handleTogglePin = async (e: React.MouseEvent, version: VersionSummary) => {
     e.stopPropagation();
     if (!chatId) return;
 
-    const versionId = version.id || version.versionId;
+    const versionId = version.id || version.versionId || null;
+    if (!versionId) return;
     const nextPinned = !version.pinned;
     setPinningVersionId(versionId);
     try {
@@ -218,7 +244,7 @@ export function VersionHistory({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ versionId, pinned: nextPinned }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as PinVersionResponse;
       if (!res.ok) {
         throw new Error(data?.error || `Pin failed (HTTP ${res.status})`);
       }
@@ -372,6 +398,28 @@ export function VersionHistory({
             const isPinning = pinningVersionId === internalVersionId;
             const isSelected = selectedVersionId === selectableVersionId;
             const isPinned = Boolean(version.pinned);
+            const lifecycleStatus = resolveEngineVersionLifecycleStatus({
+              releaseState: version.releaseState,
+              verificationState: version.verificationState,
+            });
+            const lifecycleLabel =
+              lifecycleStatus === "promoted"
+                ? "Promoted"
+                : lifecycleStatus === "verifying"
+                  ? "Verifying"
+                  : lifecycleStatus === "failed"
+                    ? "Failed"
+                    : "Draft";
+            const lifecycleBadgeVariant =
+              lifecycleStatus === "failed"
+                ? "destructive"
+                : lifecycleStatus === "promoted"
+                  ? "default"
+                  : "secondary";
+            const lifecycleSummary =
+              typeof version.verificationSummary === "string" && version.verificationSummary.trim()
+                ? version.verificationSummary.trim()
+                : null;
 
             return (
               <Card
@@ -392,12 +440,26 @@ export function VersionHistory({
                         <span className="text-muted-foreground text-xs">
                           {formatVersionTime(version.createdAt)}
                         </span>
+                        {typeof version.versionNumber === "number" && (
+                          <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                            v{version.versionNumber}
+                          </Badge>
+                        )}
+                        <Badge variant={lifecycleBadgeVariant} className="gap-1 px-1.5 py-0 text-[10px]">
+                          {lifecycleStatus === "verifying" && <Loader2 className="h-3 w-3 animate-spin" />}
+                          {lifecycleLabel}
+                        </Badge>
                         {isPinned && (
                           <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                             Pinned
                           </Badge>
                         )}
                       </div>
+                      {lifecycleSummary && lifecycleStatus !== "promoted" && (
+                        <p className="text-muted-foreground mb-1 line-clamp-2 text-xs">
+                          {lifecycleSummary}
+                        </p>
+                      )}
                       {version.demoUrl && (
                         <p
                           className="text-muted-foreground truncate text-xs"
@@ -423,6 +485,19 @@ export function VersionHistory({
                         </a>
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (internalVersionId) setDiagnosticsVersionId(internalVersionId);
+                      }}
+                      title="Visa diagnostik"
+                      aria-label="Visa diagnostik"
+                      className="h-7 w-7"
+                    >
+                      <AlertCircle className="h-3 w-3" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon-sm"
@@ -490,6 +565,14 @@ export function VersionHistory({
           })}
         </div>
       </div>
+      <VersionDiagnosticsDialog
+        chatId={chatId}
+        versionId={diagnosticsVersionId}
+        open={Boolean(diagnosticsVersionId)}
+        onOpenChange={(open) => {
+          if (!open) setDiagnosticsVersionId(null);
+        }}
+      />
     </div>
   );
 }

@@ -15,6 +15,8 @@ Relevant existing systems:
 - `src/lib/gen/eval/render-telemetry.ts`
 - `src/lib/db/services/version-errors.ts`
 - `src/lib/db/chat-repository-pg.ts`
+- `src/app/api/analytics/route.ts`
+- `src/lib/db/services/analytics.ts`
 - `docs/llm/egen-motor/MOTOR-STATUS.md`
 - `docs/llm/egen-motor/byggplaner/10-generationsdata.md`
 - `src/lib/hooks/chat/useAutoFix.ts`
@@ -22,6 +24,13 @@ Relevant existing systems:
 The repo already persists important slices of runtime truth. The gap is not data
 existence, but turning that data into selection, routing, ranking, and feedback
 loops.
+
+Important boundary:
+
+- generic site/pageview analytics already exist, but they are not version,
+  scaffold, model, or retry aware
+- do not treat the existing analytics pipeline as a substitute for the unified
+  generation telemetry model in this phase
 
 ## Workstreams
 

@@ -20,6 +20,19 @@ The repository now has:
 The biggest remaining gaps are trust, preview fidelity, site planning,
 launch-readiness, and long-term learning from generation outcomes.
 
+## Completed groundwork from archived plans
+
+Archived plans `11` through `13` already delivered useful baseline work:
+
+- leaner Next.js/icon bundling and general config hygiene
+- faster deploy and analytics request paths
+- cheaper shared message-row rendering in builder surfaces
+
+Those items reduce execution risk for the roadmap below, but they do not replace
+the core Phase `1` to `4` work. The roadmap sequence remains:
+
+`07` -> `08` -> `09` -> `10`
+
 ## Phase documents
 
 - `07-world-class-builder-phase-1-trust-launch.md`

@@ -12,6 +12,7 @@ import { PreviewPanel } from "@/components/builder/PreviewPanel";
 import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
+import { LaunchReadinessCard } from "@/components/builder/LaunchReadinessCard";
 import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
 import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
@@ -22,6 +23,7 @@ import { RequireAuthModal } from "@/components/auth";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { buildAiElementPrompt } from "@/lib/builder/ai-elements-catalog";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
+import { buildApprovedPlanExecutionPrompt } from "@/lib/gen/plan-review";
 import {
   buildShadcnBlockPrompt,
   buildShadcnComponentPrompt,
@@ -170,6 +172,27 @@ ${technicalPrompt}${extraInstruction}`;
 
 export function BuilderShellContent(vm: BuilderViewModel) {
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt;
+  const sendMessage = vm.sendMessage;
+  const isDeployActionBusy =
+    vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
+  const deployReadinessBlocker = vm.deployReadiness?.blockers[0] ?? null;
+  const canDeploy = Boolean(
+    vm.chatId &&
+      vm.activeVersionId &&
+      !isDeployActionBusy &&
+      (vm.deployReadiness?.canDeploy ?? true),
+  );
+  const deployDisabledReason = !vm.chatId
+    ? "Skapa eller öppna en chat först."
+    : !vm.activeVersionId
+      ? "Välj eller generera en version först."
+      : vm.isCreatingChat || vm.isTemplateLoading
+        ? "Vänta tills chatten och versionen är redo."
+        : vm.isAnyStreaming
+          ? "Vänta tills den pågående generationen är klar."
+          : vm.isDeploying
+            ? "Publicering pågår redan."
+            : deployReadinessBlocker?.detail || deployReadinessBlocker?.title || null;
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [tipPanelOpen, setTipPanelOpen] = useState(false);
   const [tipText, setTipText] = useState<string | null>(null);
@@ -186,6 +209,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [placementConfirmOpen, setPlacementConfirmOpen] = useState(false);
   const [isPlacementSubmitting, setIsPlacementSubmitting] = useState(false);
   const placementResolverRef = useRef<((decision: VisualPlacementDecision) => void) | null>(null);
+  const handleApproveBuildPlan = useCallback(
+    async (plan: Record<string, unknown>) => {
+      const prompt = buildApprovedPlanExecutionPrompt(plan);
+      await sendMessage(prompt);
+    },
+    [sendMessage],
+  );
 
   const requestTip = useCallback(
     async (assistantMessage: ChatMessage | null) => {
@@ -555,16 +585,21 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         isCreatingChat={vm.isCreatingChat || vm.isTemplateLoading}
         isAnyStreaming={vm.isAnyStreaming}
         isSavingProject={vm.isSavingProject}
-        canDeploy={Boolean(
-          vm.chatId && vm.activeVersionId && !vm.isCreatingChat && !vm.isAnyStreaming && !vm.isDeploying,
-        )}
+        canDeploy={canDeploy}
+        canManageDomain={Boolean(vm.chatId && vm.activeVersionId && !isDeployActionBusy)}
         canSaveProject={Boolean(vm.chatId)}
         deploymentStatus={vm.deploymentStatus}
         deploymentUrl={vm.deploymentUrl}
+        deployReadiness={vm.deployReadiness}
+        deployDisabledReason={deployDisabledReason}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="border-border bg-background flex min-h-0 w-full flex-col border-r lg:w-96">
+          <LaunchReadinessCard
+            readiness={vm.deployReadiness}
+            isLoading={vm.isDeployReadinessLoading}
+          />
           <ProjectEnvVarsPanel
             v0ProjectId={vm.v0ProjectId}
             appProjectId={vm.appProjectId}
@@ -576,7 +611,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               chatId={vm.chatId}
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
-              onQuickReply={(text) => vm.sendMessage(text)}
+              onQuickReply={(text, options) => vm.sendMessage(text, options)}
+              onApproveBuildPlan={handleApproveBuildPlan}
               quickReplyDisabled={isBusy}
             />
             <TipCard
