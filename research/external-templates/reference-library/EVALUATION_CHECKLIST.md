@@ -27,7 +27,7 @@ Use this checklist before promoting a curated template reference into an interna
 
 ## Regression checks
 
-- Re-run scaffold prompt matrix cases from `docs/llm/egen-motor/scaffold-prompt-matrix.md`.
+- Re-run scaffold prompt matrix cases from `old/docs-llm-egen-motor/scaffold-prompt-matrix.md`.
 - Compare old and new outputs for auth, SaaS, dashboard, ecommerce, blog, and content-site prompts.
 - Verify that common failures improve:
   - weak login flow

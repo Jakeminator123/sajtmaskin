@@ -54,7 +54,7 @@ User prompt -> Builder UI -> Own engine (default) or v0 Platform API (fallback) 
 | `src/lib/auth/` | Auth logic + Zustand store + edge-auth.ts for middleware |
 | `src/lib/brave-search.ts` | Brave Web Search API wrapper |
 | `src/proxy.ts` | Centralized auth redirects, CORS, security headers (Node.js runtime) |
-| `docs/llm/` | AI/prompt strategy notes |
+| `docs/architecture/engine-status.md` | Own engine status, model tiers, scaffold system |
 
 ### Core flow (builder)
 

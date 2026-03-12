@@ -1,6 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-12 (plan-mode persistence + Phase 8 closure)
+> Senast uppdaterad: 2026-03-12 (plan-mode persistence, Phase 8 closure, research-lane sync)
 
 ## Arkitektur
 
@@ -18,7 +18,7 @@ Användarens prompt
 ┌──────────────────────────────┐
 │  PRE-GENERATION              │
 │  - Prompt-orkestrering       │
-│  - Scaffold-matchning (9 st) │
+│  - Scaffold-matchning (10 st)│
 │  - URL-komprimering          │
 │  - Dynamisk kontext (KB)     │
 │  - Brief -> system prompt    │
@@ -76,11 +76,12 @@ Default selected profile: **Max** (`max`)
 | Deep Brief | `AI_GATEWAY_API_KEY` (gateway-only) |
 | V0-fallback | `V0_API_KEY` (bara om `V0_FALLBACK_BUILDER=y`) |
 
-## Scaffold-system (9 scaffolds)
+## Scaffold-system (10 scaffolds)
 
-landing-page, saas-landing, portfolio, blog, dashboard, auth-pages, ecommerce, content-site, app-shell
+base-nextjs, landing-page, saas-landing, portfolio, blog, dashboard, auth-pages, ecommerce, content-site, app-shell
 
-Matcher: keyword-baserad med ordgräns-regex, svenska + engelska.
+Matcher: keyword-baserad med ordgräns-regex, svenska + engelska, med
+embedding-baserad fallback när keyword-matchningen bara ger generiska defaultfall.
 Scaffold-kontext injiceras i system prompt (inte user message).
 Import-checker körs efter merge.
 
@@ -104,13 +105,15 @@ Import-checker körs efter merge.
 | 792 Lucide-ikoner | `src/lib/gen/data/lucide-icons.ts` | Fungerar |
 | Preview-render | `src/lib/gen/preview.ts` | Fungerar |
 | Projekt-scaffold | `src/lib/gen/project-scaffold.ts` | Fungerar |
-| 9 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
+| 10 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
 | Plan-mode + review-step | `src/app/api/v0/chats/stream/route.ts`, `src/app/api/v0/chats/[chatId]/stream/route.ts`, `src/components/builder/BuildPlanCard.tsx` | Ny |
 | Readiness + launch-gating | `src/app/api/v0/chats/[chatId]/readiness/route.ts`, builder-UI, deploy-actions | Ny |
 
 ## Kända kvarvarande begränsningar
 
-- KB-sökning är keyword-baserad (embedding planerad men ej implementerad)
+- Extern template-research är nu kanoniskt normaliserad under
+  `research/external-templates/`, men rå discovery och repo-cache är fortfarande
+  build-time/research-time och inte runtime-input
 - Preview stubs approximerar shadcn -- inte pixelperfekt
 - Ingen scaffold-medveten retry vid generingsfel
 - Multipage/site-planering finns nu i planartefakten och persisteras for

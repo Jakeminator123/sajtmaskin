@@ -21,8 +21,8 @@ Relevant current systems:
 - `src/lib/hooks/chat/post-checks.ts`
 - `src/components/builder/UnifiedElementPicker.tsx`
 - `src/app/api/templates/search/route.ts`
-- `docs/llm/egen-motor/MOTOR-STATUS.md`
-- `docs/llm/egen-motor/scaffold-status-and-plan.md`
+- `docs/architecture/engine-status.md`
+- `old/docs-llm-egen-motor/scaffold-status-and-plan.md`
 
 The repo already supports briefs, plan artifacts, clarification questions,
 scaffold matching, and post-hoc route/env detection. This phase promotes those

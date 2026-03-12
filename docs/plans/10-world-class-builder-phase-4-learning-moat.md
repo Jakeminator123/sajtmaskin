@@ -17,8 +17,8 @@ Relevant existing systems:
 - `src/lib/db/chat-repository-pg.ts`
 - `src/app/api/analytics/route.ts`
 - `src/lib/db/services/analytics.ts`
-- `docs/llm/egen-motor/MOTOR-STATUS.md`
-- `docs/llm/egen-motor/byggplaner/10-generationsdata.md`
+- `docs/architecture/engine-status.md`
+- `old/docs-llm-egen-motor/byggplaner/10-generationsdata.md`
 - `src/lib/hooks/chat/useAutoFix.ts`
 
 The repo already persists important slices of runtime truth. The gap is not data

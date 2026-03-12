@@ -58,14 +58,6 @@ Key concepts:
 - per-dossier `manifest.json` files in
   `research/external-templates/reference-library/dossiers/*`
 
-## Integration notes
-
-The older integration rollout note from 2026-02-12 was archived because it is
-useful historically but too specific to remain the main schema entry point.
-
-See `docs/old/schemas/SCHEMA_INTEGRATION_UPDATE_2026-02-12.md` for the original
-rollout detail.
-
 ## Production boundary
 
 Production should consume committed schema artifacts and code, not external

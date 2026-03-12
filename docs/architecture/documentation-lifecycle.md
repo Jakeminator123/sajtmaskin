@@ -19,7 +19,7 @@ Use these three states consistently:
 |------|-------------------|---------------|
 | `docs/architecture/` | Canonical overviews, lifecycle policy, structural decisions, agent handoff docs | Temporary scratch notes or stale plans |
 | `docs/schemas/` | Stable human-readable schema docs backed by runtime code | Draft or uncertain schema proposals |
-| `docs/llm/` | AI, prompt, gateway, evaluation, and generation strategy notes | Product architecture docs unrelated to AI behavior |
+| `docs/architecture/engine-status.md` | Own engine status, model tiers, scaffold system, generation capabilities | Temporary scratch notes or stale plans |
 | `docs/plans/active/` | Plans that are still supposed to drive implementation | Completed or doubtful plans |
 | `docs/plans/review-needed/` | Older plans that need a reality check | Canonical architecture docs |
 | `docs/old/` | Archived historical material outside the plan lifecycle buckets | Active guidance |
