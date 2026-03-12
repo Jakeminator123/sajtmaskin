@@ -10,6 +10,49 @@ import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
 
+type V0ChatSummary = {
+  latest: {
+    id: string | null;
+    versionId: string | null;
+    demoUrl: string | null;
+    messageId: string | null;
+  } | null;
+  versionId: string | null;
+  demoUrl: string | null;
+  webUrl: string | null;
+  createdAt: unknown | null;
+  updatedAt: unknown | null;
+};
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function getV0ChatSummary(value: unknown): V0ChatSummary {
+  const chat = asObject(value);
+  const latest = asObject(chat?.latestVersion);
+
+  return {
+    latest: latest
+      ? {
+          id: asString(latest.id),
+          versionId: asString(latest.versionId),
+          demoUrl: asString(latest.demoUrl) ?? asString(latest.demo_url),
+          messageId: asString(latest.messageId),
+        }
+      : null,
+    versionId: asString(chat?.versionId),
+    demoUrl: asString(chat?.demoUrl),
+    webUrl: asString(chat?.webUrl),
+    createdAt: chat?.createdAt ?? null,
+    updatedAt: chat?.updatedAt ?? null,
+  };
+}
+
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
@@ -104,23 +147,19 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       }
       try {
         assertV0Key();
-        const v0Chat = await v0.chats.getById({ chatId });
-        const latest = (v0Chat as any)?.latestVersion || null;
-        const versionId =
-          (latest && (latest.id || latest.versionId)) ||
-          (v0Chat as any)?.versionId ||
-          null;
-        const demoUrl =
-          (latest && (latest.demoUrl || latest.demo_url)) || (v0Chat as any)?.demoUrl || null;
+        const v0Chat = getV0ChatSummary(await v0.chats.getById({ chatId }));
+        const latest = v0Chat.latest;
+        const versionId = latest?.id || latest?.versionId || v0Chat.versionId || null;
+        const demoUrl = latest?.demoUrl || v0Chat.demoUrl || null;
         const messageId = latest?.messageId || null;
         return NextResponse.json({
           chatId,
           id: chatId,
           v0ChatId: chatId,
           v0ProjectId: null,
-          webUrl: (v0Chat as any)?.webUrl ?? null,
-          createdAt: (v0Chat as any)?.createdAt ?? null,
-          updatedAt: (v0Chat as any)?.updatedAt ?? null,
+          webUrl: v0Chat.webUrl,
+          createdAt: v0Chat.createdAt,
+          updatedAt: v0Chat.updatedAt,
           latestVersion:
             versionId || demoUrl
               ? {
@@ -164,14 +203,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         | { versionId: string | null; demoUrl: string | null; messageId?: string | null }
         | null = null;
       try {
-        const v0Chat = await v0.chats.getById({ chatId });
-        const latest = (v0Chat as any)?.latestVersion || null;
-        const versionId =
-          (latest && (latest.id || latest.versionId)) ||
-          (v0Chat as any)?.versionId ||
-          null;
-        const demoUrl =
-          (latest && (latest.demoUrl || latest.demo_url)) || (v0Chat as any)?.demoUrl || null;
+        const v0Chat = getV0ChatSummary(await v0.chats.getById({ chatId }));
+        const latest = v0Chat.latest;
+        const versionId = latest?.id || latest?.versionId || v0Chat.versionId || null;
+        const demoUrl = latest?.demoUrl || v0Chat.demoUrl || null;
         const messageId = latest?.messageId || null;
         if (versionId || demoUrl) {
           latestFromV0 = {
