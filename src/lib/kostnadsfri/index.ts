@@ -8,6 +8,11 @@
 
 import crypto from "crypto";
 import type { KostnadsfriPage } from "@/lib/db/services";
+import { companyNameFromSlug } from "./company-name";
+import {
+  extractKostnadsfriOpenClawConfig,
+  type KostnadsfriOpenClawConfig,
+} from "./openclaw-config";
 
 // ============================================================================
 // TYPES
@@ -22,6 +27,7 @@ export interface KostnadsfriCompanyData {
   contactEmail: string | null;
   contactName: string | null;
   extraData: Record<string, unknown> | null;
+  openclawConfig: KostnadsfriOpenClawConfig | null;
 }
 
 /** Data collected by the mini-wizard */
@@ -52,6 +58,7 @@ export interface CreateKostnadsfriRequest {
   contactName?: string;
   password: string;
   expiresInDays?: number;
+  openclaw?: KostnadsfriOpenClawConfig;
 }
 
 /** Request body for verifying password */
@@ -90,26 +97,6 @@ export function generateSlug(companyName: string): string {
 // SLUG -> COMPANY NAME (reverse mapping)
 // ============================================================================
 
-/** Known Swedish business suffixes that should be uppercased */
-const BUSINESS_SUFFIXES = new Set(["ab", "hb", "kb", "ek", "ef"]);
-
-/**
- * Derive a display-friendly company name from a slug.
- * "ikea-ab" -> "Ikea AB"
- * "cafe-sodermalm" -> "Cafe Sodermalm"
- * "alfa-rekrytering-ab" -> "Alfa Rekrytering AB"
- */
-export function companyNameFromSlug(slug: string): string {
-  return slug
-    .split("-")
-    .map((word) =>
-      BUSINESS_SUFFIXES.has(word)
-        ? word.toUpperCase()
-        : word.charAt(0).toUpperCase() + word.slice(1),
-    )
-    .join(" ");
-}
-
 // ============================================================================
 // DATA EXTRACTION
 // ============================================================================
@@ -118,6 +105,7 @@ export function companyNameFromSlug(slug: string): string {
  * Extract public company data from a DB record (strips password hash etc.)
  */
 export function extractCompanyData(page: KostnadsfriPage): KostnadsfriCompanyData {
+  const extraData = page.extra_data as Record<string, unknown> | null;
   return {
     slug: page.slug,
     companyName: page.company_name,
@@ -125,7 +113,8 @@ export function extractCompanyData(page: KostnadsfriPage): KostnadsfriCompanyDat
     website: page.website,
     contactEmail: page.contact_email,
     contactName: page.contact_name,
-    extraData: page.extra_data as Record<string, unknown> | null,
+    extraData,
+    openclawConfig: extractKostnadsfriOpenClawConfig(extraData),
   };
 }
 
@@ -142,6 +131,7 @@ export function companyDataFromSlug(slug: string): KostnadsfriCompanyData {
     contactEmail: null,
     contactName: null,
     extraData: null,
+    openclawConfig: null,
   };
 }
 

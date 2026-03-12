@@ -4,6 +4,7 @@ import { hashPassword } from "@/lib/auth/auth";
 import { createKostnadsfriPage, getKostnadsfriPageBySlug } from "@/lib/db/services";
 import { generateSlug, generatePassword } from "@/lib/kostnadsfri";
 import { getAppBaseUrl } from "@/lib/app-url";
+import { normalizeKostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 
 /**
  * POST /api/kostnadsfri — Create a new kostnadsfri page
@@ -23,6 +24,14 @@ const createSchema = z.object({
   contactName: z.string().optional(),
   password: z.string().min(4, "Password must be at least 4 characters").optional(),
   expiresInDays: z.number().positive().optional(),
+  openclaw: z
+    .object({
+      roleLabel: z.string().trim().min(1).max(80).optional(),
+      introTitle: z.string().trim().min(1).max(120).optional(),
+      introBody: z.string().trim().min(1).max(320).optional(),
+      starterPrompts: z.array(z.string().trim().min(1).max(120)).max(3).optional(),
+    })
+    .optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -48,7 +57,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { companyName, industry, website, contactEmail, contactName, password: explicitPassword, expiresInDays } =
+    const {
+      companyName,
+      industry,
+      website,
+      contactEmail,
+      contactName,
+      password: explicitPassword,
+      expiresInDays,
+      openclaw,
+    } =
       validation.data;
 
     // Generate slug
@@ -81,6 +99,8 @@ export async function POST(request: NextRequest) {
       ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
       : undefined;
 
+    const openclawConfig = normalizeKostnadsfriOpenClawConfig(openclaw);
+
     // Create page
     const page = await createKostnadsfriPage({
       slug,
@@ -90,6 +110,7 @@ export async function POST(request: NextRequest) {
       website,
       contactEmail,
       contactName,
+      extraData: openclawConfig ? { openclaw: openclawConfig } : undefined,
       expiresAt,
     });
 
@@ -106,6 +127,7 @@ export async function POST(request: NextRequest) {
         password,
         url,
         expiresAt: page.expires_at,
+        openclaw: openclawConfig,
       },
     });
   } catch (error: unknown) {

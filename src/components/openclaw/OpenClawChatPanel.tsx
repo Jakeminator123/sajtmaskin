@@ -7,13 +7,40 @@ import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { useOpenClawChat } from "./useOpenClawChat";
 import { OpenClawMessage } from "./OpenClawMessage";
 
-const STARTER_PROMPTS = [
+const DEFAULT_STARTER_PROMPTS = [
   "Hur kan Sajtagenten hjalpa ett smaforetag pa sajten?",
   "Vad kan jag senare kundanpassa for ett specifikt foretag?",
   "Hur fungerar OpenClaw i buildern i dag?",
 ] as const;
 
-export function OpenClawChatPanel({ onClose }: { onClose: () => void }) {
+export interface OpenClawChatPanelContent {
+  badgeLabel: string;
+  assistantLabel: string;
+  idleStatus: string;
+  emptyTitle: string;
+  emptyBody: string;
+  inputPlaceholder: string;
+  starterPrompts: readonly string[];
+}
+
+export const DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT: OpenClawChatPanelContent = {
+  badgeLabel: "OpenClaw-assistent",
+  assistantLabel: "Sajtagenten",
+  idleStatus: "Guidar, forklarar och visar mojligheter",
+  emptyTitle: "Hej! Jag ar Sajtagenten.",
+  emptyBody:
+    "Jag kan forklara hur OpenClaw-sparet fungerar, hur det kan presenteras pa sajten och hur du bygger vidare pa integrationen i Sajtmaskin.",
+  inputPlaceholder: "Skriv ett meddelande...",
+  starterPrompts: DEFAULT_STARTER_PROMPTS,
+};
+
+export function OpenClawChatPanel({
+  onClose,
+  content = DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT,
+}: {
+  onClose: () => void;
+  content?: OpenClawChatPanelContent;
+}) {
   const { messages, isStreaming, send, stop } = useOpenClawChat();
   const clearMessages = useOpenClawStore((s) => s.clearMessages);
   const [input, setInput] = useState("");
@@ -58,7 +85,7 @@ export function OpenClawChatPanel({ onClose }: { onClose: () => void }) {
       <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-3">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-200">
           <Sparkles className="h-3.5 w-3.5" />
-          OpenClaw-assistent
+          {content.badgeLabel}
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -66,9 +93,9 @@ export function OpenClawChatPanel({ onClose }: { onClose: () => void }) {
               <Bot className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Sajtagenten</p>
+              <p className="text-sm font-semibold text-white">{content.assistantLabel}</p>
               <p className="text-[11px] text-slate-300">
-                {isStreaming ? "Skriver ett svar..." : "Guidar, forklarar och visar mojligheter"}
+                {isStreaming ? "Skriver ett svar..." : content.idleStatus}
               </p>
             </div>
           </div>
@@ -101,13 +128,10 @@ export function OpenClawChatPanel({ onClose }: { onClose: () => void }) {
             <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-cyan-400/20 bg-cyan-400/10">
               <Bot className="h-6 w-6 text-cyan-200" />
             </div>
-            <p className="font-medium text-white">Hej! Jag ar Sajtagenten.</p>
-            <p className="max-w-[290px] text-xs leading-5 text-slate-300/80">
-              Jag kan forklara hur OpenClaw-sparet fungerar, hur det kan presenteras pa
-              sajten och hur du bygger vidare pa integrationen i Sajtmaskin.
-            </p>
+            <p className="font-medium text-white">{content.emptyTitle}</p>
+            <p className="max-w-[290px] text-xs leading-5 text-slate-300/80">{content.emptyBody}</p>
             <div className="mt-2 flex w-full flex-col gap-2">
-              {STARTER_PROMPTS.map((prompt) => (
+              {content.starterPrompts.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
@@ -133,7 +157,7 @@ export function OpenClawChatPanel({ onClose }: { onClose: () => void }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Skriv ett meddelande..."
+            placeholder={content.inputPlaceholder}
             rows={1}
             className="max-h-24 flex-1 resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-slate-400"
           />

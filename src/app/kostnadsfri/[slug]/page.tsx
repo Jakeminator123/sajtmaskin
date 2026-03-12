@@ -1,5 +1,10 @@
 import { getKostnadsfriPageBySlug } from "@/lib/db/services";
-import { companyNameFromSlug, isPageAccessible } from "@/lib/kostnadsfri";
+import { isPageAccessible } from "@/lib/kostnadsfri";
+import { companyNameFromSlug } from "@/lib/kostnadsfri/company-name";
+import {
+  extractKostnadsfriOpenClawConfig,
+  type KostnadsfriOpenClawConfig,
+} from "@/lib/kostnadsfri/openclaw-config";
 import { KostnadsfriPage } from "@/components/kostnadsfri/kostnadsfri-page";
 
 /**
@@ -45,6 +50,7 @@ export default async function KostnadsfriSlugPage({ params }: PageProps) {
   let companyName = companyNameFromSlug(slug);
   let hasDbRecord = false;
   let expiredReason: string | null = null;
+  let openclawConfig: KostnadsfriOpenClawConfig | null = null;
 
   try {
     const page = await getKostnadsfriPageBySlug(slug);
@@ -56,6 +62,9 @@ export default async function KostnadsfriSlugPage({ params }: PageProps) {
       } else {
         companyName = page.company_name;
         hasDbRecord = true;
+        openclawConfig = extractKostnadsfriOpenClawConfig(
+          page.extra_data as Record<string, unknown> | null,
+        );
       }
     }
   } catch {
@@ -78,6 +87,7 @@ export default async function KostnadsfriSlugPage({ params }: PageProps) {
       slug={slug}
       companyName={companyName}
       hasDbRecord={hasDbRecord}
+      openclawConfig={openclawConfig}
     />
   );
 }
