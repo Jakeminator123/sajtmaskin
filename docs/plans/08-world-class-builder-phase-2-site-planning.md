@@ -34,6 +34,32 @@ Also already in place:
 - earlier message-list performance work gives this phase headroom for richer
   `Build plan` cards and plan review UI
 
+## Implementation status (2026-03-12)
+
+Substantial Phase 8 groundwork is now live:
+
+- richer `PlanArtifact` output carries site type, pages, contracts, scaffold
+  choice, and template recommendations
+- plan mode works for both new and existing own-engine chats
+- the builder renders a real `Build plan` review surface with blocker handling
+  and `Godkänn plan och bygg`
+- approval already flows into generation through
+  `buildApprovedPlanExecutionPrompt(plan)`
+
+The main remaining gap is not the visible review UI, but persistence and
+orchestration clarity:
+
+- planner summaries are persisted in chat history, but the full plan card still
+  depends on message `uiParts`
+- raw engine-chat reloads therefore do not yet restore the full structured
+  review state as first-class server truth
+- `usePlanExecution.ts` no longer matches the actual canonical flow and should
+  either be removed or rewritten after persistence lands
+- v0 fallback is still not a plan-mode parity path
+
+See `docs/analyses/phase-08-plan-persistence-and-orchestration.md` for the
+recommended completion path.
+
 ## Workstreams
 
 ### 1. Site-map and page-tree planning

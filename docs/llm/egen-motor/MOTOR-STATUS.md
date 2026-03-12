@@ -1,6 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-11 (env-audit + klargorande fragor)
+> Senast uppdaterad: 2026-03-12 (plan-mode + trust/readiness-pass)
 
 ## Arkitektur
 
@@ -105,13 +105,18 @@ Import-checker körs efter merge.
 | Preview-render | `src/lib/gen/preview.ts` | Fungerar |
 | Projekt-scaffold | `src/lib/gen/project-scaffold.ts` | Fungerar |
 | 9 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
+| Plan-mode + review-step | `src/app/api/v0/chats/stream/route.ts`, `src/app/api/v0/chats/[chatId]/stream/route.ts`, `src/components/builder/BuildPlanCard.tsx` | Ny |
+| Readiness + launch-gating | `src/app/api/v0/chats/[chatId]/readiness/route.ts`, builder-UI, deploy-actions | Ny |
 
 ## Kända kvarvarande begränsningar
 
 - KB-sökning är keyword-baserad (embedding planerad men ej implementerad)
 - Preview stubs approximerar shadcn -- inte pixelperfekt
 - Ingen scaffold-medveten retry vid generingsfel
-- Ingen multipage-detection i prompts
+- Multipage/site-planering finns nu i planartefakten, men inte som fullt
+  persistad chat-sanning eller scaffold-medveten retry
+- Plan-mode är i praktiken own-engine-only; v0-fallback bypassar fortfarande den
+  review-driven vägen
 
 ## Nya skydd och beteenden
 
@@ -122,3 +127,9 @@ Import-checker körs efter merge.
 - Follow-up-streamen anvander nu samma agent-tools som create-streamen, sa modellen kan stanna och skicka `askClarifyingQuestion` / integrationssignaler aven efter forsta versionen.
 - Capability inference markerar nu databasprompter separat (`needsDatabase`) och hintar uttryckligen att modellen inte far gissa Prisma/Supabase/SQLite/provider utan bekraftelse.
 - Env-audit for admin skiljer nu pa `local_only`, `environment_specific`, `shared_runtime` och target-tackning pa Vercel, sa lokal `.env.local` och Vercel-targets kan granskas utan blind sync.
+- Create/send-streams kan nu koras i ett riktigt plan-lage for own-engine chats,
+  med rikare `PlanArtifact`, blocker-fragor, review-card och en explicit
+  approve -> build-brygga.
+- Planner-svaret persisteras idag som sammanfattad chat-text, medan den fulla
+  review-kortstrukturen fortfarande lever i `uiParts`; det ar sista stora
+  Phase 8-glappet innan planner-lagret ar helt serverforankrat.

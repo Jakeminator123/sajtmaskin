@@ -30,6 +30,19 @@ which ones are old references.
 | `12-next-vercel-build-plan-server-routes.md` | `archived` | Completed phased optimization plan (server/API improvements) |
 | `13-next-vercel-build-plan-ui-performance.md` | `archived` | Completed phased optimization plan (UI rendering improvements) |
 
+## Current active-phase notes
+
+- Phase `7` is complete enough to build on: lifecycle-aware readiness,
+  diagnostics, preview labeling, and deploy gating are now part of the active
+  builder path.
+- Phase `8` now has a real planning/review surface in the own-engine path. The
+  remaining completion gap is first-class server persistence of planner
+  `uiParts` plus cleanup of the stale `usePlanExecution.ts` ownership model. See
+  `docs/analyses/phase-08-plan-persistence-and-orchestration.md`.
+- Phase `9` has started with SEO readiness, scaffold metadata defaults, and
+  readiness surfacing, but editorial mode, analytics/conversion setup, SMB
+  integration packs, and compare/restore are still ahead.
+
 ## Read order for a new agent
 
 1. `docs/README.md`
