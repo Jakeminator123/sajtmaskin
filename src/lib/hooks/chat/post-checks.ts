@@ -147,6 +147,7 @@ export function findSuspiciousUseCalls(files: FileEntry[]) {
   const results: Array<{ file: string; line: number; snippet: string }> = [];
   const pattern = /\b(?:React\.)?use\s*\(/g;
   files.forEach((file) => {
+    if (!file.content) return;
     const lines = file.content.split(/\r?\n/);
     lines.forEach((line, index) => {
       let match: RegExpExecArray | null;
@@ -855,7 +856,7 @@ export async function runPostGenerationChecks(params: {
       logItems.push({
         level: "error",
         category: "preview",
-        message: "Preview-lank saknas for versionen.",
+        message: "Preview-länk saknas för versionen.",
         meta: { versionId },
       });
     }
@@ -983,13 +984,27 @@ export async function runPostGenerationChecks(params: {
       }),
     );
 
-    void runSandboxQualityGate({
-      chatId,
-      versionId,
-      assistantMessageId,
-      setMessages,
-      onAutoFix: autoFixReasons.length === 0 ? onAutoFix : undefined,
-    });
+    if (autoFixReasons.length === 0) {
+      void runSandboxQualityGate({
+        chatId,
+        versionId,
+        assistantMessageId,
+        setMessages,
+        onAutoFix,
+      });
+    } else {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId: `quality-gate:${versionId}`,
+        state: "output-available",
+        output: {
+          skipped: true,
+          reason: "Skippad eftersom versionen redan markerats som provisional och auto-fix har köats.",
+          provisional: true,
+        },
+      } as UiMessagePart);
+    }
   } catch (error) {
     void persistVersionErrorLogs({
       chatId,

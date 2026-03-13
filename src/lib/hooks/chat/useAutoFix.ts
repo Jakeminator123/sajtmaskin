@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
@@ -10,6 +11,14 @@ type AttemptEntry = { count: number; ts: number };
 type PersistedVersionLog = {
   category?: string | null;
   message?: string | null;
+};
+
+type VersionSummary = {
+  id?: string | null;
+  versionId?: string | null;
+  versionNumber?: number | null;
+  createdAt?: string | Date | null;
+  verificationState?: string | null;
 };
 
 function makeDedupeKey(payload: AutoFixPayload): string {
@@ -73,12 +82,37 @@ async function enrichAutoFixPayload(payload: AutoFixPayload): Promise<AutoFixPay
   };
 }
 
+async function getLatestChatVersionId(chatId: string): Promise<string | null> {
+  try {
+    const response = await fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/versions`, {
+      method: "GET",
+    });
+    if (!response.ok) return null;
+    const data = (await response.json().catch(() => null)) as
+      | { versions?: VersionSummary[] }
+      | null;
+    const versions = Array.isArray(data?.versions) ? data.versions : [];
+    if (versions.length === 0) return null;
+    const newest = sortEngineVersionsNewestFirst(versions)[0];
+    return (newest?.versionId || newest?.id || null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function isLatestVersionPayload(payload: AutoFixPayload): Promise<boolean> {
+  const latestVersionId = await getLatestChatVersionId(payload.chatId);
+  if (!latestVersionId) return true;
+  return latestVersionId === payload.versionId;
+}
+
 export function useAutoFix(
   sendMessage: (messageText: string, options?: MessageOptions) => Promise<void>,
 ) {
   const autoFixAttemptsRef = useRef<Record<string, AttemptEntry>>({});
   const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPayloadKeyRef = useRef<string | null>(null);
 
   const handleAutoFix = useCallback(
     (payload: AutoFixPayload) => {
@@ -91,14 +125,28 @@ export function useAutoFix(
         const attempts = entry?.count ?? 0;
         if (attempts >= MAX_ATTEMPTS_PER_KEY) return;
 
+        if (!(await isLatestVersionPayload(payload))) return;
+
         autoFixAttemptsRef.current[key] = { count: attempts + 1, ts: now };
 
         const enrichedPayload = await enrichAutoFixPayload(payload);
         const prompt = buildAutoFixPrompt(enrichedPayload);
         const delayMs = attempts === 0 ? 1500 : 4000;
+
+        if (pendingTimerRef.current) {
+          clearTimeout(pendingTimerRef.current);
+          pendingTimerRef.current = null;
+        }
+        pendingPayloadKeyRef.current = key;
+
         pendingTimerRef.current = setTimeout(() => {
           pendingTimerRef.current = null;
-          void sendMessage(prompt);
+          void (async () => {
+            if (pendingPayloadKeyRef.current !== key) return;
+            if (!(await isLatestVersionPayload(payload))) return;
+            pendingPayloadKeyRef.current = null;
+            await sendMessage(prompt);
+          })();
         }, delayMs);
       })();
     },
@@ -119,6 +167,7 @@ export function useAutoFix(
     return () => {
       window.removeEventListener("sajtmaskin:auto-fix", handler as EventListener);
       if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+      pendingPayloadKeyRef.current = null;
     };
   }, [handleAutoFix]);
 

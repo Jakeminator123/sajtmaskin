@@ -861,6 +861,7 @@ export async function POST(req: Request) {
                       if (toolName) toolCallNames.add(toolName);
 
                       if (toolName === "suggestIntegration") {
+                        sawBlockingToolCall = true;
                         const envVars = Array.isArray(toolArgs.envVars) ? toolArgs.envVars as string[] : [];
                         safeEnqueue(enc.encode(formatSSEEvent("integration", {
                           items: [{
@@ -878,6 +879,7 @@ export async function POST(req: Request) {
                         toolSignaledProviders.add(providerKey);
                         debugLog("engine", "Tool: suggestIntegration", { provider: providerKey });
                       } else if (toolName === "requestEnvVar") {
+                        sawBlockingToolCall = true;
                         safeEnqueue(enc.encode(formatSSEEvent("integration", {
                           items: [{
                             key: "custom-env",

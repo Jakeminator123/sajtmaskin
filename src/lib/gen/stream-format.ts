@@ -20,12 +20,43 @@ interface StreamTextLike {
     toolName?: string;
     toolCallId?: string;
     args?: Record<string, unknown>;
+    input?: unknown;
+    inputText?: string;
+    inputTextDelta?: string;
   }>;
   usage: PromiseLike<{ inputTokens: number | undefined; outputTokens: number | undefined }>;
 }
 
 function resolveStreamText(part: { text?: string; textDelta?: string }): string | undefined {
   return part.textDelta ?? part.text;
+}
+
+function parseToolArgs(candidate: unknown): Record<string, unknown> | null {
+  if (!candidate) return null;
+  if (typeof candidate === "object" && !Array.isArray(candidate)) {
+    return candidate as Record<string, unknown>;
+  }
+  if (typeof candidate !== "string") return null;
+
+  const trimmed = candidate.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveToolInputDelta(part: {
+  inputTextDelta?: string;
+  textDelta?: string;
+  text?: string;
+}): string {
+  return part.inputTextDelta ?? part.textDelta ?? part.text ?? "";
 }
 
 /**
@@ -49,14 +80,73 @@ export function createCodeGenSSEStream(
     async start(controller) {
       const eventCounts = new Map<string, number>();
       const toolCallCounts = new Map<string, number>();
+      const pendingToolInputs = new Map<
+        string,
+        { toolName?: string; toolCallId?: string; inputText: string }
+      >();
       const enqueue = (event: string, data: unknown) => {
         controller.enqueue(encoder.encode(formatSSEEvent(event, data)));
       };
+      const getToolInputKey = (part: { toolCallId?: string; toolName?: string }): string | null => {
+        if (part.toolCallId) return part.toolCallId;
+        if (part.toolName) return `tool:${part.toolName}`;
+        return null;
+      };
+      const rememberToolInput = (
+        part: {
+          toolName?: string;
+          toolCallId?: string;
+          inputText?: string;
+          inputTextDelta?: string;
+          text?: string;
+          textDelta?: string;
+        },
+        mode: "reset" | "append",
+      ) => {
+        const key = getToolInputKey(part);
+        if (!key) return;
+        const previous = pendingToolInputs.get(key);
+        const delta = mode === "append" ? resolveToolInputDelta(part) : "";
+        const initialText =
+          mode === "reset" ? (part.inputText ?? part.text ?? "") : (previous?.inputText ?? "");
+        pendingToolInputs.set(key, {
+          toolName: part.toolName ?? previous?.toolName,
+          toolCallId: part.toolCallId ?? previous?.toolCallId,
+          inputText: `${initialText}${delta}`,
+        });
+      };
+      const emitToolCall = (part: {
+        toolName?: string;
+        toolCallId?: string;
+        args?: Record<string, unknown>;
+        input?: unknown;
+      }): boolean => {
+        const key = getToolInputKey(part);
+        const buffered = key ? pendingToolInputs.get(key) : undefined;
+        const args =
+          parseToolArgs(part.args) ??
+          parseToolArgs(part.input) ??
+          parseToolArgs(buffered?.inputText) ??
+          {};
+        const toolName = part.toolName ?? buffered?.toolName;
+        const toolCallId = part.toolCallId ?? buffered?.toolCallId;
+        if (!toolName) return false;
+        enqueue("tool-call", {
+          toolName,
+          toolCallId,
+          args,
+        });
+        if (key) pendingToolInputs.delete(key);
+        return true;
+      };
 
-      const summarizeStream = (phase: "done" | "error", usage?: {
-        inputTokens: number | undefined;
-        outputTokens: number | undefined;
-      }) => {
+      const summarizeStream = (
+        phase: "done" | "error",
+        usage?: {
+          inputTokens: number | undefined;
+          outputTokens: number | undefined;
+        },
+      ) => {
         debugLog("engine", "AI SDK stream event summary", {
           phase,
           chatId: meta?.chatId ?? null,
@@ -100,26 +190,39 @@ export function createCodeGenSSEStream(
               break;
             }
 
+            case "tool-input-start":
+            case "tool_call_streaming_start": {
+              rememberToolInput(part, "reset");
+              break;
+            }
+
+            case "tool-input-delta":
+            case "tool_call_delta": {
+              rememberToolInput(part, "append");
+              break;
+            }
+
+            case "tool-input-end":
+            case "tool-input-available": {
+              rememberToolInput(part, "append");
+              break;
+            }
+
             case "tool-call": {
-              if (part.toolName && part.args) {
-                enqueue("tool-call", {
-                  toolName: part.toolName,
-                  toolCallId: part.toolCallId,
-                  args: part.args,
-                });
-              }
+              emitToolCall(part);
               break;
             }
 
             case "error":
               enqueue("error", {
-                message:
-                  part.error instanceof Error
-                    ? part.error.message
-                    : "Stream error",
+                message: part.error instanceof Error ? part.error.message : "Stream error",
               });
               break;
           }
+        }
+
+        for (const pending of pendingToolInputs.values()) {
+          emitToolCall(pending);
         }
 
         const usage = await result.usage;
@@ -132,8 +235,7 @@ export function createCodeGenSSEStream(
         summarizeStream("error");
         try {
           enqueue("error", {
-            message:
-              err instanceof Error ? err.message : "Generation failed",
+            message: err instanceof Error ? err.message : "Generation failed",
           });
         } catch {
           // controller may already be closed

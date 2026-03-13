@@ -64,6 +64,25 @@ export class EmptyGenerationError extends Error {
   }
 }
 
+function inferCodeFenceLanguage(path: string): string {
+  if (path.endsWith(".tsx")) return "tsx";
+  if (path.endsWith(".ts")) return "ts";
+  if (path.endsWith(".jsx")) return "jsx";
+  if (path.endsWith(".js")) return "js";
+  if (path.endsWith(".css")) return "css";
+  if (path.endsWith(".json")) return "json";
+  return "txt";
+}
+
+function serializeFilesToCodeProject(files: CodeFile[]): string {
+  return files
+    .map(
+      (file) =>
+        `\`\`\`${file.language || inferCodeFenceLanguage(file.path)} file="${file.path}"\n${file.content}\n\`\`\``,
+    )
+    .join("\n\n");
+}
+
 /**
  * Shared post-generation pipeline: autofix -> syntax -> URL expansion ->
  * file parsing -> scaffold merge -> version save.
@@ -292,10 +311,63 @@ export async function finalizeAndSaveVersion(
         fixes: repairResult.fixes,
       });
     }
+
+    const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
+    let mergedProjectContent = serializeFilesToCodeProject(finalFiles);
+    let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+    if (!mergedSyntax.valid) {
+      const initialMergedSyntaxErrorCount = mergedSyntax.errors.length;
+      devLogAppend("in-progress", {
+        type: "merged-syntax.invalid",
+        chatId,
+        errorCount: mergedSyntax.errors.length,
+        errors: mergedSyntax.errors.slice(0, 8),
+      });
+      const { runLlmFixer } = await import("@/lib/gen/autofix/llm-fixer");
+      const fixerResult = await runLlmFixer(
+        mergedProjectContent,
+        mergedSyntax.errors.map((error) => `${error.file}:${error.line} ${error.message}`),
+      );
+      if (fixerResult.success) {
+        const reFixed = await runAutoFix(fixerResult.fixedContent, { chatId, model });
+        const reValidated = await validateGeneratedCode(reFixed.fixedContent);
+        if (reValidated.valid || reValidated.errors.length < mergedSyntax.errors.length) {
+          finalFiles = (
+            JSON.parse(parseFilesFromContent(reFixed.fixedContent)) as Array<{
+              path: string;
+              content: string;
+              language?: string;
+            }>
+          ).map((file) => ({ ...file, language: file.language || "tsx" }));
+          const postFixRepair = repairGeneratedFiles(finalFiles);
+          finalFiles = postFixRepair.files;
+          filesJson = JSON.stringify(finalFiles);
+          mergedProjectContent = reFixed.fixedContent;
+          mergedSyntax = reValidated;
+          devLogAppend("in-progress", {
+            type: "merged-syntax.fixed",
+            chatId,
+            errorsBefore: initialMergedSyntaxErrorCount,
+            errorsAfter: reValidated.errors.length,
+            repairFixes: postFixRepair.fixes,
+          });
+        }
+      }
+      if (!mergedSyntax.valid) {
+        preflightIssues.push(
+          ...mergedSyntax.errors.slice(0, 20).map((error) => ({
+            file: error.file,
+            severity: "error" as const,
+            message: `Merged syntax error line ${error.line}:${error.column} — ${error.message}`,
+          })),
+        );
+      }
+    }
+
     const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(finalFiles)).files;
     preflightFileCount = completeProjectFiles.length;
     const sanity = runProjectSanityChecks(completeProjectFiles);
-    preflightIssues = sanity.issues;
+    preflightIssues = [...preflightIssues, ...sanity.issues];
     if (sanity.issues.length > 0) {
       devLogAppend("in-progress", {
         type: "project-sanity",
