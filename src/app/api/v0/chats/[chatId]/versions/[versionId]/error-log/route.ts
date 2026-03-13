@@ -4,6 +4,7 @@ import { versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { readPreviewDiagnosticMeta } from "@/lib/gen/preview-diagnostics";
 import {
   createEngineVersionErrorLog,
   createEngineVersionErrorLogs,
@@ -45,6 +46,10 @@ function buildErrorLogSummary(logs: ErrorLogRow[]) {
     byCategory[category] = (byCategory[category] ?? 0) + 1;
   }
 
+  const latestRender =
+    logs.find((log) => log.category === "render-telemetry" || log.category === "preview") ?? null;
+  const latestRenderMeta = readPreviewDiagnosticMeta(latestRender?.meta);
+
   return {
     total: logs.length,
     byLevel,
@@ -57,8 +62,9 @@ function buildErrorLogSummary(logs: ErrorLogRow[]) {
           typeof log.category === "string" &&
           (log.category === "preflight:quality-gate" || log.category.startsWith("quality-gate:")),
       ) ?? null,
-    latestRender:
-      logs.find((log) => log.category === "render-telemetry" || log.category === "preview") ?? null,
+    latestRender,
+    latestPreviewCode: latestRenderMeta.previewCode,
+    latestPreviewStage: latestRenderMeta.previewStage,
   };
 }
 

@@ -1,4 +1,5 @@
 import type { UiMessagePart } from "@/lib/builder/types";
+import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { DESIGN_TOKEN_FILES, POST_CHECK_MARKER } from "./constants";
 import type {
@@ -496,6 +497,7 @@ function buildPostCheckSummary(params: {
   changes: { added: string[]; modified: string[]; removed: string[] } | null;
   warnings: string[];
   demoUrl: string | null;
+  previewBlockingReason?: string | null;
   provisional?: boolean;
   qualityGatePending?: boolean;
   autoFixQueued?: boolean;
@@ -504,6 +506,7 @@ function buildPostCheckSummary(params: {
     changes,
     warnings,
     demoUrl,
+    previewBlockingReason = null,
     provisional = false,
     qualityGatePending = false,
     autoFixQueued = false,
@@ -522,7 +525,11 @@ function buildPostCheckSummary(params: {
   }
 
   if (!demoUrl) {
-    lines.push("Varning: Ingen preview-länk hittades för versionen.");
+    lines.push(
+      previewBlockingReason
+        ? `Varning: Preview blockerades i preflight. ${previewBlockingReason}`
+        : "Varning: Ingen preview-länk hittades för versionen.",
+    );
   }
 
   if (autoFixQueued) {
@@ -616,6 +623,7 @@ export async function runPostGenerationChecks(params: {
   chatId: string;
   versionId: string;
   demoUrl?: string | null;
+  preflight?: PreviewPreflightState | null;
   assistantMessageId: string;
   setMessages: SetMessages;
   streamQuality?: StreamQualitySignal;
@@ -626,7 +634,16 @@ export async function runPostGenerationChecks(params: {
     meta?: Record<string, unknown>;
   }) => void;
 }) {
-  const { chatId, versionId, demoUrl, assistantMessageId, setMessages, streamQuality, onAutoFix } =
+  const {
+    chatId,
+    versionId,
+    demoUrl,
+    preflight,
+    assistantMessageId,
+    setMessages,
+    streamQuality,
+    onAutoFix,
+  } =
     params;
   const toolCallId = `post-check:${versionId}`;
   const controller = new AbortController();
@@ -690,7 +707,15 @@ export async function runPostGenerationChecks(params: {
       (entry) => entry.versionId === versionId || entry.id === versionId,
     );
     const resolvedDemoUrl = demoUrl ?? versionEntry?.demoUrl ?? null;
+    const previewBlockingReason =
+      preflight?.previewBlocked && preflight.previewBlockingReason
+        ? preflight.previewBlockingReason
+        : null;
     const designTokens = extractDesignTokens(currentFiles);
+
+    if (preflight?.verificationBlocked && resolvedDemoUrl) {
+      warnings.push("Preview är tillgänglig, men versionen har verifieringsblockerande preflightfel.");
+    }
 
     const steps: string[] = [];
     if (changes) {
@@ -785,7 +810,11 @@ export async function runPostGenerationChecks(params: {
 
     const finalDemoUrl = imageValidation?.demoUrl || resolvedDemoUrl;
     if (!finalDemoUrl) {
-      steps.push("Preview-länk saknas för versionen.");
+      steps.push(
+        previewBlockingReason
+          ? `Preview blockerades i preflight: ${previewBlockingReason}`
+          : "Preview-länk saknas för versionen.",
+      );
     }
 
     const changedFilesCount = changes
@@ -796,7 +825,9 @@ export async function runPostGenerationChecks(params: {
       qualityGateFailures.push("no_file_changes");
     }
     if (!finalDemoUrl) {
-      qualityGateFailures.push("missing_preview_url");
+      qualityGateFailures.push(
+        preflight?.previewBlocked ? "preflight_preview_blocked" : "missing_preview_url",
+      );
     }
     if (streamQuality?.hasCriticalAnomaly) {
       qualityGateFailures.push(`stream_anomaly:${streamQuality.reasons.join(",")}`);
@@ -809,7 +840,11 @@ export async function runPostGenerationChecks(params: {
     }
     const qualityGatePassed = qualityGateFailures.length === 0;
     const autoFixReasons: string[] = [];
-    if (!finalDemoUrl) autoFixReasons.push("preview saknas");
+    if (!finalDemoUrl) {
+      autoFixReasons.push(
+        previewBlockingReason ? "preview blockerad i preflight" : "preview saknas",
+      );
+    }
     if (missingRoutes.length > 0) autoFixReasons.push("saknade routes");
     if (lucideLinkMisuse.length > 0) autoFixReasons.push("fel Link-import");
     if (suspiciousUseCalls.length > 0) autoFixReasons.push("misstankt use()");
@@ -863,6 +898,7 @@ export async function runPostGenerationChecks(params: {
         qualityGatePending,
         autoFixQueued,
       },
+      preflight,
       warnings,
       sanityIssues: sanity.issues,
       missingRoutes,
@@ -888,8 +924,18 @@ export async function runPostGenerationChecks(params: {
       logItems.push({
         level: "error",
         category: "preview",
-        message: "Preview-länk saknas för versionen.",
-        meta: { versionId },
+        message: previewBlockingReason
+          ? `Preview blockerades i preflight: ${previewBlockingReason}`
+          : "Preview-länk saknas för versionen.",
+        meta: {
+          versionId,
+          previewCode: preflight?.previewBlocked ? "preflight_preview_blocked" : "preview_missing_url",
+          previewStage: preflight?.previewBlocked ? "preflight" : "iframe",
+          previewSource: preflight?.previewBlocked ? "finalize-preflight" : "post-check",
+          previewBlocked: preflight?.previewBlocked ?? false,
+          verificationBlocked: preflight?.verificationBlocked ?? false,
+          previewBlockingReason,
+        },
       });
     }
     if (missingRoutes.length > 0) {
@@ -998,6 +1044,7 @@ export async function runPostGenerationChecks(params: {
         changes,
         warnings,
         demoUrl: finalDemoUrl,
+        previewBlockingReason,
         provisional: provisionalVersion,
         qualityGatePending,
         autoFixQueued,

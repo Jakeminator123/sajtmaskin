@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
+import {
+  describePreviewDiagnosticCode,
+  readPreviewDiagnosticMeta,
+} from "@/lib/gen/preview-diagnostics";
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
@@ -52,6 +56,17 @@ function extractMetaDiagnosticLines(log: PersistedVersionLog): string[] {
     const truncated = truncateDiagnostic(value);
     if (truncated) lines.push(`[${label}] ${truncated}`);
   };
+
+  const previewMeta = readPreviewDiagnosticMeta(meta);
+  if (previewMeta.previewCode) {
+    const description = describePreviewDiagnosticCode(previewMeta.previewCode);
+    if (description) {
+      pushLine(`preview:${previewMeta.previewCode}`, description);
+    }
+  }
+  if (previewMeta.previewStage) {
+    pushLine(`${category || "log"}:stage`, previewMeta.previewStage);
+  }
 
   if (typeof meta.output === "string" && meta.output.trim()) {
     pushLine(`${category || "log"}:output`, meta.output);

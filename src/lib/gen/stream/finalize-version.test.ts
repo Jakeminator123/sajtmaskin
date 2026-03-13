@@ -7,6 +7,7 @@ const checkCrossFileImports = vi.hoisted(() => vi.fn());
 const runProjectSanityChecks = vi.hoisted(() => vi.fn());
 const expandUrls = vi.hoisted(() => vi.fn());
 const materializeImages = vi.hoisted(() => vi.fn());
+const buildPreviewHtml = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
@@ -48,6 +49,7 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
 }));
 
 vi.mock("@/lib/gen/preview", () => ({
+  buildPreviewHtml,
   buildPreviewUrl,
 }));
 
@@ -99,6 +101,7 @@ describe("finalizeAndSaveVersion", () => {
     runProjectSanityChecks.mockReset();
     expandUrls.mockReset();
     materializeImages.mockReset();
+    buildPreviewHtml.mockReset();
     buildPreviewUrl.mockReset();
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
@@ -156,6 +159,7 @@ describe("finalizeAndSaveVersion", () => {
       files,
       fixes: [],
     }));
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     buildCompleteProject.mockImplementation((files: unknown) => files);
     validateGeneratedCode.mockResolvedValue({
       valid: true,
@@ -193,7 +197,7 @@ describe("finalizeAndSaveVersion", () => {
     });
   });
 
-  it("marks blocked preflight generations as failed and suppresses preview URLs", async () => {
+  it("keeps preview URLs when verification blockers do not prevent preview rendering", async () => {
     runProjectSanityChecks.mockReturnValue({
       valid: false,
       issues: [
@@ -216,7 +220,42 @@ describe("finalizeAndSaveVersion", () => {
       logNote: "unit-test",
     });
 
+    expect(result.previewUrl).toBe("https://preview.example/chat_1/ver_1");
+    expect(result.preflight.previewBlocked).toBe(false);
+    expect(result.preflight.verificationBlocked).toBe(true);
+    expect(buildPreviewUrl).toHaveBeenCalledWith("chat_1", "ver_1");
+    expect(logGeneration).toHaveBeenCalledWith(
+      "chat_1",
+      "gpt-5.4",
+      { prompt: undefined, completion: undefined },
+      expect.any(Number),
+      false,
+      "Automatic preflight found verification-blocking issues.",
+    );
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      "ver_1",
+      "Automatic preflight found verification-blocking issues.",
+    );
+  });
+
+  it("suppresses preview URLs when finalize preflight cannot build a renderable preview", async () => {
+    buildPreviewHtml.mockReturnValue(null);
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
     expect(result.previewUrl).toBeNull();
+    expect(result.preflight.previewBlocked).toBe(true);
+    expect(result.preflight.previewBlockingReason).toBe(
+      "Automatic preflight could not build a renderable own-engine preview entrypoint.",
+    );
     expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
@@ -224,11 +263,11 @@ describe("finalizeAndSaveVersion", () => {
       { prompt: undefined, completion: undefined },
       expect.any(Number),
       false,
-      "Automatic preflight found blocking issues before preview.",
+      "Automatic preflight found preview-blocking issues.",
     );
     expect(failVersionVerification).toHaveBeenCalledWith(
       "ver_1",
-      "Automatic preflight found blocking issues before preview.",
+      "Automatic preflight found preview-blocking issues.",
     );
   });
 });
