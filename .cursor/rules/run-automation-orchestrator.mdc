@@ -11,7 +11,6 @@ uses any of these startup triggers:
 
 - `/orchestrator`
 - `/automation`
-- `run automation`
 
 ## Canonical source
 
@@ -51,6 +50,8 @@ Every orchestrator run should maintain:
 - If a message starts with `/orchestrator` or `/automation`, treat that as enough
   context to enter the orchestrator-run system without the user re-explaining the
   whole protocol.
+- Treat the leading slash command as the user's way of saying that the prompt
+  should be handled inside this system.
 - Start by writing a short intention summary describing what will happen next.
 - If the request is underspecified, ask only the smallest set of clarifying
   questions needed to start safely.

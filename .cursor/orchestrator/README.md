@@ -17,7 +17,7 @@ Rules:
 - Completed runs stay under `run/`; the dated folder is the archive record
 - For larger efforts, use `track-plans/` plus cheaper tier-3 micro-workloads
 - `.cursor/automation/` is legacy input/history and should not receive new runs
-- `/orchestrator`, `/automation`, and `run automation` all start the same flow
+- `/orchestrator` and `/automation` both start the same flow
 
 Local cleanup:
 

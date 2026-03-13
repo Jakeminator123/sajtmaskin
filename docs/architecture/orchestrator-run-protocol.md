@@ -18,7 +18,6 @@ Use these as compact entry phrases for the same system:
 
 - `/orchestrator`
 - `/automation`
-- `run automation` (legacy)
 
 When one of these appears at the start of the chat, the agent should treat it as
 enough signal to enter the orchestrator-run workflow, respond with a short
@@ -121,5 +120,5 @@ powershell -File ".cursor/orchestrator/scripts/prune-old-runs.ps1" -Days 5 -What
 
 ## Legacy note
 
-Older `run automation` material under `.cursor/automation/` is now legacy. It
+Older automation material under `.cursor/automation/` is now legacy. It
 may still be useful as reference input, but new runs should not write there.

@@ -1,6 +1,6 @@
 ---
 name: orchestrator-run
-description: Plan and execute documented multi-agent work using the repository's orchestrator run protocol. Use when the user asks for an orchestrator agent, run automation, sequential workloads, roadmap-driven delegation, agent logs, verification handoff, or a final sweep.
+description: Plan and execute documented multi-agent work using the repository's orchestrator run protocol. Use when the user asks for an orchestrator agent, uses `/orchestrator` or `/automation`, or requests sequential workloads, roadmap-driven delegation, agent logs, verification handoff, or a final sweep.
 ---
 
 # Orchestrator Run
@@ -11,7 +11,7 @@ Use this skill for long, structured, multi-step execution that should be tracked
 
 1. Read `.cursor/orchestrator/PROTOCOL.md`.
 2. Use `.cursor/rules/terminology.mdc` for canonical run terms.
-3. Treat `/orchestrator`, `/automation`, and `run automation` as valid aliases for the same flow.
+3. Treat `/orchestrator` and `/automation` as the valid compact aliases for the same flow.
 4. Create or continue a dated folder in `.cursor/orchestrator/run/`.
 
 ## Non-negotiable rules
@@ -62,6 +62,8 @@ Use `context/raw-input/`, `context/compiled-input/`, and `artifacts/` when they 
 
 - When the user starts with `/orchestrator` or `/automation`, treat that as a
   compact command to enter this workflow.
+- Treat the slash-prefixed opener as part of the actual prompt, not as a request
+  to explain the system from scratch again.
 - Reply first with a short intention summary such as what you will scan, plan,
   or scaffold next.
 - Ask clarifying questions only when the request is too thin to start safely.

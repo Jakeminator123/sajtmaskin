@@ -111,9 +111,8 @@ Use this vocabulary consistently for automation work:
 - `agent log` - a per-workload execution note written by the delegated agent
 - `final sweep` - the closing cleanup and audit pass for dead code, ghost routes, stale files, and doc drift
 
-Treat `/orchestrator` and `/automation` as compact startup aliases for the
-orchestrator-run system. Treat `run automation` as the legacy alias for the same
-flow.
+Treat `/orchestrator` and `/automation` as the compact startup aliases for the
+orchestrator-run system.
 
 ### Research pipeline terms
 
