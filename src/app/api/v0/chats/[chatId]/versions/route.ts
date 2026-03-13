@@ -3,10 +3,15 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { db, dbConfigured } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { eq, desc, and, or } from "drizzle-orm";
-import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
+import {
+  getChatByV0ChatIdForRequest,
+  getEngineChatByIdForRequest,
+  getProjectByIdForRequest,
+} from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionsByChat } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
+import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 
 type V0LatestVersionLike = {
   id?: string | null;
@@ -19,6 +24,7 @@ type V0LatestVersionLike = {
 type V0ChatLike = {
   latestVersion?: V0LatestVersionLike | null;
   demoUrl?: string | null;
+  projectId?: string | null;
 };
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -36,7 +42,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         const versionsList = engineVersions.map((v) => ({
           id: v.id,
           versionId: v.id,
-          demoUrl: buildPreviewUrl(engineChatId, v.id),
+          demoUrl: canExposeEnginePreview(v) ? buildPreviewUrl(engineChatId, v.id) : null,
           createdAt: v.created_at,
           versionNumber: v.version_number,
           messageId: v.message_id,
@@ -89,6 +95,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         try {
           assertV0Key();
           const v0Chat = await v0.chats.getById({ chatId }) as V0ChatLike;
+          const projectId = typeof v0Chat.projectId === "string" ? v0Chat.projectId.trim() : "";
+          if (!projectId) {
+            return NextResponse.json({ versions: [] });
+          }
+          const ownedProject = await getProjectByIdForRequest(req, projectId);
+          if (!ownedProject) {
+            return NextResponse.json({ versions: [] });
+          }
           const latest = v0Chat.latestVersion ?? null;
           const versionId = latest?.id || latest?.versionId || null;
           const demoUrl = latest?.demoUrl || latest?.demo_url || v0Chat.demoUrl || null;

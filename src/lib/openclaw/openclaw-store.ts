@@ -11,10 +11,12 @@ interface OpenClawState {
   isOpen: boolean;
   messages: OpenClawMessage[];
   isStreaming: boolean;
+  scopeKey: string;
 
   toggle: () => void;
   open: () => void;
   close: () => void;
+  setScope: (scopeKey: string) => void;
   addMessage: (msg: OpenClawMessage) => void;
   updateAssistantMessage: (id: string, content: string) => void;
   setStreaming: (v: boolean) => void;
@@ -25,10 +27,22 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   isOpen: false,
   messages: [],
   isStreaming: false,
+  scopeKey: "global",
 
   toggle: () => set((s) => ({ isOpen: !s.isOpen })),
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
+  setScope: (scopeKey) =>
+    set((state) =>
+      state.scopeKey === scopeKey
+        ? state
+        : {
+            scopeKey,
+            isOpen: false,
+            messages: [],
+            isStreaming: false,
+          },
+    ),
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 

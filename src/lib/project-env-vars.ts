@@ -48,7 +48,7 @@ function normalizeStoredProjectEnvVarItem(value: unknown): StoredProjectEnvVarIt
   const key = typeof obj.key === "string" ? normalizeEnvKey(obj.key) : "";
   if (!/^[A-Z][A-Z0-9_]*$/.test(key)) return null;
   const id =
-    typeof obj.id === "string" && obj.id.trim().length > 0 ? obj.id.trim() : crypto.randomUUID();
+    typeof obj.id === "string" && obj.id.trim().length > 0 ? obj.id.trim() : `legacy:${key}`;
   const createdAt =
     typeof obj.createdAt === "string" && obj.createdAt.trim().length > 0 ? obj.createdAt : null;
   const updatedAt =

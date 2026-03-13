@@ -545,7 +545,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                           safeEnqueue(
                             enc.encode(
                               formatSSEEvent(
-                                toolName === "askClarifyingQuestion" ? "tool-call" : "tool-call",
+                                "tool-call",
                                 toolName === "askClarifyingQuestion"
                                   ? {
                                       toolName,
@@ -898,6 +898,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       if (toolName) toolCallNames.add(toolName);
 
                       if (toolName === "suggestIntegration") {
+                        sawBlockingToolCall = true;
                         const envVars = Array.isArray(toolArgs.envVars)
                           ? (toolArgs.envVars as string[])
                           : [];
@@ -940,6 +941,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                             : "unknown";
                         toolSignaledProviders.add(providerKey);
                       } else if (toolName === "requestEnvVar") {
+                        sawBlockingToolCall = true;
                         safeEnqueue(
                           enc.encode(
                             formatSSEEvent("integration", {

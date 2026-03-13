@@ -725,6 +725,10 @@ export async function POST(req: Request) {
               }
             };
 
+            const emitProgress = (event: string, data: Record<string, unknown>) => {
+              safeEnqueue(enc.encode(formatSSEEvent("progress", { step: event, ...data })));
+            };
+
             const finishWithoutVersion = async (
               reason: string,
               options?: { userMessage?: string; awaitingInput?: boolean },
@@ -861,6 +865,7 @@ export async function POST(req: Request) {
                       if (toolName) toolCallNames.add(toolName);
 
                       if (toolName === "suggestIntegration") {
+                        sawBlockingToolCall = true;
                         const envVars = Array.isArray(toolArgs.envVars) ? toolArgs.envVars as string[] : [];
                         safeEnqueue(enc.encode(formatSSEEvent("integration", {
                           items: [{
@@ -878,6 +883,7 @@ export async function POST(req: Request) {
                         toolSignaledProviders.add(providerKey);
                         debugLog("engine", "Tool: suggestIntegration", { provider: providerKey });
                       } else if (toolName === "requestEnvVar") {
+                        sawBlockingToolCall = true;
                         safeEnqueue(enc.encode(formatSSEEvent("integration", {
                           items: [{
                             key: "custom-env",
@@ -925,9 +931,7 @@ export async function POST(req: Request) {
                             prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
                             completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
                           },
-                          onProgress: (event, data) => {
-                            safeEnqueue(enc.encode(formatSSEEvent("progress", { step: event, ...data })));
-                          },
+                          onProgress: emitProgress,
                         });
                       } catch (error) {
                         if (error instanceof EmptyGenerationError) {
@@ -1058,6 +1062,7 @@ export async function POST(req: Request) {
                           completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
                         },
                         logNote: "Done from buffer flush",
+                        onProgress: emitProgress,
                       });
                     } catch (error) {
                       if (error instanceof EmptyGenerationError) {
@@ -1098,6 +1103,7 @@ export async function POST(req: Request) {
                       startedAt: engineStartedAt,
                       runAutofix: false,
                       logNote: "Done from fallback flush",
+                      onProgress: emitProgress,
                     });
                     didSendDone = true;
                     safeEnqueue(
@@ -1119,17 +1125,19 @@ export async function POST(req: Request) {
                   }
                 }
 
-                safeEnqueue(
-                  enc.encode(
-                    formatSSEEvent("done", {
-                      chatId: engineChat.id,
-                      versionId: null,
-                      messageId: null,
-                      demoUrl: null,
-                    }),
-                  ),
-                );
-                await commitCreditsOnce();
+                if (!didSendDone) {
+                  safeEnqueue(
+                    enc.encode(
+                      formatSSEEvent("done", {
+                        chatId: engineChat.id,
+                        versionId: null,
+                        messageId: null,
+                        demoUrl: null,
+                      }),
+                    ),
+                  );
+                  await commitCreditsOnce();
+                }
               }
               safeClose();
             }

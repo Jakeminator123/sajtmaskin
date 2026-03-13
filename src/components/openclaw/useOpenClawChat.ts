@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
 import { collectOpenClawTextFieldContext } from "@/lib/openclaw/text-field-actions";
 
@@ -60,10 +60,23 @@ async function* parseSSE(reader: ReadableStreamDefaultReader<Uint8Array>) {
 }
 
 export function useOpenClawChat() {
-  const { messages, isStreaming, addMessage, updateAssistantMessage, clearMessages, setStreaming } =
-    useOpenClawStore();
+  const {
+    messages,
+    isStreaming,
+    addMessage,
+    updateAssistantMessage,
+    clearMessages,
+    setStreaming,
+    scopeKey,
+  } = useOpenClawStore();
   const abortRef = useRef<AbortController | null>(null);
   const activeAssistantIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    activeAssistantIdRef.current = null;
+  }, [scopeKey]);
 
   const send = useCallback(
     async (text: string) => {

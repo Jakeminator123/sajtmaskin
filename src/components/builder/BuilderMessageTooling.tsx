@@ -81,6 +81,8 @@ type PostCheckSummary = {
   demoUrl: string | null;
   previousVersionId: string | null;
   provisional: boolean;
+  qualityGatePending: boolean;
+  autoFixQueued: boolean;
 };
 
 type QualityGateCheckInfo = {
@@ -223,11 +225,15 @@ export function StructuredToolParts({
                     {postCheckSummary.warnings !== null && (
                       <div>Varningar: {postCheckSummary.warnings}</div>
                     )}
-                    {postCheckSummary.provisional && (
+                    {postCheckSummary.autoFixQueued ? (
+                      <div className="text-amber-300">Status: autofix är köad efter post-check</div>
+                    ) : postCheckSummary.qualityGatePending ? (
+                      <div className="text-cyan-300">Status: quality gate körs fortfarande</div>
+                    ) : postCheckSummary.provisional ? (
                       <div className="text-amber-300">
-                        Status: preliminär version medan efterkontroller eller autofix fortsätter
+                        Status: preliminär version medan verifieringen slutförs
                       </div>
-                    )}
+                    ) : null}
                     {postCheckSummary.previousVersionId && (
                       <div>Föregående version: {postCheckSummary.previousVersionId}</div>
                     )}
@@ -769,11 +775,11 @@ function getActionPrompt(
       options: explicitPrompt.options.map(normalizeApprovalOptionLabel),
     };
     if (normalizedPrompt.options.length === 0) {
-      const question = normalizedPrompt.question;
-      const looksLikeApprovalQuestion = question.length <= 120 || question.slice(-25).includes("?");
+      const shouldUseSyntheticApprovalOptions =
+        state === "approval-requested" || looksLikeApprovalQuestion(normalizedPrompt.question);
       return {
         question: normalizedPrompt.question,
-        options: looksLikeApprovalQuestion
+        options: shouldUseSyntheticApprovalOptions
           ? ["Godkänn förslag", "Avvisa förslag", "Annat"]
           : [],
       };
@@ -806,6 +812,32 @@ function normalizeQuestionText(value: string): string {
       /pick an option in chat or reply with free text\.?/gi,
       "Välj ett alternativ i chatten eller svara med fri text.",
     );
+}
+
+function looksLikeApprovalQuestion(question: string): boolean {
+  const normalized = question.trim().toLowerCase();
+  if (!normalized) return false;
+  return [
+    "approve",
+    "approval",
+    "confirm",
+    "continue",
+    "proceed",
+    "accept",
+    "reject",
+    "deny",
+    "godkänn",
+    "godkanna",
+    "bekräfta",
+    "bekrafta",
+    "fortsätt",
+    "fortsatt",
+    "fortsätta",
+    "avvisa",
+    "tillåt",
+    "tillat",
+    "tillåta",
+  ].some((token) => normalized.includes(token));
 }
 
 function normalizeApprovalOptionLabel(value: string): string {
@@ -1124,9 +1156,22 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
     demoUrl: toString(obj.demoUrl),
     previousVersionId: toString(obj.previousVersionId),
     provisional: Boolean(summary?.provisional ?? obj.provisional),
+    qualityGatePending: Boolean(summary?.qualityGatePending ?? obj.qualityGatePending),
+    autoFixQueued: Boolean(summary?.autoFixQueued ?? obj.autoFixQueued),
   };
 
-  const hasAnyValue = Object.values(summaryData).some((value) => value !== null);
+  const hasAnyValue = [
+    summaryData.files,
+    summaryData.added,
+    summaryData.modified,
+    summaryData.removed,
+    summaryData.warnings,
+    summaryData.demoUrl,
+    summaryData.previousVersionId,
+    summaryData.provisional ? true : null,
+    summaryData.qualityGatePending ? true : null,
+    summaryData.autoFixQueued ? true : null,
+  ].some((value) => value !== null);
   return hasAnyValue ? summaryData : null;
 }
 

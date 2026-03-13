@@ -2,6 +2,7 @@ import { OPENCLAW } from "@/lib/config";
 
 export type OpenClawSurfaceStatus =
   | "enabled"
+  | "disabled_missing_token"
   | "disabled_missing_gateway"
   | "disabled_missing_flag"
   | "disabled_missing_gateway_and_flag";
@@ -32,17 +33,23 @@ export function describeOpenClawSurface(input: {
     blockers.push("OPENCLAW_GATEWAY_URL is not configured");
   }
 
+  if (!input.gatewayTokenConfigured) {
+    blockers.push("OPENCLAW_GATEWAY_TOKEN is not configured");
+  }
+
   if (!input.implementationFlagEnabled) {
     blockers.push("IMPLEMENT_UNDERSCORE_CLAW is not enabled");
   }
 
   let surfaceStatus: OpenClawSurfaceStatus;
-  if (input.gatewayConfigured && input.implementationFlagEnabled) {
+  if (input.gatewayConfigured && input.gatewayTokenConfigured && input.implementationFlagEnabled) {
     surfaceStatus = "enabled";
   } else if (!input.gatewayConfigured && !input.implementationFlagEnabled) {
     surfaceStatus = "disabled_missing_gateway_and_flag";
   } else if (!input.gatewayConfigured) {
     surfaceStatus = "disabled_missing_gateway";
+  } else if (!input.gatewayTokenConfigured) {
+    surfaceStatus = "disabled_missing_token";
   } else {
     surfaceStatus = "disabled_missing_flag";
   }
@@ -60,7 +67,7 @@ export function describeOpenClawSurface(input: {
 export function getOpenClawSurfaceStatus(): OpenClawSurfaceSnapshot {
   return describeOpenClawSurface({
     gatewayConfigured: OPENCLAW.enabled,
-    gatewayTokenConfigured: Boolean(OPENCLAW.gatewayToken),
+    gatewayTokenConfigured: OPENCLAW.tokenConfigured,
     implementationFlagEnabled: OPENCLAW.implementationFlagEnabled,
   });
 }

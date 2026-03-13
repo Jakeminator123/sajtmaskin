@@ -147,6 +147,7 @@ export function findSuspiciousUseCalls(files: FileEntry[]) {
   const results: Array<{ file: string; line: number; snippet: string }> = [];
   const pattern = /\b(?:React\.)?use\s*\(/g;
   files.forEach((file) => {
+    if (!file.content) return;
     const lines = file.content.split(/\r?\n/);
     lines.forEach((line, index) => {
       let match: RegExpExecArray | null;
@@ -496,8 +497,17 @@ function buildPostCheckSummary(params: {
   warnings: string[];
   demoUrl: string | null;
   provisional?: boolean;
+  qualityGatePending?: boolean;
+  autoFixQueued?: boolean;
 }) {
-  const { changes, warnings, demoUrl, provisional = false } = params;
+  const {
+    changes,
+    warnings,
+    demoUrl,
+    provisional = false,
+    qualityGatePending = false,
+    autoFixQueued = false,
+  } = params;
   const lines: string[] = [];
 
   if (changes) {
@@ -515,7 +525,13 @@ function buildPostCheckSummary(params: {
     lines.push("Varning: Ingen preview-länk hittades för versionen.");
   }
 
-  if (provisional) {
+  if (autoFixQueued) {
+    lines.push(
+      "Obs: Den här versionen är preliminär eftersom autofix redan har köats efter efterkontrollerna.",
+    );
+  } else if (qualityGatePending) {
+    lines.push("Obs: Quality gate körs fortfarande för den här versionen.");
+  } else if (provisional) {
     lines.push(
       "Obs: Den här versionen är preliminär medan efterkontroller eller autofix fortfarande arbetar.",
     );
@@ -792,7 +808,19 @@ export async function runPostGenerationChecks(params: {
       qualityGateFailures.push("project_sanity_errors");
     }
     const qualityGatePassed = qualityGateFailures.length === 0;
-    let provisionalVersion = !qualityGatePassed;
+    const autoFixReasons: string[] = [];
+    if (!finalDemoUrl) autoFixReasons.push("preview saknas");
+    if (missingRoutes.length > 0) autoFixReasons.push("saknade routes");
+    if (lucideLinkMisuse.length > 0) autoFixReasons.push("fel Link-import");
+    if (suspiciousUseCalls.length > 0) autoFixReasons.push("misstankt use()");
+    if (sanityErrors.length > 0) autoFixReasons.push("kodsanity error");
+    if (imageValidation?.broken?.length) autoFixReasons.push("trasiga bilder");
+    if (imageValidation?.warnings?.some((warning) => warning.includes("[semantic-image]"))) {
+      autoFixReasons.push("misstankt irrelevanta bilder");
+    }
+    const autoFixQueued = autoFixReasons.length > 0;
+    const qualityGatePending = !autoFixQueued;
+    const provisionalVersion = !qualityGatePassed || qualityGatePending || autoFixQueued;
     steps.push(
       qualityGatePassed
         ? "Quality gate: PASS (changes + preview + stream quality)."
@@ -832,6 +860,8 @@ export async function runPostGenerationChecks(params: {
         removed: changes?.removed.length ?? 0,
         warnings: warnings.length,
         provisional: provisionalVersion,
+        qualityGatePending,
+        autoFixQueued,
       },
       warnings,
       sanityIssues: sanity.issues,
@@ -842,6 +872,9 @@ export async function runPostGenerationChecks(params: {
       imageValidation,
       previousVersionId,
       demoUrl: finalDemoUrl,
+      provisional: provisionalVersion,
+      qualityGatePending,
+      autoFixQueued,
       qualityGate: {
         passed: qualityGatePassed,
         failures: qualityGateFailures,
@@ -855,7 +888,7 @@ export async function runPostGenerationChecks(params: {
       logItems.push({
         level: "error",
         category: "preview",
-        message: "Preview-lank saknas for versionen.",
+        message: "Preview-länk saknas för versionen.",
         meta: { versionId },
       });
     }
@@ -932,20 +965,6 @@ export async function runPostGenerationChecks(params: {
 
     void persistVersionErrorLogs({ chatId, versionId, logs: logItems });
 
-    const autoFixReasons: string[] = [];
-    if (!finalDemoUrl) autoFixReasons.push("preview saknas");
-    if (missingRoutes.length > 0) autoFixReasons.push("saknade routes");
-    if (lucideLinkMisuse.length > 0) autoFixReasons.push("fel Link-import");
-    if (suspiciousUseCalls.length > 0) autoFixReasons.push("misstankt use()");
-    if (sanityErrors.length > 0) autoFixReasons.push("kodsanity error");
-    if (imageValidation?.broken?.length) autoFixReasons.push("trasiga bilder");
-    if (imageValidation?.warnings?.some((warning) => warning.includes("[semantic-image]"))) {
-      autoFixReasons.push("misstankt irrelevanta bilder");
-    }
-    if (autoFixReasons.length > 0) {
-      provisionalVersion = true;
-      output.summary.provisional = true;
-    }
     if (autoFixReasons.length > 0) {
       onAutoFix?.({
         chatId,
@@ -980,16 +999,32 @@ export async function runPostGenerationChecks(params: {
         warnings,
         demoUrl: finalDemoUrl,
         provisional: provisionalVersion,
+        qualityGatePending,
+        autoFixQueued,
       }),
     );
 
-    void runSandboxQualityGate({
-      chatId,
-      versionId,
-      assistantMessageId,
-      setMessages,
-      onAutoFix: autoFixReasons.length === 0 ? onAutoFix : undefined,
-    });
+    if (autoFixReasons.length === 0) {
+      void runSandboxQualityGate({
+        chatId,
+        versionId,
+        assistantMessageId,
+        setMessages,
+        onAutoFix,
+      });
+    } else {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId: `quality-gate:${versionId}`,
+        state: "output-available",
+        output: {
+          skipped: true,
+          reason: "Skippad eftersom autofix redan har köats från post-check.",
+          autoFixQueued: true,
+        },
+      } as UiMessagePart);
+    }
   } catch (error) {
     void persistVersionErrorLogs({
       chatId,

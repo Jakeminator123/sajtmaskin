@@ -47,7 +47,7 @@ export interface FinalizeParams {
 export interface FinalizeResult {
   version: { id: string };
   messageId: string;
-  previewUrl: string;
+  previewUrl: string | null;
   filesJson: string;
   contentForVersion: string;
 }
@@ -62,6 +62,25 @@ export class EmptyGenerationError extends Error {
     this.chatId = chatId;
     this.scaffoldId = scaffoldId;
   }
+}
+
+function inferCodeFenceLanguage(path: string): string {
+  if (path.endsWith(".tsx")) return "tsx";
+  if (path.endsWith(".ts")) return "ts";
+  if (path.endsWith(".jsx")) return "jsx";
+  if (path.endsWith(".js")) return "js";
+  if (path.endsWith(".css")) return "css";
+  if (path.endsWith(".json")) return "json";
+  return "txt";
+}
+
+function serializeFilesToCodeProject(files: CodeFile[]): string {
+  return files
+    .map(
+      (file) =>
+        `\`\`\`${file.language || inferCodeFenceLanguage(file.path)} file="${file.path}"\n${file.content}\n\`\`\``,
+    )
+    .join("\n\n");
 }
 
 /**
@@ -109,12 +128,12 @@ export async function finalizeAndSaveVersion(
           warnings: autoFixResult.warnings.slice(0, 20),
           dependencies: autoFixResult.dependencies,
         });
-        onProgress?.("autofix", {
-          phase: "done",
-          fixes: autoFixResult.fixes.length,
-          warnings: autoFixResult.warnings.length,
-        });
       }
+      onProgress?.("autofix", {
+        phase: "done",
+        fixes: autoFixResult.fixes.length,
+        warnings: autoFixResult.warnings.length,
+      });
     } catch (autofixErr) {
       console.warn("[autofix] Pipeline error, using raw content:", autofixErr);
       onProgress?.("autofix", { phase: "error" });
@@ -292,10 +311,63 @@ export async function finalizeAndSaveVersion(
         fixes: repairResult.fixes,
       });
     }
+
+    const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
+    let mergedProjectContent = serializeFilesToCodeProject(finalFiles);
+    let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+    if (!mergedSyntax.valid) {
+      const initialMergedSyntaxErrorCount = mergedSyntax.errors.length;
+      devLogAppend("in-progress", {
+        type: "merged-syntax.invalid",
+        chatId,
+        errorCount: mergedSyntax.errors.length,
+        errors: mergedSyntax.errors.slice(0, 8),
+      });
+      const { runLlmFixer } = await import("@/lib/gen/autofix/llm-fixer");
+      const fixerResult = await runLlmFixer(
+        mergedProjectContent,
+        mergedSyntax.errors.map((error) => `${error.file}:${error.line} ${error.message}`),
+      );
+      if (fixerResult.success) {
+        const reFixed = await runAutoFix(fixerResult.fixedContent, { chatId, model });
+        const reValidated = await validateGeneratedCode(reFixed.fixedContent);
+        if (reValidated.valid || reValidated.errors.length < mergedSyntax.errors.length) {
+          finalFiles = (
+            JSON.parse(parseFilesFromContent(reFixed.fixedContent)) as Array<{
+              path: string;
+              content: string;
+              language?: string;
+            }>
+          ).map((file) => ({ ...file, language: file.language || "tsx" }));
+          const postFixRepair = repairGeneratedFiles(finalFiles);
+          finalFiles = postFixRepair.files;
+          filesJson = JSON.stringify(finalFiles);
+          mergedProjectContent = reFixed.fixedContent;
+          mergedSyntax = reValidated;
+          devLogAppend("in-progress", {
+            type: "merged-syntax.fixed",
+            chatId,
+            errorsBefore: initialMergedSyntaxErrorCount,
+            errorsAfter: reValidated.errors.length,
+            repairFixes: postFixRepair.fixes,
+          });
+        }
+      }
+      if (!mergedSyntax.valid) {
+        preflightIssues.push(
+          ...mergedSyntax.errors.slice(0, 20).map((error) => ({
+            file: error.file,
+            severity: "error" as const,
+            message: `Merged syntax error line ${error.line}:${error.column} — ${error.message}`,
+          })),
+        );
+      }
+    }
+
     const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(finalFiles)).files;
     preflightFileCount = completeProjectFiles.length;
     const sanity = runProjectSanityChecks(completeProjectFiles);
-    preflightIssues = sanity.issues;
+    preflightIssues = [...preflightIssues, ...sanity.issues];
     if (sanity.issues.length > 0) {
       devLogAppend("in-progress", {
         type: "project-sanity",
@@ -323,6 +395,7 @@ export async function finalizeAndSaveVersion(
   });
   const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
   const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
+  const hasBlockingPreflightErrors = preflightErrors.length > 0;
   const preflightLogs: Array<{
     chatId: string;
     versionId: string;
@@ -373,6 +446,7 @@ export async function finalizeAndSaveVersion(
     fileCount: preflightFileCount,
     issueCount: preflightIssues.length,
   });
+  const preflightFailureSummary = "Automatic preflight found blocking issues before preview.";
   try {
     await createEngineVersionErrorLogs(preflightLogs);
     devLogAppend("in-progress", {
@@ -402,8 +476,8 @@ export async function finalizeAndSaveVersion(
         completion: tokenUsage?.completion,
       },
       Date.now() - startedAt,
-      true,
-      logNote,
+      !hasBlockingPreflightErrors,
+      hasBlockingPreflightErrors ? preflightFailureSummary : logNote,
     );
     devLogAppend("in-progress", {
       type: "generation-log.persisted",
@@ -425,13 +499,40 @@ export async function finalizeAndSaveVersion(
     });
   }
 
-  const previewUrl = buildPreviewUrl(chatId, version.id);
+  if (hasBlockingPreflightErrors) {
+    try {
+      await chatRepo.failVersionVerification(
+        version.id,
+        preflightFailureSummary,
+      );
+      devLogAppend("in-progress", {
+        type: "preflight.version.failed",
+        chatId,
+        versionId: version.id,
+        errorCount: preflightErrors.length,
+      });
+    } catch (verificationErr) {
+      console.warn("[preflight] Failed to mark version failed after blocking errors:", verificationErr);
+      devLogAppend("in-progress", {
+        type: "preflight.version.fail-error",
+        chatId,
+        versionId: version.id,
+        message:
+          verificationErr instanceof Error
+            ? verificationErr.message
+            : "Unknown preflight verification update error",
+      });
+    }
+  }
+
+  const previewUrl = hasBlockingPreflightErrors ? null : buildPreviewUrl(chatId, version.id);
 
   debugLog("engine", "Version saved via finalizeAndSaveVersion", {
     chatId,
     versionId: version.id,
     contentLen: contentForVersion.length,
     scaffold: resolvedScaffold?.id ?? null,
+    previewBlocked: hasBlockingPreflightErrors,
   });
 
   return {
