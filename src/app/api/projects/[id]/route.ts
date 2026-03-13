@@ -16,9 +16,19 @@ interface RouteParams {
 }
 
 function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
+  if (userId && sessionId) return `user:${userId}:session:${sessionId}`;
   if (userId) return `user:${userId}`;
   if (sessionId) return `session:${sessionId}`;
   return "anonymous";
+}
+
+function getOwnerCacheSegments(userId: string | null, sessionId: string | null): string[] {
+  return Array.from(
+    new Set(
+      [getOwnerCacheSegment(userId, sessionId), userId ? `user:${userId}` : null, sessionId ? `session:${sessionId}` : null]
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
 }
 
 // GET /api/projects/[id] - Get single project with data
@@ -52,7 +62,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const projectData = await getProjectData(id);
 
-    await setCache(cacheKey, { project, data: projectData }, 120);
+    await Promise.all([
+      setCache(cacheKey, { project, data: projectData }, 120),
+      ...(user?.id && sessionId ? [deleteCache(`project:${id}:session:${sessionId}`)] : []),
+    ]);
 
     return NextResponse.json({
       success: true,
@@ -79,7 +92,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
-    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
+    const ownerKeys = getOwnerCacheSegments(user?.id ?? null, sessionId);
 
     const ownerScope = { userId: user?.id ?? null, sessionId };
     const existing = await getProjectByIdForOwner(id, ownerScope);
@@ -92,9 +105,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Invalidate caches
     await Promise.all([
       deleteCache(`project:${id}`),
-      deleteCache(`project:${id}:${ownerKey}`),
+      ...ownerKeys.map((ownerKey) => deleteCache(`project:${id}:${ownerKey}`)),
       deleteCache("projects:list"),
-      deleteCache(`projects:list:${ownerKey}`),
+      ...ownerKeys.map((ownerKey) => deleteCache(`projects:list:${ownerKey}`)),
     ]);
 
     return NextResponse.json({ success: true, project: updated });
@@ -116,7 +129,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
-    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
+    const ownerKeys = getOwnerCacheSegments(user?.id ?? null, sessionId);
 
     const ownerScope = { userId: user?.id ?? null, sessionId };
     const existing = await getProjectByIdForOwner(id, ownerScope);
@@ -133,9 +146,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Invalidate caches so deleted project disappears immediately
     await Promise.all([
       deleteCache(`project:${id}`),
-      deleteCache(`project:${id}:${ownerKey}`),
+      ...ownerKeys.map((ownerKey) => deleteCache(`project:${id}:${ownerKey}`)),
       deleteCache("projects:list"),
-      deleteCache(`projects:list:${ownerKey}`),
+      ...ownerKeys.map((ownerKey) => deleteCache(`projects:list:${ownerKey}`)),
     ]);
 
     return NextResponse.json({ success: true });

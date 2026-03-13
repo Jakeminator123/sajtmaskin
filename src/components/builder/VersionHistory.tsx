@@ -35,6 +35,7 @@ type VersionSummary = {
   verificationSummary?: string | null;
   promotedAt?: string | Date | null;
   pinned?: boolean;
+  canPin?: boolean;
 };
 
 type BlobExportResponse = {
@@ -398,6 +399,7 @@ export function VersionHistory({
             const isPinning = pinningVersionId === internalVersionId;
             const isSelected = selectedVersionId === selectableVersionId;
             const isPinned = Boolean(version.pinned);
+            const canPin = version.canPin !== false;
             const lifecycleStatus = resolveEngineVersionLifecycleStatus({
               releaseState: version.releaseState,
               verificationState: version.verificationState,
@@ -543,21 +545,23 @@ export function VersionHistory({
                         <Github className="h-3 w-3" />
                       )}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={(e) => handleTogglePin(e, version)}
-                      disabled={isPinning}
-                      title={isPinned ? "Unpin version" : "Pin version"}
-                      aria-label={isPinned ? "Unpin version" : "Pin version"}
-                      className="h-7 w-7"
-                    >
-                      {isPinning ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Pin className={cn("h-3 w-3", isPinned ? "text-primary" : "")} />
-                      )}
-                    </Button>
+                    {canPin && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => handleTogglePin(e, version)}
+                        disabled={isPinning}
+                        title={isPinned ? "Unpin version" : "Pin version"}
+                        aria-label={isPinned ? "Unpin version" : "Pin version"}
+                        className="h-7 w-7"
+                      >
+                        {isPinning ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Pin className={cn("h-3 w-3", isPinned ? "text-primary" : "")} />
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

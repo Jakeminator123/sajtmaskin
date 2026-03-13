@@ -1,0 +1,25 @@
+---
+description: Proactively apply local sajtmaskin context skill
+alwaysApply: true
+---
+
+# Sajtmaskin context skill routing
+
+Use `.cursor/skills/sajtmaskin-context/SKILL.md` as the first context layer for domain-relevant tasks.
+
+## Trigger scenarios
+
+Apply the skill when the task mentions or implies:
+
+- Builder flow, build methods, build intent, prompt modes
+- Template gallery vs scaffold vs Vercel template distinctions
+- Project/chat/version concepts, demoUrl, preview, deployment flow
+- Runtime lane vs research lane generation architecture
+- Platform behavior or docs for `v0`, `Vercel`, OpenAI APIs, or OpenClaw
+
+## Coordination notes
+
+- Keep canonical terminology from `.cursor/rules/terminology.mdc`.
+- Keep MCP routing defaults from `.cursor/rules/mcp-docs-routing.mdc`.
+- For React/Next/Node/performance implementation tasks, also apply `vercel-react-best-practices`.
+- For generic non-domain coding tasks, `sajtmaskin-context` may be skipped.

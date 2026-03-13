@@ -189,16 +189,28 @@ export async function getProjectByIdForOwner(
 
   // Claim unclaimed session projects for the logged-in user
   const userId = scope.userId?.trim();
+  const sessionId = scope.sessionId?.trim() || project?.session_id || null;
   if (project && userId && !project.user_id) {
-    db.update(appProjects)
+    const claimWhere = sessionId
+      ? and(eq(appProjects.id, id), isNull(appProjects.user_id), eq(appProjects.session_id, sessionId))
+      : and(eq(appProjects.id, id), isNull(appProjects.user_id));
+    const claimedRows = await db
+      .update(appProjects)
       .set({ user_id: userId, updated_at: new Date() })
-      .where(and(eq(appProjects.id, id), isNull(appProjects.user_id)))
-      .then(() => {
-        console.info("[DB] Claimed session project", id, "for user", userId);
-      })
-      .catch((err) => {
-        console.warn("[DB] Failed to claim session project:", err);
-      });
+      .where(claimWhere)
+      .returning();
+    const claimedProject = claimedRows[0] ?? null;
+    if (claimedProject) {
+      console.info("[DB] Claimed session project", id, "for user", userId);
+      return claimedProject;
+    }
+
+    const refreshedRows = await db
+      .select()
+      .from(appProjects)
+      .where(and(eq(appProjects.id, id), eq(appProjects.user_id, userId)))
+      .limit(1);
+    return refreshedRows[0] ?? project;
   }
 
   return project;

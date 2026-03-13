@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth";
-import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
+import { requireAdminAccess } from "@/lib/auth/admin";
 import { FEATURES, URLS } from "@/lib/config";
 import { checkOpenClawGatewayHealth } from "@/lib/openclaw/status";
 
@@ -133,14 +132,10 @@ function hasEnv(key: string): boolean {
   return true;
 }
 
-async function isAdmin(req: NextRequest): Promise<boolean> {
-  const user = await getCurrentUser(req);
-  return Boolean(user?.email && isAdminEmailEdge(user.email));
-}
-
 export async function GET(req: NextRequest) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   const openclaw = await checkOpenClawGatewayHealth();

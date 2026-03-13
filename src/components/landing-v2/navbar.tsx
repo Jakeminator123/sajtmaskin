@@ -24,7 +24,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
       if (el) setScrolled(el.scrollTop > 20);
     };
     const el = document.querySelector("[data-scroll-container]");
-    el?.addEventListener("scroll", handleScroll);
+    el?.addEventListener("scroll", handleScroll, { passive: true });
     return () => el?.removeEventListener("scroll", handleScroll);
   }, []);
 

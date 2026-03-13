@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL } from "@/lib/db/services";
+import { requireAdminAccess } from "@/lib/auth/admin";
 
 type TriggerBody = {
   includeEmbeddings?: boolean;
@@ -25,11 +24,6 @@ function readEnv(key: string): string | undefined {
 function isTruthy(value: string | undefined): boolean {
   if (!value) return false;
   return ["1", "true", "yes", "on"].includes(value.toLowerCase());
-}
-
-async function isAdmin(req: NextRequest): Promise<boolean> {
-  const user = await getCurrentUser(req);
-  return Boolean(user?.email && user.email === TEST_USER_EMAIL);
 }
 
 function getTemplateSyncConfig(
@@ -76,8 +70,9 @@ function getTemplateSyncConfig(
 }
 
 export async function GET(req: NextRequest) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   const config = getTemplateSyncConfig();
@@ -95,8 +90,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   const body = (await req.json().catch(() => null)) as TriggerBody | null;

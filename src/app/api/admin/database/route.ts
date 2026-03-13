@@ -8,7 +8,7 @@ import { and, desc, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth";
+import { requireAdminAccess } from "@/lib/auth/admin";
 import { db } from "@/lib/db/client";
 import {
   appProjects,
@@ -28,14 +28,8 @@ import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services";
 import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
 import { PATHS } from "@/lib/config";
 
-// Check if user is admin
-async function isAdmin(req: NextRequest): Promise<boolean> {
-  const user = await getCurrentUser(req);
-  return user?.email === TEST_USER_EMAIL;
-}
-
 async function countTable(table: unknown): Promise<number> {
-  const rows = await db.select({ count: sql<number>`count(*)` }).from(table as any);
+  const rows = await db.select({ count: sql<number>`count(*)` }).from(table as never);
   return (rows[0] as { count: number } | undefined)?.count ?? 0;
 }
 
@@ -53,8 +47,9 @@ async function getDbFileSize(): Promise<string> {
 
 // Get database stats
 export async function GET(req: NextRequest) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   const action = req.nextUrl.searchParams.get("action");
@@ -104,8 +99,9 @@ export async function GET(req: NextRequest) {
 
 // Clear database tables
 export async function POST(req: NextRequest) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   try {

@@ -148,7 +148,16 @@ async function buildEngineReadiness(
     blockers.push(lifecycleBlocker);
   }
 
-  const files = (await getVersionFiles(version.id)) ?? [];
+  const envVarMapPromise = chat.project_id
+    ? getStoredProjectEnvVarMap(chat.project_id).catch(() => ({} as Record<string, string>))
+    : Promise.resolve<Record<string, string>>({});
+  const [versionFiles, envVarMap, errorLogs] = await Promise.all([
+    getVersionFiles(version.id),
+    envVarMapPromise,
+    getEngineVersionErrorLogs(version.id),
+  ]);
+
+  const files = versionFiles ?? [];
   const code = files
     .filter((file) => typeof file?.path === "string" && typeof file?.content === "string")
     .map((file) => `// File: ${file.path}\n${file.content}`)
@@ -157,11 +166,9 @@ async function buildEngineReadiness(
     detectIntegrations(code).flatMap((integration) => integration.envVars ?? []),
   );
 
-  const configuredEnvKeys = chat.project_id
-    ? Object.keys(await getStoredProjectEnvVarMap(chat.project_id).catch(() => ({})))
-        .map((key) => key.trim().toUpperCase())
-        .filter(Boolean)
-    : [];
+  const configuredEnvKeys = Object.keys(envVarMap)
+    .map((key) => key.trim().toUpperCase())
+    .filter(Boolean);
   const configuredEnvSet = new Set(configuredEnvKeys);
   const missingEnvKeys = requiredEnvKeys.filter((key) => !configuredEnvSet.has(key));
 
@@ -177,7 +184,6 @@ async function buildEngineReadiness(
     blockers.push(buildMissingEnvBlocker(missingEnvKeys));
   }
 
-  const errorLogs = await getEngineVersionErrorLogs(version.id);
   const latestPreviewError = errorLogs.find(
     (log) =>
       log.level === "error" &&

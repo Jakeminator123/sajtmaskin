@@ -31,6 +31,7 @@ import {
   resolveV0ProjectId,
   generateProjectName,
   getChatByV0ChatIdForRequest,
+  resolveAppProjectIdForRequest,
 } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/logging/devLog";
@@ -413,7 +414,22 @@ export async function POST(req: Request) {
           maxSteps: 2,
         });
 
-        const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
+        const projectIdForChat = await resolveAppProjectIdForRequest(
+          req,
+          { appProjectId: metaAppProjectId, projectId },
+          { sessionId },
+        );
+        if (!projectIdForChat) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                error:
+                  "Plan mode requires a valid app project id. Create or resolve a project before retrying.",
+              },
+              { status: 400 },
+            ),
+          );
+        }
         const plannerChat = await chatRepo.createChat(
           projectIdForChat,
           engineModel,
@@ -637,7 +653,22 @@ export async function POST(req: Request) {
           referenceAttachments: requestAttachments,
         });
 
-        const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
+        const projectIdForChat = await resolveAppProjectIdForRequest(
+          req,
+          { appProjectId: metaAppProjectId, projectId },
+          { sessionId },
+        );
+        if (!projectIdForChat) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                error:
+                  "Own-engine generation requires a valid app project id. Create or resolve a project before retrying.",
+              },
+              { status: 400 },
+            ),
+          );
+        }
         const engineChat = await chatRepo.createChat(
           projectIdForChat,
           engineModel,

@@ -32,7 +32,7 @@ Verified against `docs/architecture/agent-roadmap-and-handoff.md` on
 
 `review-needed`
 
-- no numbered plans currently sit in this bucket
+- `review-needed/2026-03-bug-recheck-sweep.md`
 
 `archived`
 

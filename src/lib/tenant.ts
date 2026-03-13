@@ -251,6 +251,29 @@ export async function getAppProjectByIdForRequest(
   return getProjectByIdForOwner(normalizedProjectId, ownerScope);
 }
 
+export async function resolveAppProjectIdForRequest(
+  req: Request,
+  params: {
+    appProjectId?: string | null;
+    projectId?: string | null;
+  },
+  options?: { sessionId?: string },
+): Promise<string | null> {
+  const explicitAppProjectId = params.appProjectId?.trim();
+  if (explicitAppProjectId) {
+    const appProject = await getAppProjectByIdForRequest(req, explicitAppProjectId, options);
+    return appProject?.id ?? null;
+  }
+
+  const fallbackProjectId = params.projectId?.trim();
+  if (fallbackProjectId) {
+    const project = await getProjectByIdForRequest(req, fallbackProjectId, options);
+    return project?.id ?? null;
+  }
+
+  return null;
+}
+
 export async function getEngineChatByIdForRequest(
   req: Request,
   chatId: string,

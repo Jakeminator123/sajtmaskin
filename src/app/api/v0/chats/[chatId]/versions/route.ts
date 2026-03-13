@@ -45,6 +45,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           verificationState: v.verification_state,
           verificationSummary: v.verification_summary,
           promotedAt: v.promoted_at,
+          canPin: false,
         }));
         return NextResponse.json({ versions: versionsList });
       }
@@ -74,6 +75,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
               pinned: v.pinned,
               pinnedAt: v.pinnedAt,
               createdAt: v.createdAt,
+              canPin: true,
             })),
           });
         }
@@ -105,6 +107,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
                   verificationState: null,
                   verificationSummary: null,
                   promotedAt: null,
+                  canPin: true,
                 },
               ],
             });
@@ -152,6 +155,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       pinned: v.pinned,
       pinnedAt: v.pinnedAt,
       createdAt: v.createdAt,
+      canPin: true,
     }));
 
     return NextResponse.json({ versions: versionsList });
@@ -165,18 +169,28 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
-    assertV0Key();
-
-    if (!dbConfigured) {
-      return NextResponse.json({ error: "Database not configured." }, { status: 503 });
-    }
-
     const { chatId } = await ctx.params;
     const body = await req.json().catch(() => ({}));
     const { versionId, pinned } = body ?? {};
 
     if (!versionId || typeof pinned !== "boolean") {
       return NextResponse.json({ error: "versionId and pinned are required" }, { status: 400 });
+    }
+
+    if (!shouldUseV0Fallback()) {
+      const engineChat = await getEngineChatByIdForRequest(req, chatId);
+      if (engineChat) {
+        return NextResponse.json(
+          { error: "Pinning is not supported for own-engine versions." },
+          { status: 409 },
+        );
+      }
+    }
+
+    assertV0Key();
+
+    if (!dbConfigured) {
+      return NextResponse.json({ error: "Database not configured." }, { status: 503 });
     }
 
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Bot, Send, Sparkles, Square, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { useOpenClawChat } from "./useOpenClawChat";
 import { OpenClawMessage } from "./OpenClawMessage";
 
@@ -41,8 +40,7 @@ export function OpenClawChatPanel({
   onClose: () => void;
   content?: OpenClawChatPanelContent;
 }) {
-  const { messages, isStreaming, send, stop } = useOpenClawChat();
-  const clearMessages = useOpenClawStore((s) => s.clearMessages);
+  const { messages, isStreaming, send, stop, clearConversation } = useOpenClawChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -103,7 +101,7 @@ export function OpenClawChatPanel({
             {messages.length > 0 ? (
               <button
                 type="button"
-                onClick={clearMessages}
+                onClick={clearConversation}
                 className="rounded-md p-1.5 text-slate-300 transition-colors hover:text-white"
                 aria-label="Rensa chatt"
               >

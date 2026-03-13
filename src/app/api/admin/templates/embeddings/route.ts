@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL } from "@/lib/db/services";
+import { requireAdminAccess } from "@/lib/auth/admin";
 import { regenerateTemplateEmbeddings } from "@/lib/templates/template-embeddings-refresh";
 import type { TemplateEmbeddingsStoragePreference } from "@/lib/templates/template-embeddings-storage";
 
@@ -12,11 +11,6 @@ type RequestBody = {
   dryRun?: boolean;
 };
 
-async function isAdmin(req: NextRequest): Promise<boolean> {
-  const user = await getCurrentUser(req);
-  return Boolean(user?.email && user.email === TEST_USER_EMAIL);
-}
-
 function normalizeStorage(
   value: unknown,
 ): TemplateEmbeddingsStoragePreference | undefined {
@@ -25,8 +19,9 @@ function normalizeStorage(
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   const body = (await req.json().catch(() => null)) as RequestBody | null;

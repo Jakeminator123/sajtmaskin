@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL } from "@/lib/db/services";
+import { requireAdminAccess } from "@/lib/auth/admin";
 import { deleteProject, isVercelConfigured } from "@/lib/vercel/vercel-client";
-
-async function isAdmin(req: NextRequest): Promise<boolean> {
-  const user = await getCurrentUser(req);
-  return Boolean(user?.email && user.email === TEST_USER_EMAIL);
-}
 
 export async function DELETE(
   req: NextRequest,
   ctx: { params: Promise<{ projectId: string }> },
 ) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   if (!isVercelConfigured()) {

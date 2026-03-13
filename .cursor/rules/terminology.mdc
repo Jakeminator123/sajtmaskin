@@ -89,6 +89,17 @@ Important rule:
 - Do NOT imply that external reference templates are cloned into runtime generation by default. They inform prompts, embeddings, and scaffold improvements unless a separate import flow explicitly says otherwise.
 - Do NOT use `multi-tenant` or `multi-project` as if they were template concepts. They describe hosting/deployment architecture, not content/category selection.
 
+### Common chat aliases
+
+Treat common misspellings and spoken-style aliases as canonical platform names:
+
+| Alias in chat | Canonical term |
+|---------------|----------------|
+| `Varicell`, `Vericell` | `Vercel` |
+| `Veenol`, `Venol` | `v0` |
+
+When answering, prefer canonical names (`Vercel`, `v0`) even if user writes an alias.
+
 ### Research pipeline terms
 
 Use this pipeline vocabulary consistently:

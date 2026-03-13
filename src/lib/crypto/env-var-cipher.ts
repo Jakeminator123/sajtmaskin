@@ -6,6 +6,10 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const PREFIX = "enc:";
 
+export function hasEnvVarEncryptionKey(): boolean {
+  return Boolean(SECRETS.envVarEncryptionKey);
+}
+
 function deriveKey(): Buffer | null {
   const raw = SECRETS.envVarEncryptionKey;
   if (!raw) return null;

@@ -34,6 +34,12 @@ Status re-verified against the numbered plan set on `2026-03-12`.
 
 ## Current active-phase notes
 
+- Completed operational sweep:
+  `docs/plans/review-needed/2026-03-bug-recheck-sweep.md` records the March 2026
+  `jakob` bug recheck implementation pass. The implementation itself is done;
+  the file sits in `review-needed/` only as a physical fallback because the
+  `archived/` bucket was not writable in the active editor environment during
+  closeout.
 - Phase `7` is archived: lifecycle-aware readiness, diagnostics, preview
   labeling, and deploy gating are implemented and part of the active builder
   path.

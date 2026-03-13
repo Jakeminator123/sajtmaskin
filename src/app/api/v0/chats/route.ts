@@ -10,6 +10,8 @@ import {
   resolveV0ProjectId,
   generateProjectName,
   getAppProjectByIdForRequest,
+  getProjectByIdForRequest,
+  resolveAppProjectIdForRequest,
 } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { debugLog } from "@/lib/utils/debug";
@@ -56,8 +58,17 @@ export async function GET(req: Request) {
       if (!projectId) {
         return NextResponse.json({ chats: [] });
       }
+      const ownedProject = await getProjectByIdForRequest(req, projectId);
+      const projectFilterId = ownedProject?.v0ProjectId?.trim() || projectId.trim();
       const result = await v0.chats.find();
-      return NextResponse.json({ chats: result ?? [] });
+      const chats = Array.isArray(result)
+        ? result.filter((chat) => {
+            if (!chat || typeof chat !== "object") return false;
+            const chatProjectId = (chat as { projectId?: unknown }).projectId;
+            return typeof chatProjectId === "string" && chatProjectId === projectFilterId;
+          })
+        : [];
+      return NextResponse.json({ chats });
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Unknown error" },
@@ -277,7 +288,15 @@ export async function POST(req: Request) {
           const fullContent = await genResult.text;
           const usage = await genResult.usage;
 
-          const resolvedProjectId = metaAppProjectId || projectId || "default";
+          const resolvedProjectId = await resolveAppProjectIdForRequest(req, {
+            appProjectId: metaAppProjectId,
+            projectId,
+          });
+          if (!resolvedProjectId) {
+            throw new Error(
+              "Own-engine chat creation requires a valid app project id. Create or resolve a project before retrying.",
+            );
+          }
           const chat = await createSqliteChat(
             resolvedProjectId,
             engineModel,

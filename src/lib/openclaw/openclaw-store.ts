@@ -16,12 +16,12 @@ interface OpenClawState {
   open: () => void;
   close: () => void;
   addMessage: (msg: OpenClawMessage) => void;
-  updateLastAssistant: (content: string) => void;
+  updateAssistantMessage: (id: string, content: string) => void;
   setStreaming: (v: boolean) => void;
   clearMessages: () => void;
 }
 
-export const useOpenClawStore = create<OpenClawState>()((set, get) => ({
+export const useOpenClawStore = create<OpenClawState>()((set) => ({
   isOpen: false,
   messages: [],
   isStreaming: false,
@@ -32,13 +32,12 @@ export const useOpenClawStore = create<OpenClawState>()((set, get) => ({
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
-  updateLastAssistant: (content) => {
-    const msgs = get().messages;
-    const last = msgs[msgs.length - 1];
-    if (last?.role === "assistant") {
-      set({ messages: [...msgs.slice(0, -1), { ...last, content }] });
-    }
-  },
+  updateAssistantMessage: (id, content) =>
+    set((s) => ({
+      messages: s.messages.map((message) =>
+        message.id === id && message.role === "assistant" ? { ...message, content } : message,
+      ),
+    })),
 
   setStreaming: (v) => set({ isStreaming: v }),
   clearMessages: () => set({ messages: [] }),
