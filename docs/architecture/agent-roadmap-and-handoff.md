@@ -34,6 +34,9 @@ Status re-verified against the numbered plan set on `2026-03-12`.
 
 ## Current active-phase notes
 
+- Repository-local execution traces for future multi-agent automation now belong
+  under `.cursor/orchestrator/run/` rather than `docs/plans/`. Treat those dated
+  run folders as operational ledgers, not as canonical roadmap docs.
 - Completed operational sweep:
   `docs/plans/review-needed/2026-03-bug-recheck-sweep.md` records the March 2026
   `jakob` bug recheck implementation pass. The implementation itself is done;
@@ -80,6 +83,8 @@ When picking up old roadmap work:
 
 - start from an `active` plan if one exists
 - treat `review-needed` plans as historical hints, not instructions
+- treat `.cursor/orchestrator/run/` artifacts as execution history unless the
+  conclusions have been promoted into `docs/`
 - move fully completed or clearly superseded material to `docs/plans/archived/`
 - update this file whenever a numbered plan changes status
 

@@ -1,48 +1,43 @@
 ---
-description: Kör sekventiell multi-agent automation på exakt "run automation"
+description: Route multi-agent automation into the canonical orchestrator run system
 alwaysApply: true
 ---
 
-# run automation
+# Orchestrator run routing
 
-Aktivera denna rutin **endast** när användarens meddelande är exakt
-`run automation` (trimmat, case-insensitive).
+Apply this rule when the user asks for multi-agent automation, an
+`orchestrator agent`, sequential workloads, a roadmap-driven execution pass, or
+uses the legacy phrase `run automation`.
 
-Denna regel ar den kanoniska protokolltexten for `run automation`.
-Forsok inte lasa nagon separat `PROTOCOL.md` om den inte uttryckligen finns.
+## Canonical source
 
-## Mal
+- Read `.cursor/orchestrator/PROTOCOL.md` for the full workflow.
+- Use `.cursor/skills/orchestrator-run/SKILL.md` as the first context layer for this flow.
+- Treat `.cursor/automation/PROTOCOL.md` as a legacy redirect only.
 
-Kor en sekventiell automation dar varje workload verifieras innan nasta steg
-borjar. Hela korningen ska vara styrd, spårbar och kunna stoppas om underlaget
-visar sig vara otillrackligt.
+## Storage rules
 
-## Grundregler
+- New run artifacts belong in `.cursor/orchestrator/run/<YYYY-MM-DD>-<slug>/`.
+- Do not create new outputs in `.cursor/automation/runs/`.
+- Keep completed dated folders under `run/`; that folder is the archive.
 
-- Arbeta sekventiellt, inte parallellt, om inte anvandaren uttryckligen ber om
-  annat.
-- Verifiera utfall mellan workload-steg och fixa problem innan du gar vidare.
-- Om underlaget ar for tunt eller motsagelsefullt, stanna i den interaktiva
-  fasen tills malen ar tillrackligt tydliga.
-- Hoppa inte over lint, build eller annan rimlig verifiering i slutet om
-  workloaden har gjort kodandringar.
-- Om anvandaren anger modellpreferens, folj den. Annars valj en rimlig standard
-  och motivera kort.
+## Required artifacts
 
-## Interaktiv fas (användaren är närvarande)
+Every orchestrator run should maintain:
 
-1. Arkivera eventuell tidigare `runs/`-mapp.
-2. Fråga: "Beskriv ditt slutgiltiga mål och syfte med denna automation."
-3. Fråga: "Vill du att jag sammanställer input till bättre format?"
-4. Fråga: "Vilken AI-modell vill du att workload-agenterna kör med?"
-5. Läs input + skanna projektet som ska editeras.
-6. Ge ett allmänt utlåtande om underlaget och omfattningen.
-7. Ställ 1-5 uppföljningsfrågor.
-8. Kompilera och meddela att autonom körning börjar.
+- `ROADMAP.md`
+- `ORCHESTRATOR_LOG.md`
+- optional `track-plans/` when the run is broad enough for a middle coordination layer
+- workload files in `workloads/`
+- per-agent logs in `agent-logs/`
+- per-step verification notes in `verification/`
+- `FINAL_SWEEP.md`
+- `FINAL_REPORT.md`
 
-## Autonom fas (inga fler frågor, kan ta lång tid)
+## Execution rules
 
-9. Skriv Roadmap + 3-20 workload-filer.
-10. Kör subagenter sekventiellt (med vald modell). Verifiera + fixa mellan varje steg.
-11. Lint + build-test.
-12. Slutrapport med plan vs utfall.
+- Default to sequential agents unless the user explicitly wants parallel work.
+- Prefer a three-tier model (`orchestrator` -> `track plans` -> micro-workloads) when it reduces repeated full-context prompts.
+- Validate each workload before starting the next one.
+- Let the orchestrator agent apply small follow-up fixes between workloads when needed.
+- End with a final sweep for dead code, ghost routes, stale files, and documentation drift.

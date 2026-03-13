@@ -9,6 +9,7 @@ alwaysApply: true
 - Use `docs/schemas/` only for stable human-readable schema docs whose runtime truth lives in code.
 - Use `docs/analyses/` for investigations, comparisons, and temporary analysis artifacts.
 - Use `docs/old/` for historical or superseded material.
+- Use `.cursor/orchestrator/run/` for dated execution traces, workload logs, and verification artifacts from orchestrator-led automation.
 - Before adding a new document, classify it as `active`, `review-needed`, or `archived`.
 - If a document is partial, stale, or waiting for truth-check, do not present it as canonical.
 - Prefer replacing or relocating overlapping documentation instead of leaving

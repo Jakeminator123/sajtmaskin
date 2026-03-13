@@ -11,7 +11,7 @@ documentation.
   `structure-and-terminology.md`, `generation-loop-and-error-memory.md`,
   `project-settings-and-builder-questions.md`, `builder-prompt-layer.md`,
   `repo-hygiene.md`, `documentation-lifecycle.md`,
-  `agent-roadmap-and-handoff.md`
+  `agent-roadmap-and-handoff.md`, `orchestrator-run-protocol.md`
 - `docs/schemas/`
   Canonical human docs for important schemas, model/build-profile mappings, and
   scaffold contracts.
@@ -89,3 +89,8 @@ The plan system is also being normalized into explicit lifecycle buckets. See
 `docs/architecture/documentation-lifecycle.md` and
 `docs/architecture/agent-roadmap-and-handoff.md` for the current routing and
 status map.
+
+Repository-local multi-agent execution traces now live under
+`.cursor/orchestrator/run/`. See
+`docs/architecture/orchestrator-run-protocol.md` for the storage and handoff
+model.

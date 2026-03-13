@@ -8,6 +8,7 @@ alwaysApply: true
 - New execution-ready plans belong in `docs/plans/active/`.
 - Plans that are partially implemented, blocked, stale, or need verification belong in `docs/plans/review-needed/`.
 - Fully executed or superseded plans belong in `docs/plans/archived/`.
+- Execution traces for `orchestrator run` work belong in `.cursor/orchestrator/run/`, not in `docs/plans/`, unless the artifact is being promoted into a durable canonical plan.
 - Treat a plan as fully executed when its own checklist is complete and its implementation status is explicitly marked completed.
 - Archive completed plans in the same work session instead of leaving them in `active/`.
 - If a sequential plan flow is finished (for example phase 1 -> phase 2 -> phase 3 files), archive the whole finished sequence together.

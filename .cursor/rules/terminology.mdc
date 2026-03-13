@@ -100,6 +100,19 @@ Treat common misspellings and spoken-style aliases as canonical platform names:
 
 When answering, prefer canonical names (`Vercel`, `v0`) even if user writes an alias.
 
+### Orchestrator terms
+
+Use this vocabulary consistently for automation work:
+
+- `orchestrator run` - the full dated execution folder under `.cursor/orchestrator/run/`
+- `orchestrator agent` - the coordinator that plans, delegates, validates, and performs minor fixes
+- `run roadmap` - the per-run `ROADMAP.md`
+- `track plan` - an intermediate tier-2 plan for one broader workstream inside an orchestrator run
+- `agent log` - a per-workload execution note written by the delegated agent
+- `final sweep` - the closing cleanup and audit pass for dead code, ghost routes, stale files, and doc drift
+
+Treat `run automation` as a legacy alias for `orchestrator run`.
+
 ### Research pipeline terms
 
 Use this pipeline vocabulary consistently:
