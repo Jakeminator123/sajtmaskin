@@ -15,12 +15,12 @@ question UX, see `docs/architecture/project-settings-and-builder-questions.md`.
 
 ## Scope
 
-This describes the current behavior after the generation audit pass on
-`egen-motor-v2`.
+This describes the current behavior after the preview-guard and error-memory
+hardening pass on `egen-motor-v2`.
 
-It does not describe a future draft/promote version model. Today, the system
-still creates a visible version before the client-side post-check and
-quality-gate layers finish.
+The system still creates a persisted version before the client-side post-check
+and quality-gate layers finish, but it now withholds the active preview URL for
+versions that fail blocking server-side preflight checks.
 
 ## Current Loop
 
@@ -30,8 +30,11 @@ flowchart TD
   streamRoute --> engineStream[Engine content and thinking SSE]
   engineStream --> finalizeVersion[FinalizeAndSaveVersion]
   finalizeVersion --> versionCreated[Version created]
-  versionCreated --> previewReady[Preview URL available]
+  versionCreated --> previewGate{Blocking preflight errors?}
+  previewGate -->|no| previewReady[Preview URL available]
+  previewGate -->|yes| previewBlocked[Preview withheld]
   previewReady --> postChecks[Post checks]
+  previewBlocked --> postChecks
   postChecks --> errorLogs[Version error logs]
   postChecks --> qualityGate[Sandbox quality gate]
   qualityGate --> errorLogs
@@ -146,6 +149,24 @@ Relevant code source:
 
 - `src/lib/gen/stream/finalize-version.ts`
 
+### Blocking preview guard
+
+After merge and repair, the server now runs one more syntax pass against the
+final merged file set that would actually be saved. If blocking errors remain,
+the version is marked failed and the stream does not expose an active preview
+URL for that version.
+
+Practical effect:
+
+- broken JSX/TS that survives earlier repair passes no longer becomes the active
+  own-engine preview by default
+- the failed version still exists for diagnostics and repair
+- post-check and auto-fix can still inspect it through version logs
+
+Relevant code source:
+
+- `src/lib/gen/stream/finalize-version.ts`
+
 ### 2. Client-side autofix after the first version already exists
 
 This happens after:
@@ -168,6 +189,38 @@ This is the current reason you can see:
 
 - one generated version
 - then a second minimal repair version
+
+### What changed in the hardening pass
+
+Client-side auto-fix now has two extra guards:
+
+- only the newest version in a chat may enqueue an automatic repair prompt
+- older pending auto-fix timers are cleared before newer ones are scheduled
+
+This reduces overlapping repair generations where an older version is still
+verifying while a newer version has already started generating.
+
+Relevant code source:
+
+- `src/lib/hooks/chat/useAutoFix.ts`
+
+### Richer error memory for auto-fix
+
+Automatic repair prompts now summarize persisted version logs more selectively:
+
+- noisy `info` entries like successful render telemetry are filtered out
+- quality-gate command output is included when available
+- preview, CSS, preflight-issue, and render-telemetry details are prioritized
+- SEO warnings are treated as secondary when blocking diagnostics already exist
+
+This makes the repair prompt more similar to a Lovable-style "Try to Fix"
+workflow where the repair model receives concrete compiler/runtime evidence
+instead of only generic `build failed` summaries.
+
+Relevant code sources:
+
+- `src/lib/hooks/chat/useAutoFix.ts`
+- `src/lib/hooks/chat/helpers.ts`
 
 ## Why The Chat Bubble Can Look Heavy
 
@@ -239,9 +292,9 @@ storage and publish-time env sync, see
 
 ## Current Limits
 
-- The system still exposes a version before post-check and quality-gate complete.
-- The UI now labels obviously provisional versions more clearly, but this is
-  still not the same as withholding release until all checks pass.
+- The system still persists a version before post-check and quality-gate complete.
+- Blocking server-side preflight can now withhold the active preview URL, but it
+  is still not the same as a full draft/promote lifecycle.
 - Client-side auto-fix still creates a new follow-up generation rather than
   mutating the same version in place.
 - Scaffold is still persisted canonically on the chat, not on the version row.

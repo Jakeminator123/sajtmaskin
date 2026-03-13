@@ -39,7 +39,7 @@ export type GenerateSiteResult = {
   chatId: string;
   versionId: string;
   messageId: string;
-  previewUrl: string;
+  previewUrl: string | null;
   runtimeMode: RuntimeMode;
   runtimeUrl: string | null;
   sandboxId?: string;

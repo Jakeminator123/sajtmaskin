@@ -47,7 +47,7 @@ export interface FinalizeParams {
 export interface FinalizeResult {
   version: { id: string };
   messageId: string;
-  previewUrl: string;
+  previewUrl: string | null;
   filesJson: string;
   contentForVersion: string;
 }
@@ -395,6 +395,7 @@ export async function finalizeAndSaveVersion(
   });
   const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
   const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
+  const hasBlockingPreflightErrors = preflightErrors.length > 0;
   const preflightLogs: Array<{
     chatId: string;
     versionId: string;
@@ -497,13 +498,40 @@ export async function finalizeAndSaveVersion(
     });
   }
 
-  const previewUrl = buildPreviewUrl(chatId, version.id);
+  if (hasBlockingPreflightErrors) {
+    try {
+      await chatRepo.failVersionVerification(
+        version.id,
+        "Automatic preflight found blocking issues before preview.",
+      );
+      devLogAppend("in-progress", {
+        type: "preflight.version.failed",
+        chatId,
+        versionId: version.id,
+        errorCount: preflightErrors.length,
+      });
+    } catch (verificationErr) {
+      console.warn("[preflight] Failed to mark version failed after blocking errors:", verificationErr);
+      devLogAppend("in-progress", {
+        type: "preflight.version.fail-error",
+        chatId,
+        versionId: version.id,
+        message:
+          verificationErr instanceof Error
+            ? verificationErr.message
+            : "Unknown preflight verification update error",
+      });
+    }
+  }
+
+  const previewUrl = hasBlockingPreflightErrors ? null : buildPreviewUrl(chatId, version.id);
 
   debugLog("engine", "Version saved via finalizeAndSaveVersion", {
     chatId,
     versionId: version.id,
     contentLen: contentForVersion.length,
     scaffold: resolvedScaffold?.id ?? null,
+    previewBlocked: hasBlockingPreflightErrors,
   });
 
   return {
