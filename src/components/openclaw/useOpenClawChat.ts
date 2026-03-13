@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from "react";
 import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
+import { collectOpenClawTextFieldContext } from "@/lib/openclaw/text-field-actions";
 
 declare global {
   interface Window {
@@ -15,7 +16,13 @@ function makeId() {
 
 function collectContext(): Record<string, unknown> | null {
   if (typeof window === "undefined") return null;
-  return window.__SITEMASKIN_CONTEXT ?? null;
+  const baseContext = window.__SITEMASKIN_CONTEXT ?? null;
+  const textFields = collectOpenClawTextFieldContext();
+  if (!baseContext && textFields.length === 0) return null;
+  return {
+    ...(baseContext ?? {}),
+    ...(textFields.length > 0 ? { textFields } : {}),
+  };
 }
 
 /**

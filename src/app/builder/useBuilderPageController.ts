@@ -1251,6 +1251,7 @@ export function useBuilderPageController() {
     // State (pass through what the shell needs)
     chatId: state.chatId,
     messages: state.messages,
+    buildMethod: state.buildMethod,
     selectedModelTier: state.selectedModelTier,
     promptAssistModel: state.promptAssistModel,
     promptAssistDeep: state.promptAssistDeep,

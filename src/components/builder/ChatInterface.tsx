@@ -1061,6 +1061,8 @@ export function ChatInterface({
         )}
         <PromptInputBody>
           <PromptInputTextarea
+            data-openclaw-text-target="builder.chat.primary"
+            data-openclaw-text-label="Builderns huvudprompt"
             placeholder={
               chatId
                 ? "Skriv en uppdatering... (Enter för att skicka)"

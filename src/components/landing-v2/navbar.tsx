@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
 import { LogOut, Menu, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatedLogo } from "./animated-logo";
@@ -33,7 +34,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
     { href: "#teknik", label: "Teknik" },
     { href: "#hur-det-fungerar", label: "Hur det fungerar" },
     { href: "#priser", label: "Priser" },
-    { href: "#faq", label: "FAQ" },
+    { href: "/faq", label: "FAQ" },
   ];
 
   const handlePrimaryClick = () => {
@@ -75,13 +76,13 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
 
       <div className="hidden lg:flex items-center gap-1">
         {navLinks.map((link) => (
-          <a
+          <Link
             key={link.href}
             href={link.href}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-secondary/40"
           >
             {link.label}
-          </a>
+          </Link>
         ))}
       </div>
 
@@ -124,14 +125,14 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
       {mobileOpen && (
         <div className="absolute top-full left-0 right-0 z-50 border-b border-border/30 bg-background/95 backdrop-blur-xl p-6 flex flex-col gap-1 lg:hidden animate-fade-up">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-3 rounded-lg hover:bg-secondary/40"
               onClick={() => setMobileOpen(false)}
             >
               {link.label}
-            </a>
+            </Link>
           ))}
           <div className="flex flex-col gap-2 pt-4 mt-2 border-t border-border/30">
             {isInitialized && isAuthenticated && (

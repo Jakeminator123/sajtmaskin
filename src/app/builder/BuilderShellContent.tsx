@@ -26,6 +26,10 @@ import {
   buildPromptSourceMessage,
   type PromptSourceMeta,
 } from "@/lib/builder/prompt-builder";
+import {
+  MODEL_TIER_OPTIONS,
+  getPromptAssistModelLabel,
+} from "@/lib/builder/defaults";
 import type { ChatMessage } from "@/lib/builder/types";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
@@ -341,12 +345,24 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, []);
 
   useEffect(() => {
+    const selectedModelLabel =
+      MODEL_TIER_OPTIONS.find((option) => option.value === vm.selectedModelTier)?.label ??
+      vm.selectedModelTier;
+
     window.__SITEMASKIN_CONTEXT = {
       page: "builder",
       projectId: vm.appProjectId,
       chatId: vm.chatId,
+      buildMethod: vm.buildMethod,
       activeVersionId: vm.activeVersionId,
       demoUrl: vm.currentDemoUrl,
+      selectedModelTier: vm.selectedModelTier,
+      selectedModelLabel,
+      promptAssistModel: vm.promptAssistModel,
+      promptAssistLabel: getPromptAssistModelLabel(vm.promptAssistModel),
+      promptAssistDeep: vm.promptAssistDeep,
+      scaffoldMode: vm.scaffoldMode,
+      scaffoldId: vm.scaffoldId,
       recentMessages: buildRecentContextMessages(vm.messages),
       currentCode: vm.currentPageCode?.slice(0, OPENCLAW_CONTEXT_CODE_MAX_CHARS) || null,
       isStreaming: vm.isAnyStreaming,
@@ -357,8 +373,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, [
     vm.appProjectId,
     vm.chatId,
+    vm.buildMethod,
     vm.activeVersionId,
     vm.currentDemoUrl,
+    vm.selectedModelTier,
+    vm.promptAssistModel,
+    vm.promptAssistDeep,
+    vm.scaffoldMode,
+    vm.scaffoldId,
     vm.messages,
     vm.currentPageCode,
     vm.isAnyStreaming,
