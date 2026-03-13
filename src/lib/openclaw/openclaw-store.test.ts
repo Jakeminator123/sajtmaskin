@@ -7,6 +7,7 @@ describe("OpenClaw store assistant targeting", () => {
       isOpen: false,
       messages: [],
       isStreaming: false,
+      scopeKey: "global",
     });
   });
 
@@ -55,5 +56,30 @@ describe("OpenClaw store assistant targeting", () => {
     expect(useOpenClawStore.getState().messages).toEqual([
       expect.objectContaining({ id: "assistant-1", content: "existing" }),
     ]);
+  });
+
+  it("resets messages and closes the panel when the scope changes", () => {
+    useOpenClawStore.setState({
+      isOpen: true,
+      isStreaming: true,
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "existing",
+          timestamp: 1,
+        },
+      ],
+      scopeKey: "/builder::builder::chat_1",
+    });
+
+    useOpenClawStore.getState().setScope("/kostnadsfri/acme::kostnadsfri");
+
+    expect(useOpenClawStore.getState()).toMatchObject({
+      isOpen: false,
+      isStreaming: false,
+      messages: [],
+      scopeKey: "/kostnadsfri/acme::kostnadsfri",
+    });
   });
 });

@@ -128,12 +128,12 @@ export async function finalizeAndSaveVersion(
           warnings: autoFixResult.warnings.slice(0, 20),
           dependencies: autoFixResult.dependencies,
         });
-        onProgress?.("autofix", {
-          phase: "done",
-          fixes: autoFixResult.fixes.length,
-          warnings: autoFixResult.warnings.length,
-        });
       }
+      onProgress?.("autofix", {
+        phase: "done",
+        fixes: autoFixResult.fixes.length,
+        warnings: autoFixResult.warnings.length,
+      });
     } catch (autofixErr) {
       console.warn("[autofix] Pipeline error, using raw content:", autofixErr);
       onProgress?.("autofix", { phase: "error" });
@@ -446,6 +446,7 @@ export async function finalizeAndSaveVersion(
     fileCount: preflightFileCount,
     issueCount: preflightIssues.length,
   });
+  const preflightFailureSummary = "Automatic preflight found blocking issues before preview.";
   try {
     await createEngineVersionErrorLogs(preflightLogs);
     devLogAppend("in-progress", {
@@ -475,8 +476,8 @@ export async function finalizeAndSaveVersion(
         completion: tokenUsage?.completion,
       },
       Date.now() - startedAt,
-      true,
-      logNote,
+      !hasBlockingPreflightErrors,
+      hasBlockingPreflightErrors ? preflightFailureSummary : logNote,
     );
     devLogAppend("in-progress", {
       type: "generation-log.persisted",
@@ -502,7 +503,7 @@ export async function finalizeAndSaveVersion(
     try {
       await chatRepo.failVersionVerification(
         version.id,
-        "Automatic preflight found blocking issues before preview.",
+        preflightFailureSummary,
       );
       devLogAppend("in-progress", {
         type: "preflight.version.failed",

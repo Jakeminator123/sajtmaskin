@@ -3,6 +3,7 @@ import { OPENCLAW } from "@/lib/config";
 import { prepareCredits } from "@/lib/credits/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { resolveFileContext } from "@/lib/openclaw/resolve-file-context";
+import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -173,11 +174,20 @@ function normalizeTipText(text: string): string {
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "openclaw:tips", async () => {
+    const surface = getOpenClawSurfaceStatus();
     const gatewayUrl = OPENCLAW.gatewayUrl;
     const gatewayToken = OPENCLAW.gatewayToken;
 
-    if (!gatewayUrl) {
-      return NextResponse.json({ success: false, error: "OpenClaw gateway not configured" }, { status: 503 });
+    if (!surface.surfaceEnabled) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "OpenClaw surface disabled",
+          surfaceStatus: surface.surfaceStatus,
+          blockers: surface.blockers,
+        },
+        { status: 503 },
+      );
     }
 
     const creditCheck = await prepareCredits(req, "openclaw.tip");

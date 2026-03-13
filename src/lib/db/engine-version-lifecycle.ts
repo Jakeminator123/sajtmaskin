@@ -35,13 +35,20 @@ export function resolveEngineVersionLifecycleStatus(
   if (releaseState === "promoted") {
     return "promoted";
   }
-  if (verificationState === "verifying") {
+  if (verificationState === "pending" || verificationState === "verifying") {
     return "verifying";
   }
   if (verificationState === "failed") {
     return "failed";
   }
   return "draft";
+}
+
+export function canExposeEnginePreview(
+  version: EngineVersionLifecycleLike | null | undefined,
+): boolean {
+  if (!version) return false;
+  return resolveEngineVersionLifecycleStatus(version) !== "failed";
 }
 
 function getVersionSortKey(version: EngineVersionLifecycleLike): number {

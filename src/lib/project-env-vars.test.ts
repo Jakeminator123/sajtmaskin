@@ -165,6 +165,33 @@ describe("project env var storage invariants", () => {
     ]);
   });
 
+  it("uses deterministic legacy ids for stored entries that predate the id field", async () => {
+    getProjectData.mockResolvedValue({
+      meta: {
+        projectEnvVars: [
+          {
+            key: "API_KEY",
+            value: envVarCipher.encryptValue("super-secret"),
+            sensitive: true,
+          },
+        ],
+      },
+    });
+
+    const firstRead = await getStoredProjectEnvVars("proj_1");
+    const secondRead = await getStoredProjectEnvVars("proj_1");
+
+    expect(firstRead[0]?.id).toBe("legacy:API_KEY");
+    expect(secondRead[0]?.id).toBe("legacy:API_KEY");
+
+    await deleteStoredProjectEnvVars("proj_1", { ids: ["legacy:API_KEY"] });
+
+    const savedMeta = saveProjectData.mock.calls[0][0].meta as {
+      projectEnvVars: Array<{ key: string }>;
+    };
+    expect(savedMeta.projectEnvVars).toEqual([]);
+  });
+
   it("fails closed when sensitive env vars are saved without an encryption key", async () => {
     getProjectData.mockResolvedValue({ meta: null });
     const keySpy = vi.spyOn(envVarCipher, "hasEnvVarEncryptionKey").mockReturnValue(false);

@@ -350,11 +350,14 @@ export const OPENCLAW = {
   get enabled(): boolean {
     return Boolean(env.OPENCLAW_GATEWAY_URL);
   },
+  get tokenConfigured(): boolean {
+    return Boolean(env.OPENCLAW_GATEWAY_TOKEN);
+  },
   get implementationFlagEnabled(): boolean {
     return isAffirmativeEnvValue(env.IMPLEMENT_UNDERSCORE_CLAW);
   },
   get surfaceEnabled(): boolean {
-    return this.enabled && this.implementationFlagEnabled;
+    return this.enabled && this.tokenConfigured && this.implementationFlagEnabled;
   },
 } as const;
 

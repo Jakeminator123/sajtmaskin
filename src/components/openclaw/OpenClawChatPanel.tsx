@@ -77,7 +77,7 @@ export function OpenClawChatPanel({
     <div
       className={cn(
         "flex flex-col overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/95 text-slate-50 shadow-2xl shadow-cyan-950/35 backdrop-blur-xl",
-        "h-[min(500px,80vh)] w-[380px]",
+        "h-[min(500px,calc(100vh-7rem))] w-[min(380px,calc(100vw-1rem))] max-w-[calc(100vw-1rem)]",
       )}
     >
       <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-3">

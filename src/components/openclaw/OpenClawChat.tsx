@@ -65,6 +65,14 @@ function readKostnadsfriSurfaceContext(): KostnadsfriOpenClawSurfaceContext | nu
   };
 }
 
+function readOpenClawScopeKey(pathname: string): string {
+  if (typeof window === "undefined") return pathname;
+  const context = window.__SITEMASKIN_CONTEXT;
+  const page = typeof context?.page === "string" ? context.page.trim() : "";
+  const chatId = typeof context?.chatId === "string" ? context.chatId.trim() : "";
+  return [pathname, page, chatId].filter(Boolean).join("::") || pathname;
+}
+
 function getKostnadsfriSurfaceContent(
   companyName: string,
   config?: KostnadsfriOpenClawSurfaceContext | null,
@@ -128,11 +136,12 @@ function getSurfaceContent(
 
 export function OpenClawChat() {
   const pathname = usePathname();
-  const { isOpen, toggle, close } = useOpenClawStore();
+  const { isOpen, toggle, close, setScope } = useOpenClawStore();
   const [showTeaser, setShowTeaser] = useState(true);
   const [contextSurface, setContextSurface] = useState<KostnadsfriOpenClawSurfaceContext | null>(
     null,
   );
+  const [scopeKey, setScopeKey] = useState(pathname);
   const content = useMemo(
     () => getSurfaceContent(pathname, contextSurface),
     [pathname, contextSurface],
@@ -152,6 +161,7 @@ export function OpenClawChat() {
   useEffect(() => {
     const syncContext = () => {
       setContextSurface(readKostnadsfriSurfaceContext());
+      setScopeKey(readOpenClawScopeKey(pathname));
     };
 
     syncContext();
@@ -159,7 +169,11 @@ export function OpenClawChat() {
     return () => {
       window.removeEventListener("sajtmaskin:context-updated", syncContext);
     };
-  }, []);
+  }, [pathname]);
+
+  useEffect(() => {
+    setScope(scopeKey);
+  }, [scopeKey, setScope]);
 
   const handleOpen = () => {
     setShowTeaser(false);
@@ -167,9 +181,9 @@ export function OpenClawChat() {
   };
 
   return (
-    <div className="fixed right-6 bottom-6 z-50 flex flex-col items-end gap-3">
+    <div className="fixed inset-x-3 bottom-3 z-50 flex flex-col items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end">
       {showRouteTeaser ? (
-        <div className="w-[min(22rem,calc(100vw-3rem))] overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/90 text-slate-50 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl">
+        <div className="w-full max-w-[22rem] self-end overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/90 text-slate-50 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl">
           <div className="bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.26),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.22),transparent_38%)] px-4 py-4">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
@@ -234,7 +248,7 @@ export function OpenClawChat() {
         type="button"
         onClick={handleOpen}
         className={cn(
-          "group relative flex items-center gap-3 overflow-hidden rounded-full border px-4 py-3 shadow-lg transition-all duration-200",
+          "group relative flex self-end items-center gap-3 overflow-hidden rounded-full border px-4 py-3 shadow-lg transition-all duration-200",
           isOpen
             ? "border-border bg-muted text-muted-foreground hover:bg-muted/90"
             : "border-cyan-400/30 bg-slate-950 text-slate-50 shadow-cyan-950/40 hover:-translate-y-0.5",

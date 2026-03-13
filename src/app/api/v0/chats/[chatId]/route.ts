@@ -3,12 +3,17 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq, desc } from "drizzle-orm";
-import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
+import {
+  getChatByV0ChatIdForRequest,
+  getEngineChatByIdForRequest,
+  getProjectByIdForRequest,
+} from "@/lib/tenant";
 import { nanoid } from "nanoid";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
+import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 
 type V0ChatSummary = {
   latest: {
@@ -17,6 +22,7 @@ type V0ChatSummary = {
     demoUrl: string | null;
     messageId: string | null;
   } | null;
+  projectId: string | null;
   versionId: string | null;
   demoUrl: string | null;
   webUrl: string | null;
@@ -45,6 +51,7 @@ function getV0ChatSummary(value: unknown): V0ChatSummary {
           messageId: asString(latest.messageId),
         }
       : null,
+    projectId: asString(chat?.projectId),
     versionId: asString(chat?.versionId),
     demoUrl: asString(chat?.demoUrl),
     webUrl: asString(chat?.webUrl),
@@ -68,6 +75,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           (await getPreferredVersion(resolvedChatId)) ??
           (await getLatestVersion(resolvedChatId));
         const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
+        const previewUrl =
+          latest && canExposeEnginePreview(latest)
+            ? buildPreviewUrl(resolvedChatId, latest.id)
+            : null;
 
         return NextResponse.json({
           id: chat.id,
@@ -78,7 +89,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           scaffoldId: chat.scaffold_id,
           scaffoldFamily: resolvedScaffold?.family ?? null,
           scaffoldLabel: resolvedScaffold?.label ?? null,
-          demoUrl: latest ? buildPreviewUrl(resolvedChatId, latest.id) : null,
+          demoUrl: previewUrl,
           createdAt: chat.created_at,
           updatedAt: chat.updated_at,
           messages: chat.messages.map((m) => ({
@@ -93,7 +104,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             ? {
                 id: latest.id,
                 versionId: latest.id,
-                demoUrl: buildPreviewUrl(resolvedChatId, latest.id),
+                demoUrl: previewUrl,
                 createdAt: latest.created_at,
                 versionNumber: latest.version_number,
                 messageId: latest.message_id,
@@ -148,6 +159,19 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       try {
         assertV0Key();
         const v0Chat = getV0ChatSummary(await v0.chats.getById({ chatId }));
+        if (!v0Chat.projectId) {
+          return NextResponse.json(
+            { error: "Chat not found" },
+            { status: 404 },
+          );
+        }
+        const ownedProject = await getProjectByIdForRequest(req, v0Chat.projectId);
+        if (!ownedProject) {
+          return NextResponse.json(
+            { error: "Chat not found" },
+            { status: 404 },
+          );
+        }
         const latest = v0Chat.latest;
         const versionId = latest?.id || latest?.versionId || v0Chat.versionId || null;
         const demoUrl = latest?.demoUrl || v0Chat.demoUrl || null;
@@ -156,7 +180,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           chatId,
           id: chatId,
           v0ChatId: chatId,
-          v0ProjectId: null,
+          v0ProjectId: ownedProject.v0ProjectId ?? v0Chat.projectId,
           webUrl: v0Chat.webUrl,
           createdAt: v0Chat.createdAt,
           updatedAt: v0Chat.updatedAt,

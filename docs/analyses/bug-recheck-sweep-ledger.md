@@ -328,3 +328,94 @@ Related execution plan:
 ### Follow-up risks
 
 - If the archive bucket becomes writable later, the closed plan file should be moved from `review-needed/` to `archived/` for perfect lifecycle hygiene.
+
+## 2026-03-13 - Regression pass completed
+
+### Scope
+
+- Compared `jakob` branch HEAD against its merge-base with `main` (~13 h of prior agent work).
+- Identified six regression areas introduced or worsened during the earlier sweep.
+- Implemented and verified all fixes in a single pass.
+
+### Areas fixed
+
+#### 1. Backend safety — tenant fallback and preview gating
+
+- `src/app/api/v0/chats/[chatId]/route.ts`
+- `src/app/api/v0/chats/[chatId]/versions/route.ts`
+- `src/lib/db/engine-version-lifecycle.ts`
+
+Chat-read and versions-read routes now verify project ownership before
+returning v0-fallback data and suppress preview URLs for failed engine
+versions. `verificationState === "pending"` is now treated as `"verifying"`
+instead of mapping to `"ready"`.
+
+#### 2. Stream finalization — duplicate done events and analytics
+
+- `src/app/api/v0/chats/stream/route.ts`
+- `src/lib/gen/stream/finalize-version.ts`
+
+Eliminated a race that could send two `done` SSE events to the client.
+Autofix progress now always emits a terminal `phase: "done"` event.
+Blocked-preflight generations are logged as `success: false` with a
+descriptive note.
+
+#### 3. Environment variable stability
+
+- `src/lib/project-env-vars.ts`
+
+Legacy env-var entries that predate the `id` field now receive a
+deterministic `legacy:KEY` identifier instead of `crypto.randomUUID()`,
+preventing phantom duplicates on every read.
+
+#### 4. Builder tooling — quick-reply and post-check status
+
+- `src/components/builder/BuilderMessageTooling.tsx`
+- `src/lib/hooks/chat/post-checks.ts`
+
+Synthetic approval buttons now only render for explicit approval requests
+or questions identified as approval-like. Post-check status distinguishes
+between quality-gate-pending, autofix-queued, and general provisional states.
+
+#### 5. OpenClaw surface — token gating, scope isolation, mobile layout
+
+- `src/lib/config.ts`
+- `src/lib/openclaw/status.ts`
+- `src/app/api/openclaw/tips/route.ts`
+- `src/lib/openclaw/openclaw-store.ts`
+- `src/components/openclaw/useOpenClawChat.ts`
+- `src/components/openclaw/OpenClawChat.tsx`
+- `src/components/openclaw/OpenClawChatPanel.tsx`
+
+`surfaceEnabled` now requires `OPENCLAW_GATEWAY_TOKEN` in addition to
+URL and feature flag. The tips route fails fast with 503 when the surface
+is disabled. The chat store resets messages when navigating between
+builder routes. Panel sizing is viewport-clamped for narrow screens.
+
+#### 6. Regression tests
+
+New targeted test files covering all five areas above:
+
+- `src/app/api/v0/chats/[chatId]/route.test.ts`
+- `src/app/api/v0/chats/[chatId]/versions/route.test.ts`
+- `src/lib/gen/stream/finalize-version.test.ts`
+- `src/components/builder/BuilderMessageTooling.test.tsx`
+- `src/components/openclaw/OpenClawChatPanel.test.tsx`
+- `src/lib/openclaw/status.test.ts`
+
+Expanded existing tests:
+
+- `src/lib/project-env-vars.test.ts` (deterministic legacy IDs)
+- `src/lib/openclaw/openclaw-store.test.ts` (scope-change reset)
+
+### Tests run
+
+- `npx tsc --noEmit` — 0 errors
+- `npx vitest run` — 23 files, 101 tests passed (including all new DOM tests)
+- `ReadLints` on all modified files — 0 errors
+
+### Follow-up risks
+
+- No live browser-automation test covers the OpenClaw scope-reset or mobile panel layout.
+- The builder quick-reply heuristic (`looksLikeApprovalQuestion`) is pattern-based and may need tuning for new prompt phrasings.
+- `canExposeEnginePreview` gates on `resolveEngineVersionLifecycleStatus !== "failed"` which is generous; a stricter gate on `"ready"` or `"promoted"` could be considered later.
