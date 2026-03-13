@@ -11,7 +11,7 @@ Use this skill for long, structured, multi-step execution that should be tracked
 
 1. Read `.cursor/orchestrator/PROTOCOL.md`.
 2. Use `.cursor/rules/terminology.mdc` for canonical run terms.
-3. Treat `run automation` as a legacy alias for the same flow.
+3. Treat `/orchestrator`, `/automation`, and `run automation` as valid aliases for the same flow.
 4. Create or continue a dated folder in `.cursor/orchestrator/run/`.
 
 ## Non-negotiable rules
@@ -57,6 +57,14 @@ Use `context/raw-input/`, `context/compiled-input/`, and `artifacts/` when they 
 5. Verify, patch small issues, and record what happened.
 6. Run the final sweep before closeout.
 7. Promote durable conclusions into normal repository docs when appropriate.
+
+## Startup message behavior
+
+- When the user starts with `/orchestrator` or `/automation`, treat that as a
+  compact command to enter this workflow.
+- Reply first with a short intention summary such as what you will scan, plan,
+  or scaffold next.
+- Ask clarifying questions only when the request is too thin to start safely.
 
 ## Output behavior
 

@@ -7,7 +7,11 @@ alwaysApply: true
 
 Apply this rule when the user asks for multi-agent automation, an
 `orchestrator agent`, sequential workloads, a roadmap-driven execution pass, or
-uses the legacy phrase `run automation`.
+uses any of these startup triggers:
+
+- `/orchestrator`
+- `/automation`
+- `run automation`
 
 ## Canonical source
 
@@ -41,3 +45,12 @@ Every orchestrator run should maintain:
 - Validate each workload before starting the next one.
 - Let the orchestrator agent apply small follow-up fixes between workloads when needed.
 - End with a final sweep for dead code, ghost routes, stale files, and documentation drift.
+
+## Startup behavior
+
+- If a message starts with `/orchestrator` or `/automation`, treat that as enough
+  context to enter the orchestrator-run system without the user re-explaining the
+  whole protocol.
+- Start by writing a short intention summary describing what will happen next.
+- If the request is underspecified, ask only the smallest set of clarifying
+  questions needed to start safely.

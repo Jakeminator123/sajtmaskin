@@ -12,6 +12,18 @@ Use an `orchestrator run` when work needs:
 - verification between steps
 - a durable audit trail of what changed and why
 
+## Startup aliases
+
+Use these as compact entry phrases for the same system:
+
+- `/orchestrator`
+- `/automation`
+- `run automation` (legacy)
+
+When one of these appears at the start of the chat, the agent should treat it as
+enough signal to enter the orchestrator-run workflow, respond with a short
+intention summary, and ask only the clarifying questions needed to scope the run.
+
 ## Canonical storage
 
 All new runs live under:

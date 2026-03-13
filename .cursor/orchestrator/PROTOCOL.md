@@ -21,8 +21,17 @@ Rules:
 
 - Keep completed runs in place under `run/`; the dated folder is the archive.
 - Do not create new run outputs under `.cursor/automation/`.
-- Treat `run automation` as a legacy alias for starting an `orchestrator run`.
+- Treat `/orchestrator`, `/automation`, and `run automation` as valid startup aliases for beginning an `orchestrator run`.
 - If an older automation folder contains useful history, treat it as reference input only.
+
+## Startup trigger behavior
+
+If the user's message starts with `/orchestrator` or `/automation`:
+
+- assume they want to enter the orchestrator-run system immediately
+- do not require them to restate the whole protocol
+- begin with a short intention summary describing what the orchestrator agent is about to do
+- ask only the minimum clarifying questions needed to make the run safe and well-scoped
 
 ## Required run structure
 
