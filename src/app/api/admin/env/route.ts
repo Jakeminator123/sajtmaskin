@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth";
-import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
+import { requireAdminAccess } from "@/lib/auth/admin";
 import { FEATURES, URLS } from "@/lib/config";
+import { checkOpenClawGatewayHealth } from "@/lib/openclaw/status";
 
 type EnvKeyStatus = {
   key: string;
@@ -42,6 +42,13 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "UPSTASH_REDIS_REST_TOKEN", required: false, notes: "Rate limits" },
   { key: "REDIS_URL", required: false, notes: "Redis cache" },
   { key: "KV_URL", required: false, notes: "Redis cache" },
+  { key: "OPENCLAW_GATEWAY_URL", required: false, notes: "OpenClaw gateway URL" },
+  { key: "OPENCLAW_GATEWAY_TOKEN", required: false, notes: "OpenClaw gateway auth" },
+  {
+    key: "IMPLEMENT_UNDERSCORE_CLAW",
+    required: false,
+    notes: "Enables the OpenClaw UI surface when the gateway is configured",
+  },
   {
     key: "OPENAI_API_KEY",
     required: () => !isV0FallbackEnabled(),
@@ -125,16 +132,13 @@ function hasEnv(key: string): boolean {
   return true;
 }
 
-async function isAdmin(req: NextRequest): Promise<boolean> {
-  const user = await getCurrentUser(req);
-  return Boolean(user?.email && isAdminEmailEdge(user.email));
-}
-
 export async function GET(req: NextRequest) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
+  const openclaw = await checkOpenClawGatewayHealth();
   const keys = ENV_KEYS.map((item) => ({
     ...item,
     required: typeof item.required === "function" ? item.required() : item.required,
@@ -154,6 +158,10 @@ export async function GET(req: NextRequest) {
     vercel: {
       teamId: process.env.VERCEL_TEAM_ID || null,
       projectId: process.env.VERCEL_PROJECT_ID || null,
+    },
+    openclaw: {
+      ...openclaw,
+      healthEndpoint: "/api/openclaw/health",
     },
     features: FEATURES,
     keys,

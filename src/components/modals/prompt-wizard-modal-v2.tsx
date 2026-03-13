@@ -1519,6 +1519,8 @@ export function PromptWizardModalV2({
                   Företagsnamn *
                 </label>
                 <input
+                  data-openclaw-text-target="wizard.about.company_name"
+                  data-openclaw-text-label="Wizard: företagsnamn"
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
@@ -1577,6 +1579,8 @@ export function PromptWizardModalV2({
                 </label>
                 <div className="flex gap-2">
                   <input
+                    data-openclaw-text-target="wizard.about.existing_website"
+                    data-openclaw-text-label="Wizard: befintlig hemsida"
                     type="url"
                     value={existingWebsite}
                     onChange={(e) => setExistingWebsite(e.target.value)}
@@ -1708,6 +1712,8 @@ export function PromptWizardModalV2({
                   </div>
                 )}
                 <textarea
+                  data-openclaw-text-target="wizard.goals.target_audience"
+                  data-openclaw-text-label="Wizard: målgrupp"
                   value={targetAudience}
                   onChange={(e) => setTargetAudience(e.target.value)}
                   placeholder={isEnriching ? "Analyserar din profil för att föreslå målgrupp..." : ""}
@@ -1725,6 +1731,8 @@ export function PromptWizardModalV2({
                 </label>
                 <div className="flex gap-2">
                   <textarea
+                    data-openclaw-text-target="wizard.goals.usp"
+                    data-openclaw-text-label="Wizard: USP"
                     value={usp}
                     onChange={(e) => setUsp(e.target.value)}
                     placeholder="T.ex. 'Bäst pris i Sverige', 'Personlig service', '20 års erfarenhet'..."
@@ -1803,6 +1811,8 @@ export function PromptWizardModalV2({
                   Vad vill du ändra/förbättra?
                 </label>
                 <textarea
+                  data-openclaw-text-target="wizard.research.site_feedback"
+                  data-openclaw-text-label="Wizard: vad ska förbättras"
                   value={siteFeedback}
                   onChange={(e) => setSiteFeedback(e.target.value)}
                   placeholder="T.ex. Ser föråldrad ut, svår navigation, dålig mobilversion..."
@@ -2135,6 +2145,8 @@ export function PromptWizardModalV2({
                   Egna önskemål <span className="font-normal text-gray-500">(valfritt)</span>
                 </label>
                 <textarea
+                  data-openclaw-text-target="wizard.final.special_wishes"
+                  data-openclaw-text-label="Wizard: egna önskemål"
                   value={specialWishes}
                   onChange={(e) => setSpecialWishes(e.target.value)}
                   placeholder="Beskriv fritt vad du vill ha på din webbplats..."
@@ -2277,6 +2289,8 @@ export function PromptWizardModalV2({
               </div>
 
               <textarea
+                data-openclaw-text-target="wizard.review.generated_brief"
+                data-openclaw-text-label="Wizard: genererad brief"
                 value={editedPrompt}
                 onChange={(e) => setEditedPrompt(e.target.value)}
                 rows={14}

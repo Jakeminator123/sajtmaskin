@@ -38,9 +38,9 @@ export async function createPromptLog(payload: {
     app_project_id: payload.appProjectId || null,
     v0_project_id: payload.v0ProjectId || null,
     chat_id: payload.chatId || null,
-    prompt_original: payload.promptOriginal || null,
-    prompt_formatted: payload.promptFormatted || null,
-    system_prompt: payload.systemPrompt || null,
+    prompt_original: payload.promptOriginal?.slice(0, 4000) || null,
+    prompt_formatted: payload.promptFormatted?.slice(0, 4000) || null,
+    system_prompt: payload.systemPrompt?.slice(0, 800) || null,
     prompt_assist_model: payload.promptAssistModel || null,
     prompt_assist_deep:
       typeof payload.promptAssistDeep === "boolean" ? payload.promptAssistDeep : null,

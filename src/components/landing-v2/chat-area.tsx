@@ -13,16 +13,25 @@ import {
   MessageCircleQuestion,
   ChevronDown,
   ArrowRight,
+  Activity,
+  Braces,
   CheckCircle2,
+  CreditCard,
+  Database,
   FileSearch,
+  GitBranch,
   Palette,
   Code2,
+  Send,
   Smartphone,
   ShieldCheck,
   Gauge,
   Layers,
   Server,
+  Wind,
+  type LucideIcon,
 } from "lucide-react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from "react"
 import { useRouter } from "next/navigation"
@@ -32,6 +41,11 @@ import { toast } from "sonner"
 import { ParticleOrb } from "@/components/landing-v2/particle-orb"
 import { LanyardBadge } from "@/components/landing-v2/lanyard-badge"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
+
+const HowItWorksScene = dynamic(
+  () => import("./how-it-works-scene").then((mod) => mod.HowItWorksScene),
+  { ssr: false, loading: () => <HowItWorksFallback /> },
+)
 
 /* ──────────────────── 3D TILT HOOK ──────────────────── */
 
@@ -269,36 +283,64 @@ const features = [
   },
 ]
 
-const techStack = [
-  { name: "React 19", category: "Frontend" },
-  { name: "Next.js 16", category: "Framework" },
-  { name: "TypeScript", category: "Spr\u00e5k" },
-  { name: "Tailwind CSS v4", category: "Styling" },
-  { name: "Node.js", category: "Runtime" },
-  { name: "Vercel Edge", category: "Hosting" },
-  { name: "PostgreSQL", category: "Databas" },
-  { name: "Zod", category: "Validering" },
-  { name: "Prisma", category: "ORM" },
-  { name: "Stripe", category: "Betalning" },
-  { name: "Resend", category: "E-post" },
-  { name: "Sentry", category: "Monitoring" },
+type TechStackItem = {
+  name: string
+  category: string
+  detail: string
+  icon: LucideIcon
+  glow: string
+}
+
+const techStack: TechStackItem[] = [
+  { name: "React 19", category: "Frontend", detail: "Server Components", icon: Code2, glow: "rgba(56, 189, 248, 0.16)" },
+  { name: "Next.js 16", category: "Framework", detail: "App Router", icon: Layers, glow: "rgba(148, 163, 184, 0.14)" },
+  { name: "TypeScript", category: "Språk", detail: "Strict mode", icon: Braces, glow: "rgba(59, 130, 246, 0.16)" },
+  { name: "Tailwind CSS v4", category: "Styling", detail: "Design tokens", icon: Wind, glow: "rgba(45, 212, 191, 0.16)" },
+  { name: "Node.js", category: "Runtime", detail: "API & automation", icon: Server, glow: "rgba(74, 222, 128, 0.16)" },
+  { name: "Vercel Edge", category: "Hosting", detail: "Global rendering", icon: Rocket, glow: "rgba(244, 244, 245, 0.12)" },
+  { name: "PostgreSQL", category: "Databas", detail: "Relational core", icon: Database, glow: "rgba(96, 165, 250, 0.15)" },
+  { name: "Zod", category: "Validering", detail: "Trusted input", icon: ShieldCheck, glow: "rgba(250, 204, 21, 0.15)" },
+  { name: "Prisma", category: "ORM", detail: "Schema to app", icon: GitBranch, glow: "rgba(167, 139, 250, 0.16)" },
+  { name: "Stripe", category: "Betalning", detail: "Checkout & billing", icon: CreditCard, glow: "rgba(139, 92, 246, 0.16)" },
+  { name: "Resend", category: "E-post", detail: "Transactional flows", icon: Send, glow: "rgba(251, 146, 60, 0.15)" },
+  { name: "Sentry", category: "Monitoring", detail: "Errors & traces", icon: Activity, glow: "rgba(244, 63, 94, 0.16)" },
 ]
 
-const steps = [
+const landingJourneySteps = [
   {
     number: "01",
-    title: "Beskriv ditt f\u00f6retag",
-    description: "Ber\u00e4tta om din verksamhet med text, r\u00f6st eller video. V\u00e5r AI f\u00f6rst\u00e5r kontexten.",
+    scenePosition: 0,
+    title: "Registrera företaget",
+    description: "Börja med bolaget, målet och vad verksamheten ska åstadkomma. Plattformen tar vid där pappersarbetet slutar.",
+    bullets: ["Bolagsstart och identitet", "Skatteverket, mål och erbjudande"],
   },
   {
     number: "02",
-    title: "AI skapar din sajt",
-    description: "P\u00e5 under 5 sekunder genereras en skr\u00e4ddarsydd, responsiv webbplats med modern teknik.",
+    scenePosition: 1,
+    title: "Välj spår och fyll i input",
+    description: "Fritext, mall, analyserad eller audit. Du kan skriva, tala eller visa referenser för att styra riktningen.",
+    bullets: ["Fyra inmatningslägen", "Prompt, röst, video och mallar"],
   },
   {
     number: "03",
-    title: "Anpassa & publicera",
-    description: "Finjustera med drag-and-drop och publicera med ett enda klick till Vercel Edge.",
+    scenePosition: 2,
+    title: "AI bygger i iterationer",
+    description: "Prompta några rundor, klicka vidare och få en sajt i React, Next.js och serverdriven arkitektur istället för en statisk mockup.",
+    bullets: ["Sex till sju förbättringar mot rätt version", "Kod, struktur och innehåll i samma flöde"],
+  },
+  {
+    number: "04",
+    scenePosition: 3,
+    title: "Koppla data och publicera",
+    description: "När flödet sitter går det vidare till preview, integrationer och deploy. Sidan blir en arbetande digital tillgång.",
+    bullets: ["Vercel, Supabase, Upstash och fler integrationer", "Preview, deploy och fortsatt utveckling"],
+  },
+  {
+    number: "05",
+    scenePosition: 4,
+    title: "Optimera mot gröna siffror",
+    description: "Målet är inte bara trafik utan ett bolag som växer. Sidan ska kunna driva leads, bokningar och bättre årsresultat över tid.",
+    bullets: ["Leads, bokningar och konvertering", "Rapporter, uppföljning och gröna siffror"],
   },
 ]
 
@@ -345,51 +387,16 @@ const creditPackages = [
   },
 ]
 
-const creditCostBreakdown = [
-  { label: "Generering (Mini)", cost: "5" },
-  { label: "Generering (Pro)", cost: "7" },
-  { label: "Generering (Max)", cost: "10" },
-  { label: "F\u00f6rfining (Mini)", cost: "3" },
-  { label: "F\u00f6rfining (Pro)", cost: "4" },
-  { label: "F\u00f6rfining (Max)", cost: "6" },
-  { label: "Wizard-l\u00e4ge", cost: "11" },
-  { label: "Audit (Basic)", cost: "15" },
-  { label: "Audit (Advanced)", cost: "25" },
-  { label: "Publicering", cost: "20" },
-  { label: "Hosting (per m\u00e5nad)", cost: "10" },
-]
-
 const studioTiers = [
   { name: "Start", range: "5 000 - 10 000 kr", description: "1-5 sidor, grundl\u00e4ggande anpassning" },
   { name: "Plus", range: "10 000 - 20 000 kr", description: "5-10 sidor, mer funktionalitet" },
   { name: "Pro", range: "20 000 - 40 000+ kr", description: "Unika l\u00f6sningar, integrationer och e-handel" },
 ]
 
-const faqs = [
-  {
-    q: "Beh\u00f6ver jag kunna programmera?",
-    a: "Nej, absolut inte. SajtMaskin \u00e4r byggt f\u00f6r att vem som helst ska kunna skapa en professionell hemsida. Ber\u00e4tta bara om ditt f\u00f6retag s\u00e5 sk\u00f6ter AI:n resten. Under huven anv\u00e4nds React och Next.js, men du beh\u00f6ver aldrig r\u00f6ra en rad kod.",
-  },
-  {
-    q: "Vilken teknik byggs mina sidor med?",
-    a: "Alla sajter byggs med React 19, Next.js 16, TypeScript och Tailwind CSS \u2014 samma teknikstack som v\u00e4rldens ledande webbplatser anv\u00e4nder. Det inneb\u00e4r topprestanda, SEO och framtidss\u00e4kerhet.",
-  },
-  {
-    q: "Hur snabbt kan jag f\u00e5 en f\u00e4rdig sajt?",
-    a: "Det f\u00f6rsta utkastet genereras p\u00e5 cirka 5 sekunder. Sedan kan du finjustera och publicera n\u00e4r du \u00e4r n\u00f6jd \u2014 ofta inom samma dag.",
-  },
-  {
-    q: "Kan jag anv\u00e4nda min egna dom\u00e4n?",
-    a: "Ja! Med Pro-planen och upp\u00e5t kan du koppla din egen dom\u00e4n med automatisk SSL. Vi hj\u00e4lper dig med DNS-inst\u00e4llningarna.",
-  },
-  {
-    q: "\u00c4r det GDPR-anpassat?",
-    a: "Ja. Plattformen \u00e4r byggd med GDPR i \u00e5tanke. Databas och lagring k\u00f6rs inom EU (Supabase EU, Vercel Edge Network) och vi samlar inte in on\u00f6diga personuppgifter.",
-  },
-  {
-    q: "Kan jag byta plan n\u00e4r som helst?",
-    a: "Ja, du kan uppgradera eller nedgradera din plan n\u00e4r som helst utan bindningstid.",
-  },
+const studioTeam = [
+  { name: "Jakob", role: "Strategi & flöden" },
+  { name: "Erik", role: "Design & konvertering" },
+  { name: "Teamet", role: "Kod, integrationer & lansering" },
 ]
 
 const trustLogos = [
@@ -407,6 +414,23 @@ const trustLogos = [
   "Washington Post",
   "Target",
   "Sonos",
+]
+
+type IntegrationItem = {
+  name: string
+  detail: string
+  icon: LucideIcon
+  glow: string
+}
+
+const integrations: IntegrationItem[] = [
+  { name: "Upstash", detail: "Redis på edge", icon: Zap, glow: "rgba(251, 146, 60, 0.16)" },
+  { name: "Redis", detail: "Caching & köer", icon: Database, glow: "rgba(239, 68, 68, 0.14)" },
+  { name: "Supabase", detail: "Auth & data", icon: Layers, glow: "rgba(34, 197, 94, 0.16)" },
+  { name: "Vercel", detail: "Preview & deploy", icon: Rocket, glow: "rgba(148, 163, 184, 0.14)" },
+  { name: "Stripe", detail: "Checkout & billing", icon: CreditCard, glow: "rgba(139, 92, 246, 0.16)" },
+  { name: "Resend", detail: "E-postflöden", icon: Send, glow: "rgba(251, 146, 60, 0.16)" },
+  { name: "Sentry", detail: "Spårning i drift", icon: Activity, glow: "rgba(244, 63, 94, 0.16)" },
 ]
 
 type ComparisonParamKey =
@@ -826,30 +850,6 @@ function useInView(threshold = 0.3) {
   return { ref, visible }
 }
 
-/* ──────────────────── FAQ ITEM ──────────────────── */
-
-function FaqItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="border border-border/30 rounded-xl overflow-hidden transition-colors hover:border-border/50">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left"
-      >
-        <span className="text-sm md:text-base font-medium text-foreground">{q}</span>
-        <ChevronDown
-          className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      <div
-        className={`overflow-hidden transition-all duration-300 ${open ? "max-h-48 opacity-100" : "max-h-0 opacity-0"}`}
-      >
-        <p className="px-6 pb-5 text-sm text-muted-foreground leading-relaxed">{a}</p>
-      </div>
-    </div>
-  )
-}
-
 /* ──────────────────── 3D WIREFRAME COMPONENTS ──────────────────── */
 
 const modalParticles = [
@@ -1097,32 +1097,153 @@ function WireframeShape({ variant }: { variant: ShapeVariant }) {
   )
 }
 
-/* ──────────────────── ANIMATED BAR ──────────────────── */
+/* ──────────────────── COMPARISON RADAR CHART ──────────────────── */
 
-function AnimatedBar({
-  value,
-  max = 100,
-  delay = 0,
-  className,
-  barClass,
-}: {
-  value: number
-  max?: number
-  delay?: number
-  className?: string
-  barClass?: string
-}) {
-  const { ref, visible } = useInView(0.2)
-  const pct = Math.min((value / max) * 100, 100)
+const RADAR_CX = 150
+const RADAR_CY = 150
+const RADAR_MAX_R = 105
+const RADAR_RINGS = [25, 50, 75, 100]
+
+function radarPoint(index: number, score: number, n: number) {
+  const angle = (2 * Math.PI * index) / n - Math.PI / 2
+  const r = (score / 100) * RADAR_MAX_R
+  return {
+    x: Math.round((RADAR_CX + r * Math.cos(angle)) * 10) / 10,
+    y: Math.round((RADAR_CY + r * Math.sin(angle)) * 10) / 10,
+  }
+}
+
+function buildRadarPath(m: ComparisonMethod, params: ComparisonParameter[], n: number) {
   return (
-    <div ref={ref} className={`h-1.5 rounded-full bg-secondary/60 overflow-hidden ${className ?? ""}`}>
+    params
+      .map((p, i) => {
+        const pt = radarPoint(i, m.scores[p.key], n)
+        return `${i === 0 ? "M" : "L"}${pt.x},${pt.y}`
+      })
+      .join("") + "Z"
+  )
+}
+
+const radarCenterPath = Array.from({ length: 10 })
+  .map((_, i) => `${i === 0 ? "M" : "L"}${RADAR_CX},${RADAR_CY}`)
+  .join("") + "Z"
+
+function ComparisonRadarChart({
+  method,
+  wpMethod,
+  parameters,
+  scenario,
+}: {
+  method: ComparisonMethod
+  wpMethod: ComparisonMethod
+  parameters: ComparisonParameter[]
+  scenario: ComparisonScenario
+}) {
+  const { ref, visible } = useInView(0.15)
+  const n = parameters.length
+
+  const methodPath = useMemo(() => buildRadarPath(method, parameters, n), [method, parameters, n])
+  const wpPath = useMemo(() => buildRadarPath(wpMethod, parameters, n), [wpMethod, parameters, n])
+
+  const labelPositions = useMemo(
+    () =>
+      parameters.map((_, i) => {
+        const angle = (2 * Math.PI * i) / n - Math.PI / 2
+        const labelR = RADAR_MAX_R + 22
+        const x = Math.round((RADAR_CX + labelR * Math.cos(angle)) * 10) / 10
+        const y = Math.round((RADAR_CY + labelR * Math.sin(angle)) * 10) / 10
+        const cos = Math.cos(angle)
+        const anchor: "start" | "middle" | "end" =
+          Math.abs(cos) < 0.15 ? "middle" : cos > 0 ? "start" : "end"
+        return { x, y, anchor }
+      }),
+    [parameters, n],
+  )
+
+  const transition = "0.8s cubic-bezier(0.4,0,0.2,1)"
+
+  return (
+    <div ref={ref} className="relative">
       <div
-        className={`h-full rounded-full transition-all duration-1000 ease-out ${barClass ?? "bg-primary/70"}`}
-        style={{
-          width: visible ? `${pct}%` : "0%",
-          transitionDelay: `${delay}ms`,
-        }}
-      />
+        className="transition-all duration-700"
+        style={{ opacity: visible ? 1 : 0, transform: visible ? "scale(1)" : "scale(0.85)" }}
+      >
+        <svg viewBox="0 0 300 300" className="w-full max-w-[380px] mx-auto" overflow="visible">
+          <defs>
+            <radialGradient id="radar-method-fill" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="oklch(0.72 0.15 192 / 0.22)" />
+              <stop offset="100%" stopColor="oklch(0.72 0.15 192 / 0.06)" />
+            </radialGradient>
+            <radialGradient id="radar-wp-fill" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="oklch(0.5 0 0 / 0.1)" />
+              <stop offset="100%" stopColor="oklch(0.5 0 0 / 0.03)" />
+            </radialGradient>
+          </defs>
+
+          {RADAR_RINGS.map((pct) => (
+            <circle
+              key={pct}
+              cx={RADAR_CX}
+              cy={RADAR_CY}
+              r={Math.round((pct / 100) * RADAR_MAX_R * 10) / 10}
+              fill="none"
+              stroke="oklch(0.25 0 0)"
+              strokeWidth={pct === 100 ? "0.7" : "0.35"}
+              strokeDasharray={pct < 100 ? "2 4" : undefined}
+            />
+          ))}
+
+          {parameters.map((_, i) => {
+            const pt = radarPoint(i, 100, n)
+            return <line key={i} x1={RADAR_CX} y1={RADAR_CY} x2={pt.x} y2={pt.y} stroke="oklch(0.25 0 0)" strokeWidth="0.35" />
+          })}
+
+          <path
+            d={visible ? wpPath : radarCenterPath}
+            fill="url(#radar-wp-fill)"
+            stroke="oklch(0.5 0 0 / 0.3)"
+            strokeWidth="1"
+            style={{ transition: `d ${transition}` }}
+          />
+          <path
+            d={visible ? methodPath : radarCenterPath}
+            fill="url(#radar-method-fill)"
+            stroke="oklch(0.72 0.15 192 / 0.7)"
+            strokeWidth="1.5"
+            style={{ transition: `d ${transition}` }}
+          />
+
+          {parameters.map((p, i) => {
+            const pt = visible ? radarPoint(i, method.scores[p.key], n) : { x: RADAR_CX, y: RADAR_CY }
+            return (
+              <circle
+                key={p.key}
+                cx={pt.x}
+                cy={pt.y}
+                r="2.5"
+                fill="oklch(0.72 0.15 192)"
+                stroke="oklch(0.08 0 0)"
+                strokeWidth="1.2"
+                style={{ transition: `cx ${transition}, cy ${transition}` }}
+              />
+            )
+          })}
+
+          {parameters.map((p, i) => {
+            const pos = labelPositions[i]
+            const weight = scenario.weights[p.key]
+            return (
+              <text key={p.key} x={pos.x} y={pos.y} textAnchor={pos.anchor} dominantBaseline="middle" style={{ fontSize: "7.5px" }}>
+                <tspan className="fill-muted-foreground/70">{p.label}</tspan>
+                <tspan className="fill-muted-foreground/35" dx="3" style={{ fontSize: "6px" }}>
+                  ×{weight}
+                </tspan>
+              </text>
+            )
+          })}
+
+        </svg>
+      </div>
     </div>
   )
 }
@@ -1178,6 +1299,163 @@ function LighthouseGauges() {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/* ──────────────────── TECH STACK CARD ──────────────────── */
+
+function TechStackCard({ tech, index }: { tech: TechStackItem; index: number }) {
+  const { ref: tiltRef, style, handleMove, handleLeave } = use3DTilt(8)
+  const { ref: viewRef, visible } = useInView(0.15)
+  const [glowPoint, setGlowPoint] = useState({ x: 120, y: 60 })
+  const Icon = tech.icon
+
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      tiltRef.current = node
+      viewRef.current = node
+    },
+    [tiltRef, viewRef],
+  )
+
+  const handleMouseMove = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect()
+      setGlowPoint({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+      handleMove(e)
+    },
+    [handleMove],
+  )
+
+  return (
+    <div
+      ref={setRefs}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleLeave}
+      className={`group relative overflow-hidden rounded-2xl border border-border/20 bg-card/45 px-4 py-4 transition-all duration-700 ${
+        visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+      }`}
+      style={{
+        ...style,
+        transitionDelay: `${index * 60}ms`,
+        boxShadow: visible ? "0 20px 60px rgba(8, 15, 30, 0.22)" : "none",
+      }}
+    >
+      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.04),transparent_40%,rgba(45,212,191,0.05)_100%)]" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{
+          background: `radial-gradient(220px circle at ${glowPoint.x}px ${glowPoint.y}px, ${tech.glow} 0%, transparent 72%)`,
+        }}
+      />
+      <div className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-linear-to-r from-transparent via-primary/30 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+
+      <div className="relative z-10 flex items-start justify-between gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/15 bg-primary/8 text-primary shadow-lg shadow-primary/5 transition-all duration-300 group-hover:scale-105 group-hover:border-primary/30 group-hover:bg-primary/12">
+          <Icon className="h-5 w-5" />
+        </div>
+        <span className="rounded-full border border-border/20 bg-background/45 px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80">
+          {tech.category}
+        </span>
+      </div>
+
+      <div className="relative z-10 mt-5 space-y-1.5">
+        <h3 className="text-sm font-(--font-heading) text-foreground transition-colors duration-300 group-hover:text-primary">
+          {tech.name}
+        </h3>
+        <p className="text-xs leading-relaxed text-muted-foreground">{tech.detail}</p>
+      </div>
+    </div>
+  )
+}
+
+function HowItWorksFallback() {
+  return (
+    <div className="rounded-[32px] border border-border/20 bg-card/30 p-5 md:p-6 shadow-[0_24px_80px_rgba(6,10,20,0.28)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,420px)]">
+        <div className="relative overflow-hidden rounded-[28px] border border-border/20 bg-secondary/20 min-h-[420px]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(45,212,191,0.12),transparent_55%)]" />
+          <div className="absolute inset-x-10 bottom-16 h-px bg-linear-to-r from-transparent via-primary/35 to-transparent" />
+          <div className="absolute left-[14%] top-[26%] h-28 w-28 rounded-4xl border border-primary/20 bg-primary/5 animate-pulse" />
+          <div className="absolute left-[34%] top-[18%] h-20 w-24 rounded-3xl border border-border/20 bg-background/30 animate-pulse" />
+          <div className="absolute left-[52%] top-[24%] h-24 w-24 rounded-full border border-primary/15 bg-primary/5 animate-pulse" />
+          <div className="absolute right-[14%] top-[20%] h-24 w-20 rounded-3xl border border-border/20 bg-background/30 animate-pulse" />
+          <div className="absolute right-[8%] bottom-[22%] h-24 w-28 rounded-[1.75rem] border border-emerald-400/20 bg-emerald-400/5 animate-pulse" />
+        </div>
+
+        <div className="space-y-3">
+          {landingJourneySteps.map((step) => (
+            <div key={step.number} className="rounded-2xl border border-border/15 bg-secondary/20 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-sm font-(--font-heading) text-primary">
+                  {step.number}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-(--font-heading) text-foreground">{step.title}</p>
+                  <p className="text-xs text-muted-foreground">{step.description}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function IntegrationCard({ item, index }: { item: IntegrationItem; index: number }) {
+  const { ref: tiltRef, style, handleMove, handleLeave } = use3DTilt(6)
+  const { ref: viewRef, visible } = useInView(0.15)
+  const [glowPoint, setGlowPoint] = useState({ x: 120, y: 40 })
+  const Icon = item.icon
+
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      tiltRef.current = node
+      viewRef.current = node
+    },
+    [tiltRef, viewRef],
+  )
+
+  const handleMouseMove = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect()
+      setGlowPoint({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+      handleMove(e)
+    },
+    [handleMove],
+  )
+
+  return (
+    <div
+      ref={setRefs}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleLeave}
+      className={`group relative overflow-hidden rounded-2xl border border-border/20 bg-card/40 p-4 transition-all duration-700 ${
+        visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+      }`}
+      style={{
+        ...style,
+        transitionDelay: `${index * 70}ms`,
+        animation: `float-particle-kf ${6 + index * 0.35}s ease-in-out infinite`,
+      }}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{
+          background: `radial-gradient(220px circle at ${glowPoint.x}px ${glowPoint.y}px, ${item.glow} 0%, transparent 72%)`,
+        }}
+      />
+      <div className="relative z-10 flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/15 bg-primary/8 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-sm font-(--font-heading) text-foreground">{item.name}</p>
+          <p className="text-xs text-muted-foreground">{item.detail}</p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1399,33 +1677,19 @@ export function ChatArea({
       },
     [activeComparisonScenario, fallbackComparisonMethod, rankedComparisonMethods, selectedComparisonMethodKey],
   )
-  const comparisonLeaderScore = rankedComparisonMethods[0]?.total ?? selectedComparisonMethod.total
   const wordpressComparisonMethod = comparisonMethods.find((method) => method.key === "wordpress") ?? fallbackComparisonMethod
   const wordpressScenarioScore = getComparisonScore(wordpressComparisonMethod, activeComparisonScenario)
   const selectedVsWordpressDelta = selectedComparisonMethod.total - wordpressScenarioScore
-  const selectedComparisonDrivers = useMemo(
-    () =>
-      comparisonParameters
-        .map((parameter) => {
-          const weight = activeComparisonScenario.weights[parameter.key]
-          const score = selectedComparisonMethod.method.scores[parameter.key]
-          return {
-            parameter,
-            weight,
-            score,
-            weightedContribution: Math.round((score * weight) / 100),
-          }
-        })
-        .sort((a, b) => b.weightedContribution - a.weightedContribution),
-    [activeComparisonScenario, selectedComparisonMethod],
-  )
-  const websitesCounter = useHonestCounter(2480, 3, "Varje stor resa b\u00f6rjar med tre steg. Dessa tre sajter laddar dock p\u00e5 under 50ms.")
-  const usersCounter = useHonestCounter(850, 2, "Tv\u00e5 f\u00f6retagare som valde framtiden. Snart \u00e4r ni hundratals.")
+  const websitesCounter = useHonestCounter(2480, 41, "41 sajter live just nu. Varje ny version ger oss bättre signaler om vad som faktiskt konverterar.")
+  const usersCounter = useHonestCounter(850, 28, "28 företagare kör redan skarpt. Nästa våg handlar om fler bokningar, fler leads och bättre uppföljning.")
   const rotatingType = useRotatingText(siteTypes)
   const headlineTilt = use3DTilt(10)
   const terminal = useTerminalTypewriter()
   const [terminalMouse, setTerminalMouse] = useState({ x: 0, y: 0 })
   const terminalBoxRef = useRef<HTMLDivElement>(null)
+  const preloadHowItWorksScene = useCallback(() => {
+    void import("./how-it-works-scene")
+  }, [])
 
   const handleTerminalMouse = useCallback((e: ReactMouseEvent) => {
     const el = terminalBoxRef.current
@@ -1706,6 +1970,8 @@ export function ChatArea({
               <div className={isAuditMode ? "space-y-2" : "space-y-3"}>
                 {isAuditMode ? (
                   <input
+                    data-openclaw-text-target="landing.audit.url"
+                    data-openclaw-text-label="Audit-URL på startsidan"
                     type="url"
                     inputMode="url"
                     autoComplete="url"
@@ -1722,6 +1988,8 @@ export function ChatArea({
                   />
                 ) : (
                   <textarea
+                    data-openclaw-text-target="landing.freeform.primary"
+                    data-openclaw-text-label="Frilägesfältet på startsidan"
                     placeholder={activeCategory?.placeholder ?? "Beskriv ditt f\u00f6retag \u2014 t.ex. \u201dJag driver en fris\u00f6rsalong i G\u00f6teborg med 3 anst\u00e4llda\u201d"}
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
@@ -1871,19 +2139,18 @@ export function ChatArea({
 
         {/* ━━━ SITE BUILD METHOD COMPARISON ━━━ */}
         <section className="px-6 py-20 md:py-28 border-t border-border/15">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-10">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-8">
               <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">J&auml;mf&ouml;relse</p>
-              <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
+              <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-3">
                 Olika s&auml;tt att bygga sajt
               </h2>
-              <p className="text-muted-foreground max-w-3xl mx-auto leading-relaxed text-pretty">
-                H&auml;r j&auml;mf&ouml;r vi 9 metoder fr&aring;n matrisen i <code>docs/analyses/sajtmaskin-matris.md</code> med 10 parametrar. V&auml;lj scenario
-                f&ouml;r att se hur rankingen f&ouml;r&auml;ndras beroende p&aring; vad som &auml;r viktigast f&ouml;r ditt bolag.
+              <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed text-pretty">
+                9&nbsp;metoder, 10&nbsp;parametrar. V&auml;lj scenario f&ouml;r att se hur viktningen p&aring;verkar rankingen.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2.5 mb-3">
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
               {comparisonScenarios.map((scenario) => {
                 const isActive = scenario.id === activeComparisonScenario.id
                 return (
@@ -1891,7 +2158,7 @@ export function ChatArea({
                     key={scenario.id}
                     onClick={() => setActiveComparisonScenarioId(scenario.id)}
                     aria-pressed={isActive}
-                    className={`rounded-xl border px-4 py-2 text-sm transition-all cursor-pointer ${
+                    className={`rounded-full border px-4 py-1.5 text-xs font-medium transition-all cursor-pointer ${
                       isActive
                         ? "bg-primary/12 border-primary/40 text-foreground shadow-lg shadow-primary/5"
                         : "bg-secondary/40 border-border/20 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -1902,171 +2169,102 @@ export function ChatArea({
                 )
               })}
             </div>
-            <p className="text-center text-xs text-muted-foreground/70 mb-8 max-w-2xl mx-auto leading-relaxed">
-              {activeComparisonScenario.description}
-            </p>
 
-            <div className="grid gap-5 lg:grid-cols-[1.65fr_1fr]">
+            <div className="grid gap-5 lg:grid-cols-[260px_1fr] items-start">
+              {/* Compact ranking list */}
               <div className="rounded-2xl border border-border/20 overflow-hidden bg-card/30 backdrop-blur-sm">
-                <div className="grid grid-cols-[48px_1fr_auto] gap-3 items-center px-4 py-3 text-[11px] font-semibold uppercase tracking-wider border-b border-border/20 text-muted-foreground">
-                  <span>#</span>
-                  <span>Metod</span>
-                  <span>Total</span>
+                <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider border-b border-border/20 text-muted-foreground flex items-center justify-between">
+                  <span>Ranking</span>
+                  <span>Po&auml;ng</span>
                 </div>
-
                 {rankedComparisonMethods.map((entry, index) => {
                   const isSelected = entry.method.key === selectedComparisonMethod.method.key
-                  const behindLeader = Math.max(0, comparisonLeaderScore - entry.total)
                   return (
                     <button
                       key={entry.method.key}
                       onClick={() => setSelectedComparisonMethodKey(entry.method.key)}
                       aria-pressed={isSelected}
-                      className={`w-full text-left px-4 py-3.5 border-b border-border/10 transition-colors cursor-pointer ${
+                      className={`w-full text-left px-3 py-2 border-b border-border/8 transition-all cursor-pointer flex items-center gap-2 group ${
                         isSelected ? "bg-primary/8" : "hover:bg-secondary/25"
                       }`}
                     >
-                      <div className="grid grid-cols-[48px_1fr_auto] gap-3 items-center">
-                        <span
-                          className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs ${
-                            isSelected
-                              ? "border-primary/50 text-primary bg-primary/10"
-                              : "border-border/30 text-muted-foreground"
-                          }`}
-                        >
-                          {index + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{entry.method.label}</p>
-                          <p className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-2">{entry.method.bestFor}</p>
-                          <AnimatedBar value={entry.total} className="mt-2" delay={index * 80} />
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg text-foreground font-(--font-heading) leading-none">{entry.total}</p>
-                          <p className="text-[11px] text-muted-foreground mt-1">
-                            {behindLeader === 0 ? "Ledare" : `-${behindLeader} fr\u00e5n #1`}
-                          </p>
-                        </div>
-                      </div>
+                      <span
+                        className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] shrink-0 transition-colors ${
+                          isSelected
+                            ? "border-primary/50 text-primary bg-primary/10"
+                            : "border-border/30 text-muted-foreground group-hover:border-border/50"
+                        }`}
+                      >
+                        {index + 1}
+                      </span>
+                      <span className={`text-xs truncate flex-1 transition-colors ${isSelected ? "text-foreground font-medium" : "text-foreground/80"}`}>
+                        {entry.method.label}
+                      </span>
+                      <span className={`text-sm tabular-nums font-(--font-heading) transition-colors ${isSelected ? "text-primary" : "text-foreground/70"}`}>
+                        {entry.total}
+                      </span>
                     </button>
                   )
                 })}
               </div>
 
-              <div className="rounded-2xl border border-border/20 bg-card/30 backdrop-blur-sm p-5">
-                <p className="text-[11px] uppercase tracking-wider text-primary/80 font-semibold">Vald metod</p>
-                <h3 className="mt-2 text-lg text-foreground font-(--font-heading)">{selectedComparisonMethod.method.label}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mt-2">{selectedComparisonMethod.method.summary}</p>
-
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-primary font-medium">
-                    Score {selectedComparisonMethod.total}/100
-                  </span>
-                  <span
-                    className={`rounded-full border px-3 py-1 ${
-                      selectedVsWordpressDelta >= 0
-                        ? "border-primary/25 text-primary/90 bg-primary/5"
-                        : "border-destructive/35 text-destructive/90 bg-destructive/5"
-                    }`}
-                  >
-                    {selectedVsWordpressDelta >= 0 ? `+${selectedVsWordpressDelta}` : selectedVsWordpressDelta} mot WordPress
-                  </span>
-                </div>
-
-                <div className="mt-5 space-y-2.5">
-                  {selectedComparisonMethod.method.strengths.map((strength) => (
-                    <div key={strength} className="flex items-start gap-2 text-sm text-foreground/85">
-                      <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                      <span>{strength}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-border/15">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground/80 mb-2">Att tänka på</p>
-                  {selectedComparisonMethod.method.caveats.map((caveat) => (
-                    <p key={caveat} className="text-sm text-muted-foreground leading-relaxed">
-                      {caveat}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-border/20 bg-card/20 p-5">
-              <p className="text-sm text-foreground font-medium">Varf&ouml;r den h&auml;r score:n?</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Toppfaktorer i vald scenario-viktning f&ouml;r <span className="text-foreground">{selectedComparisonMethod.method.label}</span>.
-              </p>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {selectedComparisonDrivers.slice(0, 4).map((driver) => (
-                  <div key={driver.parameter.key} className="rounded-xl border border-border/15 bg-secondary/30 px-3.5 py-3">
-                    <div className="flex items-center justify-between gap-3 text-xs mb-2">
-                      <span className="text-foreground/90">{driver.parameter.label}</span>
-                      <span className="text-muted-foreground">
-                        {driver.score}p • vikt {driver.weight}
+              {/* Radar chart + legend + detail */}
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-border/20 bg-card/20 backdrop-blur-sm p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+                    <div className="flex items-center gap-4 text-[11px]">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-primary/80" />
+                        <span className="text-foreground/80 font-medium">{selectedComparisonMethod.method.label}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+                        <span className="text-muted-foreground">WordPress</span>
                       </span>
                     </div>
-                    <AnimatedBar value={driver.score} />
-                    <p className="text-[11px] text-muted-foreground mt-2">
-                      Bidrar med ungef\u00e4r {driver.weightedContribution} po\u00e4ng till totalen.
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-border/20 bg-card/20 p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
-                <p className="text-sm text-foreground font-medium">Alla 10 parametrar</p>
-                <div className="flex items-center gap-4 text-[10px]">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-primary/70" />
-                    <span className="text-muted-foreground">{selectedComparisonMethod.method.label}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/25" />
-                    <span className="text-muted-foreground">WordPress</span>
-                  </span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mb-5">
-                Viktade po&auml;ng per parameter. Scenario-viktning justerar rankingen.
-              </p>
-              <div className="grid gap-3 md:grid-cols-2">
-                {comparisonParameters.map((parameter, idx) => {
-                  const selectedScore = selectedComparisonMethod.method.scores[parameter.key]
-                  const wpScore = wordpressComparisonMethod.scores[parameter.key]
-                  const weight = activeComparisonScenario.weights[parameter.key]
-                  const delta = selectedScore - wpScore
-                  return (
-                    <div key={parameter.key} className="rounded-xl border border-border/15 bg-secondary/20 px-3.5 py-3">
-                      <div className="flex items-center justify-between gap-2 text-xs mb-2.5">
-                        <span className="text-foreground/90 font-medium">{parameter.label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground/50 text-[10px]">vikt&nbsp;{weight}</span>
-                          <span
-                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                              delta >= 0
-                                ? "text-primary bg-primary/8"
-                                : "text-destructive bg-destructive/8"
-                            }`}
-                          >
-                            {delta >= 0 ? `+${delta}` : delta}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <AnimatedBar value={selectedScore} className="h-[7px]!" delay={idx * 60} />
-                        <AnimatedBar value={wpScore} className="h-[7px]!" barClass="bg-muted-foreground/25" delay={idx * 60 + 150} />
-                      </div>
-                      <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground/50">
-                        <span>{selectedScore}p</span>
-                        <span>{wpScore}p</span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-primary font-semibold text-[11px] tabular-nums">
+                        {selectedComparisonMethod.total}/100
+                      </span>
+                      <span
+                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium tabular-nums ${
+                          selectedVsWordpressDelta >= 0
+                            ? "border-primary/25 text-primary/90 bg-primary/5"
+                            : "border-destructive/35 text-destructive/90 bg-destructive/5"
+                        }`}
+                      >
+                        {selectedVsWordpressDelta >= 0 ? `+${selectedVsWordpressDelta}` : selectedVsWordpressDelta} vs&nbsp;WP
+                      </span>
                     </div>
-                  )
-                })}
+                  </div>
+
+                  <ComparisonRadarChart
+                    method={selectedComparisonMethod.method}
+                    wpMethod={wordpressComparisonMethod}
+                    parameters={comparisonParameters}
+                    scenario={activeComparisonScenario}
+                  />
+                </div>
+
+                {/* Compact method summary */}
+                <div className="rounded-2xl border border-border/20 bg-card/30 backdrop-blur-sm p-4">
+                  <h3 className="text-sm text-foreground font-(--font-heading) mb-1">{selectedComparisonMethod.method.label}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-3">{selectedComparisonMethod.method.summary}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedComparisonMethod.method.strengths.map((s) => (
+                      <span key={s} className="inline-flex items-center gap-1 text-[11px] text-foreground/80 bg-primary/5 border border-primary/15 rounded-full px-2.5 py-0.5">
+                        <Check className="w-2.5 h-2.5 text-primary shrink-0" />
+                        {s}
+                      </span>
+                    ))}
+                    {selectedComparisonMethod.method.caveats.map((c) => (
+                      <span key={c} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/80 bg-secondary/40 border border-border/15 rounded-full px-2.5 py-0.5">
+                        <span className="text-chart-4">&#9888;</span>
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2074,7 +2272,7 @@ export function ChatArea({
 
         {/* ━━━ TECH STACK SHOWCASE ━━━ */}
         <section id="teknik" className="px-6 py-20 md:py-28 border-t border-border/15">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <div className="text-center mb-14">
               <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Teknisk stack</p>
               <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
@@ -2085,17 +2283,9 @@ export function ChatArea({
               </p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {techStack.map((tech) => (
-                <div
-                  key={tech.name}
-                  className="group relative bg-secondary/30 hover:bg-secondary/50 border border-border/20 hover:border-primary/25 rounded-xl px-4 py-4 flex flex-col gap-1.5 transition-all duration-200 cursor-default"
-                >
-                  <span className="text-sm text-foreground font-(--font-heading) group-hover:text-primary transition-colors">
-                    {tech.name}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">{tech.category}</span>
-                </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {techStack.map((tech, index) => (
+                <TechStackCard key={tech.name} tech={tech} index={index} />
               ))}
             </div>
 
@@ -2107,21 +2297,27 @@ export function ChatArea({
                 ;(terminalBoxRef as React.MutableRefObject<HTMLDivElement | null>).current = node
               }}
               onMouseMove={handleTerminalMouse}
-              className="group/term mt-10 bg-secondary/20 border border-border/20 rounded-2xl overflow-hidden relative"
+              className="group/term relative mt-12 overflow-hidden rounded-[28px] border border-border/20 bg-card/35 shadow-[0_28px_80px_rgba(5,10,20,0.35)]"
             >
+              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-primary/35 to-transparent" />
+
               {/* Mouse-follow radial glow */}
               <div
                 className="pointer-events-none absolute inset-0 z-10 opacity-0 group-hover/term:opacity-100 transition-opacity duration-300"
                 style={{
-                  background: `radial-gradient(320px circle at ${terminalMouse.x}px ${terminalMouse.y}px, rgba(45,212,191,0.06) 0%, transparent 70%)`,
+                  background: `radial-gradient(320px circle at ${terminalMouse.x}px ${terminalMouse.y}px, rgba(45,212,191,0.08) 0%, transparent 70%)`,
                 }}
               />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_40%,rgba(45,212,191,0.04)_100%)]" />
 
               <div className="flex items-center gap-2 px-4 py-3 border-b border-border/15 relative z-20">
                 <div className="w-3 h-3 rounded-full bg-destructive/60" />
                 <div className="w-3 h-3 rounded-full bg-chart-4/60" />
                 <div className="w-3 h-3 rounded-full bg-primary/60" />
                 <span className="ml-2 text-xs text-muted-foreground font-mono">sajtmaskin generate</span>
+                <span className="ml-auto rounded-full border border-primary/15 bg-primary/8 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-primary/80">
+                  Build pipeline
+                </span>
               </div>
               <div className="p-5 font-mono text-sm leading-relaxed relative z-20">
                 {/* Line 1 */}
@@ -2175,33 +2371,24 @@ export function ChatArea({
         </section>
 
         {/* ━━━ HOW IT WORKS ━━━ */}
-        <section id="hur-det-fungerar" className="px-6 py-20 md:py-28 border-t border-border/15">
-          <div className="max-w-4xl mx-auto">
+        <section
+          id="hur-det-fungerar"
+          className="px-6 py-20 md:py-28 border-t border-border/15"
+          onMouseEnter={preloadHowItWorksScene}
+          onFocusCapture={preloadHowItWorksScene}
+        >
+          <div className="max-w-6xl mx-auto">
             <div className="text-center mb-14">
               <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Hur det fungerar</p>
               <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
-                Tre steg till din nya hemsida
+                Från bolagsstart till gröna siffror
               </h2>
-              <p className="text-muted-foreground max-w-md mx-auto leading-relaxed text-pretty">
-                Fr&aring;n id&eacute; till publicerad sajt p&aring; n&aring;gra minuter.
+              <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
+                Ett mer levande flöde som visar hur företaget går från idé, val av spår och AI-iterationer till publicerad sajt, integrationer och affärsresultat.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {steps.map((step, i) => (
-                <div key={step.number} className="relative flex flex-col items-center text-center gap-4">
-                  {/* Connector line */}
-                  {i < steps.length - 1 && (
-                    <div className="hidden md:block absolute top-8 left-[calc(50%+40px)] w-[calc(100%-80px)] h-px bg-linear-to-r from-primary/30 to-primary/5" />
-                  )}
-                  <div className="w-16 h-16 rounded-2xl bg-primary/8 border border-primary/20 flex items-center justify-center relative">
-                    <span className="text-xl text-primary font-(--font-heading)">{step.number}</span>
-                  </div>
-                  <h3 className="text-base text-foreground font-(--font-heading)">{step.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-[260px]">{step.description}</p>
-                </div>
-              ))}
-            </div>
+            <HowItWorksScene steps={landingJourneySteps} />
           </div>
         </section>
 
@@ -2241,9 +2428,30 @@ export function ChatArea({
           </div>
           {websitesCounter.phase === "honest" && (
             <p className="text-center text-xs text-muted-foreground/50 mt-6 animate-fade-up" style={{ animationDelay: "0.3s" }}>
-              Alla j&auml;ttar b&ouml;rjade sm&aring;tt. Vi r&auml;knar varje sajt &mdash; och just nu kan vi r&auml;kna till tre. Bli nummer fyra?
+              Vi växer med riktiga bolag i ryggen. 41 sajter och 28 aktiva företagare är bara början på nästa fas.
             </p>
           )}
+        </section>
+
+        {/* ━━━ INTEGRATIONS SHOWCASE ━━━ */}
+        <section className="px-6 py-18 md:py-24 border-b border-border/15">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-10">
+              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Integrationer</p>
+              <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
+                Redo för riktiga arbetsflöden
+              </h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
+                När sajten går från snygg till värdefull behöver den kunna prata med betalningar, data, caching, utskick och drift. Här är några av lagren vi kopplar in.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {integrations.map((item, index) => (
+                <IntegrationCard key={item.name} item={item} index={index} />
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* ━━━ PRICING ━━━ */}
@@ -2252,17 +2460,17 @@ export function ChatArea({
             <div className="text-center mb-14">
               <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Priser</p>
               <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
-                Credits &amp; tjänster
+                Starta själv. Ta in oss när det behövs.
               </h2>
-              <p className="text-muted-foreground max-w-lg mx-auto leading-relaxed text-pretty">
-                Samma priser som p&aring; buy-credits-sidan: eng&aring;ngsk&ouml;p av credits, inga bindningstider.
+              <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
+                Börja med credits och jobba i din egen takt. När du vill vässa strategi, design eller integrationer finns vi som ett team bredvid dig.
               </p>
               <div className="inline-flex items-center gap-2 mt-5 text-xs font-medium text-primary bg-primary/8 border border-primary/15 px-4 py-1.5 rounded-full flex-wrap justify-center">
                 <span className="relative flex h-2 w-2 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                 </span>
-                <span>Credits g&auml;ller f&ouml;r alltid och k&ouml;ps som eng&aring;ngspaket.</span>
+                <span>Credits gäller för alltid och köps som engångspaket utan bindningstid.</span>
               </div>
             </div>
 
@@ -2318,68 +2526,62 @@ export function ChatArea({
               ))}
             </div>
 
-            <div className="mt-16">
-              <h3 className="text-center text-xl font-semibold text-foreground mb-8">Kostnad per åtgärd</h3>
-              <div className="grid gap-3 sm:grid-cols-2 max-w-2xl mx-auto">
-                {creditCostBreakdown.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center justify-between rounded-lg border border-border bg-card/50 px-4 py-2.5"
-                  >
-                    <span className="text-sm text-muted-foreground">{item.label}</span>
-                    <span className="text-sm font-semibold text-foreground">{item.cost} credits</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <div className="mt-14 rounded-[32px] border border-border/20 bg-card/35 p-6 md:p-8 shadow-[0_24px_70px_rgba(6,10,20,0.2)]">
+              <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+                <div>
+                  <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">SajtStudio</p>
+                  <h3 className="text-2xl md:text-3xl font-(--font-heading) text-foreground tracking-tight text-balance">
+                    Behöver du ett team som hoppar in?
+                  </h3>
+                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                    När credits inte räcker för allt runtomkring kan vi hjälpa till med struktur, copy, design, integrationer och sista biten fram till lansering.
+                  </p>
 
-            <div className="mt-14">
-              <h3 className="text-center text-xl font-semibold text-foreground mb-6">
-                Behöver du mer än credits?
-              </h3>
-              <div className="grid gap-4 md:grid-cols-3">
-                {studioTiers.map((tier, index) => (
-                  <div
-                    key={tier.name}
-                    className={`rounded-xl border p-5 bg-card/50 ${
-                      index === 1 ? "border-primary/30" : "border-border/20"
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-foreground">{tier.name}</p>
-                    <p className="text-base font-bold text-foreground mt-1">{tier.range}</p>
-                    <p className="text-sm text-muted-foreground mt-2">{tier.description}</p>
+                  <div className="mt-5 space-y-3">
+                    {studioTeam.map((member) => (
+                      <div key={member.name} className="flex items-center gap-3 rounded-2xl border border-border/15 bg-background/35 px-3 py-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-sm font-(--font-heading) text-primary">
+                          {member.name.slice(0, 1)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-(--font-heading) text-foreground">{member.name}</p>
+                          <p className="text-xs text-muted-foreground">{member.role}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div className="text-center mt-6">
-                <Button
-                  variant="ghost"
-                  className="text-sm text-primary hover:text-primary/80 hover:bg-primary/5 border border-primary/20"
-                  onClick={() => {
-                    window.location.href = "mailto:jakob.olof.eberg@gmail.com,erik@sajtstudio.se"
-                  }}
-                >
-                  Kontakta SajtStudio
-                  <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        {/* ━━━ FAQ ━━━ */}
-        <section id="faq" className="px-6 py-20 md:py-28 border-t border-border/15">
-          <div className="max-w-2xl mx-auto">
-            <div className="text-center mb-14">
-              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Vanliga fr&aring;gor</p>
-              <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance">
-                Fr&aring;gor &amp; svar
-              </h2>
-            </div>
-            <div className="space-y-3">
-              {faqs.map((faq) => (
-                <FaqItem key={faq.q} q={faq.q} a={faq.a} />
-              ))}
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button
+                      className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+                      onClick={() => {
+                        window.location.href = "mailto:jakob.olof.eberg@gmail.com,erik@sajtstudio.se"
+                      }}
+                    >
+                      Prata med teamet
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                    <p className="text-xs text-muted-foreground self-center">
+                      Vi svarar personligt om scope, tempo och vad som är rimligt att bygga vidare på.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  {studioTiers.map((tier, index) => (
+                    <div
+                      key={tier.name}
+                      className={`rounded-[24px] border p-5 bg-background/35 ${
+                        index === 1 ? "border-primary/30 shadow-[0_16px_40px_rgba(8,145,178,0.12)]" : "border-border/20"
+                      }`}
+                    >
+                      <p className="text-xs uppercase tracking-[0.18em] text-primary/70">{tier.name}</p>
+                      <p className="mt-3 text-lg font-(--font-heading) text-foreground">{tier.range}</p>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tier.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>

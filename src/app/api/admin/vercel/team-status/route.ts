@@ -1,31 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeam, listTeams, isVercelConfigured } from "@/lib/vercel/vercel-client";
-import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL } from "@/lib/db/services";
+import { requireAdminAccess } from "@/lib/auth/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function isAdmin(req: NextRequest): Promise<boolean> {
-  const user = await getCurrentUser(req);
-  return Boolean(user?.email && user.email === TEST_USER_EMAIL);
-}
 
 /**
  * GET /api/admin/vercel/team-status
  * Returns all teams with their billing plans
  */
 export async function GET(req: NextRequest) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   if (!isVercelConfigured()) {
-    return NextResponse.json({
-      configured: false,
-      teams: [],
-      warning: "VERCEL_TOKEN not configured",
-    });
+    return NextResponse.json(
+      {
+        configured: false,
+        teams: [],
+        warning: "VERCEL_TOKEN not configured",
+      },
+      { status: 503 },
+    );
   }
 
   try {

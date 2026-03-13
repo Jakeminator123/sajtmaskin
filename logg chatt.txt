@@ -1,0 +1,1112 @@
+MÅL
+
+En hemsida om högtalare och vinylskivor, i brunt och grått med 70-talstema.
+
+TILLGÄNGLIGHET
+
+- Dialoger måste ha DialogTitle + DialogDescription (sr-only ok) eller korrekt aria-describedby.
+
+Agentlogg
+Byggprofil: GPT-5.4
+Profil-ID: max
+Motorvag: egen motor
+Kormodell: gpt-5.4
+Thinking: på
+Bildgenerering: på
+Chat privacy: private
+Provider: Gateway
+Assist model: GPT‑5.4 (Gateway)
+Deep brief: på
+Scaffold: Landing Page
+Prompt optimerad: direkt
+Typ: freeform
+Langd: 194 (mal ~7500)
+Orsak: within_budget
+Generering klar. Startar efterkontroller och slutsteg.
+Autofix klar.
+Fixar: 6, varningar: 1.
+Validering klar.
+Finalisering klar.
+Filer i versionen: 19.
+Version: b6810130-41f7-42a7-b608-aa5d8261a637.
+Ingen tidigare version att jämföra.
+Fel Link-import i app/page.tsx. Använd `next/link`, inte `lucide-react`.
+SEO: Projektet saknar app/robots.ts. | Projektet saknar app/sitemap.ts. | Ingen JSON-LD/schema.org-markup hittades.
+Design tokens (app/globals.css): --color-background, --color-foreground, --color-card, --color-card-foreground, --color-primary, --color-primary-foreground, --color-secondary, --color-secondary-foreground …
+SEO: 3 launch-varning(ar) hittades.
+Projektet saknar app/robots.ts.
+Projektet saknar app/sitemap.ts.
+Ingen JSON-LD/schema.org-markup hittades.
+Bilder: 1 trasig(a) URL:er hittade
+Quality gate: FAIL (invalid_link_import).
+typecheck: FAIL (exit 2)
+build: FAIL (exit 1)
+Duration: 45s
+tsx file="components/site-header.tsx"
+"use client";
+
+import Link from "next/link";
+import { useMemo } from "react";
+import { Menu, Radio, Circle as Vinyl, Waves } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
+
+const navItems = [
+  { href: "#features", label: "Upplevelsen" },
+  { href: "#gallery", label: "Galleri" },
+  { href: "#about", label: "Om ljudet" },
+  { href: "#faq", label: "Frågor" },
+];
+
+export function SiteHeader() {
+  const year = useMemo(() => new Date().getFullYear(), []);
+
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <Link
+          href="/"
+          className="group flex items-center gap-3 rounded-full px-1 py-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Retro Audio Vinyl startsida"
+        >
+          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-sm transition-transform duration-200 group-hover:scale-105">
+            <Vinyl className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-[family:var(--font-display)] text-sm uppercase tracking-[0.26em] text-muted-foreground">
+              Retro Audio
+            </span>
+            <span className="text-base font-semibold tracking-tight">Vinyl & Hi-Fi</span>
+        </Link>
+
+        <nav className="hidden items-center gap-2 md:flex" aria-label="Huvudnavigation">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "rounded-full px-4 py-2 text-sm text-muted-foreground transition-all duration-200 hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="hidden items-center gap-3 md:flex">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-muted-foreground shadow-sm">
+            <Radio className="h-3.5 w-3.5 text-accent" />
+            <span>Est. {year}</span>
+          <Button
+            asChild
+            className="rounded-full px-6 shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-95"
+            <Link href="#collection">Utforska samlingen</Link>
+          </Button>
+        </div>
+
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full md:hidden"
+              aria-label="Öppna meny"
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="border-l border-border bg-card/95 backdrop-blur-xl">
+            <SheetHeader>
+              <SheetTitle className="font-[family:var(--font-display)] text-2xl tracking-tight">
+                Retro Audio Vinyl
+              </SheetTitle>
+              <SheetDescription>
+                Navigera mellan sektionerna och hitta din väg in i den analoga ljudvärlden.
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="mt-8 flex flex-col gap-3">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center justify-between rounded-2xl border border-border bg-background/80 px-4 py-3 text-base transition-all duration-200 hover:border-primary/30 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span>{item.label}</span>
+                  <Waves className="h-4 w-4 text-muted-foreground" />
+                </Link>
+              ))}
+            </div>
+
+            <div className="mt-8 rounded-[1.5rem] border border-border bg-muted/60 p-5">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                En plats för dig som uppskattar träkabinett, tygfronter, knastriga introspår och
+                omslag som känns lika viktiga som musiken.
+              </p>
+              <Button asChild className="mt-4 w-full rounded-full">
+                <Link href="#collection">Utforska samlingen</Link>
+              </Button>
+          </SheetContent>
+        </Sheet>
+    </header>
+tsx file="app/page.tsx"
+import Image from "next/image";
+  ArrowRight,
+  Disc3,
+  GalleryVerticalEnd,
+  Quote,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  Volume2,
+  Waves,
+  Waypoints,
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+
+  title: "Hem",
+    "Ljudet av vinyl. Känslan av 70-talet. En varm och inspirerande hemsida om retro hi-fi, vinylskivor och analog ljudkänsla.",
+const features = [
+    icon: Volume2,
+    title: "Högtalare med själ",
+    text: "Träkabinett, tygfronter och rundade proportioner skapar en närvaro som känns mer möbel än maskin — och just därför så levande.",
+    icon: Disc3,
+    title: "Vinyl som ritual",
+    text: "Att välja skiva, vända sida och låta omslaget vila framme är en del av upplevelsen. Musiken får tid, rum och händer.",
+    icon: SlidersHorizontal,
+    title: "Analog känsla i detaljerna",
+    text: "Reglage i borstad metall, dämpade klick och mjuk glöd från indikatorlampor ger varje lyssning en taktil rytm.",
+const galleryItems = [
+    title: "Skivspelarnålen i spåret",
+    image:
+      "/placeholder.svg?height=500&width=700&text=N%C3%A4rbild+av+skivspelarn%C3%A5l+p%C3%A5+vinylskiva+i+varmt+70-talsljus",
+    alt: "Närbild av skivspelarnål på vinylskiva i varmt 70-talsljus",
+    className: "lg:col-span-2",
+    title: "Textil och träfinish",
+      "/placeholder.svg?height=500&width=500&text=Retro+h%C3%B6gtalare+med+tygfront+och+tr%C3%A4finish+i+varma+bruna+toner",
+    alt: "Retro högtalare med tygfront och träfinish i varma bruna toner",
+    className: "",
+    title: "Omslag som objekt",
+      "/placeholder.svg?height=500&width=500&text=Vinylomslag+med+jordn%C3%A4ra+f%C3%A4rger+lutade+mot+tr%C3%A4v%C3%A4gg",
+    alt: "Vinylomslag med jordnära färger lutade mot trävägg",
+    title: "Hi-fi i vardagsrummet",
+      "/placeholder.svg?height=500&width=700&text=Retro+vardagsrum+i+70-talsstil+med+hi-fi-anl%C3%A4ggning+och+vinylskivor",
+    alt: "Retro vardagsrum i 70-talsstil med hi-fi-anläggning och vinylskivor",
+const testimonials = [
+    quote:
+      "Här handlar allt om stämning. Jag kom för skivspelaren i hero-bilden och stannade för känslan av ett helt rum byggt kring musik.",
+    name: "Maja Lund",
+    title: "Vinylsamlare, Malmö",
+      "Det påminner om när man verkligen lyssnade på album — inte bara lät musik passera. Varmt, genomtänkt och väldigt vackert.",
+    name: "Erik Söder",
+    title: "Hi-fi-entusiast, Göteborg",
+const faqs = [
+    question: "Vad menas med analog ljudkänsla?",
+    answer:
+      "Det handlar mindre om mätvärden och mer om upplevelse: värme, rymd, små imperfektioner och känslan av att ljudet tar plats fysiskt i rummet. Analogt upplevs ofta som mjukare, mer organiskt och mer närvarande.",
+    question: "Varför är vinyl fortfarande uppskattat?",
+      "Vinyl erbjuder en helhetsupplevelse. Omslag, sekvenseringen mellan A- och B-sida, den medvetna handlingen att lägga på en skiva och tiden man faktiskt ägnar åt att lyssna gör formatet speciellt.",
+    question: "Hur skiljer sig klassiska högtalare i uttryck och upplevelse?",
+      "Många klassiska högtalare lyfter fram materialitet och proportioner: trä, tyg och tydliga former. De blir en del av inredningen och skapar en annan relation till ljud än mer anonyma, tekniska objekt.",
+export default function Page() {
+    <div className="min-h-screen bg-background text-foreground">
+      <SiteHeader />
+
+      <main>
+        <section className="relative overflow-hidden border-b border-border/70 bg-gradient-to-b from-background via-background to-muted/45">
+          <div className="section-grain absolute inset-0" aria-hidden="true" />
+          <div className="absolute left-1/2 top-24 hidden h-[28rem] w-[28rem] -translate-x-1/2 rounded-full border border-border/30 md:block" />
+          <div className="absolute left-1/2 top-24 hidden h-[22rem] w-[22rem] -translate-x-1/2 rounded-full border border-border/20 md:block" />
+
+          <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-28">
+            <div className="relative z-10 flex max-w-2xl flex-col justify-center gap-8 animate-fade-in">
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge className="rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground shadow-sm hover:bg-card">
+                  70-tal • analog värme • retro hi-fi
+                </Badge>
+              </div>
+
+              <div className="space-y-6">
+                <p className="editorial-line text-sm uppercase tracking-[0.28em] text-muted-foreground">
+                  Ljudet av vinyl. Känslan av 70-talet.
+                </p>
+                <h1 className="max-w-xl text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+                  Högtalare, skivor och rum som får musiken att stanna kvar.
+                </h1>
+                <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+                  En stämningsfull resa genom träpanel, tygfronter, borstad metall och
+                  vinylskivor som bär både ljud och minnen. Här står känslan i centrum —
+                  varm, jordnära och full av analog närvaro.
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  asChild
+                  size="lg"
+                  className="rounded-full px-7 shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                  <Link href="#collection">
+                    Utforska samlingen
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="rounded-full border-border bg-card/80 px-7 transition-all duration-200 hover:bg-card active:scale-95"
+                    >
+                      Läs mer om ljudet
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="border-border bg-card sm:max-w-xl">
+                    <DialogTitle className="font-[family:var(--font-display)] text-2xl tracking-tight">
+                      Varför känns analogt ljud så speciellt?
+                    </DialogTitle>
+                    <DialogDescription className="text-base leading-relaxed text-muted-foreground">
+                      Analog lyssning handlar om mer än teknik. Det är samspelet mellan objekt,
+                      material och uppmärksamhet — att lyfta en skiva ur innerfodralet, sänka
+                      nålen och låta ett helt album fylla rummet utan att forceras fram. Det är en
+                      långsammare och mer fysisk relation till musik.
+                    </DialogDescription>
+                    <div className="rounded-[1.25rem] border border-border bg-muted/50 p-5 text-sm leading-relaxed text-muted-foreground">
+                      Många upplever att klassiska högtalare och vinylspelare bär på en visuell
+                      och ljudmässig värme som moderna, mer osynliga system sällan försöker ge.
+                      Det är just den mänskliga, taktila sidan vi hyllar här.
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              <div className="grid gap-4 pt-2 sm:grid-cols-3">
+                {[
+                  { label: "Kuraterade miljöer", value: "12" },
+                  { label: "Ikoniska detaljer", value: "70s" },
+                  { label: "Favoritformat", value: "LP" },
+                ].map((stat) => (
+                  <Card
+                    key={stat.label}
+                    className="rounded-[1.4rem] border-border/80 bg-card/85 shadow-sm transition-all duration-200 hover:scale-[1.02]"
+                    <CardContent className="p-5">
+                      <p className="text-2xl font-semibold tracking-tight">{stat.value}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+            <div className="relative flex items-center justify-center lg:justify-end">
+              <div className="animate-float-slow relative w-full max-w-2xl">
+                <div className="retro-frame section-grain relative p-3 sm:p-5">
+                  <div className="absolute left-5 top-5 z-10 rounded-full border border-border/80 bg-background/85 px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground shadow-sm backdrop-blur">
+                    Editorial hi-fi
+                  </div>
+
+                  <Image
+                    src="/placeholder.svg?height=900&width=1200&text=Retro+vardagsrum+i+70-talsstil+med+skivspelare+h%C3%B6gtalare+tr%C3%A4panel+och+varmt+ljus"
+                    alt="Retro vardagsrum i 70-talsstil med skivspelare, högtalare, träpanel och varmt ljus"
+                    width={1200}
+                    height={900}
+                    className="h-[420px] w-full rounded-[1.4rem] object-cover sm:h-[520px] lg:h-[620px]"
+                    priority
+                  />
+
+                  <div className="absolute -bottom-5 left-4 right-4 rounded-[1.5rem] border border-border bg-background/92 p-4 shadow-lg backdrop-blur sm:left-auto sm:right-6 sm:w-[20rem] sm:p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="vinyl-rings animate-spin-record motion-reduce:animate-none flex h-12 w-12 items-center justify-center rounded-full border border-border bg-[color:color-mix(in_oklab,var(--color-primary)_12%,white)]">
+                        <div className="h-3.5 w-3.5 rounded-full bg-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.22em] text-muted-foreground">
+                          Nu spelas
+                        </p>
+                        <p className="font-medium">Warm Needle Session</p>
+                    <Separator className="my-4" />
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Träfinish • borstad metall • tygfront</span>
+                      <Waves className="h-4 w-4 text-accent" />
+        </section>
+
+        <section id="features" className="bg-background py-16 sm:py-24 lg:py-28">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+              <div className="space-y-5">
+                <p className="editorial-line text-sm uppercase tracking-[0.26em] text-muted-foreground">
+                  Det som gör upplevelsen speciell
+                <h2 className="max-w-lg text-3xl font-semibold tracking-tight sm:text-4xl">
+                  När form, material och musik spelar i samma tonart.
+                </h2>
+                <p className="max-w-xl text-lg leading-relaxed text-muted-foreground">
+                  Retro hi-fi bär på något mer än funktion. Den skapar ett rum där varje detalj —
+                  från högtalargaller till skivomslag — förstärker lyssningen och gör musiken
+                  synlig.
+                </p>
+
+                <div className="retro-frame mt-8 overflow-hidden">
+                    src="/placeholder.svg?height=700&width=900&text=Detaljbild+av+retro+h%C3%B6gtalare+med+tr%C3%A4panel+tygfront+och+varmt+ljus"
+                    alt="Detaljbild av retro högtalare med träpanel, tygfront och varmt ljus"
+                    width={900}
+                    height={700}
+                    className="h-[260px] w-full object-cover sm:h-[320px]"
+              <div className="grid gap-6 md:grid-cols-3">
+                {features.map((feature) => {
+                  const Icon = feature.icon;
+
+                  return (
+                    <Card
+                      key={feature.title}
+                      className="rounded-[1.6rem] border-border/80 bg-card/90 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
+                      <CardContent className="flex h-full flex-col gap-5 p-6">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-muted/60">
+                          <Icon className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="space-y-3">
+                          <h3 className="text-2xl font-semibold tracking-tight">{feature.title}</h3>
+                          <p className="leading-relaxed text-muted-foreground">{feature.text}</p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+        <section id="gallery" className="bg-muted/50 py-16 sm:py-24 lg:py-28">
+            <div className="flex flex-col gap-5 sm:max-w-2xl">
+                Ikoniska detaljer
+              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                Ett galleri av texturer, former och små ögonblick.
+              <p className="text-lg leading-relaxed text-muted-foreground">
+                Vinylnärbilder, skivspelarnålar, träpaneler och material som åldras vackert. Den
+                här världen är byggd av ytor du nästan kan känna med fingertopparna.
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              {galleryItems.map((item) => (
+                <article
+                  key={item.title}
+                  className={`retro-frame group min-h-[280px] p-3 transition-all duration-300 hover:-translate-y-1 ${item.className}`}
+                  <div className="relative h-full overflow-hidden rounded-[1.4rem]">
+                    <Image
+                      src={item.image}
+                      alt={item.alt}
+                      width={700}
+                      height={500}
+                      className="h-full min-h-[280px] w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[rgba(48,34,24,0.72)] via-[rgba(48,34,24,0.08)] to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/15 px-3 py-1 text-xs uppercase tracking-[0.22em] text-white/80 backdrop-blur-sm">
+                        <GalleryVerticalEnd className="h-3.5 w-3.5" />
+                        Materialstudie
+                      <h3 className="mt-3 text-2xl font-semibold tracking-tight text-white">
+                        {item.title}
+                      </h3>
+                </article>
+        <section id="about" className="bg-background py-16 sm:py-24 lg:py-28">
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1fr] lg:px-8">
+                En hyllning till hi-fi och vinyl
+              <h2 className="max-w-xl text-3xl font-semibold tracking-tight sm:text-4xl">
+                70-talets formspråk lever kvar i sättet vi lyssnar.
+              <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+                Jordnära färger, mjuka hörn, tydliga volymer och material som vill synas. Det var
+                ett formspråk som gjorde teknik mindre steril och mer mänsklig — något som fortfarande
+                tilltalar alla som vill att musik ska vara en upplevelse, inte bara ett bakgrundslager.
+                Därför fokuserar vi inte på specifikationer först. Vi börjar i stämningen: lampans
+                glöd mot träfanér, omslag lutade mot väggen, högtalare som ramar in soffan och ljud
+                som bär värme snarare än skärpa.
+            <div id="collection" className="grid gap-6">
+              <Card className="rounded-[1.6rem] border-border/80 bg-card/90 shadow-sm">
+                <CardContent className="p-6 sm:p-8">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Badge className="rounded-full bg-accent/20 px-3 py-1 text-accent-foreground hover:bg-accent/20">
+                      Redaktionellt urval
+                    </Badge>
+                    <Badge
+                      className="rounded-full border-border px-3 py-1 text-muted-foreground"
+                      Analog estetik
+                  <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                    <div className="rounded-[1.25rem] border border-border bg-muted/50 p-5">
+                      <Waypoints className="h-5 w-5 text-primary" />
+                      <h3 className="mt-4 text-xl font-semibold tracking-tight">Rumslig närvaro</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                        Högtalare som får vara synliga skapar ett tydligare centrum i rummet.
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      <h3 className="mt-4 text-xl font-semibold tracking-tight">Taktila vanor</h3>
+                        Skivor, omslag och nåltryck gör lyssningen medveten och fysisk.
+              </Card>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                {testimonials.map((item) => (
+                    key={item.name}
+                    className="rounded-[1.6rem] border-border/80 bg-muted/40 shadow-sm transition-all duration-200 hover:shadow-md"
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-1 text-accent">
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <Star key={`${item.name}-${index}`} className="h-4 w-4 fill-current" />
+                        ))}
+                      <Quote className="mt-4 h-7 w-7 text-primary" />
+                      <p className="mt-4 leading-relaxed text-muted-foreground">“{item.quote}”</p>
+                      <div className="mt-5">
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-sm text-muted-foreground">{item.title}</p>
+        <section id="faq" className="bg-muted/50 py-16 sm:py-24 lg:py-28">
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+                Vanliga frågor
+                Några tankar för dig som är nyfiken på den analoga världen.
+                Här hittar du korta svar om varför vinyl och klassiska högtalare fortfarande väcker
+                så mycket känslor — både som ljudupplevelse och som design.
+            <Card className="rounded-[1.8rem] border-border/80 bg-card/95 shadow-sm">
+              <CardContent className="p-5 sm:p-7">
+                <Accordion type="single" collapsible className="w-full">
+                  {faqs.map((faq, index) => (
+                    <AccordionItem key={faq.question} value={`item-${index}`}>
+                      <AccordionTrigger className="text-left text-lg font-medium hover:no-underline">
+                        {faq.question}
+                      </AccordionTrigger>
+                      <AccordionContent className="text-base leading-relaxed text-muted-foreground">
+                        {faq.answer}
+                      </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+        <section className="bg-background py-16 sm:py-24 lg:py-28">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            <div className="retro-frame section-grain relative overflow-hidden px-6 py-10 sm:px-10 sm:py-14">
+              <div
+                className="absolute right-[-4rem] top-1/2 hidden h-56 w-56 -translate-y-1/2 rounded-full border border-border/40 md:block"
+                aria-hidden="true"
+                className="absolute right-[-1rem] top-1/2 hidden h-40 w-40 -translate-y-1/2 rounded-full border border-border/25 md:block"
+              <div className="relative z-10 max-w-3xl space-y-6">
+                <Badge className="rounded-full border border-border bg-background/70 px-4 py-1.5 text-xs uppercase tracking-[0.24em] text-muted-foreground shadow-sm hover:bg-background/70">
+                  Redo att dyka in i ljudvärlden?
+                <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">
+                  Utforska en värld där musik får vara både ljud, objekt och stämning.
+                <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+                  Oavsett om du dras till högtalarnas trätoner, vinylomslagens färger eller den
+                  långsamma ritualen kring lyssning, finns här en samling uttryck att inspireras av.
+                <div className="flex flex-col gap-3 sm:flex-row">
+                    asChild
+                    className="rounded-full px-7 shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                    <Link href="#gallery">
+                      Utforska samlingen
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                    className="rounded-full bg-card/60 px-7 transition-all duration-200 hover:bg-card active:scale-95"
+                    <Link href="mailto:hello@retroaudiovinyl.se">Kontakta oss</Link>
+      </main>
+
+      <SiteFooter />
+Genererat 3 filer
+215 rader
+Råtext
+layout.tsx
+59L
+globals.css
+106L
+site-footer.tsx
+50L
+AUTO-FIX REQUEST — STRICT MINIMAL DIFF
+
+Issues detected: fel Link-import, trasiga bilder.
+
+Rules:
+1. Make the SMALLEST possible change to fix the listed issues.
+2. Do NOT change layout, naming, styling, or architecture unless required by the fix.
+3. Do NOT add new dependencies or restructure files.
+4. Return ONLY the changed files with minimal edits.
+
+Acceptance criteria (the fix MUST pass all):
+- TypeScript typecheck (tsc --noEmit) passes.
+- Build (next build) succeeds.
+- Preview/demo URL loads without errors.
+- All internal links resolve to existing routes.
+- No broken images or invalid React use() calls.
+
+Persisted errors for this version:
+- [render-telemetry] Preview rendered successfully (own-engine)
+- [preflight:summary] Automatic preflight completed.
+
+Diagnostic context:
+{
+  "previousVersionId": null,
+  "missingRoutes": [],
+  "lucideLinkMisuse": [
+    "app/page.tsx"
+  ],
+  "suspiciousUseCalls": [],
+  "sanityIssues": [],
+  "imageValidation": {
+    "valid": false,
+    "total": 3,
+    "broken": [
+      {
+        "url": "https://retro-audio-vinyl.example.com",
+        "alt": "",
+        "file": "app/layout.tsx",
+        "status": "error",
+        "replacementUrl": null
+      }
+    ],
+    "replacedCount": 0,
+    "warnings": [
+      "Trasig bild i app/layout.tsx: https://retro-audio-vinyl.example.com (error)"
+    ],
+    "fixed": false,
+    "demoUrl": null,
+    "message": "1 av 3 bilder trasiga"
+  },
+  "demoUrl": "/api/preview-render?chatId=4b2c3e5d-ac53-4a39-97ca-13a1caa7e653&versionId=b6810130-41f7-42a7-b608-aa5d8261a637",
+  "currentVersionErrors": [
+    "[render-telemetry] Preview rendered successfully (own-engine)",
+    "[preflight:summary] Automatic preflight completed."
+  ],
+  "previousVersionErrors": []
+}
+
+Agentlogg
+Byggprofil: GPT-5.4
+Profil-ID: max
+Motorvag: egen motor
+Kormodell: gpt-5.4
+Thinking: på
+Bildgenerering: på
+Provider: Gateway
+Assist model: GPT‑5.4 (Gateway)
+Deep brief: på
+Scaffold: landing-page
+Prompt optimerad: direkt
+Typ: freeform
+Langd: 2247 (mal ~7500)
+Orsak: technical_content_preserved
+Generering klar. Startar efterkontroller och slutsteg.
+Autofix startad.
+Validering klar.
+Finalisering klar.
+Filer i versionen: 20.
+Version: 7df01478-2d45-4f16-b963-a7b5a33cefc1.
+Ändringar: +0 ~2 -0
+~ app/layout.tsx
+~ app/page.tsx
+SEO: Projektet saknar app/robots.ts. | Projektet saknar app/sitemap.ts. | Ingen JSON-LD/schema.org-markup hittades.
+Design tokens (app/globals.css): --color-background, --color-foreground, --color-card, --color-card-foreground, --color-primary, --color-primary-foreground, --color-secondary, --color-secondary-foreground …
+SEO: 3 launch-varning(ar) hittades.
+Projektet saknar app/robots.ts.
+Projektet saknar app/sitemap.ts.
+Ingen JSON-LD/schema.org-markup hittades.
+Bilder: alla 2 URL:er giltiga ✓
+Quality gate: PASS (changes + preview + stream quality).
+typecheck: FAIL (exit 2)
+build: FAIL (exit 1)
+Duration: 42s
+2. app/layout.tsx metadataBase/openGraph references are being interpreted as broken image URL due to the site URL string. Smallest safe fix is to remove metadataBase and external openGraph/twitter image URLs so no invalid image is validated there.
+No layout/styling/architecture changes needed.
+Accessibility already includes DialogTitle and DialogDescription in page/dialog and Sheet title/description in header.
+</Thinking>
+
+```tsx file="app/page.tsx"
+import Image from "next/image";
+import Link from "next/link";
+
+import {
+  ArrowRight,
+  Disc3,
+  GalleryVerticalEnd,
+  Quote,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  Volume2,
+  Waves,
+  Waypoints,
+} from "lucide-react";
+
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+
+import { Card, CardContent } from "@/components/ui/card";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+
+  title: "Hem",
+    "Ljudet av vinyl. Känslan av 70-talet. En varm och inspirerande hemsida om retro hi-fi, vinylskivor och analog ljudkänsla.",
+const features = [
+  {
+    icon: Volume2,
+    title: "Högtalare med själ",
+    text: "Träkabinett, tygfronter och rundade proportioner skapar en närvaro som känns mer möbel än maskin — och just därför så levande.",
+    icon: Disc3,
+    title: "Vinyl som ritual",
+    text: "Att välja skiva, vända sida och låta omslaget vila framme är en del av upplevelsen. Musiken får tid, rum och händer.",
+    icon: SlidersHorizontal,
+    title: "Analog känsla i detaljerna",
+    text: "Reglage i borstad metall, dämpade klick och mjuk glöd från indikatorlampor ger varje lyssning en taktil rytm.",
+];
+
+const galleryItems = [
+    title: "Skivspelarnålen i spåret",
+    image:
+      "https://images.unsplash.com/photo-1591106609404-2841a99a11b9?w=700&h=500&fit=crop&q=80",
+    alt: "Närbild av skivspelarnål på vinylskiva i varmt 70-talsljus",
+    className: "lg:col-span-2",
+    title: "Textil och träfinish",
+      "https://images.unsplash.com/photo-1679139350948-95bb4f95227d?w=500&h=500&fit=crop&q=80",
+    alt: "Retro högtalare med tygfront och träfinish i varma bruna toner",
+    className: "",
+    title: "Omslag som objekt",
+      "https://images.unsplash.com/photo-1658760624892-45073db513b1?w=500&h=500&fit=crop&q=80",
+    alt: "Vinylomslag med jordnära färger lutade mot trävägg",
+    title: "Hi-fi i vardagsrummet",
+      "https://images.unsplash.com/photo-1766353863068-ebf6caa432ff?w=700&h=500&fit=crop&q=80",
+    alt: "Retro vardagsrum i 70-talsstil med hi-fi-anläggning och vinylskivor",
+const testimonials = [
+    quote:
+      "Här handlar allt om stämning. Jag kom för skivspelaren i hero-bilden och stannade för känslan av ett helt rum byggt kring musik.",
+    name: "Maja Lund",
+    title: "Vinylsamlare, Malmö",
+      "Det påminner om när man verkligen lyssnade på album — inte bara lät musik passera. Varmt, genomtänkt och väldigt vackert.",
+    name: "Erik Söder",
+    title: "Hi-fi-entusiast, Göteborg",
+const faqs = [
+    question: "Vad menas med analog ljudkänsla?",
+    answer:
+      "Det handlar mindre om mätvärden och mer om upplevelse: värme, rymd, små imperfektioner och känslan av att ljudet tar plats fysiskt i rummet. Analogt upplevs ofta som mjukare, mer organiskt och mer närvarande.",
+    question: "Varför är vinyl fortfarande uppskattat?",
+      "Vinyl erbjuder en helhetsupplevelse. Omslag, sekvenseringen mellan A- och B-sida, den medvetna handlingen att lägga på en skiva och tiden man faktiskt ägnar åt att lyssna gör formatet speciellt.",
+    question: "Hur skiljer sig klassiska högtalare i uttryck och upplevelse?",
+      "Många klassiska högtalare lyfter fram materialitet och proportioner: trä, tyg och tydliga former. De blir en del av inredningen och skapar en annan relation till ljud än mer anonyma, tekniska objekt.",
+export default function Page() {
+    <div className="min-h-screen bg-background text-foreground">
+      <SiteHeader />
+
+      <main>
+        <section className="relative overflow-hidden border-b border-border/70 bg-gradient-to-b from-background via-background to-muted/45">
+          <div className="section-grain absolute inset-0" aria-hidden="true" />
+          <div className="absolute left-1/2 top-24 hidden h-[28rem] w-[28rem] -translate-x-1/2 rounded-full border border-border/30 md:block" />
+          <div className="absolute left-1/2 top-24 hidden h-[22rem] w-[22rem] -translate-x-1/2 rounded-full border border-border/20 md:block" />
+
+          <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-28">
+            <div className="relative z-10 flex max-w-2xl flex-col justify-center gap-8 animate-fade-in">
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge className="rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground shadow-sm hover:bg-card">
+                  70-tal • analog värme • retro hi-fi
+                </Badge>
+              </div>
+
+              <div className="space-y-6">
+                <p className="editorial-line text-sm uppercase tracking-[0.28em] text-muted-foreground">
+                  Ljudet av vinyl. Känslan av 70-talet.
+                </p>
+                <h1 className="max-w-xl text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+                  Högtalare, skivor och rum som får musiken att stanna kvar.
+                </h1>
+                <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+                  En stämningsfull resa genom träpanel, tygfronter, borstad metall och
+                  vinylskivor som bär både ljud och minnen. Här står känslan i centrum —
+                  varm, jordnära och full av analog närvaro.
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  asChild
+                  size="lg"
+                  className="rounded-full px-7 shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                >
+                  <Link href="#collection">
+                    Utforska samlingen
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="rounded-full border-border bg-card/80 px-7 transition-all duration-200 hover:bg-card active:scale-95"
+                    >
+                      Läs mer om ljudet
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="border-border bg-card sm:max-w-xl">
+                    <DialogTitle className="font-[family:var(--font-display)] text-2xl tracking-tight">
+                      Varför känns analogt ljud så speciellt?
+                    </DialogTitle>
+                    <DialogDescription className="text-base leading-relaxed text-muted-foreground">
+                      Analog lyssning handlar om mer än teknik. Det är samspelet mellan objekt,
+                      material och uppmärksamhet — att lyfta en skiva ur innerfodralet, sänka
+                      nålen och låta ett helt album fylla rummet utan att forceras fram. Det är en
+                      långsammare och mer fysisk relation till musik.
+                    </DialogDescription>
+                    <div className="rounded-[1.25rem] border border-border bg-muted/50 p-5 text-sm leading-relaxed text-muted-foreground">
+                      Många upplever att klassiska högtalare och vinylspelare bär på en visuell
+                      och ljudmässig värme som moderna, mer osynliga system sällan försöker ge.
+                      Det är just den mänskliga, taktila sidan vi hyllar här.
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              <div className="grid gap-4 pt-2 sm:grid-cols-3">
+                {[
+                  { label: "Kuraterade miljöer", value: "12" },
+                  { label: "Ikoniska detaljer", value: "70s" },
+                  { label: "Favoritformat", value: "LP" },
+                ].map((stat) => (
+                  <Card
+                    key={stat.label}
+                    className="rounded-[1.4rem] border-border/80 bg-card/85 shadow-sm transition-all duration-200 hover:scale-[1.02]"
+                    <CardContent className="p-5">
+                      <p className="text-2xl font-semibold tracking-tight">{stat.value}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+            <div className="relative flex items-center justify-center lg:justify-end">
+              <div className="animate-float-slow relative w-full max-w-2xl">
+                <div className="retro-frame section-grain relative p-3 sm:p-5">
+                  <div className="absolute left-5 top-5 z-10 rounded-full border border-border/80 bg-background/85 px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground shadow-sm backdrop-blur">
+                    Editorial hi-fi
+                  </div>
+
+                  <Image
+                    src="https://images.unsplash.com/photo-1673260839682-87746c4d28d5?w=1200&h=900&fit=crop&q=80"
+                    alt="Retro vardagsrum i 70-talsstil med skivspelare, högtalare, träpanel och varmt ljus"
+                    width={1200}
+                    height={900}
+                    className="h-[420px] w-full rounded-[1.4rem] object-cover sm:h-[520px] lg:h-[620px]"
+                    priority
+                  />
+
+                  <div className="absolute -bottom-5 left-4 right-4 rounded-[1.5rem] border border-border bg-background/92 p-4 shadow-lg backdrop-blur sm:left-auto sm:right-6 sm:w-[20rem] sm:p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="vinyl-rings animate-spin-record motion-reduce:animate-none flex h-12 w-12 items-center justify-center rounded-full border border-border bg-[color:color-mix(in_oklab,var(--color-primary)_12%,white)]">
+                        <div className="h-3.5 w-3.5 rounded-full bg-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.22em] text-muted-foreground">
+                          Nu spelas
+                        </p>
+                        <p className="font-medium">Warm Needle Session</p>
+                    <Separator className="my-4" />
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Träfinish • borstad metall • tygfront</span>
+                      <Waves className="h-4 w-4 text-accent" />
+        </section>
+
+        <section id="features" className="bg-background py-16 sm:py-24 lg:py-28">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+              <div className="space-y-5">
+                <p className="editorial-line text-sm uppercase tracking-[0.26em] text-muted-foreground">
+                  Det som gör upplevelsen speciell
+                <h2 className="max-w-lg text-3xl font-semibold tracking-tight sm:text-4xl">
+                  När form, material och musik spelar i samma tonart.
+                </h2>
+                <p className="max-w-xl text-lg leading-relaxed text-muted-foreground">
+                  Retro hi-fi bär på något mer än funktion. Den skapar ett rum där varje detalj —
+                  från högtalargaller till skivomslag — förstärker lyssningen och gör musiken
+                  synlig.
+                </p>
+
+                <div className="retro-frame mt-8 overflow-hidden">
+                    src="https://images.unsplash.com/photo-1578589492963-6ffb3e9c75c5?w=900&h=700&fit=crop&q=80"
+                    alt="Detaljbild av retro högtalare med träpanel, tygfront och varmt ljus"
+                    width={900}
+                    height={700}
+                    className="h-[260px] w-full object-cover sm:h-[320px]"
+              <div className="grid gap-6 md:grid-cols-3">
+                {features.map((feature) => {
+                  const Icon = feature.icon;
+
+                  return (
+                    <Card
+                      key={feature.title}
+                      className="rounded-[1.6rem] border-border/80 bg-card/90 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
+                      <CardContent className="flex h-full flex-col gap-5 p-6">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-muted/60">
+                          <Icon className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="space-y-3">
+                          <h3 className="text-2xl font-semibold tracking-tight">{feature.title}</h3>
+                          <p className="leading-relaxed text-muted-foreground">{feature.text}</p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+        <section id="gallery" className="bg-muted/50 py-16 sm:py-24 lg:py-28">
+            <div className="flex flex-col gap-5 sm:max-w-2xl">
+                Ikoniska detaljer
+              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                Ett galleri av texturer, former och små ögonblick.
+              <p className="text-lg leading-relaxed text-muted-foreground">
+                Vinylnärbilder, skivspelarnålar, träpaneler och material som åldras vackert. Den
+                här världen är byggd av ytor du nästan kan känna med fingertopparna.
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              {galleryItems.map((item) => (
+                <article
+                  key={item.title}
+                  className={`retro-frame group min-h-[280px] p-3 transition-all duration-300 hover:-translate-y-1 ${item.className}`}
+                  <div className="relative h-full overflow-hidden rounded-[1.4rem]">
+                    <Image
+                      src={item.image}
+                      alt={item.alt}
+                      width={700}
+                      height={500}
+                      className="h-full min-h-[280px] w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[rgba(48,34,24,0.72)] via-[rgba(48,34,24,0.08)] to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/15 px-3 py-1 text-xs uppercase tracking-[0.22em] text-white/80 backdrop-blur-sm">
+                        <GalleryVerticalEnd className="h-3.5 w-3.5" />
+                        Materialstudie
+                      <h3 className="mt-3 text-2xl font-semibold tracking-tight text-white">
+                        {item.title}
+                      </h3>
+                </article>
+        <section id="about" className="bg-background py-16 sm:py-24 lg:py-28">
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1fr] lg:px-8">
+                En hyllning till hi-fi och vinyl
+              <h2 className="max-w-xl text-3xl font-semibold tracking-tight sm:text-4xl">
+                70-talets formspråk lever kvar i sättet vi lyssnar.
+              <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+                Jordnära färger, mjuka hörn, tydliga volymer och material som vill synas. Det var
+                ett formspråk som gjorde teknik mindre steril och mer mänsklig — något som fortfarande
+                tilltalar alla som vill att musik ska vara en upplevelse, inte bara ett bakgrundslager.
+                Därför fokuserar vi inte på specifikationer först. Vi börjar i stämningen: lampans
+                glöd mot träfanér, omslag lutade mot väggen, högtalare som ramar in soffan och ljud
+                som bär värme snarare än skärpa.
+            <div id="collection" className="grid gap-6">
+              <Card className="rounded-[1.6rem] border-border/80 bg-card/90 shadow-sm">
+                <CardContent className="p-6 sm:p-8">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Badge className="rounded-full bg-accent/20 px-3 py-1 text-accent-foreground hover:bg-accent/20">
+                      Redaktionellt urval
+                    </Badge>
+                    <Badge
+                      className="rounded-full border-border px-3 py-1 text-muted-foreground"
+                      Analog estetik
+                  <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                    <div className="rounded-[1.25rem] border border-border bg-muted/50 p-5">
+                      <Waypoints className="h-5 w-5 text-primary" />
+                      <h3 className="mt-4 text-xl font-semibold tracking-tight">Rumslig närvaro</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                        Högtalare som får vara synliga skapar ett tydligare centrum i rummet.
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      <h3 className="mt-4 text-xl font-semibold tracking-tight">Taktila vanor</h3>
+                        Skivor, omslag och nåltryck gör lyssningen medveten och fysisk.
+              </Card>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                {testimonials.map((item) => (
+                    key={item.name}
+                    className="rounded-[1.6rem] border-border/80 bg-muted/40 shadow-sm transition-all duration-200 hover:shadow-md"
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-1 text-accent">
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <Star key={`${item.name}-${index}`} className="h-4 w-4 fill-current" />
+                        ))}
+                      <Quote className="mt-4 h-7 w-7 text-primary" />
+                      <p className="mt-4 leading-relaxed text-muted-foreground">“{item.quote}”</p>
+                      <div className="mt-5">
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-sm text-muted-foreground">{item.title}</p>
+        <section id="faq" className="bg-muted/50 py-16 sm:py-24 lg:py-28">
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+                Vanliga frågor
+                Några tankar för dig som är nyfiken på den analoga världen.
+                Här hittar du korta svar om varför vinyl och klassiska högtalare fortfarande väcker
+                så mycket känslor — både som ljudupplevelse och som design.
+            <Card className="rounded-[1.8rem] border-border/80 bg-card/95 shadow-sm">
+              <CardContent className="p-5 sm:p-7">
+                <Accordion type="single" collapsible className="w-full">
+                  {faqs.map((faq, index) => (
+                    <AccordionItem key={faq.question} value={`item-${index}`}>
+                      <AccordionTrigger className="text-left text-lg font-medium hover:no-underline">
+                        {faq.question}
+                      </AccordionTrigger>
+                      <AccordionContent className="text-base leading-relaxed text-muted-foreground">
+                        {faq.answer}
+                      </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+        <section className="bg-background py-16 sm:py-24 lg:py-28">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            <div className="retro-frame section-grain relative overflow-hidden px-6 py-10 sm:px-10 sm:py-14">
+              <div
+                className="absolute right-[-4rem] top-1/2 hidden h-56 w-56 -translate-y-1/2 rounded-full border border-border/40 md:block"
+                aria-hidden="true"
+                className="absolute right-[-1rem] top-1/2 hidden h-40 w-40 -translate-y-1/2 rounded-full border border-border/25 md:block"
+              <div className="relative z-10 max-w-3xl space-y-6">
+                <Badge className="rounded-full border border-border bg-background/70 px-4 py-1.5 text-xs uppercase tracking-[0.24em] text-muted-foreground shadow-sm hover:bg-background/70">
+                  Redo att dyka in i ljudvärlden?
+                <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">
+                  Utforska en värld där musik får vara både ljud, objekt och stämning.
+                <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+                  Oavsett om du dras till högtalarnas trätoner, vinylomslagens färger eller den
+                  långsamma ritualen kring lyssning, finns här en samling uttryck att inspireras av.
+                <div className="flex flex-col gap-3 sm:flex-row">
+                    asChild
+                    className="rounded-full px-7 shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                    <Link href="#gallery">
+                      Utforska samlingen
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                    className="rounded-full bg-card/60 px-7 transition-all duration-200 hover:bg-card active:scale-95"
+                    <Link href="mailto:hello@retroaudiovinyl.se">Kontakta oss</Link>
+      </main>
+
+      <SiteFooter />
+Genererat 1 fil
+50 rader
+Råtext
+layout.tsx
+50L
+AUTO-FIX REQUEST — STRICT MINIMAL DIFF
+
+Issues detected: typecheck failed, build failed.
+
+Rules:
+1. Make the SMALLEST possible change to fix the listed issues.
+2. Do NOT change layout, naming, styling, or architecture unless required by the fix.
+3. Do NOT add new dependencies or restructure files.
+4. Return ONLY the changed files with minimal edits.
+
+Acceptance criteria (the fix MUST pass all):
+- TypeScript typecheck (tsc --noEmit) passes.
+- Build (next build) succeeds.
+- Preview/demo URL loads without errors.
+- All internal links resolve to existing routes.
+- No broken images or invalid React use() calls.
+
+Persisted errors for this version:
+- [preflight:quality-gate] Automatic quality gate failed.
+- [quality-gate:typecheck] typecheck failed (exit 2)
+- [quality-gate:build] build failed (exit 1)
+- [seo] SEO review hittade 3 launch-varning(ar).
+- [render-telemetry] Preview rendered successfully (own-engine)
+- [preflight:summary] Automatic preflight completed.
+
+Diagnostic context:
+{
+  "qualityGate": {
+    "typecheck": "",
+    "build": ""
+  },
+  "currentVersionErrors": [
+    "[preflight:quality-gate] Automatic quality gate failed.",
+    "[quality-gate:typecheck] typecheck failed (exit 2)",
+    "[quality-gate:build] build failed (exit 1)",
+    "[seo] SEO review hittade 3 launch-varning(ar).",
+    "[render-telemetry] Preview rendered successfully (own-engine)",
+    "[preflight:summary] Automatic preflight completed."
+  ],
+  "previousVersionErrors": []
+}
+
+Agentlogg
+Byggprofil: GPT-5.4
+Profil-ID: max
+Motorvag: egen motor
+Kormodell: gpt-5.4
+Thinking: på
+Bildgenerering: på
+Provider: Gateway
+Assist model: GPT‑5.4 (Gateway)
+Deep brief: på
+Scaffold: landing-page
+Prompt optimerad: direkt
+Typ: freeform
+Langd: 1867 (mal ~7500)
+Orsak: technical_content_preserved
+Generering klar. Startar efterkontroller och slutsteg.
+Autofix klar.
+Fixar: 1, varningar: 0.
+Validering klar.
+Finalisering klar.
+Filer i versionen: 20.
+Version: 2ba828ea-3493-4f0a-b1f4-ca1728173ebb.
+Ändringar: +0 ~2 -0
+~ app/page.tsx
+~ components/site-footer.tsx
+SEO: Projektet saknar app/robots.ts. | Projektet saknar app/sitemap.ts. | Ingen JSON-LD/schema.org-markup hittades.
+Design tokens (app/globals.css): --color-background, --color-foreground, --color-card, --color-card-foreground, --color-primary, --color-primary-foreground, --color-secondary, --color-secondary-foreground …
+SEO: 3 launch-varning(ar) hittades.
+Projektet saknar app/robots.ts.
+Projektet saknar app/sitemap.ts.
+Ingen JSON-LD/schema.org-markup hittades.
+Bilder: alla 2 URL:er giltiga ✓
+Quality gate: PASS (changes + preview + stream quality).
+Quality gate • Förbereder
+```tsx file="components/site-footer.tsx"
+import { Instagram, Mail, Music4, Radio, Youtube } from "lucide-react";
+
+const footerNav = [
+  { href: "#features", label: "Upplevelsen" },
+  { href: "#gallery", label: "Galleri" },
+  { href: "#about", label: "Om ljudet" },
+  { href: "#faq", label: "Frågor" },
+export function SiteFooter() {
+    <footer className="relative overflow-hidden border-t border-border bg-muted/50">
+      <div className="absolute inset-0 bg-radial-vignette" aria-hidden="true" />
+      <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr] lg:px-8">
+        <div className="space-y-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card shadow-sm">
+              <Music4 className="h-5 w-5 text-primary" />
+              <p className="font-[family:var(--font-display)] text-xl tracking-tight">
+                Retro Audio Vinyl
+              <p className="text-sm text-muted-foreground">
+                En hyllning till högtalare, vinyl och varm analog närvaro.
+          <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
+            För musikälskare, vinylsamlare och designmedvetna besökare som vill stanna upp, lägga
+            nålen i spåret och låta rummet fyllas av en mjuk, fysisk ljudbild.
+          <h3 className="font-[family:var(--font-display)] text-lg tracking-tight">Navigering</h3>
+          <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
+            {footerNav.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className="transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  {item.label}
+              </li>
+          </ul>
+          <h3 className="font-[family:var(--font-display)] text-lg tracking-tight">Kontakt & ton</h3>
+            <li>
+                href="mailto:hello@retroaudiovinyl.se"
+                className="inline-flex items-center gap-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                <Mail className="h-4 w-4" />
+                hello@retroaudiovinyl.se
+            <li className="inline-flex items-center gap-2">
+              <Radio className="h-4 w-4" />
+              Redaktionell inspiration, inte teknisk butik
+          </ul>
+
+          <div className="mt-5 flex items-center gap-3">
+              href="#"
+              className="rounded-full border border-border bg-card p-2.5 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Instagram"
+              <Instagram className="h-4 w-4" />
+              aria-label="YouTube"
+              <Youtube className="h-4 w-4" />
+      <div className="border-t border-border/70 px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <p>© 2026 Retro Audio Vinyl. Alla rättigheter förbehållna.</p>
+          <p>Designad med värme, trätoner och kärlek till det analoga.</p>
+    </footer>
+}
+
+export default SiteFooter;
+Genererat 1 fil
+364 rader
+Råtext
+page.tsx
+364L

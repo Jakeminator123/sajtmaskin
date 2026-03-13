@@ -21,15 +21,12 @@ organizes:
 
 - `_scaffold_discovery/` -> `research/external-templates/raw-discovery/`
   Raw, noisy local discovery output from scrape/discovery scripts.
-- `v0_vercel_agents/template_library/` -> `research/external-templates/reference-library/`
-  Curated external reference library containing per-template reference dossiers.
+- `research/external-templates/reference-library/`
+  Curated external reference library containing per-template reference dossiers (previously at `v0_vercel_agents/template_library/`).
 - local repo hydration cache -> `research/external-templates/repo-cache/`
   Ignored shallow-clone cache used during curation, not runtime.
 
-Compatibility note:
-
-- `v0_vercel_agents/template_library/` is kept as a small migration stub so old
-  references can point humans to the new canonical path.
+Note: `v0_vercel_agents/` was removed. Its MCP guidance is covered by `.cursor/rules/` and configured MCP servers.
 
 ## What should be archived or treated as non-canonical
 

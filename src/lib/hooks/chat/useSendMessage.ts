@@ -178,6 +178,11 @@ export function useSendMessage(
         if (themeColors) promptMeta.themeColors = themeColors;
         if (paletteState?.selections?.length) promptMeta.palette = paletteState;
         if (options.planMode) promptMeta.planMode = true;
+        if (options.promptSourceMeta) {
+          promptMeta.promptSourceKind = options.promptSourceMeta.sourceKind;
+          promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
+          promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
+        }
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
           pendingBriefRef.current = null;

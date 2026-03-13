@@ -1,13 +1,20 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PasswordGate } from "./password-gate";
 import { MiniWizard } from "./mini-wizard";
 import { ThinkingSpinner } from "./thinking-spinner";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
+import type { KostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 import { createProject } from "@/lib/project-client";
+
+declare global {
+  interface Window {
+    __SITEMASKIN_CONTEXT?: Record<string, unknown>;
+  }
+}
 
 /**
  * KostnadsfriPage — Client component that orchestrates the full flow:
@@ -24,13 +31,42 @@ interface KostnadsfriPageProps {
   companyName: string;
   /** Whether a DB record exists for this slug (enriched data available) */
   hasDbRecord?: boolean;
+  openclawConfig?: KostnadsfriOpenClawConfig | null;
 }
 
-export function KostnadsfriPage({ slug, companyName, hasDbRecord: _hasDbRecord }: KostnadsfriPageProps) {
+export function KostnadsfriPage({
+  slug,
+  companyName,
+  hasDbRecord: _hasDbRecord,
+  openclawConfig = null,
+}: KostnadsfriPageProps) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("password");
   const [companyData, setCompanyData] = useState<KostnadsfriCompanyData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const activeCompanyName = companyData?.companyName ?? companyName;
+  const activeOpenclawConfig = useMemo(
+    () => companyData?.openclawConfig ?? openclawConfig ?? null,
+    [companyData?.openclawConfig, openclawConfig],
+  );
+
+  useEffect(() => {
+    window.__SITEMASKIN_CONTEXT = {
+      page: "kostnadsfri",
+      slug,
+      companyName: activeCompanyName,
+      openclawSurface: {
+        companyName: activeCompanyName,
+        ...(activeOpenclawConfig ?? {}),
+      },
+    };
+    window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+
+    return () => {
+      delete window.__SITEMASKIN_CONTEXT;
+      window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+    };
+  }, [slug, activeCompanyName, activeOpenclawConfig]);
 
   // Phase 1 -> Phase 2: Password verified
   const handlePasswordSuccess = useCallback((data: KostnadsfriCompanyData) => {

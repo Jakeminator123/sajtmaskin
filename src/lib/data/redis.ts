@@ -305,6 +305,8 @@ export type CachedPromptHandoff = {
   prompt: string;
   source?: string | null;
   projectId?: string | null;
+  userId?: string | null;
+  sessionId?: string | null;
   createdAt?: string | null;
 };
 

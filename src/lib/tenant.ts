@@ -4,6 +4,13 @@ import { chats, projects } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
 import { getCurrentUser, getTokenFromRequest } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { getProjectByIdForOwner } from "@/lib/db/services";
+import {
+  getChat as getEngineChat,
+  getVersionById as getEngineVersionById,
+  type ChatWithMessages as EngineChatWithMessages,
+  type Version as EngineVersion,
+} from "@/lib/db/chat-repository-pg";
 
 /**
  * Standardized v0ProjectId resolution.
@@ -68,15 +75,6 @@ export async function getRequestUserId(
 
   if (AUTH_DEBUG_ENABLED && token) {
     logAuthDebug("auth-miss", { reason: "token-present-but-no-user" });
-  }
-
-  const headerUserId = req.headers.get("x-user-id");
-  const trimmed = headerUserId ? headerUserId.trim() : "";
-  if (trimmed.length > 0) {
-    if (AUTH_DEBUG_ENABLED) {
-      logAuthDebug("header", { userId: maskId(trimmed) });
-    }
-    return trimmed;
   }
 
   const sessionId = options?.sessionId ?? getSessionIdFromRequest(req);
@@ -220,6 +218,104 @@ export async function getProjectByIdForRequest(
     )
     .limit(1);
   return rows[0] ?? null;
+}
+
+type OwnerScope = {
+  userId: string | null;
+  sessionId: string | null;
+};
+
+async function getRequestOwnerScope(
+  req: Request,
+  options?: { sessionId?: string },
+): Promise<OwnerScope> {
+  let userId: string | null = null;
+  try {
+    const user = await getCurrentUser(req);
+    userId = user?.id ?? null;
+  } catch {
+    userId = null;
+  }
+  const sessionId = options?.sessionId ?? getSessionIdFromRequest(req) ?? null;
+  return { userId, sessionId };
+}
+
+export async function getAppProjectByIdForRequest(
+  req: Request,
+  projectId: string,
+  options?: { sessionId?: string },
+) {
+  const normalizedProjectId = projectId.trim();
+  if (!normalizedProjectId) return null;
+  const ownerScope = await getRequestOwnerScope(req, options);
+  return getProjectByIdForOwner(normalizedProjectId, ownerScope);
+}
+
+export async function resolveAppProjectIdForRequest(
+  req: Request,
+  params: {
+    appProjectId?: string | null;
+    projectId?: string | null;
+  },
+  options?: { sessionId?: string },
+): Promise<string | null> {
+  const explicitAppProjectId = params.appProjectId?.trim();
+  if (explicitAppProjectId) {
+    const appProject = await getAppProjectByIdForRequest(req, explicitAppProjectId, options);
+    return appProject?.id ?? null;
+  }
+
+  const fallbackProjectId = params.projectId?.trim();
+  if (fallbackProjectId) {
+    const project = await getProjectByIdForRequest(req, fallbackProjectId, options);
+    return project?.id ?? null;
+  }
+
+  return null;
+}
+
+export async function getEngineChatByIdForRequest(
+  req: Request,
+  chatId: string,
+  options?: { sessionId?: string },
+): Promise<EngineChatWithMessages | null> {
+  const normalizedChatId = chatId.trim();
+  if (!normalizedChatId) return null;
+  const chat = await getEngineChat(normalizedChatId);
+  if (!chat) return null;
+  const projectId = typeof chat.project_id === "string" ? chat.project_id.trim() : "";
+  if (!projectId) return null;
+  const project = await getAppProjectByIdForRequest(req, projectId, options);
+  if (!project) return null;
+  return chat;
+}
+
+export async function getEngineVersionByIdForRequest(
+  req: Request,
+  versionId: string,
+  options?: { sessionId?: string },
+): Promise<{ chat: EngineChatWithMessages; version: EngineVersion } | null> {
+  const normalizedVersionId = versionId.trim();
+  if (!normalizedVersionId) return null;
+  const version = await getEngineVersionById(normalizedVersionId);
+  if (!version) return null;
+  const chat = await getEngineChatByIdForRequest(req, version.chat_id, options);
+  if (!chat) return null;
+  return { chat, version };
+}
+
+export async function getEngineVersionForChatByIdForRequest(
+  req: Request,
+  chatId: string,
+  versionId: string,
+  options?: { sessionId?: string },
+): Promise<{ chat: EngineChatWithMessages; version: EngineVersion } | null> {
+  const normalizedChatId = chatId.trim();
+  if (!normalizedChatId) return null;
+  const scoped = await getEngineVersionByIdForRequest(req, versionId, options);
+  if (!scoped) return null;
+  if (scoped.version.chat_id !== normalizedChatId) return null;
+  return scoped;
 }
 
 export async function ensureProjectForRequest(params: {

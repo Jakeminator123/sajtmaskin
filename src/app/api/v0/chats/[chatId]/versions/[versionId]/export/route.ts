@@ -5,7 +5,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { assertV0Key, v0 } from "@/lib/v0";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 
@@ -46,7 +46,11 @@ export async function POST(
       // Non-fallback: build archive from Postgres engine files, upload to Blob
       // -----------------------------------------------------------------
       if (!shouldUseV0Fallback()) {
-        const codeFiles = await getVersionFiles(versionId);
+        const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+        if (!scopedVersion) {
+          return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+        }
+        const codeFiles = await getVersionFiles(scopedVersion.version.id);
         if (codeFiles && codeFiles.length > 0) {
           const JSZip = (await import("jszip")).default;
           const zip = new JSZip();
@@ -57,7 +61,7 @@ export async function POST(
           const buffer = await zip.generateAsync({ type: "nodebuffer" });
 
           const safeChat = toSafeSegment(chatId) || "chat";
-          const safeVersion = toSafeSegment(versionId) || "version";
+          const safeVersion = toSafeSegment(scopedVersion.version.id) || "version";
           const contentType = "application/zip";
           const pathname = `exports/${safeChat}/${safeVersion}-${Date.now()}.zip`;
 
@@ -75,6 +79,8 @@ export async function POST(
             blob,
           });
         }
+
+        return NextResponse.json({ error: "No files found for version" }, { status: 404 });
       }
 
       // -----------------------------------------------------------------

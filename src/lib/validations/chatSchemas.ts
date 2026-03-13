@@ -40,6 +40,9 @@ const promptMetaSchema = z
     formattedLength: z.number().int().nonnegative().optional(),
     attachmentsCount: z.number().int().nonnegative().optional(),
     planMode: z.boolean().optional(),
+    promptSourceKind: z.string().optional(),
+    promptSourceTechnical: z.boolean().optional(),
+    promptSourcePreservePayload: z.boolean().optional(),
   })
   .partial()
   .passthrough();

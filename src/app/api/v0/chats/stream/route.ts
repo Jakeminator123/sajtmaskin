@@ -31,6 +31,7 @@ import {
   resolveV0ProjectId,
   generateProjectName,
   getChatByV0ChatIdForRequest,
+  resolveAppProjectIdForRequest,
 } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/logging/devLog";
@@ -167,6 +168,14 @@ export async function POST(req: Request) {
         typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
           ? (meta as { buildIntent?: string }).buildIntent
           : null;
+      const metaPromptSourceKind =
+        typeof (meta as { promptSourceKind?: unknown })?.promptSourceKind === "string"
+          ? (meta as { promptSourceKind?: string }).promptSourceKind
+          : null;
+      const metaPromptSourceTechnical =
+        (meta as { promptSourceTechnical?: unknown })?.promptSourceTechnical === true;
+      const metaPromptSourcePreservePayload =
+        (meta as { promptSourcePreservePayload?: unknown })?.promptSourcePreservePayload === true;
       const metaPlanMode =
         (meta as { planMode?: unknown })?.planMode === true;
       const metaAppProjectId = extractAppProjectIdFromMeta(meta);
@@ -176,6 +185,9 @@ export async function POST(req: Request) {
         buildIntent: metaBuildIntent,
         isFirstPrompt: true,
         attachmentsCount: requestAttachments.length,
+        promptSourceKind: metaPromptSourceKind,
+        promptSourceTechnical: metaPromptSourceTechnical,
+        promptSourcePreservePayload: metaPromptSourcePreservePayload,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
       const optimizedMessage = promptOrchestration.finalMessage;
@@ -402,7 +414,22 @@ export async function POST(req: Request) {
           maxSteps: 2,
         });
 
-        const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
+        const projectIdForChat = await resolveAppProjectIdForRequest(
+          req,
+          { appProjectId: metaAppProjectId, projectId },
+          { sessionId },
+        );
+        if (!projectIdForChat) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                error:
+                  "Plan mode requires a valid app project id. Create or resolve a project before retrying.",
+              },
+              { status: 400 },
+            ),
+          );
+        }
         const plannerChat = await chatRepo.createChat(
           projectIdForChat,
           engineModel,
@@ -626,7 +653,22 @@ export async function POST(req: Request) {
           referenceAttachments: requestAttachments,
         });
 
-        const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
+        const projectIdForChat = await resolveAppProjectIdForRequest(
+          req,
+          { appProjectId: metaAppProjectId, projectId },
+          { sessionId },
+        );
+        if (!projectIdForChat) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                error:
+                  "Own-engine generation requires a valid app project id. Create or resolve a project before retrying.",
+              },
+              { status: 400 },
+            ),
+          );
+        }
         const engineChat = await chatRepo.createChat(
           projectIdForChat,
           engineModel,

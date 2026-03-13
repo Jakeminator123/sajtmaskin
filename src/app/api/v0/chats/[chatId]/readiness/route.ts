@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import {
-  getChat as getEngineChat,
   getLatestVersion,
   getPreferredVersion,
-  getVersionById,
 } from "@/lib/db/chat-repository-pg";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services";
@@ -16,7 +14,11 @@ import {
   type ChatReadinessItem,
 } from "@/lib/chat-readiness";
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import {
+  getChatByV0ChatIdForRequest,
+  getEngineChatByIdForRequest,
+  getEngineVersionForChatByIdForRequest,
+} from "@/lib/tenant";
 
 function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim().toUpperCase()).filter(Boolean)));
@@ -109,18 +111,25 @@ function buildNoVersionReadiness(): ChatReadiness {
   });
 }
 
-async function buildEngineReadiness(chatId: string, requestedVersionId: string | null) {
-  const chat = await getEngineChat(chatId);
+async function buildEngineReadiness(
+  request: Request,
+  chatId: string,
+  requestedVersionId: string | null,
+) {
+  const chat = await getEngineChatByIdForRequest(request, chatId);
   if (!chat) {
     return null;
   }
 
+  const requestedVersion = requestedVersionId
+    ? await getEngineVersionForChatByIdForRequest(request, chatId, requestedVersionId)
+    : null;
   const version =
-    (requestedVersionId ? await getVersionById(requestedVersionId) : null) ??
-    (await getPreferredVersion(chatId)) ??
-    (await getLatestVersion(chatId));
+    requestedVersion?.version ??
+    (await getPreferredVersion(chat.id)) ??
+    (await getLatestVersion(chat.id));
 
-  if (!version || version.chat_id !== chatId) {
+  if (!version || version.chat_id !== chat.id) {
     return buildNoVersionReadiness();
   }
 
@@ -139,7 +148,16 @@ async function buildEngineReadiness(chatId: string, requestedVersionId: string |
     blockers.push(lifecycleBlocker);
   }
 
-  const files = (await getVersionFiles(version.id)) ?? [];
+  const envVarMapPromise = chat.project_id
+    ? getStoredProjectEnvVarMap(chat.project_id).catch(() => ({} as Record<string, string>))
+    : Promise.resolve<Record<string, string>>({});
+  const [versionFiles, envVarMap, errorLogs] = await Promise.all([
+    getVersionFiles(version.id),
+    envVarMapPromise,
+    getEngineVersionErrorLogs(version.id),
+  ]);
+
+  const files = versionFiles ?? [];
   const code = files
     .filter((file) => typeof file?.path === "string" && typeof file?.content === "string")
     .map((file) => `// File: ${file.path}\n${file.content}`)
@@ -148,11 +166,9 @@ async function buildEngineReadiness(chatId: string, requestedVersionId: string |
     detectIntegrations(code).flatMap((integration) => integration.envVars ?? []),
   );
 
-  const configuredEnvKeys = chat.project_id
-    ? Object.keys(await getStoredProjectEnvVarMap(chat.project_id).catch(() => ({})))
-        .map((key) => key.trim().toUpperCase())
-        .filter(Boolean)
-    : [];
+  const configuredEnvKeys = Object.keys(envVarMap)
+    .map((key) => key.trim().toUpperCase())
+    .filter(Boolean);
   const configuredEnvSet = new Set(configuredEnvKeys);
   const missingEnvKeys = requiredEnvKeys.filter((key) => !configuredEnvSet.has(key));
 
@@ -168,7 +184,6 @@ async function buildEngineReadiness(chatId: string, requestedVersionId: string |
     blockers.push(buildMissingEnvBlocker(missingEnvKeys));
   }
 
-  const errorLogs = await getEngineVersionErrorLogs(version.id);
   const latestPreviewError = errorLogs.find(
     (log) =>
       log.level === "error" &&
@@ -237,7 +252,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ chatId: str
 
     const readiness = shouldUseV0Fallback()
       ? await buildV0FallbackReadiness(request, chatId, requestedVersionId)
-      : await buildEngineReadiness(chatId, requestedVersionId);
+      : await buildEngineReadiness(request, chatId, requestedVersionId);
 
     if (!readiness) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });

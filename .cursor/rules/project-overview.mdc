@@ -29,7 +29,7 @@ User prompt -> Builder UI -> Own engine (default) or v0 Platform API (fallback) 
 - **Own engine**: `src/lib/gen/` — streamText, runtime scaffolds, autofix, preview. Kräver OPENAI_API_KEY.
 - **v0 fallback**: När V0_FALLBACK_BUILDER=y skickas till v0 Platform API. Kräver V0_API_KEY.
 - **Template gallery**: `src/lib/templates/` — user-facing browsing/search/discovery surface, not the runtime scaffold registry.
-- **Research lane**: `v0_vercel_agents/official_docs/`, `research/external-templates/`, and `src/lib/gen/template-library/` — curated docs/reference material used to improve scaffolds, not to replace them at runtime.
+- **Research lane**: `research/external-templates/`, and `src/lib/gen/template-library/` — curated docs/reference material used to improve scaffolds, not to replace them at runtime. MCP doc servers (OpenAI, Vercel, OpenClaw) are the primary authoritative source for platform docs.
 
 ### Key directories
 
@@ -40,7 +40,6 @@ User prompt -> Builder UI -> Own engine (default) or v0 Platform API (fallback) 
 | `src/app/api/v0/` | Chat/stream routes (own engine eller v0 proxy) |
 | `src/lib/gen/` | Own engine — runtime scaffolds, system prompt, autofix, preview |
 | `src/lib/templates/` | Product template gallery and semantic search |
-| `v0_vercel_agents/` | Official docs helpers and browser-based research utilities |
 | `research/external-templates/` | Raw discovery plus curated external reference dossiers |
 | `src/app/api/auth/` | Authentication (email, Google, GitHub OAuth) |
 | `src/app/api/ai/` | AI Gateway routes (prompt assist, brief, spec) |
@@ -49,7 +48,7 @@ User prompt -> Builder UI -> Own engine (default) or v0 Platform API (fallback) 
 | `src/components/ui/` | shadcn/ui base components |
 | `src/lib/v0/` | v0 SDK wrapper, streaming, file parsing |
 | `src/lib/builder/` | Builder business logic (prompt assist, orchestration, types) |
-| `src/lib/hooks/` | React hooks (useV0ChatMessaging, useChat, useVersions) |
+| `src/lib/hooks/` | React hooks (useChatMessaging, useChat, useVersions) |
 | `src/lib/db/` | Drizzle schema + service layer |
 | `src/lib/auth/` | Auth logic + Zustand store + edge-auth.ts for middleware |
 | `src/lib/brave-search.ts` | Brave Web Search API wrapper |

@@ -21,7 +21,6 @@ import {
 import {
   type ShadcnBlockAction,
   type ShadcnBlockSelection,
-  type PlacementOption,
   PLACEMENT_OPTIONS,
 } from "@/components/builder/UiElementPicker";
 import {
@@ -33,9 +32,18 @@ import { Input } from "@/components/ui/input";
 import { FileText, ImageIcon, Loader2, Plus, Wand2, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { buildAiElementPrompt, type AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
+import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
+import {
+  buildPromptSourceMessage,
+  type AiElementPromptSource,
+  type PromptSourceMeta,
+  type ShadcnPromptSource,
+} from "@/lib/builder/prompt-builder";
 import type { PaletteSelection } from "@/lib/builder/palette";
-import { buildShadcnBlockPrompt, buildShadcnComponentPrompt } from "@/lib/shadcn-registry-utils";
+import {
+  getPlacementLabel,
+  type PlacementOption,
+} from "@/lib/builder/placement-utils";
 import {
   DESIGN_THEME_OPTIONS,
   type DesignTheme,
@@ -53,22 +61,18 @@ type MessageOptions = {
   attachments?: V0UserFileAttachment[];
   attachmentPrompt?: string;
   planMode?: boolean;
+  promptSourceMeta?: PromptSourceMeta;
 };
 
 export type VisualPlacementRequest =
   | {
       kind: "ui";
       action: ShadcnBlockAction;
-      selection: ShadcnBlockSelection;
-      isComponent: boolean;
-      itemTitle: string;
-      deps: string;
+      source: ShadcnPromptSource;
     }
   | {
       kind: "ai";
-      item: AiElementCatalogItem;
-      options: { placement?: PlacementOption; detectedSections?: DetectedSection[] };
-      deps: string;
+      source: AiElementPromptSource;
     };
 
 export type VisualPlacementDecision = "handled" | "cancelled" | "fallback";
@@ -613,7 +617,7 @@ export function ChatInterface({
 
   const sendMessagePayload = async (
     baseMessage: string,
-    options: { clearDraft?: boolean; planMode?: boolean } = {},
+    options: { clearDraft?: boolean; planMode?: boolean; promptSourceMeta?: PromptSourceMeta } = {},
   ) => {
     setIsSending(true);
     try {
@@ -623,6 +627,7 @@ export function ChatInterface({
         attachments: payload.finalAttachments,
         attachmentPrompt: payload.attachmentPrompt,
         planMode: options.planMode,
+        promptSourceMeta: options.promptSourceMeta,
       };
       if (!chatId) {
         if (!onCreateChat) return;
@@ -659,16 +664,6 @@ export function ChatInterface({
     await sendMessagePayload(baseMessage);
   };
 
-  const resolvePlacementLabel = (placement?: PlacementOption) => {
-    const placementOption = PLACEMENT_OPTIONS.find((p) => p.value === placement);
-    if (placementOption?.label) return placementOption.label;
-    if (placement?.startsWith("after-")) {
-      const label = placement.replace("after-", "");
-      return `Efter ${label.charAt(0).toUpperCase()}${label.slice(1)}`;
-    }
-    return "Längst ner";
-  };
-
   const handleDesignSystemAction = async (
     selection: ShadcnBlockSelection,
     action: ShadcnBlockAction,
@@ -681,43 +676,30 @@ export function ChatInterface({
         selection.itemType === "component" ||
         (selection.registryItem?.type?.toLowerCase().includes("component") ?? false);
 
-      const technicalPrompt = isComponent
-        ? buildShadcnComponentPrompt(selection.registryItem, {
-            style: selection.style,
-            displayName: selection.block.title,
-            description: selection.block.description,
-            dependencyItems: selection.dependencyItems,
-            placement: selection.placement,
-            detectedSections: selection.detectedSections,
-            existingUiComponents,
-          })
-        : buildShadcnBlockPrompt(selection.registryItem, {
-            style: selection.style,
-            displayName: selection.block.title,
-            description: selection.block.description,
-            dependencyItems: selection.dependencyItems,
-            placement: selection.placement,
-            detectedSections: selection.detectedSections,
-            existingUiComponents,
-          });
-
-      const itemTitle = selection.block.title || selection.registryItem.name;
-      const deps = selection.registryItem.registryDependencies?.length
-        ? ` (${selection.registryItem.registryDependencies.slice(0, 4).join(", ")}${
-            selection.registryItem.registryDependencies.length > 4 ? "..." : ""
-          })`
-        : "";
-      const placementLabel = resolvePlacementLabel(selection.placement);
+      const source: ShadcnPromptSource = {
+        kind: isComponent ? "shadcn-component" : "shadcn-block",
+        registryItem: selection.registryItem,
+        style: selection.style,
+        displayName: selection.block.title,
+        description: selection.block.description,
+        dependencyItems: selection.dependencyItems,
+        placement: selection.placement,
+        detectedSections: selection.detectedSections,
+        existingUiComponents,
+      };
+      const builtPrompt = buildPromptSourceMessage(source, {
+        placementLabel:
+          PLACEMENT_OPTIONS.find((p) => p.value === selection.placement)?.label ||
+          getPlacementLabel(selection.placement),
+      });
+      const itemTitle = builtPrompt.title || selection.block.title || selection.registryItem.name;
 
       if (action === "add" && chatId && onRequestPlacement) {
         setPickerTab(null);
         const decision = await onRequestPlacement({
           kind: "ui",
           action,
-          selection,
-          isComponent,
-          itemTitle,
-          deps,
+          source,
         });
         if (decision !== "fallback") {
           if (decision !== "cancelled") {
@@ -732,13 +714,6 @@ export function ChatInterface({
           return;
         }
       }
-
-      const fullMessage = `Lägg till UI‑element (${isComponent ? "komponent" : "block"}): **${itemTitle}**${deps}
-📍 Placering: ${placementLabel}
-
----
-
-${technicalPrompt}`;
 
       if (action === "start") {
         if (onStartFromRegistry) {
@@ -757,7 +732,10 @@ ${technicalPrompt}`;
         }
 
         if (!onCreateChat) return;
-        await sendMessagePayload(fullMessage, { clearDraft: false });
+        await sendMessagePayload(builtPrompt.message, {
+          clearDraft: false,
+          promptSourceMeta: builtPrompt.meta,
+        });
         onPaletteSelection?.({
           id: selection.registryItem.name || selection.block.name,
           label: itemTitle,
@@ -771,7 +749,10 @@ ${technicalPrompt}`;
 
       if (!onCreateChat && !onSendMessage) return;
 
-      await sendMessagePayload(fullMessage, { clearDraft: false });
+      await sendMessagePayload(builtPrompt.message, {
+        clearDraft: false,
+        promptSourceMeta: builtPrompt.meta,
+      });
       onPaletteSelection?.({
         id: selection.registryItem.name || selection.block.name,
         label: itemTitle,
@@ -809,22 +790,23 @@ ${technicalPrompt}`;
 
     setIsUiElementAction(true);
     try {
-      const placementLabel = resolvePlacementLabel(options.placement);
-      const technicalPrompt = buildAiElementPrompt(item, {
+      const source: AiElementPromptSource = {
+        kind: "ai-element",
+        item,
         placement: options.placement,
         detectedSections: options.detectedSections,
+      };
+      const builtPrompt = buildPromptSourceMessage(source, {
+        placementLabel:
+          PLACEMENT_OPTIONS.find((p) => p.value === options.placement)?.label ||
+          getPlacementLabel(options.placement),
       });
-      const deps = item.dependencies?.length
-        ? ` (${item.dependencies.slice(0, 4).join(", ")}${item.dependencies.length > 4 ? "..." : ""})`
-        : "";
 
       if (chatId && onRequestPlacement) {
         setPickerTab(null);
         const decision = await onRequestPlacement({
           kind: "ai",
-          item,
-          options,
-          deps,
+          source,
         });
         if (decision !== "fallback") {
           if (decision !== "cancelled") {
@@ -841,14 +823,10 @@ ${technicalPrompt}`;
         }
       }
 
-      const fullMessage = `Lägg till AI‑element: **${item.label}**${deps}
-📍 Placering: ${placementLabel}
-
----
-
-${technicalPrompt}`;
-
-      await sendMessagePayload(fullMessage, { clearDraft: false });
+      await sendMessagePayload(builtPrompt.message, {
+        clearDraft: false,
+        promptSourceMeta: builtPrompt.meta,
+      });
       onPaletteSelection?.({
         id: item.id,
         label: item.label,
@@ -1083,6 +1061,8 @@ ${technicalPrompt}`;
         )}
         <PromptInputBody>
           <PromptInputTextarea
+            data-openclaw-text-target="builder.chat.primary"
+            data-openclaw-text-label="Builderns huvudprompt"
             placeholder={
               chatId
                 ? "Skriv en uppdatering... (Enter för att skicka)"

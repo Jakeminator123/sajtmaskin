@@ -49,7 +49,7 @@ When discussing generation architecture, prefer this mental model:
 | Lane | What belongs here | What it is not |
 |------|-------------------|----------------|
 | **Runtime lane** | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not raw external datasets |
-| **Research lane** | `v0_vercel_agents/official_docs/`, `research/external-templates/reference-library/`, raw discovery under `research/external-templates/raw-discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
+| **Research lane** | `research/external-templates/reference-library/`, raw discovery under `research/external-templates/raw-discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
 
 Important rule:
 - Treat the **template gallery** in `src/lib/templates/` as a product/UI discovery surface, not as a third generation lane.
@@ -88,6 +88,31 @@ Important rule:
 - Do NOT describe `research/external-templates/raw-discovery/` as curated research. It is intentionally noisy input.
 - Do NOT imply that external reference templates are cloned into runtime generation by default. They inform prompts, embeddings, and scaffold improvements unless a separate import flow explicitly says otherwise.
 - Do NOT use `multi-tenant` or `multi-project` as if they were template concepts. They describe hosting/deployment architecture, not content/category selection.
+
+### Common chat aliases
+
+Treat common misspellings and spoken-style aliases as canonical platform names:
+
+| Alias in chat | Canonical term |
+|---------------|----------------|
+| `Varicell`, `Vericell` | `Vercel` |
+| `Veenol`, `Venol` | `v0` |
+
+When answering, prefer canonical names (`Vercel`, `v0`) even if user writes an alias.
+
+### Orchestrator terms
+
+Use this vocabulary consistently for automation work:
+
+- `orchestrator run` - the full dated execution folder under `.cursor/orchestrator/run/`
+- `orchestrator agent` - the coordinator that plans, delegates, validates, and performs minor fixes
+- `run roadmap` - the per-run `ROADMAP.md`
+- `track plan` - an intermediate tier-2 plan for one broader workstream inside an orchestrator run
+- `agent log` - a per-workload execution note written by the delegated agent
+- `final sweep` - the closing cleanup and audit pass for dead code, ghost routes, stale files, and doc drift
+
+Treat `/orchestrator` and `/automation` as the compact startup aliases for the
+orchestrator-run system.
 
 ### Research pipeline terms
 
@@ -182,14 +207,13 @@ server capabilities.
 
 ## Builder picker components
 
-The builder toolbar exposes four picker dialogs, each in its own file:
+The builder toolbar now centers on a unified picker flow:
 
 | Component | File | What it does |
 |-----------|------|-------------|
-| `UiElementPicker` | `UiElementPicker.tsx` | Browse and insert shadcn/ui blocks & components |
-| `ThemePicker` | `ThemePicker.tsx` | Select a design theme (OKLch palette) |
-| `TemplatePicker` | `TemplatePicker.tsx` | Pick a starting template category |
-| `AiElementPicker` | `AiElementPicker.tsx` | Insert AI-powered UI elements (hero, pricing, etc.) |
+| `UnifiedElementPicker` | `UnifiedElementPicker.tsx` | Main builder picker surface that consolidates insertion flows |
+| `UiElementPicker` | `UiElementPicker.tsx` | Underlying shadcn/ui block and component browser used by the unified picker |
+| `UiElementPickerPreview` | `UiElementPickerPreview.tsx` | Preview/support surface for picker-driven insertion |
 
 ## Naming conventions in code
 

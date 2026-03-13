@@ -15,8 +15,19 @@
 
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight } from "lucide-react";
-import * as LucideIcons from "lucide-react";
+import {
+  ArrowRight,
+  FileText,
+  Gamepad2,
+  Globe,
+  HelpCircle,
+  Layout,
+  Lock,
+  Palette,
+  Puzzle,
+  Wand2,
+  Zap,
+} from "lucide-react";
 import {
   getAllV0Categories,
   getTemplatesByCategory,
@@ -26,17 +37,17 @@ import {
 // ICON MAPPING
 // ═══════════════════════════════════════════════════════════════
 
-const iconMap: Record<string, keyof typeof LucideIcons> = {
-  Wand2: "Wand2",
-  Zap: "Zap",
-  Puzzle: "Puzzle",
-  Lock: "Lock",
-  FileText: "FileText",
-  Palette: "Palette",
-  Layout: "Layout",
-  Globe: "Globe",
-  Gamepad2: "Gamepad2",
-  HelpCircle: "HelpCircle",
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Wand2,
+  Zap,
+  Puzzle,
+  Lock,
+  FileText,
+  Palette,
+  Layout,
+  Globe,
+  Gamepad2,
+  HelpCircle,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -73,10 +84,7 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
       aria-label="Välj template-kategori"
     >
       {categories.map((category, index) => {
-        const IconName = iconMap[category.icon] || "FileText";
-        const Icon = LucideIcons[IconName] as React.ComponentType<{
-          className?: string;
-        }>;
+        const Icon = iconMap[category.icon] || FileText;
         const templateCount = getTemplatesByCategory(category.id).length;
 
         // Stagger delay classes for animation

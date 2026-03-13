@@ -147,7 +147,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       handleClose();
     } catch (error) {
       console.error("Init error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to import project");
+      toast.error(error instanceof Error ? error.message : "Import av projekt misslyckades");
     } finally {
       setIsLoading(false);
     }

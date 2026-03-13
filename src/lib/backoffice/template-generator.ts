@@ -1130,8 +1130,14 @@ const CONTENT_FILE = path.join(DATA_DIR, "content.json");
 const COLORS_FILE = path.join(DATA_DIR, "colors.json");
 const MANIFEST_FILE = path.join(process.cwd(), "data", "manifest.json");
 const STORAGE_BACKEND = process.env.STORAGE_BACKEND?.trim() === "json-blob" ? "json-blob" : "fs";
-const BLOB_CONTENT_KEY = process.env.BLOB_CONTENT_KEY?.trim() || "backoffice/content.json";
-const BLOB_COLORS_KEY = process.env.BLOB_COLORS_KEY?.trim() || "backoffice/colors.json";
+const VERCEL_ENV = process.env.VERCEL_ENV?.trim().toLowerCase();
+const BLOB_ENV_SEGMENT =
+  VERCEL_ENV === "production" ? "prod" : VERCEL_ENV === "preview" ? "preview" : "dev";
+const DEFAULT_BLOB_PREFIX = \`backoffice/\${BLOB_ENV_SEGMENT}\`;
+const BLOB_CONTENT_KEY =
+  process.env.BLOB_CONTENT_KEY?.trim() || \`\${DEFAULT_BLOB_PREFIX}/content.json\`;
+const BLOB_COLORS_KEY =
+  process.env.BLOB_COLORS_KEY?.trim() || \`\${DEFAULT_BLOB_PREFIX}/colors.json\`;
 
 type ContentData = { content: any[]; products: any[]; colors: Record<string, unknown> };
 
@@ -1323,8 +1329,12 @@ BACKOFFICE_SESSION_VERSION=1
 
 # Required when STORAGE_BACKEND=json-blob
 # BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
-# BLOB_CONTENT_KEY=backoffice/content.json
-# BLOB_COLORS_KEY=backoffice/colors.json
+# Defaults are environment-scoped:
+# - dev => backoffice/dev/content.json
+# - preview => backoffice/preview/content.json
+# - prod => backoffice/prod/content.json
+# BLOB_CONTENT_KEY=backoffice/prod/content.json
+# BLOB_COLORS_KEY=backoffice/prod/colors.json
 
 # For image uploads (optional - uses local storage by default)
 # CLOUDINARY_URL=cloudinary://...
@@ -1378,9 +1388,13 @@ ${manifest.products.length > 0 ? "- **Produkter**: Hantera produkter och priser"
    \`\`\`
    npm install @vercel/blob
    \`\`\`
-4. Sätt ev. egna nycklar:
-   - \`BLOB_CONTENT_KEY=backoffice/content.json\`
-   - \`BLOB_COLORS_KEY=backoffice/colors.json\`
+4. Standardnycklarna blir miljöspecifika för att undvika krockar mellan dev,
+   preview och prod:
+   - \`backoffice/dev/content.json\`, \`backoffice/dev/colors.json\`
+   - \`backoffice/preview/content.json\`, \`backoffice/preview/colors.json\`
+   - \`backoffice/prod/content.json\`, \`backoffice/prod/colors.json\`
+5. Sätt \`BLOB_CONTENT_KEY\` och \`BLOB_COLORS_KEY\` bara om du medvetet vill
+   skriva till egna blob-paths.
 
 ### Render, Railway eller liknande
 1. Lägg till miljövariabler i din hosting-dashboard

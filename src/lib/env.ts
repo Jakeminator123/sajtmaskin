@@ -24,6 +24,13 @@ function sanitizeProcessEnv(): Record<string, string | undefined> {
   return out;
 }
 
+const AFFIRMATIVE_ENV_VALUES = new Set(["1", "true", "yes", "y", "on"]);
+
+export function isAffirmativeEnvValue(value: string | undefined): boolean {
+  const normalized = sanitize(value)?.toLowerCase();
+  return normalized ? AFFIRMATIVE_ENV_VALUES.has(normalized) : false;
+}
+
 // ---------------------------------------------------------------------------
 // Schema – single source of truth for every env var the app reads
 // ---------------------------------------------------------------------------
@@ -61,6 +68,7 @@ export const serverSchema = z.object({
 
   // Auth
   JWT_SECRET: z.string().optional(),
+  INBOUND_WEBHOOK_SHARED_SECRET: z.string().optional(),
 
   // API keys
   V0_API_KEY: z.string().optional(),
@@ -108,6 +116,7 @@ export const serverSchema = z.object({
   SUPERADMIN_EMAIL: z.string().optional(),
   SUPERADMIN_PASSWORD: z.string().optional(),
   SUPERADMIN_DIAMONDS: z.string().optional(),
+  ENV_VAR_ENCRYPTION_KEY: z.string().optional(),
   TEMPLATE_SYNC_GITHUB_TOKEN: z.string().optional(),
   TEMPLATE_SYNC_REPO_OWNER: z.string().optional(),
   TEMPLATE_SYNC_REPO_NAME: z.string().optional(),
@@ -150,6 +159,7 @@ export const serverSchema = z.object({
   AUDIT_WEB_SEARCH: z.string().optional(),
   V0_STREAMING_ENABLED: z.string().optional(),
   V0_FALLBACK_BUILDER: z.string().optional(),
+  IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
   CSP_ENFORCE: z.string().optional(),

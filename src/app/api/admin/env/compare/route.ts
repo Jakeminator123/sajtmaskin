@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth";
-import { SECRETS } from "@/lib/config";
+import { requireAdminAccess } from "@/lib/auth/admin";
 import { serverSchema } from "@/lib/env";
 import {
   listEnvironmentVariables,
@@ -37,19 +36,10 @@ interface CompareRow {
   hasTargetCoverage: boolean;
 }
 
-const TEST_USER_EMAIL = SECRETS.testUserEmail || SECRETS.superadminEmail || "";
-
-async function isAdmin(req: NextRequest): Promise<boolean> {
-  const user = await getCurrentUser(req);
-  return Boolean(user?.email && user.email === TEST_USER_EMAIL);
-}
-
 export async function GET(req: NextRequest) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
+  const admin = await requireAdminAccess(req);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   const schemaKeys = new Set(Object.keys(serverSchema.shape));

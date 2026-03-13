@@ -61,6 +61,14 @@ function scanFile(file: CodeFile): { sanitizedContent: string; warnings: Sanitiz
   return { sanitizedContent: lines.join("\n"), warnings };
 }
 
+function buildFileBlockPattern(file: CodeFile): RegExp {
+  const escapedPath = file.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedContent = file.content.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(
+    `(\\x60\\x60\\x60\\w+\\s+file="${escapedPath}"[^\\n]*)\\n${escapedContent}\\n(\\x60\\x60\\x60)`,
+  );
+}
+
 export function sanitizeOutput(content: string): SanitizeResult {
   const project = parseCodeProject(content);
 
@@ -82,7 +90,13 @@ export function sanitizeOutput(content: string): SanitizeResult {
     }
 
     if (sanitizedContent !== file.content) {
-      result = result.replace(file.content, sanitizedContent);
+      const pattern = buildFileBlockPattern(file);
+      const replaced = result.replace(pattern, `$1\n${sanitizedContent}\n$2`);
+      if (replaced !== result) {
+        result = replaced;
+      } else {
+        result = result.replace(file.content, sanitizedContent);
+      }
     }
   }
 

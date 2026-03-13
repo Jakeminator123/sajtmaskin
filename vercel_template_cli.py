@@ -11,18 +11,17 @@ always the internal registry (``registry.ts``), never live scraping.
 Curation pipeline::
 
   1. Run this script with ``--candidates`` to discover external templates.
-  2. Run ``scripts/curate-scaffold-candidates.mjs`` to score and rank.
+  2. Run ``npm run scaffolds:curate`` to score and rank.
   3. Human review -> add approved repos to ``scripts/sync-scaffold-refs.mjs``.
   4. Run ``sync-scaffold-refs.mjs`` to download reference code.
   5. Build new internal scaffolds in ``src/lib/gen/scaffolds/``.
-  6. Regenerate embeddings with ``scripts/generate-scaffold-embeddings.ts``.
+  6. Regenerate embeddings with ``npm run scaffolds:embeddings``.
 
-This module provides a command‑line interface for scraping the
+This module provides a command-line interface for scraping the
 Vercel template directory across *all* of the available filter groups
-(Use Case, Framework, CSS, Database, CMS, Authentication, and
-Experimentation).  It builds upon the simpler ``vercel_template_browser.py``
-but adds the ability to select multiple filter groups at once and to
-scrape every slug within a group in a single run.  The goal is to
+(Use Case, Framework, CSS, Database, CMS, Authentication, and
+Experimentation). It supports selecting multiple filter groups at once and
+scraping every slug within a group in a single run. The goal is to
 simulate the behaviour of clicking through Vercel's filter menus
 programmatically.
 

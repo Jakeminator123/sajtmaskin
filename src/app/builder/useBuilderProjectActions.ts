@@ -72,7 +72,7 @@ export function useBuilderProjectActions({
   appProjectId,
   appProjectName: _appProjectName,
   pendingProjectName,
-  isAuthenticated,
+  isAuthenticated: _isAuthenticated,
   isSavingProject,
   messages,
   resolvedPrompt,
@@ -110,7 +110,7 @@ export function useBuilderProjectActions({
   setDeployNameDialogOpen,
   setV0ProjectId,
   setIsIntentionalReset,
-  setAuthModalReason,
+  setAuthModalReason: _setAuthModalReason,
 }: Args) {
   const applyAppProjectId = useCallback(
     (nextProjectId: string | null, options: { chatId?: string | null } = {}) => {
@@ -143,10 +143,6 @@ export function useBuilderProjectActions({
 
   const handleSaveProject = useCallback(async () => {
     if (isSavingProject) return;
-    if (!isAuthenticated) {
-      setAuthModalReason("save");
-      return;
-    }
     if (!chatId) {
       toast.error("Ingen chat att spara ännu.");
       return;
@@ -211,7 +207,6 @@ export function useBuilderProjectActions({
     }
   }, [
     isSavingProject,
-    isAuthenticated,
     chatId,
     appProjectId,
     activeVersionId,
@@ -225,7 +220,6 @@ export function useBuilderProjectActions({
     setAppProjectId,
     setAppProjectName,
     setIsSavingProject,
-    setAuthModalReason,
   ]);
 
   const resetToNewChat = useCallback(() => {

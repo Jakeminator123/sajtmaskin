@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from "react";
 import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
+import { collectOpenClawTextFieldContext } from "@/lib/openclaw/text-field-actions";
 
 declare global {
   interface Window {
@@ -15,7 +16,13 @@ function makeId() {
 
 function collectContext(): Record<string, unknown> | null {
   if (typeof window === "undefined") return null;
-  return window.__SITEMASKIN_CONTEXT ?? null;
+  const baseContext = window.__SITEMASKIN_CONTEXT ?? null;
+  const textFields = collectOpenClawTextFieldContext();
+  if (!baseContext && textFields.length === 0) return null;
+  return {
+    ...(baseContext ?? {}),
+    ...(textFields.length > 0 ? { textFields } : {}),
+  };
 }
 
 /**
@@ -53,9 +60,10 @@ async function* parseSSE(reader: ReadableStreamDefaultReader<Uint8Array>) {
 }
 
 export function useOpenClawChat() {
-  const { messages, isStreaming, addMessage, updateLastAssistant, setStreaming } =
+  const { messages, isStreaming, addMessage, updateAssistantMessage, clearMessages, setStreaming } =
     useOpenClawStore();
   const abortRef = useRef<AbortController | null>(null);
+  const activeAssistantIdRef = useRef<string | null>(null);
 
   const send = useCallback(
     async (text: string) => {
@@ -68,6 +76,8 @@ export function useOpenClawChat() {
         content: trimmed,
         timestamp: Date.now(),
       };
+      const currentMessages = useOpenClawStore.getState().messages;
+      const nextConversation = [...currentMessages, userMsg];
       addMessage(userMsg);
 
       const placeholderId = makeId();
@@ -77,12 +87,12 @@ export function useOpenClawChat() {
         content: "",
         timestamp: Date.now(),
       });
+      activeAssistantIdRef.current = placeholderId;
 
       setStreaming(true);
       abortRef.current = new AbortController();
 
-      const apiMessages = messages
-        .concat(userMsg)
+      const apiMessages = nextConversation
         .map((m) => ({ role: m.role, content: m.content }));
 
       try {
@@ -98,7 +108,8 @@ export function useOpenClawChat() {
 
         if (!res.ok || !res.body) {
           const errText = await res.text().catch(() => "");
-          updateLastAssistant(
+          updateAssistantMessage(
+            placeholderId,
             `Hm, jag fick ett fel (${res.status}). Forsok igen om en stund.${errText ? `\n\n${errText}` : ""}`,
           );
           setStreaming(false);
@@ -110,29 +121,40 @@ export function useOpenClawChat() {
 
         for await (const chunk of parseSSE(reader)) {
           accumulated += chunk;
-          updateLastAssistant(accumulated);
+          updateAssistantMessage(placeholderId, accumulated);
         }
 
         if (!accumulated) {
-          updateLastAssistant("(Inget svar fran agenten)");
+          updateAssistantMessage(placeholderId, "(Inget svar fran agenten)");
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") {
           // Keep whatever was already streamed
         } else {
-          updateLastAssistant("Nagot gick fel. Kontrollera att Sajtagenten ar igaang.");
+          updateAssistantMessage(placeholderId, "Nagot gick fel. Kontrollera att Sajtagenten ar igaang.");
         }
       } finally {
         setStreaming(false);
+        if (activeAssistantIdRef.current === placeholderId) {
+          activeAssistantIdRef.current = null;
+        }
         abortRef.current = null;
       }
     },
-    [messages, isStreaming, addMessage, updateLastAssistant, setStreaming],
+    [isStreaming, addMessage, updateAssistantMessage, setStreaming],
   );
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
   }, []);
 
-  return { messages, isStreaming, send, stop };
+  const clearConversation = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    activeAssistantIdRef.current = null;
+    setStreaming(false);
+    clearMessages();
+  }, [clearMessages, setStreaming]);
+
+  return { messages, isStreaming, send, stop, clearConversation };
 }

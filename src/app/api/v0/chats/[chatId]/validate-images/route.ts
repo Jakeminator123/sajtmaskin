@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertV0Key, v0 } from "@/lib/v0";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { validateImages } from "@/lib/utils/image-validator";
 import { z } from "zod";
@@ -34,7 +34,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     // Non-fallback: fetch & update via Postgres engine store
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const codeFiles = await getVersionFiles(versionId);
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+      if (!scopedVersion) {
+        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+      }
+      const codeFiles = await getVersionFiles(scopedVersion.version.id);
       if (codeFiles && codeFiles.length > 0) {
         const filePairs = codeFiles.map((f) => ({
           name: f.path,
@@ -55,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
               const replacement = result.files.find((f) => f.name === file.path);
               return replacement ? { ...file, content: replacement.content } : file;
             });
-            await updateVersionFiles(versionId, JSON.stringify(updatedFiles));
+            await updateVersionFiles(scopedVersion.version.id, JSON.stringify(updatedFiles));
             fixed = true;
           } catch (updateError) {
             console.error("[validate-images] Failed to update version:", updateError);
@@ -76,6 +80,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
             : `${result.broken.length} av ${result.total} bilder trasiga${fixed ? `, ${result.replacedCount} ersatta` : ""}`,
         });
       }
+
+      return NextResponse.json(
+        {
+          valid: true,
+          total: 0,
+          broken: [],
+          replacedCount: 0,
+          warnings: [],
+          fixed: false,
+          message: "No files to validate",
+        },
+        { status: 404 },
+      );
     }
 
     // ---------------------------------------------------------------

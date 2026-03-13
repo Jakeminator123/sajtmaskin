@@ -3,7 +3,7 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { db, dbConfigured } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { eq, desc, and, or } from "drizzle-orm";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionsByChat } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
@@ -29,12 +29,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     // Non-fallback: fetch versions from Postgres-backed own engine data
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const engineVersions = await getVersionsByChat(chatId);
+      const engineChat = await getEngineChatByIdForRequest(req, chatId);
+      const engineVersions = engineChat ? await getVersionsByChat(engineChat.id) : [];
+      const engineChatId = engineChat?.id ?? chatId;
       if (engineVersions.length > 0) {
         const versionsList = engineVersions.map((v) => ({
           id: v.id,
           versionId: v.id,
-          demoUrl: buildPreviewUrl(chatId, v.id),
+          demoUrl: buildPreviewUrl(engineChatId, v.id),
           createdAt: v.created_at,
           versionNumber: v.version_number,
           messageId: v.message_id,
@@ -43,6 +45,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           verificationState: v.verification_state,
           verificationSummary: v.verification_summary,
           promotedAt: v.promoted_at,
+          canPin: false,
         }));
         return NextResponse.json({ versions: versionsList });
       }
@@ -72,6 +75,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
               pinned: v.pinned,
               pinnedAt: v.pinnedAt,
               createdAt: v.createdAt,
+              canPin: true,
             })),
           });
         }
@@ -103,6 +107,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
                   verificationState: null,
                   verificationSummary: null,
                   promotedAt: null,
+                  canPin: true,
                 },
               ],
             });
@@ -150,6 +155,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       pinned: v.pinned,
       pinnedAt: v.pinnedAt,
       createdAt: v.createdAt,
+      canPin: true,
     }));
 
     return NextResponse.json({ versions: versionsList });
@@ -163,18 +169,28 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
-    assertV0Key();
-
-    if (!dbConfigured) {
-      return NextResponse.json({ error: "Database not configured." }, { status: 503 });
-    }
-
     const { chatId } = await ctx.params;
     const body = await req.json().catch(() => ({}));
     const { versionId, pinned } = body ?? {};
 
     if (!versionId || typeof pinned !== "boolean") {
       return NextResponse.json({ error: "versionId and pinned are required" }, { status: 400 });
+    }
+
+    if (!shouldUseV0Fallback()) {
+      const engineChat = await getEngineChatByIdForRequest(req, chatId);
+      if (engineChat) {
+        return NextResponse.json(
+          { error: "Pinning is not supported for own-engine versions." },
+          { status: 409 },
+        );
+      }
+    }
+
+    assertV0Key();
+
+    if (!dbConfigured) {
+      return NextResponse.json({ error: "Database not configured." }, { status: 503 });
     }
 
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);

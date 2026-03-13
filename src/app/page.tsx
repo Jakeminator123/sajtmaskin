@@ -27,6 +27,12 @@ import type { AuditResult } from "@/types/audit";
 import { toast } from "sonner";
 import { createProject } from "@/lib/project-client";
 
+declare global {
+  interface Window {
+    __SITEMASKIN_CONTEXT?: Record<string, unknown>;
+  }
+}
+
 function RootLandingContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -116,6 +122,33 @@ function RootLandingContent() {
 
   const firstName =
     user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
+
+  useEffect(() => {
+    const activeEntryMode = showWizard ? "wizard" : selectedCategory ?? null;
+    window.__SITEMASKIN_CONTEXT = {
+      page: "landing",
+      activeEntryMode,
+      expandedSection,
+      buildIntent,
+      wizardOpen: showWizard,
+      auditUrl: auditUrl.trim() || null,
+      auditedUrl,
+      auditModalOpen: showAuditModal,
+    };
+    window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+    return () => {
+      delete window.__SITEMASKIN_CONTEXT;
+      window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
+    };
+  }, [
+    selectedCategory,
+    expandedSection,
+    buildIntent,
+    showWizard,
+    auditUrl,
+    auditedUrl,
+    showAuditModal,
+  ]);
 
   const handleLoginClick = useCallback(() => {
     setAuthMode("login");

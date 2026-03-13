@@ -1,10 +1,14 @@
+import { timingSafeEqual } from "node:crypto";
+
 export function validateWebhookSecret(request: Request, secret: string): boolean {
   const headerSecret = request.headers.get("x-webhook-secret");
-  if (headerSecret && headerSecret === secret) {
-    return true;
-  }
+  if (!headerSecret) return false;
 
-  return false;
+  const a = Buffer.from(headerSecret, "utf-8");
+  const b = Buffer.from(secret, "utf-8");
+  if (a.byteLength !== b.byteLength) return false;
+
+  return timingSafeEqual(a, b);
 }
 
 export function getWebhookSecret(): string {

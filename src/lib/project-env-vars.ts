@@ -1,10 +1,24 @@
 import { getProjectData, saveProjectData } from "@/lib/db/services";
+import {
+  decryptValue,
+  encryptValue,
+  hasEnvVarEncryptionKey,
+} from "@/lib/crypto/env-var-cipher";
 
 export type ProjectEnvVarItem = {
   id: string;
   key: string;
   value?: string | null;
   sensitive?: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+type StoredProjectEnvVarItem = {
+  id: string;
+  key: string;
+  value?: string | null;
+  sensitive: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -16,6 +30,7 @@ type UpsertProjectEnvVarInput = {
 };
 
 const META_ENV_VARS_KEY = "projectEnvVars";
+const MASKED_ENV_VALUE = "********";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -27,7 +42,7 @@ function normalizeEnvKey(value: string): string {
   return value.trim().toUpperCase();
 }
 
-function normalizeProjectEnvVarItem(value: unknown): ProjectEnvVarItem | null {
+function normalizeStoredProjectEnvVarItem(value: unknown): StoredProjectEnvVarItem | null {
   const obj = asRecord(value);
   if (!obj) return null;
   const key = typeof obj.key === "string" ? normalizeEnvKey(obj.key) : "";
@@ -38,38 +53,61 @@ function normalizeProjectEnvVarItem(value: unknown): ProjectEnvVarItem | null {
     typeof obj.createdAt === "string" && obj.createdAt.trim().length > 0 ? obj.createdAt : null;
   const updatedAt =
     typeof obj.updatedAt === "string" && obj.updatedAt.trim().length > 0 ? obj.updatedAt : null;
+  const rawValue = typeof obj.value === "string" ? obj.value : null;
   return {
     id,
     key,
-    value: typeof obj.value === "string" ? obj.value : null,
+    value: rawValue,
     sensitive: typeof obj.sensitive === "boolean" ? obj.sensitive : true,
     createdAt,
     updatedAt,
   };
 }
 
-function sortEnvVars(items: ProjectEnvVarItem[]): ProjectEnvVarItem[] {
+function sortStoredEnvVars(items: StoredProjectEnvVarItem[]): StoredProjectEnvVarItem[] {
   return [...items].sort((a, b) => a.key.localeCompare(b.key));
 }
 
-export function readProjectEnvVarsFromMeta(meta: unknown): ProjectEnvVarItem[] {
+function toDisplayProjectEnvVarItem(item: StoredProjectEnvVarItem): ProjectEnvVarItem {
+  const hasValue = typeof item.value === "string" && item.value.length > 0;
+  return {
+    id: item.id,
+    key: item.key,
+    value: item.sensitive
+      ? hasValue
+        ? MASKED_ENV_VALUE
+        : null
+      : hasValue
+        ? decryptValue(item.value!)
+        : null,
+    sensitive: item.sensitive,
+    createdAt: item.createdAt ?? null,
+    updatedAt: item.updatedAt ?? null,
+  };
+}
+
+function readStoredProjectEnvVarsFromMeta(meta: unknown): StoredProjectEnvVarItem[] {
   const obj = asRecord(meta);
   const raw = Array.isArray(obj?.[META_ENV_VARS_KEY]) ? obj[META_ENV_VARS_KEY] : [];
-  return sortEnvVars(
+  return sortStoredEnvVars(
     raw
-      .map((item) => normalizeProjectEnvVarItem(item))
-      .filter((item): item is ProjectEnvVarItem => Boolean(item)),
+      .map((item) => normalizeStoredProjectEnvVarItem(item))
+      .filter((item): item is StoredProjectEnvVarItem => Boolean(item)),
   );
 }
 
-export function mergeProjectEnvVarsIntoMeta(
+export function readProjectEnvVarsFromMeta(meta: unknown): ProjectEnvVarItem[] {
+  return readStoredProjectEnvVarsFromMeta(meta).map((item) => toDisplayProjectEnvVarItem(item));
+}
+
+function mergeStoredProjectEnvVarsIntoMeta(
   meta: unknown,
-  envVars: ProjectEnvVarItem[],
+  envVars: StoredProjectEnvVarItem[],
 ): Record<string, unknown> {
   const existing = asRecord(meta) ?? {};
   return {
     ...existing,
-    [META_ENV_VARS_KEY]: sortEnvVars(envVars),
+    [META_ENV_VARS_KEY]: sortStoredEnvVars(envVars),
   };
 }
 
@@ -84,29 +122,35 @@ export async function upsertStoredProjectEnvVars(
 ): Promise<ProjectEnvVarItem[]> {
   const projectData = await getProjectData(projectId);
   const existingMeta = projectData?.meta ?? null;
-  const existing = readProjectEnvVarsFromMeta(existingMeta);
+  const existing = readStoredProjectEnvVarsFromMeta(existingMeta);
   const byKey = new Map(existing.map((item) => [item.key, item]));
   const now = new Date().toISOString();
 
   vars.forEach((item) => {
     const key = normalizeEnvKey(item.key);
     const previous = byKey.get(key);
+    const shouldEncrypt = item.sensitive ?? previous?.sensitive ?? true;
+    if (shouldEncrypt && !hasEnvVarEncryptionKey()) {
+      throw new Error(
+        "ENV_VAR_ENCRYPTION_KEY must be configured before saving sensitive project env vars.",
+      );
+    }
     byKey.set(key, {
       id: previous?.id ?? crypto.randomUUID(),
       key,
-      value: item.value,
-      sensitive: item.sensitive ?? previous?.sensitive ?? true,
+      value: shouldEncrypt ? encryptValue(item.value) : item.value,
+      sensitive: shouldEncrypt,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
     });
   });
 
-  const nextEnvVars = sortEnvVars(Array.from(byKey.values()));
+  const nextEnvVars = sortStoredEnvVars(Array.from(byKey.values()));
   await saveProjectData({
     project_id: projectId,
-    meta: mergeProjectEnvVarsIntoMeta(existingMeta, nextEnvVars),
+    meta: mergeStoredProjectEnvVarsIntoMeta(existingMeta, nextEnvVars),
   });
-  return nextEnvVars;
+  return nextEnvVars.map((item) => toDisplayProjectEnvVarItem(item));
 }
 
 export async function deleteStoredProjectEnvVars(
@@ -115,23 +159,24 @@ export async function deleteStoredProjectEnvVars(
 ): Promise<ProjectEnvVarItem[]> {
   const projectData = await getProjectData(projectId);
   const existingMeta = projectData?.meta ?? null;
-  const existing = readProjectEnvVarsFromMeta(existingMeta);
+  const existing = readStoredProjectEnvVarsFromMeta(existingMeta);
   const idSet = new Set((payload.ids ?? []).map((id) => id.trim()).filter(Boolean));
   const keySet = new Set((payload.keys ?? []).map((key) => normalizeEnvKey(key)).filter(Boolean));
   const nextEnvVars = existing.filter((item) => !idSet.has(item.id) && !keySet.has(item.key));
 
   await saveProjectData({
     project_id: projectId,
-    meta: mergeProjectEnvVarsIntoMeta(existingMeta, nextEnvVars),
+    meta: mergeStoredProjectEnvVarsIntoMeta(existingMeta, nextEnvVars),
   });
-  return nextEnvVars;
+  return nextEnvVars.map((item) => toDisplayProjectEnvVarItem(item));
 }
 
 export async function getStoredProjectEnvVarMap(projectId: string): Promise<Record<string, string>> {
-  const items = await getStoredProjectEnvVars(projectId);
+  const projectData = await getProjectData(projectId);
+  const items = readStoredProjectEnvVarsFromMeta(projectData?.meta ?? null);
   return items.reduce<Record<string, string>>((acc, item) => {
     if (typeof item.value === "string" && item.value.length > 0) {
-      acc[item.key] = item.value;
+      acc[item.key] = decryptValue(item.value);
     }
     return acc;
   }, {});

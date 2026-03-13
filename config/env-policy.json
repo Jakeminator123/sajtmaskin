@@ -10,6 +10,7 @@
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET_DEV",
     "GOOGLE_REDIRECT_URI",
+    "GITHUB_REDIRECT_URI",
     "DATA_DIR",
     "POSTGRES_PRISMA_URL",
     "POSTGRES_URL_NON_POOLING",
@@ -64,10 +65,6 @@
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET",
     "GITHUB_CLIENT_SECRET_DEV",
-    "GODADDY_API_KEY",
-    "GODADDY_API_SECRET",
-    "GODADY_PROD_API_KEY",
-    "GODADY_PROD_SECRET",
     "GOOGLE_API_KEY",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_ID_DEV",
@@ -79,7 +76,6 @@
     "INSPECTOR_FORCE_WORKER_ONLY",
     "KOSTNADSFRI_API_KEY",
     "KOSTNADSFRI_PASSWORD_SEED",
-    "KV_REST_API_READ_ONLY_TOKEN",
     "KV_REST_API_TOKEN",
     "KV_REST_API_URL",
     "KV_URL",
@@ -92,6 +88,7 @@
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
     "NEXT_PUBLIC_REGISTRY_STYLE",
+    "IMPLEMENT_UNDERSCORE_CLAW",
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
     "OPENCLAW_GATEWAY_TOKEN",
     "OPENCLAW_GATEWAY_URL",
@@ -244,13 +241,13 @@
     },
     {
       "key": "VERCEL_TEAM_ID",
-      "classification": "shared_runtime",
+      "classification": "optional_runtime",
       "recommendedVercelTargets": [
         "development",
         "preview",
         "production"
       ],
-      "notes": "Binds API access to the correct Vercel team."
+      "notes": "Optional scope for Vercel API access. Leave unset when using a personal account; set it only when requests must target a specific team."
     },
     {
       "key": "VERCEL_PROJECT_ID",
@@ -300,21 +297,15 @@
     },
     {
       "key": "GOOGLE_REDIRECT_URI",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "preview",
-        "production"
-      ],
-      "notes": "OAuth callback differs between localhost and deployment."
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Optional override. If unset, the Google callback is derived from the current app base URL."
     },
     {
       "key": "GITHUB_REDIRECT_URI",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "preview",
-        "production"
-      ],
-      "notes": "OAuth callback differs between localhost and deployment."
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Optional override. If unset, the GitHub callback is derived from the current app base URL."
     },
     {
       "key": "DATA_DIR",
@@ -417,6 +408,16 @@
         "production"
       ],
       "notes": "Required where OpenClaw-backed flows should work."
+    },
+    {
+      "key": "IMPLEMENT_UNDERSCORE_CLAW",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Feature flag for exposing the OpenClaw UI surface. Accepts y/yes/true/1."
     },
     {
       "key": "REDIS_URL",
@@ -584,30 +585,6 @@
         "production"
       ],
       "notes": "Optional image sourcing key for placeholder materialization."
-    },
-    {
-      "key": "GODADDY_API_KEY",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Used by manual GoDaddy helper scripts, not normal app runtime."
-    },
-    {
-      "key": "GODADDY_API_SECRET",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Used by manual GoDaddy helper scripts, not normal app runtime."
-    },
-    {
-      "key": "GODADY_PROD_API_KEY",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Used by manual GoDaddy helper scripts, not normal app runtime."
-    },
-    {
-      "key": "GODADY_PROD_SECRET",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Used by manual GoDaddy helper scripts, not normal app runtime."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",

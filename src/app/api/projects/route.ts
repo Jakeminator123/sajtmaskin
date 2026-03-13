@@ -8,12 +8,22 @@ import {
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
 import { canCreateProject } from "@/lib/project-cleanup";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { ensureSessionIdFromRequest, getSessionIdFromRequest } from "@/lib/auth/session";
 
 function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
+  if (userId && sessionId) return `user:${userId}:session:${sessionId}`;
   if (userId) return `user:${userId}`;
   if (sessionId) return `session:${sessionId}`;
   return "anonymous";
+}
+
+function getOwnerCacheSegments(userId: string | null, sessionId: string | null): string[] {
+  return Array.from(
+    new Set(
+      [getOwnerCacheSegment(userId, sessionId), userId ? `user:${userId}` : null, sessionId ? `session:${sessionId}` : null]
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
 }
 
 // GET /api/projects - List all projects
@@ -48,7 +58,10 @@ export async function GET(request: NextRequest) {
     }));
 
     // Cache best-effort (120s TTL)
-    await setCache(cacheKey, { projects: projectsWithPreview }, 120);
+    await Promise.all([
+      setCache(cacheKey, { projects: projectsWithPreview }, 120),
+      ...(user?.id && sessionId ? [deleteCache(`projects:list:session:${sessionId}`)] : []),
+    ]);
 
     return NextResponse.json({ success: true, projects: projectsWithPreview, cached: false });
   } catch (error: unknown) {
@@ -60,20 +73,26 @@ export async function GET(request: NextRequest) {
 
 // POST /api/projects - Create new project
 export async function POST(request: NextRequest) {
+  const session = ensureSessionIdFromRequest(request);
+  const attachSessionCookie = (response: Response) => {
+    if (session.setCookie) {
+      response.headers.set("Set-Cookie", session.setCookie);
+    }
+    return response;
+  };
   try {
     const body = await request.json();
     const { name, category, description } = body;
 
     if (!name) {
-      return NextResponse.json(
-        { success: false, error: "Project name is required" },
-        { status: 400 },
+      return attachSessionCookie(
+        NextResponse.json({ success: false, error: "Project name is required" }, { status: 400 }),
       );
     }
 
     // Get user and session from request (cookies, not body)
     const user = await getCurrentUser(request);
-    const sessionId = getSessionIdFromRequest(request);
+    const sessionId = session.sessionId;
     const isPaidUser = user ? user.diamonds > 100 : false; // Simple check - could be more sophisticated
 
     const limitCheck = await canCreateProject(user?.id || null, sessionId || null, isPaidUser);
@@ -85,15 +104,17 @@ export async function POST(request: NextRequest) {
         current: limitCheck.current,
         limit: limitCheck.limit,
       });
-      return NextResponse.json(
-        {
-          success: false,
-          error: limitCheck.reason,
-          limitReached: true,
-          current: limitCheck.current,
-          limit: limitCheck.limit,
-        },
-        { status: 403 },
+      return attachSessionCookie(
+        NextResponse.json(
+          {
+            success: false,
+            error: limitCheck.reason,
+            limitReached: true,
+            current: limitCheck.current,
+            limit: limitCheck.limit,
+          },
+          { status: 403 },
+        ),
       );
     }
 
@@ -106,17 +127,22 @@ export async function POST(request: NextRequest) {
     );
 
     // Invalidate projects list caches
-    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
-    await Promise.all([deleteCache("projects:list"), deleteCache(`projects:list:${ownerKey}`)]);
+    const ownerKeys = getOwnerCacheSegments(user?.id ?? null, sessionId);
+    await Promise.all([
+      deleteCache("projects:list"),
+      ...ownerKeys.map((ownerKey) => deleteCache(`projects:list:${ownerKey}`)),
+    ]);
 
-    return NextResponse.json({
-      success: true,
-      project,
-      projectsRemaining: limitCheck.limit - limitCheck.current - 1,
-    });
+    return attachSessionCookie(
+      NextResponse.json({
+        success: true,
+        project,
+        projectsRemaining: limitCheck.limit - limitCheck.current - 1,
+      }),
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API] Failed to create project:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return attachSessionCookie(NextResponse.json({ success: false, error: message }, { status: 500 }));
   }
 }

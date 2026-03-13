@@ -648,7 +648,7 @@ export async function handleSseStream(
               prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
             );
             if (ctx.streamType === "create") {
-              toast.success(planArtifact ? "Plan skapad!" : "Chat created!");
+              toast.success(planArtifact ? "Plan skapad!" : "Sajt skapad!");
             }
             mutateVersions();
             onGenerationComplete?.({
@@ -687,7 +687,7 @@ export async function handleSseStream(
   }
 
   if (!didReceiveDone) {
-    throw new Error("Stream ended before completion. Please retry the prompt.");
+    throw new Error("Streamen avslutades innan genereringen var klar. Försök igen.");
   }
   if (ctx.streamType === "create" && !chatIdFromStream) {
     throw new Error("No chat ID returned from stream");

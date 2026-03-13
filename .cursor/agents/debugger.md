@@ -81,7 +81,7 @@ Summarize findings → Stop monitoring
 
 ### Preview Not Loading
 - **Symptom**: Preview panel blank/stuck
-- **Check**: Sandpack errors in console
+- **Check**: iframe load errors, preview URL failures, and preview-related console/network errors
 - **Files**: `src/components/builder/PreviewPanel.tsx`
 
 ### Auth Session Issues
@@ -100,7 +100,7 @@ Watch for these anti-patterns:
 5. **Memory leaks** - Uncleared intervals/subscriptions in hooks
 
 ### Critical Hooks to Watch
-- `useV0ChatMessaging` - Main chat state
+- `useChatMessaging` - Main chat state
 - `usePromptAssist` - AI prompt enhancement
 - `useVersions` - Version history
 - `usePersistedChatMessages` - Local storage sync

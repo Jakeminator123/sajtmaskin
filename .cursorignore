@@ -2,7 +2,7 @@
 # SAJTMASKIN .cursorignore
 # =============================================================================
 # Files here are NOT indexed by Cursor - saves memory and speeds up searches.
-# For documentation: use the MCP server instead (search_docs, get_doc).
+# Prefer direct file reads when you intentionally need one of these artifacts.
 # =============================================================================
 
 # Build/cache
@@ -13,7 +13,8 @@ dist
 build
 coverage
 
-# Generated / large files
+# Git metadata / generated lockfiles
+.git
 tsconfig.tsbuildinfo
 package-lock.json
 
@@ -22,15 +23,47 @@ public/video/
 *.mp4
 *.webm
 
-# MCP scraped docs (60+ MB) - use MCP search_docs/get_doc instead
+# Local research lanes and clone mirrors
+research/external-templates/raw-discovery/
+research/external-templates/repo-cache/
+research/external-templates/reference-library/
+_template_refs/
+_sidor/
+research/_sidor/
+vercel_usecase_next_react_templates/
+
+# Generated reports and machine-generated artifacts
+data/scaffold-candidates-curated.json
+next_sidan_skrapning.txt
+src/lib/gen/data/docs-embeddings.json
+src/lib/gen/scaffolds/scaffold-embeddings.json
+src/lib/gen/scaffolds/scaffold-research.generated.json
+src/lib/gen/template-library/template-library-embeddings.json
+src/lib/gen/template-library/template-library.generated.json
+
+# MCP scraped docs (use MCP search/fetch instead)
 services/mpc/docs/docgrab__*/
 services/mpc/logs/
 
-# Tillfälliga filer / dev-mapp
+# Archived or low-signal docs
+docs/old/
+docs/plans/archived/
+
+# Tillfalliga filer / dev-mapp
 old/
 skrapning/
 ovrigt/
 sajtgen/
 .preprompt_history.json
-.git/
-docs/plans/archived/
+
+# Local orchestration history
+.cursor/automation/
+.cursor/orchestrator/run/
+# Optional local intake material
+_input_for_cursor/
+
+# Local env files
+.env
+.env.*
+.env.local
+.env.production

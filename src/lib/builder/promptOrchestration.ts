@@ -42,6 +42,9 @@ export type OrchestratePromptInput = {
   isFirstPrompt: boolean;
   attachmentsCount?: number;
   hardCap?: number;
+  promptSourceKind?: string | null;
+  promptSourceTechnical?: boolean;
+  promptSourcePreservePayload?: boolean;
 };
 
 export type OrchestratePromptResult = {
@@ -135,7 +138,8 @@ function hasCodeFence(message: string): boolean {
   return message.includes("```");
 }
 
-function looksTechnicalMessage(message: string): boolean {
+function looksTechnicalMessage(message: string, input?: Pick<OrchestratePromptInput, "promptSourceTechnical">): boolean {
+  if (input?.promptSourceTechnical) return true;
   const lower = toSafeLower(message);
   return (
     hasCodeFence(message) ||
@@ -176,7 +180,11 @@ function looksDesignHeavyMessage(message: string): boolean {
   return DESIGN_MARKERS.reduce((count, marker) => count + (lower.includes(marker) ? 1 : 0), 0) >= 3;
 }
 
-function shouldPreserveRegistryPayload(message: string): boolean {
+function shouldPreserveRegistryPayload(
+  message: string,
+  input?: Pick<OrchestratePromptInput, "promptSourcePreservePayload">,
+): boolean {
+  if (input?.promptSourcePreservePayload) return true;
   const lower = toSafeLower(message);
   const normalized = lower.replace(/\u2011/g, "-");
   const hasRegistrySignals =
@@ -199,7 +207,7 @@ function detectPromptType(input: OrchestratePromptInput, normalizedMessage: stri
   if (method === "category" || intent === "template") return "template";
 
   if (!input.isFirstPrompt) {
-    return looksTechnicalMessage(normalizedMessage) ? "followup_technical" : "followup_general";
+    return looksTechnicalMessage(normalizedMessage, input) ? "followup_technical" : "followup_general";
   }
 
   return "unknown";
@@ -370,7 +378,7 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
   const complexitySignals = analyzeComplexity(normalizedMessage);
   const complexityScore = scoreComplexity(complexitySignals, attachmentsCount);
   const isDesignHeavy = looksDesignHeavyMessage(normalizedMessage);
-  const preserveRegistryPayload = shouldPreserveRegistryPayload(normalizedMessage);
+  const preserveRegistryPayload = shouldPreserveRegistryPayload(normalizedMessage, input);
 
   let strategy: PromptStrategy = "direct";
   let reason = "within_budget";
@@ -386,7 +394,8 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
     (promptType === "audit" && originalLength > Math.round(budgetTarget * 1.15)) ||
     (input.isFirstPrompt && toSafeLower(input.buildIntent) === "app" && originalLength > budgetTarget);
 
-  const forceDirect = mustPreserveTechnicalContent(normalizedMessage);
+  const forceDirect =
+    input.promptSourcePreservePayload || mustPreserveTechnicalContent(normalizedMessage);
 
   if (normalizedMessage.length === 0) {
     reason = "empty_prompt";

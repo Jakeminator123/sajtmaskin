@@ -58,9 +58,9 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
           <AlertCircle className="mb-4 h-12 w-12 text-red-500" />
-          <h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
-          <p className="mb-4 text-gray-600">
-            {this.state.error?.message || "An unexpected error occurred"}
+          <h2 className="mb-2 text-xl font-semibold">Något gick fel</h2>
+          <p className="text-muted-foreground mb-4">
+            {this.state.error?.message || "Ett oväntat fel uppstod"}
           </p>
           <button
             onClick={() => {
@@ -69,7 +69,7 @@ export class ErrorBoundary extends Component<Props, State> {
             }}
             className="bg-brand-blue hover:bg-brand-blue/90 rounded px-4 py-2 text-white"
           >
-            Reload Page
+            Ladda om sidan
           </button>
         </div>
       );

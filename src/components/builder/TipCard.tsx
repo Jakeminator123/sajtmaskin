@@ -42,6 +42,7 @@ export function TipCard({
             className="h-7 w-7"
             onClick={onClose}
             title="Stäng tips"
+            aria-label="Stäng tips"
           >
             <X className="h-4 w-4" />
           </Button>

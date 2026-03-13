@@ -18,10 +18,7 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
-const RECIPIENTS = [
-  "hej@sajtmaskin.se",
-  "erik@sajtstudio.se",
-];
+const RECIPIENTS = ["hej@sajtmaskin.se", "erik@sajtstudio.se"];
 
 const FROM_ADDRESS = SECRETS.emailFrom;
 
@@ -119,10 +116,11 @@ export async function POST(req: Request) {
         });
       } else {
         // Fallback: log the message (dev environment)
-        console.info(
-          "[CONTACT] Email would be sent (no RESEND_API_KEY):",
-          { to: RECIPIENTS, from: `${email} (${name})`, subject: fullSubject },
-        );
+        console.info("[CONTACT] Email would be sent (no RESEND_API_KEY):", {
+          to: RECIPIENTS,
+          from: `${email} (${name})`,
+          subject: fullSubject,
+        });
       }
 
       return NextResponse.json({ success: true });

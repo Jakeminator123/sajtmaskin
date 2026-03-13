@@ -5,7 +5,7 @@
 
 import path from "path";
 import { getAppBaseUrl } from "./app-url";
-import { getServerEnv } from "./env";
+import { getServerEnv, isAffirmativeEnvValue } from "./env";
 
 const env = getServerEnv();
 
@@ -268,6 +268,9 @@ export const SECRETS = {
   get superadminPassword() {
     return env.SUPERADMIN_PASSWORD ?? "";
   },
+  get envVarEncryptionKey() {
+    return env.ENV_VAR_ENCRYPTION_KEY ?? "";
+  },
 } as const;
 
 type SecretName = Exclude<keyof typeof SECRETS, "prototype">;
@@ -347,6 +350,12 @@ export const OPENCLAW = {
   get enabled(): boolean {
     return Boolean(env.OPENCLAW_GATEWAY_URL);
   },
+  get implementationFlagEnabled(): boolean {
+    return isAffirmativeEnvValue(env.IMPLEMENT_UNDERSCORE_CLAW);
+  },
+  get surfaceEnabled(): boolean {
+    return this.enabled && this.implementationFlagEnabled;
+  },
 } as const;
 
 /**
@@ -386,6 +395,8 @@ export const FEATURES = {
 
   useAuditWebSearch:
     Boolean(SECRETS.openaiApiKey) && env.AUDIT_WEB_SEARCH === "true",
+
+  useOpenClawSurface: OPENCLAW.surfaceEnabled,
 
   // CRITICAL for AI-generated images in v0 preview
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),

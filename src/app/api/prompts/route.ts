@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { createPromptHandoff } from "@/lib/db/services";
 import { cachePromptHandoff } from "@/lib/data/redis";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
@@ -17,6 +17,13 @@ const createPromptSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const session = ensureSessionIdFromRequest(request);
+  const attachSessionCookie = (response: Response) => {
+    if (session.setCookie) {
+      response.headers.set("Set-Cookie", session.setCookie);
+    }
+    return response;
+  };
   return withRateLimit(request, "prompt:create", async () => {
     try {
       const body = await request.json().catch(() => ({}));
@@ -35,7 +42,12 @@ export async function POST(request: NextRequest) {
       }
 
       const user = await getCurrentUser(request);
-      const sessionId = getSessionIdFromRequest(request);
+      const sessionId = session.sessionId;
+      if (!user?.id && !sessionId) {
+        return attachSessionCookie(
+          NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }),
+        );
+      }
 
       const created = await createPromptHandoff({
         prompt: trimmedPrompt,
@@ -50,14 +62,18 @@ export async function POST(request: NextRequest) {
         prompt: created.prompt,
         source: created.source || null,
         projectId: created.project_id || null,
+        userId: created.user_id || null,
+        sessionId: created.session_id || null,
         createdAt: created.created_at ? String(created.created_at) : null,
       });
 
-      return NextResponse.json({ success: true, promptId: created.id });
+      return attachSessionCookie(NextResponse.json({ success: true, promptId: created.id }));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       console.error("[API/prompts] Failed to create prompt handoff:", error);
-      return NextResponse.json({ success: false, error: message }, { status: 500 });
+      return attachSessionCookie(
+        NextResponse.json({ success: false, error: message }, { status: 500 }),
+      );
     }
   });
 }

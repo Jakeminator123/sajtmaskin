@@ -3,12 +3,55 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq, desc } from "drizzle-orm";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { nanoid } from "nanoid";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
-import { getChat, getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
+import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
+
+type V0ChatSummary = {
+  latest: {
+    id: string | null;
+    versionId: string | null;
+    demoUrl: string | null;
+    messageId: string | null;
+  } | null;
+  versionId: string | null;
+  demoUrl: string | null;
+  webUrl: string | null;
+  createdAt: unknown | null;
+  updatedAt: unknown | null;
+};
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function getV0ChatSummary(value: unknown): V0ChatSummary {
+  const chat = asObject(value);
+  const latest = asObject(chat?.latestVersion);
+
+  return {
+    latest: latest
+      ? {
+          id: asString(latest.id),
+          versionId: asString(latest.versionId),
+          demoUrl: asString(latest.demoUrl) ?? asString(latest.demo_url),
+          messageId: asString(latest.messageId),
+        }
+      : null,
+    versionId: asString(chat?.versionId),
+    demoUrl: asString(chat?.demoUrl),
+    webUrl: asString(chat?.webUrl),
+    createdAt: chat?.createdAt ?? null,
+    updatedAt: chat?.updatedAt ?? null,
+  };
+}
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -18,9 +61,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     // Non-fallback: fetch from Postgres-backed own engine data
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const chat = await getChat(chatId);
+      const chat = await getEngineChatByIdForRequest(req, chatId);
       if (chat) {
-        const latest = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
+        const resolvedChatId = chat.id;
+        const latest =
+          (await getPreferredVersion(resolvedChatId)) ??
+          (await getLatestVersion(resolvedChatId));
         const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
 
         return NextResponse.json({
@@ -32,7 +78,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           scaffoldId: chat.scaffold_id,
           scaffoldFamily: resolvedScaffold?.family ?? null,
           scaffoldLabel: resolvedScaffold?.label ?? null,
-          demoUrl: latest ? buildPreviewUrl(chatId, latest.id) : null,
+          demoUrl: latest ? buildPreviewUrl(resolvedChatId, latest.id) : null,
           createdAt: chat.created_at,
           updatedAt: chat.updated_at,
           messages: chat.messages.map((m) => ({
@@ -47,7 +93,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             ? {
                 id: latest.id,
                 versionId: latest.id,
-                demoUrl: buildPreviewUrl(chatId, latest.id),
+                demoUrl: buildPreviewUrl(resolvedChatId, latest.id),
                 createdAt: latest.created_at,
                 versionNumber: latest.version_number,
                 messageId: latest.message_id,
@@ -92,25 +138,28 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       // Template/category builds can still return raw v0 chat IDs even when
       // the own engine path is active. If the DB mapping is missing or stale,
       // fall back to a direct v0 lookup instead of hard 404.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chatId);
+      if (isUuid) {
+        return NextResponse.json(
+          { error: "Chat not found" },
+          { status: 404 },
+        );
+      }
       try {
         assertV0Key();
-        const v0Chat = await v0.chats.getById({ chatId });
-        const latest = (v0Chat as any)?.latestVersion || null;
-        const versionId =
-          (latest && (latest.id || latest.versionId)) ||
-          (v0Chat as any)?.versionId ||
-          null;
-        const demoUrl =
-          (latest && (latest.demoUrl || latest.demo_url)) || (v0Chat as any)?.demoUrl || null;
+        const v0Chat = getV0ChatSummary(await v0.chats.getById({ chatId }));
+        const latest = v0Chat.latest;
+        const versionId = latest?.id || latest?.versionId || v0Chat.versionId || null;
+        const demoUrl = latest?.demoUrl || v0Chat.demoUrl || null;
         const messageId = latest?.messageId || null;
         return NextResponse.json({
           chatId,
           id: chatId,
           v0ChatId: chatId,
           v0ProjectId: null,
-          webUrl: (v0Chat as any)?.webUrl ?? null,
-          createdAt: (v0Chat as any)?.createdAt ?? null,
-          updatedAt: (v0Chat as any)?.updatedAt ?? null,
+          webUrl: v0Chat.webUrl,
+          createdAt: v0Chat.createdAt,
+          updatedAt: v0Chat.updatedAt,
           latestVersion:
             versionId || demoUrl
               ? {
@@ -154,14 +203,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         | { versionId: string | null; demoUrl: string | null; messageId?: string | null }
         | null = null;
       try {
-        const v0Chat = await v0.chats.getById({ chatId });
-        const latest = (v0Chat as any)?.latestVersion || null;
-        const versionId =
-          (latest && (latest.id || latest.versionId)) ||
-          (v0Chat as any)?.versionId ||
-          null;
-        const demoUrl =
-          (latest && (latest.demoUrl || latest.demo_url)) || (v0Chat as any)?.demoUrl || null;
+        const v0Chat = getV0ChatSummary(await v0.chats.getById({ chatId }));
+        const latest = v0Chat.latest;
+        const versionId = latest?.id || latest?.versionId || v0Chat.versionId || null;
+        const demoUrl = latest?.demoUrl || v0Chat.demoUrl || null;
         const messageId = latest?.messageId || null;
         if (versionId || demoUrl) {
           latestFromV0 = {

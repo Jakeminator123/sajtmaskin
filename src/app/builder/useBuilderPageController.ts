@@ -356,6 +356,7 @@ export function useBuilderPageController() {
 
   // ── Auto-generate ref for kostnadsfri flow ───────────────────────────
   const autoGenerateTriggeredRef = useRef(false);
+  const [promptFetchRetryNonce, setPromptFetchRetryNonce] = useState(0);
 
   // =====================================================================
   // EFFECTS — cross-cutting concerns, localStorage sync, URL sync
@@ -369,6 +370,7 @@ export function useBuilderPageController() {
     promptFetchInFlightRef.current = promptId;
     let isActive = true;
     const controller = new AbortController();
+    let retryTimer: number | null = null;
 
     const fetchPrompt = async () => {
       let shouldClearPromptId = false;
@@ -383,7 +385,11 @@ export function useBuilderPageController() {
           projectId?: string | null;
         } | null;
         if (!response.ok || !data?.prompt) {
-          throw new Error(data?.error || "Prompten hittades inte");
+          const failure = new Error(data?.error || "Prompten hittades inte") as Error & {
+            status?: number;
+          };
+          failure.status = response.status;
+          throw failure;
         }
         if (!isActive) return;
         promptFetchDoneRef.current = promptId;
@@ -397,12 +403,24 @@ export function useBuilderPageController() {
         if (!isActive) return;
         if (controller.signal.aborted) return;
         if (error instanceof Error && error.name === "AbortError") return;
-        console.warn("[Builder] Prompt handoff missing:", error);
-        toast.error("Prompten hittades inte eller har redan använts.");
-        setResolvedPrompt(null);
-        setEntryIntentActive(false);
-        promptFetchDoneRef.current = promptId;
-        shouldClearPromptId = true;
+        const status = typeof (error as { status?: unknown })?.status === "number"
+          ? ((error as { status?: number }).status ?? null)
+          : null;
+        if (status === 404) {
+          console.warn("[Builder] Prompt handoff missing:", error);
+          toast.error("Prompten hittades inte eller har redan använts.");
+          setResolvedPrompt(null);
+          setEntryIntentActive(false);
+          promptFetchDoneRef.current = promptId;
+          shouldClearPromptId = true;
+          return;
+        }
+        console.warn("[Builder] Prompt handoff fetch failed:", error);
+        toast.error("Kunde inte hämta prompten just nu. Försök igen.");
+        retryTimer = window.setTimeout(() => {
+          if (!isActive) return;
+          setPromptFetchRetryNonce((value) => value + 1);
+        }, 1500);
       } finally {
         if (promptFetchInFlightRef.current === promptId) {
           promptFetchInFlightRef.current = null;
@@ -422,12 +440,15 @@ export function useBuilderPageController() {
     void fetchPrompt();
     return () => {
       isActive = false;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
       controller.abort();
       if (promptFetchInFlightRef.current === promptId) {
         promptFetchInFlightRef.current = null;
       }
     };
-  }, [promptId, promptFetchDoneRef, promptFetchInFlightRef, setEntryIntentActive, setResolvedPrompt, setAppProjectId, setAuditPromptLoaded, router, searchParams]);
+  }, [promptId, promptFetchDoneRef, promptFetchInFlightRef, promptFetchRetryNonce, setEntryIntentActive, setResolvedPrompt, setAppProjectId, setAuditPromptLoaded, router, searchParams]);
 
   // Auth fetch
   useEffect(() => {
@@ -455,11 +476,7 @@ export function useBuilderPageController() {
   // Auth modal
   useEffect(() => {
     if (isAuthLoading) return;
-    if (!isAuthenticated) {
-      setAuthModalReason((prev) => prev ?? "builder");
-      return;
-    }
-    setAuthModalReason(null);
+    if (isAuthenticated) setAuthModalReason(null);
   }, [isAuthLoading, isAuthenticated]);
 
   // Project param -> appProjectId
@@ -1234,6 +1251,7 @@ export function useBuilderPageController() {
     // State (pass through what the shell needs)
     chatId: state.chatId,
     messages: state.messages,
+    buildMethod: state.buildMethod,
     selectedModelTier: state.selectedModelTier,
     promptAssistModel: state.promptAssistModel,
     promptAssistDeep: state.promptAssistDeep,
@@ -1330,9 +1348,14 @@ export function useBuilderPageController() {
     applyAppProjectId: projectActions.applyAppProjectId,
     handleSaveProject: projectActions.handleSaveProject,
     resetToNewChat: useCallback(() => {
+      if (state.chatId && state.messages.length > 0) {
+        if (!window.confirm("Vill du verkligen starta en ny chat? Osparade ändringar försvinner.")) {
+          return;
+        }
+      }
       autoProjectInitRef.current = false;
       projectActions.resetToNewChat();
-    }, [projectActions, autoProjectInitRef]),
+    }, [projectActions, autoProjectInitRef, state.chatId, state.messages.length]),
 
     // Deploy actions
     handleOpenDeployDialog: deployActions.handleOpenDeployDialog,

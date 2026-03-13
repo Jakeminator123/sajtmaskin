@@ -1,0 +1,27 @@
+---
+description: Proactively apply Vercel React best practices on React/Next/Node tasks
+alwaysApply: true
+---
+
+# React + Node skill routing
+
+This project is primarily React, Next.js, and Node.js.
+
+## Default behavior
+
+- For work involving `React`, `Next.js`, `Node.js`, data fetching, bundle size, rendering, or re-rendering, proactively apply the `vercel-react-best-practices` skill.
+- Treat this as the default unless the user explicitly asks for a different approach.
+- For non-trivial React/Next refactors, load the full rules guide:
+  `https://raw.githubusercontent.com/vercel-labs/agent-skills/main/skills/react-best-practices/AGENTS.md`
+- For focused work, fetch only the relevant rule file:
+  `https://raw.githubusercontent.com/vercel-labs/agent-skills/main/skills/react-best-practices/rules/{rule-name}.md`
+
+## MCP coordination
+
+- For Vercel platform details (deployments, projects, env vars, platform behavior), prefer the `Vercel` MCP server.
+- For v0 platform behavior, generation, and chat flows, prefer the `v0` MCP server.
+- Use docs MCP/tools before generic web search.
+
+## Naming tolerance
+
+- If user writes aliases like `Varicell` or `Veenol`, interpret them as `Vercel` and `v0` in context.

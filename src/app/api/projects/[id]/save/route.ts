@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectByIdForOwner, saveProjectData } from "@/lib/db/services";
+import { getProjectByIdForOwner, getProjectData, saveProjectData } from "@/lib/db/services";
 import { deleteCache } from "@/lib/data/redis";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
@@ -9,9 +9,25 @@ interface RouteParams {
 }
 
 function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
+  if (userId && sessionId) return `user:${userId}:session:${sessionId}`;
   if (userId) return `user:${userId}`;
   if (sessionId) return `session:${sessionId}`;
   return "anonymous";
+}
+
+function getOwnerCacheSegments(userId: string | null, sessionId: string | null): string[] {
+  return Array.from(
+    new Set(
+      [getOwnerCacheSegment(userId, sessionId), userId ? `user:${userId}` : null, sessionId ? `session:${sessionId}` : null]
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 /**
@@ -29,7 +45,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const user = await getCurrentUser(request);
     const sessionId = getSessionIdFromRequest(request);
-    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
+    const ownerKeys = getOwnerCacheSegments(user?.id ?? null, sessionId);
 
     const project = await getProjectByIdForOwner(id, {
       userId: user?.id ?? null,
@@ -60,7 +76,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       payload.messages = Array.isArray(messages) ? messages : [];
     }
     if (Object.prototype.hasOwnProperty.call(body, "meta")) {
-      payload.meta = meta ?? null;
+      const nextMeta = meta ?? null;
+      const nextMetaRecord = asRecord(nextMeta);
+      if (nextMetaRecord) {
+        const currentProjectData = await getProjectData(id);
+        const currentMetaRecord = asRecord(currentProjectData?.meta ?? null);
+        payload.meta = {
+          ...(currentMetaRecord ?? {}),
+          ...nextMetaRecord,
+        };
+      } else {
+        payload.meta = nextMeta;
+      }
     }
 
     // Save project data to database
@@ -69,9 +96,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Invalidate caches (project detail + list)
     await Promise.all([
       deleteCache(`project:${id}`),
-      deleteCache(`project:${id}:${ownerKey}`),
+      ...ownerKeys.map((ownerKey) => deleteCache(`project:${id}:${ownerKey}`)),
       deleteCache("projects:list"),
-      deleteCache(`projects:list:${ownerKey}`),
+      ...ownerKeys.map((ownerKey) => deleteCache(`projects:list:${ownerKey}`)),
     ]);
 
     // ═══════════════════════════════════════════════════════════════════════════

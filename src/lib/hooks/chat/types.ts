@@ -4,6 +4,7 @@
 import type { ChatMessage } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { PaletteState } from "@/lib/builder/palette";
+import type { PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
@@ -24,6 +25,7 @@ export type MessageOptions = {
   attachments?: ChatAttachment[];
   attachmentPrompt?: string;
   planMode?: boolean;
+  promptSourceMeta?: PromptSourceMeta;
 };
 
 export type CreateChatLock = {
