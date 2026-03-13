@@ -55,3 +55,9 @@ skrapning/
 ovrigt/
 sajtgen/
 .preprompt_history.json
+
+# Local env files
+.env
+.env.*
+.env.local
+.env.production
