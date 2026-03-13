@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, KeyRound, Loader2, RefreshCw, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { describePreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
+import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +33,8 @@ type DiagnosticsSummary = {
     error?: number;
   };
   byCategory?: Record<string, number>;
+  latestPreviewCode?: string | null;
+  latestPreviewStage?: string | null;
 };
 
 type DiagnosticsResponse = {
@@ -126,6 +130,11 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
     return Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length);
   }, [logs]);
 
+  const latestPreviewDescription = useMemo(
+    () => describePreviewDiagnosticCode(summary?.latestPreviewCode ?? null),
+    [summary?.latestPreviewCode],
+  );
+
   const canAutoFix = logs.some((log) => log.level === "error" || log.level === "warning");
 
   const handleAutoFix = () => {
@@ -139,16 +148,12 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
           .filter(Boolean),
       ),
     );
-    window.dispatchEvent(
-      new CustomEvent("sajtmaskin:auto-fix", {
-        detail: {
-          chatId,
-          versionId,
-          reasons: reasons.length > 0 ? reasons : ["diagnostic issue"],
-          meta: { source: "version-diagnostics" },
-        },
-      }),
-    );
+    dispatchAutoFixEvent({
+      chatId,
+      versionId,
+      reasons: reasons.length > 0 ? reasons : ["diagnostic issue"],
+      meta: { source: "version-diagnostics" },
+    });
     onOpenChange(false);
   };
 
@@ -167,7 +172,19 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
           <Badge variant="outline">Fel: {summary?.byLevel?.error ?? 0}</Badge>
           <Badge variant="outline">Varningar: {summary?.byLevel?.warning ?? 0}</Badge>
           <Badge variant="outline">Info: {summary?.byLevel?.info ?? 0}</Badge>
+          {summary?.latestPreviewCode ? (
+            <Badge variant="secondary">Preview-kod: {summary.latestPreviewCode}</Badge>
+          ) : null}
+          {summary?.latestPreviewStage ? (
+            <Badge variant="outline">Preview-steg: {summary.latestPreviewStage}</Badge>
+          ) : null}
         </div>
+
+        {latestPreviewDescription ? (
+          <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-sm text-blue-100">
+            Senaste preview-diagnos: {latestPreviewDescription}
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={openProjectEnvVarsPanel}>

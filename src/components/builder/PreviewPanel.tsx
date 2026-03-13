@@ -22,6 +22,7 @@ import { ElementRegistry } from "@/components/builder/ElementRegistry";
 import { FileExplorer } from "@/components/builder/FileExplorer";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import { useInspectorWorkerStatus } from "@/lib/hooks/useInspectorWorkerStatus";
+import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
 import {
   INITIAL_PREVIEW_RENDER_OUTCOME_STATE,
@@ -361,16 +362,12 @@ export function PreviewPanel({
       }
 
       if (shouldAutoFixPreviewDiagnostic(code)) {
-        window.dispatchEvent(
-          new CustomEvent("sajtmaskin:auto-fix", {
-            detail: {
-              chatId,
-              versionId,
-              reasons: [reason],
-              meta,
-            },
-          }),
-        );
+        dispatchAutoFixEvent({
+          chatId,
+          versionId,
+          reasons: [reason],
+          meta,
+        });
         toast.error("Preview-fel upptäckt. Försöker reparera automatiskt.", { duration: 5000 });
       } else {
         toast.error(reason, { duration: 5000 });
