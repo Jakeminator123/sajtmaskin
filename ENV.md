@@ -96,6 +96,23 @@ Vid publicering med egen motor skickas dessa projektspecifika variabler vidare
 till Vercel-deployen, så att builderpanelen och publiceringsflödet använder samma
 källa.
 
+## Projektspecifik env-kryptering
+
+`ENV_VAR_ENCRYPTION_KEY` styr kryptering av känsliga projektspecifika env-vars i
+`project_data.meta.projectEnvVars`.
+
+- Just nu kan nyckeln lämnas tom eller osatt tills kryptering aktiveras.
+- Följande värden behandlas också som **avstängt läge**:
+  `n`, `no`, `false`, `0`, `off`, `disabled`
+- I avstängt läge lagras inte känsliga projektspecifika env-vars i klartext; i
+  stället blockeras sådana skrivningar tills en riktig nyckel finns.
+- När ni vill aktivera kryptering senare: sätt en riktig, stabil hemlighet med
+  samma värde i `.env.local`, `.env.production` och Vercel-targets innan ni
+  börjar spara känsliga projektspecifika env-vars.
+- Byt inte nyckeln lättvindigt efter att ni har börjat använda den. Redan
+  sparade värden är bundna till samma nyckel och kan annars bli oläsbara utan
+  migration.
+
 ## Kritiska (måste vara satta i produktion)
 
 | Variabel | Lokalt | Vercel | Beskrivning |

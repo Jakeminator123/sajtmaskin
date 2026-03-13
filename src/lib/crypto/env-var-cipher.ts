@@ -5,13 +5,27 @@ const ALGO = "aes-256-gcm";
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const PREFIX = "enc:";
+const DISABLED_KEY_VALUES = new Set(["0", "false", "n", "no", "off", "disabled"]);
+
+function getConfiguredEncryptionKey(): string | null {
+  const raw = SECRETS.envVarEncryptionKey;
+  if (!raw) return null;
+
+  const normalized = raw.trim();
+  if (!normalized) return null;
+  if (DISABLED_KEY_VALUES.has(normalized.toLowerCase())) {
+    return null;
+  }
+
+  return normalized;
+}
 
 export function hasEnvVarEncryptionKey(): boolean {
-  return Boolean(SECRETS.envVarEncryptionKey);
+  return Boolean(getConfiguredEncryptionKey());
 }
 
 function deriveKey(): Buffer | null {
-  const raw = SECRETS.envVarEncryptionKey;
+  const raw = getConfiguredEncryptionKey();
   if (!raw) return null;
   return createHash("sha256").update(raw).digest();
 }
