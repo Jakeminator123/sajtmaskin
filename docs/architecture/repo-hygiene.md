@@ -27,7 +27,7 @@ flowchart TD
 | Status | Paths | Why |
 |------|------|------|
 | `keep` | `src/`, `docs/`, `public/video/` | App/runtime code, canonical docs, and currently used product assets. |
-| `keep` | `src/lib/gen/template-library/`, `src/lib/gen/scaffolds/`, `src/lib/gen/data/docs-embeddings.json` | Runtime code imports these generated artifacts directly. |
+| `keep` | `src/lib/gen/template-library/`, `src/lib/gen/scaffolds/`, `src/lib/gen/data/docs-embeddings.json` | Runtime code imports these generated artifacts directly. Keep them committed even when some large generated JSON files are excluded from Cursor indexing. |
 | `local-only` | `research/external-templates/repo-cache/`, `research/external-templates/raw-discovery/`, `_template_refs/`, `_sidor/`, `research/_sidor/` | Reproducible research inputs, clone mirrors, or legacy migration data. |
 | `archive` | `docs/plans/archived/`, `docs/old/` | Useful historical context, but low-value for day-to-day indexing. |
 | `move-later` | `research/external-templates/reference-library/` | Valuable curated research, but not a runtime dependency. Largest trackable research surface. |
@@ -61,8 +61,15 @@ It is safe to exclude:
 - archived docs
 - machine-generated JSON that is runtime-read but rarely hand-edited
 - large report/reference files that can be opened directly when needed
+- local orchestrator run history and other short-lived execution traces
 
 This keeps search and AI context focused on source code and canonical docs.
+
+Important distinction:
+
+- `cursorignore` is an indexing/noise-control tool, not a statement that a file is unimportant.
+- Large generated artifacts under `src/lib/gen/` can stay committed and runtime-critical while still being good candidates for `cursorignore`.
+- When a task actually depends on one of those files, prefer reading it directly instead of removing it from `cursorignore` by default.
 
 ## Safe local cleanup
 

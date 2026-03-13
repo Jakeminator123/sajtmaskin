@@ -43,6 +43,39 @@ When `V0_FALLBACK_BUILDER=y`:
 
 v0 is still used for: templates (`generateFromTemplate`), registry init (`initFromRegistry`), and download (`downloadVersionAsZip`), regardless of fallback.
 
+## Generated Artifacts And Indexing
+
+Large generated files under `src/lib/gen/` are part of the runtime surface, even
+when they are excluded from normal Cursor indexing.
+
+| Path | Role | Normal handling |
+|------|------|-----------------|
+| `data/docs-embeddings.json` | Embeddings derived from documentation snippets used by generation support. | Generated, committed, rarely hand-edited, usually safe to keep in `.cursorignore`. |
+| `scaffolds/scaffold-research.generated.json` | Generated scaffold research metadata committed for runtime/build-time use. | Generated, committed, do not hand-edit unless you are deliberately repairing a bad artifact. |
+| `scaffolds/scaffold-embeddings.json` | Embeddings for the internal runtime scaffolds. | Generated, committed, direct-read only when debugging scaffold search/matching. |
+| `template-library/template-library.generated.json` | Curated template-library artifact used by runtime search and prompt support. | Generated, committed, large enough to keep out of default indexing. |
+| `template-library/template-library-embeddings.json` | Embeddings for the curated template-library artifact. | Generated, committed, usually only needed for targeted debugging or rebuild validation. |
+
+Guidelines:
+
+- Treat these files as runtime-critical artifacts, not disposable local output.
+- Do not hand-edit them as a normal workflow. Prefer regenerating them from the
+  scripts documented in `scripts/README.md`.
+- Keeping them in `.cursorignore` is about search/indexing cost, not about
+  forbidding access. Read them directly when a task actually depends on their
+  structure or contents.
+- When you only need orientation, prefer this README plus
+  `docs/architecture/repo-hygiene.md` over opening the full JSON artifacts.
+
+Common regeneration entry points:
+
+```bash
+npm run template-library:build
+npm run template-library:embeddings
+npm run scaffolds:embeddings
+npm run scaffolds:curate
+```
+
 ## Adding New Suspense Rules
 
 1. Create a new rule file in `suspense/rules/`, e.g. `my-fix.ts`:

@@ -6,6 +6,9 @@ alwaysApply: true
 # Env and ignore file access
 
 - You may read local env files and ignore files when there is a concrete reason.
+- Treat this repository as allowing conservative full access to `.env*`,
+  `.gitignore`, `.cursorignore`, and similar config files when they are relevant
+  to the task.
 - Valid reasons include debugging setup, deployment issues, env mismatches,
   integration failures, archive visibility, documentation cleanup, and repo
   structure work.
@@ -16,6 +19,9 @@ alwaysApply: true
   are the real source of truth for the issue.
 - You may edit ignore files when needed to improve project structure, indexing,
   archival visibility, or maintenance workflows.
+- You may also edit env files or env-adjacent config when the user explicitly
+  wants setup/help with API keys, secrets, or environment wiring, but stay
+  conservative and avoid broad unrelated changes.
 - Never commit secrets, paste raw secret values into chat, or expose sensitive
   env contents unless the user explicitly asks for the exact values.
 - When reporting on env files, summarize keys, categories, or mismatches unless

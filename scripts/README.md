@@ -122,6 +122,11 @@ npx tsx scripts/hydrate-template-library-cache.ts --max=20
 Genererar embeddings för den kuraterade externa referensytan så att agenter och
 framtida scaffold-logik kan söka semantiskt i externa referensmallar.
 
+Detta skriver den stora generated-filen
+`src/lib/gen/template-library/template-library-embeddings.json`. Filen kan vara
+committad och runtime-viktig samtidigt som den hålls utanför normal
+Cursor-indexering för att minska brus och kontextkostnad.
+
 ### Användning
 
 ```bash
@@ -184,6 +189,10 @@ bör fortfarande granska filinnehåll, matcher-regler och embeddings efteråt.
 
 Regenererar `src/lib/gen/scaffolds/scaffold-embeddings.json` från de interna
 runtime-scaffolds som redan ligger i repot.
+
+Samma princip gäller här: generated-filen kan vara viktig för runtime eller
+build-time beteende även om den ligger i `.cursorignore` och normalt inte ska
+öppnas utan ett konkret skäl.
 
 ### Användning
 

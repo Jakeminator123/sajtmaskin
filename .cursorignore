@@ -55,3 +55,15 @@ skrapning/
 ovrigt/
 sajtgen/
 .preprompt_history.json
+
+# Local orchestration history
+.cursor/automation/
+.cursor/orchestrator/run/
+# Optional local intake material
+_input_for_cursor/
+
+# Local env files
+.env
+.env.*
+.env.local
+.env.production
