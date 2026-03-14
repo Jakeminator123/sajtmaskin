@@ -1010,6 +1010,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                             }),
                           ),
                         );
+                        devLogAppend("in-progress", {
+                          type: "engine.integration_signals",
+                          chatId,
+                          integrations: detectedIntegrations.map((d) => d.key),
+                          envVars: detectedIntegrations.flatMap((d) => d.envVars),
+                        });
                       }
 
                       safeEnqueue(
@@ -1091,6 +1097,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       safeEnqueue(enc.encode(formatSSEEvent("content", flushed)));
                     }
 
+                    const bufDoneData = evt.data as Record<string, unknown> | null;
                     const bufferFinalized = await finalizeOrHandleEmptyGeneration({
                       finalizeParams: {
                         accumulatedContent,
@@ -1100,6 +1107,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                         urlMap,
                         startedAt: engineStartedAt,
                         previousFiles,
+                        tokenUsage: {
+                          prompt: typeof bufDoneData?.promptTokens === "number" ? bufDoneData.promptTokens : undefined,
+                          completion: typeof bufDoneData?.completionTokens === "number" ? bufDoneData.completionTokens : undefined,
+                        },
                         logNote: "Follow-up buffer flush",
                         onProgress: emitFinalizeProgress,
                       },
@@ -1120,6 +1131,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                           formatSSEEvent("integration", { items: bufIntegrations }),
                         ),
                       );
+                      devLogAppend("in-progress", {
+                        type: "engine.integration_signals",
+                        chatId,
+                        integrations: bufIntegrations.map((d) => d.key),
+                        envVars: bufIntegrations.flatMap((d) => d.envVars),
+                      });
                     }
 
                     safeEnqueue(
@@ -1182,6 +1199,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                             formatSSEEvent("integration", { items: fbIntegrations }),
                           ),
                         );
+                        devLogAppend("in-progress", {
+                          type: "engine.integration_signals",
+                          chatId,
+                          integrations: fbIntegrations.map((d) => d.key),
+                          envVars: fbIntegrations.flatMap((d) => d.envVars),
+                        });
                       }
 
                       safeEnqueue(

@@ -2113,12 +2113,12 @@ export function ChatArea({
         <section id="funktioner" className="px-6 py-20 md:py-28">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-14">
-              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Vad du f&aring;r</p>
+              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">State of the Art</p>
               <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
-                En sajt som presterar &mdash; inte bara ser bra ut
+                Samma teknik som tech-j&auml;ttarna
               </h2>
               <p className="text-muted-foreground max-w-xl mx-auto leading-relaxed text-pretty">
-                Riktig teknik bakom varje sajt &mdash; snabb, s&ouml;kv&auml;nlig och byggbar vidare. Inte dra-och-sl&auml;pp som faller ihop.
+                Vi levererar sajter byggda med produktionsklar kod i React, Next.js och TypeScript &mdash; inte dra-och-sl&auml;pp-byggen som faller ihop.
               </p>
             </div>
 
