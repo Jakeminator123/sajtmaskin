@@ -32,7 +32,7 @@ function needsUserAuth(pathname: string): boolean {
   return AUTH_REQUIRED_PATHS.has(pathname);
 }
 
-const DID_EMBED_HOSTS = ["https://agent.d-id.com", "https://d-id.com", "https://*.d-id.com"];
+const DID_EMBED_HOSTS = ["https://agent.d-id.com", "https://d-id.com", "https://*.d-id.com", "https://studio.d-id.com"];
 
 function isAvatarRoute(pathname: string): boolean {
   return pathname === "/avatar";
