@@ -37,8 +37,19 @@ function needsUserAuth(pathname: string): boolean {
   return AUTH_REQUIRED_PATHS.has(pathname);
 }
 
+const DID_EMBED_HOSTS = [
+  "https://agent.d-id.com",
+  "https://d-id.com",
+  "https://*.d-id.com",
+];
+
+function isAvatarRoute(pathname: string): boolean {
+  return pathname === "/avatar";
+}
+
 function buildCspPolicy(pathname: string, nonce: string): string {
   const isDev = process.env.NODE_ENV !== "production";
+  const allowDidEmbed = isAvatarRoute(pathname);
 
   if (pathname.startsWith("/api/preview-render")) {
     return [
@@ -58,7 +69,32 @@ function buildCspPolicy(pathname: string, nonce: string): string {
   }
 
   const scriptSrc = [`'self'`, `'nonce-${nonce}'`];
+  const imgSrc = [
+    "'self'",
+    "data:",
+    "blob:",
+    "*.vusercontent.net",
+    "*.blob.vercel-storage.com",
+    "api.dicebear.com",
+    "quickchart.io",
+    "images.unsplash.com",
+    "images.pexels.com",
+    "ui.shadcn.com",
+    "https://ui.shadcn.com",
+  ];
+  const frameSrc = [`'self'`, "*.vusercontent.net"];
   const connectSrc = [`'self'`, "*.vusercontent.net", "wss:"];
+  const mediaSrc = [`'self'`, "blob:"];
+  const workerSrc = [`'self'`, "blob:"];
+
+  if (allowDidEmbed) {
+    scriptSrc.push(...DID_EMBED_HOSTS);
+    imgSrc.push(...DID_EMBED_HOSTS);
+    frameSrc.push(...DID_EMBED_HOSTS);
+    connectSrc.push(...DID_EMBED_HOSTS);
+    mediaSrc.push("data:", ...DID_EMBED_HOSTS);
+    workerSrc.push(...DID_EMBED_HOSTS);
+  }
 
   if (isDev) {
     // Turbopack and Vercel's local analytics debug script trip CSP in dev.
@@ -70,11 +106,12 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "default-src 'self'",
     `script-src ${scriptSrc.join(" ")}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: *.vusercontent.net *.blob.vercel-storage.com api.dicebear.com quickchart.io images.unsplash.com images.pexels.com ui.shadcn.com https://ui.shadcn.com",
+    `img-src ${imgSrc.join(" ")}`,
     "font-src 'self' data:",
-    "frame-src 'self' *.vusercontent.net",
+    `frame-src ${frameSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
-    "media-src 'self' blob:",
+    `media-src ${mediaSrc.join(" ")}`,
+    `worker-src ${workerSrc.join(" ")}`,
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'self'",

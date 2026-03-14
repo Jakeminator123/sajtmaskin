@@ -137,6 +137,23 @@ källa.
 | `V0_API_KEY` | .env.local | production, preview | v0 Platform API (krävs när V0_FALLBACK_BUILDER=y för fallback-läge) |
 | `NEXT_PUBLIC_APP_URL` | .env.local | production, preview | Appens publika URL (t.ex. https://sajtmaskin.se) |
 
+## D-ID avatar-test (`/avatar`)
+
+Den isolerade test-routen `/avatar` använder två publika klientvariabler:
+
+| Variabel | Lokalt | Vercel | Beskrivning |
+|----------|--------|--------|-------------|
+| `NEXT_PUBLIC_AVATAR_AGENT_ID` | .env.local | production | D-ID agent-id för testavataren |
+| `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | .env.local | production | D-ID client key för embedden på `/avatar` |
+
+Viktigt:
+
+- Eftersom värdena läses i klientkod måste de börja med `NEXT_PUBLIC_`.
+- Ändra gärna våra egna env-namn, men håll koden och env-namnen synkade.
+- D-ID:s egna embed-attribut måste däremot heta exakt `data-client-key`, `data-agent-id` och i `full` mode även `data-target-id`.
+- Lägg minst `http://localhost:3000` och `https://sajtmaskin.vercel.app` i D-ID:s `allowed_domains` för den client key som används här.
+- Efter ändring av `NEXT_PUBLIC_*` i Vercel måste appen deployas om för att klienten ska få nya värden.
+
 ## Redis-variabler
 
 | Variabel | Syfte | Beskrivning |
