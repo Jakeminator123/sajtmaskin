@@ -44,7 +44,16 @@ python manage_env.py audit            # read-only audit
 python manage_env.py audit --strict   # flaggar även over-target/local-only-drift på Vercel
 python manage_env.py reconcile         # dry-run cleanup-plan för Vercel drift
 python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga entries på Vercel)
-![1773293856987](image/ENV/1773293856987.png)```
+```
+
+## Lokal dev-loggning
+
+- `SAJTMASKIN_DEV_LOG=false` stänger av den lokala dev-loggningen helt.
+- `SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS` styr hur mycket som sparas i den längre dokumentloggen.
+- I lokal utveckling skrivs loggar till:
+  - `logs/sajtmaskin-local.log`
+  - `logs/sajtmaskin-local-document.txt`
+- Den enkla dev-visaren finns pa `/log` och läser dessa filer via en lokal serverroute.
 
 ## Infrastruktur-topologi
 
