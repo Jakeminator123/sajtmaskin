@@ -12,6 +12,7 @@ documentation.
   `project-settings-and-builder-questions.md`, `builder-prompt-layer.md`,
   `repo-hygiene.md`, `documentation-lifecycle.md`,
   `meritmind-build-flows.md`,
+  `runtime-lane-refactor-and-log-viewer.md`,
   `agent-roadmap-and-handoff.md`, `orchestrator-run-protocol.md`
 - `docs/schemas/`
   Canonical human docs for important schemas, model/build-profile mappings, and

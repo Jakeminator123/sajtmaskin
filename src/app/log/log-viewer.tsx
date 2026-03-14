@@ -164,10 +164,11 @@ export function LogViewer() {
         <header className="flex flex-col gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/80 p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-semibold">/log</h1>
+              <h1 className="text-2xl font-semibold">/logg</h1>
               <p className="mt-1 text-sm text-neutral-400">
-                Lokal prompt- och runtime-timeline for dev-loggen. Visar senaste
-                flodet, sluggar och promptlogs nar admin-API:t ar tillgangligt.
+                Lokal prompt- och runtime-timeline for dev-loggen. Finns pa
+                `/logg` och `/log`, visar senaste flodet, sluggar och
+                promptlogs nar admin-API:t ar tillgangligt.
               </p>
             </div>
             <div className="flex items-center gap-2">

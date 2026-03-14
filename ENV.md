@@ -53,7 +53,8 @@ python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga e
 - I lokal utveckling skrivs loggar till:
   - `logs/sajtmaskin-local.log`
   - `logs/sajtmaskin-local-document.txt`
-- Den enkla dev-visaren finns pa `/log` och läser dessa filer via en lokal serverroute.
+- Den enkla dev-visaren finns pa `/logg` och `/log` och läser dessa filer via
+  en lokal serverroute.
 
 ## Infrastruktur-topologi
 
