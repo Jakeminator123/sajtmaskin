@@ -5,8 +5,9 @@ import { checkScaffoldImports } from "@/lib/gen/autofix/rules/scaffold-import-ch
 import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { expandUrls } from "@/lib/gen/url-compress";
+import type { PreviewPreflightSummary } from "@/lib/gen/preview-diagnostics";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
-import { buildPreviewUrl } from "@/lib/gen/preview";
+import { buildPreviewHtml, buildPreviewUrl } from "@/lib/gen/preview";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import type { CodeFile } from "@/lib/gen/parser";
@@ -50,6 +51,7 @@ export interface FinalizeResult {
   previewUrl: string | null;
   filesJson: string;
   contentForVersion: string;
+  preflight: PreviewPreflightSummary;
 }
 
 export class EmptyGenerationError extends Error {
@@ -109,6 +111,8 @@ export async function finalizeAndSaveVersion(
   let contentForVersion = accumulatedContent;
   let preflightIssues: Array<{ file: string; severity: "error" | "warning"; message: string }> = [];
   let preflightFileCount = 0;
+  let previewBlockingReason: string | null = null;
+  let finalizedFilesForPreview: CodeFile[] = [];
 
   // 1. Autofix
   if (runAutofix) {
@@ -364,6 +368,35 @@ export async function finalizeAndSaveVersion(
       }
     }
 
+    finalizedFilesForPreview = finalFiles;
+    try {
+      const previewHtml = buildPreviewHtml(finalizedFilesForPreview);
+      if (!previewHtml) {
+        previewBlockingReason =
+          "Automatic preflight could not build a renderable own-engine preview entrypoint.";
+        preflightIssues.push({
+          file: "preview",
+          severity: "error",
+          message: previewBlockingReason,
+        });
+      }
+    } catch (previewErr) {
+      previewBlockingReason =
+        previewErr instanceof Error
+          ? `Automatic preflight failed while preparing preview: ${previewErr.message}`
+          : "Automatic preflight failed while preparing preview.";
+      preflightIssues.push({
+        file: "preview",
+        severity: "error",
+        message: previewBlockingReason,
+      });
+      devLogAppend("in-progress", {
+        type: "preview-preflight.error",
+        chatId,
+        message: previewBlockingReason,
+      });
+    }
+
     const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(finalFiles)).files;
     preflightFileCount = completeProjectFiles.length;
     const sanity = runProjectSanityChecks(completeProjectFiles);
@@ -395,7 +428,8 @@ export async function finalizeAndSaveVersion(
   });
   const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
   const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
-  const hasBlockingPreflightErrors = preflightErrors.length > 0;
+  const hasVerificationBlockingPreflightErrors = preflightErrors.length > 0;
+  const hasPreviewBlockingPreflightErrors = Boolean(previewBlockingReason);
   const preflightLogs: Array<{
     chatId: string;
     versionId: string;
@@ -418,6 +452,9 @@ export async function finalizeAndSaveVersion(
         issueCount: preflightIssues.length,
         errorCount: preflightErrors.length,
         warningCount: preflightWarnings.length,
+        verificationBlocked: hasVerificationBlockingPreflightErrors,
+        previewBlocked: hasPreviewBlockingPreflightErrors,
+        previewBlockingReason,
       },
     },
   ];
@@ -431,6 +468,38 @@ export async function finalizeAndSaveVersion(
       meta: { issues: preflightIssues.slice(0, 20) },
     });
   }
+  if (hasPreviewBlockingPreflightErrors) {
+    preflightLogs.push({
+      chatId,
+      versionId: version.id,
+      level: "error",
+      category: "preview",
+      message: previewBlockingReason ?? "Automatic preflight blocked preview creation.",
+      meta: {
+        source: "finalize-preflight",
+        previewCode: "preflight_preview_blocked",
+        previewStage: "preflight",
+        previewBlocked: true,
+        verificationBlocked: hasVerificationBlockingPreflightErrors,
+      },
+    });
+  } else if (hasVerificationBlockingPreflightErrors) {
+    preflightLogs.push({
+      chatId,
+      versionId: version.id,
+      level: "warning",
+      category: "preview",
+      message: "Preview is available, but automatic preflight found verification-blocking issues.",
+      meta: {
+        source: "finalize-preflight",
+        previewCode: "preflight_verification_blocked",
+        previewStage: "preflight",
+        previewBlocked: false,
+        verificationBlocked: true,
+        previewFileCount: finalizedFilesForPreview.length,
+      },
+    });
+  }
   devLogAppend("in-progress", {
     type: "preflight.summary",
     chatId,
@@ -439,14 +508,21 @@ export async function finalizeAndSaveVersion(
     issueCount: preflightIssues.length,
     errorCount: preflightErrors.length,
     warningCount: preflightWarnings.length,
+    verificationBlocked: hasVerificationBlockingPreflightErrors,
+    previewBlocked: hasPreviewBlockingPreflightErrors,
+    previewBlockingReason,
   });
+  const preflightFailureSummary = hasPreviewBlockingPreflightErrors
+    ? "Automatic preflight found preview-blocking issues."
+    : "Automatic preflight found verification-blocking issues.";
   onProgress?.("finalizing", {
     phase: "done",
     versionId: version.id,
     fileCount: preflightFileCount,
     issueCount: preflightIssues.length,
+    verificationBlocked: hasVerificationBlockingPreflightErrors,
+    previewBlocked: hasPreviewBlockingPreflightErrors,
   });
-  const preflightFailureSummary = "Automatic preflight found blocking issues before preview.";
   try {
     await createEngineVersionErrorLogs(preflightLogs);
     devLogAppend("in-progress", {
@@ -476,8 +552,8 @@ export async function finalizeAndSaveVersion(
         completion: tokenUsage?.completion,
       },
       Date.now() - startedAt,
-      !hasBlockingPreflightErrors,
-      hasBlockingPreflightErrors ? preflightFailureSummary : logNote,
+      !hasVerificationBlockingPreflightErrors,
+      hasVerificationBlockingPreflightErrors ? preflightFailureSummary : logNote,
     );
     devLogAppend("in-progress", {
       type: "generation-log.persisted",
@@ -499,7 +575,7 @@ export async function finalizeAndSaveVersion(
     });
   }
 
-  if (hasBlockingPreflightErrors) {
+  if (hasVerificationBlockingPreflightErrors) {
     try {
       await chatRepo.failVersionVerification(
         version.id,
@@ -525,14 +601,15 @@ export async function finalizeAndSaveVersion(
     }
   }
 
-  const previewUrl = hasBlockingPreflightErrors ? null : buildPreviewUrl(chatId, version.id);
+  const previewUrl = hasPreviewBlockingPreflightErrors ? null : buildPreviewUrl(chatId, version.id);
 
   debugLog("engine", "Version saved via finalizeAndSaveVersion", {
     chatId,
     versionId: version.id,
     contentLen: contentForVersion.length,
     scaffold: resolvedScaffold?.id ?? null,
-    previewBlocked: hasBlockingPreflightErrors,
+    previewBlocked: hasPreviewBlockingPreflightErrors,
+    verificationBlocked: hasVerificationBlockingPreflightErrors,
   });
 
   return {
@@ -541,5 +618,13 @@ export async function finalizeAndSaveVersion(
     previewUrl,
     filesJson,
     contentForVersion,
+    preflight: {
+      verificationBlocked: hasVerificationBlockingPreflightErrors,
+      previewBlocked: hasPreviewBlockingPreflightErrors,
+      issueCount: preflightIssues.length,
+      errorCount: preflightErrors.length,
+      warningCount: preflightWarnings.length,
+      previewBlockingReason,
+    },
   };
 }

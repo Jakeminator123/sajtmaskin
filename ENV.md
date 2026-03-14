@@ -17,6 +17,10 @@ config/env-policy.json          (committad, delad policy -- klassificering, targ
 Vercel Environment Variables      (web UI / CLI, de riktiga prod/preview/dev-värdena)
 ```
 
+Obs:
+- `.vercel/.env.*.local` ska behandlas som lokala pull/export-snapshots, inte som canonical source of truth.
+- De kan innehålla temporära eller development-scope:ade värden, t.ex. `VERCEL_OIDC_TOKEN`, även när filnamnet råkar säga `production`.
+
 **Arbetsflöde vid ny env-variabel:**
 
 1. Lägg till i `src/lib/env.ts` (Zod-schema).
@@ -155,6 +159,14 @@ Bildflöde i generering:
 2. `image-materializer.ts` ersätter placeholders med riktiga Unsplash-bilder + triggar download-tracking
 3. `image-validator.ts` HEAD-kollar alla bild-URL:er efter generering och ersätter trasiga
 4. Materializer:ns nyligen lösta URL:er skickas som skip-set till validatorn (undviker dubbla anrop)
+
+## AI Gateway och Blob
+
+- `AI_GATEWAY_API_KEY` ska finnas lokalt när du kör gateway-routes via `npm run dev` eller annan icke-Vercel-miljö.
+- På deployad Vercel-runtime kan samma flöden i stället autha via `VERCEL_OIDC_TOKEN`.
+- `BLOB_READ_WRITE_TOKEN` behövs för blob-backed preview-media och blob-lagrad backoffice-data.
+- Om `BLOB_CONTENT_KEY` och `BLOB_COLORS_KEY` lämnas osatta används env-specifika defaults: `backoffice/dev/...`, `backoffice/preview/...`, `backoffice/prod/...`.
+- Om du sätter samma explicita `BLOB_CONTENT_KEY` / `BLOB_COLORS_KEY` i alla miljöer delar dev, preview och prod samma blob-paths.
 
 ## Own engine (standardläge)
 

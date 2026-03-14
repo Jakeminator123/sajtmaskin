@@ -971,6 +971,10 @@ export async function POST(req: Request) {
                             versionId: version.id,
                             messageId: assistantMsgId,
                             demoUrl: previewUrl,
+                            preflight: finalized.preflight,
+                            previewBlocked: finalized.preflight.previewBlocked,
+                            verificationBlocked: finalized.preflight.verificationBlocked,
+                            previewBlockingReason: finalized.preflight.previewBlockingReason,
                           }),
                         ),
                       );
@@ -1080,6 +1084,10 @@ export async function POST(req: Request) {
                           versionId: bufFinalized.version.id,
                           messageId: bufFinalized.messageId,
                           demoUrl: bufFinalized.previewUrl,
+                          preflight: bufFinalized.preflight,
+                          previewBlocked: bufFinalized.preflight.previewBlocked,
+                          verificationBlocked: bufFinalized.preflight.verificationBlocked,
+                          previewBlockingReason: bufFinalized.preflight.previewBlockingReason,
                         }),
                       ),
                     );
@@ -1113,6 +1121,10 @@ export async function POST(req: Request) {
                           versionId: fallbackFinalized.version.id,
                           messageId: fallbackFinalized.messageId,
                           demoUrl: fallbackFinalized.previewUrl,
+                          preflight: fallbackFinalized.preflight,
+                          previewBlocked: fallbackFinalized.preflight.previewBlocked,
+                          verificationBlocked: fallbackFinalized.preflight.verificationBlocked,
+                          previewBlockingReason: fallbackFinalized.preflight.previewBlockingReason,
                         }),
                       ),
                     );

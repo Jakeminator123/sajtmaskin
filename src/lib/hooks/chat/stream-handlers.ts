@@ -17,6 +17,7 @@ import {
   recordStreamParts,
   recordStreamText,
 } from "./helpers";
+import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
 import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
 
 export type StreamContext = {
@@ -60,7 +61,12 @@ export async function handleSseStream(
   let progressivePreviewFired = false;
   let didReceiveDone = false;
   let generationProgressStarted = false;
-  const postCheckQueue: Array<{ chatId: string; versionId: string; demoUrl?: string | null }> = [];
+  const postCheckQueue: Array<{
+    chatId: string;
+    versionId: string;
+    demoUrl?: string | null;
+    preflight?: PreviewPreflightState | null;
+  }> = [];
   const materializeQueue: Array<{ chatId: string; versionId: string }> = [];
   let streamQuality: StreamQualitySignal = { hasCriticalAnomaly: false, reasons: [] };
   const streamStats = initStreamStats(ctx.streamType, ctx.assistantMessageId);
@@ -178,6 +184,41 @@ export async function handleSseStream(
         steps: buildProgressSteps(step, phase, payload),
       },
     } as Parameters<typeof appendToolPartToMessage>[2]);
+  };
+
+  const parseDonePreflight = (doneData: Record<string, unknown>): PreviewPreflightState | null => {
+    const nested =
+      doneData.preflight && typeof doneData.preflight === "object"
+        ? (doneData.preflight as Record<string, unknown>)
+        : null;
+    const previewBlocked =
+      typeof nested?.previewBlocked === "boolean"
+        ? nested.previewBlocked
+        : typeof doneData.previewBlocked === "boolean"
+          ? (doneData.previewBlocked as boolean)
+          : null;
+    const verificationBlocked =
+      typeof nested?.verificationBlocked === "boolean"
+        ? nested.verificationBlocked
+        : typeof doneData.verificationBlocked === "boolean"
+          ? (doneData.verificationBlocked as boolean)
+          : null;
+    const previewBlockingReason =
+      typeof nested?.previewBlockingReason === "string"
+        ? nested.previewBlockingReason
+        : typeof doneData.previewBlockingReason === "string"
+          ? (doneData.previewBlockingReason as string)
+          : null;
+
+    if (previewBlocked === null && verificationBlocked === null && !previewBlockingReason) {
+      return null;
+    }
+
+    return {
+      previewBlocked: previewBlocked ?? false,
+      verificationBlocked: verificationBlocked ?? false,
+      previewBlockingReason,
+    };
   };
 
   try {
@@ -494,6 +535,7 @@ export async function handleSseStream(
             }
             const doneData =
               typeof data === "object" && data ? (data as Record<string, unknown>) : {};
+            const donePreflight = parseDonePreflight(doneData);
             const doneV0ProjectId = doneData.v0ProjectId || doneData.v0_project_id || null;
             if (doneV0ProjectId && !v0ProjectIdFromStream) {
               v0ProjectIdFromStream = String(doneV0ProjectId);
@@ -665,6 +707,7 @@ export async function handleSseStream(
                 chatId: String(resolvedChatId),
                 versionId: String(resolvedVersionId),
                 demoUrl: (doneData.demoUrl as string) ?? null,
+                preflight: donePreflight,
               });
             }
             break;
@@ -718,6 +761,7 @@ export async function handleSseStream(
       chatId: latestPostCheck.chatId,
       versionId: latestPostCheck.versionId,
       demoUrl: latestPostCheck.demoUrl ?? null,
+      preflight: latestPostCheck.preflight ?? null,
       assistantMessageId,
       setMessages,
       streamQuality,

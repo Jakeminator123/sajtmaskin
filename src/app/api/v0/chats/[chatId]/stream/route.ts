@@ -1051,6 +1051,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                             versionId: finalized.version.id,
                             messageId: finalized.messageId,
                             demoUrl: finalized.previewUrl,
+                            preflight: finalized.preflight,
+                            previewBlocked: finalized.preflight.previewBlocked,
+                            verificationBlocked: finalized.preflight.verificationBlocked,
+                            previewBlockingReason: finalized.preflight.previewBlockingReason,
                           }),
                         ),
                       );
@@ -1160,6 +1164,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                           versionId: bufferFinalized.version.id,
                           messageId: bufferFinalized.messageId,
                           demoUrl: bufferFinalized.previewUrl,
+                          preflight: bufferFinalized.preflight,
+                          previewBlocked: bufferFinalized.preflight.previewBlocked,
+                          verificationBlocked: bufferFinalized.preflight.verificationBlocked,
+                          previewBlockingReason: bufferFinalized.preflight.previewBlockingReason,
                         }),
                       ),
                     );
@@ -1212,6 +1220,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                           versionId: fallbackFinalized.version.id,
                           messageId: fallbackFinalized.messageId,
                           demoUrl: fallbackFinalized.previewUrl,
+                          preflight: fallbackFinalized.preflight,
+                          previewBlocked: fallbackFinalized.preflight.previewBlocked,
+                          verificationBlocked: fallbackFinalized.preflight.verificationBlocked,
+                          previewBlockingReason: fallbackFinalized.preflight.previewBlockingReason,
                         }),
                       ),
                     );

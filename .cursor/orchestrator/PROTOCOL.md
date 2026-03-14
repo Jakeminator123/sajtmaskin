@@ -19,7 +19,7 @@ All new run artifacts must live under:
 
 Rules:
 
-- Keep completed runs in place under `run/`; the dated folder is the archive.
+- When a run is complete, archive it to `.cursor/orchestrator/archive/` so `run/` stays lean and indexing tokens stay low.
 - Do not create new run outputs under `.cursor/automation/`.
 - Treat `/orchestrator` and `/automation` as the valid startup aliases for beginning an `orchestrator run`.
 - If an older automation folder contains useful history, treat it as reference input only.
@@ -59,6 +59,15 @@ Each run folder should contain:
 ```
 
 Use the nearest useful subset when the run is smaller, but keep the same naming.
+
+## Phase 0: Pre-flight (when starting `/orchestrator` or `/automation`)
+
+Before creating a new run folder:
+
+1. Run `powershell -File ".cursor/orchestrator/scripts/archive-completed-runs.ps1"` from the repo root.
+2. This archives any completed run in `run/` to `.cursor/orchestrator/archive/<YYYY-MM-DD>-<slug>-<HHMMSS>/`.
+3. The script also appends a compact entry to `.cursor/orchestrator/run-summaries.md`.
+4. This keeps `run/` lean and avoids indexing old runs.
 
 ## Phase 1: Interactive intake
 
@@ -171,15 +180,32 @@ Close the run by writing `FINAL_REPORT.md` with:
 - verification summary
 - final disposition of any unresolved items
 
-If the run produces durable knowledge, promote that knowledge into the normal repository docs in the same turn. The run folder keeps the execution trace; canonical product or architecture knowledge still belongs in `docs/`.
+If the run produces durable knowledge, promote that knowledge into the normal repository docs in the same turn.
+
+Then **archive the completed run**:
+
+1. Run `powershell -File ".cursor/orchestrator/scripts/archive-completed-runs.ps1" -RunName "<YYYY-MM-DD>-<slug>"`.
+2. The script moves the run folder to `.cursor/orchestrator/archive/<YYYY-MM-DD>-<slug>-<HHMMSS>/` (add timestamp so multiple runs per day are unique).
+3. The script appends a short summary to `.cursor/orchestrator/run-summaries.md`. This file stays indexed so other agents can quickly see recent runs without loading full archives.
+4. The archive folder is cursor-ignored and git-ignored; use exact paths when you need to read archived content.
+
+### Run summary format (for `run-summaries.md`)
+
+```markdown
+## <YYYY-MM-DD>-<slug> (archived <YYYY-MM-DD> <HH:MM>)
+- **Scope:** One-line description of what the run delivered.
+- **Workloads:** N completed, M verified.
+- **Key outcomes:** 2–4 bullet points.
+- **Archive path:** `.cursor/orchestrator/archive/<YYYY-MM-DD>-<slug>-<HHMMSS>/`
+```
+
+Keep each entry under ~15 lines. Agents can read `run-summaries.md` for context, then open specific archive paths if needed.
 
 ## Local retention
 
-Run folders are local execution artifacts and should stay out of normal Git
-history.
+Run folders are local execution artifacts and should stay out of normal Git history.
 
 - Keep `.cursor/orchestrator/run/` gitignored except for the tracked `README.md`
-- Prefer promoting durable conclusions into `docs/` instead of keeping long-term
-  knowledge only in old runs
-- Use `.cursor/orchestrator/scripts/prune-old-runs.ps1` to remove stale dated run
-  folders older than the chosen retention window
+- Archive completed runs to `.cursor/orchestrator/archive/` (cursor-ignored and git-ignored)
+- Prefer promoting durable conclusions into `docs/` instead of keeping long-term knowledge only in old runs
+- Use `.cursor/orchestrator/scripts/prune-old-runs.ps1` to remove stale archived folders older than the chosen retention window (update the script to target `archive/` instead of `run/`)

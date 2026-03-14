@@ -11,6 +11,7 @@ documentation.
   `structure-and-terminology.md`, `generation-loop-and-error-memory.md`,
   `project-settings-and-builder-questions.md`, `builder-prompt-layer.md`,
   `repo-hygiene.md`, `documentation-lifecycle.md`,
+  `meritmind-build-flows.md`,
   `agent-roadmap-and-handoff.md`, `orchestrator-run-protocol.md`
 - `docs/schemas/`
   Canonical human docs for important schemas, model/build-profile mappings, and

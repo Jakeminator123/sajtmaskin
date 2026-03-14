@@ -8,7 +8,7 @@ import JSZip from "jszip";
  * GET /api/projects/[id]/download
  *
  * Downloads a project as a ZIP file.
- * Files are loaded from project_data.files (from v0 generation).
+ * Files are loaded from project_data.files (synced from v0 or own-engine on save).
  */
 
 interface RouteParams {

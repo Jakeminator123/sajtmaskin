@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
+import { resolveEngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
 import {
   AlertCircle,
   ChevronLeft,
@@ -12,6 +12,7 @@ import {
   Github,
   Loader2,
   Pin,
+  RotateCcw,
   UploadCloud,
 } from "lucide-react";
 import { useVersions } from "@/lib/hooks/useVersions";
@@ -400,28 +401,57 @@ export function VersionHistory({
             const isSelected = selectedVersionId === selectableVersionId;
             const isPinned = Boolean(version.pinned);
             const canPin = version.canPin !== false;
-            const lifecycleStatus = resolveEngineVersionLifecycleStatus({
-              releaseState: version.releaseState,
-              verificationState: version.verificationState,
-            });
+            const lifecycleStatus = resolveEngineVersionDisplayStatus(
+              {
+                versionId: version.versionId,
+                id: version.id,
+                createdAt: version.createdAt,
+                versionNumber: version.versionNumber,
+                releaseState: version.releaseState,
+                verificationState: version.verificationState,
+              },
+              versionList.map((entry) => ({
+                versionId: entry.versionId,
+                id: entry.id,
+                createdAt: entry.createdAt,
+                versionNumber: entry.versionNumber,
+                releaseState: entry.releaseState,
+                verificationState: entry.verificationState,
+              })),
+            );
             const lifecycleLabel =
               lifecycleStatus === "promoted"
                 ? "Promoted"
                 : lifecycleStatus === "verifying"
                   ? "Verifying"
-                  : lifecycleStatus === "failed"
-                    ? "Failed"
-                    : "Draft";
+                  : lifecycleStatus === "retrying"
+                    ? "Omtag"
+                    : lifecycleStatus === "failed"
+                      ? "Fel"
+                      : "Draft";
             const lifecycleBadgeVariant =
               lifecycleStatus === "failed"
                 ? "destructive"
                 : lifecycleStatus === "promoted"
                   ? "default"
-                  : "secondary";
-            const lifecycleSummary =
-              typeof version.verificationSummary === "string" && version.verificationSummary.trim()
-                ? version.verificationSummary.trim()
-                : null;
+                  : lifecycleStatus === "retrying"
+                    ? "outline"
+                    : "secondary";
+            const lifecycleBadgeClassName =
+              lifecycleStatus === "retrying"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                : undefined;
+            const lifecycleSummary = (() => {
+              const summary =
+                typeof version.verificationSummary === "string" &&
+                version.verificationSummary.trim()
+                  ? version.verificationSummary.trim()
+                  : null;
+              if (lifecycleStatus === "retrying") {
+                return "Ersatt av ett senare omtag efter verifieringsfel.";
+              }
+              return summary;
+            })();
 
             return (
               <Card
@@ -447,8 +477,14 @@ export function VersionHistory({
                             v{version.versionNumber}
                           </Badge>
                         )}
-                        <Badge variant={lifecycleBadgeVariant} className="gap-1 px-1.5 py-0 text-[10px]">
-                          {lifecycleStatus === "verifying" && <Loader2 className="h-3 w-3 animate-spin" />}
+                        <Badge
+                          variant={lifecycleBadgeVariant}
+                          className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadgeClassName)}
+                        >
+                          {lifecycleStatus === "verifying" && (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          )}
+                          {lifecycleStatus === "retrying" && <RotateCcw className="h-3 w-3" />}
                           {lifecycleLabel}
                         </Badge>
                         {isPinned && (

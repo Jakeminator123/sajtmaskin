@@ -6,6 +6,10 @@ import {
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import {
+  describePreviewDiagnosticCode,
+  readPreviewDiagnosticMeta,
+} from "@/lib/gen/preview-diagnostics";
 import { detectIntegrations } from "@/lib/gen/detect-integrations";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
@@ -68,11 +72,12 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
   return null;
 }
 
-function buildPreviewWarning(detail?: string | null): ChatReadinessItem {
+function buildPreviewWarning(detail?: string | null, diagnosticCode?: string | null): ChatReadinessItem {
+  const normalizedDetail = describePreviewDiagnosticCode(diagnosticCode);
   return {
     id: "preview-warning",
     title: "Den här versionen har preview- eller runtime-problem loggade.",
-    detail: detail || "Kontrollera previewn innan du publicerar.",
+    detail: normalizedDetail || detail || "Kontrollera previewn innan du publicerar.",
     severity: "warning",
     action: "preview",
   };
@@ -184,15 +189,16 @@ async function buildEngineReadiness(
     blockers.push(buildMissingEnvBlocker(missingEnvKeys));
   }
 
-  const latestPreviewError = errorLogs.find(
+  const latestPreviewSignal = errorLogs.find(
     (log) =>
-      log.level === "error" &&
+      log.level !== "info" &&
       (log.category === "preview" ||
         log.category === "render-telemetry" ||
         log.category === "deploy"),
   );
-  if (latestPreviewError) {
-    warnings.push(buildPreviewWarning(latestPreviewError.message));
+  if (latestPreviewSignal) {
+    const previewMeta = readPreviewDiagnosticMeta(latestPreviewSignal.meta);
+    warnings.push(buildPreviewWarning(latestPreviewSignal.message, previewMeta.previewCode));
   }
   const latestSeoWarning = errorLogs.find((log) => log.category === "seo");
   if (latestSeoWarning) {

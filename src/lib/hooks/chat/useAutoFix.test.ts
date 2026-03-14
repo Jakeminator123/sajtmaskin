@@ -30,6 +30,8 @@ describe("summarizeVersionLogsForAutoFix", () => {
         category: "preview",
         message: "preview compilation failed",
         meta: {
+          previewCode: "preview_compile_error",
+          previewStage: "preview-script",
           message:
             "Preview compilation failed for generated code.\n- app/page.tsx: L29:6 JSX element 'div' has no corresponding closing tag.",
         },
@@ -41,6 +43,10 @@ describe("summarizeVersionLogsForAutoFix", () => {
       diagnostics.some((entry) => entry.includes("JSX element 'div' has no corresponding closing tag")),
     ).toBe(true);
     expect(diagnostics).toContain("[preview] preview compilation failed");
+    expect(diagnostics).toContain(
+      "[preview:preview_compile_error] Previewn kunde inte kompilera genererad kod.",
+    );
+    expect(diagnostics).toContain("[preview:stage] preview-script");
     expect(diagnostics.some((entry) => entry.includes("Preview rendered successfully"))).toBe(false);
     expect(diagnostics.some((entry) => entry.startsWith("[seo]"))).toBe(false);
   });

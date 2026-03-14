@@ -228,7 +228,7 @@
         "preview",
         "production"
       ],
-      "notes": "Required when gateway-backed AI routes are used."
+      "notes": "Required for local or non-Vercel gateway-backed AI routes. Deployed Vercel runtimes can authenticate with OIDC instead."
     },
     {
       "key": "VERCEL_TOKEN",
@@ -276,7 +276,7 @@
       "recommendedVercelTargets": [
         "development"
       ],
-      "notes": "Local OIDC token refreshed via vercel env pull; not normally synced to deployed targets."
+      "notes": "Local OIDC token refreshed via vercel env pull for local testing. Treat pulled values as local snapshots, not canonical deployed target values."
     },
     {
       "key": "NEXT_PUBLIC_APP_URL",
@@ -480,6 +480,16 @@
       "notes": "Backoffice session invalidation version."
     },
     {
+      "key": "BLOB_READ_WRITE_TOKEN",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Required for blob-backed preview media and blob JSON persistence."
+    },
+    {
       "key": "BLOB_CONTENT_KEY",
       "classification": "optional_runtime",
       "recommendedVercelTargets": [
@@ -487,7 +497,7 @@
         "preview",
         "production"
       ],
-      "notes": "Backoffice blob content key."
+      "notes": "Optional explicit backoffice blob content key. Prefer leaving unset to use env-specific defaults like backoffice/dev|preview|prod/content.json."
     },
     {
       "key": "BLOB_COLORS_KEY",
@@ -497,7 +507,7 @@
         "preview",
         "production"
       ],
-      "notes": "Backoffice blob colors key."
+      "notes": "Optional explicit backoffice blob colors key. Prefer leaving unset to use env-specific defaults like backoffice/dev|preview|prod/colors.json."
     },
     {
       "key": "STORAGE_BACKEND",

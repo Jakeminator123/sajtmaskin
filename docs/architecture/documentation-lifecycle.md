@@ -35,17 +35,11 @@ Use these three states consistently:
    `docs/architecture/agent-roadmap-and-handoff.md` whenever a plan changes
    state.
 
-## Current migration state
+## Current classification
 
-The numbered plan files currently still live physically in `docs/plans/` root.
-Until they are moved, treat `docs/architecture/agent-roadmap-and-handoff.md` as
-the source of truth for their lifecycle status.
-
-Current classification:
-
-- `active`: `06-world-class-builder-roadmap.md`, `09-world-class-builder-phase-3-smb-growth.md`, and `10-world-class-builder-phase-4-learning-moat.md`
-- `review-needed`: no numbered plan currently sits in this bucket
-- `archived`: `01-design-system-registry.md` through `05-template-search-ui.md`, `07-world-class-builder-phase-1-trust-launch.md`, `08-world-class-builder-phase-2-site-planning.md`, plus `11-next-vercel-build-plan-core-config.md` through `13-next-vercel-build-plan-ui-performance.md`
+- `active`: `docs/plans/active/06-world-class-builder-roadmap.md`, `docs/plans/active/09-world-class-builder-phase-3-smb-growth.md`, and `docs/plans/active/10-world-class-builder-phase-4-learning-moat.md`
+- `review-needed`: no current numbered or dated plan sits in this bucket
+- `archived`: `docs/plans/archived/01-design-system-registry.md` through `docs/plans/archived/05-template-search-ui.md`, `docs/plans/archived/07-world-class-builder-phase-1-trust-launch.md`, `docs/plans/archived/08-world-class-builder-phase-2-site-planning.md`, `docs/plans/archived/11-next-vercel-build-plan-core-config.md` through `docs/plans/archived/13-next-vercel-build-plan-ui-performance.md`, plus `docs/plans/archived/2026-03-bug-recheck-sweep.md` and `docs/plans/archived/2026-03-openclaw-rollout-roadmap.md`
 
 ## Schema rule
 

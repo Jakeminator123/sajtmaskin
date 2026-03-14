@@ -1,0 +1,531 @@
+Säg att du har olika modeller. Vi säger 1) billig snabb, 2) medium allmän 3) dyr långsam. Lägg in att alla kan va kreativa eller inte, typ temptature. Ska man välja olika för olika delar?
+
+Ja, absolut. Man bör välja olika modelltyp för olika delar. Det är nästan alltid bättre än att köra samma modell överallt.
+
+Det rätta sättet är att tänka i pipeline-steg, där varje steg får den billigaste modell som fortfarande gör jobbet bra.
+
+Kort svar
+
+Billig/snabb: klassificering, extraktion, regler, enklare omskrivningar, quality checks
+
+Medium/allmän: planering, copy, strukturval, vanliga förbättringar
+
+Dyr/långsam: svåra beslut, taste, komplex omskrivning, slutlig polish, recovery när något gått fel
+
+Och ja: kreativitet/temperature bör också variera per steg.
+
+Rekommenderad modellstrategi per steg
+1. Prompttolkning / business extraction
+
+Här vill du ha:
+
+stabilitet
+
+konsekvens
+
+bra struktur
+
+låg kostnad
+
+Bäst val
+
+billig/snabb
+
+låg kreativitet
+
+Varför
+
+Det här är mest:
+
+klassificering
+
+extraktion
+
+normalisering
+
+Du vill inte att modellen “hittar på”.
+Du vill ha samma output för liknande input.
+
+Exempel
+
+business type
+
+primary goal
+
+geo
+
+tone
+
+CTA type
+
+trust needs
+
+Rekommendation
+
+modell: 1
+
+temperature: 0.1–0.3
+
+2. Business strategy / site archetype
+
+Här väljer du:
+
+vilken sorts sajt det ska vara
+
+vilka sektioner som behövs
+
+vad som är viktigt först
+
+Bäst val
+
+medium/allmän
+
+låg till medel kreativitet
+
+Varför
+
+Det är lite mer resonemang än ren extraktion.
+Men du vill fortfarande ha kontroll och konsekvens.
+
+Rekommendation
+
+modell: 2
+
+temperature: 0.2–0.4
+
+3. Section planning / informationsarkitektur
+
+Här avgörs:
+
+sektioner
+
+ordning
+
+vilken typ av proof
+
+CTA-flöde
+
+Bäst val
+
+medium/allmän
+
+ibland dyr/långsam för premium mode
+
+Varför
+
+För standard-SMB räcker medium ofta.
+Men om du vill ha riktigt stark struktur för vaga prompts eller premium-resultat, då hjälper dyr modell.
+
+Rekommendation
+
+standard: modell 2, temp 0.3
+
+premium / svårt case: modell 3, temp 0.3–0.5
+
+4. Copy generation
+
+Det här är ett område där modellval gör stor skillnad.
+
+För enkel copy
+
+medium/allmän
+
+medel kreativitet
+
+För premium copy / svår tonalitet
+
+dyr/långsam
+
+medel kreativitet
+
+Varför
+
+Bra copy kräver:
+
+tonkänsla
+
+variation
+
+affärsförståelse
+
+bättre omdöme
+
+Billig modell funkar för utilitarian text, men inte lika bra för “dyr känsla”.
+
+Rekommendation
+
+standard-SMB: modell 2, temp 0.5–0.7
+
+premium/polish: modell 3, temp 0.6–0.8
+
+5. Design taste / creative direction
+
+Det här är ett av de starkaste fallen för dyr modell.
+
+Bäst val
+
+dyr/långsam
+
+medel kreativitet, inte för hög
+
+Varför
+
+Här handlar det om:
+
+vad som ska vara återhållsamt
+
+vad som ska kännas premium
+
+vilka sektioner som ska få tyngd
+
+hur sidan undviker template-känsla
+
+Det är mer “creative judgment” än ren logik.
+
+Rekommendation
+
+modell: 3
+
+temperature: 0.4–0.7
+
+För hög temperature här kan bli konstigt och inkonsekvent.
+
+6. Kodgenerering
+
+Beror på hur du bygger.
+
+Om du har mycket scaffold och hårda regler
+
+medium/allmän kan räcka långt
+
+Om sidan är komplex eller behöver mycket smakfull anpassning
+
+dyr/långsam
+
+Kreativitet här?
+
+Vanligtvis lägre än i copy/taste.
+Kod ska vara mer kontrollerad.
+
+Rekommendation
+
+standard: modell 2, temp 0.2–0.4
+
+avancerad/premium: modell 3, temp 0.2–0.4
+
+7. Quality checks / validators
+
+Detta ska vara billigt och stabilt.
+
+Bäst val
+
+billig/snabb
+
+mycket låg kreativitet
+
+Varför
+
+Här vill du bara att modellen ska hitta:
+
+otydlig hero
+
+saknad CTA
+
+fel sektion
+
+brist på trust
+
+för generisk copy
+
+Rekommendation
+
+modell: 1
+
+temperature: 0.0–0.2
+
+8. Auto-fix
+
+Det här borde delas i två typer.
+
+A. Regelstyrd / enkel fix
+
+Exempel:
+
+“lägg till service area”
+
+“byt CTA”
+
+“kortare hero”
+
+“flytta testimonials upp”
+
+Bäst:
+
+modell 1 eller 2
+
+låg kreativitet
+
+B. Smart rewrite / polish
+
+Exempel:
+
+“gör detta mer premium”
+
+“sidan känns generisk”
+
+“copy saknar affärskänsla”
+
+“layouten känns templatiserad”
+
+Bäst:
+
+modell 3
+
+medel kreativitet
+
+Bra tumregel
+Modell 1 — billig/snabb
+
+Använd för:
+
+klassificering
+
+extraktion
+
+routing
+
+quality checks
+
+enkla rewrites
+
+fallback-analyser
+
+Modell 2 — medium/allmän
+
+Använd för:
+
+planering
+
+standard-copy
+
+standard-layoutbeslut
+
+vanlig kodgenerering
+
+normala auto-fixar
+
+Modell 3 — dyr/långsam
+
+Använd för:
+
+premium copy
+
+taste / art direction
+
+svåra vaga prompts
+
+strategiska omskrivningar
+
+slutlig polish
+
+recovery när viktig output blev dålig
+
+Temperature-strategi
+Låg temperature
+
+Bra för:
+
+klassificering
+
+extraktion
+
+validering
+
+kod
+
+regelstyrda beslut
+
+Medel temperature
+
+Bra för:
+
+struktur
+
+copy
+
+tone
+
+viss variation
+
+Högre temperature
+
+Bra för:
+
+brainstorming
+
+flera kreativa riktningar
+
+moodboards
+
+style exploration
+
+Men för produktionsflöde bör du sällan gå för högt.
+
+Rekommenderade intervall
+
+routing/extraction: 0.0–0.2
+
+planning/structure: 0.2–0.4
+
+copy/tone: 0.5–0.7
+
+taste exploration: 0.4–0.7
+
+code generation: 0.1–0.3
+
+validation: 0.0–0.1
+
+Det bästa upplägget i praktiken
+Basläge
+
+steg 1: modell 1
+
+steg 2: modell 2
+
+steg 3: modell 2
+
+steg 4: modell 2
+
+steg 5: modell 2
+
+steg 6: modell 2
+
+steg 7: modell 1
+
+steg 8: modell 2
+
+Premiumläge
+
+steg 1: modell 1
+
+steg 2: modell 2
+
+steg 3: modell 3
+
+steg 4: modell 3
+
+steg 5: modell 3
+
+steg 6: modell 3
+
+steg 7: modell 1
+
+steg 8: modell 3 för smart polish, annars 2
+
+Budgetläge
+
+steg 1: modell 1
+
+steg 2: modell 1 eller 2
+
+steg 3: modell 2
+
+steg 4: modell 2
+
+steg 5: modell 2
+
+steg 6: modell 2
+
+steg 7: modell 1
+
+steg 8: modell 1 eller 2
+
+Viktig princip: använd dyr modell selektivt
+
+Du behöver inte dyr modell på allt.
+
+Bästa ROI brukar vara att lägga dyr modell på:
+
+copy
+
+taste
+
+svåra strukturval
+
+slutlig polish
+
+Inte på:
+
+klassificering
+
+enkla checks
+
+enkel metadataextraktion
+
+Min rekommenderade regelmotor
+
+Låt systemet route:a upp sig.
+
+Exempel:
+
+enkel prompt + tydlig business type → medium pipeline
+
+vag prompt + premium önskemål → dyr pipeline
+
+enkel auto-fix → billig/medium
+
+“det här känns generiskt” → dyr rewrite/polish
+
+Min konkreta rekommendation för dig
+
+Om du bygger detta nu, kör så här:
+
+Modell 1
+
+business extraction
+
+validators
+
+quality gates
+
+routing
+
+små fixar
+
+Modell 2
+
+standard planner
+
+section selection
+
+standard copy
+
+vanlig kodgenerering
+
+Modell 3
+
+premium planner
+
+taste direction
+
+hero/copy polish
+
+final rewrite
+
+svåra auto-fixar
+
+Och sätt temperature ungefär så här:
+
+extraction/checks: 0.1
+
+planning: 0.3
+
+copy: 0.6
+
+taste/polish: 0.5–0.7
+
+code: 0.2
+
+Det här är mycket bättre än en enda modell med en enda temperature överallt.
+
+Jag kan skriva en konkret routing-spec i TypeScript, typ chooseModelForStep(...), om du vill

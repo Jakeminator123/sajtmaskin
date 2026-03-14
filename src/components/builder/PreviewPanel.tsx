@@ -1,7 +1,29 @@
 "use client";
 
-import { AlertCircle, BrainCircuit, Code2, ExternalLink, FileText, Loader2, MessageCircleQuestion, MousePointer2, RefreshCw, Search, Wand2, X, Zap } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type MouseEvent } from "react";
+import {
+  AlertCircle,
+  BrainCircuit,
+  Code2,
+  ExternalLink,
+  FileText,
+  Loader2,
+  MessageCircleQuestion,
+  MousePointer2,
+  RefreshCw,
+  Search,
+  Wand2,
+  X,
+  Zap,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type MouseEvent,
+} from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
@@ -12,7 +34,11 @@ import {
   type PlacementSelectEventDetail,
 } from "@/lib/builder/inspect-events";
 import type { FileNode, ElementMapItem, ElementMapResponse } from "@/lib/builder/types";
-import { buildJsxElementRegistry, matchCapturedElement, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
+import {
+  buildJsxElementRegistry,
+  matchCapturedElement,
+  type RegistryMatch,
+} from "@/lib/builder/jsx-element-registry";
 import {
   extractSectionZones,
   nearestInsertionPoint,
@@ -22,7 +48,17 @@ import { ElementRegistry } from "@/components/builder/ElementRegistry";
 import { FileExplorer } from "@/components/builder/FileExplorer";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import { useInspectorWorkerStatus } from "@/lib/hooks/useInspectorWorkerStatus";
+import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
+import {
+  INITIAL_PREVIEW_RENDER_OUTCOME_STATE,
+  describePreviewDiagnosticCode,
+  nextPreviewRenderOutcomeState,
+  previewDiagnosticCodeFromKind,
+  previewDiagnosticStageFromKind,
+  shouldAutoFixPreviewDiagnostic,
+  shouldReportPreviewOutcome,
+} from "@/lib/gen/preview-diagnostics";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -64,6 +100,9 @@ type PreviewIssuePayload = {
   name?: string | null;
   stack?: string | null;
   kind?: string | null;
+  code?: string | null;
+  stage?: string | null;
+  source?: string | null;
 };
 
 type PreviewIframeMessage = {
@@ -72,25 +111,26 @@ type PreviewIframeMessage = {
   payload?: PreviewIssuePayload & { href?: string | null };
 };
 
-function summarizePreviewReason(kind: string, message: string, name?: string | null): string {
-  if (kind === "validation") return "preview validation failed";
-  if (kind === "compile") return "preview compilation failed";
-  if (kind === "route") return "preview route failed";
-  if (name === "ReferenceError" || /\bis not defined\b/i.test(message)) {
-    return "preview has undefined symbol";
-  }
-  return "preview runtime failed";
-}
-
 function detectOwnEnginePreviewIssue(doc: Document | null): PreviewIssuePayload | null {
   if (!doc?.body) return null;
+
+  const diagnosticCode =
+    doc.querySelector('meta[name="preview-error-code"]')?.getAttribute("content")?.trim() || null;
+  const diagnosticStage =
+    doc.querySelector('meta[name="preview-error-stage"]')?.getAttribute("content")?.trim() || null;
+  const diagnosticSource =
+    doc.querySelector('meta[name="preview-error-source"]')?.getAttribute("content")?.trim() || null;
 
   const root = doc.getElementById("root");
   const rootText = root?.innerText?.trim() || "";
   if (rootText.startsWith("Preview-fel")) {
+    const kind = rootText.includes("Preview validation failed") ? "validation" : "runtime";
     return {
       message: rootText.replace(/^Preview-fel\s*/u, "").trim() || "Unknown preview error",
-      kind: rootText.includes("Preview validation failed") ? "validation" : "runtime",
+      kind,
+      code: diagnosticCode || previewDiagnosticCodeFromKind(kind),
+      stage: diagnosticStage || previewDiagnosticStageFromKind(kind),
+      source: diagnosticSource || "own-engine-preview",
     };
   }
 
@@ -100,6 +140,9 @@ function detectOwnEnginePreviewIssue(doc: Document | null): PreviewIssuePayload 
       return {
         message: bodyText,
         kind: "route",
+        code: diagnosticCode || "preview_route_error",
+        stage: diagnosticStage || "render-route",
+        source: diagnosticSource || "preview-render-route",
       };
     }
   }
@@ -246,6 +289,7 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
+  const [iframeErrorMessage, setIframeErrorMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const [files, setFiles] = useState<FileNode[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -277,6 +321,7 @@ export function PreviewPanel({
   const previewReadyTimerRef = useRef<number | null>(null);
   const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
   const previewIssueKeysRef = useRef<Set<string>>(new Set());
+  const renderOutcomeStateRef = useRef(INITIAL_PREVIEW_RENDER_OUTCOME_STATE);
   const inspectFetchTokenRef = useRef(0);
 
   const clearPreviewReadyTimer = useCallback(() => {
@@ -303,15 +348,22 @@ export function PreviewPanel({
       if (!message) return;
 
       const kind = payload.kind?.trim() || "runtime";
-      const dedupeKey = `${chatId}:${versionId}:${kind}:${message}`;
+      const code = payload.code?.trim() || previewDiagnosticCodeFromKind(kind);
+      const stage = payload.stage?.trim() || previewDiagnosticStageFromKind(kind);
+      const source = payload.source?.trim() || "own-engine-preview";
+      const dedupeKey = `${chatId}:${versionId}:${code}:${message}`;
       if (previewIssueKeysRef.current.has(dedupeKey)) return;
       previewIssueKeysRef.current.add(dedupeKey);
 
-      const reason = summarizePreviewReason(kind, message, payload.name);
+      const reason = describePreviewDiagnosticCode(code) ?? "Previewfel upptackt.";
       const meta = {
-        source: "own-engine-preview",
+        source,
         demoUrl,
         kind,
+        previewKind: kind,
+        previewCode: code,
+        previewStage: stage,
+        previewSource: source,
         name: payload.name ?? null,
         message,
         stack: payload.stack ?? null,
@@ -335,19 +387,51 @@ export function PreviewPanel({
         console.warn("[Preview] Failed to persist preview issue:", error);
       }
 
-      window.dispatchEvent(
-        new CustomEvent("sajtmaskin:auto-fix", {
-          detail: {
-            chatId,
-            versionId,
-            reasons: [reason],
-            meta,
-          },
-        }),
-      );
-      toast.error("Preview-fel upptäckt. Försöker reparera automatiskt.", { duration: 5000 });
+      if (shouldAutoFixPreviewDiagnostic(code)) {
+        dispatchAutoFixEvent({
+          chatId,
+          versionId,
+          reasons: [reason],
+          meta,
+        });
+        toast.error("Preview-fel upptäckt. Försöker reparera automatiskt.", { duration: 5000 });
+      } else {
+        toast.error(reason, { duration: 5000 });
+      }
     },
     [chatId, versionId, demoUrl],
+  );
+
+  const reportOwnEngineRenderFailure = useCallback(
+    (payload: PreviewIssuePayload) => {
+      void reportPreviewIssue(payload);
+      if (!chatId || !versionId) return;
+      if (!shouldReportPreviewOutcome(renderOutcomeStateRef.current, versionId, "failure")) return;
+      renderOutcomeStateRef.current = nextPreviewRenderOutcomeState(versionId, "failure");
+      const errorMsg =
+        typeof payload.message === "string" && payload.message.trim()
+          ? payload.message
+          : "Preview render error";
+      const errorKind = typeof payload.kind === "string" ? payload.kind : "runtime";
+      const errorCode =
+        typeof payload.code === "string" ? payload.code : previewDiagnosticCodeFromKind(errorKind);
+      const errorStage =
+        typeof payload.stage === "string"
+          ? payload.stage
+          : previewDiagnosticStageFromKind(errorKind);
+      void reportRenderOutcome({
+        chatId,
+        versionId,
+        success: false,
+        source: "own-engine",
+        demoUrl: demoUrl ?? undefined,
+        errorMessage: errorMsg,
+        errorCategory: errorKind,
+        errorCode,
+        errorStage,
+      });
+    },
+    [chatId, versionId, demoUrl, reportPreviewIssue],
   );
 
   const fetchFilesForRegistry = useCallback(async () => {
@@ -396,51 +480,59 @@ export function PreviewPanel({
     }
   }, [chatId, versionId]);
 
-  const fetchElementMap = useCallback(async (
-    url: string,
-    width: number,
-    height: number,
-    requestToken = inspectFetchTokenRef.current,
-  ) => {
-    if (requestToken !== inspectFetchTokenRef.current) return 0;
-    setElementMapLoading(true);
-    setInspectorUnavailable(false);
-    try {
-      const inspectorUrl = url.startsWith("/")
-        ? `${window.location.origin}${url}`
-        : url;
+  const fetchElementMap = useCallback(
+    async (
+      url: string,
+      width: number,
+      height: number,
+      requestToken = inspectFetchTokenRef.current,
+    ) => {
+      if (requestToken !== inspectFetchTokenRef.current) return 0;
+      setElementMapLoading(true);
+      setInspectorUnavailable(false);
+      try {
+        const inspectorUrl = url.startsWith("/") ? `${window.location.origin}${url}` : url;
 
-      const isOwnEnginePreview = inspectorUrl.includes("/api/preview-render");
+        const isOwnEnginePreview = inspectorUrl.includes("/api/preview-render");
 
-      const res = await fetch("/api/inspector-element-map", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: inspectorUrl, viewportWidth: width, viewportHeight: height, maxElements: 300 }),
-      });
-      const data = (await res.json().catch(() => null)) as ElementMapResponse | null;
-      if (res.ok && data?.success && Array.isArray(data.elements)) {
+        const res = await fetch("/api/inspector-element-map", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: inspectorUrl,
+            viewportWidth: width,
+            viewportHeight: height,
+            maxElements: 300,
+          }),
+        });
+        const data = (await res.json().catch(() => null)) as ElementMapResponse | null;
+        if (res.ok && data?.success && Array.isArray(data.elements)) {
+          if (requestToken !== inspectFetchTokenRef.current) return 0;
+          setElementMap(data.elements);
+          return data.elements.length;
+        }
         if (requestToken !== inspectFetchTokenRef.current) return 0;
-        setElementMap(data.elements);
-        return data.elements.length;
+        setElementMap([]);
+        setInspectorUnavailable(true);
+        if (isOwnEnginePreview) {
+          console.info(
+            "[inspector] Own-engine preview — inspector requires Playwright or inspector-worker to be running.",
+          );
+        }
+        return 0;
+      } catch {
+        if (requestToken !== inspectFetchTokenRef.current) return 0;
+        setElementMap([]);
+        setInspectorUnavailable(true);
+        return 0;
+      } finally {
+        if (requestToken === inspectFetchTokenRef.current) {
+          setElementMapLoading(false);
+        }
       }
-      if (requestToken !== inspectFetchTokenRef.current) return 0;
-      setElementMap([]);
-      setInspectorUnavailable(true);
-      if (isOwnEnginePreview) {
-        console.info("[inspector] Own-engine preview — inspector requires Playwright or inspector-worker to be running.");
-      }
-      return 0;
-    } catch {
-      if (requestToken !== inspectFetchTokenRef.current) return 0;
-      setElementMap([]);
-      setInspectorUnavailable(true);
-      return 0;
-    } finally {
-      if (requestToken === inspectFetchTokenRef.current) {
-        setElementMapLoading(false);
-      }
-    }
-  }, []);
+    },
+    [],
+  );
 
   const handleToggleInspect = useCallback(() => {
     if (!demoUrl) return;
@@ -450,6 +542,7 @@ export function PreviewPanel({
       if (next) {
         setIframeLoading(true);
         setIframeError(false);
+        setIframeErrorMessage(null);
         const iframe = iframeRef.current;
         if (iframe) {
           iframe.src = buildPreviewSrc(demoUrl, Date.now());
@@ -478,7 +571,8 @@ export function PreviewPanel({
     const result: Array<{ name: string; content: string }> = [];
     const walk = (nodes: FileNode[]) => {
       for (const node of nodes) {
-        if (node.type === "file" && node.content) result.push({ name: node.path, content: node.content });
+        if (node.type === "file" && node.content)
+          result.push({ name: node.path, content: node.content });
         if (node.children?.length) walk(node.children);
       }
     };
@@ -569,9 +663,13 @@ export function PreviewPanel({
         });
         setLastCodeMatch(codeMatch);
 
-        const matchHint = codeMatch ? ` → ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}` : "";
+        const matchHint = codeMatch
+          ? ` → ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}`
+          : "";
         setInspectStatus(`<${el.tag}>${el.text ? ` "${el.text.slice(0, 50)}"` : ""}${matchHint}`);
-        toast.success(`Valde <${el.tag}>${codeMatch ? ` i ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}` : ""}`);
+        toast.success(
+          `Valde <${el.tag}>${codeMatch ? ` i ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}` : ""}`,
+        );
 
         dispatchInspectCaptureEvent({
           id: captureId,
@@ -616,7 +714,9 @@ export function PreviewPanel({
                 aiFiles = filesData.files;
                 setFiles(buildFileTree(filesData.files));
               }
-            } catch { /* best-effort */ }
+            } catch {
+              /* best-effort */
+            }
             setInspectStatus("AI analyserar klickposition...");
           }
 
@@ -644,7 +744,9 @@ export function PreviewPanel({
 
           const el = data.element;
           if (!el || !el.filePath) {
-            setInspectStatus(`AI kunde inte identifiera elementet vid ${xPercent}%/${yPercent}%. (${data.cost?.display || ""})`);
+            setInspectStatus(
+              `AI kunde inte identifiera elementet vid ${xPercent}%/${yPercent}%. (${data.cost?.display || ""})`,
+            );
             return;
           }
 
@@ -657,16 +759,19 @@ export function PreviewPanel({
 
           const tokenInfo = data.tokens ? ` ${data.tokens.total} tokens` : "";
           const costInfo = data.cost?.display ? ` (${data.cost.display})` : "";
-          const confLabel = el.confidence === "high" ? "hög" : el.confidence === "medium" ? "medel" : "låg";
+          const confLabel =
+            el.confidence === "high" ? "hög" : el.confidence === "medium" ? "medel" : "låg";
           setInspectStatus(
             `AI: <${el.tag}> i ${el.filePath}:${el.lineNumber ?? "?"} [${confLabel}]${tokenInfo}${costInfo}` +
-            (el.reasoning ? `\n${el.reasoning}` : ""),
+              (el.reasoning ? `\n${el.reasoning}` : ""),
           );
 
           if (registryHit) {
             toast.success(`AI hittade <${el.tag}> i ${el.filePath}:${el.lineNumber}`);
           } else {
-            toast(`AI-gissning: <${el.tag}> i ${el.filePath}:${el.lineNumber} (${confLabel} konfidens)`);
+            toast(
+              `AI-gissning: <${el.tag}> i ${el.filePath}:${el.lineNumber} (${confLabel} konfidens)`,
+            );
           }
 
           dispatchInspectCaptureEvent({
@@ -741,7 +846,7 @@ export function PreviewPanel({
             : undefined,
           clip: data?.clip,
           source: data?.source,
-          error: response.ok ? undefined : (data?.error || "Kunde inte skapa punktbild"),
+          error: response.ok ? undefined : data?.error || "Kunde inte skapa punktbild",
         });
 
         if (!response.ok) {
@@ -767,12 +872,16 @@ export function PreviewPanel({
           const matchHint = codeMatch
             ? ` → ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}`
             : "";
-          setInspectStatus(`${data.pointSummary}${data.source ? ` (${data.source})` : ""}${matchHint}`);
+          setInspectStatus(
+            `${data.pointSummary}${data.source ? ` (${data.source})` : ""}${matchHint}`,
+          );
         } else {
           setInspectStatus(`Senaste punkt: x ${xPercent}% • y ${yPercent}%`);
         }
         if (data?.element?.tag && ["html", "body"].includes(data.element.tag)) {
-          toast("Tip: klicka närmare själva elementet (t.ex. knapptexten) för mer exakt DOM-träff.");
+          toast(
+            "Tip: klicka närmare själva elementet (t.ex. knapptexten) för mer exakt DOM-träff.",
+          );
         }
       } catch {
         dispatchInspectCaptureEvent({
@@ -790,7 +899,18 @@ export function PreviewPanel({
         setIsCapturePending(false);
       }
     },
-    [demoUrl, inspectMode, inspectEngine, isCapturePending, iframeLoading, externalLoading, flatFilesForAi, chatId, versionId, hoveredMapElement],
+    [
+      demoUrl,
+      inspectMode,
+      inspectEngine,
+      isCapturePending,
+      iframeLoading,
+      externalLoading,
+      flatFilesForAi,
+      chatId,
+      versionId,
+      hoveredMapElement,
+    ],
   );
 
   const isOwnEnginePreview = useMemo(() => {
@@ -809,12 +929,15 @@ export function PreviewPanel({
 
   useEffect(() => {
     previewIssueKeysRef.current.clear();
+    renderOutcomeStateRef.current = INITIAL_PREVIEW_RENDER_OUTCOME_STATE;
+    setIframeErrorMessage(null);
   }, [chatId, versionId, demoUrl]);
 
   useEffect(() => {
     if (!demoUrl) return;
     setIframeLoading(true);
     setIframeError(false);
+    setIframeErrorMessage(null);
   }, [demoUrl, refreshToken]);
 
   useEffect(() => {
@@ -822,8 +945,6 @@ export function PreviewPanel({
   }, [fetchPreviewRoutes]);
 
   useEffect(() => {
-    let renderReportedForVersion: string | null = null;
-
     const handlePreviewMessage = (event: MessageEvent<PreviewIframeMessage>) => {
       const iframeWindow = iframeRef.current?.contentWindow;
       if (!iframeWindow || event.source !== iframeWindow) return;
@@ -841,8 +962,14 @@ export function PreviewPanel({
         return;
       }
 
-      if (data.type === "preview-ready" && chatId && versionId && renderReportedForVersion !== versionId) {
-        renderReportedForVersion = versionId;
+      if (data.type === "preview-ready" && chatId && versionId) {
+        setIframeLoading(false);
+        setIframeError(false);
+        setIframeErrorMessage(null);
+        if (!shouldReportPreviewOutcome(renderOutcomeStateRef.current, versionId, "success")) {
+          return;
+        }
+        renderOutcomeStateRef.current = nextPreviewRenderOutcomeState(versionId, "success");
         void reportRenderOutcome({
           chatId,
           versionId,
@@ -854,25 +981,19 @@ export function PreviewPanel({
       }
 
       if (data.type !== "preview-error") return;
-      void reportPreviewIssue(data.payload ?? {});
-
-      if (chatId && versionId && renderReportedForVersion !== versionId) {
-        renderReportedForVersion = versionId;
-        const errorMsg = typeof data.payload?.message === "string" ? data.payload.message : "Preview render error";
-        void reportRenderOutcome({
-          chatId,
-          versionId,
-          success: false,
-          source: "own-engine",
-          demoUrl: demoUrl ?? undefined,
-          errorMessage: errorMsg,
-        });
-      }
+      reportOwnEngineRenderFailure(data.payload ?? {});
     };
 
     window.addEventListener("message", handlePreviewMessage);
     return () => window.removeEventListener("message", handlePreviewMessage);
-  }, [demoUrl, chatId, versionId, isOwnEnginePreview, onNavigatePreviewUrl, reportPreviewIssue]);
+  }, [
+    demoUrl,
+    chatId,
+    versionId,
+    isOwnEnginePreview,
+    onNavigatePreviewUrl,
+    reportOwnEngineRenderFailure,
+  ]);
 
   useEffect(() => {
     if (!demoUrl) return;
@@ -960,7 +1081,13 @@ export function PreviewPanel({
   }, [files, selectedPath]);
 
   const getPreferredFilePath = useCallback((flatFiles: Array<{ name: string }>) => {
-    const candidates = ["app/page.tsx", "src/app/page.tsx", "pages/index.tsx", "page.tsx", "Page.tsx"];
+    const candidates = [
+      "app/page.tsx",
+      "src/app/page.tsx",
+      "pages/index.tsx",
+      "page.tsx",
+      "Page.tsx",
+    ];
     for (const candidate of candidates) {
       const match = flatFiles.find((file) => file.name.endsWith(candidate));
       if (match) return match.name;
@@ -1008,8 +1135,13 @@ export function PreviewPanel({
           files?: Array<{ name: string; content: string; locked?: boolean }>;
           error?: string;
         } | null;
-        if (!response.ok) throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
-        const flatFiles: Array<{ name: string; content: string; locked?: boolean }> = Array.isArray(data?.files) ? data.files : [];
+        if (!response.ok)
+          throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
+        const flatFiles: Array<{ name: string; content: string; locked?: boolean }> = Array.isArray(
+          data?.files,
+        )
+          ? data.files
+          : [];
         const tree = buildFileTree(flatFiles);
         const preferredPath = getPreferredFilePath(flatFiles);
         const preferredNode =
@@ -1017,7 +1149,10 @@ export function PreviewPanel({
             (function findByPath(nodes: FileNode[], target: string): FileNode | null {
               for (const node of nodes) {
                 if (node.path === target) return node;
-                if (node.children?.length) { const hit = findByPath(node.children, target); if (hit) return hit; }
+                if (node.children?.length) {
+                  const hit = findByPath(node.children, target);
+                  if (hit) return hit;
+                }
               }
               return null;
             })(tree, preferredPath)) ||
@@ -1034,7 +1169,10 @@ export function PreviewPanel({
       }
     };
     loadFiles();
-    return () => { isActive = false; controller.abort(); };
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
   }, [isCodeView, chatId, versionId, findFirstFile, getPreferredFilePath]);
 
   const elementRegistry = useMemo(() => buildJsxElementRegistry(files), [files]);
@@ -1058,6 +1196,7 @@ export function PreviewPanel({
     if (!iframe) {
       setIframeLoading(false);
       setIframeError(false);
+      setIframeErrorMessage(null);
       return;
     }
 
@@ -1071,8 +1210,9 @@ export function PreviewPanel({
           if (previewIssue) {
             setIframeLoading(false);
             setIframeError(false);
+            setIframeErrorMessage(null);
             clearPreviewReadyTimer();
-            void reportPreviewIssue(previewIssue);
+            reportOwnEngineRenderFailure(previewIssue);
             return;
           }
           const root = doc?.getElementById("root");
@@ -1082,21 +1222,37 @@ export function PreviewPanel({
           if (hasRootChildren || hasBodyContent || hasSubstantialDom) {
             setIframeLoading(false);
             setIframeError(false);
+            setIframeErrorMessage(null);
             clearPreviewReadyTimer();
             return;
           }
         } catch {
-          // If we cannot access iframe document, do not block loading spinner forever.
           setIframeLoading(false);
-          setIframeError(false);
+          setIframeError(true);
+          setIframeErrorMessage(describePreviewDiagnosticCode("preview_document_unavailable"));
           clearPreviewReadyTimer();
+          reportOwnEngineRenderFailure({
+            message: "Preview iframe document could not be read.",
+            kind: "transport",
+            code: "preview_document_unavailable",
+            stage: "iframe",
+            source: "preview-ready-poll",
+          });
           return;
         }
 
         if (Date.now() - startedAt >= PREVIEW_READY_TIMEOUT_MS) {
           setIframeLoading(false);
-          setIframeError(false);
+          setIframeError(true);
+          setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
           clearPreviewReadyTimer();
+          reportOwnEngineRenderFailure({
+            message: `Preview remained blank after waiting ${PREVIEW_READY_TIMEOUT_MS}ms.`,
+            kind: "transport",
+            code: "preview_ready_timeout",
+            stage: "iframe",
+            source: "preview-ready-poll",
+          });
           return;
         }
 
@@ -1109,24 +1265,30 @@ export function PreviewPanel({
 
     setIframeLoading(false);
     setIframeError(false);
-  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportPreviewIssue]);
+    setIframeErrorMessage(null);
+  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportOwnEngineRenderFailure]);
 
   const handleIframeError = useCallback(() => {
     clearPreviewReadyTimer();
     setIframeLoading(false);
     setIframeError(true);
+    setIframeErrorMessage(describePreviewDiagnosticCode("preview_transport_error"));
     if (isOwnEnginePreview) {
-      void reportPreviewIssue({
+      reportOwnEngineRenderFailure({
         message: "Preview iframe failed to load.",
         kind: "transport",
+        code: "preview_transport_error",
+        stage: "iframe",
+        source: "preview-iframe",
       });
     }
-  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportPreviewIssue]);
+  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportOwnEngineRenderFailure]);
 
   const handleRefresh = () => {
     clearPreviewReadyTimer();
     setIframeLoading(true);
     setIframeError(false);
+    setIframeErrorMessage(null);
     const iframe = iframeRef.current;
     if (iframe) {
       const base = demoUrl || iframe.src;
@@ -1163,6 +1325,7 @@ export function PreviewPanel({
       onNavigatePreviewUrl?.(nextUrl);
       setIframeLoading(true);
       setIframeError(false);
+      setIframeErrorMessage(null);
     },
     [demoUrl, isOwnEnginePreview, onNavigatePreviewUrl],
   );
@@ -1172,6 +1335,7 @@ export function PreviewPanel({
     clearPreviewReadyTimer();
     setIframeLoading(true);
     setIframeError(false);
+    setIframeErrorMessage(null);
     onClear();
   };
 
@@ -1181,9 +1345,15 @@ export function PreviewPanel({
   );
   const isSandboxPreview = useMemo(() => {
     if (!demoUrl) return false;
-    try { return /sandbox/i.test(new URL(demoUrl).hostname); } catch { return demoUrl.toLowerCase().includes("sandbox"); }
+    try {
+      return /sandbox/i.test(new URL(demoUrl).hostname);
+    } catch {
+      return demoUrl.toLowerCase().includes("sandbox");
+    }
   }, [demoUrl]);
-  const isV0Preview = Boolean(demoUrl && !isOwnEnginePreview && demoUrl.includes("vusercontent.net"));
+  const isV0Preview = Boolean(
+    demoUrl && !isOwnEnginePreview && demoUrl.includes("vusercontent.net"),
+  );
   const surfaceDescriptor = useMemo(() => {
     if (viewMode === "registry") {
       return {
@@ -1237,21 +1407,35 @@ export function PreviewPanel({
   }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview]);
   if (!demoUrl && !isCodeView) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
-    const title = awaitingInput ? "AI väntar på ditt svar" : isInitialEmpty ? "Välkommen" : "Ingen förhandsvisning ännu";
+    const title = awaitingInput
+      ? "AI väntar på ditt svar"
+      : isInitialEmpty
+        ? "Välkommen"
+        : "Ingen förhandsvisning ännu";
     const subtitle = awaitingInput
       ? "V0 behöver input innan preview kan genereras — se chatten till vänster."
-      : externalLoading ? "AI tänker... preview kommer strax."
-      : isInitialEmpty ? "Skriv en prompt till vänster så genererar vi första preview."
-      : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
-    const showFixAction = Boolean(onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput);
+      : externalLoading
+        ? "AI tänker... preview kommer strax."
+        : isInitialEmpty
+          ? "Skriv en prompt till vänster så genererar vi första preview."
+          : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
+    const showFixAction = Boolean(
+      onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput,
+    );
     const EmptyIcon = awaitingInput ? MessageCircleQuestion : isInitialEmpty ? Wand2 : AlertCircle;
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
         <EmptyIcon className="mb-4 h-12 w-12" />
-        <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>{title}</p>
-        <p className="text-sm" suppressHydrationWarning>{subtitle}</p>
+        <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
+          {title}
+        </p>
+        <p className="text-sm" suppressHydrationWarning>
+          {subtitle}
+        </p>
         {showFixAction && (
-          <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>Försök reparera preview</Button>
+          <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>
+            Försök reparera preview
+          </Button>
         )}
       </div>
     );
@@ -1259,11 +1443,15 @@ export function PreviewPanel({
 
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = demoUrl ? buildPreviewSrc(demoUrl, refreshToken) : "";
-  const showBlobWarning = Boolean(demoUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled);
+  const showBlobWarning = Boolean(
+    demoUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled,
+  );
   const showExternalWarning = Boolean(demoUrl && isV0Preview);
   const showSandboxWarning = Boolean(demoUrl && !isOwnEnginePreview && isSandboxPreview);
   const showImagesDisabledWarning = Boolean(demoUrl && !imageGenerationsEnabled);
-  const showImagesUnsupportedWarning = Boolean(demoUrl && imageGenerationsEnabled && !imageGenerationsSupported);
+  const showImagesUnsupportedWarning = Boolean(
+    demoUrl && imageGenerationsEnabled && !imageGenerationsSupported,
+  );
   const showBlobConfigWarning = Boolean(demoUrl && imageGenerationsEnabled && !isBlobConfigured);
   const showWorkerLamp = inspectorWorkerStatus !== "disabled";
   const workerLampClass =
@@ -1318,21 +1506,64 @@ export function PreviewPanel({
             <Search className="mr-1 h-4 w-4" />
             Inspektera preview
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleToggleElementRegistry} disabled={!canShowCode || isViewSwitchPending} title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"} className={cn("text-gray-400 hover:text-white", showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggleElementRegistry}
+            disabled={!canShowCode || isViewSwitchPending}
+            title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"}
+            className={cn(
+              "text-gray-400 hover:text-white",
+              showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100",
+            )}
+          >
             <Code2 className="mr-1 h-4 w-4" />
             Elementregister
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleToggleCode} disabled={!canShowCode || isViewSwitchPending} title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"} className={cn("text-gray-400 hover:text-white", viewMode === "code" && "bg-gray-800 text-white hover:text-white")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggleCode}
+            disabled={!canShowCode || isViewSwitchPending}
+            title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"}
+            className={cn(
+              "text-gray-400 hover:text-white",
+              viewMode === "code" && "bg-gray-800 text-white hover:text-white",
+            )}
+          >
             <FileText className="mr-1 h-4 w-4" />
             Kodvy
           </Button>
           {demoUrl && onClear && (
-            <Button variant="ghost" size="sm" onClick={handleClear} disabled={isLoading} title="Rensa preview" className="text-gray-400 hover:text-white">Rensa</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClear}
+              disabled={isLoading}
+              title="Rensa preview"
+              className="text-gray-400 hover:text-white"
+            >
+              Rensa
+            </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isLoading} title="Uppdatera preview" aria-label="Uppdatera preview" className="text-gray-400 hover:text-white">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            title="Uppdatera preview"
+            aria-label="Uppdatera preview"
+            className="text-gray-400 hover:text-white"
+          >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleOpenInNewTab} title="Öppna i ny flik" className="text-gray-400 hover:text-white">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleOpenInNewTab}
+            title="Öppna i ny flik"
+            className="text-gray-400 hover:text-white"
+          >
             <ExternalLink className="mr-1 h-4 w-4" />
             Öppna
           </Button>
@@ -1346,7 +1577,9 @@ export function PreviewPanel({
           <div className="mb-1 text-[11px] font-medium text-gray-300">Sidor i skapad preview</div>
           <div className="flex flex-wrap gap-1.5">
             {previewRoutesLoading && previewRoutes.length === 0 ? (
-              <span className="text-[11px] text-gray-500">Läser routes från versionens filer...</span>
+              <span className="text-[11px] text-gray-500">
+                Läser routes från versionens filer...
+              </span>
             ) : (
               previewRoutes.map((route) => (
                 <Button
@@ -1368,17 +1601,54 @@ export function PreviewPanel({
           </div>
         </div>
       )}
-      {!isCodeView && !isOwnEnginePreview && (showBlobWarning || showExternalWarning || showSandboxWarning || integrationError || showImagesDisabledWarning || showImagesUnsupportedWarning || showBlobConfigWarning) && (
-        <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
-          {showExternalWarning && <div>Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media via mediabiblioteket för publika Blob‑URL:er.</div>}
-          {showSandboxWarning && <div>Preview körs från sandbox. Sandbox har separat runtime och kan sakna samma miljövariabler som din ordinarie miljö (t.ex. blob-token).</div>}
-          {showBlobWarning && <div>Vercel Blob saknas. AI‑bilder och uppladdningar visas inte i preview förrän BLOB_READ_WRITE_TOKEN är konfigurerad.</div>}
-          {showImagesDisabledWarning && <div>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</div>}
-          {showImagesUnsupportedWarning && <div>Bildgenerering är inte tillgänglig just nu (saknad/ogiltig AI-konfiguration).</div>}
-          {showBlobConfigWarning && <div>Blob är inte aktivt. Bilder kan skapas av AI men saknas i preview tills blob är konfigurerad.</div>}
-          {integrationError && <div>Kunde inte hämta integrationsstatus. Media kan saknas i preview.</div>}
-        </div>
-      )}
+      {!isCodeView &&
+        !isOwnEnginePreview &&
+        (showBlobWarning ||
+          showExternalWarning ||
+          showSandboxWarning ||
+          integrationError ||
+          showImagesDisabledWarning ||
+          showImagesUnsupportedWarning ||
+          showBlobConfigWarning) && (
+          <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
+            {showExternalWarning && (
+              <div>
+                Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan
+                ge 404 eller blockeras. Ladda upp media via mediabiblioteket för publika
+                Blob‑URL:er.
+              </div>
+            )}
+            {showSandboxWarning && (
+              <div>
+                Preview körs från sandbox. Sandbox har separat runtime och kan sakna samma
+                miljövariabler som din ordinarie miljö (t.ex. blob-token).
+              </div>
+            )}
+            {showBlobWarning && (
+              <div>
+                Vercel Blob saknas. AI‑bilder och uppladdningar visas inte i preview förrän
+                BLOB_READ_WRITE_TOKEN är konfigurerad.
+              </div>
+            )}
+            {showImagesDisabledWarning && (
+              <div>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</div>
+            )}
+            {showImagesUnsupportedWarning && (
+              <div>
+                Bildgenerering är inte tillgänglig just nu (saknad/ogiltig AI-konfiguration).
+              </div>
+            )}
+            {showBlobConfigWarning && (
+              <div>
+                Blob är inte aktivt. Bilder kan skapas av AI men saknas i preview tills blob är
+                konfigurerad.
+              </div>
+            )}
+            {integrationError && (
+              <div>Kunde inte hämta integrationsstatus. Media kan saknas i preview.</div>
+            )}
+          </div>
+        )}
 
       {isCodeView ? (
         <div className="flex flex-1 overflow-hidden">
@@ -1411,14 +1681,20 @@ export function PreviewPanel({
           </div>
           <div ref={codeScrollRef} className="flex-1 overflow-auto p-4">
             {!selectedFile ? (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">Ingen fil vald</div>
+              <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                Ingen fil vald
+              </div>
             ) : (
               <div className="space-y-3">
                 <div className="text-sm text-gray-300">{selectedFile.path}</div>
                 {showElementRegistry && selectedRegistryLine && (
                   <div className="text-xs text-purple-300">Målrad: {selectedRegistryLine}</div>
                 )}
-                <CodeBlock code={selectedFile.content || ""} language={getLanguageFromName(selectedFile.name)} showLineNumbers>
+                <CodeBlock
+                  code={selectedFile.content || ""}
+                  language={getLanguageFromName(selectedFile.name)}
+                  showLineNumbers
+                >
                   <CodeBlockCopyButton className="text-gray-300 hover:text-white" />
                 </CodeBlock>
               </div>
@@ -1438,10 +1714,23 @@ export function PreviewPanel({
           {iframeError && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80 p-4">
               <AlertCircle className="mb-4 h-12 w-12 text-red-400" />
-              <p className="mb-4 text-center text-sm text-gray-400">Preview kunde inte laddas i iframe. Öppna i ny flik istället.</p>
+              <p className="mb-2 text-center text-sm text-gray-400">
+                {iframeErrorMessage ||
+                  "Preview kunde inte laddas i iframe. Öppna i ny flik istället."}
+              </p>
+              <p className="mb-4 text-center text-xs text-gray-500">
+                Öppna i ny flik eller försök reparera previewn om felet kvarstår.
+              </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button onClick={handleOpenInNewTab}><ExternalLink className="mr-2 h-4 w-4" />Öppna i ny flik</Button>
-                {onFixPreview && <Button variant="outline" onClick={onFixPreview} disabled={isLoading}>Försök reparera preview</Button>}
+                <Button onClick={handleOpenInNewTab}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Öppna i ny flik
+                </Button>
+                {onFixPreview && (
+                  <Button variant="outline" onClick={onFixPreview} disabled={isLoading}>
+                    Försök reparera preview
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -1477,10 +1766,8 @@ export function PreviewPanel({
                   </div>
                 </div>
               )}
-              <div className="absolute top-3 left-3 right-3 z-30 rounded border border-sky-700/70 bg-sky-950/85 px-3 py-2 text-xs text-sky-100 shadow-lg backdrop-blur-sm">
-                <div className="font-semibold tracking-tight text-sky-300">
-                  Placering aktiv
-                </div>
+              <div className="absolute top-3 right-3 left-3 z-30 rounded border border-sky-700/70 bg-sky-950/85 px-3 py-2 text-xs text-sky-100 shadow-lg backdrop-blur-sm">
+                <div className="font-semibold tracking-tight text-sky-300">Placering aktiv</div>
                 <div className="mt-1">
                   Klicka i previewn för att placera{" "}
                   <span className="font-medium text-white">
@@ -1508,26 +1795,37 @@ export function PreviewPanel({
                   isCapturePending && "pointer-events-none",
                 )}
                 onClick={handleCaptureClick}
-                onMouseMove={inspectEngine === "map" && elementMap.length > 0 ? (e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  if (rect.width <= 0 || rect.height <= 0) return;
-                  const xPct = ((e.clientX - rect.left) / rect.width) * 100;
-                  const yPct = ((e.clientY - rect.top) / rect.height) * 100;
-                  let best: ElementMapItem | null = null;
-                  let bestArea = Infinity;
-                  for (const el of elementMap) {
-                    const vp = el.vpPercent;
-                    if (xPct >= vp.x && xPct <= vp.x + vp.w && yPct >= vp.y && yPct <= vp.y + vp.h) {
-                      const area = vp.w * vp.h;
-                      if (area < bestArea && area > 0.01) {
-                        best = el;
-                        bestArea = area;
+                onMouseMove={
+                  inspectEngine === "map" && elementMap.length > 0
+                    ? (e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        if (rect.width <= 0 || rect.height <= 0) return;
+                        const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+                        const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+                        let best: ElementMapItem | null = null;
+                        let bestArea = Infinity;
+                        for (const el of elementMap) {
+                          const vp = el.vpPercent;
+                          if (
+                            xPct >= vp.x &&
+                            xPct <= vp.x + vp.w &&
+                            yPct >= vp.y &&
+                            yPct <= vp.y + vp.h
+                          ) {
+                            const area = vp.w * vp.h;
+                            if (area < bestArea && area > 0.01) {
+                              best = el;
+                              bestArea = area;
+                            }
+                          }
+                        }
+                        setHoveredMapElement(best);
                       }
-                    }
-                  }
-                  setHoveredMapElement(best);
-                } : undefined}
-                onMouseLeave={inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined}
+                    : undefined
+                }
+                onMouseLeave={
+                  inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined
+                }
               />
               {inspectEngine === "map" && hoveredMapElement && (
                 <div
@@ -1540,7 +1838,11 @@ export function PreviewPanel({
                   }}
                 >
                   <div className="absolute bottom-full left-0 mb-1 max-w-64 truncate rounded bg-zinc-900/95 px-2 py-1 text-[11px] text-violet-200 shadow-lg">
-                    &lt;{hoveredMapElement.tag}&gt;{hoveredMapElement.text ? ` "${hoveredMapElement.text.slice(0, 40)}"` : ""}{hoveredMapElement.className ? ` .${hoveredMapElement.className.split(/\s+/).slice(0, 2).join(".")}` : ""}
+                    &lt;{hoveredMapElement.tag}&gt;
+                    {hoveredMapElement.text ? ` "${hoveredMapElement.text.slice(0, 40)}"` : ""}
+                    {hoveredMapElement.className
+                      ? ` .${hoveredMapElement.className.split(/\s+/).slice(0, 2).join(".")}`
+                      : ""}
                   </div>
                 </div>
               )}
@@ -1550,22 +1852,26 @@ export function PreviewPanel({
                   className="pointer-events-none absolute z-30"
                   style={{ left: inspectPulse.x, top: inspectPulse.y }}
                 >
-                  <span className="absolute -translate-x-1/2 -translate-y-1/2 inline-flex h-11 w-11 animate-ping rounded-full border-2 border-rose-400 bg-rose-500/30" />
-                  <span className="absolute -translate-x-1/2 -translate-y-1/2 inline-flex h-4 w-4 rounded-full bg-rose-500 ring-2 ring-white/90 shadow-[0_0_0_2px_rgba(0,0,0,0.35)]" />
+                  <span className="absolute inline-flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full border-2 border-rose-400 bg-rose-500/30" />
+                  <span className="absolute inline-flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-500 shadow-[0_0_0_2px_rgba(0,0,0,0.35)] ring-2 ring-white/90" />
                 </div>
               )}
               <div className="absolute right-0 bottom-0 left-0 z-30 border-t border-emerald-800/60 bg-zinc-950/95 px-4 py-3 text-xs text-gray-300 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold tracking-tight text-emerald-400">Inspektion aktiv</span>
+                      <span className="font-semibold tracking-tight text-emerald-400">
+                        Inspektion aktiv
+                      </span>
                       <span className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-zinc-900/80 px-1.5 py-0.5 text-[10px]">
                         <button
                           type="button"
                           onClick={() => setInspectEngine("playwright")}
                           className={cn(
                             "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
-                            inspectEngine === "playwright" ? "bg-emerald-800 text-emerald-200" : "text-zinc-500 hover:text-zinc-300",
+                            inspectEngine === "playwright"
+                              ? "bg-emerald-800 text-emerald-200"
+                              : "text-zinc-500 hover:text-zinc-300",
                           )}
                           title="Playwright: headless browser (screenshot + DOM)"
                         >
@@ -1577,7 +1883,9 @@ export function PreviewPanel({
                           onClick={() => setInspectEngine("ai")}
                           className={cn(
                             "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
-                            inspectEngine === "ai" ? "bg-purple-800 text-purple-200" : "text-zinc-500 hover:text-zinc-300",
+                            inspectEngine === "ai"
+                              ? "bg-purple-800 text-purple-200"
+                              : "text-zinc-500 hover:text-zinc-300",
                           )}
                           title="AI: gpt-4o-mini analyserar koden"
                         >
@@ -1589,7 +1897,9 @@ export function PreviewPanel({
                           onClick={() => setInspectEngine("map")}
                           className={cn(
                             "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
-                            inspectEngine === "map" ? "bg-violet-800 text-violet-200" : "text-zinc-500 hover:text-zinc-300",
+                            inspectEngine === "map"
+                              ? "bg-violet-800 text-violet-200"
+                              : "text-zinc-500 hover:text-zinc-300",
                           )}
                           title="Map: forkompilerad elementkarta med hover"
                         >
@@ -1599,12 +1909,20 @@ export function PreviewPanel({
                       </span>
                       {inspectEngine === "map" && (
                         <span className="text-[10px] text-violet-400/70">
-                          {elementMapLoading ? "Laddar karta..." : inspectorUnavailable ? "Inspector kräver Playwright eller inspector-worker" : `${elementMap.length} element`}
+                          {elementMapLoading
+                            ? "Laddar karta..."
+                            : inspectorUnavailable
+                              ? "Inspector kräver Playwright eller inspector-worker"
+                              : `${elementMap.length} element`}
                         </span>
                       )}
                       {totalAiCostUsd > 0 && (
-                        <span className="text-[10px] text-amber-400/70" title="Total AI-kostnad denna session">
-                          session: ${totalAiCostUsd.toFixed(4)}{lastAiCostDisplay ? ` (senaste: ${lastAiCostDisplay})` : ""}
+                        <span
+                          className="text-[10px] text-amber-400/70"
+                          title="Total AI-kostnad denna session"
+                        >
+                          session: ${totalAiCostUsd.toFixed(4)}
+                          {lastAiCostDisplay ? ` (senaste: ${lastAiCostDisplay})` : ""}
                         </span>
                       )}
                     </div>
@@ -1615,11 +1933,15 @@ export function PreviewPanel({
                           ? "Klicka i previewn — AI identifierar elementet i koden."
                           : "Klicka i previewn — Playwright tar screenshot + hittar DOM-element."}
                     </div>
-                    {inspectStatus && <div className="mt-1 whitespace-pre-line text-zinc-500">{inspectStatus}</div>}
+                    {inspectStatus && (
+                      <div className="mt-1 whitespace-pre-line text-zinc-500">{inspectStatus}</div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {isCapturePending && (
-                      <div className="rounded bg-zinc-800 px-2 py-1 text-[11px] text-zinc-300">Skapar bild...</div>
+                      <div className="rounded bg-zinc-800 px-2 py-1 text-[11px] text-zinc-300">
+                        Skapar bild...
+                      </div>
                     )}
                     {lastCodeMatch && (
                       <button

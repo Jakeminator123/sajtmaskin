@@ -1,0 +1,24 @@
+---
+description: Avoid collisions when parallel agents may touch the same files
+alwaysApply: true
+---
+
+# Parallel agent collision safety
+
+When unexpected edits or files appear, assume parallel work may be happening.
+
+- Before editing, deleting, staging, or committing, check whether another agent
+  may be working in the same area.
+- Strong signals include unexpected modified or untracked files, new
+  orchestrator outputs, or user context that suggests multiple agents are
+  active.
+- If overlap is plausible, do not guess file ownership.
+- Prefer a safe strategy:
+  - narrow work to non-overlapping files
+  - re-read the affected files and current git status before editing
+  - stage only files you changed yourself
+  - ask the user before touching ambiguous changes
+- Never overwrite, delete, or commit another agent's changes without explicit
+  confirmation.
+- If parallel work is intentional, think through a collision-avoidance plan
+  before continuing mechanically.

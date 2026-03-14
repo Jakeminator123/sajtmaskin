@@ -4,6 +4,7 @@ import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manage
 import { buildPreviewHtml } from "@/lib/gen/preview";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
+import type { PreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
 
 export const runtime = "nodejs";
 
@@ -37,7 +38,11 @@ export async function GET(req: Request) {
     const version = await getVersionById(versionId);
     if (!version || version.chat_id !== chatId) {
       return new Response(
-        errorPage("Version hittades inte", "Versionen tillhör inte den valda chatten."),
+        errorPage(
+          "Version hittades inte",
+          "Versionen tillhör inte den valda chatten.",
+          "render_route_version_not_found",
+        ),
         { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } },
       );
     }
@@ -45,19 +50,25 @@ export async function GET(req: Request) {
     const chat = await getChat(chatId);
     if (!chat) {
       return new Response(
-        errorPage("Chat hittades inte", "Chatten kunde inte verifieras för preview-rendering."),
+        errorPage(
+          "Chat hittades inte",
+          "Chatten kunde inte verifieras för preview-rendering.",
+          "render_route_chat_not_found",
+        ),
         { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } },
       );
     }
   }
 
-  const files = versionId
-    ? await getVersionFiles(versionId)
-    : await getLatestVersionFiles(chatId);
+  const files = versionId ? await getVersionFiles(versionId) : await getLatestVersionFiles(chatId);
 
   if (!files || files.length === 0) {
     return new Response(
-      errorPage("Inga filer hittades", "Version saknar genererade filer."),
+      errorPage(
+        "Inga filer hittades",
+        "Version saknar genererade filer.",
+        "render_route_files_missing",
+      ),
       { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } },
     );
   }
@@ -70,6 +81,7 @@ export async function GET(req: Request) {
       errorPage(
         "Ingen renderbar komponent",
         "Kunde inte hitta en React-komponent att rendera bland filerna.",
+        "render_route_no_renderable_component",
       ),
       { status: 422, headers: { "Content-Type": "text/html; charset=utf-8" } },
     );
@@ -85,12 +97,15 @@ export async function GET(req: Request) {
   });
 }
 
-function errorPage(title: string, message: string): string {
+function errorPage(title: string, message: string, code: PreviewDiagnosticCode): string {
   return `<!DOCTYPE html>
 <html lang="sv">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="preview-error-code" content="${code}" />
+  <meta name="preview-error-stage" content="render-route" />
+  <meta name="preview-error-source" content="preview-render-route" />
   <title>${title}</title>
   <style>
     body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;

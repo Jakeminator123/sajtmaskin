@@ -1,0 +1,115 @@
+Sammanfattning av chatten: OpenClaw, Windows, WSL och rekommenderad setup
+
+1. Rekommendation för OpenClaw på Windows
+- OpenClaw bör helst köras i WSL2 på Windows 11.
+- Native Windows kan fungera för enklare CLI-användning, men är generellt mer benäget att strula.
+- WSL2 är den rekommenderade vägen för bättre kompatibilitet och mindre meck.
+
+2. Hur man jobbar praktiskt på Windows 11
+- Använd Windows Terminal som hubb.
+- Ha en flik för PowerShell och en för Ubuntu/WSL2.
+- Kör själva OpenClaw och liknande Linux-verktyg inne i WSL2.
+
+3. Vad WSL, WSL1 och WSL2 är
+- WSL = Windows Subsystem for Linux, alltså själva plattformen.
+- WSL1 = den äldre modellen som översätter Linux system calls till Windows.
+- WSL2 = den nyare modellen som använder en riktig Linux-kärna.
+- På Windows 11 är WSL2 standardvalet och det man nästan alltid vill använda.
+
+4. Hur WSL2 interagerar med Windows
+- Windows-diskar mountas normalt i WSL under /mnt.
+- Exempel:
+  - C:\ blir /mnt/c
+  - D:\ blir /mnt/d
+- Det gör att en agent i WSL kan läsa Windows-filer via sökvägar som /mnt/c/Users/Jakob/...
+
+5. Om agenten ska få läsa Windows-filer
+- Det är bättre att inte ge agenten hela datorn.
+- Ge den i stället en tydlig, avgränsad mapp i Windows som den får läsa.
+- Förslaget var att skapa:
+  C:\Users\Jakob\AgentRead
+
+6. Rekommenderad struktur i Windows
+Skapa denna struktur:
+C:\Users\Jakob\AgentRead\
+├─ Documents\
+├─ Desktop\
+├─ Projects\
+├─ Poker\
+└─ Exports\
+
+Alternativt ännu tydligare:
+C:\Users\Jakob\AgentRead\
+├─ inbox\
+├─ docs\
+├─ projects\
+├─ poker\
+└─ exports\
+
+Det gör det lättare att styra exakt vad agenten får läsa.
+
+7. Rekommenderad struktur i WSL
+Lägg agenten i Linux-filsystemet, till exempel:
+~/agents/openclaw-agent
+
+Skapa också:
+~/mounts/winread
+~/logs
+
+Exempel:
+- ~/agents/openclaw-agent = själva agenten
+- ~/mounts/winread = länkar till Windows-mappar agenten får läsa
+- ~/logs = loggar
+
+8. Exakta sökvägar
+Agenten i WSL:
+- /home/<linux-användare>/agents/openclaw-agent
+
+Windows-mapp att läsa:
+- C:\Users\Jakob\AgentRead
+
+Samma mapp från WSL:
+- /mnt/c/Users/Jakob/AgentRead
+
+9. Symbolisk länk i WSL för bekväm åtkomst
+Man kan skapa en symlink i WSL:
+ln -s /mnt/c/Users/Jakob/AgentRead ~/mounts/winread/agentread
+
+Då kan agenten läsa via:
+~/mounts/winread/agentread
+
+10. Read-only-tänk
+- Det finns inte en enkel standardknapp som gör allt strikt read-only automatiskt på det sättet.
+- Det enklaste och mest praktiska är att styra detta genom policy:
+  ge agenten bara en särskild Windows-mapp att läsa.
+- För striktare kontroll kan man använda mount-inställningar via /etc/fstab, men det är mer avancerat.
+
+11. Viktig rekommendation om var saker ska ligga
+- Själva agenten bör ligga i WSL:s Linux-filsystem.
+- Windows-filer som agenten ska läsa nås via /mnt/c/...
+- För Linux-verktyg är Linux-filsystemet oftast bättre än att lägga projekt direkt på C:-disken.
+
+12. Kommandon som nämndes
+
+PowerShell:
+wsl --install
+wsl -l -v
+wsl
+wsl -d Ubuntu
+wsl --set-version Ubuntu 2
+
+Ubuntu / WSL:
+mkdir -p ~/agents/openclaw-agent
+mkdir -p ~/mounts/winread
+mkdir -p ~/logs
+ln -s /mnt/c/Users/Jakob/AgentRead ~/mounts/winread/agentread
+ls ~/mounts/winread/agentread
+
+13. Slutsats
+- Kör OpenClaw i WSL2, inte native Windows, om du vill ha minst strul.
+- Använd Windows Terminal för att växla smidigt mellan PowerShell och Ubuntu.
+- Lägg agenten i WSL-filsystemet.
+- Skapa en tydligt avgränsad läsmapp i Windows, helst:
+  C:\Users\Jakob\AgentRead
+- Låt agenten läsa den via:
+  /mnt/c/Users/Jakob/AgentRead

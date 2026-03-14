@@ -7,8 +7,8 @@ import { useOpenClawChat } from "./useOpenClawChat";
 import { OpenClawMessage } from "./OpenClawMessage";
 
 const DEFAULT_STARTER_PROMPTS = [
-  "Hur kan Sajtagenten hjalpa ett smaforetag pa sajten?",
-  "Vad kan jag senare kundanpassa for ett specifikt foretag?",
+  "Hur kan Sajtagenten hjälpa ett småföretag på sajten?",
+  "Vad kan jag senare kundanpassa för ett specifikt företag?",
   "Hur fungerar OpenClaw i buildern i dag?",
 ] as const;
 
@@ -25,10 +25,10 @@ export interface OpenClawChatPanelContent {
 export const DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT: OpenClawChatPanelContent = {
   badgeLabel: "OpenClaw-assistent",
   assistantLabel: "Sajtagenten",
-  idleStatus: "Guidar, forklarar och visar mojligheter",
-  emptyTitle: "Hej! Jag ar Sajtagenten.",
+  idleStatus: "Guidar, förklarar och visar möjligheter",
+  emptyTitle: "Hej! Jag är Sajtagenten.",
   emptyBody:
-    "Jag kan forklara hur OpenClaw-sparet fungerar, hur det kan presenteras pa sajten och hur du bygger vidare pa integrationen i Sajtmaskin.",
+    "Jag kan förklara hur OpenClaw-spåret fungerar, hur det kan presenteras på sajten och hur du bygger vidare på integrationen i Sajtmaskin.",
   inputPlaceholder: "Skriv ett meddelande...",
   starterPrompts: DEFAULT_STARTER_PROMPTS,
 };
@@ -81,7 +81,7 @@ export function OpenClawChatPanel({
       )}
     >
       <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-3">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-200">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium tracking-[0.18em] text-cyan-200 uppercase">
           <Sparkles className="h-3.5 w-3.5" />
           {content.badgeLabel}
         </div>
@@ -112,7 +112,7 @@ export function OpenClawChatPanel({
               type="button"
               onClick={onClose}
               className="rounded-md p-1.5 text-slate-300 transition-colors hover:text-white"
-              aria-label="Stang"
+              aria-label="Stäng"
             >
               <X className="h-4 w-4" />
             </button>

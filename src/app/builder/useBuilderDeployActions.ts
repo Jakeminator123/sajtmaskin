@@ -6,6 +6,7 @@ import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import { saveProjectData, updateProject } from "@/lib/project-client";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
+import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 
 type Args = {
   chatId: string | null;
@@ -279,8 +280,7 @@ export function useBuilderDeployActions({
     reasons: string[];
     meta?: Record<string, unknown>;
   }) => {
-    if (typeof window === "undefined") return;
-    window.dispatchEvent(new CustomEvent("sajtmaskin:auto-fix", { detail: payload }));
+    dispatchAutoFixEvent(payload);
   }, []);
 
   const handleGenerationComplete = useCallback(

@@ -28,6 +28,22 @@ Important rule:
 - human docs may describe DB shape
 - actual runtime and migration behavior must be verified against code
 
+### Own-engine tables (Postgres/Supabase)
+
+These tables are used by the own-engine build path and are fully integrated:
+
+- `engine_chats` — chat sessions, scaffold choice, model
+- `engine_messages` — message history
+- `engine_versions` — generated code (`files_json`), release state
+- `engine_generation_logs` — token usage, duration, errors
+- `engine_version_error_logs` — per-version error diagnostics
+
+### Project data (shared)
+
+- `project_data` — project metadata, `demo_url`, `files`, `messages`, `meta`
+- `meta.projectEnvVars` — project-specific env vars (encrypted when sensitive)
+- Used by both own-engine (after save) and v0-fallback
+
 ## Request validation
 
 Important request-validation schemas currently live in:

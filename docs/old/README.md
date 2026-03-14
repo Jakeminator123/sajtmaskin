@@ -9,3 +9,5 @@ Rules:
 - prefer moving stale canonical docs here instead of keeping overlapping copies
 - keep new stable docs under `docs/architecture/`, `docs/schemas/`, or
   `docs/analyses/` as appropriate
+- keep raw chat logs, terminal captures, and other low-signal transcripts under
+  `docs/old/transcripts/` when they are worth preserving for traceability

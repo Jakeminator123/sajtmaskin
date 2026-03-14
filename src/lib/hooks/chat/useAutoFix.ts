@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
+import {
+  describePreviewDiagnosticCode,
+  readPreviewDiagnosticMeta,
+} from "@/lib/gen/preview-diagnostics";
+import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events";
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
@@ -52,6 +57,17 @@ function extractMetaDiagnosticLines(log: PersistedVersionLog): string[] {
     const truncated = truncateDiagnostic(value);
     if (truncated) lines.push(`[${label}] ${truncated}`);
   };
+
+  const previewMeta = readPreviewDiagnosticMeta(meta);
+  if (previewMeta.previewCode) {
+    const description = describePreviewDiagnosticCode(previewMeta.previewCode);
+    if (description) {
+      pushLine(`preview:${previewMeta.previewCode}`, description);
+    }
+  }
+  if (previewMeta.previewStage) {
+    pushLine(`${category || "log"}:stage`, previewMeta.previewStage);
+  }
 
   if (typeof meta.output === "string" && meta.output.trim()) {
     pushLine(`${category || "log"}:output`, meta.output);
@@ -296,13 +312,13 @@ export function useAutoFix(
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const payload = (event as CustomEvent<AutoFixPayload>).detail;
-      if (!payload?.chatId || !payload?.versionId) return;
+      const payload = readAutoFixEventPayload(event);
+      if (!payload) return;
       handleAutoFix(payload);
     };
-    window.addEventListener("sajtmaskin:auto-fix", handler as EventListener);
+    window.addEventListener(AUTO_FIX_EVENT_NAME, handler as EventListener);
     return () => {
-      window.removeEventListener("sajtmaskin:auto-fix", handler as EventListener);
+      window.removeEventListener(AUTO_FIX_EVENT_NAME, handler as EventListener);
       if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
       pendingPayloadKeyRef.current = null;
     };

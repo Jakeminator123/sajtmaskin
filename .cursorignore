@@ -1,8 +1,10 @@
 # =============================================================================
 # SAJTMASKIN .cursorignore
 # =============================================================================
-# Files here are NOT indexed by Cursor - saves memory and speeds up searches.
-# Prefer direct file reads when you intentionally need one of these artifacts.
+# Files here are NOT indexed by Cursor.
+# Use direct file reads when you intentionally need one of these artifacts.
+# Keep runtime-critical generated JSON hidden by default to reduce indexing
+# noise; open them directly only when a task actually depends on them.
 # =============================================================================
 
 # Build/cache
@@ -17,6 +19,19 @@ coverage
 .git
 tsconfig.tsbuildinfo
 package-lock.json
+
+# Local env / secrets / local status
+.env
+.env.*
+.env.local
+.env.production
+.token-status.json
+
+# Local browser / automation config
+config.browser.txt
+config.txt
+config.example.txt
+sajtmaskin.code-workspace
 
 # Large media
 public/video/
@@ -41,29 +56,36 @@ src/lib/gen/scaffolds/scaffold-research.generated.json
 src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
 
-# MCP scraped docs (use MCP search/fetch instead)
+# MCP scraped docs (prefer MCP search/fetch instead)
 services/mpc/docs/docgrab__*/
+services/mpc/docs/local/
+services/mpc/docs/*llms*
+services/mpc/docs/shad/
 services/mpc/logs/
+
+# Local Cursor session state and legacy automation traces
+.cursor/plans/
+.cursor/documents/
+.cursor/automation/runs/
+.cursor/automation/archive/
+.cursor/automation/input/
 
 # Archived or low-signal docs
 docs/old/
 docs/plans/archived/
 
-# Tillfalliga filer / dev-mapp
+# Temporary / local dev folders
 old/
-skrapning/
+#skrapning/
 ovrigt/
-sajtgen/
 .preprompt_history.json
+.vercel/
+logs/
+manual_log/
+input_files_for_cursor/
+DOM_dev_tols.txt
+chat_till_vanster.txt
 
-# Local orchestration history
-.cursor/automation/
-.cursor/orchestrator/run/
-# Optional local intake material
-_input_for_cursor/
-
-# Local env files
-.env
-.env.*
-.env.local
-.env.production
+# Orchestrator run folders (use exact paths; reduces indexing tokens)
+.cursor/orchestrator/run/*/
+.cursor/orchestrator/archive/

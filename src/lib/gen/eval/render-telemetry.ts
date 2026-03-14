@@ -7,6 +7,8 @@
  * so it can be queried per version for quality metrics.
  */
 
+import { describePreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
+
 export interface RenderOutcome {
   chatId: string;
   versionId: string;
@@ -16,6 +18,8 @@ export interface RenderOutcome {
   durationMs?: number;
   errorMessage?: string;
   errorCategory?: string;
+  errorCode?: string;
+  errorStage?: string;
 }
 
 /**
@@ -33,13 +37,19 @@ export async function reportRenderOutcome(outcome: RenderOutcome): Promise<void>
           category: "render-telemetry",
           message: outcome.success
             ? `Preview rendered successfully (${outcome.source})`
-            : `Preview failed to render (${outcome.source}): ${outcome.errorMessage ?? "unknown"}`,
+            : `Preview failed to render (${outcome.source}): ${
+                describePreviewDiagnosticCode(outcome.errorCode) ??
+                outcome.errorMessage ??
+                "unknown"
+              }`,
           meta: {
             renderSuccess: outcome.success,
             source: outcome.source,
             demoUrl: outcome.demoUrl,
             durationMs: outcome.durationMs,
             errorCategory: outcome.errorCategory,
+            previewCode: outcome.errorCode ?? null,
+            previewStage: outcome.errorStage ?? null,
           },
         }),
       },
