@@ -56,8 +56,14 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context";
 import type { CodeFile } from "@/lib/gen/parser";
-import { EmptyGenerationError, finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
-import { detectIntegrations } from "@/lib/gen/detect-integrations";
+import { EmptyGenerationError } from "@/lib/gen/stream/finalize-version";
+import {
+  appendPreview,
+  extractToolNames,
+  finalizeOrHandleEmptyGeneration,
+  getUnsignaledDetectedIntegrations,
+  looksLikeIncompleteJson,
+} from "@/lib/gen/stream/shared-own-engine-helpers";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -80,41 +86,6 @@ const FOLLOW_UP_NEW_SITE_PATTERNS = [
 const FOLLOW_UP_BUILD_PATTERNS = [/\b(bygg|skapa|gör|designa)\b/i, /\b(build|create|make|design)\b/i];
 
 type FollowUpIntentMode = "clear-refine" | "clear-redesign" | "ambiguous-redesign" | "neutral";
-
-function appendPreview(current: string, incoming: string, max = 320): string {
-  if (!incoming) return current;
-  const next = `${current}${incoming}`;
-  return next.length > max ? next.slice(-max) : next;
-}
-
-function looksLikeIncompleteJson(raw: string): boolean {
-  const text = raw.trim();
-  if (!text) return false;
-  if (!(text.startsWith("{") || text.startsWith("[") || text.startsWith('"'))) return false;
-  const openCurly = (text.match(/\{/g) || []).length;
-  const closeCurly = (text.match(/\}/g) || []).length;
-  const openSquare = (text.match(/\[/g) || []).length;
-  const closeSquare = (text.match(/\]/g) || []).length;
-  if (openCurly > closeCurly) return true;
-  if (openSquare > closeSquare) return true;
-  if (/\\$/.test(text)) return true;
-  return false;
-}
-
-function extractToolNames(parts: Array<Record<string, unknown>>): string[] {
-  const names: string[] = [];
-  for (const part of parts) {
-    const type = typeof part.type === "string" ? part.type : "";
-    if (!type.startsWith("tool")) continue;
-    const name =
-      (typeof part.toolName === "string" && part.toolName) ||
-      (typeof part.name === "string" && part.name) ||
-      (typeof part.type === "string" && part.type) ||
-      "tool-call";
-    names.push(name);
-  }
-  return Array.from(new Set(names));
-}
 
 function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   const trimmed = message.trim();
@@ -1007,9 +978,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                         prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
                         completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
                       };
-                      let finalized;
-                      try {
-                        finalized = await finalizeAndSaveVersion({
+                      const finalized = await finalizeOrHandleEmptyGeneration({
+                        finalizeParams: {
                           accumulatedContent,
                           chatId,
                           model: engineModel,
@@ -1020,19 +990,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                           tokenUsage,
                           logNote: "Follow-up done",
                           onProgress: emitFinalizeProgress,
-                        });
-                      } catch (error) {
-                        if (error instanceof EmptyGenerationError) {
-                          await handleEmptyGeneration("followup_done_empty_output", error);
-                          break;
-                        }
-                        throw error;
-                      }
+                        },
+                        emptyGenerationReason: "followup_done_empty_output",
+                        handleEmptyGeneration,
+                      });
+                      if (!finalized) break;
 
                       didSendDone = true;
 
-                      const detectedIntegrations = detectIntegrations(accumulatedContent).filter(
-                        (item) => !toolSignaledProviders.has(item.key),
+                      const detectedIntegrations = getUnsignaledDetectedIntegrations(
+                        accumulatedContent,
+                        toolSignaledProviders,
                       );
                       if (detectedIntegrations.length > 0) {
                         safeEnqueue(
@@ -1042,6 +1010,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                             }),
                           ),
                         );
+                        devLogAppend("in-progress", {
+                          type: "engine.integration_signals",
+                          chatId,
+                          integrations: detectedIntegrations.map((d) => d.key),
+                          envVars: detectedIntegrations.flatMap((d) => d.envVars),
+                        });
                       }
 
                       safeEnqueue(
@@ -1123,9 +1097,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       safeEnqueue(enc.encode(formatSSEEvent("content", flushed)));
                     }
 
-                    let bufferFinalized;
-                    try {
-                      bufferFinalized = await finalizeAndSaveVersion({
+                    const bufDoneData = evt.data as Record<string, unknown> | null;
+                    const bufferFinalized = await finalizeOrHandleEmptyGeneration({
+                      finalizeParams: {
                         accumulatedContent,
                         chatId,
                         model: engineModel,
@@ -1133,21 +1107,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                         urlMap,
                         startedAt: engineStartedAt,
                         previousFiles,
+                        tokenUsage: {
+                          prompt: typeof bufDoneData?.promptTokens === "number" ? bufDoneData.promptTokens : undefined,
+                          completion: typeof bufDoneData?.completionTokens === "number" ? bufDoneData.completionTokens : undefined,
+                        },
                         logNote: "Follow-up buffer flush",
                         onProgress: emitFinalizeProgress,
-                      });
-                    } catch (error) {
-                      if (error instanceof EmptyGenerationError) {
-                        await handleEmptyGeneration("followup_buffer_empty_output", error);
-                        break;
-                      }
-                      throw error;
-                    }
+                      },
+                      emptyGenerationReason: "followup_buffer_empty_output",
+                      handleEmptyGeneration,
+                    });
+                    if (!bufferFinalized) break;
 
                     didSendDone = true;
 
-                    const bufIntegrations = detectIntegrations(accumulatedContent).filter(
-                      (item) => !toolSignaledProviders.has(item.key),
+                    const bufIntegrations = getUnsignaledDetectedIntegrations(
+                      accumulatedContent,
+                      toolSignaledProviders,
                     );
                     if (bufIntegrations.length > 0) {
                       safeEnqueue(
@@ -1155,6 +1131,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                           formatSSEEvent("integration", { items: bufIntegrations }),
                         ),
                       );
+                      devLogAppend("in-progress", {
+                        type: "engine.integration_signals",
+                        chatId,
+                        integrations: bufIntegrations.map((d) => d.key),
+                        envVars: bufIntegrations.flatMap((d) => d.envVars),
+                      });
                     }
 
                     safeEnqueue(
@@ -1187,56 +1169,66 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
                 if (accumulatedContent) {
                   try {
-                    const fallbackFinalized = await finalizeAndSaveVersion({
-                      accumulatedContent,
-                      chatId,
-                      model: engineModel,
-                      resolvedScaffold,
-                      urlMap,
-                      startedAt: engineStartedAt,
-                      previousFiles,
-                      runAutofix: false,
-                      logNote: "Follow-up fallback flush",
-                      onProgress: emitFinalizeProgress,
+                    const fallbackFinalized = await finalizeOrHandleEmptyGeneration({
+                      finalizeParams: {
+                        accumulatedContent,
+                        chatId,
+                        model: engineModel,
+                        resolvedScaffold,
+                        urlMap,
+                        startedAt: engineStartedAt,
+                        previousFiles,
+                        runAutofix: false,
+                        logNote: "Follow-up fallback flush",
+                        onProgress: emitFinalizeProgress,
+                      },
+                      emptyGenerationReason: "followup_fallback_empty_output",
+                      handleEmptyGeneration,
                     });
 
-                    didSendDone = true;
+                    if (fallbackFinalized) {
+                      didSendDone = true;
 
-                    const fbIntegrations = detectIntegrations(accumulatedContent).filter(
-                      (item) => !toolSignaledProviders.has(item.key),
-                    );
-                    if (fbIntegrations.length > 0) {
+                      const fbIntegrations = getUnsignaledDetectedIntegrations(
+                        accumulatedContent,
+                        toolSignaledProviders,
+                      );
+                      if (fbIntegrations.length > 0) {
+                        safeEnqueue(
+                          enc.encode(
+                            formatSSEEvent("integration", { items: fbIntegrations }),
+                          ),
+                        );
+                        devLogAppend("in-progress", {
+                          type: "engine.integration_signals",
+                          chatId,
+                          integrations: fbIntegrations.map((d) => d.key),
+                          envVars: fbIntegrations.flatMap((d) => d.envVars),
+                        });
+                      }
+
                       safeEnqueue(
                         enc.encode(
-                          formatSSEEvent("integration", { items: fbIntegrations }),
+                          formatSSEEvent("done", {
+                            chatId,
+                            versionId: fallbackFinalized.version.id,
+                            messageId: fallbackFinalized.messageId,
+                            demoUrl: fallbackFinalized.previewUrl,
+                            preflight: fallbackFinalized.preflight,
+                            previewBlocked: fallbackFinalized.preflight.previewBlocked,
+                            verificationBlocked: fallbackFinalized.preflight.verificationBlocked,
+                            previewBlockingReason: fallbackFinalized.preflight.previewBlockingReason,
+                          }),
                         ),
                       );
+                      debugLog("engine", "Saved version from fallback flush", {
+                        chatId,
+                        versionId: fallbackFinalized.version.id,
+                        contentLen: fallbackFinalized.contentForVersion.length,
+                      });
+                      await commitCreditsOnce();
                     }
-
-                    safeEnqueue(
-                      enc.encode(
-                        formatSSEEvent("done", {
-                          chatId,
-                          versionId: fallbackFinalized.version.id,
-                          messageId: fallbackFinalized.messageId,
-                          demoUrl: fallbackFinalized.previewUrl,
-                          preflight: fallbackFinalized.preflight,
-                          previewBlocked: fallbackFinalized.preflight.previewBlocked,
-                          verificationBlocked: fallbackFinalized.preflight.verificationBlocked,
-                          previewBlockingReason: fallbackFinalized.preflight.previewBlockingReason,
-                        }),
-                      ),
-                    );
-                    debugLog("engine", "Saved version from fallback flush", {
-                      chatId,
-                      versionId: fallbackFinalized.version.id,
-                      contentLen: fallbackFinalized.contentForVersion.length,
-                    });
-                    await commitCreditsOnce();
                   } catch (error) {
-                    if (error instanceof EmptyGenerationError) {
-                      await handleEmptyGeneration("followup_fallback_empty_output", error);
-                    }
                     // ignore persistence errors in cleanup
                   }
                 }

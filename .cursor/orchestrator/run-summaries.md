@@ -11,3 +11,27 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** verified preview-focused research for the own-engine lane
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-13-own-engine-preview-improvements-025725/`
 
+## 2026-03-14-preview-modularization (archived 2026-03-14 15:16)
+- **Scope:** Planned: split `src/lib/gen/preview.ts` (~1,960 lines) into modular `preview/` directory.
+- **Workloads:** 0 completed, 0 verified.
+- **Outcome:** Split into 10 focused modules in `src/lib/gen/preview/`
+- **Outcome:** All external imports unchanged (barrel pattern)
+- **Outcome:** 24 new protective tests added
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-14-preview-modularization-151627/`
+
+## 2026-03-14-runtime-atomisering-v2 (archived 2026-03-14 15:55)
+- **Scope:** Planned: continue runtime-lane atomization after the preview split, with focus on thinner finalizer boundaries, safer shared stream helpers, and a deliberate shim decision.
+- **Workloads:** 6 completed, 5 verified.
+- **Outcome:** Characterization tests expanded for `finalize-version`
+- **Outcome:** `finalize-version.ts` split into internal phase helpers for merge, preflight, and preflight-log construction
+- **Outcome:** Shared stream helper module extracted and used by both create and follow-up stream routes
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-14-runtime-atomisering-v2-155533/`
+
+## 2026-03-14-runtime-stream-route-safety (archived 2026-03-14 18:00)
+- **Scope:** Strengthened runtime-lane stream-route safety with direct own-engine characterization tests before any new helper extraction.
+- **Workloads:** 4 completed, 4 verified.
+- **Outcome:** Documented a fresh baseline, scope freeze, risk list, and next safe workload sequence
+- **Outcome:** Added direct own-engine create-route characterization tests
+- **Outcome:** Added a direct follow-up clarification-path test and kept `preview/shims.ts` deferred
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-14-runtime-stream-route-safety-180045/`
+

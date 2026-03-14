@@ -1,0 +1,181 @@
+
+**Fyra områden för bättre promptförståelse och SMB-webbplatser**
+*(Förenklad och förbättrad struktur för internt bruk eller specifikationer)*
+
+---
+
+### Översikt – Områden att förbättra
+
+1. **Bättre promptförståelse för småföretagsspråk**
+   - Förstå vardagliga, otydliga uttryck från småföretagare (t.ex. "en enkel, proffsig sida").
+   - Översätt branschsignaler och diffusa önskemål till design/copy/struktur.
+   - Skilj tydligt mellan "snygg design" och "sida som genererar affär".
+   - Känn av och uppfatta affärs- och konverteringsmål från prompten.
+
+2. **Tydligare affärskänsla i copy och struktur**
+   - Rubriker och copy ska låta som ett trovärdigt företag ("Få offert", "Boka rådgivning"), aldrig AI-demo.
+   - Hero-sektionen måste snabbt besvara: Vad? För vem? Varför ni?
+   - Copy ska bygga förtroende med social proof, tydlighet, enkelhet och lokalt fokus.
+   - Allt fluff minimeras – tydlig nytta och konverteringsfokus går först.
+
+3. **Bättre val av sektioner utifrån verksamhetstyp**
+   - Dynamiskt val av sektioner efter bransch och affärsmål – flyttfirma ≠ restaurang ≠ klinik osv.
+   - Ex:
+     - Tjänstebolag: tjänster, process, offert, omdömen, områden
+     - Restaurang: meny, öppettider, bokning, hitta hit
+     - Klinik: behandlingar, trygghet, FAQ, boka tid
+     - Hantverkare: jobb, områden, offert, certifieringar
+   - Vissa branscher behöver ofta FAQ eller prisexempel, andra inte alls.
+
+4. **Bättre “taste” i sajtens upplägg och design**
+   - Färre men starka sektioner, bättre hierarki: hero > värde > tjänster > trust > CTA.
+   - Mer konsekvent spacing, rytm & visuell balans.
+   - Färgen/typografin/bilderna ska kännas valda för affären, inte generiskt “modernt”.
+   - Designen ska kännas “dyr men enkel”, aldrig demo-lik eller AI-genererad.
+
+---
+
+### Praktisk vägledning för implementation
+
+#### Kärnprincip
+Systemet ska **alltid** börja med att tolka företagstyp och affärsmål, och först därefter välja struktur, copy och design.
+
+#### Modern pipeline (skiss)
+
+- **A. Prompttolkning:**
+  Extrahera företagstyp, affärsmål, målgrupp, område, tonalitet och trust-behov.
+  ```ts
+  type BusinessIntent = {
+    businessType: string
+    subType?: string
+    offerType: "service" | "clinic" | "restaurant" | "trade" | "agency" | "local_shop" | "other"
+    targetAudience: string[]
+    geo?: string[]
+    primaryGoal: "lead" | "booking" | "call" | "quote" | "visit" | "purchase"
+    secondaryGoals: string[]
+    tone: "premium" | "friendly" | "professional" | "luxury" | "modern" | "playful" | "trustworthy"
+    marketPosition: "budget" | "mid" | "premium"
+    urgencyLevel: "low" | "medium" | "high"
+    trustNeeds: string[]
+    differentiators: string[]
+  }
+  ```
+
+- **B. Affärsstrategi:**
+  Välj sajtmodell & viktigaste sektioner, sätt CTA- och copystrategi.
+
+- **C. Sajtplan:**
+  Generera strukturerad plan (sections, copy-riktlinjer, design/taste):
+  ```ts
+  type SitePlan = {
+    pageType: "lead-gen" | "booking" | "showcase" | "local-service" | "multi-service" | "trust-heavy"
+    heroStrategy: string
+    conversionStrategy: string
+    sectionOrder: string[]
+    requiredSections: string[]
+    optionalSections: string[]
+    toneRules: string[]
+    copyRules: string[]
+    designRules: string[]
+  }
+  ```
+
+- **D. Copy/layout/generering:**
+  Generera sida först när plan och strategi är tydlig.
+
+---
+
+### Regler för prompttolkning (exempel)
+
+- Tolka alltid prompten som skriven av en småföretagare.
+- Vaga ord (t.ex. “enkel”, “proffsig”) ska konkretiseras till design/copy/CTA.
+- Om info saknas: Fyll i rimliga SMB-defaults baserat på verksamhet och konverteringsmål.
+- Om bransch eller ort nämns: Lyft lokal relevans, branschstruktur och rätt CTA.
+
+---
+
+### Skiss på dynamiska sektion-recept (exempel)
+
+```ts
+type SectionRecipe = {
+  businessCategory: string
+  primaryGoal: string
+  required: string[]
+  recommended: string[]
+  forbidden?: string[]
+  orderRules: string[]
+}
+
+// Exempel: Flyttfirma
+{
+  businessCategory: "trade_local_service",
+  primaryGoal: "quote",
+  required: [
+    "hero",
+    "services",
+    "why_choose_us",
+    "service_areas",
+    "reviews",
+    "quote_cta",
+    "faq",
+    "contact"
+  ],
+  recommended: [
+    "before_after",
+    "certifications",
+    "process"
+  ],
+  orderRules: [
+    "Put service clarity early",
+    "Place trust before long forms",
+    "Repeat CTA after proof"
+  ]
+}
+```
+- Systemet får **inte** återanvända samma sekvens för alla branscher.
+
+---
+
+### Taste system (nyckel-punkter)
+
+```ts
+type TasteProfile = {
+  name: string
+  density: "airy" | "balanced" | "compact"
+  radius: "minimal" | "soft" | "rounded"
+  contrast: "high" | "balanced" | "soft"
+  ornament: "minimal" | "tasteful" | "bold"
+  typography: "editorial" | "clean" | "friendly"
+  layoutStyle: "premium" | "conversion" | "service-local" | "boutique"
+}
+```
+Regler:
+- Färre men mer genomtänkta sektioner, premiumkänsla via spacing/hierarki.
+- UI ska kännas “curated”, aldrig demo eller template-fyllnad.
+- Whitespace och kontrast är premium.
+- Inga onödiga effekter; endast motiverade accenter.
+
+---
+
+### Prioriterad roadmap (kort)
+
+**Must have:**
+- Branschklassning från prompt
+- Dynamiska sektion-recept
+- CTA-regler per bransch
+- Hero-formler
+- Trust-regler
+- Taste profiles
+- Kvalitets-kontroller för business
+
+**Should have:**
+- Copy-rewrite för SMB-ton
+- Lokal relevans-motor
+- Automatisk business quality-improvement
+
+---
+
+**Sammanfattande kärnregel:**
+Systemet ska först förstå företag & affärsmål, och först därefter bestämma struktur, copy och design.
+
+---

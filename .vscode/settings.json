@@ -40,6 +40,6 @@
     "editor.defaultFormatter": "dbaeumer.vscode-eslint"
   },
   "files.autoSave": "off",
-  "git.autofetch": false,
+  "git.autofetch": true,
   "git.autofetchPeriod": 0
 }

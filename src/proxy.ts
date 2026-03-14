@@ -1,9 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  verifyTokenEdge,
-  getTokenFromRequestEdge,
-  isAdminEmailEdge,
-} from "@/lib/auth/edge-auth";
+import { verifyTokenEdge, getTokenFromRequestEdge, isAdminEmailEdge } from "@/lib/auth/edge-auth";
 import { getAppBaseUrl } from "@/lib/app-url";
 
 // ---------------------------------------------------------------------------
@@ -15,10 +11,9 @@ const ADMIN_PREFIX = "/admin";
 const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits"]);
 
 const ALLOWED_ORIGINS = new Set(
-  [
-    getAppBaseUrl(),
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
-  ].filter(Boolean),
+  [getAppBaseUrl(), process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ""].filter(
+    Boolean,
+  ),
 );
 
 // ---------------------------------------------------------------------------
@@ -37,8 +32,15 @@ function needsUserAuth(pathname: string): boolean {
   return AUTH_REQUIRED_PATHS.has(pathname);
 }
 
+const DID_EMBED_HOSTS = ["https://agent.d-id.com", "https://d-id.com", "https://*.d-id.com"];
+
+function isAvatarRoute(pathname: string): boolean {
+  return pathname === "/avatar";
+}
+
 function buildCspPolicy(pathname: string, nonce: string): string {
   const isDev = process.env.NODE_ENV !== "production";
+  const allowDidEmbed = isAvatarRoute(pathname);
 
   if (pathname.startsWith("/api/preview-render")) {
     return [
@@ -58,7 +60,32 @@ function buildCspPolicy(pathname: string, nonce: string): string {
   }
 
   const scriptSrc = [`'self'`, `'nonce-${nonce}'`];
+  const imgSrc = [
+    "'self'",
+    "data:",
+    "blob:",
+    "*.vusercontent.net",
+    "*.blob.vercel-storage.com",
+    "api.dicebear.com",
+    "quickchart.io",
+    "images.unsplash.com",
+    "images.pexels.com",
+    "ui.shadcn.com",
+    "https://ui.shadcn.com",
+  ];
+  const frameSrc = [`'self'`, "*.vusercontent.net"];
   const connectSrc = [`'self'`, "*.vusercontent.net", "wss:"];
+  const mediaSrc = [`'self'`, "blob:"];
+  const workerSrc = [`'self'`, "blob:"];
+
+  if (allowDidEmbed) {
+    scriptSrc.push(...DID_EMBED_HOSTS);
+    imgSrc.push(...DID_EMBED_HOSTS);
+    frameSrc.push(...DID_EMBED_HOSTS);
+    connectSrc.push(...DID_EMBED_HOSTS);
+    mediaSrc.push("data:", ...DID_EMBED_HOSTS);
+    workerSrc.push(...DID_EMBED_HOSTS);
+  }
 
   if (isDev) {
     // Turbopack and Vercel's local analytics debug script trip CSP in dev.
@@ -70,11 +97,12 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "default-src 'self'",
     `script-src ${scriptSrc.join(" ")}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: *.vusercontent.net *.blob.vercel-storage.com api.dicebear.com quickchart.io images.unsplash.com images.pexels.com ui.shadcn.com https://ui.shadcn.com",
+    `img-src ${imgSrc.join(" ")}`,
     "font-src 'self' data:",
-    "frame-src 'self' *.vusercontent.net",
+    `frame-src ${frameSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
-    "media-src 'self' blob:",
+    `media-src ${mediaSrc.join(" ")}`,
+    `worker-src ${workerSrc.join(" ")}`,
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'self'",
@@ -91,10 +119,7 @@ function addSecurityHeaders(
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set(
-    "Strict-Transport-Security",
-    "max-age=63072000; includeSubDomains",
-  );
+  response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
 
   const policy = buildCspPolicy(pathname, nonce);
   if (enforceCsp) {
@@ -106,20 +131,14 @@ function addSecurityHeaders(
   }
 }
 
-function addCorsHeaders(
-  response: NextResponse,
-  origin: string | null,
-): void {
+function addCorsHeaders(response: NextResponse, origin: string | null): void {
   const allowed = origin && ALLOWED_ORIGINS.has(origin) ? origin : "";
   if (allowed) {
     response.headers.set("Access-Control-Allow-Origin", allowed);
     const existing = response.headers.get("Vary");
     response.headers.set("Vary", existing ? `${existing}, Origin` : "Origin");
   }
-  response.headers.set(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-  );
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
   response.headers.set(
     "Access-Control-Allow-Headers",
     "Content-Type, Authorization, X-Requested-With, Accept",
@@ -154,17 +173,12 @@ export async function proxy(request: NextRequest) {
     const token = getTokenFromRequestEdge(request);
     const jwtSecret =
       process.env.JWT_SECRET ||
-      (process.env.NODE_ENV === "production"
-        ? null
-        : "dev-secret-do-not-use-in-prod");
+      (process.env.NODE_ENV === "production" ? null : "dev-secret-do-not-use-in-prod");
     if (!jwtSecret && !_jwtMissingWarned) {
       _jwtMissingWarned = true;
-      console.warn(
-        "[Proxy] JWT_SECRET is not set — all auth-gated pages will redirect to /",
-      );
+      console.warn("[Proxy] JWT_SECRET is not set — all auth-gated pages will redirect to /");
     }
-    const payload =
-      token && jwtSecret ? await verifyTokenEdge(token, jwtSecret) : null;
+    const payload = token && jwtSecret ? await verifyTokenEdge(token, jwtSecret) : null;
 
     if (needsAdminAuth(pathname)) {
       if (!payload || !isAdminEmailEdge(payload.email)) {

@@ -18,7 +18,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("Generating scaffold embeddings...");
+  console.info("Generating scaffold embeddings...");
 
   const result = await generateScaffoldEmbeddings({ apiKey });
 
@@ -27,7 +27,7 @@ async function main() {
   );
   writeFileSync(outPath, JSON.stringify(result, null, 2), "utf-8");
 
-  console.log(
+  console.info(
     `Generated ${result.embeddings.length} scaffold embeddings -> ${outPath}`,
   );
 }

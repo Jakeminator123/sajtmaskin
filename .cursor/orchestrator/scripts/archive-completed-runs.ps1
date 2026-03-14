@@ -91,7 +91,7 @@ function New-SummaryEntry {
   )
 
   $finalReportPath = Join-Path $RunDirectory.FullName "FINAL_REPORT.md"
-  $reportLines = Get-Content -Path $finalReportPath
+  $reportLines = @(Get-Content -Path $finalReportPath)
 
   $scope = Get-FirstParagraphLine -Lines $reportLines -Heading "## Planned scope vs delivered scope"
   if (-not $scope) {

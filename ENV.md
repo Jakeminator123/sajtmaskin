@@ -18,6 +18,7 @@ Vercel Environment Variables      (web UI / CLI, de riktiga prod/preview/dev-vä
 ```
 
 Obs:
+
 - `.vercel/.env.*.local` ska behandlas som lokala pull/export-snapshots, inte som canonical source of truth.
 - De kan innehålla temporära eller development-scope:ade värden, t.ex. `VERCEL_OIDC_TOKEN`, även när filnamnet råkar säga `production`.
 
@@ -44,17 +45,27 @@ python manage_env.py audit            # read-only audit
 python manage_env.py audit --strict   # flaggar även over-target/local-only-drift på Vercel
 python manage_env.py reconcile         # dry-run cleanup-plan för Vercel drift
 python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga entries på Vercel)
-![1773293856987](image/ENV/1773293856987.png)```
+```
+
+## Lokal dev-loggning
+
+- `SAJTMASKIN_DEV_LOG=false` stänger av den lokala dev-loggningen helt.
+- `SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS` styr hur mycket som sparas i den längre dokumentloggen.
+- I lokal utveckling skrivs loggar till:
+  - `logs/sajtmaskin-local.log`
+  - `logs/sajtmaskin-local-document.txt`
+- Den enkla dev-visaren finns pa `/logg` och `/log` och läser dessa filer via
+  en lokal serverroute.
 
 ## Infrastruktur-topologi
 
-| Tjänst | Dev (lokalt) | Prod (Vercel) | Plan |
-|--------|-------------|---------------|------|
-| **Postgres** | Supabase DEV-projekt | Supabase PROD-projekt | Gratis (500 MB per projekt) |
-| **Redis (cache)** | Upstash `sajtmaskin-dev` | Upstash `sajtmaskin-prod` | Dev: gratis (500K cmd/mån), Prod: pay-as-you-go |
-| **Redis (rate limit)** | Upstash REST (samma instans) | Upstash REST (samma instans) | Ingår i ovanstående |
-| **Blob storage** | Vercel Blob | Vercel Blob | Ingår i Vercel Pro |
-| **Deploy** | `npm run dev` | Vercel Pro ($20/mån) | - |
+| Tjänst                 | Dev (lokalt)                 | Prod (Vercel)                | Plan                                            |
+| ---------------------- | ---------------------------- | ---------------------------- | ----------------------------------------------- |
+| **Postgres**           | Supabase DEV-projekt         | Supabase PROD-projekt        | Gratis (500 MB per projekt)                     |
+| **Redis (cache)**      | Upstash `sajtmaskin-dev`     | Upstash `sajtmaskin-prod`    | Dev: gratis (500K cmd/mån), Prod: pay-as-you-go |
+| **Redis (rate limit)** | Upstash REST (samma instans) | Upstash REST (samma instans) | Ingår i ovanstående                             |
+| **Blob storage**       | Vercel Blob                  | Vercel Blob                  | Ingår i Vercel Pro                              |
+| **Deploy**             | `npm run dev`                | Vercel Pro ($20/mån)         | -                                               |
 
 **Separation:** Dev och prod MÅSTE använda separata Redis- och Postgres-instanser.
 Alla Redis-nycklar har automatisk prefix (`dev:` / `prod:`) via `REDIS_KEY_PREFIX` i
@@ -119,42 +130,60 @@ källa.
 
 ## Kritiska (måste vara satta i produktion)
 
-| Variabel | Lokalt | Vercel | Beskrivning |
-|----------|--------|--------|-------------|
-| `POSTGRES_URL` | .env.local | production, preview | Primär databas (Supabase) |
-| `JWT_SECRET` | .env.local | production, preview | Auth-tokens |
-| `OPENAI_API_KEY` | .env.local | production, preview | Own engine + prompt-assist (krävs när V0_FALLBACK_BUILDER inte är satt) |
-| `V0_API_KEY` | .env.local | production, preview | v0 Platform API (krävs när V0_FALLBACK_BUILDER=y för fallback-läge) |
-| `NEXT_PUBLIC_APP_URL` | .env.local | production, preview | Appens publika URL (t.ex. https://sajtmaskin.se) |
+| Variabel              | Lokalt     | Vercel              | Beskrivning                                                             |
+| --------------------- | ---------- | ------------------- | ----------------------------------------------------------------------- |
+| `POSTGRES_URL`        | .env.local | production, preview | Primär databas (Supabase)                                               |
+| `JWT_SECRET`          | .env.local | production, preview | Auth-tokens                                                             |
+| `OPENAI_API_KEY`      | .env.local | production, preview | Own engine + prompt-assist (krävs när V0_FALLBACK_BUILDER inte är satt) |
+| `V0_API_KEY`          | .env.local | production, preview | v0 Platform API (krävs när V0_FALLBACK_BUILDER=y för fallback-läge)     |
+| `NEXT_PUBLIC_APP_URL` | .env.local | production, preview | Appens publika URL (t.ex. https://sajtmaskin.se)                        |
+
+## D-ID avatar-test (`/avatar`)
+
+Den isolerade test-routen `/avatar` använder två publika klientvariabler:
+
+| Variabel                        | Lokalt     | Vercel     | Beskrivning                               |
+| ------------------------------- | ---------- | ---------- | ----------------------------------------- |
+| `NEXT_PUBLIC_AVATAR_AGENT_ID`   | .env.local | production | D-ID agent-id för testavataren            |
+| `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | .env.local | production | D-ID client key för embedden på `/avatar` |
+
+Viktigt:
+
+- Eftersom värdena läses i klientkod måste de börja med `NEXT_PUBLIC_`.
+- Ändra gärna våra egna env-namn, men håll koden och env-namnen synkade.
+- D-ID:s egna embed-attribut måste däremot heta exakt `data-client-key`, `data-agent-id` och i `full` mode även `data-target-id`.
+- Lägg minst `http://localhost:3000` och `https://sajtmaskin.vercel.app` i D-ID:s `allowed_domains` för den client key som används här.
+- Efter ändring av `NEXT_PUBLIC_*` i Vercel måste appen deployas om för att klienten ska få nya värden.
 
 ## Redis-variabler
 
-| Variabel | Syfte | Beskrivning |
-|----------|-------|-------------|
-| `REDIS_URL` | ioredis cache | `rediss://...` URL till Upstash Redis |
-| `KV_URL` | ioredis fallback | Samma format, används om `REDIS_URL` saknas |
-| `UPSTASH_REDIS_REST_URL` | Rate limiting | `https://...upstash.io` REST-endpoint |
-| `UPSTASH_REDIS_REST_TOKEN` | Rate limiting | Auth-token för REST-klienten |
+| Variabel                   | Syfte            | Beskrivning                                 |
+| -------------------------- | ---------------- | ------------------------------------------- |
+| `REDIS_URL`                | ioredis cache    | `rediss://...` URL till Upstash Redis       |
+| `KV_URL`                   | ioredis fallback | Samma format, används om `REDIS_URL` saknas |
+| `UPSTASH_REDIS_REST_URL`   | Rate limiting    | `https://...upstash.io` REST-endpoint       |
+| `UPSTASH_REDIS_REST_TOKEN` | Rate limiting    | Auth-token för REST-klienten                |
 
 Utan Redis faller rate limiting tillbaka till in-memory (opålitligt i serverless).
 Utan Redis fungerar appen men utan caching -- alla requests går direkt till Postgres.
 
 ## E-post och korrespondens
 
-| Variabel | Beskrivning |
-|----------|-------------|
+| Variabel         | Beskrivning                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RESEND_API_KEY` | Resend — kontaktformulär (`/api/contact`), e-postverifiering vid registrering, återställ lösenord. Utan denna: formulär fungerar men mail skickas inte. |
-| `EMAIL_FROM` | Avsändaradress (default: Sajtmaskin &lt;noreply@sajtmaskin.se&gt;) |
+| `EMAIL_FROM`     | Avsändaradress (default: Sajtmaskin &lt;noreply@sajtmaskin.se&gt;)                                                                                      |
 
 Utan `RESEND_API_KEY` fungerar appen, men användare får inga verifieringsmail och kontaktformuläret loggar bara meddelanden i stället för att skicka.
 
 ## Bilder (Unsplash)
 
-| Variabel | Beskrivning |
-|----------|-------------|
+| Variabel              | Beskrivning                                                 |
+| --------------------- | ----------------------------------------------------------- |
 | `UNSPLASH_ACCESS_KEY` | Unsplash API-nyckel. Demo: 50 req/h, Production: 5000 req/h |
 
 Bildflöde i generering:
+
 1. Motorn genererar `/placeholder.svg?text=...` i koden
 2. `image-materializer.ts` ersätter placeholders med riktiga Unsplash-bilder + triggar download-tracking
 3. `image-validator.ts` HEAD-kollar alla bild-URL:er efter generering och ersätter trasiga
@@ -170,13 +199,13 @@ Bildflöde i generering:
 
 ## Own engine (standardläge)
 
-| Variabel | Default | Beskrivning |
-|----------|---------|-------------|
-| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | 32768 | Max output-tokens för sidgenerering |
-| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS` | 12288 | Autofix-pipeline |
-| `SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS` | 720000 (12 min) | Klient-timeout innan stream avbryts |
-| `SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS` | 800 | Route maxDuration för build/refine |
-| `SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS` | 600 | Route maxDuration för prompt-assist och brief |
+| Variabel                                       | Default         | Beskrivning                                   |
+| ---------------------------------------------- | --------------- | --------------------------------------------- |
+| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 32768           | Max output-tokens för sidgenerering           |
+| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 12288           | Autofix-pipeline                              |
+| `SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS`          | 720000 (12 min) | Klient-timeout innan stream avbryts           |
+| `SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS` | 800             | Route maxDuration för build/refine            |
+| `SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS` | 600             | Route maxDuration för prompt-assist och brief |
 
 ## Vercel-deploy
 

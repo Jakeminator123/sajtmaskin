@@ -11,7 +11,8 @@ documentation.
   `structure-and-terminology.md`, `generation-loop-and-error-memory.md`,
   `project-settings-and-builder-questions.md`, `builder-prompt-layer.md`,
   `repo-hygiene.md`, `documentation-lifecycle.md`,
-  `meritmind-build-flows.md`,
+  `meritmind-build-flows.md`, `did-avatar-test-route.md`,
+  `runtime-lane-refactor-and-log-viewer.md`,
   `agent-roadmap-and-handoff.md`, `orchestrator-run-protocol.md`
 - `docs/schemas/`
   Canonical human docs for important schemas, model/build-profile mappings, and
@@ -22,9 +23,11 @@ documentation.
   Planning material split by lifecycle state:
   `active/`, `review-needed/`, and `archived/`.
 - `docs/analyses/`
-  Broader analysis, matrix, and polish notes.
+  Broader analysis, matrix, polish notes, and consolidated working-note buckets
+  such as `2026-03-smb-orchestration-notes/`.
 - `docs/old/`
-  Historical, superseded, or uncertain material kept for reference.
+  Historical, superseded, or uncertain material kept for reference, including
+  temporary holding-area archives before later pruning.
 
 ## Source of truth policy
 
@@ -45,16 +48,16 @@ Important code sources of truth include:
 
 ### Environment variable management
 
-| File | Committed | Purpose |
-|------|-----------|---------|
-| `config/env-policy.json` | Yes | Shared policy: classification, target rules, known-empty-ok lists. Consumed by `manage_env.py` and `src/lib/env-audit.ts`. |
-| `src/lib/env.ts` | Yes | Zod schema declaring every env var the app can read. |
-| `src/lib/env-audit.ts` | Yes | Runtime audit logic that loads `config/env-policy.json`. |
-| `ENV.md` | Yes | Human-readable overview of env topology, critical keys, and setup instructions. |
-| `.env.local` | No (gitignored) | Local development values. |
-| `.env.production` | No (gitignored) | Reference copy of production-like values. |
-| `manage_env.py` | Yes | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. |
-| `check_env.py` | Yes | Backward-compatible wrapper that forwards to `manage_env.py audit`. |
+| File                     | Committed       | Purpose                                                                                                                            |
+| ------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `config/env-policy.json` | Yes             | Shared policy: classification, target rules, known-empty-ok lists. Consumed by `manage_env.py` and `src/lib/env-audit.ts`.         |
+| `src/lib/env.ts`         | Yes             | Zod schema declaring every env var the app can read.                                                                               |
+| `src/lib/env-audit.ts`   | Yes             | Runtime audit logic that loads `config/env-policy.json`.                                                                           |
+| `ENV.md`                 | Yes             | Human-readable overview of env topology, critical keys, and setup instructions.                                                    |
+| `.env.local`             | No (gitignored) | Local development values.                                                                                                          |
+| `.env.production`        | No (gitignored) | Reference copy of production-like values.                                                                                          |
+| `manage_env.py`          | Yes             | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. |
+| `check_env.py`           | Yes             | Backward-compatible wrapper that forwards to `manage_env.py audit`.                                                                |
 
 When adding a new env var: add it to `src/lib/env.ts` (schema), then to
 `config/env-policy.json` (classification + target rules), and optionally to

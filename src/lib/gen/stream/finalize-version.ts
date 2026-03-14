@@ -1,20 +1,22 @@
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
-import { checkScaffoldImports } from "@/lib/gen/autofix/rules/scaffold-import-checker";
-import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
-import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { expandUrls } from "@/lib/gen/url-compress";
 import type { PreviewPreflightSummary } from "@/lib/gen/preview-diagnostics";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
-import { buildPreviewHtml, buildPreviewUrl } from "@/lib/gen/preview";
-import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
-import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import type { CodeFile } from "@/lib/gen/parser";
+import { buildPreviewUrl } from "@/lib/gen/preview";
+import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
+import { buildFinalizePreflightLogBundle } from "./finalize-preflight-logs";
+import {
+  type FinalizePreflightIssue,
+  runFinalizePreflight,
+} from "./finalize-preflight";
+import { mergeGeneratedProjectFiles } from "./finalize-merge";
 
 let _lastMaterializedUrls: Set<string> = new Set();
 
@@ -46,7 +48,7 @@ export interface FinalizeParams {
 }
 
 export interface FinalizeResult {
-  version: { id: string };
+  version: Awaited<ReturnType<typeof chatRepo.createDraftVersion>>;
   messageId: string;
   previewUrl: string | null;
   filesJson: string;
@@ -64,25 +66,6 @@ export class EmptyGenerationError extends Error {
     this.chatId = chatId;
     this.scaffoldId = scaffoldId;
   }
-}
-
-function inferCodeFenceLanguage(path: string): string {
-  if (path.endsWith(".tsx")) return "tsx";
-  if (path.endsWith(".ts")) return "ts";
-  if (path.endsWith(".jsx")) return "jsx";
-  if (path.endsWith(".js")) return "js";
-  if (path.endsWith(".css")) return "css";
-  if (path.endsWith(".json")) return "json";
-  return "txt";
-}
-
-function serializeFilesToCodeProject(files: CodeFile[]): string {
-  return files
-    .map(
-      (file) =>
-        `\`\`\`${file.language || inferCodeFenceLanguage(file.path)} file="${file.path}"\n${file.content}\n\`\`\``,
-    )
-    .join("\n\n");
 }
 
 /**
@@ -109,7 +92,7 @@ export async function finalizeAndSaveVersion(
   } = params;
 
   let contentForVersion = accumulatedContent;
-  let preflightIssues: Array<{ file: string; severity: "error" | "warning"; message: string }> = [];
+  let preflightIssues: FinalizePreflightIssue[] = [];
   let preflightFileCount = 0;
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
@@ -204,9 +187,6 @@ export async function finalizeAndSaveVersion(
   const assistantMsg = await chatRepo.addMessage(chatId, "assistant", contentForVersion);
 
   // 5. Parse files + merge (scaffold-based for first gen, previousFiles-based for follow-up)
-  const { parseFilesFromContent, mergeVersionFilesWithWarnings } = await import(
-    "@/lib/gen/version-manager"
-  );
   let filesJson = parseFilesFromContent(contentForVersion);
 
   const generatedFiles = (
@@ -217,289 +197,47 @@ export async function finalizeAndSaveVersion(
     }>
   ).map((f) => ({ ...f, language: f.language || "tsx" }));
 
-  const isFollowUp = previousFiles && previousFiles.length > 0;
+  filesJson = mergeGeneratedProjectFiles({
+    chatId,
+    originalFilesJson: filesJson,
+    generatedFiles,
+    resolvedScaffold,
+    previousFiles,
+  });
 
-  if (isFollowUp) {
-    const mergeResult = mergeVersionFilesWithWarnings(previousFiles, generatedFiles);
-    const mergedFiles = mergeResult.files;
-    if (mergeResult.warnings.length > 0) {
-      devLogAppend("in-progress", {
-        type: "merge-warnings",
-        chatId,
-        warnings: mergeResult.warnings,
-      });
-    }
-
-    const crossFileResult = checkCrossFileImports(mergedFiles);
-    let finalFiles = crossFileResult.files;
-    if (crossFileResult.fixes.length > 0) {
-      devLogAppend("in-progress", {
-        type: "cross-file-import-checker",
-        chatId,
-        fixes: crossFileResult.fixes,
-      });
-    }
-
-    if (resolvedScaffold) {
-      const importResult = checkScaffoldImports(finalFiles, resolvedScaffold);
-      finalFiles = importResult.files;
-      if (importResult.fixes.length > 0) {
-        devLogAppend("in-progress", {
-          type: "scaffold-import-checker",
-          chatId,
-          fixes: importResult.fixes,
-        });
-      }
-    }
-
-    filesJson = JSON.stringify(finalFiles);
-  } else if (resolvedScaffold) {
-    const scaffoldBase = resolvedScaffold.files.map((f) => ({
-      path: f.path,
-      content: f.content,
-      language: "tsx" as const,
-    }));
-    const mergeResult = mergeVersionFilesWithWarnings(scaffoldBase, generatedFiles);
-    const mergedFiles = mergeResult.files;
-    if (mergeResult.warnings.length > 0) {
-      devLogAppend("in-progress", {
-        type: "merge-warnings",
-        chatId,
-        warnings: mergeResult.warnings,
-      });
-    }
-
-    const crossFileResult = checkCrossFileImports(mergedFiles);
-    const afterCrossFile = crossFileResult.files;
-    if (crossFileResult.fixes.length > 0) {
-      devLogAppend("in-progress", {
-        type: "cross-file-import-checker",
-        chatId,
-        fixes: crossFileResult.fixes,
-      });
-    }
-
-    const importResult = checkScaffoldImports(afterCrossFile, resolvedScaffold);
-    if (importResult.fixes.length > 0) {
-      devLogAppend("in-progress", {
-        type: "scaffold-import-checker",
-        chatId,
-        fixes: importResult.fixes,
-      });
-    }
-    filesJson = JSON.stringify(importResult.files);
-  } else {
-    const crossFileResult = checkCrossFileImports(generatedFiles);
-    if (crossFileResult.fixes.length > 0) {
-      devLogAppend("in-progress", {
-        type: "cross-file-import-checker",
-        chatId,
-        fixes: crossFileResult.fixes,
-      });
-      filesJson = JSON.stringify(crossFileResult.files);
-    }
-  }
-
-  // 5d. Final repair pass + project-level sanity checks (post-merge)
-  try {
-    let finalFiles = (
-      JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>
-    ).map((f) => ({ ...f, language: f.language || "tsx" }));
-    const repairResult = repairGeneratedFiles(finalFiles);
-    finalFiles = repairResult.files;
-    if (repairResult.fixes.length > 0) {
-      filesJson = JSON.stringify(finalFiles);
-      devLogAppend("in-progress", {
-        type: "file-repair",
-        chatId,
-        fixes: repairResult.fixes,
-      });
-    }
-
-    const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
-    let mergedProjectContent = serializeFilesToCodeProject(finalFiles);
-    let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
-    if (!mergedSyntax.valid) {
-      const initialMergedSyntaxErrorCount = mergedSyntax.errors.length;
-      devLogAppend("in-progress", {
-        type: "merged-syntax.invalid",
-        chatId,
-        errorCount: mergedSyntax.errors.length,
-        errors: mergedSyntax.errors.slice(0, 8),
-      });
-      const { runLlmFixer } = await import("@/lib/gen/autofix/llm-fixer");
-      const fixerResult = await runLlmFixer(
-        mergedProjectContent,
-        mergedSyntax.errors.map((error) => `${error.file}:${error.line} ${error.message}`),
-      );
-      if (fixerResult.success) {
-        const reFixed = await runAutoFix(fixerResult.fixedContent, { chatId, model });
-        const reValidated = await validateGeneratedCode(reFixed.fixedContent);
-        if (reValidated.valid || reValidated.errors.length < mergedSyntax.errors.length) {
-          finalFiles = (
-            JSON.parse(parseFilesFromContent(reFixed.fixedContent)) as Array<{
-              path: string;
-              content: string;
-              language?: string;
-            }>
-          ).map((file) => ({ ...file, language: file.language || "tsx" }));
-          const postFixRepair = repairGeneratedFiles(finalFiles);
-          finalFiles = postFixRepair.files;
-          filesJson = JSON.stringify(finalFiles);
-          mergedProjectContent = reFixed.fixedContent;
-          mergedSyntax = reValidated;
-          devLogAppend("in-progress", {
-            type: "merged-syntax.fixed",
-            chatId,
-            errorsBefore: initialMergedSyntaxErrorCount,
-            errorsAfter: reValidated.errors.length,
-            repairFixes: postFixRepair.fixes,
-          });
-        }
-      }
-      if (!mergedSyntax.valid) {
-        preflightIssues.push(
-          ...mergedSyntax.errors.slice(0, 20).map((error) => ({
-            file: error.file,
-            severity: "error" as const,
-            message: `Merged syntax error line ${error.line}:${error.column} — ${error.message}`,
-          })),
-        );
-      }
-    }
-
-    finalizedFilesForPreview = finalFiles;
-    try {
-      const previewHtml = buildPreviewHtml(finalizedFilesForPreview);
-      if (!previewHtml) {
-        previewBlockingReason =
-          "Automatic preflight could not build a renderable own-engine preview entrypoint.";
-        preflightIssues.push({
-          file: "preview",
-          severity: "error",
-          message: previewBlockingReason,
-        });
-      }
-    } catch (previewErr) {
-      previewBlockingReason =
-        previewErr instanceof Error
-          ? `Automatic preflight failed while preparing preview: ${previewErr.message}`
-          : "Automatic preflight failed while preparing preview.";
-      preflightIssues.push({
-        file: "preview",
-        severity: "error",
-        message: previewBlockingReason,
-      });
-      devLogAppend("in-progress", {
-        type: "preview-preflight.error",
-        chatId,
-        message: previewBlockingReason,
-      });
-    }
-
-    const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(finalFiles)).files;
-    preflightFileCount = completeProjectFiles.length;
-    const sanity = runProjectSanityChecks(completeProjectFiles);
-    preflightIssues = [...preflightIssues, ...sanity.issues];
-    if (sanity.issues.length > 0) {
-      devLogAppend("in-progress", {
-        type: "project-sanity",
-        chatId,
-        valid: sanity.valid,
-        issues: sanity.issues.slice(0, 20),
-        completeProjectFiles: completeProjectFiles.length,
-      });
-    }
-  } catch (sanityErr) {
-    console.warn("[sanity] Project sanity check error:", sanityErr);
-    devLogAppend("in-progress", {
-      type: "project-sanity.error",
-      chatId,
-      message: sanityErr instanceof Error ? sanityErr.message : "Unknown sanity error",
-    });
-  }
+  const preflightResult = await runFinalizePreflight({
+    chatId,
+    model,
+    filesJson,
+  });
+  filesJson = preflightResult.filesJson;
+  finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
+  preflightFileCount = preflightResult.preflightFileCount;
+  preflightIssues = preflightResult.preflightIssues;
+  previewBlockingReason = preflightResult.previewBlockingReason;
 
   // 6. Create version
-  const version = await chatRepo.createDraftVersion(chatId, assistantMsg.id, filesJson);
+  let version = await chatRepo.createDraftVersion(chatId, assistantMsg.id, filesJson);
   devLogAppend("in-progress", {
     type: "version.created",
     chatId,
     versionId: version.id,
   });
-  const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
-  const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
-  const hasVerificationBlockingPreflightErrors = preflightErrors.length > 0;
-  const hasPreviewBlockingPreflightErrors = Boolean(previewBlockingReason);
-  const preflightLogs: Array<{
-    chatId: string;
-    versionId: string;
-    level: "info" | "warning" | "error";
-    category: string;
-    message: string;
-    meta: Record<string, unknown>;
-  }> = [
-    {
-      chatId,
-      versionId: version.id,
-      level: preflightErrors.length > 0 ? "error" as const : "info" as const,
-      category: "preflight:summary",
-      message:
-        preflightErrors.length > 0
-          ? "Automatic preflight found blocking issues."
-          : "Automatic preflight completed.",
-      meta: {
-        filesChecked: preflightFileCount,
-        issueCount: preflightIssues.length,
-        errorCount: preflightErrors.length,
-        warningCount: preflightWarnings.length,
-        verificationBlocked: hasVerificationBlockingPreflightErrors,
-        previewBlocked: hasPreviewBlockingPreflightErrors,
-        previewBlockingReason,
-      },
-    },
-  ];
-  if (preflightIssues.length > 0) {
-    preflightLogs.push({
-      chatId,
-      versionId: version.id,
-      level: preflightErrors.length > 0 ? "error" as const : "warning" as const,
-      category: "preflight:issues",
-      message: "Automatic preflight reported issues.",
-      meta: { issues: preflightIssues.slice(0, 20) },
-    });
-  }
-  if (hasPreviewBlockingPreflightErrors) {
-    preflightLogs.push({
-      chatId,
-      versionId: version.id,
-      level: "error",
-      category: "preview",
-      message: previewBlockingReason ?? "Automatic preflight blocked preview creation.",
-      meta: {
-        source: "finalize-preflight",
-        previewCode: "preflight_preview_blocked",
-        previewStage: "preflight",
-        previewBlocked: true,
-        verificationBlocked: hasVerificationBlockingPreflightErrors,
-      },
-    });
-  } else if (hasVerificationBlockingPreflightErrors) {
-    preflightLogs.push({
-      chatId,
-      versionId: version.id,
-      level: "warning",
-      category: "preview",
-      message: "Preview is available, but automatic preflight found verification-blocking issues.",
-      meta: {
-        source: "finalize-preflight",
-        previewCode: "preflight_verification_blocked",
-        previewStage: "preflight",
-        previewBlocked: false,
-        verificationBlocked: true,
-        previewFileCount: finalizedFilesForPreview.length,
-      },
-    });
-  }
+  const {
+    preflightErrors,
+    preflightWarnings,
+    hasVerificationBlockingPreflightErrors,
+    hasPreviewBlockingPreflightErrors,
+    preflightLogs,
+    preflightFailureSummary,
+  } = buildFinalizePreflightLogBundle({
+    chatId,
+    versionId: version.id,
+    preflightIssues,
+    preflightFileCount,
+    previewBlockingReason,
+    finalizedPreviewFileCount: finalizedFilesForPreview.length,
+  });
   devLogAppend("in-progress", {
     type: "preflight.summary",
     chatId,
@@ -512,9 +250,6 @@ export async function finalizeAndSaveVersion(
     previewBlocked: hasPreviewBlockingPreflightErrors,
     previewBlockingReason,
   });
-  const preflightFailureSummary = hasPreviewBlockingPreflightErrors
-    ? "Automatic preflight found preview-blocking issues."
-    : "Automatic preflight found verification-blocking issues.";
   onProgress?.("finalizing", {
     phase: "done",
     versionId: version.id,
@@ -577,10 +312,13 @@ export async function finalizeAndSaveVersion(
 
   if (hasVerificationBlockingPreflightErrors) {
     try {
-      await chatRepo.failVersionVerification(
+      const failedVersion = await chatRepo.failVersionVerification(
         version.id,
         preflightFailureSummary,
       );
+      if (failedVersion?.id) {
+        version = failedVersion;
+      }
       devLogAppend("in-progress", {
         type: "preflight.version.failed",
         chatId,

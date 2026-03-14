@@ -1,7 +1,7 @@
 # Slutrapport: buildmotor i Sajtmaskin
 
 ## Syfte
-Den här rapporten beskriver hur Sajtmaskins nuvarande builddel faktiskt fungerar i kodbasen och jämför den med målarkitekturen i `egen_svart_låda/sajtmaskin_prompt_orkestrering.md`.
+Den här rapporten beskriver hur Sajtmaskins nuvarande builddel faktiskt fungerar i kodbasen och jämför den med målarkitekturen i `docs/analyses/2026-03-smb-orchestration-notes/sajtmaskin-prompt-orkestrering.md`.
 
 Fokus ligger på runtime-lanen: hur en användarprompt går från buildern till promptberedning, scaffold- och kontextval, generering, versionssparning, verifiering och eventuell väntan på användarinput. Rapporten skiljer tydligt mellan:
 
@@ -580,4 +580,4 @@ Om man ska sammanfatta den viktigaste riktningen i en mening är den här:
 4. Låt generatorn bygga från planen snarare än från fri prompt.
 5. Samla verifiering och patchning i en tydlig acceptance-kedja.
 
-Det skulle ligga mycket nära rekommendationen i `egen_svart_låda/sajtmaskin_prompt_orkestrering.md` utan att kasta bort de stabila delar som redan finns i dagens implementation.
+Det skulle ligga mycket nära rekommendationen i `docs/analyses/2026-03-smb-orchestration-notes/sajtmaskin-prompt-orkestrering.md` utan att kasta bort de stabila delar som redan finns i dagens implementation.

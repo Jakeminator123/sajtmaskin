@@ -270,4 +270,101 @@ describe("finalizeAndSaveVersion", () => {
       "Automatic preflight found preview-blocking issues.",
     );
   });
+
+  it("uses previousFiles as the merge base for follow-up generations", async () => {
+    const previousFiles = [
+      {
+        path: "src/app/page.tsx",
+        content: "export default function PreviousPage() { return <div>Previous</div>; }",
+        language: "tsx",
+      },
+    ];
+
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: {
+        id: "scaffold_1",
+        files: [
+          {
+            path: "src/app/layout.tsx",
+            content: "export default function Layout({ children }) { return children; }",
+          },
+        ],
+      } as never,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      previousFiles,
+      logNote: "follow-up characterization",
+    });
+
+    expect(mergeVersionFilesWithWarnings).toHaveBeenCalledWith(
+      previousFiles,
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "src/app/page.tsx",
+        }),
+      ]),
+    );
+    expect(checkScaffoldImports).toHaveBeenCalled();
+  });
+
+  it("skips merge and scaffold import checks for non-scaffold first generations", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(mergeVersionFilesWithWarnings).not.toHaveBeenCalled();
+    expect(checkScaffoldImports).not.toHaveBeenCalled();
+    expect(checkCrossFileImports).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "src/app/page.tsx",
+        }),
+      ]),
+    );
+  });
+
+  it("persists preview-specific preflight logs when preview rendering is blocked", async () => {
+    buildPreviewHtml.mockReturnValue(null);
+
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "preflight:summary",
+          meta: expect.objectContaining({
+            previewBlocked: true,
+            verificationBlocked: true,
+          }),
+        }),
+        expect.objectContaining({
+          category: "preview",
+          level: "error",
+          meta: expect.objectContaining({
+            previewCode: "preflight_preview_blocked",
+            previewBlocked: true,
+            verificationBlocked: true,
+          }),
+        }),
+      ]),
+    );
+  });
 });

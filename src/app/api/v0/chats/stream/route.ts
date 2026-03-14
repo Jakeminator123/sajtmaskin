@@ -44,7 +44,6 @@ import { AI } from "@/lib/config";
 import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
-import { detectIntegrations } from "@/lib/gen/detect-integrations";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
@@ -66,47 +65,19 @@ import {
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { EmptyGenerationError, finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
+import { EmptyGenerationError } from "@/lib/gen/stream/finalize-version";
+import {
+  appendPreview,
+  extractToolNames,
+  finalizeOrHandleEmptyGeneration,
+  getUnsignaledDetectedIntegrations,
+  looksLikeIncompleteJson,
+} from "@/lib/gen/stream/shared-own-engine-helpers";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
 const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
 const STREAM_RESOLVE_DELAY_MS = 1200;
-
-function appendPreview(current: string, incoming: string, max = 320): string {
-  if (!incoming) return current;
-  const next = `${current}${incoming}`;
-  return next.length > max ? next.slice(-max) : next;
-}
-
-function looksLikeIncompleteJson(raw: string): boolean {
-  const text = raw.trim();
-  if (!text) return false;
-  if (!(text.startsWith("{") || text.startsWith("[") || text.startsWith('"'))) return false;
-  const openCurly = (text.match(/\{/g) || []).length;
-  const closeCurly = (text.match(/\}/g) || []).length;
-  const openSquare = (text.match(/\[/g) || []).length;
-  const closeSquare = (text.match(/\]/g) || []).length;
-  if (openCurly > closeCurly) return true;
-  if (openSquare > closeSquare) return true;
-  if (/\\$/.test(text)) return true;
-  return false;
-}
-
-function extractToolNames(parts: Array<Record<string, unknown>>): string[] {
-  const names: string[] = [];
-  for (const part of parts) {
-    const type = typeof part.type === "string" ? part.type : "";
-    if (!type.startsWith("tool")) continue;
-    const name =
-      (typeof part.toolName === "string" && part.toolName) ||
-      (typeof part.name === "string" && part.name) ||
-      (typeof part.type === "string" && part.type) ||
-      "tool-call";
-    names.push(name);
-  }
-  return Array.from(new Set(names));
-}
 
 export async function POST(req: Request) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
@@ -918,9 +889,8 @@ export async function POST(req: Request) {
                       }
 
                       const doneData = evt.data as Record<string, unknown> | null;
-                      let finalized;
-                      try {
-                        finalized = await finalizeAndSaveVersion({
+                      const finalized = await finalizeOrHandleEmptyGeneration({
+                        finalizeParams: {
                           accumulatedContent,
                           chatId: engineChat.id,
                           model: engineModel,
@@ -932,21 +902,18 @@ export async function POST(req: Request) {
                             completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
                           },
                           onProgress: emitProgress,
-                        });
-                      } catch (error) {
-                        if (error instanceof EmptyGenerationError) {
-                          await handleEmptyGeneration("done_empty_output", error);
-                          break;
-                        }
-                        throw error;
-                      }
+                        },
+                        emptyGenerationReason: "done_empty_output",
+                        handleEmptyGeneration,
+                      });
+                      if (!finalized) break;
 
                       didSendDone = true;
                       const { version, messageId: assistantMsgId, previewUrl } = finalized;
 
-                      const allDetected = detectIntegrations(accumulatedContent);
-                      const newDetected = allDetected.filter(
-                        (d) => !toolSignaledProviders.has(d.key),
+                      const newDetected = getUnsignaledDetectedIntegrations(
+                        accumulatedContent,
+                        toolSignaledProviders,
                       );
                       if (newDetected.length > 0) {
                         safeEnqueue(
@@ -1052,9 +1019,8 @@ export async function POST(req: Request) {
                     }
 
                     const doneData = evt.data as Record<string, unknown> | null;
-                    let bufFinalized;
-                    try {
-                      bufFinalized = await finalizeAndSaveVersion({
+                    const bufFinalized = await finalizeOrHandleEmptyGeneration({
+                      finalizeParams: {
                         accumulatedContent,
                         chatId: engineChat.id,
                         model: engineModel,
@@ -1067,14 +1033,11 @@ export async function POST(req: Request) {
                         },
                         logNote: "Done from buffer flush",
                         onProgress: emitProgress,
-                      });
-                    } catch (error) {
-                      if (error instanceof EmptyGenerationError) {
-                        await handleEmptyGeneration("buffer_flush_empty_output", error);
-                        break;
-                      }
-                      throw error;
-                    }
+                      },
+                      emptyGenerationReason: "buffer_flush_empty_output",
+                      handleEmptyGeneration,
+                    });
+                    if (!bufFinalized) break;
 
                     didSendDone = true;
                     safeEnqueue(
@@ -1102,37 +1065,40 @@ export async function POST(req: Request) {
 
                 if (accumulatedContent) {
                   try {
-                    const fallbackFinalized = await finalizeAndSaveVersion({
-                      accumulatedContent,
-                      chatId: engineChat.id,
-                      model: engineModel,
-                      resolvedScaffold,
-                      urlMap,
-                      startedAt: engineStartedAt,
-                      runAutofix: false,
-                      logNote: "Done from fallback flush",
-                      onProgress: emitProgress,
+                    const fallbackFinalized = await finalizeOrHandleEmptyGeneration({
+                      finalizeParams: {
+                        accumulatedContent,
+                        chatId: engineChat.id,
+                        model: engineModel,
+                        resolvedScaffold,
+                        urlMap,
+                        startedAt: engineStartedAt,
+                        runAutofix: false,
+                        logNote: "Done from fallback flush",
+                        onProgress: emitProgress,
+                      },
+                      emptyGenerationReason: "fallback_flush_empty_output",
+                      handleEmptyGeneration,
                     });
-                    didSendDone = true;
-                    safeEnqueue(
-                      enc.encode(
-                        formatSSEEvent("done", {
-                          chatId: engineChat.id,
-                          versionId: fallbackFinalized.version.id,
-                          messageId: fallbackFinalized.messageId,
-                          demoUrl: fallbackFinalized.previewUrl,
-                          preflight: fallbackFinalized.preflight,
-                          previewBlocked: fallbackFinalized.preflight.previewBlocked,
-                          verificationBlocked: fallbackFinalized.preflight.verificationBlocked,
-                          previewBlockingReason: fallbackFinalized.preflight.previewBlockingReason,
-                        }),
-                      ),
-                    );
-                    await commitCreditsOnce();
-                  } catch (error) {
-                    if (error instanceof EmptyGenerationError) {
-                      await handleEmptyGeneration("fallback_flush_empty_output", error);
+                    if (fallbackFinalized) {
+                      didSendDone = true;
+                      safeEnqueue(
+                        enc.encode(
+                          formatSSEEvent("done", {
+                            chatId: engineChat.id,
+                            versionId: fallbackFinalized.version.id,
+                            messageId: fallbackFinalized.messageId,
+                            demoUrl: fallbackFinalized.previewUrl,
+                            preflight: fallbackFinalized.preflight,
+                            previewBlocked: fallbackFinalized.preflight.previewBlocked,
+                            verificationBlocked: fallbackFinalized.preflight.verificationBlocked,
+                            previewBlockingReason: fallbackFinalized.preflight.previewBlockingReason,
+                          }),
+                        ),
+                      );
+                      await commitCreditsOnce();
                     }
+                  } catch (error) {
                     // ignore persistence errors in cleanup
                   }
                 }

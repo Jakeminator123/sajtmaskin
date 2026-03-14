@@ -32,7 +32,7 @@ flowchart TD
 | `archive` | `docs/plans/archived/`, `docs/old/` | Useful historical context, but low-value for day-to-day indexing. |
 | `move-later` | `research/external-templates/reference-library/` | Valuable curated research, but not a runtime dependency. Largest trackable research surface. |
 | `move-later` | `data/scaffold-candidates-curated.json` | Regenerable report artifact written by scripts, not a runtime source of truth. |
-| `move-later` | `next_sidan_skrapning.txt` | Historical intake notes now partly captured in canonical policy docs. |
+| `archive` | `docs/old/2026-03-holding-area/next-sidan-skrapning.txt` | Historical intake notes kept as a final holding-area reference, not active guidance. |
 
 ## Ignore policy
 
@@ -43,7 +43,7 @@ flowchart TD
 - clone mirrors and local research caches
 - workstation-specific helper folders like `_template_refs/`
 - reproducible reports like `data/scaffold-candidates-curated.json`
-- one-off intake notes like `next_sidan_skrapning.txt`
+- one-off intake notes once they have been archived under `docs/old/`
 
 Do not add `src/lib/gen/` or `public/video/` to `.gitignore` unless runtime code
 stops reading those files.

@@ -1,0 +1,319 @@
+md = """# Rubrikförslag för Sajtmaskin – säljande utan att tappa teknikvärde
+
+## Anledning först
+
+Det viktiga är **inte** att ta bort teknik.  
+Det viktiga är att **ändra ordning, tyngd och inramning**.
+
+En svag agent kan lätt misstolka “mindre tech-känsla” som:
+- ta bort tekniskt innehåll
+- ta bort bevis
+- ta bort differentiering
+- göra allt generiskt och fluffigt
+
+Det vore fel.
+
+### Rätt princip
+Tekniken ska fortfarande finnas kvar, men den ska:
+1. **inte bära första intrycket**
+2. **inte konkurrera med kundnyttan i hero**
+3. **användas som bevis längre ned**
+4. **kopplas till resultat** i stället för att presenteras som intern stolthet
+
+### Fel princip
+- ta bort stacken helt
+- ta bort arkitekturfördelar
+- ta bort preview/sandbox/deploy-tänket
+- ta bort det som gör Sajtmaskin verkligt annorlunda
+
+## Arbetsregel för framtida redigering
+
+Om någon annan agent eller person ska ändra copyn, använd denna regel:
+
+> **Ta inte bort teknisk substans. Flytta den, paketera den och koppla den till affärsnytta.**
+
+Bra:
+- “Riktig teknik bakom varje sajt”
+- “Snabb, sökvänlig och byggbar vidare”
+- “Byggd för att gå från prompt till publicerad sajt”
+
+Dåligt:
+- “Vi kör Next.js 16, React 19, Prisma, Vercel, Zod, Sentry …” i första intrycket utan att först förklara varför kunden ska bry sig.
+
+---
+
+# Del 1 – Rubriker som känns självklara och starka
+
+Dessa rubriker är relativt säkra. De ligger nära ett tydligt säljmål och kräver inte att läsaren förstår tekniken i detalj.
+
+## 1. Hero-rubriker
+
+### A. **Få en företagssajt som ser bra ut och driver affärer**
+**Varför den är stark:**  
+Direkt, begriplig och resultatorienterad. Den säljer utfallet, inte mekaniken.
+
+### A. **Från idé till publicerad företagssajt**
+**Varför den är stark:**  
+Tydlig resa. Bra om ni vill signalera fart, enkelhet och framdrift.
+
+### A-. **Bygg en riktig företagssajt på kort tid**
+**Varför den är stark:**  
+Bra kontrast mot mallverktyg och halvfärdiga lösningar. Ordet “riktig” hjälper.
+
+### A-. **En snabb väg till en professionell webbplats**
+**Varför den är stark:**  
+Lite mjukare, lite mer klassisk. Mindre spetsig men trygg.
+
+### B+. **Sajter som känns seriösa från dag ett**
+**Varför den är stark:**  
+Bra för nyföretagare. Mindre direkt än “driver affärer”, men emotionellt träffsäker.
+
+## 2. Subhero / förklarande rubriker
+
+### A. **Byggd för svenska företag som vill komma igång snabbt**
+**Varför den är stark:**  
+Bra nischsignal. Enkel att förstå. Positionerar målgruppen direkt.
+
+### A. **För företag som behöver mer än en mall**
+**Varför den är stark:**  
+Bra om ni vill positionera er mot enklare sajtbyggare utan att nämna konkurrenter.
+
+### A-. **När du vill lansera snabbt utan att bygga om senare**
+**Varför den är stark:**  
+Bra kombination av fart + hållbarhet.
+
+### B+. **Snabb att starta. Stark nog att växa i.**
+**Varför den är stark:**  
+Bra rytm, bra produktkänsla. Lite mer copyig men fortfarande tydlig.
+
+## 3. Process / “så fungerar det”
+
+### A. **Så går det till**
+**Varför den är stark:**  
+Enkel, trygg, standard. Alltid användbar.
+
+### A. **Så går du från prompt till publicerad sajt**
+**Varför den är stark:**  
+Bra om ni vill behålla AI-identiteten utan att göra sidan teknikdominerad.
+
+### A-. **Från första utkast till färdig sajt**
+**Varför den är stark:**  
+Bra när ni vill låta mer produktionsnära än “AI-magiskt”.
+
+### B. **Tre steg till en sajt du faktiskt kan använda**
+**Varför den är stark:**  
+Bra kontrast mot demo-känsla. Mindre elegant, men tydligt.
+
+## 4. Case / social proof
+
+### A. **Så kan färdiga resultat se ut**
+**Varför den är stark:**  
+Väldigt användbar om ni inte har full casebank ännu.
+
+### A. **Exempel på sajter vi hjälper företag att få live**
+**Varför den är stark:**  
+Bra blandning av produkt + handpåläggning.
+
+### A-. **Från nytt företag till färdig webbplats**
+**Varför den är stark:**  
+Extra bra om ni verkligen bygger mot nystartade bolag.
+
+### B+. **Tre typer av företag vi passar särskilt bra för**
+**Varför den är stark:**  
+Bra när man vill kvalificera trafiken och få rätt kunder.
+
+## 5. Tekniksektion
+
+### A. **Riktig teknik bakom varje sajt**
+**Varför den är stark:**  
+Det här är den viktigaste tekniska rubriken. Den bevarar teknikvärdet utan att låta intern.
+
+### A. **Byggd för prestanda, sökbarhet och vidareutveckling**
+**Varför den är stark:**  
+Här kopplas teknik direkt till affärsnytta och långsiktighet.
+
+### A-. **Inte bara snabbt att bygga – byggt för att hålla**
+**Varför den är stark:**  
+Bra om ni vill signalera mer än “AI-demo”.
+
+### B+. **En bättre teknisk grund än vanliga mallverktyg**
+**Varför den är stark:**  
+Säljande, men bör användas bara om ni kan backa upp det i copyn under.
+
+## 6. Prissektion
+
+### A. **Börja själv. Ta in oss när det behövs.**
+**Varför den är stark:**  
+Mycket bra för hybridmodellen produkt + tjänst.
+
+### A. **Kom igång enkelt – väx vidare utan att börja om**
+**Varför den är stark:**  
+Bra bro mellan låg tröskel och högre livstidsvärde.
+
+### A-. **Från första version till lansering**
+**Varför den är stark:**  
+Bra när prisstegen ska kännas som framdrift.
+
+### B+. **Du väljer hur mycket hjälp du vill ha**
+**Varför den är stark:**  
+Bra trygghetsrubrik. Inte lika distinkt, men bra stöd.
+
+## 7. Trust / team / trygghet
+
+### A. **Byggt av människor som vill att det faktiskt ska bli klart**
+**Varför den är stark:**  
+Bra för att bryta AI-abstraktion och skapa förtroende.
+
+### A-. **AI där det går snabbt. Människor där det spelar roll.**
+**Varför den är stark:**  
+Bra hybridbudskap. Lite mer copyigt, men träffsäkert.
+
+### B+. **Teknik i botten. Riktiga människor bakom.**
+**Varför den är stark:**  
+Bra trygghet, mindre skarpt än alternativen ovan.
+
+---
+
+# Del 2 – Mindre självklara men relevanta rubriker, med gradering
+
+Här kommer rubriker som kan vara bra, men som kräver mer omsorg.  
+Jag graderar dem på två skalor:
+
+- **Självklarhet:** hur lätt den är att använda rätt direkt
+- **Relevans:** hur användbar den kan vara i rätt sammanhang
+
+Skala: 1–5
+
+## 1. **Sajter som hjälper nya företag att se större ut än de är**
+**Självklarhet:** 3/5  
+**Relevans:** 5/5
+
+**Varför:**  
+Mycket stark psykologiskt för nyföretagare. Men också lite känslig, eftersom vissa kan läsa den som “ytlig polish”. Bra om den följs av seriös copy.
+
+## 2. **Första intrycket du hade velat ha från dag ett**
+**Självklarhet:** 3/5  
+**Relevans:** 4/5
+
+**Varför:**  
+Emotionellt stark. Bra för en visuell sektion eller före/efter-case. Mindre bra som enda huvudrubrik.
+
+## 3. **En bättre väg från bolagsstart till webbplats**
+**Självklarhet:** 4/5  
+**Relevans:** 5/5
+
+**Varför:**  
+Väldigt bra om ni vill äga nyföretagarvinkeln. Knyter an till leads-fördelen utan att avslöja hela maskinen.
+
+## 4. **När snabbhet inte får kosta kvalitet**
+**Självklarhet:** 4/5  
+**Relevans:** 4/5
+
+**Varför:**  
+Bra bro mellan AI-hastighet och seriös leverans. Inte unik i sig, men användbar.
+
+## 5. **Byggd för att ta dig live, inte bara imponera i en demo**
+**Självklarhet:** 2/5  
+**Relevans:** 5/5
+
+**Varför:**  
+Väldigt bra intern sanning. Men bör användas försiktigt externt, eftersom tonen är lite hård. Bra längre ned på sidan, särskilt i teknik- eller processdel.
+
+## 6. **Mer än en sajtgenerator**
+**Självklarhet:** 2/5  
+**Relevans:** 3/5
+
+**Varför:**  
+Klassisk rubriktyp, men lite generisk. Funkar bara om stycket under verkligen visar vad “mer än” betyder.
+
+## 7. **Från AI-utkast till verklig webbplats**
+**Självklarhet:** 4/5  
+**Relevans:** 4/5
+
+**Varför:**  
+Bra om du vill signalera att ni inte bara ger “idéer” eller “mockups”, utan riktig output.
+
+## 8. **Snabb att skapa. Enkel att förbättra. Stark nog att växa med.**
+**Självklarhet:** 3/5  
+**Relevans:** 4/5
+
+**Varför:**  
+Bra produktretorik. Lite mer copyig, men passar fint i mid-page.
+
+## 9. **Det snabbaste sättet att få en seriös digital grund**
+**Självklarhet:** 3/5  
+**Relevans:** 4/5
+
+**Varför:**  
+Stark B2B-känsla. Mindre visuell än “snygg hemsida”, men mer mogen.
+
+## 10. **När hemsidan måste sälja, inte bara finnas**
+**Självklarhet:** 4/5  
+**Relevans:** 5/5
+
+**Varför:**  
+Stark, tydlig och affärsdriven. Bra rubrik för värdesektion, inte nödvändigtvis hero.
+
+---
+
+# Del 3 – Rekommenderad prioritering
+
+Om målet är att behålla all teknisk substans men sälja bättre, skulle jag prioritera så här:
+
+## Topp 5 att använda direkt
+1. **Få en företagssajt som ser bra ut och driver affärer**
+2. **Byggd för svenska företag som vill komma igång snabbt**
+3. **Så går du från prompt till publicerad sajt**
+4. **Riktig teknik bakom varje sajt**
+5. **Börja själv. Ta in oss när det behövs.**
+
+Det är den kombinationen som bäst:
+- säljer tydligt
+- bevarar teknikvärde
+- känns modern
+- undviker att bli fluffig
+- fortfarande låter som er
+
+---
+
+# Del 4 – Vad en mindre intelligent agent INTE får göra
+
+## Får inte tas bort
+- teknisk grund
+- varför er pipeline är bättre
+- preview / sandbox / full deploy-tänket
+- argument för kvalitet, stabilitet och vidareutveckling
+- skillnaden mellan “ser bra ut” och “går att använda på riktigt”
+
+## Får göras om
+- rubriknivåer
+- ordning på sektioner
+- tonalitet
+- mängden stacknamn i top-of-page
+- tekniska stycken som kan flyttas längre ned
+
+## Rätt instruktion till en enklare agent
+> Ta inte bort tekniskt innehåll.  
+> Flytta det längre ned och skriv om det så att kundnyttan kommer först och tekniken fungerar som bevis.
+
+---
+
+# Del 5 – Min korta rekommendation
+
+Det du ska skydda är inte “tech-snacket” som form, utan **tech-värdet** som innehåll.
+
+Det betyder:
+- behåll substansen
+- byt rubriker
+- byt ordning
+- låt kundnyttan komma först
+- låt tekniken förklara varför utfallet blir bättre
+
+Det är den säkra vägen till en mer säljande sajt utan att fördumma produkten.
+"""
+
+path = "/mnt/data/sajtmaskin_rubrikforslag.md"
+with open(path, "w", encoding="utf-8") as f:
+    f.write(md)
+
+print(path)

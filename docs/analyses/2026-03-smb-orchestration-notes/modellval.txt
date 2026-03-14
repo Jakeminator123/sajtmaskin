@@ -1,0 +1,134 @@
+
+# Modellval & Temperature – Praktisk översikt
+
+## Modelltyper
+
+| Modell        | Typ             | Exempel på användning                    |
+|---------------|-----------------|------------------------------------------|
+| **1**         | Billig/snabb    | Klassificering, extraktion, quality checks, enklare omskrivningar |
+| **2**         | Medium/allmän   | Planering, copy, struktur, vanliga förbättringar/kod |
+| **3**         | Dyr/långsam     | Taste, komplex/premium copy, svåra beslut, slutlig polish |
+
+> **Obs!** Alla modeller kan vara mer eller mindre "kreativa" beroende på temperature-värde. Man bör nästan alltid variera modell (och temperature) per pipeline-steg.
+
+---
+
+## Pipeline – Rekommenderad modellstrategi per steg
+
+| Steg                                   | Rek. Modell | Rek. Temperature | Kommentar/exempel                      |
+|----------------------------------------|-------------|------------------|----------------------------------------|
+| **1. Prompttolkning / business extraction** | 1           | 0.1–0.3          | Klassificering, extraktion, stabilitet |
+| **2. Business strategy / site archetype**   | 2           | 0.2–0.4          | Val av sajt-typ & sektioner, logik     |
+| **3. Section planning / informationsark**   | 2/3         | 0.3–0.5          | Struktur, CTA-flöde, proof, premium?   |
+| **4. Copy generation**                      | 2/3         | 0.5–0.8          | Standard → 2, Premium/tone → 3         |
+| **5. Design taste / creative direction**    | 3           | 0.4–0.7          | Stora avgöranden för premium-känsla    |
+| **6. Kodgenerering**                        | 2/3         | 0.2–0.4          | Scaffold/vanligt → 2, avancerat → 3    |
+| **7. Quality checks / validators**          | 1           | 0.0–0.2          | Otydlig hero, saknad CTA, trust, etc   |
+| **8. Auto-fix**                            | 1/2/3       | 0.1–0.7          | Enkel fix → 1/2, smart rewrite → 3     |
+
+---
+
+## Modellval – Checklista
+
+**Modell 1 (billig/snabb):**
+- Klassificering, extraktion, routing
+- Quality checks, enkla rewrites/fix
+- Fallback-analyser
+
+**Modell 2 (medium/allmän):**
+- Planering, standard-copy/layout/kod
+- Sektionval, auto-fixar
+
+**Modell 3 (dyr/långsam):**
+- Premium copy, taste/art direction
+- Svåra prompts, strategiska omskrivningar
+- Slutlig polish, viktiga recovery-fall
+
+---
+
+## Temperature – Rekommenderade nivåer
+
+| Syfte                       | Temperature |
+|-----------------------------|-------------|
+| Routing/extraction          | 0.0–0.2     |
+| Planning/structure          | 0.2–0.4     |
+| Copy/tone                   | 0.5–0.7     |
+| Taste exploration           | 0.4–0.7     |
+| Code generation             | 0.1–0.3     |
+| Validation                  | 0.0–0.1     |
+
+> **Låg:** För extraktion, validering, kod, regler
+> **Mellan:** För struktur, copy, variation
+> **Hög:** Viss brainstorming, style exploration, sällan i produktion
+
+---
+
+## Exempel: Modellval per scenario
+
+### Basläge (standard):
+
+1. Modell 1
+2. Modell 2
+3. Modell 2
+4. Modell 2
+5. Modell 2
+6. Modell 2
+7. Modell 1
+8. Modell 2
+
+### Premiumläge:
+
+1. Modell 1
+2. Modell 2
+3. Modell 3
+4. Modell 3
+5. Modell 3
+6. Modell 3
+7. Modell 1
+8. Modell 3 (annars 2)
+
+### Budgetläge:
+
+1. Modell 1
+2. Modell 1 eller 2
+3. Modell 2
+4. Modell 2
+5. Modell 2
+6. Modell 2
+7. Modell 1
+8. Modell 1 eller 2
+
+---
+
+## Viktiga principer
+
+- **Använd dyr modell selektivt!**
+  Bäst ROI att spara premium på copy, taste, svåra beslut & polish.
+  Klassificering, checks & metadata ska vara billigt/snabbt.
+
+- **Låt systemet route:a:**
+  - Enkel prompt/tydlig business type → medium-pipeline
+  - Vag eller premium prompt → dyr-pipeline
+  - Enkel auto-fix → billig/medium
+  - "Det här känns generiskt" → premium rewrite
+
+---
+
+## Sammanfattad rekommendation
+
+**Modell 1:** extraction, quality gates, routing, små fixar
+**Modell 2:** standard planner, sektioner, standard copy, kod
+**Modell 3:** premium planner, taste, polish, svåra auto-fixar
+
+**Exempel på temperature:**
+- extraction/checks: 0.1
+- planning: 0.3
+- copy: 0.6
+- taste/polish: 0.5–0.7
+- code: 0.2
+
+Att variera modell & temperature mellan stegen ger MYCKET bättre resultat än att bara köra samma på allt.
+
+---
+
+*Vill du ha en konkret TypeScript-spec? Säg bara till!*
