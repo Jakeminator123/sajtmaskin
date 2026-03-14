@@ -4,5 +4,8 @@
       "path": "."
     }
   ],
-  "settings": {}
+  "settings": {
+    "git.autofetch": true,
+    "json.schemaDownload.enable": true
+  }
 }

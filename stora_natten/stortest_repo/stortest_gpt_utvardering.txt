@@ -1,245 +1,172 @@
-Kan du söka igenom Jakeminator/sajtmaskin och branchen som heter någon som typ stortest eller något. Det ör den nyaste branchen. Sedan jämför du med branchen jakob. Fokus på koden som skapar/bygger utifrån prompts. Sedan jäför vilken som är bäst utifrån att vi är typ Loveable för småföretag
-Tog emot appsvar
-Thought
-Tog emot appsvar
-Thought
-Tog emot appsvar
-Thought
-Tog emot appsvar
-Tänkte i 1m 24s
-Tog emot appsvar
-Thought
-Tog emot appsvar
+Kan du söka igenom Jakeminator/sajtmaskin och branchen som heter stortest (den nyaste), och jämföra med branchen jakob? Fokusera på koden som skapar/bygger utifrån prompts. Vilken är bäst utifrån att vi vill vara "Loveable för småföretag"?
 
-Jag gick igenom Jakeminator123/sajtmaskin och brancharna stortest och jakob.
+---
 
-Det viktigaste först:
+**Kort svar:**
+Jag har gått igenom Jakeminator123/sajtmaskin och grenarna _stortest_ och _jakob_.
 
-stortest är bara 1 commit före jakob, och skillnaden ligger nästan helt i preview/rendering, diagnostics, preflight och auto-fix, inte i själva kärnan för prompt → kod.
+**Sammanfattning:**
+- _stortest_ är 1 commit framför _jakob_.
+- Skillnaderna handlar främst om preview/rendering, diagnostics, preflight och auto-fix, inte om kärnflödet för prompt → kod.
 
-Vad som faktiskt styr prompt → bygge
+---
 
-I stream-routen i stortest används fortfarande samma huvudpipeline för prompt-orchestrering och bygg: orchestratePromptMessage, prepareGenerationContext, buildPlannerSystemPrompt och createGenerationPipeline
+## Vad styr prompt → bygge?
 
-Det betyder i praktiken:
+I _stortest_ används fortfarande samma huvudpipeline i stream-routen för prompt-orchestrering och bygge:
+- orchestratePromptMessage
+- prepareGenerationContext
+- buildPlannerSystemPrompt
+- createGenerationPipeline
 
-promptoptimering/orchestrering finns kvar
+**Det innebär i praktiken:**
+- promptoptimering/orchestrering är oförändrad
+- scaffold/context-uppladdning finns kvar
+- genereringen går genom samma engine-flöde
+- stortest ändrar inte kärnstrategin för hur prompt översätts till kod
 
-scaffold/context-uppladdning finns kvar
+---
 
-själva genereringen går genom samma engine-flöde
+## Vad _stortest_ förbättrar
 
-stortest byter inte ut kärnstrategin för hur ni översätter prompt till kod
+Den största förbättringen ligger i preview-ledet:
+- Preview.ts har tydligare felmetadata (code, stage, source)
+- Bredare preview-shims för fler UI-komponenter, hooks och layoutmönster
+- Exempel på förbättringar:
+  - Stöd för fler sidebar-mönster
+  - Fler shadcn-liknande komponenter
+  - Bättre fallback för hooks (use-toast, use-mobile)
+  - Tydligare compile/runtime/react-render-fel i preview
+- Finalize-version.ts har tydligare preflight, preview kan blockeras om den inte går att bygga/rendera bra
+- Ny diagnostikmodell i preview-diagnostics.ts med bl.a. dessa felkoder:
+  - preview_compile_error
+  - preview_validation_error
+  - preview_runtime_error
+  - preview_react_render_error
+  - preflight_preview_blocked
+- useAutoFix.ts använder dessa loggar för vassare auto-fix-flöde baserat på riktiga preview/projektfel
+
+---
+
+## Bedömning: Vilken branch passar bäst för "Loveable för småföretag"?
 
-Vad stortest förbättrar
-
-Den stora skillnaden är att stortest gör preview-ledet mycket mer robust.
-
-I preview.ts i stortest finns tydligare felmetadata (code, stage, source) och mycket bredare preview-shims för UI-komponenter, hooks och layoutmönster än i jakob
-
-Det inkluderar bland annat bättre stöd för:
-
-sidebar-mönster
-
-fler shadcn-liknande komponenter
-
-bättre fallback för hooks som use-toast / use-mobile
-
-tydligare compile/runtime/react-render-fel i previewn
-
-finalize-version.ts i stortest lägger också in en tydligare preflight innan versionen markeras som klar, och preview kan blockeras om den inte går att bygga/rendera pålitligt
-
-Dessutom finns en ny diagnostikmodell i preview-diagnostics.ts med specifika felkoder som:
-
-preview_compile_error
-
-preview_validation_error
-
-preview_runtime_error
-
-preview_react_render_error
-
-preflight_preview_blocked
-
-Och useAutoFix.ts använder de här loggarna för att bygga bättre auto-fix-prompts utifrån riktiga preview/projektfel istället för mer allmän felsökning
-
-Bedömning: vilken branch är bäst för “Loveable för småföretag”?
-
-Om målet är något i stil med Loveable för småföretag, då är den viktigaste egenskapen inte bara “kan modellen skriva kod?” utan:
-
-att första previewn faktiskt går att visa
-
-att fel blir begripliga
-
-att systemet kan självreparera
-
-att användaren snabbt får en fungerande version, inte bara kodtext
-
-Utifrån det är stortest bättre än jakob.
-
-Varför stortest vinner
-
-För ert use case väger det här tungt:
-
-Mer robust first impression
-Småföretagare bryr sig inte om perfekt intern arkitektur. De bryr sig om att “det ser ut som en riktig sida direkt”. stortest förbättrar just den ytan.
-
-Bättre preview-resiliens
-Loveable-känslan kommer mycket från att previewn nästan alltid visar något användbart. stortest är tydligt bättre där.
-
-Bättre auto-fix-loop
-När previewn faller sönder kan stortest mata tillbaka mer konkreta fel till auto-fix-flödet. Det är väldigt viktigt för snabb iteration.
-
-Mindre risk att användaren fastnar i död state
-jakob känns mer som “generatorn kan vara okej, men när previewn krånglar blir UX sämre”. stortest minskar det problemet.
-
-Men: vad stortest inte verkar förbättra
-
-Det jag inte ser som tydligt förbättrat är:
-
-bättre promptförståelse för småföretagsspråk
-
-bättre affärskänsla i copy/struktur
-
-bättre val av sektioner utifrån verksamhetstyp
-
-bättre “taste” i själva sajtens upplägg
-
-Alltså: stortest förbättrar leveransen och stabiliteten, inte nödvändigtvis småföretags-smarten i generationen.
-
-Min slutsats
-
-Om ni ska välja branch som bas idag:
-
-Välj stortest.
-
-Inte för att den skriver smartare promptdriven kod i grunden, utan för att den gör hela kedjan mycket mer produktlik:
-
-preview
-
-diagnoser
-
-preflight
-
-auto-fix
-
-återhämtning
-
-Det är närmare en riktig “Loveable för småföretag”-upplevelse.
-
-Min mer spetsiga produktdom
-
-jakob = bättre som ren utvecklingsbranch om man vill hålla saker enklare
-
-stortest = bättre som produktbranch om man vill att användaren faktiskt ska känna “wow, det här fungerar”
-
-Det som saknas efter stortest är främst inte mer preview-teknik, utan ett bättre lager för:
-
-SMB-specifik prompttolkning
-
-verksamhetstyper
-
-sektion/prissättning/CTA-logik
-
-tonalitet/copy per bransch
-
-Det är där nästa stora lyft borde ligga.
-
-Jag kan också göra en andra pass där jag pekar ut exakt vilka filer ni borde cherry-picka från stortest in i jakob, om du vill ha en mer konkret merge-plan.
-
-Nja. Skriv nu punkter hällande detta "bättre promptförståelse för småföretagsspråk
-	•	bättre affärskänsla i copy/struktur
-	•	bättre val av sektioner utifrån verksamhetstyp
-	•	bättre “taste” i själva sajtens upplägg" 
-
-Absolut. Här är punkter kring vad som saknas eller borde stärkas för att bli mer som Loveable för småföretag:
-
-Bättre promptförståelse för småföretagsspråk
-
-Förstå vardagliga formuleringar som “jag vill ha en enkel sida som känns proffsig” utan att användaren måste vara teknisk.
-
-Tolka diffusa önskemål som “lite premium men ändå varmt” till konkreta design- och copyval.
-
-Känna igen branschsignaler direkt i prompten, till exempel målare, tandläkare, flyttfirma, städbolag, redovisning.
-
-Kunna avgöra om användaren egentligen vill ha leads, bokningar, förtroende, lokal synlighet eller e-handel.
-
-Fatta skillnaden mellan “snygg sida” och “sida som säljer”.
-
-Bättre affärskänsla i copy och struktur
-
-Rubrikerna behöver oftare låta som ett företag som vill få kunder, inte som en generisk AI-demo.
-
-Hero-sektionen bör snabbare svara på: vad säljer ni, till vem, varför välja er.
-
-CTA:er bör vara mer affärsdrivna, till exempel “Boka kostnadsfri offert”, “Ring idag”, “Få pris inom 24 timmar”.
-
-Copy bör bygga förtroende med social proof, tydlighet, enkelhet och lokal relevans.
-
-Mindre fluff, mer nytta, resultat och trygghet.
-
-Bättre val av sektioner utifrån verksamhetstyp
-
-En flyttfirma ska inte få samma upplägg som en frisör eller redovisningsbyrå.
-
-Hemsidan bör välja sektioner dynamiskt utifrån bransch:
-
-tjänstebolag: tjänster, process, offert, omdömen, områden
-
-restaurang: meny, öppettider, bokning, hitta hit
-
-klinik: behandlingar, trygghet, frågor och svar, boka tid
-
-hantverkare: tidigare jobb, arbetsområde, offertformulär, certifieringar
-
-Lokala företag behöver ofta sektioner för område/stad, kontaktvägar och snabb konvertering.
-
-Vissa verksamheter behöver FAQ nästan alltid, andra behöver prisexempel eller paket.
-
-Bättre “taste” i själva sajtens upplägg
-
-Sidan bör kännas som en genomtänkt produktionsklar småföretagssajt, inte som en komponentdemo.
-
-Bättre hierarki mellan sektioner: hero, värdeerbjudande, tjänster, trust, CTA.
-
-Mer konsekvent spacing, rytm, visuell tyngd och lugn.
-
-Färger, typografi och bildton bör kännas valda för affären, inte bara “modernt”.
-
-Färre onödiga effekter, mer tydlighet och konvertering.
-
-Designen bör oftare se “dyr men enkel” ut, snarare än “flashig men AI-genererad”.
-
-Vad det betyder i praktiken
-
-Systemet borde gå från “bygger en hemsida av prompt” till “förstår företagets behov och bygger rätt typ av hemsida”.
-
-Det borde finnas bättre default-beteende per bransch.
-
-Prompten borde översättas till:
-
-affärsmål
-
-målgrupp
-
-sajtstruktur
-
-tonalitet
-
-CTA-strategi
-
-trust-signaler
-
-Det viktigaste att förbättra först
-
-Branschklassning från prompt
-
-Sektionsval per verksamhetstyp
-
-Starkare SMB-copy i hero och CTA
-
-Bättre standard för trust och lead capture
-
-Mer smakfull layout-default
-
-Vill du att jag skriver detta som en prioriterad roadmap med Must / Should / Nice to have?
+Om målet är en "Loveable för småföretag"-känsla är det viktigare att:
+- Första previewn faktiskt visar något
+- Felen är begripliga
+- Systemet kan självreparera
+- Användaren snabbt får en fungerande version, inte bara kodtext
+
+**Här är _stortest_ tydligt bättre än _jakob_.**
+
+---
+
+## Varför vinner _stortest_?
+
+- **Robust första intryck:**
+  Småföretagare vill se att det fungerar direkt. _stortest_ förbättrar just denna yta.
+
+- **Bättre preview-resiliens:**
+  Previewn visar nästan alltid ett användbart resultat. _stortest_ är starkare här.
+
+- **Bättre auto-fix-loop:**
+  Mer konkreta fel kan skickas tillbaka in i auto-fix. Viktigt för snabb iteration.
+
+- **Mindre risk att fastna:**
+  _jakob_ riskerar döda states om previewn kraschar – _stortest_ minimerar detta.
+
+---
+
+### Vad _stortest_ INTE förbättrar
+
+Det som *inte* är tydligt bättre:
+- **Promptförståelse för småföretag**
+- **Affärskänsla i copy/struktur**
+- **Val av sektioner utifrån verksamhetstyp**
+- **“Taste” i sidupplägg/design**
+
+Alltså: _stortest_ gör leveransen & stabiliteten bättre, men generationen blir inte automatiskt smartare för SMB-case.
+
+---
+
+## Slutsats
+
+**Välj _stortest_ som bas idag.**
+- Inte för att den genererar smartare kod, utan för att kedjan är mer produktlik:
+  - Preview
+  - Diagnoser
+  - Preflight
+  - Auto-fix
+  - Återhämtning
+- Närmare en riktig "Loveable för småföretag"-upplevelse.
+
+**Sammanfattande produktdom:**
+- _jakob_ = Utv.branch – enklast för ren kodutveckling
+- _stortest_ = Produktbranch – bäst för användarupplevelse (“wow, det här fungerar!”)
+
+**Framtida förbättringar bör fokusera på:**
+- SMB-specifik prompttolkning
+- Verksamhetstyper
+- Sektion/prissättning/CTA-logik
+- Tonalitet/copy per bransch
+
+Behöver ni en konkret merge-guide, kan jag peka ut vilka filer som bör cherry-pickas från _stortest_ till _jakob_.
+
+---
+
+## Punkter att förbättra för ännu mer Loveable för småföretag
+
+**Bättre promptförståelse för småföretagsspråk:**
+- Förstå vardagliga formuleringar som “jag vill ha en enkel sida som känns proffsig” utan teknisk jargong
+- Tolka diffusa önskemål (“lite premium men ändå varmt”) till design/copy
+- Känna igen branschsignaler (“målare”, “tandläkare” etc.) direkt i prompten
+- Avgöra om användaren egentligen vill ha leads, bokningar, förtroende, lokal synlighet, e-handel etc.
+- Skilja på “snygg sida” och “sida som säljer”
+
+**Bättre affärskänsla i copy & struktur:**
+- Rubriker som låter som företag som vill få kunder, inte AI-demo
+- Hero snabbt: vad säljer ni, till vem, varför välja er
+- CTA:er som är affärsdrivna (“Boka kostnadsfri offert”, “Ring idag”)
+- Copy med social proof, enkelhet, lokal relevans – mindre fluff, mer nytta och trygghet
+
+**Bättre val av sektioner utifrån verksamhetstyp:**
+- Exempel:
+  - Flyttfirma ≠ frisör ≠ redovisning
+  - Tjänstebolag: tjänster, process, offert, omdömen, områden
+  - Restaurang: meny, öppettider, bokning, hitta hit
+  - Klinik: behandlingar, trygghet, FAQ, boka tid
+  - Hantverkare: tidigare jobb, arbetsområde, offertformulär, certifieringar
+- Lokala företag: område/stad, kontaktvägar, snabb konvertering
+- Vissa verksamheter: FAQ/prisexempel/paket bör alltid med
+
+**Bättre “taste” i sajtens upplägg/design:**
+- Ska kännas som produktionsklar småföretagssajt, inte komponentdemo
+- Hierarki: hero, värdeerbjudande, tjänster, trust, CTA
+- Mer konsekvent spacing, rytm, visuell tyngd, lugn
+- Färger/typografi/bilder ska kännas valda för branschen, inte bara “modernt”
+- Färre onödiga effekter – mer tydlighet, konvertering
+- Designen ska se “dyr men enkel” ut, inte “flashig/Ai-genererad”
+
+---
+
+### Vad det betyder i praktiken:
+
+- Systemet behöver gå från “bygger sida av prompt” till “förstår behov och bygger rätt typ av hemsida”
+- Default-beteenden ska vara bättre per bransch
+- Prompten bör översättas till:
+  - Affärsmål
+  - Målgrupp
+  - Sajtstruktur
+  - Tonalitet
+  - CTA-strategi
+  - Trust-signaler
+
+---
+
+**Viktigaste att förbättra först:**
+1. Branschklassning från prompt
+2. Sektionval per verksamhetstyp
+3. Starkare SMB-copy i hero/CTA
+4. Bättre standard för trust & lead-capture
+5. Mer smakfull layout-default
+
+Vill du ha detta som en prioriterad roadmap (Must / Should / Nice to have)?

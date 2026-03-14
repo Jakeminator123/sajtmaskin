@@ -64,7 +64,7 @@ services/mpc/docs/shad/
 services/mpc/logs/
 
 # Local Cursor session state and legacy automation traces
-.cursor/plans/
+#.cursor/plans/
 .cursor/documents/
 .cursor/automation/runs/
 .cursor/automation/archive/
