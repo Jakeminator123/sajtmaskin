@@ -4,7 +4,5 @@
       "path": "."
     }
   ],
-  "settings": {
-    "git.autofetch": false
-  }
+  "settings": {}
 }
