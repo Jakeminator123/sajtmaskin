@@ -325,15 +325,15 @@ const landingJourneySteps = [
     number: "03",
     scenePosition: 2,
     title: "AI bygger i iterationer",
-    description: "Prompta några rundor, klicka vidare och få en sajt i React, Next.js och serverdriven arkitektur istället för en statisk mockup.",
-    bullets: ["Sex till sju förbättringar mot rätt version", "Kod, struktur och innehåll i samma flöde"],
+    description: "Ge feedback, klicka vidare och f\u00e5 en sajt som fungerar p\u00e5 riktigt \u2014 inte en statisk mockup.",
+    bullets: ["Sex till sju f\u00f6rb\u00e4ttringar mot r\u00e4tt version", "Design, struktur och inneh\u00e5ll i samma fl\u00f6de"],
   },
   {
     number: "04",
     scenePosition: 3,
     title: "Koppla data och publicera",
     description: "När flödet sitter går det vidare till preview, integrationer och deploy. Sidan blir en arbetande digital tillgång.",
-    bullets: ["Vercel, Supabase, Upstash och fler integrationer", "Preview, deploy och fortsatt utveckling"],
+    bullets: ["Betalningar, databas, e-post och fler integrationer", "Preview, publicering och fortsatt utveckling"],
   },
   {
     number: "05",
@@ -346,9 +346,9 @@ const landingJourneySteps = [
 
 const stats = [
   { value: "~30 sek", label: "F\u00f6rsta utkast", tooltip: "Beroende p\u00e5 komplexitet" },
-  { value: "React 19", label: "Frontend", tooltip: "Server Components & Actions" },
-  { value: "95+", label: "Lighthouse", tooltip: "Performance, A11y, SEO, PWA" },
-  { value: "Vercel", label: "Deploy", tooltip: "Edge Network, global CDN" },
+  { value: "95+", label: "Google-po\u00e4ng", tooltip: "Prestanda, tillg\u00e4nglighet, SEO" },
+  { value: "100%", label: "Mobilanpassat", tooltip: "Responsiv design p\u00e5 alla sk\u00e4rmar" },
+  { value: "0 kr", label: "Att starta", tooltip: "Inga kreditkort, inga bindningstider" },
 ]
 
 const creditPackages = [
@@ -1843,7 +1843,7 @@ export function ChatArea({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
             </span>
-            Byggd med React, Next.js & TypeScript
+            F&ouml;r svenska f&ouml;retag som vill komma ig&aring;ng snabbt
           </div>
 
           {/* Headline with 3D tilt */}
@@ -1876,8 +1876,8 @@ export function ChatArea({
             className="text-base md:text-lg text-muted-foreground text-center max-w-2xl mb-8 leading-relaxed animate-fade-up text-pretty"
             style={{ animationDelay: "0.4s" }}
           >
-            Beskriv ditt f&ouml;retag &mdash; v&aring;r AI bygger en professionell sajt med React och Next.js &aring;t dig.
-            Inga f&ouml;rkunskaper kr&auml;vs. Anpassat f&ouml;r svenska sm&aring;f&ouml;retagare.
+            Beskriv ditt f&ouml;retag &mdash; f&aring; en professionell sajt som driver aff&auml;rer, inte bara ser bra ut.
+            Inga f&ouml;rkunskaper kr&auml;vs. Byggt f&ouml;r svenska f&ouml;retagare som beh&ouml;ver mer &auml;n en mall.
           </p>
 
           {/* Category buttons */}
@@ -2113,12 +2113,12 @@ export function ChatArea({
         <section id="funktioner" className="px-6 py-20 md:py-28">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-14">
-              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">State of the Art</p>
+              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Vad du f&aring;r</p>
               <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
-                Samma teknik som tech-j&auml;ttarna
+                En sajt som presterar &mdash; inte bara ser bra ut
               </h2>
               <p className="text-muted-foreground max-w-xl mx-auto leading-relaxed text-pretty">
-                Vi levererar sajter byggda med produktionsklar kod i React, Next.js och TypeScript &mdash; inte dra-och-sl&auml;pp-byggen som faller ihop.
+                Riktig teknik bakom varje sajt &mdash; snabb, s&ouml;kv&auml;nlig och byggbar vidare. Inte dra-och-sl&auml;pp som faller ihop.
               </p>
             </div>
 
@@ -2146,7 +2146,7 @@ export function ChatArea({
                 Olika s&auml;tt att bygga sajt
               </h2>
               <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed text-pretty">
-                9&nbsp;metoder, 10&nbsp;parametrar. V&auml;lj scenario f&ouml;r att se hur viktningen p&aring;verkar rankingen.
+                Se hur vi st&aring;r oss j&auml;mf&ouml;rt med andra alternativ &mdash; och varf&ouml;r det spelar roll f&ouml;r ditt f&ouml;retag.
               </p>
             </div>
 
@@ -2274,12 +2274,12 @@ export function ChatArea({
         <section id="teknik" className="px-6 py-20 md:py-28 border-t border-border/15">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-14">
-              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Teknisk stack</p>
+              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">Teknisk grund</p>
               <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
-                Varje sajt levereras med
+                Riktig teknik bakom varje sajt
               </h2>
               <p className="text-muted-foreground max-w-md mx-auto leading-relaxed text-pretty">
-                Produktionsklar infrastruktur &mdash; ingen WordPress, inga kompromisser.
+                Samma verktyg som de b&auml;sta digitala bolagen &mdash; paketerat s&aring; att du inte beh&ouml;ver t&auml;nka p&aring; det.
               </p>
             </div>
 
@@ -2384,7 +2384,7 @@ export function ChatArea({
                 Från bolagsstart till gröna siffror
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
-                Ett mer levande flöde som visar hur företaget går från idé, val av spår och AI-iterationer till publicerad sajt, integrationer och affärsresultat.
+                Fr&aring;n f&ouml;rsta id&eacute; till publicerad sajt &mdash; steg f&ouml;r steg, i din takt.
               </p>
             </div>
 
@@ -2428,7 +2428,7 @@ export function ChatArea({
           </div>
           {websitesCounter.phase === "honest" && (
             <p className="text-center text-xs text-muted-foreground/50 mt-6 animate-fade-up" style={{ animationDelay: "0.3s" }}>
-              Vi växer med riktiga bolag i ryggen. 41 sajter och 28 aktiva företagare är bara början på nästa fas.
+              Vi v&auml;xer med riktiga f&ouml;retag i ryggen &mdash; varje sajt &auml;r byggd f&ouml;r att driva aff&auml;rer, inte bara finnas.
             </p>
           )}
         </section>
@@ -2442,7 +2442,7 @@ export function ChatArea({
                 Redo för riktiga arbetsflöden
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
-                När sajten går från snygg till värdefull behöver den kunna prata med betalningar, data, caching, utskick och drift. Här är några av lagren vi kopplar in.
+                N&auml;r sajten beh&ouml;ver g&ouml;ra mer &auml;n se bra ut &mdash; betalningar, utskick, data och drift.
               </p>
             </div>
 
@@ -2596,7 +2596,7 @@ export function ChatArea({
               Redo att ta ditt f&ouml;retag online?
             </h2>
             <p className="text-muted-foreground mb-8 leading-relaxed text-pretty max-w-md mx-auto">
-              B&ouml;rja gratis &mdash; ingen kod, inga kreditkort, inga bindningstider. Bara en sajt byggd med riktig teknik.
+              B&ouml;rja gratis &mdash; ingen kod, inga kreditkort, inga bindningstider. En sajt som ser seri&ouml;s ut fr&aring;n dag ett.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button
@@ -2635,7 +2635,7 @@ export function ChatArea({
                   <span className="text-sm text-foreground font-(--font-heading)">SajtMaskin</span>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed max-w-[200px]">
-                  AI-driven webbplatsgenerering med React &amp; Next.js f&ouml;r svenska f&ouml;retagare.
+                  Professionella hemsidor f&ouml;r svenska f&ouml;retag &mdash; snabbt, enkelt och med riktig teknik bakom.
                 </p>
               </div>
               <div>
