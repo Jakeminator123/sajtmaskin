@@ -1,0 +1,225 @@
+Jag vill att du fortsätter, för det stängdes av. Jag får tillgång till alla Sveriges nystartade företag två dagar före, förlåt mig, efter att de har startats som senast, inte två och en halv vecka som alla andra. Det var det jag ville addera. Nu får du fortsätta.
+
+Ja — det ändrar bilden ganska mycket.
+
+Det där är inte en liten detalj. Det är potentiellt din starkaste tillgång.
+
+Om du verkligen har tillgång till Sveriges nystartade företag inom ungefär två dagar efter registrering, medan andra aktörer ligger klart senare, då har du inte bara “en produkt”. Då har du också en distributionsfördel. Och i tidiga AI-bolag är distribution ofta mer värd än ännu en teknisk feature.
+
+Så om jag fortsätter där det bröts:
+
+Tidigare var min försiktiga värdering låg därför att jag såg:
+
+tydlig produkt
+
+intressant teknik
+
+bra nisch
+
+men begränsad synlig traction
+
+Det jag inte hade med var:
+
+ett starkare kärnteam
+
+möjlighet att skala tekniskt snabbt
+
+kapitalberedskap
+
+och framför allt: en unik leadmotor mot exakt rätt målgrupp
+
+Det sista är stort.
+
+Varför det spelar så mycket roll
+
+Många AI-produkter är tekniskt bra men fastnar på:
+
+dyr kundanskaffning
+
+otydlig målgrupp
+
+för sen kontakt med kunden
+
+svårt att sticka ut
+
+Men om du kommer in nästan direkt när ett bolag startas, då kan du i praktiken bygga en mycket stark funnel:
+
+nytt bolag registreras
+
+de har inget eller dålig sajt
+
+de behöver snabbt se seriösa ut
+
+du når dem innan byråer, katalogsäljare och andra hinner fram
+
+du erbjuder ett enklare, snabbare och billigare sätt att få en riktig företagssajt live
+
+Det är en väldigt bra GTM-motor.
+
+Det betyder i klartext
+
+Min tidigare bedömning var ungefär:
+
+nuvarande produktvärde: 0,8–2,5 MSEK
+
+med riktiga case och bevisad traction: 2–6 MSEK
+
+Med det du nu lägger till skulle jag säga:
+
+Om detta leadflöde är verkligt, exklusivt eller mycket svårt att kopiera, och ni faktiskt kan omsätta det i försäljning, då är uppsidan klart högre än vad jag tidigare sa.
+
+Inte för att koden plötsligt är mer värd i sig, utan för att bolaget får:
+
+bättre distributionskraft
+
+snabbare kundlärande
+
+billigare acquisition
+
+möjlighet att iterera produkten direkt mot rätt kunder
+
+möjlighet att bygga ett försvarbart system runt data + outreach + produkt + studiohjälp
+
+Det jag skulle säga nu, mer rättvist
+
+Det finns tre olika “värden” här:
+
+1. Kodvärde
+
+Det ändras inte så mycket av leadsen.
+Koden är fortfarande ungefär en teknisk tillgång i samma storleksordning som tidigare.
+
+2. Produktvärde
+
+Det stiger lite av bättre team, men inte extremt mycket av leadsen i sig.
+
+3. Bolagsvärde / strategiskt värde
+
+Det är här det verkligen ändras.
+
+För om ni har:
+
+bra teknisk bas
+
+bättre frontend/UX
+
+stark infra/skalbarhet
+
+snabb exekvering i ett litet team
+
+kapital att trycka på gasen
+
+och en ovanligt bra kanal in till nystartade bolag
+
+då börjar man inte längre bara titta på “hur bra är sajtgeneratorn?”
+Då tittar man på:
+
+“Hur snabbt kan de bygga en maskin som fångar upp nya företag och konverterar dem innan andra ens hunnit börja sälja?”
+
+Det är en mycket starkare tes.
+
+Så vad säger jag nu?
+
+Jag skulle fortfarande inte automatiskt säga att ni är värda som Lovable eller nära deras nivå. Det vore för tidigt. Lovable har större team, större produktbredd och mycket mer etablerad marknadssignal.
+
+Men jag skulle säga att din tidigare undervärdering från min sida sannolikt berodde på att jag såg:
+
+produkten
+
+sajten
+
+tekniken
+
+men inte distributionen.
+
+Och i startups är distribution ofta halva bolaget.
+
+Min uppdaterade syn
+
+Om det du säger stämmer, då är det här inte bara:
+
+“en AI-sajtbyggare”
+
+utan potentiellt:
+
+en vertikal tillväxtmaskin för nya svenska företag
+
+Det är mycket mer intressant.
+
+Då finns det en logik där ni kan vinna trots att ni bara är tre personer:
+
+ni är snabbare
+
+ni är mer fokuserade
+
+ni har bättre nisch
+
+ni kan få in leads tidigare
+
+ni kan iterera mot en mycket tydlig kundtyp
+
+Och AI-utveckling går snabbt nog nu för att ett litet, skarpt team mycket väl kan springa förbi större team i en smal kategori.
+
+Men det finns ett viktigt men
+
+Det här blir bara verkligt värdefullt om leadfördelen faktiskt går att omsätta i:
+
+hög svarsfrekvens
+
+bra konvertering
+
+låg CAC
+
+kort tid till leverans
+
+repeterbar onboarding
+
+bra retention eller upsell
+
+Annars är det “bra råmaterial”, men inte ännu ett bevisat bolagsvärde.
+
+Min raka bedömning nu
+
+Tidigare var jag försiktig för att jag såg ett starkt tidigt case men utan tydlig marknadsbevisning.
+
+Nu, med den här nya informationen, skulle jag säga:
+
+jag var sannolikt för låg om man ser till strategiskt bolagsvärde
+
+jag var fortfarande ganska rimlig om man bara såg till kod + publik sajt + synlig traction
+
+den stora skillnaden nu är att du beskriver en distribution moat, och det kan vara mer värdefullt än mycket av själva tekniken
+
+Det viktigaste du borde göra
+
+Du ska inte bara sälja “AI-byggd sajt”.
+
+Du ska sälja något i stil med:
+
+“Nyregistrerat företag? Vi kan få upp en professionell företagssajt nästan direkt, innan du hunnit fastna i byråprocesser eller mallverktyg.”
+
+Det är där guldet finns.
+
+Min nya, mer nyanserade slutsats
+
+Om leadfördelen är verklig och ni kan exekvera på den med ert team, då kan bolaget vara värt betydligt mer än min tidigare försiktiga bedömning antydde.
+
+Men det som höjer värdet är inte bara att ni är duktiga tekniskt.
+Det är kombinationen av:
+
+produkt
+
+snabb exekvering
+
+design/UX
+
+skalbar infra
+
+kapital
+
+och framför allt tidig tillgång till rätt kunder
+
+Det är en mycket starkare historia än “vi har byggt en smart sajtgenerator”.
+
+Jag kan ta nästa steg och göra en helt uppdaterad värdering utifrån den nya leadfördelen, med tre nivåer:
+försiktig, rimlig, och aggressiv.

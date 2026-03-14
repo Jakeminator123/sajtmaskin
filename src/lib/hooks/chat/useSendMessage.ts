@@ -12,6 +12,7 @@ import {
   isNetworkError,
 } from "./helpers";
 import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 
 export function useSendMessage(
@@ -109,6 +110,7 @@ export function useSendMessage(
           (data?.demoUrl as string) ||
           ((data?.latestVersion as Record<string, unknown>)?.demoUrl as string) ||
           null;
+        const preflight = readPreviewPreflight(data);
         if (demoUrl) setCurrentDemoUrl(demoUrl);
         onPreviewRefresh?.();
         const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
@@ -143,6 +145,7 @@ export function useSendMessage(
             chatId: String(chatId),
             versionId: String(resolvedVersionId),
             demoUrl: demoUrl ?? null,
+            preflight,
             assistantMessageId,
             setMessages,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),

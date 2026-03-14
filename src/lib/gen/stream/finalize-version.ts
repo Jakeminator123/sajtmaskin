@@ -48,7 +48,7 @@ export interface FinalizeParams {
 }
 
 export interface FinalizeResult {
-  version: { id: string };
+  version: Awaited<ReturnType<typeof chatRepo.createDraftVersion>>;
   messageId: string;
   previewUrl: string | null;
   filesJson: string;
@@ -217,7 +217,7 @@ export async function finalizeAndSaveVersion(
   previewBlockingReason = preflightResult.previewBlockingReason;
 
   // 6. Create version
-  const version = await chatRepo.createDraftVersion(chatId, assistantMsg.id, filesJson);
+  let version = await chatRepo.createDraftVersion(chatId, assistantMsg.id, filesJson);
   devLogAppend("in-progress", {
     type: "version.created",
     chatId,
@@ -312,10 +312,13 @@ export async function finalizeAndSaveVersion(
 
   if (hasVerificationBlockingPreflightErrors) {
     try {
-      await chatRepo.failVersionVerification(
+      const failedVersion = await chatRepo.failVersionVerification(
         version.id,
         preflightFailureSummary,
       );
+      if (failedVersion?.id) {
+        version = failedVersion;
+      }
       devLogAppend("in-progress", {
         type: "preflight.version.failed",
         chatId,

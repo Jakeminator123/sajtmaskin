@@ -19,6 +19,7 @@ import {
 } from "./helpers";
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
 import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import { readPreviewPreflight } from "./post-checks-preview";
 
 export type StreamContext = {
   streamType: "create" | "send";
@@ -186,40 +187,8 @@ export async function handleSseStream(
     } as Parameters<typeof appendToolPartToMessage>[2]);
   };
 
-  const parseDonePreflight = (doneData: Record<string, unknown>): PreviewPreflightState | null => {
-    const nested =
-      doneData.preflight && typeof doneData.preflight === "object"
-        ? (doneData.preflight as Record<string, unknown>)
-        : null;
-    const previewBlocked =
-      typeof nested?.previewBlocked === "boolean"
-        ? nested.previewBlocked
-        : typeof doneData.previewBlocked === "boolean"
-          ? (doneData.previewBlocked as boolean)
-          : null;
-    const verificationBlocked =
-      typeof nested?.verificationBlocked === "boolean"
-        ? nested.verificationBlocked
-        : typeof doneData.verificationBlocked === "boolean"
-          ? (doneData.verificationBlocked as boolean)
-          : null;
-    const previewBlockingReason =
-      typeof nested?.previewBlockingReason === "string"
-        ? nested.previewBlockingReason
-        : typeof doneData.previewBlockingReason === "string"
-          ? (doneData.previewBlockingReason as string)
-          : null;
-
-    if (previewBlocked === null && verificationBlocked === null && !previewBlockingReason) {
-      return null;
-    }
-
-    return {
-      previewBlocked: previewBlocked ?? false,
-      verificationBlocked: verificationBlocked ?? false,
-      previewBlockingReason,
-    };
-  };
+  const parseDonePreflight = (doneData: Record<string, unknown>): PreviewPreflightState | null =>
+    readPreviewPreflight(doneData);
 
   try {
     await consumeSseResponse(

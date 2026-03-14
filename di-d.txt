@@ -1,0 +1,455 @@
+Går det att göra om de här till enklare API-namn, eller måste de heta exakt så här? Kan du också sammanställa ett dokument som jag kan ge till min AI-agent på ett annat projekt som tillverkar en hemsida? Den kan då implementera det du nämner. Jag vill bara ha det på den här test-routen just nu för att testa att allt fungerar.
+
+Jag verifierar två saker innan jag skriver specen: vad Next.js kräver för publika env-vars, och vilka D-ID-attribut som faktiskt måste heta exakt på embedsidan. Sedan ger jag dig ett färdigt, klipp-och-klistra-dokument för din andra agent.
+
+Thought for 27s
+
+Ja — env-variablerna kan heta enklare, så länge koden läser exakt samma namn. Det som måste vara exakt är D-ID:s egna embed-attribut som data-client-key, data-agent-id, och för full mode även data-target-id. Däremot är dina egna env-namn valfria. I Next.js måste bara de värden som används i browsern ha prefixet NEXT_PUBLIC_.
+
+För lokal testning säger D-ID uttryckligen att du ska lägga till http://localhost:3000 i allowed_domains, och de rekommenderar separat development-agent/client key från produktion. Client keys är också avsedda att kunna användas i frontend, eftersom de låses till de domäner du anger.
+
+Här är den version jag tycker du ska köra nu, bara för test-routen /avatar:
+
+Rekommenderade env-namn
+
+De här är enklare och tydligare:
+
+NEXT_PUBLIC_AVATAR_AGENT_ID=
+NEXT_PUBLIC_AVATAR_CLIENT_KEY=
+
+Du behöver inte ha någon server-hemlighet alls om du redan har fått en fungerande client_key. D-ID:s embed kan köras direkt med bara script-taggen och de två värdena ovan.
+
+Dokument att ge till din andra AI-agent
+
+Kopiera allt nedan som instruktion/spec:
+
+# Implementeringsspec för D-ID avatar på test-route i Next.js
+
+## Mål
+Implementera en D-ID-agent endast på en test-route:
+
+- Lokal: `http://localhost:3000/avatar`
+- Produktion/test: `https://sajtmaskin.vercel.app/avatar`
+
+Ingen full integration i resten av sajten ännu. Bara en isolerad testsida för att verifiera att agenten fungerar i både dev och prod.
+
+## Teknikantaganden
+- Projektet använder Next.js med App Router.
+- Vi använder D-ID Embed i `full` mode.
+- Vi har redan fått:
+  - `agent_id`
+  - `client_key`
+
+## Viktigt
+D-ID:s embed-script kräver att följande HTML data-attribut heter exakt så här:
+- `data-client-key`
+- `data-agent-id`
+- `data-target-id` (för `full` mode)
+
+Däremot är våra egna env-variabler valfria. Eftersom värdena används i klientkod måste de i Next.js börja med `NEXT_PUBLIC_`.
+
+## Env-variabler
+Använd exakt dessa namn i projektet:
+
+```bash
+NEXT_PUBLIC_AVATAR_AGENT_ID=...
+NEXT_PUBLIC_AVATAR_CLIENT_KEY=...
+Lokal .env.local
+NEXT_PUBLIC_AVATAR_AGENT_ID=DIN_AGENT_ID
+NEXT_PUBLIC_AVATAR_CLIENT_KEY=DIN_CLIENT_KEY
+D-ID domain allowlist
+
+Se till att den D-ID client key som används är skapad med dessa allowed_domains:
+
+http://localhost:3000
+
+https://sajtmaskin.vercel.app
+
+Om vi senare vill testa på Vercel preview-domäner måste även den preview-origin läggas till i D-ID.
+
+Filstruktur
+
+Skapa dessa filer:
+
+app/
+  avatar/
+    page.tsx
+components/
+  avatar/
+    did-avatar-embed.tsx
+Fil: app/avatar/page.tsx
+import { DidAvatarEmbed } from "@/components/avatar/did-avatar-embed";
+
+export default function AvatarPage() {
+  return (
+    <main className="mx-auto max-w-6xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Avatar test</h1>
+      <p className="mt-2 text-sm text-neutral-600">
+        Testsida för D-ID-agenten på /avatar
+      </p>
+
+      <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <DidAvatarEmbed />
+      </div>
+    </main>
+  );
+}
+Fil: components/avatar/did-avatar-embed.tsx
+"use client";
+
+import { useEffect, useId, useRef } from "react";
+
+const AGENT_ID = process.env.NEXT_PUBLIC_AVATAR_AGENT_ID;
+const CLIENT_KEY = process.env.NEXT_PUBLIC_AVATAR_CLIENT_KEY;
+
+export function DidAvatarEmbed() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const uniqueId = useId().replace(/:/g, "");
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    if (!AGENT_ID || !CLIENT_KEY) {
+      console.error(
+        "Missing env vars: NEXT_PUBLIC_AVATAR_AGENT_ID or NEXT_PUBLIC_AVATAR_CLIENT_KEY"
+      );
+      return;
+    }
+
+    const targetId = `did-agent-container-${uniqueId}`;
+
+    root.innerHTML = "";
+
+    const container = document.createElement("div");
+    container.id = targetId;
+    container.style.width = "100%";
+    container.style.minHeight = "720px";
+    root.appendChild(container);
+
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "https://agent.d-id.com/v2/index.js";
+
+    script.setAttribute("data-mode", "full");
+    script.setAttribute("data-target-id", targetId);
+    script.setAttribute("data-client-key", CLIENT_KEY);
+    script.setAttribute("data-agent-id", AGENT_ID);
+
+    script.setAttribute("data-open-mode", "expanded");
+    script.setAttribute("data-auto-connect", "false");
+    script.setAttribute("data-show-agent-name", "false");
+    script.setAttribute("data-show-restart-button", "true");
+    script.setAttribute("data-track", "true");
+    script.setAttribute("data-speech-silence-timeout-ms", "700");
+
+    root.appendChild(script);
+
+    return () => {
+      root.innerHTML = "";
+    };
+  }, [uniqueId]);
+
+  if (!AGENT_ID || !CLIENT_KEY) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        Saknar env-vars: NEXT_PUBLIC_AVATAR_AGENT_ID eller
+        NEXT_PUBLIC_AVATAR_CLIENT_KEY
+      </div>
+    );
+  }
+
+  return <div ref={rootRef} />;
+}
+Vad som inte behövs just nu
+
+Implementera inte backend-route för att skapa client keys.
+Implementera inte webhook/tool ännu.
+Implementera inte agenten globalt i layout eller navbar.
+Detta ska bara fungera på /avatar.
+
+Vercel
+
+Lägg samma env-variabler i Vercel Project Settings:
+
+NEXT_PUBLIC_AVATAR_AGENT_ID
+
+NEXT_PUBLIC_AVATAR_CLIENT_KEY
+
+Använd motsvarande värden för production.
+
+Obs: eftersom NEXT_PUBLIC_* används i klientkod behöver appen deployas om efter att dessa värden ändras.
+
+Testplan
+
+Starta lokalt.
+
+Gå till http://localhost:3000/avatar
+
+Verifiera att avataren renderas.
+
+Verifiera att chatt/röst kan starta.
+
+Deploya till Vercel.
+
+Gå till https://sajtmaskin.vercel.app/avatar
+
+Verifiera att samma agent fungerar där.
+
+Vanliga fel
+
+NEXT_PUBLIC_AVATAR_AGENT_ID saknas
+
+NEXT_PUBLIC_AVATAR_CLIENT_KEY saknas
+
+http://localhost:3000 saknas i D-ID allowed_domains
+
+https://sajtmaskin.vercel.app saknas i D-ID allowed_domains
+
+fel agent_id
+
+appen har inte deployats om efter env-ändring
+
+Beslutsregel
+
+Behåll denna implementation minimal. Syftet är bara att få en fungerande testyta på /avatar.
+
+
+---
+
+## Mitt raka svar
+
+Du kan alltså byta från:
+
+```bash
+NEXT_PUBLIC_DID_AGENT_ID
+NEXT_PUBLIC_DID_CLIENT_KEY
+
+till:
+
+NEXT_PUBLIC_AVATAR_AGENT_ID
+NEXT_PUBLIC_AVATAR_CLIENT_KEY
+
+Det är helt okej. Det enda kravet är att:
+
+de börjar med NEXT_PUBLIC_ om de används i klientkod i Next.js, och
+
+att komponenten läser exakt samma namn.
+
+Om du vill, kan jag i nästa steg skriva detta som en ren markdown-fil eller anpassa det till exakt din tänkta projektstruktur, till exempel med src/app/avatar/page.tsx om du kör src/-layout.
+
+Men jag vuill ha en nedladdningsbar fil
+
+Jag gör en nedladdningsbar fil med hela implementationsspecen för /avatar, med env-namn, filstruktur, kod och testplan.
+
+Thought for 35s
+
+Här är filen:
+
+did-avatar-implementationsspec.md
+
+Jag kan också göra den som .docx om du vill ha något mer lättläst att skicka vidare.
+
+skriv ut den i .md så kan jag copy pejsta den
+
+Jag skriver ut hela markdown-filen här så att du kan kopiera rakt av.
+
+Thought for 12s
+# Implementeringsspec för D-ID avatar på test-route i Next.js
+
+## Mål
+
+Implementera en D-ID-agent endast på en test-route:
+
+- Lokal: `http://localhost:3000/avatar`
+- Produktion/test: `https://sajtmaskin.vercel.app/avatar`
+
+Ingen full integration i resten av sajten ännu. Bara en isolerad testsida för att verifiera att agenten fungerar i både dev och prod.
+
+## Teknikantaganden
+
+- Projektet använder Next.js med App Router.
+- Vi använder D-ID Embed i `full` mode.
+- Vi har redan fått:
+  - `agent_id`
+  - `client_key`
+
+## Viktigt
+
+D-ID:s embed-script kräver att följande HTML data-attribut heter exakt så här:
+
+- `data-client-key`
+- `data-agent-id`
+- `data-target-id` (för `full` mode)
+
+Däremot är våra egna env-variabler valfria. Eftersom värdena används i klientkod måste de i Next.js börja med `NEXT_PUBLIC_`.
+
+## Env-variabler
+
+Använd exakt dessa namn i projektet:
+
+```bash
+NEXT_PUBLIC_AVATAR_AGENT_ID=...
+NEXT_PUBLIC_AVATAR_CLIENT_KEY=...
+Lokal .env.local
+NEXT_PUBLIC_AVATAR_AGENT_ID=DIN_AGENT_ID
+NEXT_PUBLIC_AVATAR_CLIENT_KEY=DIN_CLIENT_KEY
+D-ID domain allowlist
+
+Se till att den D-ID client key som används är skapad med dessa allowed_domains:
+
+http://localhost:3000
+
+https://sajtmaskin.vercel.app
+
+Om vi senare vill testa på Vercel preview-domäner måste även den preview-origin läggas till i D-ID.
+
+Filstruktur
+
+Skapa dessa filer:
+
+app/
+  avatar/
+    page.tsx
+components/
+  avatar/
+    did-avatar-embed.tsx
+Fil: app/avatar/page.tsx
+import { DidAvatarEmbed } from "@/components/avatar/did-avatar-embed";
+
+export default function AvatarPage() {
+  return (
+    <main className="mx-auto max-w-6xl px-6 py-10">
+      <h1 className="text-2xl font-semibold">Avatar test</h1>
+      <p className="mt-2 text-sm text-neutral-600">
+        Testsida för D-ID-agenten på /avatar
+      </p>
+
+      <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <DidAvatarEmbed />
+      </div>
+    </main>
+  );
+}
+Fil: components/avatar/did-avatar-embed.tsx
+"use client";
+
+import { useEffect, useId, useRef } from "react";
+
+const AGENT_ID = process.env.NEXT_PUBLIC_AVATAR_AGENT_ID;
+const CLIENT_KEY = process.env.NEXT_PUBLIC_AVATAR_CLIENT_KEY;
+
+export function DidAvatarEmbed() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const uniqueId = useId().replace(/:/g, "");
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    if (!AGENT_ID || !CLIENT_KEY) {
+      console.error(
+        "Missing env vars: NEXT_PUBLIC_AVATAR_AGENT_ID or NEXT_PUBLIC_AVATAR_CLIENT_KEY"
+      );
+      return;
+    }
+
+    const targetId = `did-agent-container-${uniqueId}`;
+
+    root.innerHTML = "";
+
+    const container = document.createElement("div");
+    container.id = targetId;
+    container.style.width = "100%";
+    container.style.minHeight = "720px";
+    root.appendChild(container);
+
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "https://agent.d-id.com/v2/index.js";
+
+    script.setAttribute("data-mode", "full");
+    script.setAttribute("data-target-id", targetId);
+    script.setAttribute("data-client-key", CLIENT_KEY);
+    script.setAttribute("data-agent-id", AGENT_ID);
+
+    script.setAttribute("data-open-mode", "expanded");
+    script.setAttribute("data-auto-connect", "false");
+    script.setAttribute("data-show-agent-name", "false");
+    script.setAttribute("data-show-restart-button", "true");
+    script.setAttribute("data-track", "true");
+    script.setAttribute("data-speech-silence-timeout-ms", "700");
+
+    root.appendChild(script);
+
+    return () => {
+      root.innerHTML = "";
+    };
+  }, [uniqueId]);
+
+  if (!AGENT_ID || !CLIENT_KEY) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        Saknar env-vars: NEXT_PUBLIC_AVATAR_AGENT_ID eller
+        NEXT_PUBLIC_AVATAR_CLIENT_KEY
+      </div>
+    );
+  }
+
+  return <div ref={rootRef} />;
+}
+Vad som inte behövs just nu
+
+Implementera inte backend-route för att skapa client keys.
+Implementera inte webhook/tool ännu.
+Implementera inte agenten globalt i layout eller navbar.
+Detta ska bara fungera på /avatar.
+
+Vercel
+
+Lägg samma env-variabler i Vercel Project Settings:
+
+NEXT_PUBLIC_AVATAR_AGENT_ID
+
+NEXT_PUBLIC_AVATAR_CLIENT_KEY
+
+Använd motsvarande värden för production.
+
+Obs: eftersom NEXT_PUBLIC_* används i klientkod behöver appen deployas om efter att dessa värden ändras.
+
+Testplan
+
+Starta lokalt.
+
+Gå till http://localhost:3000/avatar
+
+Verifiera att avataren renderas.
+
+Verifiera att chatt/röst kan starta.
+
+Deploya till Vercel.
+
+Gå till https://sajtmaskin.vercel.app/avatar
+
+Verifiera att samma agent fungerar där.
+
+Vanliga fel
+
+NEXT_PUBLIC_AVATAR_AGENT_ID saknas
+
+NEXT_PUBLIC_AVATAR_CLIENT_KEY saknas
+
+http://localhost:3000 saknas i D-ID allowed_domains
+
+https://sajtmaskin.vercel.app saknas i D-ID allowed_domains
+
+fel agent_id
+
+appen har inte deployats om efter env-ändring
+
+Beslutsregel
+
+Behåll denna implementation minimal. Syftet är bara att få en fungerande testyta på /avatar.
+
+
+Om du vill kan jag också skriva ut en version med `src/app/avatar/page.tsx` ifall det andra projektet använder `src/`-struktur

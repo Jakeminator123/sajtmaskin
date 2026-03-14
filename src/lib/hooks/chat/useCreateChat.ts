@@ -19,6 +19,7 @@ import {
   writeCreateChatLock,
 } from "./helpers";
 import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 
 export function useCreateChat(
@@ -222,9 +223,14 @@ export function useCreateChat(
         const newChatId =
           data.id || data.chatId || data.v0ChatId || (data.chat as Record<string, unknown>)?.id;
         const newV0ProjectId = data.v0ProjectId || data.v0_project_id || null;
+        const preflight = readPreviewPreflight(data);
         const latestVersion = data.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
           data.versionId || latestVersion?.id || latestVersion?.versionId || null;
+        const resolvedDemoUrl =
+          (typeof data.demoUrl === "string" && data.demoUrl) ||
+          (typeof latestVersion?.demoUrl === "string" && latestVersion.demoUrl) ||
+          null;
 
         if (!newChatId) {
           throw new Error("No chat ID returned from API");
@@ -246,14 +252,14 @@ export function useCreateChat(
         }
         toast.success("Sajt skapad!");
 
-        if (latestVersion?.demoUrl) {
-          setCurrentDemoUrl(latestVersion.demoUrl as string);
+        if (resolvedDemoUrl) {
+          setCurrentDemoUrl(resolvedDemoUrl);
           onPreviewRefresh?.();
         }
         onGenerationComplete?.({
           chatId: String(newChatId),
           versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-          demoUrl: latestVersion?.demoUrl as string | undefined,
+          demoUrl: resolvedDemoUrl ?? undefined,
         });
         if (resolvedVersionId) {
           void triggerImageMaterialization({
@@ -266,7 +272,8 @@ export function useCreateChat(
           void runPostGenerationChecks({
             chatId: String(newChatId),
             versionId: String(resolvedVersionId),
-            demoUrl: (latestVersion?.demoUrl as string) ?? null,
+            demoUrl: resolvedDemoUrl,
+            preflight,
             assistantMessageId,
             setMessages,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),

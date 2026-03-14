@@ -29,7 +29,7 @@ createGenerationPipeline()  (fallback.ts)
 | `suspense/` | TransformStream rules that fix code during streaming (shadcn imports, Lucide icons, URL expansion). |
 | `autofix/` | Post-generation fixers: import validation, JSX check, dep completer. |
 | `parser.ts` | Parses fenced code blocks from streamed content. |
-| `preview.ts` | Builds preview HTML/URL via @vercel/sandbox. |
+| `preview/` | Preview runtime modules. `preview/index.ts` exposes `buildPreviewHtml()` and `buildPreviewUrl()`, while sibling files split resolution, CSS, transpilation, script assembly, and shims. |
 | `version-manager.ts` | Creates versions from content, parses files. |
 
 ## Fallback

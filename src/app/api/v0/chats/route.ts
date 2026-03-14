@@ -31,9 +31,8 @@ import {
   addMessage,
   listChatsByProject,
 } from "@/lib/db/chat-repository-pg";
-import { createVersionFromContent } from "@/lib/gen/version-manager";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
-import { buildPreviewUrl } from "@/lib/gen/preview";
+import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { streamText } from "ai";
 import { getOpenAIModel } from "@/lib/gen/models";
 import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
@@ -304,13 +303,27 @@ export async function POST(req: Request) {
             ownOrchestration.resolvedScaffold?.id,
           );
           await addMessage(chat.id, "user", optimizedMessage);
-          const assistantMsg = await addMessage(
-            chat.id,
-            "assistant",
-            fullContent,
-            usage?.outputTokens,
-          );
-          const version = await createVersionFromContent(chat.id, assistantMsg.id, fullContent);
+          const finalized = await finalizeAndSaveVersion({
+            accumulatedContent: fullContent,
+            chatId: chat.id,
+            model: engineModel,
+            resolvedScaffold: ownOrchestration.resolvedScaffold,
+            urlMap: {},
+            startedAt: genStartedAt,
+            tokenUsage: {
+              prompt: usage?.inputTokens,
+              completion: usage?.outputTokens,
+            },
+            logNote: "Done from sync create",
+          });
+          const latestVersion = finalized.version;
+          const verificationState = finalized.preflight.verificationBlocked
+            ? "failed"
+            : latestVersion.verification_state;
+          const verificationSummary = finalized.preflight.verificationBlocked
+            ? finalized.preflight.previewBlockingReason ||
+              "Automatic preflight found verification-blocking issues."
+            : latestVersion.verification_summary;
 
           try {
             await creditCheck.commit();
@@ -321,8 +334,8 @@ export async function POST(req: Request) {
           devLogAppend("latest", {
             type: "comm.response.create.sync",
             chatId: chat.id,
-            versionId: version.id,
-            demoUrl: version.sandbox_url,
+            versionId: latestVersion.id,
+            demoUrl: finalized.previewUrl,
             durationMs: Date.now() - genStartedAt,
           });
 
@@ -331,17 +344,22 @@ export async function POST(req: Request) {
               id: chat.id,
               internalChatId: chat.id,
               model: engineModel,
-              demoUrl: buildPreviewUrl(chat.id, version.id),
+              demoUrl: finalized.previewUrl,
+              preflight: finalized.preflight,
+              previewBlocked: finalized.preflight.previewBlocked,
+              verificationBlocked: finalized.preflight.verificationBlocked,
+              previewBlockingReason: finalized.preflight.previewBlockingReason,
               latestVersion: {
-                id: version.id,
-                versionId: version.id,
-                versionNumber: version.version_number,
-                demoUrl: buildPreviewUrl(chat.id, version.id),
-                sandboxUrl: version.sandbox_url,
-                releaseState: version.release_state,
-                verificationState: version.verification_state,
-                verificationSummary: version.verification_summary,
-                promotedAt: version.promoted_at,
+                id: latestVersion.id,
+                versionId: latestVersion.id,
+                versionNumber: latestVersion.version_number,
+                messageId: finalized.messageId,
+                demoUrl: finalized.previewUrl,
+                sandboxUrl: latestVersion.sandbox_url,
+                releaseState: latestVersion.release_state,
+                verificationState,
+                verificationSummary,
+                promotedAt: latestVersion.promoted_at,
               },
               usage: {
                 promptTokens: usage?.inputTokens ?? 0,
