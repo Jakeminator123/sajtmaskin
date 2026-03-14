@@ -7,8 +7,7 @@ export const ENGINE_VERSION_VERIFICATION_STATES = [
   "passed",
   "failed",
 ] as const;
-export type EngineVersionVerificationState =
-  (typeof ENGINE_VERSION_VERIFICATION_STATES)[number];
+export type EngineVersionVerificationState = (typeof ENGINE_VERSION_VERIFICATION_STATES)[number];
 
 export type EngineVersionLifecycleLike = {
   versionNumber?: number | null;
@@ -21,11 +20,9 @@ export type EngineVersionLifecycleLike = {
   verification_state?: string | null;
 };
 
-export type EngineVersionLifecycleStatus =
-  | "draft"
-  | "verifying"
-  | "failed"
-  | "promoted";
+export type EngineVersionLifecycleStatus = "draft" | "verifying" | "failed" | "promoted";
+
+export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
 
 export function resolveEngineVersionLifecycleStatus(
   version: EngineVersionLifecycleLike | null | undefined,
@@ -44,6 +41,25 @@ export function resolveEngineVersionLifecycleStatus(
   return "draft";
 }
 
+export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecycleLike>(
+  version: T | null | undefined,
+  versions: T[] = [],
+): EngineVersionDisplayStatus {
+  const lifecycleStatus = resolveEngineVersionLifecycleStatus(version);
+  if (lifecycleStatus !== "failed" || !version) {
+    return lifecycleStatus;
+  }
+
+  const currentSortKey = getVersionSortKey(version);
+  const hasNewerVersion = versions.some((candidate) => {
+    if (!candidate) return false;
+    if (candidate === version) return false;
+    return getVersionSortKey(candidate) > currentSortKey;
+  });
+
+  return hasNewerVersion ? "retrying" : "failed";
+}
+
 export function canExposeEnginePreview(
   version: EngineVersionLifecycleLike | null | undefined,
 ): boolean {
@@ -60,10 +76,7 @@ function getVersionSortKey(version: EngineVersionLifecycleLike): number {
   if (!createdAt) {
     return 0;
   }
-  const timestamp =
-    createdAt instanceof Date
-      ? createdAt.getTime()
-      : Date.parse(createdAt);
+  const timestamp = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
@@ -88,5 +101,7 @@ export function selectPreferredEngineVersion<T extends EngineVersionLifecycleLik
     return latestPromoted;
   }
 
-  return sorted.find((version) => resolveEngineVersionLifecycleStatus(version) !== "failed") ?? sorted[0];
+  return (
+    sorted.find((version) => resolveEngineVersionLifecycleStatus(version) !== "failed") ?? sorted[0]
+  );
 }

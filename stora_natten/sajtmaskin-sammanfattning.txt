@@ -1,0 +1,151 @@
+Sammanfattning av diskussionen om sajtmaskin och branchen stortest
+
+1. Grundfrågan: hur man kör tunga/dyra modeller smartare i stora repo
+
+Vi gick först igenom hur man kan få nästan samma kvalitet som de dyraste modellerna, men till lägre kostnad, särskilt i stora Cursor-repon med mycket instruktioner, MCP-servrar och stor kontext.
+
+Huvudpoängen var att optimera hur kontext byggs, inte bara vilken modell som används.
+
+De viktigaste råden var:
+- tryck inte in hela repot och alla instruktioner i varje prompt
+- använd en chat per uppgift eller fas
+- håll regler korta och lokala
+- dela upp arbetet i Research -> Plan -> Execute
+- spara sammanfattningar i markdown-filer i repot så att modellen slipper återläsa allt
+- använd dyr modell för tänkande och planering, billigare modell för mindre ändringar
+- bygg små AI-briefingfiler som beskriver arkitektur, domänregler och arbetsflöden
+- håll MCP-svar smala och strukturerade i stället för att hämta stora dokument
+
+Den viktigaste slutsatsen där var:
+komprimera kunskap till återanvändbara artefakter i repot, inte till långa chattsessioner.
+
+
+2. Genomgång av Jakeminator123/sajtmaskin, branch stortest
+
+Vi tittade sedan på repot Jakeminator123/sajtmaskin och branchen stortest.
+
+Den grenen såg ut att försöka förbättra tre saker:
+- egen preview-rendering
+- tydligare diagnostics och preflight
+- post-checks, autofix och quality gate
+
+Det bedömdes som en bra riktning produktmässigt.
+
+Saker som såg bra ut:
+- preview.ts hade byggts ut till en ganska avancerad preview-motor
+- preview-diagnostics.ts centraliserade felkoder och diagnostic-logik
+- post-checks.ts gjorde diffing, route-check, SEO-check, sanity-check, image validation, quality gate och autofix-routing
+- finalize-version.ts knöt ihop preflight, repair, preview-blockering, loggar och versionssparande
+- det fanns flera tester för preview-relaterade beteenden
+
+Samtidigt såg vi tydliga strukturella problem.
+
+Den största invändningen var att src/lib/gen/preview.ts hade blivit för stor och gjorde för många saker samtidigt, till exempel:
+- route-val
+- import parsing
+- transpilation
+- CSS-normalisering
+- UI-shims
+- diagnostics
+- HTML-rendering
+
+Det gör filen dyr att underhålla, svår att testa och sämre för AI-assisterad utveckling.
+
+Även post-checks.ts bedömdes som för stor, eftersom den blandade analys, sammanfattning, loggning, autofix och quality gate i samma flöde.
+
+Vi noterade också att diagnostics började bli bättre centraliserade, men fortfarande var spridda över flera lager:
+- preview script
+- preview route
+- finalize-version
+- post-checks
+
+Det fanns också en försiktig invändning mot att preview-motorn försökte emulera allt fler bibliotek och UI-primitives, vilket riskerar att göra den till en mini-framework-klon i stället för en tydligt avgränsad preview-motor.
+
+Kort dom på stortest:
+- produktmässigt: stark förbättring
+- arkitekturmässigt: börjar bli för monolitisk
+- underhållsmässigt: risk att bli dyr snart
+- AI-vänlighet: sämre än den behöver vara, främst på grund av stora orkestreringsfiler
+
+
+3. Vad som verkade mest värt att göra
+
+Vi tog sedan fram vad som var mest rimligt att göra i branchen.
+
+De viktigaste förbättringarna som nämndes var:
+- dela upp preview.ts i mindre moduler
+- dela upp post-checks.ts i analysdelar och orkestrering
+- låt preview-diagnostics.ts fortsätta vara source of truth
+- lägg till fler tester, särskilt skyddande tester för preview- och preflight-beteende
+- på sikt kan man överväga registry/plugin-liknande shim-system och bättre gränser för vad previewn ska stödja
+
+Men allt detta hade olika grad av säkerhet.
+
+
+4. Vad jag var mest säker på
+
+När du bad om att bara ta sådant jag kände mig väldigt säker på blev rekommendationen mer försiktig och konkret.
+
+Det mest säkra bedömdes vara:
+
+A. Dela upp src/lib/gen/preview.ts
+Det här sågs som den tydligaste vinsten.
+
+Förslaget var att bryta ut logiken till flera filer, till exempel:
+- route-resolution.ts
+- import-parser.ts
+- transpile.ts
+- validation.ts
+- html.ts
+- css.ts
+- shims.ts
+- index.ts
+
+Viktigt: börja utan att ändra beteendet. Flytta bara kod.
+
+B. Dela upp post-checks.ts
+Även den filen sågs som för tung.
+
+En säker första split vore till exempel:
+- diff.ts
+- routes.ts
+- seo.ts
+- summary.ts
+- run-post-checks.ts
+
+Tanken var att först flytta ut rena hjälpfunktioner, och låta runPostGenerationChecks vara kvar som tunn orkestrerare.
+
+C. Fortsätt centralisera diagnostics i preview-diagnostics.ts
+Det här bedömdes redan vara rätt tänkt.
+
+Rekommendationen var att inte lägga in fler hårdkodade preview-koder i andra filer, utan fortsätta importera typer och koder därifrån.
+
+D. Lägg till fler tester i samma stil som de befintliga
+De tester som redan fanns i preview.test.ts bedömdes som bra.
+
+Det som sågs som säkra testförbättringar var:
+- test för route.ts när version saknas
+- test för buildPreviewHtml när ingen renderbar page finns
+- test för att previewUrl blir null när preflight blockerar i finalize-version-flödet
+
+
+5. Rekommenderad ordning
+
+Den mest stabila och säkra ordningen för vidare arbete blev:
+1. split preview.ts
+2. split post-checks.ts
+3. håll preview-diagnostics.ts som source of truth
+4. lägg till några skyddande tester
+
+Det uttrycktes som saker som var bekväma att göra utan att känna att man chansar.
+
+
+6. Huvudslutsats
+
+Den samlade bilden innan pengarsnacket var ungefär denna:
+- du har byggt något som ser mer seriöst ut än en tunn demo eller enkel wrapper
+- riktningen i stortest är bra
+- den största risken ligger inte i idén, utan i att implementationen börjar bli för monolitisk
+- den säkraste förbättringen är att dela upp stora filer utan att ändra logik
+- bättre modularisering kommer hjälpa både underhåll, testning och AI-assisterat arbete i repot
+

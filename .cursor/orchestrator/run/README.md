@@ -23,5 +23,6 @@ Optional supporting directories:
 - `context/compiled-input/`
 - `artifacts/`
 
-Keep old runs in this folder. Do not create a second active `runs/` root elsewhere.
+When a run is complete (FINAL_SWEEP + FINAL_REPORT done), archive it with `powershell -File ".cursor/orchestrator/scripts/archive-completed-runs.ps1" -RunName "<YYYY-MM-DD>-<slug>"`. This moves it to `.cursor/orchestrator/archive/<YYYY-MM-DD>-<slug>-<HHMMSS>/`, appends a summary to `.cursor/orchestrator/run-summaries.md`, and keeps `run/` lean.
+
 This folder is intended to be local and gitignored apart from this `README.md`.

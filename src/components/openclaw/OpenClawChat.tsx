@@ -149,13 +149,18 @@ export function OpenClawChat() {
   const showRouteTeaser = content.showTeaser && !isOpen && showTeaser;
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(() => {
       setShowTeaser(false);
-    }
+    });
+    return () => cancelAnimationFrame(frame);
   }, [isOpen]);
 
   useEffect(() => {
-    setShowTeaser(true);
+    const frame = requestAnimationFrame(() => {
+      setShowTeaser(true);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [pathname]);
 
   useEffect(() => {
@@ -181,9 +186,9 @@ export function OpenClawChat() {
   };
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-50 flex flex-col items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end">
+    <div className="pointer-events-none fixed inset-x-3 bottom-3 z-50 flex flex-col items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end">
       {showRouteTeaser ? (
-        <div className="w-full max-w-[22rem] self-end overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/90 text-slate-50 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl">
+        <div className="pointer-events-auto w-full max-w-88 self-end overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/90 text-slate-50 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl">
           <div className="bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.26),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.22),transparent_38%)] px-4 py-4">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
@@ -234,10 +239,10 @@ export function OpenClawChat() {
       {/* Chat panel */}
       <div
         className={cn(
-          "origin-bottom-right transition-all duration-200 ease-out",
+          "self-end overflow-hidden origin-bottom-right transition-all duration-200 ease-out",
           isOpen
-            ? "pointer-events-auto scale-100 opacity-100"
-            : "pointer-events-none scale-95 opacity-0",
+            ? "pointer-events-auto max-h-[min(500px,calc(100vh-7rem))] scale-100 opacity-100"
+            : "max-h-0 scale-95 opacity-0",
         )}
       >
         <OpenClawChatPanel onClose={close} content={content.panel} />
@@ -248,7 +253,7 @@ export function OpenClawChat() {
         type="button"
         onClick={handleOpen}
         className={cn(
-          "group relative flex self-end items-center gap-3 overflow-hidden rounded-full border px-4 py-3 shadow-lg transition-all duration-200",
+          "pointer-events-auto group relative flex self-end items-center gap-3 overflow-hidden rounded-full border px-4 py-3 shadow-lg transition-all duration-200",
           isOpen
             ? "border-border bg-muted text-muted-foreground hover:bg-muted/90"
             : "border-cyan-400/30 bg-slate-950 text-slate-50 shadow-cyan-950/40 hover:-translate-y-0.5",

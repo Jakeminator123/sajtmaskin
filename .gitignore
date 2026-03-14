@@ -57,6 +57,7 @@ Thumbs.db
 .cursor/orchestrator/run/**
 !.cursor/orchestrator/run/
 !.cursor/orchestrator/run/README.md
+.cursor/orchestrator/archive/
 .cursor/automation/runs/**
 .cursor/automation/archive/**
 .cursor/automation/input/**
@@ -155,5 +156,6 @@ research/external-templates/repo-cache/**
 vercel_usecase_next_react_templates/
 _sidor/
 research/_sidor/
+_input_for_cursor/
 # <<< cursor-gpt automation local artifacts <<<
 

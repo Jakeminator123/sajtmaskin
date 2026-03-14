@@ -10,7 +10,7 @@ interface RouteParams {
  * GET /api/projects/[id]/files
  *
  * Returns files for a project.
- * Files are stored in project_data.files (from v0 generation).
+ * Files are stored in project_data.files (synced from v0 or own-engine on save).
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {

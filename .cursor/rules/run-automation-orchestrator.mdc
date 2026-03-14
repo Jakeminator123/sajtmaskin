@@ -22,7 +22,8 @@ uses any of these startup triggers:
 
 - New run artifacts belong in `.cursor/orchestrator/run/<YYYY-MM-DD>-<slug>/`.
 - Do not create new outputs in `.cursor/automation/runs/`.
-- Keep completed dated folders under `run/`; that folder is the archive.
+- Before starting a new run, execute `powershell -File ".cursor/orchestrator/scripts/archive-completed-runs.ps1"` from the repo root.
+- When a run is complete, execute `powershell -File ".cursor/orchestrator/scripts/archive-completed-runs.ps1" -RunName "<YYYY-MM-DD>-<slug>"` to archive it to `.cursor/orchestrator/archive/<YYYY-MM-DD>-<slug>-<HHMMSS>/` and append a summary to `.cursor/orchestrator/run-summaries.md`. The archive is cursor-ignored and git-ignored.
 
 ## Required artifacts
 

@@ -12,7 +12,8 @@ Use this skill for long, structured, multi-step execution that should be tracked
 1. Read `.cursor/orchestrator/PROTOCOL.md`.
 2. Use `.cursor/rules/terminology.mdc` for canonical run terms.
 3. Treat `/orchestrator` and `/automation` as the valid compact aliases for the same flow.
-4. Create or continue a dated folder in `.cursor/orchestrator/run/`.
+4. Before starting a new run, execute `powershell -File ".cursor/orchestrator/scripts/archive-completed-runs.ps1"` from the repo root so completed runs leave `run/`.
+5. Create or continue a dated folder in `.cursor/orchestrator/run/`.
 
 ## Non-negotiable rules
 
@@ -72,5 +73,5 @@ Use `context/raw-input/`, `context/compiled-input/`, and `artifacts/` when they 
 
 - Keep names stable: `orchestrator run`, `orchestrator agent`, `run roadmap`, `agent log`, `final sweep`.
 - Use `track plan` for the intermediate tier instead of inventing new names mid-run.
-- Keep old completed runs under `.cursor/orchestrator/run/`; do not create a second archive root.
+- When a run is complete (FINAL_SWEEP + FINAL_REPORT done), execute `powershell -File ".cursor/orchestrator/scripts/archive-completed-runs.ps1" -RunName "<YYYY-MM-DD>-<slug>"` to archive it and append a short summary to `.cursor/orchestrator/run-summaries.md`. The archive is cursor-ignored and git-ignored.
 - Treat `.cursor/automation/` as legacy reference only unless the user explicitly asks to inspect it.
