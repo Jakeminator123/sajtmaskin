@@ -27,3 +27,11 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Shared stream helper module extracted and used by both create and follow-up stream routes
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-14-runtime-atomisering-v2-155533/`
 
+## 2026-03-14-runtime-stream-route-safety (archived 2026-03-14 18:00)
+- **Scope:** Strengthened runtime-lane stream-route safety with direct own-engine characterization tests before any new helper extraction.
+- **Workloads:** 4 completed, 4 verified.
+- **Outcome:** Documented a fresh baseline, scope freeze, risk list, and next safe workload sequence
+- **Outcome:** Added direct own-engine create-route characterization tests
+- **Outcome:** Added a direct follow-up clarification-path test and kept `preview/shims.ts` deferred
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-14-runtime-stream-route-safety-180045/`
+
