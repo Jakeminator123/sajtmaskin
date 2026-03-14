@@ -15,7 +15,7 @@
 
 `vercel_templates_levels/tests/scrape-catalog.spec.ts` is active and now writes
 builder-compatible raw discovery data, not just a thin catalog prototype.
-The supporting filter-panel notes in `next_sidan_skrapning.txt` have now been
+The supporting filter-panel notes in `docs/old/2026-03-holding-area/next-sidan-skrapning.txt` have now been
 captured in `vercel_templates_levels/TEMPLATE_INTAKE_POLICY.md`, so DevTools
 findings are no longer just ad-hoc chat context.
 

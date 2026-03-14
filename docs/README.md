@@ -23,9 +23,11 @@ documentation.
   Planning material split by lifecycle state:
   `active/`, `review-needed/`, and `archived/`.
 - `docs/analyses/`
-  Broader analysis, matrix, and polish notes.
+  Broader analysis, matrix, polish notes, and consolidated working-note buckets
+  such as `2026-03-smb-orchestration-notes/`.
 - `docs/old/`
-  Historical, superseded, or uncertain material kept for reference.
+  Historical, superseded, or uncertain material kept for reference, including
+  temporary holding-area archives before later pruning.
 
 ## Source of truth policy
 

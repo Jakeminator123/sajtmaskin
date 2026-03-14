@@ -75,7 +75,7 @@ See:
 
 ## DevTools proof
 
-`next_sidan_skrapning.txt` confirms the left filter panel exposes these groups:
+`docs/old/2026-03-holding-area/next-sidan-skrapning.txt` confirms the left filter panel exposes these groups:
 
 - `Use Case`
 - `Framework`

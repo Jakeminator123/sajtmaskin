@@ -54,6 +54,91 @@ Användarens prompt
 └──────────────────────────────┘
 ```
 
+## Own-engine preview model
+
+The default own-engine preview is **not** a full Node.js build of the generated
+app. It is a fast internal preview surface that renders a self-contained HTML
+view from the saved version files.
+
+What that means in practice:
+
+- the engine generates code and saves a version
+- the preview route loads the saved files
+- the preview layer builds self-contained HTML for the iframe
+- this is cheaper and faster than booting a full sandbox for every generation
+- it is useful for fast iteration, but it is not identical to a real deployed runtime
+
+When you need something closer to a real Node.js runtime, the intended path is
+Sandbox or actual deployment, not the default preview iframe.
+
+## Own-engine runtime flow
+
+```mermaid
+flowchart TD
+    userPrompt[Anvandarprompt] --> ingress[BuilderOrApiIngress]
+
+    subgraph orchestration [OrchestrationLayer]
+        ingress --> promptNormalization[PromptNormalisering]
+        promptNormalization --> contextOrchestration[ContextOrchestration]
+        contextOrchestration --> scaffoldSelection[RuntimeScaffoldSelection]
+        scaffoldSelection --> capabilityInference[CapabilityInference]
+        capabilityInference --> systemPromptAssembly[SystemPromptAssembly]
+        systemPromptAssembly --> modelResolution[ModelResolution]
+    end
+
+    subgraph generation [GenerationLayer]
+        modelResolution --> ownEngine[OwnEngineGenerationPipeline]
+        ownEngine --> streamedOutput[StreamedAiOutput]
+        streamedOutput --> outputComplete{OutputKomplett}
+        outputComplete -->|Nej| awaitingInput[AwaitingInputIngenVersion]
+        outputComplete -->|Ja| accumulatedContent[AccumulatedGenerationContent]
+    end
+
+    subgraph finalization [FinalizationLayer]
+        accumulatedContent --> autofix[Autofix]
+        autofix --> syntaxValidation[SyntaxValidationAndRepair]
+        syntaxValidation --> urlExpansion[UrlExpansionAndImageMaterialization]
+        urlExpansion --> parseGeneratedFiles[ParseGeneratedFiles]
+        parseGeneratedFiles --> mergeFiles[MergeWithScaffoldOrPreviousVersion]
+        mergeFiles --> importChecks[ImportChecks]
+        importChecks --> previewPreflight[PreviewPreflight]
+        previewPreflight --> sanityChecks[ProjectSanityChecks]
+        sanityChecks --> persistAssistant[PersistAssistantMessage]
+        persistAssistant --> persistVersion[PersistVersionFiles]
+    end
+
+    subgraph preview [RuntimePreviewLayer]
+        persistVersion --> previewPassed{PreviewPreflightPassed}
+        previewPassed -->|Ja| previewUrl[GenerateOwnPreviewUrl]
+        previewPassed -->|Nej| previewBlocked[VersionSavedPreviewBlocked]
+        previewUrl --> previewRender[GetApiPreviewRender]
+        previewRender --> loadFiles[LoadFilesFromPostgres]
+        loadFiles --> buildHtml[BuildSelfContainedPreviewHtml]
+        buildHtml --> iframePreview[IframeRuntimePreview]
+    end
+
+    subgraph postGeneration [PostGenerationControlLayer]
+        previewUrl --> postChecks[PostChecks]
+        previewBlocked --> postChecks
+        postChecks --> versionDiffing[VersionDiffing]
+        versionDiffing --> healthChecks[PreviewHealthSeoRouteChecks]
+        healthChecks --> qualityGate[QualityGateSandbox]
+        qualityGate --> repairNeeded{RepairNeeded}
+        repairNeeded -->|Ja| autofixFollowup[AutofixFollowupRequest]
+        autofixFollowup --> ingress
+        repairNeeded -->|Nej| accepted[VersionAcceptedReadinessState]
+    end
+
+    subgraph deployment [DeploymentLayer]
+        accepted --> publishRequested{PublishRequested}
+        publishRequested -->|Ja| loadPersistedVersion[LoadPersistedVersionFiles]
+        loadPersistedVersion --> predeployFixes[PredeployFixes]
+        predeployFixes --> blobMaterialization[BlobMaterialization]
+        blobMaterialization --> vercelDeploy[VercelDeploymentApi]
+        vercelDeploy --> deployedRuntime[PermanentDeployedRuntime]
+    end
+```
+
 ## Modellmappning (egen motor)
 
 Canonical build profiles live in `docs/schemas/model-build-profiles.md`.
@@ -94,7 +179,7 @@ Import-checker körs efter merge.
 | 12 suspense-regler | `src/lib/gen/suspense/rules/*` | Fungerar |
 | 7-stegs autofix | `src/lib/gen/autofix/*` | Fungerar |
 | Scaffold-import-checker | `src/lib/gen/autofix/rules/scaffold-import-checker.ts` | Ny |
-| finalizeAndSaveVersion | `src/lib/gen/stream/finalize-version.ts` | Ny |
+| finalizeAndSaveVersion | `src/lib/gen/stream/finalize-version.ts` + `src/lib/gen/stream/finalize-*.ts` | Förbättrad |
 | Empty-output guard | `src/lib/gen/stream/finalize-version.ts` + stream routes | Ny |
 | AI SDK stream-event loggning | `src/lib/gen/stream-format.ts` | Ny |
 | Merge med varningar | `src/lib/gen/version-manager.ts` | Förbättrad |
@@ -103,7 +188,7 @@ Import-checker körs efter merge.
 | Säkerhetsmodul | `src/lib/gen/security/*` | Fungerar |
 | 50 docs-snippets + KB | `src/lib/gen/data/docs-snippets.ts` | Fungerar |
 | 792 Lucide-ikoner | `src/lib/gen/data/lucide-icons.ts` | Fungerar |
-| Preview-render | `src/lib/gen/preview.ts` | Fungerar |
+| Preview-render | `src/lib/gen/preview/*` | Fungerar |
 | Projekt-scaffold | `src/lib/gen/project-scaffold.ts` | Fungerar |
 | 10 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
 | Plan-mode + review-step | `src/app/api/v0/chats/stream/route.ts`, `src/app/api/v0/chats/[chatId]/stream/route.ts`, `src/components/builder/BuildPlanCard.tsx` | Ny |
