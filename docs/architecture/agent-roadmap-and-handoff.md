@@ -4,7 +4,7 @@ This file is the operational handoff index for plan artifacts. Use it when a new
 agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
-Status re-verified against the numbered plan set on `2026-03-12`.
+Status re-verified against the current plan set on `2026-03-14`.
 
 ## Status legend
 
@@ -38,11 +38,9 @@ Status re-verified against the numbered plan set on `2026-03-12`.
   under `.cursor/orchestrator/run/` rather than `docs/plans/`. Treat those dated
   run folders as operational ledgers, not as canonical roadmap docs.
 - Completed operational sweep:
-  `docs/plans/review-needed/2026-03-bug-recheck-sweep.md` records the March 2026
-  `jakob` bug recheck implementation pass. The implementation itself is done;
-  the file sits in `review-needed/` only as a physical fallback because the
-  `archived/` bucket was not writable in the active editor environment during
-  closeout.
+  `docs/plans/archived/2026-03-bug-recheck-sweep.md` records the March 2026
+  `jakob` bug recheck implementation pass. The implementation is complete and the
+  file is now physically archived.
 - Phase `7` is archived: lifecycle-aware readiness, diagnostics, preview
   labeling, and deploy gating are implemented and part of the active builder
   path.
@@ -64,7 +62,7 @@ Status re-verified against the numbered plan set on `2026-03-12`.
 4. `docs/architecture/project-settings-and-builder-questions.md`
 5. `docs/architecture/generation-loop-and-error-memory.md`
 6. `docs/plans/README.md`
-7. The relevant `active` plan files
+7. The relevant `docs/plans/active/` plan files
 
 ## Legacy carryovers already absorbed
 
@@ -87,10 +85,3 @@ When picking up old roadmap work:
   conclusions have been promoted into `docs/`
 - move fully completed or clearly superseded material to `docs/plans/archived/`
 - update this file whenever a numbered plan changes status
-
-## Migration note
-
-The folder structure now reserves explicit buckets for `active`,
-`review-needed`, and `archived` plan material. The active numbered plans still
-live in `docs/plans/` root during migration, so this file is the canonical
-status map until those files are physically moved.

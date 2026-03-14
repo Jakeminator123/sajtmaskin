@@ -5,11 +5,7 @@ uncertain enough that they need a fresh truth check before reuse.
 
 Current review-needed set:
 
-- `2026-03-bug-recheck-sweep.md`
+- None currently.
 
-This specific file is implementation-complete but parked here temporarily because
-the `archived/` bucket was not writable in the active editor environment during
-closeout.
-
-After verification, move a plan either to `../active/` if it becomes current
-again or to `../archived/` if it is done or obsolete.
+When a plan here becomes current again, move it to `../active/`.
+When it is completed or clearly obsolete, move it to `../archived/`.

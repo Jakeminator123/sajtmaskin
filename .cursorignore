@@ -20,11 +20,18 @@ coverage
 tsconfig.tsbuildinfo
 package-lock.json
 
-# Local env / secrets
-#.env
-#".env.*
-#.env.local
-#.env.production
+# Local env / secrets / local status
+.env
+.env.*
+.env.local
+.env.production
+.token-status.json
+
+# Local browser / automation config
+config.browser.txt
+config.txt
+config.example.txt
+sajtmaskin.code-workspace
 
 # Large media
 public/video/
@@ -56,6 +63,13 @@ services/mpc/docs/*llms*
 services/mpc/docs/shad/
 services/mpc/logs/
 
+# Local Cursor session state and legacy automation traces
+.cursor/plans/
+.cursor/documents/
+.cursor/automation/runs/
+.cursor/automation/archive/
+.cursor/automation/input/
+
 # Archived or low-signal docs
 docs/old/
 docs/plans/archived/
@@ -65,7 +79,12 @@ old/
 #skrapning/
 ovrigt/
 .preprompt_history.json
-.vercel/output/
+.vercel/
+logs/
+manual_log/
+input_files_for_cursor/
+DOM_dev_tols.txt
+chat_till_vanster.txt
 
 # Orchestrator run folders (use exact paths; reduces indexing tokens)
 .cursor/orchestrator/run/*/

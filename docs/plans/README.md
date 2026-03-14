@@ -1,6 +1,6 @@
 # Plans
 
-This area now uses explicit lifecycle buckets instead of treating every plan as
+This area uses explicit lifecycle buckets instead of treating every plan as
 equally current.
 
 ## Buckets
@@ -13,26 +13,20 @@ equally current.
 - `archived/`
   Completed or superseded plans kept only for traceability.
 
-## Transitional note
-
-The active numbered plans still physically live in `docs/plans/` root while the
-folder structure is being normalized. Until they are moved, treat
-`docs/architecture/agent-roadmap-and-handoff.md` as the canonical status map.
-
 ## Current status map
 
 Verified against `docs/architecture/agent-roadmap-and-handoff.md` on
-`2026-03-12`.
+`2026-03-14`.
 
 `active`
 
-- `06-world-class-builder-roadmap.md`
-- `09-world-class-builder-phase-3-smb-growth.md`
-- `10-world-class-builder-phase-4-learning-moat.md`
+- `active/06-world-class-builder-roadmap.md`
+- `active/09-world-class-builder-phase-3-smb-growth.md`
+- `active/10-world-class-builder-phase-4-learning-moat.md`
 
 `review-needed`
 
-- `review-needed/2026-03-bug-recheck-sweep.md`
+- None currently.
 
 `archived`
 
@@ -46,6 +40,8 @@ Verified against `docs/architecture/agent-roadmap-and-handoff.md` on
 - `archived/11-next-vercel-build-plan-core-config.md`
 - `archived/12-next-vercel-build-plan-server-routes.md`
 - `archived/13-next-vercel-build-plan-ui-performance.md`
+- `archived/2026-03-bug-recheck-sweep.md`
+- `archived/2026-03-openclaw-rollout-roadmap.md`
 
 These are planning artifacts, not runtime documentation. New plan files should
 be created in `docs/plans/active/`, not in this root folder.
