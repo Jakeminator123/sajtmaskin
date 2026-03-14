@@ -51,10 +51,7 @@ function readKostnadsfriSurfaceContext(): KostnadsfriOpenClawSurfaceContext | nu
   if (!rawSurface || typeof rawSurface !== "object") return null;
 
   const rawCompanyName = (rawSurface as Record<string, unknown>).companyName;
-  const companyName =
-    typeof rawCompanyName === "string"
-      ? rawCompanyName.trim()
-      : "";
+  const companyName = typeof rawCompanyName === "string" ? rawCompanyName.trim() : "";
 
   if (!companyName) return null;
 
@@ -81,31 +78,31 @@ function getKostnadsfriSurfaceContent(
   const introTitle = config?.introTitle || `Hej! Jag kan bli ${companyName}s Sajtagent.`;
   const introBody =
     config?.introBody ||
-    `Jag kan skissa pa hur en OpenClaw-agent for ${companyName} kan ta emot fragor, guida besokare och driva fler forfragningar direkt pa sajten.`;
+    `Jag kan skissa på hur en OpenClaw-agent för ${companyName} kan ta emot frågor, guida besökare och driva fler förfrågningar direkt på sajten.`;
   const starterPrompts = config?.starterPrompts?.length
     ? config.starterPrompts
     : [
-        `Hur skulle en digital receptionist for ${companyName} kunna lata?`,
-        `Vilka fragor borde Sajtagenten kunna svara pa for ${companyName}?`,
-        `Hur kan OpenClaw hjalpa ${companyName} att fa fler leads?`,
+        `Hur skulle en digital receptionist för ${companyName} kunna låta?`,
+        `Vilka frågor borde Sajtagenten kunna svara på för ${companyName}?`,
+        `Hur kan OpenClaw hjälpa ${companyName} att få fler leads?`,
       ];
 
   return {
     panel: {
-      badgeLabel: "OpenClaw forhandsvisning",
+      badgeLabel: "OpenClaw förhandsvisning",
       assistantLabel: companyName,
       idleStatus: roleLabel,
       emptyTitle: introTitle,
       emptyBody: introBody,
-      inputPlaceholder: `Fraga om agenten for ${companyName}...`,
+      inputPlaceholder: `Fråga om agenten för ${companyName}...`,
       starterPrompts,
     },
     teaserTitle: `Visa ${companyName} med ${roleLabel}`,
     teaserBody: introBody,
-    teaserTags: ["Foretagston", "FAQ", "Lead capture"],
-    teaserCta: `Prova Sajtagenten for ${companyName}`,
+    teaserTags: ["Företagston", "FAQ", "Lead capture"],
+    teaserCta: `Prova Sajtagenten för ${companyName}`,
     fabTitle: "Sajtagenten",
-    fabSubtitle: `For ${companyName}`,
+    fabSubtitle: `För ${companyName}`,
     showTeaser: true,
   };
 }
@@ -125,11 +122,11 @@ function getSurfaceContent(
     panel: DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT,
     teaserTitle: "Ge din sajt en digital receptionist",
     teaserBody:
-      "Sajtagenten kan guida besokare, svara pa vanliga fragor och visa hur hemsidan kan kannas mer levande direkt pa sajten.",
+      "Sajtagenten kan guida besökare, svara på vanliga frågor och visa hur hemsidan kan kännas mer levande direkt på sajten.",
     teaserTags: ["FAQ", "Lead capture", "SMB tone"],
     teaserCta: "Prova Sajtagenten",
     fabTitle: "Sajtagenten",
-    fabSubtitle: "AI-hjalp pa sajten",
+    fabSubtitle: "AI-hjälp på sajten",
     showTeaser: pathname === "/",
   };
 }
@@ -192,22 +189,18 @@ export function OpenClawChat() {
           <div className="bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.26),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.22),transparent_38%)] px-4 py-4">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-cyan-200">
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium tracking-[0.2em] text-cyan-200 uppercase">
                   <Sparkles className="h-3.5 w-3.5" />
                   {content.panel.badgeLabel}
                 </div>
-                <p className="text-sm font-semibold text-white">
-                  {content.teaserTitle}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-300">
-                  {content.teaserBody}
-                </p>
+                <p className="text-sm font-semibold text-white">{content.teaserTitle}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">{content.teaserBody}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowTeaser(false)}
                 className="rounded-full border border-white/10 bg-white/5 p-1.5 text-slate-300 transition-colors hover:text-white"
-                aria-label="Dolj OpenClaw-intro"
+                aria-label="Dölj OpenClaw-intro"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -239,7 +232,7 @@ export function OpenClawChat() {
       {/* Chat panel */}
       <div
         className={cn(
-          "self-end overflow-hidden origin-bottom-right transition-all duration-200 ease-out",
+          "origin-bottom-right self-end overflow-hidden transition-all duration-200 ease-out",
           isOpen
             ? "pointer-events-auto max-h-[min(500px,calc(100vh-7rem))] scale-100 opacity-100"
             : "max-h-0 scale-95 opacity-0",
@@ -253,26 +246,21 @@ export function OpenClawChat() {
         type="button"
         onClick={handleOpen}
         className={cn(
-          "pointer-events-auto group relative flex self-end items-center gap-3 overflow-hidden rounded-full border px-4 py-3 shadow-lg transition-all duration-200",
+          "group pointer-events-auto relative flex items-center gap-3 self-end overflow-hidden rounded-full border px-4 py-3 shadow-lg transition-all duration-200",
           isOpen
             ? "border-border bg-muted text-muted-foreground hover:bg-muted/90"
             : "border-cyan-400/30 bg-slate-950 text-slate-50 shadow-cyan-950/40 hover:-translate-y-0.5",
         )}
-        aria-label={isOpen ? "Stang chattrutan" : "Oppna chattrutan"}
+        aria-label={isOpen ? "Stäng chattrutan" : "Öppna chattrutan"}
       >
         {isOpen ? null : (
           <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.18),transparent_38%)]" />
         )}
         <MessageCircle className="h-5 w-5" />
         <span className="relative flex flex-col items-start leading-none">
-          <span className="text-sm font-semibold">
-            {isOpen ? "Stang" : content.fabTitle}
-          </span>
+          <span className="text-sm font-semibold">{isOpen ? "Stäng" : content.fabTitle}</span>
           <span
-            className={cn(
-              "text-[11px]",
-              isOpen ? "text-muted-foreground" : "text-cyan-200/90",
-            )}
+            className={cn("text-[11px]", isOpen ? "text-muted-foreground" : "text-cyan-200/90")}
           >
             {isOpen ? "OpenClaw aktiv" : content.fabSubtitle}
           </span>
