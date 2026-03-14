@@ -7,10 +7,7 @@ import { z } from "zod";
 function sanitize(value: string | undefined): string | undefined {
   if (!value) return undefined;
   let t = value.trim();
-  if (
-    (t.startsWith('"') && t.endsWith('"')) ||
-    (t.startsWith("'") && t.endsWith("'"))
-  ) {
+  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
     t = t.slice(1, -1).trim();
   }
   return t || undefined;
@@ -36,9 +33,7 @@ export function isAffirmativeEnvValue(value: string | undefined): boolean {
 // ---------------------------------------------------------------------------
 
 export const serverSchema = z.object({
-  NODE_ENV: z
-    .enum(["development", "production", "test"])
-    .default("development"),
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   RENDER: z.string().optional(),
   NEXT_PHASE: z.string().optional(),
   VERCEL: z.string().optional(),
@@ -187,6 +182,8 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_ADMIN_EMAILS: z.string().optional(),
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  NEXT_PUBLIC_AVATAR_AGENT_ID: z.string().optional(),
+  NEXT_PUBLIC_AVATAR_CLIENT_KEY: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
 });
