@@ -51,6 +51,10 @@ export function DidAvatarEmbed() {
     script.setAttribute("data-show-restart-button", "true");
     script.setAttribute("data-track", "true");
     script.setAttribute("data-speech-silence-timeout-ms", "700");
+    script.onload = () => {
+      if (cancelled) return;
+      setLoadError(null);
+    };
     script.onerror = () => {
       if (cancelled) return;
       setLoadError(
@@ -58,7 +62,6 @@ export function DidAvatarEmbed() {
       );
     };
 
-    setLoadError(null);
     root.replaceChildren();
     root.appendChild(container);
     root.appendChild(script);
@@ -82,7 +85,7 @@ export function DidAvatarEmbed() {
     <div className="space-y-4">
       <div
         ref={rootRef}
-        className="min-h-[720px] w-full overflow-hidden rounded-2xl bg-background/80"
+        className="bg-background/80 min-h-[720px] w-full overflow-hidden rounded-2xl"
       />
       {loadError ? (
         <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-100">

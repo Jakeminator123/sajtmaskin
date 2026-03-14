@@ -155,163 +155,103 @@
     {
       "key": "POSTGRES_URL",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Primary database connection for the app."
     },
     {
       "key": "POSTGRES_PRISMA_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Alternate pooled database URL."
     },
     {
       "key": "POSTGRES_URL_NON_POOLING",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Direct non-pooled database URL."
     },
     {
       "key": "JWT_SECRET",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required for auth and session integrity."
     },
     {
       "key": "V0_API_KEY",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required only when v0 fallback is enabled."
     },
     {
       "key": "OPENAI_API_KEY",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required for the own engine and prompt assist."
     },
     {
       "key": "AUDIT_WEB_SEARCH",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Optional flag for OpenAI-backed audit web search."
     },
     {
       "key": "AI_GATEWAY_API_KEY",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required for local or non-Vercel gateway-backed AI routes. Deployed Vercel runtimes can authenticate with OIDC instead."
     },
     {
       "key": "VERCEL_TOKEN",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Used for Vercel API access and audits."
     },
     {
       "key": "VERCEL_TEAM_ID",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Optional scope for Vercel API access. Leave unset when using a personal account; set it only when requests must target a specific team."
     },
     {
       "key": "VERCEL_PROJECT_ID",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Binds API access to the correct Vercel project."
     },
     {
       "key": "VERCEL_WEBHOOK_SECRET",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Validates inbound Vercel webhooks."
     },
     {
       "key": "VERCEL_OIDC_TOKEN",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "development"
-      ],
+      "recommendedVercelTargets": ["development"],
       "notes": "Local OIDC token refreshed via vercel env pull for local testing. Treat pulled values as local snapshots, not canonical deployed target values."
     },
     {
       "key": "NEXT_PUBLIC_APP_URL",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["preview", "production"],
       "notes": "Public app URL varies between local and deployed environments."
     },
     {
       "key": "NEXT_PUBLIC_BASE_URL",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["preview", "production"],
       "notes": "Public base URL for callbacks and sharing."
     },
     {
       "key": "NEXT_PUBLIC_AVATAR_AGENT_ID",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Public D-ID agent ID for the isolated /avatar test route. Add preview only after the preview origin has been allowlisted in D-ID."
     },
     {
       "key": "NEXT_PUBLIC_AVATAR_CLIENT_KEY",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Public D-ID client key for the isolated /avatar test route. The key is frontend-safe only when its allowed_domains list is kept tight."
     },
     {
@@ -371,384 +311,253 @@
     {
       "key": "INSPECTOR_CAPTURE_WORKER_URL",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Can point to localhost in dev and a deployed worker in preview/production."
     },
     {
       "key": "INSPECTOR_CAPTURE_WORKER_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Shared secret for the inspector worker."
     },
     {
       "key": "INSPECTOR_FORCE_WORKER_ONLY",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "May differ between local fallback and deployed worker-only environments."
     },
     {
       "key": "INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Timeout tuning for inspector capture."
     },
     {
       "key": "OPENCLAW_GATEWAY_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required where OpenClaw-backed flows should work."
     },
     {
       "key": "OPENCLAW_GATEWAY_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required where OpenClaw-backed flows should work."
     },
     {
       "key": "IMPLEMENT_UNDERSCORE_CLAW",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Feature flag for exposing the OpenClaw UI surface. Accepts y/yes/true/1."
     },
     {
       "key": "REDIS_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Primary Redis cache URL."
     },
     {
       "key": "KV_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Redis fallback URL."
     },
     {
       "key": "UPSTASH_REDIS_REST_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "REST endpoint for Upstash-backed flows."
     },
     {
       "key": "UPSTASH_REDIS_REST_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "REST token for Upstash-backed flows."
     },
     {
       "key": "BACKOFFICE_PASSWORD",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["preview", "production"],
       "notes": "Admin/backoffice secret that may live only in deployed environments."
     },
     {
       "key": "BACKOFFICE_SESSION_VERSION",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Backoffice session invalidation version."
     },
     {
       "key": "BLOB_READ_WRITE_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required for blob-backed preview media and blob JSON persistence."
     },
     {
       "key": "BLOB_CONTENT_KEY",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Optional explicit backoffice blob content key. Prefer leaving unset to use env-specific defaults like backoffice/dev|preview|prod/content.json."
     },
     {
       "key": "BLOB_COLORS_KEY",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Optional explicit backoffice blob colors key. Prefer leaving unset to use env-specific defaults like backoffice/dev|preview|prod/colors.json."
     },
     {
       "key": "STORAGE_BACKEND",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Backoffice storage backend selection."
     },
     {
       "key": "DB_SSL_REJECT_UNAUTHORIZED",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Database TLS strictness."
     },
     {
       "key": "LOG_PROMPTS",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Prompt logging toggle."
     },
     {
       "key": "CSP_ENFORCE",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "CSP enforce-mode toggle."
     },
     {
       "key": "V0_STREAMING_ENABLED",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "v0 streaming feature flag."
     },
     {
       "key": "V0_FALLBACK_BUILDER",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "development"
-      ],
+      "recommendedVercelTargets": ["development"],
       "notes": "Fallback mode is usually enabled only for explicit local testing."
     },
     {
       "key": "LOOPIA_API_USER",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required where Loopia-backed domain flows are used."
     },
     {
       "key": "LOOPIA_API_PASSWORD",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required where Loopia-backed domain flows are used."
     },
     {
       "key": "UNSPLASH_ACCESS_KEY",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [
-        "development",
-        "preview",
-        "production"
-      ],
+      "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Optional image sourcing key for placeholder materialization."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_MAX_SYSTEM_LENGTH",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_PHASE_FORCE_AUDIT_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_PHASE_FORCE_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_FREEFORM_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_TECHNICAL_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_TEMPLATE_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_WARN_SYSTEM_LENGTH",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [
-        "production"
-      ],
+      "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
     }
   ]

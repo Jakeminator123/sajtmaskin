@@ -48,16 +48,16 @@ Important code sources of truth include:
 
 ### Environment variable management
 
-| File | Committed | Purpose |
-|------|-----------|---------|
-| `config/env-policy.json` | Yes | Shared policy: classification, target rules, known-empty-ok lists. Consumed by `manage_env.py` and `src/lib/env-audit.ts`. |
-| `src/lib/env.ts` | Yes | Zod schema declaring every env var the app can read. |
-| `src/lib/env-audit.ts` | Yes | Runtime audit logic that loads `config/env-policy.json`. |
-| `ENV.md` | Yes | Human-readable overview of env topology, critical keys, and setup instructions. |
-| `.env.local` | No (gitignored) | Local development values. |
-| `.env.production` | No (gitignored) | Reference copy of production-like values. |
-| `manage_env.py` | Yes | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. |
-| `check_env.py` | Yes | Backward-compatible wrapper that forwards to `manage_env.py audit`. |
+| File                     | Committed       | Purpose                                                                                                                            |
+| ------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `config/env-policy.json` | Yes             | Shared policy: classification, target rules, known-empty-ok lists. Consumed by `manage_env.py` and `src/lib/env-audit.ts`.         |
+| `src/lib/env.ts`         | Yes             | Zod schema declaring every env var the app can read.                                                                               |
+| `src/lib/env-audit.ts`   | Yes             | Runtime audit logic that loads `config/env-policy.json`.                                                                           |
+| `ENV.md`                 | Yes             | Human-readable overview of env topology, critical keys, and setup instructions.                                                    |
+| `.env.local`             | No (gitignored) | Local development values.                                                                                                          |
+| `.env.production`        | No (gitignored) | Reference copy of production-like values.                                                                                          |
+| `manage_env.py`          | Yes             | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. |
+| `check_env.py`           | Yes             | Backward-compatible wrapper that forwards to `manage_env.py audit`.                                                                |
 
 When adding a new env var: add it to `src/lib/env.ts` (schema), then to
 `config/env-policy.json` (classification + target rules), and optionally to
