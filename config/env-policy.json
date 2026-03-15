@@ -1,6 +1,5 @@
 {
   "knownEmptyOk": [
-    "FIGMA_ACCESS_TOKEN",
     "PEXELS_API_KEY",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
@@ -61,7 +60,6 @@
     "DESIGN_SYSTEM_ID",
     "EMAIL_FROM",
     "ENABLE_PEXELS",
-    "FIGMA_ACCESS_TOKEN",
     "GITHUB_CLIENT_ID",
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET",
@@ -245,14 +243,14 @@
     {
       "key": "NEXT_PUBLIC_AVATAR_AGENT_ID",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
-      "notes": "Public D-ID agent ID for the isolated /avatar test route. Add preview only after the preview origin has been allowlisted in D-ID."
+      "recommendedVercelTargets": ["production", "preview"],
+      "notes": "Public D-ID agent ID for the isolated /avatar test route."
     },
     {
       "key": "NEXT_PUBLIC_AVATAR_CLIENT_KEY",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
-      "notes": "Public D-ID client key for the isolated /avatar test route. The key is frontend-safe only when its allowed_domains list is kept tight."
+      "recommendedVercelTargets": ["production", "preview"],
+      "notes": "Public D-ID client key for the isolated /avatar test route."
     },
     {
       "key": "GOOGLE_REDIRECT_URI",

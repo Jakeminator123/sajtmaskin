@@ -142,10 +142,10 @@ källa.
 
 Den isolerade test-routen `/avatar` använder två publika klientvariabler:
 
-| Variabel                        | Lokalt     | Vercel     | Beskrivning                               |
-| ------------------------------- | ---------- | ---------- | ----------------------------------------- |
-| `NEXT_PUBLIC_AVATAR_AGENT_ID`   | .env.local | production | D-ID agent-id för testavataren            |
-| `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | .env.local | production | D-ID client key för embedden på `/avatar` |
+| Variabel                        | Lokalt     | Vercel              | Beskrivning                               |
+| ------------------------------- | ---------- | ------------------- | ----------------------------------------- |
+| `NEXT_PUBLIC_AVATAR_AGENT_ID`   | .env.local | production, preview | D-ID agent-id för testavataren            |
+| `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | .env.local | production, preview | D-ID client key för embedden på `/avatar` |
 
 Viktigt:
 
