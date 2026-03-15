@@ -1,6 +1,14 @@
 import { POST_CHECK_MARKER } from "./constants";
+import type { QualityTier } from "./post-checks-results";
 import type { SetMessages } from "./types";
 import type { FileDiff } from "./post-checks-diff";
+
+const QUALITY_TIER_LABELS: Record<QualityTier, string> = {
+  none: "",
+  preview: "Preview-klar",
+  sandbox: "Sandbox-klar",
+  production: "Produktionsklar",
+};
 
 export function formatChangeSteps(
   label: string,
@@ -63,6 +71,8 @@ export function buildPostCheckSummary(params: {
   provisional?: boolean;
   qualityGatePending?: boolean;
   autoFixQueued?: boolean;
+  qualityTier?: QualityTier;
+  warningReasons?: string[];
 }) {
   const {
     changes,
@@ -72,6 +82,8 @@ export function buildPostCheckSummary(params: {
     provisional = false,
     qualityGatePending = false,
     autoFixQueued = false,
+    qualityTier = "none",
+    warningReasons = [],
   } = params;
   const lines: string[] = [];
 
@@ -109,6 +121,15 @@ export function buildPostCheckSummary(params: {
   warnings.forEach((warning) => {
     lines.push(`Varning: ${warning}`);
   });
+
+  if (warningReasons.length > 0) {
+    lines.push(`Icke-kritiska observationer: ${warningReasons.join(", ")}`);
+  }
+
+  const tierLabel = QUALITY_TIER_LABELS[qualityTier];
+  if (tierLabel) {
+    lines.push(`Status: ${tierLabel}`);
+  }
 
   return lines.length > 0 ? lines.join("\n") : "";
 }

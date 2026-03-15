@@ -84,15 +84,40 @@ const FOLLOW_UP_NEW_SITE_PATTERNS = [
   /\b(website|site|homepage|landing page|one-pager)\b/i,
 ];
 const FOLLOW_UP_BUILD_PATTERNS = [/\b(bygg|skapa|gör|designa)\b/i, /\b(build|create|make|design)\b/i];
+const FOLLOW_UP_VAGUE_EDIT_PATTERNS = [
+  /\b(förbättra|förfina|justera|uppdatera|ändra|fixa|trimma)\b/i,
+  /\b(improve|refine|adjust|update|fix|polish|tweak)\b/i,
+  /\b(gör det bättre|kan du förbättra|kan du fixa|make it better|can you improve)\b/i,
+];
+const FOLLOW_UP_EXPLICIT_DIRECTION_PATTERNS = [
+  /\b(nuvarande design|behåll nuvarande design|samma design)\b/i,
+  /\b(current design|keep the current design|same design)\b/i,
+];
+const FOLLOW_UP_SPECIFIC_TARGET_PATTERNS = [
+  /\b(hero|footer|header|nav|navigation|layout|spacing|copy|text|färg|color|bild|image|animation|knapp|button)\b/i,
+  /\b(section|sektion|card|kort|font|typografi|logo|cta|pricing|pris|kontakt|about|seo)\b/i,
+  /\b(page\.tsx|layout\.tsx|globals\.css|app\/|src\/)\b/i,
+];
 
-type FollowUpIntentMode = "clear-refine" | "clear-redesign" | "ambiguous-redesign" | "neutral";
+type FollowUpIntentMode =
+  | "clear-refine"
+  | "clear-redesign"
+  | "ambiguous-redesign"
+  | "ambiguous-followup"
+  | "neutral";
+
+function isUnderspecifiedFollowUp(message: string): boolean {
+  const trimmed = message.trim();
+  if (!trimmed || trimmed.length > 120) return false;
+  if (!FOLLOW_UP_VAGUE_EDIT_PATTERNS.some((pattern) => pattern.test(trimmed))) return false;
+  if (FOLLOW_UP_EXPLICIT_DIRECTION_PATTERNS.some((pattern) => pattern.test(trimmed))) return false;
+  if (FOLLOW_UP_SPECIFIC_TARGET_PATTERNS.some((pattern) => pattern.test(trimmed))) return false;
+  return trimmed.split(/\s+/).length <= 10;
+}
 
 function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   const trimmed = message.trim();
   if (!trimmed) return "neutral";
-  if (FOLLOW_UP_REFINE_PATTERNS.some((pattern) => pattern.test(trimmed))) {
-    return "clear-refine";
-  }
   if (FOLLOW_UP_REDESIGN_PATTERNS.some((pattern) => pattern.test(trimmed))) {
     return "clear-redesign";
   }
@@ -101,10 +126,24 @@ function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   if (mentionsNewSite && soundsLikeBuildRequest) {
     return "ambiguous-redesign";
   }
+  if (isUnderspecifiedFollowUp(trimmed)) {
+    return "ambiguous-followup";
+  }
+  if (FOLLOW_UP_REFINE_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+    return "clear-refine";
+  }
   return "neutral";
 }
 
-function buildAwaitingClarificationStream(chatId: string, question: string, options: string[]) {
+function buildAwaitingClarificationStream(params: {
+  chatId: string;
+  question: string;
+  options: string[];
+  reason: "followup_redesign_ambiguous" | "followup_edit_underspecified";
+  intro: string;
+  toolCallPrefix: string;
+}) {
+  const { chatId, question, options, reason, intro, toolCallPrefix } = params;
   const enc = new TextEncoder();
   return new ReadableStream({
     start(controller) {
@@ -113,7 +152,7 @@ function buildAwaitingClarificationStream(chatId: string, question: string, opti
         enc.encode(
           formatSSEEvent("tool-call", {
             toolName: "askClarifyingQuestion",
-            toolCallId: `clarify-redesign:${chatId}:${Date.now()}`,
+            toolCallId: `${toolCallPrefix}:${chatId}:${Date.now()}`,
             args: {
               question,
               options,
@@ -127,7 +166,7 @@ function buildAwaitingClarificationStream(chatId: string, question: string, opti
         enc.encode(
           formatSSEEvent(
             "content",
-            "Jag kan fortsätta direkt, men först behöver jag veta om du vill förfina den nuvarande sajten eller göra en verklig redesign.",
+            intro,
           ),
         ),
       );
@@ -139,7 +178,7 @@ function buildAwaitingClarificationStream(chatId: string, question: string, opti
             messageId: null,
             demoUrl: null,
             awaitingInput: true,
-            reason: "followup_redesign_ambiguous",
+            reason,
           }),
         ),
       );
@@ -148,7 +187,11 @@ function buildAwaitingClarificationStream(chatId: string, question: string, opti
   });
 }
 
-export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+export async function handleMessageStreamRequest(
+  req: Request,
+  ctx: { params: Promise<{ chatId: string }> },
+  options: { skipRateLimit?: boolean } = {},
+) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
   const session = ensureSessionIdFromRequest(req);
   const sessionId = session.sessionId;
@@ -158,7 +201,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     }
     return response;
   };
-  return withRateLimit(req, "message:send", async () => {
+  const runHandler = async () => {
     try {
       const { chatId } = await ctx.params;
       const body = await req.json().catch(() => ({}));
@@ -293,11 +336,44 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           });
           return attachSessionCookie(
             new Response(
-              buildAwaitingClarificationStream(chatId, "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?", [
-                "Förfina nuvarande design",
-                "Gör en tydlig redesign i samma projekt",
-                "Starta om från en ny grund",
-              ]),
+              buildAwaitingClarificationStream({
+                chatId,
+                question: "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?",
+                options: [
+                  "Förfina nuvarande design",
+                  "Gör en tydlig redesign i samma projekt",
+                  "Starta om från en ny grund",
+                ],
+                reason: "followup_redesign_ambiguous",
+                intro: "Jag kan fortsätta direkt, men först behöver jag veta om du vill förfina den nuvarande sajten eller göra en verklig redesign.",
+                toolCallPrefix: "clarify-redesign",
+              }),
+              { headers: createSSEHeaders() },
+            ),
+          );
+        }
+        if (followUpIntent === "ambiguous-followup") {
+          devLogAppend("latest", {
+            type: "site.message.awaiting_input",
+            chatId,
+            reason: "followup_edit_underspecified",
+            promptPreview: message.slice(0, 160),
+          });
+          return attachSessionCookie(
+            new Response(
+              buildAwaitingClarificationStream({
+                chatId,
+                question: "Vad vill du att jag fokuserar på i nästa ändring?",
+                options: [
+                  "Layout och design",
+                  "Text och innehåll",
+                  "Ny sektion eller sida",
+                  "Tydlig redesign",
+                ],
+                reason: "followup_edit_underspecified",
+                intro: "Jag kan fortsätta direkt, men din follow-up är lite för öppen. Säg gärna vad du vill att jag prioriterar i nästa ändring.",
+                toolCallPrefix: "clarify-followup",
+              }),
               { headers: createSSEHeaders() },
             ),
           );
@@ -1962,5 +2038,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         ),
       );
     }
-  });
+  };
+
+  return options.skipRateLimit ? runHandler() : withRateLimit(req, "message:send", runHandler);
+}
+
+export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  return handleMessageStreamRequest(req, ctx);
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { FEATURES, URLS } from "@/lib/config";
 import { checkOpenClawGatewayHealth } from "@/lib/openclaw/status";
+import { isV0FallbackBuilderEnabled } from "@/lib/v0-fallback";
 
 type EnvKeyStatus = {
   key: string;
@@ -14,18 +15,13 @@ type EnvKeyDefinition = Omit<EnvKeyStatus, "present" | "required"> & {
   required: boolean | (() => boolean);
 };
 
-function isV0FallbackEnabled(): boolean {
-  const raw = process.env.V0_FALLBACK_BUILDER?.trim().toLowerCase() ?? "";
-  return raw === "y" || raw === "yes" || raw === "true" || raw === "1";
-}
-
 const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "POSTGRES_URL", required: true, notes: "Primär databas (Supabase)" },
   { key: "DB_SSL_REJECT_UNAUTHORIZED", required: false, notes: "DB TLS strictness" },
   {
     key: "V0_API_KEY",
-    required: () => isV0FallbackEnabled(),
-    notes: "v0 Platform API (required when V0_FALLBACK_BUILDER=y for fallback mode)",
+    required: () => isV0FallbackBuilderEnabled(),
+    notes: "v0 Platform API (required for fallback mode, and also used by v0 prompt assist/integrations)",
   },
   { key: "V0_STREAMING_ENABLED", required: false, notes: "v0 streaming feature flag" },
   { key: "JWT_SECRET", required: true, notes: "Auth tokens" },
@@ -51,8 +47,8 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   },
   {
     key: "OPENAI_API_KEY",
-    required: () => !isV0FallbackEnabled(),
-    notes: "Code generation (default engine), prompt-assist. Required when V0_FALLBACK_BUILDER is not set.",
+    required: () => !isV0FallbackBuilderEnabled(),
+    notes: "Code generation for the default own-engine path. Required when V0_FALLBACK_BUILDER is not set.",
   },
   {
     key: "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",

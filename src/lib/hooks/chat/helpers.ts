@@ -878,14 +878,14 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     ? payload.meta.previousVersionErrors.filter((value): value is string => typeof value === "string")
     : [];
   const lines = [
-    "AUTO-FIX REQUEST — STRICT MINIMAL DIFF",
+    "AUTO-FIX REQUEST — TARGETED REPAIR",
     "",
     `Issues detected: ${reasons}.`,
     "",
     "Rules:",
-    "1. Make the SMALLEST possible change to fix the listed issues.",
+    "1. Make the smallest change that fixes the listed issues.",
     "2. Do NOT change layout, naming, styling, or architecture unless required by the fix.",
-    "3. Do NOT add new dependencies or restructure files.",
+    "3. You MAY add a missing dependency import or install if the error requires it.",
     "4. Return ONLY the changed files with minimal edits.",
     "",
     "Acceptance criteria (the fix MUST pass all):",
@@ -902,6 +902,24 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     lines.push("", "Related unresolved errors from previous version:", ...previousVersionErrors.map((entry) => `- ${entry}`));
   }
   if (payload.meta) {
+    const qualityGate = payload.meta.qualityGate as Record<string, string> | undefined;
+    if (qualityGate && typeof qualityGate === "object") {
+      const hasOutput = Object.values(qualityGate).some((v) => typeof v === "string" && v.trim().length > 0);
+      if (hasOutput) {
+        for (const [check, output] of Object.entries(qualityGate)) {
+          if (typeof output === "string" && output.trim()) {
+            lines.push("", `## ${check} output`, output.trim().slice(0, 2000));
+          }
+        }
+      } else {
+        lines.push(
+          "",
+          "NOTE: Quality gate failed but no error output was captured.",
+          "Likely causes: missing type imports, undeclared variables, JSX errors, or missing dependencies.",
+          "Review the generated files for obvious TypeScript and build errors.",
+        );
+      }
+    }
     const metaStr = JSON.stringify(payload.meta, null, 2);
     const truncated = metaStr.length > 3000 ? metaStr.slice(0, 3000) + "\n..." : metaStr;
     lines.push("", "Diagnostic context:", truncated);

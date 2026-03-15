@@ -29,6 +29,10 @@ The landing page with 4 entry modes shown as tabs/cards:
 
 All 4 modes lead to the **builder** via `/builder?buildMethod=<mode>&...`
 
+Important language rule:
+- Use **`Fritext`** in Swedish product/UI copy.
+- Use **`freeform`** as the canonical code/query/API value.
+
 ### Builder (`/builder`)
 
 The main workspace where the user iterates on their site:
@@ -128,6 +132,11 @@ Use this pipeline vocabulary consistently:
 
 How the user entered the builder. One of:
 `wizard` | `category` | `audit` | `freeform` | `kostnadsfri`
+
+### Engine path naming
+
+- Use `own-engine` as the canonical technical value in metadata, routes, and logs.
+- Use `egen motor` only as the Swedish display label in UI copy.
 
 ### Build intent (`BuildIntent`)
 

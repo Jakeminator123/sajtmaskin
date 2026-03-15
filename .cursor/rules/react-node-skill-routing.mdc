@@ -12,6 +12,7 @@ This project is primarily React, Next.js, and Node.js.
 - For work involving `React`, `Next.js`, `Node.js`, data fetching, bundle size, rendering, or re-rendering, proactively apply the `vercel-react-best-practices` skill.
 - Prefer the project-local `vercel-react-best-practices` skill in `.cursor/skills/` so agents can still discover it if Cursor plugin loading is flaky in certain app/session startup modes.
 - Treat this as the default unless the user explicitly asks for a different approach.
+- If the user wants a manual trigger, use the existing `vercel-react-best-practices` skill name rather than inventing a separate `/vercel` alias.
 - For non-trivial React/Next refactors, load the full rules guide:
   `https://raw.githubusercontent.com/vercel-labs/agent-skills/main/skills/react-best-practices/AGENTS.md`
 - For focused work, fetch only the relevant rule file:

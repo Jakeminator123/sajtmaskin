@@ -180,13 +180,13 @@
       "key": "V0_API_KEY",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Required only when v0 fallback is enabled."
+      "notes": "Required when v0 fallback is enabled, and also used by v0-backed prompt assist and related integrations."
     },
     {
       "key": "OPENAI_API_KEY",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Required for the own engine and prompt assist."
+      "notes": "Required for the default own-engine path."
     },
     {
       "key": "AUDIT_WEB_SEARCH",

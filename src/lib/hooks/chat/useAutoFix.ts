@@ -8,7 +8,8 @@ import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events"
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
-const MAX_ATTEMPTS_PER_KEY = 2;
+const MAX_ATTEMPTS_PER_REASON = 1;
+const MAX_AUTOFIX_PER_CHAT = 2;
 const DEDUPE_TTL_MS = 5 * 60 * 1000;
 
 type AttemptEntry = { count: number; ts: number };
@@ -28,9 +29,13 @@ type VersionSummary = {
   verificationState?: string | null;
 };
 
-function makeDedupeKey(payload: AutoFixPayload): string {
+function makeReasonKey(payload: AutoFixPayload): string {
   const reasonHash = payload.reasons.slice().sort().join("|");
-  return `${payload.chatId}:${payload.versionId}:${reasonHash}`;
+  return `${payload.chatId}:${reasonHash}`;
+}
+
+function makeChatKey(chatId: string): string {
+  return `chat-total:${chatId}`;
 }
 
 function pruneStale(map: Record<string, AttemptEntry>, now: number) {
@@ -273,29 +278,33 @@ export function useAutoFix(
         const now = Date.now();
         pruneStale(autoFixAttemptsRef.current, now);
 
-        const key = makeDedupeKey(payload);
-        const entry = autoFixAttemptsRef.current[key];
-        const attempts = entry?.count ?? 0;
-        if (attempts >= MAX_ATTEMPTS_PER_KEY) return;
+        const chatKey = makeChatKey(payload.chatId);
+        const chatTotal = autoFixAttemptsRef.current[chatKey]?.count ?? 0;
+        if (chatTotal >= MAX_AUTOFIX_PER_CHAT) return;
+
+        const reasonKey = makeReasonKey(payload);
+        const reasonAttempts = autoFixAttemptsRef.current[reasonKey]?.count ?? 0;
+        if (reasonAttempts >= MAX_ATTEMPTS_PER_REASON) return;
 
         if (!(await isLatestVersionPayload(payload))) return;
 
-        autoFixAttemptsRef.current[key] = { count: attempts + 1, ts: now };
+        autoFixAttemptsRef.current[reasonKey] = { count: reasonAttempts + 1, ts: now };
+        autoFixAttemptsRef.current[chatKey] = { count: chatTotal + 1, ts: now };
 
         const enrichedPayload = await enrichAutoFixPayload(payload);
         const prompt = buildAutoFixPrompt(enrichedPayload);
-        const delayMs = attempts === 0 ? 1500 : 4000;
+        const delayMs = chatTotal === 0 ? 1500 : 4000;
 
         if (pendingTimerRef.current) {
           clearTimeout(pendingTimerRef.current);
           pendingTimerRef.current = null;
         }
-        pendingPayloadKeyRef.current = key;
+        pendingPayloadKeyRef.current = reasonKey;
 
         pendingTimerRef.current = setTimeout(() => {
           pendingTimerRef.current = null;
           void (async () => {
-            if (pendingPayloadKeyRef.current !== key) return;
+            if (pendingPayloadKeyRef.current !== reasonKey) return;
             if (!(await isLatestVersionPayload(payload))) return;
             pendingPayloadKeyRef.current = null;
             await sendMessage(prompt);

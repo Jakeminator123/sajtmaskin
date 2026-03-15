@@ -8,7 +8,6 @@ import {
   DEFAULT_PROMPT_ASSIST,
   DEFAULT_SCAFFOLD_ID,
   DEFAULT_SCAFFOLD_MODE,
-  getDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
 import { DEFAULT_DESIGN_THEME, type DesignTheme } from "@/lib/builder/theme-presets";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
@@ -261,7 +260,7 @@ export function useBuilderProjectActions({
       setDesignTheme(DEFAULT_DESIGN_THEME);
       setScaffoldMode(DEFAULT_SCAFFOLD_MODE);
       setScaffoldId(DEFAULT_SCAFFOLD_ID);
-      setCustomInstructions(getDefaultCustomInstructions(DEFAULT_SCAFFOLD_MODE));
+      setCustomInstructions("");
       setApplyInstructionsOnce(false);
     });
   }, [

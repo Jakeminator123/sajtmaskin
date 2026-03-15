@@ -78,9 +78,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const pendingBriefRef = useRef<Record<string, unknown> | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
-  const [customInstructions, setCustomInstructions] = useState(() =>
-    getDefaultCustomInstructions(DEFAULT_SCAFFOLD_MODE),
-  );
+  const [customInstructions, setCustomInstructions] = useState("");
   const [applyInstructionsOnce, setApplyInstructionsOnce] = useState(false);
   const featureWarnedRef = useRef({ v0: false, blob: false });
   const hasLoadedInstructions = useRef(false);

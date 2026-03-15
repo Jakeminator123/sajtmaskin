@@ -6,6 +6,7 @@
 import path from "path";
 import { getAppBaseUrl } from "./app-url";
 import { getServerEnv, isAffirmativeEnvValue } from "./env";
+import { isV0FallbackEnabledValue } from "./v0-fallback";
 
 const env = getServerEnv();
 
@@ -406,8 +407,7 @@ export const FEATURES = {
 } as const;
 
 function isV0FallbackEnabled(): boolean {
-  const raw = env.V0_FALLBACK_BUILDER?.trim().toLowerCase() ?? "";
-  return raw === "y" || raw === "yes" || raw === "true" || raw === "1";
+  return isV0FallbackEnabledValue(env.V0_FALLBACK_BUILDER);
 }
 
 function resolveDbLogLabel(): string {

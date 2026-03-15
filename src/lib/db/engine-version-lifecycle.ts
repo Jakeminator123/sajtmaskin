@@ -24,6 +24,22 @@ export type EngineVersionLifecycleStatus = "draft" | "verifying" | "failed" | "p
 
 export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
 
+export type QualityTier = "none" | "preview" | "sandbox" | "production";
+
+export function resolveQualityTier(
+  version: EngineVersionLifecycleLike | null | undefined,
+  opts?: { hasDemoUrl?: boolean; sandboxPassed?: boolean },
+): QualityTier {
+  if (!version) return "none";
+  const lifecycle = resolveEngineVersionLifecycleStatus(version);
+  if (lifecycle === "failed") return "none";
+
+  if (opts?.sandboxPassed) return "sandbox";
+  if (lifecycle === "promoted") return "sandbox";
+  if (opts?.hasDemoUrl !== false) return "preview";
+  return "none";
+}
+
 export function resolveEngineVersionLifecycleStatus(
   version: EngineVersionLifecycleLike | null | undefined,
 ): EngineVersionLifecycleStatus {

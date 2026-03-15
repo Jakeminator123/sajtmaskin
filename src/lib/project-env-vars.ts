@@ -1,5 +1,6 @@
 import { getProjectData, saveProjectData } from "@/lib/db/services";
 import {
+  DecryptionError,
   decryptValue,
   encryptValue,
   hasEnvVarEncryptionKey,
@@ -68,6 +69,18 @@ function sortStoredEnvVars(items: StoredProjectEnvVarItem[]): StoredProjectEnvVa
   return [...items].sort((a, b) => a.key.localeCompare(b.key));
 }
 
+function safeDecrypt(value: string, key: string): string | null {
+  try {
+    return decryptValue(value);
+  } catch (err) {
+    if (err instanceof DecryptionError) {
+      console.error(`[project-env-vars] Failed to decrypt env var "${key}": ${err.message}`);
+      return null;
+    }
+    throw err;
+  }
+}
+
 function toDisplayProjectEnvVarItem(item: StoredProjectEnvVarItem): ProjectEnvVarItem {
   const hasValue = typeof item.value === "string" && item.value.length > 0;
   return {
@@ -78,7 +91,7 @@ function toDisplayProjectEnvVarItem(item: StoredProjectEnvVarItem): ProjectEnvVa
         ? MASKED_ENV_VALUE
         : null
       : hasValue
-        ? decryptValue(item.value!)
+        ? safeDecrypt(item.value!, item.key)
         : null,
     sensitive: item.sensitive,
     createdAt: item.createdAt ?? null,
@@ -176,7 +189,10 @@ export async function getStoredProjectEnvVarMap(projectId: string): Promise<Reco
   const items = readStoredProjectEnvVarsFromMeta(projectData?.meta ?? null);
   return items.reduce<Record<string, string>>((acc, item) => {
     if (typeof item.value === "string" && item.value.length > 0) {
-      acc[item.key] = decryptValue(item.value);
+      const decrypted = safeDecrypt(item.value, item.key);
+      if (decrypted !== null) {
+        acc[item.key] = decrypted;
+      }
     }
     return acc;
   }, {});

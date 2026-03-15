@@ -327,4 +327,41 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       reason: "followup_redesign_ambiguous",
     });
   });
+
+  it("asks for clarification when a follow-up edit request is too vague", async () => {
+    const response = await POST(
+      new Request("https://example.com/api/v0/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Kan du förbättra den lite?",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+
+    const events = await readSseEvents(response);
+    const toolCallEvent = events.find((event) => event.event === "tool-call");
+    const doneEvent = events.find((event) => event.event === "done");
+
+    expect(toolCallEvent?.data).toMatchObject({
+      toolName: "askClarifyingQuestion",
+      args: expect.objectContaining({
+        question: "Vad vill du att jag fokuserar på i nästa ändring?",
+        kind: "scope",
+        blocking: true,
+      }),
+    });
+    expect(doneEvent?.data).toMatchObject({
+      chatId: "chat_1",
+      versionId: null,
+      messageId: null,
+      demoUrl: null,
+      awaitingInput: true,
+      reason: "followup_edit_underspecified",
+    });
+  });
 });

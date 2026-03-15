@@ -32,6 +32,8 @@ export interface ImageValidationResult {
   demoUrl?: string;
 }
 
+export type QualityTier = "none" | "preview" | "sandbox" | "production";
+
 export interface PostCheckArtifacts {
   finalDemoUrl: string | null;
   previewBlockingReason: string | null;
@@ -41,6 +43,8 @@ export interface PostCheckArtifacts {
   autoFixQueued: boolean;
   provisionalVersion: boolean;
   autoFixReasons: string[];
+  warningReasons: string[];
+  qualityTier: QualityTier;
   output: {
     steps: string[];
     summary: {
@@ -52,6 +56,7 @@ export interface PostCheckArtifacts {
       provisional: boolean;
       qualityGatePending: boolean;
       autoFixQueued: boolean;
+      qualityTier: QualityTier;
     };
     preflight?: PreviewPreflightState | null;
     warnings: string[];
@@ -205,22 +210,33 @@ export function buildPostCheckArtifacts(params: {
   }
 
   const qualityGatePassed = qualityGateFailures.length === 0;
-  const autoFixReasons: string[] = [];
+
+  const criticalReasons: string[] = [];
   if (!finalDemoUrl) {
-    autoFixReasons.push(getPreviewUnavailableAutoFixReason(preflight));
+    criticalReasons.push(getPreviewUnavailableAutoFixReason(preflight));
   }
-  if (missingRoutes.length > 0) autoFixReasons.push("saknade routes");
-  if (lucideLinkMisuse.length > 0) autoFixReasons.push("fel Link-import");
-  if (suspiciousUseCalls.length > 0) autoFixReasons.push("misstankt use()");
-  if (sanityErrors.length > 0) autoFixReasons.push("kodsanity error");
-  if (imageValidation?.broken?.length) autoFixReasons.push("trasiga bilder");
+  if (sanityErrors.length > 0) criticalReasons.push("kodsanity error");
+
+  const warningReasons: string[] = [];
+  if (missingRoutes.length > 0) warningReasons.push("saknade routes");
+  if (lucideLinkMisuse.length > 0) warningReasons.push("fel Link-import");
+  if (suspiciousUseCalls.length > 0) warningReasons.push("misstankt use()");
+  if (imageValidation?.broken?.length) warningReasons.push("trasiga bilder");
   if (imageValidation?.warnings?.some((warning) => warning.includes("[semantic-image]"))) {
-    autoFixReasons.push("misstankt irrelevanta bilder");
+    warningReasons.push("misstankt irrelevanta bilder");
   }
 
-  const autoFixQueued = autoFixReasons.length > 0;
+  const autoFixReasons = criticalReasons;
+  const autoFixQueued = criticalReasons.length > 0;
   const qualityGatePending = !autoFixQueued;
   const provisionalVersion = !qualityGatePassed || qualityGatePending || autoFixQueued;
+
+  const qualityTier: QualityTier =
+    !finalDemoUrl || criticalReasons.length > 0
+      ? "none"
+      : qualityGatePassed && warningReasons.length === 0
+        ? "sandbox"
+        : "preview";
 
   steps.push(
     qualityGatePassed
@@ -265,6 +281,7 @@ export function buildPostCheckArtifacts(params: {
       provisional: provisionalVersion,
       qualityGatePending,
       autoFixQueued,
+      qualityTier,
     },
     preflight,
     warnings,
@@ -371,6 +388,8 @@ export function buildPostCheckArtifacts(params: {
     autoFixQueued,
     provisionalVersion,
     autoFixReasons,
+    warningReasons,
+    qualityTier,
     output,
     logItems,
   };

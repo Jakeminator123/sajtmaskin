@@ -39,36 +39,36 @@ public/video/
 *.webm
 
 # Local research lanes and clone mirrors
-research/external-templates/raw-discovery/
-research/external-templates/repo-cache/
-research/external-templates/reference-library/
-_template_refs/
+#research/external-templates/raw-discovery/
+#research/external-templates/repo-cache/
+#research/external-templates/reference-library/
+#_template_refs/
 _sidor/
-research/_sidor/
-vercel_usecase_next_react_templates/
+#research/_sidor/
+#vercel_usecase_next_react_templates/
 
 # Generated reports and machine-generated artifacts
-data/scaffold-candidates-curated.json
-next_sidan_skrapning.txt
-src/lib/gen/data/docs-embeddings.json
-src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
+#data/scaffold-candidates-curated.json
+#next_sidan_skrapning.txt
+#src/lib/gen/data/docs-embeddings.json
+#src/lib/gen/scaffolds/scaffold-embeddings.json
+#src/lib/gen/scaffolds/scaffold-research.generated.json
+#src/lib/gen/template-library/template-library-embeddings.json
+#src/lib/gen/template-library/template-library.generated.json
 
 # MCP scraped docs (prefer MCP search/fetch instead)
-services/mpc/docs/docgrab__*/
-services/mpc/docs/local/
-services/mpc/docs/*llms*
-services/mpc/docs/shad/
-services/mpc/logs/
+#services/mpc/docs/docgrab__*/
+#services/mpc/docs/local/
+#services/mpc/docs/*llms*
+#services/mpc/docs/shad/
+#services/mpc/logs/
 
 # Local Cursor session state and legacy automation traces
-.cursor/plans/
-.cursor/documents/
-.cursor/automation/runs/
-.cursor/automation/archive/
-.cursor/automation/input/
+#.cursor/plans/
+#.cursor/documents/
+#.cursor/automation/runs/
+#.cursor/automation/archive/
+#.cursor/automation/input/
 
 # Archived or low-signal docs
 docs/old/

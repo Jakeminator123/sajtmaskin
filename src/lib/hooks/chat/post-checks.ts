@@ -196,6 +196,8 @@ export async function runPostGenerationChecks(params: {
         provisional: artifacts.provisionalVersion,
         qualityGatePending: artifacts.qualityGatePending,
         autoFixQueued: artifacts.autoFixQueued,
+        qualityTier: artifacts.qualityTier,
+        warningReasons: artifacts.warningReasons,
       }),
     );
 

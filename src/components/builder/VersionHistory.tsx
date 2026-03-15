@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { resolveEngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
+import {
+  resolveEngineVersionDisplayStatus,
+  resolveQualityTier,
+} from "@/lib/db/engine-version-lifecycle";
 import {
   AlertCircle,
   ChevronLeft,
@@ -441,6 +444,29 @@ export function VersionHistory({
               lifecycleStatus === "retrying"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
                 : undefined;
+            const qualityTier = resolveQualityTier(
+              {
+                releaseState: version.releaseState,
+                verificationState: version.verificationState,
+              },
+              { hasDemoUrl: Boolean(version.demoUrl) },
+            );
+            const qualityTierLabel =
+              qualityTier === "production"
+                ? "Produktionsklar"
+                : qualityTier === "sandbox"
+                  ? "Sandbox-klar"
+                  : qualityTier === "preview"
+                    ? "Preview-klar"
+                    : null;
+            const qualityTierBadgeClass =
+              qualityTier === "production"
+                ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"
+                : qualityTier === "sandbox"
+                  ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                  : qualityTier === "preview"
+                    ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
+                    : undefined;
             const lifecycleSummary = (() => {
               const summary =
                 typeof version.verificationSummary === "string" &&
@@ -487,6 +513,14 @@ export function VersionHistory({
                           {lifecycleStatus === "retrying" && <RotateCcw className="h-3 w-3" />}
                           {lifecycleLabel}
                         </Badge>
+                        {qualityTierLabel && (
+                          <Badge
+                            variant="outline"
+                            className={cn("px-1.5 py-0 text-[10px]", qualityTierBadgeClass)}
+                          >
+                            {qualityTierLabel}
+                          </Badge>
+                        )}
                         {isPinned && (
                           <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                             Pinned

@@ -7,8 +7,15 @@
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/data/redis";
 import { FEATURES, REDIS_CONFIG } from "@/lib/config";
+import { isV0FallbackBuilderEnabled } from "@/lib/v0-fallback";
 
 export async function GET() {
+  const v0FallbackEnabled = isV0FallbackBuilderEnabled();
+  const v0Reason = FEATURES.useV0Api
+    ? null
+    : v0FallbackEnabled
+      ? "Missing V0_API_KEY while V0_FALLBACK_BUILDER is enabled"
+      : "V0 fallback is disabled; V0_API_KEY is optional unless you use v0 prompt assist or other v0 integrations";
   const checks: Record<string, unknown> = {
     timestamp: new Date().toISOString(),
     features: {
@@ -19,8 +26,8 @@ export async function GET() {
       vercelBlob: FEATURES.useVercelBlob,
     },
     featureReasons: {
-      v0: FEATURES.useV0Api ? null : "Missing V0_API_KEY",
-      imageGenerations: FEATURES.useV0Api ? null : "Missing V0_API_KEY",
+      v0: v0Reason,
+      imageGenerations: v0Reason,
       vercelBlob: FEATURES.useVercelBlob ? null : "Missing BLOB_READ_WRITE_TOKEN",
     },
   };

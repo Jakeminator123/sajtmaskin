@@ -82,7 +82,7 @@ Sajtmaskin-installationen:
 
 - databas och cache: `POSTGRES_URL`, `REDIS_URL`, `KV_URL`, `UPSTASH_*`
 - auth och sessioner: `JWT_SECRET`
-- AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `V0_API_KEY`
+- AI och buildermotor: `OPENAI_API_KEY`, `AI_GATEWAY_API_KEY`, `ANTHROPIC_API_KEY`, `V0_API_KEY`
 - deploy och Vercel: `VERCEL_TOKEN`, valfritt `VERCEL_TEAM_ID`, `BLOB_READ_WRITE_TOKEN`
 - interna tjänster: `OPENCLAW_*`, `INSPECTOR_*`, `RESEND_API_KEY`
 
@@ -134,8 +134,8 @@ källa.
 | --------------------- | ---------- | ------------------- | ----------------------------------------------------------------------- |
 | `POSTGRES_URL`        | .env.local | production, preview | Primär databas (Supabase)                                               |
 | `JWT_SECRET`          | .env.local | production, preview | Auth-tokens                                                             |
-| `OPENAI_API_KEY`      | .env.local | production, preview | Own engine + prompt-assist (krävs när V0_FALLBACK_BUILDER inte är satt) |
-| `V0_API_KEY`          | .env.local | production, preview | v0 Platform API (krävs när V0_FALLBACK_BUILDER=y för fallback-läge)     |
+| `OPENAI_API_KEY`      | .env.local | production, preview | Own engine (krävs när V0_FALLBACK_BUILDER inte är satt)                 |
+| `V0_API_KEY`          | .env.local | production, preview | v0 Platform API, v0-baserad prompt assist och vissa integrationer. Krävs för fallback-läge när `V0_FALLBACK_BUILDER=y` |
 | `NEXT_PUBLIC_APP_URL` | .env.local | production, preview | Appens publika URL (t.ex. https://sajtmaskin.se)                        |
 
 ## D-ID avatar-test (`/avatar`)

@@ -35,11 +35,11 @@ import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from "react"
 import { useRouter } from "next/navigation"
-import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent"
 import { createProject } from "@/lib/project-client"
 import { toast } from "sonner"
 import { ParticleOrb } from "@/components/landing-v2/particle-orb"
 import { LanyardBadge } from "@/components/landing-v2/lanyard-badge"
+import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
 
 const HowItWorksScene = dynamic(
@@ -147,28 +147,6 @@ const categories = [
     placeholder: "Skriv fritt \u2014 ber\u00e4tta vad du vill skapa...",
   },
 ]
-
-type LandingRouteTarget = {
-  buildMethod: BuildMethod
-  buildIntent: BuildIntent
-  source?: string
-}
-
-function resolveRouteTarget(categoryId: string | null): LandingRouteTarget {
-  switch (categoryId) {
-    case "mall":
-      return { buildMethod: "category", buildIntent: "template" }
-    case "analyserad":
-      return { buildMethod: "wizard", buildIntent: "website" }
-    case "kategori":
-      return { buildMethod: "category", buildIntent: "template" }
-    case "audit":
-      return { buildMethod: "audit", buildIntent: "website", source: "audit" }
-    case "fritext":
-    default:
-      return { buildMethod: "freeform", buildIntent: "website" }
-  }
-}
 
 type ShapeVariant = "double" | "diamond" | "grid" | "triple" | "fast" | "pulse"
 
@@ -1738,7 +1716,7 @@ export function ChatArea({
 
       const targetCategory = categoryOverride ?? selectedCategory
       const prompt = (promptOverride ?? inputValue).trim()
-      const routeTarget = resolveRouteTarget(targetCategory)
+      const routeTarget = resolveLandingRouteTarget(targetCategory)
 
       setIsSubmitting(true)
 

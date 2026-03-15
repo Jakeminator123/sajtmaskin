@@ -11,8 +11,6 @@ import { briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
 import {
   DEFAULT_PROMPT_POLISH_MODEL,
   SPEC_FILE_INSTRUCTION,
-  getDefaultCustomInstructions,
-  isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
 import { formatPrompt, isGatewayAssistModel } from "@/lib/builder/promptAssist";
 import { saveProjectData } from "@/lib/project-client";
@@ -160,11 +158,7 @@ export function useBuilderPromptActions({
           pendingSpecRef.current = promptToSpec(trimmed, themeColors, paletteState);
         }
 
-        const scaffoldDefault = getDefaultCustomInstructions(scaffoldMode);
-        const baseInstructions =
-          customInstructions.trim() && !isDefaultCustomInstructions(customInstructions)
-            ? customInstructions.trim()
-            : scaffoldDefault.trim();
+        const baseInstructions = customInstructions.trim();
         const specSuffix = pendingSpecRef.current ? SPEC_FILE_INSTRUCTION : "";
         const paletteHint = buildPaletteInstruction(paletteState);
         const paletteSuffix = paletteHint ? `\n\n${paletteHint}` : "";
