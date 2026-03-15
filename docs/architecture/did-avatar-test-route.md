@@ -1,13 +1,13 @@
 # D-ID avatar test route
 
 > Status: active
-> Last updated: 2026-03-14
+> Last updated: 2026-03-15
 
 ## Goal
 
 Stand up a single public test surface at `/avatar` so the D-ID agent can be
-verified in isolation before we connect it to broader flows such as OpenClaw,
-tools, or transcript handoff logic.
+verified in isolation, while still allowing an explicit experimental path where
+OpenClaw can act as the avatar brain through a separate bridge flow.
 
 Current intended test URLs:
 
@@ -61,7 +61,8 @@ testing there.
 Do:
 
 - expose a public `/avatar` page
-- render the D-ID embed in `full` mode
+- keep a simple D-ID fallback path available
+- allow an isolated OpenClaw bridge mode for avatar testing
 - read `agent_id` and `client_key` from public env vars
 - keep the work isolated from the rest of the product
 
@@ -77,13 +78,25 @@ Do not do yet:
 This repository now uses the following structure:
 
 - route: `src/app/avatar/page.tsx`
-- client component: `src/components/avatar/did-avatar-embed.tsx`
+- iframe fallback: `src/components/avatar/did-avatar-embed.tsx`
+- OpenClaw bridge widget: `src/components/avatar/did-openclaw-bridge.tsx`
+- avatar diagnostics: `src/components/avatar/avatar-integration-status.tsx`
+- avatar bridge route: `src/app/api/did/chat/route.ts`
 - CSP exception: `src/proxy.ts`
 - env registry: `src/lib/env.ts`, `config/env-policy.json`, `ENV.md`
 
-The current Sajtmaskin implementation also keeps an optional existing webhook at
-`/api/did/conversation`, but that route is not required to get the avatar
-visible and conversational on `/avatar`.
+The current Sajtmaskin implementation also keeps:
+
+- `/api/did/conversation` for tolerant transcript/webhook handoff
+- `/api/did/chat` for the isolated avatar -> OpenClaw bridge path
+
+`/avatar` now supports two explicit modes:
+
+- default/fallback: iframe-style D-ID share page
+- experimental: `?mode=bridge` for D-ID Client SDK + OpenClaw bridge
+
+For browser automation and local debugging, `?mode=bridge&mock=1` enables a
+mocked avatar transport while preserving the same client-side bridge UI.
 
 ## Copy/paste spec for another Next.js App Router project
 
@@ -231,10 +244,15 @@ export default function AvatarPage() {
 
 ## OpenClaw note
 
-OpenClaw is intentionally out of scope for this first test pass. The right
-order is:
+OpenClaw is no longer completely out of scope for `/avatar`, but it is still
+kept behind an explicit experimental path instead of being a hard dependency
+for first render.
 
-1. make D-ID work on `/avatar`
-2. verify local and deployed behavior
-3. decide whether OpenClaw should launch, proxy, complement, or stay separate
-   from the avatar experience
+Current strategy:
+
+1. keep iframe D-ID as the safe fallback/default mode
+2. use `?mode=bridge` to test OpenClaw as the avatar brain through `/api/did/chat`
+3. use `?mode=bridge&mock=1` for isolated UI/E2E checks without requiring a
+   live D-ID session
+4. keep `/api/did/conversation` available for transcript-style handoff even if
+   the bridge path is disabled or unavailable

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { AvatarIntegrationStatus } from "@/components/avatar/avatar-integration-status";
 import { DidAvatarEmbed } from "@/components/avatar/did-avatar-embed";
+import { DidOpenClawBridge } from "@/components/avatar/did-openclaw-bridge";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -14,7 +16,21 @@ const publicEnvVars = ["NEXT_PUBLIC_AVATAR_AGENT_ID", "NEXT_PUBLIC_AVATAR_CLIENT
 
 const allowedOrigins = ["http://localhost:3000", "https://sajtmaskin.vercel.app"];
 
-export default function AvatarPage() {
+type AvatarPageProps = {
+  searchParams?: Promise<{
+    mode?: string;
+    mock?: string;
+  }>;
+};
+
+export default async function AvatarPage({ searchParams }: AvatarPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const mode = resolvedSearchParams.mode === "bridge" ? "bridge" : "iframe";
+  const mockMode = mode === "bridge" && resolvedSearchParams.mock === "1";
+  const iframeHref = "/avatar?mode=iframe";
+  const bridgeHref = "/avatar?mode=bridge";
+  const bridgeMockHref = "/avatar?mode=bridge&mock=1";
+
   return (
     <main className="bg-background min-h-screen px-6 py-10 md:py-16">
       <div className="mx-auto max-w-6xl">
@@ -39,16 +55,51 @@ export default function AvatarPage() {
               </h1>
               <p className="text-muted-foreground mt-4 max-w-2xl text-sm leading-relaxed md:text-base">
                 Den här sidan är medvetet isolerad till <code>/avatar</code> så att du kan verifiera
-                att D-ID-agenten fungerar innan vi kopplar in fler flöden som OpenClaw eller
-                verktyg/webhooks.
+                avatarflödet utan att röra buildern. Här kan du växla mellan ren D-ID-fallback och
+                OpenClaw som hjärna via en separat bridge.
               </p>
 
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Link
+                  href={iframeHref}
+                  className={`rounded-xl border px-3 py-2 text-sm ${
+                    mode === "iframe" ? "border-primary/50 bg-primary/10 text-foreground" : "border-border/20 bg-background/60 text-muted-foreground"
+                  }`}
+                >
+                  Iframe fallback
+                </Link>
+                <Link
+                  href={bridgeHref}
+                  className={`rounded-xl border px-3 py-2 text-sm ${
+                    mode === "bridge" && !mockMode
+                      ? "border-primary/50 bg-primary/10 text-foreground"
+                      : "border-border/20 bg-background/60 text-muted-foreground"
+                  }`}
+                >
+                  OpenClaw bridge
+                </Link>
+                <Link
+                  href={bridgeMockHref}
+                  className={`rounded-xl border px-3 py-2 text-sm ${
+                    mockMode ? "border-primary/50 bg-primary/10 text-foreground" : "border-border/20 bg-background/60 text-muted-foreground"
+                  }`}
+                >
+                  Bridge mocktest
+                </Link>
+              </div>
+
               <div className="border-border/20 bg-background/70 mt-6 rounded-[28px] border p-3 md:p-4">
-                <DidAvatarEmbed />
+                {mode === "bridge" ? (
+                  <DidOpenClawBridge testMode={mockMode} iframeHref={iframeHref} />
+                ) : (
+                  <DidAvatarEmbed />
+                )}
               </div>
             </div>
 
             <aside className="space-y-4">
+              <AvatarIntegrationStatus mode={mode} mockMode={mockMode} />
+
               <div className="border-border/20 bg-background/60 rounded-[24px] border p-5">
                 <p className="text-primary/75 text-xs font-medium tracking-[0.18em] uppercase">
                   Publika env-vars
@@ -104,9 +155,9 @@ export default function AvatarPage() {
                   Valfritt nästa steg
                 </p>
                 <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-                  Det finns redan en tolerant route på <code>/api/did/conversation</code> om du
-                  senare vill ta emot avslutade konversationer, men den behövs inte för att rendera
-                  avataren på den här testsidan.
+                  I bridge-läget pratar klienten med <code>/api/did/chat</code> som i sin tur
+                  pratar med OpenClaw. Om något fallerar kan du alltid växla tillbaka till
+                  iframe-läget utan att påverka resten av appen.
                 </p>
               </div>
             </aside>
