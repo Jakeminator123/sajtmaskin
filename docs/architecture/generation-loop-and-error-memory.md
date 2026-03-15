@@ -204,6 +204,25 @@ Relevant code source:
 
 - `src/lib/hooks/chat/useAutoFix.ts`
 
+### Critical vs warning classification (2026-03-15)
+
+Autofix reasons are now split into critical and warning. Only critical reasons
+(`preview saknas`, `kodsanity error`) trigger a repair generation. Warning
+reasons (`misstankt irrelevanta bilder`, `trasiga bilder`, `saknade routes`,
+`fel Link-import`, `misstankt use()`) are logged and shown in the post-check
+summary but do not start a new generation.
+
+This fixed a loop where `semantic-image` warnings triggered autofix on every
+generation because placeholder images always produce the same warning.
+
+The dedupe key now uses `chatId:reasonHash` (ignoring `versionId`) with global
+caps: `MAX_AUTOFIX_PER_CHAT = 2`, `MAX_ATTEMPTS_PER_REASON = 1`.
+
+Relevant code sources:
+
+- `src/lib/hooks/chat/post-checks-results.ts`
+- `src/lib/hooks/chat/useAutoFix.ts`
+
 ### Richer error memory for auto-fix
 
 Automatic repair prompts now summarize persisted version logs more selectively:
@@ -290,6 +309,16 @@ For current builder-side env-var semantics, including own-engine fallback
 storage and publish-time env sync, see
 `docs/architecture/project-settings-and-builder-questions.md`.
 
+## Decryption Safety (2026-03-15)
+
+`decryptValue()` in `src/lib/crypto/env-var-cipher.ts` previously returned the
+raw `enc:...` string on failure (wrong key, corrupted data). This could leak
+invalid encrypted values into deploys as env var values.
+
+It now throws `DecryptionError`. Callers in `src/lib/project-env-vars.ts` handle
+the error gracefully: failed decryption returns `null` and the env var is
+excluded from the map rather than being passed through with an invalid value.
+
 ## Current Limits
 
 - The system still persists a version before post-check and quality-gate complete.
@@ -298,6 +327,9 @@ storage and publish-time env sync, see
 - Client-side auto-fix still creates a new follow-up generation rather than
   mutating the same version in place.
 - Scaffold is still persisted canonically on the chat, not on the version row.
+- `preview-render` route has no rate limiting or auth check.
+- `data:`/`blob:` URLs in generated code are not stripped before being fed back
+  as file context; long base64 strings can waste tokens.
 
 ## Future Recommendation
 

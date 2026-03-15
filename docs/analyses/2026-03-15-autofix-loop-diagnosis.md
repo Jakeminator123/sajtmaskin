@@ -334,14 +334,54 @@ Ett säkrare beteende är:
 4. Separera därefter kvalitetsarbete kring promptmassa, scaffoldstyrning och
    generiska resultat.
 
+## Applicerad fix (2026-03-15)
+
+Samtliga rekommenderade åtgärder i punkt 1-2 ovan har implementerats:
+
+### 1. Dedupe utan versionId
+
+`makeDedupeKey` ersatt med `makeReasonKey` som använder `chatId:reasonHash`
+istället för `chatId:versionId:reasonHash`. Varje ny version skapar inte längre
+en ny dedupe-nyckel.
+
+### 2. Globalt tak per chatt
+
+Nya konstanter: `MAX_AUTOFIX_PER_CHAT = 2`, `MAX_ATTEMPTS_PER_REASON = 1`.
+Oavsett hur många anledningar som hittas stoppas autofix efter max 2 reparationer
+per chatt.
+
+### 3. Klassificering: kritisk vs varning
+
+Autofix-anledningar uppdelade i två kategorier:
+
+- **Kritiska** (triggar autofix): `preview saknas`, `preview blockerad i preflight`, `kodsanity error`
+- **Varningar** (loggas, visas, triggar INTE autofix): `misstankt irrelevanta bilder`, `trasiga bilder`, `saknade routes`, `fel Link-import`, `misstankt use()`
+
+`misstankt irrelevanta bilder` (semantic-image) var den primära looporsaken:
+varje generation med placeholder-bilder triggade varningen, som triggade autofix,
+som genererade ny kod med samma bilder.
+
+### 4. Kvalitetssteg
+
+Tre-stegs kvalitetssystem infört: `Preview-klar` -> `Sandbox-klar` ->
+`Produktionsklar`. Visas som färgkodade badges i VersionHistory.
+
+Relevanta filer:
+
+- `src/lib/hooks/chat/useAutoFix.ts`
+- `src/lib/hooks/chat/post-checks-results.ts`
+- `src/lib/hooks/chat/post-checks-summary.ts`
+- `src/lib/db/engine-version-lifecycle.ts`
+- `src/components/builder/VersionHistory.tsx`
+
 ## Slutsats
 
-Det här är i första hand en loopbugg i builderns own-engine-kedja.
+Det här var i första hand en loopbugg i builderns own-engine-kedja.
 
-Den observerade `send`-strömmen är inte ett tecken på OpenClaw eller en extern
-assistent. Den är ett resultat av att autofix använder samma follow-up-väg som
-vanliga chatmeddelanden.
+Den observerade `send`-strömmen var inte ett tecken på OpenClaw eller en extern
+assistent. Den var ett resultat av att autofix använde samma follow-up-väg som
+vanliga chatmeddelanden, och att dedupe-nyckeln inkluderade `versionId` vilket
+kringgick skyddet vid varje ny version.
 
-Kvalitetsvariationen är ett verkligt men separat spår. Det finns visst stöd för
-att own-engine-körningarna blivit tunga och ibland generiska, men det förklarar
-inte varför nya versioner fortsätter skapas utan ny manuell prompt.
+Fixarna är committade och pushade i `acd4844` (2026-03-15). Alla 185 tester
+passerar.

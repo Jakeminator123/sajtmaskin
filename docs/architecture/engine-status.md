@@ -1,6 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-12 (plan-mode persistence, Phase 8 closure, research-lane sync)
+> Senast uppdaterad: 2026-03-15 (quality tiers, autofix reason classification, decryption fix)
 
 ## Arkitektur
 
@@ -193,6 +193,37 @@ Import-checker körs efter merge.
 | 10 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
 | Plan-mode + review-step | `src/app/api/v0/chats/stream/route.ts`, `src/app/api/v0/chats/[chatId]/stream/route.ts`, `src/components/builder/BuildPlanCard.tsx` | Ny |
 | Readiness + launch-gating | `src/app/api/v0/chats/[chatId]/readiness/route.ts`, builder-UI, deploy-actions | Ny |
+
+## Quality Tiers (2026-03-15)
+
+Versioner har nu en trestegs kvalitetsstatus som visas som badge i VersionHistory:
+
+| Tier | Badge | Villkor |
+|------|-------|---------|
+| `preview` | Preview-klar (grön) | Sidan renderas i iframe, inga kritiska fel |
+| `sandbox` | Sandbox-klar (blå) | Alla sandbox-tester godkända (typecheck + build) |
+| `production` | Produktionsklar (guld) | Framtida: branschkrav, SEO-baseline, regelverk |
+| `none` | (inget) | Preview saknas eller kritiska fel finns |
+
+Implementerad i `src/lib/db/engine-version-lifecycle.ts` (`resolveQualityTier`),
+`src/lib/hooks/chat/post-checks-results.ts`, `src/lib/hooks/chat/post-checks-summary.ts`,
+och `src/components/builder/VersionHistory.tsx`.
+
+## Autofix Reason Classification (2026-03-15)
+
+Autofix-anledningar är nu uppdelade i kritiska och varningar. Bara kritiska
+anledningar triggar automatisk reparation. Varningar loggas och visas i
+post-check-sammanfattningen utan att starta en ny generation.
+
+| Typ | Anledningar | Triggar autofix |
+|-----|------------|-----------------|
+| Kritisk | `preview saknas`, `preview blockerad i preflight`, `kodsanity error` | Ja |
+| Varning | `misstankt irrelevanta bilder`, `trasiga bilder`, `saknade routes`, `fel Link-import`, `misstankt use()` | Nej |
+
+Implementerad i `src/lib/hooks/chat/post-checks-results.ts`.
+
+Dedupe-nyckel: `chatId:reasonHash` (utan `versionId`).
+Gräns: `MAX_AUTOFIX_PER_CHAT = 2`, `MAX_ATTEMPTS_PER_REASON = 1`.
 
 ## Kända kvarvarande begränsningar
 
