@@ -91,6 +91,11 @@ import {
   type NavItemDraft,
 } from "@/lib/builder/nav-items-editor";
 import {
+  readButtonLabelsDraft,
+  updateButtonLabelsDraft,
+  type ButtonLabelDraft,
+} from "@/lib/builder/button-label-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -406,6 +411,9 @@ export function PreviewPanel({
   const [navItemsDraft, setNavItemsDraft] = useState<NavItemDraft[] | null>(null);
   const [navSaveError, setNavSaveError] = useState<string | null>(null);
   const [isNavSaving, setIsNavSaving] = useState(false);
+  const [buttonLabelsDraft, setButtonLabelsDraft] = useState<ButtonLabelDraft[] | null>(null);
+  const [buttonLabelsSaveError, setButtonLabelsSaveError] = useState<string | null>(null);
+  const [isButtonLabelsSaving, setIsButtonLabelsSaving] = useState(false);
   const [rawEditMode, setRawEditMode] = useState(false);
   const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
@@ -1308,6 +1316,12 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableButtonLabels = useMemo(
+    () =>
+      selectedFile ? readButtonLabelsDraft(selectedFile.path, selectedFile.content || "") : null,
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
@@ -1397,6 +1411,13 @@ export function PreviewPanel({
   }, [editableNavItems, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
+    setButtonLabelsDraft(
+      editableButtonLabels ? editableButtonLabels.map((item) => ({ ...item })) : null,
+    );
+    setButtonLabelsSaveError(null);
+  }, [editableButtonLabels, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
     setRawEditMode(false);
     setRawCodeDraft(selectedFile?.content || "");
     setRawCodeSaveError(null);
@@ -1482,6 +1503,12 @@ export function PreviewPanel({
     navItemsDraft &&
       editableNavItems &&
       JSON.stringify(navItemsDraft) !== JSON.stringify(editableNavItems),
+  );
+
+  const buttonLabelsDirty = Boolean(
+    buttonLabelsDraft &&
+      editableButtonLabels &&
+      JSON.stringify(buttonLabelsDraft) !== JSON.stringify(editableButtonLabels),
   );
 
   const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
@@ -1886,6 +1913,26 @@ export function PreviewPanel({
       setIsNavSaving(false);
     }
   }, [selectedFile, navItemsDraft, editableNavItems, saveSelectedFileContent]);
+
+  const handleSaveButtonLabels = useCallback(async () => {
+    if (!selectedFile || !buttonLabelsDraft || !editableButtonLabels) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateButtonLabelsDraft(currentContent, buttonLabelsDraft);
+
+    setIsButtonLabelsSaving(true);
+    setButtonLabelsSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("CTA-knappar sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara CTA-knappar";
+      setButtonLabelsSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsButtonLabelsSaving(false);
+    }
+  }, [selectedFile, buttonLabelsDraft, editableButtonLabels, saveSelectedFileContent]);
 
   const handleSaveRawCode = useCallback(async () => {
     if (!selectedFile) return;
@@ -3372,6 +3419,64 @@ export function PreviewPanel({
                       ))}
                       {navSaveError ? (
                         <div className="text-xs text-rose-300">{navSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {buttonLabelsDraft && editableButtonLabels ? (
+                  <div className="rounded-md border border-rose-500/30 bg-rose-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-rose-100">CTA-editor</div>
+                        <div className="text-xs text-rose-200/80">
+                          Uppdatera vanliga Button-etiketter direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveButtonLabels()}
+                        disabled={!buttonLabelsDirty || isButtonLabelsSaving}
+                      >
+                        {isButtonLabelsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara CTA
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {buttonLabelsDraft.map((item, index) => (
+                        <div
+                          key={`button-label-${index}`}
+                          className="rounded-md border border-rose-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-rose-100">
+                            Knapp {index + 1}
+                          </div>
+                          <div className="grid gap-1">
+                            <label
+                              className="text-xs font-medium text-rose-100"
+                              htmlFor={`button-label-${index}`}
+                            >
+                              Etikett
+                            </label>
+                            <Input
+                              id={`button-label-${index}`}
+                              value={item.label}
+                              onChange={(event) =>
+                                setButtonLabelsDraft((prev) =>
+                                  prev
+                                    ? prev.map((entry, entryIndex) =>
+                                        entryIndex === index
+                                          ? { ...entry, label: event.target.value }
+                                          : entry,
+                                      )
+                                    : prev,
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {buttonLabelsSaveError ? (
+                        <div className="text-xs text-rose-300">{buttonLabelsSaveError}</div>
                       ) : null}
                     </div>
                   </div>
