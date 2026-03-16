@@ -5,6 +5,7 @@ import {
   type VisualPlacementDecision,
   type VisualPlacementRequest,
 } from "@/components/builder/ChatInterface";
+import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/components/builder/BuilderMessageTooling";
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
@@ -26,6 +27,7 @@ import {
   buildPromptSourceMessage,
   type PromptSourceMeta,
 } from "@/lib/builder/prompt-builder";
+import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import {
   MODEL_TIER_OPTIONS,
   getPromptAssistModelLabel,
@@ -33,7 +35,7 @@ import {
 import type { ChatMessage } from "@/lib/builder/types";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BuilderLayout } from "./BuilderLayout";
 import type { BuilderViewModel } from "./useBuilderPageController";
@@ -496,6 +498,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         }
     : null;
 
+  const latestPendingReply = useMemo(
+    () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
+    [vm.messages],
+  );
+
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
@@ -713,6 +720,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               imageGenerationsSupported={vm.isImageGenerationsSupported}
               isBlobConfigured={vm.isMediaEnabled}
               awaitingInput={vm.isAwaitingInput}
+              awaitingInputQuestion={latestPendingReply?.question ?? null}
+              awaitingInputOptions={latestPendingReply?.options ?? []}
               onClear={vm.handleClearPreview}
               onFixPreview={vm.handleFixPreview}
               onFilesSaved={vm.handleFilesSaved}

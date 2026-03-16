@@ -42,6 +42,24 @@ describe("PreviewPanel", () => {
     vi.restoreAllMocks();
   });
 
+  it("shows the actual awaiting-input question in the empty preview state", async () => {
+    renderPreviewPanel({
+      demoUrl: null,
+      awaitingInput: true,
+      awaitingInputQuestion: "Vilken del vill du att jag fokuserar på först?",
+      awaitingInputOptions: ["Design", "Innehåll"],
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("AI väntar på ditt svar")).toBeTruthy();
+    });
+    expect(
+      screen.getByText("Vilken del vill du att jag fokuserar på först?"),
+    ).toBeTruthy();
+    expect(screen.getByText("Design")).toBeTruthy();
+    expect(screen.getByText("Innehåll")).toBeTruthy();
+  });
+
   it("shows the footer editor and not the nav editor for footer link files", async () => {
     vi.stubGlobal(
       "fetch",

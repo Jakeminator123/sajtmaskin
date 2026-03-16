@@ -321,6 +321,8 @@ interface PreviewPanelProps {
   imageGenerationsSupported?: boolean;
   isBlobConfigured?: boolean;
   awaitingInput?: boolean;
+  awaitingInputQuestion?: string | null;
+  awaitingInputOptions?: string[];
   placementMode?: boolean;
   pendingPlacementItem?: {
     title: string;
@@ -367,6 +369,8 @@ export function PreviewPanel({
   imageGenerationsSupported = true,
   isBlobConfigured = false,
   awaitingInput = false,
+  awaitingInputQuestion = null,
+  awaitingInputOptions = [],
   placementMode = false,
   pendingPlacementItem = null,
   onPlacementComplete,
@@ -2290,13 +2294,21 @@ export function PreviewPanel({
   }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview]);
   if (!demoUrl && !isCodeView) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
+    const normalizedAwaitingQuestion =
+      typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
+        ? awaitingInputQuestion.trim()
+        : null;
+    const normalizedAwaitingOptions = awaitingInputOptions
+      .map((option) => option.trim())
+      .filter(Boolean)
+      .slice(0, 6);
     const title = awaitingInput
       ? "AI väntar på ditt svar"
       : isInitialEmpty
         ? "Välkommen"
         : "Ingen förhandsvisning ännu";
     const subtitle = awaitingInput
-      ? "V0 behöver input innan preview kan genereras — se chatten till vänster."
+      ? "AI behöver ditt svar innan nästa preview kan genereras."
       : externalLoading
         ? "AI tänker... preview kommer strax."
         : isInitialEmpty
@@ -2315,6 +2327,28 @@ export function PreviewPanel({
         <p className="text-sm" suppressHydrationWarning>
           {subtitle}
         </p>
+        {awaitingInput && normalizedAwaitingQuestion ? (
+          <div className="mt-4 max-w-xl space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">
+            <p className="text-sm font-semibold text-amber-100">{normalizedAwaitingQuestion}</p>
+            {normalizedAwaitingOptions.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                {normalizedAwaitingOptions.map((option) => (
+                  <Badge
+                    key={option}
+                    variant="secondary"
+                    className="border border-amber-500/20 bg-amber-500/10 text-amber-100"
+                  >
+                    {option}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-amber-200/80">
+                Svara i chatten till vänster för att fortsätta.
+              </p>
+            )}
+          </div>
+        ) : null}
         {showFixAction && (
           <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>
             Försök reparera preview
