@@ -71,6 +71,11 @@ import {
   type ProductItemDraft,
 } from "@/lib/builder/product-editor";
 import {
+  readPricingCardsDraft,
+  updatePricingCardsDraft,
+  type PricingCardDraft,
+} from "@/lib/builder/pricing-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -373,6 +378,9 @@ export function PreviewPanel({
   const [productItemsDraft, setProductItemsDraft] = useState<ProductItemDraft[] | null>(null);
   const [productsSaveError, setProductsSaveError] = useState<string | null>(null);
   const [isProductsSaving, setIsProductsSaving] = useState(false);
+  const [pricingCardsDraft, setPricingCardsDraft] = useState<PricingCardDraft[] | null>(null);
+  const [pricingSaveError, setPricingSaveError] = useState<string | null>(null);
+  const [isPricingSaving, setIsPricingSaving] = useState(false);
   const [rawEditMode, setRawEditMode] = useState(false);
   const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
@@ -1246,6 +1254,14 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editablePricingCards = useMemo(
+    () =>
+      selectedFile
+        ? readPricingCardsDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
@@ -1302,6 +1318,13 @@ export function PreviewPanel({
     );
     setProductsSaveError(null);
   }, [editableProductItems, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setPricingCardsDraft(
+      editablePricingCards ? editablePricingCards.map((item) => ({ ...item })) : null,
+    );
+    setPricingSaveError(null);
+  }, [editablePricingCards, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
     setRawEditMode(false);
@@ -1365,6 +1388,12 @@ export function PreviewPanel({
     productItemsDraft &&
       editableProductItems &&
       JSON.stringify(productItemsDraft) !== JSON.stringify(editableProductItems),
+  );
+
+  const pricingDirty = Boolean(
+    pricingCardsDraft &&
+      editablePricingCards &&
+      JSON.stringify(pricingCardsDraft) !== JSON.stringify(editablePricingCards),
   );
 
   const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
@@ -1681,6 +1710,26 @@ export function PreviewPanel({
       setIsProductsSaving(false);
     }
   }, [selectedFile, productItemsDraft, editableProductItems, saveSelectedFileContent]);
+
+  const handleSavePricingCards = useCallback(async () => {
+    if (!selectedFile || !pricingCardsDraft || !editablePricingCards) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updatePricingCardsDraft(currentContent, pricingCardsDraft);
+
+    setIsPricingSaving(true);
+    setPricingSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Prisplaner sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara prisplaner";
+      setPricingSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsPricingSaving(false);
+    }
+  }, [selectedFile, pricingCardsDraft, editablePricingCards, saveSelectedFileContent]);
 
   const handleSaveRawCode = useCallback(async () => {
     if (!selectedFile) return;
@@ -2867,6 +2916,113 @@ export function PreviewPanel({
                       ))}
                       {productsSaveError ? (
                         <div className="text-xs text-rose-300">{productsSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {pricingCardsDraft && editablePricingCards ? (
+                  <div className="rounded-md border border-cyan-500/30 bg-cyan-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-cyan-100">Pricing-editor</div>
+                        <div className="text-xs text-cyan-200/80">
+                          Uppdatera namn, pris och beskrivning för prisplaner i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSavePricingCards()}
+                        disabled={!pricingDirty || isPricingSaving}
+                      >
+                        {isPricingSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara pricing
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {pricingCardsDraft.map((item, index) => (
+                        <div
+                          key={`pricing-card-${index}`}
+                          className="rounded-md border border-cyan-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-cyan-100">
+                            Prisplan {index + 1}
+                          </div>
+                          <div className="grid gap-3">
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-cyan-100"
+                                htmlFor={`pricing-name-${index}`}
+                              >
+                                Namn
+                              </label>
+                              <Input
+                                id={`pricing-name-${index}`}
+                                value={item.name}
+                                onChange={(event) =>
+                                  setPricingCardsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, name: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-cyan-100"
+                                htmlFor={`pricing-price-${index}`}
+                              >
+                                Pris
+                              </label>
+                              <Input
+                                id={`pricing-price-${index}`}
+                                value={item.price}
+                                onChange={(event) =>
+                                  setPricingCardsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, price: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-cyan-100"
+                                htmlFor={`pricing-description-${index}`}
+                              >
+                                Beskrivning
+                              </label>
+                              <Textarea
+                                id={`pricing-description-${index}`}
+                                value={item.description}
+                                onChange={(event) =>
+                                  setPricingCardsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, description: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {pricingSaveError ? (
+                        <div className="text-xs text-rose-300">{pricingSaveError}</div>
                       ) : null}
                     </div>
                   </div>
