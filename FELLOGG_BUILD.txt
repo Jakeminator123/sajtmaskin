@@ -1,0 +1,25 @@
+  30 |   } catch {
+  31 |     return null;
+  32 |   }
+Import trace:
+  App Route:
+    ./src/lib/gen/retry/validate-syntax.ts
+    ./src/lib/gen/stream/finalize-preflight.ts
+    ./src/lib/gen/stream/finalize-version.ts
+    ./src/lib/gen/stream/shared-own-engine-helpers.ts
+    ./src/app/api/v0/chats/[chatId]/stream/route.ts
+https://nextjs.org/docs/messages/module-not-found
+✓ Compiled successfully in 33.5s
+  Running TypeScript ...
+Failed to compile.
+./src/lib/gen/autofix/syntax-validator.ts:24:25
+Type error: Cannot find module 'esbuild' or its corresponding type declarations.
+  22 | async function getEsbuild() {
+  23 |   try {
+> 24 |     return await import("esbuild");
+     |                         ^
+  25 |   } catch {
+  26 |     return null;
+  27 |   }
+Next.js build worker exited with code: 1 and signal: null
+Error: Command "npm run build" exited with 1
