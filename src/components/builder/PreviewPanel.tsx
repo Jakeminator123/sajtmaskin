@@ -317,6 +317,10 @@ export function PreviewPanel({
   const [contactDraft, setContactDraft] = useState<ContactDetailsDraft | null>(null);
   const [contactSaveError, setContactSaveError] = useState<string | null>(null);
   const [isContactSaving, setIsContactSaving] = useState(false);
+  const [rawEditMode, setRawEditMode] = useState(false);
+  const [rawCodeDraft, setRawCodeDraft] = useState("");
+  const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
+  const [isRawCodeSaving, setIsRawCodeSaving] = useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
   const { integrationStatus, integrationError } = useIntegrationStatus(demoUrl);
@@ -1140,6 +1144,12 @@ export function PreviewPanel({
     setContactSaveError(null);
   }, [editableContactDetails, selectedFile?.path, selectedFile?.content]);
 
+  useEffect(() => {
+    setRawEditMode(false);
+    setRawCodeDraft(selectedFile?.content || "");
+    setRawCodeSaveError(null);
+  }, [selectedFile?.path, selectedFile?.content]);
+
   const metadataDirty = Boolean(
     metadataDraft &&
       editableMetadata &&
@@ -1153,6 +1163,8 @@ export function PreviewPanel({
       (contactDraft.email !== editableContactDetails.email ||
         contactDraft.phone !== editableContactDetails.phone),
   );
+
+  const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
 
   const getPreferredFilePath = useCallback((flatFiles: Array<{ name: string }>) => {
     const candidates = [
@@ -1326,6 +1338,26 @@ export function PreviewPanel({
       setIsContactSaving(false);
     }
   }, [selectedFile, contactDraft, editableContactDetails, saveSelectedFileContent]);
+
+  const handleSaveRawCode = useCallback(async () => {
+    if (!selectedFile) return;
+    setIsRawCodeSaving(true);
+    setRawCodeSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(rawCodeDraft);
+      if (didSave) {
+        setRawEditMode(false);
+        toast.success("Filändringar sparade i aktiv version.");
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara filändringar";
+      setRawCodeSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsRawCodeSaving(false);
+    }
+  }, [selectedFile, rawCodeDraft, saveSelectedFileContent]);
 
   const elementRegistry = useMemo(() => buildJsxElementRegistry(files), [files]);
   elementRegistryRef.current = elementRegistry;
@@ -1838,7 +1870,39 @@ export function PreviewPanel({
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="text-sm text-gray-300">{selectedFile.path}</div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm text-gray-300">{selectedFile.path}</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {rawEditMode ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setRawEditMode(false);
+                            setRawCodeDraft(selectedFile.content || "");
+                            setRawCodeSaveError(null);
+                          }}
+                          disabled={isRawCodeSaving}
+                        >
+                          Avbryt redigering
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => void handleSaveRawCode()}
+                          disabled={!rawCodeDirty || isRawCodeSaving}
+                        >
+                          {isRawCodeSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                          Spara fil
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setRawEditMode(true)}>
+                        Redigera fil
+                      </Button>
+                    )}
+                  </div>
+                </div>
                 {metadataDraft && editableMetadata ? (
                   <div className="rounded-md border border-cyan-500/30 bg-cyan-500/10 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
@@ -1952,13 +2016,26 @@ export function PreviewPanel({
                 {showElementRegistry && selectedRegistryLine && (
                   <div className="text-xs text-purple-300">Målrad: {selectedRegistryLine}</div>
                 )}
-                <CodeBlock
-                  code={selectedFile.content || ""}
-                  language={getLanguageFromName(selectedFile.name)}
-                  showLineNumbers
-                >
-                  <CodeBlockCopyButton className="text-gray-300 hover:text-white" />
-                </CodeBlock>
+                {rawEditMode ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={rawCodeDraft}
+                      onChange={(event) => setRawCodeDraft(event.target.value)}
+                      className="min-h-[420px] font-mono text-xs"
+                    />
+                    {rawCodeSaveError ? (
+                      <div className="text-xs text-rose-300">{rawCodeSaveError}</div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <CodeBlock
+                    code={selectedFile.content || ""}
+                    language={getLanguageFromName(selectedFile.name)}
+                    showLineNumbers
+                  >
+                    <CodeBlockCopyButton className="text-gray-300 hover:text-white" />
+                  </CodeBlock>
+                )}
               </div>
             )}
           </div>
