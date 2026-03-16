@@ -112,6 +112,11 @@ type EditorialReviewSummary = {
   hasContactFlow: boolean;
 };
 
+type EditorialActionPrompt = {
+  question: string;
+  options: string[];
+};
+
 type QualityGateCheckInfo = {
   check: string;
   passed: boolean;
@@ -195,6 +200,8 @@ export function StructuredToolParts({
           toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
         const editorialReviewSummary =
           toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
+        const editorialActionPrompt =
+          toolType === "tool-post-check" ? getEditorialActionPrompt(tool.output) : null;
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
         const toolHasData = hasToolData(tool as ToolUIPart);
@@ -364,6 +371,38 @@ export function StructuredToolParts({
                   </div>
                 </div>
               ) : null}
+              {!pendingReply && !hasUserAfterCurrentMessage && editorialActionPrompt && onQuickReply ? (
+                <div className="mb-3 rounded-md border border-sky-500/50 bg-sky-500/10 p-3 text-xs">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-sky-200">
+                    Snabb redigering
+                  </p>
+                  <p className="text-foreground text-sm font-semibold">
+                    {editorialActionPrompt.question}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {editorialActionPrompt.options.map((option, optionIndex) => {
+                      const replyKey = `${messageId}:editorial:${optionIndex}:${option}`;
+                      const isPending = pendingQuickReplyKey === replyKey;
+                      return (
+                        <Button
+                          key={replyKey}
+                          size="sm"
+                          variant="secondary"
+                          disabled={quickReplyDisabled || pendingQuickReplyKey !== null}
+                          onClick={() =>
+                            void onQuickReply(messageId, optionIndex, option)
+                          }
+                        >
+                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                          {optionIndex === editorialActionPrompt.options.length - 1
+                            ? "Annat"
+                            : `Redigera ${option.split(" ").slice(1, 3).join(" ") || option}`}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               {qualityGateSummary && (
                 <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
                   <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
@@ -474,6 +513,8 @@ export function CompactToolParts({
           toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
         const editorialReviewSummary =
           toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
+        const editorialActionPrompt =
+          toolType === "tool-post-check" ? getEditorialActionPrompt(tool.output) : null;
         const replyPrompt = getActionPrompt(tool, toolState);
         const requiresUserReply = toolState === "approval-requested" || Boolean(replyPrompt);
         const canQuickReply =
@@ -619,6 +660,16 @@ export function CompactToolParts({
                     {editorialReviewSummary.suggestedPrompts.length > 0 ? (
                       <p className="text-muted-foreground mt-1">
                         Tips: {editorialReviewSummary.suggestedPrompts[0]}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {editorialActionPrompt ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className="text-sky-300">{editorialActionPrompt.question}</p>
+                    {editorialActionPrompt.options.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        Förslag: {editorialActionPrompt.options.slice(0, 2).join(" • ")}
                       </p>
                     ) : null}
                   </div>
@@ -1422,6 +1473,24 @@ function getEditorialReviewSummary(output: unknown): EditorialReviewSummary | nu
       : [],
     hasBlogCollection: Boolean(summary.hasBlogCollection),
     hasContactFlow: Boolean(summary.hasContactFlow),
+  };
+}
+
+function getEditorialActionPrompt(output: unknown): EditorialActionPrompt | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  const summary =
+    obj.editorialSummary && typeof obj.editorialSummary === "object"
+      ? (obj.editorialSummary as Record<string, unknown>)
+      : null;
+  if (!summary) return null;
+  const prompts = Array.isArray(summary.suggestedPrompts)
+    ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
+    : [];
+  if (prompts.length === 0) return null;
+  return {
+    question: "Vilken innehållsdel vill du redigera härnäst?",
+    options: [...prompts.slice(0, 3), "Annat"],
   };
 }
 
