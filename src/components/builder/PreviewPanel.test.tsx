@@ -24,13 +24,15 @@ vi.mock("sonner", () => ({
   },
 }));
 
-function renderPreviewPanel() {
+function renderPreviewPanel(overrides?: Partial<React.ComponentProps<typeof PreviewPanel>>) {
   return render(
     <PreviewPanel
       chatId="chat_1"
       versionId="ver_1"
       demoUrl="https://preview.example/ver_1"
       onNavigatePreviewUrl={vi.fn()}
+      onFilesSaved={vi.fn()}
+      {...overrides}
     />,
   );
 }
@@ -125,5 +127,145 @@ describe("PreviewPanel", () => {
 
     expect(screen.getByDisplayValue("Post ett")).toBeTruthy();
     expect(screen.getByDisplayValue("Kort sammanfattning ett.")).toBeTruthy();
+  });
+
+  it("saves footer editor changes through the files PATCH route", async () => {
+    const onFilesSaved = vi.fn();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+        return new Response(
+          JSON.stringify({
+            files: [
+              {
+                name: "components/site-footer.tsx",
+                content: [
+                  "const footerLinks = {",
+                  "  Tjänster: [",
+                  "    { label: 'Webbdesign', href: '#' },",
+                  "    { label: 'SEO', href: '#' },",
+                  "  ],",
+                  "  Företaget: [",
+                  "    { label: 'Om oss', href: '#' },",
+                  "    { label: 'Kontakt', href: '#' },",
+                  "  ],",
+                  "};",
+                  "export function SiteFooter() { return null; }",
+                ].join("\n"),
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH") {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPreviewPanel({ onFilesSaved });
+    fireEvent.click(screen.getByRole("button", { name: /Kodvy/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Footereditor")).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByDisplayValue("Webbdesign"), {
+      target: { value: "UX-design" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Spara footer/i }));
+
+    await waitFor(() => {
+      expect(onFilesSaved).toHaveBeenCalledTimes(1);
+    });
+
+    const patchCall = fetchMock.mock.calls.find(
+      ([input, init]) =>
+        String(input).endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH",
+    );
+    expect(patchCall).toBeTruthy();
+
+    const patchBody = JSON.parse(String(patchCall?.[1]?.body ?? "{}")) as {
+      fileName?: string;
+      versionId?: string;
+      content?: string;
+    };
+    expect(patchBody.fileName).toBe("components/site-footer.tsx");
+    expect(patchBody.versionId).toBe("ver_1");
+    expect(patchBody.content).toContain("label: 'UX-design'");
+  });
+
+  it("saves blog post editor changes through the files PATCH route", async () => {
+    const onFilesSaved = vi.fn();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+        return new Response(
+          JSON.stringify({
+            files: [
+              {
+                name: "app/blog/page.tsx",
+                content: [
+                  "const posts = [",
+                  "  { slug: 'post-1', title: 'Post ett', excerpt: 'Kort sammanfattning ett.', date: '2026-03-10', author: 'Alex', category: 'Guide' },",
+                  "  { slug: 'post-2', title: 'Post två', excerpt: 'Kort sammanfattning två.', date: '2026-03-09', author: 'Alex', category: 'Nyheter' },",
+                  "];",
+                  "export default function BlogPage() { return null; }",
+                ].join("\n"),
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH") {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPreviewPanel({ onFilesSaved });
+    fireEvent.click(screen.getByRole("button", { name: /Kodvy/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Inläggseditor")).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByDisplayValue("Post ett"), {
+      target: { value: "Ny titel ett" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Spara inlägg/i }));
+
+    await waitFor(() => {
+      expect(onFilesSaved).toHaveBeenCalledTimes(1);
+    });
+
+    const patchCall = fetchMock.mock.calls.find(
+      ([input, init]) =>
+        String(input).endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH",
+    );
+    expect(patchCall).toBeTruthy();
+
+    const patchBody = JSON.parse(String(patchCall?.[1]?.body ?? "{}")) as {
+      fileName?: string;
+      versionId?: string;
+      content?: string;
+    };
+    expect(patchBody.fileName).toBe("app/blog/page.tsx");
+    expect(patchBody.versionId).toBe("ver_1");
+    expect(patchBody.content).toContain("title: 'Ny titel ett'");
   });
 });
