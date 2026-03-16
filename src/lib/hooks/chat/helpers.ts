@@ -657,6 +657,56 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
       steps.push(`Capabilities: ${active.join(", ")}`);
     }
   }
+  if (typeof info.contractDataMode === "string" && info.contractDataMode.trim()) {
+    steps.push(`Data mode: ${info.contractDataMode}`);
+  }
+  if (typeof info.contractDatabaseProvider === "string" && info.contractDatabaseProvider.trim()) {
+    steps.push(`Databas: ${info.contractDatabaseProvider}`);
+  }
+  if (typeof info.contractAuthProvider === "string" && info.contractAuthProvider.trim()) {
+    steps.push(`Auth: ${info.contractAuthProvider}`);
+  }
+  if (typeof info.contractPaymentProvider === "string" && info.contractPaymentProvider.trim()) {
+    steps.push(`Betalning: ${info.contractPaymentProvider}`);
+  }
+  if (Array.isArray(info.contractIntegrations) && info.contractIntegrations.length > 0) {
+    const labels = info.contractIntegrations
+      .slice(0, 5)
+      .map((entry) => {
+        const name =
+          (typeof entry.name === "string" && entry.name.trim()) ||
+          (typeof entry.provider === "string" && entry.provider.trim()) ||
+          "Integration";
+        const status = typeof entry.status === "string" && entry.status.trim() ? ` (${entry.status})` : "";
+        return `${name}${status}`;
+      });
+    if (labels.length > 0) {
+      steps.push(`Kontrakt integrationer: ${labels.join(", ")}`);
+    }
+  }
+  if (Array.isArray(info.contractEnvVars) && info.contractEnvVars.length > 0) {
+    const keys = info.contractEnvVars
+      .slice(0, 6)
+      .map((entry) => (typeof entry.key === "string" ? entry.key.trim() : ""))
+      .filter(Boolean);
+    if (keys.length > 0) {
+      steps.push(`Kontrakt env vars: ${keys.join(", ")}`);
+    }
+  }
+  if (Array.isArray(info.unresolvedContractDecisions) && info.unresolvedContractDecisions.length > 0) {
+    const unresolved = info.unresolvedContractDecisions
+      .slice(0, 4)
+      .map((entry) => {
+        if (typeof entry === "string") return entry;
+        return typeof entry.kind === "string" && entry.kind.trim()
+          ? entry.kind.trim()
+          : "";
+      })
+      .filter(Boolean);
+    if (unresolved.length > 0) {
+      steps.push(`Olösta kontrakt: ${unresolved.join(", ")}`);
+    }
+  }
   return steps;
 }
 
@@ -877,6 +927,10 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
   const previousVersionErrors = Array.isArray(payload.meta?.previousVersionErrors)
     ? payload.meta.previousVersionErrors.filter((value): value is string => typeof value === "string")
     : [];
+  const scaffoldRetry =
+    payload.meta?.scaffoldRetry && typeof payload.meta.scaffoldRetry === "object"
+      ? (payload.meta.scaffoldRetry as Record<string, unknown>)
+      : null;
   const lines = [
     "AUTO-FIX REQUEST — TARGETED REPAIR",
     "",
@@ -900,6 +954,21 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
   }
   if (previousVersionErrors.length > 0) {
     lines.push("", "Related unresolved errors from previous version:", ...previousVersionErrors.map((entry) => `- ${entry}`));
+  }
+  if (
+    scaffoldRetry &&
+    typeof scaffoldRetry.currentScaffoldLabel === "string" &&
+    typeof scaffoldRetry.suggestedScaffoldLabel === "string" &&
+    typeof scaffoldRetry.reason === "string"
+  ) {
+    lines.push(
+      "",
+      "Scaffold-aware retry guidance:",
+      `- Current scaffold: ${scaffoldRetry.currentScaffoldLabel}`,
+      `- Suggested repair scaffold: ${scaffoldRetry.suggestedScaffoldLabel}`,
+      `- Why: ${scaffoldRetry.reason}`,
+      "- If the current structure keeps fighting the fix, pivot toward the suggested scaffold while still making the smallest viable repair.",
+    );
   }
   if (payload.meta) {
     const qualityGate = payload.meta.qualityGate as Record<string, string> | undefined;

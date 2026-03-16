@@ -1,0 +1,240 @@
+import type { BuildIntent } from "@/lib/builder/build-intent";
+import type { CodeFile } from "@/lib/gen/parser";
+import type { FinalizePreflightIssue } from "@/lib/gen/stream/finalize-preflight";
+import { getScaffoldById } from "./registry";
+import { matchScaffold } from "./matcher";
+import { searchScaffolds } from "./scaffold-search";
+import type { ScaffoldManifest } from "./types";
+
+export type ScaffoldRetryFailureType =
+  | "app-shell-mismatch"
+  | "site-shell-mismatch"
+  | "missing-core-files"
+  | "route-structure-mismatch"
+  | "scaffold-import-drift"
+  | "preview-build-failure"
+  | "blocking-preflight";
+
+export interface ScaffoldRetrySuggestion {
+  currentScaffoldId: string;
+  currentScaffoldLabel: string;
+  suggestedScaffoldId: string;
+  suggestedScaffoldLabel: string;
+  suggestedScaffoldFamily: string;
+  failureType: ScaffoldRetryFailureType;
+  reason: string;
+  source: "heuristic" | "keyword" | "embedding";
+  confidence: "medium" | "high";
+}
+
+interface InferScaffoldRetryParams {
+  prompt: string;
+  buildIntent: BuildIntent;
+  resolvedScaffold: ScaffoldManifest | null;
+  preflightIssues: FinalizePreflightIssue[];
+  previewBlockingReason: string | null;
+  finalizedFilesForPreview: CodeFile[];
+}
+
+const APP_SCAFFOLD_IDS = new Set(["dashboard", "app-shell"]);
+
+function hasRouteCount(files: CodeFile[], minimum: number): boolean {
+  const routeFiles = files.filter((file) =>
+    /(^|\/)app\/.+\/page\.(tsx|jsx|ts|js)$/.test(file.path) || file.path === "app/page.tsx" || file.path === "src/app/page.tsx",
+  );
+  return routeFiles.length >= minimum;
+}
+
+function classifyFailureType(
+  buildIntent: BuildIntent,
+  resolvedScaffold: ScaffoldManifest,
+  preflightIssues: FinalizePreflightIssue[],
+  previewBlockingReason: string | null,
+  finalizedFilesForPreview: CodeFile[],
+): ScaffoldRetryFailureType {
+  const issueText = preflightIssues
+    .map((issue) => `${issue.file} ${issue.message}`)
+    .join("\n")
+    .toLowerCase();
+
+  if (buildIntent === "app" && !APP_SCAFFOLD_IDS.has(resolvedScaffold.id)) {
+    return "app-shell-mismatch";
+  }
+
+  if (
+    buildIntent !== "app" &&
+    APP_SCAFFOLD_IDS.has(resolvedScaffold.id) &&
+    !hasRouteCount(finalizedFilesForPreview, 3)
+  ) {
+    return "site-shell-mismatch";
+  }
+
+  if (
+    issueText.includes("layout.tsx is missing") ||
+    issueText.includes("globals.css is missing") ||
+    issueText.includes("page/layout file is missing a default export")
+  ) {
+    return "missing-core-files";
+  }
+
+  if (
+    issueText.includes("unresolved local import") ||
+    issueText.includes("preview-only stripped import leaked") ||
+    issueText.includes("merged syntax error")
+  ) {
+    return "scaffold-import-drift";
+  }
+
+  if (issueText.includes("duplicate route file")) {
+    return "route-structure-mismatch";
+  }
+
+  if (previewBlockingReason) {
+    return "preview-build-failure";
+  }
+
+  return "blocking-preflight";
+}
+
+function buildFailureReason(
+  failureType: ScaffoldRetryFailureType,
+  currentScaffold: ScaffoldManifest,
+  suggestedScaffold: ScaffoldManifest,
+): string {
+  switch (failureType) {
+    case "app-shell-mismatch":
+      return `Prompten ser mer app-lik ut än nuvarande scaffold ${currentScaffold.label}. Testa repair-turnen med ${suggestedScaffold.label}.`;
+    case "site-shell-mismatch":
+      return `Nuvarande scaffold ${currentScaffold.label} ser för app-tung ut för den här sajten. Testa repair-turnen med ${suggestedScaffold.label}.`;
+    case "missing-core-files":
+      return `Blockerande preflight saknar centrala App Router-filer. Testa en enklare scaffold som ${suggestedScaffold.label} för repair-turnen.`;
+    case "route-structure-mismatch":
+      return `Felbilden tyder på att routestrukturen inte passar nuvarande scaffold ${currentScaffold.label}. Testa ${suggestedScaffold.label}.`;
+    case "scaffold-import-drift":
+      return `Felbilden tyder på scaffold/import-drift i ${currentScaffold.label}. Repair-turnen kan behöva pivotera till ${suggestedScaffold.label}.`;
+    case "preview-build-failure":
+      return `Preview-preflight blockerades och ${suggestedScaffold.label} ser ut som en bättre scaffold-kandidat för nästa repair-turn.`;
+    case "blocking-preflight":
+    default:
+      return `Preflight-blockeringen tyder på att ${currentScaffold.label} kan vara en svag scaffold-fit. Prova repair-turnen med ${suggestedScaffold.label}.`;
+  }
+}
+
+function suggestHeuristicScaffold(
+  buildIntent: BuildIntent,
+  currentScaffold: ScaffoldManifest,
+  failureType: ScaffoldRetryFailureType,
+): ScaffoldManifest | null {
+  if (failureType === "app-shell-mismatch") {
+    return getScaffoldById("app-shell");
+  }
+
+  if (failureType === "site-shell-mismatch") {
+    return getScaffoldById("landing-page");
+  }
+
+  if (failureType === "route-structure-mismatch") {
+    if (buildIntent === "app") {
+      return currentScaffold.id === "dashboard"
+        ? getScaffoldById("app-shell")
+        : getScaffoldById("dashboard");
+    }
+    if (currentScaffold.id === "landing-page" || currentScaffold.id === "base-nextjs") {
+      return getScaffoldById("content-site");
+    }
+  }
+
+  if (failureType === "missing-core-files" || failureType === "scaffold-import-drift") {
+    if (buildIntent === "app") {
+      return getScaffoldById("app-shell");
+    }
+    return currentScaffold.id === "base-nextjs"
+      ? getScaffoldById("landing-page")
+      : getScaffoldById("base-nextjs");
+  }
+
+  return null;
+}
+
+export async function inferScaffoldRetrySuggestion({
+  prompt,
+  buildIntent,
+  resolvedScaffold,
+  preflightIssues,
+  previewBlockingReason,
+  finalizedFilesForPreview,
+}: InferScaffoldRetryParams): Promise<ScaffoldRetrySuggestion | null> {
+  if (!resolvedScaffold) return null;
+
+  const blockingIssueCount = preflightIssues.filter((issue) => issue.severity === "error").length;
+  if (blockingIssueCount === 0 && !previewBlockingReason) {
+    return null;
+  }
+
+  const failureType = classifyFailureType(
+    buildIntent,
+    resolvedScaffold,
+    preflightIssues,
+    previewBlockingReason,
+    finalizedFilesForPreview,
+  );
+
+  const heuristicCandidate = suggestHeuristicScaffold(buildIntent, resolvedScaffold, failureType);
+  if (heuristicCandidate && heuristicCandidate.id !== resolvedScaffold.id) {
+    return {
+      currentScaffoldId: resolvedScaffold.id,
+      currentScaffoldLabel: resolvedScaffold.label,
+      suggestedScaffoldId: heuristicCandidate.id,
+      suggestedScaffoldLabel: heuristicCandidate.label,
+      suggestedScaffoldFamily: heuristicCandidate.family,
+      failureType,
+      reason: buildFailureReason(failureType, resolvedScaffold, heuristicCandidate),
+      source: "heuristic",
+      confidence:
+        failureType === "app-shell-mismatch" ||
+        failureType === "site-shell-mismatch" ||
+        failureType === "missing-core-files"
+          ? "high"
+          : "medium",
+    };
+  }
+
+  const keywordCandidate = matchScaffold(prompt, buildIntent);
+  if (keywordCandidate && keywordCandidate.id !== resolvedScaffold.id) {
+    return {
+      currentScaffoldId: resolvedScaffold.id,
+      currentScaffoldLabel: resolvedScaffold.label,
+      suggestedScaffoldId: keywordCandidate.id,
+      suggestedScaffoldLabel: keywordCandidate.label,
+      suggestedScaffoldFamily: keywordCandidate.family,
+      failureType,
+      reason: buildFailureReason(failureType, resolvedScaffold, keywordCandidate),
+      source: "keyword",
+      confidence: "medium",
+    };
+  }
+
+  try {
+    const semanticCandidates = await searchScaffolds(prompt, 4);
+    const semanticCandidate = semanticCandidates.find(
+      (candidate) => candidate.scaffold.id !== resolvedScaffold.id,
+    )?.scaffold;
+    if (semanticCandidate) {
+      return {
+        currentScaffoldId: resolvedScaffold.id,
+        currentScaffoldLabel: resolvedScaffold.label,
+        suggestedScaffoldId: semanticCandidate.id,
+        suggestedScaffoldLabel: semanticCandidate.label,
+        suggestedScaffoldFamily: semanticCandidate.family,
+        failureType,
+        reason: buildFailureReason(failureType, resolvedScaffold, semanticCandidate),
+        source: "embedding",
+        confidence: "medium",
+      };
+    }
+  } catch {
+    // Best-effort only. Retry suggestions must never break finalize.
+  }
+
+  return null;
+}

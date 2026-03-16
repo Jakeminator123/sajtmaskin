@@ -28,6 +28,13 @@ import {
   buildCapabilityHints,
   type InferredCapabilities,
 } from "./capability-inference";
+import { buildRoutePlan } from "./route-plan";
+import type { RoutePlan } from "./route-plan";
+import {
+  type ConfirmedContractAnswer,
+  inferPreGenerationContracts,
+  type PreGenerationContractContext,
+} from "./pre-generation-contracts";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -42,6 +49,8 @@ export interface OrchestrationInput {
   designReferences?: DesignReferenceAsset[];
   /** Optional persisted scaffold id from a previous turn in the same chat */
   persistedScaffoldId?: string | null;
+  /** Previously confirmed contract answers reconstructed from chat history */
+  contractAnswers?: ConfirmedContractAnswer[];
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
 }
@@ -49,6 +58,8 @@ export interface OrchestrationInput {
 export interface OrchestrationResult {
   resolvedScaffold: ScaffoldManifest | null;
   scaffoldContext: string | undefined;
+  routePlan: RoutePlan;
+  preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
   /** Full system prompt (STATIC_CORE + dynamic) for own engine */
   engineSystemPrompt: string;
@@ -77,6 +88,7 @@ export async function prepareGenerationContext(
     designThemePreset = null,
     designReferences = [],
     persistedScaffoldId = null,
+    contractAnswers = [],
     customInstructions,
   } = input;
 
@@ -104,6 +116,19 @@ export async function prepareGenerationContext(
 
   const capabilities = inferCapabilities(prompt);
   const capabilityHints = buildCapabilityHints(capabilities);
+  const routePlan = buildRoutePlan({
+    prompt,
+    buildIntent,
+    brief,
+    resolvedScaffold,
+  });
+  const preGenerationContracts = inferPreGenerationContracts({
+    prompt,
+    buildIntent,
+    brief,
+    capabilities,
+    contractAnswers,
+  });
 
   const scaffoldAndCapability = [scaffoldContext, capabilityHints]
     .filter(Boolean)
@@ -116,6 +141,9 @@ export async function prepareGenerationContext(
     imageGenerations,
     originalPrompt: prompt,
     scaffoldContext: scaffoldAndCapability || undefined,
+    resolvedScaffold,
+    routePlan,
+    preGenerationContracts,
     componentPalette,
     designThemePreset,
     designReferences,
@@ -131,6 +159,8 @@ export async function prepareGenerationContext(
   return {
     resolvedScaffold,
     scaffoldContext,
+    routePlan,
+    preGenerationContracts,
     capabilities,
     engineSystemPrompt,
     v0EnrichmentContext,

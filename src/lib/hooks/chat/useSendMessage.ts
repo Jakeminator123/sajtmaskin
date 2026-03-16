@@ -162,6 +162,8 @@ export function useSendMessage(
           options.attachmentPrompt,
           options.attachments,
         );
+        const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
+        const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
         const thinkingForTier = enableThinking;
         const promptMeta: Record<string, unknown> = {
           promptOriginal: messageText,
@@ -174,8 +176,8 @@ export function useSendMessage(
         };
         if (buildIntent) promptMeta.buildIntent = buildIntent;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
-        if (scaffoldMode && scaffoldMode !== "off") promptMeta.scaffoldMode = scaffoldMode;
-        if (scaffoldId) promptMeta.scaffoldId = scaffoldId;
+        if (effectiveScaffoldMode && effectiveScaffoldMode !== "off") promptMeta.scaffoldMode = effectiveScaffoldMode;
+        if (effectiveScaffoldId) promptMeta.scaffoldId = effectiveScaffoldId;
         if (appProjectId) promptMeta.appProjectId = appProjectId;
         if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;

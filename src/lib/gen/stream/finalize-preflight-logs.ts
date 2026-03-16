@@ -1,3 +1,5 @@
+import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
+import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { FinalizePreflightIssue } from "./finalize-preflight";
 
 export interface FinalizeVersionErrorLog {
@@ -16,6 +18,8 @@ export interface BuildFinalizePreflightLogBundleParams {
   preflightFileCount: number;
   previewBlockingReason: string | null;
   finalizedPreviewFileCount: number;
+  scaffoldRetry: ScaffoldRetrySuggestion | null;
+  routePlan: RoutePlan | null | undefined;
 }
 
 export interface FinalizePreflightLogBundle {
@@ -34,6 +38,8 @@ export function buildFinalizePreflightLogBundle({
   preflightFileCount,
   previewBlockingReason,
   finalizedPreviewFileCount,
+  scaffoldRetry,
+  routePlan,
 }: BuildFinalizePreflightLogBundleParams): FinalizePreflightLogBundle {
   const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
   const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
@@ -58,6 +64,7 @@ export function buildFinalizePreflightLogBundle({
         verificationBlocked: hasVerificationBlockingPreflightErrors,
         previewBlocked: hasPreviewBlockingPreflightErrors,
         previewBlockingReason,
+        routePlan,
       },
     },
   ];
@@ -102,6 +109,19 @@ export function buildFinalizePreflightLogBundle({
         previewBlocked: false,
         verificationBlocked: true,
         previewFileCount: finalizedPreviewFileCount,
+      },
+    });
+  }
+
+  if (scaffoldRetry) {
+    preflightLogs.push({
+      chatId,
+      versionId,
+      level: "warning",
+      category: "scaffold",
+      message: scaffoldRetry.reason,
+      meta: {
+        scaffoldRetry,
       },
     });
   }

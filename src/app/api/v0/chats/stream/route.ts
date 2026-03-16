@@ -42,6 +42,10 @@ import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelec
 import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { AI } from "@/lib/config";
 import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
+import {
+  buildContractClarificationQuestion,
+  buildStoredContractClarificationUiPart,
+} from "@/lib/gen/contract-clarification";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
 import { getAgentTools } from "@/lib/gen/agent-tools";
@@ -600,8 +604,18 @@ export async function POST(req: Request) {
           designReferences,
           customInstructions: trimmedSystemPrompt || undefined,
         });
-        const { resolvedScaffold, capabilities: engineCapabilities, engineSystemPrompt } =
+        const {
+          resolvedScaffold,
+          routePlan,
+          preGenerationContracts,
+          capabilities: engineCapabilities,
+          engineSystemPrompt,
+        } =
           orchestration;
+        const contractClarification = buildContractClarificationQuestion({
+          buildIntent: engineIntent,
+          context: preGenerationContracts,
+        });
 
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
@@ -611,17 +625,6 @@ export async function POST(req: Request) {
           resolvedModelTier,
           engineModel,
           fallback: false,
-        });
-        const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
-        const agentTools = getAgentTools();
-        const pipelineStream = createGenerationPipeline({
-          prompt: enginePrompt,
-          systemPrompt: engineSystemPrompt,
-          model: engineModel,
-          thinking: resolvedThinking,
-          tools: agentTools,
-          maxSteps: 2,
-          referenceAttachments: requestAttachments,
         });
 
         const projectIdForChat = await resolveAppProjectIdForRequest(
@@ -647,6 +650,108 @@ export async function POST(req: Request) {
           resolvedScaffold?.id,
         );
         await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+        devLogAppend("in-progress", {
+          type: "contracts.inferred",
+          chatId: engineChat.id,
+          dataMode: preGenerationContracts.contracts.dataMode,
+          databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+          authProvider: preGenerationContracts.contracts.authProvider ?? null,
+          paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+          integrations: preGenerationContracts.contracts.integrations.map((entry) => entry.provider),
+          envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
+          unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
+        });
+        if (contractClarification) {
+          const assistantQuestion = await chatRepo.addMessage(
+            engineChat.id,
+            "assistant",
+            contractClarification.question,
+            undefined,
+            [buildStoredContractClarificationUiPart(contractClarification)],
+          ).catch(() => null);
+          devLogAppend("in-progress", {
+            type: "contracts.clarification-requested",
+            chatId: engineChat.id,
+            kind: contractClarification.kind,
+            reason: contractClarification.reason,
+          });
+          const contractGateStream = new ReadableStream({
+            start(controller) {
+              const enc = new TextEncoder();
+              controller.enqueue(enc.encode(formatSSEEvent("chatId", { id: engineChat.id })));
+              controller.enqueue(
+                enc.encode(
+                  formatSSEEvent("meta", {
+                    modelId: engineModel,
+                    modelTier: resolvedModelTier,
+                    buildProfileId,
+                    buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+                    enginePath: "own-engine",
+                    thinking: resolvedThinking,
+                    imageGenerations: resolvedImageGenerations,
+                    chatPrivacy: resolvedChatPrivacy,
+                    scaffoldId: resolvedScaffold?.id ?? null,
+                    scaffoldFamily: resolvedScaffold?.family ?? null,
+                    scaffoldLabel: resolvedScaffold?.label ?? null,
+                    capabilities: engineCapabilities,
+                    contractDataMode: preGenerationContracts.contracts.dataMode,
+                    contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+                    contractAuthProvider: preGenerationContracts.contracts.authProvider ?? null,
+                    contractPaymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+                    contractIntegrations: preGenerationContracts.contracts.integrations,
+                    contractEnvVars: preGenerationContracts.contracts.envVars,
+                    unresolvedContractDecisions: preGenerationContracts.unresolvedDecisions,
+                    promptStrategy: strategyMeta.strategy,
+                    promptType: strategyMeta.promptType,
+                    promptBudgetTarget: strategyMeta.budgetTarget,
+                    promptOriginalLength: strategyMeta.originalLength,
+                    promptOptimizedLength: strategyMeta.optimizedLength,
+                    promptReductionRatio: strategyMeta.reductionRatio,
+                    promptStrategyReason: strategyMeta.reason,
+                    promptComplexityScore: strategyMeta.complexityScore,
+                  }),
+                ),
+              );
+              controller.enqueue(
+                enc.encode(
+                  formatSSEEvent("tool-call", {
+                    toolName: "askClarifyingQuestion",
+                    toolCallId: `contracts-${Date.now()}`,
+                    args: contractClarification,
+                  }),
+                ),
+              );
+              controller.enqueue(enc.encode(formatSSEEvent("content", contractClarification.question)));
+              controller.enqueue(
+                enc.encode(
+                  formatSSEEvent("done", {
+                    chatId: engineChat.id,
+                    versionId: null,
+                    messageId: assistantQuestion?.id ?? null,
+                    demoUrl: null,
+                    awaitingInput: true,
+                    reason: "pre_generation_contracts",
+                  }),
+                ),
+              );
+              controller.close();
+            },
+          });
+          return attachSessionCookie(new Response(contractGateStream, {
+            headers: createSSEHeaders(),
+          }));
+        }
+        const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
+        const agentTools = getAgentTools();
+        const pipelineStream = createGenerationPipeline({
+          prompt: enginePrompt,
+          systemPrompt: engineSystemPrompt,
+          model: engineModel,
+          thinking: resolvedThinking,
+          tools: agentTools,
+          maxSteps: 2,
+          referenceAttachments: requestAttachments,
+        });
 
         const engineStartedAt = Date.now();
         const pipelineReader = pipelineStream.getReader();
@@ -772,6 +877,13 @@ export async function POST(req: Request) {
                   scaffoldFamily: resolvedScaffold?.family ?? null,
                   scaffoldLabel: resolvedScaffold?.label ?? null,
                   capabilities: engineCapabilities,
+                  contractDataMode: preGenerationContracts.contracts.dataMode,
+                  contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+                  contractAuthProvider: preGenerationContracts.contracts.authProvider ?? null,
+                  contractPaymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+                  contractIntegrations: preGenerationContracts.contracts.integrations,
+                  contractEnvVars: preGenerationContracts.contracts.envVars,
+                  unresolvedContractDecisions: preGenerationContracts.unresolvedDecisions,
                   promptStrategy: strategyMeta.strategy,
                   promptType: strategyMeta.promptType,
                   promptBudgetTarget: strategyMeta.budgetTarget,
@@ -894,6 +1006,9 @@ export async function POST(req: Request) {
                           accumulatedContent,
                           chatId: engineChat.id,
                           model: engineModel,
+                          originalPrompt: optimizedMessage,
+                          buildIntent: engineIntent,
+                          routePlan,
                           resolvedScaffold,
                           urlMap,
                           startedAt: engineStartedAt,
@@ -1024,6 +1139,9 @@ export async function POST(req: Request) {
                         accumulatedContent,
                         chatId: engineChat.id,
                         model: engineModel,
+                        originalPrompt: optimizedMessage,
+                        buildIntent: engineIntent,
+                        routePlan,
                         resolvedScaffold,
                         urlMap,
                         startedAt: engineStartedAt,
@@ -1070,6 +1188,9 @@ export async function POST(req: Request) {
                         accumulatedContent,
                         chatId: engineChat.id,
                         model: engineModel,
+                        originalPrompt: optimizedMessage,
+                        buildIntent: engineIntent,
+                        routePlan,
                         resolvedScaffold,
                         urlMap,
                         startedAt: engineStartedAt,

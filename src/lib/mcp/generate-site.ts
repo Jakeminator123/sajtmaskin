@@ -1,10 +1,13 @@
 import { nanoid } from "nanoid";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
+import { inferCapabilities } from "@/lib/gen/capability-inference";
 import { createGenerationPipeline, shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { inferPreGenerationContracts } from "@/lib/gen/pre-generation-contracts";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { buildSystemPrompt } from "@/lib/gen/system-prompt";
 import { compressUrls } from "@/lib/gen/url-compress";
+import { buildRoutePlan } from "@/lib/gen/route-plan";
 import {
   detectScaffoldMode,
   getScaffoldById,
@@ -115,12 +118,28 @@ export async function generateSiteFromPrompt(
     const serializeMode = detectScaffoldMode(prompt);
     scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode);
   }
+  const routePlan = buildRoutePlan({
+    prompt,
+    buildIntent,
+    brief: null,
+    resolvedScaffold,
+  });
+  const capabilities = inferCapabilities(prompt);
+  const preGenerationContracts = inferPreGenerationContracts({
+    prompt,
+    buildIntent,
+    brief: null,
+    capabilities,
+  });
 
   const systemPrompt = await buildSystemPrompt({
     intent: buildIntent,
     imageGenerations,
     originalPrompt: prompt,
     scaffoldContext,
+    resolvedScaffold,
+    routePlan,
+    preGenerationContracts,
     brief: null,
   });
 
@@ -241,6 +260,9 @@ export async function generateSiteFromPrompt(
     accumulatedContent,
     chatId: chat.id,
     model: String(engineModel),
+    originalPrompt: prompt,
+    buildIntent,
+    routePlan,
     resolvedScaffold,
     urlMap,
     startedAt,

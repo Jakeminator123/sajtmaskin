@@ -1,4 +1,5 @@
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
+import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type PlannedRoute } from "@/lib/gen/route-plan";
 import {
   runProjectSanityChecks,
   type SanityIssue,
@@ -53,6 +54,7 @@ export type PostCheckBaseline = {
   changes: FileDiff | null;
   warnings: string[];
   missingRoutes: string[];
+  missingPlannedRoutes: PlannedRoute[];
   lucideLinkMisuse: string[];
   suspiciousUseCalls: SuspiciousUseCall[];
   designTokens: DesignTokenSummary | null;
@@ -145,31 +147,6 @@ export function extractStaticInternalLinks(files: FileEntry[]): string[] {
     }
   }
   return Array.from(results);
-}
-
-export function extractAppRoutePaths(files: FileEntry[]): string[] {
-  const routes = new Set<string>();
-  for (const file of files) {
-    const rawName = file.name.replace(/^\/+/, "");
-    if (/^page\.(t|j)sx?$/.test(rawName)) {
-      routes.add("/");
-      continue;
-    }
-    let rest: string | null = null;
-    if (rawName.startsWith("src/app/")) rest = rawName.slice("src/app/".length);
-    if (rawName.startsWith("app/")) rest = rawName.slice("app/".length);
-    if (!rest) continue;
-    if (!/page\.(t|j)sx?$/.test(rest)) continue;
-    const parts = rest.split("/");
-    parts.pop();
-    const segments = parts
-      .filter(Boolean)
-      .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")))
-      .filter((segment) => !segment.startsWith("@"));
-    const route = `/${segments.join("/")}`;
-    routes.add(route === "/" ? "/" : route.replace(/\/+$/, ""));
-  }
-  return Array.from(routes);
 }
 
 function routePatternToRegex(route: string): RegExp {
@@ -372,9 +349,10 @@ export function buildPostCheckBaseline(params: {
     );
   }
 
-  const routePaths = extractAppRoutePaths(currentFiles);
+  const routePaths = extractAppRoutePathsFromFilePaths(currentFiles.map((file) => file.name));
   const internalLinks = extractStaticInternalLinks(currentFiles);
   const missingRoutes = findMissingRoutes(internalLinks, routePaths);
+  const missingPlannedRoutes = findMissingPlannedRoutes(preflight?.routePlan, routePaths);
   const lucideLinkMisuse = findLucideLinkMisuse(currentFiles);
   const seoReview = buildSeoReview(currentFiles);
   const sanity = runProjectSanityChecks(
@@ -392,6 +370,14 @@ export function buildPostCheckBaseline(params: {
     const preview = missingRoutes.slice(0, 6).join(", ");
     const suffix = missingRoutes.length > 6 ? " …" : "";
     warnings.push(`Saknar route för ${preview}${suffix}.`);
+  }
+  if (missingPlannedRoutes.length > 0) {
+    const preview = missingPlannedRoutes
+      .slice(0, 6)
+      .map((route) => route.path)
+      .join(", ");
+    const suffix = missingPlannedRoutes.length > 6 ? " …" : "";
+    warnings.push(`Planerade routes saknas: ${preview}${suffix}.`);
   }
   if (lucideLinkMisuse.length > 0) {
     const preview = lucideLinkMisuse.slice(0, 6).join(", ");
@@ -426,6 +412,7 @@ export function buildPostCheckBaseline(params: {
     changes,
     warnings,
     missingRoutes,
+    missingPlannedRoutes,
     lucideLinkMisuse,
     suspiciousUseCalls,
     designTokens,

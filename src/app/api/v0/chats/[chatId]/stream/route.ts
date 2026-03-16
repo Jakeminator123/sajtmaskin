@@ -31,6 +31,11 @@ import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
 import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
+import {
+  buildContractClarificationQuestion,
+  buildStoredContractClarificationUiPart,
+} from "@/lib/gen/contract-clarification";
+import { collectConfirmedContractAnswers } from "@/lib/gen/contract-answer-context";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
@@ -291,6 +296,7 @@ export async function handleMessageStreamRequest(
         const metaDesignThemePreset = extractDesignThemePresetFromMeta(meta);
         const metaPalette = extractPaletteStateFromMeta(meta);
         const designReferences = summarizeDesignReferences(requestAttachments);
+        const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
 
         if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
           try {
@@ -326,7 +332,10 @@ export async function handleMessageStreamRequest(
           } catch { /* ignore malformed JSON */ }
         }
 
-        const skipIntentClassification = metaPromptSourcePreservePayload || metaPromptSourceTechnical;
+        const skipIntentClassification =
+          metaPromptSourcePreservePayload ||
+          metaPromptSourceTechnical ||
+          contractAnswerContext.currentReplyWasConsumed;
         const followUpIntent = previousFiles.length > 0 && !skipIntentClassification
           ? classifyFollowUpIntent(message)
           : "neutral";
@@ -428,6 +437,25 @@ export async function handleMessageStreamRequest(
               "---",
               "",
               "## Requested Changes",
+              "",
+              optimizedMessage,
+            ].join("\n");
+          }
+        }
+
+        if (contractAnswerContext.currentReplyWasConsumed) {
+          const latestAnswer = contractAnswerContext.confirmedAnswers.at(-1);
+          if (latestAnswer) {
+            optimizedMessage = [
+              "## Contract Clarification Answer",
+              "",
+              "The user is answering the previous contract clarification question. Use this answer to continue the existing generation safely.",
+              `Question: ${latestAnswer.question}`,
+              `Answer: ${latestAnswer.answer}`,
+              "",
+              "Continue the existing implementation using this confirmed decision. Do not ask the same question again unless the answer is still genuinely insufficient.",
+              "",
+              "## User Reply",
               "",
               optimizedMessage,
             ].join("\n");
@@ -727,14 +755,30 @@ export async function handleMessageStreamRequest(
           designThemePreset: metaDesignThemePreset,
           designReferences,
           persistedScaffoldId,
+          contractAnswers: contractAnswerContext.confirmedAnswers,
           customInstructions: trimmedSystem || undefined,
         });
-        const { resolvedScaffold, engineSystemPrompt } = orchestration;
+        const { resolvedScaffold, routePlan, preGenerationContracts, engineSystemPrompt } = orchestration;
+        const contractClarification = buildContractClarificationQuestion({
+          buildIntent: engineIntent,
+          context: preGenerationContracts,
+        });
         if (resolvedScaffold && !persistedScaffoldId) {
           try {
             await chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
           } catch { /* best-effort persist */ }
         }
+        devLogAppend("in-progress", {
+          type: "contracts.inferred",
+          chatId,
+          dataMode: preGenerationContracts.contracts.dataMode,
+          databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+          authProvider: preGenerationContracts.contracts.authProvider ?? null,
+          paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+          integrations: preGenerationContracts.contracts.integrations.map((entry) => entry.provider),
+          envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
+          unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
+        });
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
@@ -767,6 +811,83 @@ export async function handleMessageStreamRequest(
           engineModel,
           fallback: false,
         });
+        if (contractClarification) {
+          const assistantQuestion = await chatRepo.addMessage(
+            chatId,
+            "assistant",
+            contractClarification.question,
+            undefined,
+            [buildStoredContractClarificationUiPart(contractClarification)],
+          ).catch(() => null);
+          devLogAppend("in-progress", {
+            type: "contracts.clarification-requested",
+            chatId,
+            kind: contractClarification.kind,
+            reason: contractClarification.reason,
+          });
+          const contractGateStream = new ReadableStream({
+            start(controller) {
+              const enc = new TextEncoder();
+              controller.enqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
+              controller.enqueue(
+                enc.encode(
+                  formatSSEEvent("meta", {
+                    modelId: engineModel,
+                    modelTier: resolvedModelTier,
+                    buildProfileId,
+                    buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+                    enginePath: "own-engine",
+                    thinking: resolvedThinking,
+                    imageGenerations: resolvedImageGenerations,
+                    scaffoldId: resolvedScaffold?.id ?? null,
+                    scaffoldFamily: resolvedScaffold?.family ?? null,
+                    contractDataMode: preGenerationContracts.contracts.dataMode,
+                    contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+                    contractAuthProvider: preGenerationContracts.contracts.authProvider ?? null,
+                    contractPaymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+                    contractIntegrations: preGenerationContracts.contracts.integrations,
+                    contractEnvVars: preGenerationContracts.contracts.envVars,
+                    unresolvedContractDecisions: preGenerationContracts.unresolvedDecisions,
+                    promptStrategy: promptOrchestration.strategyMeta.strategy,
+                    promptType: promptOrchestration.strategyMeta.promptType,
+                    promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
+                    promptOriginalLength: promptOrchestration.strategyMeta.originalLength,
+                    promptOptimizedLength: promptOrchestration.strategyMeta.optimizedLength,
+                    promptReductionRatio: promptOrchestration.strategyMeta.reductionRatio,
+                    promptStrategyReason: promptOrchestration.strategyMeta.reason,
+                    promptComplexityScore: promptOrchestration.strategyMeta.complexityScore,
+                  }),
+                ),
+              );
+              controller.enqueue(
+                enc.encode(
+                  formatSSEEvent("tool-call", {
+                    toolName: "askClarifyingQuestion",
+                    toolCallId: `contracts-${Date.now()}`,
+                    args: contractClarification,
+                  }),
+                ),
+              );
+              controller.enqueue(enc.encode(formatSSEEvent("content", contractClarification.question)));
+              controller.enqueue(
+                enc.encode(
+                  formatSSEEvent("done", {
+                    chatId,
+                    versionId: null,
+                    messageId: assistantQuestion?.id ?? null,
+                    demoUrl: null,
+                    awaitingInput: true,
+                    reason: "pre_generation_contracts",
+                  }),
+                ),
+              );
+              controller.close();
+            },
+          });
+          return attachSessionCookie(new Response(contractGateStream, {
+            headers: createSSEHeaders(),
+          }));
+        }
         const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
         const agentTools = getAgentTools();
         const pipelineStream = createGenerationPipeline({
@@ -899,6 +1020,13 @@ export async function handleMessageStreamRequest(
                   imageGenerations: resolvedImageGenerations,
                   scaffoldId: resolvedScaffold?.id ?? null,
                   scaffoldFamily: resolvedScaffold?.family ?? null,
+                  contractDataMode: preGenerationContracts.contracts.dataMode,
+                  contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+                  contractAuthProvider: preGenerationContracts.contracts.authProvider ?? null,
+                  contractPaymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+                  contractIntegrations: preGenerationContracts.contracts.integrations,
+                  contractEnvVars: preGenerationContracts.contracts.envVars,
+                  unresolvedContractDecisions: preGenerationContracts.unresolvedDecisions,
                   promptStrategy: promptOrchestration.strategyMeta.strategy,
                   promptType: promptOrchestration.strategyMeta.promptType,
                   promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
@@ -1078,6 +1206,9 @@ export async function handleMessageStreamRequest(
                           accumulatedContent,
                           chatId,
                           model: engineModel,
+                          originalPrompt: optimizedMessage,
+                          buildIntent: engineIntent,
+                          routePlan,
                           resolvedScaffold,
                           urlMap,
                           startedAt: engineStartedAt,
@@ -1198,6 +1329,9 @@ export async function handleMessageStreamRequest(
                         accumulatedContent,
                         chatId,
                         model: engineModel,
+                        originalPrompt: optimizedMessage,
+                        buildIntent: engineIntent,
+                        routePlan,
                         resolvedScaffold,
                         urlMap,
                         startedAt: engineStartedAt,
@@ -1269,6 +1403,9 @@ export async function handleMessageStreamRequest(
                         accumulatedContent,
                         chatId,
                         model: engineModel,
+                        originalPrompt: optimizedMessage,
+                        buildIntent: engineIntent,
+                        routePlan,
                         resolvedScaffold,
                         urlMap,
                         startedAt: engineStartedAt,

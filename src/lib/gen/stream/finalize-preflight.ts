@@ -3,6 +3,7 @@ import { buildPreviewHtml } from "@/lib/gen/preview";
 import type { CodeFile } from "@/lib/gen/parser";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
+import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type RoutePlan } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
@@ -18,6 +19,7 @@ export interface RunFinalizePreflightParams {
   chatId: string;
   model: string;
   filesJson: string;
+  routePlan?: RoutePlan | null;
 }
 
 export interface RunFinalizePreflightResult {
@@ -51,6 +53,7 @@ export async function runFinalizePreflight({
   chatId,
   model,
   filesJson,
+  routePlan = null,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   let nextFilesJson = filesJson;
   let preflightIssues: FinalizePreflightIssue[] = [];
@@ -162,6 +165,26 @@ export async function runFinalizePreflight({
     preflightFileCount = completeProjectFiles.length;
     const sanity = runProjectSanityChecks(completeProjectFiles);
     preflightIssues = [...preflightIssues, ...sanity.issues];
+    const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));
+    const missingPlannedRoutes = findMissingPlannedRoutes(routePlan, actualRoutes);
+    if (missingPlannedRoutes.length > 0) {
+      const severity: FinalizePreflightIssue["severity"] =
+        routePlan?.source === "brief" ? "error" : "warning";
+      preflightIssues.push(
+        ...missingPlannedRoutes.slice(0, 10).map((route) => ({
+          file: route.path,
+          severity,
+          message: `Planned route is missing from generated files: ${route.path} (${route.name})`,
+        })),
+      );
+      devLogAppend("in-progress", {
+        type: "route-plan.preflight",
+        chatId,
+        source: routePlan?.source ?? null,
+        siteType: routePlan?.siteType ?? null,
+        missingRoutes: missingPlannedRoutes.map((route) => route.path),
+      });
+    }
     if (sanity.issues.length > 0) {
       devLogAppend("in-progress", {
         type: "project-sanity",

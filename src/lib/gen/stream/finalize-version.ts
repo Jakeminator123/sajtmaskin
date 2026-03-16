@@ -1,3 +1,4 @@
+import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
@@ -6,6 +7,11 @@ import type { PreviewPreflightSummary } from "@/lib/gen/preview-diagnostics";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import type { CodeFile } from "@/lib/gen/parser";
 import { buildPreviewUrl } from "@/lib/gen/preview";
+import type { RoutePlan } from "@/lib/gen/route-plan";
+import {
+  inferScaffoldRetrySuggestion,
+  type ScaffoldRetrySuggestion,
+} from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services";
@@ -35,6 +41,9 @@ export interface FinalizeParams {
   accumulatedContent: string;
   chatId: string;
   model: string;
+  originalPrompt?: string;
+  buildIntent?: BuildIntent;
+  routePlan?: RoutePlan | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: Record<string, string>;
   startedAt: number;
@@ -81,6 +90,9 @@ export async function finalizeAndSaveVersion(
     accumulatedContent,
     chatId,
     model,
+    originalPrompt,
+    buildIntent,
+    routePlan,
     resolvedScaffold,
     urlMap,
     startedAt,
@@ -96,6 +108,7 @@ export async function finalizeAndSaveVersion(
   let preflightFileCount = 0;
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
+  let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
 
   // 1. Autofix
   if (runAutofix) {
@@ -209,12 +222,35 @@ export async function finalizeAndSaveVersion(
     chatId,
     model,
     filesJson,
+    routePlan,
   });
   filesJson = preflightResult.filesJson;
   finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
   preflightFileCount = preflightResult.preflightFileCount;
   preflightIssues = preflightResult.preflightIssues;
   previewBlockingReason = preflightResult.previewBlockingReason;
+
+  if (resolvedScaffold && originalPrompt && buildIntent) {
+    scaffoldRetry = await inferScaffoldRetrySuggestion({
+      prompt: originalPrompt,
+      buildIntent,
+      resolvedScaffold,
+      preflightIssues,
+      previewBlockingReason,
+      finalizedFilesForPreview,
+    });
+    if (scaffoldRetry) {
+      devLogAppend("in-progress", {
+        type: "scaffold-retry.suggested",
+        chatId,
+        currentScaffoldId: scaffoldRetry.currentScaffoldId,
+        suggestedScaffoldId: scaffoldRetry.suggestedScaffoldId,
+        failureType: scaffoldRetry.failureType,
+        source: scaffoldRetry.source,
+        confidence: scaffoldRetry.confidence,
+      });
+    }
+  }
 
   // 6. Create version
   let version = await chatRepo.createDraftVersion(chatId, assistantMsg.id, filesJson);
@@ -237,6 +273,8 @@ export async function finalizeAndSaveVersion(
     preflightFileCount,
     previewBlockingReason,
     finalizedPreviewFileCount: finalizedFilesForPreview.length,
+    scaffoldRetry,
+    routePlan,
   });
   devLogAppend("in-progress", {
     type: "preflight.summary",
@@ -249,6 +287,7 @@ export async function finalizeAndSaveVersion(
     verificationBlocked: hasVerificationBlockingPreflightErrors,
     previewBlocked: hasPreviewBlockingPreflightErrors,
     previewBlockingReason,
+    scaffoldRetry,
   });
   onProgress?.("finalizing", {
     phase: "done",
@@ -363,6 +402,8 @@ export async function finalizeAndSaveVersion(
       errorCount: preflightErrors.length,
       warningCount: preflightWarnings.length,
       previewBlockingReason,
+      scaffoldRetry,
+      routePlan,
     },
   };
 }

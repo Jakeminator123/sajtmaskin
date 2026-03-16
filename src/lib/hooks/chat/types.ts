@@ -26,6 +26,8 @@ export type MessageOptions = {
   attachmentPrompt?: string;
   planMode?: boolean;
   promptSourceMeta?: PromptSourceMeta;
+  scaffoldModeOverride?: ScaffoldMode;
+  scaffoldIdOverride?: string | null;
 };
 
 export type CreateChatLock = {
@@ -97,6 +99,13 @@ export type ModelInfoData = {
   scaffoldFamily?: string | null;
   scaffoldLabel?: string | null;
   capabilities?: Record<string, boolean> | null;
+  contractDataMode?: string | null;
+  contractDatabaseProvider?: string | null;
+  contractAuthProvider?: string | null;
+  contractPaymentProvider?: string | null;
+  contractIntegrations?: Array<{ provider?: string; name?: string; status?: string; envVars?: string[] }> | null;
+  contractEnvVars?: Array<{ key?: string; reason?: string; required?: boolean }> | null;
+  unresolvedContractDecisions?: Array<{ kind?: string; reason?: string } | string> | null;
 };
 
 export type IntegrationSseSignal = {

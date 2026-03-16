@@ -12,6 +12,36 @@ const DEFAULT_DOC_MAX_WORDS = 10_000;
 const MAX_DOC_MAX_WORDS = 20_000;
 const SENSITIVE_KEY_PATTERN = /(token|secret|password|authorization|cookie|api[-_]?key|session)/i;
 const CHAT_SLUG_CACHE_LIMIT = 200;
+const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
+  "site.start",
+  "comm.request.create",
+  "comm.request.followup",
+  "comm.tool_calls",
+  "comm.integration_signals",
+  "engine.integration_signals",
+  "autofix.result",
+  "syntax-validation.pass",
+  "syntax-validation.fixer.start",
+  "syntax-validation.fixer.result",
+  "syntax-validation.gave-up",
+  "syntax-validation.pipeline-error",
+  "file-repair",
+  "merged-syntax.invalid",
+  "merged-syntax.fixed",
+  "preview-preflight.error",
+  "project-sanity",
+  "project-sanity.error",
+  "route-plan.preflight",
+  "contracts.inferred",
+  "contracts.clarification-requested",
+  "version.created",
+  "preflight.summary",
+  "preflight.version.failed",
+  "scaffold-retry.suggested",
+  "site.done",
+  "site.message.done",
+  "comm.error.create",
+]);
 
 type SanitizeOptions = {
   maxDepth: number;
@@ -113,6 +143,175 @@ function readString(entry: DevLogEntry, key: string): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function readNumber(entry: DevLogEntry, key: string): number | null {
+  const value = entry[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readBoolean(entry: DevLogEntry, key: string): boolean | null {
+  const value = entry[key];
+  return typeof value === "boolean" ? value : null;
+}
+
+function countArray(entry: DevLogEntry, key: string): number | null {
+  const value = entry[key];
+  return Array.isArray(value) ? value.length : null;
+}
+
+function shortId(value: string | null): string | null {
+  if (!value) return null;
+  return value.length > 10 ? value.slice(0, 8) : value;
+}
+
+function shouldMirrorToStdout(): boolean {
+  if (!isDevLoggingEnabled()) return false;
+  if (process.env.SAJTMASKIN_DEV_LOG_STDOUT === "false") return false;
+  return process.env.NODE_ENV !== "production";
+}
+
+function truncateInline(value: string, max = 120): string {
+  return value.length <= max ? value : `${value.slice(0, max - 1)}…`;
+}
+
+function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string | null {
+  const type = readString(entry, "type");
+  if (!type || !CONSOLE_SUMMARY_ENABLED_TYPES.has(type)) return null;
+
+  const details: string[] = [];
+  const slug = readString(entry, "slug");
+  const chatId = shortId(readString(entry, "chatId"));
+  const versionId = shortId(readString(entry, "versionId"));
+
+  if (slug) details.push(`slug=${slug}`);
+  if (chatId) details.push(`chat=${chatId}`);
+  if (versionId) details.push(`version=${versionId}`);
+
+  switch (type) {
+    case "site.start":
+      if (readString(entry, "modelId")) details.push(`model=${readString(entry, "modelId")}`);
+      if (readBoolean(entry, "thinking") !== null) details.push(`thinking=${readBoolean(entry, "thinking")}`);
+      if (readBoolean(entry, "imageGenerations") !== null) details.push(`images=${readBoolean(entry, "imageGenerations")}`);
+      break;
+    case "comm.request.create":
+    case "comm.request.followup":
+      if (readString(entry, "promptStrategy")) details.push(`strategy=${readString(entry, "promptStrategy")}`);
+      if (readString(entry, "promptType")) details.push(`type=${readString(entry, "promptType")}`);
+      if (readNumber(entry, "attachmentsCount") !== null) details.push(`attachments=${readNumber(entry, "attachmentsCount")}`);
+      if (readNumber(entry, "optimizedLength") !== null) details.push(`chars=${readNumber(entry, "optimizedLength")}`);
+      break;
+    case "comm.tool_calls":
+      if (countArray(entry, "tools") !== null) details.push(`tools=${countArray(entry, "tools")}`);
+      break;
+    case "comm.integration_signals":
+    case "engine.integration_signals":
+      if (countArray(entry, "integrations") !== null) details.push(`integrations=${countArray(entry, "integrations")}`);
+      if (countArray(entry, "envVars") !== null) details.push(`envVars=${countArray(entry, "envVars")}`);
+      break;
+    case "autofix.result":
+      if (countArray(entry, "fixes") !== null) details.push(`fixes=${countArray(entry, "fixes")}`);
+      if (countArray(entry, "warnings") !== null) details.push(`warnings=${countArray(entry, "warnings")}`);
+      if (countArray(entry, "dependencies") !== null) details.push(`deps=${countArray(entry, "dependencies")}`);
+      break;
+    case "syntax-validation.pass":
+      if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
+      if (readString(entry, "phase")) details.push(`phase=${readString(entry, "phase")}`);
+      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      break;
+    case "syntax-validation.fixer.start":
+      if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
+      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      break;
+    case "syntax-validation.fixer.result":
+      if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
+      if (readNumber(entry, "errorsBefore") !== null) details.push(`before=${readNumber(entry, "errorsBefore")}`);
+      if (readNumber(entry, "errorsAfter") !== null) details.push(`after=${readNumber(entry, "errorsAfter")}`);
+      if (readBoolean(entry, "improved") !== null) details.push(`improved=${readBoolean(entry, "improved")}`);
+      break;
+    case "syntax-validation.gave-up":
+      if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
+      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      break;
+    case "syntax-validation.pipeline-error":
+    case "preview-preflight.error":
+    case "project-sanity.error":
+    case "comm.error.create":
+      if (readString(entry, "message")) details.push(`message=${truncateInline(readString(entry, "message")!)}`);
+      if (readString(entry, "code")) details.push(`code=${readString(entry, "code")}`);
+      break;
+    case "file-repair":
+      if (countArray(entry, "fixes") !== null) details.push(`fixes=${countArray(entry, "fixes")}`);
+      break;
+    case "merged-syntax.invalid":
+      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      break;
+    case "merged-syntax.fixed":
+      if (readNumber(entry, "errorsBefore") !== null) details.push(`before=${readNumber(entry, "errorsBefore")}`);
+      if (readNumber(entry, "errorsAfter") !== null) details.push(`after=${readNumber(entry, "errorsAfter")}`);
+      if (countArray(entry, "repairFixes") !== null) details.push(`repairs=${countArray(entry, "repairFixes")}`);
+      break;
+    case "project-sanity":
+      if (readBoolean(entry, "valid") !== null) details.push(`valid=${readBoolean(entry, "valid")}`);
+      if (countArray(entry, "issues") !== null) details.push(`issues=${countArray(entry, "issues")}`);
+      if (readNumber(entry, "completeProjectFiles") !== null) details.push(`files=${readNumber(entry, "completeProjectFiles")}`);
+      break;
+    case "route-plan.preflight":
+      if (readString(entry, "source")) details.push(`source=${readString(entry, "source")}`);
+      if (readString(entry, "siteType")) details.push(`siteType=${readString(entry, "siteType")}`);
+      if (countArray(entry, "missingRoutes") !== null) details.push(`missingRoutes=${countArray(entry, "missingRoutes")}`);
+      break;
+    case "contracts.inferred":
+      if (readString(entry, "dataMode")) details.push(`dataMode=${readString(entry, "dataMode")}`);
+      if (readString(entry, "databaseProvider")) details.push(`db=${readString(entry, "databaseProvider")}`);
+      if (readString(entry, "authProvider")) details.push(`auth=${readString(entry, "authProvider")}`);
+      if (readString(entry, "paymentProvider")) details.push(`payment=${readString(entry, "paymentProvider")}`);
+      if (countArray(entry, "integrations") !== null) details.push(`integrations=${countArray(entry, "integrations")}`);
+      if (countArray(entry, "envVars") !== null) details.push(`envVars=${countArray(entry, "envVars")}`);
+      if (countArray(entry, "unresolvedDecisions") !== null) details.push(`unresolved=${countArray(entry, "unresolvedDecisions")}`);
+      break;
+    case "contracts.clarification-requested":
+      if (readString(entry, "kind")) details.push(`kind=${readString(entry, "kind")}`);
+      if (readString(entry, "reason")) details.push(`reason=${truncateInline(readString(entry, "reason")!, 90)}`);
+      break;
+    case "version.created":
+      break;
+    case "preflight.summary":
+      if (readNumber(entry, "filesChecked") !== null) details.push(`files=${readNumber(entry, "filesChecked")}`);
+      if (readNumber(entry, "issueCount") !== null) details.push(`issues=${readNumber(entry, "issueCount")}`);
+      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      if (readNumber(entry, "warningCount") !== null) details.push(`warnings=${readNumber(entry, "warningCount")}`);
+      if (readBoolean(entry, "previewBlocked") !== null) details.push(`previewBlocked=${readBoolean(entry, "previewBlocked")}`);
+      if (readBoolean(entry, "verificationBlocked") !== null) details.push(`verificationBlocked=${readBoolean(entry, "verificationBlocked")}`);
+      break;
+    case "preflight.version.failed":
+      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      break;
+    case "scaffold-retry.suggested":
+      if (readString(entry, "currentScaffoldId")) details.push(`from=${readString(entry, "currentScaffoldId")}`);
+      if (readString(entry, "suggestedScaffoldId")) details.push(`to=${readString(entry, "suggestedScaffoldId")}`);
+      if (readString(entry, "failureType")) details.push(`failure=${readString(entry, "failureType")}`);
+      if (readString(entry, "confidence")) details.push(`confidence=${readString(entry, "confidence")}`);
+      break;
+    case "site.done":
+    case "site.message.done":
+      if (readNumber(entry, "durationMs") !== null) details.push(`durationMs=${readNumber(entry, "durationMs")}`);
+      if (readString(entry, "demoUrl")) details.push(`preview=${truncateInline(readString(entry, "demoUrl")!, 70)}`);
+      if (readBoolean(entry, "awaitingInput") !== null) details.push(`awaitingInput=${readBoolean(entry, "awaitingInput")}`);
+      break;
+    default:
+      break;
+  }
+
+  return `${target} ${type}${details.length > 0 ? ` | ${details.join(" | ")}` : ""}`;
+}
+
+function mirrorSummaryToStdout(target: DevLogTarget, entry: DevLogEntry): void {
+  if (!shouldMirrorToStdout()) return;
+  const summary = buildConsoleSummary(entry, target);
+  if (!summary) return;
+  const timestamp = new Date().toISOString().slice(11, 19);
+  console.info(`\x1b[35m[sajtmaskin-dev]\x1b[0m ${timestamp} ${summary}`);
+}
+
 function rememberChatSlug(chatId: string, slug: string): void {
   if (!chatId || !slug) return;
   chatSlugMap.set(chatId, slug);
@@ -196,6 +395,7 @@ function appendRollingLine(target: DevLogTarget, entry: DevLogEntry): void {
   try {
     ensureRootLogFiles();
     const enriched = enrichEntryWithSlug(entry);
+    mirrorSummaryToStdout(target, enriched);
     const shortSanitized = sanitizeValue(enriched, ROLLING_SANITIZE_OPTIONS);
     const line = `${new Date().toISOString()} [${target}] ${safeStringify(shortSanitized)}\n`;
     const current = fs.existsSync(ROOT_LOG_PATH) ? fs.readFileSync(ROOT_LOG_PATH, "utf8") : "";

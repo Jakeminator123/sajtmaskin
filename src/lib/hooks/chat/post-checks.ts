@@ -74,15 +74,18 @@ function buildAutoFixMeta(
   baseline: PostCheckBaseline,
   imageValidation: ImageValidationResult | null,
   finalDemoUrl: string | null,
+  preflight?: PreviewPreflightState | null,
 ) {
   return {
     previousVersionId: baseline.previousVersionId,
     missingRoutes: baseline.missingRoutes,
+    missingPlannedRoutes: baseline.missingPlannedRoutes,
     lucideLinkMisuse: baseline.lucideLinkMisuse,
     suspiciousUseCalls: baseline.suspiciousUseCalls,
     sanityIssues: baseline.sanityIssues,
     imageValidation,
     demoUrl: finalDemoUrl,
+    scaffoldRetry: preflight?.scaffoldRetry ?? null,
   };
 }
 
@@ -150,6 +153,7 @@ export async function runPostGenerationChecks(params: {
       previousVersionId: baseline.previousVersionId,
       streamQuality,
       missingRoutes: baseline.missingRoutes,
+      missingPlannedRoutes: baseline.missingPlannedRoutes,
       lucideLinkMisuse: baseline.lucideLinkMisuse,
       suspiciousUseCalls: baseline.suspiciousUseCalls,
       designTokens: baseline.designTokens,
@@ -172,7 +176,7 @@ export async function runPostGenerationChecks(params: {
         chatId,
         versionId,
         reasons: artifacts.autoFixReasons,
-        meta: buildAutoFixMeta(baseline, imageValidation, artifacts.finalDemoUrl),
+        meta: buildAutoFixMeta(baseline, imageValidation, artifacts.finalDemoUrl, preflight),
       });
     }
 

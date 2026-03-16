@@ -221,6 +221,26 @@ export async function handleSseStream(
               scaffoldFamily: typeof meta.scaffoldFamily === "string" ? meta.scaffoldFamily : null,
               scaffoldLabel: typeof meta.scaffoldLabel === "string" ? meta.scaffoldLabel : null,
               capabilities: meta.capabilities && typeof meta.capabilities === "object" ? meta.capabilities as Record<string, boolean> : null,
+              contractDataMode:
+                typeof meta.contractDataMode === "string" ? meta.contractDataMode : null,
+              contractDatabaseProvider:
+                typeof meta.contractDatabaseProvider === "string" ? meta.contractDatabaseProvider : null,
+              contractAuthProvider:
+                typeof meta.contractAuthProvider === "string" ? meta.contractAuthProvider : null,
+              contractPaymentProvider:
+                typeof meta.contractPaymentProvider === "string" ? meta.contractPaymentProvider : null,
+              contractIntegrations:
+                Array.isArray(meta.contractIntegrations)
+                  ? (meta.contractIntegrations as Array<{ provider?: string; name?: string; status?: string; envVars?: string[] }>)
+                  : null,
+              contractEnvVars:
+                Array.isArray(meta.contractEnvVars)
+                  ? (meta.contractEnvVars as Array<{ key?: string; reason?: string; required?: boolean }>)
+                  : null,
+              unresolvedContractDecisions:
+                Array.isArray(meta.unresolvedContractDecisions)
+                  ? (meta.unresolvedContractDecisions as Array<{ kind?: string; reason?: string } | string>)
+                  : null,
             });
 
             const promptStrategy =

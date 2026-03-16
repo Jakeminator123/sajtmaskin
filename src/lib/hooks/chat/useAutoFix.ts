@@ -293,6 +293,14 @@ export function useAutoFix(
 
         const enrichedPayload = await enrichAutoFixPayload(payload);
         const prompt = buildAutoFixPrompt(enrichedPayload);
+        const scaffoldRetry =
+          enrichedPayload.meta?.scaffoldRetry && typeof enrichedPayload.meta.scaffoldRetry === "object"
+            ? (enrichedPayload.meta.scaffoldRetry as Record<string, unknown>)
+            : null;
+        const retryScaffoldId =
+          scaffoldRetry && typeof scaffoldRetry.suggestedScaffoldId === "string"
+            ? scaffoldRetry.suggestedScaffoldId
+            : null;
         const delayMs = chatTotal === 0 ? 1500 : 4000;
 
         if (pendingTimerRef.current) {
@@ -307,7 +315,15 @@ export function useAutoFix(
             if (pendingPayloadKeyRef.current !== reasonKey) return;
             if (!(await isLatestVersionPayload(payload))) return;
             pendingPayloadKeyRef.current = null;
-            await sendMessage(prompt);
+            await sendMessage(
+              prompt,
+              retryScaffoldId
+                ? {
+                    scaffoldModeOverride: "manual",
+                    scaffoldIdOverride: retryScaffoldId,
+                  }
+                : undefined,
+            );
           })();
         }, delayMs);
       })();

@@ -17,9 +17,14 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import type { PreGenerationContractContext } from "./pre-generation-contracts";
+import type { RoutePlan } from "./route-plan";
+import type { ScaffoldManifest } from "./scaffolds/types";
 import { searchKnowledgeBaseAsync } from "./context/knowledge-base";
 import { enrichWithRegistry } from "./context/registry-enricher";
+import { getTemplateLibraryEntryById } from "./template-library/catalog";
 import { searchTemplateLibrary, selectTemplateReferenceFiles } from "./template-library/search";
+import type { TemplateLibraryEntry } from "./template-library/types";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — never changes per request (prompt-cache optimized)
@@ -422,6 +427,9 @@ export interface DynamicContextOptions {
   mediaCatalog?: MediaCatalogItem[];
   originalPrompt?: string;
   scaffoldContext?: string;
+  resolvedScaffold?: ScaffoldManifest | null;
+  routePlan?: RoutePlan | null;
+  preGenerationContracts?: PreGenerationContractContext | null;
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
@@ -437,6 +445,96 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
 }
 
+const MIN_TEMPLATE_REFERENCE_QUALITY = 55;
+const MIN_SCAFFOLD_REFERENCE_QUALITY = 45;
+
+interface RankedTemplateReference {
+  entry: TemplateLibraryEntry;
+  score: number;
+  source: "prompt" | "scaffold" | "hybrid";
+  reasons: string[];
+}
+
+function intersectsScaffoldFamilies(
+  entry: TemplateLibraryEntry,
+  resolvedScaffold: ScaffoldManifest | null | undefined,
+): boolean {
+  if (!resolvedScaffold) return false;
+  return entry.recommendedScaffoldFamilies.includes(resolvedScaffold.family);
+}
+
+function addTemplateReferenceCandidate(
+  candidates: Map<string, RankedTemplateReference>,
+  entry: TemplateLibraryEntry,
+  score: number,
+  reason: string,
+  source: "prompt" | "scaffold",
+): void {
+  const existing = candidates.get(entry.id);
+  if (!existing) {
+    candidates.set(entry.id, {
+      entry,
+      score,
+      source,
+      reasons: [reason],
+    });
+    return;
+  }
+
+  existing.score += score;
+  existing.source = existing.source === source ? source : "hybrid";
+  if (!existing.reasons.includes(reason)) {
+    existing.reasons.push(reason);
+  }
+}
+
+async function rankTemplateReferences(
+  originalPrompt: string,
+  resolvedScaffold: ScaffoldManifest | null | undefined,
+): Promise<RankedTemplateReference[]> {
+  const promptMatches = await searchTemplateLibrary(originalPrompt, 6);
+  const candidates = new Map<string, RankedTemplateReference>();
+  const scaffoldLabel = resolvedScaffold?.label ?? "the selected scaffold";
+
+  for (const match of promptMatches) {
+    const fitBoost = intersectsScaffoldFamilies(match.entry, resolvedScaffold) ? 16 : 0;
+    addTemplateReferenceCandidate(
+      candidates,
+      match.entry,
+      match.score * 100 + fitBoost + match.entry.qualityScore / 10,
+      fitBoost > 0
+        ? "Prompten matchar och referensen passar vald runtime scaffold."
+        : "Prompten matchar denna kuraterade referens.",
+      "prompt",
+    );
+  }
+
+  for (const reference of resolvedScaffold?.research?.referenceTemplates ?? []) {
+    const entry = getTemplateLibraryEntryById(reference.id);
+    if (!entry) continue;
+    const fitBoost = intersectsScaffoldFamilies(entry, resolvedScaffold) ? 20 : 0;
+    addTemplateReferenceCandidate(
+      candidates,
+      entry,
+      35 + fitBoost + entry.qualityScore / 10,
+      `Scaffoldens research pekar ut denna referens för ${scaffoldLabel}.`,
+      "scaffold",
+    );
+  }
+
+  return [...candidates.values()]
+    .filter((candidate) => {
+      if (candidate.source === "scaffold" || candidate.source === "hybrid") {
+        return candidate.entry.qualityScore >= MIN_SCAFFOLD_REFERENCE_QUALITY;
+      }
+      return candidate.entry.qualityScore >= MIN_TEMPLATE_REFERENCE_QUALITY;
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return b.entry.qualityScore - a.entry.qualityScore;
+    });
+}
+
 /**
  * Builds the dynamic (per-request) portion of the system prompt.
  * Contains build intent guidance, project context, visual identity, and media catalog.
@@ -450,6 +548,9 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     mediaCatalog,
     originalPrompt,
     scaffoldContext,
+    resolvedScaffold,
+    routePlan,
+    preGenerationContracts,
     componentPalette,
     designThemePreset,
     designReferences,
@@ -476,6 +577,102 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
   // ── Scaffold ───────────────────────────────────────────────────────────
   if (scaffoldContext) {
     parts.push("## Scaffold", "", scaffoldContext.trim(), "");
+  }
+
+  if (resolvedScaffold) {
+    const checklist = resolvedScaffold.qualityChecklist?.slice(0, 6) ?? [];
+    const upgradeTargets = resolvedScaffold.research?.upgradeTargets.slice(0, 5) ?? [];
+    if (checklist.length > 0 || upgradeTargets.length > 0) {
+      parts.push(
+        "## Scaffold Research Priorities",
+        "",
+        `Use these runtime priorities for the selected scaffold (${resolvedScaffold.label}) while adapting the implementation to the user's request.`,
+      );
+      if (checklist.length > 0) {
+        parts.push("", "- Quality checklist:");
+        parts.push(...checklist.map((item) => `  - ${item}`));
+      }
+      if (upgradeTargets.length > 0) {
+        parts.push("", "- Upgrade targets from curated research:");
+        parts.push(...upgradeTargets.map((item) => `  - ${item}`));
+      }
+      parts.push("");
+    }
+  }
+
+  if (routePlan && routePlan.routes.length > 0) {
+    parts.push(
+      "## Route Plan",
+      "",
+      `- **Site type:** ${routePlan.siteType}`,
+      `- **Planning source:** ${routePlan.source}`,
+      `- **Why:** ${routePlan.reason}`,
+      "",
+    );
+    for (const route of routePlan.routes.slice(0, 10)) {
+      parts.push(
+        `- \`${route.path}\` — ${route.name}: ${route.intent}${route.required ? " (must exist)" : ""}`,
+      );
+    }
+    if (routePlan.routes.length > 1) {
+      parts.push(
+        "",
+        "- Do not collapse this into a single long landing page. Create real App Router page files for the required routes unless the user explicitly asks to simplify.",
+      );
+    } else {
+      parts.push("", "- Keep the route structure compact unless the prompt clearly requires extra pages.");
+    }
+    parts.push("");
+  }
+
+  if (preGenerationContracts) {
+    const { contracts, unresolvedDecisions } = preGenerationContracts;
+    const hasContractSignal =
+      contracts.dataMode !== "none" ||
+      Boolean(contracts.databaseProvider) ||
+      Boolean(contracts.authProvider) ||
+      Boolean(contracts.paymentProvider) ||
+      contracts.integrations.length > 0 ||
+      contracts.envVars.length > 0 ||
+      unresolvedDecisions.length > 0;
+    if (hasContractSignal) {
+      parts.push("## Pre-Generation Contracts", "");
+      parts.push(`- **Data mode:** ${contracts.dataMode}`);
+      if (contracts.databaseProvider) parts.push(`- **Database:** ${contracts.databaseProvider}`);
+      if (contracts.authProvider) parts.push(`- **Auth:** ${contracts.authProvider}`);
+      if (contracts.paymentProvider) parts.push(`- **Payment:** ${contracts.paymentProvider}`);
+      for (const integration of contracts.integrations.slice(0, 8)) {
+        const envSuffix = integration.envVars?.length ? ` [${integration.envVars.join(", ")}]` : "";
+        parts.push(
+          `- **Integration (${integration.status}):** ${integration.name} — ${integration.reason}${envSuffix}`,
+        );
+      }
+      if (contracts.envVars.length > 0) {
+        parts.push("", "- **Environment variables:**");
+        parts.push(
+          ...contracts.envVars
+            .slice(0, 10)
+            .map((envVar) => `  - ${envVar.key} — ${envVar.reason}${envVar.required ? " (required)" : ""}`),
+        );
+      }
+      if (unresolvedDecisions.length > 0) {
+        parts.push("", "- **Unresolved decisions:**");
+        parts.push(...unresolvedDecisions.map((entry) => `  - ${entry.kind}: ${entry.reason}`));
+        parts.push(
+          "  - If these decisions matter for backend/runtime behavior, ask a clarifying question before generating provider-specific code.",
+          "  - If the user has not chosen the provider yet, keep the preview working with mock or placeholder data instead of inventing secrets or backend wiring.",
+        );
+      }
+      if (preGenerationContracts.confirmedAnswers.length > 0) {
+        parts.push("", "- **Confirmed contract answers from the user:**");
+        parts.push(
+          ...preGenerationContracts.confirmedAnswers
+            .slice(0, 6)
+            .map((entry) => `  - ${entry.kind}: ${entry.answer}`),
+        );
+      }
+      parts.push("");
+    }
   }
 
   // ── Project Context (from brief) ────────────────────────────────────────
@@ -660,8 +857,8 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
   }
 
   if (originalPrompt) {
-    const templateMatches = await searchTemplateLibrary(originalPrompt, 3);
-    const usefulTemplateMatches = templateMatches.filter((match) => match.entry.qualityScore >= 55);
+    const templateMatches = await rankTemplateReferences(originalPrompt, resolvedScaffold);
+    const usefulTemplateMatches = templateMatches.slice(0, 3);
     if (usefulTemplateMatches.length > 0) {
       parts.push("## Relevant Template References", "");
       for (const match of usefulTemplateMatches) {
@@ -669,6 +866,7 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
         parts.push(`- Category: ${match.entry.categoryName}`);
         parts.push(`- Scaffold fit: ${match.entry.recommendedScaffoldFamilies.join(", ")}`);
         parts.push(`- Quality score: ${match.entry.qualityScore}`);
+        parts.push(`- Why this reference: ${match.reasons.join(" ")}`);
         parts.push(`- Summary: ${match.entry.summary}`);
         if (match.entry.selectedFiles.length > 0) {
           parts.push(
@@ -732,9 +930,13 @@ export interface BuildSystemPromptOptions {
   mediaCatalog?: MediaCatalogItem[];
   originalPrompt?: string;
   scaffoldContext?: string;
+  resolvedScaffold?: ScaffoldManifest | null;
+  routePlan?: RoutePlan | null;
+  preGenerationContracts?: PreGenerationContractContext | null;
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
+  customInstructions?: string;
 }
 
 /**
@@ -753,9 +955,13 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     mediaCatalog: options.mediaCatalog,
     originalPrompt: options.originalPrompt,
     scaffoldContext: options.scaffoldContext,
+    resolvedScaffold: options.resolvedScaffold,
+    routePlan: options.routePlan,
+    preGenerationContracts: options.preGenerationContracts,
     componentPalette: options.componentPalette,
     designThemePreset: options.designThemePreset,
     designReferences: options.designReferences,
+    customInstructions: options.customInstructions,
   });
 
   return `${STATIC_CORE}${SYSTEM_PROMPT_SEPARATOR}${dynamicContext}`;

@@ -125,6 +125,8 @@ export function useCreateChat(
       const now = Date.now();
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
+      const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
+      const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
 
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
       const engineModel = v0TierToOpenAIModel(canonicalTier);
@@ -180,6 +182,30 @@ export function useCreateChat(
             : null,
           promptAssistModel: promptAssistModel ?? null,
           promptAssistDeep: promptAssistDeep ?? null,
+          contractDataMode:
+            typeof meta?.contractDataMode === "string" ? (meta.contractDataMode as string) : null,
+          contractDatabaseProvider:
+            typeof meta?.contractDatabaseProvider === "string"
+              ? (meta.contractDatabaseProvider as string)
+              : null,
+          contractAuthProvider:
+            typeof meta?.contractAuthProvider === "string" ? (meta.contractAuthProvider as string) : null,
+          contractPaymentProvider:
+            typeof meta?.contractPaymentProvider === "string"
+              ? (meta.contractPaymentProvider as string)
+              : null,
+          contractIntegrations:
+            Array.isArray(meta?.contractIntegrations)
+              ? (meta.contractIntegrations as Array<{ provider?: string; name?: string; status?: string; envVars?: string[] }>)
+              : null,
+          contractEnvVars:
+            Array.isArray(meta?.contractEnvVars)
+              ? (meta.contractEnvVars as Array<{ key?: string; reason?: string; required?: boolean }>)
+              : null,
+          unresolvedContractDecisions:
+            Array.isArray(meta?.unresolvedContractDecisions)
+              ? (meta.unresolvedContractDecisions as Array<{ kind?: string; reason?: string } | string>)
+              : null,
         });
         const promptStrategy =
           meta?.promptStrategy === "direct" ||
@@ -315,8 +341,8 @@ export function useCreateChat(
         if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
         if (buildIntent) promptMeta.buildIntent = buildIntent;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
-        if (scaffoldMode && scaffoldMode !== "off") promptMeta.scaffoldMode = scaffoldMode;
-        if (scaffoldId) promptMeta.scaffoldId = scaffoldId;
+        if (effectiveScaffoldMode && effectiveScaffoldMode !== "off") promptMeta.scaffoldMode = effectiveScaffoldMode;
+        if (effectiveScaffoldId) promptMeta.scaffoldId = effectiveScaffoldId;
         if (appProjectId) promptMeta.appProjectId = appProjectId;
         if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;

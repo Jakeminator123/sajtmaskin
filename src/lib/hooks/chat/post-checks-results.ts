@@ -1,4 +1,5 @@
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
+import type { PlannedRoute } from "@/lib/gen/route-plan";
 import type { SanityIssue } from "@/lib/gen/validation/project-sanity";
 import { formatChangeSteps } from "./post-checks-summary";
 import {
@@ -62,6 +63,7 @@ export interface PostCheckArtifacts {
     warnings: string[];
     sanityIssues: SanityIssue[];
     missingRoutes: string[];
+    missingPlannedRoutes: PlannedRoute[];
     lucideLinkMisuse: string[];
     suspiciousUseCalls: SuspiciousUseCall[];
     designTokens: DesignTokenSummary | null;
@@ -94,6 +96,7 @@ export function buildPostCheckArtifacts(params: {
   previousVersionId: string | null;
   streamQuality?: StreamQualitySignal;
   missingRoutes: string[];
+  missingPlannedRoutes: PlannedRoute[];
   lucideLinkMisuse: string[];
   suspiciousUseCalls: SuspiciousUseCall[];
   designTokens: DesignTokenSummary | null;
@@ -113,6 +116,7 @@ export function buildPostCheckArtifacts(params: {
     previousVersionId,
     streamQuality,
     missingRoutes,
+    missingPlannedRoutes,
     lucideLinkMisuse,
     suspiciousUseCalls,
     designTokens,
@@ -188,6 +192,19 @@ export function buildPostCheckArtifacts(params: {
   if (!finalDemoUrl) {
     steps.push(buildPreviewUnavailableStep(preflight));
   }
+  if (preflight?.scaffoldRetry) {
+    steps.push(
+      `Scaffold retry: byt från ${preflight.scaffoldRetry.currentScaffoldLabel} till ${preflight.scaffoldRetry.suggestedScaffoldLabel} om repair-turnen behöver en strukturpivot.`,
+    );
+  }
+  if (missingPlannedRoutes.length > 0) {
+    const preview = missingPlannedRoutes
+      .slice(0, 6)
+      .map((route) => `${route.path} (${route.name})`)
+      .join(" | ");
+    const suffix = missingPlannedRoutes.length > 6 ? " …" : "";
+    steps.push(`Route plan mismatch: ${preview}${suffix}`);
+  }
 
   const changedFilesCount = changes
     ? changes.added.length + changes.modified.length + changes.removed.length
@@ -208,6 +225,9 @@ export function buildPostCheckArtifacts(params: {
   if (sanityErrors.length > 0) {
     qualityGateFailures.push("project_sanity_errors");
   }
+  if (missingPlannedRoutes.length > 0) {
+    qualityGateFailures.push("planned_routes_missing");
+  }
 
   const qualityGatePassed = qualityGateFailures.length === 0;
 
@@ -216,9 +236,16 @@ export function buildPostCheckArtifacts(params: {
     criticalReasons.push(getPreviewUnavailableAutoFixReason(preflight));
   }
   if (sanityErrors.length > 0) criticalReasons.push("kodsanity error");
+  if (preflight?.scaffoldRetry) criticalReasons.push("misstänkt scaffold-mismatch");
+  if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source === "brief") {
+    criticalReasons.push("planerade routes saknas");
+  }
 
   const warningReasons: string[] = [];
   if (missingRoutes.length > 0) warningReasons.push("saknade routes");
+  if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source !== "brief") {
+    warningReasons.push("route-plan mismatch");
+  }
   if (lucideLinkMisuse.length > 0) warningReasons.push("fel Link-import");
   if (suspiciousUseCalls.length > 0) warningReasons.push("misstankt use()");
   if (imageValidation?.broken?.length) warningReasons.push("trasiga bilder");
@@ -287,6 +314,7 @@ export function buildPostCheckArtifacts(params: {
     warnings,
     sanityIssues,
     missingRoutes,
+    missingPlannedRoutes,
     lucideLinkMisuse,
     suspiciousUseCalls,
     designTokens,
@@ -314,6 +342,18 @@ export function buildPostCheckArtifacts(params: {
       category: "routes",
       message: "Saknade interna routes.",
       meta: { missingRoutes },
+    });
+  }
+  if (missingPlannedRoutes.length > 0) {
+    logItems.push({
+      level: preflight?.routePlan?.source === "brief" ? "error" : "warning",
+      category: "route-plan",
+      message: "Planerade routes saknas i den genererade versionen.",
+      meta: {
+        source: preflight?.routePlan?.source ?? null,
+        siteType: preflight?.routePlan?.siteType ?? null,
+        missingPlannedRoutes,
+      },
     });
   }
   if (suspiciousUseCalls.length > 0) {

@@ -9,6 +9,10 @@ const args = process.argv.slice(2);
 const nextCommand = args[0];
 const env = { ...process.env };
 
+if (nextCommand === "dev" && !("SAJTMASKIN_DEV_LOG_STDOUT" in env)) {
+  env.SAJTMASKIN_DEV_LOG_STDOUT = "true";
+}
+
 // Load .env.local so we can read INSPECTOR_CAPTURE_WORKER_URL before Next.js
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envLocalPath = resolve(__dirname, "..", ".env.local");
@@ -61,6 +65,8 @@ const SHOULD_MANAGE_WORKER =
   WORKER_URL.includes("localhost") &&
   existsSync(WORKER_SCRIPT);
 const IS_BUILD = nextCommand === "build";
+const LOCAL_DEV_LOG = "logs/sajtmaskin-local.log";
+const LOCAL_DEV_DOC_LOG = "logs/sajtmaskin-local-document.txt";
 
 function portIsOpen(port) {
   return new Promise((resolve) => {
@@ -135,9 +141,26 @@ async function maybeStartWorker() {
   workerProcess = spawnWorker();
 }
 
+function printDevBanner() {
+  if (nextCommand !== "dev") return;
+
+  const mirrorEnabled = env.SAJTMASKIN_DEV_LOG_STDOUT !== "false";
+  console.log(`\x1b[35m[sajtmaskin-dev]\x1b[0m dev log file: ${LOCAL_DEV_LOG}`);
+  console.log(`\x1b[35m[sajtmaskin-dev]\x1b[0m detailed log document: ${LOCAL_DEV_DOC_LOG}`);
+  console.log(
+    `\x1b[35m[sajtmaskin-dev]\x1b[0m compact generation summaries in terminal: ${mirrorEnabled ? "on" : "off"}`
+  );
+  if (mirrorEnabled) {
+    console.log(
+      "\x1b[35m[sajtmaskin-dev]\x1b[0m set SAJTMASKIN_DEV_LOG_STDOUT=false to keep logs only in files"
+    );
+  }
+}
+
 // ── Start Next.js ──
 
 await maybeStartWorker();
+printDevBanner();
 
 const nextBin = resolve(__dirname, "..", "node_modules", "next", "dist", "bin", "next");
 const child = spawn(process.execPath, [nextBin, ...args], { stdio: "inherit", env });

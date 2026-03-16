@@ -1,3 +1,5 @@
+import type { RoutePlan } from "./route-plan";
+
 export type PreviewDiagnosticCode =
   | "preflight_preview_blocked"
   | "preflight_verification_blocked"
@@ -18,10 +20,24 @@ export type PreviewDiagnosticCode =
 
 export type PreviewDiagnosticStage = "preflight" | "render-route" | "preview-script" | "iframe";
 export type PreviewRenderOutcomeStatus = "success" | "failure" | null;
+export type ScaffoldRetryState = {
+  currentScaffoldId: string;
+  currentScaffoldLabel: string;
+  suggestedScaffoldId: string;
+  suggestedScaffoldLabel: string;
+  suggestedScaffoldFamily: string;
+  failureType: string;
+  reason: string;
+  source: "heuristic" | "keyword" | "embedding";
+  confidence: "medium" | "high";
+};
+
 export type PreviewPreflightState = {
   previewBlocked: boolean;
   verificationBlocked: boolean;
   previewBlockingReason: string | null;
+  scaffoldRetry?: ScaffoldRetryState | null;
+  routePlan?: RoutePlan | null;
 };
 export type PreviewPreflightSummary = PreviewPreflightState & {
   issueCount: number;

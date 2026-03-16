@@ -35,8 +35,83 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
       : typeof root?.previewBlockingReason === "string"
         ? root.previewBlockingReason
         : null;
+  const scaffoldRetryRoot =
+    root?.scaffoldRetry && typeof root.scaffoldRetry === "object"
+      ? (root.scaffoldRetry as Record<string, unknown>)
+      : null;
+  const scaffoldRetryNested =
+    nested?.scaffoldRetry && typeof nested.scaffoldRetry === "object"
+      ? (nested.scaffoldRetry as Record<string, unknown>)
+      : null;
+  const scaffoldRetryData = scaffoldRetryNested ?? scaffoldRetryRoot;
+  const scaffoldRetry =
+    scaffoldRetryData &&
+    typeof scaffoldRetryData.currentScaffoldId === "string" &&
+    typeof scaffoldRetryData.currentScaffoldLabel === "string" &&
+    typeof scaffoldRetryData.suggestedScaffoldId === "string" &&
+    typeof scaffoldRetryData.suggestedScaffoldLabel === "string" &&
+    typeof scaffoldRetryData.suggestedScaffoldFamily === "string" &&
+    typeof scaffoldRetryData.failureType === "string" &&
+    typeof scaffoldRetryData.reason === "string" &&
+    (scaffoldRetryData.source === "heuristic" ||
+      scaffoldRetryData.source === "keyword" ||
+      scaffoldRetryData.source === "embedding") &&
+    (scaffoldRetryData.confidence === "medium" || scaffoldRetryData.confidence === "high")
+      ? {
+          currentScaffoldId: scaffoldRetryData.currentScaffoldId,
+          currentScaffoldLabel: scaffoldRetryData.currentScaffoldLabel,
+          suggestedScaffoldId: scaffoldRetryData.suggestedScaffoldId,
+          suggestedScaffoldLabel: scaffoldRetryData.suggestedScaffoldLabel,
+          suggestedScaffoldFamily: scaffoldRetryData.suggestedScaffoldFamily,
+          failureType: scaffoldRetryData.failureType,
+          reason: scaffoldRetryData.reason,
+          source: scaffoldRetryData.source as "heuristic" | "keyword" | "embedding",
+          confidence: scaffoldRetryData.confidence as "medium" | "high",
+        }
+      : null;
+  const routePlanRoot =
+    root?.routePlan && typeof root.routePlan === "object"
+      ? (root.routePlan as Record<string, unknown>)
+      : null;
+  const routePlanNested =
+    nested?.routePlan && typeof nested.routePlan === "object"
+      ? (nested.routePlan as Record<string, unknown>)
+      : null;
+  const routePlanData = routePlanNested ?? routePlanRoot;
+  const routePlan =
+    routePlanData &&
+    (routePlanData.source === "brief" ||
+      routePlanData.source === "prompt" ||
+      routePlanData.source === "scaffold") &&
+    (routePlanData.siteType === "one-page" ||
+      routePlanData.siteType === "brochure" ||
+      routePlanData.siteType === "content-heavy" ||
+      routePlanData.siteType === "app-shell") &&
+    typeof routePlanData.reason === "string" &&
+    Array.isArray(routePlanData.routes)
+      ? {
+          source: routePlanData.source as "brief" | "prompt" | "scaffold",
+          siteType: routePlanData.siteType as "one-page" | "brochure" | "content-heavy" | "app-shell",
+          reason: routePlanData.reason,
+          routes: routePlanData.routes
+            .filter(
+              (route): route is Record<string, unknown> =>
+                Boolean(route) &&
+                typeof route === "object" &&
+                typeof route.path === "string" &&
+                typeof route.name === "string" &&
+                typeof route.intent === "string",
+            )
+            .map((route) => ({
+              path: route.path as string,
+              name: route.name as string,
+              intent: route.intent as string,
+              required: typeof route.required === "boolean" ? route.required : false,
+            })),
+        }
+      : null;
 
-  if (previewBlocked === null && verificationBlocked === null && !previewBlockingReason) {
+  if (previewBlocked === null && verificationBlocked === null && !previewBlockingReason && !scaffoldRetry && !routePlan) {
     return null;
   }
 
@@ -44,6 +119,8 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
     previewBlocked: previewBlocked ?? false,
     verificationBlocked: verificationBlocked ?? false,
     previewBlockingReason,
+    scaffoldRetry,
+    routePlan,
   };
 }
 
