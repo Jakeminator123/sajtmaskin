@@ -41,6 +41,11 @@ import {
   type HeroContentDraft,
 } from "@/lib/builder/hero-editor";
 import {
+  readServiceItemsDraft,
+  updateServiceItemsDraft,
+  type ServiceItemDraft,
+} from "@/lib/builder/services-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -322,6 +327,9 @@ export function PreviewPanel({
   const [heroDraft, setHeroDraft] = useState<HeroContentDraft | null>(null);
   const [heroSaveError, setHeroSaveError] = useState<string | null>(null);
   const [isHeroSaving, setIsHeroSaving] = useState(false);
+  const [serviceItemsDraft, setServiceItemsDraft] = useState<ServiceItemDraft[] | null>(null);
+  const [servicesSaveError, setServicesSaveError] = useState<string | null>(null);
+  const [isServicesSaving, setIsServicesSaving] = useState(false);
   const [contactDraft, setContactDraft] = useState<ContactDetailsDraft | null>(null);
   const [contactSaveError, setContactSaveError] = useState<string | null>(null);
   const [isContactSaving, setIsContactSaving] = useState(false);
@@ -1145,6 +1153,14 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableServiceItems = useMemo(
+    () =>
+      selectedFile
+        ? readServiceItemsDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
   const editableContactDetails = useMemo(
     () => (selectedFile ? readContactDetailsDraft(selectedFile.content || "") : null),
     [selectedFile],
@@ -1159,6 +1175,13 @@ export function PreviewPanel({
     setHeroDraft(editableHeroContent ? { ...editableHeroContent } : null);
     setHeroSaveError(null);
   }, [editableHeroContent, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setServiceItemsDraft(
+      editableServiceItems ? editableServiceItems.map((item) => ({ ...item })) : null,
+    );
+    setServicesSaveError(null);
+  }, [editableServiceItems, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
     setContactDraft(editableContactDetails ? { ...editableContactDetails } : null);
@@ -1184,6 +1207,12 @@ export function PreviewPanel({
       (heroDraft.title !== editableHeroContent.title ||
         heroDraft.intro !== editableHeroContent.intro ||
         heroDraft.ctaLabel !== editableHeroContent.ctaLabel),
+  );
+
+  const servicesDirty = Boolean(
+    serviceItemsDraft &&
+      editableServiceItems &&
+      JSON.stringify(serviceItemsDraft) !== JSON.stringify(editableServiceItems),
   );
 
   const contactDirty = Boolean(
@@ -1367,6 +1396,26 @@ export function PreviewPanel({
       setIsHeroSaving(false);
     }
   }, [selectedFile, heroDraft, editableHeroContent, saveSelectedFileContent]);
+
+  const handleSaveServiceItems = useCallback(async () => {
+    if (!selectedFile || !serviceItemsDraft || !editableServiceItems) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateServiceItemsDraft(currentContent, serviceItemsDraft);
+
+    setIsServicesSaving(true);
+    setServicesSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Tjänstepaket sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara tjänstepaket";
+      setServicesSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsServicesSaving(false);
+    }
+  }, [selectedFile, serviceItemsDraft, editableServiceItems, saveSelectedFileContent]);
 
   const handleSaveContactDetails = useCallback(async () => {
     if (!selectedFile || !contactDraft || !editableContactDetails) return;
@@ -2073,6 +2122,90 @@ export function PreviewPanel({
                       </div>
                       {heroSaveError ? (
                         <div className="text-xs text-rose-300">{heroSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {serviceItemsDraft && editableServiceItems ? (
+                  <div className="rounded-md border border-fuchsia-500/30 bg-fuchsia-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-fuchsia-100">Tjänsteeditor</div>
+                        <div className="text-xs text-fuchsia-200/80">
+                          Uppdatera tjänstetitlar och beskrivningar direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveServiceItems()}
+                        disabled={!servicesDirty || isServicesSaving}
+                      >
+                        {isServicesSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara tjänster
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {serviceItemsDraft.map((item, index) => (
+                        <div
+                          key={`service-item-${index}`}
+                          className="rounded-md border border-fuchsia-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-fuchsia-100">
+                            Tjänst {index + 1}
+                          </div>
+                          <div className="grid gap-3">
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-fuchsia-100"
+                                htmlFor={`service-title-${index}`}
+                              >
+                                Titel
+                              </label>
+                              <Input
+                                id={`service-title-${index}`}
+                                value={item.title}
+                                onChange={(event) =>
+                                  setServiceItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, title: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-fuchsia-100"
+                                htmlFor={`service-description-${index}`}
+                              >
+                                Beskrivning
+                              </label>
+                              <Textarea
+                                id={`service-description-${index}`}
+                                value={item.description}
+                                onChange={(event) =>
+                                  setServiceItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, description: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {servicesSaveError ? (
+                        <div className="text-xs text-rose-300">{servicesSaveError}</div>
                       ) : null}
                     </div>
                   </div>
