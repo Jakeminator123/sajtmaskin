@@ -46,6 +46,11 @@ import {
   type ServiceItemDraft,
 } from "@/lib/builder/services-editor";
 import {
+  readFaqItemsDraft,
+  updateFaqItemsDraft,
+  type FaqItemDraft,
+} from "@/lib/builder/faq-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -333,6 +338,9 @@ export function PreviewPanel({
   const [contactDraft, setContactDraft] = useState<ContactDetailsDraft | null>(null);
   const [contactSaveError, setContactSaveError] = useState<string | null>(null);
   const [isContactSaving, setIsContactSaving] = useState(false);
+  const [faqItemsDraft, setFaqItemsDraft] = useState<FaqItemDraft[] | null>(null);
+  const [faqSaveError, setFaqSaveError] = useState<string | null>(null);
+  const [isFaqSaving, setIsFaqSaving] = useState(false);
   const [rawEditMode, setRawEditMode] = useState(false);
   const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
@@ -1166,6 +1174,14 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableFaqItems = useMemo(
+    () =>
+      selectedFile
+        ? readFaqItemsDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
@@ -1187,6 +1203,13 @@ export function PreviewPanel({
     setContactDraft(editableContactDetails ? { ...editableContactDetails } : null);
     setContactSaveError(null);
   }, [editableContactDetails, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setFaqItemsDraft(
+      editableFaqItems ? editableFaqItems.map((item) => ({ ...item })) : null,
+    );
+    setFaqSaveError(null);
+  }, [editableFaqItems, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
     setRawEditMode(false);
@@ -1220,6 +1243,12 @@ export function PreviewPanel({
       editableContactDetails &&
       (contactDraft.email !== editableContactDetails.email ||
         contactDraft.phone !== editableContactDetails.phone),
+  );
+
+  const faqDirty = Boolean(
+    faqItemsDraft &&
+      editableFaqItems &&
+      JSON.stringify(faqItemsDraft) !== JSON.stringify(editableFaqItems),
   );
 
   const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
@@ -1436,6 +1465,26 @@ export function PreviewPanel({
       setIsContactSaving(false);
     }
   }, [selectedFile, contactDraft, editableContactDetails, saveSelectedFileContent]);
+
+  const handleSaveFaqItems = useCallback(async () => {
+    if (!selectedFile || !faqItemsDraft || !editableFaqItems) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateFaqItemsDraft(currentContent, faqItemsDraft);
+
+    setIsFaqSaving(true);
+    setFaqSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("FAQ sparad i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara FAQ";
+      setFaqSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsFaqSaving(false);
+    }
+  }, [selectedFile, faqItemsDraft, editableFaqItems, saveSelectedFileContent]);
 
   const handleSaveRawCode = useCallback(async () => {
     if (!selectedFile) return;
@@ -2206,6 +2255,90 @@ export function PreviewPanel({
                       ))}
                       {servicesSaveError ? (
                         <div className="text-xs text-rose-300">{servicesSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {faqItemsDraft && editableFaqItems ? (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-amber-100">FAQ-editor</div>
+                        <div className="text-xs text-amber-200/80">
+                          Uppdatera frågor och svar direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveFaqItems()}
+                        disabled={!faqDirty || isFaqSaving}
+                      >
+                        {isFaqSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara FAQ
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {faqItemsDraft.map((item, index) => (
+                        <div
+                          key={`faq-item-${index}`}
+                          className="rounded-md border border-amber-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-amber-100">
+                            FAQ {index + 1}
+                          </div>
+                          <div className="grid gap-3">
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-amber-100"
+                                htmlFor={`faq-question-${index}`}
+                              >
+                                Fråga
+                              </label>
+                              <Input
+                                id={`faq-question-${index}`}
+                                value={item.question}
+                                onChange={(event) =>
+                                  setFaqItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, question: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-amber-100"
+                                htmlFor={`faq-answer-${index}`}
+                              >
+                                Svar
+                              </label>
+                              <Textarea
+                                id={`faq-answer-${index}`}
+                                value={item.answer}
+                                onChange={(event) =>
+                                  setFaqItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, answer: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {faqSaveError ? (
+                        <div className="text-xs text-rose-300">{faqSaveError}</div>
                       ) : null}
                     </div>
                   </div>
