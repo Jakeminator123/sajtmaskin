@@ -1,0 +1,113 @@
+{
+  "id": "saas-liveblocks-starter-kit",
+  "slug": "saas-liveblocks-starter-kit",
+  "title": "Liveblocks Starter Kit",
+  "categorySlug": "saas",
+  "categoryName": "SaaS",
+  "templateUrl": "https://vercel.com/templates/saas/liveblocks-starter-kit",
+  "demoUrl": "https://nextjs-starter-kit.liveblocks.app",
+  "description": "Real-time collaborative product starter kit built with Next.js and Liveblocks",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/liveblocks/liveblocks/tree/main/starter-kits/nextjs-starter-kit",
+    "normalizedUrl": "https://github.com/liveblocks/liveblocks",
+    "subpath": "starter-kits/nextjs-starter-kit",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\liveblocks-liveblocks",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "CSS Modules",
+    "Database",
+    "Liveblocks",
+    "Auth",
+    "NextAuth.js",
+    "Related Templates"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "https://user-images.githubusercontent.com/33033422/216776250-04ef297b-f61a-42ec-a7b9-b08e46dddf8f.mp4",
+    "Features",
+    "Collaborative whiteboard app with a fully-featured share menu",
+    "Authentication compatible with GitHub, Google, Auth0, and more",
+    "Authentication",
+    "Database",
+    "Auth",
+    "NextAuth.js",
+    "Jumpstart your virtual event and scale to any size with Next.js and Vercel."
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "saas-landing",
+    "app-shell",
+    "auth-pages"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Liveblocks Starter Kit is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "https://user-images.githubusercontent.com/33033422/216776250-04ef297b-f61a-42ec-a7b9-b08e46dddf8f.mp4\n\n# [Next.js Starter Kit](https://liveblocks.io/starter-kit)\n\n<p>\n  <a href=\"https://codesandbox.io/s/github/liveblocks/liveblocks/tree/main/starter-kits/nextjs-starter-kit\">\n    <img src=\"https://img.shields.io/badge/open%20in%20codesandbox-message?style=flat&logo=codesandbox&color=333&logoColor=fff\" alt=\"Open in CodeSandbox\" />\n  </a>\n  <img src=\"https://img.shields.io/badge/react-message?style=flat&logo=react&color=0bd&logoColor=fff\" alt=\"React\" />\n  <img src=\"https://img.shields.io/badge/next.js-message?style=flat&logo=next.js&color=07f&logoColor=fff\" alt=\"Next.js\" />\n</p>\n\nKickstart start your collaborative Next.js app with this starter kit.\n\n## Features\n\n- Documents dashboard with pagination, drafts, groups, auto-revalidation\n- Collaborative whiteboard app with a fully-featured share menu\n- Authentication compatible with GitHub, Google, Auth0, and more\n- Document permissions can be scoped to users, groups, and the public\n\n## Get started\n\n[Read the guide](http://liveblocks.io/docs/guides/nextjs-starter-kit) to get\nstarted."
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"@liveblocks-starter-kits/nextjs-starter-kit\",\n  \"description\": \"This repository contains a collaborative starter kit using Liveblocks and Next.js.\",\n  \"license\": \"Apache-2.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev --turbopack\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint --fix\",\n    \"typecheck\": \"tsc --project tsconfig.json --noEmit\"\n  },\n  \"dependencies\": {\n    \"@blocknote/core\": \"^0.42.3\",\n    \"@blocknote/mantine\": \"^0.42.3\",\n    \"@blocknote/react\": \"^0.42.3\",\n    \"@floating-ui/dom\": \"^1.7.4\",\n    \"@liveblocks/client\": \"^3.14.0\",\n    \"@liveblocks/emails\": \"^3.14.0\",\n    \"@liveblocks/node\": \"^3.14.0\",\n    \"@liveblocks/react\": \"^3.14.0\",\n    \"@liveblocks/react-blocknote\": \"^3.14.0\",\n    \"@liveblocks/react-tiptap\": \"^3.14.0\",\n    \"@liveblocks/react-ui\": \"^3.14.0\",\n    \"@radix-ui/react-dialog\": \"^1.1.6\",\n    \"@radix-ui/react-popover\": \"^1.1.6\",\n    \"@radix-ui/react-select\": \"^2.1.6\",\n    \"@radix-ui/react-switch\": \"^1.1.3\",\n    \"@radix-ui/react-tabs\": \"^1.1.3\",\n    \"@radix-ui/react-tooltip\": \"^1.1.8\",\n    \"@tiptap/extension-highlight\": \"^3.10.5\",\n    \"@tiptap/extension-image\": \"^3.10.5\",\n    \"@tiptap/extension-text-align\": \"^3.10.5\",\n    \"@tiptap/extension-typography\": \"^3.10.5\",\n    \"@tiptap/extension-youtube\": \"^3.10.5\",\n    \"@tiptap/extensions\": \"^3.10.5\",\n    \"@tiptap/pm\": \"^3.10.5\",\n    \"@tiptap/react\": \"^3.10.5\",\n    \"@tiptap/starter-kit\": \"^3.10.5\",\n    \"base-64\": \"^1.0.0\",\n    \"clsx\": \"^1.2.1\",\n    \"date-fns\": \"^3.3.1\",\n    \"frimousse\": \"^0.1.0\",\n    \"nanoid\": \"^5.1.6\",\n    \"next\": \"^16.1.6\",\n    \"next-auth\": \"^5.0.0-beta.25\",\n    \"react\": \"^19.2.4\",\n    \"react-dom\": \"^19.2.4\",\n    \"react-textarea-autosize\": \"^8.5.8\",\n    \"swr\": \"^2.3.3\",\n    \"tldraw\": \"^3.11.0\"\n  },\n  \"devDependencies\": {\n    \"@types/base-64\": \"^1.0.0\",\n    \"@types/node\": \"^18.11.9\",\n    \"@types/react\": \"19.0.12\",\n    \"@typescript-eslint/eslint-plugin\": \"^6.3.0\",\n    \"@typescript-eslint/parser\": \"^6.3.0\",\n    \"eslint\": \"^8.47.0\",\n    \"eslint-config-next\": \"15.2.4\",\n    \"eslint-config-prettier\": \"^9.0.0\",\n    \"eslint-plugin-import\": \"^2.28.0\",\n    \"eslint-plugin-prettier\": \"^5.0.0\",\n    \"eslint-plugin-unused-imports\": \"^3.0.0\",\n    \"prettier\": \"^3.0.1\",\n    \"typescript\": \"^5.9.2\"\n  },\n  \"overrides\": {\n    \"@types/react\": \"19.0.12\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport { Inter } from \"next/font/google\";\nimport { Providers } from \"@/app/Providers\";\nimport { auth } from \"@/auth\";\nimport \"../styles/normalize.css\";\nimport \"@liveblocks/react-ui/styles.css\";\nimport \"@liveblocks/react-ui/styles/dark/media-query.css\";\nimport \"@liveblocks/react-tiptap/styles.css\";\nimport \"@blocknote/mantine/style.css\";\nimport \"../styles/globals.css\";\nimport \"../styles/tiptap.css\";\nimport \"../styles/blocknote.css\";\n\nconst inter = Inter({ subsets: [\"latin\"] });\n\nexport const metadata: Metadata = {\n  title: \"Liveblocks Starter Kit\",\n};\n\nexport default async function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  const session = await auth();\n  return (\n    <html lang=\"en\">\n      <body className={inter.className}>\n        <Providers session={session}>{children}</Providers>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import clsx from \"clsx\";\nimport { redirect } from \"next/navigation\";\nimport { ComponentProps, ReactNode } from \"react\";\nimport { auth, signIn } from \"@/auth\";\nimport { DASHBOARD_URL } from \"@/constants\";\nimport { SignInIcon } from \"@/icons\";\nimport { MarketingLayout } from \"@/layouts/Marketing\";\nimport { Button, LinkButton } from \"@/primitives/Button\";\nimport { Container } from \"@/primitives/Container\";\nimport styles from \"./page.module.css\";\n\ninterface FeatureProps extends Omit<ComponentProps<\"div\">, \"title\"> {\n  description: ReactNode;\n  title: ReactNode;\n}\n\nfunction Feature({ title, description, className, ...props }: FeatureProps) {\n  return (\n    <div className={clsx(className, styles.featuresFeature)} {...props}>\n      <h4 className={styles.featuresFeatureTitle}>{title}</h4>\n      <p className={styles.featuresFeatureDescription}>{description}</p>\n    </div>\n  );\n}\n\nexport default async function Index() {\n  const session = await auth();\n\n  // If logged in, go to dashboard\n  if (session) {\n    redirect(DASHBOARD_URL);\n  }\n\n  return (\n    <MarketingLayout>\n      <Container className={styles.section}>\n        <div className={styles.heroInfo}>\n          <h1 className={styles.heroTitle}>\n            Kickstart your collaborative&nbsp;app\n          </h1>\n          <p className={styles.heroLead}>\n            Use the Liveblocks Starter Kit to build your document-based\n            collaborative app in&nbsp;minutes.\n          </p>\n        </div>\n        <div className={styles.heroActions}>\n          <form\n            action={async () => {\n              \"use server\";\n              await signIn();\n            }}\n          >\n            <Button icon={<SignInIcon />}>Sign in</Button>\n          </form>\n          <LinkButton\n            href=\"https://liveblocks.io/docs/guides/nextjs-starter-kit\"\n            target=\"_blank\"\n            variant=\"secondary\"\n          >\n            Learn more\n          </LinkButton>\n        </div>\n      </Container>\n      <Container className={styles.section}>\n        <h2 className={styles.sectionTitle}>Features</h2>\n        <div className={styles.featuresGrid}>\n          <Feature\n            description={\n              <>\n                A collaborative whiteboard app with included share menu,\n                documents listing, users, groups, permissions, and more.\n\n// ... truncated"
+    },
+    {
+      "path": "app/dashboard/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { DocumentsList } from \"@/components/DocumentsList\";\n\nexport default async function DashboardPage() {\n  return <DocumentsList filter=\"all\" />;\n}"
+    },
+    {
+      "path": "components/Header/Header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\n\nimport {\n  ClientSideSuspense,\n  useIsInsideRoom,\n  useOthers,\n  useSelf,\n} from \"@liveblocks/react/suspense\";\nimport clsx from \"clsx\";\nimport { useSession } from \"next-auth/react\";\nimport { ComponentProps, useMemo } from \"react\";\nimport { InboxPopover } from \"@/components/Inbox\";\nimport { OrganizationPopover } from \"@/components/OrganizationPopover\";\nimport { ShareIcon, SignInIcon } from \"@/icons\";\nimport { renameDocument, signIn } from \"@/lib/actions\";\nimport { AvatarStack } from \"@/primitives/AvatarStack\";\nimport { Button } from \"@/primitives/Button\";\nimport { Skeleton } from \"@/primitives/Skeleton\";\nimport { Document } from \"@/types\";\nimport { ShareDialog } from \"../ShareDialog\";\nimport { HeaderName } from \"./HeaderName\";\nimport styles from \"./Header.module.css\";\n\ninterface Props extends ComponentProps<\"header\"> {\n  documentId: Document[\"id\"] | null;\n  showTitle?: boolean;\n}\n\nexport function Header({\n  documentId,\n  showTitle = true,\n  className,\n  ...props\n}: Props) {\n  const isInsideRoom = useIsInsideRoom();\n  const { status } = useSession();\n\n  return (\n    <header className={clsx(className, styles.header)} {...props}>\n      <div className={styles.logo}>\n        {status === \"authenticated\" ? (\n          <OrganizationPopover />\n        ) : (\n          <Button\n            icon={<SignInIcon />}\n            variant=\"secondary\"\n            onClick={() => signIn()}\n          >\n            Sign in\n          </Button>\n        )}\n      </div>\n      <div className={styles.document}>\n        {showTitle ? (\n          <ClientSideSuspense fallback={null}>\n            {isInsideRoom && documentId ? (\n              <HeaderName\n                onDocumentRename={(name) =>\n                  renameDocument({ documentId, name })\n                }\n              />\n            ) : null}\n          </ClientSideSuspense>\n        ) : null}\n      </div>\n      <div className={styles.collaboration}>\n        <div className={styles.presence}>\n          <ClientSideSuspense fallback={null}>\n            {isInsideRoom ? <HeaderAvatars /> : null}\n          </ClientSideSuspense>\n        </div>\n        <ClientSideSuspense fallback={null}>\n          {isInsideRoom ? (\n            <ClientSideSuspense\n              fallback={\n                <Button icon={<ShareIcon />} disabled={true}>\n\n// ... truncated"
+    }
+  ]
+}

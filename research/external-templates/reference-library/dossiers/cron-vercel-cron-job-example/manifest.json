@@ -1,0 +1,79 @@
+{
+  "id": "cron-vercel-cron-job-example",
+  "slug": "cron-vercel-cron-job-example",
+  "title": "Vercel Cron Job Example",
+  "categorySlug": "cron",
+  "categoryName": "Cron",
+  "templateUrl": "https://vercel.com/templates/cron/vercel-cron",
+  "demoUrl": "https://cron-template.vercel.app/",
+  "description": "A Next.js app that uses Vercel Cron Jobs to update data at different intervals.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 62,
+  "repo": {
+    "url": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+    "normalizedUrl": "https://github.com/vercel/next.js",
+    "subpath": "packages/create-next-app",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-next-js",
+    "packageManager": "unknown",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Database",
+    "Redis",
+    "Related Templates",
+    "Hacker News Slack Bot"
+  ],
+  "usefulLines": [
+    "Vercel Cron Job Example",
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "A Next.js app that uses Vercel Cron Jobs to update data at different intervals.",
+    "Deploy",
+    "Vercel Cron Jobs",
+    "https://cron-template.vercel.app/",
+    "One-Click Deploy",
+    "Deploy the example using",
+    "Vercel",
+    "Don't forget to set the required environment variables that you got from the previous step.",
+    "Clone and Deploy"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [
+    "monorepo subpath not found locally — file excerpts unavailable"
+  ],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Vercel Cron Job Example is a Cron reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": []
+}

@@ -425,10 +425,12 @@ function deriveWeaknesses(
   repoInfo: TemplateLibraryRepoInfo,
   usefulLines: string[],
   noiseLines: string[],
+  subpathMissing?: boolean,
 ): string[] {
   const weaknesses: string[] = [];
   if (rawRepoVerdict === "bad_repo_link") weaknesses.push("repo URL is not trustworthy");
   if (repoInfo.isMonorepo && !repoInfo.subpath) weaknesses.push("large monorepo without a clear example path");
+  if (subpathMissing) weaknesses.push("monorepo subpath not found locally — file excerpts unavailable");
   if (!repoInfo.hasNext && !repoInfo.hasReact) weaknesses.push("framework could not be verified from package.json");
   if (noiseLines.length > usefulLines.length) weaknesses.push("page-derived hints are noisy");
   if (!repoInfo.clonePath) weaknesses.push("repo clone is missing");
@@ -543,6 +545,7 @@ function resolveLinkedLegacyDatasetRoot(sourceRoot: string): string | null {
 function resolveRepoInspectionPaths(sourceRoot: string, template: RawTemplateRecord): {
   cloneRoot: string;
   inspectionRoot: string;
+  subpathMissing: boolean;
 } {
   const repoUrl = assessRepoUrl(template.repo_url);
   const cachedRepoDir = resolveRepoCacheDir(repoUrl.normalizedUrl);
@@ -553,15 +556,16 @@ function resolveRepoInspectionPaths(sourceRoot: string, template: RawTemplateRec
     (cachedRepoDir && fs.existsSync(cachedRepoDir) && cachedRepoDir) ||
     (linkedLegacyRepoDir && fs.existsSync(linkedLegacyRepoDir) && linkedLegacyRepoDir) ||
     (fs.existsSync(legacyRepoDir) ? legacyRepoDir : legacyRepoDir);
-  const subpathRoot =
-    repoUrl.subpath && fs.existsSync(path.join(cloneRoot, repoUrl.subpath))
-      ? path.join(cloneRoot, repoUrl.subpath)
-      : cloneRoot;
 
-  return {
-    cloneRoot,
-    inspectionRoot: subpathRoot,
-  };
+  if (repoUrl.subpath) {
+    const subpathDir = path.join(cloneRoot, repoUrl.subpath);
+    if (fs.existsSync(subpathDir)) {
+      return { cloneRoot, inspectionRoot: subpathDir, subpathMissing: false };
+    }
+    return { cloneRoot, inspectionRoot: cloneRoot, subpathMissing: true };
+  }
+
+  return { cloneRoot, inspectionRoot: cloneRoot, subpathMissing: false };
 }
 
 function buildEntry(
@@ -570,14 +574,27 @@ function buildEntry(
 ): TemplateLibraryEntry {
   const slug = slugify(`${template.category_slug}-${template.title}`);
   const repoUrl = assessRepoUrl(template.repo_url);
-  const { cloneRoot, inspectionRoot } = resolveRepoInspectionPaths(sourceRoot, template);
+  const { cloneRoot, inspectionRoot, subpathMissing } = resolveRepoInspectionPaths(sourceRoot, template);
+
   const repoInspection = inspectRepo(inspectionRoot);
-  const selectedFilePaths = repoInspection.packageDir || repoInspection.files.length > 0
-    ? findInterestingFiles(inspectionRoot, repoInspection.packageDir, repoInspection.files)
-    : [];
+  const isMonorepoFallback = subpathMissing && repoUrl.subpath;
+  const isMonorepoWithoutSubpath = repoInspection.repoInfo.isMonorepo && !repoUrl.subpath;
+  const skipFileSelection = isMonorepoFallback || isMonorepoWithoutSubpath;
+
+  const selectedFilePaths = skipFileSelection
+    ? []
+    : (repoInspection.packageDir || repoInspection.files.length > 0
+        ? findInterestingFiles(inspectionRoot, repoInspection.packageDir, repoInspection.files)
+        : []);
   const selectedFiles = selectedFilePaths
     .map((filePath) => buildFileExcerpt(filePath, inspectionRoot))
     .filter(Boolean) as TemplateLibrarySelectedFile[];
+
+  if (isMonorepoFallback) {
+    console.warn(`[template-library] Subpath "${repoUrl.subpath}" not found locally for ${template.title} — skipping file selection to avoid monorepo contamination`);
+  } else if (isMonorepoWithoutSubpath) {
+    console.warn(`[template-library] Monorepo without subpath for ${template.title} — skipping file selection to avoid contamination`);
+  }
 
   const usefulLines = (template.important_lines ?? [])
     .filter((line) => !NOISE_LINE_RE.test(line))
@@ -594,7 +611,7 @@ function buildEntry(
   const signals = detectSignals(template, selectedFiles);
   const strengths = deriveStrengths(signals, repoInfo);
   const recommendedScaffoldFamilies = recommendScaffoldFamilies(template.category_slug, signals);
-  const weaknesses = deriveWeaknesses(repoUrl.verdict, repoInfo, usefulLines, noiseLines);
+  const weaknesses = deriveWeaknesses(repoUrl.verdict, repoInfo, usefulLines, noiseLines, isMonorepoFallback || isMonorepoWithoutSubpath);
   const qualityScore = scoreEntry(
     repoUrl.verdict,
     repoInfo,

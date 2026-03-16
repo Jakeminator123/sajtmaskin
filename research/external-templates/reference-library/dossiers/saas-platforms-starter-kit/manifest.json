@@ -6,11 +6,11 @@
   "categoryName": "SaaS",
   "templateUrl": "https://vercel.com/templates/saas/platforms-starter-kit",
   "demoUrl": "https://vercel.pub/",
-  "description": "",
-  "frameworkReason": "Next.js",
+  "description": "Next.js template for building multi-tenant applications with the App Router and Redis.",
+  "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 90,
+  "qualityScore": 92,
   "repo": {
     "url": "https://github.com/vercel/platforms",
     "normalizedUrl": "https://github.com/vercel/platforms",
@@ -24,21 +24,33 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
-    "SaaS",
-    "Multi-Tenant Apps",
     "Next.js",
     "Tailwind",
-    "Redis"
+    "Database",
+    "Redis",
+    "Related Templates",
+    "Nextra: Docs Starter Kit"
   ],
   "usefulLines": [
-    "Platforms Starter Kit",
-    "SaaS",
-    "Multi-Tenant Apps",
-    "Next.js",
-    "Tailwind",
-    "Redis"
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Next.js template for building multi-tenant applications with the App Router and Redis.",
+    "Deploy",
+    "Features",
+    "✅ Redis for tenant data storage",
+    "✅ Support for local development with subdomains",
+    "✅ Compatible with Vercel preview deployments",
+    "Upstash Redis",
+    "Getting Started",
+    "pnpm (recommended) or npm/yarn",
+    "Upstash Redis account (for production)"
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
@@ -47,7 +59,8 @@
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
     "saas-landing",
-    "app-shell"
+    "app-shell",
+    "content-site"
   ],
   "signals": {
     "auth": false,
@@ -56,8 +69,8 @@
     "blog": false,
     "portfolio": false,
     "ecommerce": false,
-    "docs": false,
-    "ai": false,
+    "docs": true,
+    "ai": true,
     "multiTenant": true,
     "cms": false
   },

@@ -6,11 +6,11 @@
   "categoryName": "Marketing Sites",
   "templateUrl": "https://vercel.com/templates/marketing-sites/drupal-nextjs-marketing-site",
   "demoUrl": "https://next-example-marketing.vercel.app/",
-  "description": "",
-  "frameworkReason": "Next.js",
+  "description": "Example landing page using Drupal for content.",
+  "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 74,
+  "qualityScore": 68,
   "repo": {
     "url": "https://github.com/chapter-three/next-drupal/tree/main/examples/example-marketing",
     "normalizedUrl": "https://github.com/chapter-three/next-drupal",
@@ -24,24 +24,32 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
-    "Starter",
-    "Marketing Sites",
     "Next.js",
-    "Tailwind"
+    "Tailwind",
+    "Related Templates",
+    "Next.js Boilerplate",
+    "Nextra: Docs Starter Kit"
   ],
   "usefulLines": [
-    "Drupal Marketing Site",
-    "Starter",
-    "Marketing Sites",
-    "Next.js",
-    "Tailwind"
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "Features"
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
   "strengths": [
     "verified Next.js codebase",
     "CMS integration hints"
   ],
-  "weaknesses": [],
+  "weaknesses": [
+    "page-derived hints are noisy"
+  ],
   "recommendedScaffoldFamilies": [
     "landing-page",
     "content-site"
@@ -53,8 +61,8 @@
     "blog": false,
     "portfolio": false,
     "ecommerce": false,
-    "docs": false,
-    "ai": false,
+    "docs": true,
+    "ai": true,
     "multiTenant": false,
     "cms": true
   },

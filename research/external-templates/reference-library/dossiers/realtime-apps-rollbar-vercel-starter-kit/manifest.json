@@ -1,0 +1,92 @@
+{
+  "id": "realtime-apps-rollbar-vercel-starter-kit",
+  "slug": "realtime-apps-rollbar-vercel-starter-kit",
+  "title": "Rollbar + Vercel starter kit",
+  "categorySlug": "realtime-apps",
+  "categoryName": "Realtime Apps",
+  "templateUrl": "https://vercel.com/templates/realtime-apps/rollbar-vercel-starter-kit",
+  "demoUrl": "https://rollbar-app.vercel.app/",
+  "description": "A complete starter kit for integrating Rollbar error monitoring into your Next.js App Router application.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 82,
+  "repo": {
+    "url": "https://github.com/rollbar/rollbar-vercel",
+    "normalizedUrl": "https://github.com/rollbar/rollbar-vercel",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\rollbar-rollbar-vercel",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Products",
+    "AI",
+    "Enterprise",
+    "Fluid Compute"
+  ],
+  "usefulLines": [
+    "Rollbar + Vercel starter kit",
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    ": This app can be deployed as a public demo where users can configure their own Rollbar tokens via the UI (stored in localStorage). Perfect for live demos, workshops, or self-service trials!",
+    "Use client-side only event tracking (in-memory storage)",
+    "Allow users to configure their own Rollbar tokens (for public demos)",
+    "where users can configure their own Rollbar tokens without requiring environment variables or deployment configuration.",
+    "npm or yarn package manager",
+    "A Rollbar account with a client access token (post_client_item scope)",
+    "Local Setup",
+    "1. Install Dependencies"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Rollbar + Vercel starter kit is a Realtime Apps reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Rollbar Next.js Starter Kit\n\n**Ship faster with confidence** — A complete starter kit for integrating Rollbar error monitoring into your Next.js App Router application. Kickstart your error monitoring in minutes and ship with no worries.\n\n**🌐 Public Demo**: This app can be deployed as a public demo where users can configure their own Rollbar tokens via the UI (stored in localStorage). Perfect for live demos, workshops, or self-service trials!\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Frollbar%2Frollbar-vercel&repository-name=rollbar-vercel&demo-title=Rollbar%20Next.js%20Starter%20Kit&demo-description=A%20complete%20Next.js%20starter%20template%20with%20Rollbar%20error%20monitoring%20integration.%20Track%20errors%2C%20warnings%2C%20and%20events%20in%20real-time%20with%20an%20interactive%20demo%20interface%20powered%20by%20the%20App%20Router.&demo-image=https%3A%2F%2Fgithub.com%2Fuser-attachments%2Fassets%2F69dad8b0-85d5-4805-b956-c7579f2ac2aa&demo-url=https%3A%2F%2Frollbar-vercel.vercel.app&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22observability%22%2C%22productSlug%22%3A%22error-tracking%22%2C%22integrationSlug%22%3A%22rollbar%22%7D%5D)\n\n\n<img width=\"1148\" height=\"819\" alt=\"Screenshot 2025-11-06 at 10 26 08 AM\" src=\"https://github.com/user-attachments/assets/69dad8b0-85d5-4805-b956-c7579f2ac2aa\" />\n\n## What This Demonstrates\n\nThis demo app shows how to:\n- Integrate Rollbar's browser SDK with Next.js App Router\n- Send different types of events (info, warning, error, exception) to Rollbar\n- Track sent events with item UUIDs, status, and timestamps\n- Display event history in an interactive slideout panel\n- Use client-side only event tracking (in-memory storage)\n- Allow users to configure their own Rollbar tokens (for public demos)\n\n**Note:** This app is designed to work as a **public demo** where users can configure their own Rollbar tokens without requiring environment variables or deployment configuration.\n\n## Prerequisites\n\n- Node.js 18.x or higher\n- npm or yarn package manager\n- A Rollbar account with a client access token (post_client_item scope)\n\n## Local Setup\n\n### 1. Install Dependencies\n\n```bash\ncd rollbar-vercel\nnpm install\n```\n\n### 2. Configure Environment Variables\n\nCopy the example environment file:\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"rollbar-vercel\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"build:production\": \"next build && node scripts/upload-sourcemaps.js\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"dotenv\": \"^17.2.3\",\n    \"next\": \"15.4.10\",\n    \"react\": \"^19.0.0\",\n    \"react-dom\": \"^19.0.0\",\n    \"rollbar\": \">=3.0.0-rc.1\"\n  },\n  \"devDependencies\": {\n    \"autoprefixer\": \"^10.4.20\",\n    \"glob\": \"^13.0.0\",\n    \"postcss\": \"^8.4.47\",\n    \"tailwindcss\": \"^3.4.18\"\n  }\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Rollbar Configuration\n\n# Get your client access token from Projects Settings -> Project -> Project Access Tokens\nNEXT_PUBLIC_ROLLBAR_CLIENT_TOKEN=\n\n# Server token for uploading source maps (post_server_item scope)\n# Only needed for production builds with source maps\n# Get from Projects Settings -> Project -> Project Access Tokens\nROLLBAR_SERVER_TOKEN=\n\n# Environment name (e.g., development, staging, production)\nNEXT_PUBLIC_ROLLBAR_ENV=development\n\n# Optional: Base URL for your deployed app (for source map URLs)\n# If not set, defaults to http://localhost:3000\n# BASE_URL=https://your-app.vercel.app\n\n# Optional: Version string for source maps\n# SOURCE_VERSION=1.0.0"
+    }
+  ]
+}

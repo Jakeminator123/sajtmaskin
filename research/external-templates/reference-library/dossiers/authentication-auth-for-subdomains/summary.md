@@ -2,10 +2,10 @@
 
 - Category: Authentication (authentication)
 - Verdict: valid
-- Quality score: 88
-- Scaffold families: auth-pages, dashboard, app-shell
+- Quality score: 70
+- Scaffold families: auth-pages, app-shell, saas-landing
 - Repo: https://github.com/vercel/next.js
-- Demo: https://solutions-subdomain-auth.vercel.sh/
+- Demo: https://solutions-subdomain-auth.vercel.sh
 
 Auth for subdomains is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.
 
@@ -13,8 +13,7 @@ Auth for subdomains is a Authentication reference with verified Next.js codebase
 - verified Next.js codebase
 - App Router structure
 - auth flow reference
-- dashboard shell patterns
 - multi-tenant or workspace patterns
 
 ## Weaknesses
-- none noted
+monorepo subpath not found locally — file excerpts unavailable

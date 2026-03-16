@@ -1,0 +1,50 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "@liveblocks-examples/nextjs-linear-like-issue-tracker",
+  "description": "This example shows how to build a collaborative issue tracker using Liveblocks, and Next.js.",
+  "license": "Apache-2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@lexical/react": "^0.35.0",
+    "@liveblocks/client": "3.15.0-thread2",
+    "@liveblocks/node": "3.15.0-thread2",
+    "@liveblocks/node-lexical": "3.15.0-thread2",
+    "@liveblocks/react": "3.15.0-thread2",
+    "@liveblocks/react-lexical": "3.15.0-thread2",
+    "@liveblocks/react-ui": "3.15.0-thread2",
+    "@radix-ui/react-select": "^2.1.7",
+    "@types/node": "20.3.3",
+    "@types/react-dom": "18.2.25",
+    "autoprefixer": "^10.4.23",
+    "classnames": "^2.5.1",
+    "lexical": "^0.35.0",
+    "marked": "^14.1.4",
+    "next": "^16.1.6",
+    "node-html-parser": "^6.1.13",
+    "postcss": "^8.4.49",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-error-boundary": "^4.0.13",
+    "sanitize-html": "^2.13.1",
+    "sonner": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/react": "^18.3.27",
+    "@types/sanitize-html": "^2.13.0",
+    "prettier": "^3.3.3",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.5.4"
+  }
+}
+```

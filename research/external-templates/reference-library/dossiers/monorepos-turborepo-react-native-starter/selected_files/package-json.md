@@ -1,0 +1,29 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "@types/minimatch": "^6.0.0",
+    "prettier": "^3.1.1",
+    "turbo": "2.8.17"
+  },
+  "packageManager": "yarn@1.22.19",
+  "engines": {
+    "node": ">=18"
+  },
+  "name": "with-react-native-web"
+}
+```

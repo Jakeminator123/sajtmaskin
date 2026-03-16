@@ -6,11 +6,11 @@
   "categoryName": "Blog",
   "templateUrl": "https://vercel.com/templates/blog/nextjs-contentlayer",
   "demoUrl": "https://next-contentlayer.vercel.app/",
-  "description": "",
+  "description": "A blog template with Next.js 13 App Router, Contentlayer, Tailwind CSS and dark mode.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 88,
+  "qualityScore": 92,
   "repo": {
     "url": "https://github.com/shadcn/next-contentlayer",
     "normalizedUrl": "https://github.com/shadcn/next-contentlayer",
@@ -24,37 +24,46 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
-    "Blog",
-    "Starter",
     "Next.js",
-    "Tailwind"
+    "Tailwind",
+    "Related Templates",
+    "Next.js Portfolio with Pageview Counter",
+    "Astro Blog"
   ],
   "usefulLines": [
-    "Next.js Contentlayer Blog Starter",
-    "Blog",
-    "Starter",
-    "Next.js",
-    "Tailwind"
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "https://next-contentlayer.vercel.app",
+    "Portfolio site with pageview counter, built with Next.js 13 App Router, Contentlayer, and Upstash Redis."
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
-    "editorial content hierarchy"
+    "editorial content hierarchy",
+    "portfolio or gallery presentation"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
-    "blog"
+    "blog",
+    "portfolio"
   ],
   "signals": {
     "auth": false,
     "dashboard": false,
     "pricing": false,
     "blog": true,
-    "portfolio": false,
+    "portfolio": true,
     "ecommerce": false,
     "docs": false,
-    "ai": false,
+    "ai": true,
     "multiTenant": false,
     "cms": false
   },

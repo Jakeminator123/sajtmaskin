@@ -2,7 +2,7 @@
 
 - Category: Marketing Sites (marketing-sites)
 - Verdict: valid
-- Quality score: 74
+- Quality score: 68
 - Scaffold families: landing-page, content-site
 - Repo: https://github.com/chapter-three/next-drupal
 - Demo: https://next-example-marketing.vercel.app/
@@ -14,4 +14,4 @@ Drupal Marketing Site is a Marketing Sites reference with verified Next.js codeb
 - CMS integration hints
 
 ## Weaknesses
-- none noted
+page-derived hints are noisy

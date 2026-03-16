@@ -5,12 +5,12 @@
   "categorySlug": "portfolio",
   "categoryName": "Portfolio",
   "templateUrl": "https://vercel.com/templates/portfolio/portfolio-starter-kit",
-  "demoUrl": "https://portfolio-blog-starter.vercel.app/",
-  "description": "",
+  "demoUrl": "https://portfolio-blog-starter.vercel.app",
+  "description": "Easily create a portfolio with Next.js and Markdown.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 92,
+  "qualityScore": 96,
   "repo": {
     "url": "https://github.com/vercel/examples/tree/main/solutions/blog",
     "normalizedUrl": "https://github.com/vercel/examples",
@@ -24,43 +24,59 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
-    "Portfolio",
-    "Blog",
     "Next.js",
-    "Tailwind"
+    "Tailwind",
+    "Related Templates",
+    "Blog Starter Kit",
+    "Nextra: Docs Starter Kit"
   ],
   "usefulLines": [
-    "Portfolio Starter Kit",
-    "Portfolio",
-    "Blog",
-    "Next.js",
-    "Tailwind"
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "Vercel Speed Insights / Web Analytics",
+    "https://portfolio-blog-starter.vercel.app",
+    "One-Click Deploy",
+    "Deploy the example using",
+    "Vercel",
+    "Clone and Deploy",
+    "pnpm",
+    "https://github.com/vercel/examples/tree/main/solutions/blog blog",
+    "Deploy it to the cloud with"
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
+    "dashboard shell patterns",
     "editorial content hierarchy",
     "portfolio or gallery presentation"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
     "portfolio",
-    "blog"
+    "app-shell",
+    "dashboard"
   ],
   "signals": {
     "auth": false,
-    "dashboard": false,
+    "dashboard": true,
     "pricing": false,
     "blog": true,
     "portfolio": true,
     "ecommerce": false,
-    "docs": false,
-    "ai": false,
+    "docs": true,
+    "ai": true,
     "multiTenant": false,
     "cms": false
   },
-  "summary": "Portfolio Starter Kit is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "summary": "Portfolio Starter Kit is a Portfolio reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
   "selectedFiles": [
     {
       "path": "README.md",

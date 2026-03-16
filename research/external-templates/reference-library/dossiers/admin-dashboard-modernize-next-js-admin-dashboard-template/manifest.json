@@ -1,0 +1,113 @@
+{
+  "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
+  "slug": "admin-dashboard-modernize-next-js-admin-dashboard-template",
+  "title": "Modernize Next.js Admin Dashboard Template",
+  "categorySlug": "admin-dashboard",
+  "categoryName": "Admin Dashboard",
+  "templateUrl": "https://vercel.com/templates/admin-dashboard/modernize-admin-dashboard",
+  "demoUrl": null,
+  "description": "Download our modernized admin template for your upcoming web application powered by Next.js, free of charge.",
+  "frameworkReason": "Next.js, React",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 96,
+  "repo": {
+    "url": "https://github.com/adminmart/Modernize-Nextjs-Free",
+    "normalizedUrl": "https://github.com/adminmart/Modernize-Nextjs-Free",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\adminmart-modernize-nextjs-free",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Next.js",
+    "React",
+    "Material UI",
+    "Database",
+    "Vercel Blob",
+    "Auth",
+    "NextAuth.js"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "✨ Features",
+    "🔑 Authentication pages (Login, Signup)",
+    "🚀 Getting Started",
+    "3. Install dependencies",
+    "npm",
+    "install",
+    "Getting Started",
+    "Clone → npm install → npm run dev → npm run build",
+    "65+ pages, NextAuth/Firebase auth, Dark mode, Figma"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns",
+    "multi-tenant or workspace patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "dashboard",
+    "app-shell",
+    "auth-pages"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": true,
+    "cms": false
+  },
+  "summary": "Modernize Next.js Admin Dashboard Template is a Admin Dashboard reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "package/README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).\n\n## Getting Started\n\nFirst, run the development server:\n\n```bash\nnpm run dev\n# or\nyarn dev\n# or\npnpm dev\n```\n\nOpen [http://localhost:3000](http://localhost:3000) with your browser to see the result.\n\nYou can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.\n\nThis project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.\n\n## Learn More\n\nTo learn more about Next.js, take a look at the following resources:\n\n- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.\n- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.\n\nYou can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!\n\n## Deploy on Vercel\n\nThe easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.\n\nCheck out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details."
+    },
+    {
+      "path": "package/package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"modernize-next-free\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@emotion/cache\": \"^11.14.0\",\n    \"@emotion/react\": \"^11.14.0\",\n    \"@emotion/server\": \"^11.11.0\",\n    \"@emotion/styled\": \"^11.14.1\",\n    \"@mui/icons-material\": \"^7.3.5\",\n    \"@mui/lab\": \"^7.0.1-beta.19\",\n    \"@mui/material\": \"^7.3.5\",\n    \"@tabler/icons-react\": \"^3.35.0\",\n    \"@types/node\": \"^24.10.1\",\n    \"apexcharts\": \"5.3.6\",\n    \"eslint\": \"9.39.1\",\n    \"eslint-config-next\": \"16.0.3\",\n    \"lodash\": \"^4.17.21\",\n    \"next\": \"^16.0.3\",\n    \"react\": \"^19.2.0\",\n    \"react-apexcharts\": \"1.8.0\",\n    \"react-dom\": \"^19.2.0\",\n    \"react-mui-sidebar\": \"^1.6.10\",\n    \"react-syntax-highlighter\": \"^16.1.0\",\n    \"typescript\": \"5.9.3\"\n  },\n  \"devDependencies\": {\n    \"@types/lodash\": \"4.17.20\",\n    \"@types/react\": \"^19.2.6\",\n    \"@types/react-dom\": \"^19.2.3\",\n    \"@types/react-syntax-highlighter\": \"^15.5.13\"\n  }\n}"
+    },
+    {
+      "path": "package/src/app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "\"use client\";\nimport { baselightTheme } from \"@/utils/theme/DefaultColors\";\nimport { ThemeProvider } from \"@mui/material/styles\";\nimport CssBaseline from \"@mui/material/CssBaseline\";\nimport './global.css'\n\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\">\n      <body>\n        <ThemeProvider theme={baselightTheme}>\n          {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}\n          <CssBaseline />\n          {children}\n        </ThemeProvider>\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<div align=\"center\">\n   <a href=\"https://adminmart.com/\" target=\"_blank\">\n      <img src=\"https://adminmart.github.io/template_api/images/brand-logo/adminmart-Logo.svg\" alt=\"modernize-image\" width=\"100px\" height=\"80px\">\n   </a>\n</div>\n\n# [Modernize Free Next Js Admin Template](https://modernize-nextjs-free.vercel.app/)\n\n<!-- Main image of Template -->\n[![Next Js](https://adminmart.com/wp-content/uploads/2023/03/modernize-free-next-js-admin-template.png)](#)\n\n\n# Modernize Free Next.js Admin Template\n\nA free, developer-friendly admin dashboard template built using **Next.js (v15)**, **Material UI (MUI v7)**, **React**, and **TypeScript**.\nIt provides a clean project structure, responsive design, and ready-made pages such as Dashboard, Login/Register, Typography, and Sample pages.\nDistributed under the **MIT license**, it’s free for both personal and commercial use.\n\n---\n\n## ✨ Features\n\n- ⚡ Built with **Next.js 15**, **React**, **TypeScript**, and **MUI 7**\n- 📱 Fully responsive design\n- 🗂️ Organized folder structure\n- 🔑 Authentication pages (Login, Signup)\n- 📊 Dashboard, Typography, Sample layout pages\n- 🆓 Free under **MIT license**\n- 🚀 Lightweight and production-ready\n\n---\n\n## 🚀 Getting Started\n\n### 1. Clone the repository\n```bash\ngit clone https://github.com/adminmart/Modernize-Nextjs-Free.git\n```\n\n### 2. Navigate to the project\n```bash\ncd Modernize-Nextjs-Free/package\n```\n\n### 3. Install dependencies\n```bash\nnpm install\n```\n\n### 4. Run in development mode\n```bash\nnpm run dev\n```\n\n### 5. Build for production\n```bash\nnpm run build\n```\n## 📂 Pages Included\n\n- Dashboard\n- Login & Signup\n- Typography\n- Sample Layout\n\n---\n\n\n## 📊 Summary Table\n\n| Aspect           | Details                                                 |\n|------------------|---------------------------------------------------------|\n| Framework        | Next.js (v15), React, TypeScript, Material UI (v7)      |\n| Pages Included   | Dashboard, Login/Register, Typography, Sample           |\n| Design           | Responsive, MUI-styled, clean and modern                |\n| License          | MIT – Free for personal and commercial use              |\n| Getting Started  | Clone → npm install → npm run dev → npm run build       |\n| Pro Version      | 65+ pages, NextAuth/Firebase auth, Dark mode, Figma     |\n\n// ... truncated"
+    },
+    {
+      "path": "package/src/app/(DashboardLayout)/layout/header/Header.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import React from 'react';\nimport { Box, AppBar, Toolbar, styled, Stack, IconButton, Badge, Button } from '@mui/material';\nimport PropTypes from 'prop-types';\nimport Link from 'next/link';\n// components\nimport Profile from './Profile';\nimport { IconBellRinging, IconMenu } from '@tabler/icons-react';\n\ninterface ItemType {\n  toggleMobileSidebar:  (event: React.MouseEvent<HTMLElement>) => void;\n}\n\nconst Header = ({toggleMobileSidebar}: ItemType) => {\n\n  // const lgUp = useMediaQuery((theme) => theme.breakpoints.up('lg'));\n  // const lgDown = useMediaQuery((theme) => theme.breakpoints.down('lg'));\n\n\n  const AppBarStyled = styled(AppBar)(({ theme }) => ({\n    boxShadow: 'none',\n    background: theme.palette.background.paper,\n    justifyContent: 'center',\n    backdropFilter: 'blur(4px)',\n    [theme.breakpoints.up('lg')]: {\n      minHeight: '70px',\n    },\n  }));\n  const ToolbarStyled = styled(Toolbar)(({ theme }) => ({\n    width: '100%',\n    color: theme.palette.text.secondary,\n  }));\n\n  return (\n    <AppBarStyled position=\"sticky\" color=\"default\">\n      <ToolbarStyled>\n        <IconButton\n          color=\"inherit\"\n          aria-label=\"menu\"\n          onClick={toggleMobileSidebar}\n          sx={{\n            display: {\n              lg: \"none\",\n              xs: \"inline\",\n            },\n          }}\n        >\n          <IconMenu width=\"20\" height=\"20\" />\n        </IconButton>\n\n\n        <IconButton\n          size=\"large\"\n          aria-label=\"show 11 new notifications\"\n          color=\"inherit\"\n          aria-controls=\"msgs-menu\"\n          aria-haspopup=\"true\"\n        >\n          <Badge variant=\"dot\" color=\"primary\">\n            <IconBellRinging size=\"21\" stroke=\"1.5\" />\n          </Badge>\n\n        </IconButton>\n        <Box flexGrow={1} />\n        <Stack spacing={1} direction=\"row\" alignItems=\"center\">\n          <Button variant=\"contained\" component={Link} href=\"/authentication/login\"   disableElevation color=\"primary\" >\n            Login\n          </Button>\n          <Profile />\n        </Stack>\n      </ToolbarStyled>\n    </AppBarStyled>\n  );\n};\n\nHeader.propTypes = {\n  sx: PropTypes.object,\n};\n\nexport default Header;"
+    },
+    {
+      "path": "package/src/app/(DashboardLayout)/layout/sidebar/Sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { useMediaQuery, Box, Drawer } from \"@mui/material\";\nimport SidebarItems from \"./SidebarItems\";\n\n\n\ninterface ItemType {\n  isMobileSidebarOpen: boolean;\n  onSidebarClose: (event: React.MouseEvent<HTMLElement>) => void;\n  isSidebarOpen: boolean;\n}\n\nconst MSidebar = ({\n  isMobileSidebarOpen,\n  onSidebarClose,\n  isSidebarOpen,\n}: ItemType) => {\n  const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up(\"lg\"));\n\n  const sidebarWidth = \"270px\";\n\n  // Custom CSS for short scrollbar\n  const scrollbarStyles = {\n    '&::-webkit-scrollbar': {\n      width: '7px',\n\n    },\n    '&::-webkit-scrollbar-thumb': {\n      backgroundColor: '#eff2f7',\n      borderRadius: '15px',\n    },\n  };\n\n\n  if (lgUp) {\n    return (\n      <Box\n        sx={{\n          width: sidebarWidth,\n          flexShrink: 0,\n        }}\n      >\n        {/* ------------------------------------------- */}\n        {/* Sidebar for desktop */}\n        {/* ------------------------------------------- */}\n        <Drawer\n          anchor=\"left\"\n          open={isSidebarOpen}\n          variant=\"permanent\"\n          slotProps={{\n            paper: {\n              sx: {\n                boxSizing: \"border-box\",\n                ...scrollbarStyles,\n                width: sidebarWidth,\n              },\n            }\n          }}\n        >\n          {/* ------------------------------------------- */}\n          {/* Sidebar Box */}\n          {/* ------------------------------------------- */}\n          <Box\n            sx={{\n              height: \"100%\",\n            }}\n          >\n\n            <Box>\n              {/* ------------------------------------------- */}\n              {/* Sidebar Items */}\n              {/* ------------------------------------------- */}\n              <SidebarItems />\n            </Box>\n          </Box>\n        </Drawer>\n      </Box >\n    );\n  }\n\n  return (\n    <Drawer\n      anchor=\"left\"\n      open={isMobileSidebarOpen}\n      onClose={onSidebarClose}\n      variant=\"temporary\"\n\n      slotProps={{\n        paper: {\n          sx: {\n            boxShadow: (theme) => theme.shadows[8],\n            ...scrollbarStyles,\n          },\n        }\n      }}\n    >\n      {/* ------------------------------------------- */}\n      {/* Sidebar Box */}\n      {/* ------------------------------------------- */}\n\n// ... truncated"
+    }
+  ]
+}

@@ -1,9 +1,0 @@
-# app/.env.local.example
-
-Reason: Useful structural reference
-
-```text
-SUPABASE_HOSTNAME="xxxx.supabase.co"
-NEXT_PUBLIC_SUPABASE_URL="https://${SUPABASE_HOSTNAME}"
-NEXT_PUBLIC_SUPABASE_ANON_KEY=""
-```

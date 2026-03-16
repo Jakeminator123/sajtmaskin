@@ -1,0 +1,41 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "feature-flag-split",
+  "repository": "https://github.com/vercel/examples.git",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "next",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@splitsoftware/splitio-browserjs": "^0.9.6",
+    "@splitsoftware/vercel-integration-utils": "1.0.1",
+    "@vercel/edge-config": "^0.2.1",
+    "@vercel/examples-ui": "^2.0.1",
+    "js-cookie": "^3.0.5",
+    "next": "^16.0.10",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
+  },
+  "devDependencies": {
+    "@types/js-cookie": "^3.0.3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "autoprefixer": "^10.4.14",
+    "eslint": "^8.45.0",
+    "eslint-config-next": "^13.4.10",
+    "postcss": "^8.4.26",
+    "prettier": "^3.0.0",
+    "tailwindcss": "^3.3.3",
+    "turbo": "^1.10.8",
+    "typescript": "^5"
+  }
+}
+```

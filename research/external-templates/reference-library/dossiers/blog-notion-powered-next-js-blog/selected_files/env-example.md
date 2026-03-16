@@ -1,9 +1,0 @@
-# .env.example
-
-Reason: Useful structural reference
-
-```text
-NOTION_TOKEN=
-NOTION_DATABASE_ID=
-NEXT_PUBLIC_SITE_URL=https://example.com
-```

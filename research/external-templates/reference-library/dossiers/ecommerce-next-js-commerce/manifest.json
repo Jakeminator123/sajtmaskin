@@ -5,9 +5,9 @@
   "categorySlug": "ecommerce",
   "categoryName": "Ecommerce",
   "templateUrl": "https://vercel.com/templates/ecommerce/nextjs-commerce",
-  "demoUrl": "https://next-commerce-v2.vercel.app/",
-  "description": "",
-  "frameworkReason": "Next.js",
+  "demoUrl": "https://demo.vercel.store/",
+  "description": "Starter kit for high-performance commerce with Shopify.",
+  "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
   "verdict": "valid",
   "qualityScore": 88,
@@ -24,17 +24,32 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
-    "Ecommerce",
     "Next.js",
-    "Tailwind"
+    "Tailwind",
+    "Related Templates",
+    "Next.js Boilerplate",
+    "Platforms Starter Kit"
   ],
   "usefulLines": [
-    "Next.js Commerce",
-    "Ecommerce",
-    "Next.js",
-    "Tailwind"
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "Vercel will only be actively maintaining a Shopify version",
+    "Vercel is happy to partner and work with any commerce provider to help them get a similar template up and running and listed below. Alternative providers should be able to fork this repository and swap out the",
+    "Upgrades search to include typeahead with dynamic re-rendering, vector-based similarity search, and JS-based configuration.",
+    "Running locally",
+    "You will need to use the environment variables",
+    ".env.example",
+    "Vercel Environment Variables",
+    ".env",
+    "Install Vercel CLI:"
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
@@ -52,7 +67,7 @@
     "portfolio": false,
     "ecommerce": true,
     "docs": false,
-    "ai": false,
+    "ai": true,
     "multiTenant": false,
     "cms": false
   },

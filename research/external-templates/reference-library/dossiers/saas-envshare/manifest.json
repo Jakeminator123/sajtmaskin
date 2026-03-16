@@ -6,11 +6,11 @@
   "categoryName": "SaaS",
   "templateUrl": "https://vercel.com/templates/saas/envshare",
   "demoUrl": "https://envshare.dev/",
-  "description": "",
+  "description": "Simple Next.js + Upstash app to share environment variables securely using AES-CBC encryption.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 86,
+  "qualityScore": 94,
   "repo": {
     "url": "https://github.com/chronark/envshare",
     "normalizedUrl": "https://github.com/chronark/envshare",
@@ -24,40 +24,58 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
-    "SaaS",
     "Next.js",
     "Tailwind",
-    "Upstash"
+    "Database",
+    "Upstash",
+    "Related Templates",
+    "Blog (with comments)"
   ],
   "usefulLines": [
     "EnvShare",
-    "SaaS",
-    "Next.js",
-    "Tailwind",
-    "Upstash"
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Simple Next.js + Upstash app to share environment variables securely using AES-CBC encryption.",
+    "Deploy",
+    "EnvShare is a simple tool to share environment variables securely. It uses",
+    "Features",
+    "Share your environment variables securely by sending a",
+    "Deployed on",
+    "Vercel",
+    "Deploy your own",
+    "All you need is a Redis database on Upstash and a Vercel account. Click the"
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
   "strengths": [
     "verified Next.js codebase",
-    "App Router structure"
+    "App Router structure",
+    "dashboard shell patterns",
+    "editorial content hierarchy"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
-    "saas-landing"
+    "saas-landing",
+    "app-shell",
+    "dashboard"
   ],
   "signals": {
     "auth": false,
-    "dashboard": false,
+    "dashboard": true,
     "pricing": false,
-    "blog": false,
+    "blog": true,
     "portfolio": false,
     "ecommerce": false,
     "docs": false,
-    "ai": false,
+    "ai": true,
     "multiTenant": false,
     "cms": false
   },
-  "summary": "EnvShare is a SaaS reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "summary": "EnvShare is a SaaS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
   "selectedFiles": [
     {
       "path": "README.md",

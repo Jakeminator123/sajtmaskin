@@ -1,0 +1,111 @@
+{
+  "id": "security-arcjet-next-js-example-app",
+  "slug": "security-arcjet-next-js-example-app",
+  "title": "Arcjet Next.js Example App",
+  "categorySlug": "security",
+  "categoryName": "Security",
+  "templateUrl": "https://vercel.com/templates/security/arcjet-next-js-example-app",
+  "demoUrl": "https://example.arcjet.com/",
+  "description": "Rate limiting and bot detection for Next.js",
+  "frameworkReason": "Next.js, React",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/arcjet/example-nextjs",
+    "normalizedUrl": "https://github.com/arcjet/example-nextjs",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\arcjet-example-nextjs",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "App:",
+    "Next.js",
+    "Form handling:",
+    "React Hook Form",
+    "(see also",
+    "our",
+    "full form protection"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "features. It is deployed at",
+    "https://example.arcjet.com",
+    "Features",
+    "server-side email verification configured to block disposable providers and",
+    "protected from automated clients.",
+    "different rate limit configurations depending on the authenticated user. A",
+    "clients sending you sensitive information such as PII that you do not wish to",
+    "Run locally",
+    "Install dependencies:"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "app-shell",
+    "auth-pages",
+    "content-site"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Arcjet Next.js Example App is a Security reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<!-- markdownlint-disable MD033 MD041 -->\n<a href=\"https://arcjet.com\" target=\"_arcjet-home\">\n  <picture>\n    <source media=\"(prefers-color-scheme: dark)\" srcset=\"https://arcjet.com/logo/arcjet-dark-lockup-voyage-horizontal.svg\">\n    <img src=\"https://arcjet.com/logo/arcjet-light-lockup-voyage-horizontal.svg\" alt=\"Arcjet Logo\" height=\"128\" width=\"auto\">\n  </picture>\n</a>\n\n[![Deploy with Vercel][vercel_button]][vercel_deploy]\n&nbsp; &nbsp;\n[![Deploy to Netlify][netlify_button]][netlify_deploy]\n\n# Arcjet example app\n\n[Arcjet](https://arcjet.com) helps developers protect their apps in just a few\nlines of code. Bot detection. Rate limiting. Email validation. Attack\nprotection. Data redaction. A developer-first approach to security.\n\nThis is an example Next.js application demonstrating the use of multiple\nfeatures. It is deployed at\n[https://example.arcjet.com](https://example.arcjet.com).\n\n## Features\n\n- [Signup form protection](https://example.arcjet.com/signup) uses Arcjet's\n  server-side email verification configured to block disposable providers and\n  ensure that the domain has a valid MX record. It also includes rate limiting\n  and bot protection to prevent automated abuse.\n- [Bot protection](https://example.arcjet.com/bots) shows how a page can be\n  protected from automated clients.\n- [Rate limiting](https://example.arcjet.com/rate-limiting) shows the use of\n  different rate limit configurations depending on the authenticated user. A\n  logged-in user can make more requests than an anonymous user.\n- [Attack protection](https://example.arcjet.com/attack) demonstrates Arcjet\n  Shield, which detects suspicious behavior, such as SQL injection and\n  cross-site scripting attacks.\n- [Sensitive info](https://example.arcjet.com/sensitive-info) protects against\n  clients sending you sensitive information such as PII that you do not wish to\n  handle.\n\n## Run locally\n\n1. [Register for a free Arcjet account](https://app.arcjet.com).\n\n2. Install dependencies:\n\n```bash\nnpm ci\n```\n\n3. Rename `.env.local.example` to `.env.local` and add your Arcjet key\n\n4. Start the dev server\n\n```bash\nnpm run dev\n```\n\n5. Open [http://localhost:3000](http://localhost:3000) in your browser.\n\n## Need help?\n\nCheck out [the docs](https://docs.arcjet.com/), [contact\nsupport](https://docs.arcjet.com/support), or [join our Discord\nser\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"@arcjet-examples/nextjs\",\n  \"description\": \"Arcjet Next.js example app. Arcjet helps developers protect their apps in just a few lines of code. Bot detection. Rate limiting. Email validation. Attack protection. Data redaction. A developer-first approach to security.\",\n  \"license\": \"Apache-2.0\",\n  \"homepage\": \"https://arcjet.com\",\n  \"repository\": \"github:arcjet/example-nextjs\",\n  \"bugs\": {\n    \"url\": \"https://github.com/arcjet/examples/issues\",\n    \"email\": \"support@arcjet.com\"\n  },\n  \"author\": {\n    \"name\": \"Arcjet\",\n    \"email\": \"support@arcjet.com\",\n    \"url\": \"https://arcjet.com\"\n  },\n  \"private\": true,\n  \"engines\": {\n    \"node\": \">=20\"\n  },\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"lint:fix\": \"next lint --fix\",\n    \"test:open\": \"playwright test --ui-host=0.0.0.0\",\n    \"test:run\": \"playwright test\"\n  },\n  \"dependencies\": {\n    \"@arcjet/decorate\": \"1.2.0\",\n    \"@arcjet/env\": \"1.2.0\",\n    \"@arcjet/ip\": \"1.2.0\",\n    \"@arcjet/next\": \"1.2.0\",\n    \"@fontsource-variable/figtree\": \"5.2.10\",\n    \"@fontsource/ibm-plex-mono\": \"5.2.7\",\n    \"@hookform/resolvers\": \"5.2.2\",\n    \"@nosecone/next\": \"1.2.0\",\n    \"@oddbird/css-anchor-positioning\": \"0.8.0\",\n    \"next\": \"16.1.6\",\n    \"next-themes\": \"0.4.6\",\n    \"react\": \"19.2.4\",\n    \"react-dom\": \"19.2.4\",\n    \"react-hook-form\": \"7.71.1\",\n    \"zod\": \"4.3.6\"\n  },\n  \"devDependencies\": {\n    \"@playwright/test\": \"1.58.1\",\n    \"@types/node\": \"22.19.7\",\n    \"@types/react\": \"19.2.10\",\n    \"@types/react-dom\": \"19.2.3\",\n    \"typescript\": \"5.9.3\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { Metadata } from \"next\";\nimport Image from \"next/image\";\nimport Link from \"next/link\";\nimport Script from \"next/script\";\nimport LogoDark from \"@/assets/logo-dark.svg\";\n\nimport LogoLight from \"@/assets/logo-light.svg\";\nimport { siteConfig } from \"@/config/site\";\n\nimport \"@/styles/styles.css\";\nimport { IconCancel } from \"@/components/icons/Cancel\";\nimport { IconMenu } from \"@/components/icons/Menu\";\nimport { NavLink } from \"@/components/NavLink\";\nimport { PopoverTarget } from \"@/components/PopoverTarget\";\n\nexport const metadata: Metadata = {\n  title: {\n    default: siteConfig.name,\n    template: `%s - ${siteConfig.name}`,\n  },\n  description: siteConfig.description,\n  icons: [\n    {\n      rel: \"icon\",\n      type: \"image/x-icon\",\n      url: \"/favicon.png\",\n      media: \"(prefers-color-scheme: dark)\",\n    },\n    {\n      rel: \"icon\",\n      type: \"image/png\",\n      url: \"/favicon-light.png\",\n      media: \"(prefers-color-scheme: light)\",\n    },\n  ],\n};\n\ntype Props = {\n  children: React.ReactNode;\n};\n\nexport default function RootLayout({ children }: Props) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <head>\n        <Script\n          defer\n          src=\"https://plausible.io/js/script.js\"\n          data-domain=\"arcjet.com\"\n        />\n      </head>\n      <body className=\"layout\">\n        <header className=\"header\">\n          <Link href=\"/\">\n            <Image\n              src={LogoLight}\n              alt=\"Arcjet Example app\"\n              height={30}\n              width={310}\n              className=\"light\"\n            />\n            <Image\n              src={LogoDark}\n              alt=\"Arcjet Example app\"\n              height={30}\n              width={310}\n              className=\"dark\"\n            />\n          </Link>\n          <div className=\"header-end\">\n            <button\n              className=\"hamburger-menu\"\n              popoverTarget=\"navigation\"\n              popoverTargetAction=\"toggle\"\n            >\n              <IconMenu classes={[\"hamburger-menu-menu-icon\"]} />\n              <IconCancel classes={[\"hamburger-menu-cancel-icon\"]} />\n            </button>\n            <PopoverTarget id=\"navigation\" closeAtWidthPx={1024}>\n              <ul className=\"navigation-links\">\n                <li>\n                  <NavLink className=\"navigation-link\" hre\n\n// ... truncated"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Link from \"next/link\";\nimport { WhatNext } from \"@/components/compositions/WhatNext\";\n\nexport default function IndexPage() {\n  const siteKey = process.env.ARCJET_SITE ? process.env.ARCJET_SITE : null;\n\n  return (\n    <main className=\"page\">\n      <div className=\"section\">\n        <h1 className=\"heading-primary\">Arcjet Next.js example app</h1>\n        <p className=\"typography-primary\">\n          <Link href=\"https://arcjet.com\" target=\"_blank\" className=\"link\">\n            Arcjet\n          </Link>{\" \"}\n          helps developers protect their apps in just a few lines of code. Bot\n          detection. Rate limiting. Email validation. Attack protection. Data\n          redaction. A developer-first approach to security.\n        </p>\n        <p className=\"typography-secondary\">\n          This is an example Next.js application using Arcjet. The code is{\" \"}\n          <Link\n            href=\"https://github.com/arcjet/example-nextjs\"\n            target=\"_blank\"\n            rel=\"noopener noreferrer\"\n            className=\"link\"\n          >\n            on GitHub\n          </Link>\n          .\n        </p>\n      </div>\n\n      <div className=\"section\">\n        <h2 className=\"heading-secondary\">Examples</h2>\n        <div className=\"list-actions\">\n          <Link href=\"/signup\" className=\"button-primary\">\n            Signup form protection\n          </Link>\n          <Link href=\"/bots\" className=\"button-primary\">\n            Bot protection\n          </Link>\n          <Link href=\"/rate-limiting\" className=\"button-primary\">\n            Rate limiting\n          </Link>\n          <Link href=\"/attack\" className=\"button-primary\">\n            Attack protection\n          </Link>\n          <Link href=\"/sensitive-info\" className=\"button-primary\">\n            Sensitive info\n          </Link>\n        </div>\n      </div>\n\n      {!siteKey && (\n        <>\n          <hr className=\"divider\" />\n\n          <div className=\"section\">\n            <h2 className=\"heading-secondary\">Deploy it now</h2>\n            <div className=\"list-actions\">\n              <a\n                href=\"https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Farcjet%2Fexample-nextjs&project-name=arcjet-example&repository-name=arcjet-example&developer-id=oac_1GEcKBuKBilVnjToj1QUwdb8&demo-title=Arcjet%20Example%20&demo-description=Example%20ra\n\n// ... truncated"
+    },
+    {
+      "path": ".env.local.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# Get your Arcjet key from https://app.arcjet.com\nARCJET_KEY="
+    },
+    {
+      "path": "app/signup/page.tsx",
+      "reason": "Auth flow reference",
+      "excerpt": "import type { Metadata } from \"next\";\nimport Link from \"next/link\";\nimport VisitDashboard from \"@/components/compositions/VisitDashboard\";\nimport { WhatNext } from \"@/components/compositions/WhatNext\";\nimport { EmailForm } from \"@/components/EmailForm\";\n\nexport const metadata: Metadata = {\n  title: \"Signup form protection example\",\n  description:\n    \"An example of Arcjet's signup form protection for Next.js which includes email verification, rate limiting, and bot protection.\",\n};\n\nexport default function IndexPage() {\n  const siteKey = process.env.ARCJET_SITE ? process.env.ARCJET_SITE : null;\n\n  return (\n    <main className=\"page\">\n      <div className=\"section\">\n        <h1 className=\"heading-primary\">Arcjet signup form protection</h1>\n        <p className=\"typography-primary\">\n          This form uses{\" \"}\n          <Link\n            href=\"https://docs.arcjet.com/signup-protection/concepts\"\n            className=\"link\"\n          >\n            Arcjet&apos;s signup form protection\n          </Link>{\" \"}\n          which includes:\n        </p>\n        <ul className=\"list-bullets-primary\">\n          <li>\n            Arcjet server-side email verification configured to block disposable\n            providers and ensure that the domain has a valid MX record.\n          </li>\n          <li>\n            Rate limiting set to 5 requests over a 2 minute sliding window - a\n            reasonable limit for a signup form, but easily configurable.\n          </li>\n          <li>\n            Bot protection to stop automated clients from submitting the form.\n          </li>\n        </ul>\n      </div>\n\n      <hr className=\"divider\" />\n\n      <div className=\"section\">\n        <h2 className=\"heading-secondary\">Try it</h2>\n\n        <EmailForm />\n\n        {siteKey && <VisitDashboard />}\n\n        <h2 className=\"heading-secondary\">Test emails</h2>\n        <p className=\"typography-secondary\">\n          Try these emails to see how it works:\n        </p>\n        <ul className=\"list-bullets-secondary\">\n          <li>\n            <code>invalid.@arcjet</code> – is an invalid email address.\n          </li>\n          <li>\n            <code>test@0zc7eznv3rsiswlohu.tk</code>{\" \"}\n            <span>– is from a disposable email provider.</span>\n          </li>\n          <li>\n            <code>nonexistent@arcjet.ai</code> – is a v\n\n// ... truncated"
+    }
+  ]
+}

@@ -2,17 +2,16 @@
 
 - Category: Documentation (documentation)
 - Verdict: valid
-- Quality score: 84
-- Scaffold families: content-site, dashboard, app-shell
+- Quality score: 62
+- Scaffold families: content-site
 - Repo: https://github.com/vercel/next.js
-- Demo: https://react-nextjs-knowledgebase.vercel.app/
+- Demo: https://react-nextjs-knowledgebase.vercel.app
 
-Headlesshost Knowledgebase is a Documentation reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.
+Headlesshost Knowledgebase is a Documentation reference with verified Next.js codebase, App Router structure. Verdict: valid.
 
 ## Strengths
 - verified Next.js codebase
 - App Router structure
-- dashboard shell patterns
 
 ## Weaknesses
-- none noted
+monorepo subpath not found locally — file excerpts unavailable

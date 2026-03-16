@@ -6,7 +6,7 @@
   "categoryName": "CMS",
   "templateUrl": "https://vercel.com/templates/cms/basehub-marketing-website",
   "demoUrl": "https://nextjs-marketing-website.basehub.com/",
-  "description": "",
+  "description": "A sleek, modern, and fully customizable website template for your next marketing website.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
@@ -24,23 +24,34 @@
     "hasSrcAppDir": true
   },
   "stackTags": [
-    "Starter",
-    "CMS",
-    "Marketing Sites",
     "Next.js",
-    "Tailwind",
-    "BaseHub"
+    "BaseHub",
+    "Tailwind CSS",
+    "One Click Deployment",
+    "Local Development",
+    "Install dependencies"
   ],
   "usefulLines": [
-    "BaseHub Marketing Website",
-    "Starter",
-    "CMS",
-    "Marketing Sites",
-    "Next.js",
-    "Tailwind",
-    "BaseHub"
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "Fully featured marketing website.",
+    "🔸 Requires just a BaseHub account and a deployment platform—no other service",
+    "One Click Deployment",
+    "You can deploy this anywhere. Vercel works nicely and with one click.",
+    "Local Development",
+    "Install dependencies",
+    "pnpm",
+    ".env.local",
+    "# .env.local"
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
@@ -58,7 +69,7 @@
     "portfolio": false,
     "ecommerce": false,
     "docs": false,
-    "ai": false,
+    "ai": true,
     "multiTenant": false,
     "cms": true
   },

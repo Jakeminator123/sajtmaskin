@@ -2,8 +2,8 @@
 
 - Category: SaaS (saas)
 - Verdict: valid
-- Quality score: 90
-- Scaffold families: saas-landing, app-shell
+- Quality score: 92
+- Scaffold families: saas-landing, app-shell, content-site
 - Repo: https://github.com/vercel/platforms
 - Demo: https://vercel.pub/
 

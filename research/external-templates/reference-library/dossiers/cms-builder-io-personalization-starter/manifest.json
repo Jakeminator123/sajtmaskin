@@ -6,11 +6,11 @@
   "categoryName": "CMS",
   "templateUrl": "https://vercel.com/templates/cms/personalization-builder-io",
   "demoUrl": "https://nextjs-edge-personalization-demo.vercel.app/",
-  "description": "",
-  "frameworkReason": "Next.js",
+  "description": "Learn how to use Builder.io to personalize your Next.js pages.",
+  "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 88,
+  "qualityScore": 92,
   "repo": {
     "url": "https://github.com/vercel/commerce",
     "normalizedUrl": "https://github.com/vercel/commerce",
@@ -24,29 +24,43 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
-    "Starter",
-    "CMS",
     "Next.js",
     "Tailwind",
-    "Builder.io"
+    "CMS",
+    "Builder.io",
+    "Related Templates",
+    "A/B Testing Simple"
   ],
   "usefulLines": [
-    "Builder.io Personalization Starter",
-    "Starter",
-    "CMS",
-    "Next.js",
-    "Tailwind",
-    "Builder.io"
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "View an in depth overview of Builder.io + Vercel Edge Functions",
+    "Then, you can visually create and edit pages, sections, and data on your site with Builder.io's visual editor, dragging and dropping with your React components and publish unlimited variations to your site without any code or deploys needed:",
+    "Run Locally",
+    "yarn",
+    ", from your account settings copy your Public API Key and paste it into",
+    "http://localhost:3000",
+    "Configure personalization attributes",
+    "and click on the pencil next to",
+    "via browsing history (could alternatively be set upon add to cart or other actions)."
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
+    "storefront or checkout patterns",
     "CMS integration hints"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
-    "content-site"
+    "content-site",
+    "ecommerce"
   ],
   "signals": {
     "auth": false,
@@ -54,13 +68,13 @@
     "pricing": false,
     "blog": false,
     "portfolio": false,
-    "ecommerce": false,
+    "ecommerce": true,
     "docs": false,
-    "ai": false,
+    "ai": true,
     "multiTenant": false,
     "cms": true
   },
-  "summary": "Builder.io Personalization Starter is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+  "summary": "Builder.io Personalization Starter is a CMS reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
   "selectedFiles": [
     {
       "path": "README.md",

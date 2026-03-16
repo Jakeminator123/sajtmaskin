@@ -5,12 +5,12 @@
   "categorySlug": "authentication",
   "categoryName": "Authentication",
   "templateUrl": "https://vercel.com/templates/authentication/next-js-saas-starter",
-  "demoUrl": "https://next-saas-start.vercel.app/",
-  "description": "",
+  "demoUrl": null,
+  "description": "Get started building with Next.js quickly. This template handles Postgres, Auth, Tailwind, shadcn/ui, and more.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 94,
+  "qualityScore": 96,
   "repo": {
     "url": "https://github.com/nextjs/saas-starter",
     "normalizedUrl": "https://github.com/nextjs/saas-starter",
@@ -24,48 +24,61 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
-    "Authentication",
-    "Admin Dashboard",
-    "SaaS",
     "Next.js",
     "Tailwind",
-    "Postgres"
+    "Database",
+    "Postgres",
+    "Related Templates",
+    "Blog Starter Kit"
   ],
   "usefulLines": [
-    "Next.js SaaS Starter",
-    "Authentication",
-    "Admin Dashboard",
-    "SaaS",
-    "Next.js",
-    "Tailwind",
-    "Postgres"
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Postgres, Auth, Tailwind, shadcn/ui, and more.",
+    "Deploy",
+    "with support for authentication, Stripe integration for payments, and a dashboard for logged-in users.",
+    "https://next-saas-start.vercel.app/",
+    "Features",
+    ") which connects to Stripe Checkout",
+    "Subscription management with Stripe Customer Portal",
+    "Email/password authentication with JWTs stored to cookies",
+    "Local middleware to protect Server Actions or validate Zod schemas",
+    "Database"
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
+    "auth flow reference",
     "dashboard shell patterns",
-    "pricing or billing structure"
+    "pricing or billing structure",
+    "storefront or checkout patterns",
+    "editorial content hierarchy"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
     "auth-pages",
-    "dashboard",
-    "app-shell"
+    "app-shell",
+    "ecommerce"
   ],
   "signals": {
-    "auth": false,
+    "auth": true,
     "dashboard": true,
     "pricing": true,
-    "blog": false,
+    "blog": true,
     "portfolio": false,
-    "ecommerce": false,
+    "ecommerce": true,
     "docs": false,
-    "ai": false,
+    "ai": true,
     "multiTenant": false,
     "cms": false
   },
-  "summary": "Next.js SaaS Starter is a Authentication reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+  "summary": "Next.js SaaS Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
   "selectedFiles": [
     {
       "path": "README.md",

@@ -3,7 +3,7 @@
 - Category: Ecommerce (ecommerce)
 - Verdict: valid
 - Quality score: 96
-- Scaffold families: ecommerce, auth-pages, app-shell
+- Scaffold families: ecommerce, app-shell, auth-pages
 - Repo: https://github.com/vercel/nextjs-subscription-payments
 - Demo: https://subscription-payments.vercel.app/
 

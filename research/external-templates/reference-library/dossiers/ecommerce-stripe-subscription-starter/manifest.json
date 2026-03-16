@@ -6,8 +6,8 @@
   "categoryName": "Ecommerce",
   "templateUrl": "https://vercel.com/templates/ecommerce/subscription-starter",
   "demoUrl": "https://subscription-payments.vercel.app/",
-  "description": "",
-  "frameworkReason": "Next.js",
+  "description": "The all-in-one subscription starter kit for high-performance SaaS applications, powered by Stripe, Supabase, and Vercel.",
+  "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
   "verdict": "valid",
   "qualityScore": 96,
@@ -24,25 +24,34 @@
     "hasSrcAppDir": false
   },
   "stackTags": [
-    "Ecommerce",
-    "SaaS",
-    "Authentication",
     "Next.js",
     "Tailwind",
+    "Database",
     "Supabase",
-    "Supabase Auth"
+    "Auth",
+    "Supabase Auth",
+    "Related Templates"
   ],
   "usefulLines": [
     "Stripe Subscription Starter",
-    "Ecommerce",
-    "SaaS",
-    "Authentication",
-    "Next.js",
-    "Tailwind",
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "The all-in-one subscription starter kit for high-performance SaaS applications, powered by Stripe, Supabase, and Vercel.",
+    "Deploy",
+    "Features",
+    "Secure user management and authentication with",
     "Supabase",
-    "Supabase Auth"
+    "Powerful data access & management tooling on top of PostgreSQL with",
+    "Stripe Checkout",
+    "Stripe customer portal",
+    "Stripe webhooks"
   ],
-  "noiseLines": [],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
@@ -53,8 +62,8 @@
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
     "ecommerce",
-    "auth-pages",
-    "app-shell"
+    "app-shell",
+    "auth-pages"
   ],
   "signals": {
     "auth": true,
@@ -64,7 +73,7 @@
     "portfolio": false,
     "ecommerce": true,
     "docs": false,
-    "ai": false,
+    "ai": true,
     "multiTenant": false,
     "cms": false
   },

@@ -1,0 +1,77 @@
+{
+  "id": "edge-config-experimentation-with-statsig",
+  "slug": "edge-config-experimentation-with-statsig",
+  "title": "Experimentation with Statsig",
+  "categorySlug": "edge-config",
+  "categoryName": "Edge Config",
+  "templateUrl": "https://vercel.com/templates/edge-config/ab-testing-statsig",
+  "demoUrl": "https://edge-ab-testing-statsig.vercel.app",
+  "description": "Reduce CLS and improve performance from client-loaded experiments at the edge with Statsig",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 62,
+  "repo": {
+    "url": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+    "normalizedUrl": "https://github.com/vercel/next.js",
+    "subpath": "packages/create-next-app",
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-next-js",
+    "packageManager": "unknown",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": true,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Related Templates",
+    "A/B Testing Simple",
+    "Blue-Green Deployments on Vercel"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Reduce CLS and improve performance from client-loaded experiments at the edge with Statsig",
+    "Deploy",
+    "https://edge-ab-testing-statsig.vercel.app",
+    "One-Click Deploy",
+    "Deploy the example using",
+    "Vercel",
+    "Clone and Deploy",
+    "npm",
+    "Yarn",
+    "npx create-next-app"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [
+    "monorepo subpath not found locally — file excerpts unavailable"
+  ],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Experimentation with Statsig is a Edge Config reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": []
+}

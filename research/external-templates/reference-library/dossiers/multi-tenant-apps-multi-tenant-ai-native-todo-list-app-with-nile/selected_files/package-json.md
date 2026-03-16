@@ -1,0 +1,51 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "todo-nextjs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 6969",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@niledatabase/client": "^5.0.0",
+    "@niledatabase/nextjs": "^5.0.0",
+    "@niledatabase/react": "^5.0.0",
+    "@niledatabase/server": "^5.0.0",
+    "@radix-ui/react-checkbox": "^1.1.2",
+    "@radix-ui/react-dialog": "^1.1.2",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@radix-ui/react-toast": "^1.2.2",
+    "@types/node": "^20.6.3",
+    "@types/react": "^18.2.22",
+    "@types/react-dom": "^18.2.7",
+    "eslint": "^9.2.0",
+    "eslint-config-next": "^15.3.3",
+    "jwt-decode": "^3.1.2",
+    "lodash": "^4.17.21",
+    "lucide-react": "^0.525.0",
+    "next": "^15.5.9",
+    "openai": "^4.53.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^9.0.1",
+    "typescript": "^5.2.2"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "postcss": "^8.4.47",
+    "tailwind-merge": "^2.5.3",
+    "tailwindcss": "^3.4.13",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "packageManager": "pnpm@10.8.1"
+}
+```
