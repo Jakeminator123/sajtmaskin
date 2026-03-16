@@ -36,6 +36,11 @@ import {
   type ContactDetailsDraft,
 } from "@/lib/builder/contact-editor";
 import {
+  readHeroContentDraft,
+  updateHeroContentDraft,
+  type HeroContentDraft,
+} from "@/lib/builder/hero-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -314,6 +319,9 @@ export function PreviewPanel({
   const [metadataDraft, setMetadataDraft] = useState<StaticMetadataDraft | null>(null);
   const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
   const [isMetadataSaving, setIsMetadataSaving] = useState(false);
+  const [heroDraft, setHeroDraft] = useState<HeroContentDraft | null>(null);
+  const [heroSaveError, setHeroSaveError] = useState<string | null>(null);
+  const [isHeroSaving, setIsHeroSaving] = useState(false);
   const [contactDraft, setContactDraft] = useState<ContactDetailsDraft | null>(null);
   const [contactSaveError, setContactSaveError] = useState<string | null>(null);
   const [isContactSaving, setIsContactSaving] = useState(false);
@@ -1129,6 +1137,14 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableHeroContent = useMemo(
+    () =>
+      selectedFile
+        ? readHeroContentDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
   const editableContactDetails = useMemo(
     () => (selectedFile ? readContactDetailsDraft(selectedFile.content || "") : null),
     [selectedFile],
@@ -1138,6 +1154,11 @@ export function PreviewPanel({
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
   }, [editableMetadata, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setHeroDraft(editableHeroContent ? { ...editableHeroContent } : null);
+    setHeroSaveError(null);
+  }, [editableHeroContent, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
     setContactDraft(editableContactDetails ? { ...editableContactDetails } : null);
@@ -1155,6 +1176,14 @@ export function PreviewPanel({
       editableMetadata &&
       (metadataDraft.title !== editableMetadata.title ||
         metadataDraft.description !== editableMetadata.description),
+  );
+
+  const heroDirty = Boolean(
+    heroDraft &&
+      editableHeroContent &&
+      (heroDraft.title !== editableHeroContent.title ||
+        heroDraft.intro !== editableHeroContent.intro ||
+        heroDraft.ctaLabel !== editableHeroContent.ctaLabel),
   );
 
   const contactDirty = Boolean(
@@ -1318,6 +1347,26 @@ export function PreviewPanel({
       setIsMetadataSaving(false);
     }
   }, [selectedFile, metadataDraft, saveSelectedFileContent]);
+
+  const handleSaveHeroContent = useCallback(async () => {
+    if (!selectedFile || !heroDraft || !editableHeroContent) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateHeroContentDraft(currentContent, editableHeroContent, heroDraft);
+
+    setIsHeroSaving(true);
+    setHeroSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Hero-innehåll sparat i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara hero-innehåll";
+      setHeroSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsHeroSaving(false);
+    }
+  }, [selectedFile, heroDraft, editableHeroContent, saveSelectedFileContent]);
 
   const handleSaveContactDetails = useCallback(async () => {
     if (!selectedFile || !contactDraft || !editableContactDetails) return;
@@ -1956,6 +2005,74 @@ export function PreviewPanel({
                       </div>
                       {metadataSaveError ? (
                         <div className="text-xs text-rose-300">{metadataSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {heroDraft && editableHeroContent ? (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-amber-100">Hero-editor</div>
+                        <div className="text-xs text-amber-200/80">
+                          Uppdatera hero-rubrik, ingress och CTA direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveHeroContent()}
+                        disabled={!heroDirty || isHeroSaving}
+                      >
+                        {isHeroSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara hero
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      <div className="grid gap-1">
+                        <label className="text-xs font-medium text-amber-100" htmlFor="hero-title">
+                          Rubrik
+                        </label>
+                        <Input
+                          id="hero-title"
+                          value={heroDraft.title}
+                          onChange={(event) =>
+                            setHeroDraft((prev) =>
+                              prev ? { ...prev, title: event.target.value } : prev,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <label className="text-xs font-medium text-amber-100" htmlFor="hero-intro">
+                          Ingress
+                        </label>
+                        <Textarea
+                          id="hero-intro"
+                          value={heroDraft.intro}
+                          onChange={(event) =>
+                            setHeroDraft((prev) =>
+                              prev ? { ...prev, intro: event.target.value } : prev,
+                            )
+                          }
+                          rows={3}
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <label className="text-xs font-medium text-amber-100" htmlFor="hero-cta">
+                          CTA-text
+                        </label>
+                        <Input
+                          id="hero-cta"
+                          value={heroDraft.ctaLabel}
+                          onChange={(event) =>
+                            setHeroDraft((prev) =>
+                              prev ? { ...prev, ctaLabel: event.target.value } : prev,
+                            )
+                          }
+                        />
+                      </div>
+                      {heroSaveError ? (
+                        <div className="text-xs text-rose-300">{heroSaveError}</div>
                       ) : null}
                     </div>
                   </div>
