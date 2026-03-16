@@ -61,6 +61,16 @@ import {
   type StatItemDraft,
 } from "@/lib/builder/stats-editor";
 import {
+  readProcessStepsDraft,
+  updateProcessStepsDraft,
+  type ProcessStepDraft,
+} from "@/lib/builder/process-editor";
+import {
+  readProductItemsDraft,
+  updateProductItemsDraft,
+  type ProductItemDraft,
+} from "@/lib/builder/product-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -357,6 +367,12 @@ export function PreviewPanel({
   const [statItemsDraft, setStatItemsDraft] = useState<StatItemDraft[] | null>(null);
   const [statsSaveError, setStatsSaveError] = useState<string | null>(null);
   const [isStatsSaving, setIsStatsSaving] = useState(false);
+  const [processStepsDraft, setProcessStepsDraft] = useState<ProcessStepDraft[] | null>(null);
+  const [processSaveError, setProcessSaveError] = useState<string | null>(null);
+  const [isProcessSaving, setIsProcessSaving] = useState(false);
+  const [productItemsDraft, setProductItemsDraft] = useState<ProductItemDraft[] | null>(null);
+  const [productsSaveError, setProductsSaveError] = useState<string | null>(null);
+  const [isProductsSaving, setIsProductsSaving] = useState(false);
   const [rawEditMode, setRawEditMode] = useState(false);
   const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
@@ -1214,6 +1230,22 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableProcessSteps = useMemo(
+    () =>
+      selectedFile
+        ? readProcessStepsDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
+  const editableProductItems = useMemo(
+    () =>
+      selectedFile
+        ? readProductItemsDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
@@ -1256,6 +1288,20 @@ export function PreviewPanel({
     setStatItemsDraft(editableStatItems ? editableStatItems.map((item) => ({ ...item })) : null);
     setStatsSaveError(null);
   }, [editableStatItems, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setProcessStepsDraft(
+      editableProcessSteps ? editableProcessSteps.map((item) => ({ ...item })) : null,
+    );
+    setProcessSaveError(null);
+  }, [editableProcessSteps, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setProductItemsDraft(
+      editableProductItems ? editableProductItems.map((item) => ({ ...item })) : null,
+    );
+    setProductsSaveError(null);
+  }, [editableProductItems, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
     setRawEditMode(false);
@@ -1307,6 +1353,18 @@ export function PreviewPanel({
     statItemsDraft &&
       editableStatItems &&
       JSON.stringify(statItemsDraft) !== JSON.stringify(editableStatItems),
+  );
+
+  const processDirty = Boolean(
+    processStepsDraft &&
+      editableProcessSteps &&
+      JSON.stringify(processStepsDraft) !== JSON.stringify(editableProcessSteps),
+  );
+
+  const productsDirty = Boolean(
+    productItemsDraft &&
+      editableProductItems &&
+      JSON.stringify(productItemsDraft) !== JSON.stringify(editableProductItems),
   );
 
   const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
@@ -1583,6 +1641,46 @@ export function PreviewPanel({
       setIsStatsSaving(false);
     }
   }, [selectedFile, statItemsDraft, editableStatItems, saveSelectedFileContent]);
+
+  const handleSaveProcessSteps = useCallback(async () => {
+    if (!selectedFile || !processStepsDraft || !editableProcessSteps) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateProcessStepsDraft(currentContent, processStepsDraft);
+
+    setIsProcessSaving(true);
+    setProcessSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Processteg sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara processteg";
+      setProcessSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsProcessSaving(false);
+    }
+  }, [selectedFile, processStepsDraft, editableProcessSteps, saveSelectedFileContent]);
+
+  const handleSaveProductItems = useCallback(async () => {
+    if (!selectedFile || !productItemsDraft || !editableProductItems) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateProductItemsDraft(currentContent, productItemsDraft);
+
+    setIsProductsSaving(true);
+    setProductsSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Produkter sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara produkter";
+      setProductsSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsProductsSaving(false);
+    }
+  }, [selectedFile, productItemsDraft, editableProductItems, saveSelectedFileContent]);
 
   const handleSaveRawCode = useCallback(async () => {
     if (!selectedFile) return;
@@ -2627,6 +2725,148 @@ export function PreviewPanel({
                       ))}
                       {statsSaveError ? (
                         <div className="text-xs text-rose-300">{statsSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {processStepsDraft && editableProcessSteps ? (
+                  <div className="rounded-md border border-orange-500/30 bg-orange-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-orange-100">Processtegeditor</div>
+                        <div className="text-xs text-orange-200/80">
+                          Uppdatera process-/steps-listan direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveProcessSteps()}
+                        disabled={!processDirty || isProcessSaving}
+                      >
+                        {isProcessSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara processteg
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {processStepsDraft.map((item, index) => (
+                        <div
+                          key={`process-step-${index}`}
+                          className="rounded-md border border-orange-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-orange-100">
+                            Steg {index + 1}
+                          </div>
+                          <div className="grid gap-1">
+                            <label
+                              className="text-xs font-medium text-orange-100"
+                              htmlFor={`process-step-${index}`}
+                            >
+                              Text
+                            </label>
+                            <Textarea
+                              id={`process-step-${index}`}
+                              value={item.text}
+                              onChange={(event) =>
+                                setProcessStepsDraft((prev) =>
+                                  prev
+                                    ? prev.map((entry, entryIndex) =>
+                                        entryIndex === index
+                                          ? { ...entry, text: event.target.value }
+                                          : entry,
+                                      )
+                                    : prev,
+                                )
+                              }
+                              rows={3}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {processSaveError ? (
+                        <div className="text-xs text-rose-300">{processSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {productItemsDraft && editableProductItems ? (
+                  <div className="rounded-md border border-pink-500/30 bg-pink-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-pink-100">Produkteditor</div>
+                        <div className="text-xs text-pink-200/80">
+                          Uppdatera produktnamn och pris direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveProductItems()}
+                        disabled={!productsDirty || isProductsSaving}
+                      >
+                        {isProductsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara produkter
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {productItemsDraft.map((item, index) => (
+                        <div
+                          key={`product-item-${index}`}
+                          className="rounded-md border border-pink-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-pink-100">
+                            Produkt {index + 1}
+                          </div>
+                          <div className="grid gap-3">
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-pink-100"
+                                htmlFor={`product-name-${index}`}
+                              >
+                                Namn
+                              </label>
+                              <Input
+                                id={`product-name-${index}`}
+                                value={item.name}
+                                onChange={(event) =>
+                                  setProductItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, name: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-pink-100"
+                                htmlFor={`product-price-${index}`}
+                              >
+                                Pris
+                              </label>
+                              <Input
+                                id={`product-price-${index}`}
+                                value={item.price}
+                                onChange={(event) =>
+                                  setProductItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, price: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {productsSaveError ? (
+                        <div className="text-xs text-rose-300">{productsSaveError}</div>
                       ) : null}
                     </div>
                   </div>
