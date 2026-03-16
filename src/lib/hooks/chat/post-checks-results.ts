@@ -89,6 +89,8 @@ export interface PostCheckArtifacts {
       passed: boolean;
       issueCount: number;
       topIssues: string[];
+      suggestedPrompts: string[];
+      suggestedLabels: string[];
       trackerDetected: boolean;
       trackerProviders: string[];
       conversionSurfaceCount: number;
@@ -190,10 +192,33 @@ function summarizeSeoSignals(seoReview: SeoReview) {
 }
 
 function summarizeAnalyticsSignals(analyticsReview: AnalyticsReview) {
+  const suggestedPrompts: string[] = [];
+  const suggestedLabels: string[] = [];
+  const pushPrompt = (condition: boolean, label: string, prompt: string) => {
+    if (!condition) return;
+    if (!suggestedPrompts.includes(prompt)) {
+      suggestedPrompts.push(prompt);
+      suggestedLabels.push(label);
+    }
+  };
+
+  pushPrompt(
+    analyticsReview.issues.some((issue) => issue.code === "missing-analytics-tracker"),
+    "tracking",
+    "Lägg till en analytics-tracker för sajten och behåll resten av layouten oförändrad.",
+  );
+  pushPrompt(
+    analyticsReview.issues.some((issue) => issue.code === "missing-conversion-events"),
+    "events",
+    "Lägg till tydliga konverteringsevents för formulär och CTA-flöden utan att ändra designen.",
+  );
+
   return {
     passed: analyticsReview.passed,
     issueCount: analyticsReview.issues.length,
     topIssues: analyticsReview.issues.slice(0, 4).map((issue) => issue.message),
+    suggestedPrompts: suggestedPrompts.slice(0, 4),
+    suggestedLabels: suggestedLabels.slice(0, 4),
     trackerDetected: analyticsReview.signals.trackerDetected,
     trackerProviders: analyticsReview.signals.trackerProviders,
     conversionSurfaceCount: analyticsReview.signals.conversionSurfaceCount,

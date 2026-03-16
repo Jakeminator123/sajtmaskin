@@ -200,4 +200,57 @@ describe("StructuredToolParts", () => {
     expect(screen.getByRole("button", { name: /Fixa metadata/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Fixa canonical/i })).toBeTruthy();
   });
+
+  it("shows analytics quick actions from post-check output", () => {
+    render(
+      <StructuredToolParts
+        messageId="msg_6"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:post-check",
+              state: "output-available",
+              output: {
+                summary: {
+                  files: 4,
+                  added: 1,
+                  modified: 2,
+                  removed: 0,
+                  warnings: 1,
+                  provisional: false,
+                  qualityGatePending: false,
+                  autoFixQueued: false,
+                },
+                demoUrl: "https://preview.example",
+                analyticsSummary: {
+                  passed: false,
+                  issueCount: 1,
+                  topIssues: [
+                    "Sidan verkar ha CTA-/formulärflöden men ingen analytics-tracker hittades.",
+                  ],
+                  suggestedPrompts: [
+                    "Lägg till en analytics-tracker för sajten och behåll resten av layouten oförändrad.",
+                  ],
+                  suggestedLabels: ["tracking"],
+                  trackerDetected: false,
+                  trackerProviders: [],
+                  conversionSurfaceCount: 2,
+                  conversionEventCount: 0,
+                },
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+        onQuickReply={vi.fn(async () => true)}
+      />,
+    );
+
+    expect(screen.getByText("Snabb tracking-fix")).toBeTruthy();
+    expect(screen.getByText("Vilken tracking-del vill du förbättra härnäst?")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Fixa tracking/i })).toBeTruthy();
+  });
 });

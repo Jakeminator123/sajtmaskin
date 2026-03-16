@@ -113,6 +113,30 @@ function buildSeoIssueFiles() {
     );
 }
 
+function buildAnalyticsIssueFiles() {
+  return buildHealthyFiles().map((file) =>
+    file.name === "src/app/page.tsx"
+      ? {
+          ...file,
+          content: [
+            "export default function Page() {",
+            "  return (",
+            "    <main>",
+            "      <h1>Hello</h1>",
+            "      <form action=\"/api/contact\">",
+            "        <input name=\"email\" type=\"email\" />",
+            "        <button type=\"submit\">Request quote</button>",
+            "      </form>",
+            "      <a href=\"tel:+461234567\">Call us</a>",
+            "    </main>",
+            "  );",
+            "}",
+          ].join("\n"),
+        }
+      : file,
+  );
+}
+
 function createMessageStore() {
   let messages: ChatMessage[] = [
     {
@@ -535,6 +559,76 @@ describe("runPostGenerationChecks", () => {
         expect.stringContaining("canonical-strategi"),
         expect.stringContaining("robots.ts"),
       ]),
+    );
+    expect(onAutoFix).not.toHaveBeenCalled();
+  });
+
+  it("surfaces actionable analytics prompts in post-check output", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildAnalyticsIssueFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Sandbox not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const postCheck = getToolPart("Post-check", store);
+    const summary = (postCheck?.output as Record<string, unknown>).analyticsSummary as
+      | Record<string, unknown>
+      | undefined;
+
+    expect(summary?.topIssues).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("ingen analytics-tracker hittades"),
+      ]),
+    );
+    expect(summary?.suggestedPrompts).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("analytics-tracker"),
+      ]),
+    );
+    expect(summary?.suggestedLabels).toEqual(
+      expect.arrayContaining(["tracking"]),
     );
     expect(onAutoFix).not.toHaveBeenCalled();
   });

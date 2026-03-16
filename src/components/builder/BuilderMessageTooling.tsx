@@ -106,10 +106,18 @@ type AnalyticsReviewSummary = {
   passed: boolean;
   issueCount: number;
   topIssues: string[];
+  suggestedPrompts: string[];
+  suggestedLabels: string[];
   trackerDetected: boolean;
   trackerProviders: string[];
   conversionSurfaceCount: number;
   conversionEventCount: number;
+};
+
+type AnalyticsActionPrompt = {
+  question: string;
+  options: string[];
+  labels: string[];
 };
 
 type EditorialReviewSummary = {
@@ -224,6 +232,8 @@ export function StructuredToolParts({
           toolType === "tool-post-check" ? getSeoActionPrompt(tool.output) : null;
         const analyticsReviewSummary =
           toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
+        const analyticsActionPrompt =
+          toolType === "tool-post-check" ? getAnalyticsActionPrompt(tool.output) : null;
         const editorialReviewSummary =
           toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
         const editorialActionPrompt =
@@ -412,6 +422,46 @@ export function StructuredToolParts({
                         ))}
                       </ul>
                     ) : null}
+                    {analyticsReviewSummary.suggestedPrompts.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {analyticsReviewSummary.suggestedPrompts.slice(0, 3).map((prompt) => (
+                          <li key={prompt}>- {prompt}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              {!pendingReply && !hasUserAfterCurrentMessage && analyticsActionPrompt && onQuickReply ? (
+                <div className="mb-3 rounded-md border border-violet-500/50 bg-violet-500/10 p-3 text-xs">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-violet-200">
+                    Snabb tracking-fix
+                  </p>
+                  <p className="text-foreground text-sm font-semibold">
+                    {analyticsActionPrompt.question}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {analyticsActionPrompt.options.map((option, optionIndex) => {
+                      const replyKey = `${messageId}:analytics:${optionIndex}:${option}`;
+                      const isPending = pendingQuickReplyKey === replyKey;
+                      const label = analyticsActionPrompt.labels[optionIndex] ?? option;
+                      return (
+                        <Button
+                          key={replyKey}
+                          size="sm"
+                          variant="secondary"
+                          disabled={quickReplyDisabled || pendingQuickReplyKey !== null}
+                          onClick={() =>
+                            void onQuickReply(messageId, optionIndex, option)
+                          }
+                        >
+                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                          {optionIndex === analyticsActionPrompt.options.length - 1
+                            ? "Annat"
+                            : `Fixa ${label}`}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
@@ -648,6 +698,8 @@ export function CompactToolParts({
           toolType === "tool-post-check" ? getSeoActionPrompt(tool.output) : null;
         const analyticsReviewSummary =
           toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
+        const analyticsActionPrompt =
+          toolType === "tool-post-check" ? getAnalyticsActionPrompt(tool.output) : null;
         const editorialReviewSummary =
           toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
         const editorialActionPrompt =
@@ -804,6 +856,21 @@ export function CompactToolParts({
                     {analyticsReviewSummary.topIssues.length > 0 ? (
                       <p className="text-muted-foreground mt-1">
                         {analyticsReviewSummary.topIssues[0]}
+                      </p>
+                    ) : null}
+                    {analyticsReviewSummary.suggestedPrompts.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        Tips: {analyticsReviewSummary.suggestedPrompts[0]}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {analyticsActionPrompt ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className="text-violet-300">{analyticsActionPrompt.question}</p>
+                    {analyticsActionPrompt.labels.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        Förslag: {analyticsActionPrompt.labels.slice(0, 2).join(" • ")}
                       </p>
                     ) : null}
                   </div>
@@ -1642,6 +1709,12 @@ function getAnalyticsReviewSummary(output: unknown): AnalyticsReviewSummary | nu
     topIssues: Array.isArray(summary.topIssues)
       ? summary.topIssues.map((issue) => String(issue)).filter(Boolean)
       : [],
+    suggestedPrompts: Array.isArray(summary.suggestedPrompts)
+      ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
+      : [],
+    suggestedLabels: Array.isArray(summary.suggestedLabels)
+      ? summary.suggestedLabels.map((label) => String(label)).filter(Boolean)
+      : [],
     trackerDetected: Boolean(summary.trackerDetected),
     trackerProviders: Array.isArray(summary.trackerProviders)
       ? summary.trackerProviders.map((provider) => String(provider)).filter(Boolean)
@@ -1654,6 +1727,22 @@ function getAnalyticsReviewSummary(output: unknown): AnalyticsReviewSummary | nu
       typeof summary.conversionEventCount === "number" && Number.isFinite(summary.conversionEventCount)
         ? summary.conversionEventCount
         : 0,
+  };
+}
+
+function getAnalyticsActionPrompt(output: unknown): AnalyticsActionPrompt | null {
+  const summary = getAnalyticsReviewSummary(output);
+  if (!summary) return null;
+  if (summary.suggestedPrompts.length === 0) return null;
+  const labels =
+    summary.suggestedLabels.length > 0
+      ? summary.suggestedLabels.slice(0, 3)
+      : summary.suggestedPrompts.slice(0, 3).map(() => "tracking");
+
+  return {
+    question: "Vilken tracking-del vill du förbättra härnäst?",
+    options: [...summary.suggestedPrompts.slice(0, 3), "Annat"],
+    labels: [...labels, "Annat"],
   };
 }
 
