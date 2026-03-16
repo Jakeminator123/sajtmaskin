@@ -241,3 +241,77 @@ Kompatibilitetsalias finns kvar:
 npm run scaffolds:discover
 npm run scaffolds:discover:full
 ```
+
+## scaffold-pipeline.py
+
+Interaktivt Python-menyskript som samlar alla steg i template-library-kedjan.
+Visar aktuell status (antal dossiers, embeddings, kuraterade entries) och lat
+dig valja enskilda steg eller kora hela kedjan.
+
+### Anvandning
+
+```bash
+python scripts/scaffold-pipeline.py
+```
+
+### Menyval
+
+| Val | Vad det gor |
+|-----|-------------|
+| 1 | Skrapa nya templates fran vercel.com/templates (Playwright) |
+| 2 | Importera legacy-dataset fran Desktop/_sidor |
+| 3 | Ladda ner repos (shallow clones till repo-cache) |
+| 4 | Bygg template-library + dossiers |
+| 5 | Generera template-library embeddings (OpenAI API) |
+| 6 | Generera scaffold embeddings (OpenAI API) |
+| 7 | Kor allt fran befintlig discovery (2+3+4+5+6) |
+| 8 | Kor allt fran scratch (1+3+4+5+6) |
+| 9 | Visa status |
+| 0 | Avsluta |
+
+### Monorepo-skydd
+
+`build-template-library.ts` skippar filval for monorepo-entries dar subpath
+saknas lokalt, for att undvika att filer fran fel del av repot (t.ex.
+`apps/bundle-analyzer/` i `vercel/next.js`) hamnar i dossiers. Metadata
+(summary, signals, styrkor) behalles.
+
+## recovery/recreate-repo-branch-commit.ps1
+
+Interaktivt recovery-skript som kan koras fran valfri arbetsmapp for att skapa
+en ny lokal kopia av ett visst `repo`, `branch` och `commit`.
+
+### Vad skriptet gor
+
+1. Fragar efter repo-URL eller lokal path
+2. Fragar efter branchnamn
+3. Fragar efter commit-SHA
+4. Klonar branchen i den mapp dar skriptet kors
+5. Checkar ut den exakta committen i detached HEAD
+6. Skriver `RECOVERY_INFO.json` i den skapade recovery-mappen
+
+### Anvandning
+
+```powershell
+powershell -File "scripts/recovery/recreate-repo-branch-commit.ps1"
+```
+
+Du kan ocksa skicka in varden direkt:
+
+```powershell
+powershell -File "scripts/recovery/recreate-repo-branch-commit.ps1" `
+  -Repo "https://github.com/example/repo.git" `
+  -Branch "main" `
+  -Commit "abc1234"
+```
+
+### Output
+
+Skriptet skapar en ny undermapp i aktuell kor-mapp med ett namn i stil med:
+
+```text
+repo__branch__abc1234
+```
+
+Om mappen redan finns lagger skriptet till en tidsstampel for att undvika
+kollisioner.
