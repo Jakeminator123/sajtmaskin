@@ -7,7 +7,7 @@ type NavItemMatch = {
   labelRange: { start: number; end: number };
 };
 
-function isLikelyNavFile(fileName: string): boolean {
+function isLikelySourceFile(fileName: string): boolean {
   const normalized = fileName.replace(/\\/g, "/").toLowerCase();
   return (
     normalized.endsWith(".tsx") ||
@@ -17,14 +17,24 @@ function isLikelyNavFile(fileName: string): boolean {
   );
 }
 
+const NAV_ITEMS_ARRAY_RE = /(?:const|let|var)\s+navItems\s*=\s*\[([\s\S]*?)\]/;
 const NAV_ITEM_RE =
   /\{\s*label:\s*(["'`])([\s\S]*?)\1\s*,\s*href:\s*(["'`])([\s\S]*?)\3[\s\S]*?\}/g;
 
 function findNavItemMatches(content: string): NavItemMatch[] {
+  const arrayMatch = NAV_ITEMS_ARRAY_RE.exec(content);
+  if (!arrayMatch) return [];
+
+  const arrayContent = arrayMatch[1] ?? "";
+  const arrayStartInMatch = arrayMatch[0].indexOf(arrayContent);
+  if (arrayStartInMatch === -1) return [];
+
+  const contentOffset = arrayMatch.index + arrayStartInMatch;
   const matches: NavItemMatch[] = [];
   let match: RegExpExecArray | null;
+  NAV_ITEM_RE.lastIndex = 0;
 
-  while ((match = NAV_ITEM_RE.exec(content)) !== null) {
+  while ((match = NAV_ITEM_RE.exec(arrayContent)) !== null) {
     const full = match[0];
     const label = match[2] ?? "";
     const labelStartInMatch = full.indexOf(label);
@@ -33,8 +43,8 @@ function findNavItemMatches(content: string): NavItemMatch[] {
     matches.push({
       label,
       labelRange: {
-        start: match.index + labelStartInMatch,
-        end: match.index + labelStartInMatch + label.length,
+        start: contentOffset + match.index + labelStartInMatch,
+        end: contentOffset + match.index + labelStartInMatch + label.length,
       },
     });
   }
@@ -59,7 +69,7 @@ export function readNavItemsDraft(
   fileName: string,
   content: string,
 ): NavItemDraft[] | null {
-  if (!isLikelyNavFile(fileName)) return null;
+  if (!isLikelySourceFile(fileName)) return null;
   const matches = findNavItemMatches(content);
   if (matches.length < 2) return null;
   return matches.slice(0, 8).map((match) => ({

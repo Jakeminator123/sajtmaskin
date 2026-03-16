@@ -23,6 +23,23 @@ describe("nav-items-editor", () => {
       ]);
     });
 
+    it("does not mistake footer link groups for nav items", () => {
+      const content = [
+        "const footerLinks = {",
+        "  Tjänster: [",
+        "    { label: 'Webbdesign', href: '#' },",
+        "    { label: 'SEO', href: '#' },",
+        "  ],",
+        "  Företaget: [",
+        "    { label: 'Om oss', href: '#' },",
+        "    { label: 'Kontakt', href: '#' },",
+        "  ],",
+        "};",
+      ].join("\n");
+
+      expect(readNavItemsDraft("components/site-footer.tsx", content)).toBeNull();
+    });
+
     it("returns null when fewer than two items exist", () => {
       const content = [
         "const navItems = [",
