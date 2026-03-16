@@ -160,6 +160,7 @@ export async function runPostGenerationChecks(params: {
       seoReview: baseline.seoReview,
       analyticsReview: baseline.analyticsReview,
       editorialReview: baseline.editorialReview,
+      businessWorkflowReview: baseline.businessWorkflowReview,
       sanityIssues: baseline.sanityIssues,
       sanityErrors: baseline.sanityErrors,
       sanityWarnings: baseline.sanityWarnings,

@@ -117,6 +117,15 @@ type EditorialActionPrompt = {
   options: string[];
 };
 
+type BusinessWorkflowSummary = {
+  packCount: number;
+  labels: string[];
+  recommendedIntegrations: string[];
+  hasLeadCapture: boolean;
+  hasBookingFlow: boolean;
+  hasCrmSync: boolean;
+};
+
 type QualityGateCheckInfo = {
   check: string;
   passed: boolean;
@@ -202,6 +211,8 @@ export function StructuredToolParts({
           toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
         const editorialActionPrompt =
           toolType === "tool-post-check" ? getEditorialActionPrompt(tool.output) : null;
+        const businessWorkflowSummary =
+          toolType === "tool-post-check" ? getBusinessWorkflowSummary(tool.output) : null;
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
         const toolHasData = hasToolData(tool as ToolUIPart);
@@ -371,6 +382,31 @@ export function StructuredToolParts({
                   </div>
                 </div>
               ) : null}
+              {businessWorkflowSummary ? (
+                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
+                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
+                    Business workflows
+                  </div>
+                  <div className="space-y-1 text-muted-foreground">
+                    <div className="text-emerald-300">
+                      {businessWorkflowSummary.packCount} affärspack hittades.
+                    </div>
+                    {businessWorkflowSummary.labels.length > 0 ? (
+                      <div>Packs: {businessWorkflowSummary.labels.join(", ")}</div>
+                    ) : null}
+                    {businessWorkflowSummary.recommendedIntegrations.length > 0 ? (
+                      <div>
+                        Rekommenderade integrationer: {businessWorkflowSummary.recommendedIntegrations.join(", ")}
+                      </div>
+                    ) : null}
+                    <div>
+                      Lead capture: {businessWorkflowSummary.hasLeadCapture ? "ja" : "nej"} • booking:{" "}
+                      {businessWorkflowSummary.hasBookingFlow ? "ja" : "nej"} • CRM:{" "}
+                      {businessWorkflowSummary.hasCrmSync ? "ja" : "nej"}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               {!pendingReply && !hasUserAfterCurrentMessage && editorialActionPrompt && onQuickReply ? (
                 <div className="mb-3 rounded-md border border-sky-500/50 bg-sky-500/10 p-3 text-xs">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-sky-200">
@@ -515,6 +551,8 @@ export function CompactToolParts({
           toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
         const editorialActionPrompt =
           toolType === "tool-post-check" ? getEditorialActionPrompt(tool.output) : null;
+        const businessWorkflowSummary =
+          toolType === "tool-post-check" ? getBusinessWorkflowSummary(tool.output) : null;
         const replyPrompt = getActionPrompt(tool, toolState);
         const requiresUserReply = toolState === "approval-requested" || Boolean(replyPrompt);
         const canQuickReply =
@@ -670,6 +708,18 @@ export function CompactToolParts({
                     {editorialActionPrompt.options.length > 0 ? (
                       <p className="text-muted-foreground mt-1">
                         Förslag: {editorialActionPrompt.options.slice(0, 2).join(" • ")}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {businessWorkflowSummary ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className="text-emerald-300">
+                      Business packs: {businessWorkflowSummary.labels.join(", ")}
+                    </p>
+                    {businessWorkflowSummary.recommendedIntegrations.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        Rekommenderat: {businessWorkflowSummary.recommendedIntegrations.join(", ")}
                       </p>
                     ) : null}
                   </div>
@@ -1491,6 +1541,31 @@ function getEditorialActionPrompt(output: unknown): EditorialActionPrompt | null
   return {
     question: "Vilken innehållsdel vill du redigera härnäst?",
     options: [...prompts.slice(0, 3), "Annat"],
+  };
+}
+
+function getBusinessWorkflowSummary(output: unknown): BusinessWorkflowSummary | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  const summary =
+    obj.businessWorkflowSummary && typeof obj.businessWorkflowSummary === "object"
+      ? (obj.businessWorkflowSummary as Record<string, unknown>)
+      : null;
+  if (!summary) return null;
+  return {
+    packCount:
+      typeof summary.packCount === "number" && Number.isFinite(summary.packCount)
+        ? summary.packCount
+        : 0,
+    labels: Array.isArray(summary.labels)
+      ? summary.labels.map((label) => String(label)).filter(Boolean)
+      : [],
+    recommendedIntegrations: Array.isArray(summary.recommendedIntegrations)
+      ? summary.recommendedIntegrations.map((label) => String(label)).filter(Boolean)
+      : [],
+    hasLeadCapture: Boolean(summary.hasLeadCapture),
+    hasBookingFlow: Boolean(summary.hasBookingFlow),
+    hasCrmSync: Boolean(summary.hasCrmSync),
   };
 }
 

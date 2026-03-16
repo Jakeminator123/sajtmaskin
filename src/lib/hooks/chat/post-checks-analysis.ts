@@ -1,6 +1,10 @@
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
 import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type PlannedRoute } from "@/lib/gen/route-plan";
 import {
+  detectBusinessWorkflowPacks,
+  type BusinessWorkflowPack,
+} from "@/lib/gen/business-packs";
+import {
   runProjectSanityChecks,
   type SanityIssue,
   type SanityResult,
@@ -97,6 +101,15 @@ export type EditorialReview = {
   };
 };
 
+export type BusinessWorkflowReview = {
+  packs: BusinessWorkflowPack[];
+  signals: {
+    hasLeadCapture: boolean;
+    hasBookingFlow: boolean;
+    hasCrmSync: boolean;
+  };
+};
+
 export type PostCheckBaseline = {
   previousVersionId: string | null;
   changes: FileDiff | null;
@@ -109,6 +122,7 @@ export type PostCheckBaseline = {
   seoReview: SeoReview;
   analyticsReview: AnalyticsReview;
   editorialReview: EditorialReview;
+  businessWorkflowReview: BusinessWorkflowReview;
   sanity: SanityResult;
   sanityIssues: SanityIssue[];
   sanityErrors: SanityIssue[];
@@ -589,6 +603,19 @@ export function buildEditorialReview(files: FileEntry[]): EditorialReview {
   };
 }
 
+export function buildBusinessWorkflowReview(files: FileEntry[]): BusinessWorkflowReview {
+  const combined = files.map((file) => file.content ?? "").join("\n\n");
+  const packs = detectBusinessWorkflowPacks(combined);
+  return {
+    packs,
+    signals: {
+      hasLeadCapture: packs.some((pack) => pack.id === "lead-capture"),
+      hasBookingFlow: packs.some((pack) => pack.id === "booking"),
+      hasCrmSync: packs.some((pack) => pack.id === "crm-sync"),
+    },
+  };
+}
+
 export function buildPostCheckBaseline(params: {
   currentFiles: FileEntry[];
   previousFiles: FileEntry[];
@@ -620,6 +647,7 @@ export function buildPostCheckBaseline(params: {
   const seoReview = buildSeoReview(currentFiles);
   const analyticsReview = buildAnalyticsReview(currentFiles);
   const editorialReview = buildEditorialReview(currentFiles);
+  const businessWorkflowReview = buildBusinessWorkflowReview(currentFiles);
   const sanity = runProjectSanityChecks(
     currentFiles.map((file) => ({
       path: file.name,
@@ -676,6 +704,14 @@ export function buildPostCheckBaseline(params: {
     const suffix = editorialReview.packs.length > 5 ? " …" : "";
     warnings.push(`Editorial inventory: ${preview}${suffix}`);
   }
+  if (businessWorkflowReview.packs.length > 0) {
+    const preview = businessWorkflowReview.packs
+      .slice(0, 5)
+      .map((pack) => pack.label)
+      .join(", ");
+    const suffix = businessWorkflowReview.packs.length > 5 ? " …" : "";
+    warnings.push(`Business packs: ${preview}${suffix}`);
+  }
 
   const versionEntry = versions.find(
     (entry) => entry.versionId === versionId || entry.id === versionId,
@@ -700,6 +736,7 @@ export function buildPostCheckBaseline(params: {
     seoReview,
     analyticsReview,
     editorialReview,
+    businessWorkflowReview,
     sanity,
     sanityIssues,
     sanityErrors,

@@ -12,6 +12,7 @@ import {
 import type { FileDiff } from "./post-checks-diff";
 import type {
   AnalyticsReview,
+  BusinessWorkflowReview,
   EditorialReview,
   SeoReview,
   SuspiciousUseCall,
@@ -100,6 +101,15 @@ export interface PostCheckArtifacts {
       hasBlogCollection: boolean;
       hasContactFlow: boolean;
     };
+    businessWorkflowReview: BusinessWorkflowReview;
+    businessWorkflowSummary: {
+      packCount: number;
+      labels: string[];
+      recommendedIntegrations: string[];
+      hasLeadCapture: boolean;
+      hasBookingFlow: boolean;
+      hasCrmSync: boolean;
+    };
     seoReview: SeoReview;
     seoSummary: {
       passed: boolean;
@@ -151,6 +161,19 @@ function summarizeEditorialSignals(editorialReview: EditorialReview) {
   };
 }
 
+function summarizeBusinessWorkflowSignals(businessWorkflowReview: BusinessWorkflowReview) {
+  return {
+    packCount: businessWorkflowReview.packs.length,
+    labels: businessWorkflowReview.packs.map((pack) => pack.label),
+    recommendedIntegrations: Array.from(
+      new Set(businessWorkflowReview.packs.flatMap((pack) => pack.recommendedIntegrations)),
+    ),
+    hasLeadCapture: businessWorkflowReview.signals.hasLeadCapture,
+    hasBookingFlow: businessWorkflowReview.signals.hasBookingFlow,
+    hasCrmSync: businessWorkflowReview.signals.hasCrmSync,
+  };
+}
+
 export function buildPostCheckArtifacts(params: {
   currentFileCount: number;
   versionId: string;
@@ -167,6 +190,7 @@ export function buildPostCheckArtifacts(params: {
   seoReview: SeoReview;
   analyticsReview: AnalyticsReview;
   editorialReview: EditorialReview;
+  businessWorkflowReview: BusinessWorkflowReview;
   sanityIssues: SanityIssue[];
   sanityErrors: SanityIssue[];
   sanityWarnings: SanityIssue[];
@@ -189,6 +213,7 @@ export function buildPostCheckArtifacts(params: {
     seoReview,
     analyticsReview,
     editorialReview,
+    businessWorkflowReview,
     sanityIssues,
     sanityErrors,
     sanityWarnings,
@@ -257,6 +282,11 @@ export function buildPostCheckArtifacts(params: {
     const labels = editorialReview.packs.slice(0, 6).map((pack) => pack.label).join(", ");
     const suffix = editorialReview.packs.length > 6 ? " …" : "";
     steps.push(`Editorial mode: upptäckte redigerbara innehållspack för ${labels}${suffix}.`);
+  }
+  if (businessWorkflowReview.packs.length > 0) {
+    const labels = businessWorkflowReview.packs.slice(0, 6).map((pack) => pack.label).join(", ");
+    const suffix = businessWorkflowReview.packs.length > 6 ? " …" : "";
+    steps.push(`Business workflows: ${labels}${suffix}.`);
   }
 
   if (imageValidation?.broken?.length) {
@@ -413,6 +443,8 @@ export function buildPostCheckArtifacts(params: {
     analyticsSummary: summarizeAnalyticsSignals(analyticsReview),
     editorialReview,
     editorialSummary: summarizeEditorialSignals(editorialReview),
+    businessWorkflowReview,
+    businessWorkflowSummary: summarizeBusinessWorkflowSignals(businessWorkflowReview),
     seoReview,
     seoSummary: summarizeSeoSignals(seoReview),
     regressionMatrix,
@@ -496,6 +528,17 @@ export function buildPostCheckArtifacts(params: {
       meta: {
         packs: editorialReview.packs,
         signals: editorialReview.signals,
+      },
+    });
+  }
+  if (businessWorkflowReview.packs.length > 0) {
+    logItems.push({
+      level: "info",
+      category: "business-workflows",
+      message: `Business workflow inventory hittade ${businessWorkflowReview.packs.length} affärspack.`,
+      meta: {
+        packs: businessWorkflowReview.packs,
+        signals: businessWorkflowReview.signals,
       },
     });
   }
