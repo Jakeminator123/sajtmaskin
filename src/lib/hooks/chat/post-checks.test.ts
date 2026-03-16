@@ -92,6 +92,27 @@ function buildBusinessWorkflowFiles() {
   );
 }
 
+function buildSeoIssueFiles() {
+  return buildHealthyFiles()
+    .filter((file) => !["src/app/robots.ts", "src/app/sitemap.ts"].includes(file.name))
+    .map((file) =>
+      file.name === "src/app/layout.tsx"
+        ? {
+            ...file,
+            content: [
+              "export const metadata = {",
+              "  title: 'Test site',",
+              "};",
+              "",
+              "export default function RootLayout({ children }: { children: React.ReactNode }) {",
+              "  return <html><body>{children}</body></html>;",
+              "}",
+            ].join("\n"),
+          }
+        : file,
+    );
+}
+
 function createMessageStore() {
   let messages: ChatMessage[] = [
     {
@@ -443,6 +464,76 @@ describe("runPostGenerationChecks", () => {
         expect.stringContaining("leadformuläret produktionsredo"),
         expect.stringContaining("boknings-CTA:n"),
         expect.stringContaining("Koppla formulär- eller leadflödet till CRM"),
+      ]),
+    );
+    expect(onAutoFix).not.toHaveBeenCalled();
+  });
+
+  it("surfaces actionable SEO prompts in post-check output", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildSeoIssueFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Sandbox not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const postCheck = getToolPart("Post-check", store);
+    const summary = (postCheck?.output as Record<string, unknown>).seoSummary as
+      | Record<string, unknown>
+      | undefined;
+
+    expect(summary?.topIssues).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("description"),
+        expect.stringContaining("canonical"),
+      ]),
+    );
+    expect(summary?.suggestedPrompts).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("metadata"),
+        expect.stringContaining("canonical-strategi"),
+        expect.stringContaining("robots.ts"),
       ]),
     );
     expect(onAutoFix).not.toHaveBeenCalled();

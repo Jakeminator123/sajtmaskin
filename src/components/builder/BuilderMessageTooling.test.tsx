@@ -144,4 +144,60 @@ describe("StructuredToolParts", () => {
     expect(screen.getByRole("button", { name: /Konfigurera Lead form \+ email routing/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Konfigurera Booking \/ calendar/i })).toBeTruthy();
   });
+
+  it("shows SEO quick actions from post-check output", () => {
+    render(
+      <StructuredToolParts
+        messageId="msg_5"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:post-check",
+              state: "output-available",
+              output: {
+                summary: {
+                  files: 4,
+                  added: 1,
+                  modified: 2,
+                  removed: 0,
+                  warnings: 2,
+                  provisional: false,
+                  qualityGatePending: false,
+                  autoFixQueued: false,
+                },
+                demoUrl: "https://preview.example",
+                seoSummary: {
+                  passed: false,
+                  issueCount: 3,
+                  topIssues: [
+                    "Metadata saknar canonical-strategi.",
+                    "Projektet saknar app/robots.ts.",
+                  ],
+                  suggestedPrompts: [
+                    "Fyll ut metadata för sajten med title och description utan att ändra sidlayouten.",
+                    "Lägg till en canonical-strategi i metadata för sajten utan att ändra designen i övrigt.",
+                    "Lägg till robots.ts och sitemap.ts med rimliga standarder för indexering utan att ändra designen.",
+                  ],
+                  suggestedLabels: ["metadata", "canonical", "robots"],
+                  canonical: false,
+                  ogImage: false,
+                  homeH1Count: 1,
+                },
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+        onQuickReply={vi.fn(async () => true)}
+      />,
+    );
+
+    expect(screen.getByText("Snabb SEO-fix")).toBeTruthy();
+    expect(screen.getByText("Vilken SEO-del vill du förbättra härnäst?")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Fixa metadata/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Fixa canonical/i })).toBeTruthy();
+  });
 });

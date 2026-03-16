@@ -89,9 +89,17 @@ type SeoReviewSummary = {
   passed: boolean;
   issueCount: number;
   topIssues: string[];
+  suggestedPrompts: string[];
+  suggestedLabels: string[];
   canonical: boolean;
   ogImage: boolean;
   homeH1Count: number | null;
+};
+
+type SeoActionPrompt = {
+  question: string;
+  options: string[];
+  labels: string[];
 };
 
 type AnalyticsReviewSummary = {
@@ -212,6 +220,8 @@ export function StructuredToolParts({
           toolType === "tool-post-check" ? getPostCheckSummary(tool.output) : null;
         const seoReviewSummary =
           toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
+        const seoActionPrompt =
+          toolType === "tool-post-check" ? getSeoActionPrompt(tool.output) : null;
         const analyticsReviewSummary =
           toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
         const editorialReviewSummary =
@@ -333,6 +343,46 @@ export function StructuredToolParts({
                         ))}
                       </ul>
                     ) : null}
+                    {seoReviewSummary.suggestedPrompts.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {seoReviewSummary.suggestedPrompts.slice(0, 3).map((prompt) => (
+                          <li key={prompt}>- {prompt}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              {!pendingReply && !hasUserAfterCurrentMessage && seoActionPrompt && onQuickReply ? (
+                <div className="mb-3 rounded-md border border-cyan-500/50 bg-cyan-500/10 p-3 text-xs">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-cyan-200">
+                    Snabb SEO-fix
+                  </p>
+                  <p className="text-foreground text-sm font-semibold">
+                    {seoActionPrompt.question}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {seoActionPrompt.options.map((option, optionIndex) => {
+                      const replyKey = `${messageId}:seo:${optionIndex}:${option}`;
+                      const isPending = pendingQuickReplyKey === replyKey;
+                      const label = seoActionPrompt.labels[optionIndex] ?? option;
+                      return (
+                        <Button
+                          key={replyKey}
+                          size="sm"
+                          variant="secondary"
+                          disabled={quickReplyDisabled || pendingQuickReplyKey !== null}
+                          onClick={() =>
+                            void onQuickReply(messageId, optionIndex, option)
+                          }
+                        >
+                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                          {optionIndex === seoActionPrompt.options.length - 1
+                            ? "Annat"
+                            : `Fixa ${label}`}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
@@ -594,6 +644,8 @@ export function CompactToolParts({
         const integrationCard = getIntegrationCardData(tool);
         const seoReviewSummary =
           toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
+        const seoActionPrompt =
+          toolType === "tool-post-check" ? getSeoActionPrompt(tool.output) : null;
         const analyticsReviewSummary =
           toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
         const editorialReviewSummary =
@@ -719,6 +771,21 @@ export function CompactToolParts({
                     {seoReviewSummary.topIssues.length > 0 ? (
                       <p className="text-muted-foreground mt-1">
                         {seoReviewSummary.topIssues[0]}
+                      </p>
+                    ) : null}
+                    {seoReviewSummary.suggestedPrompts.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        Tips: {seoReviewSummary.suggestedPrompts[0]}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {seoActionPrompt ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className="text-cyan-300">{seoActionPrompt.question}</p>
+                    {seoActionPrompt.labels.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        Förslag: {seoActionPrompt.labels.slice(0, 2).join(" • ")}
                       </p>
                     ) : null}
                   </div>
@@ -1527,12 +1594,34 @@ function getSeoReviewSummary(output: unknown): SeoReviewSummary | null {
     topIssues: Array.isArray(summary.topIssues)
       ? summary.topIssues.map((issue) => String(issue)).filter(Boolean)
       : [],
+    suggestedPrompts: Array.isArray(summary.suggestedPrompts)
+      ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
+      : [],
+    suggestedLabels: Array.isArray(summary.suggestedLabels)
+      ? summary.suggestedLabels.map((label) => String(label)).filter(Boolean)
+      : [],
     canonical: Boolean(summary.canonical),
     ogImage: Boolean(summary.ogImage),
     homeH1Count:
       typeof summary.homeH1Count === "number" && Number.isFinite(summary.homeH1Count)
         ? summary.homeH1Count
         : null,
+  };
+}
+
+function getSeoActionPrompt(output: unknown): SeoActionPrompt | null {
+  const summary = getSeoReviewSummary(output);
+  if (!summary) return null;
+  if (summary.suggestedPrompts.length === 0) return null;
+  const labels =
+    summary.suggestedLabels.length > 0
+      ? summary.suggestedLabels.slice(0, 3)
+      : summary.suggestedPrompts.slice(0, 3).map(() => "SEO");
+
+  return {
+    question: "Vilken SEO-del vill du förbättra härnäst?",
+    options: [...summary.suggestedPrompts.slice(0, 3), "Annat"],
+    labels: [...labels, "Annat"],
   };
 }
 

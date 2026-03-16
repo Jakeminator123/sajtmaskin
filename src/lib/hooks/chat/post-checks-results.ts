@@ -14,6 +14,7 @@ import type {
   AnalyticsReview,
   BusinessWorkflowReview,
   EditorialReview,
+  SeoIssue,
   SeoReview,
   SuspiciousUseCall,
 } from "./post-checks-analysis";
@@ -116,6 +117,8 @@ export interface PostCheckArtifacts {
       passed: boolean;
       issueCount: number;
       topIssues: string[];
+      suggestedPrompts: string[];
+      suggestedLabels: string[];
       canonical: boolean;
       ogImage: boolean;
       homeH1Count: number | null;
@@ -130,10 +133,56 @@ export interface PostCheckArtifacts {
 }
 
 function summarizeSeoSignals(seoReview: SeoReview) {
+  const issueCodes = new Set<SeoIssue["code"]>(seoReview.issues.map((issue) => issue.code));
+  const suggestedPrompts: string[] = [];
+  const suggestedLabels: string[] = [];
+
+  const pushPrompt = (condition: boolean, label: string, prompt: string) => {
+    if (!condition) return;
+    if (!suggestedPrompts.includes(prompt)) {
+      suggestedPrompts.push(prompt);
+      suggestedLabels.push(label);
+    }
+  };
+  const hasAnyIssue = (...codes: SeoIssue["code"][]) => codes.some((code) => issueCodes.has(code));
+
+  pushPrompt(
+    hasAnyIssue("missing-metadata", "missing-title", "missing-description"),
+    "metadata",
+    "Fyll ut metadata för sajten med title och description utan att ändra sidlayouten.",
+  );
+  pushPrompt(
+    issueCodes.has("missing-canonical"),
+    "canonical",
+    "Lägg till en canonical-strategi i metadata för sajten utan att ändra designen i övrigt.",
+  );
+  pushPrompt(
+    hasAnyIssue("missing-open-graph", "missing-og-image", "missing-twitter"),
+    "social",
+    "Komplettera social metadata med Open Graph, bildstrategi och Twitter-kort utan att ändra layouten.",
+  );
+  pushPrompt(
+    issueCodes.has("missing-robots") || issueCodes.has("missing-sitemap"),
+    "robots",
+    "Lägg till robots.ts och sitemap.ts med rimliga standarder för indexering utan att ändra designen.",
+  );
+  pushPrompt(
+    issueCodes.has("missing-json-ld"),
+    "schema",
+    "Lägg till grundläggande JSON-LD/schema.org-markup för sajten utan att ändra den visuella designen.",
+  );
+  pushPrompt(
+    issueCodes.has("missing-h1") || issueCodes.has("multiple-h1") || issueCodes.has("heading-hierarchy"),
+    "rubriker",
+    "Rätta h1 och rubrikhierarkin så att SEO-strukturen blir konsekvent utan att göra en redesign.",
+  );
+
   return {
     passed: seoReview.passed,
     issueCount: seoReview.issues.length,
     topIssues: seoReview.issues.slice(0, 5).map((issue) => issue.message),
+    suggestedPrompts: suggestedPrompts.slice(0, 4),
+    suggestedLabels: suggestedLabels.slice(0, 4),
     canonical: seoReview.signals.canonical,
     ogImage: seoReview.signals.ogImage,
     homeH1Count: seoReview.signals.homeH1Count,
