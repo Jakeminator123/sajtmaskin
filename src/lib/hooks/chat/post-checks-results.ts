@@ -10,7 +10,12 @@ import {
   getPreviewUnavailableQualityGateFailure,
 } from "./post-checks-preview";
 import type { FileDiff } from "./post-checks-diff";
-import type { AnalyticsReview, SeoReview, SuspiciousUseCall } from "./post-checks-analysis";
+import type {
+  AnalyticsReview,
+  EditorialReview,
+  SeoReview,
+  SuspiciousUseCall,
+} from "./post-checks-analysis";
 import type {
   DesignTokenSummary,
   StreamQualitySignal,
@@ -87,6 +92,14 @@ export interface PostCheckArtifacts {
       conversionSurfaceCount: number;
       conversionEventCount: number;
     };
+    editorialReview: EditorialReview;
+    editorialSummary: {
+      packCount: number;
+      labels: string[];
+      suggestedPrompts: string[];
+      hasBlogCollection: boolean;
+      hasContactFlow: boolean;
+    };
     seoReview: SeoReview;
     seoSummary: {
       passed: boolean;
@@ -128,6 +141,16 @@ function summarizeAnalyticsSignals(analyticsReview: AnalyticsReview) {
   };
 }
 
+function summarizeEditorialSignals(editorialReview: EditorialReview) {
+  return {
+    packCount: editorialReview.packs.length,
+    labels: editorialReview.packs.map((pack) => pack.label),
+    suggestedPrompts: editorialReview.packs.slice(0, 4).map((pack) => pack.suggestedPrompt),
+    hasBlogCollection: editorialReview.signals.hasBlogCollection,
+    hasContactFlow: editorialReview.signals.hasContactFlow,
+  };
+}
+
 export function buildPostCheckArtifacts(params: {
   currentFileCount: number;
   versionId: string;
@@ -143,6 +166,7 @@ export function buildPostCheckArtifacts(params: {
   designTokens: DesignTokenSummary | null;
   seoReview: SeoReview;
   analyticsReview: AnalyticsReview;
+  editorialReview: EditorialReview;
   sanityIssues: SanityIssue[];
   sanityErrors: SanityIssue[];
   sanityWarnings: SanityIssue[];
@@ -164,6 +188,7 @@ export function buildPostCheckArtifacts(params: {
     designTokens,
     seoReview,
     analyticsReview,
+    editorialReview,
     sanityIssues,
     sanityErrors,
     sanityWarnings,
@@ -227,6 +252,11 @@ export function buildPostCheckArtifacts(params: {
         .slice(0, 4)
         .map((issue) => (issue.file ? `${issue.message} (${issue.file})` : issue.message)),
     );
+  }
+  if (editorialReview.packs.length > 0) {
+    const labels = editorialReview.packs.slice(0, 6).map((pack) => pack.label).join(", ");
+    const suffix = editorialReview.packs.length > 6 ? " …" : "";
+    steps.push(`Editorial mode: upptäckte redigerbara innehållspack för ${labels}${suffix}.`);
   }
 
   if (imageValidation?.broken?.length) {
@@ -381,6 +411,8 @@ export function buildPostCheckArtifacts(params: {
     },
     analyticsReview,
     analyticsSummary: summarizeAnalyticsSignals(analyticsReview),
+    editorialReview,
+    editorialSummary: summarizeEditorialSignals(editorialReview),
     seoReview,
     seoSummary: summarizeSeoSignals(seoReview),
     regressionMatrix,
@@ -453,6 +485,17 @@ export function buildPostCheckArtifacts(params: {
       meta: {
         issues: analyticsReview.issues,
         signals: analyticsReview.signals,
+      },
+    });
+  }
+  if (editorialReview.packs.length > 0) {
+    logItems.push({
+      level: "info",
+      category: "editorial",
+      message: `Editorial inventory hittade ${editorialReview.packs.length} redigerbara innehållspack.`,
+      meta: {
+        packs: editorialReview.packs,
+        signals: editorialReview.signals,
       },
     });
   }

@@ -74,6 +74,29 @@ export type AnalyticsReview = {
   };
 };
 
+export type EditorialPack = {
+  id:
+    | "hero"
+    | "services"
+    | "testimonials"
+    | "team"
+    | "faq"
+    | "contact"
+    | "blog"
+    | "metadata";
+  label: string;
+  reason: string;
+  suggestedPrompt: string;
+};
+
+export type EditorialReview = {
+  packs: EditorialPack[];
+  signals: {
+    hasBlogCollection: boolean;
+    hasContactFlow: boolean;
+  };
+};
+
 export type PostCheckBaseline = {
   previousVersionId: string | null;
   changes: FileDiff | null;
@@ -85,6 +108,7 @@ export type PostCheckBaseline = {
   designTokens: DesignTokenSummary | null;
   seoReview: SeoReview;
   analyticsReview: AnalyticsReview;
+  editorialReview: EditorialReview;
   sanity: SanityResult;
   sanityIssues: SanityIssue[];
   sanityErrors: SanityIssue[];
@@ -480,6 +504,91 @@ export function buildAnalyticsReview(files: FileEntry[]): AnalyticsReview {
   };
 }
 
+export function buildEditorialReview(files: FileEntry[]): EditorialReview {
+  const combined = files.map((file) => file.content ?? "").join("\n\n");
+  const routeNames = files.map((file) => file.name).join("\n");
+  const packs: EditorialPack[] = [];
+
+  const pushPack = (pack: EditorialPack) => {
+    if (!packs.some((existing) => existing.id === pack.id)) {
+      packs.push(pack);
+    }
+  };
+
+  if (/\bhero\b|text-5xl|text-6xl|primary cta|headline/i.test(combined)) {
+    pushPack({
+      id: "hero",
+      label: "Hero",
+      reason: "Startsidan verkar ha en hero- eller top-section med huvudbudskap och CTA.",
+      suggestedPrompt: "Uppdatera hero-sektionen med ny rubrik, ingress och CTA utan att ändra resten av designen.",
+    });
+  }
+  if (/\bservices?\b|tjanster|tjänster|offerings|what we do/i.test(combined)) {
+    pushPack({
+      id: "services",
+      label: "Services",
+      reason: "Sajten verkar ha ett tjänste- eller erbjudandeblock.",
+      suggestedPrompt: "Uppdatera tjänste-/erbjudandesektionen med nya titlar, beskrivningar och ordning utan att göra en full redesign.",
+    });
+  }
+  if (/\btestimonial|testimonials|reviews?|kundomdomen|kundrecension/i.test(combined)) {
+    pushPack({
+      id: "testimonials",
+      label: "Testimonials",
+      reason: "Sajten verkar ha social proof i form av omdömen eller testimonials.",
+      suggestedPrompt: "Uppdatera testimonials-sektionen med nya kundnamn, citat och roller utan att ändra layouten.",
+    });
+  }
+  if (/\bteam\b|medarbetare|our people|staff/i.test(combined)) {
+    pushPack({
+      id: "team",
+      label: "Team",
+      reason: "Sajten verkar ha en team- eller people-sektion.",
+      suggestedPrompt: "Uppdatera team-sektionen med nya personer, roller och korta bio-texter utan att ändra resten av sidan.",
+    });
+  }
+  if (/\bfaq\b|accordion|questions|fragor|frågor/i.test(combined)) {
+    pushPack({
+      id: "faq",
+      label: "FAQ",
+      reason: "Sajten verkar ha en FAQ eller frågesektion.",
+      suggestedPrompt: "Uppdatera FAQ-sektionen med nya frågor och svar utan att ändra den visuella strukturen.",
+    });
+  }
+  if (/\bcontact\b|kontakt|mailto:|tel:|<form\b/i.test(combined)) {
+    pushPack({
+      id: "contact",
+      label: "Contact",
+      reason: "Sajten verkar ha kontaktuppgifter eller kontaktflöde.",
+      suggestedPrompt: "Uppdatera kontaktsektionen med nya kontaktuppgifter, öppettider och CTA utan att ändra resten av designen.",
+    });
+  }
+  if (/\bblog\b|article|post|inlagg|inlägg|newsletter/i.test(combined) || /\/blog\b/i.test(routeNames)) {
+    pushPack({
+      id: "blog",
+      label: "Blog / content",
+      reason: "Sajten verkar ha blogg- eller innehållssidor.",
+      suggestedPrompt: "Uppdatera blogg-/innehållssektionen med nya artikeltitlar, sammanfattningar eller metadata utan att ändra site shell.",
+    });
+  }
+  if (/\bexport\s+const\s+metadata\b|generateMetadata|application\/ld\+json/i.test(combined)) {
+    pushPack({
+      id: "metadata",
+      label: "Metadata",
+      reason: "Sajten verkar redan ha metadata/SEO-yta som kan redigeras separat.",
+      suggestedPrompt: "Uppdatera metadata, titelmall, beskrivning och social sharing-text utan att ändra sidlayouten.",
+    });
+  }
+
+  return {
+    packs,
+    signals: {
+      hasBlogCollection: packs.some((pack) => pack.id === "blog"),
+      hasContactFlow: packs.some((pack) => pack.id === "contact"),
+    },
+  };
+}
+
 export function buildPostCheckBaseline(params: {
   currentFiles: FileEntry[];
   previousFiles: FileEntry[];
@@ -510,6 +619,7 @@ export function buildPostCheckBaseline(params: {
   const lucideLinkMisuse = findLucideLinkMisuse(currentFiles);
   const seoReview = buildSeoReview(currentFiles);
   const analyticsReview = buildAnalyticsReview(currentFiles);
+  const editorialReview = buildEditorialReview(currentFiles);
   const sanity = runProjectSanityChecks(
     currentFiles.map((file) => ({
       path: file.name,
@@ -558,6 +668,14 @@ export function buildPostCheckBaseline(params: {
     const suffix = analyticsReview.issues.length > 3 ? " …" : "";
     warnings.push(`Analytics: ${preview}${suffix}`);
   }
+  if (editorialReview.packs.length > 0) {
+    const preview = editorialReview.packs
+      .slice(0, 5)
+      .map((pack) => pack.label)
+      .join(", ");
+    const suffix = editorialReview.packs.length > 5 ? " …" : "";
+    warnings.push(`Editorial inventory: ${preview}${suffix}`);
+  }
 
   const versionEntry = versions.find(
     (entry) => entry.versionId === versionId || entry.id === versionId,
@@ -581,6 +699,7 @@ export function buildPostCheckBaseline(params: {
     designTokens,
     seoReview,
     analyticsReview,
+    editorialReview,
     sanity,
     sanityIssues,
     sanityErrors,

@@ -159,6 +159,7 @@ export async function runPostGenerationChecks(params: {
       designTokens: baseline.designTokens,
       seoReview: baseline.seoReview,
       analyticsReview: baseline.analyticsReview,
+      editorialReview: baseline.editorialReview,
       sanityIssues: baseline.sanityIssues,
       sanityErrors: baseline.sanityErrors,
       sanityWarnings: baseline.sanityWarnings,

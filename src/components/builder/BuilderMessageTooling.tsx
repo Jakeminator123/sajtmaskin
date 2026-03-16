@@ -104,6 +104,14 @@ type AnalyticsReviewSummary = {
   conversionEventCount: number;
 };
 
+type EditorialReviewSummary = {
+  packCount: number;
+  labels: string[];
+  suggestedPrompts: string[];
+  hasBlogCollection: boolean;
+  hasContactFlow: boolean;
+};
+
 type QualityGateCheckInfo = {
   check: string;
   passed: boolean;
@@ -185,6 +193,8 @@ export function StructuredToolParts({
           toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
         const analyticsReviewSummary =
           toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
+        const editorialReviewSummary =
+          toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
         const toolHasData = hasToolData(tool as ToolUIPart);
@@ -328,6 +338,32 @@ export function StructuredToolParts({
                   </div>
                 </div>
               ) : null}
+              {editorialReviewSummary ? (
+                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
+                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
+                    Editorial inventory
+                  </div>
+                  <div className="space-y-1 text-muted-foreground">
+                    <div className="text-emerald-300">
+                      {editorialReviewSummary.packCount} redigerbara innehållspack hittades.
+                    </div>
+                    {editorialReviewSummary.labels.length > 0 ? (
+                      <div>Packs: {editorialReviewSummary.labels.join(", ")}</div>
+                    ) : null}
+                    <div>
+                      Blogg/content: {editorialReviewSummary.hasBlogCollection ? "ja" : "nej"} •
+                      kontaktflöde: {editorialReviewSummary.hasContactFlow ? "ja" : "nej"}
+                    </div>
+                    {editorialReviewSummary.suggestedPrompts.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {editorialReviewSummary.suggestedPrompts.slice(0, 3).map((prompt) => (
+                          <li key={prompt}>- {prompt}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               {qualityGateSummary && (
                 <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
                   <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
@@ -436,6 +472,8 @@ export function CompactToolParts({
           toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
         const analyticsReviewSummary =
           toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
+        const editorialReviewSummary =
+          toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
         const replyPrompt = getActionPrompt(tool, toolState);
         const requiresUserReply = toolState === "approval-requested" || Boolean(replyPrompt);
         const canQuickReply =
@@ -569,6 +607,18 @@ export function CompactToolParts({
                     {analyticsReviewSummary.topIssues.length > 0 ? (
                       <p className="text-muted-foreground mt-1">
                         {analyticsReviewSummary.topIssues[0]}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {editorialReviewSummary ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className="text-emerald-300">
+                      Editorial packs: {editorialReviewSummary.labels.join(", ")}
+                    </p>
+                    {editorialReviewSummary.suggestedPrompts.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        Tips: {editorialReviewSummary.suggestedPrompts[0]}
                       </p>
                     ) : null}
                   </div>
@@ -1348,6 +1398,30 @@ function getAnalyticsReviewSummary(output: unknown): AnalyticsReviewSummary | nu
       typeof summary.conversionEventCount === "number" && Number.isFinite(summary.conversionEventCount)
         ? summary.conversionEventCount
         : 0,
+  };
+}
+
+function getEditorialReviewSummary(output: unknown): EditorialReviewSummary | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  const summary =
+    obj.editorialSummary && typeof obj.editorialSummary === "object"
+      ? (obj.editorialSummary as Record<string, unknown>)
+      : null;
+  if (!summary) return null;
+  return {
+    packCount:
+      typeof summary.packCount === "number" && Number.isFinite(summary.packCount)
+        ? summary.packCount
+        : 0,
+    labels: Array.isArray(summary.labels)
+      ? summary.labels.map((label) => String(label)).filter(Boolean)
+      : [],
+    suggestedPrompts: Array.isArray(summary.suggestedPrompts)
+      ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
+      : [],
+    hasBlogCollection: Boolean(summary.hasBlogCollection),
+    hasContactFlow: Boolean(summary.hasContactFlow),
   };
 }
 
