@@ -31,6 +31,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import {
+  readContactDetailsDraft,
+  updateContactDetailsDraft,
+  type ContactDetailsDraft,
+} from "@/lib/builder/contact-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -309,6 +314,9 @@ export function PreviewPanel({
   const [metadataDraft, setMetadataDraft] = useState<StaticMetadataDraft | null>(null);
   const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
   const [isMetadataSaving, setIsMetadataSaving] = useState(false);
+  const [contactDraft, setContactDraft] = useState<ContactDetailsDraft | null>(null);
+  const [contactSaveError, setContactSaveError] = useState<string | null>(null);
+  const [isContactSaving, setIsContactSaving] = useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
   const { integrationStatus, integrationError } = useIntegrationStatus(demoUrl);
@@ -1117,16 +1125,33 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableContactDetails = useMemo(
+    () => (selectedFile ? readContactDetailsDraft(selectedFile.content || "") : null),
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
   }, [editableMetadata, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setContactDraft(editableContactDetails ? { ...editableContactDetails } : null);
+    setContactSaveError(null);
+  }, [editableContactDetails, selectedFile?.path, selectedFile?.content]);
 
   const metadataDirty = Boolean(
     metadataDraft &&
       editableMetadata &&
       (metadataDraft.title !== editableMetadata.title ||
         metadataDraft.description !== editableMetadata.description),
+  );
+
+  const contactDirty = Boolean(
+    contactDraft &&
+      editableContactDetails &&
+      (contactDraft.email !== editableContactDetails.email ||
+        contactDraft.phone !== editableContactDetails.phone),
   );
 
   const getPreferredFilePath = useCallback((flatFiles: Array<{ name: string }>) => {
@@ -1224,14 +1249,14 @@ export function PreviewPanel({
     };
   }, [isCodeView, chatId, versionId, refreshToken, findFirstFile, getPreferredFilePath]);
 
-  const handleSaveMetadata = useCallback(async () => {
-    if (!chatId || !versionId || !selectedFile || !metadataDraft) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateStaticMetadataDraft(currentContent, metadataDraft);
-    if (nextContent === currentContent) return;
+  const saveSelectedFileContent = useCallback(async (nextContent: string) => {
+    if (!chatId || !versionId || !selectedFile) {
+      throw new Error("Ingen aktiv fil att spara.");
+    }
 
-    setIsMetadataSaving(true);
-    setMetadataSaveError(null);
+    const currentContent = selectedFile.content || "";
+    if (nextContent === currentContent) return false;
+
     try {
       const response = await fetch(
         `/api/v0/chats/${encodeURIComponent(chatId)}/files`,
@@ -1254,7 +1279,24 @@ export function PreviewPanel({
 
       setFiles((prev) => updateFileTreeContent(prev, selectedFile.path, nextContent));
       onFilesSaved?.();
-      toast.success("Metadata sparad i aktiv version.");
+      return true;
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "Kunde inte spara filinnehåll",
+      );
+    }
+  }, [chatId, versionId, selectedFile, updateFileTreeContent, onFilesSaved]);
+
+  const handleSaveMetadata = useCallback(async () => {
+    if (!selectedFile || !metadataDraft) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateStaticMetadataDraft(currentContent, metadataDraft);
+
+    setIsMetadataSaving(true);
+    setMetadataSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Metadata sparad i aktiv version.");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Kunde inte spara metadata";
@@ -1263,7 +1305,27 @@ export function PreviewPanel({
     } finally {
       setIsMetadataSaving(false);
     }
-  }, [chatId, versionId, selectedFile, metadataDraft, updateFileTreeContent, onFilesSaved]);
+  }, [selectedFile, metadataDraft, saveSelectedFileContent]);
+
+  const handleSaveContactDetails = useCallback(async () => {
+    if (!selectedFile || !contactDraft || !editableContactDetails) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateContactDetailsDraft(currentContent, editableContactDetails, contactDraft);
+
+    setIsContactSaving(true);
+    setContactSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Kontaktuppgifter sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara kontaktuppgifter";
+      setContactSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsContactSaving(false);
+    }
+  }, [selectedFile, contactDraft, editableContactDetails, saveSelectedFileContent]);
 
   const elementRegistry = useMemo(() => buildJsxElementRegistry(files), [files]);
   elementRegistryRef.current = elementRegistry;
@@ -1830,6 +1892,59 @@ export function PreviewPanel({
                       </div>
                       {metadataSaveError ? (
                         <div className="text-xs text-rose-300">{metadataSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {contactDraft && editableContactDetails ? (
+                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-emerald-100">Kontakteditor</div>
+                        <div className="text-xs text-emerald-200/80">
+                          Uppdatera `mailto:` och `tel:` direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveContactDetails()}
+                        disabled={!contactDirty || isContactSaving}
+                      >
+                        {isContactSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara kontakt
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      <div className="grid gap-1">
+                        <label className="text-xs font-medium text-emerald-100" htmlFor="contact-email">
+                          E-post
+                        </label>
+                        <Input
+                          id="contact-email"
+                          value={contactDraft.email}
+                          onChange={(event) =>
+                            setContactDraft((prev) =>
+                              prev ? { ...prev, email: event.target.value } : prev,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <label className="text-xs font-medium text-emerald-100" htmlFor="contact-phone">
+                          Telefon
+                        </label>
+                        <Input
+                          id="contact-phone"
+                          value={contactDraft.phone}
+                          onChange={(event) =>
+                            setContactDraft((prev) =>
+                              prev ? { ...prev, phone: event.target.value } : prev,
+                            )
+                          }
+                        />
+                      </div>
+                      {contactSaveError ? (
+                        <div className="text-xs text-rose-300">{contactSaveError}</div>
                       ) : null}
                     </div>
                   </div>
