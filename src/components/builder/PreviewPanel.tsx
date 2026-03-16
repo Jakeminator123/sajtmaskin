@@ -76,6 +76,11 @@ import {
   type PricingCardDraft,
 } from "@/lib/builder/pricing-editor";
 import {
+  readPricingFeatureCardsDraft,
+  updatePricingFeatureCardsDraft,
+  type PricingFeatureCardDraft,
+} from "@/lib/builder/pricing-features-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -381,6 +386,10 @@ export function PreviewPanel({
   const [pricingCardsDraft, setPricingCardsDraft] = useState<PricingCardDraft[] | null>(null);
   const [pricingSaveError, setPricingSaveError] = useState<string | null>(null);
   const [isPricingSaving, setIsPricingSaving] = useState(false);
+  const [pricingFeatureCardsDraft, setPricingFeatureCardsDraft] =
+    useState<PricingFeatureCardDraft[] | null>(null);
+  const [pricingFeaturesSaveError, setPricingFeaturesSaveError] = useState<string | null>(null);
+  const [isPricingFeaturesSaving, setIsPricingFeaturesSaving] = useState(false);
   const [rawEditMode, setRawEditMode] = useState(false);
   const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
@@ -1262,6 +1271,14 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editablePricingFeatureCards = useMemo(
+    () =>
+      selectedFile
+        ? readPricingFeatureCardsDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
@@ -1325,6 +1342,18 @@ export function PreviewPanel({
     );
     setPricingSaveError(null);
   }, [editablePricingCards, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setPricingFeatureCardsDraft(
+      editablePricingFeatureCards
+        ? editablePricingFeatureCards.map((item) => ({
+            ...item,
+            features: [...item.features],
+          }))
+        : null,
+    );
+    setPricingFeaturesSaveError(null);
+  }, [editablePricingFeatureCards, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
     setRawEditMode(false);
@@ -1394,6 +1423,12 @@ export function PreviewPanel({
     pricingCardsDraft &&
       editablePricingCards &&
       JSON.stringify(pricingCardsDraft) !== JSON.stringify(editablePricingCards),
+  );
+
+  const pricingFeaturesDirty = Boolean(
+    pricingFeatureCardsDraft &&
+      editablePricingFeatureCards &&
+      JSON.stringify(pricingFeatureCardsDraft) !== JSON.stringify(editablePricingFeatureCards),
   );
 
   const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
@@ -1730,6 +1765,34 @@ export function PreviewPanel({
       setIsPricingSaving(false);
     }
   }, [selectedFile, pricingCardsDraft, editablePricingCards, saveSelectedFileContent]);
+
+  const handleSavePricingFeatures = useCallback(async () => {
+    if (!selectedFile || !pricingFeatureCardsDraft || !editablePricingFeatureCards) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updatePricingFeatureCardsDraft(
+      currentContent,
+      pricingFeatureCardsDraft,
+    );
+
+    setIsPricingFeaturesSaving(true);
+    setPricingFeaturesSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Pricing-features sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara pricing-features";
+      setPricingFeaturesSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsPricingFeaturesSaving(false);
+    }
+  }, [
+    selectedFile,
+    pricingFeatureCardsDraft,
+    editablePricingFeatureCards,
+    saveSelectedFileContent,
+  ]);
 
   const handleSaveRawCode = useCallback(async () => {
     if (!selectedFile) return;
@@ -3023,6 +3086,83 @@ export function PreviewPanel({
                       ))}
                       {pricingSaveError ? (
                         <div className="text-xs text-rose-300">{pricingSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {pricingFeatureCardsDraft && editablePricingFeatureCards ? (
+                  <div className="rounded-md border border-teal-500/30 bg-teal-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-teal-100">
+                          Pricing features-editor
+                        </div>
+                        <div className="text-xs text-teal-200/80">
+                          Uppdatera feature-listorna för prisplaner direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSavePricingFeatures()}
+                        disabled={!pricingFeaturesDirty || isPricingFeaturesSaving}
+                      >
+                        {isPricingFeaturesSaving ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : null}
+                        Spara features
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {pricingFeatureCardsDraft.map((card, cardIndex) => (
+                        <div
+                          key={`pricing-feature-card-${cardIndex}`}
+                          className="rounded-md border border-teal-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-teal-100">
+                            {card.name}
+                          </div>
+                          <div className="grid gap-3">
+                            {card.features.map((feature, featureIndex) => (
+                              <div
+                                key={`pricing-feature-${cardIndex}-${featureIndex}`}
+                                className="grid gap-1"
+                              >
+                                <label
+                                  className="text-xs font-medium text-teal-100"
+                                  htmlFor={`pricing-feature-${cardIndex}-${featureIndex}`}
+                                >
+                                  Feature {featureIndex + 1}
+                                </label>
+                                <Input
+                                  id={`pricing-feature-${cardIndex}-${featureIndex}`}
+                                  value={feature}
+                                  onChange={(event) =>
+                                    setPricingFeatureCardsDraft((prev) =>
+                                      prev
+                                        ? prev.map((entry, entryIndex) =>
+                                            entryIndex === cardIndex
+                                              ? {
+                                                  ...entry,
+                                                  features: entry.features.map(
+                                                    (entryFeature, entryFeatureIndex) =>
+                                                      entryFeatureIndex === featureIndex
+                                                        ? event.target.value
+                                                        : entryFeature,
+                                                  ),
+                                                }
+                                              : entry,
+                                          )
+                                        : prev,
+                                    )
+                                  }
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {pricingFeaturesSaveError ? (
+                        <div className="text-xs text-rose-300">{pricingFeaturesSaveError}</div>
                       ) : null}
                     </div>
                   </div>
