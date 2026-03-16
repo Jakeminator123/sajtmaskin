@@ -58,6 +58,10 @@ Thumbs.db
 !.cursor/orchestrator/run/
 !.cursor/orchestrator/run/README.md
 .cursor/orchestrator/archive/
+.cursor/control-agent/run/**
+!.cursor/control-agent/run/
+!.cursor/control-agent/run/README.md
+.cursor/control-agent/archive/
 .cursor/automation/runs/**
 .cursor/automation/archive/**
 .cursor/automation/input/**
@@ -123,7 +127,9 @@ INSTALLERA.py
 
 
 # >>> cursor-gpt automation local artifacts >>>
-.cursor/agents/
+!.cursor/agents/
+.cursor/agents/**
+!.cursor/agents/workstream-sentry.md
 .cursor/rules/automation-safety.mdc
 automation/
 config.txt
