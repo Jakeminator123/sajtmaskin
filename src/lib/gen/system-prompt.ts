@@ -335,6 +335,7 @@ const BUILD_INTENT_GUIDANCE: Record<
       "Include realistic mock content — specific to the business type. A law firm sounds different from a startup.",
       "Add social proof: testimonial quotes with names/titles, client logos (as placeholder images), star ratings.",
       "Match scope to the request: short prompt = polished one-pager; detailed prompt = multi-page site.",
+      "SEO baseline is required by default: include metadata with title/description, Open Graph/Twitter data, canonical strategy, sitemap, robots, and at least one sensible JSON-LD/schema.org block for company-style sites unless the user explicitly says otherwise.",
     ],
   },
   app: {

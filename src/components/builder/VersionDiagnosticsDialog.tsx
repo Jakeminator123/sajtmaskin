@@ -134,6 +134,10 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
     () => describePreviewDiagnosticCode(summary?.latestPreviewCode ?? null),
     [summary?.latestPreviewCode],
   );
+  const seoLogs = useMemo(
+    () => logs.filter((log) => log.category === "seo"),
+    [logs],
+  );
 
   const canAutoFix = logs.some((log) => log.level === "error" || log.level === "warning");
 
@@ -183,6 +187,11 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
         {latestPreviewDescription ? (
           <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-sm text-blue-100">
             Senaste preview-diagnos: {latestPreviewDescription}
+          </div>
+        ) : null}
+        {seoLogs.length > 0 ? (
+          <div className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-sm text-amber-100">
+            SEO review: {seoLogs.length} loggpost(er) med SEO-varningar finns för den här versionen.
           </div>
         ) : null}
 

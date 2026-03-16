@@ -1,6 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-15 (quality tiers, autofix reason classification, decryption fix)
+> Senast uppdaterad: 2026-03-16 (phase 8 runtime planning additions, contract clarification persistence)
 
 ## Arkitektur
 
@@ -19,6 +19,8 @@ Användarens prompt
 │  PRE-GENERATION              │
 │  - Prompt-orkestrering       │
 │  - Scaffold-matchning (10 st)│
+│  - Route-planering           │
+│  - Kontraktsinferens         │
 │  - URL-komprimering          │
 │  - Dynamisk kontext (KB)     │
 │  - Brief -> system prompt    │
@@ -193,6 +195,10 @@ Import-checker körs efter merge.
 | 10 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
 | Plan-mode + review-step | `src/app/api/v0/chats/stream/route.ts`, `src/app/api/v0/chats/[chatId]/stream/route.ts`, `src/components/builder/BuildPlanCard.tsx` | Ny |
 | Readiness + launch-gating | `src/app/api/v0/chats/[chatId]/readiness/route.ts`, builder-UI, deploy-actions | Ny |
+| Route planning | `src/lib/gen/route-plan.ts`, `src/lib/gen/orchestrate.ts`, `src/lib/gen/system-prompt.ts` | Ny |
+| Scaffold-aware retry | `src/lib/gen/scaffolds/scaffold-aware-retry.ts`, finalize/preflight/post-check flow | Ny |
+| Pre-generation contracts | `src/lib/gen/pre-generation-contracts.ts`, route streams, builder model-info | Ny |
+| Contract clarification persistence | `src/lib/gen/contract-answer-context.ts`, route streams, prompt context reuse | Ny |
 
 ## Quality Tiers (2026-03-15)
 
@@ -225,17 +231,50 @@ Implementerad i `src/lib/hooks/chat/post-checks-results.ts`.
 Dedupe-nyckel: `chatId:reasonHash` (utan `versionId`).
 Gräns: `MAX_AUTOFIX_PER_CHAT = 2`, `MAX_ATTEMPTS_PER_REASON = 1`.
 
+## Fas 8 runtime-status (2026-03-16)
+
+Den serverdrivna runtime-lanen har nu fått den första kompletta Phase 8-kedjan
+på plats även utanför plan-mode:
+
+- scaffold-matchning påverkar nu curated template references djupare i
+  systemprompten
+- pre-generation route planning klassar `one-page`, `brochure`,
+  `content-heavy`, och `app-shell`
+- route-planen verifieras både i finalize preflight och i post-checks
+- scaffold-aware retry kan föreslå ny scaffold när felbilden tyder på
+  mismatch eller scaffold-drift
+- pre-generation contracts infereras innan generation, inklusive
+  `dataMode`, auth/payment/db-provider, integrationer och env vars
+- blockerande kontraktsoklarheter kan stoppa generationen tidigt och skicka en
+  klargörande fråga
+- svar på sådana kontraktsfrågor sparas strukturerat och återanvänds i nästa
+  generationsturn
+
+Detta betyder att Phase 8 inte längre bara lever i plan-mode eller reviewkortet
+utan också i den riktiga own-engine-kedjan som bygger preview-versioner.
+
 ## Kända kvarvarande begränsningar
 
 - Extern template-research är nu kanoniskt normaliserad under
   `research/external-templates/`, men rå discovery och repo-cache är fortfarande
   build-time/research-time och inte runtime-input
 - Preview stubs approximerar shadcn -- inte pixelperfekt
-- Ingen scaffold-medveten retry vid generingsfel
-- Multipage/site-planering finns nu i planartefakten och persisteras for
-  own-engine-chatten, men scaffold-medveten retry saknas fortfarande
+- Route-plan och kontraktssvar syns nu i builderns model-info och i dev-loggar,
+  men har ännu inte en större dedikerad Phase 8-statusyta i buildern
+- Scaffold-aware retry är fortfarande första versionen: den kan styra repair-
+  turnens scaffold och ge diagnostics, men den gör ännu inte full automatisk
+  omgenerering med alternativa scaffolds
 - Plan-mode är i praktiken own-engine-only; v0-fallback bypassar fortfarande den
   review-driven vägen
+
+## Phase 9 kick-off (första runtime-slice)
+
+Fas 9 ska inte blandas ihop med planeringsarbetet ovan. Den första rimliga
+runtime-slicen är SEO-paketet:
+
+- starkare SEO-defaults i generationen
+- rikare SEO review i post-checks
+- tydligare SEO-signal i builderns diagnostics/tooling
 
 ## Nya skydd och beteenden
 

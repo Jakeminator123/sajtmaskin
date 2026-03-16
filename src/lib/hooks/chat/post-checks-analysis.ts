@@ -22,13 +22,16 @@ export type SeoIssue = {
     | "missing-metadata"
     | "missing-title"
     | "missing-description"
+    | "missing-canonical"
     | "missing-open-graph"
+    | "missing-og-image"
     | "missing-twitter"
     | "missing-robots"
     | "missing-sitemap"
     | "missing-json-ld"
     | "missing-h1"
-    | "multiple-h1";
+    | "multiple-h1"
+    | "heading-hierarchy";
   message: string;
   file?: string | null;
 };
@@ -40,7 +43,9 @@ export type SeoReview = {
     metadata: boolean;
     title: boolean;
     description: boolean;
+    canonical: boolean;
     openGraph: boolean;
+    ogImage: boolean;
     twitter: boolean;
     robots: boolean;
     sitemap: boolean;
@@ -208,17 +213,44 @@ function countMatches(content: string, regex: RegExp): number {
   return (content.match(regex) || []).length;
 }
 
+function hasBrokenHeadingHierarchy(content: string): boolean {
+  const headingMatches = Array.from(content.matchAll(/<h([1-6])\b/gi));
+  if (headingMatches.length <= 1) return false;
+  let previousLevel: number | null = null;
+  for (const match of headingMatches) {
+    const currentLevel = Number(match[1]);
+    if (!Number.isFinite(currentLevel)) continue;
+    if (previousLevel !== null && currentLevel - previousLevel > 1) {
+      return true;
+    }
+    previousLevel = currentLevel;
+  }
+  return false;
+}
+
 export function buildSeoReview(files: FileEntry[]): SeoReview {
   const layoutFile = findFileBySuffix(files, ["app/layout.tsx", "src/app/layout.tsx"]);
   const homePageFile = findFileBySuffix(files, ["app/page.tsx", "src/app/page.tsx"]);
   const robotsFile = findFileBySuffix(files, ["app/robots.ts", "src/app/robots.ts"]);
   const sitemapFile = findFileBySuffix(files, ["app/sitemap.ts", "src/app/sitemap.ts"]);
+  const opengraphFile = findFileBySuffix(files, [
+    "app/opengraph-image.tsx",
+    "src/app/opengraph-image.tsx",
+    "app/opengraph-image.png",
+    "src/app/opengraph-image.png",
+    "app/opengraph-image.jpg",
+    "src/app/opengraph-image.jpg",
+    "app/opengraph-image.jpeg",
+    "src/app/opengraph-image.jpeg",
+  ]);
 
   const layoutContent = layoutFile?.content ?? "";
   const metadata = /\bexport\s+const\s+metadata\b/.test(layoutContent);
   const title = metadata && /\btitle\s*:/.test(layoutContent);
   const description = metadata && /\bdescription\s*:/.test(layoutContent);
+  const canonical = metadata && (/\balternates\s*:/.test(layoutContent) || /\bcanonical\s*:/.test(layoutContent) || /rel=["']canonical["']/.test(layoutContent));
   const openGraph = metadata && /\bopenGraph\s*:/.test(layoutContent);
+  const ogImage = (openGraph && /\bimages\s*:/.test(layoutContent)) || Boolean(opengraphFile);
   const twitter = metadata && /\btwitter\s*:/.test(layoutContent);
   const robots = Boolean(robotsFile);
   const sitemap = Boolean(sitemapFile);
@@ -226,6 +258,9 @@ export function buildSeoReview(files: FileEntry[]): SeoReview {
     /application\/ld\+json|json-ld/i.test(file.content ?? ""),
   );
   const homeH1Count = homePageFile?.content ? countMatches(homePageFile.content, /<h1\b/gi) : null;
+  const pageFiles = files.filter((file) =>
+    /(^|\/)app\/.*page\.(tsx|jsx)$/.test(file.name) || /(^|\/)src\/app\/.*page\.(tsx|jsx)$/.test(file.name),
+  );
 
   const issues: SeoIssue[] = [];
 
@@ -253,11 +288,27 @@ export function buildSeoReview(files: FileEntry[]): SeoReview {
       file: layoutFile?.name ?? null,
     });
   }
+  if (metadata && !canonical) {
+    issues.push({
+      severity: "warning",
+      code: "missing-canonical",
+      message: "Metadata saknar canonical-strategi.",
+      file: layoutFile?.name ?? null,
+    });
+  }
   if (metadata && !openGraph) {
     issues.push({
       severity: "warning",
       code: "missing-open-graph",
       message: "Metadata saknar Open Graph-falt.",
+      file: layoutFile?.name ?? null,
+    });
+  }
+  if (openGraph && !ogImage) {
+    issues.push({
+      severity: "warning",
+      code: "missing-og-image",
+      message: "Open Graph saknar bildstrategi (metadata images eller opengraph-image-fil).",
       file: layoutFile?.name ?? null,
     });
   }
@@ -308,6 +359,16 @@ export function buildSeoReview(files: FileEntry[]): SeoReview {
       file: homePageFile?.name ?? null,
     });
   }
+  for (const pageFile of pageFiles.slice(0, 12)) {
+    if (hasBrokenHeadingHierarchy(pageFile.content ?? "")) {
+      issues.push({
+        severity: "warning",
+        code: "heading-hierarchy",
+        message: "Rubrikhierarkin hoppar över nivåer (t.ex. h1 -> h3).",
+        file: pageFile.name,
+      });
+    }
+  }
 
   return {
     passed: issues.length === 0,
@@ -316,7 +377,9 @@ export function buildSeoReview(files: FileEntry[]): SeoReview {
       metadata,
       title,
       description,
+      canonical,
       openGraph,
+      ogImage,
       twitter,
       robots,
       sitemap,

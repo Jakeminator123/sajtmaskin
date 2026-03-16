@@ -78,6 +78,14 @@ export interface PostCheckArtifacts {
       failures: string[];
     };
     seoReview: SeoReview;
+    seoSummary: {
+      passed: boolean;
+      issueCount: number;
+      topIssues: string[];
+      canonical: boolean;
+      ogImage: boolean;
+      homeH1Count: number | null;
+    };
     regressionMatrix: Array<{
       id: string;
       status: "manual" | "pass" | "fail";
@@ -85,6 +93,17 @@ export interface PostCheckArtifacts {
     }>;
   };
   logItems: VersionErrorLogPayload[];
+}
+
+function summarizeSeoSignals(seoReview: SeoReview) {
+  return {
+    passed: seoReview.passed,
+    issueCount: seoReview.issues.length,
+    topIssues: seoReview.issues.slice(0, 5).map((issue) => issue.message),
+    canonical: seoReview.signals.canonical,
+    ogImage: seoReview.signals.ogImage,
+    homeH1Count: seoReview.signals.homeH1Count,
+  };
 }
 
 export function buildPostCheckArtifacts(params: {
@@ -329,6 +348,7 @@ export function buildPostCheckArtifacts(params: {
       failures: qualityGateFailures,
     },
     seoReview,
+    seoSummary: summarizeSeoSignals(seoReview),
     regressionMatrix,
   };
 

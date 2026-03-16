@@ -85,6 +85,15 @@ type PostCheckSummary = {
   autoFixQueued: boolean;
 };
 
+type SeoReviewSummary = {
+  passed: boolean;
+  issueCount: number;
+  topIssues: string[];
+  canonical: boolean;
+  ogImage: boolean;
+  homeH1Count: number | null;
+};
+
 type QualityGateCheckInfo = {
   check: string;
   passed: boolean;
@@ -162,6 +171,8 @@ export function StructuredToolParts({
         };
         const postCheckSummary =
           toolType === "tool-post-check" ? getPostCheckSummary(tool.output) : null;
+        const seoReviewSummary =
+          toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
         const toolHasData = hasToolData(tool as ToolUIPart);
@@ -250,6 +261,32 @@ export function StructuredToolParts({
                   </div>
                 </div>
               )}
+              {seoReviewSummary ? (
+                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
+                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
+                    SEO review
+                  </div>
+                  <div className="space-y-1 text-muted-foreground">
+                    <div className={seoReviewSummary.passed ? "text-emerald-300" : "text-amber-300"}>
+                      {seoReviewSummary.passed
+                        ? "SEO-baseline ser bra ut."
+                        : `${seoReviewSummary.issueCount} SEO-varning(ar) hittades.`}
+                    </div>
+                    <div>Canonical: {seoReviewSummary.canonical ? "ja" : "nej"}</div>
+                    <div>OG image-strategi: {seoReviewSummary.ogImage ? "ja" : "nej"}</div>
+                    {seoReviewSummary.homeH1Count !== null ? (
+                      <div>Startsidans h1-count: {seoReviewSummary.homeH1Count}</div>
+                    ) : null}
+                    {seoReviewSummary.topIssues.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {seoReviewSummary.topIssues.slice(0, 4).map((issue) => (
+                          <li key={issue}>- {issue}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               {qualityGateSummary && (
                 <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
                   <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
@@ -354,6 +391,8 @@ export function CompactToolParts({
         const { toolType, toolTitle } = resolveToolLabels(tool);
         const integrationSummary = getToolIntegrationSummary(tool);
         const integrationCard = getIntegrationCardData(tool);
+        const seoReviewSummary =
+          toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
         const replyPrompt = getActionPrompt(tool, toolState);
         const requiresUserReply = toolState === "approval-requested" || Boolean(replyPrompt);
         const canQuickReply =
@@ -455,6 +494,24 @@ export function CompactToolParts({
                     eller Integrationspanelen.
                   </p>
                 )}
+                {seoReviewSummary ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className={seoReviewSummary.passed ? "text-emerald-300" : "text-amber-300"}>
+                      {seoReviewSummary.passed
+                        ? "SEO-baseline OK"
+                        : `${seoReviewSummary.issueCount} SEO-varning(ar)`}
+                    </p>
+                    <p className="text-muted-foreground mt-1">
+                      Canonical: {seoReviewSummary.canonical ? "ja" : "nej"} • OG image:{" "}
+                      {seoReviewSummary.ogImage ? "ja" : "nej"}
+                    </p>
+                    {seoReviewSummary.topIssues.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        {seoReviewSummary.topIssues[0]}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </>
             )}
             <div className="mt-2 flex flex-wrap gap-2">
@@ -1173,6 +1230,32 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
     summaryData.autoFixQueued ? true : null,
   ].some((value) => value !== null);
   return hasAnyValue ? summaryData : null;
+}
+
+function getSeoReviewSummary(output: unknown): SeoReviewSummary | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  const summary =
+    obj.seoSummary && typeof obj.seoSummary === "object"
+      ? (obj.seoSummary as Record<string, unknown>)
+      : null;
+  if (!summary) return null;
+  return {
+    passed: Boolean(summary.passed),
+    issueCount:
+      typeof summary.issueCount === "number" && Number.isFinite(summary.issueCount)
+        ? summary.issueCount
+        : 0,
+    topIssues: Array.isArray(summary.topIssues)
+      ? summary.topIssues.map((issue) => String(issue)).filter(Boolean)
+      : [],
+    canonical: Boolean(summary.canonical),
+    ogImage: Boolean(summary.ogImage),
+    homeH1Count:
+      typeof summary.homeH1Count === "number" && Number.isFinite(summary.homeH1Count)
+        ? summary.homeH1Count
+        : null,
+  };
 }
 
 function getQualityGateSummary(output: unknown): QualityGateSummary | null {
