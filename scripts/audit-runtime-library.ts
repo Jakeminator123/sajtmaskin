@@ -40,36 +40,36 @@ function main() {
     dependencyNames: getDependencyNames(workspaceRoot),
   });
 
-  console.log("# Runtime Component Library Audit");
-  console.log("");
-  console.log(`- Local UI components: ${snapshot.counts.localUiComponents}`);
-  console.log(`- AI elements: ${snapshot.counts.aiElements}`);
-  console.log(`- Curated UI collections: ${snapshot.counts.curatedUiCollections}`);
-  console.log(`- Featured block groups: ${snapshot.counts.featuredBlockGroups}`);
-  console.log(`- Featured block items: ${snapshot.counts.featuredBlockItems}`);
-  console.log("");
-  console.log("## AI Category Breakdown");
+  console.info("# Runtime Component Library Audit");
+  console.info("");
+  console.info(`- Local UI components: ${snapshot.counts.localUiComponents}`);
+  console.info(`- AI elements: ${snapshot.counts.aiElements}`);
+  console.info(`- Curated UI collections: ${snapshot.counts.curatedUiCollections}`);
+  console.info(`- Featured block groups: ${snapshot.counts.featuredBlockGroups}`);
+  console.info(`- Featured block items: ${snapshot.counts.featuredBlockItems}`);
+  console.info("");
+  console.info("## AI Category Breakdown");
   snapshot.aiCategoryBreakdown.forEach((category) => {
-    console.log(`- ${category.label}: ${category.count}`);
+    console.info(`- ${category.label}: ${category.count}`);
   });
-  console.log("");
-  console.log("## Priority Family Coverage");
+  console.info("");
+  console.info("## Priority Family Coverage");
   snapshot.familyCoverage.forEach((family) => {
-    console.log(`- ${family.label}: ${family.satisfied ? "ok" : "gap"}`);
-    console.log(`  UI collections: ${formatList(family.uiCollections)}`);
-    console.log(`  AI elements: ${formatList(family.aiElements)}`);
-    console.log(`  Local UI matches: ${formatList(family.localUiMatches)}`);
-    console.log(`  Dependencies present: ${formatList(family.dependenciesPresent)}`);
+    console.info(`- ${family.label}: ${family.satisfied ? "ok" : "gap"}`);
+    console.info(`  UI collections: ${formatList(family.uiCollections)}`);
+    console.info(`  AI elements: ${formatList(family.aiElements)}`);
+    console.info(`  Local UI matches: ${formatList(family.localUiMatches)}`);
+    console.info(`  Dependencies present: ${formatList(family.dependenciesPresent)}`);
     if (family.missingDependencies.length > 0) {
-      console.log(`  Missing dependencies: ${family.missingDependencies.join(", ")}`);
+      console.info(`  Missing dependencies: ${family.missingDependencies.join(", ")}`);
     }
   });
-  console.log("");
-  console.log("## Notable Gaps");
+  console.info("");
+  console.info("## Notable Gaps");
   if (snapshot.notableGaps.length === 0) {
-    console.log("- none");
+    console.info("- none");
   } else {
-    snapshot.notableGaps.forEach((gap) => console.log(`- ${gap}`));
+    snapshot.notableGaps.forEach((gap) => console.info(`- ${gap}`));
   }
 }
 

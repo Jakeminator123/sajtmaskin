@@ -62,6 +62,7 @@ export async function handleSseStream(
   let progressivePreviewFired = false;
   let didReceiveDone = false;
   let generationProgressStarted = false;
+  let pendingStreamErrorMessage: string | null = null;
   const postCheckQueue: Array<{
     chatId: string;
     versionId: string;
@@ -678,7 +679,11 @@ export async function handleSseStream(
             setMessages((prev) =>
               prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
             );
-            if (ctx.streamType === "create") {
+            if (pendingStreamErrorMessage) {
+              toast.warning(
+                "Streamen tappade kontakt men versionen räddades i fallback-lage. Granska resultatet extra noga.",
+              );
+            } else if (ctx.streamType === "create") {
               toast.success(planArtifact ? "Plan skapad!" : "Sajt skapad!");
             }
             mutateVersions();
@@ -706,7 +711,9 @@ export async function handleSseStream(
               typeof data === "object" && data
                 ? (data as Record<string, unknown>)
                 : { message: data };
-            throw new Error(buildStreamErrorMessage(errorData));
+            pendingStreamErrorMessage = buildStreamErrorMessage(errorData);
+            streamStats.errorEvents += 1;
+            break;
           }
         }
       },
@@ -719,7 +726,9 @@ export async function handleSseStream(
   }
 
   if (!didReceiveDone) {
-    throw new Error("Streamen avslutades innan genereringen var klar. Försök igen.");
+    throw new Error(
+      pendingStreamErrorMessage || "Streamen avslutades innan genereringen var klar. Försök igen.",
+    );
   }
   if (ctx.streamType === "create" && !chatIdFromStream) {
     throw new Error("No chat ID returned from stream");

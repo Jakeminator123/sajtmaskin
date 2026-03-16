@@ -50,6 +50,7 @@ export type StreamDebugStats = {
   contentEvents: number;
   thinkingEvents: number;
   partsEvents: number;
+  errorEvents: number;
   contentChars: number;
   thinkingChars: number;
   contentNoopEvents: number;

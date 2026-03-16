@@ -185,6 +185,7 @@ export function initStreamStats(
     contentEvents: 0,
     thinkingEvents: 0,
     partsEvents: 0,
+    errorEvents: 0,
     contentChars: 0,
     thinkingChars: 0,
     contentNoopEvents: 0,
@@ -248,6 +249,7 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
     maxThinkingChunk: stats.maxThinkingChunk,
     finalThinkingLength: stats.finalThinkingLength,
     partsEvents: stats.partsEvents,
+    errorEvents: stats.errorEvents,
   };
 
   debugLog("build", "Stream summary", summary);
@@ -255,6 +257,9 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
   const reasons: string[] = [];
   if (!stats.didReceiveDone) {
     reasons.push("done_event_missing");
+  }
+  if (stats.errorEvents > 0) {
+    reasons.push(stats.didReceiveDone ? "error_event_recovered" : "error_event_received");
   }
   if (stats.contentEvents > 0 && stats.finalContentLength === 0) {
     reasons.push("content_empty_after_events");
