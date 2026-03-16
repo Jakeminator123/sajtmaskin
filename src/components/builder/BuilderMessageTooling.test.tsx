@@ -93,4 +93,55 @@ describe("StructuredToolParts", () => {
     expect(screen.getByText("Status: quality gate körs fortfarande")).toBeTruthy();
     expect(screen.queryByText(/autofix är köad/i)).toBeNull();
   });
+
+  it("shows business workflow quick actions from post-check output", () => {
+    render(
+      <StructuredToolParts
+        messageId="msg_4"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:post-check",
+              state: "output-available",
+              output: {
+                summary: {
+                  files: 4,
+                  added: 1,
+                  modified: 3,
+                  removed: 0,
+                  warnings: 0,
+                  provisional: false,
+                  qualityGatePending: false,
+                  autoFixQueued: false,
+                },
+                demoUrl: "https://preview.example",
+                businessWorkflowSummary: {
+                  packCount: 2,
+                  labels: ["Lead form + email routing", "Booking / calendar"],
+                  suggestedPrompts: [
+                    "Gör leadformuläret produktionsredo med e-postrouting eller CRM-koppling, tydlig success/error-feedback och utan att ändra designen i övrigt.",
+                    "Koppla boknings-CTA:n till ett riktigt bokningsflöde med Cal.com eller Calendly och behåll resten av sidan som den är.",
+                  ],
+                  recommendedIntegrations: ["Resend", "Calendly"],
+                  hasLeadCapture: true,
+                  hasBookingFlow: true,
+                  hasCrmSync: false,
+                },
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+        onQuickReply={vi.fn(async () => true)}
+      />,
+    );
+
+    expect(screen.getByText("Snabb konfigurering")).toBeTruthy();
+    expect(screen.getByText("Vilket affärsflöde vill du konfigurera härnäst?")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Konfigurera Lead form \+ email routing/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Konfigurera Booking \/ calendar/i })).toBeTruthy();
+  });
 });

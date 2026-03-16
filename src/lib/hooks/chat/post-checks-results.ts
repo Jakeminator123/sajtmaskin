@@ -105,6 +105,7 @@ export interface PostCheckArtifacts {
     businessWorkflowSummary: {
       packCount: number;
       labels: string[];
+      suggestedPrompts: string[];
       recommendedIntegrations: string[];
       hasLeadCapture: boolean;
       hasBookingFlow: boolean;
@@ -165,6 +166,7 @@ function summarizeBusinessWorkflowSignals(businessWorkflowReview: BusinessWorkfl
   return {
     packCount: businessWorkflowReview.packs.length,
     labels: businessWorkflowReview.packs.map((pack) => pack.label),
+    suggestedPrompts: businessWorkflowReview.packs.slice(0, 4).map((pack) => pack.suggestedPrompt),
     recommendedIntegrations: Array.from(
       new Set(businessWorkflowReview.packs.flatMap((pack) => pack.recommendedIntegrations)),
     ),

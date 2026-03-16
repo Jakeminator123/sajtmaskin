@@ -67,6 +67,31 @@ function buildHealthyFiles() {
   ];
 }
 
+function buildBusinessWorkflowFiles() {
+  return buildHealthyFiles().map((file) =>
+    file.name === "src/app/page.tsx"
+      ? {
+          ...file,
+          content: [
+            "export default function Page() {",
+            "  return (",
+            "    <main>",
+            "      <h1>Hello</h1>",
+            '      <a href="/book-demo">Book demo via Calendly booking</a>',
+            "      <form action=\"/api/lead\">",
+            "        <input name=\"email\" type=\"email\" />",
+            "        <button type=\"submit\">Contact sales</button>",
+            "      </form>",
+            "      <p>HubSpot CRM sync</p>",
+            "    </main>",
+            "  );",
+            "}",
+          ].join("\n"),
+        }
+      : file,
+  );
+}
+
 function createMessageStore() {
   let messages: ChatMessage[] = [
     {
@@ -354,5 +379,72 @@ describe("runPostGenerationChecks", () => {
         },
       }),
     );
+  });
+
+  it("surfaces actionable business workflow prompts in post-check output", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildBusinessWorkflowFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Sandbox not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const postCheck = getToolPart("Post-check", store);
+    const summary = (postCheck?.output as Record<string, unknown>).businessWorkflowSummary as
+      | Record<string, unknown>
+      | undefined;
+
+    expect(summary?.labels).toEqual(
+      expect.arrayContaining(["Lead form + email routing", "Booking / calendar", "CRM sync"]),
+    );
+    expect(summary?.suggestedPrompts).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("leadformuläret produktionsredo"),
+        expect.stringContaining("boknings-CTA:n"),
+        expect.stringContaining("Koppla formulär- eller leadflödet till CRM"),
+      ]),
+    );
+    expect(onAutoFix).not.toHaveBeenCalled();
   });
 });

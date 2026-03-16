@@ -120,10 +120,17 @@ type EditorialActionPrompt = {
 type BusinessWorkflowSummary = {
   packCount: number;
   labels: string[];
+  suggestedPrompts: string[];
   recommendedIntegrations: string[];
   hasLeadCapture: boolean;
   hasBookingFlow: boolean;
   hasCrmSync: boolean;
+};
+
+type BusinessWorkflowActionPrompt = {
+  question: string;
+  options: string[];
+  labels: string[];
 };
 
 type QualityGateCheckInfo = {
@@ -213,6 +220,8 @@ export function StructuredToolParts({
           toolType === "tool-post-check" ? getEditorialActionPrompt(tool.output) : null;
         const businessWorkflowSummary =
           toolType === "tool-post-check" ? getBusinessWorkflowSummary(tool.output) : null;
+        const businessWorkflowActionPrompt =
+          toolType === "tool-post-check" ? getBusinessWorkflowActionPrompt(tool.output) : null;
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
         const toolHasData = hasToolData(tool as ToolUIPart);
@@ -404,6 +413,13 @@ export function StructuredToolParts({
                       {businessWorkflowSummary.hasBookingFlow ? "ja" : "nej"} • CRM:{" "}
                       {businessWorkflowSummary.hasCrmSync ? "ja" : "nej"}
                     </div>
+                    {businessWorkflowSummary.suggestedPrompts.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {businessWorkflowSummary.suggestedPrompts.slice(0, 3).map((prompt) => (
+                          <li key={prompt}>- {prompt}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -433,6 +449,39 @@ export function StructuredToolParts({
                           {optionIndex === editorialActionPrompt.options.length - 1
                             ? "Annat"
                             : `Redigera ${option.split(" ").slice(1, 3).join(" ") || option}`}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+              {!pendingReply && !hasUserAfterCurrentMessage && businessWorkflowActionPrompt && onQuickReply ? (
+                <div className="mb-3 rounded-md border border-emerald-500/50 bg-emerald-500/10 p-3 text-xs">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                    Snabb konfigurering
+                  </p>
+                  <p className="text-foreground text-sm font-semibold">
+                    {businessWorkflowActionPrompt.question}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {businessWorkflowActionPrompt.options.map((option, optionIndex) => {
+                      const replyKey = `${messageId}:business:${optionIndex}:${option}`;
+                      const isPending = pendingQuickReplyKey === replyKey;
+                      const label = businessWorkflowActionPrompt.labels[optionIndex] ?? option;
+                      return (
+                        <Button
+                          key={replyKey}
+                          size="sm"
+                          variant="secondary"
+                          disabled={quickReplyDisabled || pendingQuickReplyKey !== null}
+                          onClick={() =>
+                            void onQuickReply(messageId, optionIndex, option)
+                          }
+                        >
+                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                          {optionIndex === businessWorkflowActionPrompt.options.length - 1
+                            ? "Annat"
+                            : `Konfigurera ${label}`}
                         </Button>
                       );
                     })}
@@ -553,6 +602,8 @@ export function CompactToolParts({
           toolType === "tool-post-check" ? getEditorialActionPrompt(tool.output) : null;
         const businessWorkflowSummary =
           toolType === "tool-post-check" ? getBusinessWorkflowSummary(tool.output) : null;
+        const businessWorkflowActionPrompt =
+          toolType === "tool-post-check" ? getBusinessWorkflowActionPrompt(tool.output) : null;
         const replyPrompt = getActionPrompt(tool, toolState);
         const requiresUserReply = toolState === "approval-requested" || Boolean(replyPrompt);
         const canQuickReply =
@@ -720,6 +771,21 @@ export function CompactToolParts({
                     {businessWorkflowSummary.recommendedIntegrations.length > 0 ? (
                       <p className="text-muted-foreground mt-1">
                         Rekommenderat: {businessWorkflowSummary.recommendedIntegrations.join(", ")}
+                      </p>
+                    ) : null}
+                    {businessWorkflowSummary.suggestedPrompts.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        Tips: {businessWorkflowSummary.suggestedPrompts[0]}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {businessWorkflowActionPrompt ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className="text-emerald-300">{businessWorkflowActionPrompt.question}</p>
+                    {businessWorkflowActionPrompt.labels.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        Förslag: {businessWorkflowActionPrompt.labels.slice(0, 2).join(" • ")}
                       </p>
                     ) : null}
                   </div>
@@ -1560,12 +1626,26 @@ function getBusinessWorkflowSummary(output: unknown): BusinessWorkflowSummary | 
     labels: Array.isArray(summary.labels)
       ? summary.labels.map((label) => String(label)).filter(Boolean)
       : [],
+    suggestedPrompts: Array.isArray(summary.suggestedPrompts)
+      ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
+      : [],
     recommendedIntegrations: Array.isArray(summary.recommendedIntegrations)
       ? summary.recommendedIntegrations.map((label) => String(label)).filter(Boolean)
       : [],
     hasLeadCapture: Boolean(summary.hasLeadCapture),
     hasBookingFlow: Boolean(summary.hasBookingFlow),
     hasCrmSync: Boolean(summary.hasCrmSync),
+  };
+}
+
+function getBusinessWorkflowActionPrompt(output: unknown): BusinessWorkflowActionPrompt | null {
+  const summary = getBusinessWorkflowSummary(output);
+  if (!summary) return null;
+  if (summary.suggestedPrompts.length === 0) return null;
+  return {
+    question: "Vilket affärsflöde vill du konfigurera härnäst?",
+    options: [...summary.suggestedPrompts.slice(0, 3), "Annat"],
+    labels: [...summary.labels.slice(0, 3), "Annat"],
   };
 }
 

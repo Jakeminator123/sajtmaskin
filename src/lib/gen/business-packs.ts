@@ -2,6 +2,7 @@ export type BusinessWorkflowPack = {
   id: "lead-capture" | "newsletter" | "booking" | "quote-request" | "crm-sync";
   label: string;
   description: string;
+  suggestedPrompt: string;
   envVars: string[];
   recommendedIntegrations: string[];
   verificationChecklist: string[];
@@ -55,6 +56,8 @@ export function detectBusinessWorkflowPacks(source: string): BusinessWorkflowPac
       id: "lead-capture",
       label: "Lead form + email routing",
       description: "Sajten verkar ha ett kontakt- eller leadformulär som bör skicka e-post eller skapa ett leadflöde.",
+      suggestedPrompt:
+        "Gör leadformuläret produktionsredo med e-postrouting eller CRM-koppling, tydlig success/error-feedback och utan att ändra designen i övrigt.",
       envVars: ["RESEND_API_KEY"],
       recommendedIntegrations: ["Resend"],
       verificationChecklist: [
@@ -74,6 +77,8 @@ export function detectBusinessWorkflowPacks(source: string): BusinessWorkflowPac
       id: "newsletter",
       label: "Newsletter signup",
       description: "Sajten verkar samla in e-postadresser för nyhetsbrev eller waitlist.",
+      suggestedPrompt:
+        "Gör nyhetsbrevsformuläret redo för riktig signup med provider, bekräftelsesteg och tydlig success/error-feedback utan att ändra layouten.",
       envVars: [],
       recommendedIntegrations: ["Resend or email provider of choice"],
       verificationChecklist: [
@@ -90,6 +95,8 @@ export function detectBusinessWorkflowPacks(source: string): BusinessWorkflowPac
       id: "booking",
       label: "Booking / calendar",
       description: "Sajten verkar behöva bokning eller kalendertider som ett affärsflöde.",
+      suggestedPrompt:
+        "Koppla boknings-CTA:n till ett riktigt bokningsflöde med Cal.com eller Calendly och behåll resten av sidan som den är.",
       envVars: [],
       recommendedIntegrations: ["Cal.com or Calendly"],
       verificationChecklist: [
@@ -109,6 +116,8 @@ export function detectBusinessWorkflowPacks(source: string): BusinessWorkflowPac
       id: "quote-request",
       label: "Quote request pipeline",
       description: "Sajten verkar ha ett offert- eller förfrågningsflöde som bör fånga strukturerad kunddata.",
+      suggestedPrompt:
+        "Gör offertformuläret redo för riktiga kundförfrågningar med e-post- eller CRM-routing och tydlig bekräftelse utan redesign.",
       envVars: ["RESEND_API_KEY"],
       recommendedIntegrations: ["Resend", "CRM provider of choice"],
       verificationChecklist: [
@@ -126,6 +135,8 @@ export function detectBusinessWorkflowPacks(source: string): BusinessWorkflowPac
       id: "crm-sync",
       label: "CRM sync",
       description: "Sajten verkar vilja skicka leads eller formulärdata vidare till ett CRM-system.",
+      suggestedPrompt:
+        "Koppla formulär- eller leadflödet till CRM, mappa rätt fält och lägg till tydlig felhantering utan att ändra resten av designen.",
       envVars: crmProvider?.envVars ?? [],
       recommendedIntegrations: [crmProvider?.label ?? "CRM provider of choice"],
       verificationChecklist: [
