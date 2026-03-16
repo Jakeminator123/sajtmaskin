@@ -227,20 +227,22 @@ function summarizeAnalyticsSignals(analyticsReview: AnalyticsReview) {
 }
 
 function summarizeEditorialSignals(editorialReview: EditorialReview) {
+  const topPacks = editorialReview.packs.slice(0, 4);
   return {
     packCount: editorialReview.packs.length,
-    labels: editorialReview.packs.map((pack) => pack.label),
-    suggestedPrompts: editorialReview.packs.slice(0, 4).map((pack) => pack.suggestedPrompt),
+    labels: topPacks.map((pack) => pack.label),
+    suggestedPrompts: topPacks.map((pack) => pack.suggestedPrompt),
     hasBlogCollection: editorialReview.signals.hasBlogCollection,
     hasContactFlow: editorialReview.signals.hasContactFlow,
   };
 }
 
 function summarizeBusinessWorkflowSignals(businessWorkflowReview: BusinessWorkflowReview) {
+  const topPacks = businessWorkflowReview.packs.slice(0, 4);
   return {
     packCount: businessWorkflowReview.packs.length,
-    labels: businessWorkflowReview.packs.map((pack) => pack.label),
-    suggestedPrompts: businessWorkflowReview.packs.slice(0, 4).map((pack) => pack.suggestedPrompt),
+    labels: topPacks.map((pack) => pack.label),
+    suggestedPrompts: topPacks.map((pack) => pack.suggestedPrompt),
     recommendedIntegrations: Array.from(
       new Set(businessWorkflowReview.packs.flatMap((pack) => pack.recommendedIntegrations)),
     ),
