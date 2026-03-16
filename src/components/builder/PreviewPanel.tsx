@@ -96,6 +96,11 @@ import {
   type ButtonLabelDraft,
 } from "@/lib/builder/button-label-editor";
 import {
+  readBlogPostsDraft,
+  updateBlogPostsDraft,
+  type BlogPostDraft,
+} from "@/lib/builder/blog-posts-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -414,6 +419,9 @@ export function PreviewPanel({
   const [buttonLabelsDraft, setButtonLabelsDraft] = useState<ButtonLabelDraft[] | null>(null);
   const [buttonLabelsSaveError, setButtonLabelsSaveError] = useState<string | null>(null);
   const [isButtonLabelsSaving, setIsButtonLabelsSaving] = useState(false);
+  const [blogPostsDraft, setBlogPostsDraft] = useState<BlogPostDraft[] | null>(null);
+  const [blogPostsSaveError, setBlogPostsSaveError] = useState<string | null>(null);
+  const [isBlogPostsSaving, setIsBlogPostsSaving] = useState(false);
   const [rawEditMode, setRawEditMode] = useState(false);
   const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
@@ -1322,6 +1330,11 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableBlogPosts = useMemo(
+    () => (selectedFile ? readBlogPostsDraft(selectedFile.path, selectedFile.content || "") : null),
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
@@ -1418,6 +1431,11 @@ export function PreviewPanel({
   }, [editableButtonLabels, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
+    setBlogPostsDraft(editableBlogPosts ? editableBlogPosts.map((item) => ({ ...item })) : null);
+    setBlogPostsSaveError(null);
+  }, [editableBlogPosts, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
     setRawEditMode(false);
     setRawCodeDraft(selectedFile?.content || "");
     setRawCodeSaveError(null);
@@ -1509,6 +1527,12 @@ export function PreviewPanel({
     buttonLabelsDraft &&
       editableButtonLabels &&
       JSON.stringify(buttonLabelsDraft) !== JSON.stringify(editableButtonLabels),
+  );
+
+  const blogPostsDirty = Boolean(
+    blogPostsDraft &&
+      editableBlogPosts &&
+      JSON.stringify(blogPostsDraft) !== JSON.stringify(editableBlogPosts),
   );
 
   const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
@@ -1933,6 +1957,26 @@ export function PreviewPanel({
       setIsButtonLabelsSaving(false);
     }
   }, [selectedFile, buttonLabelsDraft, editableButtonLabels, saveSelectedFileContent]);
+
+  const handleSaveBlogPosts = useCallback(async () => {
+    if (!selectedFile || !blogPostsDraft || !editableBlogPosts) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateBlogPostsDraft(currentContent, blogPostsDraft);
+
+    setIsBlogPostsSaving(true);
+    setBlogPostsSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Blogginlägg sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara blogginlägg";
+      setBlogPostsSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsBlogPostsSaving(false);
+    }
+  }, [selectedFile, blogPostsDraft, editableBlogPosts, saveSelectedFileContent]);
 
   const handleSaveRawCode = useCallback(async () => {
     if (!selectedFile) return;
@@ -3477,6 +3521,90 @@ export function PreviewPanel({
                       ))}
                       {buttonLabelsSaveError ? (
                         <div className="text-xs text-rose-300">{buttonLabelsSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {blogPostsDraft && editableBlogPosts ? (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-amber-100">Inläggseditor</div>
+                        <div className="text-xs text-amber-200/80">
+                          Uppdatera blogginläggens titlar och ingresser direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveBlogPosts()}
+                        disabled={!blogPostsDirty || isBlogPostsSaving}
+                      >
+                        {isBlogPostsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara inlägg
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {blogPostsDraft.map((item, index) => (
+                        <div
+                          key={`blog-post-${index}`}
+                          className="rounded-md border border-amber-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-amber-100">
+                            Inlägg {index + 1}
+                          </div>
+                          <div className="grid gap-3">
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-amber-100"
+                                htmlFor={`blog-post-title-${index}`}
+                              >
+                                Titel
+                              </label>
+                              <Input
+                                id={`blog-post-title-${index}`}
+                                value={item.title}
+                                onChange={(event) =>
+                                  setBlogPostsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, title: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-amber-100"
+                                htmlFor={`blog-post-excerpt-${index}`}
+                              >
+                                Ingress
+                              </label>
+                              <Textarea
+                                id={`blog-post-excerpt-${index}`}
+                                value={item.excerpt}
+                                onChange={(event) =>
+                                  setBlogPostsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, excerpt: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {blogPostsSaveError ? (
+                        <div className="text-xs text-rose-300">{blogPostsSaveError}</div>
                       ) : null}
                     </div>
                   </div>
