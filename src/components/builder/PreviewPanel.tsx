@@ -51,6 +51,16 @@ import {
   type FaqItemDraft,
 } from "@/lib/builder/faq-editor";
 import {
+  readTestimonialItemsDraft,
+  updateTestimonialItemsDraft,
+  type TestimonialItemDraft,
+} from "@/lib/builder/testimonials-editor";
+import {
+  readStatItemsDraft,
+  updateStatItemsDraft,
+  type StatItemDraft,
+} from "@/lib/builder/stats-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -341,6 +351,12 @@ export function PreviewPanel({
   const [faqItemsDraft, setFaqItemsDraft] = useState<FaqItemDraft[] | null>(null);
   const [faqSaveError, setFaqSaveError] = useState<string | null>(null);
   const [isFaqSaving, setIsFaqSaving] = useState(false);
+  const [testimonialItemsDraft, setTestimonialItemsDraft] = useState<TestimonialItemDraft[] | null>(null);
+  const [testimonialsSaveError, setTestimonialsSaveError] = useState<string | null>(null);
+  const [isTestimonialsSaving, setIsTestimonialsSaving] = useState(false);
+  const [statItemsDraft, setStatItemsDraft] = useState<StatItemDraft[] | null>(null);
+  const [statsSaveError, setStatsSaveError] = useState<string | null>(null);
+  const [isStatsSaving, setIsStatsSaving] = useState(false);
   const [rawEditMode, setRawEditMode] = useState(false);
   const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
@@ -1182,6 +1198,22 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableTestimonialItems = useMemo(
+    () =>
+      selectedFile
+        ? readTestimonialItemsDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
+  const editableStatItems = useMemo(
+    () =>
+      selectedFile
+        ? readStatItemsDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
@@ -1210,6 +1242,20 @@ export function PreviewPanel({
     );
     setFaqSaveError(null);
   }, [editableFaqItems, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setTestimonialItemsDraft(
+      editableTestimonialItems
+        ? editableTestimonialItems.map((item) => ({ ...item }))
+        : null,
+    );
+    setTestimonialsSaveError(null);
+  }, [editableTestimonialItems, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setStatItemsDraft(editableStatItems ? editableStatItems.map((item) => ({ ...item })) : null);
+    setStatsSaveError(null);
+  }, [editableStatItems, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
     setRawEditMode(false);
@@ -1249,6 +1295,18 @@ export function PreviewPanel({
     faqItemsDraft &&
       editableFaqItems &&
       JSON.stringify(faqItemsDraft) !== JSON.stringify(editableFaqItems),
+  );
+
+  const testimonialsDirty = Boolean(
+    testimonialItemsDraft &&
+      editableTestimonialItems &&
+      JSON.stringify(testimonialItemsDraft) !== JSON.stringify(editableTestimonialItems),
+  );
+
+  const statsDirty = Boolean(
+    statItemsDraft &&
+      editableStatItems &&
+      JSON.stringify(statItemsDraft) !== JSON.stringify(editableStatItems),
   );
 
   const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
@@ -1485,6 +1543,46 @@ export function PreviewPanel({
       setIsFaqSaving(false);
     }
   }, [selectedFile, faqItemsDraft, editableFaqItems, saveSelectedFileContent]);
+
+  const handleSaveTestimonialItems = useCallback(async () => {
+    if (!selectedFile || !testimonialItemsDraft || !editableTestimonialItems) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateTestimonialItemsDraft(currentContent, testimonialItemsDraft);
+
+    setIsTestimonialsSaving(true);
+    setTestimonialsSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Omdömen sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara omdömen";
+      setTestimonialsSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsTestimonialsSaving(false);
+    }
+  }, [selectedFile, testimonialItemsDraft, editableTestimonialItems, saveSelectedFileContent]);
+
+  const handleSaveStatItems = useCallback(async () => {
+    if (!selectedFile || !statItemsDraft || !editableStatItems) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateStatItemsDraft(currentContent, statItemsDraft);
+
+    setIsStatsSaving(true);
+    setStatsSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Nyckeltal sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara nyckeltal";
+      setStatsSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsStatsSaving(false);
+    }
+  }, [selectedFile, statItemsDraft, editableStatItems, saveSelectedFileContent]);
 
   const handleSaveRawCode = useCallback(async () => {
     if (!selectedFile) return;
@@ -2339,6 +2437,196 @@ export function PreviewPanel({
                       ))}
                       {faqSaveError ? (
                         <div className="text-xs text-rose-300">{faqSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {testimonialItemsDraft && editableTestimonialItems ? (
+                  <div className="rounded-md border border-sky-500/30 bg-sky-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-sky-100">Omdömeseditor</div>
+                        <div className="text-xs text-sky-200/80">
+                          Uppdatera namn, roll och citat direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveTestimonialItems()}
+                        disabled={!testimonialsDirty || isTestimonialsSaving}
+                      >
+                        {isTestimonialsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara omdömen
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {testimonialItemsDraft.map((item, index) => (
+                        <div
+                          key={`testimonial-item-${index}`}
+                          className="rounded-md border border-sky-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-sky-100">
+                            Omdöme {index + 1}
+                          </div>
+                          <div className="grid gap-3">
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-sky-100"
+                                htmlFor={`testimonial-name-${index}`}
+                              >
+                                Namn
+                              </label>
+                              <Input
+                                id={`testimonial-name-${index}`}
+                                value={item.name}
+                                onChange={(event) =>
+                                  setTestimonialItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, name: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-sky-100"
+                                htmlFor={`testimonial-role-${index}`}
+                              >
+                                Roll
+                              </label>
+                              <Input
+                                id={`testimonial-role-${index}`}
+                                value={item.role}
+                                onChange={(event) =>
+                                  setTestimonialItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, role: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-sky-100"
+                                htmlFor={`testimonial-quote-${index}`}
+                              >
+                                Citat
+                              </label>
+                              <Textarea
+                                id={`testimonial-quote-${index}`}
+                                value={item.quote}
+                                onChange={(event) =>
+                                  setTestimonialItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, quote: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {testimonialsSaveError ? (
+                        <div className="text-xs text-rose-300">{testimonialsSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {statItemsDraft && editableStatItems ? (
+                  <div className="rounded-md border border-violet-500/30 bg-violet-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-violet-100">Nyckeltalseditor</div>
+                        <div className="text-xs text-violet-200/80">
+                          Uppdatera etiketter och värden direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveStatItems()}
+                        disabled={!statsDirty || isStatsSaving}
+                      >
+                        {isStatsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara nyckeltal
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {statItemsDraft.map((item, index) => (
+                        <div
+                          key={`stat-item-${index}`}
+                          className="rounded-md border border-violet-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-violet-100">
+                            Nyckeltal {index + 1}
+                          </div>
+                          <div className="grid gap-3">
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-violet-100"
+                                htmlFor={`stat-label-${index}`}
+                              >
+                                Etikett
+                              </label>
+                              <Input
+                                id={`stat-label-${index}`}
+                                value={item.label}
+                                onChange={(event) =>
+                                  setStatItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, label: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-violet-100"
+                                htmlFor={`stat-value-${index}`}
+                              >
+                                Värde
+                              </label>
+                              <Input
+                                id={`stat-value-${index}`}
+                                value={item.value}
+                                onChange={(event) =>
+                                  setStatItemsDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, value: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {statsSaveError ? (
+                        <div className="text-xs text-rose-300">{statsSaveError}</div>
                       ) : null}
                     </div>
                   </div>
