@@ -26,8 +26,15 @@ import {
 } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
+import {
+  readStaticMetadataDraft,
+  updateStaticMetadataDraft,
+  type StaticMetadataDraft,
+} from "@/lib/builder/metadata-editor";
 import {
   dispatchInspectCaptureEvent,
   dispatchPlacementSelectEvent,
@@ -234,6 +241,7 @@ interface PreviewPanelProps {
   onClear?: () => void;
   onFixPreview?: () => void;
   refreshToken?: number;
+  onFilesSaved?: () => void;
   imageGenerationsEnabled?: boolean;
   imageGenerationsSupported?: boolean;
   isBlobConfigured?: boolean;
@@ -279,6 +287,7 @@ export function PreviewPanel({
   onClear,
   onFixPreview,
   refreshToken,
+  onFilesSaved,
   imageGenerationsEnabled = true,
   imageGenerationsSupported = true,
   isBlobConfigured = false,
@@ -297,6 +306,9 @@ export function PreviewPanel({
   const [filesError, setFilesError] = useState<string | null>(null);
   const [previewRoutes, setPreviewRoutes] = useState<string[]>([]);
   const [previewRoutesLoading, setPreviewRoutesLoading] = useState(false);
+  const [metadataDraft, setMetadataDraft] = useState<StaticMetadataDraft | null>(null);
+  const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
+  const [isMetadataSaving, setIsMetadataSaving] = useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
   const { integrationStatus, integrationError } = useIntegrationStatus(demoUrl);
@@ -323,6 +335,23 @@ export function PreviewPanel({
   const previewIssueKeysRef = useRef<Set<string>>(new Set());
   const renderOutcomeStateRef = useRef(INITIAL_PREVIEW_RENDER_OUTCOME_STATE);
   const inspectFetchTokenRef = useRef(0);
+
+  const updateFileTreeContent = useCallback(
+    (nodes: FileNode[], targetPath: string, nextContent: string): FileNode[] =>
+      nodes.map((node) => {
+        if (node.type === "file" && node.path === targetPath) {
+          return { ...node, content: nextContent };
+        }
+        if (node.children?.length) {
+          return {
+            ...node,
+            children: updateFileTreeContent(node.children, targetPath, nextContent),
+          };
+        }
+        return node;
+      }),
+    [],
+  );
 
   const clearPreviewReadyTimer = useCallback(() => {
     if (previewReadyTimerRef.current) {
@@ -1080,6 +1109,26 @@ export function PreviewPanel({
     return walk(files);
   }, [files, selectedPath]);
 
+  const editableMetadata = useMemo(
+    () =>
+      selectedFile
+        ? readStaticMetadataDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
+  useEffect(() => {
+    setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
+    setMetadataSaveError(null);
+  }, [editableMetadata, selectedFile?.path, selectedFile?.content]);
+
+  const metadataDirty = Boolean(
+    metadataDraft &&
+      editableMetadata &&
+      (metadataDraft.title !== editableMetadata.title ||
+        metadataDraft.description !== editableMetadata.description),
+  );
+
   const getPreferredFilePath = useCallback((flatFiles: Array<{ name: string }>) => {
     const candidates = [
       "app/page.tsx",
@@ -1173,7 +1222,48 @@ export function PreviewPanel({
       isActive = false;
       controller.abort();
     };
-  }, [isCodeView, chatId, versionId, findFirstFile, getPreferredFilePath]);
+  }, [isCodeView, chatId, versionId, refreshToken, findFirstFile, getPreferredFilePath]);
+
+  const handleSaveMetadata = useCallback(async () => {
+    if (!chatId || !versionId || !selectedFile || !metadataDraft) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateStaticMetadataDraft(currentContent, metadataDraft);
+    if (nextContent === currentContent) return;
+
+    setIsMetadataSaving(true);
+    setMetadataSaveError(null);
+    try {
+      const response = await fetch(
+        `/api/v0/chats/${encodeURIComponent(chatId)}/files`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            versionId,
+            fileName: selectedFile.path,
+            content: nextContent,
+          }),
+        },
+      );
+      const data = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(data?.error || `Kunde inte spara metadata (HTTP ${response.status})`);
+      }
+
+      setFiles((prev) => updateFileTreeContent(prev, selectedFile.path, nextContent));
+      onFilesSaved?.();
+      toast.success("Metadata sparad i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara metadata";
+      setMetadataSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsMetadataSaving(false);
+    }
+  }, [chatId, versionId, selectedFile, metadataDraft, updateFileTreeContent, onFilesSaved]);
 
   const elementRegistry = useMemo(() => buildJsxElementRegistry(files), [files]);
   elementRegistryRef.current = elementRegistry;
@@ -1687,6 +1777,63 @@ export function PreviewPanel({
             ) : (
               <div className="space-y-3">
                 <div className="text-sm text-gray-300">{selectedFile.path}</div>
+                {metadataDraft && editableMetadata ? (
+                  <div className="rounded-md border border-cyan-500/30 bg-cyan-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-cyan-100">Metadata-editor</div>
+                        <div className="text-xs text-cyan-200/80">
+                          Spara title och description direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveMetadata()}
+                        disabled={!metadataDirty || isMetadataSaving}
+                      >
+                        {isMetadataSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara metadata
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      <div className="grid gap-1">
+                        <label className="text-xs font-medium text-cyan-100" htmlFor="metadata-title">
+                          Title
+                        </label>
+                        <Input
+                          id="metadata-title"
+                          value={metadataDraft.title}
+                          onChange={(event) =>
+                            setMetadataDraft((prev) =>
+                              prev ? { ...prev, title: event.target.value } : prev,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <label
+                          className="text-xs font-medium text-cyan-100"
+                          htmlFor="metadata-description"
+                        >
+                          Description
+                        </label>
+                        <Textarea
+                          id="metadata-description"
+                          value={metadataDraft.description}
+                          onChange={(event) =>
+                            setMetadataDraft((prev) =>
+                              prev ? { ...prev, description: event.target.value } : prev,
+                            )
+                          }
+                          rows={3}
+                        />
+                      </div>
+                      {metadataSaveError ? (
+                        <div className="text-xs text-rose-300">{metadataSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
                 {showElementRegistry && selectedRegistryLine && (
                   <div className="text-xs text-purple-300">Målrad: {selectedRegistryLine}</div>
                 )}

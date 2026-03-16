@@ -1133,7 +1133,7 @@ export function useBuilderPageController() {
   useEffect(() => {
     const contextKey =
       chatId && derived.activeVersionId
-        ? `${chatId}:${derived.activeVersionId}`
+        ? `${chatId}:${derived.activeVersionId}:${state.previewRefreshToken}`
         : null;
     if (!contextKey) {
       promptAssistContextKeyRef.current = null;
@@ -1220,7 +1220,13 @@ export function useBuilderPageController() {
       isActive = false;
       controller.abort();
     };
-  }, [chatId, derived.activeVersionId, promptAssistContextKeyRef, setPromptAssistContext, setExistingUiComponents, setCurrentPageCode]);
+  }, [chatId, derived.activeVersionId, state.previewRefreshToken, promptAssistContextKeyRef, setPromptAssistContext, setExistingUiComponents, setCurrentPageCode]);
+
+  const handleFilesSaved = useCallback(() => {
+    promptAssistContextKeyRef.current = null;
+    promptFetchDoneRef.current = null;
+    setPreviewRefreshToken(Date.now());
+  }, [promptAssistContextKeyRef, promptFetchDoneRef, setPreviewRefreshToken]);
 
   // Auto-start generation for kostnadsfri flow
   useEffect(() => {
@@ -1380,6 +1386,7 @@ export function useBuilderPageController() {
     handleFixPreview: builderCallbacks.handleFixPreview,
     handleVersionSelect: builderCallbacks.handleVersionSelect,
     handleToggleVersionPanel: builderCallbacks.handleToggleVersionPanel,
+    handleFilesSaved,
 
   };
 }

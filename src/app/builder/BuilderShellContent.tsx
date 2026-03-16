@@ -715,6 +715,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               awaitingInput={vm.isAwaitingInput}
               onClear={vm.handleClearPreview}
               onFixPreview={vm.handleFixPreview}
+              onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               placementMode={Boolean(pendingPlacementRequest)}
               pendingPlacementItem={pendingPlacementItem}
