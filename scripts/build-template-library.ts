@@ -611,7 +611,7 @@ function buildEntry(
   const signals = detectSignals(template, selectedFiles);
   const strengths = deriveStrengths(signals, repoInfo);
   const recommendedScaffoldFamilies = recommendScaffoldFamilies(template.category_slug, signals);
-  const weaknesses = deriveWeaknesses(repoUrl.verdict, repoInfo, usefulLines, noiseLines, isMonorepoFallback || isMonorepoWithoutSubpath);
+  const weaknesses = deriveWeaknesses(repoUrl.verdict, repoInfo, usefulLines, noiseLines, Boolean(isMonorepoFallback) || isMonorepoWithoutSubpath);
   const qualityScore = scoreEntry(
     repoUrl.verdict,
     repoInfo,
