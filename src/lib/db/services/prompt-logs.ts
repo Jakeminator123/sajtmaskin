@@ -23,7 +23,7 @@ export async function createPromptLog(payload: {
   modelTier?: string | null;
   imageGenerations?: boolean | null;
   thinking?: boolean | null;
-  attachmentsCount?: number | null;a
+  attachmentsCount?: number | null;
   meta?: Record<string, unknown> | null;
 }): Promise<void> {
   assertDbConfigured();
