@@ -149,7 +149,7 @@ function resolveBuildIntentSystemPrompt(
   return `${base}\n\nBuild intent: ${guidance}`;
 }
 
-function summarizeCodeContextForPrompt(code: string, maxChars = 50_000): string {
+function summarizeCodeContextForPrompt(code: string, maxChars = 500_000): string {
   const normalized = String(code || "");
   if (normalized.length <= maxChars) return normalized;
 

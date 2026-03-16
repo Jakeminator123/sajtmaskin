@@ -73,7 +73,7 @@ function inferLang(path: string): string {
   return "text";
 }
 
-function renderScaffoldFiles(scaffold: ScaffoldManifest, maxChars = 14000): string {
+function renderScaffoldFiles(scaffold: ScaffoldManifest, maxChars = 140_000): string {
   const blocks: string[] = [];
   let usedChars = 0;
 

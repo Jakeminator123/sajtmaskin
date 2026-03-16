@@ -41,11 +41,11 @@ import { BuilderLayout } from "./BuilderLayout";
 import type { BuilderViewModel } from "./useBuilderPageController";
 
 const CONTEXT_RECENT_MESSAGE_COUNT = 5;
-const CONTEXT_MESSAGE_MAX_CHARS = 300;
-const TIP_USER_MESSAGE_MAX_CHARS = 500;
-const TIP_ASSISTANT_MESSAGE_MAX_CHARS = 900;
-const TIP_CODE_MAX_CHARS = 2200;
-const OPENCLAW_CONTEXT_CODE_MAX_CHARS = 3000;
+const CONTEXT_MESSAGE_MAX_CHARS = 3_000;
+const TIP_USER_MESSAGE_MAX_CHARS = 5_000;
+const TIP_ASSISTANT_MESSAGE_MAX_CHARS = 9_000;
+const TIP_CODE_MAX_CHARS = 22_000;
+const OPENCLAW_CONTEXT_CODE_MAX_CHARS = 30_000;
 
 type TipApiResponse = {
   success?: boolean;

@@ -23,11 +23,11 @@ export async function createPromptLog(payload: {
   modelTier?: string | null;
   imageGenerations?: boolean | null;
   thinking?: boolean | null;
-  attachmentsCount?: number | null;
+  attachmentsCount?: number | null;a
   meta?: Record<string, unknown> | null;
 }): Promise<void> {
   assertDbConfigured();
-  const retentionLimit = 20;
+  const retentionLimit = 200;
   const now = new Date();
   const ownerId = payload.userId || payload.sessionId || null;
   await db.insert(promptLogs).values({
@@ -38,9 +38,9 @@ export async function createPromptLog(payload: {
     app_project_id: payload.appProjectId || null,
     v0_project_id: payload.v0ProjectId || null,
     chat_id: payload.chatId || null,
-    prompt_original: payload.promptOriginal?.slice(0, 4000) || null,
-    prompt_formatted: payload.promptFormatted?.slice(0, 4000) || null,
-    system_prompt: payload.systemPrompt?.slice(0, 800) || null,
+    prompt_original: payload.promptOriginal?.slice(0, 40_000) || null,
+    prompt_formatted: payload.promptFormatted?.slice(0, 40_000) || null,
+    system_prompt: payload.systemPrompt?.slice(0, 8_000) || null,
     prompt_assist_model: payload.promptAssistModel || null,
     prompt_assist_deep:
       typeof payload.promptAssistDeep === "boolean" ? payload.promptAssistDeep : null,
@@ -82,7 +82,7 @@ export async function createPromptLog(payload: {
  */
 export async function getRecentPromptLogs(limit = 20, userId?: string): Promise<PromptLog[]> {
   assertDbConfigured();
-  const resolved = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 100)) : 20;
+  const resolved = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 1000)) : 20;
   if (userId) {
     return db
       .select()

@@ -13,9 +13,9 @@ import type {
 
 const DEFAULT_TOP_K = 3;
 const MIN_EMBEDDING_SCORE = 0.3;
-const DEFAULT_MAX_REFERENCE_FILES = 2;
-const DEFAULT_MAX_EXCERPT_CHARS = 900;
-const DEFAULT_MAX_TOTAL_CHARS = 1800;
+const DEFAULT_MAX_REFERENCE_FILES = 20;
+const DEFAULT_MAX_EXCERPT_CHARS = 9_000;
+const DEFAULT_MAX_TOTAL_CHARS = 18_000;
 const STOPWORDS = new Set([
   "en", "ett", "och", "med", "som", "för", "att", "jag", "vill", "ha", "den", "det", "är", "ska",
   "a", "an", "the", "and", "with", "for", "that", "this", "is", "it", "to", "of", "in", "my", "me",

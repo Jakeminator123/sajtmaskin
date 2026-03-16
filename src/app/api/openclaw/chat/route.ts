@@ -28,10 +28,10 @@ function normalizeCodeSnippet(value: unknown, maxLength: number): string {
   return value.trim().slice(0, maxLength);
 }
 
-const OPENCLAW_FIELD_VALUE_MAX_CHARS = 220;
-const OPENCLAW_RECENT_MESSAGE_MAX_CHARS = 220;
-const OPENCLAW_CURRENT_CODE_MAX_CHARS = 1_600;
-const OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS = 18_000;
+const OPENCLAW_FIELD_VALUE_MAX_CHARS = 2_200;
+const OPENCLAW_RECENT_MESSAGE_MAX_CHARS = 2_200;
+const OPENCLAW_CURRENT_CODE_MAX_CHARS = 16_000;
+const OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS = 180_000;
 
 const SYSTEM_PROMPT = `Du är Sajtagenten — en vänlig, kunnig och hjälpsam svensk AI-assistent inbyggd i Sajtmaskin.
 

@@ -24,7 +24,9 @@ documentation.
   `active/`, `review-needed/`, and `archived/`.
 - `docs/analyses/`
   Broader analysis, matrix, polish notes, and consolidated working-note buckets
-  such as `2026-03-smb-orchestration-notes/`.
+  such as `2026-03-smb-orchestration-notes/`,
+  `phase-08-plan-persistence-and-orchestration.md`, and
+  `phase-09-smb-growth-implementation-status.md`.
 - `docs/old/`
   Historical, superseded, or uncertain material kept for reference, including
   temporary holding-area archives before later pruning.

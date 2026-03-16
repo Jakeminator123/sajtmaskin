@@ -33,6 +33,25 @@ That means the analytics work in this phase should start from configuration,
 conversion semantics, and verification UX, not from zero on raw pageview
 capture.
 
+## Status update (2026-03-16)
+
+Phase 9 is no longer just a kickoff plan. The builder now contains substantial
+real implementation in this phase:
+
+- version-backed Kodvy editors now cover metadata, raw code, contact details,
+  hero copy, services, FAQ, testimonials, stats, process steps, products,
+  pricing cards, pricing feature lists, categories, navigation labels, CTA
+  labels, blog post metadata, and footer link groups
+- post-check output now drives structured follow-up actions for editorial packs,
+  business workflow packs, SEO, and analytics
+- first practical slices for analytics/configuration, SMB workflow setup, and
+  compare / restore / rollback are implemented
+- builder waiting-input UX now preserves and shows real follow-up questions more
+  reliably, including smoke/save-flow QA around `PreviewPanel` and `MessageList`
+
+For a fuller implementation trace and honest remaining gaps, see
+`docs/analyses/phase-09-smb-growth-implementation-status.md`.
+
 ## Workstreams
 
 ### 1. Editorial / CMS mode

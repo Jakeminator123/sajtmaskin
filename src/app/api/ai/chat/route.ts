@@ -21,8 +21,8 @@ export const maxDuration = 600;
 const BASE_URL = "https://api.v0.dev/v1";
 
 // Token limits configurable via env (for server-side control)
-const ENV_MAX_TOKENS = Number(process.env.AI_CHAT_MAX_TOKENS) || 8192;
-const DEFAULT_CHAT_MAX_TOKENS = 2200;
+const ENV_MAX_TOKENS = Number(process.env.AI_CHAT_MAX_TOKENS) || 81_920;
+const DEFAULT_CHAT_MAX_TOKENS = 22_000;
 
 const messageSchema = z.discriminatedUnion("role", [
   z.object({

@@ -39,8 +39,8 @@ type UsePromptAssistParams = {
 };
 
 // Token limits - these are defaults; the server can override via env
-const PROMPT_ASSIST_MAX_TOKENS = 2200;
-const BRIEF_ASSIST_MAX_TOKENS = 2600;
+const PROMPT_ASSIST_MAX_TOKENS = 22_000;
+const BRIEF_ASSIST_MAX_TOKENS = 26_000;
 // 10 minutes to accommodate slow models or gateway delays
 const PROMPT_ASSIST_TIMEOUT_MS = 600_000;
 

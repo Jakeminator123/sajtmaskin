@@ -16,8 +16,8 @@ export const runtime = "nodejs";
 export const maxDuration = 600;
 
 // Token limits configurable via env (for server-side control)
-const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 8192;
-const DEFAULT_BRIEF_MAX_TOKENS = 2600;
+const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 81_920;
+const DEFAULT_BRIEF_MAX_TOKENS = 26_000;
 
 const briefRequestSchema = z.object({
   prompt: z
@@ -462,7 +462,7 @@ export async function POST(req: Request) {
                 models: defaultGatewayFallbackModels(normalizedModel),
               } as any,
             },
-            maxOutputTokens: Math.min(maxTokens, 4096),
+            maxOutputTokens: Math.min(maxTokens, 40_960),
             ...getTemperatureConfig(normalizedModel, temperature),
           });
           usedSimplified = true;

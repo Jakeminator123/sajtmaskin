@@ -342,10 +342,10 @@ export function promptToSpec(
 
 export type ContextFile = { name: string; content?: string | null };
 
-const CONTEXT_MAX_FILES = 6;
-const CONTEXT_MAX_FILE_LINES = 12;
-const CONTEXT_MAX_FILE_CHARS = 420;
-const CONTEXT_MAX_TOTAL_CHARS = 2200;
+const CONTEXT_MAX_FILES = 60;
+const CONTEXT_MAX_FILE_LINES = 120;
+const CONTEXT_MAX_FILE_CHARS = 4_200;
+const CONTEXT_MAX_TOTAL_CHARS = 22_000;
 
 function scoreContextFile(name: string): number {
   const lower = name.toLowerCase();

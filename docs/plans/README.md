@@ -16,13 +16,19 @@ equally current.
 ## Current status map
 
 Verified against `docs/architecture/agent-roadmap-and-handoff.md` on
-`2026-03-14`.
+`2026-03-16`.
 
 `active`
 
 - `active/06-world-class-builder-roadmap.md`
 - `active/09-world-class-builder-phase-3-smb-growth.md`
 - `active/10-world-class-builder-phase-4-learning-moat.md`
+
+Current note:
+
+- `09-world-class-builder-phase-3-smb-growth.md` remains active, but it is now
+  deep into implementation rather than early kickoff. See
+  `docs/analyses/phase-09-smb-growth-implementation-status.md`.
 
 `review-needed`
 

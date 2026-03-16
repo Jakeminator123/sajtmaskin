@@ -394,7 +394,7 @@ export async function handleMessageStreamRequest(
         if (previousFiles.length > 0) {
           const fileCtx = buildFileContext({
             files: previousFiles,
-            maxChars: 14_000,
+            maxChars: 140_000,
             includeContents: true,
             maxFilesWithContent: 8,
           });

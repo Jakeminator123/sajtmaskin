@@ -86,13 +86,13 @@ export function AdminPromptsTab({
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <div>
                     <p className="text-xs text-gray-500">Prompt (original)</p>
-                    <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-gray-200">
+                    <pre className="mt-1 max-h-[480px] overflow-auto whitespace-pre-wrap text-xs text-gray-200">
                       {log.promptOriginal || "—"}
                     </pre>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Prompt (formaterad)</p>
-                    <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-gray-200">
+                    <pre className="mt-1 max-h-[480px] overflow-auto whitespace-pre-wrap text-xs text-gray-200">
                       {log.promptFormatted || "—"}
                     </pre>
                   </div>
@@ -100,7 +100,7 @@ export function AdminPromptsTab({
 
                 <div className="mt-3">
                   <p className="text-xs text-gray-500">Systemprompt</p>
-                  <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-gray-200">
+                  <pre className="mt-1 max-h-[480px] overflow-auto whitespace-pre-wrap text-xs text-gray-200">
                     {log.systemPrompt || "—"}
                   </pre>
                 </div>

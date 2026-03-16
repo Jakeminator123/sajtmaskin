@@ -131,7 +131,7 @@ const COLORS = {
  * @param label - Optional label for what the text is (e.g., "prompt", "response")
  * @returns The text with truncation marker if truncated
  */
-export function truncateForLog(text: string, maxLength: number = 500, label?: string): string {
+export function truncateForLog(text: string, maxLength: number = 5_000, label?: string): string {
   if (!text) return "(empty)";
 
   if (text.length <= maxLength) {

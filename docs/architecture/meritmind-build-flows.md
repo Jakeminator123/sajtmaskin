@@ -1,22 +1,22 @@
-# MeritMind-flode for buildvagar
+# MeritMind-flöde för byggvägar
 
 ## Syfte
-Detta dokument visar hur Sajtmaskins buildfloden faktiskt delar upp sig mellan
-egna motorn, v0-fallback, planlage, post-checks, autofix och deploy. Fokus
-ligger pa vilka vagar som finns, vad som hander i varje vag, och hur valet
-gors.
+Detta dokument visar hur Sajtmaskins buildflöden faktiskt delar upp sig mellan
+egna motorn, v0-fallback, planläge, post-checks, autofix och deploy. Fokus
+ligger på vilka vägar som finns, vad som händer i varje väg, och hur valet
+görs.
 
 ## Viktig skillnad
-Alla saker som leder in till buildern ar inte egna genereringsmotorer.
+Alla saker som leder in till buildern är inte egna genereringsmotorer.
 
-- `wizard`, `category`, `audit`, `freeform`, `kostnadsfri` ar ingangssatt till
+- `wizard`, `category`, `audit`, `freeform`, `kostnadsfri` är ingångssätt till
   buildern.
-- `plan-mode`, `own-engine` och `v0-fallback` ar runtime-vagar inne i
-  genereringsflodet.
-- `post-checks`, `autofix`, `quality-gate` och `deploy` ar eftersteg eller
-  sidofloden, inte primara genereringsmotorer.
+- `plan-mode`, `own-engine` och `v0-fallback` är runtime-vägar inne i
+  genereringsflödet.
+- `post-checks`, `autofix`, `quality-gate` och `deploy` är eftersteg eller
+  sidoflöden, inte primära genereringsmotorer.
 
-## Overblick
+## Överblick
 
 ```mermaid
 flowchart TD
@@ -35,7 +35,7 @@ flowchart TD
 
     G --> G1[prepareGenerationContext()]
     G1 --> G2[Planner prompt + own-engine model]
-    G2 --> G3{Blockers eller fragor?}
+    G2 --> G3{Blockers eller frågor?}
     G3 -->|Ja| G4[awaitingInput]
     G3 -->|Nej| G5[Plan artifact klar]
     G4 --> D
@@ -48,7 +48,7 @@ flowchart TD
     I1 --> I2[createGenerationPipeline() via AI SDK]
     I2 --> I3[finalizeAndSaveVersion()]
     I3 --> I4{Blocking preflight?}
-    I4 -->|Ja| I5[Version sparas for diagnostik<br/>preview blockeras]
+    I4 -->|Ja| I5[Version sparas för diagnostik<br/>preview blockeras]
     I4 -->|Nej| I6[Preview kan exponeras]
     I5 --> K[Post-checks]
     I6 --> K
@@ -58,7 +58,7 @@ flowchart TD
     M --> D
     L -->|Nej| N[Quality gate i sandbox]
 
-    N --> O{Godkand?}
+    N --> O{Godkänd?}
     O -->|Ja| P[Promoted own-engine-version]
     O -->|Nej| Q[Failed own-engine-version]
 
@@ -66,7 +66,7 @@ flowchart TD
     J1 --> J2[Resultat mappas tillbaka till intern modell]
     J2 --> J3[v0 demoUrl / versionshistorik]
 
-    P --> R[Deploy-flode]
+    P --> R[Deploy-flöde]
     Q --> S[Versionspanel + diagnostics]
     J3 --> R
     J3 --> S
@@ -74,8 +74,8 @@ flowchart TD
 
 ## Hur valet sker
 
-### 1. Ingang till buildern
-Anvandaren kan komma in via flera metoder:
+### 1. Ingång till buildern
+Användaren kan komma in via flera metoder:
 
 - `wizard`
 - `category`
@@ -83,45 +83,45 @@ Anvandaren kan komma in via flera metoder:
 - `freeform`
 - `kostnadsfri`
 
-De paverkar hur prompten och metadata ser ut, men de valjer inte ensam vilken
-genereringsmotor som kor.
+De påverkar hur prompten och metadata ser ut, men de väljer inte ensam vilken
+genereringsmotor som kör.
 
 ### 2. Plan-mode
-`planMode=true` styr requesten in i planner-vagen. Den kor fortfarande pa
-egna motorns infrastruktur, men stoppar fore kodgenerering om blockerare eller
+`planMode=true` styr requesten in i planner-vägen. Den kör fortfarande på
+egna motorns infrastruktur, men stoppar före kodgenerering om blockerare eller
 oklara beslut finns.
 
 Praktiskt:
 
-- bra nar du vill fa en plan eller review-kort forst
+- bra när du vill få en plan eller review-kort först
 - kan returnera `awaitingInput`
-- leder normalt vidare till samma chat som sedan byggs i follow-up-flodet
+- leder normalt vidare till samma chat som sedan byggs i follow-up-flödet
 
 ### 3. Own-engine
-Detta ar standardvagen i dagens setup.
+Detta är standardvägen i dagens setup.
 
-Den anvands nar:
+Den används när:
 
-- `V0_FALLBACK_BUILDER` inte ar aktivt satt till sant
-- eller fallback inte uttryckligen begars i metadatan
+- `V0_FALLBACK_BUILDER` inte är aktivt satt till sant
+- eller fallback inte uttryckligen begärs i metadatan
 
-I din lokala `.env.local` ar `V0_FALLBACK_BUILDER=false`, sa lokal `npm run dev`
-ligger i praktiken pa own-engine som huvudvag.
+I din lokala `.env.local` är `V0_FALLBACK_BUILDER=false`, så lokal `npm run dev`
+ligger i praktiken på own-engine som huvudväg.
 
 ### 4. v0-fallback
-v0 ar inte defaultmotor i din nuvarande lokala setup. Den anvands bara nar tva
-villkor samtidigt ar uppfyllda:
+v0 är inte defaultmotor i din nuvarande lokala setup. Den används bara när två
+villkor samtidigt är uppfyllda:
 
-1. fallback ar aktiverad via `V0_FALLBACK_BUILDER`
+1. fallback är aktiverad via `V0_FALLBACK_BUILDER`
 2. requestens metadata uttryckligen pekar mot fallback, t.ex. via `enginePath`
-   eller nar follow-up-requesten egentligen tillhor en redan mappad v0-chat
+   eller när follow-up-requesten egentligen tillhör en redan mappad v0-chat
 
 Det betyder:
 
-- `V0_FALLBACK_BUILDER=true` ensam ar inte hela valet
-- buildern behover ocksa explicit metadata eller en befintlig v0-chatmappning
+- `V0_FALLBACK_BUILDER=true` ensam är inte hela valet
+- buildern behöver också explicit metadata eller en befintlig v0-chatmappning
 
-## Vad som hander i varje vag
+## Vad som händer i varje väg
 
 ### A. Plan-mode lane
 
@@ -129,76 +129,76 @@ Huvudsteg:
 
 1. `prepareGenerationContext()`
 2. planner-prompt byggs
-3. modellen far anvanda agentverktyg
+3. modellen får använda agentverktyg
 4. `emitPlanArtifact` kan returneras
-5. blockerare kan stoppa flodet tills anvandaren svarar
+5. blockerare kan stoppa flödet tills användaren svarar
 
-Bra for:
+Bra för:
 
 - komplexa builds
-- integrationsfragor
-- behov av godkannande innan riktig kodgenerering
+- integrationsfrågor
+- behov av godkännande innan riktig kodgenerering
 
 ### B. Own-engine lane
 
 Huvudsteg:
 
 1. prompten optimeras
-2. scaffold valjs eller ateranvands
+2. scaffold väljs eller återanvänds
 3. systemprompt byggs
-4. `createGenerationPipeline()` kor modellen
+4. `createGenerationPipeline()` kör modellen
 5. `finalizeAndSaveVersion()` parser, reparerar, merger och sparar
-6. preflight avgor om preview ska blockeras
-7. klienten kor `post-checks`
+6. preflight avgör om preview ska blockeras
+7. klienten kör `post-checks`
 8. `useAutoFix` kan skicka en ny repair-prompt
 9. `quality-gate` bygger och verifierar
 10. versionen markeras som `promoted` eller `failed`
 
-Bra for:
+Bra för:
 
 - normal lokal utveckling
-- den egna motorns scaffold-drivna flode
-- planlage + build i samma ekosystem
+- den egna motorns scaffold-drivna flöde
+- planläge + build i samma ekosystem
 
 ### C. v0-fallback lane
 
 Huvudsteg:
 
-1. samma forberedande kontextlager anvands
+1. samma förberedande kontextlager används
 2. requesten skickas till v0 Platform API
 3. v0 returnerar kod/version/demoUrl
 4. resultatet mappas tillbaka till intern modell
 5. buildern visar versionshistorik och preview via v0:s demoUrl
 
-Bra for:
+Bra för:
 
 - explicit fallback-testning
-- flows dar en chat redan ar v0-baserad
+- flows där en chat redan är v0-baserad
 - kompatibilitet med äldre v0-stigar
 
 ### D. Post-checks och autofix
 
-Detta ar inte en separat genereringsmotor, men det ar en verklig andra fas.
+Detta är inte en separat genereringsmotor, men det är en verklig andra fas.
 
 Den:
 
 - kollar preview, routes, images, sanity, SEO och quality-gate-status
 - persisterar fel mot versionsloggen
-- kan skapa nya follow-up-meddelanden for reparation
+- kan skapa nya follow-up-meddelanden för reparation
 
-Det ar den vanligaste forklaringen till att en generation ser ut att skapa flera
+Det är den vanligaste förklaringen till att en generation ser ut att skapa flera
 meddelanden eller flera versioner i samma chat.
 
 ### E. Deploy-lane
 
-Nar en version valts for deploy:
+När en version valts för deploy:
 
-1. filer hamtas
+1. filer hämtas
 2. bilder/materialisering justeras vid behov
 3. Vercel deploy triggas
-4. buildern visar deploystatus, readiness och domanflode
+4. buildern visar deploystatus, readiness och domänflöde
 
-Deploy ar alltsa en separat lane efter generation, inte ett alternativ till
+Deploy är alltså en separat lane efter generation, inte ett alternativ till
 own-engine eller v0.
 
 ## Var data sparas
@@ -216,15 +216,15 @@ own-engine eller v0.
 - `chats`
 - `versions`
 - `version_error_logs`
-- plus fjarrtillstand i v0-projekt/chat/version
+- plus fjärrtillstånd i v0-projekt/chat/version
 
-## Vad anvandaren faktiskt valjer
+## Vad användaren faktiskt väljer
 
-Som anvandare valjer du i praktiken fyra olika saker, men de ligger pa olika
-nivaer:
+Som användare väljer du i praktiken fyra olika saker, men de ligger på olika
+nivåer:
 
-### 1. Ingangsatt
-Du valjer hur du startar buildern:
+### 1. Ingångssätt
+Du väljer hur du startar buildern:
 
 - wizard
 - category
@@ -233,19 +233,19 @@ Du valjer hur du startar buildern:
 - kostnadsfri
 
 ### 2. Byggtyp
-Du valjer implicit eller explicit vad som ska byggas:
+Du väljer implicit eller explicit vad som ska byggas:
 
 - `website`
 - `app`
 - `template`
 
-Detta paverkar promptstrategi, scaffold och kontext.
+Detta påverkar promptstrategi, scaffold och kontext.
 
 ### 3. Plan eller bygg direkt
-Om `planMode` ar aktivt gar du forst via planner-vagen.
+Om `planMode` är aktivt går du först via planner-vägen.
 
 ### 4. Motorval
-Detta val ligger mest i miljoflaggor och metadata, inte som ett fristaende
+Detta val ligger mest i miljöflaggor och metadata, inte som ett fristående
 slutligt UI-val i varje request:
 
 - lokal standard idag: own-engine
@@ -254,12 +254,12 @@ slutligt UI-val i varje request:
 
 ## MeritMind-sammanfattning
 
-Den kortaste korrekta modellen ar:
+Den kortaste korrekta modellen är:
 
-1. Flera ingangar leder in till samma builder.
+1. Flera ingångar leder in till samma builder.
 2. Buildern har ett gemensamt prompt- och kontextlager.
-3. Darifran valjs plan-mode, own-engine eller v0-fallback.
+3. Därifrån väljs plan-mode, own-engine eller v0-fallback.
 4. Efter generation kommer post-checks, autofix, quality-gate och deploy som
    separata eftersteg.
-5. Own-engine ar idag din normala lokala huvudvag, medan v0 ar en fallback- eller
-   arvsvag som maste aktiveras uttryckligare.
+5. Own-engine är idag din normala lokala huvudväg, medan v0 är en fallback- eller
+   arvsväg som måste aktiveras uttryckligare.

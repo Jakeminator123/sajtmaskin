@@ -1,6 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-16 (phase 8 runtime planning additions, contract clarification persistence)
+> Senast uppdaterad: 2026-03-16 (phase 9 builder editing expansion, awaiting-input UX hardening, PreviewPanel/MessageList QA)
 
 ## Arkitektur
 
@@ -11,7 +11,7 @@ Användarens prompt
 ┌──────────────────────────────┐
 │  PROMPT ASSIST               │
 │  - Polish: gpt-4.1-mini     │
-│  - Deep Brief: gpt-5.4      │
+│  - Deep Brief: gpt-5.2      │
 │  (via AI Gateway)            │
 └──────────┬───────────────────┘
            ▼
@@ -77,7 +77,7 @@ Sandbox or actual deployment, not the default preview iframe.
 
 ```mermaid
 flowchart TD
-    userPrompt[Anvandarprompt] --> ingress[BuilderOrApiIngress]
+    userPrompt[Användarprompt] --> ingress[BuilderOrApiIngress]
 
     subgraph orchestration [OrchestrationLayer]
         ingress --> promptNormalization[PromptNormalisering]
@@ -267,29 +267,41 @@ utan också i den riktiga own-engine-kedjan som bygger preview-versioner.
 - Plan-mode är i praktiken own-engine-only; v0-fallback bypassar fortfarande den
   review-driven vägen
 
-## Phase 9 kick-off (första runtime-slice)
+## Phase 9 runtime-status (2026-03-16)
 
-Fas 9 ska inte blandas ihop med planeringsarbetet ovan. Den första rimliga
-runtime-slicen är SEO-paketet:
+Buildern har nu passerat den första Phase 9-kickoffen och innehåller flera
+konkreta SMB Growth-slices i den aktiva runtime-/buildervägen:
 
-- starkare SEO-defaults i generationen
-- rikare SEO review i post-checks
-- tydligare SEO-signal i builderns diagnostics/tooling
+- Kodvy har versionsbackade editors för ett brett set av återkommande
+  innehållsytor: metadata, raw code, hero, services, FAQ, testimonials, stats,
+  process, products, pricing, pricing-features, categories, nav, CTA, blog
+  post metadata, och footer links
+- post-checks kan nu driva strukturerade nästa steg för editorial packs,
+  business workflow packs, SEO och analytics
+- compare / restore / rollback har fått en första praktisk slice i buildern
+- awaiting-input-flödet är nu hårdare säkrat, inklusive bättre fallback-bevaring
+  av den riktiga frågan och synligare vänteläge i previewpanelen
+- QA har breddats från helper-only tester till riktiga `PreviewPanel`- och
+  `MessageList`-smoketester
+
+Detta betyder inte att hela Phase 9 är färdig, men det betyder att builderns
+SMB editing loop nu är sent i polish/QA-fasen snarare än tidig i
+implementationsfasen.
 
 ## Nya skydd och beteenden
 
-- Första generationer som returnerar `contentLen: 0` sparas inte längre som scaffold-baserade fejkversoner.
+- Första generationer som returnerar `contentLen: 0` sparas inte längre som scaffold-baserade fejkversioner.
 - Create/send-streams loggar nu en sammanfattning av AI SDK-eventtyper och tool-calls för enklare felsökning av tomma streams.
 - Scaffold-serialisering känner nu igen fler svenska kreativa nyckelord (`djungel`, `70-talet`, `kamouflage`, `taktisk`, m.fl.) och instruerar modellen att skriva om placeholder-copy tydligare.
 - Systemprompten instruerar nu modellen att undvika preview-osäkra globala beroenden som `Canvas` och `Autoplay`; klienttunga bibliotek ska importeras explicit eller ges fallback.
-- Follow-up-streamen anvander nu samma agent-tools som create-streamen, sa modellen kan stanna och skicka `askClarifyingQuestion` / integrationssignaler aven efter forsta versionen.
-- Capability inference markerar nu databasprompter separat (`needsDatabase`) och hintar uttryckligen att modellen inte far gissa Prisma/Supabase/SQLite/provider utan bekraftelse.
-- Env-audit for admin skiljer nu pa `local_only`, `environment_specific`, `shared_runtime` och target-tackning pa Vercel, sa lokal `.env.local` och Vercel-targets kan granskas utan blind sync.
-- Create/send-streams kan nu koras i ett riktigt plan-lage for own-engine chats,
-  med rikare `PlanArtifact`, blocker-fragor, review-card och en explicit
+- Follow-up-streamen använder nu samma agent-tools som create-streamen, så modellen kan stanna och skicka `askClarifyingQuestion` / integrationssignaler även efter första versionen.
+- Capability inference markerar nu databasprompter separat (`needsDatabase`) och hintar uttryckligen att modellen inte får gissa Prisma/Supabase/SQLite/provider utan bekräftelse.
+- Env-audit för admin skiljer nu på `local_only`, `environment_specific`, `shared_runtime` och target-täckning på Vercel, så lokal `.env.local` och Vercel-targets kan granskas utan blind sync.
+- Create/send-streams kan nu köras i ett riktigt plan-läge för own-engine chats,
+  med rikare `PlanArtifact`, blocker-frågor, review-card och en explicit
   approve -> build-brygga.
-- Planner-svaret persisteras nu med canonical `uiParts` i chat-lagret, sa
-  own-engine-chat reload kan aterskapa review-kortet utan att vara beroende av
+- Planner-svaret persisteras nu med canonical `uiParts` i chat-lagret, så
+  own-engine-chat reload kan återskapa review-kortet utan att vara beroende av
   lokal-only state.
-- Den gamla klientorkestratorn `usePlanExecution.ts` ar borttagen; approve ->
-  build ags nu av den serverdrivna promptbryggan.
+- Den gamla klientorkestratorn `usePlanExecution.ts` är borttagen; approve ->
+  build ägs nu av den serverdrivna promptbryggan.

@@ -50,9 +50,15 @@ Status re-verified against the current plan set on `2026-03-14`.
   `usePlanExecution.ts` path has been removed. See
   `docs/analyses/phase-08-plan-persistence-and-orchestration.md` for the
   closure trace.
-- Phase `9` has started with SEO readiness, scaffold metadata defaults, and
-  readiness surfacing, but editorial mode, analytics/conversion setup, SMB
-  integration packs, and compare/restore are still ahead.
+- Phase `9` remains active, but it is now well past kickoff. The builder has
+  substantial Kodvy editing coverage (metadata, hero, services, FAQ,
+  testimonials, stats, process, products, pricing, categories, nav, CTA, blog
+  metadata, footer links), structured post-check follow-up for editorial /
+  business / SEO / analytics, first practical analytics/business/setup slices,
+  initial compare / restore behavior, and targeted QA around awaiting-input and
+  PreviewPanel save flows. The remaining work is mainly polish, broader manual
+  QA, and a few judgment calls on any final high-signal editing gaps. See
+  `docs/analyses/phase-09-smb-growth-implementation-status.md`.
 
 ## Read order for a new agent
 

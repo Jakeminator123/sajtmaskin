@@ -86,7 +86,7 @@ function buildContentSections(files: CodeFile[], maxChars: number): string {
 export function buildFileContext(options: FileContextOptions): FileContext {
   const {
     files,
-    maxChars = 6000,
+    maxChars = 60_000,
     includeContents = false,
     maxFilesWithContent = 6,
   } = options;
