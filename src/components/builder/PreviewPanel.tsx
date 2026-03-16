@@ -86,6 +86,11 @@ import {
   type CategoryItemDraft,
 } from "@/lib/builder/category-editor";
 import {
+  readNavItemsDraft,
+  updateNavItemsDraft,
+  type NavItemDraft,
+} from "@/lib/builder/nav-items-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -398,6 +403,9 @@ export function PreviewPanel({
   const [categoryItemsDraft, setCategoryItemsDraft] = useState<CategoryItemDraft[] | null>(null);
   const [categorySaveError, setCategorySaveError] = useState<string | null>(null);
   const [isCategorySaving, setIsCategorySaving] = useState(false);
+  const [navItemsDraft, setNavItemsDraft] = useState<NavItemDraft[] | null>(null);
+  const [navSaveError, setNavSaveError] = useState<string | null>(null);
+  const [isNavSaving, setIsNavSaving] = useState(false);
   const [rawEditMode, setRawEditMode] = useState(false);
   const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
@@ -1295,6 +1303,11 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableNavItems = useMemo(
+    () => (selectedFile ? readNavItemsDraft(selectedFile.path, selectedFile.content || "") : null),
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
@@ -1379,6 +1392,11 @@ export function PreviewPanel({
   }, [editableCategoryItems, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
+    setNavItemsDraft(editableNavItems ? editableNavItems.map((item) => ({ ...item })) : null);
+    setNavSaveError(null);
+  }, [editableNavItems, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
     setRawEditMode(false);
     setRawCodeDraft(selectedFile?.content || "");
     setRawCodeSaveError(null);
@@ -1458,6 +1476,12 @@ export function PreviewPanel({
     categoryItemsDraft &&
       editableCategoryItems &&
       JSON.stringify(categoryItemsDraft) !== JSON.stringify(editableCategoryItems),
+  );
+
+  const navDirty = Boolean(
+    navItemsDraft &&
+      editableNavItems &&
+      JSON.stringify(navItemsDraft) !== JSON.stringify(editableNavItems),
   );
 
   const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
@@ -1842,6 +1866,26 @@ export function PreviewPanel({
       setIsCategorySaving(false);
     }
   }, [selectedFile, categoryItemsDraft, editableCategoryItems, saveSelectedFileContent]);
+
+  const handleSaveNavItems = useCallback(async () => {
+    if (!selectedFile || !navItemsDraft || !editableNavItems) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateNavItemsDraft(currentContent, navItemsDraft);
+
+    setIsNavSaving(true);
+    setNavSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Navigation sparad i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara navigation";
+      setNavSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsNavSaving(false);
+    }
+  }, [selectedFile, navItemsDraft, editableNavItems, saveSelectedFileContent]);
 
   const handleSaveRawCode = useCallback(async () => {
     if (!selectedFile) return;
@@ -3270,6 +3314,64 @@ export function PreviewPanel({
                       ))}
                       {categorySaveError ? (
                         <div className="text-xs text-rose-300">{categorySaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {navItemsDraft && editableNavItems ? (
+                  <div className="rounded-md border border-indigo-500/30 bg-indigo-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-indigo-100">Navigationeditor</div>
+                        <div className="text-xs text-indigo-200/80">
+                          Uppdatera navigationsetiketter direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveNavItems()}
+                        disabled={!navDirty || isNavSaving}
+                      >
+                        {isNavSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara navigation
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {navItemsDraft.map((item, index) => (
+                        <div
+                          key={`nav-item-${index}`}
+                          className="rounded-md border border-indigo-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-indigo-100">
+                            Menyval {index + 1}
+                          </div>
+                          <div className="grid gap-1">
+                            <label
+                              className="text-xs font-medium text-indigo-100"
+                              htmlFor={`nav-label-${index}`}
+                            >
+                              Etikett
+                            </label>
+                            <Input
+                              id={`nav-label-${index}`}
+                              value={item.label}
+                              onChange={(event) =>
+                                setNavItemsDraft((prev) =>
+                                  prev
+                                    ? prev.map((entry, entryIndex) =>
+                                        entryIndex === index
+                                          ? { ...entry, label: event.target.value }
+                                          : entry,
+                                      )
+                                    : prev,
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {navSaveError ? (
+                        <div className="text-xs text-rose-300">{navSaveError}</div>
                       ) : null}
                     </div>
                   </div>
