@@ -151,6 +151,24 @@
   ],
   "rules": [
     {
+      "key": "NODE_ENV",
+      "classification": "vercel_managed",
+      "recommendedVercelTargets": [],
+      "notes": "Set automatically by Vercel and Node.js runtime. Do not push local value."
+    },
+    {
+      "key": "NEXT_PHASE",
+      "classification": "vercel_managed",
+      "recommendedVercelTargets": [],
+      "notes": "Set internally by Next.js build/runtime phases."
+    },
+    {
+      "key": "RENDER",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "Render platform flag. Irrelevant on Vercel deployments."
+    },
+    {
       "key": "POSTGRES_URL",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],

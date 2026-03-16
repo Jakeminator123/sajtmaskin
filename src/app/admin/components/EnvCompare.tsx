@@ -78,13 +78,13 @@ const STATUS_CONFIG: Record<
 const CLASSIFICATION_LABELS: Record<EnvClassification, string> = {
   shared_runtime: "Delad runtime",
   optional_runtime: "Valfri runtime",
-  environment_specific: "Miljospecifik",
+  environment_specific: "Miljöspecifik",
   local_only: "Endast lokal",
   vercel_managed: "Vercel-styrd",
 };
 
 const SYNC_LABELS: Record<SyncRecommendation, string> = {
-  none: "Ingen atgard",
+  none: "Ingen åtgärd",
   push_local_to_vercel: "Push lokalt -> Vercel",
   pull_from_vercel: "Pull Vercel -> lokalt",
   review_manually: "Granska manuellt",
@@ -223,13 +223,13 @@ export function EnvCompare() {
                         <span>{SYNC_LABELS[row.syncRecommendation]}</span>
                         {row.recommendedVercelTargets.length > 0 && (
                           <span>
-                            Bor finnas i: {row.recommendedVercelTargets.join(", ")}
+                            Bör finnas i: {row.recommendedVercelTargets.join(", ")}
                           </span>
                         )}
                         {!row.hasTargetCoverage &&
                           row.recommendedVercelTargets.length > 0 && (
                             <span className="text-amber-400">
-                              Target-tackning saknas
+                              Target-täckning saknas
                             </span>
                           )}
                       </div>

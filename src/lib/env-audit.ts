@@ -67,7 +67,7 @@ export function getEnvRule(key: string): EnvRule {
       key,
       classification: "vercel_managed",
       recommendedVercelTargets: [],
-      notes: "Satts automatiskt av Vercel vid deployment/runtime.",
+      notes: "Sätts automatiskt av Vercel vid deployment/runtime.",
     };
   }
 
@@ -79,7 +79,7 @@ export function getEnvRule(key: string): EnvRule {
       key,
       classification: "environment_specific",
       recommendedVercelTargets: DEPLOY_TARGETS,
-      notes: "Publikt eller miljo-beroende varde som ofta skiljer mellan localhost och deployment.",
+      notes: "Publikt eller miljö-beroende värde som ofta skiljer mellan localhost och deployment.",
     };
   }
 
@@ -88,7 +88,7 @@ export function getEnvRule(key: string): EnvRule {
       key,
       classification: "environment_specific",
       recommendedVercelTargets: DEPLOY_TARGETS,
-      notes: "Miljo- och budgettuning som ofta skiljer mellan lokal utveckling och deployad miljo.",
+      notes: "Miljö- och budgettuning som ofta skiljer mellan lokal utveckling och deployad miljö.",
     };
   }
 
@@ -103,7 +103,7 @@ export function getEnvRule(key: string): EnvRule {
       key,
       classification: "optional_runtime",
       recommendedVercelTargets: ALL_TARGETS,
-      notes: "Runtime-varde som kan behova finnas pa Vercel om funktionen anvands.",
+      notes: "Runtime-värde som kan behöva finnas på Vercel om funktionen används.",
     };
   }
 
@@ -111,7 +111,7 @@ export function getEnvRule(key: string): EnvRule {
     key,
     classification: "optional_runtime",
     recommendedVercelTargets: ALL_TARGETS,
-    notes: "Ingen specialregel definierad; verifiera anvandning innan sync.",
+    notes: "Ingen specialregel definierad; verifiera användning innan sync.",
   };
 }
 

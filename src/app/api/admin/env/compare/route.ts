@@ -61,7 +61,9 @@ export async function GET(req: NextRequest) {
       if (projectId) {
         const envs = await listEnvironmentVariables(projectId, teamId);
         for (const env of envs) {
-          vercelKeys.set(env.key, env.target ?? []);
+          const existing = vercelKeys.get(env.key) ?? [];
+          const targets = env.target ?? [];
+          vercelKeys.set(env.key, [...new Set([...existing, ...targets])]);
         }
       } else {
         vercelError = "VERCEL_PROJECT_ID not set";
