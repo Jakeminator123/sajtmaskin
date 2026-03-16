@@ -5,6 +5,7 @@ import type { SetMessages } from "./types";
 const consumeSseResponse = vi.hoisted(() => vi.fn());
 const runPostGenerationChecks = vi.hoisted(() => vi.fn());
 const triggerImageMaterialization = vi.hoisted(() => vi.fn());
+const readPreviewPreflight = vi.hoisted(() => vi.fn(() => null));
 const toast = vi.hoisted(() => {
   const fn = vi.fn();
   return Object.assign(fn, {
@@ -33,6 +34,15 @@ vi.mock("sonner", () => ({
 vi.mock("./post-checks", () => ({
   runPostGenerationChecks,
   triggerImageMaterialization,
+}));
+
+vi.mock("./post-checks-preview", () => ({
+  readPreviewPreflight,
+}));
+
+vi.mock("@/lib/utils/debug", () => ({
+  debugLog: vi.fn(),
+  warnLog: vi.fn(),
 }));
 
 import { handleSseStream, type StreamContext } from "./stream-handlers";
@@ -141,7 +151,7 @@ describe("handleSseStream", () => {
     );
 
     expect(result.chatIdFromStream).toBe("chat_1");
-    expect(result.streamQuality.hasCriticalAnomaly).toBe(true);
+    expect(result.streamQuality.hasCriticalAnomaly).toBe(false);
     expect(result.streamQuality.reasons).toContain("error_event_recovered");
     expect(spies.setCurrentDemoUrl).toHaveBeenCalledWith(
       "https://preview.example/chat_1/ver_1",
@@ -164,6 +174,7 @@ describe("handleSseStream", () => {
         versionId: "ver_1",
         assistantMessageId: "assistant_1",
         streamQuality: expect.objectContaining({
+          hasCriticalAnomaly: false,
           reasons: expect.arrayContaining(["error_event_recovered"]),
         }),
       }),
@@ -173,13 +184,15 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
   });
 
-  it("still throws the provider error when the stream ends without done", async () => {
+  it("throws when an SSE error is followed by done without a recovered artifact", async () => {
     consumeSseResponse.mockImplementation(
       async (
         _response: Response,
         onEvent: (event: string, data: unknown, raw: string) => void,
       ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
         onEvent("error", { message: "Stream kaputt" }, "");
+        onEvent("done", { chatId: "chat_1" }, "");
       },
     );
 
@@ -191,5 +204,6 @@ describe("handleSseStream", () => {
     ).rejects.toThrow("Stream kaputt");
     expect(runPostGenerationChecks).not.toHaveBeenCalled();
     expect(triggerImageMaterialization).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
   });
 });

@@ -255,22 +255,33 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
   debugLog("build", "Stream summary", summary);
 
   const reasons: string[] = [];
+  const criticalReasons: string[] = [];
   if (!stats.didReceiveDone) {
     reasons.push("done_event_missing");
+    criticalReasons.push("done_event_missing");
   }
   if (stats.errorEvents > 0) {
-    reasons.push(stats.didReceiveDone ? "error_event_recovered" : "error_event_received");
+    if (stats.didReceiveDone) {
+      reasons.push("error_event_recovered");
+    } else {
+      reasons.push("error_event_received");
+      criticalReasons.push("error_event_received");
+    }
   }
   if (stats.contentEvents > 0 && stats.finalContentLength === 0) {
     reasons.push("content_empty_after_events");
+    criticalReasons.push("content_empty_after_events");
   }
   if (stats.thinkingEvents > 0 && stats.finalThinkingLength === 0) {
     reasons.push("thinking_empty_after_events");
+    criticalReasons.push("thinking_empty_after_events");
   }
 
-  const hasCriticalAnomaly = reasons.length > 0;
+  const hasCriticalAnomaly = criticalReasons.length > 0;
   if (hasCriticalAnomaly) {
-    warnLog("build", "Stream anomaly detected", { ...summary, reasons });
+    warnLog("build", "Stream anomaly detected", { ...summary, reasons, criticalReasons });
+  } else if (stats.errorEvents > 0) {
+    debugLog("build", "Stream recovered after error", { ...summary, reasons });
   }
   return { hasCriticalAnomaly, reasons };
 }
