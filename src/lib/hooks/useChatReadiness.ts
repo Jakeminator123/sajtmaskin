@@ -11,15 +11,27 @@ const fetcher = async (url: string) => {
   return res.json();
 };
 
-export function useChatReadiness(chatId: string | null, versionId: string | null) {
+type UseChatReadinessOptions = {
+  isGenerating?: boolean;
+  pauseWhileGenerating?: boolean;
+};
+
+export function useChatReadiness(
+  chatId: string | null,
+  versionId: string | null,
+  options: UseChatReadinessOptions = {},
+) {
+  const { isGenerating = false, pauseWhileGenerating = false } = options;
   const query = versionId ? `?versionId=${encodeURIComponent(versionId)}` : "";
+  const refreshInterval =
+    !versionId || (pauseWhileGenerating && isGenerating) ? 0 : 10000;
   const { data, error, isLoading, mutate } = useSWR(
     chatId ? `/api/v0/chats/${chatId}/readiness${query}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
-      refreshInterval: versionId ? 10000 : 0,
+      refreshInterval,
       dedupingInterval: 2000,
     },
   );

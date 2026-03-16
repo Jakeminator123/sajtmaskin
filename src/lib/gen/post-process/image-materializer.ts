@@ -83,6 +83,7 @@ function chooseOrientation(
 
 const FILLER_WORDS = new Set([
   "och", "i", "med", "som", "en", "ett", "den", "det", "av", "på", "för",
+  "pa", "for",
   "till", "från", "om", "att", "är", "var", "har", "kan", "ska", "vill",
   "the", "a", "an", "of", "in", "with", "and", "for", "on", "at", "from",
   "that", "is", "are", "was", "has", "very", "really", "also", "some",
@@ -133,11 +134,48 @@ const STYLE_WORDS = new Set([
 ]);
 
 const QUERY_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\bzelda\b/giu, "girl"],
+  [/\bblanka\b/giu, "girl"],
+  [/\b\d+\s*år\b/giu, "child"],
+  [/\b\d+\s*ar\b/giu, "child"],
   [/\bapor\b/giu, "monkeys"],
   [/\bapa\b/giu, "monkey"],
+  [/\bglad\b/giu, "happy"],
+  [/\bstolt\b/giu, "proud"],
+  [/\blekfull\b/giu, "playful"],
+  [/\bfargstark\b/giu, "colorful"],
+  [/\bfärgstark\b/giu, "colorful"],
+  [/\bsommarportratt\b/giu, "summer portrait"],
+  [/\bsommarporträtt\b/giu, "summer portrait"],
+  [/\bportratt\b/giu, "portrait"],
+  [/\bporträtt\b/giu, "portrait"],
+  [/\bsommarvarme\b/giu, "summer warmth"],
+  [/\bsommarvärme\b/giu, "summer warmth"],
+  [/\bfamiljekansla\b/giu, "family moment"],
+  [/\bfamiljekänsla\b/giu, "family moment"],
+  [/\butomhus\b/giu, "outdoor"],
+  [/\bskrattar\b/giu, "laughing"],
+  [/\bvardagsstund\b/giu, "everyday moment"],
   [/\bnärbild\b/giu, "close up"],
   [/\buttryck\b/giu, "expression"],
   [/\brörelse\b/giu, "movement"],
+  [/\brorelse\b/giu, "movement"],
+  [/\bfotboll\b/giu, "soccer"],
+  [/\bplan\b/giu, "field"],
+  [/\bsoligt\b/giu, "sunny"],
+  [/\bglatt\b/giu, "joyful"],
+  [/\bsommarkvall\b/giu, "summer evening"],
+  [/\bsommarkväll\b/giu, "summer evening"],
+  [/\bhamn\b/giu, "harbor"],
+  [/\bgyllene\b/giu, "golden"],
+  [/\bsolnedgang\b/giu, "sunset"],
+  [/\bsolnedgång\b/giu, "sunset"],
+  [/\bhavet\b/giu, "sea"],
+  [/\bvarmt ljus\b/giu, "warm light"],
+  [/\bnaturligt ljus\b/giu, "natural light"],
+  [/\bvarma farger\b/giu, "warm colors"],
+  [/\bvarma färger\b/giu, "warm colors"],
+  [/\bpalma\b/giu, "palma mallorca"],
   [/\bnaturmiljö\b/giu, "nature"],
   [/\bnaturlandskap\b/giu, "nature landscape"],
   [/\bmallorca-liknande\b/giu, "mallorca"],
@@ -160,6 +198,16 @@ const QUERY_REPLACEMENTS: Array<[RegExp, string]> = [
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function stripLeadingProperName(raw: string): string {
+  const words = raw.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 3) return raw;
+  const first = words[0] ?? "";
+  if (!/^[A-ZÅÄÖ][A-Za-zÅÄÖåäö-]+$/.test(first)) {
+    return raw;
+  }
+  return words.slice(1).join(" ");
 }
 
 function translateSearchQuery(raw: string): string {
@@ -204,36 +252,68 @@ function buildBroadFallbackQuery(raw: string): string | null {
   const hasAction = words.some((word) =>
     ["movement", "action", "running", "jumping", "motion"].includes(word),
   );
-  const hasMallorca = words.includes("mallorca") || words.includes("majorca");
+  const hasGirl = words.some((word) =>
+    ["girl", "child", "kid", "young"].includes(word),
+  );
+  const hasSoccer = words.some((word) =>
+    ["soccer", "football", "field", "goal"].includes(word),
+  );
+  const hasPiano = words.some((word) =>
+    ["piano", "music", "musician"].includes(word),
+  );
+  const hasSunset = words.some((word) =>
+    ["sunset", "golden", "harbor", "sea", "summer", "evening"].includes(word),
+  );
+  const hasMallorca = words.includes("mallorca") || words.includes("majorca") || words.includes("palma");
 
   if (hasMonkey && hasPortrait) return "monkey portrait";
   if (hasMonkey && hasAction) return "monkey in nature";
   if (hasMonkey && hasNature && hasMallorca) return "monkey mediterranean nature";
   if (hasMonkey && hasNature) return "monkey in nature";
   if (hasMonkey) return "monkey";
+  if (hasGirl && hasSoccer) return "girl playing soccer";
+  if (hasGirl && hasPortrait) return "happy child portrait";
+  if (hasGirl && hasAction) return "playful child outdoors";
+  if (hasPiano && words.includes("warm")) return "piano warm light";
+  if (hasPiano) return "piano music";
+  if (hasMallorca && hasSunset) return "mallorca sunset";
   if (hasMallorca && hasNature) return "mallorca coast nature";
+  if (hasSunset && (hasNature || hasMallorca)) return "mediterranean sunset";
   if (hasNature) return "nature landscape";
 
   return words.slice(0, 3).join(" ");
 }
 
 function buildSearchCandidates(raw: string): string[] {
+  const nameStrippedRaw = stripLeadingProperName(raw);
   const normalized = normalizeSearchQuery(raw);
+  const normalizedNameStripped =
+    nameStrippedRaw !== raw ? normalizeSearchQuery(nameStrippedRaw, 8) : "";
   const translated = normalizeSearchQuery(translateSearchQuery(raw), 8);
-  const strippedNormalized = stripStyleWords(normalized);
+  const translatedNameStripped =
+    nameStrippedRaw !== raw ? normalizeSearchQuery(translateSearchQuery(nameStrippedRaw), 8) : "";
   const strippedTranslated = stripStyleWords(translated);
+  const strippedTranslatedNameStripped = stripStyleWords(translatedNameStripped);
   const broadFallback = buildBroadFallbackQuery(
-    strippedTranslated || translated || strippedNormalized || normalized,
+    strippedTranslatedNameStripped ||
+      strippedTranslated ||
+      translatedNameStripped ||
+      translated ||
+      normalizedNameStripped ||
+      normalized,
   );
 
   return [
-    normalized,
+    translatedNameStripped,
+    strippedTranslatedNameStripped,
     translated,
-    strippedNormalized,
     strippedTranslated,
-    normalized ? shortenQuery(normalized, 4) : "",
+    normalizedNameStripped,
+    normalized,
+    translatedNameStripped ? shortenQuery(translatedNameStripped, 4) : "",
     translated ? shortenQuery(translated, 4) : "",
-    strippedTranslated ? shortenQuery(strippedTranslated, 3) : "",
+    normalizedNameStripped ? shortenQuery(normalizedNameStripped, 4) : "",
+    normalized ? shortenQuery(normalized, 4) : "",
     broadFallback ?? "",
   ]
     .map((candidate) => normalizeWhitespace(candidate))

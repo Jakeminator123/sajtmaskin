@@ -923,6 +923,8 @@ export async function handleMessageStreamRequest(
             let sseBuffer = "";
             let accumulatedContent = "";
             let didSendDone = false;
+            let fallbackVerificationSummary =
+              "Återställd ofullständig version efter streamavbrott. Automatisk verifiering hoppades över.";
             const toolSignaledProviders = new Set<string>();
             const toolCallNames = new Set<string>();
             let sawBlockingToolCall = false;
@@ -1274,6 +1276,8 @@ export async function handleMessageStreamRequest(
                         typeof (evt.data as Record<string, unknown>)?.message === "string"
                           ? (evt.data as Record<string, string>).message
                           : "Engine generation failed";
+                      fallbackVerificationSummary =
+                        `Återställd ofullständig version efter streamfel: ${msg}`;
                       safeEnqueue(
                         enc.encode(formatSSEEvent("error", { message: msg })),
                       );
@@ -1284,6 +1288,10 @@ export async function handleMessageStreamRequest(
               }
             } catch (error) {
               console.error("Engine streaming error:", error);
+              fallbackVerificationSummary =
+                `Återställd ofullständig version efter streamfel: ${
+                  error instanceof Error ? error.message : "Engine streaming failed"
+                }`;
               safeEnqueue(
                 enc.encode(
                   formatSSEEvent("error", {
@@ -1419,6 +1427,12 @@ export async function handleMessageStreamRequest(
                     });
 
                     if (fallbackFinalized) {
+                      await chatRepo
+                        .failVersionVerification(
+                          fallbackFinalized.version.id,
+                          fallbackVerificationSummary,
+                        )
+                        .catch(() => null);
                       didSendDone = true;
 
                       const fbIntegrations = getUnsignaledDetectedIntegrations(

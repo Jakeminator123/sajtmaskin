@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  failVersionVerification,
   getLatestVersion,
   getPreferredVersion,
 } from "@/lib/db/chat-repository-pg";
@@ -24,8 +25,29 @@ import {
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
 
+const STALE_VERIFICATION_TIMEOUT_MS = 5 * 60 * 1000;
+
 function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim().toUpperCase()).filter(Boolean)));
+}
+
+function isTimedOutVerificationState(
+  verificationState: string | null | undefined,
+  createdAt: string | Date | null | undefined,
+): boolean {
+  if (verificationState !== "pending" && verificationState !== "verifying") {
+    return false;
+  }
+  if (!createdAt) {
+    return false;
+  }
+
+  const createdAtMs = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
+  if (!Number.isFinite(createdAtMs)) {
+    return false;
+  }
+
+  return Date.now() - createdAtMs > STALE_VERIFICATION_TIMEOUT_MS;
 }
 
 function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
@@ -129,13 +151,23 @@ async function buildEngineReadiness(
   const requestedVersion = requestedVersionId
     ? await getEngineVersionForChatByIdForRequest(request, chatId, requestedVersionId)
     : null;
-  const version =
+  let version =
     requestedVersion?.version ??
     (await getPreferredVersion(chat.id)) ??
     (await getLatestVersion(chat.id));
 
   if (!version || version.chat_id !== chat.id) {
     return buildNoVersionReadiness();
+  }
+
+  if (isTimedOutVerificationState(version.verification_state, version.created_at)) {
+    const timedOutVersion = await failVersionVerification(
+      version.id,
+      "Automatisk verifiering tog för lång tid. Starta en ny förfining eller försök igen.",
+    ).catch(() => null);
+    if (timedOutVersion) {
+      version = timedOutVersion;
+    }
   }
 
   const blockers: ChatReadinessItem[] = [];

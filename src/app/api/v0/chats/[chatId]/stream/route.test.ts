@@ -5,6 +5,7 @@ const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const updateChatProjectId = vi.hoisted(() => vi.fn());
+const failVersionVerification = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
 
 vi.mock("next/server", async () => {
@@ -212,6 +213,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   addMessage: vi.fn(),
   createChat: vi.fn(),
   updateChatScaffoldId: vi.fn(),
+  failVersionVerification,
 }));
 
 vi.mock("@/lib/gen/context", () => ({
@@ -254,6 +256,7 @@ async function readSseEvents(response: Response) {
 describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    failVersionVerification.mockResolvedValue(null);
 
     sendMessageSchemaSafeParse.mockImplementation((body: Record<string, unknown>) => ({
       success: true,

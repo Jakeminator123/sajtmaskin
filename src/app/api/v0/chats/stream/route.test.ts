@@ -8,6 +8,7 @@ const createGenerationPipeline = vi.hoisted(() => vi.fn());
 const prepareGenerationContext = vi.hoisted(() => vi.fn());
 const createChat = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
+const failVersionVerification = vi.hoisted(() => vi.fn());
 const createPromptLog = vi.hoisted(() => vi.fn());
 const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
 const getUnsignaledDetectedIntegrations = vi.hoisted(() => vi.fn());
@@ -227,6 +228,7 @@ vi.mock("@/lib/gen/route-helpers", () => {
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat,
   addMessage,
+  failVersionVerification,
 }));
 
 vi.mock("@/lib/gen/stream/finalize-version", () => ({
@@ -289,6 +291,7 @@ async function readSseEvents(response: Response) {
 describe("POST /api/v0/chats/stream own-engine route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    failVersionVerification.mockResolvedValue(null);
 
     createChatSchemaSafeParse.mockImplementation((body: Record<string, unknown>) => ({
       success: true,
@@ -322,6 +325,17 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         label: "Marketing",
       },
       capabilities: { layout: true },
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          databaseProvider: null,
+          authProvider: null,
+          paymentProvider: null,
+          integrations: [],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+      },
       engineSystemPrompt: "SYSTEM",
       v0EnrichmentContext: "V0",
     });

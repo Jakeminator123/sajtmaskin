@@ -111,6 +111,10 @@ export function useBuilderPageController() {
   const { readiness: deployReadiness, isLoading: isDeployReadinessLoading } = useChatReadiness(
     state.chatId,
     derived.activeVersionId,
+    {
+      isGenerating: isAnyStreamingEarly,
+      pauseWhileGenerating: true,
+    },
   );
 
   // ── CSS validation ───────────────────────────────────────────────────
