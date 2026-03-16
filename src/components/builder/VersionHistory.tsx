@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { VersionDiagnosticsDialog } from "@/components/builder/VersionDiagnosticsDialog";
+import { VersionCompareDialog } from "@/components/builder/VersionCompareDialog";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -55,6 +56,13 @@ type GitHubExportResponse = {
 };
 
 type PinVersionResponse = {
+  error?: string;
+};
+
+type RestoreVersionResponse = {
+  success?: boolean;
+  versionId?: string | null;
+  demoUrl?: string | null;
   error?: string;
 };
 
@@ -92,6 +100,8 @@ export function VersionHistory({
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
   const [pinningVersionId, setPinningVersionId] = useState<string | null>(null);
   const [diagnosticsVersionId, setDiagnosticsVersionId] = useState<string | null>(null);
+  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
   const [returnTo, setReturnTo] = useState("/projects");
   const [syncingElapsed, setSyncingElapsed] = useState(false);
   const [showLocalTimes, setShowLocalTimes] = useState(false);
@@ -263,6 +273,37 @@ export function VersionHistory({
     }
   };
 
+  const handleRestore = async (e: React.MouseEvent, version: VersionSummary) => {
+    e.stopPropagation();
+    if (!chatId) return;
+    const versionId = version.id || version.versionId || null;
+    if (!versionId) return;
+    const rollbackMode =
+      version.releaseState === "promoted" || version.verificationState === "passed";
+    setRestoringVersionId(versionId);
+    try {
+      const res = await fetch(`/api/v0/chats/${chatId}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: rollbackMode ? "rollback" : "restore", versionId }),
+      });
+      const data = (await res.json().catch(() => null)) as RestoreVersionResponse | null;
+      if (!res.ok) {
+        throw new Error(data?.error || `Restore failed (HTTP ${res.status})`);
+      }
+      if (data?.versionId) {
+        onVersionSelect(String(data.versionId));
+      }
+      toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version restored som ny draftversion");
+      mutate();
+    } catch (error) {
+      console.error("Restore error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to restore version");
+    } finally {
+      setRestoringVersionId(null);
+    }
+  };
+
   const canToggleCollapse = typeof onToggleCollapse === "function";
 
   if (isCollapsed) {
@@ -401,9 +442,14 @@ export function VersionHistory({
             const isExporting = exportingVersionId === internalVersionId;
             const isExportingGitHub = exportingGitHubVersionId === internalVersionId;
             const isPinning = pinningVersionId === internalVersionId;
+            const isRestoring = restoringVersionId === internalVersionId;
             const isSelected = selectedVersionId === selectableVersionId;
             const isPinned = Boolean(version.pinned);
             const canPin = version.canPin !== false;
+            const canRestore = canPin === false;
+            const canRollback =
+              canRestore &&
+              (version.releaseState === "promoted" || version.verificationState === "passed");
             const lifecycleStatus = resolveEngineVersionDisplayStatus(
               {
                 versionId: version.versionId,
@@ -559,6 +605,37 @@ export function VersionHistory({
                     )}
                     <Button
                       variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (internalVersionId) setCompareVersionId(internalVersionId);
+                      }}
+                      title="Jämför med föregående version"
+                      aria-label="Jämför med föregående version"
+                      className="h-7 px-2 text-xs"
+                    >
+                      Compare
+                    </Button>
+                    {canRestore && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleRestore(e, version)}
+                        disabled={isRestoring}
+                        title={canRollback ? "Rollback som ny draftversion" : "Återställ som ny draftversion"}
+                        aria-label={canRollback ? "Rollback som ny draftversion" : "Återställ som ny draftversion"}
+                        className="h-7 px-2 text-xs"
+                      >
+                        {isRestoring ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <RotateCcw className="mr-1 h-3 w-3" />
+                        )}
+                        {canRollback ? "Rollback" : "Restore"}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
                       size="icon-sm"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -645,6 +722,15 @@ export function VersionHistory({
         open={Boolean(diagnosticsVersionId)}
         onOpenChange={(open) => {
           if (!open) setDiagnosticsVersionId(null);
+        }}
+      />
+      <VersionCompareDialog
+        chatId={chatId}
+        versionId={compareVersionId}
+        versions={versionList}
+        open={Boolean(compareVersionId)}
+        onOpenChange={(open) => {
+          if (!open) setCompareVersionId(null);
         }}
       />
     </div>

@@ -133,6 +133,47 @@ const PROVIDER_RULES: ProviderRule[] = [
     patterns: [/\bupstash\b|\bredis\b/i],
     reason: "Prompten nämner Redis eller Upstash uttryckligen.",
   },
+  {
+    kind: "integration",
+    provider: "Google Analytics 4",
+    name: "Google Analytics 4",
+    envVars: ["NEXT_PUBLIC_GA_ID"],
+    patterns: [/\bgoogle analytics\b|\bga4\b|\bgtag\b/i],
+    reason: "Prompten nämner Google Analytics / GA4 uttryckligen.",
+  },
+  {
+    kind: "integration",
+    provider: "Google Tag Manager",
+    name: "Google Tag Manager",
+    envVars: ["NEXT_PUBLIC_GTM_ID"],
+    patterns: [/\bgoogle tag manager\b|\bgtm\b|\btag manager\b/i],
+    reason: "Prompten nämner tag manager / GTM uttryckligen.",
+  },
+  {
+    kind: "integration",
+    provider: "Plausible",
+    name: "Plausible",
+    envVars: ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
+    patterns: [/\bplausible\b/i],
+    reason: "Prompten nämner Plausible uttryckligen.",
+  },
+  {
+    kind: "integration",
+    provider: "PostHog",
+    name: "PostHog",
+    envVars: ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST"],
+    patterns: [/\bposthog\b/i],
+    reason: "Prompten nämner PostHog uttryckligen.",
+  },
+  {
+    kind: "integration",
+    provider: "Vercel Analytics",
+    name: "Vercel Analytics",
+    envVars: [],
+    patterns: [/\bvercel analytics\b/i],
+    status: "optional",
+    reason: "Prompten nämner Vercel Analytics som möjlig tracking-baseline.",
+  },
 ];
 
 function asString(value: unknown): string {

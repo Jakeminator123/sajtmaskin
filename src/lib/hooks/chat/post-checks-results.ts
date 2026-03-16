@@ -10,7 +10,7 @@ import {
   getPreviewUnavailableQualityGateFailure,
 } from "./post-checks-preview";
 import type { FileDiff } from "./post-checks-diff";
-import type { SeoReview, SuspiciousUseCall } from "./post-checks-analysis";
+import type { AnalyticsReview, SeoReview, SuspiciousUseCall } from "./post-checks-analysis";
 import type {
   DesignTokenSummary,
   StreamQualitySignal,
@@ -77,6 +77,16 @@ export interface PostCheckArtifacts {
       passed: boolean;
       failures: string[];
     };
+    analyticsReview: AnalyticsReview;
+    analyticsSummary: {
+      passed: boolean;
+      issueCount: number;
+      topIssues: string[];
+      trackerDetected: boolean;
+      trackerProviders: string[];
+      conversionSurfaceCount: number;
+      conversionEventCount: number;
+    };
     seoReview: SeoReview;
     seoSummary: {
       passed: boolean;
@@ -106,6 +116,18 @@ function summarizeSeoSignals(seoReview: SeoReview) {
   };
 }
 
+function summarizeAnalyticsSignals(analyticsReview: AnalyticsReview) {
+  return {
+    passed: analyticsReview.passed,
+    issueCount: analyticsReview.issues.length,
+    topIssues: analyticsReview.issues.slice(0, 4).map((issue) => issue.message),
+    trackerDetected: analyticsReview.signals.trackerDetected,
+    trackerProviders: analyticsReview.signals.trackerProviders,
+    conversionSurfaceCount: analyticsReview.signals.conversionSurfaceCount,
+    conversionEventCount: analyticsReview.signals.conversionEventCount,
+  };
+}
+
 export function buildPostCheckArtifacts(params: {
   currentFileCount: number;
   versionId: string;
@@ -120,6 +142,7 @@ export function buildPostCheckArtifacts(params: {
   suspiciousUseCalls: SuspiciousUseCall[];
   designTokens: DesignTokenSummary | null;
   seoReview: SeoReview;
+  analyticsReview: AnalyticsReview;
   sanityIssues: SanityIssue[];
   sanityErrors: SanityIssue[];
   sanityWarnings: SanityIssue[];
@@ -140,6 +163,7 @@ export function buildPostCheckArtifacts(params: {
     suspiciousUseCalls,
     designTokens,
     seoReview,
+    analyticsReview,
     sanityIssues,
     sanityErrors,
     sanityWarnings,
@@ -193,6 +217,14 @@ export function buildPostCheckArtifacts(params: {
     steps.push(
       ...seoReview.issues
         .slice(0, 6)
+        .map((issue) => (issue.file ? `${issue.message} (${issue.file})` : issue.message)),
+    );
+  }
+  if (!analyticsReview.passed) {
+    steps.push(`Analytics: ${analyticsReview.issues.length} tracking-varning(ar) hittades.`);
+    steps.push(
+      ...analyticsReview.issues
+        .slice(0, 4)
         .map((issue) => (issue.file ? `${issue.message} (${issue.file})` : issue.message)),
     );
   }
@@ -347,6 +379,8 @@ export function buildPostCheckArtifacts(params: {
       passed: qualityGatePassed,
       failures: qualityGateFailures,
     },
+    analyticsReview,
+    analyticsSummary: summarizeAnalyticsSignals(analyticsReview),
     seoReview,
     seoSummary: summarizeSeoSignals(seoReview),
     regressionMatrix,
@@ -408,6 +442,17 @@ export function buildPostCheckArtifacts(params: {
       meta: {
         issues: seoReview.issues,
         signals: seoReview.signals,
+      },
+    });
+  }
+  if (!analyticsReview.passed) {
+    logItems.push({
+      level: "warning",
+      category: "analytics",
+      message: `Analytics review hittade ${analyticsReview.issues.length} varning(ar).`,
+      meta: {
+        issues: analyticsReview.issues,
+        signals: analyticsReview.signals,
       },
     });
   }

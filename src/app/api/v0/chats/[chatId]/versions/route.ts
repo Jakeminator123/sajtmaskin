@@ -9,7 +9,7 @@ import {
   getProjectByIdForRequest,
 } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
-import { getVersionsByChat } from "@/lib/db/chat-repository-pg";
+import { addMessage, createDraftVersion, getVersionsByChat } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 
@@ -231,6 +231,61 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ chatId: strin
     await db.update(versions).set({ pinned, pinnedAt }).where(eq(versions.id, existing[0].id));
 
     return NextResponse.json({ success: true, pinned, pinnedAt });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  try {
+    const { chatId } = await ctx.params;
+    const body = await req.json().catch(() => ({}));
+    const action = typeof body?.action === "string" ? body.action : "";
+    const versionId = typeof body?.versionId === "string" ? body.versionId : "";
+
+    if ((action !== "restore" && action !== "rollback") || !versionId) {
+      return NextResponse.json({ error: "action=restore|rollback and versionId are required" }, { status: 400 });
+    }
+
+    if (!shouldUseV0Fallback()) {
+      const engineChat = await getEngineChatByIdForRequest(req, chatId);
+      if (!engineChat) {
+        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+      }
+      const existingVersions = await getVersionsByChat(engineChat.id);
+      const versionToRestore = existingVersions.find((entry) => entry.id === versionId) ?? null;
+      if (!versionToRestore) {
+        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+      }
+
+      const assistantMessage = await addMessage(
+        engineChat.id,
+        "assistant",
+        action === "rollback"
+          ? `Rolled back to snapshot from version ${versionToRestore.version_number}.`
+          : `Restored snapshot from version ${versionToRestore.version_number}.`,
+      );
+      const restoredVersion = await createDraftVersion(
+        engineChat.id,
+        assistantMessage.id,
+        versionToRestore.files_json,
+      );
+      return NextResponse.json({
+        success: true,
+        versionId: restoredVersion.id,
+        demoUrl: canExposeEnginePreview(restoredVersion)
+          ? buildPreviewUrl(engineChat.id, restoredVersion.id)
+          : null,
+      });
+    }
+
+    return NextResponse.json(
+      { error: "Restore is not supported for v0 fallback versions yet." },
+      { status: 409 },
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },

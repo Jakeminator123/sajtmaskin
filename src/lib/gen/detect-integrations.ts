@@ -111,6 +111,41 @@ const KNOWN_INTEGRATIONS: KnownIntegration[] = [
     envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
     setupGuide: "Skapa OAuth-klient i Google Cloud Console > APIs & Services > Credentials.",
   },
+  {
+    pattern: /(?:gtag\(|google-analytics|GA_MEASUREMENT_ID|NEXT_PUBLIC_GA_ID)/i,
+    name: "Google Analytics 4",
+    provider: "google-analytics",
+    envVars: ["NEXT_PUBLIC_GA_ID"],
+    setupGuide: "Skapa en GA4 property i Google Analytics och sätt measurement ID som NEXT_PUBLIC_GA_ID.",
+  },
+  {
+    pattern: /(?:googletagmanager|dataLayer|NEXT_PUBLIC_GTM_ID|GTM-[A-Z0-9]+)/i,
+    name: "Google Tag Manager",
+    provider: "gtm",
+    envVars: ["NEXT_PUBLIC_GTM_ID"],
+    setupGuide: "Skapa en GTM-container och sätt container-ID som NEXT_PUBLIC_GTM_ID.",
+  },
+  {
+    pattern: /(?:@vercel\/analytics|<Analytics\b|from\s+["']@vercel\/analytics)/i,
+    name: "Vercel Analytics",
+    provider: "vercel-analytics",
+    envVars: [],
+    setupGuide: "Aktivera Vercel Analytics i projektet och behåll Analytics-komponenten i layouten.",
+  },
+  {
+    pattern: /(?:plausible|NEXT_PUBLIC_PLAUSIBLE_DOMAIN)/i,
+    name: "Plausible",
+    provider: "plausible",
+    envVars: ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
+    setupGuide: "Skapa sajt i Plausible och sätt domänen som NEXT_PUBLIC_PLAUSIBLE_DOMAIN.",
+  },
+  {
+    pattern: /(?:posthog|NEXT_PUBLIC_POSTHOG_KEY|NEXT_PUBLIC_POSTHOG_HOST)/i,
+    name: "PostHog",
+    provider: "posthog",
+    envVars: ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST"],
+    setupGuide: "Skapa project i PostHog och sätt API key + host i NEXT_PUBLIC_POSTHOG_KEY och NEXT_PUBLIC_POSTHOG_HOST.",
+  },
 ];
 
 const WELL_KNOWN_PUBLIC_VARS = new Set([

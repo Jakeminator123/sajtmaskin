@@ -158,6 +158,7 @@ export async function runPostGenerationChecks(params: {
       suspiciousUseCalls: baseline.suspiciousUseCalls,
       designTokens: baseline.designTokens,
       seoReview: baseline.seoReview,
+      analyticsReview: baseline.analyticsReview,
       sanityIssues: baseline.sanityIssues,
       sanityErrors: baseline.sanityErrors,
       sanityWarnings: baseline.sanityWarnings,

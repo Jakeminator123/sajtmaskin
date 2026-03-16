@@ -54,6 +54,26 @@ export type SeoReview = {
   };
 };
 
+export type AnalyticsIssue = {
+  severity: "warning" | "error";
+  code:
+    | "missing-analytics-tracker"
+    | "missing-conversion-events";
+  message: string;
+  file?: string | null;
+};
+
+export type AnalyticsReview = {
+  passed: boolean;
+  issues: AnalyticsIssue[];
+  signals: {
+    trackerDetected: boolean;
+    trackerProviders: string[];
+    conversionSurfaceCount: number;
+    conversionEventCount: number;
+  };
+};
+
 export type PostCheckBaseline = {
   previousVersionId: string | null;
   changes: FileDiff | null;
@@ -64,6 +84,7 @@ export type PostCheckBaseline = {
   suspiciousUseCalls: SuspiciousUseCall[];
   designTokens: DesignTokenSummary | null;
   seoReview: SeoReview;
+  analyticsReview: AnalyticsReview;
   sanity: SanityResult;
   sanityIssues: SanityIssue[];
   sanityErrors: SanityIssue[];
@@ -389,6 +410,76 @@ export function buildSeoReview(files: FileEntry[]): SeoReview {
   };
 }
 
+function detectAnalyticsSignals(files: FileEntry[]) {
+  const combined = files.map((file) => file.content ?? "").join("\n\n");
+  const trackerProviders = [
+    { label: "Vercel Analytics", match: /@vercel\/analytics|<Analytics\b|from\s+["']@vercel\/analytics/i },
+    { label: "Google Analytics", match: /\bgtag\(|google-analytics|GA_MEASUREMENT_ID|NEXT_PUBLIC_GA_ID/i },
+    { label: "Google Tag Manager", match: /googletagmanager|dataLayer\.push|NEXT_PUBLIC_GTM_ID|GTM-[A-Z0-9]+/i },
+    { label: "Plausible", match: /\bplausible\b|NEXT_PUBLIC_PLAUSIBLE_DOMAIN/i },
+    { label: "PostHog", match: /\bposthog\b|NEXT_PUBLIC_POSTHOG_KEY|NEXT_PUBLIC_POSTHOG_HOST/i },
+    { label: "Mixpanel", match: /\bmixpanel\b|mixpanel\.track/i },
+    { label: "Fathom", match: /\bfathom\b|trackGoal|trackEvent/i },
+  ]
+    .filter((provider) => provider.match.test(combined))
+    .map((provider) => provider.label);
+
+  const conversionSurfaceCount = files.reduce((count, file) => {
+    const content = file.content ?? "";
+    const formHits = (content.match(/<form\b|onSubmit=|type=["']submit["']/gi) || []).length;
+    const ctaHits = (content.match(/mailto:|tel:|book now|boka nu|quote request|request quote|checkout|subscribe/gi) || []).length;
+    return count + formHits + ctaHits;
+  }, 0);
+
+  const conversionEventCount = files.reduce((count, file) => {
+    const content = file.content ?? "";
+    const eventHits =
+      (content.match(/gtag\(\s*["']event["']/gi) || []).length +
+      (content.match(/dataLayer\.push\(\s*\{/gi) || []).length +
+      (content.match(/plausible\(\s*["']/gi) || []).length +
+      (content.match(/posthog\.capture\(/gi) || []).length +
+      (content.match(/mixpanel\.track\(/gi) || []).length +
+      (content.match(/trackGoal\(|trackEvent\(/gi) || []).length;
+    return count + eventHits;
+  }, 0);
+
+  return {
+    trackerDetected: trackerProviders.length > 0,
+    trackerProviders,
+    conversionSurfaceCount,
+    conversionEventCount,
+  };
+}
+
+export function buildAnalyticsReview(files: FileEntry[]): AnalyticsReview {
+  const signals = detectAnalyticsSignals(files);
+  const issues: AnalyticsIssue[] = [];
+
+  if (signals.conversionSurfaceCount > 0 && !signals.trackerDetected) {
+    issues.push({
+      severity: "warning",
+      code: "missing-analytics-tracker",
+      message: "Sidan verkar ha CTA-/formulärflöden men ingen analytics-tracker hittades.",
+      file: null,
+    });
+  }
+
+  if (signals.conversionSurfaceCount > 0 && signals.trackerDetected && signals.conversionEventCount === 0) {
+    issues.push({
+      severity: "warning",
+      code: "missing-conversion-events",
+      message: "Tracker finns, men inga tydliga konverteringsevents hittades för CTA-/formulärflöden.",
+      file: null,
+    });
+  }
+
+  return {
+    passed: issues.length === 0,
+    issues,
+    signals,
+  };
+}
+
 export function buildPostCheckBaseline(params: {
   currentFiles: FileEntry[];
   previousFiles: FileEntry[];
@@ -418,6 +509,7 @@ export function buildPostCheckBaseline(params: {
   const missingPlannedRoutes = findMissingPlannedRoutes(preflight?.routePlan, routePaths);
   const lucideLinkMisuse = findLucideLinkMisuse(currentFiles);
   const seoReview = buildSeoReview(currentFiles);
+  const analyticsReview = buildAnalyticsReview(currentFiles);
   const sanity = runProjectSanityChecks(
     currentFiles.map((file) => ({
       path: file.name,
@@ -458,6 +550,14 @@ export function buildPostCheckBaseline(params: {
     const suffix = seoReview.issues.length > 4 ? " …" : "";
     warnings.push(`SEO: ${preview}${suffix}`);
   }
+  if (!analyticsReview.passed) {
+    const preview = analyticsReview.issues
+      .slice(0, 3)
+      .map((issue) => issue.message)
+      .join(" | ");
+    const suffix = analyticsReview.issues.length > 3 ? " …" : "";
+    warnings.push(`Analytics: ${preview}${suffix}`);
+  }
 
   const versionEntry = versions.find(
     (entry) => entry.versionId === versionId || entry.id === versionId,
@@ -480,6 +580,7 @@ export function buildPostCheckBaseline(params: {
     suspiciousUseCalls,
     designTokens,
     seoReview,
+    analyticsReview,
     sanity,
     sanityIssues,
     sanityErrors,

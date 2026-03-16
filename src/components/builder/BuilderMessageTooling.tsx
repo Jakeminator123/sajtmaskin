@@ -94,6 +94,16 @@ type SeoReviewSummary = {
   homeH1Count: number | null;
 };
 
+type AnalyticsReviewSummary = {
+  passed: boolean;
+  issueCount: number;
+  topIssues: string[];
+  trackerDetected: boolean;
+  trackerProviders: string[];
+  conversionSurfaceCount: number;
+  conversionEventCount: number;
+};
+
 type QualityGateCheckInfo = {
   check: string;
   passed: boolean;
@@ -173,6 +183,8 @@ export function StructuredToolParts({
           toolType === "tool-post-check" ? getPostCheckSummary(tool.output) : null;
         const seoReviewSummary =
           toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
+        const analyticsReviewSummary =
+          toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
         const toolHasData = hasToolData(tool as ToolUIPart);
@@ -287,6 +299,35 @@ export function StructuredToolParts({
                   </div>
                 </div>
               ) : null}
+              {analyticsReviewSummary ? (
+                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
+                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
+                    Analytics review
+                  </div>
+                  <div className="space-y-1 text-muted-foreground">
+                    <div className={analyticsReviewSummary.passed ? "text-emerald-300" : "text-amber-300"}>
+                      {analyticsReviewSummary.passed
+                        ? "Tracking-baseline ser rimlig ut."
+                        : `${analyticsReviewSummary.issueCount} tracking-varning(ar) hittades.`}
+                    </div>
+                    <div>Tracker hittad: {analyticsReviewSummary.trackerDetected ? "ja" : "nej"}</div>
+                    {analyticsReviewSummary.trackerProviders.length > 0 ? (
+                      <div>Providers: {analyticsReviewSummary.trackerProviders.join(", ")}</div>
+                    ) : null}
+                    <div>
+                      Konverteringsytor: {analyticsReviewSummary.conversionSurfaceCount} • events:{" "}
+                      {analyticsReviewSummary.conversionEventCount}
+                    </div>
+                    {analyticsReviewSummary.topIssues.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {analyticsReviewSummary.topIssues.slice(0, 3).map((issue) => (
+                          <li key={issue}>- {issue}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               {qualityGateSummary && (
                 <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
                   <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
@@ -393,6 +434,8 @@ export function CompactToolParts({
         const integrationCard = getIntegrationCardData(tool);
         const seoReviewSummary =
           toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
+        const analyticsReviewSummary =
+          toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
         const replyPrompt = getActionPrompt(tool, toolState);
         const requiresUserReply = toolState === "approval-requested" || Boolean(replyPrompt);
         const canQuickReply =
@@ -508,6 +551,24 @@ export function CompactToolParts({
                     {seoReviewSummary.topIssues.length > 0 ? (
                       <p className="text-muted-foreground mt-1">
                         {seoReviewSummary.topIssues[0]}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {analyticsReviewSummary ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className={analyticsReviewSummary.passed ? "text-emerald-300" : "text-amber-300"}>
+                      {analyticsReviewSummary.passed
+                        ? "Analytics-baseline OK"
+                        : `${analyticsReviewSummary.issueCount} analytics-varning(ar)`}
+                    </p>
+                    <p className="text-muted-foreground mt-1">
+                      Tracker: {analyticsReviewSummary.trackerDetected ? "ja" : "nej"} • events:{" "}
+                      {analyticsReviewSummary.conversionEventCount}
+                    </p>
+                    {analyticsReviewSummary.topIssues.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        {analyticsReviewSummary.topIssues[0]}
                       </p>
                     ) : null}
                   </div>
@@ -1255,6 +1316,38 @@ function getSeoReviewSummary(output: unknown): SeoReviewSummary | null {
       typeof summary.homeH1Count === "number" && Number.isFinite(summary.homeH1Count)
         ? summary.homeH1Count
         : null,
+  };
+}
+
+function getAnalyticsReviewSummary(output: unknown): AnalyticsReviewSummary | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  const summary =
+    obj.analyticsSummary && typeof obj.analyticsSummary === "object"
+      ? (obj.analyticsSummary as Record<string, unknown>)
+      : null;
+  if (!summary) return null;
+  return {
+    passed: Boolean(summary.passed),
+    issueCount:
+      typeof summary.issueCount === "number" && Number.isFinite(summary.issueCount)
+        ? summary.issueCount
+        : 0,
+    topIssues: Array.isArray(summary.topIssues)
+      ? summary.topIssues.map((issue) => String(issue)).filter(Boolean)
+      : [],
+    trackerDetected: Boolean(summary.trackerDetected),
+    trackerProviders: Array.isArray(summary.trackerProviders)
+      ? summary.trackerProviders.map((provider) => String(provider)).filter(Boolean)
+      : [],
+    conversionSurfaceCount:
+      typeof summary.conversionSurfaceCount === "number" && Number.isFinite(summary.conversionSurfaceCount)
+        ? summary.conversionSurfaceCount
+        : 0,
+    conversionEventCount:
+      typeof summary.conversionEventCount === "number" && Number.isFinite(summary.conversionEventCount)
+        ? summary.conversionEventCount
+        : 0,
   };
 }
 

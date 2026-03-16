@@ -17,7 +17,10 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { detectBusinessWorkflowPacks, type BusinessWorkflowPack } from "@/lib/gen/business-packs";
 import { detectIntegrations, type DetectedIntegration } from "@/lib/gen/detect-integrations";
+import { buildAnalyticsReview, type AnalyticsReview } from "@/lib/hooks/chat/post-checks-analysis";
+import type { FileEntry } from "@/lib/hooks/chat/types";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -128,6 +131,21 @@ type SiteIntegrationItem = DetectedIntegration & {
   isConfigured: boolean;
 };
 
+type BusinessPackItem = BusinessWorkflowPack & {
+  configuredEnvVars: string[];
+  missingEnvVars: string[];
+  statusLabel: string;
+  isConfigured: boolean;
+};
+
+const TRACKING_PROVIDER_KEYS = new Set([
+  "google-analytics",
+  "gtm",
+  "plausible",
+  "posthog",
+  "vercel-analytics",
+]);
+
 const SYNTHETIC_V0_PROJECT_PREFIXES = ["chat:", "registry:"];
 function isSyntheticV0ProjectId(id: string): boolean {
   return SYNTHETIC_V0_PROJECT_PREFIXES.some((prefix) => id.startsWith(prefix));
@@ -177,6 +195,8 @@ export function ProjectEnvVarsPanel({
   const [isStartingInstall, setIsStartingInstall] = useState(false);
   const [mcpPriorities, setMcpPriorities] = useState<McpPriorityItem[]>([]);
   const [detectedIntegrations, setDetectedIntegrations] = useState<DetectedIntegration[]>([]);
+  const [businessPacks, setBusinessPacks] = useState<BusinessWorkflowPack[]>([]);
+  const [analyticsReview, setAnalyticsReview] = useState<AnalyticsReview | null>(null);
   const [isLoadingDetectedIntegrations, setIsLoadingDetectedIntegrations] = useState(false);
   const [detectedIntegrationsError, setDetectedIntegrationsError] = useState<string | null>(null);
 
@@ -314,6 +334,8 @@ export function ProjectEnvVarsPanel({
   const loadDetectedIntegrations = useCallback(async () => {
     if (!chatId || !activeVersionId) {
       setDetectedIntegrations([]);
+      setBusinessPacks([]);
+      setAnalyticsReview(null);
       setDetectedIntegrationsError(null);
       setIsLoadingDetectedIntegrations(false);
       return;
@@ -327,17 +349,29 @@ export function ProjectEnvVarsPanel({
       const data = (await response.json().catch(() => null)) as VersionFilesResponse | null;
       if (!response.ok) {
         setDetectedIntegrations([]);
+        setBusinessPacks([]);
+        setAnalyticsReview(null);
         setDetectedIntegrationsError(data?.error || "Kunde inte analysera aktiv version");
         return;
       }
       const files = Array.isArray(data?.files) ? data.files : [];
+      const fileEntries: FileEntry[] = files
+        .filter((file) => typeof file?.name === "string" && typeof file?.content === "string")
+        .map((file) => ({
+          name: file.name,
+          content: file.content,
+        }));
       const combinedSource = files
         .filter((file) => typeof file?.name === "string" && typeof file?.content === "string")
         .map((file) => `// File: ${file.name}\n${file.content}`)
         .join("\n\n");
       setDetectedIntegrations(combinedSource ? detectIntegrations(combinedSource) : []);
+      setBusinessPacks(combinedSource ? detectBusinessWorkflowPacks(combinedSource) : []);
+      setAnalyticsReview(fileEntries.length > 0 ? buildAnalyticsReview(fileEntries) : null);
     } catch (loadError) {
       setDetectedIntegrations([]);
+      setBusinessPacks([]);
+      setAnalyticsReview(null);
       setDetectedIntegrationsError(
         loadError instanceof Error ? loadError.message : "Kunde inte analysera aktiv version",
       );
@@ -535,10 +569,54 @@ export function ProjectEnvVarsPanel({
       };
     });
   }, [configuredEnvKeys, detectedIntegrations, effectiveEnvProjectId, isLoading, syntheticProject]);
-  const likelyRequiredEnvKeys = useMemo(
-    () => dedupeStrings(siteIntegrations.flatMap((integration) => integration.envVars)),
+  const trackerIntegrations = useMemo(
+    () => siteIntegrations.filter((integration) => TRACKING_PROVIDER_KEYS.has(integration.key)),
     [siteIntegrations],
   );
+  const likelyRequiredEnvKeys = useMemo(
+    () =>
+      dedupeStrings([
+        ...siteIntegrations.flatMap((integration) => integration.envVars),
+        ...businessPacks.flatMap((pack) => pack.envVars),
+      ]),
+    [siteIntegrations, businessPacks],
+  );
+  const businessPackItems = useMemo<BusinessPackItem[]>(() => {
+    return businessPacks.map((pack) => {
+      const envKeys = dedupeStrings(pack.envVars.filter(isValidEnvKey));
+      const readyToCompare = Boolean(effectiveEnvProjectId) && !syntheticProject && !isLoading;
+      const configuredForPack = readyToCompare
+        ? envKeys.filter((key) => configuredEnvKeys.has(key))
+        : [];
+      const missingForPack = readyToCompare
+        ? envKeys.filter((key) => !configuredEnvKeys.has(key))
+        : envKeys;
+      const isConfigured =
+        envKeys.length === 0
+          ? false
+          : readyToCompare && missingForPack.length === 0;
+      const statusLabel =
+        envKeys.length === 0
+          ? "Behöver provider-val"
+          : isConfigured
+            ? "Konfigurerad i projektet"
+            : !effectiveEnvProjectId
+              ? "Väntar på chat och projekt"
+              : syntheticProject
+                ? "Väntar på riktigt projectId"
+                : isLoading
+                  ? "Kontrollerar miljövariabler"
+                  : `Saknar ${missingForPack.length} miljövariabler`;
+      return {
+        ...pack,
+        envVars: envKeys,
+        configuredEnvVars: configuredForPack,
+        missingEnvVars: missingForPack,
+        isConfigured,
+        statusLabel,
+      };
+    });
+  }, [businessPacks, configuredEnvKeys, effectiveEnvProjectId, isLoading, syntheticProject]);
   const configuredRequiredEnvKeys = useMemo(
     () => likelyRequiredEnvKeys.filter((key) => configuredEnvKeys.has(key)),
     [configuredEnvKeys, likelyRequiredEnvKeys],
@@ -684,6 +762,165 @@ export function ProjectEnvVarsPanel({
                   </div>
                 )}
               </div>
+
+              {analyticsReview ? (
+                <div className="border-border rounded-md border p-2">
+                  <div className="text-foreground text-xs font-medium">Analytics & konvertering</div>
+                  <div className="text-muted-foreground mt-1 text-[11px]">
+                    Första fas 9-lagret: buildern läser trackingstack och konverteringssignaler från den aktiva versionen.
+                  </div>
+                  <div className="mt-2 space-y-2 text-xs">
+                    <div
+                      className={cn(
+                        "rounded-md border p-2",
+                        analyticsReview.passed
+                          ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-100"
+                          : "border-amber-500/20 bg-amber-500/5 text-amber-100",
+                      )}
+                    >
+                      <div className="font-medium">
+                        {analyticsReview.passed
+                          ? "Tracking-baseline ser rimlig ut."
+                          : `${analyticsReview.issues.length} tracking-varning(ar) hittades.`}
+                      </div>
+                      <div className="mt-1 text-[11px]">
+                        Tracker hittad: {analyticsReview.signals.trackerDetected ? "ja" : "nej"} •
+                        konverteringsytor: {analyticsReview.signals.conversionSurfaceCount} • events:{" "}
+                        {analyticsReview.signals.conversionEventCount}
+                      </div>
+                    </div>
+
+                    {trackerIntegrations.length > 0 ? (
+                      <div className="space-y-2">
+                        {trackerIntegrations.map((integration) => (
+                          <div key={`tracker:${integration.key}`} className="border-border rounded-md border p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium text-gray-200">{integration.name}</span>
+                              <span
+                                className={cn(
+                                  "text-[11px]",
+                                  integration.isConfigured ? "text-green-400" : "text-amber-300",
+                                )}
+                              >
+                                {integration.statusLabel}
+                              </span>
+                            </div>
+                            {integration.envVars.length > 0 ? (
+                              <div className="text-muted-foreground mt-1 text-[11px]">
+                                Behöver: {integration.envVars.join(", ")}
+                              </div>
+                            ) : null}
+                            {integration.missingEnvVars.length > 0 ? (
+                              <div className="mt-1 text-[11px] text-amber-200">
+                                Saknas här: {integration.missingEnvVars.join(", ")}
+                              </div>
+                            ) : null}
+                            {integration.envVars.length > 0 ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="mt-2 h-7 px-2 text-[11px]"
+                                onClick={() =>
+                                  openEnvTab(
+                                    integration.missingEnvVars.length > 0
+                                      ? integration.missingEnvVars
+                                      : integration.envVars,
+                                  )
+                                }
+                              >
+                                Öppna miljövariabler
+                              </Button>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : analyticsReview.signals.conversionSurfaceCount > 0 ? (
+                      <div className="rounded-md border border-dashed p-2 text-[11px] text-muted-foreground">
+                        Sidan verkar ha CTA-/formulärflöden men ingen tydlig tracker stack hittades ännu.
+                      </div>
+                    ) : null}
+
+                    {analyticsReview.issues.length > 0 ? (
+                      <div className="rounded-md border border-border/60 bg-background/40 p-2 text-[11px] text-muted-foreground">
+                        <div className="mb-1 font-medium text-foreground">Behöver åtgärdas</div>
+                        <ul className="space-y-1">
+                          {analyticsReview.issues.slice(0, 4).map((issue) => (
+                            <li key={`analytics-issue:${issue.code}`}>- {issue.message}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {businessPackItems.length > 0 ? (
+                <div className="border-border rounded-md border p-2">
+                  <div className="text-foreground text-xs font-medium">Business workflow packs</div>
+                  <div className="text-muted-foreground mt-1 text-[11px]">
+                    Första fas 9-lagret: buildern läser affärsflöden från den aktiva versionen och visar rekommenderade integrationspaket.
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {businessPackItems.map((pack) => (
+                      <div key={pack.id} className="border-border rounded-md border p-2 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-gray-200">{pack.label}</span>
+                          <span
+                            className={cn(
+                              "text-[11px]",
+                              pack.isConfigured
+                                ? "text-green-400"
+                                : pack.envVars.length === 0
+                                  ? "text-amber-300"
+                                  : "text-red-400",
+                            )}
+                          >
+                            {pack.statusLabel}
+                          </span>
+                        </div>
+                        <div className="text-muted-foreground mt-0.5">{pack.description}</div>
+                        {pack.recommendedIntegrations.length > 0 ? (
+                          <div className="text-muted-foreground mt-1 text-[11px]">
+                            Rekommenderat: {pack.recommendedIntegrations.join(", ")}
+                          </div>
+                        ) : null}
+                        {pack.envVars.length > 0 ? (
+                          <div className="text-muted-foreground mt-1 text-[11px]">
+                            Behöver: {pack.envVars.join(", ")}
+                          </div>
+                        ) : null}
+                        {pack.missingEnvVars.length > 0 ? (
+                          <div className="mt-1 text-[11px] text-amber-200">
+                            Saknas här: {pack.missingEnvVars.join(", ")}
+                          </div>
+                        ) : null}
+                        {pack.verificationChecklist.length > 0 ? (
+                          <div className="mt-2 rounded-md border border-border/60 bg-background/40 p-2 text-[11px] text-muted-foreground">
+                            <div className="mb-1 font-medium text-foreground">Verifiera efter deploy:</div>
+                            <ul className="space-y-1">
+                              {pack.verificationChecklist.map((item) => (
+                                <li key={`${pack.id}:${item}`}>- {item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {pack.envVars.length > 0 ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="mt-2 h-7 px-2 text-[11px]"
+                            onClick={() =>
+                              openEnvTab(pack.missingEnvVars.length > 0 ? pack.missingEnvVars : pack.envVars)
+                            }
+                          >
+                            Öppna miljövariabler
+                          </Button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {integrationError && (
                 <div className="text-muted-foreground text-xs">
