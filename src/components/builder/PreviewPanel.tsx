@@ -81,6 +81,11 @@ import {
   type PricingFeatureCardDraft,
 } from "@/lib/builder/pricing-features-editor";
 import {
+  readCategoryItemsDraft,
+  updateCategoryItemsDraft,
+  type CategoryItemDraft,
+} from "@/lib/builder/category-editor";
+import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
@@ -390,6 +395,9 @@ export function PreviewPanel({
     useState<PricingFeatureCardDraft[] | null>(null);
   const [pricingFeaturesSaveError, setPricingFeaturesSaveError] = useState<string | null>(null);
   const [isPricingFeaturesSaving, setIsPricingFeaturesSaving] = useState(false);
+  const [categoryItemsDraft, setCategoryItemsDraft] = useState<CategoryItemDraft[] | null>(null);
+  const [categorySaveError, setCategorySaveError] = useState<string | null>(null);
+  const [isCategorySaving, setIsCategorySaving] = useState(false);
   const [rawEditMode, setRawEditMode] = useState(false);
   const [rawCodeDraft, setRawCodeDraft] = useState("");
   const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
@@ -1279,6 +1287,14 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableCategoryItems = useMemo(
+    () =>
+      selectedFile
+        ? readCategoryItemsDraft(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
   useEffect(() => {
     setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
     setMetadataSaveError(null);
@@ -1356,6 +1372,13 @@ export function PreviewPanel({
   }, [editablePricingFeatureCards, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
+    setCategoryItemsDraft(
+      editableCategoryItems ? editableCategoryItems.map((item) => ({ ...item })) : null,
+    );
+    setCategorySaveError(null);
+  }, [editableCategoryItems, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
     setRawEditMode(false);
     setRawCodeDraft(selectedFile?.content || "");
     setRawCodeSaveError(null);
@@ -1429,6 +1452,12 @@ export function PreviewPanel({
     pricingFeatureCardsDraft &&
       editablePricingFeatureCards &&
       JSON.stringify(pricingFeatureCardsDraft) !== JSON.stringify(editablePricingFeatureCards),
+  );
+
+  const categoryDirty = Boolean(
+    categoryItemsDraft &&
+      editableCategoryItems &&
+      JSON.stringify(categoryItemsDraft) !== JSON.stringify(editableCategoryItems),
   );
 
   const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
@@ -1793,6 +1822,26 @@ export function PreviewPanel({
     editablePricingFeatureCards,
     saveSelectedFileContent,
   ]);
+
+  const handleSaveCategoryItems = useCallback(async () => {
+    if (!selectedFile || !categoryItemsDraft || !editableCategoryItems) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateCategoryItemsDraft(currentContent, categoryItemsDraft);
+
+    setIsCategorySaving(true);
+    setCategorySaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Kategorier sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara kategorier";
+      setCategorySaveError(message);
+      toast.error(message);
+    } finally {
+      setIsCategorySaving(false);
+    }
+  }, [selectedFile, categoryItemsDraft, editableCategoryItems, saveSelectedFileContent]);
 
   const handleSaveRawCode = useCallback(async () => {
     if (!selectedFile) return;
@@ -3163,6 +3212,64 @@ export function PreviewPanel({
                       ))}
                       {pricingFeaturesSaveError ? (
                         <div className="text-xs text-rose-300">{pricingFeaturesSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {categoryItemsDraft && editableCategoryItems ? (
+                  <div className="rounded-md border border-lime-500/30 bg-lime-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-lime-100">Kategorieditor</div>
+                        <div className="text-xs text-lime-200/80">
+                          Uppdatera kategorinamnen direkt i den aktiva versionen.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveCategoryItems()}
+                        disabled={!categoryDirty || isCategorySaving}
+                      >
+                        {isCategorySaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara kategorier
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {categoryItemsDraft.map((item, index) => (
+                        <div
+                          key={`category-item-${index}`}
+                          className="rounded-md border border-lime-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-lime-100">
+                            Kategori {index + 1}
+                          </div>
+                          <div className="grid gap-1">
+                            <label
+                              className="text-xs font-medium text-lime-100"
+                              htmlFor={`category-name-${index}`}
+                            >
+                              Namn
+                            </label>
+                            <Input
+                              id={`category-name-${index}`}
+                              value={item.name}
+                              onChange={(event) =>
+                                setCategoryItemsDraft((prev) =>
+                                  prev
+                                    ? prev.map((entry, entryIndex) =>
+                                        entryIndex === index
+                                          ? { ...entry, name: event.target.value }
+                                          : entry,
+                                      )
+                                    : prev,
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {categorySaveError ? (
+                        <div className="text-xs text-rose-300">{categorySaveError}</div>
                       ) : null}
                     </div>
                   </div>
