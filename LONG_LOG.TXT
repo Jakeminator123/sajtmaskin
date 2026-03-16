@@ -1,0 +1,838 @@
+Förfina nuvarande design
+
+Agentlogg
+Byggprofil: GPT-5.3 Codex
+Profil-ID: pro
+Motorvag: egen motor
+Kormodell: gpt-5.3-codex
+Thinking: på
+Bildgenerering: på
+Provider: Gateway
+Assist model: GPT‑5.2 (Gateway)
+Deep brief: på
+Scaffold: landing-page
+Prompt optimerad: direkt
+Typ: freeform
+Langd: 143 (mal ~7500)
+Orsak: within_budget
+Generering klar. Startar efterkontroller och slutsteg.
+Autofix klar.
+Fixar: 2, varningar: 0.
+Validering klar.
+Finalisering klar.
+Filer i versionen: 19.
+Version: 3e6bdf82-6945-4a0e-9e14-109914678f56.
+Ändringar: +0 ~2 -0
+~ app/page.tsx
+~ components/site-header.tsx
+SEO: Metadata saknar Twitter-kort. | Projektet saknar app/robots.ts. | Projektet saknar app/sitemap.ts. | Ingen JSON-LD/schema.org-markup hittades.
+Trasig bild i app/layout.tsx: https://james-fall.vercel.app (404)
+Design tokens (app/globals.css): --color-background, --color-foreground, --color-card, --color-card-foreground, --color-primary, --color-primary-foreground, --color-secondary, --color-secondary-foreground …
+SEO: 4 launch-varning(ar) hittades.
+Metadata saknar Twitter-kort. (app/layout.tsx)
+Projektet saknar app/robots.ts.
+Projektet saknar app/sitemap.ts.
+Ingen JSON-LD/schema.org-markup hittades.
+Bilder: 1 trasig(a) URL:er hittade
+Quality gate: PASS (changes + preview + stream quality).
+typecheck: FAIL (exit 2)
+build: FAIL (exit 1)
+Duration: 38s
+```tsx file="app/page.tsx"
+import Image from "next/image"
+import { Download, Mail, Phone, PlayCircle, Star } from "lucide-react"
+
+import { SiteFooter } from "@/components/site-footer"
+import { SiteHeader } from "@/components/site-header"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+const stills = [
+  {
+    src: "https://images.unsplash.com/photo-1635903575591-3affda304643?w=400&h=300&fit=crop&q=80",
+    alt: "Vindpinad skotsk hed i svartvitt med hård kontrast",
+    caption: "1926 — Morvern hed — Rulle II / Scen 04",
+  },
+    src: "https://images.unsplash.com/photo-1758525589426-c2b1075164f6?w=400&h=300&fit=crop&q=80",
+    alt: "Profilporträtt av James i mörk rock och sidoljus",
+    caption: "1926 — Inverness — Rulle I / Scen 09",
+    src: "https://images.unsplash.com/photo-1571211179928-543955381340?w=400&h=300&fit=crop&q=80",
+    alt: "Vigselring bredvid brev med sigill på träbord",
+    caption: "1926 — Glasgow — Rulle III / Scen 02",
+    src: "https://images.unsplash.com/photo-1633093077332-fc010e7c44da?w=400&h=300&fit=crop&q=80",
+    alt: "Sprucken spegel med dramatisk skugga i interiör",
+    caption: "1926 — Perth — Rulle II / Scen 14",
+    src: "https://images.unsplash.com/photo-1767678729025-2ec76697df8b?w=400&h=300&fit=crop&q=80",
+    alt: "Tom tågstation i dimma, tidig morgon",
+    caption: "1926 — Aberdeen — Rulle IV / Scen 01",
+    src: "https://images.unsplash.com/photo-1700490781670-25b632b29543?w=400&h=300&fit=crop&q=80",
+    alt: "Mahognypanel och gardiner i motljus i en tom salong",
+    caption: "1926 — Edinburgh — Rulle I / Scen 03",
+export default function Page() {
+    <div className="min-h-screen">
+      <SiteHeader />
+      <main>
+        <section className="film-grain vignette relative overflow-hidden border-b border-accent/30 py-20 sm:py-24 lg:py-32">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr] lg:px-8">
+            <div className="space-y-8">
+              <Badge className="rounded-sm bg-primary text-primary-foreground">
+                Ny stumfilm · Skotsk ök · 1920-tal
+              </Badge>
+              <h1 className="max-w-2xl text-5xl font-bold uppercase leading-[0.95] sm:text-6xl lg:text-7xl">
+                James Fall
+              </h1>
+              <p className="max-w-2xl text-xl text-muted-foreground">
+                En stumfilm om vad som återstår när allt tagits ifrån dig.
+              </p>
+              <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
+                Skotsk ök. Efter skilsmässan. En ny era av ensamhet och begär.
+              <div className="flex flex-wrap gap-4">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      id="trailer"
+                      size="lg"
+                      className="bg-accent text-accent-foreground shadow-sm hover:bg-accent/90 active:scale-95 transition-all"
+                    >
+                      <PlayCircle className="mr-2 h-5 w-5" />
+                      Se trailer
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="border-accent/30 bg-card sm:max-w-2xl">
+                    <DialogTitle className="text-2xl">Trailer — James Fall</DialogTitle>
+                    <DialogDescription>
+                      Officiell teasertrailer för stumfilmen James Fall. Full trailer släpps i samband med
+                      festivalsäsongen våren 2026.
+                    </DialogDescription>
+                    <div className="overflow-hidden rounded-lg border border-accent/30">
+                      <Image
+                        src="https://images.unsplash.com/photo-1733004441442-c3bf86d6e6f7?w=1200&h=600&fit=crop&q=80"
+                        alt="Trailerstill för James Fall med ensam man på skotsk hed"
+                        width={1200}
+                        height={600}
+                        className="h-64 w-full object-cover sm:h-80"
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Presslänk skickas till ackrediterade journalister via kontaktsektionen.
+                    </p>
+                  </DialogContent>
+                </Dialog>
+
+                <Button asChild size="lg" variant="outline" className="active:scale-95 transition-all">
+                  <Link href="#festival">Visningar & biljetter</Link>
+            <div className="mahogany-frame rounded-xl p-2">
+                alt="Affischliknande hjältebild med James på skotsk hed i svartvitt"
+                className="h-[320px] w-full rounded-lg object-cover sm:h-[420px] lg:h-[520px]"
+                priority
+        </section>
+
+        <section id="synopsis" className="py-16 sm:py-24">
+          <div className="mx-auto max-w-4xl space-y-8 px-4 sm:px-6 lg:px-8">
+            <div className="deco-divider" />
+            <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">Logline</p>
+            <p className="text-xl leading-relaxed">
+              I en vindpinad skotsk öken försöker James återskapa ett liv efter skilsmässan — men varje steg
+              framåt väcker en ny skugga från det förflutna.
+            <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">Synopsis</p>
+            <p className="text-lg leading-relaxed text-muted-foreground">
+              Han anländer ensam, med en resväska och ett namn som väger tungt. Landskapet är öppet men
+              blicken från byn är trång. Vid stationen väntar ingen. I salongen står ett bord dukat för två.
+              James skriver brev han aldrig skickar. Han bär ringen i fickan som en sten. Mellan kyrkbänkens
+              tomrum och tågrälens raka löfte söker han ett språk utan ord. Tystnaden blir hans domare, men
+              också hans enda fristad. När skymningen faller över heden anar han en annan framtid: skör,
+              oanständig, möjlig.
+        <section className="bg-muted/50 py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl space-y-10 px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-semibold sm:text-4xl">En stumfilm byggd av texturer</h2>
+            <div className="grid gap-6 md:grid-cols-3">
+              {[
+                "Svartvitt bildspråk med hårda kontraster och mjuka högdagrar.",
+                "Mellantexter som grafisk design: kapitelrubriker, citat, repliker.",
+                "Mahogny som salongskänsla: paneler, ramar och affischkanter.",
+              ].map((text) => (
+                <Card
+                  key={text}
+                  className="rounded-xl border-accent/30 bg-card/95 transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
+                  <CardContent className="p-6 text-muted-foreground">{text}</CardContent>
+                </Card>
+        <section id="stills" className="py-16 sm:py-24">
+            <h2 className="text-3xl font-semibold sm:text-4xl">Stills & Affischer</h2>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {stills.map((item) => (
+                <article
+                  key={item.caption}
+                  className="group overflow-hidden rounded-xl border border-accent/30 bg-card transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
+                    src={item.src}
+                    alt={item.alt}
+                    width={400}
+                    height={300}
+                    className="h-52 w-full object-cover transition-all duration-300 group-hover:scale-[1.03]"
+                  <div className="p-4">
+                    <p className="text-sm text-muted-foreground">{item.caption}</p>
+                </article>
+        <section id="festival" className="bg-muted/50 py-16 sm:py-24">
+            <h2 className="text-3xl font-semibold sm:text-4xl">Festival & Press</h2>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="rounded-xl border-accent/30 bg-card">
+                <CardContent className="space-y-4 p-6">
+                  <Badge variant="outline">Official Selection · Placeholder</Badge>
+                  <Badge variant="outline">Midnight Classics · Placeholder</Badge>
+                  <Badge variant="outline">Nordic Arthouse Focus · Placeholder</Badge>
+                </CardContent>
+                <CardContent className="space-y-5 p-6">
+                  {[
+                    "“En sorgesång i silverkorn och skugga.” — Kulturredaktionen",
+                    "“Sällsynt elegant, nästan förbjudet öm.” — Nordisk Filmjournal",
+                    "“Tystnaden blir ett eget språk.” — Festivalbladet",
+                  ].map((quote) => (
+                    <p key={quote} className="text-muted-foreground">
+                      {quote}
+                  ))}
+                  <div className="flex gap-1 text-accent" aria-label="5 av 5 stjärnor">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-current" />
+                    ))}
+        <section id="faq" className="py-16 sm:py-24">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <h2 className="mb-8 text-3xl font-semibold sm:text-4xl">Vanliga frågor</h2>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="premiar">
+                <AccordionTrigger>När har filmen premiär?</AccordionTrigger>
+                <AccordionContent>
+                  Svensk premiär planeras till hösten 2026, med förhandsvisningar under festivalsäsongen.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="where">
+                <AccordionTrigger>Var kan jag se den?</AccordionTrigger>
+                  Utvalda biografer, festivalvisningar samt en kuraterad streamingpremiär efter biograffönstret.
+              <AccordionItem value="format">
+                <AccordionTrigger>Speltid och format?</AccordionTrigger>
+                  94 minuter. Format 4:3. Svartvit bild med intertitles i art deco-typografi.
+              <AccordionItem value="music">
+                <AccordionTrigger>Finns live-ackompanjemang?</AccordionTrigger>
+                  Vissa visningar åtföljs av livepiano eller liten ensemble. Information publiceras per visning.
+              <AccordionItem value="press">
+                <AccordionTrigger>Pressmaterial och kontakt?</AccordionTrigger>
+                  Presskit och stillbilder finns via kontaktsektionen nedan.
+            </Accordion>
+        <section id="kontakt" className="bg-muted/50 py-16 sm:py-24">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+              <CardContent className="grid gap-6 p-6 sm:p-8 md:grid-cols-2">
+                <div className="space-y-4">
+                  <h2 className="text-3xl font-semibold">Kontakt & Press</h2>
+                  <p className="text-muted-foreground">
+                    För pressvisning, distribution, intervjuer och festivalförfrågningar.
+                  <div className="space-y-2 text-sm">
+                    <p className="inline-flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-accent" /> press@jamesfallfilm.com
+                      <Phone className="h-4 w-4 text-accent" /> +46 (0)8 77 44 120
+                  <p className="text-sm text-muted-foreground">Rosenlundsgatan 12, Stockholm</p>
+                <div className="space-y-3">
+                  <Button className="w-full justify-start bg-accent text-accent-foreground hover:bg-accent/90">
+                    <Download className="mr-2 h-4 w-4" /> Ladda ner presskit (PDF)
+                  <Button variant="outline" className="w-full justify-start">
+                    Förfrågningar om visning / distribution
+                  <Button variant="secondary" className="w-full justify-start">
+                    Se trailer (privat presslänk)
+      </main>
+      <SiteFooter />
+Genererat 1 fil
+102 rader
+Råtext
+site-header.tsx
+102L
+AUTO-FIX REQUEST — TARGETED REPAIR
+
+Issues detected: typecheck failed, build failed.
+
+Rules:
+1. Make the smallest change that fixes the listed issues.
+2. Do NOT change layout, naming, styling, or architecture unless required by the fix.
+3. You MAY add a missing dependency import or install if the error requires it.
+4. Return ONLY the changed files with minimal edits.
+
+Acceptance criteria (the fix MUST pass all):
+- TypeScript typecheck (tsc --noEmit) passes.
+- Build (next build) succeeds.
+- Preview/demo URL loads without errors.
+- All internal links resolve to existing routes.
+- No broken images or invalid React use() calls.
+
+Persisted errors for this version:
+- [preflight:quality-gate] Automatic quality gate failed.
+- [quality-gate:typecheck] typecheck failed (exit 2)
+- [quality-gate:build] build failed (exit 1)
+- [images] Trasiga bild-URL:er hittade.
+- [images:broken] {"alt":"","url":"https://james-fall.vercel.app","file":"app/layout.tsx","status":404,"replacementUrl":null}
+- [images] Bildvalidering rapporterade varningar.
+- [images:warnings] Trasig bild i app/layout.tsx: https://james-fall.vercel.app (404)
+
+NOTE: Quality gate failed but no error output was captured.
+Likely causes: missing type imports, undeclared variables, JSX errors, or missing dependencies.
+Review the generated files for obvious TypeScript and build errors.
+
+Diagnostic context:
+{
+  "qualityGate": {
+    "typecheck": "",
+    "build": ""
+  },
+  "currentVersionErrors": [
+    "[preflight:quality-gate] Automatic quality gate failed.",
+    "[quality-gate:typecheck] typecheck failed (exit 2)",
+    "[quality-gate:build] build failed (exit 1)",
+    "[images] Trasiga bild-URL:er hittade.",
+    "[images:broken] {\"alt\":\"\",\"url\":\"https://james-fall.vercel.app\",\"file\":\"app/layout.tsx\",\"status\":404,\"replacementUrl\":null}",
+    "[images] Bildvalidering rapporterade varningar.",
+    "[images:warnings] Trasig bild i app/layout.tsx: https://james-fall.vercel.app (404)"
+  ],
+  "previousVersionErrors": []
+}
+
+Agentlogg
+Byggprofil: GPT-5.3 Codex
+Profil-ID: pro
+Motorvag: egen motor
+Kormodell: gpt-5.3-codex
+Thinking: på
+Bildgenerering: på
+Provider: Gateway
+Assist model: GPT‑5.2 (Gateway)
+Deep brief: på
+Scaffold: landing-page
+Prompt optimerad: direkt
+Typ: freeform
+Langd: 2598 (mal ~7500)
+Orsak: technical_content_preserved
+Generering klar. Startar efterkontroller och slutsteg.
+Autofix klar.
+Fixar: 0, varningar: 0.
+Validering klar.
+Finalisering klar.
+Filer i versionen: 19.
+Version: c4eaf065-92d4-4990-ad97-8d7318aaaccd.
+Ändringar: +0 ~2 -0
+~ app/layout.tsx
+~ app/page.tsx
+SEO: Metadata saknar Twitter-kort. | Projektet saknar app/robots.ts. | Projektet saknar app/sitemap.ts. | Ingen JSON-LD/schema.org-markup hittades.
+Design tokens (app/globals.css): --color-background, --color-foreground, --color-card, --color-card-foreground, --color-primary, --color-primary-foreground, --color-secondary, --color-secondary-foreground …
+SEO: 4 launch-varning(ar) hittades.
+Metadata saknar Twitter-kort. (app/layout.tsx)
+Projektet saknar app/robots.ts.
+Projektet saknar app/sitemap.ts.
+Ingen JSON-LD/schema.org-markup hittades.
+Bilder: alla 2 URL:er giltiga ✓
+Quality gate: PASS (changes + preview + stream quality).
+typecheck: PASS (exit 0)
+build: PASS (exit 0)
+Duration: 36s
+```tsx file="app/page.tsx"
+import Link from "next/link";
+import Image from "next/image"
+
+import { Download, Mail, Phone, PlayCircle, Star } from "lucide-react";
+
+import { SiteFooter } from "@/components/site-footer"
+import { SiteHeader } from "@/components/site-header"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Button } from "@/components/ui/button"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+const stills = [
+  {
+    src: "https://images.unsplash.com/photo-1635903575591-3affda304643?w=400&h=300&fit=crop&q=80",
+    alt: "Vindpinad skotsk hed i svartvitt med hård kontrast",
+    caption: "1926 — Morvern hed — Rulle II / Scen 04",
+    src: "https://images.unsplash.com/photo-1758525589426-c2b1075164f6?w=400&h=300&fit=crop&q=80",
+    alt: "Profilporträtt av James i mörk rock och sidoljus",
+    caption: "1926 — Inverness — Rulle I / Scen 09",
+    src: "https://images.unsplash.com/photo-1571211179928-543955381340?w=400&h=300&fit=crop&q=80",
+    alt: "Vigselring bredvid brev med sigill på träbord",
+    caption: "1926 — Glasgow — Rulle III / Scen 02",
+    src: "https://images.unsplash.com/photo-1633093077332-fc010e7c44da?w=400&h=300&fit=crop&q=80",
+    alt: "Sprucken spegel med dramatisk skugga i interiör",
+    caption: "1926 — Perth — Rulle II / Scen 14",
+    src: "https://images.unsplash.com/photo-1767678729025-2ec76697df8b?w=400&h=300&fit=crop&q=80",
+    alt: "Tom tågstation i dimma, tidig morgon",
+    caption: "1926 — Aberdeen — Rulle IV / Scen 01",
+    src: "https://images.unsplash.com/photo-1700490781670-25b632b29543?w=400&h=300&fit=crop&q=80",
+    alt: "Mahognypanel och gardiner i motljus i en tom salong",
+    caption: "1926 — Edinburgh — Rulle I / Scen 03",
+]
+
+export default function Page() {
+    <div className="min-h-screen">
+      <SiteHeader />
+      <main>
+        <section className="film-grain vignette relative overflow-hidden border-b border-accent/30 py-20 sm:py-24 lg:py-32">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr] lg:px-8">
+            <div className="space-y-8">
+              <Badge className="rounded-sm bg-primary text-primary-foreground">
+                Ny stumfilm · Skotsk ök · 1920-tal
+              </Badge>
+              <h1 className="max-w-2xl text-5xl font-bold uppercase leading-[0.95] sm:text-6xl lg:text-7xl">
+                James Fall
+              </h1>
+              <p className="max-w-2xl text-xl text-muted-foreground">
+                En stumfilm om vad som återstår när allt tagits ifrån dig.
+              </p>
+              <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
+                Skotsk ök. Efter skilsmässan. En ny era av ensamhet och begär.
+              <div className="flex flex-wrap gap-4">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      id="trailer"
+                      size="lg"
+                      className="bg-accent text-accent-foreground shadow-sm hover:bg-accent/90 active:scale-95 transition-all"
+                    >
+                      <PlayCircle className="mr-2 h-5 w-5" />
+                      Se trailer
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="border-accent/30 bg-card sm:max-w-2xl">
+                    <DialogTitle className="text-2xl">Trailer — James Fall</DialogTitle>
+                    <DialogDescription>
+                      Officiell teasertrailer för stumfilmen James Fall. Full trailer släpps i samband med
+                      festivalsäsongen våren 2026.
+                    </DialogDescription>
+                    <div className="overflow-hidden rounded-lg border border-accent/30">
+                      <Image
+                        src="/placeholder.svg?height=600&width=1200&text=James+Fall+silent+film+trailer+still+scottish+moor+black+white"
+                        alt="Trailerstill för James Fall med ensam man på skotsk hed"
+                        width={1200}
+                        height={600}
+                        className="h-64 w-full object-cover sm:h-80"
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Presslänk skickas till ackrediterade journalister via kontaktsektionen.
+                    </p>
+                  </DialogContent>
+                </Dialog>
+
+                <Button asChild size="lg" variant="outline" className="active:scale-95 transition-all">
+                  <Link href="#festival">Visningar & biljetter</Link>
+            <div className="mahogany-frame rounded-xl p-2">
+                src="/placeholder.svg?height=600&width=1200&text=James+Fall+hero+poster+scottish+desert+silent+film+black+white+mahogany"
+                alt="Affischliknande hjältebild med James på skotsk hed i svartvitt"
+                className="h-[320px] w-full rounded-lg object-cover sm:h-[420px] lg:h-[520px]"
+                priority
+        </section>
+
+        <section id="synopsis" className="py-16 sm:py-24">
+          <div className="mx-auto max-w-4xl space-y-8 px-4 sm:px-6 lg:px-8">
+            <div className="deco-divider" />
+            <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">Logline</p>
+            <p className="text-xl leading-relaxed">
+              I en vindpinad skotsk öken försöker James återskapa ett liv efter skilsmässan — men varje steg
+              framåt väcker en ny skugga från det förflutna.
+            <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">Synopsis</p>
+            <p className="text-lg leading-relaxed text-muted-foreground">
+              Han anländer ensam, med en resväska och ett namn som väger tungt. Landskapet är öppet men
+              blicken från byn är trång. Vid stationen väntar ingen. I salongen står ett bord dukat för två.
+              James skriver brev han aldrig skickar. Han bär ringen i fickan som en sten. Mellan kyrkbänkens
+              tomrum och tågrälens raka löfte söker han ett språk utan ord. Tystnaden blir hans domare, men
+              också hans enda fristad. När skymningen faller över heden anar han en annan framtid: skör,
+              oanständig, möjlig.
+        <section className="bg-muted/50 py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl space-y-10 px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-semibold sm:text-4xl">En stumfilm byggd av texturer</h2>
+            <div className="grid gap-6 md:grid-cols-3">
+              {[
+                "Svartvitt bildspråk med hårda kontraster och mjuka högdagrar.",
+                "Mellantexter som grafisk design: kapitelrubriker, citat, repliker.",
+                "Mahogny som salongskänsla: paneler, ramar och affischkanter.",
+              ].map((text) => (
+                <Card
+                  key={text}
+                  className="rounded-xl border-accent/30 bg-card/95 transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
+                  <CardContent className="p-6 text-muted-foreground">{text}</CardContent>
+                </Card>
+              ))}
+        <section id="stills" className="py-16 sm:py-24">
+            <h2 className="text-3xl font-semibold sm:text-4xl">Stills & Affischer</h2>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {stills.map((item) => (
+                <article
+                  key={item.caption}
+                  className="group overflow-hidden rounded-xl border border-accent/30 bg-card transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
+                    src={item.src}
+                    alt={item.alt}
+                    width={400}
+                    height={300}
+                    className="h-52 w-full object-cover transition-all duration-300 group-hover:scale-[1.03]"
+                  <div className="p-4">
+                    <p className="text-sm text-muted-foreground">{item.caption}</p>
+                </article>
+        <section id="festival" className="bg-muted/50 py-16 sm:py-24">
+            <h2 className="text-3xl font-semibold sm:text-4xl">Festival & Press</h2>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="rounded-xl border-accent/30 bg-card">
+                <CardContent className="space-y-4 p-6">
+                  <Badge variant="outline">Official Selection · Placeholder</Badge>
+                  <Badge variant="outline">Midnight Classics · Placeholder</Badge>
+                  <Badge variant="outline">Nordic Arthouse Focus · Placeholder</Badge>
+                </CardContent>
+                <CardContent className="space-y-5 p-6">
+                  {[
+                    "“En sorgesång i silverkorn och skugga.” — Kulturredaktionen",
+                    "“Sällsynt elegant, nästan förbjudet öm.” — Nordisk Filmjournal",
+                    "“Tystnaden blir ett eget språk.” — Festivalbladet",
+                  ].map((quote) => (
+                    <p key={quote} className="text-muted-foreground">
+                      {quote}
+                  ))}
+                  <div className="flex gap-1 text-accent" aria-label="5 av 5 stjärnor">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-current" />
+                    ))}
+        <section id="faq" className="py-16 sm:py-24">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <h2 className="mb-8 text-3xl font-semibold sm:text-4xl">Vanliga frågor</h2>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="premiar">
+                <AccordionTrigger>När har filmen premiär?</AccordionTrigger>
+                <AccordionContent>
+                  Svensk premiär planeras till hösten 2026, med förhandsvisningar under festivalsäsongen.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="where">
+                <AccordionTrigger>Var kan jag se den?</AccordionTrigger>
+                  Utvalda biografer, festivalvisningar samt en kuraterad streamingpremiär efter biograffönstret.
+              <AccordionItem value="format">
+                <AccordionTrigger>Speltid och format?</AccordionTrigger>
+                  94 minuter. Format 4:3. Svartvit bild med intertitles i art deco-typografi.
+              <AccordionItem value="music">
+                <AccordionTrigger>Finns live-ackompanjemang?</AccordionTrigger>
+                  Vissa visningar åtföljs av livepiano eller liten ensemble. Information publiceras per visning.
+              <AccordionItem value="press">
+                <AccordionTrigger>Pressmaterial och kontakt?</AccordionTrigger>
+                  Presskit och stillbilder finns via kontaktsektionen nedan.
+            </Accordion>
+        <section id="kontakt" className="bg-muted/50 py-16 sm:py-24">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+              <CardContent className="grid gap-6 p-6 sm:p-8 md:grid-cols-2">
+                <div className="space-y-4">
+                  <h2 className="text-3xl font-semibold">Kontakt & Press</h2>
+                  <p className="text-muted-foreground">
+                    För pressvisning, distribution, intervjuer och festivalförfrågningar.
+                  <div className="space-y-2 text-sm">
+                    <p className="inline-flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-accent" /> press@jamesfallfilm.com
+                      <Phone className="h-4 w-4 text-accent" /> +46 (0)8 77 44 120
+                  <p className="text-sm text-muted-foreground">Rosenlundsgatan 12, Stockholm</p>
+                <div className="space-y-3">
+                  <Button className="w-full justify-start bg-accent text-accent-foreground hover:bg-accent/90">
+                    <Download className="mr-2 h-4 w-4" /> Ladda ner presskit (PDF)
+                  <Button variant="outline" className="w-full justify-start">
+                    Förfrågningar om visning / distribution
+                  <Button variant="secondary" className="w-full justify-start">
+                    Se trailer (privat presslänk)
+      </main>
+      <SiteFooter />
+Genererat 1 fil
+57 rader
+Dölj
+layout.tsx
+57L
+```tsx file="app/layout.tsx"
+import React from "react";
+import type { Metadata } from "next"
+import { Cinzel, Libre_Baskerville } from "next/font/google"
+
+import "./globals.css"
+
+const cinzel = Cinzel({
+  subsets: ["latin"],
+  variable: "--font-cinzel",
+  weight: ["500", "600", "700"],
+})
+
+const libreBaskerville = Libre_Baskerville({
+  variable: "--font-sans",
+  weight: ["400", "700"],
+export const metadata: Metadata = {
+  title: {
+    default: "Hem | James Fall",
+    template: "%s | James Fall",
+  },
+  description:
+    '"James Fall" är en ny stumfilm i svartvitt — en dekadent 20-talsdoftande berättelse från skotsk ök om livet efter en skilsmässa.',
+  keywords: [
+    "James Fall",
+    "stumfilm",
+    "svartvit film",
+    "1920-tal",
+    "art deco",
+    "skotsk ök",
+    "skilsmässa",
+    "arthouse",
+    "festivalfilm",
+    "presskit",
+    "filmvisning",
+  ],
+  openGraph: {
+    title: "James Fall",
+    description:
+      '"James Fall" är en ny stumfilm i svartvitt — en dekadent 20-talsdoftande berättelse från skotsk ök om livet efter en skilsmässa.',
+    images: [
+      "/placeholder.svg?height=630&width=1200&text=James+Fall+silent+film+poster+black+white+mahogany+art+deco",
+    ],
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="sv">
+      <body
+        className={`${cinzel.variable} ${libreBaskerville.variable} bg-background text-foreground antialiased`}
+      >
+        {children}
+      </body>
+    </html>
+  )
+```
+
+```tsx file="app/page.tsx"
+import Link from "next/link";
+import Image from "next/image"
+
+import { Download, Mail, Phone, PlayCircle, Star } from "lucide-react";
+
+import { SiteFooter } from "@/components/site-footer"
+import { SiteHeader } from "@/components/site-header"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Button } from "@/components/ui/button"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+const stills = [
+  {
+    src: "https://images.unsplash.com/photo-1635903575591-3affda304643?w=400&h=300&fit=crop&q=80",
+    alt: "Vindpinad skotsk hed i svartvitt med hård kontrast",
+    caption: "1926 — Morvern hed — Rulle II / Scen 04",
+    src: "https://images.unsplash.com/photo-1758525589426-c2b1075164f6?w=400&h=300&fit=crop&q=80",
+    alt: "Profilporträtt av James i mörk rock och sidoljus",
+    caption: "1926 — Inverness — Rulle I / Scen 09",
+    src: "https://images.unsplash.com/photo-1571211179928-543955381340?w=400&h=300&fit=crop&q=80",
+    alt: "Vigselring bredvid brev med sigill på träbord",
+    caption: "1926 — Glasgow — Rulle III / Scen 02",
+    src: "https://images.unsplash.com/photo-1633093077332-fc010e7c44da?w=400&h=300&fit=crop&q=80",
+    alt: "Sprucken spegel med dramatisk skugga i interiör",
+    caption: "1926 — Perth — Rulle II / Scen 14",
+    src: "https://images.unsplash.com/photo-1767678729025-2ec76697df8b?w=400&h=300&fit=crop&q=80",
+    alt: "Tom tågstation i dimma, tidig morgon",
+    caption: "1926 — Aberdeen — Rulle IV / Scen 01",
+    src: "https://images.unsplash.com/photo-1700490781670-25b632b29543?w=400&h=300&fit=crop&q=80",
+    alt: "Mahognypanel och gardiner i motljus i en tom salong",
+    caption: "1926 — Edinburgh — Rulle I / Scen 03",
+]
+
+export default function Page() {
+    <div className="min-h-screen">
+      <SiteHeader />
+      <main>
+        <section className="film-grain vignette relative overflow-hidden border-b border-accent/30 py-20 sm:py-24 lg:py-32">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr] lg:px-8">
+            <div className="space-y-8">
+              <Badge className="rounded-sm bg-primary text-primary-foreground">
+                Ny stumfilm · Skotsk ök · 1920-tal
+              </Badge>
+              <h1 className="max-w-2xl text-5xl font-bold uppercase leading-[0.95] sm:text-6xl lg:text-7xl">
+                James Fall
+              </h1>
+              <p className="max-w-2xl text-xl text-muted-foreground">
+                En stumfilm om vad som återstår när allt tagits ifrån dig.
+              </p>
+              <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
+                Skotsk ök. Efter skilsmässan. En ny era av ensamhet och begär.
+              <div className="flex flex-wrap gap-4">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      id="trailer"
+                      size="lg"
+                      className="bg-accent text-accent-foreground shadow-sm hover:bg-accent/90 active:scale-95 transition-all"
+                    >
+                      <PlayCircle className="mr-2 h-5 w-5" />
+                      Se trailer
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="border-accent/30 bg-card sm:max-w-2xl">
+                    <DialogTitle className="text-2xl">Trailer — James Fall</DialogTitle>
+                    <DialogDescription>
+                      Officiell teasertrailer för stumfilmen James Fall. Full trailer släpps i samband med
+                      festivalsäsongen våren 2026.
+                    </DialogDescription>
+                    <div className="overflow-hidden rounded-lg border border-accent/30">
+                      <Image
+                        src="/placeholder.svg?height=600&width=1200&text=James+Fall+silent+film+trailer+still+scottish+moor+black+white"
+                        alt="Trailerstill för James Fall med ensam man på skotsk hed"
+                        width={1200}
+                        height={600}
+                        className="h-64 w-full object-cover sm:h-80"
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Presslänk skickas till ackrediterade journalister via kontaktsektionen.
+                    </p>
+                  </DialogContent>
+                </Dialog>
+
+                <Button asChild size="lg" variant="outline" className="active:scale-95 transition-all">
+                  <Link href="#festival">Visningar & biljetter</Link>
+            <div className="mahogany-frame rounded-xl p-2">
+                src="/placeholder.svg?height=600&width=1200&text=James+Fall+hero+poster+scottish+desert+silent+film+black+white+mahogany"
+                alt="Affischliknande hjältebild med James på skotsk hed i svartvitt"
+                className="h-[320px] w-full rounded-lg object-cover sm:h-[420px] lg:h-[520px]"
+                priority
+        </section>
+
+        <section id="synopsis" className="py-16 sm:py-24">
+          <div className="mx-auto max-w-4xl space-y-8 px-4 sm:px-6 lg:px-8">
+            <div className="deco-divider" />
+            <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">Logline</p>
+            <p className="text-xl leading-relaxed">
+              I en vindpinad skotsk öken försöker James återskapa ett liv efter skilsmässan — men varje steg
+              framåt väcker en ny skugga från det förflutna.
+            <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">Synopsis</p>
+            <p className="text-lg leading-relaxed text-muted-foreground">
+              Han anländer ensam, med en resväska och ett namn som väger tungt. Landskapet är öppet men
+              blicken från byn är trång. Vid stationen väntar ingen. I salongen står ett bord dukat för två.
+              James skriver brev han aldrig skickar. Han bär ringen i fickan som en sten. Mellan kyrkbänkens
+              tomrum och tågrälens raka löfte söker han ett språk utan ord. Tystnaden blir hans domare, men
+              också hans enda fristad. När skymningen faller över heden anar han en annan framtid: skör,
+              oanständig, möjlig.
+        <section className="bg-muted/50 py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl space-y-10 px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-semibold sm:text-4xl">En stumfilm byggd av texturer</h2>
+            <div className="grid gap-6 md:grid-cols-3">
+              {[
+                "Svartvitt bildspråk med hårda kontraster och mjuka högdagrar.",
+                "Mellantexter som grafisk design: kapitelrubriker, citat, repliker.",
+                "Mahogny som salongskänsla: paneler, ramar och affischkanter.",
+              ].map((text) => (
+                <Card
+                  key={text}
+                  className="rounded-xl border-accent/30 bg-card/95 transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
+                  <CardContent className="p-6 text-muted-foreground">{text}</CardContent>
+                </Card>
+              ))}
+        <section id="stills" className="py-16 sm:py-24">
+            <h2 className="text-3xl font-semibold sm:text-4xl">Stills & Affischer</h2>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {stills.map((item) => (
+                <article
+                  key={item.caption}
+                  className="group overflow-hidden rounded-xl border border-accent/30 bg-card transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
+                    src={item.src}
+                    alt={item.alt}
+                    width={400}
+                    height={300}
+                    className="h-52 w-full object-cover transition-all duration-300 group-hover:scale-[1.03]"
+                  <div className="p-4">
+                    <p className="text-sm text-muted-foreground">{item.caption}</p>
+                </article>
+        <section id="festival" className="bg-muted/50 py-16 sm:py-24">
+            <h2 className="text-3xl font-semibold sm:text-4xl">Festival & Press</h2>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="rounded-xl border-accent/30 bg-card">
+                <CardContent className="space-y-4 p-6">
+                  <Badge variant="outline">Official Selection · Placeholder</Badge>
+                  <Badge variant="outline">Midnight Classics · Placeholder</Badge>
+                  <Badge variant="outline">Nordic Arthouse Focus · Placeholder</Badge>
+                </CardContent>
+                <CardContent className="space-y-5 p-6">
+                  {[
+                    "“En sorgesång i silverkorn och skugga.” — Kulturredaktionen",
+                    "“Sällsynt elegant, nästan förbjudet öm.” — Nordisk Filmjournal",
+                    "“Tystnaden blir ett eget språk.” — Festivalbladet",
+                  ].map((quote) => (
+                    <p key={quote} className="text-muted-foreground">
+                      {quote}
+                  ))}
+                  <div className="flex gap-1 text-accent" aria-label="5 av 5 stjärnor">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-current" />
+                    ))}
+        <section id="faq" className="py-16 sm:py-24">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <h2 className="mb-8 text-3xl font-semibold sm:text-4xl">Vanliga frågor</h2>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="premiar">
+                <AccordionTrigger>När har filmen premiär?</AccordionTrigger>
+                <AccordionContent>
+                  Svensk premiär planeras till hösten 2026, med förhandsvisningar under festivalsäsongen.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="where">
+                <AccordionTrigger>Var kan jag se den?</AccordionTrigger>
+                  Utvalda biografer, festivalvisningar samt en kuraterad streamingpremiär efter biograffönstret.
+              <AccordionItem value="format">
+                <AccordionTrigger>Speltid och format?</AccordionTrigger>
+                  94 minuter. Format 4:3. Svartvit bild med intertitles i art deco-typografi.
+              <AccordionItem value="music">
+                <AccordionTrigger>Finns live-ackompanjemang?</AccordionTrigger>
+                  Vissa visningar åtföljs av livepiano eller liten ensemble. Information publiceras per visning.
+              <AccordionItem value="press">
+                <AccordionTrigger>Pressmaterial och kontakt?</AccordionTrigger>
+                  Presskit och stillbilder finns via kontaktsektionen nedan.
+            </Accordion>
+        <section id="kontakt" className="bg-muted/50 py-16 sm:py-24">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+              <CardContent className="grid gap-6 p-6 sm:p-8 md:grid-cols-2">
+                <div className="space-y-4">
+                  <h2 className="text-3xl font-semibold">Kontakt & Press</h2>
+                  <p className="text-muted-foreground">
+                    För pressvisning, distribution, intervjuer och festivalförfrågningar.
+                  <div className="space-y-2 text-sm">
+                    <p className="inline-flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-accent" /> press@jamesfallfilm.com
+                      <Phone className="h-4 w-4 text-accent" /> +46 (0)8 77 44 120
+                  <p className="text-sm text-muted-foreground">Rosenlundsgatan 12, Stockholm</p>
+                <div className="space-y-3">
+                  <Button className="w-full justify-start bg-accent text-accent-foreground hover:bg-accent/90">
+                    <Download className="mr-2 h-4 w-4" /> Ladda ner presskit (PDF)
+                  <Button variant="outline" className="w-full justify-start">
+                    Förfrågningar om visning / distribution
+                  <Button variant="secondary" className="w-full justify-start">
+                    Se trailer (privat presslänk)
+      </main>
+      <SiteFooter />

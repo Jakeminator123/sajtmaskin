@@ -14,7 +14,8 @@ export async function getOrCreateGuestUsage(sessionId: string) {
   if (rows[0]) return rows[0];
 
   const now = new Date();
-  const created = await db
+  // Avoid duplicate inserts when multiple guest requests race on a new session.
+  await db
     .insert(guestUsage)
     .values({
       session_id: sessionId,
@@ -23,7 +24,17 @@ export async function getOrCreateGuestUsage(sessionId: string) {
       created_at: now,
       updated_at: now,
     })
-    .returning();
+    .onConflictDoNothing({ target: guestUsage.session_id });
+
+  const created = await db
+    .select()
+    .from(guestUsage)
+    .where(eq(guestUsage.session_id, sessionId))
+    .limit(1);
+
+  if (!created[0]) {
+    throw new Error("Failed to create guest usage row");
+  }
 
   return created[0];
 }

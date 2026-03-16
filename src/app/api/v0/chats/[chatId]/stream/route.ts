@@ -326,7 +326,10 @@ export async function handleMessageStreamRequest(
           } catch { /* ignore malformed JSON */ }
         }
 
-        const followUpIntent = previousFiles.length > 0 ? classifyFollowUpIntent(message) : "neutral";
+        const skipIntentClassification = metaPromptSourcePreservePayload || metaPromptSourceTechnical;
+        const followUpIntent = previousFiles.length > 0 && !skipIntentClassification
+          ? classifyFollowUpIntent(message)
+          : "neutral";
         if (followUpIntent === "ambiguous-redesign") {
           devLogAppend("latest", {
             type: "site.message.awaiting_input",
@@ -386,33 +389,49 @@ export async function handleMessageStreamRequest(
             includeContents: true,
             maxFilesWithContent: 8,
           });
-          optimizedMessage = [
-            "## Follow-up Editing Mode",
-            "",
-            followUpIntent === "clear-redesign"
-              ? "The user wants a genuine redesign of the existing site, not a small refinement."
-              : "You are editing an existing project, not starting over.",
-            followUpIntent === "clear-redesign"
-              ? "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed."
-              : "Apply the user's requested changes directly to the current files below.",
-            followUpIntent === "clear-redesign"
-              ? "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files."
-              : "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
-            followUpIntent === "clear-redesign"
-              ? "Do not preserve the previous design language unless the user explicitly asked to keep parts of it."
-              : "Return only the files you need to create or modify. Files you omit will be kept as-is.",
-            followUpIntent === "clear-redesign"
-              ? "You may still reuse useful content or information architecture from the current project when relevant."
-              : "",
-            "",
-            fileCtx.summary,
-            "",
-            "---",
-            "",
-            "## Requested Changes",
-            "",
-            optimizedMessage,
-          ].join("\n");
+
+          if (skipIntentClassification) {
+            optimizedMessage = [
+              "## Existing Project Files (reference)",
+              "",
+              "Apply the requested change precisely. Do not modify unrelated sections or files.",
+              "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+              "",
+              fileCtx.summary,
+              "",
+              "---",
+              "",
+              optimizedMessage,
+            ].join("\n");
+          } else {
+            optimizedMessage = [
+              "## Follow-up Editing Mode",
+              "",
+              followUpIntent === "clear-redesign"
+                ? "The user wants a genuine redesign of the existing site, not a small refinement."
+                : "You are editing an existing project, not starting over.",
+              followUpIntent === "clear-redesign"
+                ? "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed."
+                : "Apply the user's requested changes directly to the current files below.",
+              followUpIntent === "clear-redesign"
+                ? "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files."
+                : "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
+              followUpIntent === "clear-redesign"
+                ? "Do not preserve the previous design language unless the user explicitly asked to keep parts of it."
+                : "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+              followUpIntent === "clear-redesign"
+                ? "You may still reuse useful content or information architecture from the current project when relevant."
+                : "",
+              "",
+              fileCtx.summary,
+              "",
+              "---",
+              "",
+              "## Requested Changes",
+              "",
+              optimizedMessage,
+            ].join("\n");
+          }
         }
 
         const creditContext = {
@@ -1304,7 +1323,7 @@ export async function handleMessageStreamRequest(
                       });
                       await commitCreditsOnce();
                     }
-                  } catch (error) {
+                  } catch {
                     // ignore persistence errors in cleanup
                   }
                 }

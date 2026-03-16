@@ -90,7 +90,9 @@ const IMG_SRC_RE =
 const NEXT_IMAGE_RE =
   /<Image\b[^>]*?\bsrc\s*=\s*["'{]+"?([^"'}]+)["'}]+[^>]*?\balt\s*=\s*["']([^"']*)["']|<Image\b[^>]*?\balt\s*=\s*["']([^"']*)["'][^>]*?\bsrc\s*=\s*["'{]+"?([^"'}]+)["'}]+/gi;
 
-const BG_IMAGE_RE = /url\(\s*["']?(https?:\/\/[^"')]+)["']?\s*\)/gi;
+// Intentionally case-sensitive: CSS uses `url(...)`, while generated TS/JS metadata
+// often contains `new URL("https://...")`, which should not be treated as an image ref.
+const BG_IMAGE_RE = /url\(\s*["']?(https?:\/\/[^"')]+)["']?\s*\)/g;
 
 function isExternalImageUrl(url: string): boolean {
   if (!url || url.startsWith("data:") || url.startsWith("/") || url.startsWith(".")) return false;

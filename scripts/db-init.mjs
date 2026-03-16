@@ -496,6 +496,53 @@ const updatedAtTriggers = [
   `CREATE TRIGGER set_updated_at_user_integrations BEFORE UPDATE ON user_integrations FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
 ];
 
+const guestUsageRepairQueries = [
+  `WITH guest_usage_dupes AS (
+     SELECT
+       session_id,
+       MIN(id) AS keeper_id,
+       COALESCE(SUM(generations_used), 0) AS total_generations_used,
+       COALESCE(SUM(refines_used), 0) AS total_refines_used,
+       MIN(created_at) AS first_created_at,
+       MAX(updated_at) AS last_updated_at
+     FROM guest_usage
+     GROUP BY session_id
+     HAVING COUNT(*) > 1
+   )
+   UPDATE guest_usage AS target
+   SET generations_used = guest_usage_dupes.total_generations_used,
+       refines_used = guest_usage_dupes.total_refines_used,
+       created_at = guest_usage_dupes.first_created_at,
+       updated_at = guest_usage_dupes.last_updated_at
+   FROM guest_usage_dupes
+   WHERE target.id = guest_usage_dupes.keeper_id`,
+  `WITH guest_usage_dupes AS (
+     SELECT
+       session_id,
+       MIN(id) AS keeper_id
+     FROM guest_usage
+     GROUP BY session_id
+     HAVING COUNT(*) > 1
+   )
+   DELETE FROM guest_usage AS target
+   USING guest_usage_dupes
+   WHERE target.session_id = guest_usage_dupes.session_id
+     AND target.id <> guest_usage_dupes.keeper_id`,
+  `DO $$
+   BEGIN
+     IF NOT EXISTS (
+       SELECT 1
+       FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND tablename = 'guest_usage'
+         AND indexdef ILIKE 'CREATE UNIQUE INDEX%'
+         AND indexdef ILIKE '%(session_id)%'
+     ) THEN
+       CREATE UNIQUE INDEX guest_usage_session_idx ON guest_usage(session_id);
+     END IF;
+   END $$`,
+];
+
 // ---------------------------------------------------------------------------
 // Row Level Security — block direct access from anon/authenticated roles.
 // All access goes through the backend (postgres / service_role).
@@ -573,6 +620,31 @@ async function run() {
       }
     }
     console.info("Row Level Security enabled on all tables.");
+
+    const guestUsageDupes = await pool.query(
+      `SELECT
+         COUNT(*)::int AS duplicate_sessions,
+         COALESCE(SUM(row_count - 1), 0)::int AS extra_rows
+       FROM (
+         SELECT COUNT(*) AS row_count
+         FROM guest_usage
+         GROUP BY session_id
+         HAVING COUNT(*) > 1
+       ) dupes`,
+    );
+    const guestUsageRepairSummary = guestUsageDupes.rows[0] ?? {
+      duplicate_sessions: 0,
+      extra_rows: 0,
+    };
+    if (guestUsageRepairSummary.duplicate_sessions > 0) {
+      console.warn(
+        "Repairing duplicate guest_usage rows before enforcing unique session constraint:",
+        guestUsageRepairSummary,
+      );
+    }
+    for (const q of guestUsageRepairQueries) {
+      await pool.query(q);
+    }
 
     const dupes = await pool.query(
       `SELECT chat_id, v0_version_id, COUNT(*) as count
