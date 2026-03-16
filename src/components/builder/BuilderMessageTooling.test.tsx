@@ -58,6 +58,36 @@ describe("StructuredToolParts", () => {
     expect(screen.getByRole("button", { name: "Avvisa förslag" })).toBeTruthy();
   });
 
+  it("keeps awaiting-input clarifying questions as free-text prompts without synthetic approval buttons", () => {
+    render(
+      <StructuredToolParts
+        messageId="msg_awaiting"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:awaiting-input",
+              state: "input-available",
+              output: {
+                question: "Vad vill du att jag fokuserar på i nästa ändring?",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+        onQuickReply={vi.fn(async () => true)}
+      />,
+    );
+
+    expect(
+      screen.getByText("Vad vill du att jag fokuserar på i nästa ändring?"),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Godkänn förslag" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Avvisa förslag" })).toBeNull();
+  });
+
   it("shows quality-gate pending separately from queued autofix work", () => {
     render(
       <StructuredToolParts

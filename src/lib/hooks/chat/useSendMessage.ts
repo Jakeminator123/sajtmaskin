@@ -7,6 +7,7 @@ import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
 import {
   appendAttachmentPrompt,
+  appendToolPartToMessage,
   buildApiErrorMessage,
   isAbortLikeError,
   isNetworkError,
@@ -120,6 +121,10 @@ export function useSendMessage(
           (typeof data?.text === "string" && data.text) ||
           (typeof data?.message === "string" && data.message) ||
           null;
+        const awaitingInputPrompt =
+          data?.awaitingInputPrompt && typeof data.awaitingInputPrompt === "object"
+            ? (data.awaitingInputPrompt as Record<string, unknown>)
+            : null;
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessageId
@@ -127,6 +132,33 @@ export function useSendMessage(
               : m,
           ),
         );
+        if (data?.awaitingInput === true) {
+          const promptQuestion =
+            (typeof awaitingInputPrompt?.question === "string" &&
+              awaitingInputPrompt.question.trim()) ||
+            (typeof responseText === "string" && responseText.trim()) ||
+            "AI väntar på ditt svar innan nästa steg kan fortsätta.";
+          const promptOptions = Array.isArray(awaitingInputPrompt?.options)
+            ? (awaitingInputPrompt.options as unknown[])
+                .map((option) => (typeof option === "string" ? option.trim() : ""))
+                .filter(Boolean)
+            : [];
+          appendToolPartToMessage(setMessages, assistantMessageId, {
+            type: "tool:awaiting-input",
+            toolName: "Klargörande fråga",
+            toolCallId: `awaiting-input:${assistantMessageId}`,
+            state: "input-available",
+            output: {
+              question: promptQuestion,
+              options: promptOptions.length > 0 ? promptOptions : undefined,
+              kind:
+                typeof awaitingInputPrompt?.kind === "string"
+                  ? awaitingInputPrompt.kind
+                  : "unclear",
+              awaitingInput: true,
+            },
+          });
+        }
         mutateVersions();
         onGenerationComplete?.({
           chatId: chatId || "",

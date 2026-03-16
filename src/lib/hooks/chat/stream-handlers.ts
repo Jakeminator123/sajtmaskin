@@ -426,7 +426,7 @@ export async function handleSseStream(
                 type: "tool:awaiting-input",
                 toolName: "Klargörande fråga",
                 toolCallId,
-                state: "approval-requested",
+                state: "input-available",
                 output: {
                   question: questionText,
                   options: options.length > 0 ? options : undefined,
@@ -617,7 +617,7 @@ export async function handleSseStream(
                   type: "tool:awaiting-input",
                   toolName: planBlockers ? "Plan: svar krävs" : "Awaiting input",
                   toolCallId: `awaiting-input:${assistantMessageId}`,
-                  state: "approval-requested",
+                  state: "input-available",
                   output: {
                     question: questionPreview,
                     options: quickOptions.length > 0 ? quickOptions : undefined,

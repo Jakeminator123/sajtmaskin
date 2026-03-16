@@ -75,6 +75,18 @@ describe("POST /api/v0/chats/[chatId]/messages", () => {
   it("preserves awaiting-input responses without forcing a version id", async () => {
     handleMessageStreamRequest.mockResolvedValue(
       buildSseResponse([
+        {
+          event: "tool-call",
+          data: {
+            toolName: "askClarifyingQuestion",
+            args: {
+              question: "Vad vill du att jag fokuserar på i nästa ändring?",
+              kind: "scope",
+              options: ["Design", "Innehåll"],
+              blocking: true,
+            },
+          },
+        },
         { event: "content", data: "Behöver mer information om målgruppen." },
         {
           event: "done",
@@ -101,6 +113,11 @@ describe("POST /api/v0/chats/[chatId]/messages", () => {
       versionId: null,
       demoUrl: null,
       awaitingInput: true,
+      awaitingInputPrompt: {
+        question: "Vad vill du att jag fokuserar på i nästa ändring?",
+        kind: "scope",
+        options: ["Design", "Innehåll"],
+      },
       reason: "followup_redesign_ambiguous",
       latestVersion: null,
       text: "Behöver mer information om målgruppen.",

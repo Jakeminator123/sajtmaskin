@@ -14,6 +14,13 @@ type DonePayload = {
   awaitingInput?: boolean;
   reason?: string | null;
   toolCalls?: unknown;
+  planArtifact?: unknown;
+};
+
+type AwaitingInputPrompt = {
+  question: string;
+  options?: string[];
+  kind?: string | null;
 };
 
 function parseSseEvents(payload: string): SseEvent[] {
@@ -60,6 +67,58 @@ function findLastEvent(events: SseEvent[], name: string): SseEvent | undefined {
   return undefined;
 }
 
+function coerceStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+}
+
+function extractAwaitingInputPrompt(events: SseEvent[], done: DonePayload): AwaitingInputPrompt | null {
+  const planArtifact =
+    done.planArtifact && typeof done.planArtifact === "object"
+      ? (done.planArtifact as Record<string, unknown>)
+      : null;
+  const blockers = Array.isArray(planArtifact?.blockers)
+    ? (planArtifact?.blockers as Array<Record<string, unknown>>)
+    : [];
+  if (blockers.length > 0) {
+    const questions = blockers
+      .map((blocker) =>
+        typeof blocker.question === "string" ? blocker.question.trim() : "",
+      )
+      .filter(Boolean);
+    const options = blockers.flatMap((blocker) => coerceStringArray(blocker.options));
+    return {
+      question:
+        questions.join("\n") || "Planen kräver dina svar för att kunna fortsätta.",
+      options: options.length > 0 ? options : undefined,
+      kind: "plan",
+    };
+  }
+
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event?.event !== "tool-call" || !event.data || typeof event.data !== "object") continue;
+    const data = event.data as Record<string, unknown>;
+    if (data.toolName !== "askClarifyingQuestion") continue;
+    const args =
+      data.args && typeof data.args === "object"
+        ? (data.args as Record<string, unknown>)
+        : null;
+    const question = typeof args?.question === "string" ? args.question.trim() : "";
+    if (!question) continue;
+    const options = coerceStringArray(args?.options);
+    return {
+      question,
+      options: options.length > 0 ? options : undefined,
+      kind: typeof args?.kind === "string" ? args.kind : null,
+    };
+  }
+
+  return null;
+}
+
 function buildSyncPayload(chatId: string, events: SseEvent[]) {
   const content = events
     .filter((event) => event.event === "content")
@@ -92,6 +151,8 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
   const demoUrl = typeof done.demoUrl === "string" ? done.demoUrl : null;
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
   const assistantText = content || null;
+  const awaitingInputPrompt =
+    done.awaitingInput === true ? extractAwaitingInputPrompt(events, done) : null;
 
   return {
     ok: true as const,
@@ -104,6 +165,7 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
       text: assistantText,
       message: assistantText,
       awaitingInput: done.awaitingInput === true,
+      awaitingInputPrompt,
       reason: typeof done.reason === "string" ? done.reason : null,
       toolCalls: Array.isArray(done.toolCalls) ? done.toolCalls : [],
       latestVersion:
