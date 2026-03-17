@@ -68,28 +68,47 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
 };
 
 let _cachedRedis: Redis | null = null;
+let _cachedRedisConfigKey: string | null = null;
 const _cachedLimiters = new Map<string, Ratelimit>();
 
-function getRedis(): Redis | null {
-  if (_cachedRedis) return _cachedRedis;
-  if (!_resolvedRestUrl || !_resolvedRestToken) return null;
-  _cachedRedis = new Redis({ url: _resolvedRestUrl, token: _resolvedRestToken });
-  return _cachedRedis;
+function resolveRedisCredentials(): { url: string; token: string } | null {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
+  if (!url || !token) return null;
+  return { url, token };
+}
+
+function getRedis(): { redis: Redis; cacheKey: string } | null {
+  const creds = resolveRedisCredentials();
+  if (!creds) {
+    _cachedRedis = null;
+    _cachedRedisConfigKey = null;
+    return null;
+  }
+
+  const cacheKey = `${creds.url}:${creds.token}`;
+  if (_cachedRedis && _cachedRedisConfigKey === cacheKey) {
+    return { redis: _cachedRedis, cacheKey };
+  }
+
+  _cachedRedis = new Redis({ url: creds.url, token: creds.token });
+  _cachedRedisConfigKey = cacheKey;
+  return { redis: _cachedRedis, cacheKey };
 }
 
 function getLimiter(
   endpoint: string,
   limits: RateLimitConfig,
 ): { mode: "upstash"; limiter: Ratelimit } | { mode: "memory" } {
-  const redis = getRedis();
-  if (!redis) return { mode: "memory" };
+  const redisConnection = getRedis();
+  if (!redisConnection) return { mode: "memory" };
 
-  const key = `${endpoint}:${limits.maxRequests}:${limits.windowMs}`;
+  const key = `${redisConnection.cacheKey}:${endpoint}:${limits.maxRequests}:${limits.windowMs}`;
   const cached = _cachedLimiters.get(key);
   if (cached) return { mode: "upstash", limiter: cached };
 
   const limiter = new Ratelimit({
-    redis,
+    redis: redisConnection.redis,
     limiter: Ratelimit.fixedWindow(
       limits.maxRequests,
       `${Math.max(1, Math.floor(limits.windowMs / 1000))} s`,

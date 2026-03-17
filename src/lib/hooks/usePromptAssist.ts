@@ -622,7 +622,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         return null;
       }
     },
-    [],
+    [model],
   );
 
   return { maybeEnhanceInitialPrompt, generateSpecFromPrompt, generateDynamicInstructions };
