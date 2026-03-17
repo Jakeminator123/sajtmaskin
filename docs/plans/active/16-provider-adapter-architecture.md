@@ -1,5 +1,7 @@
 # Plan 16: Provider Adapter Architecture
 
+**Status: COMPLETED (2026-03-17)**
+
 ## Goal
 Reduce the architectural friction between the own-engine and v0 code paths
 by introducing a clean provider adapter layer.
@@ -15,14 +17,21 @@ The audit identified that own-engine and v0-mirroring are interlaced in the
 same API routes with extensive branch code, and that model/tier logic sits in
 `src/lib/v0/models.ts` but is used by own-engine too.
 
-## Current state
+## Delivered state
 
-- `/api/v0/chats/stream/route.ts` and `/api/v0/chats/[chatId]/stream/route.ts`
-  each contain three code paths: plan-mode, own-engine, v0-fallback
-- SSE formatting has two parallel layers: `stream-format.ts` for own-engine
-  and `v0Stream.ts` for v0 parsing
-- Model selection lives in `src/lib/v0/models.ts` (historical placement) but
-  is the canonical source of truth for own-engine tier decisions too
+- Model catalog and selection live in `src/lib/models/` (neutral home).
+  Historical `src/lib/v0/models.ts` and `src/lib/v0/modelSelection.ts` shims
+  have been deleted.
+- Plan-mode is isolated in `src/lib/providers/own-engine/plan-mode-response.ts`.
+- Follow-up clarification is isolated in
+  `src/lib/providers/own-engine/follow-up-clarification.ts`.
+- Own-engine generation stream loop is shared via
+  `src/lib/providers/own-engine/generation-stream.ts`.
+- `BuilderStreamEventMap` is the typed contract in
+  `src/lib/gen/stream/builder-stream-contract.ts`, used directly by own-engine
+  and referenced by v0-fallback routes.
+- Stream routes are materially thinner dispatchers (create ~1380, follow-up
+  ~1380 lines, down from ~1840/1935).
 
 ## Workstreams
 

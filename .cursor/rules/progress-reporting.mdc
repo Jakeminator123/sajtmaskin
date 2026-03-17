@@ -1,0 +1,21 @@
+---
+description: Always report progress percentage when a long session ends or pauses
+alwaysApply: true
+---
+
+# Progress reporting
+
+When the user stops, pauses, or the session is interrupted during a multi-step
+workload:
+
+- Always include a short progress summary with percentage estimates.
+- Cover at minimum: current workload progress, overall migration/plan progress.
+- If the session involved orchestrator runs, mention which run is active and
+  what the next step would be.
+- Keep it brief (3-6 lines max) unless the user asks for more detail.
+
+Example:
+
+> Current workload: ~60%
+> Plan 16 overall: ~85%
+> Next step: extract v0-fallback stream adapter

@@ -1,4 +1,5 @@
 import { createSSEHeaders, formatSSEEvent } from "@/lib/streaming";
+import type { BuilderStreamEventName } from "@/lib/gen/stream/builder-stream-contract";
 import { db } from "@/lib/db/client";
 import { chats, versions } from "@/lib/db/schema";
 import { assertV0Key, v0 } from "@/lib/v0";
