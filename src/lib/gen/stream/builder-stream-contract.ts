@@ -1,3 +1,25 @@
+/**
+ * Builder Stream Contract
+ *
+ * This module defines the typed SSE event contract consumed by the builder UI.
+ * Both own-engine and v0-fallback providers must translate their output into
+ * these event shapes before the response reaches the client.
+ *
+ * Lifecycle of a normal generation stream:
+ *   chatId -> meta -> (thinking | content | tool-call | progress | ping)* -> done
+ *
+ * Error path:
+ *   chatId? -> meta? -> error
+ *
+ * Awaiting-input path (clarification / plan blockers):
+ *   chatId -> meta? -> tool-call(askClarifyingQuestion) -> content -> done(awaitingInput: true)
+ *
+ * Provider adapters live under `src/lib/providers/` and are responsible for
+ * mapping provider-specific output into `BuilderStreamEvent` before the route
+ * handler enqueues it. Route handlers should ideally be thin dispatchers that
+ * select a provider and pipe its output through this contract.
+ */
+
 export type BuilderMetaPayload = Record<string, unknown>;
 export type BuilderDonePayload = Record<string, unknown>;
 export type BuilderErrorPayload = { message: string } & Record<string, unknown>;

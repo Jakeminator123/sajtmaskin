@@ -147,9 +147,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       const requestedVersionId = searchParams.get("versionId");
       const shouldMaterialize = searchParams.get("materialize") === "1";
       const engineChat = await getEngineChatByIdForRequest(req, chatId);
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chatId);
 
-      if (!engineChat && isUuid) {
+      if (!engineChat) {
         return NextResponse.json({ error: "Chat not found" }, { status: 404 });
       }
 
