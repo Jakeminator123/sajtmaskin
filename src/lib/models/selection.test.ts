@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveModelSelection, resolveEngineModelId } from "./modelSelection";
+import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 
 describe("resolveModelSelection", () => {
   it("returns the canonical ID when requestedModelId is canonical", () => {

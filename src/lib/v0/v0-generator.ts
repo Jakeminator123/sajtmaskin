@@ -88,7 +88,7 @@ import {
   type CanonicalModelId,
   type QualityLevel,
   QUALITY_TO_MODEL,
-} from "@/lib/v0/models";
+} from "@/lib/models/catalog";
 
 export type { QualityLevel };
 
