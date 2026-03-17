@@ -1,7 +1,7 @@
 "use client";
 
 import type { V0UserFileAttachment } from "@/components/media";
-import { QUALITY_TO_MODEL, type CanonicalModelId, type QualityLevel } from "@/lib/v0/models";
+import { QUALITY_TO_MODEL, type CanonicalModelId, type QualityLevel } from "@/lib/models/catalog";
 
 export type CreateChatOptions = {
   attachments?: V0UserFileAttachment[];

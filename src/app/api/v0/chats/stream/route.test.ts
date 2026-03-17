@@ -370,13 +370,12 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
       contentForVersion: "<main>Hello runtime lane</main>",
     });
 
-    const response = await POST(
-      new Request("https://example.com/api/v0/chats/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "Build a simple site" }),
-      }),
-    );
+    const request = new Request("https://example.com/api/v0/chats/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "Build a simple site" }),
+    });
+    const response = await POST(request);
 
     expect(response.status).toBe(200);
 
@@ -403,6 +402,11 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
           accumulatedContent: "<main>Hello runtime lane</main>",
           model: "gpt-5.4",
         }),
+      }),
+    );
+    expect(createGenerationPipeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        abortSignal: request.signal,
       }),
     );
   });

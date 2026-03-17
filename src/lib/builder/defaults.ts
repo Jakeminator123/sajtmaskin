@@ -24,8 +24,8 @@
 
 import { GATEWAY_ASSIST_MODELS, V0_ASSIST_MODELS } from "./promptAssist";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
+import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
-import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
 
 // ============================================
 // MODEL TIER OPTIONS

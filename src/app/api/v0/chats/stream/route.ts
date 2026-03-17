@@ -391,6 +391,7 @@ export async function POST(req: Request) {
           systemPrompt: planSystemPrompt,
           model: engineModel,
           thinking: resolvedThinking,
+          abortSignal: req.signal,
           tools: planTools,
           maxSteps: 2,
         });
@@ -672,6 +673,7 @@ export async function POST(req: Request) {
           systemPrompt: engineSystemPrompt,
           model: engineModel,
           thinking: resolvedThinking,
+          abortSignal: req.signal,
           tools: agentTools,
           maxSteps: 2,
           referenceAttachments: requestAttachments,

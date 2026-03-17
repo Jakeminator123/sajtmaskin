@@ -5,7 +5,7 @@ import {
   CANONICAL_MODEL_IDS,
   DEFAULT_MODEL_ID,
   type CanonicalModelId,
-} from "@/lib/v0/models";
+} from "@/lib/models/catalog";
 
 export const modelTiers = CANONICAL_MODEL_IDS;
 export type ModelTier = CanonicalModelId;
@@ -26,21 +26,24 @@ const modelIdSchema = z.enum(
   ACCEPTED_MODEL_IDS as unknown as [string, ...string[]],
 );
 
+const MAX_PROMPT_META_TEXT_CHARS = MAX_CHAT_MESSAGE_CHARS;
+const MAX_PROMPT_META_LABEL_CHARS = 200;
+
 const promptMetaSchema = z
   .object({
-    promptOriginal: z.string().optional(),
-    promptFormatted: z.string().optional(),
-    promptAssistModel: z.string().optional(),
+    promptOriginal: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+    promptFormatted: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+    promptAssistModel: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     promptAssistDeep: z.boolean().optional(),
     promptAssistMode: z.enum(["polish", "rewrite"]).optional(),
-    buildIntent: z.string().optional(),
-    buildMethod: z.string().optional(),
+    buildIntent: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
+    buildMethod: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     formattedChanged: z.boolean().optional(),
     promptLength: z.number().int().nonnegative().optional(),
     formattedLength: z.number().int().nonnegative().optional(),
     attachmentsCount: z.number().int().nonnegative().optional(),
     planMode: z.boolean().optional(),
-    promptSourceKind: z.string().optional(),
+    promptSourceKind: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     promptSourceTechnical: z.boolean().optional(),
     promptSourcePreservePayload: z.boolean().optional(),
   })

@@ -18,7 +18,7 @@ import {
   DEFAULT_MODEL_ID,
   QUALITY_TO_MODEL,
   MODEL_LABELS,
-} from "@/lib/v0/models";
+} from "@/lib/models/catalog";
 
 export type ModelTier = CanonicalModelId;
 export type { QualityLevel };
@@ -49,7 +49,7 @@ const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
 };
 
 // QUALITY_TO_MODEL, MODEL_LABELS, and legacy alias mapping are
-// imported from @/lib/v0/models (single source of truth).
+// imported from @/lib/models/catalog (single source of truth).
 
 // ─── Feature costs ────────────────────────────────────────────────
 export const WIZARD_COST = 11;

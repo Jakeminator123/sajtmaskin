@@ -1,7 +1,7 @@
 import type { UiMessagePart } from "@/lib/builder/types";
 import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
-import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId } from "@/lib/v0/models";
+import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { CREATE_CHAT_LOCK_KEY, CREATE_CHAT_LOCK_TTL_MS } from "./constants";
 import type {
   AutoFixPayload,

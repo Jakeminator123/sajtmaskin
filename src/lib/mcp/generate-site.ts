@@ -17,13 +17,13 @@ import {
 } from "@/lib/gen/scaffolds";
 import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/route-helpers";
 import { normalizeBuildIntent, type BuildIntent } from "@/lib/builder/build-intent";
-import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
+import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
+import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import type { RuntimeMode, RuntimeFile, SandboxRuntimeOptions } from "./runtime-url";
 import {
   buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
 } from "./runtime-url";
-import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
 
 export type GenerateSiteParams = {
   prompt: string;

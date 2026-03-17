@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { formatPrompt, resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/promptAssist";
+import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
-import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
 import {

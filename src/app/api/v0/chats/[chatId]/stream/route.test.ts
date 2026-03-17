@@ -8,6 +8,10 @@ const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
+const prepareCredits = vi.hoisted(() => vi.fn());
+const commitCredits = vi.hoisted(() => vi.fn());
+const prepareGenerationContext = vi.hoisted(() => vi.fn());
+const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
@@ -74,7 +78,7 @@ vi.mock("@/lib/auth/session", () => ({
 }));
 
 vi.mock("@/lib/credits/server", () => ({
-  prepareCredits: vi.fn(),
+  prepareCredits,
 }));
 
 vi.mock("@/lib/logging/devLog", () => ({
@@ -155,7 +159,7 @@ vi.mock("@/lib/gen/url-compress", () => ({
 }));
 
 vi.mock("@/lib/gen/orchestrate", () => ({
-  prepareGenerationContext: vi.fn(),
+  prepareGenerationContext,
 }));
 
 vi.mock("@/lib/gen/plan-prompt", () => ({
@@ -228,7 +232,7 @@ vi.mock("@/lib/gen/stream/finalize-version", () => ({
 vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
   appendPreview: vi.fn(),
   extractToolNames: vi.fn(),
-  finalizeOrHandleEmptyGeneration: vi.fn(),
+  finalizeOrHandleEmptyGeneration,
   getUnsignaledDetectedIntegrations: vi.fn(() => []),
   looksLikeIncompleteJson: vi.fn(() => false),
 }));
@@ -259,6 +263,12 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     vi.clearAllMocks();
     addMessage.mockResolvedValue(null);
     failVersionVerification.mockResolvedValue(null);
+    commitCredits.mockResolvedValue(undefined);
+    prepareCredits.mockResolvedValue({
+      ok: true,
+      user: { id: "user_1" },
+      commit: commitCredits,
+    });
 
     sendMessageSchemaSafeParse.mockImplementation((body: Record<string, unknown>) => ({
       success: true,
@@ -291,6 +301,38 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
           language: "tsx",
         },
       ]),
+    });
+    prepareGenerationContext.mockResolvedValue({
+      resolvedScaffold: {
+        id: "scaffold_1",
+        family: "marketing",
+        label: "Marketing",
+      },
+      routePlan: null,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          databaseProvider: null,
+          authProvider: null,
+          paymentProvider: null,
+          integrations: [],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+      },
+      engineSystemPrompt: "SYSTEM",
+      v0EnrichmentContext: "V0",
+    });
+    finalizeOrHandleEmptyGeneration.mockResolvedValue({
+      version: { id: "ver_2" },
+      messageId: "msg_2",
+      previewUrl: "https://preview.example/chat_1/ver_2",
+      preflight: {
+        previewBlocked: false,
+        verificationBlocked: false,
+        previewBlockingReason: null,
+      },
+      contentForVersion: "<main>Updated follow-up</main>",
     });
   });
 

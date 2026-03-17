@@ -3,7 +3,7 @@ import {
   MODEL_TIER_OPTIONS,
 } from "@/lib/builder/defaults";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
-import { canonicalizeModelId } from "@/lib/v0/models";
+import { canonicalizeModelId } from "@/lib/models/catalog";
 
 export type ChatGenerationSettings = {
   modelTier: ModelTier;

@@ -431,101 +431,119 @@ export async function POST(req: Request) {
           imageStrategy: resolvedImageStrategy,
         });
 
-        const vercelProjectName = sanitizeVercelProjectName(
-          projectName || `sajtmaskin-${chatId}`,
-        );
-        const envVarsForDeploy = engineProjectId
-          ? await getStoredProjectEnvVarMap(engineProjectId).catch((error) => {
-              console.warn("[deploy] Failed to load app-project env vars:", error);
-              return {};
-            })
-          : {};
-
-        const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
-        if (fixesApplied.length > 0) {
-          console.info("[deploy] applied fixes:", fixesApplied);
-        }
-        if (warnings.length > 0) {
-          console.warn("[deploy] pre-deploy warnings:", warnings.slice(0, 5));
-        }
-
-        devLogAppend("latest", {
-          type: "site.deploy.precheck",
+        const deploymentId = await createDeploymentRecord({
           chatId,
           versionId,
-          fixesApplied,
-          warnings,
-          fileCount: fixedFiles.length,
-        });
-
-        const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-        const imageAssets = await materializeImagesInTextFiles({
-          files: fixedFiles,
-          strategy: resolvedImageStrategy,
-          blobToken,
-          namespace: { chatId, versionId },
-        });
-
-        if (imageAssets.warnings.length > 0) {
-          console.info("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
-        }
-
-        const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
-
-        const created = await createVercelDeployment({
-          projectName: vercelProjectName,
-          target: deployTarget,
-          files: vercelFiles,
-          envVars: envVarsForDeploy,
-        });
-
-        if (created.vercelProjectId) {
-          const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
-          if (envSync.errors.length > 0) {
-            console.warn("[deploy] env var project sync errors:", envSync.errors);
-          }
-        }
-
-        const mapped = mapVercelReadyStateToStatus(created.readyState);
-
-        devLogAppend("latest", {
-          type: "site.deploy.done",
-          chatId,
-          versionId,
-          source: "engine-postgres",
-          status: mapped.status,
-          readyState: created.readyState,
-          projectId: engineProjectId,
-          envVarCount: Object.keys(envVarsForDeploy).length,
-          url: created.url ?? null,
-          inspectorUrl: created.inspectorUrl ?? null,
         });
 
         try {
-          await creditCheck.commit();
-        } catch (error) {
-          console.error("[credits] Failed to charge deploy:", error);
-        }
+          const vercelProjectName = sanitizeVercelProjectName(
+            projectName || `sajtmaskin-${chatId}`,
+          );
+          const envVarsForDeploy = engineProjectId
+            ? await getStoredProjectEnvVarMap(engineProjectId).catch((error) => {
+                console.warn("[deploy] Failed to load app-project env vars:", error);
+                return {};
+              })
+            : {};
 
-        return NextResponse.json({
-          id: `local-${Date.now()}`,
-          chatId,
-          versionId,
-          status: mapped.status,
-          vercelDeploymentId: created.vercelDeploymentId,
-          vercelProjectId: created.vercelProjectId,
-          url: created.url,
-          inspectorUrl: created.inspectorUrl,
-          readyState: created.readyState,
-          projectId: engineProjectId,
-          envVarCount: Object.keys(envVarsForDeploy).length,
-          fixesApplied,
-          preDeployWarnings: warnings,
-          imageStrategyRequested: imageStrategy ?? null,
-          imageStrategyUsed: imageAssets.strategyUsed,
-          imageAssetsSummary: imageAssets.summary,
-          imageAssetsWarnings: imageAssets.warnings,
-        });
+          const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
+          if (fixesApplied.length > 0) {
+            console.info("[deploy] applied fixes:", fixesApplied);
+          }
+          if (warnings.length > 0) {
+            console.warn("[deploy] pre-deploy warnings:", warnings.slice(0, 5));
+          }
+
+          devLogAppend("latest", {
+            type: "site.deploy.precheck",
+            chatId,
+            versionId,
+            deploymentId,
+            fixesApplied,
+            warnings,
+            fileCount: fixedFiles.length,
+          });
+
+          const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+          const imageAssets = await materializeImagesInTextFiles({
+            files: fixedFiles,
+            strategy: resolvedImageStrategy,
+            blobToken,
+            namespace: { chatId, versionId },
+          });
+
+          if (imageAssets.warnings.length > 0) {
+            console.info("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
+          }
+
+          const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
+
+          const created = await createVercelDeployment({
+            projectName: vercelProjectName,
+            target: deployTarget,
+            files: vercelFiles,
+            envVars: envVarsForDeploy,
+          });
+
+          if (created.vercelProjectId) {
+            const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
+            if (envSync.errors.length > 0) {
+              console.warn("[deploy] env var project sync errors:", envSync.errors);
+            }
+          }
+
+          const mapped = mapVercelReadyStateToStatus(created.readyState);
+          await updateDeploymentStatus(deploymentId, mapped.status, {
+            vercelDeploymentId: created.vercelDeploymentId,
+            vercelProjectId: created.vercelProjectId ?? undefined,
+            url: created.url ?? undefined,
+            inspectorUrl: created.inspectorUrl ?? undefined,
+          });
+
+          devLogAppend("latest", {
+            type: "site.deploy.done",
+            chatId,
+            versionId,
+            deploymentId,
+            source: "engine-postgres",
+            status: mapped.status,
+            readyState: created.readyState,
+            projectId: engineProjectId,
+            envVarCount: Object.keys(envVarsForDeploy).length,
+            url: created.url ?? null,
+            inspectorUrl: created.inspectorUrl ?? null,
+          });
+
+          try {
+            await creditCheck.commit();
+          } catch (error) {
+            console.error("[credits] Failed to charge deploy:", error);
+          }
+
+          return NextResponse.json({
+            id: deploymentId,
+            chatId,
+            versionId,
+            status: mapped.status,
+            vercelDeploymentId: created.vercelDeploymentId,
+            vercelProjectId: created.vercelProjectId,
+            url: created.url,
+            inspectorUrl: created.inspectorUrl,
+            readyState: created.readyState,
+            projectId: engineProjectId,
+            envVarCount: Object.keys(envVarsForDeploy).length,
+            fixesApplied,
+            preDeployWarnings: warnings,
+            imageStrategyRequested: imageStrategy ?? null,
+            imageStrategyUsed: imageAssets.strategyUsed,
+            imageAssetsSummary: imageAssets.summary,
+            imageAssetsWarnings: imageAssets.warnings,
+          });
+        } catch (deployErr) {
+          await updateDeploymentStatus(deploymentId, "error");
+          throw deployErr;
+        }
       }
 
       // -----------------------------------------------------------------
