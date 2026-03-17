@@ -52,3 +52,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-17-provider-migration-status-audit-052112/`
 
+## 2026-03-17-architecture-cleanup (archived 2026-03-17 06:35)
+- **Scope:** ### Track 2: Runtime bugs and safety
+- **Workloads:** 3 completed, 0 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-17-architecture-cleanup-063502/`
+
