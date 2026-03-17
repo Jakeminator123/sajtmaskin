@@ -12,6 +12,7 @@ import {
   Loader2,
   Lock,
   Mail,
+  Printer,
   TrendingUp,
 } from "lucide-react";
 import { ShaderBackground } from "@/components/layout";
@@ -21,19 +22,26 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AdminAnalyticsTab } from "./components/AdminAnalyticsTab";
 import { AdminDatabaseTab } from "./components/AdminDatabaseTab";
 import { AdminEnvironmentTab } from "./components/AdminEnvironmentTab";
-import { AdminPromptsTab } from "./components/AdminPromptsTab";
+import { AdminFrontlogsTab } from "./components/AdminFrontlogsTab";
 import type {
   AdminTab,
   AnalyticsStats,
   DatabaseStats,
   EnvStatusPayload,
+  FrontlogsPayload,
   IntegrationStatus,
-  PromptLog,
   TemplateSyncStatus,
   TeamStatus,
   VercelEnvVar,
   VercelProject,
 } from "./components/types";
+
+const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
+  analytics: "Statistik",
+  database: "Databaser",
+  environment: "Miljö",
+  frontlogs: "Frontloggar",
+};
 
 export default function AdminPage() {
   const [email, setEmail] = useState("");
@@ -59,12 +67,47 @@ export default function AdminPage() {
   const [vercelEnvVars, setVercelEnvVars] = useState<VercelEnvVar[]>([]);
   const [vercelEnvLoading, setVercelEnvLoading] = useState(false);
   const [confirmVercelProjectId, setConfirmVercelProjectId] = useState<string | null>(null);
-  const [promptLogs, setPromptLogs] = useState<PromptLog[]>([]);
-  const [promptLogsLoading, setPromptLogsLoading] = useState(false);
-  const [promptLogsError, setPromptLogsError] = useState<string | null>(null);
+  const [frontlogs, setFrontlogs] = useState<FrontlogsPayload | null>(null);
+  const [frontlogsLoading, setFrontlogsLoading] = useState(false);
+  const [frontlogsError, setFrontlogsError] = useState<string | null>(null);
+  const [selectedFrontlogSlug, setSelectedFrontlogSlug] = useState<string | null>(null);
   const [teamStatus, setTeamStatus] = useState<TeamStatus | null>(null);
   const [teamStatusLoading, setTeamStatusLoading] = useState(false);
   const [templateSyncStatus, setTemplateSyncStatus] = useState<TemplateSyncStatus | null>(null);
+
+  const handlePrintCurrentTab = () => {
+    if (typeof window === "undefined") return;
+
+    const { body } = document;
+    const previousMode = body.dataset.adminPrintMode;
+    const previousTab = body.dataset.adminPrintTab;
+
+    const cleanup = () => {
+      if (previousMode) {
+        body.dataset.adminPrintMode = previousMode;
+      } else {
+        delete body.dataset.adminPrintMode;
+      }
+
+      if (previousTab) {
+        body.dataset.adminPrintTab = previousTab;
+      } else {
+        delete body.dataset.adminPrintTab;
+      }
+    };
+
+    body.dataset.adminPrintMode = "current-tab";
+    body.dataset.adminPrintTab = activeTab;
+
+    const timeoutId = window.setTimeout(cleanup, 1000);
+    const afterPrintHandler = () => {
+      window.clearTimeout(timeoutId);
+      cleanup();
+    };
+
+    window.addEventListener("afterprint", afterPrintHandler, { once: true });
+    window.print();
+  };
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -171,21 +214,25 @@ export default function AdminPage() {
     }
   };
 
-  const fetchPromptLogs = async () => {
-    setPromptLogsLoading(true);
-    setPromptLogsError(null);
+  const fetchFrontlogs = async (slug = selectedFrontlogSlug) => {
+    setFrontlogsLoading(true);
+    setFrontlogsError(null);
     try {
-      const response = await fetch("/api/admin/prompt-logs?limit=20");
+      const params = new URLSearchParams({ limit: "120" });
+      if (slug) {
+        params.set("slug", slug);
+      }
+      const response = await fetch(`/api/admin/frontlogs?${params.toString()}`);
       const data = await response.json();
       if (data.success) {
-        setPromptLogs(Array.isArray(data.logs) ? data.logs : []);
+        setFrontlogs(data as FrontlogsPayload);
       } else {
-        setPromptLogsError(data.error || "Kunde inte hämta promptloggar");
+        setFrontlogsError(data.error || "Kunde inte hämta frontloggar");
       }
     } catch {
-      setPromptLogsError("Kunde inte hämta promptloggar");
+      setFrontlogsError("Kunde inte hämta frontloggar");
     } finally {
-      setPromptLogsLoading(false);
+      setFrontlogsLoading(false);
     }
   };
 
@@ -222,25 +269,14 @@ export default function AdminPage() {
     const stored = localStorage.getItem("admin-auth");
     if (stored === "true") {
       setIsAuthenticated(true);
-      (async () => {
-        setIsLoading(true);
-        try {
-          const response = await fetch(`/api/analytics?days=${days}`);
-          const data = await response.json();
-          if (data.success) {
-            setStats(data.stats);
-          } else {
-            setIsAuthenticated(false);
-            localStorage.removeItem("admin-auth");
-          }
-        } catch {
-          // Silent fail
-        } finally {
-          setIsLoading(false);
-        }
-      })();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab === "analytics" && isAuthenticated) {
+      void fetchStats();
+    }
+  }, [activeTab, isAuthenticated, days]);
 
   useEffect(() => {
     if (activeTab === "database" && isAuthenticated) {
@@ -259,10 +295,10 @@ export default function AdminPage() {
   }, [activeTab, isAuthenticated]);
 
   useEffect(() => {
-    if (activeTab === "prompts" && isAuthenticated) {
-      fetchPromptLogs();
+    if (activeTab === "frontlogs" && isAuthenticated) {
+      fetchFrontlogs();
     }
-  }, [activeTab, isAuthenticated]);
+  }, [activeTab, isAuthenticated, selectedFrontlogSlug]);
 
   useEffect(() => {
     if (!envStatus?.vercel?.projectId || selectedVercelProjectId) return;
@@ -312,12 +348,6 @@ export default function AdminPage() {
 
       setIsAuthenticated(true);
       localStorage.setItem("admin-auth", "true");
-
-      const statsResponse = await fetch(`/api/analytics?days=${days}`);
-      const statsData = await statsResponse.json();
-      if (statsData.success) {
-        setStats(statsData.stats);
-      }
     } catch {
       setError("Kunde inte ansluta till servern");
     } finally {
@@ -332,6 +362,7 @@ export default function AdminPage() {
     setPassword("");
     setStats(null);
     setDbStats(null);
+    setFrontlogs(null);
     setTemplateSyncStatus(null);
     localStorage.removeItem("admin-auth");
   };
@@ -521,10 +552,10 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="bg-background min-h-screen">
+    <div className="admin-print-root bg-background min-h-screen">
       <ShaderBackground theme="deep" speed={0.15} />
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="admin-print-hide mb-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/">
               <Button
@@ -541,14 +572,25 @@ export default function AdminPage() {
               <p className="text-gray-500">{email || "Admin"}</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="text-gray-400 hover:bg-gray-800 hover:text-white"
-          >
-            Logga ut
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrintCurrentTab}
+              className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+            >
+              <Printer className="h-4 w-4" />
+              Skriv ut {ADMIN_TAB_LABELS[activeTab]}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-gray-400 hover:bg-gray-800 hover:text-white"
+            >
+              Logga ut
+            </Button>
+          </div>
         </div>
 
         {message && (
@@ -558,7 +600,7 @@ export default function AdminPage() {
         )}
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AdminTab)} className="w-full gap-0">
-        <TabsList className="mb-6 flex h-auto w-auto gap-2 bg-transparent p-0">
+        <TabsList className="admin-print-hide mb-6 flex h-auto w-auto gap-2 bg-transparent p-0">
           <TabsTrigger
             value="analytics"
             className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
@@ -581,15 +623,15 @@ export default function AdminPage() {
             Miljö
           </TabsTrigger>
           <TabsTrigger
-            value="prompts"
+            value="frontlogs"
             className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
           >
             <FileText className="h-4 w-4" />
-            Promptloggar
+            Frontloggar
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="analytics">
+        <TabsContent value="analytics" className="admin-print-panel" data-admin-tab="analytics">
           <AdminAnalyticsTab
             days={days}
             onDaysChange={setDays}
@@ -599,7 +641,7 @@ export default function AdminPage() {
           />
         </TabsContent>
 
-        <TabsContent value="database">
+        <TabsContent value="database" className="admin-print-panel" data-admin-tab="database">
           <AdminDatabaseTab
             dbStats={dbStats}
             templateSyncConfigured={Boolean(templateSyncStatus?.configured)}
@@ -617,7 +659,7 @@ export default function AdminPage() {
           />
         </TabsContent>
 
-        <TabsContent value="environment">
+        <TabsContent value="environment" className="admin-print-panel" data-admin-tab="environment">
           <AdminEnvironmentTab
             teamStatusLoading={teamStatusLoading}
             teamStatus={teamStatus}
@@ -639,16 +681,62 @@ export default function AdminPage() {
           />
         </TabsContent>
 
-        <TabsContent value="prompts">
-          <AdminPromptsTab
-            promptLogs={promptLogs}
-            promptLogsLoading={promptLogsLoading}
-            promptLogsError={promptLogsError}
-            onRefresh={fetchPromptLogs}
+        <TabsContent value="frontlogs" className="admin-print-panel" data-admin-tab="frontlogs">
+          <AdminFrontlogsTab
+            frontlogs={frontlogs}
+            frontlogsLoading={frontlogsLoading}
+            frontlogsError={frontlogsError}
+            selectedSlug={selectedFrontlogSlug}
+            onSlugChange={setSelectedFrontlogSlug}
+            onRefresh={() => fetchFrontlogs()}
           />
         </TabsContent>
         </Tabs>
       </div>
+      <style jsx global>{`
+        @page {
+          margin: 14mm;
+        }
+
+        @media print {
+          body[data-admin-print-mode="current-tab"] {
+            background: #fff !important;
+          }
+
+          body[data-admin-print-mode="current-tab"] .admin-print-hide,
+          body[data-admin-print-mode="current-tab"] [data-sonner-toaster] {
+            display: none !important;
+          }
+
+          body[data-admin-print-mode="current-tab"] .admin-print-root {
+            min-height: auto !important;
+            background: #fff !important;
+            color: #000 !important;
+          }
+
+          body[data-admin-print-mode="current-tab"] .admin-print-root * {
+            box-shadow: none !important;
+          }
+
+          body[data-admin-print-mode="current-tab"] .admin-print-panel {
+            display: none !important;
+          }
+
+          body[data-admin-print-mode="current-tab"][data-admin-print-tab="analytics"] .admin-print-panel[data-admin-tab="analytics"],
+          body[data-admin-print-mode="current-tab"][data-admin-print-tab="database"] .admin-print-panel[data-admin-tab="database"],
+          body[data-admin-print-mode="current-tab"][data-admin-print-tab="environment"] .admin-print-panel[data-admin-tab="environment"],
+          body[data-admin-print-mode="current-tab"][data-admin-print-tab="frontlogs"] .admin-print-panel[data-admin-tab="frontlogs"] {
+            display: block !important;
+          }
+
+          body[data-admin-print-mode="current-tab"] pre {
+            max-height: none !important;
+            overflow: visible !important;
+            white-space: pre-wrap !important;
+            word-break: break-word !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

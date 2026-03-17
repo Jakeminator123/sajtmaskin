@@ -24,12 +24,21 @@ export async function recordPageView(
 }
 
 export async function getAnalyticsStats(days = 30): Promise<{
+  days: number;
   totalPageViews: number;
   uniqueVisitors: number;
   totalUsers: number;
   totalProjects: number;
   totalGenerations: number;
   totalRefines: number;
+  metricScopes: {
+    totalPageViews: "period";
+    uniqueVisitors: "period";
+    totalUsers: "period";
+    totalProjects: "period";
+    totalGenerations: "all_time";
+    totalRefines: "all_time";
+  };
   recentPageViews: { path: string; count: number }[];
   dailyViews: { date: string; views: number; unique: number }[];
   topReferrers: { referrer: string; count: number }[];
@@ -50,8 +59,14 @@ export async function getAnalyticsStats(days = 30): Promise<{
     .from(pageViews)
     .where(gt(pageViews.created_at, startDate));
 
-  const [totalUsers] = await db.select({ count: sql<number>`count(*)` }).from(users);
-  const [totalProjects] = await db.select({ count: sql<number>`count(*)` }).from(appProjects);
+  const [totalUsers] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(users)
+    .where(gt(users.created_at, startDate));
+  const [totalProjects] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(appProjects)
+    .where(gt(appProjects.created_at, startDate));
 
   const [guestTotals] = await db
     .select({
@@ -92,12 +107,21 @@ export async function getAnalyticsStats(days = 30): Promise<{
   );
 
   return {
+    days,
     totalPageViews: pageViewsCount?.count ?? 0,
     uniqueVisitors: uniqueVisitors?.count ?? 0,
     totalUsers: totalUsers?.count ?? 0,
     totalProjects: totalProjects?.count ?? 0,
     totalGenerations: guestTotals?.generations ?? 0,
     totalRefines: guestTotals?.refines ?? 0,
+    metricScopes: {
+      totalPageViews: "period",
+      uniqueVisitors: "period",
+      totalUsers: "period",
+      totalProjects: "period",
+      totalGenerations: "all_time",
+      totalRefines: "all_time",
+    },
     recentPageViews,
     dailyViews,
     topReferrers,

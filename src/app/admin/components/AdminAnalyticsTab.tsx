@@ -27,6 +27,10 @@ export function AdminAnalyticsTab({
   stats,
   onRefresh,
 }: AdminAnalyticsTabProps) {
+  const periodLabel = `senaste ${stats?.days ?? days} dagar`;
+  const scopeLabel = (scope: "period" | "all_time") =>
+    scope === "period" ? periodLabel : "all-time";
+
   return (
     <>
       <div className="mb-6 flex items-center gap-3">
@@ -54,25 +58,62 @@ export function AdminAnalyticsTab({
 
       {stats && (
         <>
+          <div className="mb-4 rounded border border-gray-800 bg-black/40 p-4 text-sm text-gray-400">
+            Visar perioddata för <span className="text-white">{periodLabel}</span>.{" "}
+            Gäst-generationer och gäst-förfiningar visas tills vidare som{" "}
+            <span className="text-white">all-time</span>, eftersom nuvarande datamodell lagrar
+            ackumulerade räknare per session och inte säkra tidsserier per körning.
+          </div>
           <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-            <StatCard icon={Eye} label="Sidvisningar" value={stats.totalPageViews} color="blue" />
+            <StatCard
+              icon={Eye}
+              label="Sidvisningar"
+              value={stats.totalPageViews}
+              color="blue"
+              scopeLabel={scopeLabel(stats.metricScopes.totalPageViews)}
+            />
             <StatCard
               icon={Users}
               label="Unika besökare"
               value={stats.uniqueVisitors}
               color="green"
+              scopeLabel={scopeLabel(stats.metricScopes.uniqueVisitors)}
             />
-            <StatCard icon={Users} label="Registrerade" value={stats.totalUsers} color="purple" />
-            <StatCard icon={FolderOpen} label="Projekt" value={stats.totalProjects} color="amber" />
-            <StatCard icon={Wand2} label="Generationer" value={stats.totalGenerations} color="pink" />
-            <StatCard icon={Coins} label="Förfiningar" value={stats.totalRefines} color="cyan" />
+            <StatCard
+              icon={Users}
+              label="Nya användare"
+              value={stats.totalUsers}
+              color="purple"
+              scopeLabel={scopeLabel(stats.metricScopes.totalUsers)}
+            />
+            <StatCard
+              icon={FolderOpen}
+              label="Nya projekt"
+              value={stats.totalProjects}
+              color="amber"
+              scopeLabel={scopeLabel(stats.metricScopes.totalProjects)}
+            />
+            <StatCard
+              icon={Wand2}
+              label="Gäst-generationer"
+              value={stats.totalGenerations}
+              color="pink"
+              scopeLabel={scopeLabel(stats.metricScopes.totalGenerations)}
+            />
+            <StatCard
+              icon={Coins}
+              label="Gäst-förfiningar"
+              value={stats.totalRefines}
+              color="cyan"
+              scopeLabel={scopeLabel(stats.metricScopes.totalRefines)}
+            />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="border border-gray-800 bg-black/50 p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-white">
                 <TrendingUp className="text-brand-teal h-5 w-5" />
-                Dagliga besök
+                Dagliga besök ({periodLabel})
               </h2>
               <div className="flex h-64 items-end gap-1">
                 {stats.dailyViews.length > 0 ? (
@@ -111,7 +152,7 @@ export function AdminAnalyticsTab({
             </div>
 
             <div className="border border-gray-800 bg-black/50 p-6">
-              <h2 className="mb-4 text-lg font-semibold text-white">Populära sidor</h2>
+              <h2 className="mb-4 text-lg font-semibold text-white">Populära sidor ({periodLabel})</h2>
               <div className="space-y-3">
                 {stats.recentPageViews.length > 0 ? (
                   stats.recentPageViews.map((page, i) => (
@@ -140,11 +181,13 @@ function StatCard({
   label,
   value,
   color,
+  scopeLabel,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: number;
   color: string;
+  scopeLabel: string;
 }) {
   const colors: Record<string, string> = {
     blue: "bg-brand-blue/10 text-brand-blue",
@@ -162,6 +205,7 @@ function StatCard({
       </div>
       <p className="text-2xl font-bold text-white">{value.toLocaleString()}</p>
       <p className="text-sm text-gray-500">{label}</p>
+      <p className="mt-1 text-[11px] uppercase tracking-wide text-gray-600">{scopeLabel}</p>
     </div>
   );
 }

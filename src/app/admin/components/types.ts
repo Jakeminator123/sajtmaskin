@@ -1,12 +1,21 @@
-export type AdminTab = "analytics" | "database" | "environment" | "prompts";
+export type AdminTab = "analytics" | "database" | "environment" | "frontlogs";
 
 export interface AnalyticsStats {
+  days: number;
   totalPageViews: number;
   uniqueVisitors: number;
   totalUsers: number;
   totalProjects: number;
   totalGenerations: number;
   totalRefines: number;
+  metricScopes: {
+    totalPageViews: "period";
+    uniqueVisitors: "period";
+    totalUsers: "period";
+    totalProjects: "period";
+    totalGenerations: "all_time";
+    totalRefines: "all_time";
+  };
   recentPageViews: { path: string; count: number }[];
   dailyViews: { date: string; views: number; unique: number }[];
   topReferrers: { referrer: string; count: number }[];
@@ -113,6 +122,24 @@ export interface PromptLog {
   attachmentsCount: number | null;
   meta: Record<string, unknown> | null;
   createdAt: string | null;
+}
+
+export interface FrontlogEntry {
+  ts: string;
+  target: string;
+  slug: string | null;
+  data: Record<string, unknown>;
+}
+
+export interface FrontlogsPayload {
+  success: boolean;
+  available: boolean;
+  slug: string | null;
+  latestSlug: string | null;
+  slugs: string[];
+  entryCount: number;
+  entries: FrontlogEntry[];
+  note?: string | null;
 }
 
 export interface TeamStatus {
