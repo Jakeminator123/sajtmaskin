@@ -89,7 +89,7 @@ DOM_dev_tols.txt
 chat_till_vanster.txt
 
 # Misc legacy folders
-.j_to_agent/
+#.j_to_agent/
 vercel_templates_levels/
 
 # Orchestrator run folders (use exact paths; reduces indexing tokens)
