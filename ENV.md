@@ -218,6 +218,14 @@ preview-URL:er, demo-URL:er och hemsidor. Lokal `npm run dev` räcker för utvec
 
 ## Lokal utveckling (setup från scratch)
 
+Rekommenderad Node-version lokalt ar `22.14.0` (samma baseline som
+`package.json`, Volta, `.nvmrc` och `.node-version`).
+
+Om en git-hook eller agent-shell klagar pa `npx: command not found` beror det
+oftast pa att shellen inte har laddat samma PATH/Volta-miljo som din vanliga
+terminal. Verifiera da manuellt med `npm run typecheck` innan push och kor
+sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
+
 1. Klona repot och kör `npm install`.
 2. Skapa `.env.local` med minst: `POSTGRES_URL`, `JWT_SECRET`, `OPENAI_API_KEY`.
 3. **Redis (dev):** Skapa en gratis Upstash Redis på [console.upstash.com](https://console.upstash.com), sätt `REDIS_URL`, `KV_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
