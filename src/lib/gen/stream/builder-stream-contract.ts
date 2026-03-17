@@ -7,6 +7,7 @@ export type BuilderToolCallPayload = {
   args?: Record<string, unknown>;
 } & Record<string, unknown>;
 export type BuilderProgressPayload = Record<string, unknown>;
+export type BuilderPingPayload = { ts: number } & Record<string, unknown>;
 export type BuilderUiPartsPayload = Array<Record<string, unknown>>;
 export type BuilderIntegrationPayload = Array<Record<string, unknown>>;
 export type BuilderChatIdPayload = { id?: string; chatId?: string } | string;
@@ -31,6 +32,7 @@ export interface BuilderStreamEventMap {
   integration: BuilderIntegrationPayload;
   "tool-call": BuilderToolCallPayload;
   progress: BuilderProgressPayload;
+  ping: BuilderPingPayload;
   chatId: BuilderChatIdPayload;
   projectId: BuilderProjectIdPayload;
   done: BuilderDonePayload;
@@ -52,6 +54,7 @@ const BUILDER_STREAM_EVENT_NAMES = new Set<BuilderStreamEventName>([
   "integration",
   "tool-call",
   "progress",
+  "ping",
   "chatId",
   "projectId",
   "done",

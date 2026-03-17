@@ -627,7 +627,7 @@ export async function handleMessageStreamRequest(
               planMode: true,
             }),
             commitCredits: commitCreditsOnce,
-            commitCreditsPosition: "after-done",
+            commitCreditsPosition: "before-done",
             normalizeQuestionToolCallIds: true,
           });
 
