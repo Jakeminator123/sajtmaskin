@@ -8,12 +8,18 @@ import {
 
 const originalUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
 const originalUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+const originalKvUrl = process.env.KV_REST_API_URL;
+const originalKvToken = process.env.KV_REST_API_TOKEN;
 
 afterEach(() => {
   if (originalUpstashUrl) process.env.UPSTASH_REDIS_REST_URL = originalUpstashUrl;
   else delete process.env.UPSTASH_REDIS_REST_URL;
   if (originalUpstashToken) process.env.UPSTASH_REDIS_REST_TOKEN = originalUpstashToken;
   else delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (originalKvUrl) process.env.KV_REST_API_URL = originalKvUrl;
+  else delete process.env.KV_REST_API_URL;
+  if (originalKvToken) process.env.KV_REST_API_TOKEN = originalKvToken;
+  else delete process.env.KV_REST_API_TOKEN;
 });
 
 describe("rateLimit", () => {
@@ -90,6 +96,8 @@ describe("rateLimit", () => {
   it("returns 429 and rate limit headers in withRateLimit", async () => {
     delete process.env.UPSTASH_REDIS_REST_URL;
     delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
 
     const endpoint = `unit:withRateLimit:${Date.now()}`;
     RATE_LIMITS[endpoint] = { maxRequests: 1, windowMs: 60_000 };

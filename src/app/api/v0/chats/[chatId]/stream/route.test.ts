@@ -7,6 +7,7 @@ const getLatestVersion = vi.hoisted(() => vi.fn());
 const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
+const addMessage = vi.hoisted(() => vi.fn());
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
@@ -210,7 +211,7 @@ vi.mock("@/lib/gen/route-helpers", () => {
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getLatestVersion,
   updateChatProjectId,
-  addMessage: vi.fn(),
+  addMessage,
   createChat: vi.fn(),
   updateChatScaffoldId: vi.fn(),
   failVersionVerification,
@@ -256,6 +257,7 @@ async function readSseEvents(response: Response) {
 describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    addMessage.mockResolvedValue(null);
     failVersionVerification.mockResolvedValue(null);
 
     sendMessageSchemaSafeParse.mockImplementation((body: Record<string, unknown>) => ({
@@ -366,5 +368,29 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       awaitingInput: true,
       reason: "followup_edit_underspecified",
     });
+  });
+
+  it("still persists the assistant clarification when user message persistence fails", async () => {
+    addMessage
+      .mockRejectedValueOnce(new Error("write user failed"))
+      .mockResolvedValueOnce(null);
+
+    const response = await POST(
+      new Request("https://example.com/api/v0/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Kan du förbättra den lite?",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(addMessage).toHaveBeenCalledTimes(2);
+    expect(addMessage.mock.calls[0]).toMatchObject(["chat_1", "user", "Kan du förbättra den lite?"]);
+    expect(addMessage.mock.calls[1]?.[0]).toBe("chat_1");
+    expect(addMessage.mock.calls[1]?.[1]).toBe("assistant");
+    expect(addMessage.mock.calls[1]?.[2]).toBe("Vad vill du att jag fokuserar på i nästa ändring?");
   });
 });

@@ -358,20 +358,28 @@ export async function handleMessageStreamRequest(
             reason: "followup_redesign_ambiguous",
             promptPreview: message.slice(0, 160),
           });
-          await chatRepo.addMessage(chatId, "user", message).catch(() => null);
-          await chatRepo.addMessage(chatId, "assistant", redesignQuestion, undefined, [{
-            type: "tool:awaiting-input",
-            toolName: "Klargörande fråga",
-            state: "approval-requested",
-            output: {
-              question: redesignQuestion,
-              options: redesignOptions,
-              kind: "scope",
-              blocking: true,
-              reason: "followup_redesign_ambiguous",
-              awaitingInput: true,
-            },
-          }]).catch(() => null);
+          try {
+            await chatRepo.addMessage(chatId, "user", message);
+          } catch {
+            // Best effort persistence only.
+          }
+          try {
+            await chatRepo.addMessage(chatId, "assistant", redesignQuestion, undefined, [{
+              type: "tool:awaiting-input",
+              toolName: "Klargörande fråga",
+              state: "approval-requested",
+              output: {
+                question: redesignQuestion,
+                options: redesignOptions,
+                kind: "scope",
+                blocking: true,
+                reason: "followup_redesign_ambiguous",
+                awaitingInput: true,
+              },
+            }]);
+          } catch {
+            // Best effort persistence only.
+          }
           return attachSessionCookie(
             new Response(
               buildAwaitingClarificationStream({
@@ -400,20 +408,28 @@ export async function handleMessageStreamRequest(
             reason: "followup_edit_underspecified",
             promptPreview: message.slice(0, 160),
           });
-          await chatRepo.addMessage(chatId, "user", message).catch(() => null);
-          await chatRepo.addMessage(chatId, "assistant", followupQuestion, undefined, [{
-            type: "tool:awaiting-input",
-            toolName: "Klargörande fråga",
-            state: "approval-requested",
-            output: {
-              question: followupQuestion,
-              options: followupOptions,
-              kind: "scope",
-              blocking: true,
-              reason: "followup_edit_underspecified",
-              awaitingInput: true,
-            },
-          }]).catch(() => null);
+          try {
+            await chatRepo.addMessage(chatId, "user", message);
+          } catch {
+            // Best effort persistence only.
+          }
+          try {
+            await chatRepo.addMessage(chatId, "assistant", followupQuestion, undefined, [{
+              type: "tool:awaiting-input",
+              toolName: "Klargörande fråga",
+              state: "approval-requested",
+              output: {
+                question: followupQuestion,
+                options: followupOptions,
+                kind: "scope",
+                blocking: true,
+                reason: "followup_edit_underspecified",
+                awaitingInput: true,
+              },
+            }]);
+          } catch {
+            // Best effort persistence only.
+          }
           return attachSessionCookie(
             new Response(
               buildAwaitingClarificationStream({
