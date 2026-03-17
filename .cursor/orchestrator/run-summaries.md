@@ -35,3 +35,14 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Added a direct follow-up clarification-path test and kept `preview/shims.ts` deferred
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-14-runtime-stream-route-safety-180045/`
 
+## 2026-03-17-critical-runtime-fixes (archived 2026-03-17 02:01)
+- **Scope:** Fix critical runtime bugs from external deep-research audit (Plans 14+15), repo cleanup, and new plan structure.
+- **Workloads:** 6 completed (4 from Plan 14, 2 from Plan 15), 6 verified via linter.
+- **Outcome:** Fixed plan-mode credit commit leak in create-stream
+- **Outcome:** Harmonized ENGINE_MAX_OUTPUT_TOKENS (262k->32k) and AUTOFIX (122k->12k)
+- **Outcome:** Conditioned DATA_DIR warning on IS_RENDER; added Vercel supportsCancellation
+- **Outcome:** Persisted clarification messages before awaiting-input streams
+- **Outcome:** Hardened builder auto-project-create with auth modal and toast
+- **Outcome:** Archived world-class-recovery/, created Plans 14-16, cleaned cursorignore
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-17-critical-runtime-fixes-020129/`
+

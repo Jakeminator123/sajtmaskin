@@ -4,7 +4,7 @@ This file is the operational handoff index for plan artifacts. Use it when a new
 agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
-Status re-verified against the current plan set on `2026-03-14`.
+Status re-verified against the current plan set on `2026-03-17`.
 
 ## Status legend
 
@@ -31,6 +31,9 @@ Status re-verified against the current plan set on `2026-03-14`.
 | `11-next-vercel-build-plan-core-config.md` | `archived` | Completed phased optimization plan (core Next.js config) |
 | `12-next-vercel-build-plan-server-routes.md` | `archived` | Completed phased optimization plan (server/API improvements) |
 | `13-next-vercel-build-plan-ui-performance.md` | `archived` | Completed phased optimization plan (UI rendering improvements) |
+| `14-critical-runtime-fixes.md` | `active` | Token budgets, credit commit, config drift, Vercel cancellation -- from deep-research audit |
+| `15-builder-robustness.md` | `active` | Builder entry edge case, clarification persistence -- from deep-research audit |
+| `16-provider-adapter-architecture.md` | `active` | Own-engine / v0 separation: model extraction, stream contract, plan-mode isolation |
 
 ## Current active-phase notes
 
@@ -80,6 +83,59 @@ Status re-verified against the current plan set on `2026-03-14`.
   exists
 - Archived plans `11` through `13` provide useful performance groundwork, but
   do not change the `07` -> `08` -> `09` -> `10` execution order
+
+## Latest run: 2026-03-17 critical-runtime-fixes
+
+Plans 14 and 15 were executed in a single orchestrator run. Key changes:
+
+- **Plan 14** (4 workloads, all done): credit commit, token defaults, config
+  warning, Vercel cancellation. Can be moved to `archived` after deploy
+  verification.
+- **Plan 15** (2 workloads, all done): clarification persistence, builder
+  entry hardening. Can be moved to `archived` after manual QA.
+- **Plan 16** (0 workloads started): provider adapter architecture. This is the
+  remaining active plan from the deep-research audit and should be treated as
+  a separate orchestrator run.
+
+Commit: `c70661a` pushed to `origin/main`.
+
+## Handoff notes for next agent
+
+### Immediate verification needed
+
+1. **TypeScript build**: the pre-push hook failed due to `npx` not being in
+   PATH (volta issue). Run `pnpm tsc --noEmit` manually to confirm no type
+   errors were introduced.
+2. **Deploy verification**: confirm Vercel deploy succeeds with the new
+   `supportsCancellation` in `vercel.json` and the lowered token defaults.
+3. **Token default impact**: monitor first few generations after deploy.
+   ENGINE_MAX_OUTPUT_TOKENS dropped from 262k to 32k. If truncated outputs
+   appear, consider bumping to 65k or adding tier-based caps.
+
+### Recommended next pass (Plan 16 + remaining Phase 9 + Phase 10)
+
+Plan 16 (provider adapter architecture) is the cleanest next target:
+1. Extract model selection to `src/lib/models/` (safe rename)
+2. Isolate plan-mode into its own handler (reduces route complexity)
+3. Define `BuilderStreamEvent` contract (unifies own-engine + v0)
+
+After Plan 16, return to Phase 9 remaining gaps:
+- Team editor
+- SEO generation guarantees
+- Analytics provider setup flows
+- Pack-specific guided UI
+- Content-level version diff
+
+Phase 10 is long-horizon work. Start only after Phase 9 is substantially done.
+
+### Environment notes
+
+- `volta`/`npx` are not in the shell PATH used by Cursor agents; use `pnpm`
+  directly for any node tooling
+- `.j_to_agent/` is the user's preferred channel for providing external files
+  to agents; treat it as read-only input
+- `.cursorignore` was significantly tightened; agents should read ignored files
+  by explicit path when needed, not expect them in search results
 
 ## Working rule
 
