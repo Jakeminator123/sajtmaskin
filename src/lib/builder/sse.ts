@@ -1,6 +1,7 @@
-import type {
-  BuilderStreamEventMap,
-  BuilderStreamEventName,
+import {
+  isBuilderStreamEventName,
+  type BuilderStreamEventMap,
+  type BuilderStreamEventName,
 } from "@/lib/gen/stream/builder-stream-contract";
 
 type SseData = unknown;
@@ -40,7 +41,9 @@ export async function consumeSseResponse(
     }
     const raw = dataLines.join("\n");
     const data = parseSseData(raw);
-    onEvent(currentEvent, data, raw);
+    if (isBuilderStreamEventName(currentEvent)) {
+      onEvent(currentEvent, data, raw);
+    }
     currentEvent = "";
     dataLines = [];
   };

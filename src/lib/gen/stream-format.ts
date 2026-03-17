@@ -9,6 +9,7 @@ import { debugLog } from "@/lib/utils/debug";
 export interface StreamMeta {
   chatId?: string;
   versionId?: string;
+  [key: string]: unknown;
 }
 
 /**

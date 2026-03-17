@@ -35,8 +35,8 @@ export function createPlanModeStream(params: {
   resolvePlanArtifact: (
     accumulatedContent: string,
     toolPlanArtifact: PlanArtifact | null,
-  ) => PlanArtifact;
-  enrichPlanArtifact?: (toolArgs: Record<string, unknown>) => PlanArtifact;
+  ) => PlanArtifact | null;
+  enrichPlanArtifact?: (toolArgs: Record<string, unknown>) => PlanArtifact | null;
   persistAssistantSummary: (planData: PlanArtifact, hasBlockers: boolean) => Promise<void>;
   buildDonePayload: (planData: PlanArtifact, hasBlockers: boolean) => Record<string, unknown>;
   commitCredits: () => Promise<void>;
@@ -99,11 +99,12 @@ export function createPlanModeStream(params: {
 
             switch (evt.event) {
               case "thinking": {
+                const d = evt.data as Record<string, unknown> | string;
                 const text =
-                  typeof evt.data === "string"
-                    ? evt.data
-                    : typeof evt.data?.text === "string"
-                      ? evt.data.text
+                  typeof d === "string"
+                    ? d
+                    : typeof d?.text === "string"
+                      ? d.text
                       : "";
                 if (text) {
                   safeEnqueue(createBuilderStreamEvent("thinking", { text }));
@@ -111,11 +112,12 @@ export function createPlanModeStream(params: {
                 break;
               }
               case "content": {
+                const d = evt.data as Record<string, unknown> | string;
                 const text =
-                  typeof evt.data === "string"
-                    ? evt.data
-                    : typeof evt.data?.text === "string"
-                      ? evt.data.text
+                  typeof d === "string"
+                    ? d
+                    : typeof d?.text === "string"
+                      ? d.text
                       : "";
                 if (text) {
                   accumulatedContent += text;
@@ -143,7 +145,7 @@ export function createPlanModeStream(params: {
                         typeof toolData.toolCallId === "string"
                           ? toolData.toolCallId
                           : `plan-${Date.now()}`,
-                      args: emittedPlanArtifact,
+                      args: emittedPlanArtifact ?? undefined,
                     }),
                   );
                 } else if (
@@ -193,7 +195,7 @@ export function createPlanModeStream(params: {
         }
       }
 
-      const planData = resolvePlanArtifact(accumulatedContent, toolPlanArtifact);
+      const planData = resolvePlanArtifact(accumulatedContent, toolPlanArtifact) ?? {};
       const hasBlockers =
         Array.isArray(planData?.blockers) && (planData.blockers as unknown[]).length > 0;
 
