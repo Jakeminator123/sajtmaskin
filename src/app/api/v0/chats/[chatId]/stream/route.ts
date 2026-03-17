@@ -28,8 +28,13 @@ import { normalizeV0Error } from "@/lib/v0/errors";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
-import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
-import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/v0/models";
+import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
+import {
+  canonicalModelIdToOwnModelId,
+  DEFAULT_MODEL_ID,
+  MODEL_LABELS,
+  getBuildProfileId,
+} from "@/lib/models/catalog";
 import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
 import {
   buildContractClarificationQuestion,
@@ -62,6 +67,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context";
 import type { CodeFile } from "@/lib/gen/parser";
 import { EmptyGenerationError } from "@/lib/gen/stream/finalize-version";
+import { createPlanModeStream } from "@/lib/gen/stream/plan-mode-stream";
 import {
   appendPreview,
   extractToolNames,
@@ -568,155 +574,36 @@ export async function handleMessageStreamRequest(
             referenceAttachments: requestAttachments,
           });
 
-          const planStream = new ReadableStream({
-            async start(controller) {
-              const enc = new TextEncoder();
-              const reader = planPipelineStream.getReader();
-              const decoder = new TextDecoder();
-              let sseBuffer = "";
-              let accumulatedContent = "";
-              let controllerClosed = false;
-              let toolPlanArtifact: Record<string, unknown> | null = null;
-
-              const safeEnqueue = (data: Uint8Array) => {
-                if (controllerClosed) return;
-                try {
-                  controller.enqueue(data);
-                } catch {
-                  controllerClosed = true;
-                }
-              };
-
-              safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
-              safeEnqueue(
-                enc.encode(
-                  formatSSEEvent("meta", {
-                    modelId: planModel,
-                    modelTier: resolvedModelTier,
-                    buildProfileId,
-                    buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-                    enginePath: "plan-mode",
-                    thinking: resolvedThinking,
-                    planMode: true,
-                    scaffoldId: planResolvedScaffold?.id ?? null,
-                    scaffoldFamily: planResolvedScaffold?.family ?? null,
-                    promptStrategy: promptOrchestration.strategyMeta.strategy,
-                    promptType: promptOrchestration.strategyMeta.promptType,
-                  }),
-                ),
-              );
-
-              try {
-                while (true) {
-                  const { done, value } = await reader.read();
-                  if (done) break;
-                  sseBuffer += decoder.decode(value, { stream: true });
-                  const { events, remaining } = parseSSEBuffer(sseBuffer);
-                  sseBuffer = remaining;
-
-                  for (const evt of events) {
-                    if (controllerClosed) break;
-
-                    switch (evt.event) {
-                      case "thinking": {
-                        const text =
-                          typeof (evt.data as Record<string, unknown>)?.text === "string"
-                            ? (evt.data as Record<string, string>).text
-                            : "";
-                        if (text) {
-                          safeEnqueue(enc.encode(formatSSEEvent("thinking", { text })));
-                        }
-                        break;
-                      }
-                      case "content": {
-                        const text =
-                          typeof (evt.data as Record<string, unknown>)?.text === "string"
-                            ? (evt.data as Record<string, string>).text
-                            : "";
-                        if (text) {
-                          accumulatedContent += text;
-                          safeEnqueue(enc.encode(formatSSEEvent("content", { text })));
-                        }
-                        break;
-                      }
-                      case "tool-call": {
-                        const toolData = evt.data as Record<string, unknown>;
-                        const toolName =
-                          typeof toolData?.toolName === "string" ? toolData.toolName : "";
-                        const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
-
-                        if (toolName === "emitPlanArtifact") {
-                          const enrichedPlanArtifact = enrichPlanArtifactForReview(toolArgs, {
-                            resolvedScaffold: planResolvedScaffold,
-                            scaffoldMode: metaScaffoldMode,
-                          });
-                          toolPlanArtifact = enrichedPlanArtifact;
-                          safeEnqueue(
-                            enc.encode(
-                              formatSSEEvent("tool-call", {
-                                toolName: "emitPlanArtifact",
-                                toolCallId:
-                                  typeof toolData.toolCallId === "string"
-                                    ? toolData.toolCallId
-                                    : `plan-${Date.now()}`,
-                                args: enrichedPlanArtifact,
-                              }),
-                            ),
-                          );
-                        } else if (
-                          toolName === "suggestIntegration" ||
-                          toolName === "requestEnvVar" ||
-                          toolName === "askClarifyingQuestion"
-                        ) {
-                          safeEnqueue(
-                            enc.encode(
-                              formatSSEEvent(
-                                "tool-call",
-                                toolName === "askClarifyingQuestion"
-                                  ? {
-                                      toolName,
-                                      toolCallId:
-                                        typeof toolData.toolCallId === "string"
-                                          ? toolData.toolCallId
-                                          : `q-${Date.now()}`,
-                                      args: toolArgs,
-                                    }
-                                  : toolData,
-                              ),
-                            ),
-                          );
-                        }
-                        break;
-                      }
-                      case "done":
-                      case "error":
-                        break;
-                    }
-                  }
-                }
-              } catch (error) {
-                if (!controllerClosed) {
-                  safeEnqueue(
-                    enc.encode(
-                      formatSSEEvent("error", {
-                        message:
-                          error instanceof Error ? error.message : "Plan generation failed",
-                      }),
-                    ),
-                  );
-                }
-              }
-
-              const planData = enrichPlanArtifactForReview(
+          const planStream = createPlanModeStream({
+            pipelineStream: planPipelineStream,
+            chatId,
+            meta: {
+              modelId: planModel,
+              modelTier: resolvedModelTier,
+              buildProfileId,
+              buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+              enginePath: "plan-mode",
+              thinking: resolvedThinking,
+              planMode: true,
+              scaffoldId: planResolvedScaffold?.id ?? null,
+              scaffoldFamily: planResolvedScaffold?.family ?? null,
+              promptStrategy: promptOrchestration.strategyMeta.strategy,
+              promptType: promptOrchestration.strategyMeta.promptType,
+            },
+            enrichPlanArtifact: (toolArgs) =>
+              enrichPlanArtifactForReview(toolArgs, {
+                resolvedScaffold: planResolvedScaffold,
+                scaffoldMode: metaScaffoldMode,
+              }),
+            resolvePlanArtifact: (accumulatedContent, toolPlanArtifact) =>
+              enrichPlanArtifactForReview(
                 toolPlanArtifact ?? parsePlanResponse(accumulatedContent),
                 {
                   resolvedScaffold: planResolvedScaffold,
                   scaffoldMode: metaScaffoldMode,
                 },
-              );
-              const hasBlockers =
-                Array.isArray(planData?.blockers) && (planData.blockers as unknown[]).length > 0;
-
+              ),
+            persistAssistantSummary: async (planData, hasBlockers) => {
               try {
                 const storedPlanPart = buildPlanUiPart(planData);
                 await chatRepo.addMessage(
@@ -729,31 +616,19 @@ export async function handleMessageStreamRequest(
               } catch (error) {
                 console.warn("[plan] Failed to persist planner assistant summary:", error);
               }
-
-              safeEnqueue(
-                enc.encode(
-                  formatSSEEvent("done", {
-                    chatId,
-                    versionId: null,
-                    messageId: null,
-                    demoUrl: null,
-                    awaitingInput: hasBlockers,
-                    planArtifact: planData,
-                    planMode: true,
-                  }),
-                ),
-              );
-
-              await commitCreditsOnce();
-
-              if (!controllerClosed) {
-                try {
-                  controller.close();
-                } catch {
-                  /* already closed */
-                }
-              }
             },
+            buildDonePayload: (planData, hasBlockers) => ({
+              chatId,
+              versionId: null,
+              messageId: null,
+              demoUrl: null,
+              awaitingInput: hasBlockers,
+              planArtifact: planData,
+              planMode: true,
+            }),
+            commitCredits: commitCreditsOnce,
+            commitCreditsPosition: "after-done",
+            normalizeQuestionToolCallIds: true,
           });
 
           return attachSessionCookie(
@@ -829,7 +704,7 @@ export async function handleMessageStreamRequest(
           internalModelSelection: resolvedModelTier,
           fallbackConfigured: shouldUseV0Fallback(),
           enginePath: "own-engine",
-          engineModel: v0TierToOpenAIModel(resolvedModelTier),
+          engineModel: canonicalModelIdToOwnModelId(resolvedModelTier),
           promptLength: optimizedMessage.length,
           originalPromptLength: message.length,
           attachments: requestAttachments.length,

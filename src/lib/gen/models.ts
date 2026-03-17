@@ -1,8 +1,8 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { gateway } from "ai";
-import { DEFAULT_OWN_MODEL_ID } from "@/lib/v0/models";
+import { DEFAULT_OWN_MODEL_ID } from "@/lib/models/catalog";
 
-/** Default model for code generation. Aligned with v0/models.ts OWN_MODELS. */
+/** Default model for code generation. Aligned with the shared model catalog. */
 export const DEFAULT_MODEL = DEFAULT_OWN_MODEL_ID;
 
 const ANTHROPIC_PREFIX_RE = /^claude-/;

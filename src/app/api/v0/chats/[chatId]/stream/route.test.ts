@@ -126,7 +126,7 @@ vi.mock("@/lib/builder/promptOrchestration", () => ({
   }),
 }));
 
-vi.mock("@/lib/v0/modelSelection", () => ({
+vi.mock("@/lib/models/selection", () => ({
   resolveModelSelection: () => ({
     modelId: "test-model-id",
     modelTier: "test-tier",
@@ -134,13 +134,13 @@ vi.mock("@/lib/v0/modelSelection", () => ({
   resolveEngineModelId: () => "gpt-5.4",
 }));
 
-vi.mock("@/lib/v0/models", () => ({
+vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_MODEL_ID: "test-model-id",
   MODEL_LABELS: {
     "test-tier": "Test Tier",
   },
+  canonicalModelIdToOwnModelId: () => "gpt-5.4",
   getBuildProfileId: () => "profile-test",
-  v0TierToOpenAIModel: () => "gpt-5.4",
 }));
 
 vi.mock("@/lib/gen/fallback", () => ({

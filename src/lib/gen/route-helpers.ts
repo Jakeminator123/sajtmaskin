@@ -1,4 +1,9 @@
 import { createSSEHeaders } from "@/lib/streaming";
+import {
+  createBuilderStreamEvent,
+  isBuilderStreamEventName,
+  type BuilderStreamEvent,
+} from "@/lib/gen/stream/builder-stream-contract";
 import type { SuspenseRule, StreamContext } from "@/lib/gen/suspense";
 import { createDefaultRules } from "@/lib/gen/suspense";
 
@@ -117,10 +122,7 @@ export class SuspenseLineProcessor {
 // SSE event parser for engine output
 // ---------------------------------------------------------------------------
 
-export interface EngineSSEEvent {
-  event: string;
-  data: unknown;
-}
+export type EngineSSEEvent = BuilderStreamEvent;
 
 /**
  * Parse SSE events from a buffer. Returns parsed events and any remaining
@@ -148,9 +150,13 @@ export function parseSSEBuffer(buffer: string): {
 
     try {
       const data = JSON.parse(rawData);
-      events.push({ event: currentEvent, data });
+      if (isBuilderStreamEventName(currentEvent)) {
+        events.push(createBuilderStreamEvent(currentEvent, data));
+      }
     } catch {
-      events.push({ event: currentEvent, data: rawData });
+      if (isBuilderStreamEventName(currentEvent)) {
+        events.push(createBuilderStreamEvent(currentEvent, rawData));
+      }
     }
     currentEvent = "";
   }

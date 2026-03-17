@@ -1,3 +1,8 @@
+import {
+  createBuilderStreamEvent,
+  type BuilderStreamEvent,
+  type BuilderStreamEventName,
+} from "@/lib/gen/stream/builder-stream-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { debugLog } from "@/lib/utils/debug";
 
@@ -84,8 +89,10 @@ export function createCodeGenSSEStream(
         string,
         { toolName?: string; toolCallId?: string; inputText: string }
       >();
-      const enqueue = (event: string, data: unknown) => {
-        controller.enqueue(encoder.encode(formatSSEEvent(event, data)));
+      const enqueue = <TEvent extends BuilderStreamEventName>(
+        streamEvent: BuilderStreamEvent<TEvent>,
+      ) => {
+        controller.enqueue(encoder.encode(formatSSEEvent(streamEvent.event, streamEvent.data)));
       };
       const getToolInputKey = (part: { toolCallId?: string; toolName?: string }): string | null => {
         if (part.toolCallId) return part.toolCallId;
@@ -131,11 +138,13 @@ export function createCodeGenSSEStream(
         const toolName = part.toolName ?? buffered?.toolName;
         const toolCallId = part.toolCallId ?? buffered?.toolCallId;
         if (!toolName) return false;
-        enqueue("tool-call", {
-          toolName,
-          toolCallId,
-          args,
-        });
+        enqueue(
+          createBuilderStreamEvent("tool-call", {
+            toolName,
+            toolCallId,
+            args,
+          }),
+        );
         if (key) pendingToolInputs.delete(key);
         return true;
       };
@@ -160,7 +169,7 @@ export function createCodeGenSSEStream(
 
       try {
         if (meta) {
-          enqueue("meta", meta);
+          enqueue(createBuilderStreamEvent("meta", meta));
         }
 
         for await (const part of result.fullStream) {
@@ -174,7 +183,7 @@ export function createCodeGenSSEStream(
             case "reasoning-delta": {
               const reasoningText = resolveStreamText(part);
               if (thinking && reasoningText) {
-                enqueue("thinking", { text: reasoningText });
+                enqueue(createBuilderStreamEvent("thinking", { text: reasoningText }));
               }
               break;
             }
@@ -185,7 +194,7 @@ export function createCodeGenSSEStream(
             case "output-text-delta": {
               const contentText = resolveStreamText(part);
               if (contentText) {
-                enqueue("content", { text: contentText });
+                enqueue(createBuilderStreamEvent("content", { text: contentText }));
               }
               break;
             }
@@ -214,9 +223,11 @@ export function createCodeGenSSEStream(
             }
 
             case "error":
-              enqueue("error", {
-                message: part.error instanceof Error ? part.error.message : "Stream error",
-              });
+              enqueue(
+                createBuilderStreamEvent("error", {
+                  message: part.error instanceof Error ? part.error.message : "Stream error",
+                }),
+              );
               break;
           }
         }
@@ -227,16 +238,20 @@ export function createCodeGenSSEStream(
 
         const usage = await result.usage;
         summarizeStream("done", usage);
-        enqueue("done", {
-          promptTokens: usage?.inputTokens ?? 0,
-          completionTokens: usage?.outputTokens ?? 0,
-        });
+        enqueue(
+          createBuilderStreamEvent("done", {
+            promptTokens: usage?.inputTokens ?? 0,
+            completionTokens: usage?.outputTokens ?? 0,
+          }),
+        );
       } catch (err) {
         summarizeStream("error");
         try {
-          enqueue("error", {
-            message: err instanceof Error ? err.message : "Generation failed",
-          });
+          enqueue(
+            createBuilderStreamEvent("error", {
+              message: err instanceof Error ? err.message : "Generation failed",
+            }),
+          );
         } catch {
           // controller may already be closed
         }

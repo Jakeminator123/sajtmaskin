@@ -1,3 +1,8 @@
+import type {
+  BuilderStreamEventMap,
+  BuilderStreamEventName,
+} from "@/lib/gen/stream/builder-stream-contract";
+
 type SseData = unknown;
 
 function parseSseData(raw: string): SseData {
@@ -12,7 +17,11 @@ function parseSseData(raw: string): SseData {
 
 export async function consumeSseResponse(
   response: Response,
-  onEvent: (event: string, data: SseData, raw: string) => void,
+  onEvent: <TEvent extends BuilderStreamEventName>(
+    event: TEvent,
+    data: BuilderStreamEventMap[TEvent] | SseData,
+    raw: string,
+  ) => void,
   options?: { signal?: AbortSignal },
 ): Promise<void> {
   const reader = response.body?.getReader();

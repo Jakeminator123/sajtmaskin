@@ -38,8 +38,13 @@ import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/logg
 import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { createPromptLog } from "@/lib/db/services";
-import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
-import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/v0/models";
+import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
+import {
+  canonicalModelIdToOwnModelId,
+  DEFAULT_MODEL_ID,
+  MODEL_LABELS,
+  getBuildProfileId,
+} from "@/lib/models/catalog";
 import { AI } from "@/lib/config";
 import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
 import {
@@ -70,6 +75,7 @@ import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { EmptyGenerationError } from "@/lib/gen/stream/finalize-version";
+import { createPlanModeStream } from "@/lib/gen/stream/plan-mode-stream";
 import {
   appendPreview,
   extractToolNames,
@@ -291,7 +297,7 @@ export async function POST(req: Request) {
         enginePath: usingV0Fallback ? "v0-fallback" : "own-engine",
         engineModel: usingV0Fallback
           ? fallbackModelId
-          : v0TierToOpenAIModel(resolvedModelTier),
+          : canonicalModelIdToOwnModelId(resolvedModelTier),
         promptLength: optimizedMessage.length,
         originalPromptLength: message.length,
         attachments: requestAttachments.length,
@@ -413,121 +419,41 @@ export async function POST(req: Request) {
         );
         await chatRepo.addMessage(plannerChat.id, "user", optimizedMessage);
 
-        const planStream = new ReadableStream({
-          async start(controller) {
-            const enc = new TextEncoder();
-            const reader = pipelineStream.getReader();
-            const decoder = new TextDecoder();
-            let sseBuffer = "";
-            let accumulatedContent = "";
-            let controllerClosed = false;
-
-            const safeEnqueue = (data: Uint8Array) => {
-              if (controllerClosed) return;
-              try { controller.enqueue(data); } catch { controllerClosed = true; }
-            };
-
-            safeEnqueue(enc.encode(formatSSEEvent("meta", {
-              modelId: engineModel,
-              modelTier: resolvedModelTier,
-              buildProfileId,
-              buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-              enginePath: "plan-mode",
-              thinking: resolvedThinking,
-              planMode: true,
-              promptStrategy: strategyMeta.strategy,
-              promptType: strategyMeta.promptType,
-              promptBudgetTarget: strategyMeta.budgetTarget,
-              promptOriginalLength: strategyMeta.originalLength,
-              promptOptimizedLength: strategyMeta.optimizedLength,
-              promptReductionRatio: strategyMeta.reductionRatio,
-              promptStrategyReason: strategyMeta.reason,
-              promptComplexityScore: strategyMeta.complexityScore,
-            })));
-
-            let toolPlanArtifact: Record<string, unknown> | null = null;
-
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                sseBuffer += decoder.decode(value, { stream: true });
-                const { events: planEvents, remaining } = parseSSEBuffer(sseBuffer);
-                sseBuffer = remaining;
-
-                for (const evt of planEvents) {
-                  if (controllerClosed) break;
-
-                  switch (evt.event) {
-                    case "thinking": {
-                      const text =
-                        typeof (evt.data as Record<string, unknown>)?.text === "string"
-                          ? (evt.data as Record<string, string>).text
-                          : "";
-                      if (text) {
-                        safeEnqueue(enc.encode(formatSSEEvent("thinking", { text })));
-                      }
-                      break;
-                    }
-                    case "content": {
-                      const text =
-                        typeof (evt.data as Record<string, unknown>)?.text === "string"
-                          ? (evt.data as Record<string, string>).text
-                          : "";
-                      if (text) {
-                        accumulatedContent += text;
-                        safeEnqueue(enc.encode(formatSSEEvent("content", { text })));
-                      }
-                      break;
-                    }
-                    case "tool-call": {
-                      const toolData = evt.data as Record<string, unknown>;
-                      const toolName = typeof toolData?.toolName === "string" ? toolData.toolName : "";
-                      const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
-
-                      if (toolName === "emitPlanArtifact") {
-                        const enrichedPlanArtifact = enrichPlanArtifactForReview(toolArgs, {
-                          resolvedScaffold: planOrchestration.resolvedScaffold,
-                          scaffoldMode: planScaffoldMode,
-                        });
-                        toolPlanArtifact = enrichedPlanArtifact;
-                        safeEnqueue(enc.encode(formatSSEEvent("tool-call", {
-                          toolName: "emitPlanArtifact",
-                          toolCallId: typeof toolData.toolCallId === "string" ? toolData.toolCallId : `plan-${Date.now()}`,
-                          args: enrichedPlanArtifact,
-                        })));
-                      } else if (toolName === "suggestIntegration" || toolName === "requestEnvVar") {
-                        safeEnqueue(enc.encode(formatSSEEvent("tool-call", toolData)));
-                      } else if (toolName === "askClarifyingQuestion") {
-                        safeEnqueue(enc.encode(formatSSEEvent("tool-call", toolData)));
-                      }
-                      break;
-                    }
-                    case "done":
-                    case "error":
-                      break;
-                  }
-                }
-              }
-            } catch (err) {
-              if (!controllerClosed) {
-                safeEnqueue(enc.encode(formatSSEEvent("error", {
-                  message: err instanceof Error ? err.message : "Plan generation failed",
-                })));
-              }
-            }
-
-            const planData = enrichPlanArtifactForReview(
+        const planStream = createPlanModeStream({
+          pipelineStream,
+          meta: {
+            modelId: engineModel,
+            modelTier: resolvedModelTier,
+            buildProfileId,
+            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+            enginePath: "plan-mode",
+            thinking: resolvedThinking,
+            planMode: true,
+            promptStrategy: strategyMeta.strategy,
+            promptType: strategyMeta.promptType,
+            promptBudgetTarget: strategyMeta.budgetTarget,
+            promptOriginalLength: strategyMeta.originalLength,
+            promptOptimizedLength: strategyMeta.optimizedLength,
+            promptReductionRatio: strategyMeta.reductionRatio,
+            promptStrategyReason: strategyMeta.reason,
+            promptComplexityScore: strategyMeta.complexityScore,
+          },
+          enrichPlanArtifact: (toolArgs) =>
+            enrichPlanArtifactForReview(toolArgs, {
+              resolvedScaffold: planOrchestration.resolvedScaffold,
+              scaffoldMode: planScaffoldMode,
+            }),
+          resolvePlanArtifact: (accumulatedContent, toolPlanArtifact) =>
+            enrichPlanArtifactForReview(
               toolPlanArtifact ?? parsePlanResponse(accumulatedContent),
               {
                 resolvedScaffold: planOrchestration.resolvedScaffold,
                 scaffoldMode: planScaffoldMode,
               },
-            );
-            const hasBlockers = Array.isArray(planData?.blockers) &&
-              (planData.blockers as unknown[]).length > 0;
-            const blockerCount = hasBlockers
-              ? (planData!.blockers as unknown[]).length
+            ),
+          onResolved: (planData, hasBlockers, accumulatedContent) => {
+            const blockerCount = Array.isArray(planData?.blockers)
+              ? (planData.blockers as unknown[]).length
               : 0;
             const stepCount = Array.isArray(planData?.steps)
               ? (planData.steps as unknown[]).length
@@ -545,7 +471,8 @@ export async function POST(req: Request) {
               awaitingInput: hasBlockers,
               contentLength: accumulatedContent.length,
             });
-
+          },
+          persistAssistantSummary: async (planData, hasBlockers) => {
             try {
               const storedPlanPart = buildPlanUiPart(planData);
               await chatRepo.addMessage(
@@ -558,20 +485,15 @@ export async function POST(req: Request) {
             } catch (error) {
               console.warn("[plan] Failed to persist planner assistant summary:", error);
             }
-
-            await commitCreditsOnce();
-
-            safeEnqueue(enc.encode(formatSSEEvent("done", {
-              chatId: plannerChat.id,
-              planArtifact: planData,
-              awaitingInput: hasBlockers,
-              planMode: true,
-            })));
-
-            if (!controllerClosed) {
-              try { controller.close(); } catch { /* already closed */ }
-            }
           },
+          buildDonePayload: (planData, hasBlockers) => ({
+            chatId: plannerChat.id,
+            planArtifact: planData,
+            awaitingInput: hasBlockers,
+            planMode: true,
+          }),
+          commitCredits: commitCreditsOnce,
+          commitCreditsPosition: "before-done",
         });
 
         return attachSessionCookie(new Response(planStream, {
