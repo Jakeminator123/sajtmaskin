@@ -430,7 +430,11 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
 
     expect(response.status).toBe(200);
     expect(addMessage).toHaveBeenCalledTimes(2);
-    expect(addMessage.mock.calls[0]).toMatchObject(["chat_1", "user", "Kan du förbättra den lite?"]);
+    expect(addMessage.mock.calls[0]?.slice(0, 3)).toEqual([
+      "chat_1",
+      "user",
+      "Kan du förbättra den lite?",
+    ]);
     expect(addMessage.mock.calls[1]?.[0]).toBe("chat_1");
     expect(addMessage.mock.calls[1]?.[1]).toBe("assistant");
     expect(addMessage.mock.calls[1]?.[2]).toBe("Vad vill du att jag fokuserar på i nästa ändring?");

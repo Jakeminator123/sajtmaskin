@@ -52,13 +52,12 @@ import {
   buildStoredContractClarificationUiPart,
 } from "@/lib/gen/contract-clarification";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
-import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
+import { buildPlannerSystemPrompt } from "@/lib/gen/plan-prompt";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
-  enrichPlanArtifactForReview,
 } from "@/lib/gen/plan-review";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {
@@ -75,7 +74,7 @@ import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { EmptyGenerationError } from "@/lib/gen/stream/finalize-version";
-import { createPlanModeStream } from "@/lib/gen/stream/plan-mode-stream";
+import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import {
   appendPreview,
   extractToolNames,
@@ -420,38 +419,17 @@ export async function POST(req: Request) {
         );
         await chatRepo.addMessage(plannerChat.id, "user", optimizedMessage);
 
-        const planStream = createPlanModeStream({
+        return attachSessionCookie(createOwnEnginePlanModeResponse({
           pipelineStream,
-          meta: {
-            modelId: engineModel,
-            modelTier: resolvedModelTier,
-            buildProfileId,
-            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            enginePath: "plan-mode",
-            thinking: resolvedThinking,
-            planMode: true,
-            promptStrategy: strategyMeta.strategy,
-            promptType: strategyMeta.promptType,
-            promptBudgetTarget: strategyMeta.budgetTarget,
-            promptOriginalLength: strategyMeta.originalLength,
-            promptOptimizedLength: strategyMeta.optimizedLength,
-            promptReductionRatio: strategyMeta.reductionRatio,
-            promptStrategyReason: strategyMeta.reason,
-            promptComplexityScore: strategyMeta.complexityScore,
-          },
-          enrichPlanArtifact: (toolArgs) =>
-            enrichPlanArtifactForReview(toolArgs, {
-              resolvedScaffold: planOrchestration.resolvedScaffold,
-              scaffoldMode: planScaffoldMode,
-            }),
-          resolvePlanArtifact: (accumulatedContent, toolPlanArtifact) =>
-            enrichPlanArtifactForReview(
-              toolPlanArtifact ?? parsePlanResponse(accumulatedContent),
-              {
-                resolvedScaffold: planOrchestration.resolvedScaffold,
-                scaffoldMode: planScaffoldMode,
-              },
-            ),
+          chatId: plannerChat.id,
+          modelId: engineModel,
+          modelTier: resolvedModelTier,
+          buildProfileId,
+          buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+          thinking: resolvedThinking,
+          promptStrategyMeta: strategyMeta,
+          resolvedScaffold: planOrchestration.resolvedScaffold,
+          scaffoldMode: planScaffoldMode,
           onResolved: (planData, hasBlockers, accumulatedContent) => {
             const blockerCount = Array.isArray(planData?.blockers)
               ? (planData.blockers as unknown[]).length
@@ -495,10 +473,6 @@ export async function POST(req: Request) {
           }),
           commitCredits: commitCreditsOnce,
           commitCreditsPosition: "before-done",
-        });
-
-        return attachSessionCookie(new Response(planStream, {
-          headers: createSSEHeaders(),
         }));
       }
 

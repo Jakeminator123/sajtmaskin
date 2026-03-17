@@ -85,7 +85,7 @@ vi.mock("@/lib/builder/promptOrchestration", () => ({
   }),
 }));
 
-vi.mock("@/lib/v0/modelSelection", () => ({
+vi.mock("@/lib/models/selection", () => ({
   resolveModelSelection: () => ({
     modelId: "test-model",
     modelTier: "max",
@@ -93,7 +93,7 @@ vi.mock("@/lib/v0/modelSelection", () => ({
   resolveEngineModelId: () => "gpt-5.4",
 }));
 
-vi.mock("@/lib/v0/models", () => ({
+vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_MODEL_ID: "test-model",
   MODEL_LABELS: { max: "Max" },
   getBuildProfileId: () => "profile-max",

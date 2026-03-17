@@ -43,11 +43,10 @@ import {
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract-answer-context";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
-import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
+import { buildPlannerSystemPrompt } from "@/lib/gen/plan-prompt";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
-  enrichPlanArtifactForReview,
 } from "@/lib/gen/plan-review";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { getAgentTools } from "@/lib/gen/agent-tools";
@@ -67,7 +66,13 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context";
 import type { CodeFile } from "@/lib/gen/parser";
 import { EmptyGenerationError } from "@/lib/gen/stream/finalize-version";
-import { createPlanModeStream } from "@/lib/gen/stream/plan-mode-stream";
+import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
+import {
+  buildAwaitingClarificationStream,
+  classifyFollowUpIntent,
+  persistFollowUpClarification,
+  resolveFollowUpClarification,
+} from "@/lib/providers/own-engine/follow-up-clarification";
 import {
   appendPreview,
   extractToolNames,
@@ -80,123 +85,6 @@ export const runtime = "nodejs";
 export const maxDuration = 800;
 const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
 const STREAM_RESOLVE_DELAY_MS = 1200;
-const FOLLOW_UP_REFINE_PATTERNS = [
-  /\b(förfina|förbättra|justera|uppdatera|ändra|byt ut|lägg till|fixa|trimma)\b/i,
-  /\b(refine|improve|update|adjust|tweak|fix|keep the current design)\b/i,
-  /\b(förfina nuvarande design|behåll nuvarande design)\b/i,
-];
-const FOLLOW_UP_REDESIGN_PATTERNS = [
-  /\b(redesign|rebrand|restyle|start over|from scratch)\b/i,
-  /\b(gör om från grunden|helt ny riktning|helt annan stil|byt stil helt)\b/i,
-  /\b(tydlig redesign|starta om från en ny grund)\b/i,
-];
-const FOLLOW_UP_NEW_SITE_PATTERNS = [
-  /\b(hemsida|sajt|landningssida|startsida)\b/i,
-  /\b(website|site|homepage|landing page|one-pager)\b/i,
-];
-const FOLLOW_UP_BUILD_PATTERNS = [/\b(bygg|skapa|gör|designa)\b/i, /\b(build|create|make|design)\b/i];
-const FOLLOW_UP_VAGUE_EDIT_PATTERNS = [
-  /\b(förbättra|förfina|justera|uppdatera|ändra|fixa|trimma)\b/i,
-  /\b(improve|refine|adjust|update|fix|polish|tweak)\b/i,
-  /\b(gör det bättre|kan du förbättra|kan du fixa|make it better|can you improve)\b/i,
-];
-const FOLLOW_UP_EXPLICIT_DIRECTION_PATTERNS = [
-  /\b(nuvarande design|behåll nuvarande design|samma design)\b/i,
-  /\b(current design|keep the current design|same design)\b/i,
-];
-const FOLLOW_UP_SPECIFIC_TARGET_PATTERNS = [
-  /\b(hero|footer|header|nav|navigation|layout|spacing|copy|text|färg|color|bild|image|animation|knapp|button)\b/i,
-  /\b(section|sektion|card|kort|font|typografi|logo|cta|pricing|pris|kontakt|about|seo)\b/i,
-  /\b(page\.tsx|layout\.tsx|globals\.css|app\/|src\/)\b/i,
-];
-
-type FollowUpIntentMode =
-  | "clear-refine"
-  | "clear-redesign"
-  | "ambiguous-redesign"
-  | "ambiguous-followup"
-  | "neutral";
-
-function isUnderspecifiedFollowUp(message: string): boolean {
-  const trimmed = message.trim();
-  if (!trimmed || trimmed.length > 120) return false;
-  if (!FOLLOW_UP_VAGUE_EDIT_PATTERNS.some((pattern) => pattern.test(trimmed))) return false;
-  if (FOLLOW_UP_EXPLICIT_DIRECTION_PATTERNS.some((pattern) => pattern.test(trimmed))) return false;
-  if (FOLLOW_UP_SPECIFIC_TARGET_PATTERNS.some((pattern) => pattern.test(trimmed))) return false;
-  return trimmed.split(/\s+/).length <= 10;
-}
-
-function classifyFollowUpIntent(message: string): FollowUpIntentMode {
-  const trimmed = message.trim();
-  if (!trimmed) return "neutral";
-  if (FOLLOW_UP_REDESIGN_PATTERNS.some((pattern) => pattern.test(trimmed))) {
-    return "clear-redesign";
-  }
-  const mentionsNewSite = FOLLOW_UP_NEW_SITE_PATTERNS.some((pattern) => pattern.test(trimmed));
-  const soundsLikeBuildRequest = FOLLOW_UP_BUILD_PATTERNS.some((pattern) => pattern.test(trimmed));
-  if (mentionsNewSite && soundsLikeBuildRequest) {
-    return "ambiguous-redesign";
-  }
-  if (isUnderspecifiedFollowUp(trimmed)) {
-    return "ambiguous-followup";
-  }
-  if (FOLLOW_UP_REFINE_PATTERNS.some((pattern) => pattern.test(trimmed))) {
-    return "clear-refine";
-  }
-  return "neutral";
-}
-
-function buildAwaitingClarificationStream(params: {
-  chatId: string;
-  question: string;
-  options: string[];
-  reason: "followup_redesign_ambiguous" | "followup_edit_underspecified";
-  intro: string;
-  toolCallPrefix: string;
-}) {
-  const { chatId, question, options, reason, intro, toolCallPrefix } = params;
-  const enc = new TextEncoder();
-  return new ReadableStream({
-    start(controller) {
-      controller.enqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
-      controller.enqueue(
-        enc.encode(
-          formatSSEEvent("tool-call", {
-            toolName: "askClarifyingQuestion",
-            toolCallId: `${toolCallPrefix}:${chatId}:${Date.now()}`,
-            args: {
-              question,
-              options,
-              kind: "scope",
-              blocking: true,
-            },
-          }),
-        ),
-      );
-      controller.enqueue(
-        enc.encode(
-          formatSSEEvent(
-            "content",
-            intro,
-          ),
-        ),
-      );
-      controller.enqueue(
-        enc.encode(
-          formatSSEEvent("done", {
-            chatId,
-            versionId: null,
-            messageId: null,
-            demoUrl: null,
-            awaitingInput: true,
-            reason,
-          }),
-        ),
-      );
-      controller.close();
-    },
-  });
-}
 
 export async function handleMessageStreamRequest(
   req: Request,
@@ -345,100 +233,28 @@ export async function handleMessageStreamRequest(
         const followUpIntent = previousFiles.length > 0 && !skipIntentClassification
           ? classifyFollowUpIntent(message)
           : "neutral";
-        if (followUpIntent === "ambiguous-redesign") {
-          const redesignQuestion = "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?";
-          const redesignOptions = [
-            "Förfina nuvarande design",
-            "Gör en tydlig redesign i samma projekt",
-            "Starta om från en ny grund",
-          ];
+        const followUpClarification = previousFiles.length > 0 && !skipIntentClassification
+          ? resolveFollowUpClarification(message)
+          : null;
+        if (followUpClarification) {
           devLogAppend("latest", {
             type: "site.message.awaiting_input",
             chatId,
-            reason: "followup_redesign_ambiguous",
+            reason: followUpClarification.reason,
             promptPreview: message.slice(0, 160),
           });
-          try {
-            await chatRepo.addMessage(chatId, "user", message);
-          } catch {
-            // Best effort persistence only.
-          }
-          try {
-            await chatRepo.addMessage(chatId, "assistant", redesignQuestion, undefined, [{
-              type: "tool:awaiting-input",
-              toolName: "Klargörande fråga",
-              state: "approval-requested",
-              output: {
-                question: redesignQuestion,
-                options: redesignOptions,
-                kind: "scope",
-                blocking: true,
-                reason: "followup_redesign_ambiguous",
-                awaitingInput: true,
-              },
-            }]);
-          } catch {
-            // Best effort persistence only.
-          }
+          await persistFollowUpClarification({
+            chatId,
+            message,
+            clarification: followUpClarification,
+            addMessage: (targetChatId, role, content, _parentMessageId, uiParts) =>
+              chatRepo.addMessage(targetChatId, role, content, undefined, uiParts),
+          });
           return attachSessionCookie(
             new Response(
               buildAwaitingClarificationStream({
                 chatId,
-                question: redesignQuestion,
-                options: redesignOptions,
-                reason: "followup_redesign_ambiguous",
-                intro: "Jag kan fortsätta direkt, men först behöver jag veta om du vill förfina den nuvarande sajten eller göra en verklig redesign.",
-                toolCallPrefix: "clarify-redesign",
-              }),
-              { headers: createSSEHeaders() },
-            ),
-          );
-        }
-        if (followUpIntent === "ambiguous-followup") {
-          const followupQuestion = "Vad vill du att jag fokuserar på i nästa ändring?";
-          const followupOptions = [
-            "Layout och design",
-            "Text och innehåll",
-            "Ny sektion eller sida",
-            "Tydlig redesign",
-          ];
-          devLogAppend("latest", {
-            type: "site.message.awaiting_input",
-            chatId,
-            reason: "followup_edit_underspecified",
-            promptPreview: message.slice(0, 160),
-          });
-          try {
-            await chatRepo.addMessage(chatId, "user", message);
-          } catch {
-            // Best effort persistence only.
-          }
-          try {
-            await chatRepo.addMessage(chatId, "assistant", followupQuestion, undefined, [{
-              type: "tool:awaiting-input",
-              toolName: "Klargörande fråga",
-              state: "approval-requested",
-              output: {
-                question: followupQuestion,
-                options: followupOptions,
-                kind: "scope",
-                blocking: true,
-                reason: "followup_edit_underspecified",
-                awaitingInput: true,
-              },
-            }]);
-          } catch {
-            // Best effort persistence only.
-          }
-          return attachSessionCookie(
-            new Response(
-              buildAwaitingClarificationStream({
-                chatId,
-                question: followupQuestion,
-                options: followupOptions,
-                reason: "followup_edit_underspecified",
-                intro: "Jag kan fortsätta direkt, men din follow-up är lite för öppen. Säg gärna vad du vill att jag prioriterar i nästa ändring.",
-                toolCallPrefix: "clarify-followup",
+                clarification: followUpClarification,
               }),
               { headers: createSSEHeaders() },
             ),
@@ -591,35 +407,17 @@ export async function handleMessageStreamRequest(
             referenceAttachments: requestAttachments,
           });
 
-          const planStream = createPlanModeStream({
+          return attachSessionCookie(createOwnEnginePlanModeResponse({
             pipelineStream: planPipelineStream,
             chatId,
-            meta: {
-              modelId: planModel,
-              modelTier: resolvedModelTier,
-              buildProfileId,
-              buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-              enginePath: "plan-mode",
-              thinking: resolvedThinking,
-              planMode: true,
-              scaffoldId: planResolvedScaffold?.id ?? null,
-              scaffoldFamily: planResolvedScaffold?.family ?? null,
-              promptStrategy: promptOrchestration.strategyMeta.strategy,
-              promptType: promptOrchestration.strategyMeta.promptType,
-            },
-            enrichPlanArtifact: (toolArgs) =>
-              enrichPlanArtifactForReview(toolArgs, {
-                resolvedScaffold: planResolvedScaffold,
-                scaffoldMode: metaScaffoldMode,
-              }),
-            resolvePlanArtifact: (accumulatedContent, toolPlanArtifact) =>
-              enrichPlanArtifactForReview(
-                toolPlanArtifact ?? parsePlanResponse(accumulatedContent),
-                {
-                  resolvedScaffold: planResolvedScaffold,
-                  scaffoldMode: metaScaffoldMode,
-                },
-              ),
+            modelId: planModel,
+            modelTier: resolvedModelTier,
+            buildProfileId,
+            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+            thinking: resolvedThinking,
+            promptStrategyMeta: promptOrchestration.strategyMeta,
+            resolvedScaffold: planResolvedScaffold,
+            scaffoldMode: metaScaffoldMode,
             persistAssistantSummary: async (planData, hasBlockers) => {
               try {
                 const storedPlanPart = buildPlanUiPart(planData);
@@ -646,13 +444,7 @@ export async function handleMessageStreamRequest(
             commitCredits: commitCreditsOnce,
             commitCreditsPosition: "before-done",
             normalizeQuestionToolCallIds: true,
-          });
-
-          return attachSessionCookie(
-            new Response(planStream, {
-              headers: createSSEHeaders(),
-            }),
-          );
+          }));
         }
 
         await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
