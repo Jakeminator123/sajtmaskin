@@ -360,6 +360,10 @@ export async function handleMessageStreamRequest(
           });
           try {
             await chatRepo.addMessage(chatId, "user", message);
+          } catch {
+            // Best effort persistence only.
+          }
+          try {
             await chatRepo.addMessage(chatId, "assistant", redesignQuestion, undefined, [{
               type: "tool:awaiting-input",
               toolName: "Klargörande fråga",
@@ -406,6 +410,10 @@ export async function handleMessageStreamRequest(
           });
           try {
             await chatRepo.addMessage(chatId, "user", message);
+          } catch {
+            // Best effort persistence only.
+          }
+          try {
             await chatRepo.addMessage(chatId, "assistant", followupQuestion, undefined, [{
               type: "tool:awaiting-input",
               toolName: "Klargörande fråga",
