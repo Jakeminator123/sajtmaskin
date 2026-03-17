@@ -559,6 +559,8 @@ export async function POST(req: Request) {
               console.warn("[plan] Failed to persist planner assistant summary:", error);
             }
 
+            await commitCreditsOnce();
+
             safeEnqueue(enc.encode(formatSSEEvent("done", {
               chatId: plannerChat.id,
               planArtifact: planData,

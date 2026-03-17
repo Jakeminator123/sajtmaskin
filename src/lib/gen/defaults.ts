@@ -19,16 +19,16 @@ function readIntEnv(name: string, fallback: number, min: number, max: number): n
  */
 export const ENGINE_MAX_OUTPUT_TOKENS = readIntEnv(
   "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
-  262_144,
+  32_768,
   4_096,
-  524_288,
+  262_144,
 );
 
 export const AUTOFIX_MAX_OUTPUT_TOKENS = readIntEnv(
   "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
-  122_880,
+  12_288,
   2_048,
-  262_144,
+  65_536,
 );
 
 export const ENGINE_ROUTE_MAX_DURATION_SECONDS = readIntEnv(

@@ -112,10 +112,10 @@ function getDataDir(): string {
     return env.DATA_DIR;
   }
 
-  if (IS_PRODUCTION && !hasWarnedAboutDataDir && !isBuildPhase()) {
+  if (IS_RENDER && !hasWarnedAboutDataDir && !isBuildPhase()) {
     hasWarnedAboutDataDir = true;
     console.error(
-      "[Config] ❌ CRITICAL: DATA_DIR not set in production!\n" +
+      "[Config] ❌ CRITICAL: DATA_DIR not set on Render!\n" +
         "  → Uploads and local files will be lost on restart\n" +
         "  → Set DATA_DIR=/var/data and mount persistent disk",
     );

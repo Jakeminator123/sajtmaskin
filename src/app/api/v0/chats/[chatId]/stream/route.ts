@@ -340,22 +340,38 @@ export async function handleMessageStreamRequest(
           ? classifyFollowUpIntent(message)
           : "neutral";
         if (followUpIntent === "ambiguous-redesign") {
+          const redesignQuestion = "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?";
+          const redesignOptions = [
+            "Förfina nuvarande design",
+            "Gör en tydlig redesign i samma projekt",
+            "Starta om från en ny grund",
+          ];
           devLogAppend("latest", {
             type: "site.message.awaiting_input",
             chatId,
             reason: "followup_redesign_ambiguous",
             promptPreview: message.slice(0, 160),
           });
+          await chatRepo.addMessage(chatId, "user", message).catch(() => null);
+          await chatRepo.addMessage(chatId, "assistant", redesignQuestion, undefined, [{
+            type: "tool:awaiting-input",
+            toolName: "Klargörande fråga",
+            state: "approval-requested",
+            output: {
+              question: redesignQuestion,
+              options: redesignOptions,
+              kind: "scope",
+              blocking: true,
+              reason: "followup_redesign_ambiguous",
+              awaitingInput: true,
+            },
+          }]).catch(() => null);
           return attachSessionCookie(
             new Response(
               buildAwaitingClarificationStream({
                 chatId,
-                question: "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?",
-                options: [
-                  "Förfina nuvarande design",
-                  "Gör en tydlig redesign i samma projekt",
-                  "Starta om från en ny grund",
-                ],
+                question: redesignQuestion,
+                options: redesignOptions,
                 reason: "followup_redesign_ambiguous",
                 intro: "Jag kan fortsätta direkt, men först behöver jag veta om du vill förfina den nuvarande sajten eller göra en verklig redesign.",
                 toolCallPrefix: "clarify-redesign",
@@ -365,23 +381,39 @@ export async function handleMessageStreamRequest(
           );
         }
         if (followUpIntent === "ambiguous-followup") {
+          const followupQuestion = "Vad vill du att jag fokuserar på i nästa ändring?";
+          const followupOptions = [
+            "Layout och design",
+            "Text och innehåll",
+            "Ny sektion eller sida",
+            "Tydlig redesign",
+          ];
           devLogAppend("latest", {
             type: "site.message.awaiting_input",
             chatId,
             reason: "followup_edit_underspecified",
             promptPreview: message.slice(0, 160),
           });
+          await chatRepo.addMessage(chatId, "user", message).catch(() => null);
+          await chatRepo.addMessage(chatId, "assistant", followupQuestion, undefined, [{
+            type: "tool:awaiting-input",
+            toolName: "Klargörande fråga",
+            state: "approval-requested",
+            output: {
+              question: followupQuestion,
+              options: followupOptions,
+              kind: "scope",
+              blocking: true,
+              reason: "followup_edit_underspecified",
+              awaitingInput: true,
+            },
+          }]).catch(() => null);
           return attachSessionCookie(
             new Response(
               buildAwaitingClarificationStream({
                 chatId,
-                question: "Vad vill du att jag fokuserar på i nästa ändring?",
-                options: [
-                  "Layout och design",
-                  "Text och innehåll",
-                  "Ny sektion eller sida",
-                  "Tydlig redesign",
-                ],
+                question: followupQuestion,
+                options: followupOptions,
                 reason: "followup_edit_underspecified",
                 intro: "Jag kan fortsätta direkt, men din follow-up är lite för öppen. Säg gärna vad du vill att jag prioriterar i nästa ändring.",
                 toolCallPrefix: "clarify-followup",

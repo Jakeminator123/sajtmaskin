@@ -686,6 +686,12 @@ export function useBuilderPageController() {
         .catch((error) => {
           console.warn("[Builder] Auto project create failed:", error);
           autoProjectInitRef.current = false;
+          const status = (error as { status?: number })?.status;
+          if (status === 401 || status === 403) {
+            setAuthModalReason("builder");
+          } else {
+            toast.error("Kunde inte skapa projekt automatiskt. Försök igen eller logga in.");
+          }
         }),
     );
   }, [appProjectId, projectParam, chatIdParam, promptId, templateId, hasEntryParams, autoProjectInitRef, setAppProjectId, router, searchParams]);
