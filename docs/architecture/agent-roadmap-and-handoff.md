@@ -97,20 +97,26 @@ Plans 14 and 15 were executed in a single orchestrator run. Key changes:
   remaining active plan from the deep-research audit and should be treated as
   a separate orchestrator run.
 
-Commit: `c70661a` pushed to `origin/main`.
+Commit: `4976ee2` pushed to `origin/main`.
 
 ## Handoff notes for next agent
 
 ### Immediate verification needed
 
-1. **TypeScript build**: the pre-push hook failed due to `npx` not being in
-   PATH (volta issue). Run `pnpm tsc --noEmit` manually to confirm no type
-   errors were introduced.
-2. **Deploy verification**: confirm Vercel deploy succeeds with the new
+1. **Deploy verification**: confirm Vercel deploy succeeds with the new
    `supportsCancellation` in `vercel.json` and the lowered token defaults.
-3. **Token default impact**: monitor first few generations after deploy.
+2. **Token default impact**: monitor first few generations after deploy.
    ENGINE_MAX_OUTPUT_TOKENS dropped from 262k to 32k. If truncated outputs
    appear, consider bumping to 65k or adding tier-based caps.
+
+### Recently completed maintenance
+
+- `main` is now standardized on Node `22.14.0` across Volta, `.nvmrc`, and
+  `.node-version`, and the repo `engines.node` range is restricted to Node 22.
+- The bugfix branch `cursor/bug-probability-assessment-ceac` has been merged
+  into `main`, including the rate-limit fallback fix, the prompt-assist stale
+  dependency fix, and a follow-up clarification persistence safeguard with
+  regression coverage.
 
 ### Recommended next pass (Plan 16 + remaining Phase 9 + Phase 10)
 
