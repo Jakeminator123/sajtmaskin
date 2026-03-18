@@ -149,11 +149,11 @@ function main(): void {
     input: inputPath,
   });
 
-  console.log(`Curated ${report._meta.total} candidates:`);
-  console.log(`  High priority: ${report._meta.high}`);
-  console.log(`  Medium:        ${report._meta.medium}`);
-  console.log(`  Ignored:       ${report._meta.ignored}`);
-  console.log(`Output: ${outputPath}`);
+  console.info(`Curated ${report._meta.total} candidates:`);
+  console.info(`  High priority: ${report._meta.high}`);
+  console.info(`  Medium:        ${report._meta.medium}`);
+  console.info(`  Ignored:       ${report._meta.ignored}`);
+  console.info(`Output: ${outputPath}`);
 }
 
 main();

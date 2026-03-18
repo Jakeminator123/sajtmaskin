@@ -91,7 +91,7 @@ function spawnWorker() {
 
   wp.stdout.on("data", (chunk) => {
     const line = chunk.toString().trim();
-    if (line) console.log(`\x1b[36m[inspector-worker]\x1b[0m ${line}`);
+    if (line) console.info(`\x1b[36m[inspector-worker]\x1b[0m ${line}`);
   });
 
   wp.stderr.on("data", (chunk) => {
@@ -105,7 +105,7 @@ function spawnWorker() {
     if (code !== 0 && code !== null && workerRestarts < MAX_WORKER_RESTARTS) {
       workerRestarts++;
       const delay = Math.min(1000 * workerRestarts, 5000);
-      console.log(
+      console.info(
         `\x1b[36m[inspector-worker]\x1b[0m exited with code ${code}, restarting in ${delay}ms (${workerRestarts}/${MAX_WORKER_RESTARTS})`
       );
       setTimeout(() => { workerProcess = spawnWorker(); }, delay);
@@ -131,13 +131,13 @@ async function maybeStartWorker() {
   if (!SHOULD_MANAGE_WORKER || IS_BUILD) return;
 
   if (await portIsOpen(WORKER_PORT)) {
-    console.log(
+    console.info(
       `\x1b[36m[inspector-worker]\x1b[0m already running on port ${WORKER_PORT} – skipping`
     );
     return;
   }
 
-  console.log(`\x1b[36m[inspector-worker]\x1b[0m starting on port ${WORKER_PORT}...`);
+  console.info(`\x1b[36m[inspector-worker]\x1b[0m starting on port ${WORKER_PORT}...`);
   workerProcess = spawnWorker();
 }
 
@@ -145,13 +145,13 @@ function printDevBanner() {
   if (nextCommand !== "dev") return;
 
   const mirrorEnabled = env.SAJTMASKIN_DEV_LOG_STDOUT !== "false";
-  console.log(`\x1b[35m[sajtmaskin-dev]\x1b[0m dev log file: ${LOCAL_DEV_LOG}`);
-  console.log(`\x1b[35m[sajtmaskin-dev]\x1b[0m detailed log document: ${LOCAL_DEV_DOC_LOG}`);
-  console.log(
+  console.info(`\x1b[35m[sajtmaskin-dev]\x1b[0m dev log file: ${LOCAL_DEV_LOG}`);
+  console.info(`\x1b[35m[sajtmaskin-dev]\x1b[0m detailed log document: ${LOCAL_DEV_DOC_LOG}`);
+  console.info(
     `\x1b[35m[sajtmaskin-dev]\x1b[0m compact generation summaries in terminal: ${mirrorEnabled ? "on" : "off"}`
   );
   if (mirrorEnabled) {
-    console.log(
+    console.info(
       "\x1b[35m[sajtmaskin-dev]\x1b[0m set SAJTMASKIN_DEV_LOG_STDOUT=false to keep logs only in files"
     );
   }
