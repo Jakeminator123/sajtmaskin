@@ -18,20 +18,20 @@ coverage
 # Git metadata / generated lockfiles
 .git
 tsconfig.tsbuildinfo
-package-lock.json
+# package-lock.json
 
 # Local env / secrets / local status
-.env
-.env.*
-.env.local
-.env.production
-.token-status.json
+# .env
+# .env.*
+# .env.local
+# .env.production
+# .token-status.json
 
 # Local browser / automation config
-config.browser.txt
-config.txt
-config.example.txt
-sajtmaskin.code-workspace
+# # config.browser.txt
+# config.txt
+# config.example.txt
+# sajtmaskin.code-workspace
 
 # Large media
 public/video/
@@ -39,38 +39,40 @@ public/video/
 *.webm
 
 # Local research lanes and clone mirrors (345+ files, read directly when needed)
-research/external-templates/raw-discovery/
-research/external-templates/repo-cache/
-research/external-templates/reference-library/
-_template_refs/
-_sidor/
-research/_sidor/
-vercel_usecase_next_react_templates/
+# research/external-templates/raw-discovery/
+# research/external-templates/repo-cache/
+# research/external-templates/reference-library/
+# _template_refs/
+# _sidor/
+# research/_sidor/
+# vercel_usecase_next_react_templates/
 
 # Generated reports and machine-generated artifacts (6+ MB, rebuild with scripts)
-data/scaffold-candidates-curated.json
-src/lib/gen/data/docs-embeddings.json
-src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
+# data/scaffold-candidates-curated.json
+# src/lib/gen/data/docs-embeddings.json
+# src/lib/gen/scaffolds/scaffold-embeddings.json
+# src/lib/gen/scaffolds/scaffold-research.generated.json
+# src/lib/gen/template-library/template-library-embeddings.json
+# src/lib/gen/template-library/template-library.generated.json
 
 # Recovery package (duplicates docs/plans/active/; read directly when needed)
-world-class-recovery/
+# world-class-recovery/S
 
 # MCP scraped docs (prefer MCP search/fetch instead)
-services/mpc/docs/docgrab__*/
-services/mpc/docs/local/
-services/mpc/docs/*llms*
-services/mpc/docs/shad/
-services/mpc/logs/
+# services/mpc/docs/docgrab__*/
+# services/mpc/docs/local/
+# services/mpc/docs/*llms*
+# services/mpc/docs/shad/
+# services/mpc/logs/
 
 # Local Cursor session state and legacy automation traces
-.cursor/plans/
-.cursor/documents/
-.cursor/automation/runs/
-.cursor/automation/archive/
-.cursor/automation/input/
+# .cursor/plans/
+# .cursor/documents/
+# .cursor/automation/runs/
+# .cursor/automation/archive/
+# .cursor/automation/input/
+
+#vercel_templates_levels/
 
 # Archived or low-signal docs
 docs/old/
@@ -81,7 +83,7 @@ old/
 skrapning/
 ovrigt/
 .preprompt_history.json
-.vercel/
+# S.vercel/
 logs/
 manual_log/
 input_files_for_cursor/
@@ -90,7 +92,7 @@ chat_till_vanster.txt
 
 # Misc legacy folders
 #.j_to_agent/
-vercel_templates_levels/
+
 
 # Orchestrator run folders (use exact paths; reduces indexing tokens)
 .cursor/orchestrator/run/*/

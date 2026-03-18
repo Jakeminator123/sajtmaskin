@@ -97,7 +97,19 @@ const TSCONFIG = `{
 
 const NEXT_CONFIG = `import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "plus.unsplash.com" },
+      { protocol: "https", hostname: "images.pexels.com" },
+      { protocol: "https", hostname: "*.blob.vercel-storage.com" },
+      { protocol: "https", hostname: "api.dicebear.com" },
+      { protocol: "https", hostname: "picsum.photos" },
+      { protocol: "https", hostname: "via.placeholder.com" },
+    ],
+  },
+};
 
 export default nextConfig;
 `;
