@@ -62,6 +62,7 @@ Thumbs.db
 !.cursor/control-agent/run/
 !.cursor/control-agent/run/README.md
 .cursor/control-agent/archive/
+.cursor/agent-intents/BOARD.md
 .cursor/automation/runs/**
 .cursor/automation/archive/**
 .cursor/automation/input/**
