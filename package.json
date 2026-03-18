@@ -56,7 +56,10 @@
     "eval": "npx tsx scripts/run-eval.ts",
     "eval:suite": "npx tsx src/lib/gen/eval/cli.ts",
     "eval:gate": "npx tsx src/lib/gen/eval/cli.ts --gate",
-    "eval:baseline": "npx tsx src/lib/gen/eval/cli.ts --save-baseline"
+    "eval:baseline": "npx tsx src/lib/gen/eval/cli.ts --save-baseline",
+    "db:migrate": "npx tsx scripts/run-migrations.ts",
+    "db:push": "npx drizzle-kit push",
+    "db:generate": "npx drizzle-kit generate"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
@@ -150,6 +153,7 @@
     "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^5.1.4",
     "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.10",
     "eslint": "9.39.2",
     "eslint-config-next": "^16.1.4",
     "eslint-config-prettier": "^10.1.0",

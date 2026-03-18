@@ -90,7 +90,7 @@ export function VersionCollaboration({
     load();
   }, [load]);
 
-  const handleAddComment = async () => {
+  const handleAddComment = useCallback(async () => {
     const content = newComment.trim();
     if (!content || submittingComment) return;
     setSubmittingComment(true);
@@ -110,9 +110,9 @@ export function VersionCollaboration({
     } finally {
       setSubmittingComment(false);
     }
-  };
+  }, [chatId, versionId, newComment, submittingComment, fetchComments]);
 
-  const handleResolveComment = async (commentId: string) => {
+  const handleResolveComment = useCallback(async (commentId: string) => {
     try {
       const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/comments`, {
         method: "PATCH",
@@ -125,9 +125,9 @@ export function VersionCollaboration({
     } catch {
       toast.error("Kunde inte markera som löst");
     }
-  };
+  }, [chatId, versionId, fetchComments]);
 
-  const handleApprovalAction = async (action: "request" | "approve" | "reject" | "changes_requested") => {
+  const handleApprovalAction = useCallback(async (action: "request" | "approve" | "reject" | "changes_requested") => {
     if (submittingApproval) return;
     setSubmittingApproval(action);
     try {
@@ -141,7 +141,7 @@ export function VersionCollaboration({
       });
       const data = (await res.json()) as { approval?: Approval; error?: string };
       if (!res.ok) throw new Error(data.error || "Failed");
-      const labels = {
+      const labels: Record<string, string> = {
         request: "Godkännandebegäran skickad",
         approve: "Godkänt",
         reject: "Avslaget",
@@ -155,7 +155,7 @@ export function VersionCollaboration({
     } finally {
       setSubmittingApproval(null);
     }
-  };
+  }, [chatId, versionId, approvalComment, submittingApproval, fetchApproval]);
 
   const formatTime = (val: string) => {
     try {

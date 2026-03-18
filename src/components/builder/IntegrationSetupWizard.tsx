@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type IntegrationItem = {
   key: string;
@@ -240,16 +240,21 @@ export function IntegrationSetupWizard({
 }: IntegrationSetupWizardProps) {
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>({});
 
-  const analyticsIntegrations = integrations.filter((i) =>
-    categorizeIntegration(i.key) === "analytics"
+  const analyticsIntegrations = useMemo(
+    () => integrations.filter((i) => categorizeIntegration(i.key) === "analytics"),
+    [integrations],
   );
-  const otherIntegrations = integrations.filter(
-    (i) => categorizeIntegration(i.key) === "other"
+  const otherIntegrations = useMemo(
+    () => integrations.filter((i) => categorizeIntegration(i.key) === "other"),
+    [integrations],
   );
 
-  const configuredCount =
-    integrations.filter((i) => i.status === "configured").length +
-    businessPacks.filter((p) => p.status === "configured").length;
+  const configuredCount = useMemo(
+    () =>
+      integrations.filter((i) => i.status === "configured").length +
+      businessPacks.filter((p) => p.status === "configured").length,
+    [integrations, businessPacks],
+  );
   const totalCount = integrations.length + businessPacks.length;
   const progressValue = totalCount > 0 ? (configuredCount / totalCount) * 100 : 0;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,7 +39,7 @@ export function VersionFeedback({ chatId, versionId, className }: VersionFeedbac
   const canSubmit =
     rating === "positive" || (rating === "negative" && categories.size > 0);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!canSubmit || isSubmitting) return;
 
     setIsSubmitting(true);
@@ -64,7 +64,7 @@ export function VersionFeedback({ chatId, versionId, className }: VersionFeedbac
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [canSubmit, isSubmitting, chatId, versionId, rating, categories, comment]);
 
   if (submitted) {
     return (

@@ -1,29 +1,16 @@
 import { NextResponse } from "next/server";
 import { assertV0Key, v0 } from "@/lib/v0";
 import { createSSEHeaders, formatSSEEvent } from "@/lib/streaming";
-import type { BuilderStreamEventName } from "@/lib/gen/stream/builder-stream-contract";
 import { db } from "@/lib/db/client";
 import { chats, versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import {
-  extractContentText,
-  extractDemoUrl,
-  extractIntegrationSignals,
-  extractMessageId,
-  extractThinkingText,
-  extractUiParts,
-  extractVersionId,
-  shouldSuppressContentForEvent,
-  safeJsonParse,
-} from "@/lib/v0Stream";
-import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend } from "@/lib/logging/devLog";
-import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
+import { debugLog, errorLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { normalizeV0Error } from "@/lib/v0/errors";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
@@ -62,12 +49,10 @@ import {
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
-import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context";
 import type { CodeFile } from "@/lib/gen/parser";
-import { EmptyGenerationError } from "@/lib/gen/stream/finalize-version";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createOwnEngineGenerationStream } from "@/lib/providers/own-engine/generation-stream";
 import {
@@ -76,13 +61,7 @@ import {
   persistFollowUpClarification,
   resolveFollowUpClarification,
 } from "@/lib/providers/own-engine/follow-up-clarification";
-import {
-  appendPreview,
-  extractToolNames,
-  finalizeOrHandleEmptyGeneration,
-  getUnsignaledDetectedIntegrations,
-  looksLikeIncompleteJson,
-} from "@/lib/gen/stream/shared-own-engine-helpers";
+import { createV0FallbackStream } from "@/lib/providers/v0-fallback";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -934,364 +913,21 @@ export async function handleMessageStreamRequest(
       }
 
       if (result && typeof (result as Record<string, unknown>).getReader === "function") {
-        const v0Stream = result as ReadableStream<Uint8Array>;
-        const reader = v0Stream.getReader();
-        const decoder = new TextDecoder();
-
-        // Hoisted so both cancel() and start() can access them
-        let controllerClosed = false;
-        let pingTimer: ReturnType<typeof setInterval> | null = null;
-        const stopPing = () => {
-          if (!pingTimer) return;
-          clearInterval(pingTimer);
-          pingTimer = null;
-        };
-
-        const stream = new ReadableStream({
-          cancel() {
-            controllerClosed = true;
-            stopPing();
-            reader.cancel().catch(() => {});
+        const stream = createV0FallbackStream({
+          v0Stream: result as ReadableStream<Uint8Array>,
+          signal: req.signal,
+          requestId,
+          identity: {
+            mode: "follow-up",
+            chatId,
+            internalChatId,
+            internalProjectId: existingChat?.projectId ?? null,
+            v0ProjectId: existingChat?.v0ProjectId ?? null,
           },
-          async start(controller) {
-            const encoder = new TextEncoder();
-            let buffer = "";
-            let _currentEvent = "";
-            let didSendDone = false;
-            let didSendChatMeta = false;
-            let lastMessageId: string | null = null;
-            let lastDemoUrl: string | null = null;
-            let lastVersionId: string | null = null;
-            let assistantContentPreview = "";
-            let assistantThinkingPreview = "";
-            const seenToolCalls = new Set<string>();
-            const seenIntegrationSignals = new Set<string>();
-            let pendingRawData: string | null = null;
-
-            const safeEnqueue = (data: Uint8Array) => {
-              if (controllerClosed) return;
-              try {
-                controller.enqueue(data);
-              } catch {
-                controllerClosed = true;
-                stopPing();
-              }
-            };
-
-            if (!didSendChatMeta) {
-              didSendChatMeta = true;
-              safeEnqueue(encoder.encode(formatSSEEvent("chatId", { id: chatId })));
-              if (existingChat?.projectId) {
-                safeEnqueue(
-                  encoder.encode(
-                    formatSSEEvent("projectId", {
-                      id: existingChat.projectId,
-                      v0ProjectId: existingChat.v0ProjectId,
-                    }),
-                  ),
-                );
-              }
-            }
-
-            const safeClose = () => {
-              if (controllerClosed) return;
-              controllerClosed = true;
-              stopPing();
-              try {
-                controller.close();
-              } catch {
-                // already closed
-              }
-            };
-
-            const startPing = () => {
-              if (pingTimer) return;
-              pingTimer = setInterval(() => {
-                if (controllerClosed) return;
-                safeEnqueue(encoder.encode(formatSSEEvent("ping", { ts: Date.now() })));
-              }, 15000);
-            };
-
-            // Keep a generous buffer window to avoid truncating large SSE data lines
-            // mid-event (which can drop tool/question payloads).
-            const MAX_BUFFER_SIZE = 8 * 1024 * 1024; // 8MB hard limit
-
-            startPing();
-
-            try {
-              while (true) {
-                // Break early when the client disconnects or stream is cancelled
-                if (controllerClosed || req.signal?.aborted) break;
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-
-                // Prevent unbounded buffer growth from malformed streams.
-                // Truncate at newline boundary to preserve event integrity.
-                if (buffer.length > MAX_BUFFER_SIZE) {
-                  const truncateTarget = buffer.length - MAX_BUFFER_SIZE;
-                  const newlineIndex = buffer.indexOf("\n", truncateTarget);
-                  warnLog("v0", "Stream buffer exceeded max size; truncating buffer", {
-                    requestId,
-                    chatId,
-                    currentEvent: _currentEvent,
-                    bufferLength: buffer.length,
-                    maxBufferSize: MAX_BUFFER_SIZE,
-                    truncateTarget,
-                    newlineIndex,
-                  });
-                  if (newlineIndex !== -1) {
-                    buffer = buffer.slice(newlineIndex + 1);
-                  } else {
-                    // Fallback: no newline found, keep a full tail window.
-                    // This preserves as much context as possible for the parser.
-                    buffer = buffer.slice(-MAX_BUFFER_SIZE);
-                  }
-                }
-
-                const lines = buffer.split("\n");
-                buffer = lines.pop() || "";
-
-                for (const line of lines) {
-                  if (controllerClosed) break;
-
-                  if (line.startsWith("event:")) {
-                    pendingRawData = null;
-                    _currentEvent = line.slice(6).trim();
-                    continue;
-                  }
-                  if (!line.startsWith("data:")) continue;
-
-                  let rawData = line.slice("data:".length);
-                  if (rawData.startsWith(" ")) rawData = rawData.slice(1);
-                  if (rawData.endsWith("\r")) rawData = rawData.slice(0, -1);
-                  if (pendingRawData) {
-                    rawData = `${pendingRawData}\n${rawData}`;
-                  }
-                  const parsed = safeJsonParse(rawData);
-                  if (typeof parsed === "string" && looksLikeIncompleteJson(rawData)) {
-                    pendingRawData = rawData;
-                    continue;
-                  }
-                  pendingRawData = null;
-
-                  const messageId = extractMessageId(parsed);
-                  if (messageId) {
-                    lastMessageId = messageId;
-                  }
-
-                  const thinkingText = extractThinkingText(parsed);
-                  if (thinkingText && !didSendDone) {
-                    assistantThinkingPreview = appendPreview(assistantThinkingPreview, thinkingText);
-                    safeEnqueue(encoder.encode(formatSSEEvent("thinking", thinkingText)));
-                  }
-
-                  const contentText = extractContentText(parsed, rawData);
-                  const suppressContent = shouldSuppressContentForEvent(parsed, _currentEvent, contentText);
-                  if (contentText && !didSendDone && !suppressContent) {
-                    assistantContentPreview = appendPreview(assistantContentPreview, contentText);
-                    safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
-                  }
-
-                  const uiParts = extractUiParts(parsed);
-                  if (uiParts && uiParts.length > 0 && !didSendDone) {
-                    const toolNames = extractToolNames(uiParts);
-                    const freshToolNames = toolNames.filter((name) => !seenToolCalls.has(name));
-                    if (freshToolNames.length > 0) {
-                      freshToolNames.forEach((name) => seenToolCalls.add(name));
-                      devLogAppend("latest", {
-                        type: "comm.tool_calls",
-                        chatId,
-                        tools: freshToolNames,
-                        event: _currentEvent || null,
-                      });
-                    }
-                    safeEnqueue(encoder.encode(formatSSEEvent("parts", uiParts)));
-                  }
-
-                  const integrationSignals = extractIntegrationSignals(
-                    parsed,
-                    _currentEvent,
-                    uiParts || undefined,
-                  );
-                  if (integrationSignals.length > 0 && !didSendDone) {
-                    const freshSignals = integrationSignals.filter(
-                      (signal) => !seenIntegrationSignals.has(signal.key),
-                    );
-                    if (freshSignals.length > 0) {
-                      freshSignals.forEach((signal) => seenIntegrationSignals.add(signal.key));
-                      devLogAppend("latest", {
-                        type: "comm.integration_signals",
-                        chatId,
-                        event: _currentEvent || null,
-                        integrations: freshSignals,
-                      });
-                      safeEnqueue(
-                        encoder.encode(
-                          formatSSEEvent("integration", {
-                            items: freshSignals,
-                          }),
-                        ),
-                      );
-                    }
-                  }
-
-                  const demoUrl = extractDemoUrl(parsed);
-                  if (demoUrl) lastDemoUrl = demoUrl;
-                  const versionId = extractVersionId(parsed);
-                  if (versionId) lastVersionId = versionId;
-                }
-              }
-            } catch (error) {
-              console.error("Streaming sendMessage proxy error:", error);
-              const normalized = normalizeV0Error(error);
-              devLogAppend("latest", {
-                type: "site.message.error",
-                chatId,
-                message: normalized.message,
-                durationMs: Date.now() - requestStartedAt,
-              });
-              safeEnqueue(
-                encoder.encode(
-                  formatSSEEvent("error", {
-                    message: normalized.message,
-                    code: normalized.code,
-                    retryAfter: normalized.retryAfter ?? null,
-                  }),
-                ),
-              );
-            } finally {
-              // Release the stream reader lock to prevent memory leaks
-              try {
-                reader.releaseLock();
-              } catch {
-                // Reader may already be released
-              }
-
-              if (!didSendDone && internalChatId) {
-                try {
-                  const resolved = await resolveLatestVersion(chatId, {
-                    preferVersionId: lastVersionId,
-                    preferDemoUrl: lastDemoUrl,
-                    maxAttempts: STREAM_RESOLVE_MAX_ATTEMPTS,
-                    delayMs: STREAM_RESOLVE_DELAY_MS,
-                  });
-                  const finalVersionId = resolved.versionId || lastVersionId || null;
-                  const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;
-                  const hasAssistantReply = Boolean(
-                    assistantContentPreview.trim() || assistantThinkingPreview.trim(),
-                  );
-                  const hasToolSignals =
-                    seenToolCalls.size > 0 || seenIntegrationSignals.size > 0;
-
-                  if (finalVersionId) {
-                    // Use upsert to prevent race condition
-                    await db
-                      .insert(versions)
-                      .values({
-                        id: nanoid(),
-                        chatId: internalChatId,
-                        v0VersionId: finalVersionId,
-                        v0MessageId: lastMessageId,
-                        demoUrl: finalDemoUrl,
-                        metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
-                      })
-                      .onConflictDoUpdate({
-                        target: [versions.chatId, versions.v0VersionId],
-                        set: {
-                          v0MessageId: lastMessageId,
-                          demoUrl: finalDemoUrl,
-                          metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
-                        },
-                      });
-                  }
-
-                  didSendDone = true;
-                  if (!finalVersionId && !finalDemoUrl) {
-                    if (hasAssistantReply || hasToolSignals) {
-                      safeEnqueue(
-                        encoder.encode(
-                          formatSSEEvent("done", {
-                            chatId,
-                            messageId: lastMessageId,
-                            versionId: null,
-                            demoUrl: null,
-                            awaitingInput: true,
-                          }),
-                        ),
-                      );
-
-                      devLogAppend("latest", {
-                        type: "comm.response.send",
-                        chatId,
-                        messageId: lastMessageId || null,
-                        versionId: null,
-                        demoUrl: null,
-                        awaitingInput: true,
-                        assistantPreview: assistantContentPreview || null,
-                        thinkingPreview: assistantThinkingPreview || null,
-                        toolCalls: Array.from(seenToolCalls),
-                      });
-                      await commitCreditsOnce();
-                    } else {
-                      safeEnqueue(
-                        encoder.encode(
-                          formatSSEEvent("error", {
-                            code: "preview_unavailable",
-                            message:
-                              resolved.errorMessage ||
-                              "No preview version was generated. Retry the prompt or run preview repair.",
-                          }),
-                        ),
-                      );
-                    }
-                  } else {
-                    safeEnqueue(
-                      encoder.encode(
-                        formatSSEEvent("done", {
-                          chatId,
-                          messageId: lastMessageId,
-                          versionId: finalVersionId,
-                          demoUrl: finalDemoUrl,
-                        }),
-                      ),
-                    );
-
-                    devLogAppend("latest", {
-                      type: "site.message.done",
-                      chatId,
-                      messageId: lastMessageId,
-                      versionId: finalVersionId,
-                      demoUrl: finalDemoUrl,
-                      durationMs: Date.now() - requestStartedAt,
-                    });
-                    devLogAppend("latest", {
-                      type: "comm.response.send",
-                      chatId,
-                      messageId: lastMessageId || null,
-                      versionId: finalVersionId || null,
-                      demoUrl: finalDemoUrl || null,
-                      assistantPreview: assistantContentPreview || null,
-                      thinkingPreview: assistantThinkingPreview || null,
-                      toolCalls: Array.from(seenToolCalls),
-                    });
-                    await commitCreditsOnce();
-                  }
-                } catch (finalizeErr) {
-                  console.error(
-                    "Failed to finalize streaming message with latest version:",
-                    finalizeErr,
-                  );
-                }
-              }
-              safeClose();
-            }
-          },
+          generationStartedAt: requestStartedAt,
+          commitCredits: commitCreditsOnce,
         });
-
-        const headers = new Headers(createSSEHeaders());
-        return attachSessionCookie(new Response(stream, { headers }));
+        return attachSessionCookie(new Response(stream, { headers: createSSEHeaders() }));
       }
 
       const messageResult = result as Record<string, unknown>;
