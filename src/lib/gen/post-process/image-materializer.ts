@@ -281,7 +281,26 @@ function buildBroadFallbackQuery(raw: string): string | null {
   if (hasSunset && (hasNature || hasMallorca)) return "mediterranean sunset";
   if (hasNature) return "nature landscape";
 
-  return words.slice(0, 3).join(" ");
+  const singleWordFallbacks: Record<string, string> = {
+    model: "fashion model", streetwear: "streetwear fashion",
+    studio: "photo studio", chrome: "chrome texture", neon: "neon lights",
+    portrait: "portrait photography", team: "business team",
+    office: "modern office", food: "food photography", coffee: "coffee shop",
+    restaurant: "restaurant interior", hotel: "luxury hotel",
+    spa: "spa wellness", gym: "fitness gym", yoga: "yoga practice",
+    wedding: "wedding ceremony", party: "celebration event",
+    car: "luxury car", bike: "motorcycle", tech: "technology",
+    code: "programming code", startup: "startup office",
+    design: "graphic design", art: "modern art", music: "live music",
+    city: "city skyline", beach: "tropical beach", mountain: "mountain landscape",
+    forest: "forest nature", garden: "botanical garden",
+  };
+
+  for (const word of words) {
+    if (singleWordFallbacks[word]) return singleWordFallbacks[word];
+  }
+
+  return words.slice(0, 2).join(" ");
 }
 
 function buildSearchCandidates(raw: string): string[] {
