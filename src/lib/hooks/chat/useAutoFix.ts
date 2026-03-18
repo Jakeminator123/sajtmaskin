@@ -8,6 +8,11 @@ import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events"
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
+const AUTOFIX_ENABLED =
+  typeof window !== "undefined" &&
+  (localStorage.getItem("sajtmaskin:autofix-enabled") === "true" ||
+    new URLSearchParams(window.location.search).has("autofix"));
+
 const MAX_ATTEMPTS_PER_REASON = 1;
 const MAX_AUTOFIX_PER_CHAT = 2;
 const DEDUPE_TTL_MS = 5 * 60 * 1000;
@@ -274,6 +279,7 @@ export function useAutoFix(
 
   const handleAutoFix = useCallback(
     (payload: AutoFixPayload) => {
+      if (!AUTOFIX_ENABLED) return;
       void (async () => {
         const now = Date.now();
         pruneStale(autoFixAttemptsRef.current, now);

@@ -49,8 +49,8 @@ function buildCspPolicy(pathname: string, nonce: string): string {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https:",
-      "frame-src 'self' *.vusercontent.net",
-      "connect-src 'self' https: *.vusercontent.net wss:",
+      "frame-src 'self' *.vusercontent.net *.vercel.run *.vercel.app",
+      "connect-src 'self' https: *.vusercontent.net *.vercel.run *.vercel.app wss:",
       "media-src 'self' blob: data:",
       "object-src 'none'",
       "base-uri 'self'",
@@ -73,8 +73,8 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "ui.shadcn.com",
     "https://ui.shadcn.com",
   ];
-  const frameSrc = [`'self'`, "*.vusercontent.net"];
-  const connectSrc = [`'self'`, "*.vusercontent.net", "wss:"];
+  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app"];
+  const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:"];
   const mediaSrc = [`'self'`, "blob:"];
   const workerSrc = [`'self'`, "blob:"];
 
