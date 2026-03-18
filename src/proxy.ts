@@ -64,14 +64,11 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "'self'",
     "data:",
     "blob:",
+    "https:",
     "*.vusercontent.net",
     "*.blob.vercel-storage.com",
-    "api.dicebear.com",
-    "quickchart.io",
-    "images.unsplash.com",
-    "images.pexels.com",
-    "ui.shadcn.com",
-    "https://ui.shadcn.com",
+    "*.vercel.run",
+    "*.vercel.app",
   ];
   const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app"];
   const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:"];
