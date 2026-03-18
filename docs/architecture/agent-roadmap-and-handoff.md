@@ -107,7 +107,12 @@ Five orchestrator runs completed and archived (3 from 2026-03-17, 2 from 2026-03
    module (-928 lines from routes). DB migrations applied to Supabase. React
    best practices QA. 11 files, +920/-960 lines. Commit `8aef51a`.
 
-Key commits on `main`: `033e5a9` through `8aef51a`.
+Key commits on `main`: `033e5a9` through `564821c`.
+
+6. **2026-03-18 fix**: Critical client-bundle fix — scaffold-scoring.ts
+   imported `pg` (Node.js-only) which broke the builder client bundle. Fixed
+   by moving scoring integration from `matcher.ts` to `orchestrate.ts`
+   (server-only). First eval baseline saved: 14/15 PASS, 95% avg score.
 
 ## Handoff notes for next agent
 
