@@ -1,0 +1,49 @@
+---
+description: Check and update the shared agent intent board before editing files
+alwaysApply: true
+---
+
+# Agent intent board
+
+Agents in this repo share a lightweight intent board at
+`.cursor/agent-intents/BOARD.md` to avoid file collisions when multiple agents
+(or agent + user) work in parallel.
+
+## Before starting work
+
+1. Read `.cursor/agent-intents/BOARD.md`.
+2. If another agent has an `active` intent that overlaps your planned files,
+   narrow your scope or ask the user before proceeding.
+3. Add your own intent entry with status `active` and the files you plan to
+   touch.
+
+## While working
+
+- If your scope changes (new files, dropped files), update your entry.
+- If you finish a sub-task and want to hand off, change status to `done` and
+  note what remains.
+
+## When done
+
+- Set your intent to `done` or remove it entirely.
+- If the board has stale entries (status `done` or older than the current
+  session), you may clean them up.
+
+## Entry format
+
+```markdown
+## <short title>
+- **Agent:** <name or id>
+- **Status:** planned | active | done
+- **Touching:** comma-separated file/folder paths
+- **Avoiding:** paths you will not edit
+- **Depends on:** (none) or another intent title
+- **Notes:** one-liner
+```
+
+## Rules
+
+- Never remove another agent's `active` entry.
+- Prefer narrow `Touching` lists over broad folder claims.
+- The board is local session state — not committed to git.
+- When in doubt about overlap, ask the user rather than guessing.
