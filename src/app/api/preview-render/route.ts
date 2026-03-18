@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
 import { buildPreviewHtml } from "@/lib/gen/preview";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
@@ -25,13 +24,6 @@ export async function GET(req: Request) {
 
   if (!chatId) {
     return NextResponse.json({ error: "chatId is required" }, { status: 400 });
-  }
-
-  if (shouldUseV0Fallback()) {
-    return NextResponse.json(
-      { error: "Preview render is only available with the own engine" },
-      { status: 400 },
-    );
   }
 
   if (versionId) {

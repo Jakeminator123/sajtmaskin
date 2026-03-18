@@ -14,6 +14,11 @@ import {
   isV0AssistModel,
   normalizeAssistModel,
 } from "@/lib/builder/promptAssist";
+import {
+  defaultGatewayFallbackModels,
+  getGatewayPreferredProvider,
+  getTemperatureConfig,
+} from "@/lib/builder/gateway-policy";
 import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -89,40 +94,6 @@ function resolveAnthropicModelId(model: string): string {
 
 function isProbablyOnVercel(): boolean {
   return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
-}
-
-function getGatewayPreferredProvider(model: string): string | null {
-  const slashIdx = model.indexOf("/");
-  if (slashIdx <= 0) return null;
-  return model.slice(0, slashIdx) || null;
-}
-
-function defaultGatewayFallbackModels(primaryModel: string): string[] {
-  const ordered = [
-    "openai/gpt-5.4",
-    "anthropic/claude-opus-4.6",
-    "anthropic/claude-sonnet-4.6",
-    "openai/gpt-5.2",
-  ];
-  return ordered.filter((x) => x !== primaryModel);
-}
-
-function isReasoningModel(model: string): boolean {
-  const normalized = model.trim().toLowerCase();
-  return (
-    /(^|\/)o[1-9]/.test(normalized) ||
-    /(^|\/)gpt-5/.test(normalized) ||
-    normalized.includes("thinking") ||
-    normalized.includes("reasoning")
-  );
-}
-
-function getTemperatureConfig(model: string, temperature?: number): { temperature?: number } {
-  if (typeof temperature !== "number") return {};
-  if (isReasoningModel(model)) {
-    return {};
-  }
-  return { temperature };
 }
 
 export async function POST(req: Request) {

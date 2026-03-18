@@ -10,8 +10,8 @@ Användarens prompt
        ▼
 ┌──────────────────────────────┐
 │  PROMPT ASSIST               │
-│  - Polish: gpt-4.1-mini     │
-│  - Deep Brief: gpt-5.2      │
+│  - Polish: gpt-5.3-codex    │
+│  - Deep Brief: gpt-5.4      │
 │  (via AI Gateway)            │
 └──────────┬───────────────────┘
            ▼
@@ -340,7 +340,7 @@ implementationsfasen.
 - `VersionHistory.tsx`: indikatorer (amber dot, grön check, kommentarsbricka)
 
 #### Fasmedveten modellrouting
-- `phase-routing.ts`: planner → `gpt-4.1-mini`, verifier → `gpt-4.1`, generator → full tier
+- `phase-routing.ts`: alla faser (planner, verifier, generator, fixer, deploy-assistant) använder vald tier:s fulla modell
 - Plan-mode och fixer integrerade med phase routing
 - Telemetri registrerar routingsammanfattning
 

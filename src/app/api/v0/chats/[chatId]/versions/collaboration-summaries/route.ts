@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import { getApprovalStatus, getUnresolvedCommentCount } from "@/lib/db/services";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 
 type RouteParams = {
   params: Promise<{ chatId: string }>;
@@ -12,9 +11,6 @@ export async function GET(
   ctx: RouteParams,
 ) {
   try {
-    if (shouldUseV0Fallback()) {
-      return NextResponse.json({ summaries: {} });
-    }
     const { chatId } = await ctx.params;
     const { searchParams } = new URL(request.url);
     const versionIdsParam = searchParams.get("versionIds");

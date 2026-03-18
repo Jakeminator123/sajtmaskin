@@ -305,11 +305,10 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Detta är builderns byggprofiler. Om `V0_FALLBACK_BUILDER=y` och fallback
-                      uttryckligen begars används motsvarande v0-modell direkt. Annars mappar samma
-                      byggprofil till egen motor som `GPT-4.1`, `GPT-5.3 Codex`, `GPT-5.4` eller
-                      `GPT-5.1 Codex Max`. Prompt Assist nedan är separat och används bara för att förbättra prompt,
-                      scaffold-val och designbrief innan bygg.
+                      Detta är builderns byggprofiler. Samma byggprofil mappar till egen motor som
+                      `GPT-4.1`, `GPT-5.3 Codex`, `GPT-5.4` eller `GPT-5.1 Codex Max`. Prompt Assist
+                      nedan är separat och används bara för att förbättra prompt, scaffold-val och
+                      designbrief innan bygg.
                     </p>
                   </TooltipContent>
                 </Tooltip>

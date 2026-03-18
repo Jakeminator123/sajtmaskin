@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import { assertV0Key, v0 } from "@/lib/v0";
-import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { validateImages } from "@/lib/utils/image-validator";
 import { z } from "zod";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { updateVersionFiles } from "@/lib/db/chat-repository-pg";
 
@@ -30,95 +28,55 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
 
     const { versionId, autoFix } = validation.data;
 
-    // ---------------------------------------------------------------
-    // Non-fallback: fetch & update via Postgres engine store
-    // ---------------------------------------------------------------
-    if (!shouldUseV0Fallback()) {
-      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
-      if (!scopedVersion) {
-        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
-      }
-      const codeFiles = await getVersionFiles(scopedVersion.version.id);
-      if (codeFiles && codeFiles.length > 0) {
-        const filePairs = codeFiles.map((f) => ({
+    const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+    if (!scopedVersion) {
+      return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+    }
+    const codeFiles = await getVersionFiles(scopedVersion.version.id);
+    if (codeFiles && codeFiles.length > 0) {
+      const filePairs = codeFiles.map((f) => ({
           name: f.path,
           content: f.content,
-        }));
+      }));
 
-        const unsplashKey = FEATURES.useUnsplash ? SECRETS.unsplashAccessKey : null;
-        const result = await validateImages({
+      const unsplashKey = FEATURES.useUnsplash ? SECRETS.unsplashAccessKey : null;
+      const result = await validateImages({
           files: filePairs,
           autoFix,
-          unsplashAccessKey: unsplashKey,
-        });
+        unsplashAccessKey: unsplashKey,
+      });
 
-        let fixed = false;
-        if (autoFix && result.replacedCount > 0) {
-          try {
-            const updatedFiles = codeFiles.map((file) => {
-              const replacement = result.files.find((f) => f.name === file.path);
-              return replacement ? { ...file, content: replacement.content } : file;
-            });
-            await updateVersionFiles(scopedVersion.version.id, JSON.stringify(updatedFiles));
-            fixed = true;
-          } catch (updateError) {
-            console.error("[validate-images] Failed to update version:", updateError);
-            result.warnings.push("Kunde inte spara fixade bilder till versionen.");
-          }
+      let fixed = false;
+      if (autoFix && result.replacedCount > 0) {
+        try {
+          const updatedFiles = codeFiles.map((file) => {
+            const replacement = result.files.find((f) => f.name === file.path);
+            return replacement ? { ...file, content: replacement.content } : file;
+          });
+          await updateVersionFiles(scopedVersion.version.id, JSON.stringify(updatedFiles));
+          fixed = true;
+        } catch (updateError) {
+          console.error("[validate-images] Failed to update version:", updateError);
+          result.warnings.push("Kunde inte spara fixade bilder till versionen.");
         }
-
-        return NextResponse.json({
-          valid: result.broken.length === 0,
-          total: result.total,
-          broken: result.broken,
-          replacedCount: result.replacedCount,
-          warnings: result.warnings,
-          fixed,
-          demoUrl: null,
-          message: result.broken.length === 0
-            ? `Alla ${result.total} bild-URL:er är giltiga`
-            : `${result.broken.length} av ${result.total} bilder trasiga${fixed ? `, ${result.replacedCount} ersatta` : ""}`,
-        });
       }
 
-      return NextResponse.json(
-        {
-          valid: true,
-          total: 0,
-          broken: [],
-          replacedCount: 0,
-          warnings: [],
-          fixed: false,
-          message: "No files to validate",
-        },
-        { status: 404 },
-      );
-    }
-
-    // ---------------------------------------------------------------
-    // V0 fallback: existing flow
-    // ---------------------------------------------------------------
-    assertV0Key();
-
-    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-    }
-
-    const version = await v0.chats.getVersion({
-      chatId,
-      versionId,
-      includeDefaultFiles: true,
-    });
-
-    const rawFiles: any[] = (version as any).files || [];
-    const files = rawFiles.map((f: any) => ({
-      name: String(f.name || ""),
-      content: String(f.content || ""),
-    }));
-
-    if (files.length === 0) {
       return NextResponse.json({
+        valid: result.broken.length === 0,
+        total: result.total,
+        broken: result.broken,
+        replacedCount: result.replacedCount,
+        warnings: result.warnings,
+        fixed,
+        demoUrl: null,
+        message: result.broken.length === 0
+          ? `Alla ${result.total} bild-URL:er är giltiga`
+          : `${result.broken.length} av ${result.total} bilder trasiga${fixed ? `, ${result.replacedCount} ersatta` : ""}`,
+      });
+    }
+
+    return NextResponse.json(
+      {
         valid: true,
         total: 0,
         broken: [],
@@ -126,54 +84,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
         warnings: [],
         fixed: false,
         message: "No files to validate",
-      });
-    }
-
-    const unsplashKey = FEATURES.useUnsplash ? SECRETS.unsplashAccessKey : null;
-
-    const result = await validateImages({
-      files,
-      autoFix,
-      unsplashAccessKey: unsplashKey,
-    });
-
-    let demoUrl: string | undefined;
-    let fixed = false;
-
-    if (autoFix && result.replacedCount > 0) {
-      try {
-        const updatedVersion = await v0.chats.updateVersion({
-          chatId,
-          versionId,
-          files: result.files.map((f) => {
-            const original = rawFiles.find((r: any) => r.name === f.name);
-            return {
-              name: f.name,
-              content: f.content,
-              locked: original?.locked,
-            };
-          }),
-        });
-        demoUrl = (updatedVersion as any).demoUrl;
-        fixed = true;
-      } catch (updateError) {
-        console.error("[validate-images] Failed to update version:", updateError);
-        result.warnings.push("Kunde inte spara fixade bilder till versionen.");
-      }
-    }
-
-    return NextResponse.json({
-      valid: result.broken.length === 0,
-      total: result.total,
-      broken: result.broken,
-      replacedCount: result.replacedCount,
-      warnings: result.warnings,
-      fixed,
-      demoUrl,
-      message: result.broken.length === 0
-        ? `Alla ${result.total} bild-URL:er är giltiga`
-        : `${result.broken.length} av ${result.total} bilder trasiga${fixed ? `, ${result.replacedCount} ersatta` : ""}`,
-    });
+      },
+      { status: 404 },
+    );
   } catch (err) {
     console.error("[validate-images] Error:", err);
     return NextResponse.json(

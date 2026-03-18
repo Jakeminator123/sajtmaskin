@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
-import { createGenerationPipeline, shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { createGenerationPipeline } from "@/lib/gen/fallback";
 import { inferPreGenerationContracts } from "@/lib/gen/pre-generation-contracts";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { buildSystemPrompt } from "@/lib/gen/system-prompt";
@@ -82,12 +82,6 @@ function getDoneUsage(data: unknown): {
 export async function generateSiteFromPrompt(
   params: GenerateSiteParams,
 ): Promise<GenerateSiteResult> {
-  if (shouldUseV0Fallback()) {
-    throw new Error(
-      "MCP site generation currently supports the own engine only. Disable V0 fallback to use this tool.",
-    );
-  }
-
   const prompt = params.prompt.trim();
   if (!prompt) {
     throw new Error("Prompt is required.");

@@ -6,7 +6,6 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import {
   describePreviewDiagnosticCode,
   readPreviewDiagnosticMeta,
@@ -20,7 +19,6 @@ import {
 } from "@/lib/chat-readiness";
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import {
-  getChatByV0ChatIdForRequest,
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
@@ -275,45 +273,13 @@ async function buildEngineReadiness(
   });
 }
 
-async function buildV0FallbackReadiness(request: Request, chatId: string, versionId: string | null) {
-  const chat = await getChatByV0ChatIdForRequest(request, chatId);
-  if (!chat) {
-    return buildNoVersionReadiness();
-  }
-
-  return buildChatReadiness({
-    blockers: versionId
-      ? []
-      : [
-          {
-            id: "no-version",
-            title: "Ingen version är vald.",
-            detail: "Generera eller välj en version först.",
-            severity: "blocker",
-            action: "versions",
-          },
-        ],
-    info: {
-      versionId,
-      lifecycleStatus: null,
-      verificationSummary: null,
-      appProjectId: chat.id,
-      requiredEnvKeys: [],
-      configuredEnvKeys: [],
-      missingEnvKeys: [],
-    },
-  });
-}
-
 export async function GET(request: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
     const { searchParams } = new URL(request.url);
     const requestedVersionId = searchParams.get("versionId");
 
-    const readiness = shouldUseV0Fallback()
-      ? await buildV0FallbackReadiness(request, chatId, requestedVersionId)
-      : await buildEngineReadiness(request, chatId, requestedVersionId);
+    const readiness = await buildEngineReadiness(request, chatId, requestedVersionId);
 
     if (!readiness) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });

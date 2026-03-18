@@ -1,9 +1,5 @@
 import { createSSEHeaders, formatSSEEvent } from "@/lib/streaming";
-import { db } from "@/lib/db/client";
-import { chats, versions } from "@/lib/db/schema";
-import { assertV0Key, v0 } from "@/lib/v0";
 import { createChatSchema } from "@/lib/validations/chatSchemas";
-import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { normalizeV0Error } from "@/lib/v0/errors";
@@ -11,16 +7,10 @@ import { prepareCredits } from "@/lib/credits/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
-import {
-  ensureProjectForRequest,
-  resolveV0ProjectId,
-  generateProjectName,
-  resolveAppProjectIdForRequest,
-} from "@/lib/tenant";
+import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
-import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
@@ -30,8 +20,7 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { AI } from "@/lib/config";
-import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
+import { createGenerationPipeline } from "@/lib/gen/fallback";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -59,7 +48,6 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createOwnEngineGenerationStream } from "@/lib/providers/own-engine/generation-stream";
-import { createV0FallbackStream } from "@/lib/providers/v0-fallback";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -102,11 +90,9 @@ export async function POST(req: Request) {
         thinking = true,
         imageGenerations,
         chatPrivacy,
-        designSystemId: clientDesignSystemId,
         meta,
       } = validationResult.data;
       const requestAttachments = normalizeRequestAttachments(attachments);
-      const designSystemId = clientDesignSystemId || AI.designSystemId;
       const metaRequestedModelTier =
         typeof (meta as { modelTier?: unknown })?.modelTier === "string"
           ? String((meta as { modelTier?: string }).modelTier)
@@ -156,7 +142,6 @@ export async function POST(req: Request) {
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
-      const fallbackModelId = resolveEngineModelId(resolvedModelTier, true);
       if (
         message.length > WARN_CHAT_MESSAGE_CHARS ||
         optimizedMessage.length > WARN_CHAT_MESSAGE_CHARS ||
@@ -264,17 +249,13 @@ export async function POST(req: Request) {
         console.warn("[prompt-log] Failed to record prompt log:", error);
       }
 
-      const usingV0Fallback = shouldUseExplicitBuilderFallback(meta);
       const buildProfileId = getBuildProfileId(resolvedModelTier);
       debugLog("build", "Chat stream request", {
         buildProfileId,
         buildProfileLabel: MODEL_LABELS[resolvedModelTier],
         internalModelSelection: resolvedModelTier,
-        fallbackConfigured: shouldUseV0Fallback(),
-        enginePath: usingV0Fallback ? "v0-fallback" : "own-engine",
-        engineModel: usingV0Fallback
-          ? fallbackModelId
-          : canonicalModelIdToOwnModelId(resolvedModelTier),
+        enginePath: "own-engine",
+        engineModel: canonicalModelIdToOwnModelId(resolvedModelTier),
         promptLength: optimizedMessage.length,
         originalPromptLength: message.length,
         attachments: requestAttachments.length,
@@ -454,8 +435,8 @@ export async function POST(req: Request) {
         }));
       }
 
-      // ── New Engine Path ───────────────────────────────────────────────
-      if (!usingV0Fallback) {
+      // ── Own Engine Path ───────────────────────────────────────────────
+      {
         const engineIntent: BuildIntent =
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
@@ -682,159 +663,6 @@ export async function POST(req: Request) {
         const engineHeaders = new Headers(createSSEHeaders());
         return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
       }
-
-      // ── V0 Fallback Path ──────────────────────────────────────────────
-      assertV0Key();
-
-      const generationStartedAt = Date.now();
-
-      const v0ScaffoldSettings = extractScaffoldSettingsFromMeta(meta);
-      const v0Orchestration = await prepareGenerationContext({
-        prompt: optimizedMessage,
-        buildIntent: (metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
-          ? metaBuildIntent as BuildIntent
-          : "website"),
-        scaffoldMode: v0ScaffoldSettings.scaffoldMode,
-        scaffoldId: v0ScaffoldSettings.scaffoldId,
-        brief: extractBriefFromMeta(meta),
-        themeColors: extractThemeColorsFromMeta(meta),
-        imageGenerations: resolvedImageGenerations,
-        componentPalette: extractPaletteStateFromMeta(meta),
-        designThemePreset: extractDesignThemePresetFromMeta(meta),
-        designReferences: summarizeDesignReferences(requestAttachments),
-      });
-
-      const v0SystemPrompt = [
-        trimmedSystemPrompt,
-        v0Orchestration.v0EnrichmentContext,
-      ].filter(Boolean).join("\n\n---\n\n");
-
-      const result = await v0.chats.create({
-        message: optimizedMessage,
-        ...(v0SystemPrompt ? { system: v0SystemPrompt } : {}),
-        projectId,
-        chatPrivacy: resolvedChatPrivacy,
-        modelConfiguration: {
-          modelId: fallbackModelId,
-          thinking: resolvedThinking,
-          imageGenerations: resolvedImageGenerations,
-        },
-        responseMode: "experimental_stream",
-        ...(requestAttachments.length > 0 ? { attachments: requestAttachments } : {}),
-        ...(designSystemId ? { designSystemId } : {}),
-      } as unknown as Parameters<typeof v0.chats.create>[0] & { responseMode?: string; designSystemId?: string });
-
-      if (result && typeof (result as unknown as { getReader?: unknown }).getReader === "function") {
-        const stream = createV0FallbackStream({
-          v0Stream: result as unknown as ReadableStream<Uint8Array>,
-          signal: req.signal,
-          requestId,
-          metaPayload: {
-            modelId: resolvedModelId,
-            modelTier: resolvedModelTier,
-            buildProfileId,
-            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            enginePath: "v0-fallback",
-            thinking: resolvedThinking,
-            imageGenerations: resolvedImageGenerations,
-            chatPrivacy: resolvedChatPrivacy,
-            promptStrategy: strategyMeta.strategy,
-            promptType: strategyMeta.promptType,
-            promptBudgetTarget: strategyMeta.budgetTarget,
-            promptOriginalLength: strategyMeta.originalLength,
-            promptOptimizedLength: strategyMeta.optimizedLength,
-            promptReductionRatio: strategyMeta.reductionRatio,
-            promptStrategyReason: strategyMeta.reason,
-            promptComplexityScore: strategyMeta.complexityScore,
-          },
-          identity: {
-            mode: "create",
-            req,
-            sessionId,
-            clientProjectId: projectId,
-          },
-          generationStartedAt,
-          commitCredits: commitCreditsOnce,
-        });
-        return attachSessionCookie(new Response(stream, { headers: createSSEHeaders() }));
-      }
-
-      const chatData = result as Record<string, unknown>;
-      const chatDataLatest = (typeof chatData?.latestVersion === "object" && chatData.latestVersion
-        ? chatData.latestVersion
-        : {}) as Record<string, unknown>;
-
-      try {
-        const internalChatId = nanoid();
-        const v0ChatId = chatData.id as string;
-        const v0ProjectId = resolveV0ProjectId({
-          v0ChatId,
-          chatDataProjectId: chatData.projectId as string | undefined,
-          clientProjectId: projectId,
-        });
-        const projectName = generateProjectName({
-          v0ChatId: v0ChatId as string,
-          clientProjectId: projectId,
-        });
-
-        let internalProjectId: string | null = null;
-        try {
-          const project = await ensureProjectForRequest({
-            req,
-            v0ProjectId,
-            name: projectName,
-            sessionId,
-          });
-          internalProjectId = project.id;
-        } catch {
-          // ignore project save errors
-        }
-
-        await db.insert(chats).values({
-          id: internalChatId,
-          v0ChatId: v0ChatId as string,
-          v0ProjectId: v0ProjectId as string,
-          projectId: internalProjectId,
-          webUrl: (chatData.webUrl as string) || null,
-        });
-
-        if (chatDataLatest && Object.keys(chatDataLatest).length > 0) {
-          await db.insert(versions).values({
-            id: nanoid(),
-            chatId: internalChatId,
-            v0VersionId: (chatDataLatest.id || chatDataLatest.versionId) as string,
-            v0MessageId: (chatDataLatest.messageId as string) || null,
-            demoUrl: (chatDataLatest.demoUrl as string) || null,
-            metadata: sanitizeV0Metadata(chatDataLatest),
-          });
-        }
-      } catch (dbError) {
-        console.error("Failed to save chat to database:", dbError);
-      }
-
-      await commitCreditsOnce();
-      devLogAppend("latest", {
-        type: "comm.response.create",
-        chatId: chatData?.id || null,
-        versionId: chatDataLatest?.id || chatDataLatest?.versionId || null,
-        demoUrl: chatDataLatest?.demoUrl || null,
-        assistantPreview:
-          (typeof chatDataLatest?.content === "string" && chatDataLatest.content) ||
-          (typeof chatDataLatest?.text === "string" && chatDataLatest.text) ||
-          null,
-      });
-      return attachSessionCookie(
-        NextResponse.json({
-          ...chatData,
-          meta: {
-            modelId: resolvedModelId,
-            modelTier: resolvedModelTier,
-            thinking: resolvedThinking,
-            imageGenerations: resolvedImageGenerations,
-            chatPrivacy: resolvedChatPrivacy,
-          },
-        }),
-      );
     } catch (err) {
       errorLog("v0", `Create chat error (requestId=${requestId})`, err);
       const normalized = normalizeV0Error(err);

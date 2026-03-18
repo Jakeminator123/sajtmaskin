@@ -9,7 +9,6 @@ export {
   type MediaCatalogItem,
 } from "./system-prompt";
 export {
-  shouldUseV0Fallback,
   createGenerationPipeline,
   type PipelineOptions,
 } from "./fallback";

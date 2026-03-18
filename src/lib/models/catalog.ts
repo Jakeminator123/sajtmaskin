@@ -36,8 +36,15 @@ export const OWN_MODEL_IDS = [
 
 export type OwnModelId = (typeof OWN_MODEL_IDS)[number];
 
-/** Default model for code generation. */
-export const DEFAULT_OWN_MODEL_ID: OwnModelId = "gpt-5.3-codex";
+/**
+ * Default model for code generation.
+ * Kept in sync with DEFAULT_MODEL_ID ("max") -> "gpt-5.4".
+ * Uses a getter to avoid hoisting issues with canonicalModelIdToOwnModelId.
+ */
+export function getDefaultOwnModelId(): OwnModelId {
+  return canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
+}
+export const DEFAULT_OWN_MODEL_ID: OwnModelId = "gpt-5.4";
 
 /**
  * Old model IDs that may exist in persisted data (localStorage, DB rows,
@@ -118,11 +125,11 @@ export function getBuildProfileLabel(modelId: CanonicalModelId): string {
 export type QualityLevel = "light" | "standard" | "pro" | "premium" | "max";
 
 export const QUALITY_TO_MODEL: Record<QualityLevel, CanonicalModelId> = {
-  light: "pro",
+  light: "fast",
   standard: "pro",
   pro: "pro",
-  premium: "fast",
-  max: "fast",
+  premium: "max",
+  max: "codex",
 };
 
 /** Maps quality level to OpenAI model ID for the default engine. */

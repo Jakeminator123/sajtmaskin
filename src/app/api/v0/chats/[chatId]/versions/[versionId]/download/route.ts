@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
-import { assertV0Key, v0 } from "@/lib/v0";
-import { db } from "@/lib/db/client";
-import { versions } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
-import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
@@ -18,97 +13,32 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const format = searchParams.get("format") || "zip";
 
-    // -----------------------------------------------------------------
-    // Non-fallback: build archive from Postgres engine files
-    // -----------------------------------------------------------------
-    if (!shouldUseV0Fallback()) {
-      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
-      if (!scopedVersion) {
-        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
-      }
-      const codeFiles = await getVersionFiles(scopedVersion.version.id);
-      if (codeFiles && codeFiles.length > 0) {
-        const completeProject = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
-        const JSZip = (await import("jszip")).default;
-        const zip = new JSZip();
-        for (const file of completeProject) {
-          zip.file(file.path, file.content);
-        }
-
-        const buffer = await zip.generateAsync({ type: "nodebuffer" });
-        const ext = format === "tar" ? "zip" : "zip";
-        const filename = `version-${scopedVersion.version.id.slice(0, 8)}.${ext}`;
-
-        return new Response(new Uint8Array(buffer), {
-          headers: {
-            "Content-Type": "application/zip",
-            "Content-Disposition": `attachment; filename="${filename}"`,
-          },
-        });
+    const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+    if (!scopedVersion) {
+      return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+    }
+    const codeFiles = await getVersionFiles(scopedVersion.version.id);
+    if (codeFiles && codeFiles.length > 0) {
+      const completeProject = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      for (const file of completeProject) {
+        zip.file(file.path, file.content);
       }
 
-      return NextResponse.json({ error: "No files found for version" }, { status: 404 });
-    }
+      const buffer = await zip.generateAsync({ type: "nodebuffer" });
+      const ext = format === "tar" ? "zip" : "zip";
+      const filename = `version-${scopedVersion.version.id.slice(0, 8)}.${ext}`;
 
-    // -----------------------------------------------------------------
-    // V0 fallback: existing v0 API download flow
-    // -----------------------------------------------------------------
-    assertV0Key();
-
-    const includeDefaultFiles = searchParams.get("includeDefaultFiles") !== "false";
-
-    const chat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!chat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-    }
-
-    let version = await db
-      .select()
-      .from(versions)
-      .where(and(eq(versions.chatId, chat.id), eq(versions.id, versionId)))
-      .limit(1);
-
-    if (version.length === 0) {
-      version = await db
-        .select()
-        .from(versions)
-        .where(and(eq(versions.chatId, chat.id), eq(versions.v0VersionId, versionId)))
-        .limit(1);
-    }
-
-    if (version.length === 0) {
-      return NextResponse.json({ error: "Version not found" }, { status: 404 });
-    }
-
-    try {
-      const downloadFormat = format === "tar" ? "tarball" : "zip";
-      const downloadResult = await v0.chats.downloadVersion({
-        chatId,
-        versionId: version[0].v0VersionId,
-        format: downloadFormat as "zip" | "tarball",
-        includeDefaultFiles,
-      });
-
-      if (typeof downloadResult === "string") {
-        return NextResponse.redirect(downloadResult);
-      }
-
-      const contentType = format === "zip" ? "application/zip" : "application/x-tar";
-      const filename = `version-${versionId.slice(0, 8)}.${format}`;
-
-      return new Response(downloadResult as any, {
+      return new Response(new Uint8Array(buffer), {
         headers: {
-          "Content-Type": contentType,
+          "Content-Type": "application/zip",
           "Content-Disposition": `attachment; filename="${filename}"`,
         },
       });
-    } catch (apiError: any) {
-      console.error("v0 download error:", apiError);
-      return NextResponse.json(
-        { error: "Failed to download version", details: apiError.message },
-        { status: 500 },
-      );
     }
+
+    return NextResponse.json({ error: "No files found for version" }, { status: 404 });
   } catch (err) {
     console.error("Download error:", err);
     return NextResponse.json(

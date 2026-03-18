@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db/client";
-import { versions } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
 import {
   createEngineVersionErrorLogs,
-  createVersionErrorLog,
-  createVersionErrorLogs,
   getTelemetryForVersion,
   updateTelemetryRecord,
 } from "@/lib/db/services";
-import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
@@ -19,21 +13,6 @@ type FeedbackBody = {
   categories?: string[];
   comment?: string;
 };
-
-async function resolveVersionId(chatId: string, versionId: string) {
-  const byInternal = await db
-    .select()
-    .from(versions)
-    .where(and(eq(versions.chatId, chatId), eq(versions.id, versionId)))
-    .limit(1);
-  if (byInternal.length > 0) return byInternal[0];
-  const byV0 = await db
-    .select()
-    .from(versions)
-    .where(and(eq(versions.chatId, chatId), eq(versions.v0VersionId, versionId)))
-    .limit(1);
-  return byV0[0] ?? null;
-}
 
 export async function POST(request: Request, ctx: RouteParams) {
   try {
@@ -49,55 +28,18 @@ export async function POST(request: Request, ctx: RouteParams) {
 
     const { rating, categories = [], comment } = body;
 
-    if (!shouldUseV0Fallback()) {
-      const scopedVersion = await getEngineVersionForChatByIdForRequest(
-        request,
-        chatId,
-        versionId,
-      );
-      if (!scopedVersion) {
-        return NextResponse.json({ error: "Version not found" }, { status: 404 });
-      }
-      const internalChatId = scopedVersion.chat.id;
-      const internalVersionId = scopedVersion.version.id;
-
-      const records = await getTelemetryForVersion(internalVersionId);
-      if (records.length > 0) {
-        await updateTelemetryRecord(records[0].id, {
-          userFeedback: JSON.stringify({ rating, categories, comment }),
-        });
-      }
-
-      const message =
-        rating === "positive"
-          ? "Användaren markerade resultatet som bra."
-          : `Användaren markerade problemkategorier: ${Array.isArray(categories) ? categories.join(", ") : ""}`;
-
-      await createEngineVersionErrorLogs([
-        {
-          chatId: internalChatId,
-          versionId: internalVersionId,
-          level: rating === "positive" ? "info" : "warning",
-          category: "user-feedback",
-          message,
-          meta: { rating, categories, comment },
-        },
-      ]);
-
-      return NextResponse.json({ success: true });
-    }
-
-    const chat = await getChatByV0ChatIdForRequest(request, chatId);
-    if (!chat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-    }
-
-    const version = await resolveVersionId(chat.id, versionId);
-    if (!version) {
+    const scopedVersion = await getEngineVersionForChatByIdForRequest(
+      request,
+      chatId,
+      versionId,
+    );
+    if (!scopedVersion) {
       return NextResponse.json({ error: "Version not found" }, { status: 404 });
     }
+    const internalChatId = scopedVersion.chat.id;
+    const internalVersionId = scopedVersion.version.id;
 
-    const records = await getTelemetryForVersion(version.id);
+    const records = await getTelemetryForVersion(internalVersionId);
     if (records.length > 0) {
       await updateTelemetryRecord(records[0].id, {
         userFeedback: JSON.stringify({ rating, categories, comment }),
@@ -109,11 +51,10 @@ export async function POST(request: Request, ctx: RouteParams) {
         ? "Användaren markerade resultatet som bra."
         : `Användaren markerade problemkategorier: ${Array.isArray(categories) ? categories.join(", ") : ""}`;
 
-    await createVersionErrorLogs([
+    await createEngineVersionErrorLogs([
       {
-        chatId: chat.id,
-        versionId: version.id,
-        v0VersionId: version.v0VersionId,
+        chatId: internalChatId,
+        versionId: internalVersionId,
         level: rating === "positive" ? "info" : "warning",
         category: "user-feedback",
         message,

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { chats } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import {
   getChat as getEngineChat,
   listChatsByProject as listEngineChatsByProject,
@@ -114,40 +113,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    if (!shouldUseV0Fallback()) {
-      const latestChat = (await listEngineChatsByProject(projectId))[0];
-      if (!latestChat) {
-        return NextResponse.json({
-          success: true,
-          chatId: null,
-          v0ChatId: null,
-          internalChatId: null,
-          message: "No chat found for this project",
-        });
-      }
-
-      return NextResponse.json({
-        success: true,
-        chatId: latestChat.id,
-        v0ChatId: latestChat.id,
-        internalChatId: latestChat.id,
-      });
-    }
-
-    // Fallback for legacy mappings where chats.projectId happened to match.
-    const results = await db
-      .select({
-        id: chats.id,
-        v0ChatId: chats.v0ChatId,
-        createdAt: chats.createdAt,
-      })
-      .from(chats)
-      .where(eq(chats.projectId, projectId))
-      .orderBy(desc(chats.createdAt))
-      .limit(1);
-
-    const latestChat = results[0];
-
+    const latestChat = (await listEngineChatsByProject(projectId))[0];
     if (!latestChat) {
       return NextResponse.json({
         success: true,
@@ -158,12 +124,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Builder uses v0 chat IDs for /api/v0/chats/* and /versions calls.
-    // Returning the internal DB chat ID here can put the UI in a broken state.
     return NextResponse.json({
       success: true,
-      chatId: latestChat.v0ChatId,
-      v0ChatId: latestChat.v0ChatId,
+      chatId: latestChat.id,
+      v0ChatId: latestChat.id,
       internalChatId: latestChat.id,
     });
   } catch (error) {

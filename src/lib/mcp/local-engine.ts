@@ -1,8 +1,5 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getLatestVersionFiles, getVersionFiles } from "@/lib/gen/version-manager";
-import { assertV0Key, v0 } from "@/lib/v0";
-import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
 import {
   buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
@@ -50,7 +47,6 @@ interface ResolvedGeneratedFilesResult {
 }
 
 async function getOwnEngineProjectId(chatId: string): Promise<string | null> {
-  if (shouldUseV0Fallback()) return null;
   const chat = await chatRepo.getChat(chatId);
   return typeof chat?.project_id === "string" && chat.project_id.trim()
     ? chat.project_id
@@ -72,82 +68,27 @@ function inferLanguage(fileName: string): string {
   return map[ext] ?? "text";
 }
 
-function getV0LatestVersionId(chat: unknown): string | null {
-  const payload = chat as {
-    latestVersion?: { id?: string | null } | null;
-  } | null;
-  const id = payload?.latestVersion?.id;
-  return typeof id === "string" && id.length > 0 ? id : null;
-}
-
 async function resolveGeneratedFiles(
   chatId: string,
   versionId?: string | null,
 ): Promise<ResolvedGeneratedFilesResult> {
-  if (!shouldUseV0Fallback()) {
-    const raw = versionId
-      ? await getVersionFiles(versionId)
-      : await getLatestVersionFiles(chatId);
-    if (!raw) {
-      return {
-        files: [],
-        resolvedVersionId: versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null,
-      };
-    }
+  const raw = versionId
+    ? await getVersionFiles(versionId)
+    : await getLatestVersionFiles(chatId);
+  if (!raw) {
     return {
-      files: raw.map((file) => ({
-        name: file.path,
-        content: file.content,
-        language: file.language ?? inferLanguage(file.path),
-        bytes: file.content.length,
-      })),
+      files: [],
       resolvedVersionId: versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null,
     };
   }
-
-  assertV0Key();
-
-  const chat = await v0.chats.getById({ chatId });
-  const targetVersionId = versionId ?? getV0LatestVersionId(chat) ?? null;
-
-  if (!targetVersionId) {
-    return { files: [], resolvedVersionId: null };
-  }
-
-  const result = await resolveVersionFiles({
-    chatId,
-    versionId: targetVersionId,
-    options: { maxAttempts: 10, delayMs: 1500, minFiles: 1 },
-  });
-
-  if (result.files.length > 0) {
-    return {
-      files: result.files.map((file) => ({
-        name: file.name,
-        content: typeof file.content === "string" ? file.content : "",
-        language: inferLanguage(file.name),
-        bytes: typeof file.content === "string" ? file.content.length : 0,
-      })),
-      resolvedVersionId: targetVersionId,
-    };
-  }
-
-  const versionData = result.version as {
-    files?: Array<{ name: string; content?: string }>;
-  } | null;
-
-  if (!Array.isArray(versionData?.files)) {
-    return { files: [], resolvedVersionId: targetVersionId };
-  }
-
   return {
-    files: versionData.files.map((file) => ({
-      name: file.name,
-      content: typeof file.content === "string" ? file.content : "",
-      language: inferLanguage(file.name),
-      bytes: typeof file.content === "string" ? file.content.length : 0,
+    files: raw.map((file) => ({
+      name: file.path,
+      content: file.content,
+      language: file.language ?? inferLanguage(file.path),
+      bytes: file.content.length,
     })),
-    resolvedVersionId: targetVersionId,
+    resolvedVersionId: versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null,
   };
 }
 
@@ -197,10 +138,6 @@ export async function createLocalGeneratedRuntime(
 
   if (mode === "preview") {
     const resolvedVersionId = versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null;
-    if (shouldUseV0Fallback()) {
-      throw new Error("Own-engine preview URL is not available in v0 fallback mode");
-    }
-
     return buildOwnEnginePreviewRuntime({
       chatId,
       versionId: resolvedVersionId,

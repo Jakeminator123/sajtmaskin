@@ -6,7 +6,6 @@
 import path from "path";
 import { getAppBaseUrl } from "./app-url";
 import { getServerEnv, isAffirmativeEnvValue } from "./env";
-import { isV0FallbackEnabledValue } from "./v0-fallback";
 
 const env = getServerEnv();
 
@@ -406,10 +405,6 @@ export const FEATURES = {
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),
 } as const;
 
-function isV0FallbackEnabled(): boolean {
-  return isV0FallbackEnabledValue(env.V0_FALLBACK_BUILDER);
-}
-
 function resolveDbLogLabel(): string {
   const dbEnvCandidates = [
     "POSTGRES_URL",
@@ -462,7 +457,7 @@ export function logConfig(): void {
  */
 export function validateEnv(): { valid: boolean; missing: string[] } {
   const coreSecrets: SecretName[] = IS_PRODUCTION
-    ? ["jwtSecret", isV0FallbackEnabled() ? "v0ApiKey" : "openaiApiKey"]
+    ? ["jwtSecret", "openaiApiKey"]
     : [];
   const missing = validateRequiredSecrets(coreSecrets);
   const dbConfigured = resolveDbLogLabel() !== "not-configured";

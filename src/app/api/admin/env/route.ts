@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { FEATURES, URLS } from "@/lib/config";
 import { checkOpenClawGatewayHealth } from "@/lib/openclaw/status";
-import { isV0FallbackBuilderEnabled } from "@/lib/v0-fallback";
 
 type EnvKeyStatus = {
   key: string;
@@ -20,8 +19,8 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "DB_SSL_REJECT_UNAUTHORIZED", required: false, notes: "DB TLS strictness" },
   {
     key: "V0_API_KEY",
-    required: () => isV0FallbackBuilderEnabled(),
-    notes: "v0 Platform API (required for fallback mode, and also used by v0 prompt assist/integrations)",
+    required: false,
+    notes: "v0 Platform API (used by v0 prompt assist and other v0 integrations)",
   },
   { key: "V0_STREAMING_ENABLED", required: false, notes: "v0 streaming feature flag" },
   { key: "JWT_SECRET", required: true, notes: "Auth tokens" },
@@ -47,8 +46,8 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   },
   {
     key: "OPENAI_API_KEY",
-    required: () => !isV0FallbackBuilderEnabled(),
-    notes: "Code generation for the default own-engine path. Required when V0_FALLBACK_BUILDER is not set.",
+    required: true,
+    notes: "Code generation for the own-engine path.",
   },
   {
     key: "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",

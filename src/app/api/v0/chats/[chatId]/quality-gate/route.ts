@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
 import { Sandbox } from "@vercel/sandbox";
 import { z } from "zod";
-import { assertV0Key } from "@/lib/v0";
-import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
-import { createEngineVersionErrorLogs, createVersionErrorLogs } from "@/lib/db/services";
-import { db, dbConfigured } from "@/lib/db/client";
-import { versions } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { createEngineVersionErrorLogs } from "@/lib/db/services";
+import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   failVersionVerification,
@@ -84,22 +79,6 @@ function isSafeRelativePath(path: string): boolean {
   if (path.startsWith("/") || path.startsWith("\\")) return false;
   if (path.includes("..")) return false;
   return /^[A-Za-z0-9._/@-]+$/.test(path);
-}
-
-async function resolveInternalVersionId(chatId: string, versionId: string) {
-  if (!dbConfigured) return null;
-  const byInternal = await db
-    .select()
-    .from(versions)
-    .where(and(eq(versions.chatId, chatId), eq(versions.id, versionId)))
-    .limit(1);
-  if (byInternal.length > 0) return byInternal[0];
-  const byV0 = await db
-    .select()
-    .from(versions)
-    .where(and(eq(versions.chatId, chatId), eq(versions.v0VersionId, versionId)))
-    .limit(1);
-  return byV0[0] ?? null;
 }
 
 async function runSandboxChecks(
@@ -191,43 +170,39 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
     const { versionId, checks } = validation.data;
 
-    // ---------------------------------------------------------------
-    // Non-fallback: fetch files from Postgres engine store
-    // ---------------------------------------------------------------
-    if (!shouldUseV0Fallback()) {
-      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
-      if (!scopedVersion) {
+    const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+    if (!scopedVersion) {
         return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+    }
+    const internalVersionId = scopedVersion.version.id;
+    const codeFiles = await getVersionFiles(internalVersionId);
+    if (codeFiles && codeFiles.length > 0) {
+      if (!isSandboxConfigured()) {
+        return NextResponse.json(
+          { error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)" },
+          { status: 501 },
+        );
       }
-      const internalVersionId = scopedVersion.version.id;
-      const codeFiles = await getVersionFiles(internalVersionId);
-      if (codeFiles && codeFiles.length > 0) {
-        if (!isSandboxConfigured()) {
-          return NextResponse.json(
-            { error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)" },
-            { status: 501 },
-          );
-        }
 
-        const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
-        const sandboxFiles = completeProjectFiles
-          .filter((f) => f.content != null)
-          .map((f) => ({ name: f.path, content: f.content }));
+      const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
+      const sandboxFiles = completeProjectFiles
+        .filter((f) => f.content != null)
+        .map((f) => ({ name: f.path, content: f.content }));
 
-        await markVersionVerifying(internalVersionId).catch((err) => {
+      await markVersionVerifying(internalVersionId).catch((err) => {
           console.warn("[quality-gate] Failed to mark version verifying:", err);
-        });
+      });
 
-        try {
-          const { results, sandboxDurationMs } = await runSandboxChecks(sandboxFiles, checks);
+      try {
+        const { results, sandboxDurationMs } = await runSandboxChecks(sandboxFiles, checks);
 
-          const gateResult: GateResult = {
-            passed: results.every((r) => r.passed),
-            checks: results,
-            sandboxDurationMs,
-          };
+        const gateResult: GateResult = {
+          passed: results.every((r) => r.passed),
+          checks: results,
+          sandboxDurationMs,
+        };
 
-          const logs = [
+        const logs = [
             {
               chatId,
               versionId: internalVersionId,
@@ -247,117 +222,43 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 message: `${r.check} failed (exit ${r.exitCode})`,
                 meta: { output: r.output.slice(0, 4000), exitCode: r.exitCode },
               };
-            }),
-          ];
-          if (logs.length > 0 && dbConfigured) {
-            await createEngineVersionErrorLogs(logs).catch((err) => {
-              console.warn("[quality-gate] Failed to persist error logs:", err);
-            });
-          }
-
-          const verificationSummary = buildVerificationSummary(results);
-          if (gateResult.passed) {
-            await promoteVersion(internalVersionId, verificationSummary).catch((err) => {
-              console.warn("[quality-gate] Failed to promote version:", err);
-            });
-          } else {
-            await failVersionVerification(internalVersionId, verificationSummary).catch((err) => {
-              console.warn("[quality-gate] Failed to mark version failed:", err);
-            });
-          }
-
-          return NextResponse.json(gateResult);
-        } catch (err) {
-          await failVersionVerification(
-            internalVersionId,
-            "Automatic verification could not complete.",
-          ).catch(
-            (updateErr) => {
-              console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
-            },
-          );
-          if (err instanceof SandboxNotConfiguredError) {
-            return NextResponse.json({ error: err.message }, { status: 501 });
-          }
-          throw err;
-        }
-      }
-
-      return NextResponse.json({ error: "No files found for version" }, { status: 404 });
-    }
-
-    // ---------------------------------------------------------------
-    // V0 fallback: existing flow
-    // ---------------------------------------------------------------
-    assertV0Key();
-
-    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-    }
-
-    const resolved = await resolveVersionFiles({
-      chatId,
-      versionId,
-      options: { maxAttempts: 12, delayMs: 1500, minFiles: 1, includeDefaultFiles: true },
-    });
-    const files = resolved.files.filter((f) => f.content != null);
-    if (files.length === 0) {
-      return NextResponse.json({ error: "No files found for version" }, { status: 404 });
-    }
-
-    const sandboxFiles = files.map((f) => ({
-      name: f.name,
-      content: String(f.content ?? ""),
-    }));
-
-    try {
-      const { results, sandboxDurationMs } = await runSandboxChecks(sandboxFiles, checks);
-
-      const gateResult: GateResult = {
-        passed: results.every((r) => r.passed),
-        checks: results,
-        sandboxDurationMs,
-      };
-
-      const version = await resolveInternalVersionId(dbChat.id, versionId);
-      if (version) {
-        const logs = [
-          {
-            chatId: dbChat.id,
-            versionId: version.id,
-            v0VersionId: version.v0VersionId,
-            ...buildQualityGateSummaryLog({
-              checkResults: results,
-              sandboxDurationMs,
-            }),
-          },
-          ...results
-          .filter((r) => !r.passed)
-          .map((r) => ({
-            chatId: dbChat.id,
-            versionId: version.id,
-            v0VersionId: version.v0VersionId,
-            level: "error" as const,
-            category: `quality-gate:${r.check}`,
-            message: `${r.check} failed (exit ${r.exitCode})`,
-            meta: { output: r.output.slice(0, 4000), exitCode: r.exitCode },
-          })),
+          }),
         ];
-        if (logs.length > 0) {
-          await createVersionErrorLogs(logs).catch((err) => {
+        if (logs.length > 0 && dbConfigured) {
+          await createEngineVersionErrorLogs(logs).catch((err) => {
             console.warn("[quality-gate] Failed to persist error logs:", err);
           });
         }
-      }
 
-      return NextResponse.json(gateResult);
-    } catch (err) {
-      if (err instanceof SandboxNotConfiguredError) {
-        return NextResponse.json({ error: (err as Error).message }, { status: 501 });
+        const verificationSummary = buildVerificationSummary(results);
+        if (gateResult.passed) {
+          await promoteVersion(internalVersionId, verificationSummary).catch((err) => {
+            console.warn("[quality-gate] Failed to promote version:", err);
+          });
+        } else {
+          await failVersionVerification(internalVersionId, verificationSummary).catch((err) => {
+            console.warn("[quality-gate] Failed to mark version failed:", err);
+          });
+        }
+
+        return NextResponse.json(gateResult);
+      } catch (err) {
+        await failVersionVerification(
+          internalVersionId,
+          "Automatic verification could not complete.",
+        ).catch(
+          (updateErr) => {
+            console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
+          },
+        );
+        if (err instanceof SandboxNotConfiguredError) {
+          return NextResponse.json({ error: err.message }, { status: 501 });
+        }
+        throw err;
       }
-      throw err;
     }
+
+    return NextResponse.json({ error: "No files found for version" }, { status: 404 });
   } catch (err) {
     console.error("[quality-gate] Error:", err);
     return NextResponse.json(

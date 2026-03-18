@@ -5,7 +5,6 @@ import {
   submitApproval,
   getApprovalStatus,
 } from "@/lib/db/services";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
@@ -13,9 +12,6 @@ type ApprovalAction = "request" | "approve" | "reject" | "changes_requested";
 
 export async function GET(_request: Request, ctx: RouteParams) {
   try {
-    if (shouldUseV0Fallback()) {
-      return NextResponse.json({ error: "Collaboration not available in v0 fallback mode" }, { status: 400 });
-    }
     const { chatId, versionId } = await ctx.params;
     const scopedVersion = await getEngineVersionForChatByIdForRequest(_request, chatId, versionId);
     if (!scopedVersion) {
@@ -34,9 +30,6 @@ export async function GET(_request: Request, ctx: RouteParams) {
 
 export async function POST(request: Request, ctx: RouteParams) {
   try {
-    if (shouldUseV0Fallback()) {
-      return NextResponse.json({ error: "Collaboration not available in v0 fallback mode" }, { status: 400 });
-    }
     const { chatId, versionId } = await ctx.params;
     const scopedVersion = await getEngineVersionForChatByIdForRequest(request, chatId, versionId);
     if (!scopedVersion) {

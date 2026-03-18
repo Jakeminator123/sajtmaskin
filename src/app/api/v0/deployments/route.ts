@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
-import { deployments, versions } from "@/lib/db/schema";
-import { and, eq, desc } from "drizzle-orm";
+import { deployments } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { z } from "zod/v4";
 import { withRateLimit } from "@/lib/rateLimit";
-import { assertV0Key, v0 } from "@/lib/v0";
-import { fetchV0ProjectEnvVars } from "@/lib/v0/v0-env-vars";
 import { createDeploymentRecord, updateDeploymentStatus } from "@/lib/deployment";
 import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/imageAssets";
 import {
@@ -30,7 +28,6 @@ import {
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
@@ -42,30 +39,6 @@ type PreDeployDiagnostics = {
   fixesApplied: string[];
   warnings: string[];
 };
-
-type V0VersionWithFiles = {
-  files?: unknown;
-};
-
-type V0VersionTextFile = {
-  name: string;
-  content: string;
-};
-
-function extractTextFilesFromV0Version(version: unknown): V0VersionTextFile[] {
-  if (!version || typeof version !== "object") return [];
-  const maybeFiles = (version as V0VersionWithFiles).files;
-  if (!Array.isArray(maybeFiles)) return [];
-
-  return maybeFiles
-    .filter((file): file is { name: unknown; content: unknown } => {
-      return Boolean(file) && typeof file === "object";
-    })
-    .filter((file): file is { name: string; content: string } => {
-      return typeof file.name === "string" && typeof file.content === "string";
-    })
-    .map((file) => ({ name: file.name, content: file.content }));
-}
 
 function applyPreDeployFixes(
   files: Array<{ name: string; content: string }>,
@@ -368,140 +341,136 @@ export async function POST(req: Request) {
         imageStrategy ?? (process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "external");
       const deployTarget = target === "preview" ? "preview" : "production";
 
-      // -----------------------------------------------------------------
-      // Non-fallback: fetch version files from Postgres engine store
-      // -----------------------------------------------------------------
-      if (!shouldUseV0Fallback()) {
-        const creditCheck = await prepareCredits(
-          req,
-          deployTarget === "preview" ? "deploy.preview" : "deploy.production",
-          { target: deployTarget },
+      const creditCheck = await prepareCredits(
+        req,
+        deployTarget === "preview" ? "deploy.preview" : "deploy.production",
+        { target: deployTarget },
+      );
+      if (!creditCheck.ok) {
+        return creditCheck.response;
+      }
+
+      const engineVersion = await getVersionById(versionId);
+      if (!engineVersion) {
+        return NextResponse.json({ error: "Version not found" }, { status: 404 });
+      }
+      if (engineVersion.chat_id !== chatId) {
+        return NextResponse.json({ error: "Version does not belong to chat" }, { status: 404 });
+      }
+      const [engineChat, codeFiles] = await Promise.all([
+        getChat(engineVersion.chat_id),
+        getVersionFiles(versionId),
+      ]);
+      if (!engineChat) {
+        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+      }
+      const requestedProjectId = projectId?.trim() || null;
+      if (requestedProjectId && engineChat.project_id && requestedProjectId !== engineChat.project_id) {
+        return NextResponse.json(
+          { error: "Project does not match chat ownership" },
+          { status: 409 },
         );
-        if (!creditCheck.ok) {
-          return creditCheck.response;
-        }
+      }
+      const engineProjectId = requestedProjectId || engineChat.project_id || null;
+      if (!engineProjectId) {
+        return NextResponse.json(
+          { error: "Chat is not linked to a project" },
+          { status: 403 },
+        );
+      }
+      const ownedProject = await getProjectByIdForRequest(req, engineProjectId);
+      if (!ownedProject) {
+        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+      }
+      if (!codeFiles || codeFiles.length === 0) {
+        return NextResponse.json(
+          { error: "No files found for this version" },
+          { status: 404 },
+        );
+      }
 
-        const engineVersion = await getVersionById(versionId);
-        if (!engineVersion) {
-          return NextResponse.json({ error: "Version not found" }, { status: 404 });
-        }
-        if (engineVersion.chat_id !== chatId) {
-          return NextResponse.json({ error: "Version does not belong to chat" }, { status: 404 });
-        }
-        const [engineChat, codeFiles] = await Promise.all([
-          getChat(engineVersion.chat_id),
-          getVersionFiles(versionId),
-        ]);
-        if (!engineChat) {
-          return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-        }
-        const requestedProjectId = projectId?.trim() || null;
-        if (requestedProjectId && engineChat.project_id && requestedProjectId !== engineChat.project_id) {
-          return NextResponse.json(
-            { error: "Project does not match chat ownership" },
-            { status: 409 },
-          );
-        }
-        const engineProjectId = requestedProjectId || engineChat.project_id || null;
-        if (!engineProjectId) {
-          return NextResponse.json(
-            { error: "Chat is not linked to a project" },
-            { status: 403 },
-          );
-        }
-        const ownedProject = await getProjectByIdForRequest(req, engineProjectId);
-        if (!ownedProject) {
-          return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-        }
-        if (!codeFiles || codeFiles.length === 0) {
-          return NextResponse.json(
-            { error: "No files found for this version" },
-            { status: 404 },
-          );
-        }
+      const textFiles = codeFiles.map((f) => ({ name: f.path, content: f.content }));
 
-        const textFiles = codeFiles.map((f) => ({ name: f.path, content: f.content }));
+      devLogAppend("latest", {
+        type: "site.deploy.start",
+        requestedChatId: chatId,
+        requestedVersionId: versionId,
+        source: "engine-postgres",
+        target: deployTarget,
+        imageStrategy: resolvedImageStrategy,
+      });
+
+      const deploymentId = await createDeploymentRecord({
+        chatId,
+        versionId,
+      });
+
+      try {
+        const vercelProjectName = sanitizeVercelProjectName(
+          projectName || `sajtmaskin-${chatId}`,
+        );
+        const envVarsForDeploy = engineProjectId
+          ? await getStoredProjectEnvVarMap(engineProjectId).catch((error) => {
+              console.warn("[deploy] Failed to load app-project env vars:", error);
+              return {};
+            })
+          : {};
+
+        const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
+        if (fixesApplied.length > 0) {
+          console.info("[deploy] applied fixes:", fixesApplied);
+        }
+        if (warnings.length > 0) {
+          console.warn("[deploy] pre-deploy warnings:", warnings.slice(0, 5));
+        }
 
         devLogAppend("latest", {
-          type: "site.deploy.start",
-          requestedChatId: chatId,
-          requestedVersionId: versionId,
-          source: "engine-postgres",
-          target: deployTarget,
-          imageStrategy: resolvedImageStrategy,
-        });
-
-        const deploymentId = await createDeploymentRecord({
-          chatId,
-          versionId,
-        });
-
-        try {
-          const vercelProjectName = sanitizeVercelProjectName(
-            projectName || `sajtmaskin-${chatId}`,
-          );
-          const envVarsForDeploy = engineProjectId
-            ? await getStoredProjectEnvVarMap(engineProjectId).catch((error) => {
-                console.warn("[deploy] Failed to load app-project env vars:", error);
-                return {};
-              })
-            : {};
-
-          const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
-          if (fixesApplied.length > 0) {
-            console.info("[deploy] applied fixes:", fixesApplied);
-          }
-          if (warnings.length > 0) {
-            console.warn("[deploy] pre-deploy warnings:", warnings.slice(0, 5));
-          }
-
-          devLogAppend("latest", {
             type: "site.deploy.precheck",
             chatId,
             versionId,
             deploymentId,
             fixesApplied,
             warnings,
-            fileCount: fixedFiles.length,
-          });
+          fileCount: fixedFiles.length,
+        });
 
-          const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-          const imageAssets = await materializeImagesInTextFiles({
+        const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+        const imageAssets = await materializeImagesInTextFiles({
             files: fixedFiles,
             strategy: resolvedImageStrategy,
             blobToken,
-            namespace: { chatId, versionId },
-          });
+          namespace: { chatId, versionId },
+        });
 
-          if (imageAssets.warnings.length > 0) {
-            console.info("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
-          }
+        if (imageAssets.warnings.length > 0) {
+          console.info("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
+        }
 
-          const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
+        const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
 
-          const created = await createVercelDeployment({
+        const created = await createVercelDeployment({
             projectName: vercelProjectName,
             target: deployTarget,
             files: vercelFiles,
-            envVars: envVarsForDeploy,
-          });
+          envVars: envVarsForDeploy,
+        });
 
-          if (created.vercelProjectId) {
-            const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
-            if (envSync.errors.length > 0) {
-              console.warn("[deploy] env var project sync errors:", envSync.errors);
-            }
+        if (created.vercelProjectId) {
+          const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, envVarsForDeploy);
+          if (envSync.errors.length > 0) {
+            console.warn("[deploy] env var project sync errors:", envSync.errors);
           }
+        }
 
-          const mapped = mapVercelReadyStateToStatus(created.readyState);
-          await updateDeploymentStatus(deploymentId, mapped.status, {
+        const mapped = mapVercelReadyStateToStatus(created.readyState);
+        await updateDeploymentStatus(deploymentId, mapped.status, {
             vercelDeploymentId: created.vercelDeploymentId,
             vercelProjectId: created.vercelProjectId ?? undefined,
             url: created.url ?? undefined,
-            inspectorUrl: created.inspectorUrl ?? undefined,
-          });
+          inspectorUrl: created.inspectorUrl ?? undefined,
+        });
 
-          devLogAppend("latest", {
+        devLogAppend("latest", {
             type: "site.deploy.done",
             chatId,
             versionId,
@@ -512,16 +481,16 @@ export async function POST(req: Request) {
             projectId: engineProjectId,
             envVarCount: Object.keys(envVarsForDeploy).length,
             url: created.url ?? null,
-            inspectorUrl: created.inspectorUrl ?? null,
-          });
+          inspectorUrl: created.inspectorUrl ?? null,
+        });
 
-          try {
-            await creditCheck.commit();
-          } catch (error) {
-            console.error("[credits] Failed to charge deploy:", error);
-          }
+        try {
+          await creditCheck.commit();
+        } catch (error) {
+          console.error("[credits] Failed to charge deploy:", error);
+        }
 
-          return NextResponse.json({
+        return NextResponse.json({
             id: deploymentId,
             chatId,
             versionId,
@@ -537,203 +506,6 @@ export async function POST(req: Request) {
             preDeployWarnings: warnings,
             imageStrategyRequested: imageStrategy ?? null,
             imageStrategyUsed: imageAssets.strategyUsed,
-            imageAssetsSummary: imageAssets.summary,
-            imageAssetsWarnings: imageAssets.warnings,
-          });
-        } catch (deployErr) {
-          await updateDeploymentStatus(deploymentId, "error");
-          throw deployErr;
-        }
-      }
-
-      // -----------------------------------------------------------------
-      // V0 fallback: existing Drizzle/Postgres + v0 API flow
-      // -----------------------------------------------------------------
-      assertV0Key();
-
-      let chat = await getChatByV0ChatIdForRequest(req, chatId);
-      if (!chat) chat = await getChatByIdForRequest(req, chatId);
-
-      if (!chat) {
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-      }
-
-      const internalChatId = chat.id;
-      const v0ChatId = chat.v0ChatId;
-
-      let version = await db
-        .select()
-        .from(versions)
-        .where(and(eq(versions.chatId, internalChatId), eq(versions.id, versionId)))
-        .limit(1);
-
-      if (version.length === 0) {
-        version = await db
-          .select()
-          .from(versions)
-          .where(and(eq(versions.chatId, internalChatId), eq(versions.v0VersionId, versionId)))
-          .limit(1);
-      }
-
-      if (version.length === 0) {
-        return NextResponse.json({ error: "Version not found" }, { status: 404 });
-      }
-
-      const internalVersionId = version[0].id;
-      const v0VersionId = version[0].v0VersionId;
-      const creditCheck = await prepareCredits(
-        req,
-        deployTarget === "preview" ? "deploy.preview" : "deploy.production",
-        { target: deployTarget },
-      );
-      if (!creditCheck.ok) {
-        return creditCheck.response;
-      }
-
-      devLogAppend("latest", {
-        type: "site.deploy.start",
-        requestedChatId: chatId,
-        internalChatId,
-        v0ChatId,
-        requestedVersionId: versionId,
-        internalVersionId,
-        v0VersionId,
-        target: target || "production",
-        imageStrategy: resolvedImageStrategy,
-      });
-
-      const deploymentId = await createDeploymentRecord({
-        chatId: internalChatId,
-        versionId: internalVersionId,
-      });
-
-      try {
-        const v0Version = await v0.chats.getVersion({
-          chatId: v0ChatId,
-          versionId: v0VersionId,
-          includeDefaultFiles: true,
-        });
-
-        const textFiles = extractTextFilesFromV0Version(v0Version);
-
-        if (textFiles.length === 0) {
-          await updateDeploymentStatus(deploymentId, "error");
-          return NextResponse.json(
-            { error: "No files returned from v0 for this version" },
-            { status: 500 },
-          );
-        }
-
-        const vercelProjectName = sanitizeVercelProjectName(
-          projectName || `sajtmaskin-${v0ChatId}`,
-        );
-
-        const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
-        if (fixesApplied.length > 0) {
-          console.info("[deploy] applied fixes:", fixesApplied);
-        }
-        if (warnings.length > 0) {
-          console.warn("[deploy] pre-deploy warnings:", warnings.slice(0, 5));
-        }
-        devLogAppend("latest", {
-          type: "site.deploy.precheck",
-          v0ChatId,
-          v0VersionId,
-          fixesApplied,
-          warnings,
-          fileCount: fixedFiles.length,
-        });
-
-        const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-        const imageAssets = await materializeImagesInTextFiles({
-          files: fixedFiles,
-          strategy: resolvedImageStrategy,
-          blobToken,
-          namespace: { chatId: v0ChatId, versionId: v0VersionId },
-        });
-
-        if (imageAssets.warnings.length > 0) {
-          console.info("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
-        }
-
-        const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
-
-        let deployEnvVars: Record<string, string> = {};
-        if (chat!.v0ProjectId) {
-          try {
-            deployEnvVars = await fetchV0ProjectEnvVars(chat!.v0ProjectId);
-            if (Object.keys(deployEnvVars).length > 0) {
-              console.info(
-                `[deploy] resolved ${Object.keys(deployEnvVars).length} env var(s) from v0 project ${chat!.v0ProjectId}`,
-              );
-            }
-          } catch (envErr) {
-            console.warn("[deploy] failed to fetch v0 project env vars (non-fatal):", envErr);
-          }
-        }
-
-        const created = await createVercelDeployment({
-          projectName: vercelProjectName,
-          target: target || "production",
-          files: vercelFiles,
-          envVars: Object.keys(deployEnvVars).length > 0 ? deployEnvVars : undefined,
-        });
-
-        if (created.vercelProjectId && Object.keys(deployEnvVars).length > 0) {
-          const envSync = await syncEnvVarsToVercelProject(
-            created.vercelProjectId,
-            deployEnvVars,
-          );
-          if (envSync.errors.length > 0) {
-            console.warn("[deploy] env var project sync errors:", envSync.errors);
-          } else if (envSync.synced > 0) {
-            console.info(
-              `[deploy] synced ${envSync.synced} env var(s) to Vercel project ${created.vercelProjectId}`,
-            );
-          }
-        }
-
-        const mapped = mapVercelReadyStateToStatus(created.readyState);
-        await updateDeploymentStatus(deploymentId, mapped.status, {
-          vercelDeploymentId: created.vercelDeploymentId,
-          vercelProjectId: created.vercelProjectId ?? undefined,
-          url: created.url ?? undefined,
-          inspectorUrl: created.inspectorUrl ?? undefined,
-        });
-
-        devLogAppend("latest", {
-          type: "site.deploy.done",
-          internalChatId,
-          v0ChatId,
-          internalVersionId,
-          v0VersionId,
-          deploymentId,
-          status: mapped.status,
-          readyState: created.readyState,
-          url: created.url ?? null,
-          inspectorUrl: created.inspectorUrl ?? null,
-        });
-
-        try {
-          await creditCheck.commit();
-        } catch (error) {
-          console.error("[credits] Failed to charge deploy:", error);
-        }
-
-        return NextResponse.json({
-          id: deploymentId,
-          chatId: internalChatId,
-          versionId: internalVersionId,
-          status: mapped.status,
-          vercelDeploymentId: created.vercelDeploymentId,
-          vercelProjectId: created.vercelProjectId,
-          url: created.url,
-          inspectorUrl: created.inspectorUrl,
-          readyState: created.readyState,
-          fixesApplied,
-          preDeployWarnings: warnings,
-          imageStrategyRequested: imageStrategy ?? null,
-          imageStrategyUsed: imageAssets.strategyUsed,
           imageAssetsSummary: imageAssets.summary,
           imageAssetsWarnings: imageAssets.warnings,
         });

@@ -1,10 +1,7 @@
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import {
   getVersionFiles,
   getLatestVersionFiles,
 } from "@/lib/gen/version-manager";
-import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
-import { v0 } from "@/lib/v0";
 
 type FileEntry = { name: string; content: string; language?: string };
 
@@ -64,49 +61,15 @@ async function fetchFiles(
   chatId: string,
   versionId: string | null,
 ): Promise<FileEntry[]> {
-  if (!shouldUseV0Fallback()) {
-    const raw = versionId
-      ? await getVersionFiles(versionId)
-      : await getLatestVersionFiles(chatId);
-    if (!raw) return [];
-    return raw.map((f) => ({
-      name: f.path,
-      content: f.content,
-      language: f.language,
-    }));
-  }
-
-  const v0ApiKey = process.env.V0_API_KEY?.trim();
-  if (!v0ApiKey) return [];
-
-  const chat = await v0.chats.getById({ chatId });
-  const targetId =
-    versionId ?? getLatestV0VersionId(chat) ?? null;
-  if (!targetId) return [];
-
-  const result = await resolveVersionFiles({
-    chatId,
-    versionId: targetId,
-    options: { maxAttempts: 5, delayMs: 1000, minFiles: 1 },
-  });
-
-  if (result.files.length > 0) {
-    return result.files.map((f) => ({
-      name: f.name,
-      content: typeof f.content === "string" ? f.content : "",
-      language: inferLang(f.name),
-    }));
-  }
-
-  return [];
-}
-
-function getLatestV0VersionId(chat: unknown): string | null {
-  const payload = chat as {
-    latestVersion?: { id?: string | null } | null;
-  } | null;
-  const id = payload?.latestVersion?.id;
-  return typeof id === "string" && id.length > 0 ? id : null;
+  const raw = versionId
+    ? await getVersionFiles(versionId)
+    : await getLatestVersionFiles(chatId);
+  if (!raw) return [];
+  return raw.map((f) => ({
+    name: f.path,
+    content: f.content,
+    language: f.language,
+  }));
 }
 
 function inferLang(name: string): string {

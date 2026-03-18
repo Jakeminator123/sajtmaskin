@@ -597,7 +597,6 @@ export function integrationSignalToToolPart(
 function formatEnginePathLabel(enginePath: string | null | undefined): string | null {
   if (!enginePath) return null;
   if (enginePath === "own-engine") return "egen motor";
-  if (enginePath === "v0-fallback") return "v0 fallback";
   if (enginePath === "plan-mode") return "planlage";
   return enginePath;
 }

@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { and, eq } from "drizzle-orm";
 import { withRateLimit } from "@/lib/rateLimit";
-import { assertV0Key, v0 } from "@/lib/v0";
-import { db } from "@/lib/db/client";
-import { versions } from "@/lib/db/schema";
-import { getChatByV0ChatIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 
 export const runtime = "nodejs";
@@ -42,120 +37,41 @@ export async function POST(
       const { searchParams } = new URL(req.url);
       const format = searchParams.get("format") === "tar" ? "tar" : "zip";
 
-      // -----------------------------------------------------------------
-      // Non-fallback: build archive from Postgres engine files, upload to Blob
-      // -----------------------------------------------------------------
-      if (!shouldUseV0Fallback()) {
-        const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
-        if (!scopedVersion) {
-          return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
-        }
-        const codeFiles = await getVersionFiles(scopedVersion.version.id);
-        if (codeFiles && codeFiles.length > 0) {
-          const JSZip = (await import("jszip")).default;
-          const zip = new JSZip();
-          for (const file of codeFiles) {
-            zip.file(file.path, file.content);
-          }
-
-          const buffer = await zip.generateAsync({ type: "nodebuffer" });
-
-          const safeChat = toSafeSegment(chatId) || "chat";
-          const safeVersion = toSafeSegment(scopedVersion.version.id) || "version";
-          const contentType = "application/zip";
-          const pathname = `exports/${safeChat}/${safeVersion}-${Date.now()}.zip`;
-
-          const blob = await put(pathname, buffer, {
-            access: "public",
-            contentType,
-            token: blobToken,
-          });
-
-          return NextResponse.json({
-            ok: true,
-            format: "zip",
-            contentType,
-            size: buffer.byteLength,
-            blob,
-          });
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+      if (!scopedVersion) {
+        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+      }
+      const codeFiles = await getVersionFiles(scopedVersion.version.id);
+      if (codeFiles && codeFiles.length > 0) {
+        const JSZip = (await import("jszip")).default;
+        const zip = new JSZip();
+        for (const file of codeFiles) {
+          zip.file(file.path, file.content);
         }
 
-        return NextResponse.json({ error: "No files found for version" }, { status: 404 });
+        const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+        const safeChat = toSafeSegment(chatId) || "chat";
+        const safeVersion = toSafeSegment(scopedVersion.version.id) || "version";
+        const contentType = "application/zip";
+        const pathname = `exports/${safeChat}/${safeVersion}-${Date.now()}.zip`;
+
+        const blob = await put(pathname, buffer, {
+          access: "public",
+          contentType,
+          token: blobToken,
+        });
+
+        return NextResponse.json({
+          ok: true,
+          format: "zip",
+          contentType,
+          size: buffer.byteLength,
+          blob,
+        });
       }
 
-      // -----------------------------------------------------------------
-      // V0 fallback: existing v0 API download + Blob upload flow
-      // -----------------------------------------------------------------
-      assertV0Key();
-
-      const includeDefaultFiles = searchParams.get("includeDefaultFiles") !== "false";
-
-      const chat = await getChatByV0ChatIdForRequest(req, chatId);
-      if (!chat) {
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-      }
-
-      let version = await db
-        .select()
-        .from(versions)
-        .where(and(eq(versions.chatId, chat.id), eq(versions.id, versionId)))
-        .limit(1);
-
-      if (version.length === 0) {
-        version = await db
-          .select()
-          .from(versions)
-          .where(and(eq(versions.chatId, chat.id), eq(versions.v0VersionId, versionId)))
-          .limit(1);
-      }
-
-      if (version.length === 0) {
-        return NextResponse.json({ error: "Version not found" }, { status: 404 });
-      }
-
-      const v0VersionId = version[0].v0VersionId;
-      const downloadFormat = format === "tar" ? "tarball" : "zip";
-
-      const downloadResult = await v0.chats.downloadVersion({
-        chatId,
-        versionId: v0VersionId,
-        format: downloadFormat as "zip" | "tarball",
-        includeDefaultFiles,
-      });
-
-      const arrayBuffer =
-        typeof downloadResult === "string"
-          ? await (async () => {
-              const res = await fetch(downloadResult);
-              if (!res.ok) {
-                throw new Error(`Failed to fetch v0 download URL (HTTP ${res.status})`);
-              }
-              return await res.arrayBuffer();
-            })()
-          : await new Response(downloadResult as any).arrayBuffer();
-
-      const buffer = Buffer.from(arrayBuffer);
-
-      const safeChat = toSafeSegment(chatId) || "chat";
-      const safeVersion = toSafeSegment(v0VersionId) || "version";
-      const ext = format === "tar" ? "tar" : "zip";
-      const contentType = format === "tar" ? "application/x-tar" : "application/zip";
-
-      const pathname = `exports/${safeChat}/${safeVersion}-${Date.now()}.${ext}`;
-
-      const blob = await put(pathname, buffer, {
-        access: "public",
-        contentType,
-        token: blobToken,
-      });
-
-      return NextResponse.json({
-        ok: true,
-        format: ext,
-        contentType,
-        size: buffer.byteLength,
-        blob,
-      });
+      return NextResponse.json({ error: "No files found for version" }, { status: 404 });
     } catch (err) {
       console.error("Blob export error:", err);
       return NextResponse.json(

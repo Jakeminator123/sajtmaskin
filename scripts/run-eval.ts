@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+﻿import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -182,10 +182,10 @@ function buildBuildStackChecks(repoTexts: Record<RepoFileKey, string>): CheckRes
       { file: "orchestrate", needle: "persistedScaffoldId", label: "persisted scaffold reuse" },
       { file: "generateSite", needle: 'scaffoldMode === "auto"', label: "MCP scaffold auto mode" },
     ]),
-    buildRepoCheck(repoTexts, "own-build-default", "Own-engine builds remain the primary path unless fallback is enabled", [
-      { file: "fallback", needle: "export function shouldUseV0Fallback()", label: "fallback flag gate" },
-      { file: "generateSite", needle: "supports the own engine only", label: "MCP own-engine guard" },
-      { file: "createRoute", needle: "const usingV0Fallback = shouldUseV0Fallback();", label: "route fallback branching" },
+    buildRepoCheck(repoTexts, "own-build-default", "Own-engine builds are the primary path", [
+      { file: "fallback", needle: "createGenerationPipeline", label: "own-engine pipeline" },
+      { file: "generateSite", needle: "createGenerationPipeline", label: "MCP own-engine generation" },
+      { file: "createRoute", needle: "prepareGenerationContext", label: "create-route own-engine path" },
     ]),
   ];
 }
@@ -238,3 +238,4 @@ main().catch((error) => {
   console.error("[eval] Fatal error:", error);
   process.exitCode = 1;
 });
+
