@@ -71,14 +71,16 @@ Create a `StorageProvider` interface so blob storage can be swapped:
 - [ ] Refactor `src/lib/imageAssets.ts` consumers
 - [ ] Refactor `src/lib/templates/template-embeddings-storage.ts`
 
-### WS-4: AI Gateway replacement
+### WS-4: AI Gateway replacement — COMPLETED
 
-Replace `gateway("openai/...")` with direct `createOpenAI()` in all routes:
+**Delivered 2026-03-18.** 12 files changed.
 
-- [ ] Inventory all routes using `gateway()` (estimated ~15)
-- [ ] Replace with direct OpenAI provider using `OPENAI_API_KEY`
-- [ ] Remove `AI_GATEWAY_API_KEY` and `VERCEL_OIDC_TOKEN` dependencies
-- [ ] Update `ENV.md` and `config/env-policy.json`
+- [x] Inventory all routes using `gateway()` (11 files, 12 calls)
+- [x] Replace with `createDirectModel()` using OPENAI_API_KEY / ANTHROPIC_API_KEY
+- [x] Rewrite `gateway-policy.ts` as direct-provider policy module
+- [x] Update `gen/models.ts` Anthropic path to use direct `createAnthropic()`
+- [ ] Remove `AI_GATEWAY_API_KEY` and `VERCEL_OIDC_TOKEN` from env schema — deferred: still referenced in health/admin routes
+- [ ] Update `ENV.md` and `config/env-policy.json` — next cleanup pass
 
 ### WS-5: Large file and research cleanup
 
