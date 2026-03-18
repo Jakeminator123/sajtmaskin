@@ -15,9 +15,9 @@ import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
 export const runtime = "nodejs";
 export const maxDuration = 600;
 
-// Token limits configurable via env (for server-side control)
+import { ASSIST_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
+
 const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 81_920;
-const DEFAULT_BRIEF_MAX_TOKENS = 16_384;
 
 const briefRequestSchema = z.object({
   prompt: z
@@ -34,7 +34,7 @@ const briefRequestSchema = z.object({
 });
 
 function resolveMaxTokens(requested: number | undefined): number {
-  const base = typeof requested === "number" ? requested : DEFAULT_BRIEF_MAX_TOKENS;
+  const base = typeof requested === "number" ? requested : ASSIST_MAX_OUTPUT_TOKENS;
   const capped = Math.min(base, ENV_MAX_TOKENS);
   if (typeof requested === "number" && capped !== requested) {
     debugLog("AI", "Brief maxTokens capped by env limit", {

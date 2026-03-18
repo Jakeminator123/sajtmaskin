@@ -26,11 +26,8 @@ export function resolvePhaseModel(
 
   switch (phase) {
     case "planner":
-      return { phase, modelId: "gpt-4.1-mini", reason: "planner-downgrade" };
     case "verifier":
-      return { phase, modelId: "gpt-4.1", reason: "verifier-downgrade" };
     case "deploy-assistant":
-      return { phase, modelId: "gpt-4.1", reason: "deploy-assistant-downgrade" };
     case "generator":
     case "fixer":
       return { phase, modelId: baseModel, reason: "full-tier" };

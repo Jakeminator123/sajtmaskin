@@ -84,8 +84,8 @@ export const PROMPT_ASSIST_OFF_VALUE = "off";
 export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
   { value: "openai/gpt-5.4", label: "GPT‑5.4 (Gateway)" },
+  { value: "openai/gpt-5.3-codex", label: "GPT‑5.3 Codex (Gateway)" },
   { value: "openai/gpt-5.2", label: "GPT‑5.2 (Gateway)" },
-  { value: "openai/gpt-4.1-mini", label: "GPT‑4.1 Mini (Gateway)" },
   { value: "anthropic-direct/claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
   { value: "v0-1.5-md", label: "Model API Medium" },
   { value: "v0-1.5-lg", label: "Model API Large" },
@@ -122,18 +122,15 @@ export interface PromptAssistDefaults {
   deep: boolean;
 }
 
-/** Fast model for the local "Skriv om prompt" action only. */
-export const DEFAULT_PROMPT_POLISH_MODEL = "openai/gpt-4.1-mini";
-
 /**
- * Default prompt assist configuration.
- * Förbättra-knappen gör en lätt polish av prompten — rättar stavfel,
- * förtydligar struktur och formaterar för bättre AI-förståelse.
- * Den är INTE en full plan/spec-generator.
- * Standardvalet ligger på gateway-modell för bättre allmän promptpolish.
+ * These import from the centralized defaults in src/lib/gen/defaults.ts.
+ * Override via SAJTMASKIN_POLISH_MODEL and SAJTMASKIN_ASSIST_MODEL in .env.local.
  */
+export const DEFAULT_PROMPT_POLISH_MODEL =
+  process.env.SAJTMASKIN_POLISH_MODEL?.trim() || "openai/gpt-5.3-codex";
+
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
-  model: "openai/gpt-5.4",
+  model: process.env.SAJTMASKIN_ASSIST_MODEL?.trim() || "openai/gpt-5.4",
   deep: true,
 };
 

@@ -147,13 +147,13 @@ export function canonicalModelIdToV0ModelId(modelId: CanonicalModelId): V0ModelI
 
 /** Maps the canonical builder profile to an own-engine model ID. */
 export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnModelId {
-  const tierMap: Record<CanonicalModelId, OwnModelId> = {
-    fast: "gpt-4.1",
-    pro: "gpt-5.3-codex",
-    max: "gpt-5.4",
-    codex: "gpt-5.1-codex-max",
+  const tierMap: Record<CanonicalModelId, string> = {
+    fast: process.env.SAJTMASKIN_MODEL_FAST?.trim() || "gpt-4.1",
+    pro: process.env.SAJTMASKIN_MODEL_PRO?.trim() || "gpt-5.3-codex",
+    max: process.env.SAJTMASKIN_MODEL_MAX?.trim() || "gpt-5.4",
+    codex: process.env.SAJTMASKIN_MODEL_CODEX?.trim() || "gpt-5.1-codex-max",
   };
-  return tierMap[modelId] ?? "gpt-5.3-codex";
+  return (tierMap[modelId] ?? "gpt-5.3-codex") as OwnModelId;
 }
 
 /**

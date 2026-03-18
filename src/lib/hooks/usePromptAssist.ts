@@ -124,7 +124,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
   const maybeEnhanceInitialPrompt = useCallback(
     async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
       const mode = options.mode ?? "rewrite";
-      const polishModelOverride = mode === "polish" ? "openai/gpt-4.1-mini" : undefined;
+      const polishModelOverride = mode === "polish" ? "openai/gpt-5.3-codex" : undefined;
       const normalizedModel = normalizeAssistModel(options.modelOverride ?? polishModelOverride ?? model);
       if (isPromptAssistOff(normalizedModel)) {
         debugLog("AI", "Prompt assist off – skipping", { model: normalizedModel });

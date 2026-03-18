@@ -47,6 +47,52 @@ python manage_env.py reconcile         # dry-run cleanup-plan för Vercel drift
 python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga entries på Vercel)
 ```
 
+## Modellkonfiguration
+
+All modellval styrs centralt i `src/lib/gen/defaults.ts` och läser från env.
+Inga modeller hårdkodas i routes eller hooks — allt landar här.
+
+### Byggmodeller (kodgenerering, direkt mot OpenAI API via OPENAI_API_KEY)
+
+| Env-variabel | Default | Tier i UI | Vad den gör |
+|---|---|---|---|
+| `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | Fast and Good | Snabb, enklare sidor |
+| `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | Pro (Rekommenderad) | Kodspecialiserad, bästa balans |
+| `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | Max | Flaggskeppsmodell, mest komplett |
+| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | Codex Max | Djupt resonemang, komplexa projekt |
+
+### Prompt Assist-modeller (brief/förbättra, via Vercel AI Gateway)
+
+| Env-variabel | Default | Vad den gör |
+|---|---|---|
+| `SAJTMASKIN_ASSIST_MODEL` | `openai/gpt-5.4` | Deep Brief och Förbättra-knappen |
+| `SAJTMASKIN_POLISH_MODEL` | `openai/gpt-5.3-codex` | "Skriv om"-knappen (promptpolish) |
+
+### Token-gränser
+
+| Env-variabel | Default | Vad den styr |
+|---|---|---|
+| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | `32768` | Max output-tokens för kodgenerering |
+| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS` | `12288` | Max output-tokens för autofix/LLM-fixer |
+| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `16384` | Max output-tokens för brief/chat assist |
+
+### Hur modellerna hänger ihop
+
+```
+Användaren väljer tier i UI (Fast / Pro / Max / Codex)
+        │
+        ├─► Prompt Assist (SAJTMASKIN_ASSIST_MODEL via AI Gateway)
+        │   └─► Genererar brief/spec som berikar systemprompten
+        │
+        ├─► Kodgenerering (SAJTMASKIN_MODEL_<TIER> direkt mot OpenAI)
+        │   └─► Producerar React/Next.js-kod, streamas via SSE
+        │
+        └─► Autofix (samma modell som generering)
+            └─► Fixar syntax-/importfel i genererad kod
+```
+
+Alla faser använder samma modell som tier:n anger — ingen downgrade till mini-modeller.
+
 ## Lokal dev-loggning
 
 - `SAJTMASKIN_DEV_LOG=false` stänger av den lokala dev-loggningen helt.

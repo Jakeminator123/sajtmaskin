@@ -20,9 +20,9 @@ export const maxDuration = 600;
 
 const BASE_URL = "https://api.v0.dev/v1";
 
-// Token limits configurable via env (for server-side control)
+import { ASSIST_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
+
 const ENV_MAX_TOKENS = Number(process.env.AI_CHAT_MAX_TOKENS) || 81_920;
-const DEFAULT_CHAT_MAX_TOKENS = 16_384;
 
 const messageSchema = z.discriminatedUnion("role", [
   z.object({
@@ -48,7 +48,7 @@ const chatRequestSchema = z.object({
 });
 
 function resolveMaxTokens(requested: number | undefined): number {
-  const base = typeof requested === "number" ? requested : DEFAULT_CHAT_MAX_TOKENS;
+  const base = typeof requested === "number" ? requested : ASSIST_MAX_OUTPUT_TOKENS;
   const capped = Math.min(base, ENV_MAX_TOKENS);
   if (typeof requested === "number" && capped !== requested) {
     warnLog("AI", "maxTokens capped by env limit", { requested, capped, envLimit: ENV_MAX_TOKENS });

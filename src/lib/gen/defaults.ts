@@ -7,16 +7,48 @@ function readIntEnv(name: string, fallback: number, min: number, max: number): n
   return rounded;
 }
 
-/**
- * Shared own-engine defaults.
- *
- * These centralize generation budgets and timeouts so the builder UI, stream
- * routes, eval runner, and autofix pipeline do not drift apart.
- *
- * AI SDK docs support `maxOutputTokens` per generation and recommend explicit
- * budgets for long-running tasks. The defaults here favor page/site creation
- * over terse edits while remaining configurable per environment.
- */
+function readStringEnv(name: string, fallback: string): string {
+  return process.env[name]?.trim() || fallback;
+}
+
+// ============================================================================
+// MODEL CONFIGURATION
+//
+// All model choices are centralized here. Override via .env.local:
+//
+//   # ── Byggmodeller (kodgenerering, direkt mot OpenAI) ──────────
+//   SAJTMASKIN_MODEL_FAST=gpt-4.1
+//   SAJTMASKIN_MODEL_PRO=gpt-5.3-codex
+//   SAJTMASKIN_MODEL_MAX=gpt-5.4
+//   SAJTMASKIN_MODEL_CODEX=gpt-5.1-codex-max
+//
+//   # ── Prompt Assist / Brief (via AI Gateway) ───────────────────
+//   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.4
+//   SAJTMASKIN_POLISH_MODEL=openai/gpt-5.3-codex
+//
+//   # ── Token-gränser ────────────────────────────────────────────
+//   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=32768
+//   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=12288
+//   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=16384
+//
+// ============================================================================
+
+/** Generation models — used directly against OpenAI API */
+export const MODEL_FAST = readStringEnv("SAJTMASKIN_MODEL_FAST", "gpt-4.1");
+export const MODEL_PRO = readStringEnv("SAJTMASKIN_MODEL_PRO", "gpt-5.3-codex");
+export const MODEL_MAX = readStringEnv("SAJTMASKIN_MODEL_MAX", "gpt-5.4");
+export const MODEL_CODEX = readStringEnv("SAJTMASKIN_MODEL_CODEX", "gpt-5.1-codex-max");
+
+/** Prompt assist model — used via AI Gateway for brief/enhance */
+export const ASSIST_MODEL = readStringEnv("SAJTMASKIN_ASSIST_MODEL", "openai/gpt-5.4");
+
+/** Prompt polish model — used via AI Gateway for "Skriv om" */
+export const POLISH_MODEL = readStringEnv("SAJTMASKIN_POLISH_MODEL", "openai/gpt-5.3-codex");
+
+// ============================================================================
+// TOKEN BUDGETS
+// ============================================================================
+
 export const ENGINE_MAX_OUTPUT_TOKENS = readIntEnv(
   "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
   32_768,
@@ -30,6 +62,17 @@ export const AUTOFIX_MAX_OUTPUT_TOKENS = readIntEnv(
   2_048,
   65_536,
 );
+
+export const ASSIST_MAX_OUTPUT_TOKENS = readIntEnv(
+  "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
+  16_384,
+  4_096,
+  128_000,
+);
+
+// ============================================================================
+// TIMEOUTS
+// ============================================================================
 
 export const ENGINE_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
   "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
