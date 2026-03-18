@@ -5,7 +5,8 @@ agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
 Status re-verified against the current plan set on `2026-03-18`.
-Updated after orchestrator run `2026-03-18-plan9-10-completion`.
+Updated after orchestrator runs `2026-03-18-plan9-10-completion` and
+`2026-03-18-wl11-migrations-qa`.
 
 ## Status legend
 
@@ -28,7 +29,7 @@ Updated after orchestrator run `2026-03-18-plan9-10-completion`.
 | `07-world-class-builder-phase-1-trust-launch.md` | `archived` | Completed trust/launch phase: version lifecycle, readiness, diagnostics, preview labeling, deploy gating |
 | `08-world-class-builder-phase-2-site-planning.md` | `archived` | Completed planning-layer phase for the own-engine path; remaining future parity/orchestration work should be treated as new roadmap scope |
 | `09-world-class-builder-phase-3-smb-growth.md` | `archived` | **COMPLETED** -- Team editor, SEO guarantees, integration setup wizard, version diff/rollback UX |
-| `10-world-class-builder-phase-4-learning-moat.md` | `active` | ~80% complete -- Telemetry, feedback, scaffold learning, collaboration, model routing, eval gate all delivered. V0 fallback extraction optional. |
+| `10-world-class-builder-phase-4-learning-moat.md` | `active` | ~90% complete -- All 6 workstreams delivered. DB tables live. V0 fallback extracted. Remaining: manual QA and production validation. |
 | `11-next-vercel-build-plan-core-config.md` | `archived` | Completed phased optimization plan (core Next.js config) |
 | `12-next-vercel-build-plan-server-routes.md` | `archived` | Completed phased optimization plan (server/API improvements) |
 | `13-next-vercel-build-plan-ui-performance.md` | `archived` | Completed phased optimization plan (UI rendering improvements) |
@@ -54,15 +55,17 @@ Updated after orchestrator run `2026-03-18-plan9-10-completion`.
   `usePlanExecution.ts` path has been removed. See
   `docs/analyses/phase-08-plan-persistence-and-orchestration.md` for the
   closure trace.
-- Phase `9` remains active, but it is now well past kickoff. The builder has
-  substantial Kodvy editing coverage (metadata, hero, services, FAQ,
-  testimonials, stats, process, products, pricing, categories, nav, CTA, blog
-  metadata, footer links), structured post-check follow-up for editorial /
-  business / SEO / analytics, first practical analytics/business/setup slices,
-  initial compare / restore behavior, and targeted QA around awaiting-input and
-  PreviewPanel save flows. The remaining work is mainly polish, broader manual
-  QA, and a few judgment calls on any final high-signal editing gaps. See
-  `docs/analyses/phase-09-smb-growth-implementation-status.md`.
+- Phase `9` is now **archived / complete**. All remaining items delivered in
+  orchestrator run `2026-03-18-plan9-10-completion`: team Kodvy editor,
+  server-side SEO preflight with critical SEO as publish blockers, integration
+  setup wizard, and content-level version diffs + rollback confirmation. The
+  plan file has been moved to `docs/plans/archived/`.
+- Phase `10` is the only remaining active plan. All six workstreams have code:
+  telemetry schema + finalize write, builder feedback UI, scaffold scoring +
+  learning, collaboration/approval primitives, phase-aware model routing, and
+  eval suite with CI gate. DB tables are live in Supabase. V0 fallback stream
+  has been extracted to `src/lib/providers/v0-fallback/`. Remaining: manual QA
+  of new UI components in live builder sessions and production validation.
 
 ## Read order for a new agent
 
@@ -85,9 +88,9 @@ Updated after orchestrator run `2026-03-18-plan9-10-completion`.
 - Archived plans `11` through `13` provide useful performance groundwork, but
   do not change the `07` -> `08` -> `09` -> `10` execution order
 
-## Latest session: 2026-03-17/18 architecture cleanup + stream extraction
+## Latest session: 2026-03-18 Plan 9+10 completion and finalization
 
-Three orchestrator runs completed and archived:
+Five orchestrator runs completed and archived (3 from 2026-03-17, 2 from 2026-03-18):
 
 1. **2026-03-17-architecture-cleanup**: Plans 14-16 baseline. Deploy SSE fix,
    abort signal threading, schema guards, plan-mode extraction, follow-up
@@ -96,53 +99,75 @@ Three orchestrator runs completed and archived:
    selection test moved to neutral home.
 3. **2026-03-17 continued**: Own-engine generation stream loop extracted to
    `src/lib/providers/own-engine/generation-stream.ts`. Plan 16 marked complete.
+4. **2026-03-18-plan9-10-completion**: Plan 9 closed out (team editor, SEO
+   guarantees, setup wizard, version diffs). All 6 Plan 10 workstreams
+   delivered (telemetry, feedback, scaffold learning, collaboration, model
+   routing, eval suite). 47 files, +3529 lines. Commit `e3ba515`.
+5. **2026-03-18-wl11-migrations-qa**: V0 fallback stream extracted to provider
+   module (-928 lines from routes). DB migrations applied to Supabase. React
+   best practices QA. 11 files, +920/-960 lines. Commit `8aef51a`.
 
-Key commits on `main`: `033e5a9` through `8ab159d`.
+Key commits on `main`: `033e5a9` through `8aef51a`.
 
 ## Handoff notes for next agent
 
 ### What is done
 
-- **Plan 14** (runtime fixes): all 4 workstreams complete
-- **Plan 15** (builder robustness): all 2 workstreams complete
-- **Plan 16** (provider adapter): all 3 workstreams complete
-- Own-engine provider modules created:
+- **Plans 01-09, 11-16**: all **COMPLETED** and archived
+- **Plan 10** (learning moat): all 6 workstreams have code, DB tables live
+- Own-engine provider modules:
   - `src/lib/providers/own-engine/plan-mode-response.ts`
   - `src/lib/providers/own-engine/follow-up-clarification.ts`
   - `src/lib/providers/own-engine/generation-stream.ts`
-- Model catalog/selection neutral at `src/lib/models/`; old shims deleted
-- Builder stream contract documented at
-  `src/lib/gen/stream/builder-stream-contract.ts`
-- Stream routes thinned: create ~1380 lines, follow-up ~1380 lines (from ~1840/1935)
+- V0-fallback provider module:
+  - `src/lib/providers/v0-fallback/stream-adapter.ts`
+- Model system:
+  - `src/lib/models/catalog.ts` -- 4 canonical tiers
+  - `src/lib/models/selection.ts` -- tier resolution
+  - `src/lib/models/phase-routing.ts` -- planner/generator/fixer downgrades
+- Generation telemetry:
+  - `src/lib/db/schema.ts` -- `generation_telemetry` table
+  - `src/lib/db/services/generation-telemetry.ts` -- CRUD + query
+  - Written from `finalize-version.ts` on every generation
+- Collaboration system:
+  - `src/lib/db/schema.ts` -- `version_comments`, `version_approvals` tables
+  - `src/lib/db/services/collaboration.ts` -- CRUD + query
+  - API routes for comments, approval, summaries
+  - `src/components/builder/VersionCollaboration.tsx` -- UI
+- Builder feedback:
+  - `src/components/builder/VersionFeedback.tsx` -- thumbs up/down + categories
+  - API route + telemetry enrichment
+- Scaffold learning:
+  - `src/lib/gen/scaffolds/scaffold-scoring.ts` -- telemetry-based scores
+  - `src/lib/gen/scaffolds/matcher.ts` -- consumes boost/penalty
+- Eval suite:
+  - 15 benchmark prompts, baseline comparison, CLI with CI gate
+  - `npm run eval:suite`, `eval:gate`, `eval:baseline`
+- SEO enforcement:
+  - `src/lib/gen/validation/seo-preflight.ts` -- server-side checks
+  - Critical SEO issues block publishing in readiness route
+- Builder Kodvy editors:
+  - 17 section editors including team editor
+  - Integration setup wizard
+  - Content-level version diffs
+  - Rollback confirmation dialog
+- Stream routes thinned:
+  - Create: ~817 lines (from ~1840)
+  - Follow-up: ~1018 lines (from ~1935)
+- DB migrations applied to Supabase (3 new tables)
 - All audit report bugs resolved
 
 ### What remains
 
-#### Plan 9: SMB Growth -- COMPLETED
+#### Plan 10: Learning & Moat (~90% done)
 
-All remaining items delivered in orchestrator run `2026-03-18-plan9-10-completion`:
-- Team Kodvy editor (name/role/bio)
-- Server-side SEO preflight + critical SEO as publish blockers
-- Integration setup wizard with guided flows
-- Content-level version diffs + rollback confirmation dialog
+All code is delivered. Remaining work:
+- Manual QA of new UI components in live builder sessions
+- Production validation that telemetry writes work end-to-end
+- Tuning scaffold scoring thresholds after real data accumulates
+- Setting up the first eval baseline (`npm run eval:baseline`)
 
-#### Plan 10: Learning & Moat (~80% done)
-
-All six workstreams delivered:
-1. **Generation telemetry schema** -- `generation_telemetry` DB table, service layer, write from finalize flow
-2. **Structured builder feedback** -- VersionFeedback component, feedback API route, wired into MessageList
-3. **Scaffold learning** -- scaffold scoring from telemetry, boost/penalty in matcher, historical retry success
-4. **Collaboration primitives** -- version comments, approval workflow, UI indicators in VersionHistory
-5. **Phase-aware model routing** -- planner uses cheaper model, generator uses full tier, telemetry records routing
-6. **Eval suite** -- 15 benchmarks, baseline comparison, CLI runner with CI gate
-
-Remaining: DB migrations need to be run. Manual QA of new UI needed.
-
-#### V0 fallback stream (~75% migration done, ~1-2 days)
-
-The v0-fallback SSE loop in both stream routes still runs inline rather than
-through a provider module like own-engine does. It works correctly but is not
-yet extracted. This is optional cleanup, not a blocker.
+This is production-validation work, not code-delivery work.
 
 ### Environment notes
 

@@ -15,13 +15,12 @@ equally current.
 
 ## Current status map
 
-Verified `2026-03-18`.
+Verified `2026-03-18` (post orchestrator runs).
 
 `active`
 
 - `active/06-world-class-builder-roadmap.md` — master roadmap (phases 1-4)
-- `active/09-world-class-builder-phase-3-smb-growth.md` — ~95% done
-- `active/10-world-class-builder-phase-4-learning-moat.md` — ~5% done
+- `active/10-world-class-builder-phase-4-learning-moat.md` — ~90% done (all 6 workstreams delivered, remaining: production QA)
 
 `review-needed`
 
@@ -41,6 +40,7 @@ Verified `2026-03-18`.
 - `archived/13-next-vercel-build-plan-ui-performance.md` — completed
 - `archived/14-critical-runtime-fixes.md` — **COMPLETED 2026-03-17**
 - `archived/15-builder-robustness.md` — **COMPLETED 2026-03-17**
+- `archived/09-world-class-builder-phase-3-smb-growth.md` — **COMPLETED 2026-03-18**
 - `archived/16-provider-adapter-architecture.md` — **COMPLETED 2026-03-17**
 - `archived/2026-03-bug-recheck-sweep.md` — completed
 - `archived/2026-03-openclaw-rollout-roadmap.md` — completed

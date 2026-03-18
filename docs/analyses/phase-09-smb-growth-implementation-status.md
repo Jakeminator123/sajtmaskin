@@ -193,9 +193,13 @@ Phase 9 builder editing push "mostly complete."
 
 ## Bottom Line
 
-For the current builder/Kodvy/Phase 9 implementation stream, the codebase has
-moved from early slices to late-stage polish:
+**Phase 9 is now COMPLETE.** Orchestrator run `2026-03-18-plan9-10-completion`
+closed all remaining gaps:
 
-- roughly 90-95% complete for this sub-scope
-- remaining work is mostly QA / polish / a few last judgment calls
-- the repo is no longer in the "plan only" state for SMB Growth
+- Team Kodvy editor (name/role/bio)
+- Server-side SEO preflight with critical SEO as publish blockers
+- Integration setup wizard with categorized guided flows
+- Content-level version diffs with line-by-line hunks
+- Rollback confirmation dialog
+
+The plan file has been moved to `docs/plans/archived/`.

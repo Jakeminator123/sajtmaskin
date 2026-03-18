@@ -1,6 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-16 (phase 9 builder editing expansion, awaiting-input UX hardening, PreviewPanel/MessageList QA)
+> Senast uppdaterad: 2026-03-18 (Plan 9 completed, Plan 10 delivered: telemetry, feedback, scaffold learning, collaboration, phase-aware model routing, eval suite. V0 fallback stream extracted. DB migrations applied.)
 
 ## Arkitektur
 
@@ -305,3 +305,55 @@ implementationsfasen.
   lokal-only state.
 - Den gamla klientorkestratorn `usePlanExecution.ts` är borttagen; approve ->
   build ägs nu av den serverdrivna promptbryggan.
+
+## 2026-03-18: Plan 9 + 10 leveranser
+
+### Plan 9 (SMB Growth) — SLUTFÖRT
+- Teameditor i Kodvy (namn/roll/beskrivning) med teal-tema
+- SEO-preflight körs server-side i finalize; saknad metadata/titel blockerar publicering
+- Installationsguide för integrationer (analytics, affärsflöden, övrigt) i ProjectEnvVarsPanel
+- Innehållsnivå-diff för versioner med radjämförelse och expanderbara filsektioner
+- Rollback-bekräftelsedialog med tydliga svenska varningstexter
+
+### Plan 10 (Learning & Moat) — ~90% LEVERERAT
+
+#### Generationstelemetri
+- `generation_telemetry` tabell (22 kolumner) i Supabase
+- Skrivs från `finalize-version.ts` vid varje generation (best-effort)
+- Service-lager: `src/lib/db/services/generation-telemetry.ts`
+
+#### Builder-feedback
+- `VersionFeedback.tsx`: tumme upp/ner + problemkategorier (fel stil, struktur, innehåll, integration, preview)
+- API-route: `/api/v0/chats/[chatId]/versions/[versionId]/feedback`
+- Kopplar till telemetri-tabellen via `userFeedback`-fält
+
+#### Scaffold-lärande
+- `scaffold-scoring.ts`: beräknar compositeScore per scaffold från telemetri (success rate, feedback, retry rate)
+- `matcher.ts`: konsumerar boost/penalty för generiska defaults
+- `scaffold-aware-retry.ts`: historisk success rate för retry-vägar
+
+#### Samarbetsprimitiver
+- `version_comments` och `version_approvals` tabeller i Supabase
+- `collaboration.ts` service med CRUD
+- API-routes: comments, approval, collaboration-summaries
+- `VersionCollaboration.tsx`: kommentarer + godkännandeflöde
+- `VersionHistory.tsx`: indikatorer (amber dot, grön check, kommentarsbricka)
+
+#### Fasmedveten modellrouting
+- `phase-routing.ts`: planner → `gpt-4.1-mini`, verifier → `gpt-4.1`, generator → full tier
+- Plan-mode och fixer integrerade med phase routing
+- Telemetri registrerar routingsammanfattning
+
+#### Eval-svit
+- 15 benchmarks (coffee-shop, dashboard, portfolio, blog, pricing, auth, ecommerce, restaurant, agency, settings, booking, multi-page, saas-dashboard, content-blog, consultant)
+- Baseline-jämförelse med regressionsdetektering
+- CLI-runner: `npm run eval:suite`, `eval:gate` (CI), `eval:baseline`
+
+### V0-fallback stream — EXTRAHERAT
+- `src/lib/providers/v0-fallback/stream-adapter.ts` (598 rader)
+- Create-route: 1382 → 817 rader (-40%)
+- Follow-up-route: 1381 → 1018 rader (-26%)
+
+### DB-migrationer
+- `npm run db:migrate` med `scripts/run-migrations.ts`
+- Stöd för `db:push` och `db:generate` via drizzle-kit
