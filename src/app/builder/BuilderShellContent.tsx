@@ -631,6 +631,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           <div className="relative min-h-0 flex-1 overflow-hidden">
             <MessageList
               chatId={vm.chatId}
+              versionId={vm.activeVersionId}
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
               onQuickReply={(text, options) => vm.sendMessage(text, options)}

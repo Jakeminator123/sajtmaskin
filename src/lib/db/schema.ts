@@ -466,6 +466,61 @@ export const engineVersionErrorLogs = pgTable("engine_version_error_logs", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const generationTelemetry = pgTable("generation_telemetry", {
+  id: text("id").primaryKey(),
+  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  versionId: text("version_id").references(() => engineVersions.id),
+  scaffoldId: text("scaffold_id"),
+  scaffoldAlternatives: jsonb("scaffold_alternatives").$type<string[] | null>(),
+  model: text("model").notNull(),
+  modelTier: text("model_tier"),
+  buildIntent: text("build_intent"),
+  buildMethod: text("build_method"),
+  promptClassification: text("prompt_classification"),
+  retryCount: integer("retry_count").default(0).notNull(),
+  autofixApplied: boolean("autofix_applied").default(false).notNull(),
+  syntaxFixerUsed: boolean("syntax_fixer_used").default(false).notNull(),
+  preflightErrorCount: integer("preflight_error_count").default(0).notNull(),
+  preflightWarningCount: integer("preflight_warning_count").default(0).notNull(),
+  seoIssueCount: integer("seo_issue_count").default(0).notNull(),
+  previewSuccess: boolean("preview_success"),
+  previewBlockingReason: text("preview_blocking_reason"),
+  qualityGateResult: text("quality_gate_result"),
+  deployResult: text("deploy_result"),
+  durationMs: integer("duration_ms"),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  fileCount: integer("file_count"),
+  scaffoldRetryUsed: boolean("scaffold_retry_used").default(false).notNull(),
+  scaffoldRetrySuggested: text("scaffold_retry_suggested"),
+  userFeedback: text("user_feedback"),
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const versionComments = pgTable("version_comments", {
+  id: text("id").primaryKey(),
+  versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
+  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  userId: text("user_id"),
+  authorName: text("author_name"),
+  content: text("content").notNull(),
+  resolved: boolean("resolved").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const versionApprovals = pgTable("version_approvals", {
+  id: text("id").primaryKey(),
+  versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
+  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  userId: text("user_id"),
+  approverName: text("approver_name"),
+  status: text("status").notNull().default("pending"),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ---------------------------------------------------------------------------
 
 export const domainOrders = pgTable("domain_orders", {

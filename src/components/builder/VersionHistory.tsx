@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/engine-version-lifecycle";
 import {
   AlertCircle,
+  CheckCircle,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -14,16 +15,27 @@ import {
   ExternalLink,
   Github,
   Loader2,
+  MessageSquare,
   Pin,
   RotateCcw,
   UploadCloud,
 } from "lucide-react";
+import useSWR from "swr";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { VersionDiagnosticsDialog } from "@/components/builder/VersionDiagnosticsDialog";
 import { VersionCompareDialog } from "@/components/builder/VersionCompareDialog";
+import { VersionCollaboration } from "@/components/builder/VersionCollaboration";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -101,10 +113,28 @@ export function VersionHistory({
   const [pinningVersionId, setPinningVersionId] = useState<string | null>(null);
   const [diagnosticsVersionId, setDiagnosticsVersionId] = useState<string | null>(null);
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
+  const [collaborationVersionId, setCollaborationVersionId] = useState<string | null>(null);
+  const [confirmRestoreVersion, setConfirmRestoreVersion] = useState<VersionSummary | null>(null);
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
   const [returnTo, setReturnTo] = useState("/projects");
   const [syncingElapsed, setSyncingElapsed] = useState(false);
   const [showLocalTimes, setShowLocalTimes] = useState(false);
+
+  const collaborationVersionIds = versionList
+    .map((v) => (typeof v.id === "string" ? v.id : typeof v.versionId === "string" ? v.versionId : null))
+    .filter((id): id is string => !!id);
+  const { data: collaborationData } = useSWR<{ summaries?: Record<string, { approvalStatus: string | null; unresolvedCount: number }> }>(
+    chatId && collaborationVersionIds.length > 0
+      ? `/api/v0/chats/${chatId}/versions/collaboration-summaries?versionIds=${encodeURIComponent(collaborationVersionIds.join(","))}`
+      : null,
+    async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) return { summaries: {} };
+      return res.json();
+    },
+    { revalidateOnFocus: false, dedupingInterval: 10000 },
+  );
+  const collaborationSummaries = collaborationData?.summaries ?? {};
 
   useEffect(() => {
     if (isInitialized) return;
@@ -273,8 +303,7 @@ export function VersionHistory({
     }
   };
 
-  const handleRestore = async (e: React.MouseEvent, version: VersionSummary) => {
-    e.stopPropagation();
+  const performRestore = async (version: VersionSummary) => {
     if (!chatId) return;
     const versionId = version.id || version.versionId || null;
     if (!versionId) return;
@@ -296,12 +325,18 @@ export function VersionHistory({
       }
       toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version restored som ny draftversion");
       mutate();
+      setConfirmRestoreVersion(null);
     } catch (error) {
       console.error("Restore error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to restore version");
     } finally {
       setRestoringVersionId(null);
     }
+  };
+
+  const handleRestoreClick = (e: React.MouseEvent, version: VersionSummary) => {
+    e.stopPropagation();
+    setConfirmRestoreVersion(version);
   };
 
   const canToggleCollapse = typeof onToggleCollapse === "function";
@@ -572,6 +607,37 @@ export function VersionHistory({
                             Pinned
                           </Badge>
                         )}
+                        {internalVersionId && (() => {
+                          const s = collaborationSummaries[internalVersionId];
+                          const status = s?.approvalStatus ?? null;
+                          const unresolved = s?.unresolvedCount ?? 0;
+                          return (
+                            <>
+                              {status === "pending" && (
+                                <span
+                                  className="h-2 w-2 shrink-0 rounded-full bg-amber-500"
+                                  title="Väntar på godkännande"
+                                />
+                              )}
+                              {status === "approved" && (
+                                <span title="Godkänd"><CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /></span>
+                              )}
+                              {unresolved > 0 && (
+                                <Badge
+                                  variant="outline"
+                                  className="cursor-pointer px-1.5 py-0 text-[10px]"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCollaborationVersionId(internalVersionId);
+                                  }}
+                                >
+                                  <MessageSquare className="mr-0.5 h-3 w-3" />
+                                  {unresolved}
+                                </Badge>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                       {lifecycleSummary && lifecycleStatus !== "promoted" && (
                         <p className="text-muted-foreground mb-1 line-clamp-2 text-xs">
@@ -620,7 +686,7 @@ export function VersionHistory({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => handleRestore(e, version)}
+                        onClick={(e) => handleRestoreClick(e, version)}
                         disabled={isRestoring}
                         title={canRollback ? "Rollback som ny draftversion" : "Återställ som ny draftversion"}
                         aria-label={canRollback ? "Rollback som ny draftversion" : "Återställ som ny draftversion"}
@@ -646,6 +712,19 @@ export function VersionHistory({
                       className="h-7 w-7"
                     >
                       <AlertCircle className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (internalVersionId) setCollaborationVersionId(internalVersionId);
+                      }}
+                      title="Kommentarer och godkännande"
+                      aria-label="Kommentarer och godkännande"
+                      className="h-7 w-7"
+                    >
+                      <MessageSquare className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -724,6 +803,50 @@ export function VersionHistory({
           if (!open) setDiagnosticsVersionId(null);
         }}
       />
+      <Dialog
+        open={Boolean(confirmRestoreVersion)}
+        onOpenChange={(open) => {
+          if (!open) setConfirmRestoreVersion(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmRestoreVersion &&
+              (confirmRestoreVersion.releaseState === "promoted" ||
+                confirmRestoreVersion.verificationState === "passed")
+                ? "Bekräfta rollback"
+                : "Bekräfta återställning"}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmRestoreVersion &&
+              (confirmRestoreVersion.releaseState === "promoted" ||
+                confirmRestoreVersion.verificationState === "passed")
+                ? "Den här versionen var publicerad. En rollback skapar en ny draft som du kan verifiera och publicera."
+                : "En ny draftversion skapas baserad på den valda versionen. Den nuvarande aktiva versionen påverkas inte."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmRestoreVersion(null)}>
+              Avbryt
+            </Button>
+            <Button
+              onClick={() => confirmRestoreVersion && performRestore(confirmRestoreVersion)}
+              disabled={!confirmRestoreVersion || restoringVersionId !== null}
+            >
+              {restoringVersionId ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : confirmRestoreVersion &&
+                (confirmRestoreVersion.releaseState === "promoted" ||
+                  confirmRestoreVersion.verificationState === "passed") ? (
+                "Rollback"
+              ) : (
+                "Återställ"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <VersionCompareDialog
         chatId={chatId}
         versionId={compareVersionId}
@@ -733,6 +856,28 @@ export function VersionHistory({
           if (!open) setCompareVersionId(null);
         }}
       />
+      <Dialog
+        open={Boolean(collaborationVersionId)}
+        onOpenChange={(open) => {
+          if (!open) setCollaborationVersionId(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Kommentarer och godkännande</DialogTitle>
+            <DialogDescription>
+              Lägg till kommentarer eller hantera godkännandeförfrågningar för denna version.
+            </DialogDescription>
+          </DialogHeader>
+          {chatId && collaborationVersionId && (
+            <VersionCollaboration
+              chatId={chatId}
+              versionId={collaborationVersionId}
+              className="mt-2"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

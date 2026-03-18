@@ -26,4 +26,7 @@ export {
   checkPlanStructure,
   checkAutoFixImprovement,
   checkMultiPass,
+  runIntegrationAssertions,
+  type IntegrationAssertionOptions,
 } from "./integration-checks";
+export { saveBaseline, loadBaseline, compareWithBaseline, type EvalBaseline } from "./baseline";

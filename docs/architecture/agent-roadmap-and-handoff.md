@@ -5,6 +5,7 @@ agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
 Status re-verified against the current plan set on `2026-03-18`.
+Updated after orchestrator run `2026-03-18-plan9-10-completion`.
 
 ## Status legend
 
@@ -26,8 +27,8 @@ Status re-verified against the current plan set on `2026-03-18`.
 | `06-world-class-builder-roadmap.md` | `active` | Strategic top-level roadmap |
 | `07-world-class-builder-phase-1-trust-launch.md` | `archived` | Completed trust/launch phase: version lifecycle, readiness, diagnostics, preview labeling, deploy gating |
 | `08-world-class-builder-phase-2-site-planning.md` | `archived` | Completed planning-layer phase for the own-engine path; remaining future parity/orchestration work should be treated as new roadmap scope |
-| `09-world-class-builder-phase-3-smb-growth.md` | `active` | Phase 3 SMB product scope |
-| `10-world-class-builder-phase-4-learning-moat.md` | `active` | Phase 4 differentiation and learning systems scope |
+| `09-world-class-builder-phase-3-smb-growth.md` | `archived` | **COMPLETED** -- Team editor, SEO guarantees, integration setup wizard, version diff/rollback UX |
+| `10-world-class-builder-phase-4-learning-moat.md` | `active` | ~80% complete -- Telemetry, feedback, scaffold learning, collaboration, model routing, eval gate all delivered. V0 fallback extraction optional. |
 | `11-next-vercel-build-plan-core-config.md` | `archived` | Completed phased optimization plan (core Next.js config) |
 | `12-next-vercel-build-plan-server-routes.md` | `archived` | Completed phased optimization plan (server/API improvements) |
 | `13-next-vercel-build-plan-ui-performance.md` | `archived` | Completed phased optimization plan (UI rendering improvements) |
@@ -117,34 +118,25 @@ Key commits on `main`: `033e5a9` through `8ab159d`.
 
 ### What remains
 
-#### Plan 9: SMB Growth (~95% done, ~1-2 days)
+#### Plan 9: SMB Growth -- COMPLETED
 
-Remaining polish:
-- Team editor (no dedicated component yet)
-- Stronger SEO generation guarantees at publish time
-- Richer analytics provider setup flows
-- Deeper guided setup for integration/CRM/booking packs
-- Richer version diff and rollback UX
+All remaining items delivered in orchestrator run `2026-03-18-plan9-10-completion`:
+- Team Kodvy editor (name/role/bio)
+- Server-side SEO preflight + critical SEO as publish blockers
+- Integration setup wizard with guided flows
+- Content-level version diffs + rollback confirmation dialog
 
-#### Plan 10: Learning & Moat (~5% done, ~12-18 days)
+#### Plan 10: Learning & Moat (~80% done)
 
-Six independent workstreams, recommended order:
+All six workstreams delivered:
+1. **Generation telemetry schema** -- `generation_telemetry` DB table, service layer, write from finalize flow
+2. **Structured builder feedback** -- VersionFeedback component, feedback API route, wired into MessageList
+3. **Scaffold learning** -- scaffold scoring from telemetry, boost/penalty in matcher, historical retry success
+4. **Collaboration primitives** -- version comments, approval workflow, UI indicators in VersionHistory
+5. **Phase-aware model routing** -- planner uses cheaper model, generator uses full tier, telemetry records routing
+6. **Eval suite** -- 15 benchmarks, baseline comparison, CLI runner with CI gate
 
-1. **Generation telemetry schema** -- new DB table, write from finalize flow.
-   Start here. All other workstreams depend on telemetry data existing.
-2. **Structured builder feedback** -- new React components (thumbs up/down,
-   wrong-style, wrong-content), tied to version + scaffold + model tier.
-3. **Scaffold and retry learning** -- score scaffold outcomes, feed back into
-   matcher.ts and scaffold-aware-retry.ts.
-4. **Collaboration and approval primitives** -- version comments, approval queue,
-   reviewer mode, shared revision links.
-5. **Phase-aware model routing** -- separate routing for planner/generator/fixer/
-   verifier phases instead of flat tier-based selection.
-6. **Eval suite as product guardrail** -- stable benchmark set, automated
-   comparison on major changes.
-
-Primary code entry points: `src/lib/db/schema.ts`, `src/lib/gen/eval/`,
-`src/lib/gen/scaffolds/matcher.ts`, `src/components/builder/`.
+Remaining: DB migrations need to be run. Manual QA of new UI needed.
 
 #### V0 fallback stream (~75% migration done, ~1-2 days)
 

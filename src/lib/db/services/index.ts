@@ -108,3 +108,23 @@ export {
   getVersionErrorLogs,
   getEngineVersionErrorLogs,
 } from "./version-errors";
+
+export {
+  createGenerationTelemetryRecord,
+  updateTelemetryRecord,
+  getTelemetryForChat,
+  getTelemetryForVersion,
+  type CreateTelemetryRecord,
+  type UpdateTelemetryRecord,
+} from "./generation-telemetry";
+
+export {
+  createComment,
+  getCommentsForVersion,
+  resolveComment,
+  requestApproval,
+  submitApproval,
+  getApprovalStatus,
+  getPendingApprovals,
+  getUnresolvedCommentCount,
+} from "./collaboration";

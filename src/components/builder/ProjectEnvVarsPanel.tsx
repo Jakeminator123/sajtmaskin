@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { IntegrationSetupWizard } from "@/components/builder/IntegrationSetupWizard";
 import { detectBusinessWorkflowPacks, type BusinessWorkflowPack } from "@/lib/gen/business-packs";
 import { detectIntegrations, type DetectedIntegration } from "@/lib/gen/detect-integrations";
 import { buildAnalyticsReview, type AnalyticsReview } from "@/lib/hooks/chat/post-checks-analysis";
@@ -199,6 +200,7 @@ export function ProjectEnvVarsPanel({
   const [analyticsReview, setAnalyticsReview] = useState<AnalyticsReview | null>(null);
   const [isLoadingDetectedIntegrations, setIsLoadingDetectedIntegrations] = useState(false);
   const [detectedIntegrationsError, setDetectedIntegrationsError] = useState<string | null>(null);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
 
   const envVarCount = envVars.length;
   const hasRealV0Project = Boolean(v0ProjectId && !isSyntheticV0ProjectId(v0ProjectId));
@@ -617,6 +619,39 @@ export function ProjectEnvVarsPanel({
       };
     });
   }, [businessPacks, configuredEnvKeys, effectiveEnvProjectId, isLoading, syntheticProject]);
+  const wizardIntegrations = useMemo(
+    () =>
+      siteIntegrations.map((i) => ({
+        key: i.key,
+        name: i.name,
+        envVars: i.envVars,
+        setupGuide: i.setupGuide,
+        status: (i.isConfigured
+          ? "configured"
+          : i.configuredEnvVars.length > 0
+            ? "partial"
+            : "missing") as "configured" | "partial" | "missing",
+        missingEnvVars: i.missingEnvVars,
+      })),
+    [siteIntegrations]
+  );
+  const wizardBusinessPacks = useMemo(
+    () =>
+      businessPackItems.map((p) => ({
+        id: p.id,
+        label: p.label,
+        description: p.description,
+        envVars: p.envVars,
+        missingEnvVars: p.missingEnvVars,
+        verificationChecklist: p.verificationChecklist,
+        status: (p.isConfigured
+          ? "configured"
+          : p.configuredEnvVars.length > 0
+            ? "partial"
+            : "missing") as "configured" | "partial" | "missing",
+      })),
+    [businessPackItems]
+  );
   const configuredRequiredEnvKeys = useMemo(
     () => likelyRequiredEnvKeys.filter((key) => configuredEnvKeys.has(key)),
     [configuredEnvKeys, likelyRequiredEnvKeys],
@@ -626,6 +661,8 @@ export function ProjectEnvVarsPanel({
     [configuredEnvKeys, likelyRequiredEnvKeys],
   );
   const totalIssues = (statusSummary?.missing.length ?? 0) + missingRequiredEnvKeys.length;
+
+  const hasDetectedIntegrations = siteIntegrations.length > 0 || businessPackItems.length > 0;
 
   // --- header summary ---
   const headerLabel = expanded
@@ -685,6 +722,28 @@ export function ProjectEnvVarsPanel({
                 Visar tre lager: vad den aktiva sajtkoden verkar använda, vad plattformen är redo
                 för och vad som redan installerats på projektet.
               </div>
+
+              {showSetupWizard && hasDetectedIntegrations ? (
+                <IntegrationSetupWizard
+                  integrations={wizardIntegrations}
+                  businessPacks={wizardBusinessPacks}
+                  onOpenEnvVars={(keys) => openEnvTab(keys ?? [])}
+                  onClose={() => setShowSetupWizard(false)}
+                />
+              ) : (
+                <>
+              {hasDetectedIntegrations && (
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-[11px]"
+                    onClick={() => setShowSetupWizard(true)}
+                  >
+                    Visa installationsguide
+                  </Button>
+                </div>
+              )}
 
               <div className="border-border rounded-md border p-2">
                 <div className="text-foreground text-xs font-medium">Aktiv sajt</div>
@@ -1056,6 +1115,8 @@ export function ProjectEnvVarsPanel({
                     ))}
                   </div>
                 </div>
+              )}
+                </>
               )}
             </div>
           </TabsContent>

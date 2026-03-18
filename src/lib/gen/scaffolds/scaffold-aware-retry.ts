@@ -1,10 +1,16 @@
+import { and, eq, gte } from "drizzle-orm";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { FinalizePreflightIssue } from "@/lib/gen/stream/finalize-preflight";
+import { db } from "@/lib/db/client";
+import { generationTelemetry } from "@/lib/db/schema";
 import { getScaffoldById } from "./registry";
 import { matchScaffold } from "./matcher";
 import { searchScaffolds } from "./scaffold-search";
 import type { ScaffoldManifest } from "./types";
+
+const RETRY_MIN_RECORDS = 5;
+const RETRY_LOOKBACK_DAYS = 30;
 
 export type ScaffoldRetryFailureType =
   | "app-shell-mismatch"
@@ -25,6 +31,7 @@ export interface ScaffoldRetrySuggestion {
   reason: string;
   source: "heuristic" | "keyword" | "embedding";
   confidence: "medium" | "high";
+  historicalRetrySuccessRate?: number | null;
 }
 
 interface InferScaffoldRetryParams {
@@ -156,6 +163,43 @@ function suggestHeuristicScaffold(
   return null;
 }
 
+export async function getHistoricalRetrySuccess(
+  currentId: string,
+  suggestedId: string,
+): Promise<number | null> {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - RETRY_LOOKBACK_DAYS);
+
+    const rows = await db
+      .select({
+        previewSuccess: generationTelemetry.previewSuccess,
+      })
+      .from(generationTelemetry)
+      .where(
+        and(
+          eq(generationTelemetry.scaffoldId, suggestedId),
+          eq(generationTelemetry.scaffoldRetryUsed, true),
+          gte(generationTelemetry.createdAt, thirtyDaysAgo),
+        ),
+      );
+
+    if (rows.length < RETRY_MIN_RECORDS) return null;
+
+    const successCount = rows.filter((r) => r.previewSuccess === true).length;
+    return successCount / rows.length;
+  } catch {
+    return null;
+  }
+}
+
+async function withHistoricalRate(
+  base: Omit<ScaffoldRetrySuggestion, "historicalRetrySuccessRate">,
+): Promise<ScaffoldRetrySuggestion> {
+  const rate = await getHistoricalRetrySuccess(base.currentScaffoldId, base.suggestedScaffoldId);
+  return { ...base, historicalRetrySuccessRate: rate ?? undefined };
+}
+
 export async function inferScaffoldRetrySuggestion({
   prompt,
   buildIntent,
@@ -181,7 +225,7 @@ export async function inferScaffoldRetrySuggestion({
 
   const heuristicCandidate = suggestHeuristicScaffold(buildIntent, resolvedScaffold, failureType);
   if (heuristicCandidate && heuristicCandidate.id !== resolvedScaffold.id) {
-    return {
+    return withHistoricalRate({
       currentScaffoldId: resolvedScaffold.id,
       currentScaffoldLabel: resolvedScaffold.label,
       suggestedScaffoldId: heuristicCandidate.id,
@@ -196,12 +240,12 @@ export async function inferScaffoldRetrySuggestion({
         failureType === "missing-core-files"
           ? "high"
           : "medium",
-    };
+    });
   }
 
   const keywordCandidate = matchScaffold(prompt, buildIntent);
   if (keywordCandidate && keywordCandidate.id !== resolvedScaffold.id) {
-    return {
+    return withHistoricalRate({
       currentScaffoldId: resolvedScaffold.id,
       currentScaffoldLabel: resolvedScaffold.label,
       suggestedScaffoldId: keywordCandidate.id,
@@ -211,7 +255,7 @@ export async function inferScaffoldRetrySuggestion({
       reason: buildFailureReason(failureType, resolvedScaffold, keywordCandidate),
       source: "keyword",
       confidence: "medium",
-    };
+    });
   }
 
   try {
@@ -220,7 +264,7 @@ export async function inferScaffoldRetrySuggestion({
       (candidate) => candidate.scaffold.id !== resolvedScaffold.id,
     )?.scaffold;
     if (semanticCandidate) {
-      return {
+      return withHistoricalRate({
         currentScaffoldId: resolvedScaffold.id,
         currentScaffoldLabel: resolvedScaffold.label,
         suggestedScaffoldId: semanticCandidate.id,
@@ -230,7 +274,7 @@ export async function inferScaffoldRetrySuggestion({
         reason: buildFailureReason(failureType, resolvedScaffold, semanticCandidate),
         source: "embedding",
         confidence: "medium",
-      };
+      });
     }
   } catch {
     // Best-effort only. Retry suggestions must never break finalize.

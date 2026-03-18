@@ -53,7 +53,10 @@
     "scaffolds:promote": "npx tsx scripts/promote-to-scaffold.ts",
     "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts",
     "docs:embeddings": "npx tsx scripts/generate-docs-embeddings.ts",
-    "eval": "npx tsx scripts/run-eval.ts"
+    "eval": "npx tsx scripts/run-eval.ts",
+    "eval:suite": "npx tsx src/lib/gen/eval/cli.ts",
+    "eval:gate": "npx tsx src/lib/gen/eval/cli.ts --gate",
+    "eval:baseline": "npx tsx src/lib/gen/eval/cli.ts --save-baseline"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

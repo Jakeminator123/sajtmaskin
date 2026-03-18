@@ -56,6 +56,11 @@ import {
   type TestimonialItemDraft,
 } from "@/lib/builder/testimonials-editor";
 import {
+  readTeamMembers,
+  updateTeamMembersDraft,
+  type TeamMemberDraft,
+} from "@/lib/builder/team-editor";
+import {
   readStatItemsDraft,
   updateStatItemsDraft,
   type StatItemDraft,
@@ -403,6 +408,9 @@ export function PreviewPanel({
   const [testimonialItemsDraft, setTestimonialItemsDraft] = useState<TestimonialItemDraft[] | null>(null);
   const [testimonialsSaveError, setTestimonialsSaveError] = useState<string | null>(null);
   const [isTestimonialsSaving, setIsTestimonialsSaving] = useState(false);
+  const [teamMembersDraft, setTeamMembersDraft] = useState<TeamMemberDraft[] | null>(null);
+  const [teamSaveError, setTeamSaveError] = useState<string | null>(null);
+  const [isTeamSaving, setIsTeamSaving] = useState(false);
   const [statItemsDraft, setStatItemsDraft] = useState<StatItemDraft[] | null>(null);
   const [statsSaveError, setStatsSaveError] = useState<string | null>(null);
   const [isStatsSaving, setIsStatsSaving] = useState(false);
@@ -1284,6 +1292,14 @@ export function PreviewPanel({
     [selectedFile],
   );
 
+  const editableTeamMembers = useMemo(
+    () =>
+      selectedFile
+        ? readTeamMembers(selectedFile.path, selectedFile.content || "")
+        : null,
+    [selectedFile],
+  );
+
   const editableStatItems = useMemo(
     () =>
       selectedFile
@@ -1393,6 +1409,13 @@ export function PreviewPanel({
     );
     setTestimonialsSaveError(null);
   }, [editableTestimonialItems, selectedFile?.path, selectedFile?.content]);
+
+  useEffect(() => {
+    setTeamMembersDraft(
+      editableTeamMembers ? editableTeamMembers.map((item) => ({ ...item })) : null,
+    );
+    setTeamSaveError(null);
+  }, [editableTeamMembers, selectedFile?.path, selectedFile?.content]);
 
   useEffect(() => {
     setStatItemsDraft(editableStatItems ? editableStatItems.map((item) => ({ ...item })) : null);
@@ -1512,6 +1535,12 @@ export function PreviewPanel({
     testimonialItemsDraft &&
       editableTestimonialItems &&
       JSON.stringify(testimonialItemsDraft) !== JSON.stringify(editableTestimonialItems),
+  );
+
+  const teamDirty = Boolean(
+    teamMembersDraft &&
+      editableTeamMembers &&
+      JSON.stringify(teamMembersDraft) !== JSON.stringify(editableTeamMembers),
   );
 
   const statsDirty = Boolean(
@@ -1828,6 +1857,26 @@ export function PreviewPanel({
       setIsTestimonialsSaving(false);
     }
   }, [selectedFile, testimonialItemsDraft, editableTestimonialItems, saveSelectedFileContent]);
+
+  const handleSaveTeamMembers = useCallback(async () => {
+    if (!selectedFile || !teamMembersDraft || !editableTeamMembers) return;
+    const currentContent = selectedFile.content || "";
+    const nextContent = updateTeamMembersDraft(currentContent, editableTeamMembers, teamMembersDraft);
+
+    setIsTeamSaving(true);
+    setTeamSaveError(null);
+    try {
+      const didSave = await saveSelectedFileContent(nextContent);
+      if (didSave) toast.success("Teammedlemmar sparade i aktiv version.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kunde inte spara teammedlemmar";
+      setTeamSaveError(message);
+      toast.error(message);
+    } finally {
+      setIsTeamSaving(false);
+    }
+  }, [selectedFile, teamMembersDraft, editableTeamMembers, saveSelectedFileContent]);
 
   const handleSaveStatItems = useCallback(async () => {
     if (!selectedFile || !statItemsDraft || !editableStatItems) return;
@@ -3032,6 +3081,113 @@ export function PreviewPanel({
                       ))}
                       {testimonialsSaveError ? (
                         <div className="text-xs text-rose-300">{testimonialsSaveError}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {teamMembersDraft && editableTeamMembers ? (
+                  <div className="rounded-md border border-teal-500/30 bg-teal-500/10 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-teal-100">Teameditor</div>
+                        <div className="text-xs text-teal-200/80">
+                          Uppdatera namn, roll och beskrivning för teammedlemmar.
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveTeamMembers()}
+                        disabled={!teamDirty || isTeamSaving}
+                      >
+                        {isTeamSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Spara team
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      {teamMembersDraft.map((member, index) => (
+                        <div
+                          key={`team-member-${index}`}
+                          className="rounded-md border border-teal-500/20 bg-black/10 p-3"
+                        >
+                          <div className="mb-2 text-xs font-medium text-teal-100">
+                            Medlem {index + 1}
+                          </div>
+                          <div className="grid gap-3">
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-teal-100"
+                                htmlFor={`team-name-${index}`}
+                              >
+                                Namn
+                              </label>
+                              <Input
+                                id={`team-name-${index}`}
+                                value={member.name}
+                                onChange={(event) =>
+                                  setTeamMembersDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, name: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-teal-100"
+                                htmlFor={`team-role-${index}`}
+                              >
+                                Roll
+                              </label>
+                              <Input
+                                id={`team-role-${index}`}
+                                value={member.role}
+                                onChange={(event) =>
+                                  setTeamMembersDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, role: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="grid gap-1">
+                              <label
+                                className="text-xs font-medium text-teal-100"
+                                htmlFor={`team-bio-${index}`}
+                              >
+                                Beskrivning
+                              </label>
+                              <Textarea
+                                id={`team-bio-${index}`}
+                                value={member.bio}
+                                onChange={(event) =>
+                                  setTeamMembersDraft((prev) =>
+                                    prev
+                                      ? prev.map((entry, entryIndex) =>
+                                          entryIndex === index
+                                            ? { ...entry, bio: event.target.value }
+                                            : entry,
+                                        )
+                                      : prev,
+                                  )
+                                }
+                                rows={2}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {teamSaveError ? (
+                        <div className="text-xs text-rose-300">{teamSaveError}</div>
                       ) : null}
                     </div>
                   </div>

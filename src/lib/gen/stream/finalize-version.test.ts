@@ -90,6 +90,23 @@ vi.mock("@/lib/utils/debug", () => ({
   warnLog: vi.fn(),
 }));
 
+vi.mock("@/lib/db/client", () => ({
+  db: new Proxy({}, { get() { return vi.fn(); } }),
+  dbConfigured: false,
+}));
+
+vi.mock("@/lib/gen/scaffolds/scaffold-aware-retry", () => ({
+  inferScaffoldRetrySuggestion: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/lib/gen/validation/seo-preflight", () => ({
+  runSeoPreflightChecks: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock("@/lib/db/services/generation-telemetry", () => ({
+  createGenerationTelemetryRecord: vi.fn().mockResolvedValue({}),
+}));
+
 import { finalizeAndSaveVersion } from "./finalize-version";
 
 describe("finalizeAndSaveVersion", () => {

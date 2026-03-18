@@ -105,6 +105,19 @@ function buildPreviewWarning(detail?: string | null, diagnosticCode?: string | n
   };
 }
 
+function hasCriticalSeoIssues(meta: unknown): boolean {
+  if (!meta || typeof meta !== "object") return false;
+  const issues = (meta as Record<string, unknown>).issues;
+  if (!Array.isArray(issues)) return false;
+  const criticalCodes = new Set(["missing-metadata", "missing-title"]);
+  return issues.some(
+    (issue) =>
+      typeof issue === "object" &&
+      issue !== null &&
+      criticalCodes.has((issue as Record<string, unknown>).code as string),
+  );
+}
+
 function buildSeoWarning(detail?: string | null): ChatReadinessItem {
   return {
     id: "seo-warning",
@@ -234,7 +247,17 @@ async function buildEngineReadiness(
   }
   const latestSeoWarning = errorLogs.find((log) => log.category === "seo");
   if (latestSeoWarning) {
-    warnings.push(buildSeoWarning(latestSeoWarning.message));
+    if (hasCriticalSeoIssues(latestSeoWarning.meta)) {
+      blockers.push({
+        id: "seo-critical",
+        title: "Versionen saknar kritisk SEO-metadata.",
+        detail: "Titel och/eller metadata-export saknas. Dessa krävs för publicering.",
+        severity: "blocker",
+        action: "seo",
+      });
+    } else {
+      warnings.push(buildSeoWarning(latestSeoWarning.message));
+    }
   }
 
   return buildChatReadiness({

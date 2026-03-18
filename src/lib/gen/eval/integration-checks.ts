@@ -161,3 +161,20 @@ export function checkMultiPass(passes: number, errorsAfter: number): CheckResult
     score: resolved ? 1 : usedMultiPass ? 0.5 : 0.3,
   };
 }
+
+export interface IntegrationAssertionOptions {
+  expectedProviders?: string[];
+  expectedEnvVars?: string[];
+}
+
+export function runIntegrationAssertions(
+  code: string,
+  options: IntegrationAssertionOptions = {},
+): CheckResult[] {
+  const { expectedProviders = [], expectedEnvVars = [] } = options;
+  return [
+    checkIntegrationDetection(code, expectedProviders),
+    checkEnvVarCoverage(code, expectedEnvVars),
+    checkProviderGuide(code),
+  ];
+}

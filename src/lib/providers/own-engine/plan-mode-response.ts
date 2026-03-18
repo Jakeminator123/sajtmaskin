@@ -1,4 +1,5 @@
 import type { BuildProfileId, CanonicalModelId } from "@/lib/models/catalog";
+import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { createSSEHeaders } from "@/lib/streaming";
 import { parsePlanResponse } from "@/lib/gen/plan-prompt";
@@ -63,7 +64,7 @@ export function createOwnEnginePlanModeResponse(params: {
     pipelineStream,
     chatId,
     meta: {
-      modelId,
+      modelId: resolvePhaseModel(modelTier, "planner").modelId,
       modelTier,
       buildProfileId,
       buildProfileLabel,

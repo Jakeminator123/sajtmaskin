@@ -1,5 +1,7 @@
 import { runLlmFixer } from "./llm-fixer";
 import { runAutoFix } from "./pipeline";
+import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 
 export interface ValidateFixResult {
@@ -31,7 +33,12 @@ const MAX_FIX_PASSES = 3;
  */
 export async function validateAndFix(
   content: string,
-  opts: { chatId: string; model: string; onProgress?: ValidateFixProgressCallback },
+  opts: {
+    chatId: string;
+    model: string;
+    resolvedTier?: CanonicalModelId;
+    onProgress?: ValidateFixProgressCallback;
+  },
 ): Promise<ValidateFixResult> {
   const onProgress = opts.onProgress;
 
@@ -123,7 +130,12 @@ export async function validateAndFix(
       });
 
       try {
-        const fixerResult = await runLlmFixer(currentContent, errorSummary);
+        const fixerModel = opts.resolvedTier
+          ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
+          : undefined;
+        const fixerResult = await runLlmFixer(currentContent, errorSummary, {
+          model: fixerModel,
+        });
         if (fixerResult.success) {
           fixerUsed = true;
           onProgress?.({ pass, phase: "retrying", errorCount: validation.errors.length });

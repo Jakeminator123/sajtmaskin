@@ -136,6 +136,7 @@ vi.mock("@/lib/models/catalog", () => ({
   },
   canonicalModelIdToOwnModelId: () => "gpt-5.4",
   getBuildProfileId: () => "profile-test",
+  isCanonicalModelId: () => false,
 }));
 
 vi.mock("@/lib/config", () => ({

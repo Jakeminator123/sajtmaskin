@@ -30,6 +30,7 @@ import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
+import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import {
   canonicalModelIdToOwnModelId,
   DEFAULT_MODEL_ID,
@@ -396,7 +397,7 @@ export async function handleMessageStreamRequest(
               role: m.role as "user" | "assistant",
               content: m.content,
             }));
-          const planModel = resolveEngineModelId(resolvedModelTier, false);
+          const planModel = resolvePhaseModel(resolvedModelTier, "planner").modelId;
           const planPipelineStream = createGenerationPipeline({
             prompt: optimizedMessage,
             systemPrompt: planSystemPrompt,

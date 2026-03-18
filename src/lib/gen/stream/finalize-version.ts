@@ -14,7 +14,12 @@ import {
 } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import { createEngineVersionErrorLogs } from "@/lib/db/services";
+import {
+  createEngineVersionErrorLogs,
+  createGenerationTelemetryRecord,
+} from "@/lib/db/services";
+import { getPhaseRoutingSummary } from "@/lib/models/phase-routing";
+import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 import { buildFinalizePreflightLogBundle } from "./finalize-preflight-logs";
@@ -41,6 +46,7 @@ export interface FinalizeParams {
   accumulatedContent: string;
   chatId: string;
   model: string;
+  resolvedTier?: CanonicalModelId;
   originalPrompt?: string;
   buildIntent?: BuildIntent;
   routePlan?: RoutePlan | null;
@@ -90,6 +96,7 @@ export async function finalizeAndSaveVersion(
     accumulatedContent,
     chatId,
     model,
+    resolvedTier,
     originalPrompt,
     buildIntent,
     routePlan,
@@ -145,6 +152,7 @@ export async function finalizeAndSaveVersion(
   const syntaxResult = await validateAndFix(contentForVersion, {
     chatId,
     model,
+    resolvedTier,
     onProgress: (evt) => {
       onProgress?.("validation", {
         pass: evt.pass,
@@ -314,6 +322,35 @@ export async function finalizeAndSaveVersion(
       logCount: preflightLogs.length,
       message: logErr instanceof Error ? logErr.message : "Unknown preflight log persistence error",
     });
+  }
+
+  try {
+    await createGenerationTelemetryRecord({
+      chatId,
+      versionId: version.id,
+      scaffoldId: resolvedScaffold?.id ?? null,
+      model,
+      buildIntent: buildIntent ?? null,
+      retryCount: 0,
+      autofixApplied: runAutofix,
+      syntaxFixerUsed: syntaxResult.fixerUsed,
+      preflightErrorCount: preflightErrors.length,
+      preflightWarningCount: preflightWarnings.length,
+      previewSuccess: !hasPreviewBlockingPreflightErrors,
+      previewBlockingReason,
+      durationMs: Date.now() - startedAt,
+      promptTokens: tokenUsage?.prompt ?? null,
+      completionTokens: tokenUsage?.completion ?? null,
+      fileCount: preflightFileCount,
+      scaffoldRetryUsed: false,
+      scaffoldRetrySuggested: scaffoldRetry?.suggestedScaffoldId ?? null,
+      meta:
+        resolvedTier && isCanonicalModelId(resolvedTier)
+          ? { phaseRouting: getPhaseRoutingSummary(resolvedTier) }
+          : undefined,
+    });
+  } catch (telemetryErr) {
+    console.warn("[telemetry] Failed to write generation telemetry:", telemetryErr);
   }
 
   // 7. Log generation

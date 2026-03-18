@@ -10,6 +10,7 @@ import { debugLog, warnLog } from "@/lib/utils/debug";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { RoutePlan } from "@/lib/gen/route-plan";
+import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 
 type UrlMap = Record<string, string>;
@@ -172,6 +173,9 @@ export function createOwnEngineGenerationStream(
         safeEnqueue(enc.encode(formatSSEEvent("ping", { ts: Date.now() })));
       }, 15000);
 
+      const resolvedTier: CanonicalModelId | undefined = isCanonicalModelId(meta.modelTier)
+        ? (meta.modelTier as CanonicalModelId)
+        : undefined;
       const buildFinalizeParams = (
         content: string,
         doneData: Record<string, unknown> | null,
@@ -180,6 +184,7 @@ export function createOwnEngineGenerationStream(
         accumulatedContent: content,
         chatId,
         model: engineModel,
+        resolvedTier,
         originalPrompt: optimizedMessage,
         buildIntent: engineIntent,
         routePlan,

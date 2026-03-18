@@ -6,6 +6,7 @@ import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type RoutePlan } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
+import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
 
@@ -165,6 +166,15 @@ export async function runFinalizePreflight({
     preflightFileCount = completeProjectFiles.length;
     const sanity = runProjectSanityChecks(completeProjectFiles);
     preflightIssues = [...preflightIssues, ...sanity.issues];
+    const seoIssues = runSeoPreflightChecks(completeProjectFiles);
+    preflightIssues = [
+      ...preflightIssues,
+      ...seoIssues.map((issue) => ({
+        file: issue.file || "seo",
+        severity: issue.severity,
+        message: issue.message,
+      })),
+    ];
     const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));
     const missingPlannedRoutes = findMissingPlannedRoutes(routePlan, actualRoutes);
     if (missingPlannedRoutes.length > 0) {

@@ -39,6 +39,7 @@ import {
   buildAgentLogItems as buildAgentLogItemsFromTooling,
 } from "@/components/builder/BuilderMessageTooling";
 import { GenerationSummary } from "@/components/builder/GenerationSummary";
+import { VersionFeedback } from "@/components/builder/VersionFeedback";
 import { Streamdown } from "streamdown";
 import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
@@ -49,6 +50,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 interface MessageListProps {
   chatId: string | null;
+  versionId?: string | null;
   messages?: Array<ChatMessage>;
   showStructuredParts?: boolean;
   onQuickReply?: (text: string, options?: { planMode?: boolean }) => Promise<void> | void;
@@ -56,8 +58,18 @@ interface MessageListProps {
   quickReplyDisabled?: boolean;
 }
 
+function hasGenerationContent(text: string, isStreaming: boolean): boolean {
+  if (!text) return false;
+  return (
+    text.includes('file="') ||
+    text.includes("```") ||
+    (Boolean(isStreaming) && text.length > 400)
+  );
+}
+
 const MessageListComponent = ({
   chatId,
+  versionId = null,
   messages: externalMessages = [],
   showStructuredParts = false,
   onQuickReply,
@@ -98,6 +110,20 @@ const MessageListComponent = ({
     () => getLatestEnvRequirementFromTooling(messages),
     [messages],
   );
+
+  const lastGenMessageIndex = useMemo(() => {
+    let last = -1;
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+      if (m.role !== "assistant") continue;
+      const text = m.parts
+        .filter((p): p is Extract<MessagePart, { type: "text" }> => p.type === "text")
+        .map((p) => p.text)
+        .join("");
+      if (hasGenerationContent(text, Boolean(m.isStreaming))) last = i;
+    }
+    return last;
+  }, [messages]);
 
   useEffect(() => {
     const pendingKey = pendingReply?.key ?? null;
@@ -330,6 +356,19 @@ const MessageListComponent = ({
                     </SourcesContent>
                   </Sources>
                 )}
+
+                {chatId &&
+                  versionId &&
+                  message.role === "assistant" &&
+                  messageIndex === lastGenMessageIndex &&
+                  !message.isStreaming &&
+                  hasGenerationContent(textContent, false) && (
+                    <VersionFeedback
+                      chatId={chatId}
+                      versionId={versionId}
+                      className="mt-2 pt-2 border-t border-zinc-700/50"
+                    />
+                  )}
               </MessageContent>
             </Message>
           );

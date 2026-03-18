@@ -9,6 +9,7 @@ import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { getScaffoldByFamily, getScaffoldById } from "./registry";
 import { searchScaffolds } from "./scaffold-search";
+import { getScaffoldBoost } from "./scaffold-scoring";
 
 const LANDING_KEYWORDS = [
   "landing",
@@ -365,9 +366,22 @@ export async function matchScaffoldWithEmbeddings(
 
   if (!isGenericDefault) return keywordResult;
 
+  let embeddingMinScore = EMBEDDING_MIN_SCORE;
+  try {
+    const boost = await getScaffoldBoost(keywordResult?.id ?? "base-nextjs");
+    if (boost <= -2) {
+      embeddingMinScore = EMBEDDING_MIN_SCORE * 0.8;
+      console.info(
+        "[scaffold-matcher] Keyword default performing poorly (boost <= -2), lowering embedding threshold for fallback",
+      );
+    }
+  } catch {
+    /* best-effort */
+  }
+
   try {
     const results = await searchScaffolds(prompt, 1);
-    if (results.length > 0 && results[0].score >= EMBEDDING_MIN_SCORE) {
+    if (results.length > 0 && results[0].score >= embeddingMinScore) {
       const embeddingResult = results[0].scaffold;
 
       // Embeddings are only allowed to override generic website defaults when the

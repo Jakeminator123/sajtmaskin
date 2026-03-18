@@ -145,4 +145,69 @@ export const EVAL_PROMPTS: EvalPrompt[] = [
       shouldCompile: true,
     },
   },
+  {
+    id: "booking-service",
+    prompt:
+      "Create a booking website for a dental clinic with service selection, date/time picker, and confirmation flow",
+    intent: "website",
+    expected: {
+      minFiles: 1,
+      maxFiles: 10,
+      requiredFiles: ["app/page.tsx"],
+      requiredImports: ["@/components/ui/button"],
+      shouldCompile: true,
+    },
+  },
+  {
+    id: "multi-page-brochure",
+    prompt:
+      "Build a multi-page brochure site for a law firm with Home, About, Practice Areas, Team, and Contact pages using app router",
+    intent: "website",
+    expected: {
+      minFiles: 4,
+      maxFiles: 15,
+      requiredFiles: ["app/page.tsx", "app/layout.tsx"],
+      requiredImports: [],
+      shouldCompile: true,
+    },
+  },
+  {
+    id: "saas-dashboard",
+    prompt:
+      "Create a SaaS analytics dashboard with sidebar navigation, chart widgets, data tables, and a settings page",
+    intent: "app",
+    expected: {
+      minFiles: 3,
+      maxFiles: 15,
+      requiredFiles: ["app/page.tsx", "app/layout.tsx"],
+      requiredImports: ["@/components/ui/card"],
+      shouldCompile: true,
+    },
+  },
+  {
+    id: "content-heavy-blog",
+    prompt:
+      "Build a content-heavy blog with MDX support, category pages, author profiles, and search functionality",
+    intent: "website",
+    expected: {
+      minFiles: 3,
+      maxFiles: 15,
+      requiredFiles: ["app/page.tsx"],
+      requiredImports: [],
+      shouldCompile: true,
+    },
+  },
+  {
+    id: "consultant-landing",
+    prompt:
+      "Create a one-page consultant website with hero, services, testimonials, pricing, FAQ, and contact form in Swedish",
+    intent: "website",
+    expected: {
+      minFiles: 1,
+      maxFiles: 8,
+      requiredFiles: ["app/page.tsx"],
+      requiredImports: ["@/components/ui/button"],
+      shouldCompile: true,
+    },
+  },
 ];

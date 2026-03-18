@@ -40,6 +40,7 @@ import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
+import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import {
   canonicalModelIdToOwnModelId,
   DEFAULT_MODEL_ID,
@@ -338,7 +339,7 @@ export async function POST(req: Request) {
 
       // ── Plan Mode Path ────────────────────────────────────────────────
       if (metaPlanMode) {
-        const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        const planModel = resolvePhaseModel(resolvedModelTier, "planner").modelId;
         const engineIntent: BuildIntent =
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
@@ -375,14 +376,14 @@ export async function POST(req: Request) {
         const planTools = getAgentTools();
 
         debugLog("plan", "Plan mode activated (unified orchestration)", {
-          model: engineModel,
+          model: planModel,
           promptLength: optimizedMessage.length,
           thinking: resolvedThinking,
           scaffold: planOrchestration.resolvedScaffold?.id ?? null,
         });
         devLogAppend("in-progress", {
           type: "plan.generation.start",
-          model: engineModel,
+          model: planModel,
           promptLength: optimizedMessage.length,
           scaffold: planOrchestration.resolvedScaffold?.id ?? null,
         });
@@ -390,7 +391,7 @@ export async function POST(req: Request) {
         const pipelineStream = createGenerationPipeline({
           prompt: optimizedMessage,
           systemPrompt: planSystemPrompt,
-          model: engineModel,
+          model: planModel,
           thinking: resolvedThinking,
           abortSignal: req.signal,
           tools: planTools,
@@ -415,7 +416,7 @@ export async function POST(req: Request) {
         }
         const plannerChat = await chatRepo.createChat(
           projectIdForChat,
-          engineModel,
+          planModel,
           planSystemPrompt,
           planOrchestration.resolvedScaffold?.id,
         );
@@ -424,7 +425,7 @@ export async function POST(req: Request) {
         return attachSessionCookie(createOwnEnginePlanModeResponse({
           pipelineStream,
           chatId: plannerChat.id,
-          modelId: engineModel,
+          modelId: planModel,
           modelTier: resolvedModelTier,
           buildProfileId,
           buildProfileLabel: MODEL_LABELS[resolvedModelTier],
