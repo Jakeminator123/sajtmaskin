@@ -46,8 +46,13 @@ export function useBuilderCallbacks({
   }, [chatId, currentDemoUrl, sendMessage]);
 
   const handleVersionSelect = useCallback(
-    (versionId: string) => {
+    (versionId: string, demoUrl?: string) => {
       setSelectedVersionId(versionId);
+      if (demoUrl) {
+        setCurrentDemoUrl(demoUrl);
+        bumpPreviewRefreshToken();
+        return;
+      }
       const match = effectiveVersionsList.find(
         (version) => version.versionId === versionId || version.id === versionId,
       );

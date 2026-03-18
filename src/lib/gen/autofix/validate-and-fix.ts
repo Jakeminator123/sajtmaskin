@@ -24,7 +24,7 @@ const MAX_FIX_PASSES = 3;
 
 /**
  * Validates generated code via esbuild, and if syntax errors are found,
- * attempts up to MAX_FIX_PASSES LLM fixer rounds (cheap GPT-4.1-mini)
+ * attempts up to MAX_FIX_PASSES LLM fixer rounds (SAJTMASKIN_MODEL_PRO)
  * followed by re-autofix + re-validation each time. Returns the best
  * available content.
  *

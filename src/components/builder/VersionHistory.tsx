@@ -81,7 +81,7 @@ type RestoreVersionResponse = {
 interface VersionHistoryProps {
   chatId: string | null;
   selectedVersionId: string | null;
-  onVersionSelect: (versionId: string) => void;
+  onVersionSelect: (versionId: string, demoUrl?: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   /** Pre-fetched versions from parent to avoid duplicate polling */
@@ -321,7 +321,7 @@ export function VersionHistory({
         throw new Error(data?.error || `Restore failed (HTTP ${res.status})`);
       }
       if (data?.versionId) {
-        onVersionSelect(String(data.versionId));
+        onVersionSelect(String(data.versionId), data.demoUrl ?? undefined);
       }
       toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version restored som ny draftversion");
       mutate();

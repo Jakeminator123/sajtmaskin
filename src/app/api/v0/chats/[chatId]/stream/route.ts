@@ -644,6 +644,7 @@ export async function handleMessageStreamRequest(
           resolvedScaffold: resolvedScaffold ?? null,
           urlMap,
           commitCredits: commitCreditsOnce,
+          previousFiles: previousFiles.length > 0 ? previousFiles : undefined,
         });
 
         const engineHeaders = new Headers(createSSEHeaders());

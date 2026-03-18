@@ -12,7 +12,7 @@ export interface FixerResult {
   durationMs: number;
 }
 
-const DEFAULT_FIXER_MODEL = "gpt-4.1-mini";
+const DEFAULT_FIXER_MODEL = process.env.SAJTMASKIN_MODEL_PRO?.trim() || "gpt-5.3-codex";
 export async function runLlmFixer(
   content: string,
   errors: string[],

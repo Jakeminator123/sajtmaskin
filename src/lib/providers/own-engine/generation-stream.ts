@@ -9,6 +9,7 @@ import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
+import type { CodeFile } from "@/lib/gen/parser";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -36,6 +37,7 @@ export interface GenerationStreamParams {
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: UrlMap;
   commitCredits: () => Promise<void>;
+  previousFiles?: CodeFile[];
 }
 
 export function createOwnEngineGenerationStream(
@@ -53,6 +55,7 @@ export function createOwnEngineGenerationStream(
     resolvedScaffold,
     urlMap,
     commitCredits,
+    previousFiles,
   } = params;
 
   const engineStartedAt = Date.now();
@@ -195,6 +198,7 @@ export function createOwnEngineGenerationStream(
           prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
           completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
         },
+        previousFiles,
         onProgress: emitProgress,
         ...extra,
       });
