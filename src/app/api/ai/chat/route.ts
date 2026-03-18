@@ -22,15 +22,6 @@ const BASE_URL = "https://api.v0.dev/v1";
 
 // Token limits configurable via env (for server-side control)
 const ENV_MAX_TOKENS = Number(process.env.AI_CHAT_MAX_TOKENS) || 81_920;
-const DEFAULT_CHAT_MAX_TOKENS = 16_384;
-
-const MODEL_OUTPUT_LIMITS: Record<string, number> = {
-  "openai/gpt-5.2": 18_192,
-  "openai/gpt-5.3-codex": 32_768,
-  "openai/gpt-5.4": 32_768,
-  "openai/gpt-4.1": 32_768,
-  "openai/gpt-4.1-mini": 16_384,
-};
 
 const messageSchema = z.discriminatedUnion("role", [
   z.object({
@@ -55,12 +46,11 @@ const chatRequestSchema = z.object({
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
 });
 
-function resolveMaxTokens(requested: number | undefined, model: string): number {
-  const base = typeof requested === "number" ? Math.min(requested, ENV_MAX_TOKENS) : DEFAULT_CHAT_MAX_TOKENS;
-  const modelLimit = MODEL_OUTPUT_LIMITS[model];
-  const capped = modelLimit ? Math.min(base, modelLimit) : base;
-  if (typeof requested === "number" && capped !== requested) {
-    warnLog("AI", "maxTokens capped", { requested, capped, envLimit: ENV_MAX_TOKENS, modelLimit: modelLimit ?? null });
+function resolveMaxTokens(requested: number | undefined): number | undefined {
+  if (typeof requested !== "number") return undefined;
+  const capped = Math.min(requested, ENV_MAX_TOKENS);
+  if (capped !== requested) {
+    warnLog("AI", "maxTokens capped by env limit", { requested, capped, envLimit: ENV_MAX_TOKENS });
   }
   return capped;
 }
@@ -156,7 +146,7 @@ export async function POST(req: Request) {
         : isAnthropicAssistModel(normalizedModel)
           ? "anthropic"
           : "gateway";
-      const maxTokens = resolveMaxTokens(requestedMaxTokens, normalizedModel);
+      const maxTokens = resolveMaxTokens(requestedMaxTokens);
 
       if (!isPromptAssistModelAllowed(normalizedModel)) {
         return NextResponse.json(
@@ -237,7 +227,7 @@ export async function POST(req: Request) {
               models: defaultGatewayFallbackModels(normalizedModel),
             } as import("@ai-sdk/provider").JSONObject,
           },
-          maxOutputTokens: maxTokens,
+          ...(maxTokens != null ? { maxOutputTokens: maxTokens } : {}),
           ...getTemperatureConfig(normalizedModel, temperature),
           onFinish({ text }) {
             devLogAppend("latest", {
@@ -285,7 +275,7 @@ export async function POST(req: Request) {
         const result = streamText({
           model: anthropic(anthropicModel),
           messages,
-          maxOutputTokens: maxTokens,
+          ...(maxTokens != null ? { maxOutputTokens: maxTokens } : {}),
           ...getTemperatureConfig(anthropicModel, temperature),
           onFinish({ text }) {
             devLogAppend("latest", {
@@ -323,7 +313,7 @@ export async function POST(req: Request) {
       const result = streamText({
         model: modelProvider(normalizedModel),
         messages,
-        maxOutputTokens: maxTokens,
+        ...(maxTokens != null ? { maxOutputTokens: maxTokens } : {}),
         ...getTemperatureConfig(normalizedModel, temperature),
         onFinish({ text }) {
           devLogAppend("latest", {

@@ -17,15 +17,6 @@ export const maxDuration = 600;
 
 // Token limits configurable via env (for server-side control)
 const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 81_920;
-const DEFAULT_BRIEF_MAX_TOKENS = 16_384;
-
-const MODEL_OUTPUT_LIMITS: Record<string, number> = {
-  "openai/gpt-5.2": 18_192,
-  "openai/gpt-5.3-codex": 32_768,
-  "openai/gpt-5.4": 32_768,
-  "openai/gpt-4.1": 32_768,
-  "openai/gpt-4.1-mini": 16_384,
-};
 
 const briefRequestSchema = z.object({
   prompt: z
@@ -41,16 +32,14 @@ const briefRequestSchema = z.object({
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
 });
 
-function resolveMaxTokens(requested: number | undefined, model: string): number {
-  const base = typeof requested === "number" ? Math.min(requested, ENV_MAX_TOKENS) : DEFAULT_BRIEF_MAX_TOKENS;
-  const modelLimit = MODEL_OUTPUT_LIMITS[model];
-  const capped = modelLimit ? Math.min(base, modelLimit) : base;
-  if (typeof requested === "number" && capped !== requested) {
-    debugLog("AI", "Brief maxTokens capped", {
+function resolveMaxTokens(requested: number | undefined): number | undefined {
+  if (typeof requested !== "number") return undefined;
+  const capped = Math.min(requested, ENV_MAX_TOKENS);
+  if (capped !== requested) {
+    debugLog("AI", "Brief maxTokens capped by env limit", {
       requested,
       capped,
       envLimit: ENV_MAX_TOKENS,
-      modelLimit: modelLimit ?? null,
     });
   }
   return capped;
@@ -335,7 +324,7 @@ export async function POST(req: Request) {
       } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const resolvedProvider = provider ?? "gateway";
-      const maxTokens = resolveMaxTokens(requestedMaxTokens, normalizedModel);
+      const maxTokens = resolveMaxTokens(requestedMaxTokens);
 
       debugLog("AI", "AI brief request received", {
         provider: resolvedProvider,
@@ -448,7 +437,7 @@ export async function POST(req: Request) {
               models: defaultGatewayFallbackModels(normalizedModel),
             } as any,
           },
-          maxOutputTokens: maxTokens,
+          ...(maxTokens != null ? { maxOutputTokens: maxTokens } : {}),
           ...getTemperatureConfig(normalizedModel, temperature),
         });
       } catch (fullSchemaErr) {
@@ -472,7 +461,7 @@ export async function POST(req: Request) {
                 models: defaultGatewayFallbackModels(normalizedModel),
               } as any,
             },
-            maxOutputTokens: Math.min(maxTokens, 40_960),
+            ...(maxTokens != null ? { maxOutputTokens: Math.min(maxTokens, 40_960) } : {}),
             ...getTemperatureConfig(normalizedModel, temperature),
           });
           usedSimplified = true;
