@@ -4,6 +4,7 @@ import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
 import { fixFontImport } from "./rules/font-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
+import { fixMissingMetadataImport } from "./rules/metadata-import-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
@@ -148,7 +149,24 @@ export async function runAutoFix(
         );
       }
 
-      // 3c. lucide-image-fixer — fix Image imported from lucide-react when used as next/image
+      // 3c. metadata-import-fixer — add missing Metadata type import in page/layout files
+      try {
+        const metaResult = fixMissingMetadataImport(currentCode, file.path);
+        if (metaResult.fixed) {
+          currentCode = metaResult.code;
+          allFixes.push({
+            fixer: "metadata-import-fixer",
+            description: "Added missing Metadata type import from next",
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] metadata-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3d. lucide-image-fixer — fix Image imported from lucide-react when used as next/image
       try {
         const imgResult = fixLucideImageMisuse(currentCode, file.path);
         if (imgResult.fixed) {
