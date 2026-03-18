@@ -723,6 +723,15 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
       steps.push(`Olösta kontrakt: ${unresolved.join(", ")}`);
     }
   }
+  if (typeof info.systemPromptLength === "number" && info.systemPromptLength > 0) {
+    steps.push(`Systempromt: ${Math.round(info.systemPromptLength / 1000)}K tecken`);
+  }
+  if (info.briefApplied === true) {
+    steps.push("Brief: applicerad");
+  }
+  if (typeof info.customInstructionsLength === "number" && info.customInstructionsLength > 0) {
+    steps.push(`Custom instructions: ${info.customInstructionsLength} tecken`);
+  }
   return steps;
 }
 
@@ -749,7 +758,7 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
       ? "fasad (Plan -> Build -> Polish)"
       : meta.strategy === "summarize"
         ? "sammanfattad"
-        : "direkt";
+        : "redo";
   const lengthLine =
     meta.originalLength !== meta.optimizedLength
       ? `Langd: ${meta.originalLength} -> ${meta.optimizedLength} (mal ~${meta.budgetTarget})`
@@ -757,6 +766,7 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
 
   const steps = [`Prompt optimerad: ${strategyLabel}`, `Typ: ${meta.promptType}`, lengthLine];
   if (meta.reason) steps.push(`Orsak: ${meta.reason}`);
+  steps.push("Genererar innehåll och filer från prompten.");
   return steps;
 }
 

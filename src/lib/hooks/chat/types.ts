@@ -107,6 +107,9 @@ export type ModelInfoData = {
   contractIntegrations?: Array<{ provider?: string; name?: string; status?: string; envVars?: string[] }> | null;
   contractEnvVars?: Array<{ key?: string; reason?: string; required?: boolean }> | null;
   unresolvedContractDecisions?: Array<{ kind?: string; reason?: string } | string> | null;
+  systemPromptLength?: number | null;
+  briefApplied?: boolean | null;
+  customInstructionsLength?: number | null;
 };
 
 export type IntegrationSseSignal = {
