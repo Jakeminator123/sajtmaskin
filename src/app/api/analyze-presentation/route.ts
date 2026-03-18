@@ -11,7 +11,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { generateText, gateway } from "ai";
+import { generateText } from "ai";
+import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 
@@ -242,17 +243,12 @@ async function analyzeTextOnly(userText: string): Promise<string> {
   if (hasGatewayAuth) {
     try {
       const result = await generateText({
-        model: gateway("openai/gpt-5-mini"),
+        model: createDirectModel("openai/gpt-5-mini"),
         messages: [
           { role: "system", content: TEXT_ONLY_PROMPT },
           { role: "user", content: userText },
         ],
         maxOutputTokens: 500,
-        providerOptions: {
-          gateway: {
-            models: ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"],
-          } as any,
-        },
       });
       return result.text?.trim() || "";
     } catch {

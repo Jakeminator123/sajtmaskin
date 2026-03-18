@@ -1,6 +1,6 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { gateway, streamText } from "ai";
+import { streamText } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
@@ -15,8 +15,7 @@ import {
   normalizeAssistModel,
 } from "@/lib/builder/promptAssist";
 import {
-  defaultGatewayFallbackModels,
-  getGatewayPreferredProvider,
+  createDirectModel,
   getTemperatureConfig,
 } from "@/lib/builder/gateway-policy";
 import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
@@ -189,16 +188,9 @@ export async function POST(req: Request) {
           onVercel: isProbablyOnVercel(),
         });
 
-        const preferred = getGatewayPreferredProvider(normalizedModel);
         const result = streamText({
-          model: gateway(normalizedModel),
+          model: createDirectModel(normalizedModel),
           messages,
-          providerOptions: {
-            gateway: {
-              ...(preferred ? { order: [preferred] } : {}),
-              models: defaultGatewayFallbackModels(normalizedModel),
-            } as import("@ai-sdk/provider").JSONObject,
-          },
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
           onFinish({ text }) {

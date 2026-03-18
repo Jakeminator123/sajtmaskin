@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { gateway } from "ai";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { DEFAULT_OWN_MODEL_ID } from "@/lib/models/catalog";
 
 /** Default model for code generation. Aligned with the shared model catalog. */
@@ -10,13 +10,19 @@ const ANTHROPIC_PREFIX_RE = /^claude-/;
 /**
  * Returns an AI SDK LanguageModel for code generation.
  * OpenAI models use OPENAI_API_KEY directly.
- * Anthropic models route through AI Gateway (requires AI_GATEWAY_API_KEY or OIDC).
+ * Anthropic models use ANTHROPIC_API_KEY directly.
  */
 export function getOpenAIModel(modelId?: string) {
   const id = modelId ?? DEFAULT_MODEL;
 
   if (ANTHROPIC_PREFIX_RE.test(id)) {
-    return gateway(`anthropic/${id}`);
+    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    if (!apiKey) {
+      throw new Error(
+        "ANTHROPIC_API_KEY is not configured. Set it in your environment to use Anthropic models.",
+      );
+    }
+    return createAnthropic({ apiKey })(id);
   }
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();

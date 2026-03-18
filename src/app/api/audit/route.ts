@@ -7,7 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { generateText, gateway } from "ai";
+import { generateText } from "ai";
+import { createDirectModel } from "@/lib/builder/gateway-policy";
 import OpenAI from "openai";
 import { prepareCredits } from "@/lib/credits/server";
 import { getCreditCost, type CreditAction } from "@/lib/credits/pricing";
@@ -1321,13 +1322,8 @@ export async function POST(request: NextRequest) {
 
       console.info(`[${requestId}] Calling AI Gateway (${usedModel})`);
       const aiResult = await generateText({
-        model: gateway(usedModel),
+        model: createDirectModel(usedModel),
         messages: promptMessages,
-        providerOptions: {
-          gateway: {
-            models: AUDIT_MODEL_CANDIDATES.slice(1),
-          } as any,
-        },
         maxOutputTokens: 16000,
       });
 

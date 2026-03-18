@@ -17,7 +17,7 @@
  */
 
 import { generateObject } from "ai";
-import { gateway } from "ai";
+import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
 import { isGatewayAssistModel, normalizeAssistModel } from "./promptAssist";
 
@@ -104,7 +104,7 @@ export async function generateWebsiteSpec(
   try {
     const requestedModel = normalizeAssistModel(modelOverride ?? DEFAULT_SPEC_MODEL);
     const resolvedModel = isGatewayAssistModel(requestedModel) ? requestedModel : DEFAULT_SPEC_MODEL;
-    const model = gateway(resolvedModel);
+    const model = createDirectModel(resolvedModel);
 
     const result = await generateObject({
       model,

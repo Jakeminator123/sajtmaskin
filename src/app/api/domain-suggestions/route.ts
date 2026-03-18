@@ -10,7 +10,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { generateText, gateway } from "ai";
+import { generateText } from "ai";
+import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { withRateLimit } from "@/lib/rateLimit";
 
 // Allow 30 seconds for domain checks
@@ -62,7 +63,7 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
 
   try {
     const result = await generateText({
-      model: gateway("openai/gpt-5.2"),
+      model: createDirectModel("openai/gpt-5.2"),
       messages: [
         {
           role: "system",

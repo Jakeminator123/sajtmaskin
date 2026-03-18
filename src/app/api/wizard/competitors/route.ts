@@ -7,7 +7,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { generateText, gateway } from "ai";
+import { generateText } from "ai";
+import { createDirectModel } from "@/lib/builder/gateway-policy";
 import OpenAI from "openai";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
@@ -190,7 +191,7 @@ Regler:
       } else {
         // ── Gateway fallback path ───────────────────────────────
         const result = await generateText({
-          model: gateway("openai/gpt-5-mini"),
+          model: createDirectModel("openai/gpt-5-mini"),
           prompt: `${competitorsPrompt}
 
 Returnera BARA JSON (inget annat):
@@ -198,9 +199,6 @@ Returnera BARA JSON (inget annat):
 
 - Bara JSON, inget annat`,
           maxRetries: 1,
-          providerOptions: {
-            gateway: { models: ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"] },
-          },
           maxOutputTokens: 600,
         });
 

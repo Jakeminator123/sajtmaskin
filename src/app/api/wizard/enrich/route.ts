@@ -11,7 +11,8 @@
 
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
-import { generateText, gateway } from "ai";
+import { generateText } from "ai";
+import { createDirectModel } from "@/lib/builder/gateway-policy";
 import OpenAI from "openai";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/botProtection";
@@ -453,14 +454,9 @@ ${suggestionRule}
       } else {
         // ── Gateway fallback path ───────────────────────────────
         const result = await generateText({
-          model: gateway(ENRICH_MODEL),
+          model: createDirectModel(ENRICH_MODEL),
           prompt,
           maxRetries: 1,
-          providerOptions: {
-            gateway: {
-              models: ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"],
-            },
-          },
           maxOutputTokens: mode === "final_check" ? 520 : 420,
         });
 

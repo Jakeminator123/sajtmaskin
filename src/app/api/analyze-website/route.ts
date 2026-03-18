@@ -7,7 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { generateText, gateway } from "ai";
+import { generateText } from "ai";
+import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rateLimit";
 
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await generateText({
-      model: gateway(selectedModel),
+      model: createDirectModel(selectedModel),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

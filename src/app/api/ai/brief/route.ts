@@ -1,4 +1,4 @@
-import { generateObject, gateway } from "ai";
+import { generateObject } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/botProtection";
@@ -12,8 +12,7 @@ import {
   normalizeAssistModel,
 } from "@/lib/builder/promptAssist";
 import {
-  defaultGatewayFallbackModels,
-  getGatewayPreferredProvider,
+  createDirectModel,
   getTemperatureConfig,
 } from "@/lib/builder/gateway-policy";
 import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
@@ -390,51 +389,37 @@ export async function POST(req: Request) {
         onVercel: isProbablyOnVercel(),
       });
 
-      const preferred = getGatewayPreferredProvider(normalizedModel);
+      const directModel = createDirectModel(normalizedModel);
 
-      // Try full schema first, then fallback to simplified
       let usedSimplified = false;
       let result;
 
       try {
         result = await generateObject({
-          model: gateway(normalizedModel),
+          model: directModel,
           schema: siteBriefSchema,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
           maxRetries: 1,
-          providerOptions: {
-            gateway: {
-              ...(preferred ? { order: [preferred] } : {}),
-              models: defaultGatewayFallbackModels(normalizedModel),
-            } as any,
-          },
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
         });
       } catch (fullSchemaErr) {
-        // Full schema failed, try simplified schema
         debugLog("AI", "Full brief schema failed, trying simplified", {
           error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
         });
 
         try {
           result = await generateObject({
-            model: gateway(normalizedModel),
+            model: directModel,
             schema: simplifiedBriefSchema,
             messages: [
               { role: "system", content: systemPrompt + "\n\nIMPORTANT: Keep your response concise. Arrays can be empty if you're unsure." },
               { role: "user", content: userPrompt },
             ],
             maxRetries: 1,
-            providerOptions: {
-              gateway: {
-                ...(preferred ? { order: [preferred] } : {}),
-                models: defaultGatewayFallbackModels(normalizedModel),
-              } as any,
-            },
             maxOutputTokens: Math.min(maxTokens, 40_960),
             ...getTemperatureConfig(normalizedModel, temperature),
           });

@@ -7,7 +7,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { generateText, gateway } from "ai";
+import { generateText } from "ai";
+import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
@@ -141,7 +142,7 @@ async function lookupViaBraveSearch(companyName: string): Promise<CompanyLookupR
 
 async function lookupViaAiSearch(companyName: string): Promise<CompanyLookupResult> {
   const result = await generateText({
-    model: gateway("openai/gpt-5-mini"),
+    model: createDirectModel("openai/gpt-5-mini"),
     prompt: `Sök upp det svenska företaget "${companyName}" på allabolag.se eller liknande källa.
 Returnera BARA JSON (inget annat):
 {"found":true,"companyName":"","orgNr":"","companyType":"AB","city":"","industries":[""],"employees":0,"revenueKsek":0,"purpose":"","homepage":""}
@@ -149,9 +150,6 @@ Returnera BARA JSON (inget annat):
 Om du inte hittar företaget: {"found":false}
 Bara JSON, inget annat.`,
     maxRetries: 1,
-    providerOptions: {
-      gateway: { models: ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"] },
-    },
     maxOutputTokens: 350,
   });
 
