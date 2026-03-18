@@ -10,9 +10,9 @@ alwaysApply: true
 | Layer | What it is | URL pattern |
 |-------|-----------|-------------|
 | **Vercel** | Hosting platform. Deploys, domains, env vars, CDN. | vercel.com |
-| **v0** | AI code generation platform. Generates React code, returns demoUrl. | v0.dev, *.vusercontent.net |
-| **Sajtmaskin** | Our app. Orchestrates v0, manages projects, users, deploy flow. | sajtmaskin.se |
-| **Demo sites** | User-generated sites. Built by v0, previewed via demoUrl, deployed to Vercel. | *.vercel.app or custom domain |
+| **Sajtmaskin** | Our app. Own code-generation engine (default), manages projects, users, deploy flow. | sajtmaskin.se |
+| **v0** (soft-deprecated) | AI code generation platform used as opt-in fallback only when `V0_FALLBACK_BUILDER=y`. | v0.dev, *.vusercontent.net |
+| **Demo sites** | User-generated sites. Built by own engine, previewed in-app, deployed to Vercel. | *.vercel.app or custom domain |
 
 ## Pages in our app
 
@@ -37,8 +37,8 @@ Important language rule:
 
 The main workspace where the user iterates on their site:
 - Left panel: chat interface (prompt, AI responses, version history)
-- Right panel: live preview (iframe showing the demoUrl from v0)
-- Header: model selection, deploy button, project settings
+- Right panel: live preview (iframe or app preview route)
+- Header: model selection, scaffold mode, custom instructions, deploy button
 
 ### Admin (`/admin`)
 
@@ -61,37 +61,41 @@ Important rule:
 
 ### Template vs scaffold vs Vercel template
 
-These concepts are different and should NOT be mixed:
+Three concepts that must not be mixed:
 
 | Term | Swedish label | Meaning | Scope |
 |------|---------------|---------|-------|
-| **Sajtmaskin template gallery item** | `hemsidemall`, `startmall`, or `kategori-mall` | A user-facing gallery entry from `src/lib/templates/`. Useful for browsing, filtering, and inspiration in the product UI. It is not the runtime scaffold registry. | Product/UI concept |
-| **Scaffold** | `grundmall` or `starter scaffold` | An internal, code-level starter project from `src/lib/gen/scaffolds/` that the engine modifies instead of generating everything from scratch. | Internal runtime concept |
-| **Vercel Template** | `extern Vercel-template` | A public starter repo from [vercel.com/templates](https://vercel.com/templates). External reference material only, not a live runtime dependency. | External ecosystem concept |
-| **Curated template reference** | `kuraterad referensmall` | A normalized reference dossier or generated JSON derived from external template research, typically under `research/external-templates/reference-library/` or `src/lib/gen/template-library/`. Used to improve scaffolds, not to replace them at runtime. | Research/curation concept |
-| **Reference dossier** | `referensdossier` | One curated per-template research package containing a manifest, summary, and selected file excerpts. Stored under `research/external-templates/reference-library/dossiers/`. | Research/curation concept |
-| **Raw discovery** | `rå upptäckt` | Noisy local scrape/discovery output stored under `research/external-templates/raw-discovery/`. Useful for triage and audit work, not a runtime or canonical research source. | Research input concept |
-| **Raw template dataset** | `rå template-dataset` | Local `_sidor`-style datasets used as build-time input for curation scripts. Richer than raw discovery but still not runtime data. | Research input concept |
-| **Generated research artifact** | `genererad research-artefakt` | Committed JSON or embeddings derived from curated reference data, such as `src/lib/gen/template-library/` or `src/lib/gen/scaffolds/scaffold-research.generated.json`. | Build/runtime support concept |
-| **Multi-tenant** | `delad plattform` | One codebase / one deployment serving many tenants with different data/domains. Best term for the sajtmaskin app itself. | Hosting architecture concept |
-| **Multi-project** | `separata kundprojekt` | One isolated Vercel project per customer/app. Best term for generated user sites and deploy targets. | Hosting architecture concept |
+| **Sajtmaskin template gallery item** | `hemsidemall` or `kategori-mall` | A user-facing gallery entry from `src/lib/templates/`. For browsing and inspiration. NOT used at generation runtime. | Product/UI concept |
+| **Runtime scaffold** | `grundmall` | One of ~10 internal starter projects in `src/lib/gen/scaffolds/`. The engine uses these as a base instead of generating from scratch. Auto-selected by embedding matching or manually chosen. | Runtime generation concept |
+| **Vercel Template** | `extern Vercel-template` | A public starter repo from vercel.com/templates. External reference only. | External ecosystem concept |
+
+Research and curation concepts (not used at runtime):
+
+| Term | Swedish label | Meaning |
+|------|---------------|---------|
+| **Reference dossier** | `referensdossier` | Curated per-template research package under `research/external-templates/reference-library/dossiers/`. Contains manifest, summary, selected files. Feeds into scaffold improvements via build scripts. |
+| **Generated research artifact** | `genererad research-artefakt` | Committed JSON/embeddings in `src/lib/gen/template-library/` and `scaffold-research.generated.json`. Derived from dossiers at build time, consumed at runtime for template reference ranking. |
+| **Raw discovery** | `rå upptäckt` | Noisy scrape output under `research/external-templates/raw-discovery/`. Gitignored. Not runtime data. |
+
+Architecture concepts:
+
+| Term | Swedish label | Meaning |
+|------|---------------|---------|
+| **Multi-tenant** | `delad plattform` | One codebase serving many tenants. Describes the sajtmaskin app itself. |
+| **Multi-project** | `separata kundprojekt` | One Vercel project per customer site. Describes deploy targets. |
 
 Preferred terminology:
-- In product copy for users: say **`hemsidemall`** or **`startmall`**
-- When referring to `src/lib/templates/`: say **`template gallery`** or **`gallery item`**
-- In engine/code discussions: say **`scaffold`** or **`starter scaffold`**
-- When referring to Vercel's public library: explicitly say **`Vercel template`**
-- When referring to normalized external research: say **`curated template reference`** or **`reference dossier`**
-- When referring to noisy local scrape output: say **`raw discovery`**
-- When referring to committed JSON/embeddings derived from research: say **`generated research artifacts`**
+- Product UI copy: **`hemsidemall`** or **`kategori-mall`**
+- `src/lib/templates/`: **`template gallery`** or **`gallery item`**
+- `src/lib/gen/scaffolds/`: **`scaffold`** or **`runtime scaffold`**
+- Vercel's public library: **`Vercel template`** (always qualify)
+- `research/external-templates/reference-library/dossiers/`: **`reference dossier`**
+- `scaffold-research.generated.json` etc.: **`generated research artifact`**
 
-Important rule:
-- Do NOT call our internal scaffolds just `templates` without qualifier, since sajtmaskin already uses `templates` for another concept.
-- Do NOT call `src/lib/templates/` entries `Vercel templates` unless you explicitly mean their upstream source, not their role inside the product.
-- Do NOT describe `research/external-templates/reference-library/` as a second runtime scaffold registry.
-- Do NOT describe `research/external-templates/raw-discovery/` as curated research. It is intentionally noisy input.
-- Do NOT imply that external reference templates are cloned into runtime generation by default. They inform prompts, embeddings, and scaffold improvements unless a separate import flow explicitly says otherwise.
-- Do NOT use `multi-tenant` or `multi-project` as if they were template concepts. They describe hosting/deployment architecture, not content/category selection.
+Key rules:
+- Do NOT call scaffolds just `templates` — that term is for the gallery.
+- Do NOT describe dossiers as a second scaffold registry — they are research input.
+- Do NOT imply dossiers are used at runtime — only their generated artifacts are.
 
 ### Common chat aliases
 
@@ -117,6 +121,31 @@ Use this vocabulary consistently for automation work:
 
 Treat `/orchestrator` and `/automation` as the compact startup aliases for the
 orchestrator-run system.
+
+### Generation pipeline
+
+The own engine generation flow:
+
+1. **Prompt assist** (optional) — rewrites/briefs the user prompt before generation
+2. **Prompt orchestration** — budget/strategy for the message (`direct`, `summarize`, `phase_plan_build_polish`)
+3. **Scaffold resolution** — auto-match, manual pick, or off
+4. **Context orchestration** (`orchestrate.ts`) — builds scaffold context, route plan, capability inference, contract inference
+5. **System prompt** (`system-prompt.ts`) — STATIC_CORE (~6-8K tokens, cached) + dynamic context (custom instructions, build intent, scaffold, brief, theme, references, KB matches, template references)
+6. **Generation stream** — own engine via OpenAI, or v0 fallback
+7. **Post-generation** — autofix, esbuild validation, URL expansion, file parsing, scaffold merge
+
+### Custom instructions
+
+Two tiers in `src/lib/builder/defaults.ts`:
+
+- **CORE_CUSTOM_INSTRUCTIONS** — always active: tech stack, shadcn setup, language, accessibility
+- **EXTENDED_CUSTOM_INSTRUCTIONS** — only when scaffold is `off`: design system execution, component usage, Tailwind, visual identity, layout, motion, images, Figma workflow
+
+Selection: `getDefaultCustomInstructions(scaffoldMode)`:
+- scaffold `auto` or `manual` → CORE only (scaffold + STATIC_CORE covers design)
+- scaffold `off` → CORE + EXTENDED (no scaffold, needs full design guidance)
+
+The user can edit these in the builder header dialog. `isDefaultCustomInstructions()` detects manual edits.
 
 ### Research pipeline terms
 
@@ -169,50 +198,33 @@ Important rule:
 
 A sajtmaskin project that groups chats, versions, and deployments together.
 Stored in our database. Has an `appProjectId` (ours) and optionally a
-`v0ProjectId` (on v0's side).
+`v0ProjectId` (legacy, from v0 fallback era).
 
 ### Chat
 
-A conversation with v0. Each chat produces versions. Mapped to a v0 chat ID.
+A conversation in the builder. Each chat produces versions. With own engine
+the chat is stored locally; with v0 fallback it maps to a v0 chat ID.
 
 ### Version
 
-A snapshot of generated code from a single v0 response. Has a `demoUrl`
-(live preview on v0's servers) and files (the actual React/Next.js code).
+A snapshot of generated code from one generation turn. Contains files
+(the actual React/Next.js code) and optionally a preview URL.
 
-### demoUrl
+### Preview
 
-A temporary preview URL returned by v0 Platform API after code generation.
-Hosted on `*.vusercontent.net`. Used directly in the builder's iframe preview.
-Not the same as a deployed site.
+Own engine uses an app-internal preview route to render the generated code.
+v0 fallback uses `demoUrl` (temporary URL on `*.vusercontent.net`).
+
+The **Sandbox** (`@vercel/sandbox` via `SandboxModal`) is opt-in for testing
+server-side behavior before deploying.
 
 ### Deployment
 
-When the user clicks "Deploy", we:
-1. Fetch the version's files from v0
+When the user clicks "Deploy":
+1. Fetch the version's files
 2. Process images (upload to Vercel Blob if needed)
 3. Create a Vercel deployment via Vercel REST API
 4. Return a permanent URL on the user's Vercel project
-
-## Preview: why iframe and not always sandboxed?
-
-The builder preview uses a plain **iframe** with the v0 `demoUrl` as source.
-This is fast and simple - v0 hosts the preview, no local build needed.
-
-The **Sandbox** (`@vercel/sandbox` via `SandboxModal`) is a separate, manual
-tool for running code in an isolated server environment. It exists because:
-
-- The demoUrl preview is **read-only** - it shows what v0 generated but cannot
-  run custom server logic, access env vars, or connect to databases
-- Sandbox gives **full runtime control** - Node.js process, env vars, npm install
-- Sandbox is slower to start and costs more resources
-
-So the default flow is: demoUrl in iframe (instant, free, good enough for
-visual preview). Sandbox is opt-in for when the user needs to test server-side
-behavior before deploying.
-
-After deployment, the site runs as a real Vercel deployment with full
-server capabilities.
 
 ## Builder picker components
 

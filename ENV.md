@@ -203,12 +203,21 @@ Viktigt:
 
 ## Redis-variabler
 
-| Variabel                   | Syfte            | Beskrivning                                 |
-| -------------------------- | ---------------- | ------------------------------------------- |
-| `REDIS_URL`                | ioredis cache    | `rediss://...` URL till Upstash Redis       |
-| `KV_URL`                   | ioredis fallback | Samma format, används om `REDIS_URL` saknas |
-| `UPSTASH_REDIS_REST_URL`   | Rate limiting    | `https://...upstash.io` REST-endpoint       |
-| `UPSTASH_REDIS_REST_TOKEN` | Rate limiting    | Auth-token för REST-klienten                |
+Projektet har flera Redis-variabelnamn pga Vercel/Upstash-integrationer som
+skapar alias automatiskt. Hierarkin:
+
+| Variabel                   | Syfte                        | Beskrivning                                         | Prioritet |
+| -------------------------- | ---------------------------- | --------------------------------------------------- | --------- |
+| `REDIS_URL`                | ioredis cache (primary)      | `rediss://...` URL till Upstash Redis               | Används först |
+| `KV_URL`                   | ioredis cache (fallback)     | Samma format, Vercel KV-alias, används om `REDIS_URL` saknas | Fallback |
+| `UPSTASH_REDIS_REST_URL`   | Rate limiting (primary)      | `https://...upstash.io` REST-endpoint               | Används först |
+| `UPSTASH_REDIS_REST_TOKEN` | Rate limiting (primary)      | Auth-token för REST-klienten                        | Används först |
+| `KV_REST_API_URL`          | Rate limiting (fallback)     | Vercel KV-alias, används om `UPSTASH_REDIS_REST_URL` saknas | Fallback |
+| `KV_REST_API_TOKEN`        | Rate limiting (fallback)     | Vercel KV-alias, används om `UPSTASH_REDIS_REST_TOKEN` saknas | Fallback |
+
+Alla alias pekar till samma Upstash Redis. Om du konfigurerar Redis manuellt
+räcker `REDIS_URL` + `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`.
+De `KV_*`-alias skapas automatiskt av Vercels Upstash-integration.
 
 Utan Redis faller rate limiting tillbaka till in-memory (opålitligt i serverless).
 Utan Redis fungerar appen men utan caching -- alla requests går direkt till Postgres.
@@ -245,13 +254,19 @@ Bildflöde i generering:
 
 ## Own engine (standardläge)
 
-| Variabel                                       | Default         | Beskrivning                                   |
-| ---------------------------------------------- | --------------- | --------------------------------------------- |
-| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 32768           | Max output-tokens för sidgenerering           |
-| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 12288           | Autofix-pipeline                              |
-| `SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS`          | 720000 (12 min) | Klient-timeout innan stream avbryts           |
-| `SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS` | 800             | Route maxDuration för build/refine            |
-| `SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS` | 600             | Route maxDuration för prompt-assist och brief |
+| Variabel                                       | Default             | Beskrivning                                   |
+| ---------------------------------------------- | ------------------- | --------------------------------------------- |
+| `SAJTMASKIN_MODEL_FAST`                        | `gpt-4.1`           | Modell för Fast-tier                          |
+| `SAJTMASKIN_MODEL_PRO`                         | `gpt-5.3-codex`     | Modell för Pro-tier (rekommenderad)           |
+| `SAJTMASKIN_MODEL_MAX`                         | `gpt-5.4`           | Modell för Max-tier                           |
+| `SAJTMASKIN_MODEL_CODEX`                       | `gpt-5.1-codex-max` | Modell för Codex Max-tier                     |
+| `SAJTMASKIN_ASSIST_MODEL`                      | `openai/gpt-5.4`    | Prompt assist-modell (gateway-format)         |
+| `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Polish/rewrite-modell (gateway-format)     |
+| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 32768               | Max output-tokens för sidgenerering           |
+| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 12288               | Autofix-pipeline                              |
+| `SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS`          | 720000 (12 min)     | Klient-timeout innan stream avbryts           |
+| `SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS` | 800                 | Route maxDuration för build/refine            |
+| `SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS` | 600                 | Route maxDuration för prompt-assist och brief |
 
 ## Vercel-deploy
 

@@ -145,6 +145,14 @@ export const serverSchema = z.object({
   SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),
   SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),
 
+  // AI – Model overrides per tier (see src/lib/models/catalog.ts, src/lib/gen/defaults.ts)
+  SAJTMASKIN_MODEL_FAST: z.string().optional(),
+  SAJTMASKIN_MODEL_PRO: z.string().optional(),
+  SAJTMASKIN_MODEL_MAX: z.string().optional(),
+  SAJTMASKIN_MODEL_CODEX: z.string().optional(),
+  SAJTMASKIN_ASSIST_MODEL: z.string().optional(),
+  SAJTMASKIN_POLISH_MODEL: z.string().optional(),
+
   // v0 Design System
   DESIGN_SYSTEM_ID: z.string().optional(),
 

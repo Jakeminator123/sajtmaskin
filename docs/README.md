@@ -6,7 +6,7 @@
 
 - **`docs/architecture/`** — Canonical system overviews, engine status,
   generation pipeline, builder prompt layer, agent handoff, known issues,
-  quickstarts, and webhook docs.
+  quickstarts, webhook docs, prompt tree, and v0 deprecation plan.
 - **`docs/schemas/`** — Human docs for schemas, model/build profiles, scaffold
   contracts, and UI parts.
 - **`docs/plans/`** — Planning material split by lifecycle:

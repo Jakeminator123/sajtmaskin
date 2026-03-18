@@ -175,6 +175,15 @@ All code is delivered. Remaining work:
 
 This is production-validation work, not code-delivery work.
 
+### New architecture docs (2026-03-18)
+
+- `docs/architecture/prompt-tree.md` — full pipeline map from builder UI to
+  generation, covering every prompt parameter, all layers, and the own-engine
+  vs v0-fallback divergence.
+- `docs/architecture/v0-soft-deprecation.md` — phased v0 deprecation plan with
+  measurable stop/go gates, do-not-remove list for Vercel integrations, and
+  complete file inventory for each phase.
+
 ### Environment notes
 
 - Shell: PowerShell on Windows. Use `npm exec` instead of `npx`.

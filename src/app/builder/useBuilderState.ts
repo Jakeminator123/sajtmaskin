@@ -72,6 +72,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   // Internal Sajtmaskin brand/theme preset used by the own engine.
   const [designTheme, setDesignTheme] = useState<DesignTheme>(DEFAULT_DESIGN_THEME);
   // External v0 registry-backed design system id. Separate from `designTheme`.
+  // @deprecated — v0-only concept with no UI setter. Kept for backward compat
+  // during soft-deprecation. Will be removed when v0-fallback is fully retired.
   const [designSystemId, setDesignSystemId] = useState("");
   const [specMode] = useState(DEFAULT_SPEC_MODE);
   const pendingSpecRef = useRef<object | null>(null);

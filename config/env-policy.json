@@ -448,7 +448,7 @@
       "key": "V0_STREAMING_ENABLED",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "v0 streaming feature flag."
+      "notes": "v0 streaming feature flag. Only used by v0-fallback path (v0-generator.ts). Candidate for removal when v0-fallback is deprecated."
     },
     {
       "key": "V0_FALLBACK_BUILDER",

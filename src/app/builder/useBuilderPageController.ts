@@ -555,7 +555,7 @@ export function useBuilderPageController() {
 
   useLocalStorageBooleanSync("sajtmaskin:thinking", enableThinking, setEnableThinking);
 
-  // Generation settings per-chat load/save
+  // Generation settings: load from localStorage when chatId changes
   useEffect(() => {
     if (!chatId) {
       loadedGenerationSettingsChatRef.current = null;
@@ -567,45 +567,40 @@ export function useBuilderPageController() {
     if (stored) {
       setSelectedModelTier(stored.modelTier);
       setEnableImageGenerations(Boolean(stored.imageGenerations));
-    } else {
-      writeChatGenerationSettings(chatId, {
-        modelTier: selectedModelTier,
-        imageGenerations: enableImageGenerations,
-      });
     }
     loadedGenerationSettingsChatRef.current = chatId;
     applyingGenerationSettingsRef.current = false;
-  }, [chatId, selectedModelTier, enableImageGenerations, loadedGenerationSettingsChatRef, applyingGenerationSettingsRef, setSelectedModelTier, setEnableImageGenerations]);
+  }, [chatId, loadedGenerationSettingsChatRef, applyingGenerationSettingsRef, setSelectedModelTier, setEnableImageGenerations]);
 
+  // Generation settings: save to localStorage when user changes values
   useEffect(() => {
     if (!chatId) return;
     if (applyingGenerationSettingsRef.current) return;
-    if (loadedGenerationSettingsChatRef.current !== chatId) return;
     writeChatGenerationSettings(chatId, {
       modelTier: selectedModelTier,
       imageGenerations: enableImageGenerations,
     });
-  }, [chatId, selectedModelTier, enableImageGenerations, applyingGenerationSettingsRef, loadedGenerationSettingsChatRef]);
+  }, [chatId, selectedModelTier, enableImageGenerations, applyingGenerationSettingsRef]);
 
   useLocalStorageBooleanSync("sajtmaskin:blobImages", enableBlobMedia, setEnableBlobMedia);
 
-  // Design theme localStorage sync
+  // Design theme: load once on mount, migrate legacy "blue" value
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem("sajtmaskin:designTheme");
       if (!stored) return;
-      if (stored === "blue") {
-        setDesignTheme("off");
-        localStorage.setItem("sajtmaskin:designTheme", "off");
-        return;
+      const normalized = stored === "blue" ? "off" : normalizeDesignTheme(stored);
+      setDesignTheme(normalized);
+      if (stored !== normalized) {
+        localStorage.setItem("sajtmaskin:designTheme", normalized);
       }
-      setDesignTheme(normalizeDesignTheme(stored));
     } catch {
       /* ignore */
     }
   }, [setDesignTheme]);
 
+  // Design theme: persist on change
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
