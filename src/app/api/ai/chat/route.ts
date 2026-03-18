@@ -22,6 +22,7 @@ const BASE_URL = "https://api.v0.dev/v1";
 
 // Token limits configurable via env (for server-side control)
 const ENV_MAX_TOKENS = Number(process.env.AI_CHAT_MAX_TOKENS) || 81_920;
+const DEFAULT_CHAT_MAX_TOKENS = 16_384;
 
 const messageSchema = z.discriminatedUnion("role", [
   z.object({
@@ -46,10 +47,10 @@ const chatRequestSchema = z.object({
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
 });
 
-function resolveMaxTokens(requested: number | undefined): number | undefined {
-  if (typeof requested !== "number") return undefined;
-  const capped = Math.min(requested, ENV_MAX_TOKENS);
-  if (capped !== requested) {
+function resolveMaxTokens(requested: number | undefined): number {
+  const base = typeof requested === "number" ? requested : DEFAULT_CHAT_MAX_TOKENS;
+  const capped = Math.min(base, ENV_MAX_TOKENS);
+  if (typeof requested === "number" && capped !== requested) {
     warnLog("AI", "maxTokens capped by env limit", { requested, capped, envLimit: ENV_MAX_TOKENS });
   }
   return capped;
@@ -227,7 +228,7 @@ export async function POST(req: Request) {
               models: defaultGatewayFallbackModels(normalizedModel),
             } as import("@ai-sdk/provider").JSONObject,
           },
-          ...(maxTokens != null ? { maxOutputTokens: maxTokens } : {}),
+          maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
           onFinish({ text }) {
             devLogAppend("latest", {
@@ -275,7 +276,7 @@ export async function POST(req: Request) {
         const result = streamText({
           model: anthropic(anthropicModel),
           messages,
-          ...(maxTokens != null ? { maxOutputTokens: maxTokens } : {}),
+          maxOutputTokens: maxTokens,
           ...getTemperatureConfig(anthropicModel, temperature),
           onFinish({ text }) {
             devLogAppend("latest", {
@@ -313,7 +314,7 @@ export async function POST(req: Request) {
       const result = streamText({
         model: modelProvider(normalizedModel),
         messages,
-        ...(maxTokens != null ? { maxOutputTokens: maxTokens } : {}),
+        maxOutputTokens: maxTokens,
         ...getTemperatureConfig(normalizedModel, temperature),
         onFinish({ text }) {
           devLogAppend("latest", {
