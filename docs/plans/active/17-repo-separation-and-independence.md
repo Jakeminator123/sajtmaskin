@@ -40,12 +40,12 @@ This means:
 
 Remove verified dead code and unused dependencies:
 
-- [ ] `@types/google.maps` from `package.json`
-- [ ] `extractV0StatusCode` from `src/lib/v0/errors.ts`
-- [ ] `initTemplatePreview` from `src/lib/v0/v0-generator.ts`
-- [ ] `sanitizeCode` from `src/lib/v0/v0-generator.ts`
-- [ ] `vercel_templates_levels/` folder
-- [ ] Verify `ModelSelector` in `src/components/ai-elements/model-selector.tsx`
+- [x] `@types/google.maps` from `package.json`
+- [x] `extractV0StatusCode` from `src/lib/v0/errors.ts`
+- [x] `initTemplatePreview` from `src/lib/v0/v0-generator.ts`
+- [x] `sanitizeCode` from `src/lib/v0/v0-generator.ts`
+- [x] `vercel_templates_levels/` folder
+- [x] `ModelSelector` — verified: defined + catalog-registered but never rendered. Keep for now (AI element demo). Remove with WS-2 if unneeded.
 
 ### WS-2: v0 fallback phase-out
 
