@@ -80,6 +80,6 @@ Not runtime dependencies:
 | Plan status index | `docs/architecture/agent-roadmap-and-handoff.md` |
 | Engine architecture | `docs/architecture/engine-status.md` |
 | Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |
-| Env setup | `ENV.md` (root) |
+| Env setup | `docs/ENV.md` |
 | Orchestrator protocol | `docs/architecture/orchestrator-run-protocol.md` |
 | Orchestrator runs | `.cursor/orchestrator/run/` (local, cursorignored) |

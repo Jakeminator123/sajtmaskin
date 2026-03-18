@@ -19,7 +19,7 @@ boundaries:
    - `.cursor/rules/terminology.mdc`
    - relevant files under `docs/`
    - `scripts/README.md` if scripts or generated artifacts change
-   - `ENV.md` if local setup paths change
+   - `docs/ENV.md` if local setup paths change
 6. If a larger intervention needs dedicated documentation, place it under
    `docs/architecture/` and link to it from `docs/README.md`.
 7. Leave temporary compatibility notes only when needed for migration, and make

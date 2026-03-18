@@ -77,7 +77,7 @@ User prompt -> Builder UI -> Own engine (default) -> Generated code -> Preview -
 ### Config
 
 All env vars accessed through `src/lib/config.ts` (SECRETS, FEATURES, PATHS, URLS).
-Feature flags auto-detect available services. Se `ENV.md` för env-översikt.
+Feature flags auto-detect available services. Se `docs/ENV.md` för env-översikt.
 
 ## Conventions
 
