@@ -38,9 +38,9 @@ type UsePromptAssistParams = {
   themeColors?: ThemeColors | null;
 };
 
-// Token limits - these are defaults; the server can override via env
-const PROMPT_ASSIST_MAX_TOKENS = 22_000;
-const BRIEF_ASSIST_MAX_TOKENS = 26_000;
+// maxTokens is intentionally NOT sent from the client.
+// The gateway/model uses its own maximum when omitted, avoiding
+// validation failures when the gateway cap is lower than expected.
 // 10 minutes to accommodate slow models or gateway delays
 const PROMPT_ASSIST_TIMEOUT_MS = 600_000;
 
@@ -224,7 +224,6 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               provider,
               model: normalizedModel,
               temperature: mode === "polish" ? 0.1 : 0.2,
-              maxTokens: PROMPT_ASSIST_MAX_TOKENS,
               messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: originalPrompt },
@@ -277,7 +276,6 @@ export function usePromptAssist(params: UsePromptAssistParams) {
                   provider,
                   model: normalizedModel,
                   temperature: 0.2,
-                  maxTokens: BRIEF_ASSIST_MAX_TOKENS,
                   prompt: originalPrompt,
                   imageGenerations,
                 }),
@@ -436,7 +434,6 @@ export function usePromptAssist(params: UsePromptAssistParams) {
             provider,
             model: normalizedModel,
             temperature: 0.2,
-            maxTokens: BRIEF_ASSIST_MAX_TOKENS,
             prompt: originalPrompt,
             imageGenerations,
           }),
