@@ -4,7 +4,7 @@ This file is the operational handoff index for plan artifacts. Use it when a new
 agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
-Status re-verified against the current plan set on `2026-03-17`.
+Status re-verified against the current plan set on `2026-03-18`.
 
 ## Status legend
 
@@ -31,9 +31,9 @@ Status re-verified against the current plan set on `2026-03-17`.
 | `11-next-vercel-build-plan-core-config.md` | `archived` | Completed phased optimization plan (core Next.js config) |
 | `12-next-vercel-build-plan-server-routes.md` | `archived` | Completed phased optimization plan (server/API improvements) |
 | `13-next-vercel-build-plan-ui-performance.md` | `archived` | Completed phased optimization plan (UI rendering improvements) |
-| `14-critical-runtime-fixes.md` | `active` | Token budgets, credit commit, config drift, Vercel cancellation -- from deep-research audit |
-| `15-builder-robustness.md` | `active` | Builder entry edge case, clarification persistence -- from deep-research audit |
-| `16-provider-adapter-architecture.md` | `active` | Own-engine / v0 separation: model extraction, stream contract, plan-mode isolation |
+| `14-critical-runtime-fixes.md` | `archived` | **COMPLETED** -- Token budgets, credit commit, config drift, Vercel cancellation |
+| `15-builder-robustness.md` | `archived` | **COMPLETED** -- Builder entry edge case, clarification persistence |
+| `16-provider-adapter-architecture.md` | `archived` | **COMPLETED** -- Model extraction, stream contract, plan-mode isolation, generation stream extraction |
 
 ## Current active-phase notes
 
@@ -84,64 +84,83 @@ Status re-verified against the current plan set on `2026-03-17`.
 - Archived plans `11` through `13` provide useful performance groundwork, but
   do not change the `07` -> `08` -> `09` -> `10` execution order
 
-## Latest run: 2026-03-17 critical-runtime-fixes
+## Latest session: 2026-03-17/18 architecture cleanup + stream extraction
 
-Plans 14 and 15 were executed in a single orchestrator run. Key changes:
+Three orchestrator runs completed and archived:
 
-- **Plan 14** (4 workloads, all done): credit commit, token defaults, config
-  warning, Vercel cancellation. Can be moved to `archived` after deploy
-  verification.
-- **Plan 15** (2 workloads, all done): clarification persistence, builder
-  entry hardening. Can be moved to `archived` after manual QA.
-- **Plan 16** (0 workloads started): provider adapter architecture. This is the
-  remaining active plan from the deep-research audit and should be treated as
-  a separate orchestrator run.
+1. **2026-03-17-architecture-cleanup**: Plans 14-16 baseline. Deploy SSE fix,
+   abort signal threading, schema guards, plan-mode extraction, follow-up
+   clarification extraction, import normalization.
+2. **2026-03-17-stream-extraction**: v0 model compat shims removed, model
+   selection test moved to neutral home.
+3. **2026-03-17 continued**: Own-engine generation stream loop extracted to
+   `src/lib/providers/own-engine/generation-stream.ts`. Plan 16 marked complete.
 
-Commit: `4976ee2` pushed to `origin/main`.
+Key commits on `main`: `033e5a9` through `8ab159d`.
 
 ## Handoff notes for next agent
 
-### Immediate verification needed
+### What is done
 
-1. **Deploy verification**: confirm Vercel deploy succeeds with the new
-   `supportsCancellation` in `vercel.json` and the lowered token defaults.
-2. **Token default impact**: monitor first few generations after deploy.
-   ENGINE_MAX_OUTPUT_TOKENS dropped from 262k to 32k. If truncated outputs
-   appear, consider bumping to 65k or adding tier-based caps.
+- **Plan 14** (runtime fixes): all 4 workstreams complete
+- **Plan 15** (builder robustness): all 2 workstreams complete
+- **Plan 16** (provider adapter): all 3 workstreams complete
+- Own-engine provider modules created:
+  - `src/lib/providers/own-engine/plan-mode-response.ts`
+  - `src/lib/providers/own-engine/follow-up-clarification.ts`
+  - `src/lib/providers/own-engine/generation-stream.ts`
+- Model catalog/selection neutral at `src/lib/models/`; old shims deleted
+- Builder stream contract documented at
+  `src/lib/gen/stream/builder-stream-contract.ts`
+- Stream routes thinned: create ~1380 lines, follow-up ~1380 lines (from ~1840/1935)
+- All audit report bugs resolved
 
-### Recently completed maintenance
+### What remains
 
-- `main` is now standardized on Node `22.14.0` across Volta, `.nvmrc`, and
-  `.node-version`, and the repo `engines.node` range is restricted to Node 22.
-- The bugfix branch `cursor/bug-probability-assessment-ceac` has been merged
-  into `main`, including the rate-limit fallback fix, the prompt-assist stale
-  dependency fix, and a follow-up clarification persistence safeguard with
-  regression coverage.
+#### Plan 9: SMB Growth (~95% done, ~1-2 days)
 
-### Recommended next pass (Plan 16 + remaining Phase 9 + Phase 10)
+Remaining polish:
+- Team editor (no dedicated component yet)
+- Stronger SEO generation guarantees at publish time
+- Richer analytics provider setup flows
+- Deeper guided setup for integration/CRM/booking packs
+- Richer version diff and rollback UX
 
-Plan 16 (provider adapter architecture) is the cleanest next target:
-1. Extract model selection to `src/lib/models/` (safe rename)
-2. Isolate plan-mode into its own handler (reduces route complexity)
-3. Define `BuilderStreamEvent` contract (unifies own-engine + v0)
+#### Plan 10: Learning & Moat (~5% done, ~12-18 days)
 
-After Plan 16, return to Phase 9 remaining gaps:
-- Team editor
-- SEO generation guarantees
-- Analytics provider setup flows
-- Pack-specific guided UI
-- Content-level version diff
+Six independent workstreams, recommended order:
 
-Phase 10 is long-horizon work. Start only after Phase 9 is substantially done.
+1. **Generation telemetry schema** -- new DB table, write from finalize flow.
+   Start here. All other workstreams depend on telemetry data existing.
+2. **Structured builder feedback** -- new React components (thumbs up/down,
+   wrong-style, wrong-content), tied to version + scaffold + model tier.
+3. **Scaffold and retry learning** -- score scaffold outcomes, feed back into
+   matcher.ts and scaffold-aware-retry.ts.
+4. **Collaboration and approval primitives** -- version comments, approval queue,
+   reviewer mode, shared revision links.
+5. **Phase-aware model routing** -- separate routing for planner/generator/fixer/
+   verifier phases instead of flat tier-based selection.
+6. **Eval suite as product guardrail** -- stable benchmark set, automated
+   comparison on major changes.
+
+Primary code entry points: `src/lib/db/schema.ts`, `src/lib/gen/eval/`,
+`src/lib/gen/scaffolds/matcher.ts`, `src/components/builder/`.
+
+#### V0 fallback stream (~75% migration done, ~1-2 days)
+
+The v0-fallback SSE loop in both stream routes still runs inline rather than
+through a provider module like own-engine does. It works correctly but is not
+yet extracted. This is optional cleanup, not a blocker.
 
 ### Environment notes
 
-- `volta`/`npx` are not in the shell PATH used by Cursor agents; use `pnpm`
-  directly for any node tooling
+- Shell: PowerShell on Windows. Use `npm exec` instead of `npx`.
 - `.j_to_agent/` is the user's preferred channel for providing external files
-  to agents; treat it as read-only input
-- `.cursorignore` was significantly tightened; agents should read ignored files
-  by explicit path when needed, not expect them in search results
+  to agents; treat it as read-only input.
+- `.cursorignore` protects env files; agents should read ignored files by
+  explicit path when needed.
+- `alwaysApply` rules handle React best practices, progress reporting,
+  terminology, and MCP routing automatically.
 
 ## Working rule
 
