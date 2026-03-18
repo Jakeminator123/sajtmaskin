@@ -1,5 +1,7 @@
 # Plan 14: Critical Runtime Fixes
 
+**Status: COMPLETED (2026-03-17)**
+
 ## Goal
 Fix the highest-risk runtime bugs and configuration drift identified in the
 March 2026 deep-research audit (`docs/analyses/2026-03-deep-research-buggar-overlapp.md`).

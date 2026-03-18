@@ -1,5 +1,7 @@
 # Plan 15: Builder Robustness
 
+**Status: COMPLETED (2026-03-17)**
+
 ## Goal
 Close the remaining edge cases in the builder entry flow and follow-up
 clarification handling identified in the deep-research audit.

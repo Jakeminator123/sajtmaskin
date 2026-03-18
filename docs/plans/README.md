@@ -15,22 +15,13 @@ equally current.
 
 ## Current status map
 
-Verified `2026-03-17`.
+Verified `2026-03-18`.
 
 `active`
 
 - `active/06-world-class-builder-roadmap.md` — master roadmap (phases 1-4)
 - `active/09-world-class-builder-phase-3-smb-growth.md` — ~95% done
 - `active/10-world-class-builder-phase-4-learning-moat.md` — ~5% done
-- `active/14-critical-runtime-fixes.md` — **100%** (token budgets, credit
-  commit, config drift, Vercel cancellation)
-- `active/15-builder-robustness.md` — **100%** (builder entry edge case,
-  clarification persistence)
-- `active/16-provider-adapter-architecture.md` — **COMPLETED** (own-engine / v0
-  separation)
-
-Plans 14-16 originate from the external deep-research audit
-(`docs/analyses/2026-03-deep-research-buggar-overlapp.md`).
 
 `review-needed`
 
@@ -48,10 +39,16 @@ Plans 14-16 originate from the external deep-research audit
 - `archived/11-next-vercel-build-plan-core-config.md` — completed
 - `archived/12-next-vercel-build-plan-server-routes.md` — completed
 - `archived/13-next-vercel-build-plan-ui-performance.md` — completed
+- `archived/14-critical-runtime-fixes.md` — **COMPLETED 2026-03-17**
+- `archived/15-builder-robustness.md` — **COMPLETED 2026-03-17**
+- `archived/16-provider-adapter-architecture.md` — **COMPLETED 2026-03-17**
 - `archived/2026-03-bug-recheck-sweep.md` — completed
 - `archived/2026-03-openclaw-rollout-roadmap.md` — completed
 - `archived/world-class-commit-selection-report.md` — recovery artifact
 - `archived/world-class-branch-map-2026-03-13-to-now.md` — recovery artifact
+
+Plans 14-16 originated from the external deep-research audit
+(`docs/analyses/2026-03-deep-research-buggar-overlapp.md`).
 
 These are planning artifacts, not runtime documentation. New plan files should
 be created in `docs/plans/active/`, not in this root folder.
