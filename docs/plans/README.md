@@ -20,14 +20,14 @@ Verified `2026-03-17`.
 `active`
 
 - `active/06-world-class-builder-roadmap.md` — master roadmap (phases 1-4)
-- `active/09-world-class-builder-phase-3-smb-growth.md` — ~60% done, deep in
-  implementation
-- `active/10-world-class-builder-phase-4-learning-moat.md` — ~15% done
-- `active/14-critical-runtime-fixes.md` — token budgets, credit commit,
-  config drift, Vercel cancellation
-- `active/15-builder-robustness.md` — builder entry edge case, clarification
-  persistence
-- `active/16-provider-adapter-architecture.md` — own-engine / v0 separation
+- `active/09-world-class-builder-phase-3-smb-growth.md` — ~95% done
+- `active/10-world-class-builder-phase-4-learning-moat.md` — ~5% done
+- `active/14-critical-runtime-fixes.md` — **100%** (token budgets, credit
+  commit, config drift, Vercel cancellation)
+- `active/15-builder-robustness.md` — **100%** (builder entry edge case,
+  clarification persistence)
+- `active/16-provider-adapter-architecture.md` — **COMPLETED** (own-engine / v0
+  separation)
 
 Plans 14-16 originate from the external deep-research audit
 (`docs/analyses/2026-03-deep-research-buggar-overlapp.md`).
@@ -38,18 +38,18 @@ Plans 14-16 originate from the external deep-research audit
 
 `archived`
 
-- `archived/01-design-system-registry.md`
-- `archived/02-custom-domain-self-service.md`
-- `archived/03-v0-env-vars-proper-sdk.md`
-- `archived/04-deploy-sse-webhooks.md`
-- `archived/05-template-search-ui.md`
-- `archived/07-world-class-builder-phase-1-trust-launch.md`
-- `archived/08-world-class-builder-phase-2-site-planning.md`
-- `archived/11-next-vercel-build-plan-core-config.md`
-- `archived/12-next-vercel-build-plan-server-routes.md`
-- `archived/13-next-vercel-build-plan-ui-performance.md`
-- `archived/2026-03-bug-recheck-sweep.md`
-- `archived/2026-03-openclaw-rollout-roadmap.md`
+- `archived/01-design-system-registry.md` — **COMPLETED 2026-03-03**
+- `archived/02-custom-domain-self-service.md` — **COMPLETED 2026-03-03**
+- `archived/03-v0-env-vars-proper-sdk.md` — **COMPLETED 2026-03-03**
+- `archived/04-deploy-sse-webhooks.md` — **COMPLETED 2026-03-03**
+- `archived/05-template-search-ui.md` — **COMPLETED 2026-03-03**
+- `archived/07-world-class-builder-phase-1-trust-launch.md` — completed
+- `archived/08-world-class-builder-phase-2-site-planning.md` — completed
+- `archived/11-next-vercel-build-plan-core-config.md` — completed
+- `archived/12-next-vercel-build-plan-server-routes.md` — completed
+- `archived/13-next-vercel-build-plan-ui-performance.md` — completed
+- `archived/2026-03-bug-recheck-sweep.md` — completed
+- `archived/2026-03-openclaw-rollout-roadmap.md` — completed
 - `archived/world-class-commit-selection-report.md` — recovery artifact
 - `archived/world-class-branch-map-2026-03-13-to-now.md` — recovery artifact
 

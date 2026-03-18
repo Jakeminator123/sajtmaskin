@@ -1,4 +1,6 @@
-# Plan 3: v0 Environment Variables via Proper SDK
+﻿# Plan 3: v0 Environment Variables via Proper SDK
+
+**Status: COMPLETED (2026-03-03)**
 
 ## Mål
 Ersätt den fragila `(v0 as any).projects?.findEnvVars?.(...)` i deploy-routen

@@ -182,9 +182,11 @@ function summarizeCodeContextForPrompt(code: string, maxChars = 500_000): string
   return normalized.slice(0, maxChars);
 }
 
-type V0SdkCreateRequest = Parameters<ReturnType<typeof createClient>["chats"]["create"]>[0];
+type V0SdkCreateRequestBase = Parameters<ReturnType<typeof createClient>["chats"]["create"]>[0];
 
-type V0SdkModelId = NonNullable<V0SdkCreateRequest["modelConfiguration"]>["modelId"];
+type V0SdkCreateRequest = V0SdkCreateRequestBase & { designSystemId?: string };
+
+type V0SdkModelId = NonNullable<V0SdkCreateRequestBase["modelConfiguration"]>["modelId"];
 
 function toSdkModelId(modelId: V0ModelId): V0SdkModelId {
   // v0-sdk types can lag behind model ids; cast keeps runtime values intact.
@@ -738,9 +740,7 @@ export async function generateCode(
     }
 
     if (options.designSystemId) {
-      // TODO: remove cast when v0-sdk types include designSystemId
-      (createRequest as V0SdkCreateRequest & { designSystemId?: string }).designSystemId =
-        options.designSystemId;
+      createRequest.designSystemId = options.designSystemId;
     }
 
     const rawResponse = await v0.chats.create(createRequest);
@@ -1190,17 +1190,16 @@ export async function initFromRegistry(
         await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
       }
 
-      const initRequest = {
-        type: "registry" as const,
+      const initRequest: Record<string, unknown> = {
+        type: "registry",
         registry: { url: registryUrl },
-        chatPrivacy: "private" as const,
+        chatPrivacy: "private",
         name: name || `Registry: ${new URL(registryUrl).pathname.split("/").pop()}`,
       };
       if (designSystemId) {
-        (initRequest as typeof initRequest & { designSystemId?: string }).designSystemId =
-          designSystemId;
+        initRequest.designSystemId = designSystemId;
       }
-      const chat = (await v0.chats.init(initRequest)) as ChatDetail;
+      const chat = (await v0.chats.init(initRequest as Parameters<typeof v0.chats.init>[0])) as ChatDetail;
 
       debugLog("v0", "[v0-generator] Registry initialized:", chat.id);
       debugLog("v0", "[v0-generator] Version status:", chat.latestVersion?.status);

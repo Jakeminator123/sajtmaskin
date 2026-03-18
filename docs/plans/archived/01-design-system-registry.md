@@ -1,4 +1,6 @@
-# Plan 1: Design System via Registry
+﻿# Plan 1: Design System via Registry
+
+**Status: COMPLETED (2026-03-03)**
 
 ## Mål
 Ge v0 ett eget Sajtmaskin design system så alla genererade sajter automatiskt
