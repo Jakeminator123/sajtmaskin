@@ -76,3 +76,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-18-plan9-10-completion-030725/`
 
+## 2026-03-18-wl11-migrations-qa (archived 2026-03-18 03:37)
+- **Scope:** See archived FINAL_REPORT.md for details.
+- **Workloads:** 0 completed, 0 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-18-wl11-migrations-qa-033701/`
+
