@@ -3,6 +3,7 @@ import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
 import { fixFontImport } from "./rules/font-import-fixer";
+import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
@@ -144,6 +145,23 @@ export async function runAutoFix(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] font-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3c. lucide-image-fixer — fix Image imported from lucide-react when used as next/image
+      try {
+        const imgResult = fixLucideImageMisuse(currentCode, file.path);
+        if (imgResult.fixed) {
+          currentCode = imgResult.code;
+          allFixes.push({
+            fixer: "lucide-image-fixer",
+            description: "Replaced lucide-react Image with next/image",
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] lucide-image-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
