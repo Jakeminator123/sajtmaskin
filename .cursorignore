@@ -2,9 +2,8 @@
 # SAJTMASKIN .cursorignore
 # =============================================================================
 # Files here are NOT indexed by Cursor.
-# Use direct file reads when you intentionally need one of these artifacts.
-# Keep runtime-critical generated JSON hidden by default to reduce indexing
-# noise; open them directly only when a task actually depends on them.
+# Agents can still read ignored files via explicit path when needed.
+# This reduces indexing noise and keeps Cursor fast.
 # =============================================================================
 
 # Build/cache
@@ -35,10 +34,40 @@ sajtmaskin.code-workspace
 
 # Large media
 public/video/
+public/images/
 *.mp4
 *.webm
 
-# Local research lanes and clone mirrors (345+ files, read directly when needed)
+# ---------------------------------------------------------------------------
+# Stable code that rarely changes (read via explicit path when needed)
+# ---------------------------------------------------------------------------
+
+# shadcn/ui primitives — generated, not hand-edited
+src/components/ui/
+
+# Static assets
+public/
+
+# One-off scripts
+scripts/
+
+# Admin dashboard routes
+src/app/api/admin/
+
+# Payment routes (sensitive, rarely changed)
+src/app/api/stripe/
+
+# Auth routes (stable, rarely changed)
+src/app/api/auth/
+
+# Landing page components (stable after design)
+src/components/landing-v2/
+
+# ---------------------------------------------------------------------------
+# Research and generated artifacts
+# ---------------------------------------------------------------------------
+
+# Local research lanes and clone mirrors (345+ files)
 research/external-templates/raw-discovery/
 research/external-templates/repo-cache/
 research/external-templates/reference-library/
@@ -47,7 +76,7 @@ _sidor/
 research/_sidor/
 vercel_usecase_next_react_templates/
 
-# Generated reports and machine-generated artifacts (6+ MB, rebuild with scripts)
+# Generated reports and machine-generated artifacts (6+ MB)
 data/scaffold-candidates-curated.json
 src/lib/gen/data/docs-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
@@ -55,7 +84,7 @@ src/lib/gen/scaffolds/scaffold-research.generated.json
 src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
 
-# Recovery package (duplicates docs/plans/active/; read directly when needed)
+# Recovery package
 world-class-recovery/
 
 # MCP scraped docs (prefer MCP search/fetch instead)
@@ -65,7 +94,11 @@ services/mpc/docs/*llms*
 services/mpc/docs/shad/
 services/mpc/logs/
 
-# Local Cursor session state and legacy automation traces
+# ---------------------------------------------------------------------------
+# Session state and legacy
+# ---------------------------------------------------------------------------
+
+# Local Cursor session state
 .cursor/plans/
 .cursor/documents/
 .cursor/automation/runs/
@@ -75,6 +108,10 @@ services/mpc/logs/
 # Archived or low-signal docs
 docs/old/
 docs/plans/archived/
+docs/analyses/
+
+# Local migration reference (gitignored, local only)
+STOR_MIGRATION/
 
 # Temporary / local dev folders
 old/
@@ -92,8 +129,6 @@ chat_till_vanster.txt
 #.j_to_agent/
 vercel_templates_levels/
 
-# Orchestrator run folders (use exact paths; reduces indexing tokens)
+# Orchestrator run folders
 .cursor/orchestrator/run/*/
 .cursor/orchestrator/archive/
-
-/Desktop
