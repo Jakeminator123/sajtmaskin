@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 # SAJTMASKIN .cursorignore
 # =============================================================================
 # Files here are NOT indexed by Cursor.
@@ -110,8 +110,8 @@ docs/old/
 docs/plans/archived/
 docs/analyses/
 
-# Local migration reference (gitignored, local only)
-STOR_MIGRATION/
+# Migration archive (moved from STOR_MIGRATION/ to .cursor/migration-archive/)
+.cursor/migration-archive/
 
 # Temporary / local dev folders
 old/

@@ -5,8 +5,8 @@ agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
 Status re-verified against the current plan set on `2026-03-18`.
-Updated after orchestrator runs `2026-03-18-plan9-10-completion` and
-`2026-03-18-wl11-migrations-qa`.
+Updated after orchestrator runs `2026-03-18-plan9-10-completion`,
+`2026-03-18-wl11-migrations-qa`, and `2026-03-18-plan-finalization-and-cleanup`.
 
 ## Status legend
 
@@ -25,11 +25,12 @@ Updated after orchestrator runs `2026-03-18-plan9-10-completion` and
 | `03-v0-env-vars-proper-sdk.md` | `archived` | Env-var plan is implemented and overtaken; remaining work is maintenance plus Phase 1-3 hardening |
 | `04-deploy-sse-webhooks.md` | `archived` | SSE/webhook architecture is implemented; remaining deployment-event access hardening is carried into Phase 1 |
 | `05-template-search-ui.md` | `archived` | Template search UI is implemented; any future context-aware recommendations belong under Phase 2 planning/onboarding |
-| `06-world-class-builder-roadmap.md` | `active` | Strategic top-level roadmap |
+| `06-world-class-builder-roadmap.md` | `archived` | Strategic top-level roadmap — all 4 phases complete |
 | `07-world-class-builder-phase-1-trust-launch.md` | `archived` | Completed trust/launch phase: version lifecycle, readiness, diagnostics, preview labeling, deploy gating |
 | `08-world-class-builder-phase-2-site-planning.md` | `archived` | Completed planning-layer phase for the own-engine path; remaining future parity/orchestration work should be treated as new roadmap scope |
 | `09-world-class-builder-phase-3-smb-growth.md` | `archived` | **COMPLETED** -- Team editor, SEO guarantees, integration setup wizard, version diff/rollback UX |
-| `10-world-class-builder-phase-4-learning-moat.md` | `active` | ~90% complete -- All 6 workstreams delivered. DB tables live. V0 fallback extracted. Remaining: manual QA and production validation. |
+| `10-world-class-builder-phase-4-learning-moat.md` | `archived` | **LEVERERAT** -- All 6 workstreams delivered. DB tables live. Remaining: production validation only. |
+| `17-repo-separation-and-independence.md` | `active` | Repo separation: v0 phase-out, Blob abstraction, AI Gateway replacement, dead code removal |
 | `11-next-vercel-build-plan-core-config.md` | `archived` | Completed phased optimization plan (core Next.js config) |
 | `12-next-vercel-build-plan-server-routes.md` | `archived` | Completed phased optimization plan (server/API improvements) |
 | `13-next-vercel-build-plan-ui-performance.md` | `archived` | Completed phased optimization plan (UI rendering improvements) |
@@ -60,12 +61,12 @@ Updated after orchestrator runs `2026-03-18-plan9-10-completion` and
   server-side SEO preflight with critical SEO as publish blockers, integration
   setup wizard, and content-level version diffs + rollback confirmation. The
   plan file has been moved to `docs/plans/archived/`.
-- Phase `10` is the only remaining active plan. All six workstreams have code:
-  telemetry schema + finalize write, builder feedback UI, scaffold scoring +
-  learning, collaboration/approval primitives, phase-aware model routing, and
-  eval suite with CI gate. DB tables are live in Supabase. V0 fallback stream
-  has been extracted to `src/lib/providers/v0-fallback/`. Remaining: manual QA
-  of new UI components in live builder sessions and production validation.
+- Phase `10` is now **LEVERERAT**. All six workstreams have code and DB tables
+  are live. Remaining: production validation only. Plan archived.
+- **Plan 17** (repo separation and independence) is the new active plan,
+  derived from the STOR_MIGRATION analysis: v0 phase-out, Blob abstraction,
+  AI Gateway replacement, dead code removal, and optional D-ID/OpenClaw scope
+  reduction.
 
 ## Read order for a new agent
 

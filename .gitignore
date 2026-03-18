@@ -164,5 +164,6 @@ _sidor/
 research/_sidor/
 _input_for_cursor/
 STOR_MIGRATION
+.cursor/migration-archive/
 # <<< cursor-gpt automation local artifacts <<<
 

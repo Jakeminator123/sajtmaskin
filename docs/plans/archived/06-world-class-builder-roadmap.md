@@ -1,5 +1,14 @@
 # Plan 6: World-Class Builder Roadmap
 
+**Status as of 2026-03-18:**
+- Phase 7 (Trust & Launch): **COMPLETED** — archived
+- Phase 8 (Site Planning): **COMPLETED** — archived
+- Phase 9 (SMB Growth): **COMPLETED** — archived
+- Phase 10 (Learning & Moat): **LEVERERAT ~90%** — all code delivered, remaining: production validation
+
+This roadmap is effectively complete. Future work branches into a new
+separation/independence roadmap (Plan 17).
+
 ## Goal
 Translate the strategic `World Class Builder` plan into active repository
 documentation that can be implemented in phases without losing focus.
@@ -33,19 +42,17 @@ the core Phase `1` to `4` work. The roadmap sequence remains:
 
 `07` -> `08` -> `09` -> `10`
 
-## Phase documents
+## Phase documents and status
 
-- `07-world-class-builder-phase-1-trust-launch.md`
-- `08-world-class-builder-phase-2-site-planning.md`
-- `09-world-class-builder-phase-3-smb-growth.md`
-- `10-world-class-builder-phase-4-learning-moat.md`
+| Phase | Plan | Status |
+|---|---|---|
+| 1 — Trust & Launch | `archived/07-world-class-builder-phase-1-trust-launch.md` | **COMPLETED** |
+| 2 — Site Planning | `archived/08-world-class-builder-phase-2-site-planning.md` | **COMPLETED** |
+| 3 — SMB Growth | `archived/09-world-class-builder-phase-3-smb-growth.md` | **COMPLETED** |
+| 4 — Learning & Moat | `archived/10-world-class-builder-phase-4-learning-moat.md` | **LEVERERAT** (production validation remaining) |
 
-## Recommended execution order
-
-1. Build Phase 1 first.
-2. Start only the planning-related subset of Phase 2 next.
-3. Treat Phase 3 as the first major expansion toward "real SMB website builder".
-4. Treat Phase 4 as the moat layer once the core product loop is trustworthy.
+All four phases were executed in order 07 -> 08 -> 09 -> 10 across multiple
+orchestrator runs between 2026-03-13 and 2026-03-18.
 
 ## Product sequence
 ```mermaid

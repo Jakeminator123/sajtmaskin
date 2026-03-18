@@ -1,35 +1,21 @@
 # Documentation Hub
 
-This repository now uses `docs/` as the main home for human-readable
-documentation.
+`docs/` is the main home for human-readable documentation.
 
 ## Main areas
 
-- `docs/architecture/`
-  Canonical structure, terminology, and major system-boundary overviews.
-  Notable docs:
-  `structure-and-terminology.md`, `generation-loop-and-error-memory.md`,
-  `project-settings-and-builder-questions.md`, `builder-prompt-layer.md`,
-  `repo-hygiene.md`, `documentation-lifecycle.md`,
-  `meritmind-build-flows.md`, `did-avatar-test-route.md`,
-  `runtime-lane-refactor-and-log-viewer.md`,
-  `agent-roadmap-and-handoff.md`, `orchestrator-run-protocol.md`
-- `docs/schemas/`
-  Canonical human docs for important schemas, model/build-profile mappings, and
-  scaffold contracts.
-- `docs/architecture/engine-status.md`
-  Own engine status, model tiers, scaffold system, generation capabilities.
-- `docs/plans/`
-  Planning material split by lifecycle state:
-  `active/`, `review-needed/`, and `archived/`.
-- `docs/analyses/`
-  Broader analysis, matrix, polish notes, and consolidated working-note buckets
-  such as `2026-03-smb-orchestration-notes/`,
-  `phase-08-plan-persistence-and-orchestration.md`, and
-  `phase-09-smb-growth-implementation-status.md`.
-- `docs/old/`
-  Historical, superseded, or uncertain material kept for reference, including
-  temporary holding-area archives before later pruning.
+- **`docs/architecture/`** — Canonical system overviews, engine status,
+  generation pipeline, builder prompt layer, agent handoff, known issues,
+  quickstarts, and webhook docs.
+- **`docs/schemas/`** — Human docs for schemas, model/build profiles, scaffold
+  contracts, and UI parts.
+- **`docs/plans/`** — Planning material split by lifecycle:
+  `active/`, `review-needed/`, `archived/`.
+  Currently one active plan: `17-repo-separation-and-independence.md`.
+- **`docs/analyses/`** — Active investigations and reference analyses.
+  Completed analyses are moved to `docs/old/analyses/`.
+- **`docs/old/`** — Historical, superseded, or completed material kept for
+  traceability. Cursorignored to reduce indexing noise.
 
 ## Source of truth policy
 
@@ -86,17 +72,14 @@ Not runtime dependencies:
 - local shallow clone cache under `research/external-templates/repo-cache/`
 - raw local `_sidor` datasets
 
-## Migration note
+## Key navigation
 
-Older docs that used to live in `LLM/`, `plans/`, `scheman/`, root notes, or
-ad-hoc archive folders have been moved here or archived under `docs/old/`.
-
-The plan system is also being normalized into explicit lifecycle buckets. See
-`docs/architecture/documentation-lifecycle.md` and
-`docs/architecture/agent-roadmap-and-handoff.md` for the current routing and
-status map.
-
-Repository-local multi-agent execution traces now live under
-`.cursor/orchestrator/run/`. See
-`docs/architecture/orchestrator-run-protocol.md` for the storage and handoff
-model.
+| What you need | Where to look |
+|---|---|
+| Current active plans | `docs/plans/active/` |
+| Plan status index | `docs/architecture/agent-roadmap-and-handoff.md` |
+| Engine architecture | `docs/architecture/engine-status.md` |
+| Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |
+| Env setup | `ENV.md` (root) |
+| Orchestrator protocol | `docs/architecture/orchestrator-run-protocol.md` |
+| Orchestrator runs | `.cursor/orchestrator/run/` (local, cursorignored) |

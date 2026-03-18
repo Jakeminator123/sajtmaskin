@@ -15,12 +15,11 @@ equally current.
 
 ## Current status map
 
-Verified `2026-03-18` (post orchestrator runs).
+Verified `2026-03-18` (post plan-finalization-and-cleanup run).
 
 `active`
 
-- `active/06-world-class-builder-roadmap.md` — master roadmap (phases 1-4)
-- `active/10-world-class-builder-phase-4-learning-moat.md` — ~90% done (all 6 workstreams delivered, remaining: production QA)
+- `active/17-repo-separation-and-independence.md` — repo separation: v0 phase-out, Blob abstraction, AI Gateway replacement, dead code removal
 
 `review-needed`
 
@@ -41,6 +40,8 @@ Verified `2026-03-18` (post orchestrator runs).
 - `archived/14-critical-runtime-fixes.md` — **COMPLETED 2026-03-17**
 - `archived/15-builder-robustness.md` — **COMPLETED 2026-03-17**
 - `archived/09-world-class-builder-phase-3-smb-growth.md` — **COMPLETED 2026-03-18**
+- `archived/10-world-class-builder-phase-4-learning-moat.md` — **LEVERERAT 2026-03-18** (production validation remaining)
+- `archived/06-world-class-builder-roadmap.md` — **COMPLETED 2026-03-18** (all 4 phases done)
 - `archived/16-provider-adapter-architecture.md` — **COMPLETED 2026-03-17**
 - `archived/2026-03-bug-recheck-sweep.md` — completed
 - `archived/2026-03-openclaw-rollout-roadmap.md` — completed

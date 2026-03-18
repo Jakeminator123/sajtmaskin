@@ -6,8 +6,7 @@ Create new plans here, not in `docs/plans/` root.
 
 Current active roadmap:
 
-- `06-world-class-builder-roadmap.md`
-- `10-world-class-builder-phase-4-learning-moat.md` (~90% complete)
+- `17-repo-separation-and-independence.md` — repo separation, v0 phase-out, cleanup
 
 When a plan is completed or superseded, move it to `../archived/`
 and update both `docs/plans/README.md` and
