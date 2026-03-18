@@ -99,8 +99,8 @@ services/mpc/logs/
 # ---------------------------------------------------------------------------
 
 # Local Cursor session state
-.cursor/plans/
-.cursor/documents/
+#.cursor/plans/
+#.cursor/documents/
 .cursor/automation/runs/
 .cursor/automation/archive/
 .cursor/automation/input/
@@ -132,3 +132,5 @@ vercel_templates_levels/
 # Orchestrator run folders
 .cursor/orchestrator/run/*/
 .cursor/orchestrator/archive/
+
+tests/openclaw/
