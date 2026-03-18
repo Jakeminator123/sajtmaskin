@@ -27,7 +27,7 @@ export async function GET(
       }
 
       const buffer = await zip.generateAsync({ type: "nodebuffer" });
-      const ext = format === "tar" ? "zip" : "zip";
+      const ext = format === "tar" ? "tar" : "zip";
       const filename = `version-${scopedVersion.version.id.slice(0, 8)}.${ext}`;
 
       return new Response(new Uint8Array(buffer), {
