@@ -108,7 +108,7 @@ services/mpc/logs/
 # Archived or low-signal docs
 docs/old/
 docs/plans/archived/
-docs/analyses/
+#docs/analyses/
 
 # Migration archive (moved from STOR_MIGRATION/ to .cursor/migration-archive/)
 .cursor/migration-archive/
