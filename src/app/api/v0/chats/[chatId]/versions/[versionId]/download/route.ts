@@ -10,8 +10,6 @@ export async function GET(
 ) {
   try {
     const { chatId, versionId } = await ctx.params;
-    const { searchParams } = new URL(req.url);
-    const format = searchParams.get("format") || "zip";
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
     if (!scopedVersion) {
@@ -27,8 +25,7 @@ export async function GET(
       }
 
       const buffer = await zip.generateAsync({ type: "nodebuffer" });
-      const ext = format === "tar" ? "tar" : "zip";
-      const filename = `version-${scopedVersion.version.id.slice(0, 8)}.${ext}`;
+      const filename = `version-${scopedVersion.version.id.slice(0, 8)}.zip`;
 
       return new Response(new Uint8Array(buffer), {
         headers: {
