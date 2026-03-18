@@ -95,3 +95,5 @@ vercel_templates_levels/
 # Orchestrator run folders (use exact paths; reduces indexing tokens)
 .cursor/orchestrator/run/*/
 .cursor/orchestrator/archive/
+
+/Desktop
