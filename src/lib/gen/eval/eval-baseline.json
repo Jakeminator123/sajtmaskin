@@ -1,0 +1,117 @@
+{
+  "timestamp": "2026-03-18T03:03:00.947Z",
+  "model": "gpt-5.3-codex",
+  "results": [
+    {
+      "promptId": "coffee-shop",
+      "totalScore": 0.9375,
+      "passed": true,
+      "fileCount": 5,
+      "generationTimeMs": 58831
+    },
+    {
+      "promptId": "dashboard",
+      "totalScore": 0.9375,
+      "passed": true,
+      "fileCount": 3,
+      "generationTimeMs": 63404
+    },
+    {
+      "promptId": "portfolio",
+      "totalScore": 0.9375,
+      "passed": true,
+      "fileCount": 5,
+      "generationTimeMs": 73368
+    },
+    {
+      "promptId": "blog",
+      "totalScore": 0.9625,
+      "passed": true,
+      "fileCount": 4,
+      "generationTimeMs": 61729
+    },
+    {
+      "promptId": "pricing",
+      "totalScore": 1,
+      "passed": true,
+      "fileCount": 4,
+      "generationTimeMs": 66744
+    },
+    {
+      "promptId": "auth",
+      "totalScore": 1,
+      "passed": true,
+      "fileCount": 2,
+      "generationTimeMs": 29940
+    },
+    {
+      "promptId": "ecommerce",
+      "totalScore": 1,
+      "passed": true,
+      "fileCount": 2,
+      "generationTimeMs": 49022
+    },
+    {
+      "promptId": "restaurant",
+      "totalScore": 0.9375,
+      "passed": true,
+      "fileCount": 5,
+      "generationTimeMs": 70194
+    },
+    {
+      "promptId": "agency",
+      "totalScore": 1,
+      "passed": true,
+      "fileCount": 5,
+      "generationTimeMs": 58422
+    },
+    {
+      "promptId": "settings",
+      "totalScore": 1,
+      "passed": true,
+      "fileCount": 2,
+      "generationTimeMs": 59619
+    },
+    {
+      "promptId": "booking-service",
+      "totalScore": 0.8333333333333334,
+      "passed": false,
+      "fileCount": 6,
+      "generationTimeMs": 77260
+    },
+    {
+      "promptId": "multi-page-brochure",
+      "totalScore": 1,
+      "passed": true,
+      "fileCount": 9,
+      "generationTimeMs": 103700
+    },
+    {
+      "promptId": "saas-dashboard",
+      "totalScore": 0.875,
+      "passed": true,
+      "fileCount": 7,
+      "generationTimeMs": 76810
+    },
+    {
+      "promptId": "content-heavy-blog",
+      "totalScore": 0.9461538461538461,
+      "passed": true,
+      "fileCount": 18,
+      "generationTimeMs": 94375
+    },
+    {
+      "promptId": "consultant-landing",
+      "totalScore": 0.9375,
+      "passed": true,
+      "fileCount": 5,
+      "generationTimeMs": 65875
+    }
+  ],
+  "summary": {
+    "total": 15,
+    "passed": 14,
+    "avgScore": 0.9536324786324787,
+    "avgTimeMs": 67286
+  }
+}
