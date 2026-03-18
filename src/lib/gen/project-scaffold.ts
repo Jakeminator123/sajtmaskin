@@ -243,7 +243,23 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   const result: CodeFile[] = [];
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
 
+  const allCode = generatedFiles.map((f) => f.content).join("\n");
+  const { runDepCompleter } = require("./autofix/dep-completer") as {
+    runDepCompleter: (code: string) => { dependencies: Record<string, string> };
+  };
+  const detected = runDepCompleter(allCode);
+
   for (const [filePath, content] of Object.entries(SCAFFOLD_FILES)) {
+    if (filePath === "package.json" && !generatedPaths.has(filePath)) {
+      try {
+        const pkg = JSON.parse(content);
+        pkg.dependencies = { ...pkg.dependencies, ...detected.dependencies };
+        result.push({ path: filePath, content: JSON.stringify(pkg, null, 2), language: "json" });
+      } catch {
+        result.push({ path: filePath, content, language: "json" });
+      }
+      continue;
+    }
     if (!generatedPaths.has(filePath)) {
       result.push({ path: filePath, content, language: inferLanguage(filePath) });
     }
