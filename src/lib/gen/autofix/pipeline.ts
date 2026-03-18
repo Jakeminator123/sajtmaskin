@@ -4,7 +4,7 @@ import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
 import { fixFontImport } from "./rules/font-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
-import { fixMissingMetadataImport } from "./rules/metadata-import-fixer";
+import { fixMissingMetadataImport, fixMissingMetadataRouteImport, fixMissingCnImport } from "./rules/metadata-import-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
@@ -163,6 +163,40 @@ export async function runAutoFix(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] metadata-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3c2. MetadataRoute import fixer
+      try {
+        const mrResult = fixMissingMetadataRouteImport(currentCode, file.path);
+        if (mrResult.fixed) {
+          currentCode = mrResult.code;
+          allFixes.push({
+            fixer: "metadata-route-import-fixer",
+            description: "Added missing MetadataRoute type import from next",
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] metadata-route-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3c3. cn import fixer — add missing cn import from @/lib/utils
+      try {
+        const cnResult = fixMissingCnImport(currentCode);
+        if (cnResult.fixed) {
+          currentCode = cnResult.code;
+          allFixes.push({
+            fixer: "cn-import-fixer",
+            description: "Added missing cn import from @/lib/utils",
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] cn-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
