@@ -6,8 +6,8 @@ This document describes the builder's current model/build-profile schema.
 
 Primary code sources:
 
-- `src/lib/v0/models.ts`
-- `src/lib/v0/modelSelection.ts`
+- `src/lib/models/catalog.ts`
+- `src/lib/models/selection.ts`
 - `src/lib/validations/chatSchemas.ts`
 - `package.json`
 
@@ -91,7 +91,7 @@ Unknown model IDs are not accepted by the Zod request schema.
 
 ## Quality mappings
 
-The lower-level quality mapping in `src/lib/v0/models.ts` currently resolves:
+The lower-level quality mapping in `src/lib/models/catalog.ts` currently resolves:
 
 | Quality level | Canonical profile |
 |---------------|-------------------|

@@ -23,8 +23,8 @@ still exploratory, partially true, or comparing alternatives, place it in
 
 These docs summarize the system, but the runtime truth lives in:
 
-- `src/lib/v0/models.ts`
-- `src/lib/v0/modelSelection.ts`
+- `src/lib/models/catalog.ts`
+- `src/lib/models/selection.ts`
 - `src/lib/validations/chatSchemas.ts`
 - `src/lib/db/schema.ts`
 - `src/lib/gen/plan-schema.ts`
