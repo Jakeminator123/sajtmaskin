@@ -47,17 +47,18 @@ Remove verified dead code and unused dependencies:
 - [x] `vercel_templates_levels/` folder
 - [x] `ModelSelector` — verified: defined + catalog-registered but never rendered. Keep for now (AI element demo). Remove with WS-2 if unneeded.
 
-### WS-2: v0 fallback phase-out
+### WS-2: v0 fallback phase-out — COMPLETED
 
-The own engine is already the default. v0 is only used when
-`V0_FALLBACK_BUILDER=y`. Steps:
+**Delivered 2026-03-18.** 42 files changed, -3689 lines.
 
-- [ ] Audit all code paths that check `V0_FALLBACK_BUILDER` or import from `src/lib/v0/`
-- [ ] Remove v0 fallback code paths from stream routes
-- [ ] Remove `src/lib/providers/v0-fallback/stream-adapter.ts`
-- [ ] Remove v0 SDK client (`src/lib/v0.ts`, `src/lib/v0/v0-generator.ts`)
-- [ ] Remove `V0_API_KEY` dependency from required env vars
-- [ ] Keep v0 MCP server config for potential future use (docs only)
+- [x] Audit all code paths (37 files referenced v0 fallback)
+- [x] Remove v0 fallback code paths from 25+ API routes
+- [x] Remove `src/lib/providers/v0-fallback/` (stream-adapter.ts, 646 lines)
+- [x] Remove `src/lib/v0-fallback.ts` feature flag
+- [x] Remove `shouldUseV0Fallback` and `shouldUseExplicitBuilderFallback`
+- [x] Simplify `src/lib/gen/fallback.ts` to own-engine only
+- [ ] Remove v0 SDK client (`src/lib/v0.ts`) — deferred: still needed for legacy v0 projects, templates
+- [ ] Remove `V0_API_KEY` from required env vars — deferred: still used by v0 project management routes
 
 ### WS-3: Vercel Blob abstraction
 
