@@ -16,7 +16,7 @@ const PACKAGE_JSON = `{
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 4000",
+    "dev": "next dev --port 1555",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
