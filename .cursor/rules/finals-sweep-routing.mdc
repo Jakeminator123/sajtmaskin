@@ -1,0 +1,40 @@
+---
+description: Route /finals-weep into a closeout, archive, sanity-check, commit, and push routine
+alwaysApply: true
+---
+
+# Finals Sweep Routing
+
+Apply this rule when the user message starts with `/finals-weep` or `/final-sweep`.
+
+## What It Means
+
+Treat this as an explicit request to close out the **current session's** workstream:
+- classify and relocate docs/plans to the correct lifecycle folders
+- archive completed `orchestrator run` artifacts
+- perform a short final sweep for stale files, tiny obvious fixes, and sanity checks
+- save, commit, and push the completed session work
+
+## Required Behavior
+
+1. Read `.cursor/agent-intents/BOARD.md` first and identify fresh overlapping `active` entries.
+2. Scope the sweep to the current session's work only. Never commit another fresh agent's files.
+3. Apply lifecycle routing:
+   - plans -> `docs/plans/active/`, `review-needed/`, or `archived/`
+   - canonical docs -> `docs/architecture/` or `docs/schemas/`
+   - temporary analyses -> `docs/analyses/`
+   - historical/superseded docs -> `docs/old/`
+4. If the session used an `orchestrator run`, finish `FINAL_SWEEP.md` + `FINAL_REPORT.md` and archive the run.
+5. Delete files that are confirmed stale, superseded, or intentionally removed by the current session.
+6. Run a short sanity check:
+   - targeted lint/diagnostics for touched files
+   - `npx tsc --noEmit` when code changes span more than 3 files
+   - at least one focused test when a suitable existing test target is obvious
+7. Apply only small, obvious follow-up fixes found in the sweep. Do not open a new broad refactor.
+8. Stage only the completed session files, commit them, and push them.
+
+## Safety Rules
+
+- If another fresh `active` intent overlaps the same files, stop and ask before sweeping.
+- Do not pull unrelated docs/code from a parallel workstream into the commit just to "clean up".
+- Treat `/finals-weep` as explicit permission to commit and push, but only for the current session's scoped work.
