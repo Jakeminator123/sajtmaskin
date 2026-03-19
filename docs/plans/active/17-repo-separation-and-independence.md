@@ -40,7 +40,7 @@ This means:
 
 Remove verified dead code and unused dependencies:
 
-- [x] `@types/google.maps` from `package.json`
+- [ ] `@types/google.maps` from `package.json` -- not a completed removal item after all. Keep it while `LocationPicker`, `CompetitorMap`, and `src/lib/google-maps-loader.ts` still rely on `google.maps` types; revisit when the Google Maps UI is removed or rewritten.
 - [x] `extractV0StatusCode` from `src/lib/v0/errors.ts`
 - [x] `initTemplatePreview` from `src/lib/v0/v0-generator.ts`
 - [x] `sanitizeCode` from `src/lib/v0/v0-generator.ts`
