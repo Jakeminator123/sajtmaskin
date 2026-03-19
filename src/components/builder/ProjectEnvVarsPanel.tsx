@@ -719,8 +719,9 @@ export function ProjectEnvVarsPanel({
           <TabsContent value="integrations">
             <div className="space-y-2">
               <div className="rounded-lg border border-border/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                Visar tre lager: vad den aktiva sajtkoden verkar använda, vad plattformen är redo
-                för och vad som redan installerats på projektet.
+                Panelen visar fyra separata lager. Koddetektionen är heuristisk och
+                kan visa falska signaler. Projektets env-variabler och plattformens
+                status är faktiskt verifierade.
               </div>
 
               {showSetupWizard && hasDetectedIntegrations ? (
@@ -746,9 +747,12 @@ export function ProjectEnvVarsPanel({
               )}
 
               <div className="border-border rounded-md border p-2">
-                <div className="text-foreground text-xs font-medium">Aktiv sajt</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-foreground text-xs font-medium">Koddetektion (heuristik)</div>
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-200">automatisk</span>
+                </div>
                 <div className="text-muted-foreground mt-1 text-[11px]">
-                  Detekterat direkt från koden i den valda versionen.
+                  Heuristiskt detekterat från koden i den valda versionen. Kan visa falska signaler.
                 </div>
                 {isLoadingDetectedIntegrations ? (
                   <div className="text-muted-foreground mt-2 flex items-center gap-2 text-[11px]">
@@ -989,7 +993,13 @@ export function ProjectEnvVarsPanel({
 
               {integrationStatus && statusSummary && (
                 <div className="space-y-1">
-                  <div className="text-foreground text-xs font-medium">Plattformens status</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-foreground text-xs font-medium">Plattformens status (Sajtmaskin-runtime)</div>
+                    <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-200">verifierad</span>
+                  </div>
+                  <div className="text-muted-foreground text-[11px]">
+                    Faktisk status för Sajtmaskin-plattformen som kör buildern, inte den genererade sajten.
+                  </div>
                   {integrationStatus.items.map((item) => {
                     const stateLabel = item.enabled
                       ? "OK"
@@ -1024,7 +1034,10 @@ export function ProjectEnvVarsPanel({
 
               {isRealProject ? (
                 <div className="border-border mt-2 rounded-md border p-2">
-                  <div className="text-foreground text-xs font-medium">Marketplace på projektet</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-foreground text-xs font-medium">Valfria providers (Marketplace)</div>
+                    <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-1.5 py-0.5 text-[9px] text-purple-200">valfri</span>
+                  </div>
                   {strategy && (
                     <div className="text-muted-foreground mt-1 text-[11px]">
                       Du hanterar och bekostar integrationen själv.

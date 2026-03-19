@@ -10,21 +10,8 @@ type IntegrationStatus = {
   requiredEnv: string[];
   affects: string;
   notes?: string;
+  layer: "platform" | "optional";
 };
-
-function isGatewayConfigured(): { enabled: boolean; notes?: string } {
-  const hasApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
-  const hasOidc = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
-  const onVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
-  if (hasApiKey) return { enabled: true, notes: "auth: api-key" };
-  if (hasOidc) return { enabled: true, notes: "auth: oidc" };
-  if (onVercel) return { enabled: true, notes: "auth: vercel" };
-  return { enabled: false, notes: "auth missing" };
-}
-
-function isV0ModelApiConfigured(): boolean {
-  return Boolean(process.env.V0_API_KEY?.trim());
-}
 
 function getUpstashEnv(): { enabled: boolean; notes?: string } {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
@@ -41,44 +28,37 @@ function getPostgresEnv(): { enabled: boolean; notes?: string } {
   return { enabled: false, notes: "missing" };
 }
 
+function isOwnEngineConfigured(): { enabled: boolean; notes?: string } {
+  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY?.trim());
+  if (hasOpenAI) return { enabled: true, notes: "OPENAI_API_KEY present" };
+  return { enabled: false, notes: "OPENAI_API_KEY missing" };
+}
+
 export async function GET() {
-  const gateway = isGatewayConfigured();
   const upstash = getUpstashEnv();
   const postgres = getPostgresEnv();
+  const ownEngine = isOwnEngineConfigured();
+
   const items: IntegrationStatus[] = [
     {
-      id: "v0-platform",
-      label: "Generation API",
-      enabled: FEATURES.useV0Api,
+      id: "own-engine",
+      label: "Egen motor (OpenAI)",
+      enabled: ownEngine.enabled,
       required: true,
-      requiredEnv: ["V0_API_KEY"],
-      affects: "Kodgenerering + preview",
+      requiredEnv: ["OPENAI_API_KEY"],
+      affects: "Kodgenerering, plan mode, autofix",
+      notes: ownEngine.notes,
+      layer: "platform",
     },
     {
       id: "postgres",
-      label: "Postgres (DB)",
+      label: "Postgres (plattformens DB)",
       enabled: postgres.enabled,
       required: true,
       requiredEnv: [...DB_ENV_VARS],
-      affects: "Projekt, chat‑loggar, versionshistorik",
+      affects: "Projekt, chat-loggar, versionshistorik",
       notes: postgres.notes,
-    },
-    {
-      id: "ai-gateway",
-      label: "AI Gateway",
-      enabled: gateway.enabled,
-      required: false,
-      requiredEnv: ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
-      affects: "Prompt‑assist + AI‑anrop via gateway",
-      notes: gateway.notes,
-    },
-    {
-      id: "v0-model",
-      label: "Model API (OpenAI-compatible)",
-      enabled: isV0ModelApiConfigured(),
-      required: false,
-      requiredEnv: ["V0_API_KEY"],
-      affects: "Prompt‑assist via medium/large-modeller",
+      layer: "platform",
     },
     {
       id: "vercel-api",
@@ -87,6 +67,7 @@ export async function GET() {
       required: false,
       requiredEnv: ["VERCEL_TOKEN"],
       affects: "Deploy + domänköp",
+      layer: "platform",
     },
     {
       id: "vercel-blob",
@@ -94,7 +75,8 @@ export async function GET() {
       enabled: FEATURES.useVercelBlob,
       required: false,
       requiredEnv: ["BLOB_READ_WRITE_TOKEN"],
-      affects: "AI‑bilder i preview",
+      affects: "AI-bilder i preview, mediauppladdningar",
+      layer: "optional",
     },
     {
       id: "redis",
@@ -102,8 +84,9 @@ export async function GET() {
       enabled: FEATURES.useRedisCache,
       required: false,
       requiredEnv: ["REDIS_URL", "KV_URL"],
-      affects: "Caching (optional)",
+      affects: "Caching (valfri)",
       notes: REDIS_CONFIG.enabled ? "redis cache on" : "redis cache off",
+      layer: "optional",
     },
     {
       id: "upstash",
@@ -111,8 +94,18 @@ export async function GET() {
       enabled: upstash.enabled,
       required: false,
       requiredEnv: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
-      affects: "Rate limits (multi‑server)",
+      affects: "Rate limits (multi-server)",
       notes: upstash.notes,
+      layer: "optional",
+    },
+    {
+      id: "unsplash",
+      label: "Unsplash",
+      enabled: FEATURES.useUnsplash,
+      required: false,
+      requiredEnv: ["UNSPLASH_ACCESS_KEY"],
+      affects: "Stock-bilder",
+      layer: "optional",
     },
     {
       id: "github-oauth",
@@ -120,7 +113,8 @@ export async function GET() {
       enabled: FEATURES.useGitHubAuth,
       required: false,
       requiredEnv: ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"],
-      affects: "Private repo‑import",
+      affects: "Repo-import",
+      layer: "optional",
     },
     {
       id: "google-oauth",
@@ -129,22 +123,16 @@ export async function GET() {
       required: false,
       requiredEnv: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
       affects: "Inloggning via Google",
+      layer: "optional",
     },
     {
       id: "stripe",
-      label: "Stripe",
+      label: "Stripe (plattform)",
       enabled: FEATURES.useStripePayments,
       required: false,
       requiredEnv: ["STRIPE_SECRET_KEY"],
-      affects: "Betalningar",
-    },
-    {
-      id: "unsplash",
-      label: "Unsplash",
-      enabled: FEATURES.useUnsplash,
-      required: false,
-      requiredEnv: ["UNSPLASH_ACCESS_KEY"],
-      affects: "Stock‑bilder",
+      affects: "Betalningar för Sajtmaskin-kontot",
+      layer: "optional",
     },
   ];
 

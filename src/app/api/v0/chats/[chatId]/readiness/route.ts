@@ -10,24 +10,22 @@ import {
   describePreviewDiagnosticCode,
   readPreviewDiagnosticMeta,
 } from "@/lib/gen/preview-diagnostics";
-import { detectIntegrations } from "@/lib/gen/detect-integrations";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   buildChatReadiness,
   type ChatReadiness,
   type ChatReadinessItem,
 } from "@/lib/chat-readiness";
-import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
+import {
+  resolveProjectEnv,
+  resolveEnvRequirements,
+} from "@/lib/project-env-resolver";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
 
 const STALE_VERIFICATION_TIMEOUT_MS = 5 * 60 * 1000;
-
-function dedupeStrings(values: string[]): string[] {
-  return Array.from(new Set(values.map((value) => value.trim().toUpperCase()).filter(Boolean)));
-}
 
 function isTimedOutVerificationState(
   verificationState: string | null | undefined,
@@ -196,12 +194,9 @@ async function buildEngineReadiness(
     blockers.push(lifecycleBlocker);
   }
 
-  const envVarMapPromise = chat.project_id
-    ? getStoredProjectEnvVarMap(chat.project_id).catch(() => ({} as Record<string, string>))
-    : Promise.resolve<Record<string, string>>({});
-  const [versionFiles, envVarMap, errorLogs] = await Promise.all([
+  const [versionFiles, projectEnv, errorLogs] = await Promise.all([
     getVersionFiles(version.id),
-    envVarMapPromise,
+    resolveProjectEnv(chat.project_id ?? null),
     getEngineVersionErrorLogs(version.id),
   ]);
 
@@ -210,15 +205,8 @@ async function buildEngineReadiness(
     .filter((file) => typeof file?.path === "string" && typeof file?.content === "string")
     .map((file) => `// File: ${file.path}\n${file.content}`)
     .join("\n\n");
-  const requiredEnvKeys = dedupeStrings(
-    detectIntegrations(code).flatMap((integration) => integration.envVars ?? []),
-  );
-
-  const configuredEnvKeys = Object.keys(envVarMap)
-    .map((key) => key.trim().toUpperCase())
-    .filter(Boolean);
-  const configuredEnvSet = new Set(configuredEnvKeys);
-  const missingEnvKeys = requiredEnvKeys.filter((key) => !configuredEnvSet.has(key));
+  const envRequirements = resolveEnvRequirements(code, projectEnv);
+  const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys } = envRequirements;
 
   if (requiredEnvKeys.length > 0 && !chat.project_id) {
     blockers.push({

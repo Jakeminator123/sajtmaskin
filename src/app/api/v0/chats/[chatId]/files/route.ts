@@ -14,6 +14,8 @@ import {
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { resolveProjectEnv, resolveEnvRequirements } from "@/lib/project-env-resolver";
+import { deriveSetupContract, buildEnvExampleContent } from "@/lib/gen/setup-contract";
 
 function v0ErrorResponse(err: unknown, fallbackMessage: string) {
   const info = normalizeV0Error(err);
@@ -143,6 +145,32 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
         content: f.content,
         language: f.language,
       }));
+
+      const code = files
+        .filter((f) => typeof f?.path === "string" && typeof f?.content === "string")
+        .map((f) => `// File: ${f.path}\n${f.content}`)
+        .join("\n\n");
+      const projectEnv = await resolveProjectEnv(
+        engineChat?.project_id ?? null,
+      );
+      const envReqs = resolveEnvRequirements(code, projectEnv);
+      if (envReqs.requiredEnvKeys.length > 0) {
+        const setupContract = deriveSetupContract(undefined, projectEnv.configuredKeys);
+        const envExampleContent = buildEnvExampleContent({
+          ...setupContract,
+          requiredEnvKeys: envReqs.requiredEnvKeys,
+        });
+        const alreadyHasEnvExample = formattedFiles.some(
+          (f) => f.name === ".env.example" || f.name === ".env.local.example",
+        );
+        if (!alreadyHasEnvExample && envExampleContent.trim().length > 30) {
+          formattedFiles.push({
+            name: ".env.example",
+            content: envExampleContent,
+            language: "text",
+          });
+        }
+      }
 
       return NextResponse.json({
         versionId: resolvedVersionId,

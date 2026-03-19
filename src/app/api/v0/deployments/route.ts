@@ -30,7 +30,7 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
-import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
+import { resolveProjectEnv } from "@/lib/project-env-resolver";
 
 export const runtime = "nodejs";
 
@@ -409,12 +409,8 @@ export async function POST(req: Request) {
         const vercelProjectName = sanitizeVercelProjectName(
           projectName || `sajtmaskin-${chatId}`,
         );
-        const envVarsForDeploy = engineProjectId
-          ? await getStoredProjectEnvVarMap(engineProjectId).catch((error) => {
-              console.warn("[deploy] Failed to load app-project env vars:", error);
-              return {};
-            })
-          : {};
+        const projectEnv = await resolveProjectEnv(engineProjectId ?? null);
+        const envVarsForDeploy = projectEnv.configuredMap;
 
         const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
         if (fixesApplied.length > 0) {
