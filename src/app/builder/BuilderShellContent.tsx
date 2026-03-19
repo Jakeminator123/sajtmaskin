@@ -28,6 +28,7 @@ import {
   type PromptSourceMeta,
 } from "@/lib/builder/prompt-builder";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
+import { saveProjectData } from "@/lib/project-client";
 import {
   MODEL_TIER_OPTIONS,
   getPromptAssistModelLabel,
@@ -503,6 +504,109 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [vm.messages],
   );
 
+  const persistPreviewOverride = useCallback(
+    async (url: string | null, versionId: string | null) => {
+      vm.setServerProjectPreviewOverrideUrl(url);
+      vm.setServerProjectPreviewOverrideVersionId(versionId);
+      if (!vm.appProjectId) return;
+      try {
+        await saveProjectData(vm.appProjectId, {
+          meta: {
+            previewOverride:
+              url && versionId
+                ? {
+                    url,
+                    versionId,
+                    source: "sandbox",
+                  }
+                : null,
+          },
+        });
+      } catch (error) {
+        console.warn("[Builder] Failed to persist preview override:", error);
+      }
+    },
+    [
+      vm.appProjectId,
+      vm.setServerProjectPreviewOverrideUrl,
+      vm.setServerProjectPreviewOverrideVersionId,
+    ],
+  );
+
+  const persistSandboxUrlForVersion = useCallback(
+    async (url: string) => {
+      if (!vm.chatId || !vm.activeVersionId) return;
+      try {
+        const response = await fetch(
+          `/api/v0/chats/${encodeURIComponent(vm.chatId)}/versions`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              versionId: vm.activeVersionId,
+              sandboxUrl: url,
+            }),
+          },
+        );
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as { error?: string } | null;
+          console.warn(
+            "[Builder] Failed to persist sandbox URL:",
+            data?.error || `HTTP ${response.status}`,
+          );
+          return;
+        }
+        vm.mutateVersions();
+      } catch (error) {
+        console.warn("[Builder] Failed to persist sandbox URL:", error);
+      }
+    },
+    [vm.activeVersionId, vm.chatId, vm.mutateVersions],
+  );
+
+  const handleUseSandboxInPreview = useCallback(
+    (url: string) => {
+      vm.setClearedPreviewVersionId(null);
+      vm.setCurrentDemoUrl(url);
+      void persistPreviewOverride(url, vm.activeVersionId);
+      void persistSandboxUrlForVersion(url);
+    },
+    [
+      vm.activeVersionId,
+      vm.setClearedPreviewVersionId,
+      vm.setCurrentDemoUrl,
+      persistPreviewOverride,
+      persistSandboxUrlForVersion,
+    ],
+  );
+
+  const handleClearPreview = useCallback(() => {
+    vm.setClearedPreviewVersionId(vm.activeVersionId ?? null);
+    vm.setCurrentDemoUrl(null);
+    void persistPreviewOverride(null, null);
+  }, [
+    vm.activeVersionId,
+    vm.setClearedPreviewVersionId,
+    vm.setCurrentDemoUrl,
+    persistPreviewOverride,
+  ]);
+
+  const handleVersionSelect = useCallback(
+    (versionId: string, demoUrl?: string) => {
+      vm.setClearedPreviewVersionId(null);
+      if (vm.serverProjectPreviewOverrideVersionId === versionId) {
+        void persistPreviewOverride(null, null);
+      }
+      vm.handleVersionSelect(versionId, demoUrl);
+    },
+    [
+      vm.handleVersionSelect,
+      vm.serverProjectPreviewOverrideVersionId,
+      vm.setClearedPreviewVersionId,
+      persistPreviewOverride,
+    ],
+  );
+
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
@@ -669,6 +773,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             mediaEnabled={vm.mediaEnabled}
             currentCode={vm.currentPageCode}
             existingUiComponents={vm.existingUiComponents}
+            continuePlanMode={Boolean(latestPendingReply?.planMode)}
           />
           <DeployNameDialog
             open={vm.deployNameDialogOpen}
@@ -723,7 +828,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               awaitingInput={vm.isAwaitingInput}
               awaitingInputQuestion={latestPendingReply?.question ?? null}
               awaitingInputOptions={latestPendingReply?.options ?? []}
-              onClear={vm.handleClearPreview}
+              onClear={handleClearPreview}
               onFixPreview={vm.handleFixPreview}
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
@@ -741,7 +846,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <VersionHistory
               chatId={vm.chatId}
               selectedVersionId={vm.activeVersionId}
-              onVersionSelect={vm.handleVersionSelect}
+              onVersionSelect={handleVersionSelect}
               isCollapsed={vm.isVersionPanelCollapsed}
               onToggleCollapse={vm.handleToggleVersionPanel}
               versions={vm.effectiveVersionsList}
@@ -767,7 +872,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onClose={() => vm.setIsSandboxModalOpen(false)}
         chatId={vm.chatId}
         versionId={vm.activeVersionId}
-        onUseInPreview={(url) => vm.setCurrentDemoUrl(url)}
+        onUseInPreview={handleUseSandboxInPreview}
       />
 
       <InitFromRepoModal

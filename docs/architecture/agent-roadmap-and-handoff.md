@@ -67,6 +67,10 @@ Updated after orchestrator runs `2026-03-18-plan9-10-completion`,
   derived from the STOR_MIGRATION analysis: v0 phase-out, Blob abstraction,
   AI Gateway replacement, dead code removal, and optional D-ID/OpenClaw scope
   reduction.
+- Plan 17 progress update `2026-03-19`: WS-3 Blob abstraction is now delivered
+  (`src/lib/storage/` + refactored consumers). Requested WS-5 audit of
+  `src/**/*.json` over `1 MB` returned no matches, so no `.gitignore` or
+  `git rm --cached` action was needed for that slice.
 
 ## Read order for a new agent
 

@@ -257,6 +257,17 @@ export async function updateVersionFiles(versionId: string, filesJson: string): 
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function updateVersionSandboxUrl(
+  versionId: string,
+  sandboxUrl: string | null,
+): Promise<boolean> {
+  const result = await db
+    .update(engineVersions)
+    .set({ sandboxUrl })
+    .where(eq(engineVersions.id, versionId));
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function markVersionVerifying(
   versionId: string,
   verificationSummary: string | null = "Automatic verification in progress.",

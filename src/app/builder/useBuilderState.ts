@@ -126,6 +126,11 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [serverProjectChatId, setServerProjectChatId] = useState<string | null>(null);
   const [serverProjectMessages, setServerProjectMessages] = useState<ChatMessage[]>([]);
   const [serverProjectDemoUrl, setServerProjectDemoUrl] = useState<string | null>(null);
+  const [serverProjectPreviewOverrideUrl, setServerProjectPreviewOverrideUrl] =
+    useState<string | null>(null);
+  const [serverProjectPreviewOverrideVersionId, setServerProjectPreviewOverrideVersionId] =
+    useState<string | null>(null);
+  const [clearedPreviewVersionId, setClearedPreviewVersionId] = useState<string | null>(null);
   const lastActiveVersionIdRef = useRef<string | null>(null);
   const promptFetchInFlightRef = useRef<string | null>(null);
   const promptFetchDoneRef = useRef<string | null>(null);
@@ -286,6 +291,12 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setServerProjectMessages,
     serverProjectDemoUrl,
     setServerProjectDemoUrl,
+    serverProjectPreviewOverrideUrl,
+    setServerProjectPreviewOverrideUrl,
+    serverProjectPreviewOverrideVersionId,
+    setServerProjectPreviewOverrideVersionId,
+    clearedPreviewVersionId,
+    setClearedPreviewVersionId,
     lastActiveVersionIdRef,
     promptFetchInFlightRef,
     promptFetchDoneRef,

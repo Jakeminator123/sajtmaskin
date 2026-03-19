@@ -1,5 +1,5 @@
-import { put } from "@vercel/blob";
 import crypto from "crypto";
+import { VercelBlobProvider } from "@/lib/storage";
 
 export type ImageAssetStrategy = "external" | "blob";
 
@@ -251,6 +251,8 @@ export async function materializeImagesInTextFiles(params: {
     };
   }
 
+  const storageProvider = new VercelBlobProvider({ token: blobToken });
+
   const urlSet = new Set<string>();
   for (const f of params.files) {
     const urls = extractHttpUrls(f.content);
@@ -289,14 +291,17 @@ export async function materializeImagesInTextFiles(params: {
       const safeVersion = toSafeSegment(params.namespace.versionId);
       const pathname = `images/${safeChat}/${safeVersion}/${hash}${ext}`;
 
-      const blob = await put(pathname, buffer, {
+      const stored = await storageProvider.put(pathname, buffer, {
         access: "public",
         contentType: contentType || undefined,
-        token: blobToken,
       });
+      const blobUrl = stored.url;
+      if (!blobUrl) {
+        throw new Error(`Storage provider did not return a public URL for ${pathname}`);
+      }
 
-      urlToBlob.set(url, { blobUrl: blob.url, contentType: contentType || null, size });
-      assets.push({ sourceUrl: url, blobUrl: blob.url, contentType: contentType || null, size });
+      urlToBlob.set(url, { blobUrl, contentType: contentType || null, size });
+      assets.push({ sourceUrl: url, blobUrl, contentType: contentType || null, size });
       uploaded += 1;
     } catch (err) {
       skipped += 1;

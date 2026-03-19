@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { images, mediaLibrary } from "@/lib/db/schema";
-import { deleteBlob, isVercelBlobUrl } from "@/lib/vercel/blob-service";
+import { deleteBlob } from "@/lib/vercel/blob-service";
 import { assertDbConfigured } from "./shared";
 import type { MediaLibraryItem } from "./shared";
 
@@ -140,8 +140,8 @@ export async function deleteMediaLibraryItem(id: number, userId: string): Promis
   const item = await getMediaLibraryItemById(id, userId);
   if (!item) return false;
 
-  if (item.blob_url && isVercelBlobUrl(item.blob_url)) {
-    await deleteBlob(item.blob_url);
+  if (item.blob_url || item.file_path) {
+    await deleteBlob(item.blob_url || item.file_path);
   }
 
   await db

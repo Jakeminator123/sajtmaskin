@@ -1,5 +1,5 @@
-import fs from "fs/promises";
 import path from "path";
+import { LocalFsProvider, VercelBlobProvider } from "@/lib/storage";
 import type { EmbeddingsFile } from "./template-embeddings-core";
 
 export type TemplateEmbeddingsStorageMode = "local" | "blob";
@@ -12,6 +12,7 @@ const LOCAL_PATH = path.resolve(
   process.cwd(),
   "src/lib/templates/template-embeddings.json",
 );
+const LOCAL_FILENAME = path.basename(LOCAL_PATH);
 
 function getBlobToken(): string | null {
   const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
@@ -65,24 +66,11 @@ export async function loadTemplateEmbeddingsFromBlob(): Promise<EmbeddingsFile |
   const token = getBlobToken();
   if (!token) return null;
 
-  const pathname = getTemplateEmbeddingsBlobPath();
-  const blobSdk = await import("@vercel/blob");
-  const listResult = await blobSdk.list({
-    token,
-    prefix: pathname,
-    limit: 10,
-  });
+  const provider = new VercelBlobProvider({ token });
+  const stored = await provider.get(getTemplateEmbeddingsBlobPath());
+  if (!stored) return null;
 
-  const match =
-    listResult.blobs.find((blob) => blob.pathname === pathname) ||
-    listResult.blobs[0];
-
-  if (!match) return null;
-
-  const response = await fetch(match.url, { cache: "no-store" });
-  if (!response.ok) return null;
-
-  const payload = (await response.json()) as unknown;
+  const payload = JSON.parse(stored.body.toString("utf-8")) as unknown;
   if (!isEmbeddingsFile(payload)) return null;
 
   return payload;
@@ -97,22 +85,27 @@ export async function saveTemplateEmbeddingsToBlob(
   }
 
   const pathname = getTemplateEmbeddingsBlobPath();
-  const blobSdk = await import("@vercel/blob");
-  const blob = await blobSdk.put(pathname, JSON.stringify(data), {
+  const provider = new VercelBlobProvider({ token });
+  const stored = await provider.put(pathname, JSON.stringify(data), {
     access: "public",
     addRandomSuffix: false,
     contentType: "application/json",
-    token,
   });
+  if (!stored.url) {
+    throw new Error("Blob storage did not return a public URL for template embeddings.");
+  }
 
-  return { pathname, url: blob.url };
+  return { pathname: stored.pathname, url: stored.url };
 }
 
 export async function saveTemplateEmbeddingsToLocalFile(
   data: EmbeddingsFile,
 ): Promise<{ path: string }> {
-  await fs.writeFile(LOCAL_PATH, JSON.stringify(data), "utf-8");
-  return { path: LOCAL_PATH };
+  const provider = new LocalFsProvider({ rootDir: path.dirname(LOCAL_PATH) });
+  const stored = await provider.put(LOCAL_FILENAME, JSON.stringify(data), {
+    contentType: "application/json",
+  });
+  return { path: stored.fsPath ?? LOCAL_PATH };
 }
 
 export function getTemplateEmbeddingsLocalPath(): string {

@@ -6,9 +6,15 @@ import { eq, desc } from "drizzle-orm";
 import {
   getChatByV0ChatIdForRequest,
   getEngineChatByIdForRequest,
+  getEngineVersionForChatByIdForRequest,
   getProjectByIdForRequest,
 } from "@/lib/tenant";
-import { addMessage, createDraftVersion, getVersionsByChat } from "@/lib/db/chat-repository-pg";
+import {
+  addMessage,
+  createDraftVersion,
+  getVersionsByChat,
+  updateVersionSandboxUrl,
+} from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 
@@ -138,14 +144,63 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ chatId: strin
   try {
     const { chatId } = await ctx.params;
     const body = await req.json().catch(() => ({}));
-    const { versionId, pinned } = body ?? {};
+    const { versionId, pinned, sandboxUrl } = body ?? {};
+    const hasSandboxUrl = Object.prototype.hasOwnProperty.call(body ?? {}, "sandboxUrl");
 
-    if (!versionId || typeof pinned !== "boolean") {
-      return NextResponse.json({ error: "versionId and pinned are required" }, { status: 400 });
+    if (
+      !versionId ||
+      (typeof pinned !== "boolean" && !hasSandboxUrl)
+    ) {
+      return NextResponse.json(
+        { error: "versionId plus either pinned or sandboxUrl is required" },
+        { status: 400 },
+      );
     }
 
     const engineChat = await getEngineChatByIdForRequest(req, chatId);
     if (engineChat) {
+      if (hasSandboxUrl) {
+        const normalizedSandboxUrl =
+          typeof sandboxUrl === "string" && sandboxUrl.trim().length > 0
+            ? sandboxUrl.trim()
+            : null;
+        if (sandboxUrl !== null && sandboxUrl !== undefined && normalizedSandboxUrl === null) {
+          return NextResponse.json(
+            { error: "sandboxUrl must be a non-empty string or null" },
+            { status: 400 },
+          );
+        }
+        if (normalizedSandboxUrl) {
+          try {
+            new URL(normalizedSandboxUrl);
+          } catch {
+            return NextResponse.json({ error: "sandboxUrl must be a valid URL" }, { status: 400 });
+          }
+        }
+
+        const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+        if (!scopedVersion) {
+          return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+        }
+
+        const updated = await updateVersionSandboxUrl(
+          scopedVersion.version.id,
+          normalizedSandboxUrl,
+        );
+        if (!updated) {
+          return NextResponse.json(
+            { error: "Failed to update sandbox URL" },
+            { status: 500 },
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          versionId: scopedVersion.version.id,
+          sandboxUrl: normalizedSandboxUrl,
+        });
+      }
+
       return NextResponse.json(
         { error: "Pinning is not supported for own-engine versions." },
         { status: 409 },

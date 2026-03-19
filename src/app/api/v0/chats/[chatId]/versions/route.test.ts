@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const shouldUseV0Fallback = vi.hoisted(() => vi.fn(() => false));
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
+const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const getProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
+const updateVersionSandboxUrl = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const assertV0Key = vi.hoisted(() => vi.fn());
 const v0ChatsGetById = vi.hoisted(() => vi.fn());
@@ -15,12 +17,14 @@ vi.mock("@/lib/gen/fallback", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
+  getEngineVersionForChatByIdForRequest,
   getChatByV0ChatIdForRequest,
   getProjectByIdForRequest,
 }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getVersionsByChat,
+  updateVersionSandboxUrl,
 }));
 
 vi.mock("@/lib/gen/preview", () => ({
@@ -69,15 +73,17 @@ vi.mock("drizzle-orm", () => ({
   or: vi.fn(),
 }));
 
-import { GET } from "./route";
+import { GET, PATCH } from "./route";
 
 describe("GET /api/v0/chats/[chatId]/versions", () => {
   beforeEach(() => {
     shouldUseV0Fallback.mockReturnValue(false);
     getEngineChatByIdForRequest.mockReset();
+    getEngineVersionForChatByIdForRequest.mockReset();
     getChatByV0ChatIdForRequest.mockReset();
     getProjectByIdForRequest.mockReset();
     getVersionsByChat.mockReset();
+    updateVersionSandboxUrl.mockReset();
     buildPreviewUrl.mockReset();
     assertV0Key.mockReset();
     v0ChatsGetById.mockReset();
@@ -130,5 +136,38 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
 
     expect(response.status).toBe(200);
     expect(json).toEqual({ versions: [] });
+  });
+
+  it("persists sandbox URLs for own-engine versions", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1" },
+      version: { id: "ver_1" },
+    });
+    updateVersionSandboxUrl.mockResolvedValue(true);
+
+    const response = await PATCH(
+      new Request("https://example.com/api/v0/chats/chat_1/versions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver_1",
+          sandboxUrl: "https://sandbox.example/ver_1",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(updateVersionSandboxUrl).toHaveBeenCalledWith(
+      "ver_1",
+      "https://sandbox.example/ver_1",
+    );
+    expect(json).toEqual({
+      success: true,
+      versionId: "ver_1",
+      sandboxUrl: "https://sandbox.example/ver_1",
+    });
   });
 });

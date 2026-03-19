@@ -40,6 +40,25 @@ import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function parsePreviewOverride(
+  value: unknown,
+): { url: string | null; versionId: string | null } {
+  const record = asRecord(value);
+  const url =
+    typeof record?.url === "string" && record.url.trim().length > 0 ? record.url.trim() : null;
+  const versionId =
+    typeof record?.versionId === "string" && record.versionId.trim().length > 0
+      ? record.versionId.trim()
+      : null;
+  return { url, versionId };
+}
+
 export function useBuilderPageController() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -61,6 +80,8 @@ export function useBuilderPageController() {
     entryIntentActive, hasEntryParams, isIntentionalReset, paletteState,
     projectParam, promptId, promptParam, resolvedPrompt, selectedModelTier,
     selectedVersionId, serverProjectChatId, serverProjectDemoUrl,
+    serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId,
+    clearedPreviewVersionId,
     showStructuredChat, source, templateId, v0ProjectId,
     setApplyInstructionsOnce, setAppProjectId, setAppProjectName,
     setAuditPromptLoaded, setBuildIntent, setBuildMethod, setChatId,
@@ -72,6 +93,8 @@ export function useBuilderPageController() {
     setMessages, setPaletteState, setPreviewRefreshToken, setPromptAssistContext,
     setResolvedPrompt, setSelectedModelTier, setSelectedVersionId,
     setServerProjectChatId, setServerProjectDemoUrl, setServerProjectMessages,
+    setServerProjectPreviewOverrideUrl, setServerProjectPreviewOverrideVersionId,
+    setClearedPreviewVersionId,
     setShowStructuredChat, setV0ProjectId,
     applyingGenerationSettingsRef, autoProjectInitRef, featureWarnedRef,
     hasLoadedInstructions, hasLoadedInstructionsOnce, lastActiveVersionIdRef,
@@ -712,6 +735,9 @@ export function useBuilderPageController() {
       setServerProjectChatId(null);
       setServerProjectMessages([]);
       setServerProjectDemoUrl(null);
+      setServerProjectPreviewOverrideUrl(null);
+      setServerProjectPreviewOverrideVersionId(null);
+      setClearedPreviewVersionId(null);
       return;
     }
     const previousProjectId = lastProjectIdRef.current;
@@ -720,6 +746,9 @@ export function useBuilderPageController() {
       setServerProjectChatId(null);
       setServerProjectMessages([]);
       setServerProjectDemoUrl(null);
+      setServerProjectPreviewOverrideUrl(null);
+      setServerProjectPreviewOverrideVersionId(null);
+      setClearedPreviewVersionId(null);
     }
     let isActive = true;
     getProject(appProjectId)
@@ -750,6 +779,9 @@ export function useBuilderPageController() {
         const serverDemoUrl =
           typeof result.data?.demo_url === "string" ? result.data.demo_url : null;
         setServerProjectDemoUrl(serverDemoUrl);
+        const previewOverride = parsePreviewOverride(asRecord(result.data?.meta)?.previewOverride);
+        setServerProjectPreviewOverrideUrl(previewOverride.url);
+        setServerProjectPreviewOverrideVersionId(previewOverride.versionId);
       })
       .catch((error) => {
         console.warn("[Builder] Failed to load project name:", error);
@@ -768,7 +800,7 @@ export function useBuilderPageController() {
     return () => {
       isActive = false;
     };
-  }, [appProjectId, setAppProjectName, setPaletteState, paletteLoadedRef, lastPaletteSavedRef, lastProjectIdRef, setServerProjectChatId, setServerProjectMessages, setServerProjectDemoUrl, setAppProjectId]);
+  }, [appProjectId, setAppProjectName, setPaletteState, paletteLoadedRef, lastPaletteSavedRef, lastProjectIdRef, setServerProjectChatId, setServerProjectMessages, setServerProjectDemoUrl, setServerProjectPreviewOverrideUrl, setServerProjectPreviewOverrideVersionId, setClearedPreviewVersionId, setAppProjectId]);
 
   // Palette persist
   useEffect(() => {
@@ -1106,17 +1138,29 @@ export function useBuilderPageController() {
     const didChangeVersion = lastActiveVersionIdRef.current !== derived.activeVersionId;
     lastActiveVersionIdRef.current = derived.activeVersionId;
 
+    if (didChangeVersion && clearedPreviewVersionId && clearedPreviewVersionId !== derived.activeVersionId) {
+      setClearedPreviewVersionId(null);
+    }
+
     if (!didChangeVersion && currentDemoUrl) return;
+    if (!didChangeVersion && clearedPreviewVersionId === derived.activeVersionId) return;
 
     const activeVersionMatch = derived.activeVersionId
       ? derived.effectiveVersionsList.find(
           (v) => v.versionId === derived.activeVersionId || v.id === derived.activeVersionId,
         )
       : undefined;
+    const persistedPreviewOverride =
+      derived.activeVersionId &&
+      serverProjectPreviewOverrideVersionId === derived.activeVersionId &&
+      serverProjectPreviewOverrideUrl
+        ? serverProjectPreviewOverrideUrl
+        : null;
     const chatObj = chat as ChatData;
     const canUseServerDemoUrl =
       !serverProjectChatId || !chatId || serverProjectChatId === chatId;
     const nextDemoUrl =
+      persistedPreviewOverride ||
       activeVersionMatch?.demoUrl ||
       chatObj?.demoUrl ||
       chatObj?.latestVersion?.demoUrl ||
@@ -1128,7 +1172,7 @@ export function useBuilderPageController() {
       setCurrentDemoUrl(nextDemoUrl);
       setPreviewRefreshToken(Date.now());
     }
-  }, [derived.activeVersionId, chat, currentDemoUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, setCurrentDemoUrl, setPreviewRefreshToken]);
+  }, [derived.activeVersionId, chat, currentDemoUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentDemoUrl, setPreviewRefreshToken]);
 
   // Prompt assist context fetch
   useEffect(() => {
@@ -1306,6 +1350,7 @@ export function useBuilderPageController() {
     v0ProjectId: state.v0ProjectId,
     paletteState: state.paletteState,
     currentDemoUrl: state.currentDemoUrl,
+    serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,
     isVersionPanelCollapsed: state.isVersionPanelCollapsed,
     currentPageCode: state.currentPageCode,
@@ -1335,6 +1380,9 @@ export function useBuilderPageController() {
     setDomainManagerOpen: state.setDomainManagerOpen,
     setDomainQuery: state.setDomainQuery,
     setCurrentDemoUrl: state.setCurrentDemoUrl,
+    setServerProjectPreviewOverrideUrl: state.setServerProjectPreviewOverrideUrl,
+    setServerProjectPreviewOverrideVersionId: state.setServerProjectPreviewOverrideVersionId,
+    setClearedPreviewVersionId: state.setClearedPreviewVersionId,
     setChatId: state.setChatId,
     setMessages: state.setMessages,
 

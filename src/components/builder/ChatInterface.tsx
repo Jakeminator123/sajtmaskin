@@ -200,6 +200,7 @@ interface ChatInterfaceProps {
   mediaEnabled?: boolean;
   currentCode?: string;
   existingUiComponents?: string[];
+  continuePlanMode?: boolean;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -263,6 +264,7 @@ export function ChatInterface({
   mediaEnabled = false,
   currentCode,
   existingUiComponents,
+  continuePlanMode = false,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -654,7 +656,9 @@ export function ChatInterface({
     const trimmed = text.trim();
     if (!trimmed && !hasSuccessFiles) return;
     const baseMessage = trimmed || "Use the attached files as visual references for the design.";
-    await sendMessagePayload(baseMessage);
+    await sendMessagePayload(baseMessage, {
+      planMode: continuePlanMode || undefined,
+    });
   };
 
   const handleTextContentReady = async (content: string, filename: string) => {

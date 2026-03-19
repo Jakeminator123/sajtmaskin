@@ -110,7 +110,7 @@ Alla faser använder samma modell som tier:n anger — ingen downgrade till mini
 | **Postgres**           | Supabase DEV-projekt         | Supabase PROD-projekt        | Gratis (500 MB per projekt)                     |
 | **Redis (cache)**      | Upstash `sajtmaskin-dev`     | Upstash `sajtmaskin-prod`    | Dev: gratis (500K cmd/mån), Prod: pay-as-you-go |
 | **Redis (rate limit)** | Upstash REST (samma instans) | Upstash REST (samma instans) | Ingår i ovanstående                             |
-| **Blob storage**       | Vercel Blob                  | Vercel Blob                  | Ingår i Vercel Pro                              |
+| **Blob storage**       | Vercel Blob eller lokal fallback for vissa upload-floden | Vercel Blob | Ingår i Vercel Pro                              |
 | **Deploy**             | `npm run dev`                | Vercel Pro ($20/mån)         | -                                               |
 
 **Separation:** Dev och prod MÅSTE använda separata Redis- och Postgres-instanser.
@@ -248,7 +248,9 @@ Bildflöde i generering:
 
 - `AI_GATEWAY_API_KEY` ska finnas lokalt när du kör gateway-routes via `npm run dev` eller annan icke-Vercel-miljö.
 - På deployad Vercel-runtime kan samma flöden i stället autha via `VERCEL_OIDC_TOKEN`.
-- `BLOB_READ_WRITE_TOKEN` behövs för blob-backed preview-media och blob-lagrad backoffice-data.
+- `BLOB_READ_WRITE_TOKEN` behåller `@vercel/blob` som default provider och behövs för blob-backed preview-media och blob-lagrad backoffice-data.
+- Om `BLOB_READ_WRITE_TOKEN` saknas lokalt faller användaruppladdningar via `src/lib/vercel/blob-service.ts` tillbaka till lokal filsystemslagring under `data/uploads/`, serverad via `/api/uploads/media/...`.
+- Bildmaterialisering och annan funktion som uttryckligen behöver publik blob-URL fortsätter att kräva Blob-token och faller annars tillbaka till externa URL:er eller lokal JSON-lagring beroende på flöde.
 - Om `BLOB_CONTENT_KEY` och `BLOB_COLORS_KEY` lämnas osatta används env-specifika defaults: `backoffice/dev/...`, `backoffice/preview/...`, `backoffice/prod/...`.
 - Om du sätter samma explicita `BLOB_CONTENT_KEY` / `BLOB_COLORS_KEY` i alla miljöer delar dev, preview och prod samma blob-paths.
 

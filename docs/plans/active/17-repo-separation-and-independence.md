@@ -60,16 +60,18 @@ Remove verified dead code and unused dependencies:
 - [ ] Remove v0 SDK client (`src/lib/v0.ts`) — deferred: still needed for legacy v0 projects, templates
 - [ ] Remove `V0_API_KEY` from required env vars — deferred: still used by v0 project management routes
 
-### WS-3: Vercel Blob abstraction
+### WS-3: Vercel Blob abstraction — COMPLETED
+
+**Delivered 2026-03-19.**
 
 Create a `StorageProvider` interface so blob storage can be swapped:
 
-- [ ] Define `StorageProvider` interface (put, get, delete, list)
-- [ ] Implement `VercelBlobProvider` as current default
-- [ ] Implement `LocalFsProvider` for local development
-- [ ] Refactor `src/lib/vercel/blob-service.ts` consumers to use the interface
-- [ ] Refactor `src/lib/imageAssets.ts` consumers
-- [ ] Refactor `src/lib/templates/template-embeddings-storage.ts`
+- [x] Define `StorageProvider` interface (put, get, delete, list)
+- [x] Implement `VercelBlobProvider` as current default
+- [x] Implement `LocalFsProvider` for local development
+- [x] Refactor `src/lib/vercel/blob-service.ts` consumers to use the interface
+- [x] Refactor `src/lib/imageAssets.ts` consumers
+- [x] Refactor `src/lib/templates/template-embeddings-storage.ts`
 
 ### WS-4: AI Gateway replacement — COMPLETED
 
@@ -88,6 +90,9 @@ Create a `StorageProvider` interface so blob storage can be swapped:
 - [ ] Consider git-lfs or build-time generation for files > 1 MB
 - [ ] Evaluate whether `research/` can be moved to a separate repo or submodule
 - [ ] Clean up `docs/old/` — remove anything with zero reference value
+
+Audit note:
+- `2026-03-19`: requested PowerShell scan of `src/**/*.json` over `1 MB` returned no matches, so this repo slice currently needs neither `.gitignore` additions nor `git rm --cached`.
 
 ### WS-6: Optional service scope decisions
 

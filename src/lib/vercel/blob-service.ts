@@ -1,31 +1,11 @@
-/**
- * Centralized Vercel Blob Storage Service
- * ========================================
- *
- * All blob operations go through this service to ensure:
- * 1. Consistent tenant/user isolation via path prefixes
- * 2. Single source of truth for blob configuration
- * 3. Easy to audit and maintain
- *
- * PATH STRUCTURE:
- * All files are stored with user isolation:
- *   {userId}/media/{filename}           - User's media library files
- *   {userId}/projects/{projectId}/{...} - Project-specific files
- *   {userId}/ai-images/{filename}       - AI-generated images (no project)
- *
- * This ensures:
- * - Each user's files are namespaced under their ID
- * - Easy GDPR deletion (delete everything under userId/)
- * - Clear audit trail
- * - No accidental cross-user file access
- *
- * NOTE: This file can be imported by client components.
- * Local file storage is handled in API routes, not here.
- */
-
-// ============================================================================
-// TYPES
-// ============================================================================
+import path from "path";
+import { PATHS } from "@/lib/config";
+import {
+  LocalFsProvider,
+  VercelBlobProvider,
+  type StorageObjectInfo,
+  type StorageProvider,
+} from "@/lib/storage";
 
 export interface BlobUploadResult {
   url: string;
@@ -42,55 +22,30 @@ export interface BlobUploadOptions {
   category?: "media" | "ai-images" | "project-files";
 }
 
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
-// Track if blob warning has been logged (module-level to avoid spam)
 let _blobWarningLogged = false;
 const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
 
-/**
- * Check if Vercel Blob is configured
- *
- * CRITICAL: Without BLOB_READ_WRITE_TOKEN, AI-generated images will NOT work
- * in v0's preview! v0's demoUrl is hosted on v0's servers (vusercontent.net)
- * which cannot access local files - they need public URLs from Vercel Blob.
- */
 export function isBlobConfigured(): boolean {
-  const configured = !!process.env.BLOB_READ_WRITE_TOKEN;
+  const configured = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
-  // Log warning once per process if not configured
   if (!configured && !_blobWarningLogged) {
     _blobWarningLogged = true;
     console.warn(
-      "[BlobService] ⚠️ BLOB_READ_WRITE_TOKEN not configured!\n" +
-        "  → AI-generated images will NOT appear in v0 preview\n" +
-        "  → Set BLOB_READ_WRITE_TOKEN in .env.local to enable\n" +
-        "  → Get token from: https://vercel.com/dashboard/stores",
+      "[BlobService] ⚠️ BLOB_READ_WRITE_TOKEN not configured.\n" +
+        "  → Falling back to local filesystem storage for user uploads\n" +
+        "  → Preview/share flows that need public blob URLs should still use Vercel Blob",
     );
   }
 
   return configured;
 }
 
-// ============================================================================
-// PATH HELPERS (no fs dependencies)
-// ============================================================================
-
-/**
- * Get file extension from filename (without using path module)
- */
 function getExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
   if (lastDot === -1 || lastDot === 0) return ".png";
   return filename.substring(lastDot);
 }
 
-/**
- * Build an isolated blob path with user prefix
- * This is the core of our tenant isolation strategy
- */
 export function buildBlobPath(
   userId: string,
   filename: string,
@@ -100,20 +55,12 @@ export function buildBlobPath(
   },
 ): string {
   const category = options?.category || "media";
-
-  // All paths start with userId for isolation
   if (options?.projectId) {
-    // Project-specific files: {userId}/projects/{projectId}/{category}/{filename}
     return `${userId}/projects/${options.projectId}/${category}/${filename}`;
   }
-
-  // User-level files: {userId}/{category}/{filename}
   return `${userId}/${category}/${filename}`;
 }
 
-/**
- * Generate a unique filename with timestamp
- */
 export function generateUniqueFilename(originalName: string, prefix?: string): string {
   const ext = getExtension(originalName);
   const timestamp = Date.now();
@@ -122,86 +69,48 @@ export function generateUniqueFilename(originalName: string, prefix?: string): s
   return `${prefixStr}${timestamp}_${random}${ext}`;
 }
 
-// ============================================================================
-// UPLOAD FUNCTIONS
-// ============================================================================
+export async function uploadBlob(options: BlobUploadOptions): Promise<BlobUploadResult | null> {
+  const { userId, filename, buffer, contentType, projectId, category } = options;
+  const storagePath = buildBlobPath(userId, filename, { projectId, category });
+  const provider = getDefaultUploadProvider();
 
-/**
- * Upload a file to Vercel Blob storage
- * Returns null if blob storage is not configured
- */
-async function uploadToVercelBlob(
-  blobPath: string,
-  buffer: Buffer,
-  contentType: string,
-): Promise<{ url: string } | null> {
-  if (buffer.length > MAX_SERVER_UPLOAD_BYTES) {
+  if (provider.kind === "blob" && buffer.length > MAX_SERVER_UPLOAD_BYTES) {
     console.warn(
       `[BlobService] Upload too large for server route (${buffer.length} bytes). ` +
         "Use client uploads for files > 4.5MB.",
     );
     return null;
   }
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.info("[BlobService] ⚠️ BLOB_READ_WRITE_TOKEN not configured");
-    return null;
-  }
 
   try {
-    const { put } = await import("@vercel/blob");
-    const blob = await put(blobPath, buffer, {
+    const stored = await provider.put(storagePath, buffer, {
       access: "public",
       contentType,
-      addRandomSuffix: false, // We handle uniqueness in filename
+      addRandomSuffix: false,
     });
+    const url = stored.url ?? stored.fsPath;
 
-    console.info("[BlobService] ✅ Uploaded to Vercel Blob:", blobPath);
-    return { url: blob.url };
+    if (!url) {
+      console.error("[BlobService] Upload completed without a readable URL/path:", storagePath);
+      return null;
+    }
+
+    console.info(
+      `[BlobService] ✅ Uploaded via ${provider.kind === "blob" ? "Vercel Blob" : "LocalFs"}:`,
+      storagePath,
+    );
+
+    return {
+      url,
+      path: storagePath,
+      storageType: provider.kind === "blob" ? "blob" : "local",
+    };
   } catch (error) {
-    console.error("[BlobService] ❌ Vercel Blob upload failed:", error);
+    console.error("[BlobService] ❌ Upload failed:", error);
     return null;
   }
 }
 
-/**
- * Main upload function - uploads to Vercel Blob
- * Local fallback should be handled in API routes if needed
- *
- * @example
- * // Upload a media file
- * const result = await uploadBlob({
- *   userId: "user_123",
- *   filename: "avatar.png",
- *   buffer: imageBuffer,
- *   contentType: "image/png",
- *   category: "media"
- * });
- */
-export async function uploadBlob(options: BlobUploadOptions): Promise<BlobUploadResult | null> {
-  const { userId, filename, buffer, contentType, projectId, category } = options;
-
-  // Build isolated path
-  const blobPath = buildBlobPath(userId, filename, { projectId, category });
-
-  // Upload to Vercel Blob
-  const blobResult = await uploadToVercelBlob(blobPath, buffer, contentType);
-
-  if (blobResult) {
-    return {
-      url: blobResult.url,
-      path: blobPath,
-      storageType: "blob",
-    };
-  }
-
-  // Return null - local fallback handled in API routes
-  console.info("[BlobService] ⚠️ Upload failed, fallback to local in API route");
-  return null;
-}
-
-/**
- * Upload from base64 string (convenience for AI-generated images)
- */
 export async function uploadBlobFromBase64(
   userId: string,
   base64: string,
@@ -224,68 +133,77 @@ export async function uploadBlobFromBase64(
   });
 }
 
-// ============================================================================
-// DELETE FUNCTIONS
-// ============================================================================
-
-/**
- * Delete a blob from Vercel Blob storage
- */
-export async function deleteBlob(url: string): Promise<boolean> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.info("[BlobService] ⚠️ Cannot delete - BLOB_READ_WRITE_TOKEN not configured");
+export async function deleteBlob(target: string): Promise<boolean> {
+  const provider = getDeleteProvider(target);
+  if (!provider) {
+    console.info("[BlobService] ⚠️ Cannot delete - no matching storage provider configured");
     return false;
   }
 
   try {
-    const { del } = await import("@vercel/blob");
-    await del(url);
-    console.info("[BlobService] ✅ Deleted from Vercel Blob:", url);
-    return true;
+    const deleted = await provider.delete(target);
+    if (deleted) {
+      console.info(
+        `[BlobService] ✅ Deleted from ${provider.kind === "blob" ? "Vercel Blob" : "LocalFs"}:`,
+        target,
+      );
+    }
+    return deleted;
   } catch (error) {
     console.error("[BlobService] ❌ Delete failed:", error);
     return false;
   }
 }
 
-// ============================================================================
-// LIST FUNCTIONS
-// ============================================================================
-
-/**
- * List all blobs for a user (useful for GDPR deletion)
- */
 export async function listUserBlobs(
   userId: string,
   options?: { prefix?: string; limit?: number },
 ): Promise<string[]> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return [];
-  }
+  const provider = getDefaultUploadProvider();
+  const prefix = options?.prefix ? `${userId}/${options.prefix}` : userId;
 
   try {
-    const { list } = await import("@vercel/blob");
-    const prefix = options?.prefix ? `${userId}/${options.prefix}` : `${userId}/`;
-
-    const result = await list({
+    const items = await provider.list({
       prefix,
       limit: options?.limit || 1000,
     });
-
-    return result.blobs.map((blob) => blob.url);
+    return items
+      .filter((item) => matchesPathBoundary(item, prefix))
+      .map((item) => item.url ?? item.fsPath ?? item.pathname);
   } catch (error) {
     console.error("[BlobService] ❌ List failed:", error);
     return [];
   }
 }
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-/**
- * Check if a URL is from Vercel Blob storage
- */
 export function isVercelBlobUrl(url: string): boolean {
   return url.includes(".blob.vercel-storage.com");
+}
+
+function getDefaultUploadProvider(): StorageProvider {
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    return new VercelBlobProvider({ token: process.env.BLOB_READ_WRITE_TOKEN });
+  }
+  return createLocalUploadProvider();
+}
+
+function getDeleteProvider(target: string): StorageProvider | null {
+  if (isVercelBlobUrl(target)) {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return null;
+    }
+    return new VercelBlobProvider({ token: process.env.BLOB_READ_WRITE_TOKEN });
+  }
+  return createLocalUploadProvider();
+}
+
+function createLocalUploadProvider(): StorageProvider {
+  return new LocalFsProvider({
+    rootDir: path.join(PATHS.uploads, "media"),
+    publicUrlBase: "/api/uploads/media",
+  });
+}
+
+function matchesPathBoundary(item: StorageObjectInfo, prefix: string): boolean {
+  return item.pathname === prefix || item.pathname.startsWith(`${prefix}/`);
 }
