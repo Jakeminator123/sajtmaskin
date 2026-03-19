@@ -49,16 +49,16 @@ export interface FinalizeParams {
   resolvedTier?: CanonicalModelId;
   originalPrompt?: string;
   buildIntent?: BuildIntent;
+  buildMethod?: string;
   routePlan?: RoutePlan | null;
   resolvedScaffold: ScaffoldManifest | null;
+  scaffoldAlternatives?: string[];
   urlMap: Record<string, string>;
   startedAt: number;
   runAutofix?: boolean;
   tokenUsage?: { prompt?: number; completion?: number };
   logNote?: string;
-  /** For follow-up: merge generated files against previous version instead of scaffold base */
   previousFiles?: CodeFile[];
-  /** Optional callback for emitting progress SSE events during finalization */
   onProgress?: FinalizeProgressCallback;
 }
 
@@ -329,8 +329,11 @@ export async function finalizeAndSaveVersion(
       chatId,
       versionId: version.id,
       scaffoldId: resolvedScaffold?.id ?? null,
+      scaffoldAlternatives: params.scaffoldAlternatives ?? null,
       model,
+      modelTier: resolvedTier ?? null,
       buildIntent: buildIntent ?? null,
+      buildMethod: params.buildMethod ?? null,
       retryCount: 0,
       autofixApplied: runAutofix,
       syntaxFixerUsed: syntaxResult.fixerUsed,

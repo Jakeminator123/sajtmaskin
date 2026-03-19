@@ -1,4 +1,4 @@
-export type AdminTab = "analytics" | "database" | "environment" | "frontlogs";
+export type AdminTab = "analytics" | "database" | "environment" | "frontlogs" | "telemetry";
 
 export interface AnalyticsStats {
   days: number;

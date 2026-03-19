@@ -966,14 +966,40 @@ export function resolveToolLabels(tool: Partial<ToolUIPart> & { type?: string })
 
 export function buildAgentLogItems(toolParts: ToolPart[]) {
   const items: AgentLogItem[] = [];
+  let addedScaffoldLine = false;
+  let addedModelLine = false;
+
   toolParts.forEach((part) => {
     const tool = part.tool as Partial<ToolUIPart> & { type?: string; input?: unknown };
     const toolState = (
       typeof tool.state === "string" ? tool.state : "input-available"
     ) as ToolUIPart["state"];
     const { toolTitle } = resolveToolLabels(tool);
-    const steps = extractToolSteps(tool);
 
+    const outputObj =
+      tool.output && typeof tool.output === "object" && !Array.isArray(tool.output)
+        ? (tool.output as Record<string, unknown>)
+        : null;
+    if (!addedModelLine && outputObj) {
+      const modelId = typeof outputObj.modelId === "string" ? outputObj.modelId : null;
+      const profileLabel = typeof outputObj.buildProfileLabel === "string" ? outputObj.buildProfileLabel : null;
+      if (modelId) {
+        items.push({ label: `Modell: ${profileLabel ? `${profileLabel} (${modelId})` : modelId}` });
+        addedModelLine = true;
+      }
+    }
+    if (!addedScaffoldLine && outputObj) {
+      const scaffoldId = typeof outputObj.scaffoldId === "string" ? outputObj.scaffoldId : null;
+      const scaffoldFamily = typeof outputObj.scaffoldFamily === "string" ? outputObj.scaffoldFamily : null;
+      const scaffoldLabel = typeof outputObj.scaffoldLabel === "string" ? outputObj.scaffoldLabel : null;
+      if (scaffoldId) {
+        const label = scaffoldLabel || scaffoldId;
+        items.push({ label: `Scaffold: ${label}${scaffoldFamily ? ` [${scaffoldFamily}]` : ""}` });
+        addedScaffoldLine = true;
+      }
+    }
+
+    const steps = extractToolSteps(tool);
     if (steps.length > 0) {
       steps.forEach((step) => {
         items.push({ label: step });

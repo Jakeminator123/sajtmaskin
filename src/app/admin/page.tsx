@@ -23,6 +23,7 @@ import { AdminAnalyticsTab } from "./components/AdminAnalyticsTab";
 import { AdminDatabaseTab } from "./components/AdminDatabaseTab";
 import { AdminEnvironmentTab } from "./components/AdminEnvironmentTab";
 import { AdminFrontlogsTab } from "./components/AdminFrontlogsTab";
+import { AdminTelemetryTab } from "./components/AdminTelemetryTab";
 import type {
   AdminTab,
   AnalyticsStats,
@@ -41,6 +42,7 @@ const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   database: "Databaser",
   environment: "Miljö",
   frontlogs: "Frontloggar",
+  telemetry: "Telemetri",
 };
 
 export default function AdminPage() {
@@ -74,6 +76,9 @@ export default function AdminPage() {
   const [teamStatus, setTeamStatus] = useState<TeamStatus | null>(null);
   const [teamStatusLoading, setTeamStatusLoading] = useState(false);
   const [templateSyncStatus, setTemplateSyncStatus] = useState<TemplateSyncStatus | null>(null);
+  const [telemetryRecords, setTelemetryRecords] = useState<Array<Record<string, unknown>>>([]);
+  const [telemetryLoading, setTelemetryLoading] = useState(false);
+  const [telemetryError, setTelemetryError] = useState<string | null>(null);
 
   const handlePrintCurrentTab = () => {
     if (typeof window === "undefined") return;
@@ -299,6 +304,25 @@ export default function AdminPage() {
       fetchFrontlogs();
     }
   }, [activeTab, isAuthenticated, selectedFrontlogSlug]);
+
+  useEffect(() => {
+    if (activeTab !== "telemetry" || !isAuthenticated) return;
+    setTelemetryLoading(true);
+    setTelemetryError(null);
+    fetch("/api/admin/telemetry?limit=50")
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) {
+          setTelemetryError(data?.error || "Kunde inte hämta telemetri");
+          return;
+        }
+        setTelemetryRecords(Array.isArray(data.records) ? data.records : []);
+      })
+      .catch((err) => {
+        setTelemetryError(err instanceof Error ? err.message : "Kunde inte hämta telemetri");
+      })
+      .finally(() => setTelemetryLoading(false));
+  }, [activeTab, isAuthenticated]);
 
   useEffect(() => {
     if (!envStatus?.vercel?.projectId || selectedVercelProjectId) return;
@@ -689,6 +713,14 @@ export default function AdminPage() {
             selectedSlug={selectedFrontlogSlug}
             onSlugChange={setSelectedFrontlogSlug}
             onRefresh={() => fetchFrontlogs()}
+          />
+        </TabsContent>
+
+        <TabsContent value="telemetry" className="admin-print-panel" data-admin-tab="telemetry">
+          <AdminTelemetryTab
+            records={telemetryRecords as any}
+            isLoading={telemetryLoading}
+            error={telemetryError}
           />
         </TabsContent>
         </Tabs>
