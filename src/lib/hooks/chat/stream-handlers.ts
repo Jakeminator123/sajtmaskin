@@ -391,7 +391,16 @@ export async function handleSseStream(
             break;
           }
           case "integration": {
-            const signals = coerceIntegrationSignals(data);
+            const rawSignals = coerceIntegrationSignals(data);
+            const signals = rawSignals.filter((s) => {
+              const name = s.name || s.provider || s.key || "";
+              if (!name || name === "UNKNOWN") return false;
+              const envVars = Array.isArray(s.envVars)
+                ? s.envVars.filter((v) => typeof v === "string" && v !== "UNKNOWN" && /^[A-Z][A-Z0-9_]+$/.test(v))
+                : [];
+              s.envVars = envVars.length > 0 ? envVars : undefined;
+              return true;
+            });
             if (signals.length > 0) {
               const integrationParts = signals.map((s, i) =>
                 integrationSignalToToolPart(s, `${assistantMessageId}:${i}`),

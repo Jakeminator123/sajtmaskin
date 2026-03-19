@@ -22,7 +22,7 @@ export type EngineVersionLifecycleLike = {
 
 export type EngineVersionLifecycleStatus = "draft" | "verifying" | "failed" | "promoted";
 
-export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
+export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying" | "preview-ready";
 
 export type QualityTier = "none" | "preview" | "sandbox" | "production";
 
@@ -60,10 +60,15 @@ export function resolveEngineVersionLifecycleStatus(
 export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecycleLike>(
   version: T | null | undefined,
   versions: T[] = [],
+  opts?: { hasDemoUrl?: boolean },
 ): EngineVersionDisplayStatus {
   const lifecycleStatus = resolveEngineVersionLifecycleStatus(version);
   if (lifecycleStatus !== "failed" || !version) {
     return lifecycleStatus;
+  }
+
+  if (opts?.hasDemoUrl !== false) {
+    return "preview-ready";
   }
 
   const currentSortKey = getVersionSortKey(version);

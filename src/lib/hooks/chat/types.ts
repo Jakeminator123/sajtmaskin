@@ -121,6 +121,7 @@ export type IntegrationSseSignal = {
   envVars?: string[];
   marketplaceUrl?: string | null;
   sourceEvent?: string | null;
+  signalSource?: "model-chosen" | "code-detected";
 };
 
 export type DesignTokenSummary = {

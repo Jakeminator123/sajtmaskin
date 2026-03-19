@@ -383,11 +383,10 @@ const MessageListComponent = ({
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="font-semibold text-amber-300">
-                  Svar krävs för att fortsätta
+                  AI behöver ditt val
                 </DialogTitle>
                 <DialogDescription>
-                  Buildern väntar på ditt svar innan nästa steg kan fortsätta. Det kan gälla till
-                  exempel integrationer, innehåll, designval eller planblockerare.
+                  Välj ett alternativ nedan eller skriv ett eget svar i chatten.
                 </DialogDescription>
               </DialogHeader>
 

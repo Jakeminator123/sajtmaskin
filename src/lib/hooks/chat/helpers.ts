@@ -590,6 +590,7 @@ export function integrationSignalToToolPart(
 ): UiMessagePart {
   const toolCallId = signal.key ? `integration:${signal.key}` : `integration:${fallbackId}`;
   const displayName = resolveIntegrationDisplayName(signal);
+  const signalSource = signal.signalSource ?? "model-chosen";
   return {
     type: "tool:integration-suggestion",
     toolName: displayName,
@@ -599,6 +600,7 @@ export function integrationSignalToToolPart(
       ...signal,
       envVars: filterEnvVars(signal.envVars),
       steps: buildIntegrationSteps(signal),
+      signalSource,
     },
   } as UiMessagePart;
 }

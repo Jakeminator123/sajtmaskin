@@ -245,10 +245,21 @@ export function StructuredToolParts({
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
         const toolHasData = hasToolData(tool as ToolUIPart);
+        const integrationSignalSource =
+          tool.output && typeof tool.output === "object" && !Array.isArray(tool.output)
+            ? (tool.output as Record<string, unknown>).signalSource
+            : null;
+        const isCodeDetected = integrationSignalSource === "code-detected";
 
         return (
           <Tool key={`${messageId}-tool-${toolType}-${index}`} defaultOpen={toolHasData}>
             <ToolHeader title={toolTitle} type={toolType} state={toolState} />
+            {isCodeDetected && (
+              <div className="mx-3 mb-2 mt-1 flex items-center gap-1.5">
+                <span className="rounded-full border border-gray-600 bg-gray-800 px-1.5 py-0.5 text-[9px] text-gray-400">heuristisk</span>
+                <span className="text-[10px] text-gray-500">Detekterad fran koden. Behover inte konfigureras om mockad data anvands.</span>
+              </div>
+            )}
             <ToolContent>
               {!pendingReply && !hasUserAfterCurrentMessage && replyPrompt && (
                 <div className="mb-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs">

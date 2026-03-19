@@ -2206,6 +2206,20 @@ export function PreviewPanel({
 
   const handleIframeError = useCallback(() => {
     clearPreviewReadyTimer();
+
+    const looksLikeSandbox = demoUrl
+      ? /sandbox/i.test((() => { try { return new URL(demoUrl, "http://localhost").hostname; } catch { return demoUrl; } })())
+      : false;
+    if (looksLikeSandbox && chatId && versionId) {
+      const runtimeUrl = `/api/preview-render?chatId=${encodeURIComponent(chatId)}&versionId=${encodeURIComponent(versionId)}`;
+      console.info("[PreviewPanel] Sandbox preview failed, falling back to runtime preview");
+      onNavigatePreviewUrl?.(runtimeUrl);
+      setIframeLoading(true);
+      setIframeError(false);
+      setIframeErrorMessage(null);
+      return;
+    }
+
     setIframeLoading(false);
     setIframeError(true);
     setIframeErrorMessage(describePreviewDiagnosticCode("preview_transport_error"));
@@ -2218,7 +2232,7 @@ export function PreviewPanel({
         source: "preview-iframe",
       });
     }
-  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportOwnEngineRenderFailure]);
+  }, [clearPreviewReadyTimer, demoUrl, chatId, versionId, onNavigatePreviewUrl, isOwnEnginePreview, reportOwnEngineRenderFailure]);
 
   const handleRefresh = () => {
     clearPreviewReadyTimer();
@@ -2379,23 +2393,9 @@ export function PreviewPanel({
         {awaitingInput && normalizedAwaitingQuestion ? (
           <div className="mt-4 max-w-xl space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">
             <p className="text-sm font-semibold text-amber-100">{normalizedAwaitingQuestion}</p>
-            {normalizedAwaitingOptions.length > 0 ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                {normalizedAwaitingOptions.map((option) => (
-                  <Badge
-                    key={option}
-                    variant="secondary"
-                    className="border border-amber-500/20 bg-amber-500/10 text-amber-100"
-                  >
-                    {option}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-amber-200/80">
-                Svara i chatten till vänster för att fortsätta.
-              </p>
-            )}
+            <p className="text-xs text-amber-200/80">
+              Svara via snabbknapparna i chatten till vänster.
+            </p>
           </div>
         ) : null}
         {showFixAction && (

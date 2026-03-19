@@ -502,27 +502,32 @@ export function VersionHistory({
                 releaseState: entry.releaseState,
                 verificationState: entry.verificationState,
               })),
+              { hasDemoUrl: Boolean(version.demoUrl) },
             );
             const lifecycleLabel =
               lifecycleStatus === "promoted"
                 ? "Promoted"
-                : lifecycleStatus === "verifying"
-                  ? "Verifying"
-                  : lifecycleStatus === "retrying"
-                    ? "Omtag"
-                    : lifecycleStatus === "failed"
-                      ? "Fel"
-                      : "Draft";
+                : lifecycleStatus === "preview-ready"
+                  ? "Preview-klar"
+                  : lifecycleStatus === "verifying"
+                    ? "Verifying"
+                    : lifecycleStatus === "retrying"
+                      ? "Omtag"
+                      : lifecycleStatus === "failed"
+                        ? "Fel"
+                        : "Draft";
             const lifecycleBadgeVariant =
               lifecycleStatus === "failed"
                 ? "destructive"
-                : lifecycleStatus === "promoted"
-                  ? "default"
-                  : lifecycleStatus === "retrying"
-                    ? "outline"
-                    : "secondary";
+                : lifecycleStatus === "preview-ready"
+                  ? "outline"
+                  : lifecycleStatus === "promoted"
+                    ? "default"
+                    : lifecycleStatus === "retrying"
+                      ? "outline"
+                      : "secondary";
             const lifecycleBadgeClassName =
-              lifecycleStatus === "retrying"
+              lifecycleStatus === "retrying" || lifecycleStatus === "preview-ready"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
                 : undefined;
             const qualityTier = resolveQualityTier(
