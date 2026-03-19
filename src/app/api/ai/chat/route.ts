@@ -89,7 +89,8 @@ function getAnthropicApiKey(): string | null {
 }
 
 function resolveAnthropicModelId(model: string): string {
-  return model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
+  const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
+  return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
 }
 
 function isProbablyOnVercel(): boolean {

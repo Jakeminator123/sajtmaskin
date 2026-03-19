@@ -22,7 +22,8 @@ export function getOpenAIModel(modelId?: string) {
         "ANTHROPIC_API_KEY is not configured. Set it in your environment to use Anthropic models.",
       );
     }
-    return createAnthropic({ apiKey })(id);
+    const normalizedId = id.replace(/(\d+)\.(\d+)$/g, "$1-$2");
+    return createAnthropic({ apiKey })(normalizedId);
   }
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();

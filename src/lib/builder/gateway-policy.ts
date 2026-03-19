@@ -31,7 +31,8 @@ export function createDirectModel(model: string): LanguageModel {
     if (!apiKey) {
       throw new Error("ANTHROPIC_API_KEY is required for Anthropic models.");
     }
-    return createAnthropic({ apiKey })(modelId);
+    const normalizedModelId = modelId.replace(/(\d+)\.(\d+)$/g, "$1-$2");
+    return createAnthropic({ apiKey })(normalizedModelId);
   }
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
