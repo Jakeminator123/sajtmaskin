@@ -77,7 +77,7 @@ export function BuildPlanCard({ rawPlan, onApproveBuild, approveDisabled = false
           <Badge variant="outline">{plan.pages.length} sidor</Badge>
         ) : null}
         {unresolvedBlockers.length > 0 ? (
-          <Badge variant="destructive">{unresolvedBlockers.length} blockerare</Badge>
+          <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-200">{unresolvedBlockers.length} öppna frågor</Badge>
         ) : null}
         {plan.scaffold?.label ? <Badge variant="outline">{plan.scaffold.label}</Badge> : null}
       </div>

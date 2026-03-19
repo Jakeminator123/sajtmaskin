@@ -545,10 +545,23 @@ function mergeIntegrationSignalsByProvider(
   return merged;
 }
 
+function resolveIntegrationDisplayName(signal: IntegrationSseSignal): string {
+  const candidates = [signal.name, signal.provider, signal.key].filter(
+    (v): v is string => typeof v === "string" && v.trim().length > 0 && v !== "UNKNOWN",
+  );
+  return candidates[0] ?? "Integration";
+}
+
+function filterEnvVars(envVars: string[] | undefined): string[] {
+  if (!Array.isArray(envVars)) return [];
+  return envVars.filter(
+    (v) => typeof v === "string" && /^[A-Z][A-Z0-9_]+$/.test(v) && v !== "UNKNOWN",
+  );
+}
+
 function buildIntegrationSteps(signal: IntegrationSseSignal): string[] {
   const steps: string[] = [];
-  const displayName =
-    signal.provider ?? signal.name ?? "Integration";
+  const displayName = resolveIntegrationDisplayName(signal);
   steps.push(`Integration: ${displayName}`);
   if (signal.intent) {
     const label =
@@ -561,11 +574,9 @@ function buildIntegrationSteps(signal: IntegrationSseSignal): string[] {
             : "Konfigurera";
     steps.push(`Åtgärd: ${label}`);
   }
-  if (signal.envVars && signal.envVars.length > 0) {
-    const realKeys = signal.envVars.filter((v) => /^[A-Z][A-Z0-9_]+$/.test(v));
-    if (realKeys.length > 0) {
-      steps.push(`Miljövariabler: ${realKeys.join(", ")}`);
-    }
+  const realKeys = filterEnvVars(signal.envVars);
+  if (realKeys.length > 0) {
+    steps.push(`Miljövariabler: ${realKeys.join(", ")}`);
   }
   if (signal.status) {
     steps.push(`Status: ${signal.status}`);
@@ -578,13 +589,15 @@ export function integrationSignalToToolPart(
   fallbackId: string,
 ): UiMessagePart {
   const toolCallId = signal.key ? `integration:${signal.key}` : `integration:${fallbackId}`;
+  const displayName = resolveIntegrationDisplayName(signal);
   return {
     type: "tool:integration-suggestion",
-    toolName: "Integration suggestion",
+    toolName: displayName,
     toolCallId,
     state: "output-available",
     output: {
       ...signal,
+      envVars: filterEnvVars(signal.envVars),
       steps: buildIntegrationSteps(signal),
     },
   } as UiMessagePart;

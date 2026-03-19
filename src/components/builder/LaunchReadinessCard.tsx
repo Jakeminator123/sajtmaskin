@@ -20,8 +20,8 @@ function openProjectEnvVarsPanel(envKeys?: string[]) {
 function statusBadge(readiness: ChatReadiness) {
   if (readiness.status === "blocked") {
     return {
-      label: `${readiness.blockers.length} blocker${readiness.blockers.length === 1 ? "" : "are"}`,
-      className: "border-red-500/30 bg-red-500/10 text-red-200",
+      label: `${readiness.blockers.length} försteg kvar`,
+      className: "border-amber-500/30 bg-amber-500/10 text-amber-200",
     };
   }
 

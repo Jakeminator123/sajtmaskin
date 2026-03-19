@@ -225,7 +225,7 @@ export function BuilderHeader(props: {
   const { isAuthenticated, logout } = useAuth();
   const readinessLabel =
     deployReadiness?.status === "blocked"
-      ? `${deployReadiness.blockers.length} blocker${deployReadiness.blockers.length === 1 ? "" : "are"}`
+      ? `${deployReadiness.blockers.length} försteg kvar`
       : deployReadiness?.status === "warning"
         ? `${deployReadiness.warnings.length} varning${deployReadiness.warnings.length === 1 ? "" : "ar"}`
         : deployReadiness
@@ -233,7 +233,7 @@ export function BuilderHeader(props: {
           : null;
   const readinessBadgeClassName =
     deployReadiness?.status === "blocked"
-      ? "border-red-500/30 bg-red-500/10 text-red-200"
+      ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
       : deployReadiness?.status === "warning"
         ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
         : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
