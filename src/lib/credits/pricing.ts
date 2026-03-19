@@ -39,6 +39,7 @@ const PROMPT_CREATE_COSTS: Record<ModelTier, number> = {
   pro: 7,
   max: 10,
   codex: 10,
+  anthropic: 10,
 };
 
 const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
@@ -46,6 +47,7 @@ const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
   pro: 4,
   max: 6,
   codex: 6,
+  anthropic: 6,
 };
 
 // QUALITY_TO_MODEL, MODEL_LABELS, and legacy alias mapping are

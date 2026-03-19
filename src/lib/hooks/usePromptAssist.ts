@@ -10,6 +10,7 @@ import {
   normalizeAssistModel,
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
+import { DEFAULT_PROMPT_POLISH_MODEL } from "@/lib/builder/defaults";
 import type { WebsiteSpec } from "@/lib/builder/promptAssistContext";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -124,7 +125,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
   const maybeEnhanceInitialPrompt = useCallback(
     async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
       const mode = options.mode ?? "rewrite";
-      const polishModelOverride = mode === "polish" ? "openai/gpt-5.3-codex" : undefined;
+      const polishModelOverride = mode === "polish" ? DEFAULT_PROMPT_POLISH_MODEL : undefined;
       const normalizedModel = normalizeAssistModel(options.modelOverride ?? polishModelOverride ?? model);
       if (isPromptAssistOff(normalizedModel)) {
         debugLog("AI", "Prompt assist off – skipping", { model: normalizedModel });

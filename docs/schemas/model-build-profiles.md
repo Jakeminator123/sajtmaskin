@@ -2,59 +2,82 @@
 
 ## Scope
 
-This document describes the builder's current model/build-profile schema.
+This document describes the builder's active model surfaces and how they differ.
 
 Primary code sources:
 
 - `src/lib/models/catalog.ts`
 - `src/lib/models/selection.ts`
+- `src/lib/models/phase-routing.ts`
 - `src/lib/validations/chatSchemas.ts`
-- `package.json`
+- `src/lib/builder/defaults.ts`
+- `src/lib/builder/promptAssist.ts`
 
-## Core rule
+## Three model lanes + one flag
 
-The builder now uses neutral internal build-profile IDs:
+The builder UI exposes multiple controls, but they belong to different lanes:
+
+1. `Byggmodell` controls the **model lane** (build lane):
+   selects one build profile: `fast`, `pro`, `max`, `codex`, or `anthropic`.
+2. `Forbattra` controls the **product lane** (prompt-assist lane):
+   selects provider/model strings used before generation.
+3. `Skriv om` controls the **polish lane**:
+   low-cost, fast, text-only prompt rewrite.
+4. `Thinking` is a separate generation flag, not a lane.
+
+Important rules:
+
+- Do not mix model-lane build-profile IDs with product-lane model strings.
+- Do not treat `Thinking` as a lane or as a fifth tier.
+- `Anthropic` is a lane option, not an extra layer on top.
+
+## Model lane build profiles
+
+The builder's internal build profiles are:
 
 - `fast`
 - `pro`
 - `max`
 - `codex`
+- `anthropic`
 
-These are internal profile IDs used by both the own engine and the explicit v0
-fallback path.
+These are neutral internal profile IDs.
 
 They are not the same thing as:
 
-- v0 Platform API model IDs such as `v0-max-fast`
-- prompt-assist provider model IDs
-- raw OpenAI model IDs such as `gpt-5.4`
+- v0 Platform API model IDs such as `v0-1.5-lg`
+- prompt-assist model strings such as `openai/gpt-5.4`
+- concrete provider model IDs such as `gpt-5.4` or `claude-sonnet-4.6`
 
-## Default profile
+## Default selection
 
-- default profile: `max`
-- default own-engine code model: `gpt-5.3-codex`
+- default selected build profile: `max`
+- default resolved own-engine build model: `gpt-5.4`
+- default prompt-assist model: `openai/gpt-5.4`
+- default polish model: `openai/gpt-5.3-codex`
+
+## Build profile mapping
+
+| Profile | UI label | Env key | Default own-engine model | Default provider family | Legacy v0 fallback model |
+|---------|----------|---------|--------------------------|-------------------------|--------------------------|
+| `fast` | `Snabb` | `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | OpenAI | `v0-max-fast` |
+| `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | OpenAI | `v0-1.5-md` |
+| `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | OpenAI | `v0-1.5-lg` |
+| `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | OpenAI | `v0-gpt-5` |
+| `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | `v0-1.5-lg` |
 
 Important nuance:
 
-- the selected build profile defaults to `max`
-- the broader own-engine code stack still contains `gpt-5.3-codex` as the
-  default own-model constant for some lower-level flows
-
-## Canonical build profiles
-
-| Profile | UI label | Own-engine model | v0 fallback model |
-|---------|----------|------------------|-------------------|
-| `fast` | `GPT-4.1` | `gpt-4.1` | `v0-max-fast` |
-| `pro` | `GPT-5.3 Codex` | `gpt-5.3-codex` | `v0-1.5-md` |
-| `max` | `GPT-5.4` | `gpt-5.4` | `v0-1.5-lg` |
-| `codex` | `GPT-5.1 Codex Max` | `gpt-5.1-codex-max` | `v0-gpt-5` |
+- the UI labels are intentionally more semantic than vendor-marketing-heavy
+- the actual own-engine model can drift if `SAJTMASKIN_MODEL_*` env vars are overridden
+- that means a UI label like `Tanker` can still resolve to a different concrete model if env overrides point there
 
 ## Accepted incoming IDs
 
-Incoming model IDs may be:
+Incoming `modelId` values may be:
 
-- canonical profile IDs
-- legacy v0-flavored IDs still present in local storage, URLs, or older DB data
+- canonical build-profile IDs
+- legacy v0-flavored IDs still present in local storage, URLs, or older data
 
 Accepted legacy aliases:
 
@@ -69,48 +92,95 @@ Accepted legacy aliases:
 | `v0-1.5-lg` | `max` |
 | `v0-gpt-5` | `codex` |
 
-Unknown model IDs are not accepted by the Zod request schema.
+Unknown IDs are rejected by the Zod request schema.
 
 ## Resolution flow
 
-1. Requests may send `modelId` or `modelTier`.
-2. `canonicalizeModelId()` resolves canonical or legacy values to the current
-   internal profile.
-3. `resolveModelSelection()` falls back to the default profile if needed.
-4. `resolveEngineModelId()` maps the resolved profile to:
-   - an OpenAI model when the own engine is active
-   - a v0 Platform API model ID when fallback is active
+1. The client sends `modelId` as the selected build profile, for example `max`.
+2. `canonicalizeModelId()` resolves canonical or legacy inputs.
+3. `resolveModelSelection()` normalizes the request to one canonical profile.
+4. `resolveEngineModelId(..., false)` maps that profile to the own-engine model.
+5. `src/lib/gen/models.ts` picks the concrete provider client:
+   - `gpt-*` -> OpenAI via `@ai-sdk/openai`
+   - `claude-*` -> Anthropic via `@ai-sdk/anthropic`
+
+Important current nuance:
+
+- the normal builder routes always call `resolveEngineModelId(..., false)`
+- the active builder flow therefore uses the own engine, even though the routes still live under `/api/v0/...`
+
+## Product lane (prompt assist)
+
+Product lane is separate from model-lane build profile resolution.
+
+| Surface | UI control | Default env | Route | API shape |
+|---------|------------|-------------|-------|-----------|
+| Shallow rewrite | `Forbattra` | `SAJTMASKIN_ASSIST_MODEL` | `/api/ai/chat` | `streamText()` |
+| Deep brief | `Forbattra` + `Deep Brief Mode` | `SAJTMASKIN_ASSIST_MODEL` | `/api/ai/brief` | `generateObject()` |
+| Spec chain | no normal builder control | none | `/api/ai/spec` | `processPromptWithSpec()` |
+
+## Polish lane (low-cost rewrite)
+
+Polish lane is deliberately separate from both model lane and product lane.
+
+| Surface | UI control | Default env | Route | API shape |
+|---------|------------|-------------|-------|-----------|
+| Prompt polish | `Skriv om` | `SAJTMASKIN_POLISH_MODEL` | `/api/ai/chat` | `streamText()` |
+
+Important current nuance:
+
+- `Skriv om` normally uses the polish lane model, but follows the Anthropic product lane when the current assist lane is Anthropic
+- deep brief is only used before the first message in a new chat
+- the dedicated `/api/ai/spec` route exists, but the normal builder path does not currently use it
+
+## Prompt-assist provider strings
+
+Prompt assist accepts provider-coded model strings such as:
+
+- `openai/gpt-5.4`
+- `openai/gpt-5.3-codex`
+- `anthropic/claude-sonnet-4.6`
+- `anthropic/claude-opus-4.6`
+- `v0-1.5-md`
+
+Current provider categories:
+
+- OpenAI gateway-class strings, for example `openai/*`
+- Anthropic prompt-assist strings, for example `anthropic/*` and `anthropic-direct/*`
+- v0 Model API strings, for example `v0-1.5-md`
+
+Important current nuance:
+
+- the route names and labels still talk about `gateway`
+- some code constants still keep historical "gateway" naming for allowlists
+- the current prompt-assist implementation constructs direct OpenAI/Anthropic AI SDK clients in `src/lib/builder/gateway-policy.ts`
+- in practice, "gateway-class" selection currently means a gateway-shaped model string plus direct provider client construction in the route implementation
+
+## Thinking
+
+`Thinking` is a separate boolean passed into generation metadata and the own-engine
+pipeline.
+
+- it is not part of `fast | pro | max | codex`
+- it does not change the canonical build-profile ID
+- it does not affect prompt-assist route selection
 
 ## Validation surface
 
 `src/lib/validations/chatSchemas.ts` enforces:
 
-- `modelId` must be one of the accepted canonical or legacy IDs
+- `modelId` must be one of the accepted canonical or legacy build-profile IDs
 - create-chat requests default to `max`
 - send-message requests may omit `modelId`
+- prompt metadata may include `promptAssistModel`, `promptAssistDeep`, and `promptAssistMode`
 
-## Quality mappings
+## Phase routing
 
-The lower-level quality mapping in `src/lib/models/catalog.ts` currently resolves:
+`src/lib/models/phase-routing.ts` exists for planner / generator / fixer /
+verifier / deploy-assistant separation, but today it returns the same base model
+as the selected build profile.
 
-| Quality level | Canonical profile |
-|---------------|-------------------|
-| `light` | `pro` |
-| `standard` | `pro` |
-| `pro` | `pro` |
-| `premium` | `fast` |
-| `max` | `fast` |
-
-Treat this as implementation detail unless you are actively changing generation
-quality behavior.
-
-## Prompt assist is separate
-
-Prompt assist and builder code generation are different concerns.
-
-- build profiles above steer code generation
-- prompt assist uses separate provider/model choices
-- do not mix prompt-assist model IDs into the build-profile schema
+Treat this as structural preparation, not as active per-phase rerouting.
 
 ## Archived docs
 

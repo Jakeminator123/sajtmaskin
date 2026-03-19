@@ -7,13 +7,14 @@
  * Build Models:
  *   - The first group represents build profiles, not prompt-assist models.
  *   - When V0_FALLBACK_BUILDER=y, these map to v0 Platform API models.
- *   - Otherwise, the same profiles map to the own engine's OpenAI models.
+ *   - Otherwise, the same profiles map to the own engine's provider model IDs.
  *   - Prompt Assist models are listed separately below and are only used to
  *     rewrite/brief the prompt before generation.
  *
  * Prompt Assist (preprocessing user prompts before generation):
  *   - off:            No preprocessing, send prompt directly to the build engine.
- *   - gateway:        AI Gateway (Vercel's multi-provider routing with fallbacks).
+ *   - openai/*:       OpenAI prompt-assist path.
+ *   - anthropic/*:    Anthropic prompt-assist path.
  *   - openai-compat:  Model API fallback models.
  *
  * Deep Brief Mode:
@@ -41,25 +42,32 @@ export interface ModelTierOption {
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "fast",
-    label: "GPT-4.1",
-    description: "Fast and Good. Snabb och stabil för enklare sidor och snabba ändringar.",
-    hint: "Fast and Good",
+    label: "Snabb",
+    description: "Liten/billig profil. GPT-4.1 for enklare sidor och snabba andringar.",
+    hint: "billig",
   },
   {
     value: "pro",
-    label: "GPT-5.3 Codex",
-    description: "Pro-profil. Kodspecialiserad och bäst balans mellan kvalitet och hastighet.",
-    hint: "Rekommenderad",
+    label: "Lagom",
+    description: "Mellanprofil. GPT-5.3 Codex for bra balans mellan kvalitet och hastighet.",
+    hint: "rekommenderad",
   },
   {
     value: "max",
-    label: "GPT-5.4",
-    description: "Max-profil. Flaggskeppsmodell med bäst resonemang och mest komplett output.",
+    label: "Tanker",
+    description: "Stor/dyrare profil. GPT-5.4 for komplexare jobb och mer resonemang.",
+    hint: "dyr",
   },
   {
     value: "codex",
-    label: "GPT-5.1 Codex Max",
-    description: "Codex-profil. Avancerad kodmotor med djupt resonemang för komplexa projekt.",
+    label: "Kod Max",
+    description: "Specialiserad kodprofil. GPT-5.1 Codex Max for langre och tyngre kodarbete.",
+  },
+  {
+    value: "anthropic",
+    label: "Anthropic",
+    description: "Jamforelselage. Claude Sonnet 4.6 via Anthropic API for hela build-lanen.",
+    hint: "compare",
   },
 ];
 
@@ -83,10 +91,11 @@ export const PROMPT_ASSIST_OFF_VALUE = "off";
 
 export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
-  { value: "openai/gpt-5.4", label: "GPT‑5.4 (Gateway)" },
-  { value: "openai/gpt-5.3-codex", label: "GPT‑5.3 Codex (Gateway)" },
-  { value: "openai/gpt-5.2", label: "GPT‑5.2 (Gateway)" },
-  { value: "anthropic-direct/claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { value: "openai/gpt-5.4", label: "OpenAI GPT-5.4" },
+  { value: "openai/gpt-5.3-codex", label: "OpenAI GPT-5.3 Codex" },
+  { value: "openai/gpt-5.2", label: "OpenAI GPT-5.2" },
+  { value: "anthropic/claude-sonnet-4.6", label: "Anthropic Claude Sonnet 4.6" },
+  { value: "anthropic/claude-opus-4.6", label: "Anthropic Claude Opus 4.6" },
   { value: "v0-1.5-md", label: "Model API Medium" },
   { value: "v0-1.5-lg", label: "Model API Large" },
 ];

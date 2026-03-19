@@ -56,9 +56,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     () => normalizeBuildMethod(buildMethodParam) || (source === "audit" ? "audit" : null),
   );
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
-  const [promptAssistModel, setPromptAssistModel] = useState(
-    DEFAULT_PROMPT_ASSIST.model || getDefaultPromptAssistModel(),
-  );
+  const [promptAssistModel, setPromptAssistModel] = useState(() => getDefaultPromptAssistModel());
   const [promptAssistDeep, setPromptAssistDeep] = useState(DEFAULT_PROMPT_ASSIST.deep);
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);

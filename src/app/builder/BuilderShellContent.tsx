@@ -13,6 +13,7 @@ import { PreviewPanel } from "@/components/builder/PreviewPanel";
 import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
+import { ModelTraceOverlay } from "@/components/builder/ModelTraceOverlay";
 import { LaunchReadinessCard } from "@/components/builder/LaunchReadinessCard";
 import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
 import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
@@ -607,11 +608,20 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     ],
   );
 
+  const handleApplyAnthropicComparePreset = useCallback(() => {
+    vm.setSelectedModelTier("anthropic");
+    vm.handlePromptAssistModelChange("anthropic/claude-sonnet-4.6");
+    vm.setPromptAssistDeep(!vm.chatId);
+  }, [
+    vm,
+  ]);
+
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
         selectedModelTier={vm.selectedModelTier}
         onSelectedModelTierChange={vm.setSelectedModelTier}
+        onApplyAnthropicComparePreset={handleApplyAnthropicComparePreset}
         promptAssistModel={vm.promptAssistModel}
         onPromptAssistModelChange={vm.handlePromptAssistModelChange}
         promptAssistDeep={vm.promptAssistDeep}
@@ -674,6 +684,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deploymentUrl={vm.deploymentUrl}
         deployReadiness={vm.deployReadiness}
         deployDisabledReason={deployDisabledReason}
+      />
+      <ModelTraceOverlay
+        selectedModelTier={vm.selectedModelTier}
+        promptAssistModel={vm.promptAssistModel}
+        promptAssistDeep={vm.promptAssistDeep}
+        enableThinking={vm.enableThinking}
+        canUseDeepBrief={!vm.chatId}
       />
 
       {/* Mobile tab bar (visible < lg) */}

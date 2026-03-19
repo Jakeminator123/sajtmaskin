@@ -60,7 +60,7 @@ export function isPromptAssistModelAllowed(model: string): boolean {
 }
 
 export function resolvePromptAssistProvider(model: string): PromptAssistProvider {
-  if (isAnthropicAssistModel(model)) return "anthropic";
+  if (isAnthropicAssistModel(model) || model.startsWith("anthropic/")) return "anthropic";
   return isV0AssistModel(model) ? "v0" : "gateway";
 }
 

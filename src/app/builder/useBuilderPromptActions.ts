@@ -12,7 +12,11 @@ import {
   DEFAULT_PROMPT_POLISH_MODEL,
   SPEC_FILE_INSTRUCTION,
 } from "@/lib/builder/defaults";
-import { formatPrompt, isGatewayAssistModel } from "@/lib/builder/promptAssist";
+import {
+  formatPrompt,
+  isGatewayAssistModel,
+  resolvePromptAssistProvider,
+} from "@/lib/builder/promptAssist";
 import { saveProjectData } from "@/lib/project-client";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
@@ -25,6 +29,7 @@ type Args = {
   scaffoldMode: ScaffoldMode;
   customInstructions: string;
   applyInstructionsOnce: boolean;
+  promptAssistModel: string;
   promptAssistDeep: boolean;
   specMode: boolean;
   themeColors: ThemeColors | null;
@@ -77,6 +82,7 @@ export function useBuilderPromptActions({
   scaffoldMode,
   customInstructions,
   applyInstructionsOnce,
+  promptAssistModel,
   promptAssistDeep,
   specMode,
   themeColors,
@@ -123,14 +129,18 @@ export function useBuilderPromptActions({
 
   const handlePromptEnhance = useCallback(
     async (message: string) => {
+      const polishModelOverride =
+        resolvePromptAssistProvider(promptAssistModel) === "anthropic"
+          ? promptAssistModel
+          : DEFAULT_PROMPT_POLISH_MODEL;
       const enhanced = await maybeEnhanceInitialPrompt(message, {
         forceShallow: true,
         mode: "polish",
-        modelOverride: DEFAULT_PROMPT_POLISH_MODEL,
+        modelOverride: polishModelOverride,
       });
       return formatPrompt(enhanced);
     },
-    [maybeEnhanceInitialPrompt],
+    [maybeEnhanceInitialPrompt, promptAssistModel],
   );
 
   const captureInstructionSnapshot = useCallback(() => {

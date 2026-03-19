@@ -16,7 +16,7 @@ export const V0_MODEL_IDS = [
 export type V0ModelId = (typeof V0_MODEL_IDS)[number];
 
 /** Internal canonical IDs for the builder's own model profiles. */
-export const CANONICAL_MODEL_IDS = ["fast", "pro", "max", "codex"] as const;
+export const CANONICAL_MODEL_IDS = ["fast", "pro", "max", "codex", "anthropic"] as const;
 
 export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
 
@@ -96,20 +96,22 @@ export function canonicalizeModelId(
 
 /** User-facing labels for the builder profiles. */
 export const MODEL_LABELS: Record<CanonicalModelId, string> = {
-  fast: "GPT-4.1",
-  pro: "GPT-5.3 Codex",
-  max: "GPT-5.4",
-  codex: "GPT-5.1 Codex Max",
+  fast: "Snabb",
+  pro: "Lagom",
+  max: "Tanker",
+  codex: "Kod Max",
+  anthropic: "Anthropic",
 };
 
 export const BUILD_PROFILE_IDS: Record<
   CanonicalModelId,
-  "fast" | "pro" | "max" | "codex"
+  "fast" | "pro" | "max" | "codex" | "anthropic"
 > = {
   fast: "fast",
   pro: "pro",
   max: "max",
   codex: "codex",
+  anthropic: "anthropic",
 };
 
 export type BuildProfileId = (typeof BUILD_PROFILE_IDS)[CanonicalModelId];
@@ -148,6 +150,8 @@ export function canonicalModelIdToV0ModelId(modelId: CanonicalModelId): V0ModelI
     pro: "v0-1.5-md",
     max: "v0-1.5-lg",
     codex: "v0-gpt-5",
+    // Legacy-only fallback mapping; active builder generation does not use the v0 path.
+    anthropic: "v0-1.5-lg",
   };
   return modelMap[modelId];
 }
@@ -159,6 +163,7 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
     pro: process.env.SAJTMASKIN_MODEL_PRO?.trim() || "gpt-5.3-codex",
     max: process.env.SAJTMASKIN_MODEL_MAX?.trim() || "gpt-5.4",
     codex: process.env.SAJTMASKIN_MODEL_CODEX?.trim() || "gpt-5.1-codex-max",
+    anthropic: process.env.SAJTMASKIN_MODEL_ANTHROPIC?.trim() || "claude-sonnet-4.6",
   };
   return (tierMap[modelId] ?? "gpt-5.3-codex") as OwnModelId;
 }

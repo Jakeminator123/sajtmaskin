@@ -59,6 +59,23 @@ Important rule:
 - Treat the **template gallery** in `src/lib/templates/` as a product/UI discovery surface, not as a third generation lane.
 - Do NOT describe the system as if runtime generation alternates between "templates" and "scaffolds". Runtime generation should be described as scaffold-driven.
 
+### Builder model lanes (user-facing)
+
+When discussing model selection inside the builder, use this lane vocabulary:
+
+| Lane | Swedish label | What it controls | Where user picks it |
+|------|---------------|------------------|---------------------|
+| **Model lane** | `bygg-lane` | Main generation model for the actual build/refine stream | `Byggmodell` (`modelId` / `modelTier`) |
+| **Product lane** | `prompt-lane` | Prompt-assist model used before build (rewrite/brief/spec support) | `Forbattra` + `Deep Brief Mode` |
+| **Polish lane** | `billig/snabb/latt lane` | Low-cost text-only rewrite of the prompt input | `Skriv om` (`SAJTMASKIN_POLISH_MODEL`) |
+| **Thinking flag** | `tankeflagga` | Extra reasoning behavior in generation metadata | `Thinking` toggle |
+
+Important rules:
+- Do NOT mix up `operational lanes` (runtime vs research) with `builder model lanes`.
+- `Anthropic` can be selected in the **model lane** (build profile `anthropic`) and also in the **product lane** (`anthropic/*` assist model strings).
+- The `Anthropic-jamforelse` preset intentionally aligns both model lane and product lane to Anthropic for apples-to-apples comparison.
+- `Thinking` is not a lane and does not replace model or product lane selection.
+
 ### Template vs scaffold vs Vercel template
 
 Three concepts that must not be mixed:

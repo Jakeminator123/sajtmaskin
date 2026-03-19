@@ -13,6 +13,7 @@ import {
   isPromptAssistModelAllowed,
   isV0AssistModel,
   normalizeAssistModel,
+  resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import {
   createDirectModel,
@@ -88,7 +89,7 @@ function getAnthropicApiKey(): string | null {
 }
 
 function resolveAnthropicModelId(model: string): string {
-  return model.replace(/^anthropic-direct\//, "");
+  return model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
 }
 
 function isProbablyOnVercel(): boolean {
@@ -112,11 +113,7 @@ export async function POST(req: Request) {
 
       const { messages, model, temperature, provider, maxTokens: requestedMaxTokens } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
-      const resolvedProvider = isV0AssistModel(normalizedModel)
-        ? "v0"
-        : isAnthropicAssistModel(normalizedModel)
-          ? "anthropic"
-          : "gateway";
+      const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
       const maxTokens = resolveMaxTokens(requestedMaxTokens);
 
       if (!isPromptAssistModelAllowed(normalizedModel)) {
@@ -156,11 +153,11 @@ export async function POST(req: Request) {
       });
 
       if (resolvedProvider === "gateway") {
-        if (!isGatewayAssistModel(normalizedModel)) {
+        if (!isGatewayAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
           return NextResponse.json(
             {
               error: "Invalid model for gateway provider",
-              setup: 'Set model to "openai/gpt-5.2" or "anthropic/claude-4.5".',
+              setup: 'Set model to a supported OpenAI gateway-class prompt-assist model.',
             },
             { status: 400 },
           );
@@ -213,11 +210,14 @@ export async function POST(req: Request) {
       }
 
       if (resolvedProvider === "anthropic") {
-        if (!isAnthropicAssistModel(normalizedModel)) {
+        if (
+          !isAnthropicAssistModel(normalizedModel) &&
+          !normalizedModel.startsWith("anthropic/")
+        ) {
           return NextResponse.json(
             {
               error: "Invalid model for anthropic provider",
-              setup: "Set model to a supported direct Anthropic model.",
+              setup: "Set model to a supported Anthropic prompt-assist model.",
             },
             { status: 400 },
           );

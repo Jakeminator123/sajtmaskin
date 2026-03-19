@@ -296,6 +296,7 @@ export function useBuilderPageController() {
     scaffoldMode: state.scaffoldMode,
     customInstructions: state.customInstructions,
     applyInstructionsOnce: state.applyInstructionsOnce,
+    promptAssistModel: state.promptAssistModel,
     promptAssistDeep: state.promptAssistDeep,
     specMode: state.specMode,
     themeColors: state.themeColors,

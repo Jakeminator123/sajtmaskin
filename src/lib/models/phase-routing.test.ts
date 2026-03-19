@@ -59,6 +59,7 @@ describe("resolvePhaseModel", () => {
     expect(resolvePhaseModel("codex", "generator").modelId).toBe(
       "gpt-5.1-codex-max",
     );
+    expect(resolvePhaseModel("anthropic", "generator").modelId).toBe("claude-sonnet-4.6");
   });
 });
 
@@ -87,5 +88,14 @@ describe("getPhaseRoutingSummary", () => {
     expect(summary.fixer).toBe("gpt-5.3-codex");
     expect(summary.verifier).toBe("gpt-5.3-codex");
     expect(summary["deploy-assistant"]).toBe("gpt-5.3-codex");
+  });
+
+  it("uses Claude across all phases in anthropic tier", () => {
+    const summary = getPhaseRoutingSummary("anthropic");
+    expect(summary.planner).toBe("claude-sonnet-4.6");
+    expect(summary.generator).toBe("claude-sonnet-4.6");
+    expect(summary.fixer).toBe("claude-sonnet-4.6");
+    expect(summary.verifier).toBe("claude-sonnet-4.6");
+    expect(summary["deploy-assistant"]).toBe("claude-sonnet-4.6");
   });
 });

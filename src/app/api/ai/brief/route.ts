@@ -6,10 +6,12 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import {
+  isAnthropicAssistModel,
   isGatewayAssistModel,
   isPromptAssistModelAllowed,
   isV0AssistModel,
   normalizeAssistModel,
+  resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import {
   createDirectModel,
@@ -29,7 +31,7 @@ const briefRequestSchema = z.object({
     .trim()
     .min(1, "prompt is required")
     .max(MAX_AI_BRIEF_PROMPT_CHARS, `prompt too long (max ${MAX_AI_BRIEF_PROMPT_CHARS} chars)`),
-  provider: z.enum(["gateway", "v0"]).optional().default("gateway"),
+  provider: z.enum(["gateway", "v0", "anthropic"]).optional(),
   // gpt-5.2 provides best quality briefs; used as default for prompt assist
   model: z.string().min(1).optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
@@ -272,6 +274,10 @@ function isProbablyOnVercel(): boolean {
   return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
 }
 
+function resolveAnthropicBriefModelId(model: string): string {
+  return model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
+}
+
 export async function POST(req: Request) {
   return withRateLimit(req, "ai:brief", async () => {
     try {
@@ -296,8 +302,18 @@ export async function POST(req: Request) {
         maxTokens: requestedMaxTokens,
       } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
-      const resolvedProvider = provider ?? "gateway";
+      const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
       const maxTokens = resolveMaxTokens(requestedMaxTokens);
+
+      if (provider && provider !== resolvedProvider) {
+        return NextResponse.json(
+          {
+            error: "Provider does not match model",
+            setup: `Model "${normalizedModel}" kräver provider "${resolvedProvider}".`,
+          },
+          { status: 400 },
+        );
+      }
 
       debugLog("AI", "AI brief request received", {
         provider: resolvedProvider,
@@ -351,18 +367,130 @@ export async function POST(req: Request) {
       if (resolvedProvider === "v0" || isV0AssistModel(normalizedModel)) {
         return NextResponse.json(
           {
-            error: "Deep brief is only supported via AI Gateway",
-            setup: "Välj en gateway-modell för Deep Brief.",
+            error: "Deep brief is not supported via the v0 Model API",
+            setup: "Välj en OpenAI- eller Anthropic-modell som stöder Deep Brief.",
           },
           { status: 400 },
         );
       }
 
-      if (!isGatewayAssistModel(normalizedModel)) {
+      if (resolvedProvider === "anthropic") {
+        if (
+          !isAnthropicAssistModel(normalizedModel) &&
+          !normalizedModel.startsWith("anthropic/")
+        ) {
+          return NextResponse.json(
+            {
+              error: "Invalid model for anthropic provider",
+              setup: "Set model to a supported Anthropic prompt-assist model.",
+            },
+            { status: 400 },
+          );
+        }
+
+        if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+          return NextResponse.json(
+            {
+              error: "Missing Anthropic API key",
+              setup: "Set ANTHROPIC_API_KEY to use Anthropic Deep Brief.",
+            },
+            { status: 401 },
+          );
+        }
+
+        const directModel = createDirectModel(
+          `anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`,
+        );
+
+        let usedSimplified = false;
+        let result;
+
+        try {
+          result = await generateObject({
+            model: directModel,
+            schema: siteBriefSchema,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            maxRetries: 1,
+            maxOutputTokens: maxTokens,
+            ...getTemperatureConfig(normalizedModel, temperature),
+          });
+        } catch (fullSchemaErr) {
+          debugLog("AI", "Full Anthropic brief schema failed, trying simplified", {
+            error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
+          });
+
+          try {
+            result = await generateObject({
+              model: directModel,
+              schema: simplifiedBriefSchema,
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    systemPrompt +
+                    "\n\nIMPORTANT: Keep your response concise. Arrays can be empty if you're unsure.",
+                },
+                { role: "user", content: userPrompt },
+              ],
+              maxRetries: 1,
+              maxOutputTokens: Math.min(maxTokens, 40_960),
+              ...getTemperatureConfig(normalizedModel, temperature),
+            });
+            usedSimplified = true;
+          } catch (simplifiedErr) {
+            const errMsg =
+              simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
+
+            errorLog("AI", "Anthropic brief generation failed - both schemas", {
+              model: normalizedModel,
+              promptLength: prompt.length,
+              fullError:
+                fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
+              simplifiedError: errMsg,
+            });
+
+            return NextResponse.json(
+              {
+                error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
+                details: errMsg.includes("could not parse")
+                  ? "Modellen returnerade ett ogiltigt svar."
+                  : errMsg,
+                suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
+              },
+              { status: 422 },
+            );
+          }
+        }
+
+        const briefObject = result.object as Record<string, unknown>;
+        const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
+        devLogAppend("latest", {
+          type: "assist.brief.response",
+          provider: "anthropic",
+          model: normalizedModel,
+          schema: usedSimplified ? "simplified" : "full",
+          projectTitle:
+            typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
+          pages,
+        });
+        return NextResponse.json(result.object, {
+          headers: {
+            "Cache-Control": "no-store",
+            "X-Provider": "anthropic",
+            "X-Key-Source": "ANTHROPIC_API_KEY",
+            ...(usedSimplified ? { "X-Schema": "simplified" } : {}),
+          },
+        });
+      }
+
+      if (!isGatewayAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
         return NextResponse.json(
           {
             error: "Invalid model for gateway provider",
-            setup: 'Set model to "openai/gpt-5.2" or "anthropic/claude-4.5".',
+            setup: 'Set model to a supported OpenAI prompt-assist model.',
           },
           { status: 400 },
         );

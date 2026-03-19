@@ -22,6 +22,7 @@ export const MODEL_TIER_TO_QUALITY: Partial<Record<string, QualityLevel>> = {
   fast: "max",
   codex: "max",
   max: "max",
+  anthropic: "max",
   "v0-max-fast": "max",
   "v0-gpt-5": "max",
   "v0-1.5-lg": "max",

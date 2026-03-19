@@ -150,6 +150,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_MODEL_PRO: z.string().optional(),
   SAJTMASKIN_MODEL_MAX: z.string().optional(),
   SAJTMASKIN_MODEL_CODEX: z.string().optional(),
+  SAJTMASKIN_MODEL_ANTHROPIC: z.string().optional(),
   SAJTMASKIN_ASSIST_MODEL: z.string().optional(),
   SAJTMASKIN_POLISH_MODEL: z.string().optional(),
 

@@ -46,6 +46,7 @@ Important code sources of truth include:
 | `.env.local`             | No (gitignored) | Local development values.                                                                                                          |
 | `.env.production`        | No (gitignored) | Reference copy of production-like values.                                                                                          |
 | `manage_env.py`          | Yes             | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. |
+| `model_trace_overlay.py` | Yes             | Focused helper that syncs GUI-facing model env vars in `.env.local` and opens the builder model-trace overlay.                    |
 | `check_env.py`           | Yes             | Backward-compatible wrapper that forwards to `manage_env.py audit`.                                                                |
 
 When adding a new env var: add it to `src/lib/env.ts` (schema), then to
@@ -80,6 +81,7 @@ Not runtime dependencies:
 | Current active plans | `docs/plans/active/` |
 | Plan status index | `docs/architecture/agent-roadmap-and-handoff.md` |
 | Engine architecture | `docs/architecture/engine-status.md` |
+| Builder model routing | `docs/architecture/builder-model-routing-and-trace.md` |
 | Builder entry flow | `docs/architecture/builder-entry-flow.md` |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |

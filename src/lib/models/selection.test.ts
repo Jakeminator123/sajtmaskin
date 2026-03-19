@@ -73,5 +73,6 @@ describe("resolveEngineModelId", () => {
     expect(resolveEngineModelId("pro", false)).toBe("gpt-5.3-codex");
     expect(resolveEngineModelId("codex", false)).toBe("gpt-5.1-codex-max");
     expect(resolveEngineModelId("max", false)).toBe("gpt-5.4");
+    expect(resolveEngineModelId("anthropic", false)).toBe("claude-sonnet-4.6");
   });
 });

@@ -64,6 +64,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
+  onApplyAnthropicComparePreset: () => void;
 
   promptAssistModel: string;
   onPromptAssistModelChange: (model: string) => void;
@@ -126,6 +127,7 @@ export function BuilderHeader(props: {
   const {
     selectedModelTier,
     onSelectedModelTierChange,
+    onApplyAnthropicComparePreset,
     promptAssistModel,
     onPromptAssistModelChange,
     promptAssistDeep,
@@ -305,10 +307,10 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Detta är builderns byggprofiler. Samma byggprofil mappar till egen motor som
-                      `GPT-4.1`, `GPT-5.3 Codex`, `GPT-5.4` eller `GPT-5.1 Codex Max`. Prompt Assist
-                      nedan är separat och används bara för att förbättra prompt, scaffold-val och
-                      designbrief innan bygg.
+                      Detta är builderns byggprofiler: `Snabb`, `Lagom`, `Tanker`, `Kod Max` och
+                      `Anthropic`. Varje profil mappar vidare till en konkret modell i egen motor.
+                      `Forbattra` nedan ar separat och används bara för promptforbattrande, scaffold-val
+                      och designbrief innan build.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -343,8 +345,10 @@ export function BuilderHeader(props: {
                     <p className="text-xs">
                       Den här modellen styr den tyngre förbättringen: deep brief, scaffold-hjälp,
                       designbrief och dynamiska instruktioner före första bygget. Den snabba knappen
-                      `Skriv om prompt` använder i stället en lättare polish-modell bara för texten i
-                      inmatningsrutan.
+                      `Skriv om prompt` använder normalt den lättare polish-modellen bara för texten i
+                      inmatningsrutan, men följer Anthropic-spåret när Claude är vald för jämförelse. For
+                      en ren Anthropic-jamforelse: valj Anthropic under byggmodell och Claude under
+                      Forbattra, eller anvand snabbknappen nedan.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -395,11 +399,23 @@ export function BuilderHeader(props: {
                   <p className="text-xs">
                     AI skapar först en detaljerad brief (specifikation) som sedan används för att
                     bygga en bättre prompt. Tar längre tid men ger mer genomtänkta resultat. Används
-                    bara vid första prompten i en ny chat. (Endast AI Gateway stödjer Deep Brief.)
+                    bara vid första prompten i en ny chat. Stöds för de gateway-class modeller som visas
+                    här, inklusive Claude-alternativen.
                   </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                onApplyAnthropicComparePreset();
+              }}
+            >
+              <Bot className="mr-2 h-4 w-4" />
+              Anthropic-jamforelse
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 

@@ -49,24 +49,39 @@ python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga e
 
 ## Modellkonfiguration
 
-All modellval styrs centralt i `src/lib/gen/defaults.ts` och läser från env.
-Inga modeller hårdkodas i routes eller hooks — allt landar här.
+Modellkonfigurationen ar uppdelad mellan flera filer:
 
-### Byggmodeller (kodgenerering, direkt mot OpenAI API via OPENAI_API_KEY)
+- `src/lib/models/catalog.ts` mappar build-profiler till konkreta build-modeller
+- `src/lib/builder/defaults.ts` styr UI-defaults for `Forbattra` och `Skriv om`
+- `src/lib/gen/models.ts` valjer OpenAI vs Anthropic for own-engine generation
+- `src/lib/builder/gateway-policy.ts` valjer provider-klient for prompt assist
+
+Viktig skillnad:
+
+- `Byggmodell` valjer en intern build-profil
+- `Forbattra` valjer en prompt-assist modellstrang
+- `Skriv om` anvander en separat polish-modell
+- `Thinking` ar en flagga, inte en egen modell
+
+### Byggmodeller (own-engine build lane)
 
 | Env-variabel | Default | Tier i UI | Vad den gör |
 |---|---|---|---|
-| `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | Fast and Good | Snabb, enklare sidor |
-| `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | Pro (Rekommenderad) | Kodspecialiserad, bästa balans |
-| `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | Max | Flaggskeppsmodell, mest komplett |
-| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | Codex Max | Djupt resonemang, komplexa projekt |
+| `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | Snabb | Liten/billig profil for enklare sidor |
+| `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | Lagom | Mellanprofil med bra balans |
+| `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | Tanker | Stor/dyrare profil for mer resonemang |
+| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | Kod Max | Specialiserad kodprofil |
+| `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | Jamforelselage via Anthropic API |
 
-### Prompt Assist-modeller (brief/förbättra, via Vercel AI Gateway)
+Byggprofilerna gar genom own-engine-routes under `/api/v0/...`, men de aktiva
+builder-flodena resolverar idag alltid till own engine, inte till legacy-v0-buildern.
+
+### Prompt assist-modeller (for pre-build promptarbete)
 
 | Env-variabel | Default | Vad den gör |
 |---|---|---|
-| `SAJTMASKIN_ASSIST_MODEL` | `openai/gpt-5.4` | Deep Brief och Förbättra-knappen |
-| `SAJTMASKIN_POLISH_MODEL` | `openai/gpt-5.3-codex` | "Skriv om"-knappen (promptpolish) |
+| `SAJTMASKIN_ASSIST_MODEL` | `openai/gpt-5.4` | Default for `Forbattra`, Deep Brief och dynamiska instruktioner |
+| `SAJTMASKIN_POLISH_MODEL` | `openai/gpt-5.3-codex` | Default for `Skriv om` / promptpolish |
 
 ### Token-gränser
 
@@ -79,19 +94,38 @@ Inga modeller hårdkodas i routes eller hooks — allt landar här.
 ### Hur modellerna hänger ihop
 
 ```
-Användaren väljer tier i UI (Fast / Pro / Max / Codex)
+Användaren väljer tier i UI (Snabb / Lagom / Tanker / Kod Max / Anthropic)
         │
-        ├─► Prompt Assist (SAJTMASKIN_ASSIST_MODEL via AI Gateway)
-        │   └─► Genererar brief/spec som berikar systemprompten
+        ├─► Ny build / refine
+        │   └─► resolveModelSelection() -> resolveEngineModelId(..., false)
+        │       └─► own engine -> OpenAI eller Anthropic beroende pa resolved model
         │
-        ├─► Kodgenerering (SAJTMASKIN_MODEL_<TIER> direkt mot OpenAI)
-        │   └─► Producerar React/Next.js-kod, streamas via SSE
+        ├─► Forbattra (SAJTMASKIN_ASSIST_MODEL)
+        │   ├─► shallow rewrite/polish -> /api/ai/chat
+        │   └─► deep brief -> /api/ai/brief
         │
-        └─► Autofix (samma modell som generering)
-            └─► Fixar syntax-/importfel i genererad kod
+        └─► Skriv om (SAJTMASKIN_POLISH_MODEL)
+            └─► textpolish via /api/ai/chat
 ```
 
-Alla faser använder samma modell som tier:n anger — ingen downgrade till mini-modeller.
+Observera:
+
+- `/api/ai/spec` finns, men ligger inte i normal builder-kedja i dag
+- UI-labels som `Tanker` kan fortfarande drifta fran faktisk provider om `SAJTMASKIN_MODEL_*` overridas
+- `Thinking` ar separat och andrar inte build-profile-ID:t
+
+### Overlay-hjalpare for modellspårning
+
+Den fokuserade hjalparen i repo-roten:
+
+```
+python model_trace_overlay.py status
+python model_trace_overlay.py apply
+python model_trace_overlay.py launch
+```
+
+Den synkar de GUI-relaterade modell-env-varen i `.env.local` och oppnar
+builder-overlayn pa `?modelTrace=1`.
 
 ## Lokal dev-loggning
 
@@ -246,8 +280,9 @@ Bildflöde i generering:
 
 ## AI Gateway och Blob
 
-- `AI_GATEWAY_API_KEY` ska finnas lokalt när du kör gateway-routes via `npm run dev` eller annan icke-Vercel-miljö.
+- `AI_GATEWAY_API_KEY` ska finnas lokalt när du kör gateway-class prompt-assist-routes via `npm run dev` eller annan icke-Vercel-miljö.
 - På deployad Vercel-runtime kan samma flöden i stället autha via `VERCEL_OIDC_TOKEN`.
+- Viktig nuvarande detalj: OpenAI-gateway-klassen fortsatter krava `AI_GATEWAY_API_KEY` eller `VERCEL_OIDC_TOKEN` lokalt, medan Anthropic-sparet nu kan koras direkt via `ANTHROPIC_API_KEY` for ren jamforelse.
 - `BLOB_READ_WRITE_TOKEN` behåller `@vercel/blob` som default provider och behövs för blob-backed preview-media och blob-lagrad backoffice-data.
 - Om `BLOB_READ_WRITE_TOKEN` saknas lokalt faller användaruppladdningar via `src/lib/vercel/blob-service.ts` tillbaka till lokal filsystemslagring under `data/uploads/`, serverad via `/api/uploads/media/...`.
 - Bildmaterialisering och annan funktion som uttryckligen behöver publik blob-URL fortsätter att kräva Blob-token och faller annars tillbaka till externa URL:er eller lokal JSON-lagring beroende på flöde.
@@ -262,8 +297,9 @@ Bildflöde i generering:
 | `SAJTMASKIN_MODEL_PRO`                         | `gpt-5.3-codex`     | Modell för Pro-tier (rekommenderad)           |
 | `SAJTMASKIN_MODEL_MAX`                         | `gpt-5.4`           | Modell för Max-tier                           |
 | `SAJTMASKIN_MODEL_CODEX`                       | `gpt-5.1-codex-max` | Modell för Codex Max-tier                     |
-| `SAJTMASKIN_ASSIST_MODEL`                      | `openai/gpt-5.4`    | Prompt assist-modell (gateway-format)         |
-| `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Polish/rewrite-modell (gateway-format)     |
+| `SAJTMASKIN_MODEL_ANTHROPIC`                   | `claude-sonnet-4.6` | Modell för Anthropic-jämförelseläge           |
+| `SAJTMASKIN_ASSIST_MODEL`                      | `openai/gpt-5.4`    | Default prompt-assistmodell for `Forbattra`   |
+| `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Standard-polishmodell for `Skriv om` (Anthropic-lane overrider den i jamforelselaget) |
 | `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 32768               | Max output-tokens för sidgenerering           |
 | `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 12288               | Autofix-pipeline                              |
 | `SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS`          | 720000 (12 min)     | Klient-timeout innan stream avbryts           |

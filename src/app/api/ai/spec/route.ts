@@ -22,8 +22,8 @@ const specRequestSchema = z.object({
  * POST /api/ai/spec
  *
  * Generate a structured website spec from a user prompt using the spec-first chain.
- * Uses AI Gateway to analyze the prompt and create a detailed specification
- * for higher quality code generation.
+ * Uses the prompt-assist model path to analyze the prompt and create a detailed
+ * specification for higher quality code generation.
  *
  * Request body:
  * - prompt: string - The user's website request
