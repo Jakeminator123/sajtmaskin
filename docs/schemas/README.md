@@ -7,6 +7,9 @@ This folder is the canonical human-readable schema area for Sajtmaskin.
 - `model-build-profiles.md`
   Current build-profile, model-selection, legacy-alias, and engine-resolution
   rules.
+- `builder-entry-contract.md`
+  The canonical builder entry contract for `buildMethod`, `buildIntent`,
+  `appProjectId`, prompt handoff, and the v0-driven template exception path.
 - `scaffold-contract.md`
   The runtime scaffold manifest contract and validation expectations.
 - `integrations-and-data.md`

@@ -94,3 +94,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-19-plan17-ws3-ws5-001937/`
 
+## 2026-03-19-builder-entry-standardization (archived 2026-03-19 01:35)
+- **Scope:** Standardized and documented the canonical builder entry model.
+- **Workloads:** 3 completed, 3 verified.
+- **Outcome:** Added canonical builder-entry architecture and schema docs, synced docs to the latest completed builder-preview reality, and archived the run.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-19-builder-entry-standardization-013542/`
+

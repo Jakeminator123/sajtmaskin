@@ -5,10 +5,11 @@
 ## Main areas
 
 - **`docs/architecture/`** — Canonical system overviews, engine status,
-  generation pipeline, builder prompt layer, agent handoff, known issues,
-  quickstarts, webhook docs, prompt tree, and v0 deprecation plan.
-- **`docs/schemas/`** — Human docs for schemas, model/build profiles, scaffold
-  contracts, and UI parts.
+  generation pipeline, builder prompt layer, builder entry flow, agent handoff,
+  known issues, quickstarts, webhook docs, prompt tree, and v0 deprecation
+  plan.
+- **`docs/schemas/`** — Human docs for schemas, model/build profiles, builder
+  entry contracts, scaffold contracts, and UI parts.
 - **`docs/plans/`** — Planning material split by lifecycle:
   `active/`, `review-needed/`, `archived/`.
   Currently one active plan: `17-repo-separation-and-independence.md`.
@@ -79,6 +80,8 @@ Not runtime dependencies:
 | Current active plans | `docs/plans/active/` |
 | Plan status index | `docs/architecture/agent-roadmap-and-handoff.md` |
 | Engine architecture | `docs/architecture/engine-status.md` |
+| Builder entry flow | `docs/architecture/builder-entry-flow.md` |
+| Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |
 | Env setup | `docs/ENV.md` |
 | Orchestrator protocol | `docs/architecture/orchestrator-run-protocol.md` |
