@@ -37,7 +37,7 @@ describe("MessageList", () => {
     render(<MessageList chatId="chat_1" messages={messages} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Svar krävs för att fortsätta")).toBeTruthy();
+      expect(screen.getByText("AI behöver ditt val")).toBeTruthy();
     });
 
     expect(
