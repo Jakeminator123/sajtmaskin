@@ -7,6 +7,7 @@ import { requireNotBot } from "@/lib/botProtection";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import type { CodeFile } from "@/lib/gen/parser";
+import { getSandboxCredentials, isSandboxConfigured } from "@/lib/sandbox-auth";
 
 const createSandboxSchema = z.object({
   source: z.discriminatedUnion("type", [
@@ -67,17 +68,12 @@ export async function POST(req: Request) {
       const botError = requireNotBot(req);
       if (botError) return botError;
 
-      const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-      const token = process.env.VERCEL_TOKEN;
-      const teamId = process.env.VERCEL_TEAM_ID;
-      const projectId = process.env.VERCEL_PROJECT_ID;
-
-      if (!oidcToken && (!token || !teamId || !projectId)) {
+      if (!isSandboxConfigured()) {
         return NextResponse.json(
           {
             error: "Sandbox requires authentication",
             setup:
-              "Run `vercel link` then `vercel env pull` to get OIDC token, or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID",
+              "Set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID in .env.local",
           },
           { status: 401 },
         );
@@ -143,6 +139,7 @@ export async function POST(req: Request) {
         timeout: timeoutMs,
         ports,
         runtime,
+        ...getSandboxCredentials(),
       });
 
       const sandboxId = sandbox.sandboxId;
@@ -214,7 +211,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const sandbox = await Sandbox.get({ sandboxId });
+    const sandbox = await Sandbox.get({ sandboxId, ...getSandboxCredentials() });
 
     const ports = [3000];
     const urls: Record<number, string> = {};
@@ -247,7 +244,7 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    const sandbox = await Sandbox.get({ sandboxId });
+    const sandbox = await Sandbox.get({ sandboxId, ...getSandboxCredentials() });
     await sandbox.stop();
     return NextResponse.json({ success: true, sandboxId });
   } catch (err) {

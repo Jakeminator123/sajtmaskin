@@ -170,3 +170,5 @@ STOR_MIGRATION
 
 
 internt_jakob/
+.vercel
+.env*.local

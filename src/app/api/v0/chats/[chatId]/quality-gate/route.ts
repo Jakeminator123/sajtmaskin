@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { getSandboxCredentials, isSandboxConfigured } from "@/lib/sandbox-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -85,12 +86,7 @@ async function runSandboxChecks(
   sandboxFiles: Array<{ name: string; content: string }>,
   checks: string[],
 ): Promise<{ results: CheckResult[]; sandboxDurationMs: number }> {
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-  const token = process.env.VERCEL_TOKEN;
-  const teamId = process.env.VERCEL_TEAM_ID;
-  const projectId = process.env.VERCEL_PROJECT_ID;
-
-  if (!oidcToken && (!token || !teamId || !projectId)) {
+  if (!isSandboxConfigured()) {
     throw new SandboxNotConfiguredError();
   }
 
@@ -104,6 +100,7 @@ async function runSandboxChecks(
     timeout: 90_000,
     ports: [3000],
     runtime: "node24",
+    ...getSandboxCredentials(),
   });
 
   try {
@@ -143,16 +140,8 @@ async function runSandboxChecks(
 
 class SandboxNotConfiguredError extends Error {
   constructor() {
-    super("Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)");
+    super("Sandbox not configured (missing VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID)");
   }
-}
-
-function isSandboxConfigured(): boolean {
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-  const token = process.env.VERCEL_TOKEN;
-  const teamId = process.env.VERCEL_TEAM_ID;
-  const projectId = process.env.VERCEL_PROJECT_ID;
-  return Boolean(oidcToken || (token && teamId && projectId));
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -179,7 +168,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     if (codeFiles && codeFiles.length > 0) {
       if (!isSandboxConfigured()) {
         return NextResponse.json(
-          { error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)" },
+          { error: "Sandbox not configured (missing VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID)" },
           { status: 501 },
         );
       }

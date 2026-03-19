@@ -1,5 +1,6 @@
 import { Sandbox } from "@vercel/sandbox";
 import { buildPreviewUrl } from "@/lib/gen/preview";
+import { getSandboxCredentials, isSandboxConfigured } from "@/lib/sandbox-auth";
 
 export type RuntimeMode = "preview" | "sandbox";
 
@@ -74,14 +75,9 @@ export async function createSandboxRuntimeFromFiles(
     }
   }
 
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-  const token = process.env.VERCEL_TOKEN;
-  const teamId = process.env.VERCEL_TEAM_ID;
-  const projectId = process.env.VERCEL_PROJECT_ID;
-
-  if (!oidcToken && (!token || !teamId || !projectId)) {
+  if (!isSandboxConfigured()) {
     throw new Error(
-      "Sandbox requires authentication. Run `vercel link` then `vercel env pull`, or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID.",
+      "Sandbox requires authentication. Set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID in .env.local.",
     );
   }
 
@@ -101,6 +97,7 @@ export async function createSandboxRuntimeFromFiles(
     timeout: timeoutMs,
     ports,
     runtime,
+    ...getSandboxCredentials(),
   });
 
   try {

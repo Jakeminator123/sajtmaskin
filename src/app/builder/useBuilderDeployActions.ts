@@ -210,6 +210,18 @@ export function useBuilderDeployActions({
               : undefined,
           });
         }
+
+        if (url && appProjectId) {
+          setTimeout(() => {
+            fetch(`/api/projects/${encodeURIComponent(appProjectId)}/thumbnail`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url }),
+            }).catch((err) => {
+              console.warn("[Builder] Thumbnail capture failed:", err);
+            });
+          }, 10_000);
+        }
       } catch (error) {
         console.error("Deploy error:", error);
         if (chatId && activeVersionId) {
