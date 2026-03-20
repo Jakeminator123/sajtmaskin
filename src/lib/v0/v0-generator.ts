@@ -1,14 +1,13 @@
 /**
- * v0 API Generator
- * =================
+ * v0 Platform API helpers
+ * =======================
  *
- * FALLBACK-ONLY: Used when V0_FALLBACK_BUILDER=y. The default engine is the
- * gen/ pipeline (GPT 5.2 + AI SDK). See src/lib/gen/fallback.ts.
+ * NOT the main site generation engine — that is gen/ (own engine).
  *
- * Also used for: templates (generateFromTemplate), registry init (initFromRegistry),
- * and download (downloadVersionAsZip) — these flows still use v0 Platform API.
+ * Used for: templates (generateFromTemplate), registry init (initFromRegistry),
+ * download (downloadVersionAsZip), and legacy v0 chat operations.
  *
- * KÄRNMODUL för v0-baserad AI-kodgenerering. Kommunicerar med Vercel's v0 Platform API.
+ * Kommunicerar med Vercel's v0 Platform API.
  *
  * API-TYPER (båda använder samma V0_API_KEY):
  * - Platform API (v0-sdk): Returnerar filer, demoUrl, chatId - ANVÄNDS HÄR

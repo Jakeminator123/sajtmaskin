@@ -92,7 +92,7 @@ export interface ModelTraceSnapshot {
   auth: {
     openai: boolean;
     anthropic: boolean;
-    v0: boolean;
+    v0PlatformConfigured: boolean;
     aiGatewayApiKey: boolean;
     vercelOidcToken: boolean;
     onVercel: boolean;
@@ -219,7 +219,7 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
   const auth = {
     openai: Boolean(process.env.OPENAI_API_KEY?.trim()),
     anthropic: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
-    v0: Boolean(process.env.V0_API_KEY?.trim()),
+    v0PlatformConfigured: Boolean(process.env.V0_API_KEY?.trim()),
     aiGatewayApiKey: Boolean(process.env.AI_GATEWAY_API_KEY?.trim()),
     vercelOidcToken: Boolean(process.env.VERCEL_OIDC_TOKEN?.trim()),
     onVercel: isProbablyOnVercel(),

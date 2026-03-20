@@ -6,8 +6,7 @@
  *
  * Build Models:
  *   - The first group represents build profiles, not prompt-assist models.
- *   - When V0_FALLBACK_BUILDER=y, these map to v0 Platform API models.
- *   - Otherwise, the same profiles map to the own engine's provider model IDs.
+ *   - These profiles map to the own engine's provider model IDs (OpenAI).
  *   - Prompt Assist models are listed separately below and are only used to
  *     rewrite/brief the prompt before generation.
  *

@@ -98,7 +98,7 @@ export async function generateSiteFromPrompt(
     requestedModelId: params.modelId ?? null,
     fallbackTier: DEFAULT_MODEL_ID,
   });
-  const engineModel = resolveEngineModelId(modelSelection.modelTier, false);
+  const engineModel = resolveEngineModelId(modelSelection.modelTier);
 
   let resolvedScaffold: ScaffoldManifest | null = null;
   if (scaffoldMode === "manual" && params.scaffoldId) {

@@ -63,16 +63,11 @@ describe("resolveModelSelection", () => {
 });
 
 describe("resolveEngineModelId", () => {
-  it("returns v0 tier when useV0Fallback is true", () => {
-    expect(resolveEngineModelId("fast", true)).toBe("v0-max-fast");
-    expect(resolveEngineModelId("codex", true)).toBe("v0-gpt-5");
-  });
-
-  it("maps the internal profile to OpenAI model when useV0Fallback is false", () => {
-    expect(resolveEngineModelId("fast", false)).toBe("gpt-4.1");
-    expect(resolveEngineModelId("pro", false)).toBe("gpt-5.3-codex");
-    expect(resolveEngineModelId("codex", false)).toBe("gpt-5.1-codex-max");
-    expect(resolveEngineModelId("max", false)).toBe("gpt-5.4");
-    expect(resolveEngineModelId("anthropic", false)).toBe("claude-sonnet-4.6");
+  it("maps the internal profile to own engine model", () => {
+    expect(resolveEngineModelId("fast")).toBe("gpt-4.1");
+    expect(resolveEngineModelId("pro")).toBe("gpt-5.3-codex");
+    expect(resolveEngineModelId("codex")).toBe("gpt-5.1-codex-max");
+    expect(resolveEngineModelId("max")).toBe("gpt-5.4");
+    expect(resolveEngineModelId("anthropic")).toBe("claude-sonnet-4.6");
   });
 });

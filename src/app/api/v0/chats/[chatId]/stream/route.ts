@@ -465,7 +465,7 @@ export async function handleMessageStreamRequest(
             content: m.content,
           }));
 
-        const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        const engineModel = resolveEngineModelId(resolvedModelTier);
         debugLog("build", "Follow-up chat stream request", {
           chatId,
           buildProfileId,

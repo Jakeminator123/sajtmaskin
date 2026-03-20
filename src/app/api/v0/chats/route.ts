@@ -226,7 +226,7 @@ export async function POST(req: Request) {
           });
           const ownSystemPrompt = ownOrchestration.engineSystemPrompt;
 
-          const engineModel = resolveEngineModelId(resolvedModelTier, false);
+          const engineModel = resolveEngineModelId(resolvedModelTier);
           const maxOutputTokens = getEngineMaxOutputTokens(resolvedModelTier);
           const reasoningEffort = getReasoningEffort(resolvedModelTier, resolvedThinking);
           const isAnthropicModel = engineModel.startsWith("claude-");

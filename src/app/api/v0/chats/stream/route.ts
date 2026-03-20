@@ -480,7 +480,7 @@ export async function POST(req: Request) {
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
-        const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        const engineModel = resolveEngineModelId(resolvedModelTier);
         debugLog("engine", "Own engine model resolved", {
           resolvedModelTier,
           engineModel,

@@ -462,15 +462,15 @@
     },
     {
       "key": "V0_STREAMING_ENABLED",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "v0 streaming feature flag. Only used by v0-fallback path (v0-generator.ts). Candidate for removal when v0-fallback is deprecated."
+      "classification": "deprecated",
+      "recommendedVercelTargets": [],
+      "notes": "DEPRECATED: Only used by v0-generator.ts (legacy/template operations). Not read by own engine generation path."
     },
     {
       "key": "V0_FALLBACK_BUILDER",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": ["development"],
-      "notes": "Fallback mode is usually enabled only for explicit local testing."
+      "classification": "deprecated",
+      "recommendedVercelTargets": [],
+      "notes": "DEPRECATED: No runtime code reads this variable. The own engine is the sole generation path. Safe to remove from env."
     },
     {
       "key": "LOOPIA_API_USER",

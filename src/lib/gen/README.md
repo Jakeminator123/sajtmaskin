@@ -1,27 +1,25 @@
 # gen/ — Code Generation Module
 
-Sajtmaskin's own code generation engine. Uses OpenAI models (gpt-5.3-codex default, gpt-5.4 max) via AI SDK to generate Next.js/React sites from prompts. Replaces v0 Platform API as the default path.
+Sajtmaskin's own code generation engine. Uses OpenAI models (gpt-5.3-codex default, gpt-5.4 max) via AI SDK to generate Next.js/React sites from prompts.
 
 ## Architecture
 
 ```
 createGenerationPipeline()  (fallback.ts)
     │
-    ├─ V0_FALLBACK_BUILDER=y  →  v0-generator (v0 Platform API)
-    │
-    └─ default                →  engine.ts (streamText + createCodeGenSSEStream)
-                                       │
-                                       ├─ system-prompt.ts (buildSystemPrompt)
-                                       ├─ url-compress.ts (compress before LLM, expand after)
-                                       ├─ stream-format.ts (SSE events)
-                                       └─ suspense/ (TransformStream post-processing)
+    └─ engine.ts (streamText + createCodeGenSSEStream)
+            │
+            ├─ system-prompt.ts (buildSystemPrompt)
+            ├─ url-compress.ts (compress before LLM, expand after)
+            ├─ stream-format.ts (SSE events)
+            └─ suspense/ (TransformStream post-processing)
 ```
 
 ## Key Files
 
 | File | Role |
 |------|------|
-| `fallback.ts` | Entry point. `createGenerationPipeline()` switches between gen engine and v0 fallback based on `V0_FALLBACK_BUILDER`. |
+| `fallback.ts` | Entry point. `createGenerationPipeline()` delegates to the own engine. |
 | `engine.ts` | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
 | `system-prompt.ts` | Builds the system prompt (static core + dynamic context). |
 | `stream-format.ts` | Converts AI SDK stream to SSE events (`meta`, `thinking`, `content`, `done`, `error`). |
@@ -32,16 +30,11 @@ createGenerationPipeline()  (fallback.ts)
 | `preview/` | Preview runtime modules. `preview/index.ts` exposes `buildPreviewHtml()` and `buildPreviewUrl()`, while sibling files split resolution, CSS, transpilation, script assembly, and shims. |
 | `version-manager.ts` | Creates versions from content, parses files. |
 
-## Fallback
+## v0 Platform API (not used for generation)
 
-When `V0_FALLBACK_BUILDER=y`:
-
-1. `createGenerationPipeline()` returns `createV0FallbackStream()` instead of calling the engine.
-2. The fallback dynamically imports `@/lib/v0/v0-generator` and calls `generateCode()`.
-3. The result is wrapped in an SSE stream that matches the gen engine's event format.
-4. The client sees the same SSE shape either way.
-
-v0 is still used for: templates (`generateFromTemplate`), registry init (`initFromRegistry`), and download (`downloadVersionAsZip`), regardless of fallback.
+The own engine is the sole generation path. v0 Platform API (`v0-sdk`) is still
+used for legacy operations: templates (`generateFromTemplate`), registry init
+(`initFromRegistry`), and download (`downloadVersionAsZip`).
 
 ## Generated Artifacts And Indexing
 

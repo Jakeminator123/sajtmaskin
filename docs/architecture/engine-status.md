@@ -161,7 +161,7 @@ Default selected profile: **Max** (`max`)
 | Kodgenerering | `OPENAI_API_KEY` (direkt mot OpenAI) |
 | Prompt Assist | `AI_GATEWAY_API_KEY` (Vercel AI Gateway) |
 | Deep Brief | `AI_GATEWAY_API_KEY` (gateway-only) |
-| V0-fallback | `V0_API_KEY` (bara om `V0_FALLBACK_BUILDER=y`) |
+| V0 Platform (legacy/mall) | `V0_API_KEY` (inte för kodgenerering; `V0_FALLBACK_BUILDER` är deprecated) |
 
 ## Scaffold-system (17 scaffolds)
 

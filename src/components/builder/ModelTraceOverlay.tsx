@@ -250,7 +250,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
 
                 <section className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
                   <p className="mb-2 text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
-                    Provider Auth
+                    Provider auth
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <span className={cn("rounded-full border px-2 py-1", statusChipClass(snapshot.auth.openai))}>
@@ -264,8 +264,8 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                     >
                       Anthropic key: {snapshot.auth.anthropic ? "set" : "missing"}
                     </span>
-                    <span className={cn("rounded-full border px-2 py-1", statusChipClass(snapshot.auth.v0))}>
-                      v0 key: {snapshot.auth.v0 ? "set" : "missing"}
+                    <span className={cn("rounded-full border px-2 py-1", statusChipClass(snapshot.auth.v0PlatformConfigured))}>
+                      v0 key: {snapshot.auth.v0PlatformConfigured ? "set" : "missing"}
                     </span>
                     <span
                       className={cn(
@@ -376,9 +376,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                           <span
                             className={cn(
                               "rounded-full border px-2 py-0.5",
-                              option.deepBriefEligible
-                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                                : "border-white/10 bg-white/[0.04] text-slate-400",
+                              statusChipClass(option.deepBriefEligible),
                             )}
                           >
                             deep brief: {option.deepBriefEligible ? "yes" : "no"}

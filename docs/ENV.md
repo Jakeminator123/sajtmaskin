@@ -222,8 +222,8 @@ källa.
 | --------------------- | ---------- | ------------------- | ----------------------------------------------------------------------- |
 | `POSTGRES_URL`        | .env.local | production, preview | Primär databas (Supabase)                                               |
 | `JWT_SECRET`          | .env.local | production, preview | Auth-tokens                                                             |
-| `OPENAI_API_KEY`      | .env.local | production, preview | Own engine (krävs när V0_FALLBACK_BUILDER inte är satt)                 |
-| `V0_API_KEY`          | .env.local | production, preview | v0 Platform API, v0-baserad prompt assist och vissa integrationer. Krävs för fallback-läge när `V0_FALLBACK_BUILDER=y` |
+| `OPENAI_API_KEY`      | .env.local | production, preview | Own engine (krävs alltid för kodgenerering)                             |
+| `V0_API_KEY`          | .env.local | production, preview | v0 Platform API — legacy mall/registry-operationer och v0-baserad prompt assist. Inte för kodgenerering. |
 | `NEXT_PUBLIC_APP_URL` | .env.local | production, preview | Appens publika URL (t.ex. https://sajtmaskin.se)                        |
 
 ## D-ID avatar-test (`/avatar`)
