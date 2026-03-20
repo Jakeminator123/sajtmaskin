@@ -27,9 +27,9 @@ function readStringEnv(name: string, fallback: string): string {
 //   SAJTMASKIN_POLISH_MODEL=openai/gpt-5.3-codex
 //
 //   # ── Token-gränser ────────────────────────────────────────────
-//   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=32768
-//   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=12288
-//   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=16384
+//   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=131072
+//   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=32768
+//   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=81920
 //
 // ============================================================================
 
@@ -49,20 +49,21 @@ export const POLISH_MODEL = readStringEnv("SAJTMASKIN_POLISH_MODEL", "openai/gpt
 // TOKEN BUDGETS
 // ============================================================================
 
-/** Legacy single value — prefer getEngineMaxOutputTokens(tier) for per-tier limits. */
+/** Fallback when tier is unknown — prefer getEngineMaxOutputTokens(tier). */
 export const ENGINE_MAX_OUTPUT_TOKENS = readIntEnv(
   "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
-  32_768,
+  128_000,
   4_096,
   262_144,
 );
 
+/** Per-tier caps for the main code-generation stream (build). Fast stays at gpt-4.1-class ceiling. */
 const TIER_MAX_OUTPUT_TOKENS: Record<string, number> = {
   fast: 32_768,
-  pro: 65_536,
+  pro: 128_000,
   max: 128_000,
   codex: 128_000,
-  anthropic: 64_000,
+  anthropic: 128_000,
 };
 
 export function getEngineMaxOutputTokens(tier?: string | null): number {
@@ -70,34 +71,38 @@ export function getEngineMaxOutputTokens(tier?: string | null): number {
   return TIER_MAX_OUTPUT_TOKENS[tier] ?? ENGINE_MAX_OUTPUT_TOKENS;
 }
 
-export type ReasoningEffort = "none" | "low" | "medium" | "high";
+export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
 
 const TIER_REASONING_EFFORT: Record<string, ReasoningEffort> = {
   fast: "none",
-  pro: "medium",
-  max: "high",
-  codex: "high",
+  pro: "high",
+  max: "xhigh",
+  codex: "xhigh",
   anthropic: "none",
 };
 
+/**
+ * Map builder "Thinking" to OpenAI `reasoning.effort`.
+ * Default: reasoning on unless explicitly disabled (`thinking === false`).
+ */
 export function getReasoningEffort(tier?: string | null, thinking?: boolean): ReasoningEffort {
-  if (!thinking) return "none";
-  if (!tier) return "medium";
-  return TIER_REASONING_EFFORT[tier] ?? "medium";
+  if (thinking === false) return "none";
+  if (!tier) return "high";
+  return TIER_REASONING_EFFORT[tier] ?? "high";
 }
 
 export const AUTOFIX_MAX_OUTPUT_TOKENS = readIntEnv(
   "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
-  12_288,
+  32_768,
   2_048,
   65_536,
 );
 
 export const ASSIST_MAX_OUTPUT_TOKENS = readIntEnv(
   "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
-  16_384,
+  81_920,
   4_096,
-  128_000,
+  262_144,
 );
 
 // ============================================================================

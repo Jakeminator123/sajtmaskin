@@ -126,13 +126,31 @@ function normalizeToolPart(part: UiMessagePart): ToolUIPart {
 
   const resolvedInput = parseJsonIfPossible(input);
   const resolvedOutput = parseJsonIfPossible(output);
-  const state =
+  let state = (
     (typeof raw.state === "string" && raw.state) ||
-    (errorText ? "output-error" : output !== undefined ? "output-available" : "input-available");
+    (errorText ? "output-error" : output !== undefined ? "output-available" : "input-available")
+  ) as ToolUIPart["state"];
+
+  // Clarification tools are still "waiting for user" once output carries question/options; avoid `output-available`
+  // which would hide quick-reply handling in getActionPrompt for persisted messages.
+  if (
+    toolType === "tool:awaiting-input" &&
+    state === "output-available" &&
+    resolvedOutput &&
+    typeof resolvedOutput === "object" &&
+    !Array.isArray(resolvedOutput)
+  ) {
+    const o = resolvedOutput as Record<string, unknown>;
+    const hasQuestion = typeof o.question === "string" && o.question.trim().length > 0;
+    const hasOptions = Array.isArray(o.options) && o.options.length > 0;
+    if (hasQuestion || hasOptions) {
+      state = "input-available";
+    }
+  }
 
   return {
     type: toolType as ToolUIPart["type"],
-    state: state as ToolUIPart["state"],
+    state,
     toolCallId,
     toolName,
     input: resolvedInput as ToolUIPart["input"],

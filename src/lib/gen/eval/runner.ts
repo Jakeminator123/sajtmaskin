@@ -92,7 +92,7 @@ async function evaluatePrompt(
     prompt: evalPrompt.prompt,
     systemPrompt,
     model,
-    thinking: false,
+    thinking: true,
     maxTokens: ENGINE_MAX_OUTPUT_TOKENS,
   });
 

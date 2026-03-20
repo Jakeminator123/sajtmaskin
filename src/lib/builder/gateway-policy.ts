@@ -74,3 +74,25 @@ export function getTemperatureConfig(
   if (isReasoningModel(model)) return {};
   return { temperature };
 }
+
+/**
+ * OpenAI-class assist/build calls: enable reasoning for GPT-5 / o-series style models.
+ * Skipped for non-reasoning models (temperature-only).
+ */
+export function getOpenAIAssistReasoningOptions(model: string): {
+  providerOptions?: { openai: { reasoningEffort: "high" } };
+} {
+  if (!isReasoningModel(model)) return {};
+  return { providerOptions: { openai: { reasoningEffort: "high" } } };
+}
+
+/** Anthropic assist/build: extended thinking unless caller disables it at the API layer. */
+export function getAnthropicAssistThinkingOptions(): {
+  providerOptions: { anthropic: { thinking: { type: "adaptive" } } };
+} {
+  return {
+    providerOptions: {
+      anthropic: { thinking: { type: "adaptive" } },
+    },
+  };
+}

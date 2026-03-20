@@ -1120,6 +1120,38 @@ function coerceStringArray(value: unknown): string[] {
   return value.map((item) => String(item)).filter((item) => item.trim().length > 0);
 }
 
+/** Contract / follow-up clarification tools — user must answer before generation continues. */
+function isAwaitingUserClarificationTool(tool: {
+  type?: string;
+  toolName?: string;
+  name?: string;
+}): boolean {
+  const t = typeof tool.type === "string" ? tool.type : "";
+  if (t === "tool:awaiting-input") return true;
+  const label = `${typeof tool.toolName === "string" ? tool.toolName : ""} ${typeof tool.name === "string" ? tool.name : ""}`;
+  return label.toLowerCase().includes("klargörande");
+}
+
+function extractClarificationPromptFromToolParts(toolParts: ToolPart[]): ToolQuestionPrompt | null {
+  for (let toolIndex = toolParts.length - 1; toolIndex >= 0; toolIndex -= 1) {
+    const tool = toolParts[toolIndex].tool as Partial<ToolUIPart> & {
+      type?: string;
+      toolName?: string;
+      name?: string;
+    };
+    if (!isAwaitingUserClarificationTool(tool)) continue;
+    const fromOutput = extractQuestionPrompt(tool.output);
+    if (fromOutput && (fromOutput.question.trim() || fromOutput.options.length > 0)) {
+      return fromOutput;
+    }
+    const fromInput = extractQuestionPrompt(tool.input);
+    if (fromInput && (fromInput.question.trim() || fromInput.options.length > 0)) {
+      return fromInput;
+    }
+  }
+  return null;
+}
+
 export function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModalData | null {
   for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
     const message = messages[messageIndex];
@@ -1167,11 +1199,15 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
       ),
     );
     if (hasAwaitingInput) {
+      const extracted = extractClarificationPromptFromToolParts(toolParts);
+      const rawQuestion =
+        extracted?.question?.trim() ||
+        "Svara i chatten med ditt val eller en kort förtydligande text så att vi kan fortsätta.";
       return {
         key: `${message.id}:awaiting-input-fallback`,
         messageId: message.id,
-        question: "V0 väntar på ditt svar. Kontrollera meddelandet ovan och skriv ett svar.",
-        options: [],
+        question: normalizeQuestionText(rawQuestion),
+        options: (extracted?.options ?? []).map(normalizeApprovalOptionLabel),
         planMode: hasPlanAwaitingInput,
       };
     }
@@ -1279,13 +1315,18 @@ function getActionPrompt(
     output?: unknown;
     type?: string;
     approval?: unknown;
+    toolName?: string;
+    name?: string;
   },
   state: ToolUIPart["state"],
 ): ToolQuestionPrompt | null {
   const explicitPrompt = getToolQuestionPrompt(tool);
+  const clarificationTool = isAwaitingUserClarificationTool(tool);
+  // Persisted tool rows often end up as `output-available` once `output` exists; we still need the modal + quick replies.
   const isActionableState =
     state === "approval-requested" ||
-    ((state === "input-available" || state === "input-streaming") && Boolean(explicitPrompt));
+    ((state === "input-available" || state === "input-streaming") && Boolean(explicitPrompt)) ||
+    (clarificationTool && Boolean(explicitPrompt) && state === "output-available");
   if (!isActionableState) return null;
 
   if (explicitPrompt) {

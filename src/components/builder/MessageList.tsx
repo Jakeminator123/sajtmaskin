@@ -386,12 +386,16 @@ const MessageListComponent = ({
                   AI behöver ditt val
                 </DialogTitle>
                 <DialogDescription>
-                  Välj ett alternativ nedan eller skriv ett eget svar i chatten.
+                  {pendingReply.options.length > 0
+                    ? "Välj ett alternativ nedan eller skriv ett eget svar i chatten."
+                    : "Skriv ditt svar i chatten. Frågan visas under den här rubriken."}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-3">
-                <p className="text-foreground text-sm font-semibold">{pendingReply.question}</p>
+                <p className="text-foreground text-sm font-semibold whitespace-pre-wrap">
+                  {pendingReply.question.trim() ? pendingReply.question : "Ingen frågetext kunde läsas från det här meddelandet — scrolla i chatten ovan om du ser en fråga där."}
+                </p>
                 {pendingReply.options.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {pendingReply.options.map((option, optionIndex) => {

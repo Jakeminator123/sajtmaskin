@@ -74,20 +74,30 @@ export function generateCode(
     { role: "user" as const, content: buildUserPromptContent(prompt, referenceAttachments) },
   ];
 
-  const providerOptions =
-    !isAnthropicModel && reasoningEffort !== "none"
-      ? { openai: { reasoningEffort } }
-      : undefined;
-
-  const result = streamText({
+  // OpenAI: reasoning effort when Thinking is on. Claude: extended thinking (adaptive) on same flag.
+  // (Avoid a single ternary — TS would infer `openai?: undefined` on the Anthropic branch and reject SharedV3ProviderOptions.)
+  const baseCall = {
     model,
     system: systemPrompt,
     messages: messages as ModelMessage[],
     maxOutputTokens: resolvedMaxTokens,
     abortSignal,
-    ...(providerOptions ? { providerOptions } : {}),
     ...(tools ? { tools, maxSteps: maxSteps ?? 2 } : {}),
-  });
+  };
+
+  const result = streamText(
+    isAnthropicModel && thinking
+      ? {
+          ...baseCall,
+          providerOptions: { anthropic: { thinking: { type: "adaptive" as const } } },
+        }
+      : !isAnthropicModel && reasoningEffort !== "none"
+        ? {
+            ...baseCall,
+            providerOptions: { openai: { reasoningEffort } },
+          }
+        : baseCall,
+  );
 
   return createCodeGenSSEStream(result, { thinking, meta });
 }

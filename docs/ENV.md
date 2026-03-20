@@ -89,9 +89,11 @@ builder-flodena resolverar idag alltid till own engine, inte till legacy-v0-buil
 
 | Env-variabel | Default | Vad den styr |
 |---|---|---|
-| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | `32768` | Max output-tokens för kodgenerering |
-| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS` | `12288` | Max output-tokens för autofix/LLM-fixer |
-| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `16384` | Max output-tokens för brief/chat assist |
+| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | `128000` | Fallback när tier saknas; bygg-spåret använder **per-tier** tak (se `defaults.ts`) |
+| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS` | `32768` | Max output-tokens för autofix/LLM-fixer (lättare spår än huvudbuild) |
+| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `81920` | Max output-tokens för brief/chat assist (cappas av `AI_*_MAX_TOKENS` nedan) |
+| `AI_CHAT_MAX_TOKENS` | `131072` (inbyggd default om unset) | Hård cap per request för `/api/ai/chat` |
+| `AI_BRIEF_MAX_TOKENS` | `131072` (inbyggd default om unset) | Hård cap per request för `/api/ai/brief` |
 
 ### Hur modellerna hänger ihop
 
@@ -114,7 +116,7 @@ Observera:
 
 - `/api/ai/spec` finns, men ligger inte i normal builder-kedja i dag
 - UI-labels som `Tanker` kan fortfarande drifta fran faktisk provider om `SAJTMASKIN_MODEL_*` overridas
-- `Thinking` ar separat och andrar inte build-profile-ID:t
+- `Thinking` ar separat fran build-profile-ID:t och ar **på som standard** (API-validering + UI); stänger av resonemang/ext. thinking nar anvandaren kryssar ur
 
 ### Overlay-hjalpare for modellspårning
 
@@ -198,7 +200,8 @@ källa.
 `ENV_VAR_ENCRYPTION_KEY` styr kryptering av känsliga projektspecifika env-vars i
 `project_data.meta.projectEnvVars`.
 
-- Just nu kan nyckeln lämnas tom eller osatt tills kryptering aktiveras.
+- **Server-/plattformsnyckel för Sajtmaskin** (samma typ som `JWT_SECRET`), inte slutanvändarens API-nycklar. Den används bara för att kryptera värden innan de lagras i er databas.
+- Om nyckeln saknas (eller är avstängd) **kan du inte spara känsliga projektspecifika env-vars** i UI — då får du felet `ENV_VAR_ENCRYPTION_KEY must be configured...`. Lösning lokalt: sätt en slumpad hemlig sträng i `.env.local` (t.ex. `openssl rand -hex 32`) och starta om dev-servern.
 - Följande värden behandlas också som **avstängt läge**:
   `n`, `no`, `false`, `0`, `off`, `disabled`
 - I avstängt läge lagras inte känsliga projektspecifika env-vars i klartext; i
@@ -302,8 +305,9 @@ Bildflöde i generering:
 | `SAJTMASKIN_MODEL_ANTHROPIC`                   | `claude-sonnet-4.6` | Modell för Anthropic-jämförelseläge           |
 | `SAJTMASKIN_ASSIST_MODEL`                      | `openai/gpt-5.4`    | Default prompt-assistmodell for `Forbattra`   |
 | `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Standard-polishmodell for `Skriv om` (Anthropic-lane overrider den i jamforelselaget) |
-| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 32768               | Max output-tokens för sidgenerering           |
-| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 12288               | Autofix-pipeline                              |
+| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 128000              | Fallback + env-override; tier använder egna tak |
+| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 32768               | Autofix-pipeline                              |
+| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS`          | 81920               | Assist/brief/chat default innan route-cap     |
 | `SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS`          | 720000 (12 min)     | Klient-timeout innan stream avbryts           |
 | `SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS` | 800                 | Route maxDuration för build/refine            |
 | `SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS` | 600                 | Route maxDuration för prompt-assist och brief |

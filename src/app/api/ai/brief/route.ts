@@ -15,6 +15,8 @@ import {
 } from "@/lib/builder/promptAssist";
 import {
   createDirectModel,
+  getAnthropicAssistThinkingOptions,
+  getOpenAIAssistReasoningOptions,
   getTemperatureConfig,
 } from "@/lib/builder/gateway-policy";
 import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
@@ -23,7 +25,7 @@ export const maxDuration = 600;
 
 import { ASSIST_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
 
-const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 81_920;
+const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 131_072;
 
 const briefRequestSchema = z.object({
   prompt: z
@@ -417,6 +419,7 @@ export async function POST(req: Request) {
             maxRetries: 1,
             maxOutputTokens: maxTokens,
             ...getTemperatureConfig(normalizedModel, temperature),
+            ...getAnthropicAssistThinkingOptions(),
           });
         } catch (fullSchemaErr) {
           debugLog("AI", "Full Anthropic brief schema failed, trying simplified", {
@@ -437,8 +440,9 @@ export async function POST(req: Request) {
                 { role: "user", content: userPrompt },
               ],
               maxRetries: 1,
-              maxOutputTokens: Math.min(maxTokens, 40_960),
+              maxOutputTokens: Math.min(maxTokens, 65_536),
               ...getTemperatureConfig(normalizedModel, temperature),
+              ...getAnthropicAssistThinkingOptions(),
             });
             usedSimplified = true;
           } catch (simplifiedErr) {
@@ -534,6 +538,7 @@ export async function POST(req: Request) {
           maxRetries: 1,
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
+          ...getOpenAIAssistReasoningOptions(normalizedModel),
         });
       } catch (fullSchemaErr) {
         debugLog("AI", "Full brief schema failed, trying simplified", {
@@ -549,8 +554,9 @@ export async function POST(req: Request) {
               { role: "user", content: userPrompt },
             ],
             maxRetries: 1,
-            maxOutputTokens: Math.min(maxTokens, 40_960),
+            maxOutputTokens: Math.min(maxTokens, 65_536),
             ...getTemperatureConfig(normalizedModel, temperature),
+            ...getOpenAIAssistReasoningOptions(normalizedModel),
           });
           usedSimplified = true;
         } catch (simplifiedErr) {

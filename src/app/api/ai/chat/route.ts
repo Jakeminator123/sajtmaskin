@@ -17,6 +17,8 @@ import {
 } from "@/lib/builder/promptAssist";
 import {
   createDirectModel,
+  getAnthropicAssistThinkingOptions,
+  getOpenAIAssistReasoningOptions,
   getTemperatureConfig,
 } from "@/lib/builder/gateway-policy";
 import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
@@ -27,7 +29,7 @@ const BASE_URL = "https://api.v0.dev/v1";
 
 import { ASSIST_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
 
-const ENV_MAX_TOKENS = Number(process.env.AI_CHAT_MAX_TOKENS) || 81_920;
+const ENV_MAX_TOKENS = Number(process.env.AI_CHAT_MAX_TOKENS) || 131_072;
 
 const messageSchema = z.discriminatedUnion("role", [
   z.object({
@@ -191,6 +193,7 @@ export async function POST(req: Request) {
           messages,
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
+          ...getOpenAIAssistReasoningOptions(normalizedModel),
           onFinish({ text }) {
             devLogAppend("latest", {
               type: "assist.chat.response",
@@ -242,6 +245,7 @@ export async function POST(req: Request) {
           messages,
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(anthropicModel, temperature),
+          ...getAnthropicAssistThinkingOptions(),
           onFinish({ text }) {
             devLogAppend("latest", {
               type: "assist.chat.response",
