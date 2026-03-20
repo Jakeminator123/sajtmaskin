@@ -20,7 +20,7 @@ API Route (/api/v0/chats/stream or /api/v0/chats/[chatId]/stream)
        │
        ├─► Request Metadata extraction (attachments, brief, theme, scaffold settings)
        │
-       ├─► Route Decision: own-engine vs v0-fallback (V0_FALLBACK_BUILDER flag)
+       ├─► Route Decision: active own-engine path vs remaining legacy v0 branches
        │
        ▼
 Orchestrate Context (prepareGenerationContext)

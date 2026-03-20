@@ -47,7 +47,7 @@ export function getRedis(): Redis | null {
   // Skip if Redis not configured
   if (!FEATURES.useRedisCache) {
     if (!redisDisabledLogged) {
-      console.warn("[Redis] Disabled: REDIS_URL or REDIS_HOST/REDIS_PASSWORD missing");
+      console.warn("[Redis] Disabled: REDIS_URL missing (KV_URL is still accepted as a legacy fallback)");
       redisDisabledLogged = true;
     }
     return null;

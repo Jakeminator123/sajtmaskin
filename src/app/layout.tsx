@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
+// Historical UI iteration suffix only; this is the current production landing style bundle.
 import "@/styles/landing-v2.css";
 import { AnalyticsTracker, BetaBanner, CookieBanner } from "@/components/layout";
 import { OrganizationJsonLd, SoftwareApplicationJsonLd } from "@/components/layout/json-ld";

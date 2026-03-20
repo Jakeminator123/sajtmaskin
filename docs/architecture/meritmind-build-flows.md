@@ -100,26 +100,23 @@ Praktiskt:
 ### 3. Own-engine
 Detta är standardvägen i dagens setup.
 
-Den används när:
+Den används som normal huvudväg i dagens runtime. Historiskt styrdes delar av
+detta via `V0_FALLBACK_BUILDER`, men den variabeln ska nu läsas som legacy-drift
+och inte som den aktiva huvudbrytaren för own-engine.
 
-- `V0_FALLBACK_BUILDER` inte är aktivt satt till sant
-- eller fallback inte uttryckligen begärs i metadatan
-
-I din lokala `.env.local` är `V0_FALLBACK_BUILDER=false`, så lokal `npm run dev`
-ligger i praktiken på own-engine som huvudväg.
+Lokal `npm run dev` ligger i praktiken på own-engine som huvudväg.
 
 ### 4. v0-fallback
-v0 är inte defaultmotor i din nuvarande lokala setup. Den används bara när två
-villkor samtidigt är uppfyllda:
+v0 är inte defaultmotor i din nuvarande lokala setup. De kvarvarande v0-spåren
+är legacy-vägar och hjälprutter snarare än den normala buildermotorn.
 
-1. fallback är aktiverad via `V0_FALLBACK_BUILDER`
-2. requestens metadata uttryckligen pekar mot fallback, t.ex. via `enginePath`
-   eller när follow-up-requesten egentligen tillhör en redan mappad v0-chat
+1. requestens metadata uttryckligen pekar mot ett legacy-v0-spår
+2. eller follow-up-requesten egentligen tillhör en redan mappad v0-chat
 
 Det betyder:
 
-- `V0_FALLBACK_BUILDER=true` ensam är inte hela valet
-- buildern behöver också explicit metadata eller en befintlig v0-chatmappning
+- kvarvarande v0-användning är explicit och legacy-bunden
+- own-engine är den praktiska standardvägen för normal builderkörning
 
 ## Vad som händer i varje väg
 

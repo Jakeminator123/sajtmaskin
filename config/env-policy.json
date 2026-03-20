@@ -182,13 +182,13 @@
       "key": "POSTGRES_PRISMA_URL",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Alternate pooled database URL."
+      "notes": "Legacy fallback database URL. Still accepted by runtime and migration scripts, but new local setup should prefer POSTGRES_URL."
     },
     {
       "key": "POSTGRES_URL_NON_POOLING",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Direct non-pooled database URL."
+      "notes": "Legacy fallback direct database URL. Keep only when a flow explicitly needs non-pooling; otherwise prefer POSTGRES_URL."
     },
     {
       "key": "JWT_SECRET",
@@ -225,6 +225,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required for local or non-Vercel gateway-backed AI routes. Deployed Vercel runtimes can authenticate with OIDC instead."
+    },
+    {
+      "key": "DESIGN_SYSTEM_ID",
+      "classification": "deprecated",
+      "recommendedVercelTargets": [],
+      "notes": "DEPRECATED: v0-only external design system env. Own engine uses designTheme in the UI instead."
     },
     {
       "key": "VERCEL_TOKEN",
@@ -398,7 +404,7 @@
       "key": "KV_URL",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Redis fallback URL."
+      "notes": "Legacy Redis fallback URL. Used only when REDIS_URL is missing."
     },
     {
       "key": "UPSTASH_REDIS_REST_URL",
@@ -411,6 +417,18 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "REST token for Upstash-backed flows."
+    },
+    {
+      "key": "KV_REST_API_URL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Legacy REST fallback URL. Used only when UPSTASH_REDIS_REST_URL is missing."
+    },
+    {
+      "key": "KV_REST_API_TOKEN",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Legacy REST fallback token. Used only when UPSTASH_REDIS_REST_TOKEN is missing."
     },
     {
       "key": "BACKOFFICE_PASSWORD",

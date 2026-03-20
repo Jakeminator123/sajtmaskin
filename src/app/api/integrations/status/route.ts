@@ -83,9 +83,11 @@ export async function GET() {
       label: "Redis cache",
       enabled: FEATURES.useRedisCache,
       required: false,
-      requiredEnv: ["REDIS_URL", "KV_URL"],
+      requiredEnv: ["REDIS_URL"],
       affects: "Caching (valfri)",
-      notes: REDIS_CONFIG.enabled ? "redis cache on" : "redis cache off",
+      notes: REDIS_CONFIG.enabled
+        ? "redis cache on"
+        : "redis cache off (KV_URL remains supported as a legacy fallback alias)",
       layer: "optional",
     },
     {

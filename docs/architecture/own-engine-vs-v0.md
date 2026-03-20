@@ -90,3 +90,7 @@ versions. The suffixes appear in several unrelated contexts:
 
 None of these represent a repo-wide "V2 architecture". They are independent
 iteration labels on specific features or external API versions.
+
+If you see `landing-v2` or `PromptWizardModalV2` in current app entrypoints,
+read them as retained UI iteration names on the active landing surface, not as
+evidence of an unmerged engine or hidden runtime branch.

@@ -9,6 +9,7 @@ import {
   OnboardingModal,
   useOnboarding,
   AuditModal,
+  // Retained symbol name from the second wizard iteration; this is the current wizard UI.
   PromptWizardModalV2,
   EntryModal,
   WelcomeOverlay,

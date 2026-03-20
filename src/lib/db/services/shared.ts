@@ -18,7 +18,7 @@ import { PATHS, SECRETS } from "@/lib/config";
 export function assertDbConfigured() {
   if (!dbConfigured) {
     throw new Error(
-      "Database not configured. Set POSTGRES_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING).",
+      "Database not configured. Set POSTGRES_URL. Legacy fallback aliases POSTGRES_PRISMA_URL and POSTGRES_URL_NON_POOLING are still accepted.",
     );
   }
 }

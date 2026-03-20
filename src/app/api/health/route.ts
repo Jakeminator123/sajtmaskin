@@ -66,7 +66,7 @@ export async function GET() {
   } else {
     checks.redis = {
       status: "disabled",
-      reason: "REDIS_URL/KV_URL not configured",
+      reason: "REDIS_URL not configured (KV_URL is still accepted as a legacy fallback)",
     };
   }
 

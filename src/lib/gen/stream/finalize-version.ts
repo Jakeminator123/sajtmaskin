@@ -205,10 +205,7 @@ export async function finalizeAndSaveVersion(
 
   onProgress?.("finalizing", { phase: "start" });
 
-  // 4. Save assistant message
-  const assistantMsg = await chatRepo.addMessage(chatId, "assistant", contentForVersion);
-
-  // 5. Parse files + merge (scaffold-based for first gen, previousFiles-based for follow-up)
+  // 4. Parse files + merge (scaffold-based for first gen, previousFiles-based for follow-up)
   let filesJson = parseFilesFromContent(contentForVersion);
 
   const generatedFiles = (
@@ -218,6 +215,18 @@ export async function finalizeAndSaveVersion(
       language?: string;
     }>
   ).map((f) => ({ ...f, language: f.language || "tsx" }));
+
+  if (generatedFiles.length === 0) {
+    warnLog("engine", "Skipping non-parseable generation output", {
+      chatId,
+      scaffold: resolvedScaffold?.id ?? null,
+      hadPreviousFiles: Boolean(previousFiles && previousFiles.length > 0),
+    });
+    throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
+  }
+
+  // 5. Save assistant message only after we have parseable project files.
+  const assistantMsg = await chatRepo.addMessage(chatId, "assistant", contentForVersion);
 
   filesJson = mergeGeneratedProjectFiles({
     chatId,

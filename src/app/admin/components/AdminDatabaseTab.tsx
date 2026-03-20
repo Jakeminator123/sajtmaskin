@@ -171,8 +171,8 @@ export function AdminDatabaseTab({
 
         {!dbStats?.redis?.connected && (
           <div className="bg-brand-amber/10 border-brand-amber/30 text-brand-amber border p-4 text-sm">
-            Redis är inte konfigurerat. Lägg till REDIS_URL eller KV_URL i .env.local för att
-            aktivera caching.
+            Redis är inte konfigurerat. Lägg i första hand till REDIS_URL i .env.local.
+            KV_URL stöds fortfarande som legacy-fallback.
           </div>
         )}
       </div>

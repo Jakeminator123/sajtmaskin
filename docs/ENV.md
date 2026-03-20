@@ -171,7 +171,7 @@ Det finns två olika nivåer av env-variabler i Sajtmaskin:
 Dessa driver plattformen, buildern och infrastrukturen och delas av hela
 Sajtmaskin-installationen:
 
-- databas och cache: `POSTGRES_URL`, `REDIS_URL`, `KV_URL`, `UPSTASH_*`
+- databas och cache: `POSTGRES_URL`, `REDIS_URL`, `UPSTASH_*` (`KV_*` bara som kompatibilitetsalias)
 - auth och sessioner: `JWT_SECRET`
 - AI och buildermotor: `OPENAI_API_KEY`, `AI_GATEWAY_API_KEY`, `ANTHROPIC_API_KEY`, `V0_API_KEY`
 - deploy och Vercel: `VERCEL_TOKEN`, valfritt `VERCEL_TEAM_ID`, `BLOB_READ_WRITE_TOKEN`
@@ -340,7 +340,7 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 
 1. Klona repot och kör `npm install`.
 2. Skapa `.env.local` med minst: `POSTGRES_URL`, `JWT_SECRET`, `OPENAI_API_KEY`.
-3. **Redis (dev):** Skapa en gratis Upstash Redis på [console.upstash.com](https://console.upstash.com), sätt `REDIS_URL`, `KV_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
+3. **Redis (dev):** Skapa en gratis Upstash Redis på [console.upstash.com](https://console.upstash.com), sätt `REDIS_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`. `KV_URL` och `KV_REST_API_*` är bara kompatibilitetsalias.
 4. **Postgres (dev):** Skapa ett gratis Supabase-projekt, sätt `POSTGRES_URL`.
 5. Kör `npm run db:init` för att skapa databasschemat.
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
@@ -352,6 +352,31 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
    - `npm run template-library:build` bygger kuraterade dossiers i `scaffold-pipeline/dossiers/`
    - runtime fortsätter läsa genererade artefakter i `src/lib/gen/template-library/`
 
+## Keep / legacy / remove later
+
+### Keep (canonical today)
+
+- `POSTGRES_URL` — kanonisk databas-URL för lokal dev, `npm run db:init`, Drizzle och normal runtime.
+- `REDIS_URL` — kanonisk Redis-URL för ioredis-cache.
+- `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` — kanoniska REST-variabler för rate limits och andra Upstash-baserade flöden.
+- `OPENAI_API_KEY` — primär own-engine-provider för build/refine.
+- `ANTHROPIC_API_KEY` — aktiv bara när Anthropic-lane eller Anthropic prompt-assist används.
+- `V0_API_KEY` — fortfarande live för kvarvarande legacy `v0`-rutter och v0-baserade hjälpspår. Inte för own-engine-kodgenerering.
+
+### Legacy compatibility (do not use for new setup)
+
+- `POSTGRES_PRISMA_URL` — legacy fallback; läses fortfarande av runtime och migrationsscript, men ska inte vara förstahandsval lokalt.
+- `POSTGRES_URL_NON_POOLING` — legacy fallback för direktanslutning; stöds fortfarande men är inte kanonisk lokal setup.
+- `KV_URL` — Vercel/Upstash-alias för Redis cache; används bara om `REDIS_URL` saknas.
+- `KV_REST_API_URL` + `KV_REST_API_TOKEN` — Vercel/Upstash-alias för REST-klienten; används bara om `UPSTASH_REDIS_REST_*` saknas.
+- `VERCEL_OIDC_TOKEN` — praktisk lokal snapshot-token för vissa gateway/Vercel-flöden, men inte en långsiktig canonical env för vanlig lokal setup.
+
+### Remove later / deprecated
+
+- `DESIGN_SYSTEM_ID` — deprecated v0-env. Own engine använder `designTheme`; denna env-variabel har ingen aktiv roll i own-engine-runtime och ligger inte längre i runtime-schemat.
+- `V0_STREAMING_ENABLED` — deprecated v0-only flagga. Behåll bara tills kvarvarande `v0-generator`-kod är borta.
+- `V0_FALLBACK_BUILDER` — legacy no-op i dagens runtime. Dokumenteras av historiska skäl men läses inte av aktiv runtime-kod.
+
 ## Deprecated / removal candidates (v0 soft-deprecation Phase 3)
 
 Följande env-variabler tillhör v0-fallback-lagret och har ingen effekt på
@@ -362,7 +387,7 @@ own-engine-flödet. De tas bort när v0-fallback-koden avvecklas helt
 |---|---|---|
 | `DESIGN_SYSTEM_ID` | v0-registrybaserat designsystem; own engine använder `designTheme` (klientval i localStorage, injicerat som OKLCh-preset i systemprompten) | Inget env — `designTheme` väljs i UI |
 | `V0_STREAMING_ENABLED` | Styrde om v0-fallback streamade; own engine streamar alltid | Inget — borttagning |
-| `V0_FALLBACK_BUILDER` | Aktiverade v0-fallback i stället för own engine | Inget — own engine är default |
+| `V0_FALLBACK_BUILDER` | Historisk fallback-switch; aktiv runtime läser den inte längre | Inget — own engine är default |
 
 `V0_API_KEY` behövs fortfarande för legacy registry/template-operationer
 (`init-registry`, `init`) men inte för kodgenerering. Kan tas bort när de

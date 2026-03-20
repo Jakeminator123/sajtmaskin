@@ -2,6 +2,10 @@
 
 > Senast uppdaterad: 2026-03-18 (Plan 9 completed, Plan 10 delivered: telemetry, feedback, scaffold learning, collaboration, phase-aware model routing, eval suite. V0 fallback stream extracted. DB migrations applied.)
 
+Kort namnnotering:
+- `landing-v2` och `PromptWizardModalV2` är kvarvarande UI-iterationsnamn på
+  den nuvarande landningsytan, inte separata runtime-versioner av motorn.
+
 ## Arkitektur
 
 ```

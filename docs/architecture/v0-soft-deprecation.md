@@ -9,9 +9,14 @@ preserving all Vercel platform integrations (deploy, blob, domains).
 ## Current state
 
 - Own-engine is the default generation path.
-- v0-fallback is opt-in via `V0_FALLBACK_BUILDER=y`.
+- Historically, v0-fallback was opt-in via `V0_FALLBACK_BUILDER=y`.
+- `V0_FALLBACK_BUILDER` is now effectively historical configuration: the active
+  runtime path no longer reads it, but docs and policy still track it during
+  deprecation cleanup.
 - Many API routes under `src/app/api/v0/` still call the v0 Platform API
   for chat CRUD, version management, file operations, and registry init.
+- The `/api/v0/` namespace is still a historical route prefix, not proof that
+  the default builder generation flow runs through the v0 Platform API.
 - Vercel integrations (deploy, blob, domains) are separate from v0 and must
   be preserved.
 
@@ -75,7 +80,7 @@ v0-fallback-only (safe to remove):
 - v0-fallback branches in `src/app/api/v0/chats/stream/route.ts`
 - v0-fallback branches in `src/app/api/v0/chats/[chatId]/stream/route.ts`
 - `V0_STREAMING_ENABLED` from env schema and policy
-- `DESIGN_SYSTEM_ID` from env schema and policy
+- `DESIGN_SYSTEM_ID` from env policy and remaining legacy docs/helpers
 
 Always-v0-dependent (requires replacement or removal decision):
 - `src/app/api/v0/chats/init-registry/route.ts`

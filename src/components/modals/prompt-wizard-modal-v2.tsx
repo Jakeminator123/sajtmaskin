@@ -69,6 +69,9 @@ import type { Competitor } from "@/app/api/wizard/competitors/route";
 /**
  * PromptWizardModal V2 - Adaptive Business Analysis Wizard
  *
+ * The `V2` suffix is a retained file/symbol name from an earlier UI iteration.
+ * This is the current production wizard, not a parallel architecture version.
+ *
  * 5 focused steps with AI-driven follow-up questions:
  * 1. About You (Company + Industry + Location + Website scraping)
  * 2. Your Goals (Purpose + Audience + USP + AI follow-ups)
@@ -76,7 +79,7 @@ import type { Competitor } from "@/app/api/wizard/competitors/route";
  * 4. Design Preferences (Vibe + Color palette)
  * 5. Review & Generate (Brief preview + Voice + Final edit)
  *
- * Key improvements over V1:
+ * Key improvements over the first wizard iteration:
  * - AI-driven follow-up questions adapt to business context
  * - Web scraper integration for existing websites
  * - USP and competitive differentiation questions
@@ -528,7 +531,7 @@ export function PromptWizardModalV2({
   } | null>(null);
 
   // ═══════════════════════════════════════════════════════════════
-  // V3: Intelligence state
+  // Background intelligence state
   // ═══════════════════════════════════════════════════════════════
   const [companyLookup, setCompanyLookup] = useState<CompanyLookupResult | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -904,7 +907,7 @@ export function PromptWizardModalV2({
     }
   }, [isOpen]);
 
-  // ── V3: Auto-detect domain and start background analysis ─────
+  // ── Auto-detect domain and start background analysis ─────────
   useEffect(() => {
     if (!isOpen || !isAuthenticated) return;
     const value = existingWebsite.trim();
@@ -917,7 +920,7 @@ export function PromptWizardModalV2({
     return () => clearTimeout(timer);
   }, [existingWebsite, isOpen, isAuthenticated, handleScrapeWebsite]);
 
-  // ── V3: Auto company lookup from companyName ──────────────────
+  // ── Auto company lookup from companyName ──────────────────────
   useEffect(() => {
     if (!isOpen || !isAuthenticated || !isInitialized) return;
     const name = companyName.trim();
@@ -949,7 +952,7 @@ export function PromptWizardModalV2({
     setLocation(companyLookup.city);
   }, [companyLookup, location]);
 
-  // ── V3: Auto competitor discovery ─────────────────────────────
+  // ── Auto competitor discovery ─────────────────────────────────
   useEffect(() => {
     if (!isOpen || !isAuthenticated || !isInitialized) return;
     if (!companyName.trim() || !industry) return;

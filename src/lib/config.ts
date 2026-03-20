@@ -362,15 +362,6 @@ export const OPENCLAW = {
 } as const;
 
 /**
- * AI / v0 configuration
- */
-export const AI = {
-  get designSystemId(): string | undefined {
-    return env.DESIGN_SYSTEM_ID || undefined;
-  },
-} as const;
-
-/**
  * Feature flags
  */
 export const FEATURES = {

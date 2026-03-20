@@ -106,3 +106,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-20-scaffold-hybrid-dossier-022125/`
 
+## 2026-03-20-robustness-env-naming (archived 2026-03-20 12:36)
+- **Scope:** See archived FINAL_REPORT.md for details.
+- **Workloads:** 4 completed, 3 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-20-robustness-env-naming-123635/`
+

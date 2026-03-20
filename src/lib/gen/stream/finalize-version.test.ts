@@ -214,6 +214,24 @@ describe("finalizeAndSaveVersion", () => {
     });
   });
 
+  it("rejects generations that produce no parseable project files", async () => {
+    parseFilesFromContent.mockReturnValue(JSON.stringify([]));
+
+    await expect(
+      finalizeAndSaveVersion({
+        accumulatedContent: "Here is a summary but no code fences.",
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      }),
+    ).rejects.toThrow("Generation produced no code output");
+
+    expect(addMessage).not.toHaveBeenCalled();
+    expect(createDraftVersion).not.toHaveBeenCalled();
+  });
+
   it("keeps preview URLs when verification blockers do not prevent preview rendering", async () => {
     runProjectSanityChecks.mockReturnValue({
       valid: false,

@@ -156,15 +156,11 @@ export const serverSchema = z.object({
   SAJTMASKIN_ASSIST_MODEL: z.string().optional(),
   SAJTMASKIN_POLISH_MODEL: z.string().optional(),
 
-  // v0 Design System
-  DESIGN_SYSTEM_ID: z.string().optional(),
-
   // Feature flags
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),
   AUDIT_WEB_SEARCH: z.string().optional(),
   V0_STREAMING_ENABLED: z.string().optional(),
-  V0_FALLBACK_BUILDER: z.string().optional(),
   V0_MAX_PROMPT_LENGTH: z.string().optional(),
   V0_WARN_PROMPT_LENGTH: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
