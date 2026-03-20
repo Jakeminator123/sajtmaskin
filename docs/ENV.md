@@ -345,12 +345,43 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 5. Kör `npm run db:init` för att skapa databasschemat.
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
 7. MCP-servrar i Cursor (`.cursor/mcp.json`): `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx tools/mcp/...`.
-8. Extern template-research:
-   - `npm run references:discover` skriver kanonisk rå discovery till `research/external-templates/raw-discovery/current/`
+8. Extern template-research (scaffold-pipeline):
+   - `npm run references:discover` skriver kanonisk rå discovery till `scaffold-pipeline/discovery/current/`
    - `npm run template-library:import-legacy` importerar legacy `_sidor`-summary till samma plats
-   - `npm run template-library:hydrate-cache` bygger lokal shallow-clone cache i `research/external-templates/repo-cache/`
-   - `npm run template-library:build` bygger den kuraterade referensytan i `research/external-templates/reference-library/`
+   - `npm run template-library:hydrate-cache` bygger lokal shallow-clone cache i `scaffold-pipeline/repo-cache/`
+   - `npm run template-library:build` bygger kuraterade dossiers i `scaffold-pipeline/dossiers/`
    - runtime fortsätter läsa genererade artefakter i `src/lib/gen/template-library/`
+
+## Deprecated / removal candidates (v0 soft-deprecation Phase 3)
+
+Följande env-variabler tillhör v0-fallback-lagret och har ingen effekt på
+own-engine-flödet. De tas bort när v0-fallback-koden avvecklas helt
+(se `docs/architecture/v0-soft-deprecation.md`).
+
+| Variabel | Varför deprecated | Ersätts av |
+|---|---|---|
+| `DESIGN_SYSTEM_ID` | v0-registrybaserat designsystem; own engine använder `designTheme` (klientval i localStorage, injicerat som OKLCh-preset i systemprompten) | Inget env — `designTheme` väljs i UI |
+| `V0_STREAMING_ENABLED` | Styrde om v0-fallback streamade; own engine streamar alltid | Inget — borttagning |
+| `V0_FALLBACK_BUILDER` | Aktiverade v0-fallback i stället för own engine | Inget — own engine är default |
+
+`V0_API_KEY` behövs fortfarande för legacy registry/template-operationer
+(`init-registry`, `init`) men inte för kodgenerering. Kan tas bort när de
+routerna ersätts.
+
+## Databasmodell (kort referens)
+
+Schemat (`src/lib/db/schema.ts`) har två parallella tabellhierarkier:
+
+| Tabeller | Ägarskap | Status |
+|---|---|---|
+| `engine_chats`, `engine_messages`, `engine_versions`, `engine_generation_logs`, `engine_version_error_logs`, `generation_telemetry`, `version_comments`, `version_approvals` | **Own engine** (aktiv kodsökväg) | Aktiv |
+| `projects`, `chats`, `versions`, `version_error_logs`, `deployments` | **v0-proxy** (legacy, bär `v0_*`-kolumner) | Vestigial — tas bort med v0-fallback |
+| `app_projects`, `project_data`, `project_files`, `images`, `media_library`, `prompt_handoffs`, `prompt_logs`, `company_profiles` | **App-lager** (projekt, media, intake) | Aktiv |
+| `users`, `user_integrations`, `transactions`, `guest_usage` | **Auth & billing** | Aktiv |
+| `template_cache`, `registry_cache`, `page_views`, `user_audits`, `kostnadsfri_pages`, `domain_orders` | **Diverse features** | Aktiv |
+
+Repository (`src/lib/db/chat-repository-pg.ts`) använder uteslutande `engine_*`-tabellerna.
+V0-proxytabellerna nås bara via `src/lib/tenant.ts` och ett fåtal v0-specifika routes.
 
 ## Rate limits och budgetvarningar
 
