@@ -327,7 +327,7 @@ function rebuildContent(
     if (match) {
       result = result.replace(fenceRe, `$1${fixed.content}$3`);
     } else {
-      result = result.replace(orig.content, fixed.content);
+      console.warn(`[autofix] Fenced block regex missed for ${orig.path}, skipping replacement to avoid corruption`);
     }
   }
 

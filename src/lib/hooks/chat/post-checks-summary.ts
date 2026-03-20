@@ -108,7 +108,7 @@ export function buildPostCheckSummary(params: {
 
   if (autoFixQueued) {
     lines.push(
-      "Obs: Den här versionen är preliminär eftersom autofix redan har köats efter efterkontrollerna.",
+      "Obs: Den här versionen är preliminär — autofix har begärts efter efterkontrollerna.",
     );
   } else if (qualityGatePending) {
     lines.push("Obs: Quality gate körs fortfarande för den här versionen.");

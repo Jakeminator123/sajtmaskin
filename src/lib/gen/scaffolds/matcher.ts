@@ -3,7 +3,7 @@
  *
  * Uses keyword matching as primary strategy, with embedding-based
  * semantic search as fallback when keywords yield only generic defaults.
- * Only matches against the 13 internal scaffolds in registry.ts.
+ * Only matches against internal scaffolds in registry.ts (see getAllScaffolds()).
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";

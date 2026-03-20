@@ -22,6 +22,7 @@ import { detectBusinessWorkflowPacks, type BusinessWorkflowPack } from "@/lib/ge
 import { detectIntegrations, type DetectedIntegration } from "@/lib/gen/detect-integrations";
 import { buildAnalyticsReview, type AnalyticsReview } from "@/lib/hooks/chat/post-checks-analysis";
 import type { FileEntry } from "@/lib/hooks/chat/types";
+import { READINESS_INVALIDATE_EVENT } from "@/lib/hooks/useChatReadiness";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -444,6 +445,7 @@ export function ProjectEnvVarsPanel({
       setEnvVars(Array.isArray(data.envVars) ? data.envVars : []);
       setNewKey("");
       setNewValue("");
+      window.dispatchEvent(new CustomEvent(READINESS_INVALIDATE_EVENT));
     } catch (saveError) {
       setError(
         saveError instanceof Error ? saveError.message : "Kunde inte spara miljövariabel",
@@ -474,6 +476,7 @@ export function ProjectEnvVarsPanel({
           return;
         }
         setEnvVars(Array.isArray(data.envVars) ? data.envVars : []);
+        window.dispatchEvent(new CustomEvent(READINESS_INVALIDATE_EVENT));
       } catch (deleteError) {
         setError(
           deleteError instanceof Error
@@ -992,13 +995,13 @@ export function ProjectEnvVarsPanel({
               )}
 
               {integrationStatus && statusSummary && (
-                <div className="space-y-1">
+                <div className="space-y-1 border-t border-border/50 pt-3 mt-3">
                   <div className="flex items-center gap-2">
-                    <div className="text-foreground text-xs font-medium">Plattformens status (Sajtmaskin-runtime)</div>
+                    <div className="text-foreground text-xs font-medium">Sajtmaskin-plattform</div>
                     <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-200">verifierad</span>
                   </div>
                   <div className="text-muted-foreground text-[11px]">
-                    Faktisk status för Sajtmaskin-plattformen som kör buildern, inte den genererade sajten.
+                    Status för plattformen som kör buildern — inte din genererade sajt.
                   </div>
                   {integrationStatus.items.map((item) => {
                     const stateLabel = item.enabled

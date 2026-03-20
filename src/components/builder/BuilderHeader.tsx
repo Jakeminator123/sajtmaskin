@@ -237,12 +237,6 @@ export function BuilderHeader(props: {
       : deployReadiness?.status === "warning"
         ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
         : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
-  const readinessDetails = deployReadiness
-    ? [
-        ...deployReadiness.blockers.map((item) => item.detail || item.title),
-        ...deployReadiness.warnings.map((item) => item.detail || item.title),
-      ]
-    : [];
   useEffect(() => {
     setHasMounted(true);
   }, []);
@@ -717,26 +711,9 @@ export function BuilderHeader(props: {
         </Button>
 
         {readinessLabel ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="outline" className={readinessBadgeClassName}>
-                  {readinessLabel}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-sm text-xs">
-                {readinessDetails.length > 0 ? (
-                  <div className="space-y-1">
-                    {readinessDetails.slice(0, 4).map((detail, index) => (
-                      <p key={`${index}-${detail}`}>{detail}</p>
-                    ))}
-                  </div>
-                ) : (
-                  <p>Aktiv version ser redo ut att publicera.</p>
-                )}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Badge variant="outline" className={readinessBadgeClassName}>
+            {readinessLabel}
+          </Badge>
         ) : null}
 
         <Button

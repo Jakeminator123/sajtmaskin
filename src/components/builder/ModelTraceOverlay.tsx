@@ -248,7 +248,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                   </div>
                 </section>
 
-                <section className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                <section className="rounded-lg border border-white/10 bg-white/3 p-2">
                   <p className="mb-2 text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
                     Provider auth
                   </p>
@@ -298,7 +298,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                   </section>
                 ) : null}
 
-                <details className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                <details className="rounded-lg border border-white/10 bg-white/3 p-2">
                   <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
                     Active Routes
                   </summary>
@@ -312,7 +312,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                               "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
                               route.active
                                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                                : "border-white/10 bg-white/[0.04] text-slate-400",
+                                : "border-white/10 bg-white/4 text-slate-400",
                             )}
                           >
                             {route.active ? "active" : "idle"}
@@ -325,7 +325,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                   </div>
                 </details>
 
-                <details className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                <details className="rounded-lg border border-white/10 bg-white/3 p-2">
                   <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
                     Build Profiles
                   </summary>
@@ -352,7 +352,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                   </div>
                 </details>
 
-                <details className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                <details className="rounded-lg border border-white/10 bg-white/3 p-2">
                   <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
                     Prompt Assist Options
                   </summary>
@@ -387,7 +387,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                   </div>
                 </details>
 
-                <section className="rounded-lg border border-white/10 bg-white/[0.03] p-2 text-slate-300">
+                <section className="rounded-lg border border-white/10 bg-white/3 p-2 text-slate-300">
                   <p className="mb-1 text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
                     Notes
                   </p>
@@ -399,7 +399,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                 </section>
               </>
             ) : (
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-slate-300">
+              <div className="rounded-lg border border-white/10 bg-white/3 px-3 py-2 text-slate-300">
                 {isLoading ? "Loading model trace..." : "No model trace loaded yet."}
               </div>
             )}

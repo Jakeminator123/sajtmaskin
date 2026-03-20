@@ -37,9 +37,11 @@ export async function validateAndFix(
     model: string;
     resolvedTier?: CanonicalModelId;
     onProgress?: ValidateFixProgressCallback;
+    enableFixer?: boolean;
   },
 ): Promise<ValidateFixResult> {
   const onProgress = opts.onProgress;
+  const enableFixer = opts.enableFixer !== false;
 
   try {
     const { validateGeneratedCode } = await import("../retry/validate-syntax");
@@ -103,14 +105,8 @@ export async function validateAndFix(
         })),
       });
 
-      if (pass === AUTOFIX_SYNTAX_MAX_PASSES) {
+      if (!enableFixer) {
         onProgress?.({ pass, phase: "gave-up", errorCount: validation.errors.length });
-        devLogAppend("in-progress", {
-          type: "syntax-validation.gave-up",
-          chatId: opts.chatId,
-          pass,
-          errorCount: validation.errors.length,
-        });
         break;
       }
 
@@ -195,6 +191,16 @@ export async function validateAndFix(
           message: fixerError instanceof Error ? fixerError.message : "Unknown fixer error",
         });
       }
+
+      if (pass === AUTOFIX_SYNTAX_MAX_PASSES) {
+        onProgress?.({ pass, phase: "gave-up", errorCount: validation.errors.length });
+        devLogAppend("in-progress", {
+          type: "syntax-validation.gave-up",
+          chatId: opts.chatId,
+          pass,
+          errorCount: validation.errors.length,
+        });
+      }
     }
 
     return {
@@ -215,11 +221,11 @@ export async function validateAndFix(
     });
     return {
       content,
-      hadErrors: false,
+      hadErrors: true,
       fixerUsed: false,
       fixerImproved: false,
-      errorsBefore: 0,
-      errorsAfter: 0,
+      errorsBefore: -1,
+      errorsAfter: -1,
       passes: 0,
     };
   }

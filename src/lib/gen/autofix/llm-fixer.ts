@@ -85,7 +85,7 @@ function mergeFixedFiles(originalContent: string, fixedFiles: CodeFile[]): strin
     if (match) {
       result = result.replace(fenceRe, `$1${replacement.content}$3`);
     } else {
-      result = result.replace(orig.content, replacement.content);
+      console.warn(`[llm-fixer] Fenced block regex missed for ${orig.path}, skipping replacement to avoid corruption`);
     }
   }
 

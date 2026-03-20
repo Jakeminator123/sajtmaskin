@@ -49,6 +49,7 @@ type Props = {
   versionId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  autoFixDisabled?: boolean;
 };
 
 function openProjectEnvVarsPanel() {
@@ -74,7 +75,7 @@ function formatTimestamp(value?: string | null) {
   });
 }
 
-export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange }: Props) {
+export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange, autoFixDisabled = false }: Props) {
   const [logs, setLogs] = useState<VersionDiagnosticsLog[]>([]);
   const [summary, setSummary] = useState<DiagnosticsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -139,7 +140,8 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
     [logs],
   );
 
-  const canAutoFix = logs.some((log) => log.level === "error" || log.level === "warning");
+  const hasFixableIssues = logs.some((log) => log.level === "error" || log.level === "warning");
+  const canAutoFix = hasFixableIssues && !autoFixDisabled;
 
   const handleAutoFix = () => {
     if (!chatId || !versionId) return;
@@ -209,9 +211,14 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
             <RefreshCw className={cn("mr-1 h-4 w-4", isLoading && "animate-spin")} />
             Ladda om
           </Button>
-          <Button size="sm" onClick={handleAutoFix} disabled={!canAutoFix}>
+          <Button
+            size="sm"
+            onClick={handleAutoFix}
+            disabled={!canAutoFix}
+            title={autoFixDisabled ? "Autofix-gränsen har nåtts för den här chatten" : undefined}
+          >
             <Wrench className="mr-1 h-4 w-4" />
-            Kör autofix
+            {autoFixDisabled ? "Autofix (gräns nådd)" : "Kör autofix"}
           </Button>
         </div>
 

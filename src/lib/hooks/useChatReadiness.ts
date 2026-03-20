@@ -1,3 +1,4 @@
+import { useCallback, useEffect } from "react";
 import useSWR from "swr";
 import type { ChatReadiness } from "@/lib/chat-readiness";
 
@@ -11,6 +12,8 @@ const fetcher = async (url: string) => {
   return res.json();
 };
 
+export const READINESS_INVALIDATE_EVENT = "sajtmaskin:readiness-invalidate";
+
 type UseChatReadinessOptions = {
   isGenerating?: boolean;
   pauseWhileGenerating?: boolean;
@@ -23,23 +26,37 @@ export function useChatReadiness(
 ) {
   const { isGenerating = false, pauseWhileGenerating = false } = options;
   const query = versionId ? `?versionId=${encodeURIComponent(versionId)}` : "";
-  const refreshInterval =
-    !versionId || (pauseWhileGenerating && isGenerating) ? 0 : 10000;
+  const paused = !versionId || (pauseWhileGenerating && isGenerating);
+
   const { data, error, isLoading, mutate } = useSWR(
     chatId ? `/api/v0/chats/${chatId}/readiness${query}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
-      refreshInterval,
+      refreshInterval: paused ? 0 : 10_000,
       dedupingInterval: 2000,
     },
   );
 
+  const resolvedReadiness = (data?.readiness as ChatReadiness | undefined) ?? null;
+
+  const invalidate = useCallback(() => {
+    mutate();
+  }, [mutate]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => invalidate();
+    window.addEventListener(READINESS_INVALIDATE_EVENT, handler);
+    return () => window.removeEventListener(READINESS_INVALIDATE_EVENT, handler);
+  }, [invalidate]);
+
   return {
-    readiness: (data?.readiness as ChatReadiness | undefined) ?? null,
+    readiness: resolvedReadiness,
     isLoading,
     isError: error,
     mutate,
+    invalidate,
   };
 }

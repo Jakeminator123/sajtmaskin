@@ -209,6 +209,12 @@
       "notes": "Required for the default own-engine path."
     },
     {
+      "key": "ANTHROPIC_API_KEY",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Required when the Anthropic build profile or Anthropic prompt-assist models are selected. Not needed for OpenAI-only configurations."
+    },
+    {
       "key": "AUDIT_WEB_SEARCH",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],

@@ -147,12 +147,13 @@ export async function finalizeAndSaveVersion(
     }
   }
 
-  // 2. Syntax validation + multi-pass fix
+  // 2. Syntax validation + multi-pass fix (LLM fixer gated by runAutofix)
   onProgress?.("validation", { phase: "start" });
   const syntaxResult = await validateAndFix(contentForVersion, {
     chatId,
     model,
     resolvedTier,
+    enableFixer: runAutofix,
     onProgress: (evt) => {
       onProgress?.("validation", {
         pass: evt.pass,
