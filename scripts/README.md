@@ -242,32 +242,16 @@ npm run scaffolds:discover
 npm run scaffolds:discover:full
 ```
 
-## scaffold-pipeline.py
+## scaffold-pipeline.py (i scaffold-pipeline/scripts/)
 
 Interaktivt Python-menyskript som samlar alla steg i template-library-kedjan.
-Visar aktuell status (antal dossiers, embeddings, kuraterade entries) och lat
-dig valja enskilda steg eller kora hela kedjan.
-
-### Anvandning
+Kors fran reporoten:
 
 ```bash
-python scripts/scaffold-pipeline.py
+python scaffold-pipeline/scripts/scaffold-pipeline.py
 ```
 
-### Menyval
-
-| Val | Vad det gor |
-|-----|-------------|
-| 1 | Skrapa nya templates fran vercel.com/templates (Playwright) |
-| 2 | Importera legacy-dataset fran Desktop/_sidor |
-| 3 | Ladda ner repos (shallow clones till repo-cache) |
-| 4 | Bygg template-library + dossiers |
-| 5 | Generera template-library embeddings (OpenAI API) |
-| 6 | Generera scaffold embeddings (OpenAI API) |
-| 7 | Kor allt fran befintlig discovery (2+3+4+5+6) |
-| 8 | Kor allt fran scratch (1+3+4+5+6) |
-| 9 | Visa status |
-| 0 | Avsluta |
+Se `scaffold-pipeline/README.md` for fullstandig menybeskrivning.
 
 ### Monorepo-skydd
 

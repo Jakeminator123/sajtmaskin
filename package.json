@@ -25,7 +25,6 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "test:openclaw:e2e": "playwright test -c playwright.openclaw.config.ts",
-    "test:api": "node scripts/test-api-usage.mjs",
     "templates:sync": "node scripts/sync-v0-templates.mjs",
     "templates:validate": "node scripts/validate-templates.mjs",
     "templates:refresh": "node scripts/sync-v0-templates.mjs && node scripts/validate-templates.mjs",

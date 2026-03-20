@@ -1,6 +1,11 @@
 {
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 500,
   "plugins": {
     "vercel": {
+      "enabled": true
+    },
+    "figma": {
       "enabled": true
     }
   }
