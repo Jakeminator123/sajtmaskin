@@ -18,7 +18,7 @@ Användarens prompt
 ┌──────────────────────────────┐
 │  PRE-GENERATION              │
 │  - Prompt-orkestrering       │
-│  - Scaffold-matchning (10 st)│
+│  - Scaffold-matchning (17 st)│
 │  - Route-planering           │
 │  - Kontraktsinferens         │
 │  - URL-komprimering          │

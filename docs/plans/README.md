@@ -15,9 +15,11 @@ equally current.
 
 ## Current status map
 
-Verified `2026-03-18` (post plan-finalization-and-cleanup run).
+Verified `2026-03-20`.
 
-- `active`: `active/17-repo-separation-and-independence.md`
+- `active`:
+  - `active/17-repo-separation-and-independence.md`
+  - `active/build-ui-autofix-models-audit.md`
 - `review-needed`: none currently
 - `archived`: see `archived/README.md` and the folder contents for completed or recovery-only plans
 
