@@ -23,8 +23,9 @@ decisions, even though they are not indexed for performance reasons.
   **`src/lib/gen/template-library/template-library.generated.json`** — large
   generated files. Do not read whole files; use the READMEs in those
   directories instead.
-- **`scripts/`** — build and migration scripts. Read when discussing
-  tooling or DB operations.
+- **`Scripts/`** — dev runner and DB/migration entrypoints. **`config/scripts/`** —
+  offline pipeline (embeddings, template-library, scaffolds). Read when discussing
+  tooling or research builds.
 
 ## How to search
 

@@ -30,7 +30,7 @@ File: `src/app/globals.css`
 ### 3. Eval is now runnable as a real gate
 
 Files:
-- `scripts/run-eval.ts`
+- `config/scripts/run-eval.ts`
 - `package.json`
 
 - Reused and expanded the existing `scripts/run-eval.ts` instead of replacing it
@@ -75,7 +75,7 @@ the older v0-first assumptions.
 No additional dead runtime code was removed in this pass because the touched
 files were still active and lint-clean. The main cleanup here was to avoid
 introducing duplicate eval wrappers and instead extend the already-existing
-`scripts/run-eval.ts`.
+`config/scripts/run-eval.ts`.
 
 ## Verification
 

@@ -240,7 +240,7 @@ def step_template_embeddings():
 
 def step_scaffold_embeddings():
     print(f"\n{BOLD}Fas 3: Generera scaffold embeddings{RESET}")
-    print("Anropar OpenAI embedding API for de 10 runtime scaffolds")
+    print("Anropar OpenAI embedding API for runtime-scaffolds i registry")
     if not confirm("Fortsatt?"):
         return
     run("npm run scaffolds:embeddings")
@@ -255,7 +255,7 @@ def step_test_matching():
         print(f"{RED}scaffold-embeddings.json saknas. Kor steg 6 forst.{RESET}")
         return
 
-    run("npx tsx scripts/test-scaffold-matching.ts")
+    run("npx tsx config/scripts/test-scaffold-matching.ts")
 
 
 # ---------------------------------------------------------------------------

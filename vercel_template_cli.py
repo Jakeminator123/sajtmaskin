@@ -12,7 +12,7 @@ Curation pipeline::
 
   1. Run this script with ``--candidates`` to discover external templates.
   2. Run ``npm run scaffolds:curate`` to score and rank.
-  3. Human review -> add approved repos to ``scripts/sync-scaffold-refs.mjs``.
+  3. Human review -> add approved repos to ``config/scripts/sync-scaffold-refs.mjs``.
   4. Run ``sync-scaffold-refs.mjs`` to download reference code.
   5. Build new internal scaffolds in ``src/lib/gen/scaffolds/``.
   6. Regenerate embeddings with ``npm run scaffolds:embeddings``.

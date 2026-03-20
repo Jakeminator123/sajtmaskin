@@ -82,7 +82,7 @@ Snabbkommando: `npm run scaffold-pipeline` (steg 3-7) eller
 ### 2.1 selected_files/ — gitignorerade, inte raderade
 
 `selected_files/`-mapparna inuti varje dossier skapas av
-`scripts/build-template-library.ts` och innehaller kodutdrag (markdown-filer
+`config/scripts/build-template-library.ts` och innehaller kodutdrag (markdown-filer
 med excerpts fran klonade repos).
 
 De ar uttryckligen gitignorerade:
@@ -469,7 +469,7 @@ npx tsc --noEmit
 
 Begrensning: statisk HTML-parsning, missar JS-renderat innehall.
 
-### 8.2 scripts/template-library-discovery.ts
+### 8.2 config/scripts/template-library-discovery.ts
 
 - TypeScript, Playwright-baserad
 - Rikare data (klarar JS-rendering)
@@ -621,7 +621,7 @@ nativerings-floden, ta screenshots, lasa konsolloggar, etc.
 - [ ] Las `src/lib/gen/template-library/README.md`
 - [ ] Las `scaffold-pipeline/README.md`
 - [ ] Las `scaffold-pipeline/catalog/EVALUATION_CHECKLIST.md`
-- [ ] Las `scripts/README.md` (pipeline-steg och npm-kommandon)
+- [ ] Las `Scripts/README.md` och `config/scripts/README.md` (pipeline-steg och npm-kommandon)
 - [ ] Kor `python scaffold-pipeline/scripts/scaffold-pipeline.py` val 9 (visa status)
 
 ### Under arbetet
@@ -635,7 +635,7 @@ nativerings-floden, ta screenshots, lasa konsolloggar, etc.
 
 ### Efter avslutat arbete
 
-- [ ] Uppdatera `scripts/README.md` om nya kommandon eller flaggor lagts till
+- [ ] Uppdatera `Scripts/README.md` / `config/scripts/README.md` om nya kommandon eller flaggor lagts till
 - [ ] Uppdatera `scaffold-pipeline/README.md` om pipeline-strukturen andrats
 - [ ] Uppdatera dossier-antal i README:er om det andrats vasentligt
 - [ ] Kor `npm run devtest` for generell validering

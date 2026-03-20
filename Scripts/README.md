@@ -1,0 +1,51 @@
+# Scripts (dev & build entrypoints)
+
+Small **Node** helpers wired into `npm run dev|build|start` and day-to-day template sync. They live at repo root as `Scripts/` (capital **S**) so they stay distinct from `config/scripts/` (offline pipeline).
+
+| Script | Purpose |
+|--------|---------|
+| `next-runner.mjs` | Wraps `next dev` / `build` / `start` with repo env conventions. |
+| `refresh-token.mjs` | Dev token refresh (`predev`). |
+| `db-init.mjs` | Local DB bootstrap (`predev`, `db:init`). |
+| `run-migrations.ts` | SQL migrations (`db:migrate`). |
+| `sync-v0-templates.mjs` | Sync v0/Vercel-facing template metadata used by the product. |
+| `validate-templates.mjs` | Validates synced template data. |
+
+## Offline pipeline (embeddings, dossiers, scaffolds)
+
+Heavy research/build steps moved to **`config/scripts/`**. Use npm scripts (paths already updated):
+
+```bash
+npm run template-library:build
+npm run template-library:embeddings
+npm run scaffolds:embeddings
+npm run scaffolds:promote -- --help
+```
+
+Full narrative commands and ordering: **`config/scripts/README.md`** and **`scaffold-pipeline/README.md`**.
+
+## Reference repo clones (GitHub mirrors)
+
+```bash
+node config/scripts/sync-scaffold-refs.mjs
+node config/scripts/sync-scaffold-refs.mjs --force
+node config/scripts/sync-scaffold-refs.mjs --only=nextjs-saas-starter,ibelick-nim
+```
+
+## AI defaults → `.env.local`
+
+See **`config/README.md`** and `config/profiles/ai.defaults.ini`. Quick print:
+
+```bash
+npm run config:env-print
+```
+
+## Interactive Python menu (whole pipeline)
+
+```bash
+python scaffold-pipeline/scripts/scaffold-pipeline.py
+```
+
+## Recovery PowerShell (optional)
+
+If present under `Scripts/recovery/`, see historical notes in git history; paths in docs may still say `scripts/recovery/`.

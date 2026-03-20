@@ -32,7 +32,7 @@ scaffold-pipeline/
 2. Hydrate       → scaffold-pipeline/repo-cache/
 3. Build         → scaffold-pipeline/dossiers/ + catalog/
 4. Embeddings    → src/lib/gen/template-library/ + src/lib/gen/scaffolds/
-5. Runtime       → src/lib/gen/scaffolds/registry.ts (10 scaffolds)
+5. Runtime       → src/lib/gen/scaffolds/registry.ts (internal manifests)
 ```
 
 ## How to run
@@ -56,22 +56,22 @@ python scaffold-pipeline/scripts/scaffold-pipeline.py
 npm run scaffolds:test-matching
 ```
 
-## Build scripts (in scripts/)
+## Build scripts (in `config/scripts/`)
 
 | Script | What it does |
 |--------|-------------|
-| `scripts/build-template-library.ts` | Analyzes repos, creates dossiers and generated JSON |
-| `scripts/template-library-discovery.ts` | Playwright scraper for vercel.com/templates |
-| `scripts/generate-scaffold-embeddings.ts` | OpenAI embeddings for the 10 runtime scaffolds |
-| `scripts/promote-to-scaffold.ts` | Promotes a dossier into a runtime scaffold |
-| `scripts/curate-scaffold-candidates.ts` | Curates scaffold candidates from catalog |
+| `config/scripts/build-template-library.ts` | Analyzes repos, creates dossiers and generated JSON |
+| `config/scripts/template-library-discovery.ts` | Playwright scraper for vercel.com/templates |
+| `config/scripts/generate-scaffold-embeddings.ts` | OpenAI embeddings for runtime scaffolds in registry |
+| `config/scripts/promote-to-scaffold.ts` | Promotes a dossier into a runtime scaffold |
+| `config/scripts/curate-scaffold-candidates.ts` | Curates scaffold candidates from catalog |
 
 ## Relationship to runtime scaffolds
 
 This folder is **research input** — it does not power runtime generation directly.
 
 Runtime generation uses:
-- `src/lib/gen/scaffolds/registry.ts` — the 10 scaffold manifests
+- `src/lib/gen/scaffolds/registry.ts` — scaffold manifests
 - `src/lib/gen/scaffolds/scaffold-embeddings.json` — embedding vectors for auto-matching
 - `src/lib/gen/scaffolds/scaffold-research.generated.json` — quality checklists derived from dossiers
 - `src/lib/gen/template-library/` — template reference data and embeddings

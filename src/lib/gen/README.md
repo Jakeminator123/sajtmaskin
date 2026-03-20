@@ -53,7 +53,7 @@ Guidelines:
 
 - Treat these files as runtime-critical artifacts, not disposable local output.
 - Do not hand-edit them as a normal workflow. Prefer regenerating them from the
-  scripts documented in `scripts/README.md`.
+  scripts documented in `Scripts/README.md` and `config/scripts/README.md`.
 - Keeping them in `.cursorignore` is about search/indexing cost, not about
   forbidding access. Read them directly when a task actually depends on their
   structure or contents.

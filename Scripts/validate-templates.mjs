@@ -9,7 +9,7 @@
  * - required fields are present
  *
  * Usage:
- *   node scripts/validate-templates.mjs
+ *   node Scripts/validate-templates.mjs
  */
 
 import { readFile } from "node:fs/promises";

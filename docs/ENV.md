@@ -15,6 +15,9 @@ config/env-policy.json          (committad, delad policy -- klassificering, targ
 .env.production                  (gitignored, referenskopia av prod-värden)
 
 Vercel Environment Variables      (web UI / CLI, de riktiga prod/preview/dev-värdena)
+
+config/profiles/ai.defaults.ini   (valfritt: dokumenterade AI-modell- och token-defaults;
+                                   skriv ut rader med `npm run config:env-print` → klistra i `.env.local`)
 ```
 
 Obs:

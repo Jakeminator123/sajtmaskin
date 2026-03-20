@@ -41,6 +41,7 @@ Important code sources of truth include:
 | File                     | Committed       | Purpose                                                                                                                            |
 | ------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `config/env-policy.json` | Yes             | Shared policy: classification, target rules, known-empty-ok lists. Consumed by `manage_env.py` and `src/lib/env-audit.ts`.         |
+| `config/profiles/*.ini`  | Yes (defaults)  | Optional staging layer for AI model/token env vars; emit with `npm run config:env-print` → paste into `.env.local`. See `config/README.md`. |
 | `src/lib/env.ts`         | Yes             | Zod schema declaring every env var the app can read.                                                                               |
 | `src/lib/env-audit.ts`   | Yes             | Runtime audit logic that loads `config/env-policy.json`.                                                                           |
 | `docs/ENV.md`            | Yes             | Human-readable overview of env topology, critical keys, and setup instructions.                                                    |
@@ -71,8 +72,8 @@ Not runtime dependencies:
 
 - MCP server availability
 - browser-driven doc helpers in `tools/doc-browser/`
-- raw discovery under `research/external-templates/raw-discovery/current/`
-- local shallow clone cache under `research/external-templates/repo-cache/`
+- raw discovery under `scaffold-pipeline/discovery/`
+- local shallow clone cache under `scaffold-pipeline/repo-cache/`
 - raw local `_sidor` datasets
 
 ## Key navigation
@@ -83,6 +84,7 @@ Not runtime dependencies:
 | Current active plans | `docs/plans/active/` |
 | Plan status index | `docs/architecture/agent-roadmap-and-handoff.md` |
 | Engine architecture | `docs/architecture/engine-status.md` |
+| Own Engine vs V0 map | `docs/architecture/own-engine-vs-v0.md` |
 | Builder model routing | `docs/architecture/builder-model-routing-and-trace.md` |
 | Builder entry flow | `docs/architecture/builder-entry-flow.md` |
 | Schema index | `docs/schemas/README.md` |

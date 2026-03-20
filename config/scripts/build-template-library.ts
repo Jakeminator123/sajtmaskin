@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { ScaffoldFamily } from "../src/lib/gen/scaffolds/types";
+import type { ScaffoldFamily } from "../../src/lib/gen/scaffolds/types";
 import type {
   TemplateLibraryCatalogFile,
   TemplateLibraryEntry,
@@ -8,7 +8,7 @@ import type {
   TemplateLibrarySelectedFile,
   TemplateLibrarySignals,
   TemplateLibraryVerdict,
-} from "../src/lib/gen/template-library/types";
+} from "../../src/lib/gen/template-library/types";
 import {
   RAW_DISCOVERY_CURRENT_ROOT,
   RAW_DISCOVERY_ROOT,
@@ -793,7 +793,7 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
 
   return {
     generatedAt: new Date().toISOString(),
-    source: "scripts/build-template-library.ts",
+    source: "config/scripts/build-template-library.ts",
     scaffolds,
   };
 }
@@ -853,7 +853,7 @@ function main(): void {
   writeJson(GENERATED_SCAFFOLD_RESEARCH_PATH, buildScaffoldResearch(curatedEntries));
   writeScaffoldCandidateReport(curatedEntries, {
     outputPath: SCAFFOLD_CANDIDATE_REPORT_PATH,
-    source: "scripts/build-template-library.ts",
+    source: "config/scripts/build-template-library.ts",
     input: summaryPath,
   });
 

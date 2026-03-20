@@ -18,7 +18,7 @@ boundaries:
 5. If a path is renamed or moved, update:
    - `.cursor/rules/terminology.mdc`
    - relevant files under `docs/`
-   - `scripts/README.md` if scripts or generated artifacts change
+   - `Scripts/README.md` and `config/scripts/README.md` if scripts or generated artifacts change
    - `docs/ENV.md` if local setup paths change
 6. If a larger intervention needs dedicated documentation, place it under
    `docs/architecture/` and link to it from `docs/README.md`.

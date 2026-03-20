@@ -8,7 +8,7 @@ files are cursorignored. Agents can read this README for context.
 | File | Size | What it is |
 |------|------|-----------|
 | `scaffold-embeddings.json` | ~2 MB | OpenAI vectors for each scaffold. Used by `matchScaffoldWithEmbeddings()` in auto mode. |
-| `scaffold-research.generated.json` | ~1 MB | Per-scaffold `qualityChecklist` and `research` (upgradeTargets, referenceTemplates). Generated from dossiers by `scripts/build-template-library.ts`. |
+| `scaffold-research.generated.json` | ~1 MB | Per-scaffold `qualityChecklist` and `research` (upgradeTargets, referenceTemplates). Generated from dossiers by `config/scripts/build-template-library.ts`. |
 
 ## Indexed files (readable by agents)
 

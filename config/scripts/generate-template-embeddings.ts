@@ -1,7 +1,7 @@
 /**
  * Generate embeddings for all templates using OpenAI text-embedding-3-small.
  *
- * Usage:  npx tsx scripts/generate-template-embeddings.ts
+ * Usage:  npx tsx config/scripts/generate-template-embeddings.ts
  * Or:     npm run templates:embeddings
  *
  * Requires OPENAI_API_KEY in environment (or .env.local).
@@ -16,14 +16,14 @@ import {
   TEMPLATE_EMBEDDING_BATCH_SIZE,
   TEMPLATE_EMBEDDING_DIMENSIONS,
   TEMPLATE_EMBEDDING_MODEL,
-} from "../src/lib/templates/template-embeddings-core";
+} from "../../src/lib/templates/template-embeddings-core";
 
 const MODEL = TEMPLATE_EMBEDDING_MODEL;
 const DIMENSIONS = TEMPLATE_EMBEDDING_DIMENSIONS;
 const BATCH_SIZE = TEMPLATE_EMBEDDING_BATCH_SIZE;
 const OUTPUT_PATH = path.resolve(
   __dirname,
-  "../src/lib/templates/template-embeddings.json",
+  "../../src/lib/templates/template-embeddings.json",
 );
 
 async function main() {

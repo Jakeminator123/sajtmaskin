@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { TemplateLibraryCatalogFile, TemplateLibraryEntry } from "../src/lib/gen/template-library/types";
+import type { TemplateLibraryCatalogFile, TemplateLibraryEntry } from "../../src/lib/gen/template-library/types";
 import { writeScaffoldCandidateReport } from "./scaffold-candidate-report";
 import { slugify } from "./template-library-discovery";
 
@@ -145,7 +145,7 @@ function main(): void {
   const entries = readEntries(inputPath);
   const { report } = writeScaffoldCandidateReport(entries, {
     outputPath,
-    source: "scripts/curate-scaffold-candidates.ts",
+    source: "config/scripts/curate-scaffold-candidates.ts",
     input: inputPath,
   });
 

@@ -5,6 +5,17 @@
 # Agents can still read ignored files via explicit path when needed.
 # This reduces indexing noise and keeps Cursor fast.
 # =============================================================================
+#
+# README policy (indexing)
+# ------------------------
+# Where a directory is ignored below, we often re-include `README.md` with a
+# leading `!` so agents still see a short "what lives here" entry.
+# Exception: do NOT re-include READMEs under path segments named `old`,
+# `archive`, or `archived` (e.g. docs/old, docs/plans/archived,
+# .cursor/migration-archive, .cursor/automation/archive,
+# .cursor/orchestrator/archive). Those trees stay fully ignored for indexing;
+# open files by explicit path if needed.
+# =============================================================================
 
 # Build/cache
 node_modules
@@ -51,9 +62,13 @@ src/components/ui/
 # Static assets
 public/
 
-# One-off scripts (TS build scripts that still live here)
-#scripts/**
-!scripts/README.md
+# Dev runner scripts (Next, DB, Vercel template sync) — keep README for agents.
+Scripts/**
+!Scripts/README.md
+
+# Offline pipeline / embeddings / research helpers (see config/README.md)
+config/scripts/**
+!config/scripts/README.md
 
 # Admin dashboard routes
 src/app/api/admin/
@@ -79,6 +94,7 @@ scaffold-pipeline/discovery/**
 
 # Repo cache (shallow clones, gitignored)
 scaffold-pipeline/repo-cache/
+!scaffold-pipeline/repo-cache/README.md
 
 # Dossier bulk (339+ files) — keep manifests and summaries readable
 scaffold-pipeline/dossiers/**
@@ -99,6 +115,7 @@ scaffold-pipeline/scripts/**
 
 # Legacy research paths (kept for backward compat)
 research/
+!research/README.md
 _template_refs/
 _sidor/
 vercel_usecase_next_react_templates/
@@ -134,16 +151,13 @@ services/mpc/logs/
 .cursor/automation/archive/
 .cursor/automation/input/
 
-# Archived or low-signal docs
+# Archived or low-signal docs (no README re-include; see README policy header)
 docs/old/**
-!docs/old/**/README.md
 docs/plans/archived/**
-!docs/plans/archived/README.md
 #docs/analyses/
 
 # Migration archive (moved from STOR_MIGRATION/ to .cursor/migration-archive/)
 .cursor/migration-archive/**
-!.cursor/migration-archive/**/README.md
 
 # Temporary / local dev folders
 old/

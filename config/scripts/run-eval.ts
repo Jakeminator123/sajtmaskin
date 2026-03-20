@@ -1,4 +1,4 @@
-﻿import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -8,7 +8,7 @@ import {
   runEval,
   type CheckResult,
   type EvalReport,
-} from "../src/lib/gen/eval";
+} from "../../src/lib/gen/eval";
 
 const OUTPUT_DIR = path.join(process.cwd(), "EGEN_MOTOR_V2");
 const TARGET_SCORE = 0.7;

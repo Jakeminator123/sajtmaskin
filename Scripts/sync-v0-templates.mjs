@@ -7,9 +7,9 @@
  * - src/lib/templates/template-categories.json
  *
  * Usage:
- *   node scripts/sync-v0-templates.mjs
- *   node scripts/sync-v0-templates.mjs --dry-run
- *   node scripts/sync-v0-templates.mjs --force
+ *   node Scripts/sync-v0-templates.mjs
+ *   node Scripts/sync-v0-templates.mjs --dry-run
+ *   node Scripts/sync-v0-templates.mjs --force
  */
 
 import { readFile, writeFile } from "node:fs/promises";

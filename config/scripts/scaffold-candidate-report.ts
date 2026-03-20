@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { TemplateLibraryEntry } from "../src/lib/gen/template-library/types";
+import type { TemplateLibraryEntry } from "../../src/lib/gen/template-library/types";
 import { writeJson } from "./template-library-discovery";
 
 export interface ScaffoldCandidateRecord {
@@ -116,7 +116,7 @@ export function buildScaffoldCandidateReport(
   return {
     _meta: {
       generated: new Date().toISOString(),
-      source: options?.source ?? "scripts/scaffold-candidate-report.ts",
+      source: options?.source ?? "config/scripts/scaffold-candidate-report.ts",
       input: options?.input ?? null,
       total: ranked.length,
       high: high.length,

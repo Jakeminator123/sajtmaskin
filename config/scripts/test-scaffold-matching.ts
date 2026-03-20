@@ -4,11 +4,11 @@
  * 80+ test cases organized by SNI (Svensk Naringsgrensindelning) industry
  * categories, covering realistic Swedish user prompts across all 13 scaffolds.
  *
- * Usage:  npx tsx scripts/test-scaffold-matching.ts
+ * Usage:  npx tsx config/scripts/test-scaffold-matching.ts
  */
-import { matchScaffoldWithEmbeddings } from "../src/lib/gen/scaffolds/matcher";
-import { getAllScaffolds } from "../src/lib/gen/scaffolds/registry";
-import type { BuildIntent } from "../src/lib/builder/build-intent";
+import { matchScaffoldWithEmbeddings } from "../../src/lib/gen/scaffolds/matcher";
+import { getAllScaffolds } from "../../src/lib/gen/scaffolds/registry";
+import type { BuildIntent } from "../../src/lib/builder/build-intent";
 
 interface TestCase {
   prompt: string;

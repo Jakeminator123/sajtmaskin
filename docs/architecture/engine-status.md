@@ -355,5 +355,5 @@ implementationsfasen.
 - Follow-up-route: 1381 → 1018 rader (-26%)
 
 ### DB-migrationer
-- `npm run db:migrate` med `scripts/run-migrations.ts`
+- `npm run db:migrate` med `Scripts/run-migrations.ts`
 - Stöd för `db:push` och `db:generate` via drizzle-kit

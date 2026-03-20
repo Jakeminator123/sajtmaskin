@@ -9,7 +9,7 @@ should normalize into the same local contract before curation runs.
 
 - `current/summary.json`
   Grouped raw template records keyed by `category_slug`. This is the canonical
-  builder input for `scripts/build-template-library.ts`.
+  builder input for `config/scripts/build-template-library.ts`.
 - `current/catalog.json`
   Flattened audit-friendly view with source metadata and one entry per template.
 - `current/source-metadata.json`

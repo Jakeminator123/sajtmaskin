@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getScaffoldById } from "../src/lib/gen/scaffolds/registry";
-import type { ScaffoldFile, ScaffoldManifest } from "../src/lib/gen/scaffolds/types";
-import type { TemplateLibraryEntry } from "../src/lib/gen/template-library/types";
+import { getScaffoldById } from "../../src/lib/gen/scaffolds/registry";
+import type { ScaffoldFile, ScaffoldManifest } from "../../src/lib/gen/scaffolds/types";
+import type { TemplateLibraryEntry } from "../../src/lib/gen/template-library/types";
 import { readJson, slugify } from "./template-library-discovery";
 
 const WORKSPACE_ROOT = process.cwd();
@@ -30,7 +30,7 @@ function parseArgs(): Options {
   const positional = args.find((arg) => !arg.startsWith("--"));
   if (!positional) {
     throw new Error(
-      "Usage: npx tsx scripts/promote-to-scaffold.ts <dossier-id|manifest-path> [--id=new-id] [--family=new-family] [--base=existing-scaffold] [--label=\"Label\"] [--dry-run]",
+      "Usage: npx tsx config/scripts/promote-to-scaffold.ts <dossier-id|manifest-path> [--id=new-id] [--family=new-family] [--base=existing-scaffold] [--label=\"Label\"] [--dry-run]",
     );
   }
 
