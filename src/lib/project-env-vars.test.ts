@@ -192,17 +192,33 @@ describe("project env var storage invariants", () => {
     expect(savedMeta.projectEnvVars).toEqual([]);
   });
 
-  it("fails closed when sensitive env vars are saved without an encryption key", async () => {
+  it("allows sensitive env vars without encryption key (stored plaintext, masked in UI)", async () => {
     getProjectData.mockResolvedValue({ meta: null });
     const keySpy = vi.spyOn(envVarCipher, "hasEnvVarEncryptionKey").mockReturnValue(false);
+    const encryptSpy = vi
+      .spyOn(envVarCipher, "encryptValue")
+      .mockImplementation((value: string) => value);
 
-    await expect(
-      upsertStoredProjectEnvVars("proj_1", [
-        { key: "API_KEY", value: "super-secret", sensitive: true },
-      ]),
-    ).rejects.toThrow("ENV_VAR_ENCRYPTION_KEY");
+    const nextEnvVars = await upsertStoredProjectEnvVars("proj_1", [
+      { key: "API_KEY", value: "super-secret", sensitive: true },
+    ]);
 
-    expect(saveProjectData).not.toHaveBeenCalled();
+    expect(saveProjectData).toHaveBeenCalledTimes(1);
+    const savedMeta = saveProjectData.mock.calls[0][0].meta as {
+      projectEnvVars: Array<{ key: string; value: string; sensitive: boolean }>;
+    };
+    expect(savedMeta.projectEnvVars).toHaveLength(1);
+    expect(savedMeta.projectEnvVars[0]).toMatchObject({
+      key: "API_KEY",
+      value: "super-secret",
+      sensitive: true,
+    });
+    expect(nextEnvVars[0]).toMatchObject({
+      key: "API_KEY",
+      value: "********",
+      sensitive: true,
+    });
+    encryptSpy.mockRestore();
     keySpy.mockRestore();
   });
 });
