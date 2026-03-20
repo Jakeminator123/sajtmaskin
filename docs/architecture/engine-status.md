@@ -32,7 +32,7 @@ Användarens prompt
 │  Fast:      gpt-4.1          │
 │  Pro:       gpt-5.3-codex    │
 │  Max:       gpt-5.4          │
-│  Codex Max: gpt-5.1-codex-max│
+│  Codex Max: gpt-5.4 (xhigh)  │
 │  (alla via OPENAI_API_KEY)   │
 └──────────┬───────────────────┘
            ▼
@@ -150,7 +150,7 @@ Canonical build profiles live in `docs/schemas/model-build-profiles.md`.
 | **Fast** (`fast`) | `v0-max-fast` | `gpt-4.1` | Snabba ändringar, enkla sidor |
 | **Pro** (`pro`) | `v0-1.5-md` | `gpt-5.3-codex` | Kodspecialiserad, balanserad |
 | **Max** (`max`) | `v0-1.5-lg` | `gpt-5.4` | Flaggskepp, bäst reasoning |
-| **Codex Max** (`codex`) | `v0-gpt-5` | `gpt-5.1-codex-max` | Kodgenerering med xhigh reasoning |
+| **Codex Max** (`codex`) | `v0-gpt-5` | `gpt-5.4` | Kodgenerering med xhigh reasoning |
 
 Default selected profile: **Max** (`max`)
 

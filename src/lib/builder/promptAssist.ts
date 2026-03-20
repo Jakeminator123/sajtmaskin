@@ -664,24 +664,26 @@ export function formatPrompt(prompt: string): string {
     (line) => !normalizedPromptKeys.has(normalizeConstraintKey(line)),
   );
 
-  const parts: string[] = ["MÅL", normalized];
+  const hasExtras = sections.length > 0 || styles.length > 0 || constraints.length > 0 || urls.length > 0;
+  if (!hasExtras && normalized.length < 300) return normalized;
+
+  const parts: string[] = [normalized];
 
   if (sections.length) {
-    parts.push("SEKTIONER", sections.join(", "));
+    parts.push(`Sektioner: ${sections.join(", ")}`);
   }
   if (styles.length) {
-    parts.push("STIL", styles.join(", "));
+    parts.push(`Stil: ${styles.join(", ")}`);
   }
   if (constraints.length) {
-    parts.push("CONSTRAINTS", constraints.map((line) => `- ${line}`).join("\n"));
+    parts.push("Krav:\n" + constraints.map((line) => `- ${line}`).join("\n"));
   }
   if (urls.length) {
-    parts.push("ASSETS/ATTACHMENTS", urls.map((url) => `- ${url}`).join("\n"));
+    parts.push("Bilagor:\n" + urls.map((url) => `- ${url}`).join("\n"));
   }
   if (accessibilityRequirements.length) {
     parts.push(
-      "TILLGÄNGLIGHET",
-      accessibilityRequirements.map((line) => `- ${line}`).join("\n"),
+      "Tillgänglighet:\n" + accessibilityRequirements.map((line) => `- ${line}`).join("\n"),
     );
   }
 
@@ -698,10 +700,15 @@ export function buildRewriteSystemPrompt(params: {
   const intentLine = getBuildIntentIntro(params.buildIntent);
   const base =
     "You are a prompt engineer for a code generation engine that builds Next.js + React + Tailwind CSS websites and apps. " +
-    "Rewrite the user request into a single, concrete, high-quality build prompt. " +
-    "Be specific about layout, sections, components, and visual direction. " +
-    "Keep it concise and avoid extra commentary. " +
-    `Output ONLY the rewritten prompt.\n\nBuild intent: ${intentLine}`;
+    "Rewrite the user request into a single, concrete, high-quality build prompt.\n\n" +
+    "Rules:\n" +
+    "- Keep the user's specific intent, topic, and details front and center.\n" +
+    "- Add concrete details (layout, sections, visual direction) only when the original is vague.\n" +
+    "- Do NOT wrap the output in generic headings like 'Mål:', 'Sektioner:', 'Stil:', 'Constraints:'. Write flowing prose or a clean bullet list — not a boilerplate template.\n" +
+    "- Match the output language to the input language (Swedish in → Swedish out).\n" +
+    "- Keep it concise. A short input should produce a short, sharp output — not a bloated spec.\n" +
+    "- Output ONLY the rewritten prompt.\n\n" +
+    `Build intent: ${intentLine}`;
 
   const codeContext = params.codeContext?.trim();
   if (!codeContext) return base;

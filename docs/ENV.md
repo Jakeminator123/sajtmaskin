@@ -75,8 +75,8 @@ Viktig skillnad:
 | `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | Snabb | Liten/billig profil for enklare sidor |
 | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | Lagom | Mellanprofil med bra balans |
 | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | Tanker | Stor/dyrare profil for mer resonemang |
-| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | Kod Max | Specialiserad kodprofil |
-| `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | Jamforelselage via Anthropic API |
+| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.4` | Kod Max | Specialiserad kodprofil (xhigh reasoning) |
+| `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-opus-4.6` | Anthropic | Jamforelselage via Anthropic API |
 
 Byggprofilerna gar genom own-engine-routes under `/api/v0/...`, men de aktiva
 builder-flodena resolverar idag alltid till own engine, inte till legacy-v0-buildern.
@@ -307,8 +307,8 @@ Bildflöde i generering:
 | `SAJTMASKIN_MODEL_FAST`                        | `gpt-4.1`           | Modell för Fast-tier                          |
 | `SAJTMASKIN_MODEL_PRO`                         | `gpt-5.3-codex`     | Modell för Pro-tier (rekommenderad)           |
 | `SAJTMASKIN_MODEL_MAX`                         | `gpt-5.4`           | Modell för Max-tier                           |
-| `SAJTMASKIN_MODEL_CODEX`                       | `gpt-5.1-codex-max` | Modell för Codex Max-tier                     |
-| `SAJTMASKIN_MODEL_ANTHROPIC`                   | `claude-sonnet-4.6` | Modell för Anthropic-jämförelseläge           |
+| `SAJTMASKIN_MODEL_CODEX`                       | `gpt-5.4`           | Modell för Codex Max-tier (xhigh reasoning)   |
+| `SAJTMASKIN_MODEL_ANTHROPIC`                   | `claude-opus-4.6`   | Modell för Anthropic-jämförelseläge           |
 | `SAJTMASKIN_ASSIST_MODEL`                      | `openai/gpt-5.4`    | Default prompt-assistmodell for `Forbattra`   |
 | `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Standard-polishmodell for `Skriv om` (Anthropic-lane overrider den i jamforelselaget) |
 | `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 128000              | Fallback + env-override; tier använder egna tak |

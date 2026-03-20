@@ -20,7 +20,7 @@ function readStringEnv(name: string, fallback: string): string {
 //   SAJTMASKIN_MODEL_FAST=gpt-4.1
 //   SAJTMASKIN_MODEL_PRO=gpt-5.3-codex
 //   SAJTMASKIN_MODEL_MAX=gpt-5.4
-//   SAJTMASKIN_MODEL_CODEX=gpt-5.1-codex-max
+//   SAJTMASKIN_MODEL_CODEX=gpt-5.4
 //
 //   # ── Prompt Assist / Brief (via AI Gateway) ───────────────────
 //   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.4
@@ -38,7 +38,7 @@ function readStringEnv(name: string, fallback: string): string {
 export const MODEL_FAST = readStringEnv("SAJTMASKIN_MODEL_FAST", "gpt-4.1");
 export const MODEL_PRO = readStringEnv("SAJTMASKIN_MODEL_PRO", "gpt-5.3-codex");
 export const MODEL_MAX = readStringEnv("SAJTMASKIN_MODEL_MAX", "gpt-5.4");
-export const MODEL_CODEX = readStringEnv("SAJTMASKIN_MODEL_CODEX", "gpt-5.1-codex-max");
+export const MODEL_CODEX = readStringEnv("SAJTMASKIN_MODEL_CODEX", "gpt-5.4");
 
 /** Prompt assist model — used via AI Gateway for brief/enhance */
 export const ASSIST_MODEL = readStringEnv("SAJTMASKIN_ASSIST_MODEL", "openai/gpt-5.4");
@@ -72,13 +72,13 @@ export function getEngineMaxOutputTokens(tier?: string | null): number {
   return TIER_MAX_OUTPUT_TOKENS[tier] ?? ENGINE_MAX_OUTPUT_TOKENS;
 }
 
-export type ReasoningEffort = "none" | "low" | "medium" | "high";
+export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
 
 const TIER_REASONING_EFFORT: Record<string, ReasoningEffort> = {
   fast: "none",
   pro: "medium",
   max: "high",
-  codex: "high",
+  codex: "xhigh",
   anthropic: "none",
 };
 

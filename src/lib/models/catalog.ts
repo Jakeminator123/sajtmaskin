@@ -26,7 +26,6 @@ export const DEFAULT_MODEL_ID: CanonicalModelId = "max";
 export const OWN_MODEL_IDS = [
   "gpt-5.4",
   "gpt-5.3-codex",
-  "gpt-5.1-codex-max",
   "gpt-5.2",
   "gpt-4.1",
   "gpt-4.1-mini",
@@ -140,7 +139,7 @@ export const QUALITY_TO_OPENAI_MODEL: Record<QualityLevel, OwnModelId> = {
   standard: "gpt-5.3-codex",
   pro: "gpt-5.3-codex",
   premium: "gpt-5.4",
-  max: "gpt-5.1-codex-max",
+  max: "gpt-5.4",
 };
 
 /** Maps the canonical builder profile to the v0 Platform API model ID. */
@@ -162,8 +161,8 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
     fast: process.env.SAJTMASKIN_MODEL_FAST?.trim() || "gpt-4.1",
     pro: process.env.SAJTMASKIN_MODEL_PRO?.trim() || "gpt-5.3-codex",
     max: process.env.SAJTMASKIN_MODEL_MAX?.trim() || "gpt-5.4",
-    codex: process.env.SAJTMASKIN_MODEL_CODEX?.trim() || "gpt-5.1-codex-max",
-    anthropic: process.env.SAJTMASKIN_MODEL_ANTHROPIC?.trim() || "claude-sonnet-4.6",
+    codex: process.env.SAJTMASKIN_MODEL_CODEX?.trim() || "gpt-5.4",
+    anthropic: process.env.SAJTMASKIN_MODEL_ANTHROPIC?.trim() || "claude-opus-4.6",
   };
   return (tierMap[modelId] ?? "gpt-5.3-codex") as OwnModelId;
 }

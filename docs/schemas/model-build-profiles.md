@@ -63,8 +63,8 @@ They are not the same thing as:
 | `fast` | `Snabb` | `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | OpenAI | `v0-max-fast` |
 | `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | OpenAI | `v0-1.5-md` |
 | `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | OpenAI | `v0-1.5-lg` |
-| `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | OpenAI | `v0-gpt-5` |
-| `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | `v0-1.5-lg` |
+| `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.4` | OpenAI | `v0-gpt-5` |
+| `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-opus-4.6` | Anthropic | `v0-1.5-lg` |
 
 Important nuance:
 

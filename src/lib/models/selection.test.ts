@@ -66,8 +66,8 @@ describe("resolveEngineModelId", () => {
   it("maps the internal profile to own engine model", () => {
     expect(resolveEngineModelId("fast")).toBe("gpt-4.1");
     expect(resolveEngineModelId("pro")).toBe("gpt-5.3-codex");
-    expect(resolveEngineModelId("codex")).toBe("gpt-5.1-codex-max");
+    expect(resolveEngineModelId("codex")).toBe("gpt-5.4");
     expect(resolveEngineModelId("max")).toBe("gpt-5.4");
-    expect(resolveEngineModelId("anthropic")).toBe("claude-sonnet-4.6");
+    expect(resolveEngineModelId("anthropic")).toBe("claude-opus-4.6");
   });
 });

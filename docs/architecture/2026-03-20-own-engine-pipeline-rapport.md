@@ -16,7 +16,7 @@ Byggmodellen styrs av tier i `src/lib/gen/defaults.ts`:
 | fast | gpt-4.1 | 32 768 | none |
 | pro | gpt-5.3-codex | 65 536 | medium |
 | max | gpt-5.4 | 128 000 | high |
-| codex | gpt-5.1-codex-max | 128 000 | high |
+| codex | gpt-5.4 | 128 000 | xhigh |
 
 `getReasoningEffort()` returnerar `"none"` om Thinking är av, oavsett tier.
 `getEngineMaxOutputTokens()` faller tillbaka till env-variabeln `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` (default 128 000) om tier saknas.
