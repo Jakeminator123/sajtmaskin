@@ -15,7 +15,7 @@
     "url": "https://github.com/arcjet/example-nextjs",
     "normalizedUrl": "https://github.com/arcjet/example-nextjs",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\arcjet-example-nextjs",
+    "clonePath": "scaffold-pipeline/repo-cache/arcjet-example-nextjs",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,

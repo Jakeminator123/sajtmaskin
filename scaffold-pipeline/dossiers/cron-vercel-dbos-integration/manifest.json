@@ -15,7 +15,7 @@
     "url": "https://github.com/dbos-inc/dbos-vercel-integration",
     "normalizedUrl": "https://github.com/dbos-inc/dbos-vercel-integration",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\dbos-inc-dbos-vercel-integration",
+    "clonePath": "scaffold-pipeline/repo-cache/dbos-inc-dbos-vercel-integration",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,

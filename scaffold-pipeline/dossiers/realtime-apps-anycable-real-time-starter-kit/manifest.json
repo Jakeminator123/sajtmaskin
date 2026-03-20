@@ -15,7 +15,7 @@
     "url": "https://github.com/anycable/vercel-anycable-demo",
     "normalizedUrl": "https://github.com/anycable/vercel-anycable-demo",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\anycable-vercel-anycable-demo",
+    "clonePath": "scaffold-pipeline/repo-cache/anycable-vercel-anycable-demo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

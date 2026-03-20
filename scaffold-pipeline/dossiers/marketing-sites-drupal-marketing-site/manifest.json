@@ -15,7 +15,7 @@
     "url": "https://github.com/chapter-three/next-drupal/tree/main/examples/example-marketing",
     "normalizedUrl": "https://github.com/chapter-three/next-drupal",
     "subpath": "examples/example-marketing",
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\chapter-three-next-drupal",
+    "clonePath": "scaffold-pipeline/repo-cache/chapter-three-next-drupal",
     "packageManager": "unknown",
     "hasNext": true,
     "hasReact": true,

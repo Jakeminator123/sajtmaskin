@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import nodePath from "node:path";
+import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
 
 /**
@@ -256,9 +257,6 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
 
   const allCode = generatedFiles.map((f) => f.content).join("\n");
-  const { runDepCompleter } = require("./autofix/dep-completer") as {
-    runDepCompleter: (code: string) => { dependencies: Record<string, string> };
-  };
   const detected = runDepCompleter(allCode);
 
   for (const [filePath, content] of Object.entries(SCAFFOLD_FILES)) {

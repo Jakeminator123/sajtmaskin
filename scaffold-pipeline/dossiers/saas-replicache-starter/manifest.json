@@ -15,7 +15,7 @@
     "url": "https://github.com/rocicorp/replicache-vercel-template",
     "normalizedUrl": "https://github.com/rocicorp/replicache-vercel-template",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\rocicorp-replicache-vercel-template",
+    "clonePath": "scaffold-pipeline/repo-cache/rocicorp-replicache-vercel-template",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,

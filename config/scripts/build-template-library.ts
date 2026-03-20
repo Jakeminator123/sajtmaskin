@@ -47,8 +47,17 @@ const SOURCE_ROOT_CANDIDATES = [
   RAW_DISCOVERY_ROOT,
   path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
   path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
-  LEGACY_SUMMARY_PATH ? path.dirname(LEGACY_SUMMARY_PATH) : "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates",
+  ...(LEGACY_SUMMARY_PATH ? [path.dirname(LEGACY_SUMMARY_PATH)] : []),
 ];
+
+/** Portable path under the repo root (POSIX slashes). Never commit machine-specific absolutes. */
+function toPortableClonePath(absolutePath: string | null): string | null {
+  if (!absolutePath) return null;
+  const resolved = path.resolve(absolutePath);
+  const rel = path.relative(WORKSPACE_ROOT, resolved);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return rel.replace(/\\/g, "/");
+}
 
 const NOISE_LINE_RE =
   /\b(Vercel Agent|Vercel documentation|Deploy at the speed of AI|Ship features, not infrastructure|SDKs by Vercel)\b/i;
@@ -279,7 +288,7 @@ function inspectRepo(repoRoot: string): {
     url: null,
     normalizedUrl: null,
     subpath: null,
-    clonePath: fs.existsSync(repoRoot) ? repoRoot : null,
+    clonePath: fs.existsSync(repoRoot) ? toPortableClonePath(repoRoot) : null,
     packageManager: bestPackageDir ? detectPackageManager(repoRoot, bestPackageDir) : "unknown",
     hasNext,
     hasReact,
@@ -604,7 +613,7 @@ function buildEntry(
     url: repoUrl.url,
     normalizedUrl: repoUrl.normalizedUrl,
     subpath: repoUrl.subpath,
-    clonePath: fs.existsSync(cloneRoot) ? cloneRoot : null,
+    clonePath: fs.existsSync(cloneRoot) ? toPortableClonePath(cloneRoot) : null,
   };
   const signals = detectSignals(template, selectedFiles);
   const strengths = deriveStrengths(signals, repoInfo);

@@ -19,6 +19,7 @@ export interface TemplateLibraryRepoInfo {
   url: string | null;
   normalizedUrl: string | null;
   subpath: string | null;
+  /** Local clone directory under the repo, POSIX path relative to workspace root (e.g. `scaffold-pipeline/repo-cache/foo`). */
   clonePath: string | null;
   packageManager: "npm" | "pnpm" | "yarn" | "bun" | "unknown";
   hasNext: boolean;

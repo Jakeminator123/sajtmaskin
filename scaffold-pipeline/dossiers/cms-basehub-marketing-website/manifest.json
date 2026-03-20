@@ -15,7 +15,7 @@
     "url": "https://github.com/basehub-ai/marketing-website-template/tree/main/",
     "normalizedUrl": "https://github.com/basehub-ai/marketing-website-template",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\basehub-ai-marketing-website-template",
+    "clonePath": "scaffold-pipeline/repo-cache/basehub-ai-marketing-website-template",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

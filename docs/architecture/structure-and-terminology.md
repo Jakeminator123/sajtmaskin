@@ -48,7 +48,7 @@ Use this two-lane model when discussing generation architecture:
 | Lane | What belongs here | What it is not |
 |------|-------------------|----------------|
 | `runtime lane` | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not raw research datasets |
-| `research lane` | `research/external-templates/reference-library/`, `research/external-templates/raw-discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
+| `research lane` | `scaffold-pipeline/catalog/`, `scaffold-pipeline/discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
 
 The template gallery is a product discovery surface, not a third runtime lane.
 
@@ -61,9 +61,9 @@ These terms must not be mixed:
 | `template gallery item` | User-facing gallery entry from `src/lib/templates/` | Product/UI |
 | `runtime scaffold` | Internal starter project from `src/lib/gen/scaffolds/` | Runtime generation |
 | `Vercel template` | Public starter repo/page from Vercel's ecosystem | External reference |
-| `reference dossier` | Curated per-template research package in `research/external-templates/reference-library/dossiers/` | Research |
+| `reference dossier` | Curated per-template research package in `scaffold-pipeline/dossiers/` | Research |
 | `generated research artifact` | Committed JSON/embeddings derived from dossiers, mainly in `src/lib/gen/template-library/` and `src/lib/gen/scaffolds/scaffold-research.generated.json` | Runtime input derived from research |
-| `raw discovery` | Noisy scrape/discovery output in `research/external-templates/raw-discovery/` | Non-canonical research input |
+| `raw discovery` | Noisy scrape/discovery output in `scaffold-pipeline/discovery/` | Non-canonical research input |
 
 Preferred wording:
 
@@ -108,12 +108,12 @@ Keep these as the main canonical homes:
 - `src/lib/templates/` for template gallery data
 - `src/lib/gen/scaffolds/` for runtime scaffolds
 - `src/lib/gen/template-library/` for generated research artifacts used at runtime
-- `research/external-templates/reference-library/` for curated research dossiers
+- `scaffold-pipeline/dossiers/` for curated research dossiers
 
 Treat these as non-canonical or local-only support areas:
 
-- `research/external-templates/raw-discovery/`
-- `research/external-templates/repo-cache/`
+- `scaffold-pipeline/discovery/` (bulk gitignored)
+- `scaffold-pipeline/repo-cache/` (local clone mirrors, gitignored)
 - local `_sidor` datasets and ad-hoc desktop datasets
 - temporary migration notes that duplicate the canonical docs
 

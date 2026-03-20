@@ -15,7 +15,7 @@
     "url": "https://github.com/humeai/hume-evi-next-js-starter",
     "normalizedUrl": "https://github.com/humeai/hume-evi-next-js-starter",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\humeai-hume-evi-next-js-starter",
+    "clonePath": "scaffold-pipeline/repo-cache/humeai-hume-evi-next-js-starter",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

@@ -15,7 +15,7 @@
     "url": "https://github.com/shuding/nextra-docs-template",
     "normalizedUrl": "https://github.com/shuding/nextra-docs-template",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\shuding-nextra-docs-template",
+    "clonePath": "scaffold-pipeline/repo-cache/shuding-nextra-docs-template",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

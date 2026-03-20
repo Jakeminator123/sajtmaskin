@@ -15,7 +15,7 @@
     "url": "https://github.com/vercel/nextjs-optimizely-experimentation",
     "normalizedUrl": "https://github.com/vercel/nextjs-optimizely-experimentation",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-nextjs-optimizely-experimentation",
+    "clonePath": "scaffold-pipeline/repo-cache/vercel-nextjs-optimizely-experimentation",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

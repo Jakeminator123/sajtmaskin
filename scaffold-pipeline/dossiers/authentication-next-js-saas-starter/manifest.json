@@ -15,7 +15,7 @@
     "url": "https://github.com/nextjs/saas-starter",
     "normalizedUrl": "https://github.com/nextjs/saas-starter",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\nextjs-saas-starter",
+    "clonePath": "scaffold-pipeline/repo-cache/nextjs-saas-starter",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

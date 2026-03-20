@@ -15,7 +15,7 @@
     "url": "https://github.com/niledatabase/niledatabase/tree/main/examples/quickstart/nextjs",
     "normalizedUrl": "https://github.com/niledatabase/niledatabase",
     "subpath": "examples/quickstart/nextjs",
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\niledatabase-niledatabase",
+    "clonePath": "scaffold-pipeline/repo-cache/niledatabase-niledatabase",
     "packageManager": "unknown",
     "hasNext": true,
     "hasReact": true,

@@ -15,7 +15,7 @@
     "url": "https://github.com/ably-labs/ably-nextjs-fundamentals-kit/tree/main/",
     "normalizedUrl": "https://github.com/ably-labs/ably-nextjs-fundamentals-kit",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\ably-labs-ably-nextjs-fundamentals-kit",
+    "clonePath": "scaffold-pipeline/repo-cache/ably-labs-ably-nextjs-fundamentals-kit",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,

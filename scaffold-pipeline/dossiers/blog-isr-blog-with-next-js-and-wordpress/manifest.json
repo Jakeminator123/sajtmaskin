@@ -15,7 +15,7 @@
     "url": "https://github.com/vercel/next.js/tree/canary/examples/cms-wordpress",
     "normalizedUrl": "https://github.com/vercel/next.js",
     "subpath": "examples/cms-wordpress",
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-next-js",
+    "clonePath": "scaffold-pipeline/repo-cache/vercel-next-js",
     "packageManager": "unknown",
     "hasNext": true,
     "hasReact": true,

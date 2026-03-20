@@ -15,7 +15,7 @@
     "url": "https://github.com/notrab/turso-per-user-starter/wiki/Webhooks#using-webhooks-in-production",
     "normalizedUrl": "https://github.com/notrab/turso-per-user-starter",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\notrab-turso-per-user-starter",
+    "clonePath": "scaffold-pipeline/repo-cache/notrab-turso-per-user-starter",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,

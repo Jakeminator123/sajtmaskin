@@ -15,7 +15,7 @@
     "url": "https://github.com/chronark/envshare",
     "normalizedUrl": "https://github.com/chronark/envshare",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\chronark-envshare",
+    "clonePath": "scaffold-pipeline/repo-cache/chronark-envshare",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

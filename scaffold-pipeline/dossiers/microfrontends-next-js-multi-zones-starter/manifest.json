@@ -15,7 +15,7 @@
     "url": "https://github.com/vercel/examples/tree/main/microfrontends/nextjs-multi-zones",
     "normalizedUrl": "https://github.com/vercel/examples",
     "subpath": "microfrontends/nextjs-multi-zones",
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-examples",
+    "clonePath": "scaffold-pipeline/repo-cache/vercel-examples",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

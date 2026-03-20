@@ -76,6 +76,16 @@ Not runtime dependencies:
 - local shallow clone cache under `scaffold-pipeline/repo-cache/`
 - raw local `_sidor` datasets
 
+### Generated JSON hygiene (template library + dossiers)
+
+After regenerating or hand-editing committed artifacts under `src/lib/gen/**` or
+`scaffold-pipeline/dossiers/*/manifest.json`:
+
+- `npm run verify:generated-paths` — fails on machine-specific absolutes (`C:\\Users\\…`) or legacy `research/external-templates` path segments.
+- `npm run normalize:generated-paths` — rewrites portable `clonePath` / `sourceRoot` when verify fails (see `.cursor/rules/generated-artifacts-hygiene.mdc`).
+
+`build-template-library.ts` now emits **repo-relative** `clonePath` values for new builds.
+
 ## Key navigation
 
 | What you need | Where to look |
@@ -91,6 +101,7 @@ Not runtime dependencies:
 | Schema index | `docs/schemas/README.md` |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |
+| Generated artifact path hygiene | `verify:generated-paths` / `normalize:generated-paths` in `package.json`, rule `.cursor/rules/generated-artifacts-hygiene.mdc` |
 | Env setup | `docs/ENV.md` |
 | Orchestrator protocol | `docs/architecture/orchestrator-run-protocol.md` |
 | Orchestrator runs | `.cursor/orchestrator/run/` (local, cursorignored) |

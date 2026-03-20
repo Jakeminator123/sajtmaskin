@@ -15,7 +15,7 @@
     "url": "https://github.com/vercel/platforms",
     "normalizedUrl": "https://github.com/vercel/platforms",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-platforms",
+    "clonePath": "scaffold-pipeline/repo-cache/vercel-platforms",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

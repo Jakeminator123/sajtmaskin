@@ -15,7 +15,7 @@
     "url": "https://github.com/coinbase/onchain-commerce-template/tree/main/",
     "normalizedUrl": "https://github.com/coinbase/onchain-commerce-template",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\coinbase-onchain-commerce-template",
+    "clonePath": "scaffold-pipeline/repo-cache/coinbase-onchain-commerce-template",
     "packageManager": "bun",
     "hasNext": true,
     "hasReact": true,

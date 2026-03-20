@@ -15,7 +15,7 @@
     "url": "https://github.com/liveblocks/liveblocks/tree/main/starter-kits/nextjs-starter-kit",
     "normalizedUrl": "https://github.com/liveblocks/liveblocks",
     "subpath": "starter-kits/nextjs-starter-kit",
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\liveblocks-liveblocks",
+    "clonePath": "scaffold-pipeline/repo-cache/liveblocks-liveblocks",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,

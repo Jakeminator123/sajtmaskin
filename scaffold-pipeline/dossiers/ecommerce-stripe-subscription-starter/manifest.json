@@ -15,7 +15,7 @@
     "url": "https://github.com/vercel/nextjs-subscription-payments/tree/main/",
     "normalizedUrl": "https://github.com/vercel/nextjs-subscription-payments",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-nextjs-subscription-payments",
+    "clonePath": "scaffold-pipeline/repo-cache/vercel-nextjs-subscription-payments",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

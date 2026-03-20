@@ -7,7 +7,7 @@ local-only, and which should be evaluated for later extraction from this repo.
 
 There are two different size problems:
 
-- local working-set bloat from `research/external-templates/repo-cache/`
+- local working-set bloat from `scaffold-pipeline/repo-cache/`
   and similar research helpers
 - tracked context bloat from generated artifacts, reference dossiers, and a few
   large media/report files
@@ -16,9 +16,9 @@ The current research flow already separates those lanes:
 
 ```mermaid
 flowchart TD
-  rawDiscovery["raw-discovery"] --> repoCache["repo-cache"]
-  rawDiscovery --> referenceLibrary["reference-library"]
-  referenceLibrary --> generatedArtifacts["src/lib/gen artifacts"]
+  rawDiscovery["scaffold-pipeline/discovery"] --> repoCache["scaffold-pipeline/repo-cache"]
+  rawDiscovery --> dossiers["scaffold-pipeline/dossiers"]
+  dossiers --> generatedArtifacts["src/lib/gen artifacts"]
   generatedArtifacts --> runtimeApp["runtime app"]
 ```
 
@@ -28,9 +28,9 @@ flowchart TD
 |------|------|------|
 | `keep` | `src/`, `docs/`, `public/video/` | App/runtime code, canonical docs, and currently used product assets. |
 | `keep` | `src/lib/gen/template-library/`, `src/lib/gen/scaffolds/`, `src/lib/gen/data/docs-embeddings.json` | Runtime code imports these generated artifacts directly. Keep them committed even when some large generated JSON files are excluded from Cursor indexing. |
-| `local-only` | `research/external-templates/repo-cache/`, `research/external-templates/raw-discovery/`, `_template_refs/`, `_sidor/`, `research/_sidor/` | Reproducible research inputs, clone mirrors, or legacy migration data. |
+| `local-only` | `scaffold-pipeline/repo-cache/`, `scaffold-pipeline/discovery/` (bulk), `_template_refs/`, `_sidor/`, `research/_sidor/` | Reproducible research inputs, clone mirrors, or legacy migration data. |
 | `archive` | `docs/plans/archived/`, `docs/old/` | Useful historical context, but low-value for day-to-day indexing. |
-| `move-later` | `research/external-templates/reference-library/` | Valuable curated research, but not a runtime dependency. Largest trackable research surface. |
+| `move-later` | `scaffold-pipeline/catalog/` (large JSON), `scaffold-pipeline/dossiers/` (bulk) | Valuable curated research, but not a runtime dependency. Largest trackable research surface. |
 | `move-later` | `data/scaffold-candidates-curated.json` | Regenerable report artifact written by scripts, not a runtime source of truth. |
 | `archive` | `docs/old/2026-03-holding-area/next-sidan-skrapning.txt` | Historical intake notes kept as a final holding-area reference, not active guidance. |
 
@@ -75,15 +75,15 @@ Important distinction:
 
 These folders can be deleted locally and recreated later:
 
-- `research/external-templates/repo-cache/`
-- `research/external-templates/raw-discovery/current/`
+- `scaffold-pipeline/repo-cache/`
+- `scaffold-pipeline/discovery/current/`
 - `_template_refs/`
 
 PowerShell examples:
 
 ```powershell
-Remove-Item "research/external-templates/repo-cache" -Recurse -Force
-Remove-Item "research/external-templates/raw-discovery/current" -Recurse -Force
+Remove-Item "scaffold-pipeline/repo-cache" -Recurse -Force
+Remove-Item "scaffold-pipeline/discovery/current" -Recurse -Force
 Remove-Item "_template_refs" -Recurse -Force
 ```
 
@@ -100,7 +100,7 @@ npm run scaffolds:curate
 Notes:
 
 - `repo-cache/` is expected to grow large again after hydration.
-- Do not delete `research/external-templates/reference-library/` unless you are
+- Do not delete `scaffold-pipeline/dossiers/` wholesale unless you are
   intentionally rebuilding or relocating that curated layer.
 - Do not delete `src/lib/gen/` artifacts unless you are ready to regenerate and
   validate runtime behavior.
@@ -109,7 +109,7 @@ Notes:
 
 Current recommendation:
 
-- keep `research/external-templates/reference-library/` versioned for now
+- keep `scaffold-pipeline/dossiers/` (manifests + summaries) versioned for now
 - exclude it from Cursor indexing
 - treat it as a research lane, not a runtime dependency
 - re-evaluate moving it out if either file count, churn, or onboarding cost keeps

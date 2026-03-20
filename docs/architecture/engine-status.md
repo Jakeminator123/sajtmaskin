@@ -259,8 +259,8 @@ utan också i den riktiga own-engine-kedjan som bygger preview-versioner.
 
 ## Kända kvarvarande begränsningar
 
-- Extern template-research är nu kanoniskt normaliserad under
-  `research/external-templates/`, men rå discovery och repo-cache är fortfarande
+- Extern template-research är kanoniskt under `scaffold-pipeline/` (discovery,
+  repo-cache, dossiers); rå discovery och repo-cache är fortfarande
   build-time/research-time och inte runtime-input
 - Preview stubs approximerar shadcn -- inte pixelperfekt
 - Route-plan och kontraktssvar syns nu i builderns model-info och i dev-loggar,

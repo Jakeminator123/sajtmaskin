@@ -15,7 +15,7 @@
     "url": "https://github.com/vercel/virtual-event-starter-kit#cms",
     "normalizedUrl": "https://github.com/vercel/virtual-event-starter-kit",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-virtual-event-starter-kit",
+    "clonePath": "scaffold-pipeline/repo-cache/vercel-virtual-event-starter-kit",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

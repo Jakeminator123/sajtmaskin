@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://sajtmaskin.local/research/external-templates/raw-discovery/schema.summary.json",
+  "$id": "https://sajtmaskin.local/scaffold-pipeline/discovery/schema.summary.json",
   "title": "External Template Raw Discovery Summary",
   "type": "object",
   "description": "Grouped raw discovery records keyed by category slug.",

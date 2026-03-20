@@ -23,5 +23,5 @@ Agents can read this README to understand the contents without loading them.
 
 ## Regeneration
 
-Run `npm run template-library:build` to rebuild from dossiers in `research/external-templates/reference-library/`.
+Run `npm run template-library:build` to rebuild from discovery + repo cache under `scaffold-pipeline/` (writes `template-library.generated.json` and `scaffold-pipeline/dossiers/`).
 Run `npm run template-library:embeddings` to rebuild embeddings.

@@ -22,7 +22,7 @@ Do not confuse runtime scaffolds with:
 
 - `src/lib/templates/` template-gallery items
 - external Vercel templates
-- curated external references in `research/external-templates/reference-library/`
+- curated external references in `scaffold-pipeline/dossiers/`
 
 ## Current manifest shape
 

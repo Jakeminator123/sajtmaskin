@@ -15,7 +15,7 @@
     "url": "https://github.com/rollbar/rollbar-vercel",
     "normalizedUrl": "https://github.com/rollbar/rollbar-vercel",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\rollbar-rollbar-vercel",
+    "clonePath": "scaffold-pipeline/repo-cache/rollbar-rollbar-vercel",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,

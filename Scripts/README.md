@@ -16,11 +16,14 @@ Small **Node** helpers wired into `npm run dev|build|start` and day-to-day templ
 Heavy research/build steps moved to **`config/scripts/`**. Use npm scripts (paths already updated):
 
 ```bash
+npm run verify:generated-paths
 npm run template-library:build
 npm run template-library:embeddings
 npm run scaffolds:embeddings
 npm run scaffolds:promote -- --help
 ```
+
+If `verify:generated-paths` fails after a bad merge, run `npm run normalize:generated-paths` (see `docs/README.md` → Generated JSON hygiene).
 
 Full narrative commands and ordering: **`config/scripts/README.md`** and **`scaffold-pipeline/README.md`**.
 

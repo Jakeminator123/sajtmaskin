@@ -67,7 +67,7 @@ These docs summarize the system, but the runtime truth lives in:
 - `src/lib/gen/scaffolds/types.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/template-library/types.ts`
-- `research/external-templates/reference-library/schema.template-manifest.json`
+- `scaffold-pipeline/catalog/schema.template-manifest.json`
 
 ## Archive note
 

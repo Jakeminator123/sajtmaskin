@@ -48,8 +48,8 @@ when a reference dossier is generated.
 
 Typical upstream inputs include:
 
-- canonical raw discovery under `research/external-templates/raw-discovery/current/`
-- local repo cache under `research/external-templates/repo-cache/`
+- canonical raw discovery under `scaffold-pipeline/discovery/current/`
+- local repo cache under `scaffold-pipeline/repo-cache/`
 - legacy `_sidor` datasets only through normalized import or transitional fallback
 
 The curation/build scripts should prefer the repo-local cache and canonical raw

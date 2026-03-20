@@ -6,7 +6,7 @@ Prefer npm scripts from the repo root (`package.json` prefixes paths with `confi
 
 | Area | npm examples |
 |------|----------------|
-| Template library + dossiers | `template-library:import`, `hydrate-cache`, `build`, `embeddings` |
+| Template library + dossiers | `template-library:import`, `hydrate-cache`, `build`, `embeddings`, **`verify:generated-paths`**, **`normalize:generated-paths`** |
 | Runtime scaffolds | `scaffolds:embeddings`, `curate`, `promote`, `test-matching` |
 | Gallery / marketing templates | `templates:embeddings` |
 | Docs RAG | `docs:embeddings` |

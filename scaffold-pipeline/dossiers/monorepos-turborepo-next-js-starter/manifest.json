@@ -15,7 +15,7 @@
     "url": "https://github.com/vercel/turborepo/tree/main/examples/basic",
     "normalizedUrl": "https://github.com/vercel/turborepo",
     "subpath": "examples/basic",
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-turborepo",
+    "clonePath": "scaffold-pipeline/repo-cache/vercel-turborepo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

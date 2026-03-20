@@ -15,7 +15,7 @@
     "url": "https://github.com/shadcn/next-contentlayer",
     "normalizedUrl": "https://github.com/shadcn/next-contentlayer",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\shadcn-next-contentlayer",
+    "clonePath": "scaffold-pipeline/repo-cache/shadcn-next-contentlayer",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,

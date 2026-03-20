@@ -15,7 +15,7 @@
     "url": "https://github.com/once-ui-system/magic-portfolio",
     "normalizedUrl": "https://github.com/once-ui-system/magic-portfolio",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\once-ui-system-magic-portfolio",
+    "clonePath": "scaffold-pipeline/repo-cache/once-ui-system-magic-portfolio",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,

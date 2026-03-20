@@ -15,7 +15,7 @@
     "url": "https://github.com/rubixvi/rubix-documents/tree/main/",
     "normalizedUrl": "https://github.com/rubixvi/rubix-documents",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\rubixvi-rubix-documents",
+    "clonePath": "scaffold-pipeline/repo-cache/rubixvi-rubix-documents",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
