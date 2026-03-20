@@ -236,6 +236,61 @@ const CATEGORY_ROUTE_DEFAULTS: Record<string, PlannedRoute[]> = {
     { path: "/about", name: "Om oss", intent: "Team and agency story.", required: true },
     { path: "/contact", name: "Kontakt", intent: "Contact form.", required: true },
   ],
+  "medical-clinic": [
+    { path: "/services", name: "Behandlingar", intent: "List available treatments, examinations, and healthcare services.", required: true },
+    { path: "/team", name: "Vårt team", intent: "Doctor/staff profiles with credentials and specialties.", required: true },
+    { path: "/about", name: "Om kliniken", intent: "Clinic history, values, and patient-facing information.", required: false },
+    { path: "/contact", name: "Kontakt", intent: "Address, opening hours, phone, and appointment booking.", required: true },
+  ],
+  "dental-clinic": [
+    { path: "/services", name: "Behandlingar", intent: "Dental treatments, pricing, and descriptions.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Address, opening hours, and booking.", required: true },
+  ],
+  "school-education": [
+    { path: "/courses", name: "Kurser", intent: "Course catalog with descriptions, schedules, and enrollment info.", required: true },
+    { path: "/teachers", name: "Lärare", intent: "Teacher/instructor profiles.", required: true },
+    { path: "/enrollment", name: "Ansökan", intent: "Application form, dates, and requirements.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact info and campus directions.", required: true },
+  ],
+  "event-agency": [
+    { path: "/schedule", name: "Schema", intent: "Event schedule with times, speakers, and sessions.", required: true },
+    { path: "/speakers", name: "Talare", intent: "Speaker profiles with bios and topics.", required: true },
+    { path: "/tickets", name: "Biljetter", intent: "Ticket tiers, pricing, and registration.", required: true },
+    { path: "/venue", name: "Plats", intent: "Venue info, directions, and practical details.", required: true },
+  ],
+  "electrician": [
+    { path: "/services", name: "Tjänster", intent: "Electrical services and pricing.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and quote request.", required: true },
+  ],
+  "plumber-hvac": [
+    { path: "/services", name: "Tjänster", intent: "Plumbing/HVAC services and emergency contact.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and emergency number.", required: true },
+  ],
+  "painter": [
+    { path: "/services", name: "Tjänster", intent: "Painting services with examples.", required: true },
+    { path: "/projects", name: "Projekt", intent: "Before/after gallery of completed work.", required: false },
+    { path: "/contact", name: "Kontakt", intent: "Contact and quote request.", required: true },
+  ],
+  "transport-logistics": [
+    { path: "/services", name: "Tjänster", intent: "Transport and logistics services.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and booking.", required: true },
+  ],
+  "real-estate": [
+    { path: "/services", name: "Tjänster", intent: "Real estate services: buying, selling, valuation.", required: true },
+    { path: "/listings", name: "Objekt", intent: "Current property listings.", required: true },
+    { path: "/about", name: "Om oss", intent: "Team and agency credentials.", required: false },
+    { path: "/contact", name: "Kontakt", intent: "Contact form and office info.", required: true },
+  ],
+  "consulting": [
+    { path: "/services", name: "Tjänster", intent: "Consulting areas and methodology.", required: true },
+    { path: "/about", name: "Om oss", intent: "Team, credentials, and approach.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact form.", required: true },
+  ],
+  "insurance": [
+    { path: "/services", name: "Försäkringar", intent: "Insurance types and coverage.", required: true },
+    { path: "/about", name: "Om oss", intent: "Company information and trust signals.", required: false },
+    { path: "/contact", name: "Kontakt", intent: "Contact and claims.", required: true },
+  ],
 };
 
 function applyCategoryDefaults(category: string, routes: PlannedRoute[]): void {

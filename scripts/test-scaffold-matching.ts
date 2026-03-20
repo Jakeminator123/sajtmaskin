@@ -43,7 +43,7 @@ const TEST_CASES: TestCase[] = [
   { prompt: "Reklamb\u0079r\u00e5 med tj\u00e4nster och kundlista", intent: "website", expectedFamily: "landing-page", label: "Reklamb\u0079r\u00e5" },
   { prompt: "PR-byr\u00e5 i Stockholm som beh\u00f6ver en snygg sajt", intent: "website", expectedFamily: "landing-page", label: "PR-byr\u00e5" },
   { prompt: "Begravningsbyr\u00e5 med information om ceremonier och kontakt", intent: "website", expectedFamily: "landing-page", label: "Begravningsbyr\u00e5" },
-  { prompt: "G\u00e5rdsbutik och lantbruk \u2014 hemsida med produkter och bes\u00f6kstider", intent: "website", expectedFamily: "landing-page", label: "Lantbruk/g\u00e5rd" },
+  { prompt: "G\u00e5rdsbutik och lantbruk \u2014 hemsida med produkter och bes\u00f6kstider", intent: "website", expectedFamily: "local-shop", label: "Lantbruk/g\u00e5rd" },
   { prompt: "Tillverkningsf\u00f6retag med industriprodukter och fabriksinformation", intent: "website", expectedFamily: "landing-page", label: "Tillverkningsindustri" },
   { prompt: "G\u00f6r en fin sida \u00e5t mig", intent: "website", expectedFamily: "landing-page", label: "Vag prompt" },
   { prompt: "Jag vill ha n\u00e5t snyggt f\u00f6r mitt f\u00f6retag", intent: "website", expectedFamily: "landing-page", label: "Informell f\u00f6retagsprompt" },
@@ -143,7 +143,7 @@ const TEST_CASES: TestCase[] = [
   // ===================================================================
   { prompt: "En informationssajt med flera undersidor om v\u00e5r kommun", intent: "website", expectedFamily: "content-site", label: "Kommunsajt" },
   { prompt: "Dokumentationssida med navigation i sidof\u00e4ltet", intent: "website", expectedFamily: "content-site", label: "Dokumentation" },
-  { prompt: "Skolans hemsida med kurser, schema och information f\u00f6r f\u00f6r\u00e4ldrar", intent: "website", expectedFamily: "content-site", label: "Skolwebbplats" },
+  { prompt: "Skolans hemsida med kurser, schema och information f\u00f6r f\u00f6r\u00e4ldrar", intent: "website", expectedFamily: "school", label: "Skolwebbplats" },
   { prompt: "Museum med utst\u00e4llningar, guider och bes\u00f6ksinformation", intent: "website", expectedFamily: "content-site", label: "Museum" },
   { prompt: "Kunskapsbas med artiklar, FAQ och s\u00f6kfunktion", intent: "website", expectedFamily: "content-site", label: "Kunskapsbas/FAQ" },
   { prompt: "Bibliotek med s\u00f6kfunktion, \u00f6ppettider och dokumentation", intent: "website", expectedFamily: "content-site", label: "Bibliotek" },
