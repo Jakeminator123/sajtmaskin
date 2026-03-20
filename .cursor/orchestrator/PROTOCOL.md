@@ -170,6 +170,18 @@ The final sweep checks for:
 - documentation drift between code, rules, and human docs
 - remaining lint, type, test, or build failures that the run should reasonably catch
 
+Documentation hygiene is part of the final sweep, not a separate optional pass.
+
+At minimum, re-check:
+
+- relevant canonical docs in `docs/architecture/` and `docs/schemas/`
+- nearby `README.md` files for touched feature/service folders
+- `docs/README.md` when doc navigation or canonical paths changed
+- `docs/ENV.md` when env, infra, or deployment behavior changed
+
+These follow-up fixes should stay compact: prefer status, naming, path, and
+contract corrections over expanding the documents.
+
 ## Phase 5: Closeout
 
 Close the run by writing `FINAL_REPORT.md` with:

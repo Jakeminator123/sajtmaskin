@@ -149,22 +149,24 @@ export async function getAvailableTlds(domainBase: string): Promise<string[]> {
  * Batch-check multiple .se/.nu domains.
  * Returns a map of domain -> available (true/false/null for error).
  */
+const LOOPIA_DOMAIN_SEARCH_INTERVAL_MS = 4_000; // 15 searches/min → 1 per 4 s
+
 export async function checkMultipleDomains(
   domains: string[],
 ): Promise<Map<string, boolean | null>> {
   const results = new Map<string, boolean | null>();
 
-  const checks = domains.map(async (domain, index) => {
-    // Stagger to respect 15 searches/min limit
-    await new Promise((resolve) => setTimeout(resolve, index * 250));
+  for (const domain of domains) {
     const status = await domainIsFree(domain);
     results.set(
       domain,
       status === "OK" ? true : status === "DOMAIN_OCCUPIED" ? false : null,
     );
-  });
+    if (domain !== domains[domains.length - 1]) {
+      await new Promise((resolve) => setTimeout(resolve, LOOPIA_DOMAIN_SEARCH_INTERVAL_MS));
+    }
+  }
 
-  await Promise.all(checks);
   return results;
 }
 

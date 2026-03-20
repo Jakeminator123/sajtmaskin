@@ -37,9 +37,9 @@ Use these three states consistently:
 
 ## Current classification
 
-- `active`: `docs/plans/active/06-world-class-builder-roadmap.md`, `docs/plans/active/09-world-class-builder-phase-3-smb-growth.md`, and `docs/plans/active/10-world-class-builder-phase-4-learning-moat.md`
+- `active`: `docs/plans/active/17-repo-separation-and-independence.md`
 - `review-needed`: no current numbered or dated plan sits in this bucket
-- `archived`: `docs/plans/archived/01-design-system-registry.md` through `docs/plans/archived/05-template-search-ui.md`, `docs/plans/archived/07-world-class-builder-phase-1-trust-launch.md`, `docs/plans/archived/08-world-class-builder-phase-2-site-planning.md`, `docs/plans/archived/11-next-vercel-build-plan-core-config.md` through `docs/plans/archived/13-next-vercel-build-plan-ui-performance.md`, plus `docs/plans/archived/2026-03-bug-recheck-sweep.md` and `docs/plans/archived/2026-03-openclaw-rollout-roadmap.md`
+- `archived`: see `docs/plans/archived/` and `docs/plans/README.md` for the current archived set
 
 ## Schema rule
 
@@ -56,6 +56,17 @@ When making a large structural or documentation change:
 
 1. Update the canonical doc in `docs/architecture/` instead of creating a
    parallel note.
-2. Update the relevant README or index in the same turn.
-3. Make the lifecycle status explicit if the document is a plan.
-4. Avoid leaving root-level notes whose status is unclear.
+2. If the change affects vocabulary or parallel-agent coordination, update
+   `docs/architecture/structure-and-terminology.md`.
+3. Update the relevant README or index in the same turn.
+4. Make the lifecycle status explicit if the document is a plan.
+5. Avoid leaving root-level notes whose status is unclear.
+
+## Final sweep rule
+
+When a workstream closes with a final sweep:
+
+1. Re-check relevant canonical docs even if they were not directly edited during the run.
+2. Include the nearest useful `README.md` files and schema docs for the changed area.
+3. Prefer compact reality-sync fixes over adding new prose.
+4. If the drift is broad or uncertain, note it as follow-up instead of guessing.

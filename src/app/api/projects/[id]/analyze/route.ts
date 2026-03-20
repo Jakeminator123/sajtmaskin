@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getProjectData, getProjectByIdForOwner } from "@/lib/db/services";
+import { SECRETS } from "@/lib/config";
 import OpenAI from "openai";
 
 /**
@@ -29,17 +30,28 @@ function getGatewayApiKey(): string | null {
   return apiKey && apiKey.trim() ? apiKey : null;
 }
 
-function toGatewayModelId(model: string): string {
-  if (model.includes("/")) return model;
+function resolveModelId(model: string, useGateway: boolean): string {
+  if (!useGateway || model.includes("/")) return model;
   return `openai/${model}`;
 }
 
-function getOpenAIClient(): OpenAI {
-  const apiKey = getGatewayApiKey();
-  if (!apiKey) {
-    throw new Error("AI_GATEWAY_API_KEY (or VERCEL_OIDC_TOKEN) is required");
+function getOpenAIClient(): { client: OpenAI; useGateway: boolean } {
+  const gatewayKey = getGatewayApiKey();
+  if (gatewayKey) {
+    return {
+      client: new OpenAI({ apiKey: gatewayKey, baseURL: "https://ai-gateway.vercel.sh/v1" }),
+      useGateway: true,
+    };
   }
-  return new OpenAI({ apiKey, baseURL: "https://ai-gateway.vercel.sh/v1" });
+
+  const directKey = SECRETS.openaiApiKey;
+  if (directKey) {
+    return { client: new OpenAI({ apiKey: directKey }), useGateway: false };
+  }
+
+  throw new Error(
+    "No AI key configured. Set AI_GATEWAY_API_KEY, VERCEL_OIDC_TOKEN, or OPENAI_API_KEY.",
+  );
 }
 
 // Analysis system prompt
@@ -174,8 +186,9 @@ Ge en strukturerad analys enligt formatet.`;
     console.info("[Analyze] Sending to OpenAI, context length:", totalChars);
 
     // 7. Call OpenAI Responses API
-    const response = await getOpenAIClient().responses.create({
-      model: toGatewayModelId("gpt-4o-mini"),
+    const { client: openai, useGateway } = getOpenAIClient();
+    const response = await openai.responses.create({
+      model: resolveModelId("gpt-4o-mini", useGateway),
       instructions: ANALYSIS_SYSTEM_PROMPT,
       input: analysisPrompt,
       store: false, // Don't store analysis for privacy

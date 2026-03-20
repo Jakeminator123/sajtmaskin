@@ -8,9 +8,7 @@ import { readJson, slugify } from "./template-library-discovery";
 const WORKSPACE_ROOT = process.cwd();
 const DOSSIER_ROOT = path.resolve(
   WORKSPACE_ROOT,
-  "research",
-  "external-templates",
-  "reference-library",
+  "scaffold-pipeline",
   "dossiers",
 );
 const TYPES_PATH = path.resolve(WORKSPACE_ROOT, "src", "lib", "gen", "scaffolds", "types.ts");

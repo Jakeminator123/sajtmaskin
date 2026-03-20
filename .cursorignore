@@ -38,6 +38,9 @@ public/images/
 *.mp4
 *.webm
 
+.j_to_agent/structure_bugs_and_parralells
+.j_to_agent/analysis
+
 # ---------------------------------------------------------------------------
 # Stable code that rarely changes (read via explicit path when needed)
 # ---------------------------------------------------------------------------
@@ -48,8 +51,9 @@ src/components/ui/
 # Static assets
 public/
 
-# One-off scripts
-scripts/
+# One-off scripts (TS build scripts that still live here)
+scripts/**
+!scripts/README.md
 
 # Admin dashboard routes
 src/app/api/admin/
@@ -64,16 +68,38 @@ src/app/api/auth/
 src/components/landing-v2/
 
 # ---------------------------------------------------------------------------
-# Research and generated artifacts
+# Scaffold pipeline — discovery, dossiers, catalog (was research/)
 # ---------------------------------------------------------------------------
 
-# Local research lanes and clone mirrors (345+ files)
-research/external-templates/raw-discovery/
-research/external-templates/repo-cache/
-research/external-templates/reference-library/
+# Raw discovery data (large, gitignored bulk — only READMEs tracked)
+scaffold-pipeline/discovery/**
+!scaffold-pipeline/discovery/README.md
+!scaffold-pipeline/discovery/SCHEMA.md
+!scaffold-pipeline/discovery/schema.summary.json
+
+# Repo cache (shallow clones, gitignored)
+scaffold-pipeline/repo-cache/
+
+# Dossier bulk (339+ files) — keep manifests and summaries readable
+scaffold-pipeline/dossiers/**
+!scaffold-pipeline/dossiers/*/manifest.json
+!scaffold-pipeline/dossiers/*/summary.md
+
+# Catalog bulk (catalog.json is 9600+ lines)
+scaffold-pipeline/catalog/**
+!scaffold-pipeline/catalog/README.md
+!scaffold-pipeline/catalog/catalog.md
+!scaffold-pipeline/catalog/EVALUATION_CHECKLIST.md
+!scaffold-pipeline/catalog/PROMOTION_WORKFLOW.md
+
+# Pipeline scripts
+scaffold-pipeline/scripts/**
+!scaffold-pipeline/scripts/scaffold-pipeline.py
+
+# Legacy research paths (kept for backward compat)
+research/
 _template_refs/
 _sidor/
-research/_sidor/
 vercel_usecase_next_react_templates/
 
 # Generated reports and machine-generated artifacts (6+ MB)
@@ -106,19 +132,22 @@ services/mpc/logs/
 .cursor/automation/input/
 
 # Archived or low-signal docs
-docs/old/
-docs/plans/archived/
+docs/old/**
+!docs/old/**/README.md
+docs/plans/archived/**
+!docs/plans/archived/README.md
 #docs/analyses/
 
 # Migration archive (moved from STOR_MIGRATION/ to .cursor/migration-archive/)
-.cursor/migration-archive/
+.cursor/migration-archive/**
+!.cursor/migration-archive/**/README.md
 
 # Temporary / local dev folders
 old/
 skrapning/
 ovrigt/
 .preprompt_history.json
-.vercel/
+
 logs/
 manual_log/
 input_files_for_cursor/
@@ -133,6 +162,8 @@ vercel_templates_levels/
 .cursor/orchestrator/run/*/
 .cursor/orchestrator/archive/
 
-tests/openclaw/
+tests/openclaw/**
+!tests/openclaw/README.md
 
 internt_jakob/
+#.vercel/

@@ -52,6 +52,9 @@
     "scaffolds:curate": "npx tsx scripts/curate-scaffold-candidates.ts",
     "scaffolds:promote": "npx tsx scripts/promote-to-scaffold.ts",
     "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts",
+    "scaffolds:test-matching": "npx tsx scripts/test-scaffold-matching.ts",
+    "scaffold-pipeline": "npm run template-library:hydrate-cache && npm run template-library:build && npm run template-library:embeddings && npm run scaffolds:embeddings && npm run scaffolds:test-matching",
+    "scaffold-pipeline:full": "npm run references:discover && npm run scaffold-pipeline",
     "docs:embeddings": "npx tsx scripts/generate-docs-embeddings.ts",
     "eval": "npx tsx scripts/run-eval.ts",
     "eval:suite": "npx tsx src/lib/gen/eval/cli.ts",
@@ -159,6 +162,7 @@
     "eslint-config-prettier": "^10.1.0",
     "globals": "^17.1.0",
     "jsdom": "^28.1.0",
+    "lightningcss-win32-x64-msvc": "^1.30.2",
     "playwright": "^1.58.2",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
@@ -174,5 +178,8 @@
       "path-to-regexp": "6.3.0"
     },
     "esbuild": "^0.25.0"
+  },
+  "optionalDependencies": {
+    "lightningcss-win32-x64-msvc": "1.30.2"
   }
 }

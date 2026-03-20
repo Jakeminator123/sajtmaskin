@@ -61,15 +61,13 @@ export interface PlaywrightCatalogFile {
 export const WORKSPACE_ROOT = process.cwd();
 export const RAW_DISCOVERY_ROOT = path.resolve(
   WORKSPACE_ROOT,
-  "research",
-  "external-templates",
-  "raw-discovery",
+  "scaffold-pipeline",
+  "discovery",
 );
 export const RAW_DISCOVERY_CURRENT_ROOT = path.join(RAW_DISCOVERY_ROOT, "current");
 export const REPO_CACHE_ROOT = path.resolve(
   WORKSPACE_ROOT,
-  "research",
-  "external-templates",
+  "scaffold-pipeline",
   "repo-cache",
 );
 export const LEGACY_SOURCE_ROOT_CANDIDATES = [

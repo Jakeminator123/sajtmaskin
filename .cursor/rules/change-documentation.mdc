@@ -24,3 +24,6 @@ boundaries:
    `docs/architecture/` and link to it from `docs/README.md`.
 7. Leave temporary compatibility notes only when needed for migration, and make
    it explicit which new path is canonical.
+8. When closing a workstream, re-check the nearest relevant schema docs and
+   `README.md` files for compact reality-sync fixes even if they were not the
+   primary edit target.

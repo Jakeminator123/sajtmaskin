@@ -104,7 +104,8 @@ export async function generateSiteFromPrompt(
   if (scaffoldMode === "manual" && params.scaffoldId) {
     resolvedScaffold = getScaffoldById(params.scaffoldId);
   } else if (scaffoldMode === "auto") {
-    resolvedScaffold = await matchScaffoldWithEmbeddings(prompt, buildIntent);
+    const matchResult = await matchScaffoldWithEmbeddings(prompt, buildIntent);
+    resolvedScaffold = matchResult.scaffold;
   }
 
   let scaffoldContext: string | undefined;

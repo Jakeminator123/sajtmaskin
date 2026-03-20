@@ -5,7 +5,8 @@ alwaysApply: true
 
 # Finals Sweep Routing
 
-Apply this rule when the user message starts with `/finals-weep` or `/final-sweep`.
+Apply this rule when the user message starts with `/finals-weep` or `/final-sweep`,
+or clearly asks for a final sweep closeout.
 
 ## What It Means
 
@@ -13,6 +14,7 @@ Treat this as an explicit request to close out the **current session's** workstr
 - classify and relocate docs/plans to the correct lifecycle folders
 - archive completed `orchestrator run` artifacts
 - perform a short final sweep for stale files, tiny obvious fixes, and sanity checks
+- perform a compact documentation hygiene pass for relevant canonical docs, schema docs, and nearby `README.md` files even when they were not directly edited during the run
 - save, commit, and push the completed session work
 
 ## Required Behavior
@@ -30,11 +32,18 @@ Treat this as an explicit request to close out the **current session's** workstr
    - targeted lint/diagnostics for touched files
    - `npx tsc --noEmit` when code changes span more than 3 files
    - at least one focused test when a suitable existing test target is obvious
-7. Apply only small, obvious follow-up fixes found in the sweep. Do not open a new broad refactor.
-8. Stage only the completed session files, commit them, and push them.
+7. Re-check small but important docs around the changed area:
+   - relevant files in `docs/schemas/`
+   - nearby `README.md` files
+   - canonical indexes such as `docs/README.md`
+   - setup docs such as `docs/ENV.md` when env or infra behavior changed
+8. Keep these follow-up doc fixes compact: correct status, names, paths, and contract drift instead of expanding the docs.
+9. Apply only small, obvious follow-up fixes found in the sweep. Do not open a new broad refactor.
+10. Stage only the completed session files, commit them, and push them.
 
 ## Safety Rules
 
 - If another fresh `active` intent overlaps the same files, stop and ask before sweeping.
 - Do not pull unrelated docs/code from a parallel workstream into the commit just to "clean up".
+- Do not rewrite broad untouched documentation just because it exists. Only fix compact, directly relevant drift discovered in the sweep.
 - Treat `/finals-weep` as explicit permission to commit and push, but only for the current session's scoped work.

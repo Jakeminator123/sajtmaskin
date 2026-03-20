@@ -18,6 +18,9 @@ import { blogManifest } from "./blog/manifest";
 import { dashboardManifest } from "./dashboard/manifest";
 import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
+import { restaurantManifest } from "./restaurant/manifest";
+import { bookingManifest } from "./booking/manifest";
+import { associationManifest } from "./association/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 
 const BASE_SCAFFOLDS: ScaffoldManifest[] = [
@@ -31,6 +34,9 @@ const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   ecommerceManifest,
   contentSiteManifest,
   appShellManifest,
+  restaurantManifest,
+  bookingManifest,
+  associationManifest,
 ];
 
 const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => ({

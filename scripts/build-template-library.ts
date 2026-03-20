@@ -27,9 +27,7 @@ import { writeScaffoldCandidateReport } from "./scaffold-candidate-report";
 const WORKSPACE_ROOT = process.cwd();
 const TEMPLATE_LIBRARY_ROOT = path.resolve(
   WORKSPACE_ROOT,
-  "research",
-  "external-templates",
-  "reference-library",
+  "scaffold-pipeline",
 );
 const GENERATED_CATALOG_PATH = path.resolve(
   WORKSPACE_ROOT,

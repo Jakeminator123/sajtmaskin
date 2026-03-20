@@ -21,6 +21,8 @@ Obs:
 
 - `.vercel/.env.*.local` ska behandlas som lokala pull/export-snapshots, inte som canonical source of truth.
 - De kan innehålla temporära eller development-scope:ade värden, t.ex. `VERCEL_OIDC_TOKEN`, även när filnamnet råkar säga `production`.
+- `vercel env pull` skriver en lokal env-fil och kan skriva over/ersatta innehall i `.env.local` eller annan target-fil om du pekar dit.
+- `python manage_env.py pull` drar inte ner secret values; kommandot listar bara vilka nycklar som finns på Vercel men saknas lokalt.
 
 **Arbetsflöde vid ny env-variabel:**
 
@@ -40,7 +42,7 @@ python manage_env.py add KEY          # guidad tillägg till alla ställen
 python manage_env.py set KEY VALUE    # skriv värde i lokala filer
 python manage_env.py push KEY         # skicka lokalt värde till Vercel
 python manage_env.py push --all       # skicka alla saknade till Vercel
-python manage_env.py pull             # kolla vad Vercel har som lokalt saknar
+python manage_env.py pull             # lista vad Vercel har som lokalt saknar (skriver inte värden)
 python manage_env.py audit            # read-only audit
 python manage_env.py audit --strict   # flaggar även over-target/local-only-drift på Vercel
 python manage_env.py reconcile         # dry-run cleanup-plan för Vercel drift
@@ -148,8 +150,8 @@ builder-overlayn pa `?modelTrace=1`.
 | **Deploy**             | `npm run dev`                | Vercel Pro ($20/mån)         | -                                               |
 
 **Separation:** Dev och prod MÅSTE använda separata Redis- och Postgres-instanser.
-Alla Redis-nycklar har automatisk prefix (`dev:` / `prod:`) via `REDIS_KEY_PREFIX` i
-`src/lib/config.ts`, men separata instanser ger äkta isolering.
+Alla Redis-nycklar får ett beräknat miljöprefix (`dev:` / `preview:` / `prod:`)
+i `src/lib/config.ts`, men separata instanser ger äkta isolering.
 
 ## Delade vs projektspecifika variabler
 

@@ -89,6 +89,7 @@
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
     "NEXT_PUBLIC_REGISTRY_STYLE",
+    "NEXT_PUBLIC_SITE_URL",
     "IMPLEMENT_UNDERSCORE_CLAW",
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
     "OPENCLAW_GATEWAY_TOKEN",
@@ -98,8 +99,10 @@
     "REGISTRY_AUTH_TOKEN",
     "REGISTRY_BASE_URL",
     "RESEND_API_KEY",
+    "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
+    "SAJTMASKIN_DEV_LOG_STDOUT",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
@@ -301,10 +304,22 @@
       "notes": "Generic local debug flag."
     },
     {
+      "key": "SAJTMASKIN_LOG",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "Development-only local log sink selection."
+    },
+    {
       "key": "SAJTMASKIN_DEV_LOG",
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "Development-only logging flag."
+    },
+    {
+      "key": "SAJTMASKIN_DEV_LOG_STDOUT",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "Development-only toggle for mirroring compact summaries to stdout."
     },
     {
       "key": "SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS",

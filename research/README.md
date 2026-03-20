@@ -1,13 +1,8 @@
-# Research Area
+# Research (moved)
 
-This folder contains non-runtime research inputs and curated reference material.
+This folder's contents have been relocated to `scaffold-pipeline/`.
 
-Current focus:
+See [`scaffold-pipeline/README.md`](../scaffold-pipeline/README.md) for the
+current structure and pipeline documentation.
 
-- `external-templates/`
-  Raw discovery plus curated external reference dossiers used to improve prompt
-  enrichment, embeddings, and runtime scaffolds over time.
-
-Runtime code should not depend directly on this folder. Committed generated
-artifacts under `src/lib/gen/` are the code-facing bridge from research into
-runtime behavior.
+The `_sidor/` subfolder (if present) is legacy data and cursorignored.

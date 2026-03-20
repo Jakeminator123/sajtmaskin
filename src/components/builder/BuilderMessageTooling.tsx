@@ -1003,9 +1003,22 @@ export function buildAgentLogItems(toolParts: ToolPart[]) {
       const scaffoldId = typeof outputObj.scaffoldId === "string" ? outputObj.scaffoldId : null;
       const scaffoldFamily = typeof outputObj.scaffoldFamily === "string" ? outputObj.scaffoldFamily : null;
       const scaffoldLabel = typeof outputObj.scaffoldLabel === "string" ? outputObj.scaffoldLabel : null;
+      const matchSource = typeof outputObj.scaffoldMatchSource === "string" ? outputObj.scaffoldMatchSource : null;
+      const embScore = typeof outputObj.scaffoldEmbeddingScore === "number" ? outputObj.scaffoldEmbeddingScore : null;
       if (scaffoldId) {
         const label = scaffoldLabel || scaffoldId;
-        items.push({ label: `Scaffold: ${label}${scaffoldFamily ? ` [${scaffoldFamily}]` : ""}` });
+        const sourceTag = matchSource === "embedding"
+          ? `via embedding${embScore != null ? ` (${embScore})` : ""}`
+          : matchSource === "keyword"
+            ? "via nyckelord"
+            : matchSource === "manual"
+              ? "manuellt vald"
+              : matchSource === "persisted"
+                ? "från föregående tur"
+                : "";
+        items.push({
+          label: `Scaffold: ${label}${scaffoldFamily ? ` [${scaffoldFamily}]` : ""}${sourceTag ? ` — ${sourceTag}` : ""}`,
+        });
         addedScaffoldLine = true;
       }
     }

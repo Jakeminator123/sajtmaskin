@@ -53,7 +53,7 @@ When discussing generation architecture, prefer this mental model:
 | Lane | What belongs here | What it is not |
 |------|-------------------|----------------|
 | **Runtime lane** | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not raw external datasets |
-| **Research lane** | `research/external-templates/reference-library/`, raw discovery under `research/external-templates/raw-discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
+| **Research lane** | `scaffold-pipeline/catalog/`, raw discovery under `scaffold-pipeline/discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
 
 Important rule:
 - Treat the **template gallery** in `src/lib/templates/` as a product/UI discovery surface, not as a third generation lane.
@@ -90,9 +90,9 @@ Research and curation concepts (not used at runtime):
 
 | Term | Swedish label | Meaning |
 |------|---------------|---------|
-| **Reference dossier** | `referensdossier` | Curated per-template research package under `research/external-templates/reference-library/dossiers/`. Contains manifest, summary, selected files. Feeds into scaffold improvements via build scripts. |
+| **Reference dossier** | `referensdossier` | Curated per-template research package under `scaffold-pipeline/dossiers/`. Contains manifest, summary, selected files. Feeds into scaffold improvements via build scripts. |
 | **Generated research artifact** | `genererad research-artefakt` | Committed JSON/embeddings in `src/lib/gen/template-library/` and `scaffold-research.generated.json`. Derived from dossiers at build time, consumed at runtime for template reference ranking. |
-| **Raw discovery** | `rå upptäckt` | Noisy scrape output under `research/external-templates/raw-discovery/`. Gitignored. Not runtime data. |
+| **Raw discovery** | `rå upptäckt` | Noisy scrape output under `scaffold-pipeline/discovery/`. Gitignored. Not runtime data. |
 
 Architecture concepts:
 
@@ -106,7 +106,7 @@ Preferred terminology:
 - `src/lib/templates/`: **`template gallery`** or **`gallery item`**
 - `src/lib/gen/scaffolds/`: **`scaffold`** or **`runtime scaffold`**
 - Vercel's public library: **`Vercel template`** (always qualify)
-- `research/external-templates/reference-library/dossiers/`: **`reference dossier`**
+- `scaffold-pipeline/dossiers/`: **`reference dossier`**
 - `scaffold-research.generated.json` etc.: **`generated research artifact`**
 
 Key rules:
@@ -168,9 +168,9 @@ The user can edit these in the builder header dialog. `isDefaultCustomInstructio
 
 Use this pipeline vocabulary consistently:
 
-1. `raw discovery` -> scrape output such as `research/external-templates/raw-discovery/`
+1. `raw discovery` -> scrape output such as `scaffold-pipeline/discovery/`
 2. `raw template dataset` -> `_sidor`-style local datasets used for curation
-3. `reference dossier` -> curated per-template package under `research/external-templates/reference-library/dossiers/`
+3. `reference dossier` -> curated per-template package under `scaffold-pipeline/dossiers/`
 4. `generated research artifacts` -> committed JSON/embeddings in `src/lib/gen/template-library/` and scaffold research JSON
 5. `runtime scaffold` -> internal starter used directly by generation
 

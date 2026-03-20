@@ -23,5 +23,5 @@ Agents can read this README to understand the contents without loading them.
 
 ## Regeneration
 
-Run `scripts/build-template-library.ts` to rebuild from dossiers in `research/external-templates/reference-library/`.
-Run `scripts/build-template-embeddings.ts` to rebuild embeddings.
+Run `npm run template-library:build` to rebuild from dossiers in `research/external-templates/reference-library/`.
+Run `npm run template-library:embeddings` to rebuild embeddings.

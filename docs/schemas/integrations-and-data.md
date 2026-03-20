@@ -2,8 +2,8 @@
 
 ## Scope
 
-This document collects the most important non-scaffold schema surfaces: request
-validation, database shape, and curated external-reference data.
+This document collects the most important non-scaffold schema surfaces:
+request validation, persisted data shape, and curated external-reference data.
 
 Primary code sources:
 
@@ -37,6 +37,9 @@ These tables are used by the own-engine build path and are fully integrated:
 - `engine_versions` — generated code (`files_json`), release state
 - `engine_generation_logs` — token usage, duration, errors
 - `engine_version_error_logs` — per-version error diagnostics
+- `generation_telemetry` — build/refine telemetry, scaffold retry, preflight and deploy outcome data
+- `version_comments` — per-version collaboration comments
+- `version_approvals` — per-version approval state
 
 ### Project data (shared)
 
@@ -57,6 +60,7 @@ This file defines:
 - send-message payload validation
 - deployment identifier payload validation
 - attachment payload validation
+- chat/message/version identifier validation helpers
 
 ## External reference schema
 

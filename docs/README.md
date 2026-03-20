@@ -5,11 +5,12 @@
 ## Main areas
 
 - **`docs/architecture/`** — Canonical system overviews, engine status,
-  generation pipeline, builder prompt layer, builder entry flow, agent handoff,
-  known issues, quickstarts, webhook docs, prompt tree, and v0 deprecation
-  plan.
-- **`docs/schemas/`** — Human docs for schemas, model/build profiles, builder
-  entry contracts, scaffold contracts, and UI parts.
+  generation pipeline, builder prompt layer, builder entry flow, terminology,
+  agent coordination, agent handoff, known issues, quickstarts, webhook docs,
+  prompt tree, and v0 deprecation plan.
+- **`docs/schemas/`** — Human docs for stable contracts: model/build profiles,
+  builder entry, scaffold manifests, persisted UI parts, and important data or
+  validation surfaces.
 - **`docs/plans/`** — Planning material split by lifecycle:
   `active/`, `review-needed/`, `archived/`.
   Currently one active plan: `17-repo-separation-and-independence.md`.
@@ -28,8 +29,8 @@ Important code sources of truth include:
 - `src/lib/templates/template-data.ts`
 - `src/lib/db/schema.ts`
 - `src/lib/validations/chatSchemas.ts`
-- `src/lib/v0/models.ts`
-- `src/lib/v0/modelSelection.ts`
+- `src/lib/models/catalog.ts`
+- `src/lib/models/selection.ts`
 - `src/lib/gen/scaffolds/types.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/template-library/types.ts`
@@ -42,7 +43,7 @@ Important code sources of truth include:
 | `config/env-policy.json` | Yes             | Shared policy: classification, target rules, known-empty-ok lists. Consumed by `manage_env.py` and `src/lib/env-audit.ts`.         |
 | `src/lib/env.ts`         | Yes             | Zod schema declaring every env var the app can read.                                                                               |
 | `src/lib/env-audit.ts`   | Yes             | Runtime audit logic that loads `config/env-policy.json`.                                                                           |
-| `ENV.md`                 | Yes             | Human-readable overview of env topology, critical keys, and setup instructions.                                                    |
+| `docs/ENV.md`            | Yes             | Human-readable overview of env topology, critical keys, and setup instructions.                                                    |
 | `.env.local`             | No (gitignored) | Local development values.                                                                                                          |
 | `.env.production`        | No (gitignored) | Reference copy of production-like values.                                                                                          |
 | `manage_env.py`          | Yes             | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. |
@@ -51,7 +52,7 @@ Important code sources of truth include:
 
 When adding a new env var: add it to `src/lib/env.ts` (schema), then to
 `config/env-policy.json` (classification + target rules), and optionally to
-`ENV.md` if it is critical or frequently asked about.
+`docs/ENV.md` if it is critical or frequently asked about.
 
 ## Production boundary
 
@@ -78,11 +79,13 @@ Not runtime dependencies:
 
 | What you need | Where to look |
 |---|---|
+| Terminology and agent coordination | `docs/architecture/structure-and-terminology.md` |
 | Current active plans | `docs/plans/active/` |
 | Plan status index | `docs/architecture/agent-roadmap-and-handoff.md` |
 | Engine architecture | `docs/architecture/engine-status.md` |
 | Builder model routing | `docs/architecture/builder-model-routing-and-trace.md` |
 | Builder entry flow | `docs/architecture/builder-entry-flow.md` |
+| Schema index | `docs/schemas/README.md` |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |
 | Env setup | `docs/ENV.md` |

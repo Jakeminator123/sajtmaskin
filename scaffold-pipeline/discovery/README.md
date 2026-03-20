@@ -21,10 +21,17 @@ Do not treat it as:
 
 ## Current convention
 
-- `current/summary.json` is the canonical builder input for template curation.
+- `current/summary.json` is the canonical raw-discovery input for reference-dossier curation.
 - `current/catalog.json` and `current/source-metadata.json` provide flattened
   audit and provenance views for the same dataset.
 - `SCHEMA.md` and `schema.summary.json` describe the normalization contract.
+
+Terminology note:
+
+- These files describe external template discovery, not Sajtmaskin template
+  gallery items.
+- The discovery layer is upstream research input, not a runtime scaffold
+  registry.
 
 ## Sources
 

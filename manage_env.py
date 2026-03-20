@@ -291,7 +291,9 @@ def build_status_table(policy: dict[str, Any]) -> list[dict[str, Any]]:
     policy_keys = set(r["key"] for r in policy.get("rules", []))
     extra_keys = set(policy.get("extraKnownKeys", []))
 
-    all_keys = sorted(set(local.keys()) | set(prod.keys()) | schema_keys | policy_keys | extra_keys)
+    all_keys = sorted(
+        set(local.keys()) | set(prod.keys()) | schema_keys | runtime_only | policy_keys | extra_keys
+    )
 
     token, project_id, team_id = vercel_creds()
     vercel_map: dict[str, list[str]] = {}

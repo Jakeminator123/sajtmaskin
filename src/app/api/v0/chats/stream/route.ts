@@ -464,6 +464,7 @@ export async function POST(req: Request) {
         });
         const {
           resolvedScaffold,
+          scaffoldMatchMeta,
           routePlan,
           preGenerationContracts,
           capabilities: engineCapabilities,
@@ -551,6 +552,8 @@ export async function POST(req: Request) {
                     scaffoldId: resolvedScaffold?.id ?? null,
                     scaffoldFamily: resolvedScaffold?.family ?? null,
                     scaffoldLabel: resolvedScaffold?.label ?? null,
+                    scaffoldMatchSource: scaffoldMatchMeta?.matchSource ?? null,
+                    scaffoldEmbeddingScore: scaffoldMatchMeta?.embeddingScore ?? null,
                     capabilities: engineCapabilities,
                     contractDataMode: preGenerationContracts.contracts.dataMode,
                     contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
@@ -631,6 +634,8 @@ export async function POST(req: Request) {
             scaffoldId: resolvedScaffold?.id ?? null,
             scaffoldFamily: resolvedScaffold?.family ?? null,
             scaffoldLabel: resolvedScaffold?.label ?? null,
+            scaffoldMatchSource: scaffoldMatchMeta?.matchSource ?? null,
+            scaffoldEmbeddingScore: scaffoldMatchMeta?.embeddingScore ?? null,
             capabilities: engineCapabilities,
             contractDataMode: preGenerationContracts.contracts.dataMode,
             contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,

@@ -52,6 +52,7 @@ export function inspectEnvValue(value: string | undefined): EnvValueState {
 export function getKnownEnvKeys(): string[] {
   const keys = new Set<string>([
     ...Object.keys(serverSchema.shape),
+    ...RUNTIME_ONLY_KEYS,
     ...EXTRA_KNOWN_KEYS,
     ...RULE_BY_KEY.keys(),
   ]);

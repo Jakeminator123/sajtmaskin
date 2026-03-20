@@ -1,7 +1,7 @@
 # Orchestrator Run Protocol
 
-This repository now treats `.cursor/orchestrator/` as the canonical home for
-repository-local multi-agent execution traces.
+This is the human-readable summary of the repository-local orchestrator workflow.
+The canonical runtime protocol lives in `.cursor/orchestrator/PROTOCOL.md`.
 
 ## Purpose
 
@@ -25,12 +25,13 @@ intention summary, and ask only the clarifying questions needed to scope the run
 
 ## Canonical storage
 
-All new runs live under:
+Active runs live under:
 
 `.cursor/orchestrator/run/<YYYY-MM-DD>-<slug>/`
 
-Each dated folder is both the active workspace and the archive record for that
-run. There is no second archive root for completed runs.
+Completed runs are archived under:
+
+`.cursor/orchestrator/archive/<YYYY-MM-DD>-<slug>-<HHMMSS>/`
 
 ## Required run artifacts
 
@@ -61,6 +62,13 @@ The `orchestrator agent` owns the run. It should:
 
 The `final sweep` explicitly looks for dead code, ghost routes, stale files,
 temporary artifacts, and documentation drift left behind by the run.
+
+It should also include a compact documentation hygiene pass over relevant
+canonical docs and nearby `README.md` files, even if those docs were not
+directly edited during the run.
+
+Default behavior is sequential execution. Parallel work should be opt-in and
+carefully scoped.
 
 ## Cost-aware hierarchy
 
@@ -104,19 +112,22 @@ promote that knowledge into `docs/` in the same work session.
 
 ## Retention
 
-Run folders under `.cursor/orchestrator/run/` should be treated as local working
-artifacts rather than permanent Git history.
+Run folders under `.cursor/orchestrator/run/` are local working artifacts, not
+durable product documentation.
 
-- keep the run root gitignored apart from the tracked `README.md`
+- keep `run/` lean
+- archive completed runs out of `run/`
 - promote durable conclusions into `docs/`
-- prune stale dated runs locally with the retention script when they are no
-  longer useful
+- use `.cursor/orchestrator/run-summaries.md` as the indexed summary surface for archived work
 
-Default local cleanup command:
+For final-sweep documentation updates, prefer small reality-sync corrections:
 
-```powershell
-powershell -File ".cursor/orchestrator/scripts/prune-old-runs.ps1" -Days 5 -WhatIf
-```
+- current status
+- canonical names and terminology
+- moved paths
+- schema or contract drift
+
+Do not turn the final sweep into a broad documentation rewrite.
 
 ## Legacy note
 

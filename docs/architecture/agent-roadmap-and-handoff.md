@@ -4,6 +4,12 @@ This file is the operational handoff index for plan artifacts. Use it when a new
 agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
+Before touching shared files, also read:
+
+- `docs/architecture/structure-and-terminology.md` for canonical vocabulary and
+  coordination rules
+- `.cursor/agent-intents/BOARD.md` for current parallel-agent ownership signals
+
 Status re-verified against the current plan set on `2026-03-18`.
 Updated after orchestrator runs `2026-03-18-plan9-10-completion`,
 `2026-03-18-wl11-migrations-qa`, and `2026-03-18-plan-finalization-and-cleanup`.

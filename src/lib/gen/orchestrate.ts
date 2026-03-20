@@ -9,6 +9,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { ScaffoldManifest } from "./scaffolds/types";
+import type { ScaffoldMatchMeta } from "./scaffolds";
 import {
   getScaffoldById,
   matchScaffoldWithEmbeddings,
@@ -57,6 +58,7 @@ export interface OrchestrationInput {
 
 export interface OrchestrationResult {
   resolvedScaffold: ScaffoldManifest | null;
+  scaffoldMatchMeta: ScaffoldMatchMeta | null;
   scaffoldContext: string | undefined;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
@@ -93,15 +95,28 @@ export async function prepareGenerationContext(
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
+  let scaffoldMatchMeta: ScaffoldMatchMeta | null = null;
 
   if (scaffoldMode === "off") {
     resolvedScaffold = null;
+    scaffoldMatchMeta = { matchSource: "off", embeddingScore: null, keywordFallbackId: null };
   } else if (scaffoldMode === "manual" && scaffoldId) {
     resolvedScaffold = getScaffoldById(scaffoldId);
+    scaffoldMatchMeta = { matchSource: "manual", embeddingScore: null, keywordFallbackId: null };
   } else if (persistedScaffoldId) {
     resolvedScaffold = getScaffoldById(persistedScaffoldId);
+    scaffoldMatchMeta = { matchSource: "persisted", embeddingScore: null, keywordFallbackId: null };
   } else if (scaffoldMode === "auto") {
-    resolvedScaffold = await matchScaffoldWithEmbeddings(prompt, buildIntent);
+    const matchResult = await matchScaffoldWithEmbeddings(prompt, buildIntent);
+    resolvedScaffold = matchResult.scaffold;
+    scaffoldMatchMeta = matchResult.matchMeta;
+
+    console.info(
+      "[orchestrate] Scaffold resolved: %s (source=%s, embeddingScore=%s)",
+      resolvedScaffold?.id ?? "none",
+      scaffoldMatchMeta.matchSource,
+      scaffoldMatchMeta.embeddingScore ?? "n/a",
+    );
 
     if (
       resolvedScaffold &&
@@ -177,6 +192,7 @@ export async function prepareGenerationContext(
 
   return {
     resolvedScaffold,
+    scaffoldMatchMeta,
     scaffoldContext,
     routePlan,
     preGenerationContracts,

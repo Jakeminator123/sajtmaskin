@@ -50,9 +50,12 @@ const SAAS_KEYWORDS = [
   "dashboard preview",
   "free trial",
   "mjukvara",
+  "mjukvarutjänst",
   "plattform",
   "abonnemang",
   "pris",
+  "prisplaner",
+  "prispaket",
   "testperiod",
 ];
 
@@ -101,11 +104,18 @@ const BLOG_KEYWORDS = [
   "innehåll",
   "reading",
   "läsa",
+  "recept",
+  "matlagning",
+  "krönika",
+  "dagbok",
+  "tips",
 ];
 
 const DASHBOARD_KEYWORDS = [
   "dashboard",
   "instrumentpanel",
+  "admin-panel",
+  "adminpanel",
   "analytics",
   "analys",
   "stats",
@@ -126,6 +136,7 @@ const DASHBOARD_KEYWORDS = [
   "graf",
   "grafer",
   "sammanställning",
+  "användarhantering",
 ];
 
 const APP_KEYWORDS = [
@@ -208,6 +219,91 @@ const ECOMMERCE_KEYWORDS = [
   "storefront",
 ];
 
+const RESTAURANT_KEYWORDS = [
+  "restaurang",
+  "restaurant",
+  "café",
+  "cafe",
+  "frisör",
+  "salong",
+  "salon",
+  "gym",
+  "klinik",
+  "clinic",
+  "meny",
+  "menu",
+  "food",
+  "mat",
+  "dining",
+  "öppettider",
+  "opening hours",
+  "boka bord",
+  "table",
+  "pizzeria",
+  "bar",
+  "pub",
+  "konditori",
+  "bageri",
+  "bakery",
+  "sushi",
+  "thai",
+  "indisk",
+];
+
+const BOOKING_KEYWORDS = [
+  "bokning",
+  "booking",
+  "tidsbokning",
+  "appointment",
+  "boka tid",
+  "boka",
+  "tid",
+  "schedule",
+  "terapeut",
+  "therapist",
+  "konsult",
+  "massage",
+  "behandling",
+  "treatment",
+  "hudvård",
+  "nagelstudio",
+  "osteopat",
+  "kiropraktor",
+  "läkare",
+  "tandläkare",
+  "veterinär",
+  "lediga tider",
+  "available",
+];
+
+const ASSOCIATION_KEYWORDS = [
+  "förening",
+  "organisation",
+  "ideell",
+  "nonprofit",
+  "klubb",
+  "club",
+  "brf",
+  "bostadsrättsförening",
+  "idrottsklubb",
+  "sportklubb",
+  "scoutkår",
+  "medlemmar",
+  "members",
+  "evenemang",
+  "styrelse",
+  "board",
+  "årsmöte",
+  "stadgar",
+  "bli medlem",
+  "membership",
+  "frivillig",
+  "volunteer",
+  "samfund",
+  "kyrka",
+  "church",
+];
+
 const CONTENT_KEYWORDS = [
   "content",
   "innehåll",
@@ -218,6 +314,28 @@ const CONTENT_KEYWORDS = [
   "projekt",
   "projects",
   "stories",
+  "dokumentation",
+  "documentation",
+  "docs",
+  "guide",
+  "guider",
+  "undersidor",
+  "kommun",
+  "myndighet",
+  "informationssajt",
+  "kunskapsbas",
+  "wiki",
+  "faq",
+  "vanliga frågor",
+  "manual",
+  "sidofält",
+  "sidofältet",
+  "navigation",
+  "helpdesk",
+  "hjälpcenter",
+  "dokumentationssida",
+  "informationssida",
+  "kunskapsbank",
   "landing",
   "marketing",
   "startup",
@@ -311,6 +429,21 @@ export function matchScaffold(
     return getScaffoldByFamily("app-shell");
   }
 
+  const restaurantScore = countKeywordMatches(lower, RESTAURANT_KEYWORDS);
+  if (restaurantScore >= MIN_SCORE) {
+    return getScaffoldById("restaurant");
+  }
+
+  const bookingScore = countKeywordMatches(lower, BOOKING_KEYWORDS);
+  if (bookingScore >= MIN_SCORE) {
+    return getScaffoldById("booking");
+  }
+
+  const associationScore = countKeywordMatches(lower, ASSOCIATION_KEYWORDS);
+  if (associationScore >= MIN_SCORE) {
+    return getScaffoldById("association");
+  }
+
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
   const portfolioScore = countKeywordMatches(lower, PORTFOLIO_KEYWORDS);
   const landingScore = countKeywordMatches(lower, LANDING_KEYWORDS);
@@ -341,6 +474,12 @@ export function matchScaffold(
 
 const EMBEDDING_MIN_SCORE = 0.35;
 
+export interface ScaffoldMatchMeta {
+  matchSource: "keyword" | "embedding" | "manual" | "persisted" | "off";
+  embeddingScore: number | null;
+  keywordFallbackId: string | null;
+}
+
 /**
  * Async scaffold matching that combines keyword matching with semantic
  * embedding search. Uses keyword match as the primary result; falls back
@@ -351,7 +490,7 @@ const EMBEDDING_MIN_SCORE = 0.35;
 export async function matchScaffoldWithEmbeddings(
   prompt: string,
   buildIntent?: BuildIntent | null,
-): Promise<ScaffoldManifest | null> {
+): Promise<{ scaffold: ScaffoldManifest | null; matchMeta: ScaffoldMatchMeta }> {
   const keywordResult = matchScaffold(prompt, buildIntent);
   const lower = prompt.toLowerCase();
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
@@ -363,18 +502,24 @@ export async function matchScaffoldWithEmbeddings(
     keywordResult.id === "landing-page" ||
     keywordResult.id === "base-nextjs";
 
-  if (!isGenericDefault) return keywordResult;
+  if (!isGenericDefault) {
+    return {
+      scaffold: keywordResult,
+      matchMeta: { matchSource: "keyword", embeddingScore: null, keywordFallbackId: null },
+    };
+  }
 
   try {
     const results = await searchScaffolds(prompt, 1);
     if (results.length > 0 && results[0].score >= EMBEDDING_MIN_SCORE) {
       const embeddingResult = results[0].scaffold;
+      const embeddingScore = Math.round(results[0].score * 1000) / 1000;
 
-      // Embeddings are only allowed to override generic website defaults when the
-      // prompt actually signals the specialized scaffold. This prevents cases
-      // where a generic one-page site is incorrectly pushed into auth/app shells.
       if (embeddingResult.id === "auth-pages" && authScore < 1) {
-        return keywordResult;
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
       }
 
       if (
@@ -383,14 +528,23 @@ export async function matchScaffoldWithEmbeddings(
         appScore < 1 &&
         dashboardScore < 1
       ) {
-        return keywordResult;
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
       }
 
-      return embeddingResult;
+      return {
+        scaffold: embeddingResult,
+        matchMeta: { matchSource: "embedding", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+      };
     }
   } catch {
     // embedding search is best-effort; fall through to keyword result
   }
 
-  return keywordResult;
+  return {
+    scaffold: keywordResult,
+    matchMeta: { matchSource: "keyword", embeddingScore: null, keywordFallbackId: null },
+  };
 }

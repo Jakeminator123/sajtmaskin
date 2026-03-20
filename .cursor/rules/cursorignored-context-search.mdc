@@ -10,9 +10,11 @@ decisions, even though they are not indexed for performance reasons.
 
 ## When to explicitly read from ignored paths
 
-- **`research/external-templates/reference-library/`** — curated dossiers
-  that inform scaffold quality. Read when scaffold work or template library
-  regeneration is discussed.
+- **`scaffold-pipeline/dossiers/`** (curated dossiers) and **`scaffold-pipeline/catalog/`**
+  (catalog files) — inform scaffold quality. Read when scaffold work or template library
+  regeneration is discussed. Dossier bulk under `scaffold-pipeline/dossiers/` is
+  cursorignored, but each dossier's `manifest.json` and `summary.md` are not (exceptions
+  in `.cursorignore`).
 - **`docs/old/`** and **`docs/plans/archived/`** — completed plans and
   historical analyses. Read when context about past decisions is needed.
 - **`.cursor/migration-archive/`** — STOR_MIGRATION analysis and agent

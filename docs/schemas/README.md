@@ -2,6 +2,9 @@
 
 This folder is the canonical human-readable schema area for Sajtmaskin.
 
+Agents should read this area when they need stable contracts rather than broad
+architecture narrative.
+
 ## What lives here
 
 - `model-build-profiles.md`
@@ -21,6 +24,36 @@ This folder is the canonical human-readable schema area for Sajtmaskin.
 Only stable, canonical schema docs belong in this folder. If a schema note is
 still exploratory, partially true, or comparing alternatives, place it in
 `docs/analyses/` while active or `docs/old/schemas/` when it becomes historical.
+
+Keep schema docs compact:
+
+- describe the active contract
+- point to the runtime source of truth
+- avoid turning schema docs into general architecture overviews
+
+During a final sweep, relevant schema docs should be re-checked for small,
+obvious contract drift even if they were not directly edited during the run.
+
+## Quick map
+
+```text
+Need a stable contract?
+|
++-- builder entry / URL state
+|   -> builder-entry-contract.md
+|
++-- model tiers / prompt-assist lanes / accepted model IDs
+|   -> model-build-profiles.md
+|
++-- runtime scaffold manifest and enrichment shape
+|   -> scaffold-contract.md
+|
++-- stored builder UI parts in chat persistence
+|   -> chat-message-ui-parts.md
+|
++-- DB / validation / template-library data surfaces
+    -> integrations-and-data.md
+```
 
 ## Code sources of truth
 
