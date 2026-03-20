@@ -16,10 +16,19 @@ It belongs to the research lane, not the runtime lane.
 
 - `catalog.json` full audit output
 - `catalog.md` human summary
-- `schema.template-manifest.json` shape of each reference dossier manifest
+- `schema.template-manifest.json` shape of each reference dossier manifest (must be **UTF-8 without BOM** — not UTF-16)
 - `dossiers/<template-id>/manifest.json`
 - `dossiers/<template-id>/summary.md`
 - `dossiers/<template-id>/selected_files/*.md`
+
+## Encoding (especially on Windows)
+
+JSON here must be **UTF-8** (ASCII is fine). **Do not** save as UTF-16 (“Unicode” in some dialogs) — tools then see a BOM/null-byte pattern and `JSON.parse` / Python `json` will fail.
+
+- **Cursor / VS Code:** status bar → encoding → **Save with Encoding** → **UTF-8** (avoid *UTF-16 LE/BE*). Optionally set `files.encoding` to `utf8` in settings.
+- **Notepad (Win 11):** *Save as* → encoding **UTF-8** (not *UTF-16 LE*).
+- **PowerShell:** avoid `Set-Content` defaults; use  
+  `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` for BOM-free UTF-8.
 
 ## Important boundary
 
