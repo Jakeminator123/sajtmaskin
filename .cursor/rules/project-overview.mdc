@@ -28,7 +28,7 @@ User prompt -> Builder UI -> Own engine (default) -> Generated code -> Preview -
 
 - **Own engine** (default): `src/lib/gen/` — scaffold matching, system prompt, streamText, autofix, preview. Kräver OPENAI_API_KEY.
 - **v0 fallback** (soft-deprecated): När V0_FALLBACK_BUILDER=y skickas till v0 Platform API. Kräver V0_API_KEY.
-- **Runtime scaffolds**: `src/lib/gen/scaffolds/` — 10 starter projects used as generation base (auto-matched, manually picked, or off).
+- **Runtime scaffolds**: `src/lib/gen/scaffolds/` — 17 starter projects used as generation base (auto-matched, manually picked, or off).
 - **Custom instructions**: `src/lib/builder/defaults.ts` — CORE (always) + EXTENDED (without scaffold). Editable in builder header.
 - **Template gallery**: `src/lib/templates/` — user-facing browsing/search surface. Not the runtime scaffold registry.
 - **Research lane**: `scaffold-pipeline/` — curated dossiers that improve scaffolds via generated artifacts. Not used at runtime directly.

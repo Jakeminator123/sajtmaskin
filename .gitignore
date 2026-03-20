@@ -168,6 +168,7 @@ scaffold-pipeline/dossiers/**
 scaffold-pipeline/catalog/**
 !scaffold-pipeline/catalog/README.md
 !scaffold-pipeline/catalog/catalog.md
+!scaffold-pipeline/catalog/schema.template-manifest.json
 !scaffold-pipeline/catalog/EVALUATION_CHECKLIST.md
 !scaffold-pipeline/catalog/PROMOTION_WORKFLOW.md
 scaffold-pipeline/scripts/**

@@ -163,7 +163,7 @@ Default selected profile: **Max** (`max`)
 | Deep Brief | `AI_GATEWAY_API_KEY` (gateway-only) |
 | V0-fallback | `V0_API_KEY` (bara om `V0_FALLBACK_BUILDER=y`) |
 
-## Scaffold-system (10 scaffolds)
+## Scaffold-system (17 scaffolds)
 
 base-nextjs, landing-page, saas-landing, portfolio, blog, dashboard, auth-pages, ecommerce, content-site, app-shell
 
@@ -192,7 +192,7 @@ Import-checker körs efter merge.
 | 792 Lucide-ikoner | `src/lib/gen/data/lucide-icons.ts` | Fungerar |
 | Preview-render | `src/lib/gen/preview/*` | Fungerar |
 | Projekt-scaffold | `src/lib/gen/project-scaffold.ts` | Fungerar |
-| 10 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
+| 17 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
 | Plan-mode + review-step | `src/app/api/v0/chats/stream/route.ts`, `src/app/api/v0/chats/[chatId]/stream/route.ts`, `src/components/builder/BuildPlanCard.tsx` | Ny |
 | Readiness + launch-gating | `src/app/api/v0/chats/[chatId]/readiness/route.ts`, builder-UI, deploy-actions | Ny |
 | Route planning | `src/lib/gen/route-plan.ts`, `src/lib/gen/orchestrate.ts`, `src/lib/gen/system-prompt.ts` | Ny |

@@ -11,7 +11,7 @@ Användaren skriver:
     |
     v
 +---------------------+     +-------------------+
-| 1. SCAFFOLD-MATCHNING|     | 13 scaffolds      |
+| 1. SCAFFOLD-MATCHNING|     | 17 scaffolds      |
 | Nyckelord + embedding|---->| Varje har:        |
 |                     |     | - layout.tsx      |
 | "restaurang" + "meny"|     | - page.tsx        |
@@ -49,7 +49,7 @@ Användaren skriver:
   Färdig sajt i preview
 ```
 
-## De 13 scaffoldsen
+## De 17 scaffoldsen
 
 | Scaffold | Typ | Svenska triggers | Exempel |
 |---|---|---|---|
@@ -66,6 +66,10 @@ Användaren skriver:
 | `restaurant` | Restaurang/tjänst | restaurang, café, meny, öppettider | Restaurangsajt |
 | `booking` | Bokning | boka tid, tidsbokning, behandling | Frisörsalong |
 | `association` | Förening | förening, klubb, styrelse, evenemang | Idrottsklubb |
+| `clinic` | Klinik/mottagning | klinik, läkare, tandläkare, patient | Vårdcentral |
+| `local-shop` | Lokal butik | lanthandel, sortiment, gårdsbutik | Lanthandel |
+| `event` | Event/konferens | konferens, festival, talare, biljetter | Tech-konferens |
+| `school` | Utbildning | skola, kurs, utbildning, lärare | Studieförbund |
 
 ## Matchningslogiken
 
@@ -105,7 +109,7 @@ och referensmaterial, och AI-modellen genererar koden.
 ## Filstruktur
 
 ```
-src/lib/gen/scaffolds/           <-- Runtime (13 scaffolds, matchning, serialisering)
+src/lib/gen/scaffolds/           <-- Runtime (17 scaffolds, matchning, serialisering)
 src/lib/gen/template-library/    <-- Genererade artefakter (embeddings, referensdata)
 scaffold-pipeline/               <-- Pipeline (discovery, dossiers, katalog, skript)
 ```

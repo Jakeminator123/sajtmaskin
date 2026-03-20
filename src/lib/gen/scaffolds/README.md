@@ -14,7 +14,7 @@ files are cursorignored. Agents can read this README for context.
 
 | File | What it does |
 |------|-------------|
-| `registry.ts` | The 10 scaffold manifests. Single source of truth. |
+| `registry.ts` | The 17 scaffold manifests. Single source of truth. |
 | `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. |
 | `matcher.ts` | Keyword-based scaffold matching (fallback for embedding search). |
 | `serialize.ts` | `serializeScaffoldForPrompt()` — turns a scaffold into system prompt text. |
@@ -23,10 +23,11 @@ files are cursorignored. Agents can read this README for context.
 | `scaffold-aware-retry.ts` | Picks alternative scaffold if generation fails. |
 | `scaffold-research.ts` | Loads `scaffold-research.generated.json` overrides. |
 
-## The 10 scaffolds
+## The 17 scaffolds
 
 `base-nextjs`, `landing-page`, `saas-landing`, `portfolio`, `blog`,
-`dashboard`, `auth-pages`, `ecommerce`, `content-site`, `app-shell`.
+`dashboard`, `auth-pages`, `ecommerce`, `content-site`, `app-shell`,
+`restaurant`, `booking`, `association`, `clinic`, `local-shop`, `event`, `school`.
 
 Each has a directory with `manifest.ts` (metadata + files) and template files.
 
