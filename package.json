@@ -24,6 +24,7 @@
     "verify:generated-paths": "node src/lib/gen/template-library/verify-generated-paths.mjs",
     "devtest": "npm run typecheck && npm run verify:generated-paths && npm run scaffolds:validate && npm run test:ci && npm run lint",
     "db:init": "node Scripts/db-init.mjs",
+    "mcp:generate-site": "npx tsx Scripts/generate-site-cli.ts",
     "test": "vitest",
     "test:ci": "vitest run",
     "test:openclaw:e2e": "playwright test -c playwright.openclaw.config.ts",

@@ -8,6 +8,7 @@ Small **Node** helpers wired into `npm run dev|build|start` and day-to-day templ
 | `refresh-token.mjs` | Dev token refresh (`predev`). |
 | `db-init.mjs` | Local DB bootstrap (`predev`, `db:init`). |
 | `run-migrations.ts` | SQL migrations (`db:migrate`). |
+| `generate-site-cli.ts` | Local CLI wrapper around `src/lib/mcp/generate-site.ts` for prompt -> preview runs from PowerShell/npm. |
 | `sync-v0-templates.mjs` | Sync v0/Vercel-facing template metadata used by the product. |
 | `validate-templates.mjs` | Validates synced template data. |
 
@@ -42,6 +43,21 @@ See **`config/README.md`** and `config/profiles/ai.defaults.ini`. Quick print:
 ```bash
 npm run config:env-print
 ```
+
+## Local MCP generate-site wrapper
+
+Use this instead of trying to run `src/lib/mcp/generate-site.ts` directly:
+
+```bash
+npm run mcp:generate-site -- --prompt "Bygg en enkel frisörsida"
+npm run mcp:generate-site -- "Bygg en enkel frisörsida"
+npm run mcp:generate-site -- --prompt-file .\\prompt.txt --json
+```
+
+Why:
+- `src/lib/mcp/generate-site.ts` is a library module, not a shell command.
+- PowerShell cannot execute a raw `.ts` file directly.
+- The wrapper loads the module via `tsx`, parses CLI flags, and prints a usable result summary.
 
 ## Interactive Python menu (whole pipeline)
 
