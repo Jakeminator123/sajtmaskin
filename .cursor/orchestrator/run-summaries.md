@@ -100,3 +100,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Added canonical builder-entry architecture and schema docs, synced docs to the latest completed builder-preview reality, and archived the run.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-19-builder-entry-standardization-013542/`
 
+## 2026-03-20-scaffold-hybrid-dossier (archived 2026-03-20 02:21)
+- **Scope:** See archived FINAL_REPORT.md for details.
+- **Workloads:** 0 completed, 0 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-20-scaffold-hybrid-dossier-022125/`
+
