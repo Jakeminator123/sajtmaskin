@@ -409,7 +409,7 @@ function V0TemplateCard({
   const handlePreviewClick = (event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    if (disabled || !imageUrl) return;
+    if (disabled) return;
     setShowModal(true);
   };
   const handleEdit = async (e: React.MouseEvent) => {
@@ -459,7 +459,7 @@ function V0TemplateCard({
           <div className="flex gap-2">
             <button
               onClick={handlePreviewClick}
-              disabled={disabled || !imageUrl}
+              disabled={disabled}
               className="bg-brand-teal/20 hover:bg-brand-teal/30 border-brand-teal/30 text-brand-teal flex flex-1 items-center justify-center gap-2 rounded border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Play className="h-3.5 w-3.5" />
@@ -481,14 +481,13 @@ function V0TemplateCard({
         </div>
       </div>
 
-      {imageUrl && (
-        <PreviewModal
-          isOpen={showModal}
-          onClose={() => setShowModal(false)}
-          imageUrl={imageUrl}
-          title={template.title || template.id}
-        />
-      )}
+      <PreviewModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        imageUrl={imageUrl}
+        title={template.title || template.id}
+        viewUrl={template.viewUrl}
+      />
     </>
   );
 }
