@@ -64,7 +64,8 @@ export function generateCode(
     modelId: modelId ?? DEFAULT_MODEL,
     modelTier,
     maxOutputTokens: resolvedMaxTokens,
-    reasoningEffort,
+    reasoningEffort: isAnthropicModel ? undefined : reasoningEffort,
+    anthropicThinking: isAnthropicModel && thinking ? "adaptive" : undefined,
     thinking,
   });
 

@@ -1,0 +1,78 @@
+Sajtmaskin - nyttiga kommandon
+==============================
+
+Utveckling
+----------
+npm run dev
+npm run build
+npm run start
+npm run typecheck
+npm run lint
+npm run test:ci
+
+Miljovariabler
+--------------
+python manage_env.py
+python manage_env.py status
+python manage_env.py audit
+python manage_env.py audit --strict
+python manage_env.py pull
+python manage_env.py push KEY
+python manage_env.py push --all
+python check_env.py
+
+Databas
+-------
+npm run db:init
+npm run db:migrate
+npm run db:push
+npm run db:generate
+
+Generated path hygiene
+----------------------
+npm run verify:generated-paths
+npm run normalize:generated-paths
+
+Scaffold / template-library
+---------------------------
+npm run template-library:hydrate-cache
+npm run template-library:build
+npm run template-library:embeddings
+npm run scaffolds:embeddings
+npm run scaffolds:curate
+npm run scaffolds:promote -- --help
+npm run scaffolds:validate
+npm run scaffolds:test-matching
+npm run scaffold-pipeline
+npm run scaffold-pipeline:full
+
+Eval
+----
+npm run eval
+npm run eval:suite
+npm run eval:gate
+npm run eval:baseline
+
+MCP / lokal generate-site-wrapper
+---------------------------------
+npm run mcp:generate-site -- --help
+npm run mcp:generate-site -- --prompt "Bygg en enkel frisorsida"
+npm run mcp:generate-site -- --prompt-file .\prompt.txt --json
+
+Inspector / preview
+-------------------
+npm run inspector:start
+npm run inspector:health
+npm run inspector:docker:up
+npm run inspector:docker:logs
+npm run inspector:docker:down
+
+AI defaults
+-----------
+npm run config:env-print
+
+Snabba felsokningsnotiser
+-------------------------
+- `npm run vite` finns inte i detta repo. Anvand `npm run dev`.
+- `src/lib/mcp/generate-site.ts` ar ett bibliotek, inte ett shell-kommando.
+- Kor inte `.ts`-filer direkt i PowerShell om de inte har en avsedd CLI-wrapper.

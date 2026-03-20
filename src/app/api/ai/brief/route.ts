@@ -77,7 +77,7 @@ const siteBriefSchema = z.object({
   oneSentencePitch: z.string().describe("A single sentence describing what the site is about"),
   targetAudience: z.string().describe("Primary audience / persona"),
   primaryCallToAction: z.string().describe('Main CTA label, e.g. "Book a demo"'),
-  toneAndVoice: z.array(z.string()).min(2).max(8).describe("Tone keywords"),
+  toneAndVoice: z.array(z.string()).max(8).describe("Tone keywords"),
   pages: z
     .array(
       z.object({
@@ -89,17 +89,16 @@ const siteBriefSchema = z.object({
             z.object({
               type: sectionTypeSchema,
               heading: z.string(),
-              bullets: z.array(z.string()).min(1).max(8),
+              bullets: z.array(z.string()).max(8),
             }),
           )
-          .min(3)
           .max(14),
       }),
     )
     .min(1)
     .max(10),
   visualDirection: z.object({
-    styleKeywords: z.array(z.string()).min(3).max(12),
+    styleKeywords: z.array(z.string()).max(12),
     colorPalette: z.object({
       primary: z.string().describe("Hex or CSS color"),
       secondary: z.string().describe("Hex or CSS color"),
@@ -114,90 +113,85 @@ const siteBriefSchema = z.object({
   }),
   imagery: z.object({
     needsImages: z.boolean(),
-    styleKeywords: z.array(z.string()).min(2).max(12),
-    suggestedSubjects: z.array(z.string()).min(2).max(16),
-    altTextRules: z.array(z.string()).min(2).max(8),
+    styleKeywords: z.array(z.string()).max(12),
+    suggestedSubjects: z.array(z.string()).max(16),
+    altTextRules: z.array(z.string()).max(8),
   }),
   uiNotes: z.object({
-    components: z.array(z.string()).min(3).max(16),
-    interactions: z.array(z.string()).min(2).max(16),
-    accessibility: z.array(z.string()).min(3).max(16),
+    components: z.array(z.string()).max(16),
+    interactions: z.array(z.string()).max(16),
+    accessibility: z.array(z.string()).max(16),
   }),
   seo: z.object({
     titleTemplate: z.string().describe('e.g. "{page} | Brand"'),
     metaDescription: z.string().describe("One concise meta description"),
-    keywords: z.array(z.string()).min(3).max(30),
+    keywords: z.array(z.string()).max(30),
   }),
 });
 
-// Simplified fallback schema - more lenient constraints with optional fields
+// Simplified fallback schema — fewer optional parameters to stay within
+// Anthropic's grammar compilation limit (24 optionals max).
 const simplifiedBriefSchema = z.object({
   projectTitle: z.string(),
-  brandName: z.string().optional().default(""),
+  brandName: z.string().default(""),
   oneSentencePitch: z.string(),
-  targetAudience: z.string().optional().default("General audience"),
-  primaryCallToAction: z.string().optional().default("Get Started"),
-  toneAndVoice: z.array(z.string()).optional().default([]),
+  targetAudience: z.string().default("General audience"),
+  primaryCallToAction: z.string().default("Get Started"),
+  toneAndVoice: z.array(z.string()).default([]),
   pages: z
     .array(
       z.object({
         name: z.string(),
         path: z.string(),
-        purpose: z.string().optional().default(""),
+        purpose: z.string().default(""),
         sections: z
           .array(
             z.object({
               type: z.string(),
               heading: z.string(),
-              bullets: z.array(z.string()).optional().default([]),
+              bullets: z.array(z.string()).default([]),
             }),
           )
-          .optional()
           .default([]),
       }),
     )
-    .optional()
     .default([]),
   visualDirection: z
     .object({
-      styleKeywords: z.array(z.string()).optional().default([]),
-      colorPalette: z
-        .object({
-          primary: z.string().optional().default("#3b82f6"),
-          secondary: z.string().optional().default("#6366f1"),
-          accent: z.string().optional().default("#f59e0b"),
-          background: z.string().optional().default("#0a0a0a"),
-          text: z.string().optional().default("#ffffff"),
-        })
-        .optional(),
-      typography: z
-        .object({
-          headings: z.string().optional().default("Inter"),
-          body: z.string().optional().default("Inter"),
-        })
-        .optional(),
+      styleKeywords: z.array(z.string()).default([]),
+      colorPalette: z.object({
+        primary: z.string().default("#3b82f6"),
+        secondary: z.string().default("#6366f1"),
+        accent: z.string().default("#f59e0b"),
+        background: z.string().default("#0a0a0a"),
+        text: z.string().default("#ffffff"),
+      }),
+      typography: z.object({
+        headings: z.string().default("Inter"),
+        body: z.string().default("Inter"),
+      }),
     })
     .optional(),
   imagery: z
     .object({
-      needsImages: z.boolean().optional().default(true),
-      styleKeywords: z.array(z.string()).optional().default([]),
-      suggestedSubjects: z.array(z.string()).optional().default([]),
-      altTextRules: z.array(z.string()).optional().default([]),
+      needsImages: z.boolean().default(true),
+      styleKeywords: z.array(z.string()).default([]),
+      suggestedSubjects: z.array(z.string()).default([]),
+      altTextRules: z.array(z.string()).default([]),
     })
     .optional(),
   uiNotes: z
     .object({
-      components: z.array(z.string()).optional().default([]),
-      interactions: z.array(z.string()).optional().default([]),
-      accessibility: z.array(z.string()).optional().default([]),
+      components: z.array(z.string()).default([]),
+      interactions: z.array(z.string()).default([]),
+      accessibility: z.array(z.string()).default([]),
     })
     .optional(),
   seo: z
     .object({
-      titleTemplate: z.string().optional().default("{page} | Site"),
-      metaDescription: z.string().optional().default(""),
-      keywords: z.array(z.string()).optional().default([]),
+      titleTemplate: z.string().default("{page} | Site"),
+      metaDescription: z.string().default(""),
+      keywords: z.array(z.string()).default([]),
     })
     .optional(),
 });

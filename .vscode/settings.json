@@ -41,5 +41,8 @@
   },
   "files.autoSave": "off",
   "git.autofetch": true,
-  "git.autofetchPeriod": 0
+  "git.autofetchPeriod": 0,
+  "terminal.integrated.autoReplies": {
+    "Terminate batch job (Y/N)": "Y\r"
+  }
 }
