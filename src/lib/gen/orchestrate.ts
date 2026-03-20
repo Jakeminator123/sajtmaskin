@@ -14,6 +14,7 @@ import {
   getScaffoldById,
   matchScaffoldWithEmbeddings,
 } from "./scaffolds";
+import { classifySiteProfile, type SiteProfile } from "./scaffolds/site-profile";
 import {
   serializeScaffoldForPrompt,
   detectScaffoldMode,
@@ -60,6 +61,7 @@ export interface OrchestrationResult {
   resolvedScaffold: ScaffoldManifest | null;
   scaffoldMatchMeta: ScaffoldMatchMeta | null;
   scaffoldContext: string | undefined;
+  siteProfile: SiteProfile;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
@@ -148,6 +150,20 @@ export async function prepareGenerationContext(
     scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode);
   }
 
+  const briefPages = Array.isArray((brief as { pages?: unknown } | null)?.pages)
+    ? (brief as { pages?: unknown[] }).pages?.length ?? null
+    : null;
+  const siteProfile = classifySiteProfile(prompt, { briefPageCount: briefPages });
+
+  if (scaffoldMode === "auto") {
+    console.info(
+      "[orchestrate] Site profile: category=%s, pageBucket=%d, confidence=%s",
+      siteProfile.businessCategory,
+      siteProfile.pageBucket,
+      siteProfile.confidence,
+    );
+  }
+
   const capabilities = inferCapabilities(prompt);
   const capabilityHints = buildCapabilityHints(capabilities);
   const routePlan = buildRoutePlan({
@@ -155,6 +171,7 @@ export async function prepareGenerationContext(
     buildIntent,
     brief,
     resolvedScaffold,
+    siteProfile,
   });
   const preGenerationContracts = inferPreGenerationContracts({
     prompt,
@@ -194,6 +211,7 @@ export async function prepareGenerationContext(
     resolvedScaffold,
     scaffoldMatchMeta,
     scaffoldContext,
+    siteProfile,
     routePlan,
     preGenerationContracts,
     capabilities,

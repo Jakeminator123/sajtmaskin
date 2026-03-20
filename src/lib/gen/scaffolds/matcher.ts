@@ -3,7 +3,7 @@
  *
  * Uses keyword matching as primary strategy, with embedding-based
  * semantic search as fallback when keywords yield only generic defaults.
- * Only matches against the 10 internal scaffolds in registry.ts.
+ * Only matches against the 13 internal scaffolds in registry.ts.
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -36,29 +36,37 @@ const LANDING_KEYWORDS = [
   "kampanj",
   // SNI F – Byggverksamhet
   "bygg", "byggföretag", "byggfirma", "snickare", "hantverkare",
-  "elektriker", "rörmokare", "målare", "renovering", "plåtslagare",
-  "takläggare", "markarbeten", "VVS", "kakel", "golv",
+  "elektriker", "rörmokare", "målare", "måleri", "målerifirma",
+  "renovering", "plåtslagare", "takläggare", "markarbeten", "VVS",
+  "kakel", "golv", "fasadrenovering", "murare",
   // SNI H – Transport & logistik
-  "transport", "frakt", "logistik", "åkeri", "flyttfirma", "budtjänst",
-  "spedition", "taxi",
+  "transport", "transportbolag", "transportföretag", "frakt", "logistik",
+  "åkeri", "flyttfirma", "budtjänst", "spedition", "taxi",
   // SNI K – Finans, försäkring, ekonomi
   "redovisning", "bokföring", "revisor", "ekonomibyrå", "skatterådgivning",
   "försäkring", "rådgivning", "finansiell",
   // SNI M – Juridik
-  "advokat", "jurist", "advokatbyrå", "juridisk",
+  "advokat", "jurist", "juristfirma", "juristbyrå", "advokatbyrå",
+  "juridisk", "affärsjuridik",
   // SNI L – Fastighet
   "mäklare", "fastighetsmäklare", "fastighetsförmedling",
+  "fastighetsförvaltning", "mäklarfirma",
   // SNI G45 – Fordonsservice
   "bilverkstad", "mekaniker", "bilservice", "däckbyte", "lackering",
+  "bilreparation", "fordonsservice",
   // SNI J – Kommunikation & reklam
   "reklambyrå", "kommunikationsbyrå", "webbbyrå", "mediabyrå", "PR-byrå",
-  "eventbyrå", "produktionsbyrå",
+  "eventbyrå", "produktionsbyrå", "marknadsföring", "marknadsföringsbyrå",
+  "digital byrå",
   // SNI N – Bemanning & service
   "bevakning", "larm", "säkerhet", "bemanning", "rekrytering",
+  // SNI N81 – Städ & fastighetsservice
+  "städ", "städföretag", "städfirma", "städbolag", "städning",
+  "lokalvård", "fastighetsskötsel", "fönsterputsning",
   // SNI S – Övrig service
   "begravningsbyrå", "kemtvätt",
   // SNI A – Jordbruk
-  "lantbruk", "gård", "jordbruk",
+  "lantbruk", "gård", "jordbruk", "lanthandel", "lanthandlare",
   // SNI C – Tillverkning
   "fabrik", "tillverkning", "industri",
 ];
@@ -559,6 +567,9 @@ export async function matchScaffoldWithEmbeddings(
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   const appScore = countKeywordMatches(lower, APP_KEYWORDS);
   const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
+  const restaurantScore = countKeywordMatches(lower, RESTAURANT_KEYWORDS);
+  const bookingScore = countKeywordMatches(lower, BOOKING_KEYWORDS);
+  const associationScore = countKeywordMatches(lower, ASSOCIATION_KEYWORDS);
 
   const isGenericDefault =
     !keywordResult ||
@@ -591,6 +602,27 @@ export async function matchScaffoldWithEmbeddings(
         appScore < 1 &&
         dashboardScore < 1
       ) {
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
+      }
+
+      if (embeddingResult.id === "restaurant" && restaurantScore < 1) {
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
+      }
+
+      if (embeddingResult.id === "booking" && bookingScore < 1) {
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
+      }
+
+      if (embeddingResult.id === "association" && associationScore < 1) {
         return {
           scaffold: keywordResult,
           matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },

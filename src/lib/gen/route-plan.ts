@@ -1,5 +1,6 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "./scaffolds/types";
+import type { SiteProfile } from "./scaffolds/site-profile";
 
 export type RoutePlanSiteType = "one-page" | "brochure" | "content-heavy" | "app-shell";
 export type RoutePlanSource = "brief" | "prompt" | "scaffold";
@@ -189,13 +190,82 @@ function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: Scaff
   }
 }
 
+const CATEGORY_ROUTE_DEFAULTS: Record<string, PlannedRoute[]> = {
+  "hair-salon": [
+    { path: "/services", name: "Tjänster", intent: "Show available treatments, prices, and service descriptions.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact info, opening hours, and optional booking link.", required: true },
+  ],
+  "beauty-wellness": [
+    { path: "/services", name: "Behandlingar", intent: "Show available treatments and pricing.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact info with optional booking form.", required: true },
+  ],
+  "restaurant-cafe": [
+    { path: "/menu", name: "Meny", intent: "Show the food and drink menu.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Location, opening hours, and optional table reservation.", required: true },
+  ],
+  "accounting-firm": [
+    { path: "/services", name: "Tjänster", intent: "Describe service areas: bookkeeping, tax, advisory.", required: true },
+    { path: "/about", name: "Om oss", intent: "Team, expertise, and trust-building information.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact form and office details.", required: true },
+  ],
+  "law-firm": [
+    { path: "/services", name: "Rättsområden", intent: "Describe legal practice areas.", required: true },
+    { path: "/about", name: "Om byrån", intent: "Team, credentials, and firm history.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact form and office details.", required: true },
+  ],
+  "construction": [
+    { path: "/services", name: "Tjänster", intent: "Construction services overview with examples.", required: true },
+    { path: "/projects", name: "Projekt", intent: "Photo gallery of completed projects.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and quote request form.", required: true },
+  ],
+  "cleaning-service": [
+    { path: "/services", name: "Tjänster", intent: "Cleaning service packages and pricing.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and booking form.", required: true },
+  ],
+  "rural-general-store": [
+    { path: "/products", name: "Sortiment", intent: "Overview of product categories and local specialties.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Location, opening hours, and directions.", required: true },
+  ],
+  "car-workshop": [
+    { path: "/services", name: "Tjänster", intent: "Service types, pricing, and booking.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Location, opening hours, and contact.", required: true },
+  ],
+  "advertising-agency": [
+    { path: "/services", name: "Tjänster", intent: "Service offerings and specializations.", required: true },
+    { path: "/work", name: "Case", intent: "Portfolio of previous campaigns and projects.", required: true },
+    { path: "/about", name: "Om oss", intent: "Team and agency story.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact form.", required: true },
+  ],
+};
+
+function applyCategoryDefaults(category: string, routes: PlannedRoute[]): void {
+  const defaults = CATEGORY_ROUTE_DEFAULTS[category];
+  if (!defaults) return;
+  for (const route of defaults) {
+    pushRoute(routes, route);
+  }
+}
+
+function trimRoutesToBucket(routes: PlannedRoute[], pageBucket: number): PlannedRoute[] {
+  if (routes.length <= pageBucket) return routes;
+  const required = routes.filter((r) => r.required);
+  const optional = routes.filter((r) => !r.required);
+  const trimmed = [...required];
+  for (const route of optional) {
+    if (trimmed.length >= pageBucket) break;
+    trimmed.push(route);
+  }
+  return trimmed.slice(0, pageBucket);
+}
+
 export function buildRoutePlan(params: {
   prompt: string;
   buildIntent: BuildIntent;
   brief?: Record<string, unknown> | null;
   resolvedScaffold: ScaffoldManifest | null;
+  siteProfile?: SiteProfile | null;
 }): RoutePlan {
-  const { prompt, buildIntent, brief, resolvedScaffold } = params;
+  const { prompt, buildIntent, brief, resolvedScaffold, siteProfile } = params;
   const briefPlan = buildRoutesFromBrief(brief, buildIntent);
   if (briefPlan) return briefPlan;
 
@@ -220,14 +290,21 @@ export function buildRoutePlan(params: {
 
   applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
 
+  if (siteProfile && siteProfile.confidence !== "low") {
+    applyCategoryDefaults(siteProfile.businessCategory, routes);
+  }
+
+  const pageBucket = siteProfile?.pageBucket ?? null;
+  const finalRoutes = pageBucket ? trimRoutesToBucket(routes, pageBucket) : routes;
+
   return {
     source: resolvedScaffold ? "prompt" : "prompt",
-    siteType: inferSiteType(buildIntent, routes.length),
+    siteType: inferSiteType(buildIntent, finalRoutes.length),
     reason:
-      routes.length > 1
-        ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."
+      finalRoutes.length > 1
+        ? `Prompt analysis suggests a multi-route build (page budget: ${pageBucket ?? "auto"}); keep real App Router pages instead of collapsing everything into one page.`
         : "Prompt analysis suggests a compact default route structure unless the model has strong evidence to add more pages.",
-    routes,
+    routes: finalRoutes,
   };
 }
 

@@ -63,6 +63,38 @@ def count_json_entries(path: Path, key: str = "curatedTemplates") -> str:
         return "kunde inte lasa"
 
 
+def count_scaffolds_in_registry() -> int:
+    """Count scaffolds by looking for manifest.ts files in the scaffolds directory."""
+    scaffold_dir = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds"
+    if not scaffold_dir.exists():
+        return 0
+    return sum(1 for d in scaffold_dir.iterdir() if d.is_dir() and (d / "manifest.ts").exists())
+
+
+def list_scaffold_ids() -> list[str]:
+    """List scaffold IDs by scanning manifest directories."""
+    scaffold_dir = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds"
+    if not scaffold_dir.exists():
+        return []
+    ids = []
+    for d in sorted(scaffold_dir.iterdir()):
+        if d.is_dir() and (d / "manifest.ts").exists():
+            ids.append(d.name)
+    return ids
+
+
+def list_scaffold_embeddings() -> list[str]:
+    """List scaffold IDs present in the embeddings file."""
+    import json
+    if not SCAFFOLD_EMBEDDINGS.exists():
+        return []
+    try:
+        data = json.loads(SCAFFOLD_EMBEDDINGS.read_text("utf-8"))
+        return [e["id"] for e in data.get("embeddings", [])]
+    except Exception:
+        return []
+
+
 def count_dossiers() -> int:
     if not DOSSIER_ROOT.exists():
         return 0
@@ -83,12 +115,20 @@ def show_status():
     has_embeds = SCAFFOLD_EMBEDDINGS.exists()
     has_tl_embeds = EMBEDDINGS_JSON.exists()
 
+    registry_count = count_scaffolds_in_registry()
+    embed_ids = list_scaffold_embeddings()
+    embed_count = len(embed_ids)
+    registry_ids = set(list_scaffold_ids())
+    missing_embeds = registry_ids - set(embed_ids)
+    embed_sync = f"{GREEN}{embed_count}/{registry_count} synk{RESET}" if embed_count == registry_count else f"{RED}{embed_count}/{registry_count} (saknas: {', '.join(sorted(missing_embeds))}){RESET}"
+
     print(f"\n{BOLD}=== Pipeline-status ==={RESET}")
     print(f"  {CYAN}Fas 1{RESET}  Discovery (summary.json):    {'finns' if has_discovery else f'{RED}SAKNAS{RESET}'}")
     print(f"         Dossiers:                      {count_dossiers()} st")
     print(f"  {CYAN}Fas 2{RESET}  template-library.generated:  {count_json_entries(GENERATED_JSON)} kuraterade")
     print(f"         template-library-embeddings:    {'finns' if has_tl_embeds else f'{RED}SAKNAS{RESET}'}")
-    print(f"  {CYAN}Fas 3{RESET}  scaffold-embeddings:          {'finns' if has_embeds else f'{RED}SAKNAS{RESET}'}")
+    print(f"  {CYAN}Fas 3{RESET}  Runtime scaffolds (registry): {registry_count} st")
+    print(f"         scaffold-embeddings:            {embed_sync}")
     print(f"         Matchningstest:                 {DIM}kor via menyval 10{RESET}")
     print()
 
@@ -98,6 +138,7 @@ def show_status():
 # ---------------------------------------------------------------------------
 
 def menu():
+    reg_count = count_scaffolds_in_registry()
     print(f"""
 {BOLD}+----------------------------------------------------------+
 |         Scaffold Pipeline -- Sajtmaskin                   |
@@ -125,10 +166,18 @@ def menu():
   {BOLD}{CYAN}--- Fas 3: Verify ---{RESET}
 
   {GREEN} 6{RESET}  Generera scaffold embeddings
-      {DIM}(OpenAI API for de 10 runtime scaffolds){RESET}
+      {DIM}(OpenAI API for {reg_count} runtime scaffolds){RESET}
 
   {GREEN}10{RESET}  Testa scaffold-matchning med svenska prompter
-      {DIM}(Kor 20+ testprompter, visar matchkalla och poang){RESET}
+      {DIM}(Kor 90+ testprompter, visar matchkalla och poang){RESET}
+
+  {BOLD}{CYAN}--- Inspect ---{RESET}
+
+  {GREEN}11{RESET}  Lista alla scaffolds (registry vs embeddings)
+      {DIM}(Visa vilka som har embeddings och vilka som saknas){RESET}
+
+  {GREEN}12{RESET}  Validera scaffold-manifests
+      {DIM}(Kor npm run scaffolds:validate){RESET}
 
   {BOLD}{CYAN}--- Kombinationer ---{RESET}
 
@@ -213,6 +262,37 @@ def step_test_matching():
 # Kombinationer
 # ---------------------------------------------------------------------------
 
+def step_list_scaffolds():
+    print(f"\n{BOLD}Scaffolds: Registry vs Embeddings{RESET}\n")
+    registry_ids = list_scaffold_ids()
+    embed_ids = set(list_scaffold_embeddings())
+
+    for sid in registry_ids:
+        status = f"{GREEN}OK{RESET}" if sid in embed_ids else f"{RED}SAKNAS embedding{RESET}"
+        print(f"  {sid:25s}  {status}")
+
+    extra = embed_ids - set(registry_ids)
+    if extra:
+        print(f"\n  {YELLOW}Extra i embeddings (ej i registry):{RESET}")
+        for sid in sorted(extra):
+            print(f"    {sid}")
+
+    print(f"\n  {BOLD}Registry: {len(registry_ids)}{RESET}  |  {BOLD}Embeddings: {len(embed_ids)}{RESET}")
+    if set(registry_ids) == embed_ids:
+        print(f"  {GREEN}Allt synkat!{RESET}")
+    else:
+        missing = set(registry_ids) - embed_ids
+        if missing:
+            print(f"  {RED}Saknas embeddings for: {', '.join(sorted(missing))}{RESET}")
+            print(f"  {YELLOW}Kor menyval 6 for att regenerera.{RESET}")
+    print()
+
+
+def step_validate_manifests():
+    print(f"\n{BOLD}Validera scaffold-manifests{RESET}")
+    run("npm run scaffolds:validate")
+
+
 def step_full_from_existing():
     print(f"\n{BOLD}Kor hela kedjan fran befintlig discovery{RESET}")
     if not (RAW_DISCOVERY_CURRENT / "summary.json").exists():
@@ -256,7 +336,7 @@ def main():
     while True:
         show_status()
         menu()
-        choice = input(f"{BOLD}Valj (0-10): {RESET}").strip()
+        choice = input(f"{BOLD}Valj (0-12): {RESET}").strip()
 
         actions = {
             "1": step_discover,
@@ -269,6 +349,8 @@ def main():
             "8": step_full_from_scratch,
             "9": show_status,
             "10": step_test_matching,
+            "11": step_list_scaffolds,
+            "12": step_validate_manifests,
         }
 
         if choice == "0":
