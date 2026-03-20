@@ -1,4 +1,5 @@
 import type { CodeFile } from "@/lib/gen/parser";
+import { parseImports } from "@/lib/gen/preview/import-parser";
 
 export interface SanityIssue {
   file: string;
@@ -11,7 +12,6 @@ export interface SanityResult {
   valid: boolean;
 }
 
-const IMPORT_RE = /import\s+(?:(?:type\s+)?(?:\{[^}]*\}|[\w$]+)(?:\s*,\s*(?:\{[^}]*\}|[\w$]+))*\s+from\s+)?['"]([^'"]+)['"]/g;
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 const INDEX_EXTENSIONS = EXTENSIONS.map((ext) => `/index${ext}`);
 
@@ -33,6 +33,19 @@ function fileExists(fileMap: Map<string, CodeFile>, basePath: string): boolean {
   return false;
 }
 
+function resolveExistingProjectPath(
+  fileMap: Map<string, CodeFile>,
+  basePath: string,
+): string | null {
+  const candidates = [
+    basePath,
+    ...[...EXTENSIONS, ...INDEX_EXTENSIONS].map((ext) => `${basePath}${ext}`),
+    `src/${basePath}`,
+    ...[...EXTENSIONS, ...INDEX_EXTENSIONS].map((ext) => `src/${basePath}${ext}`),
+  ];
+  return candidates.find((candidate) => fileMap.has(candidate)) ?? null;
+}
+
 function normalizeToProjectPath(source: string, importerPath: string): string {
   if (source.startsWith("@/")) return source.slice(2);
   const dir = importerPath.includes("/")
@@ -45,6 +58,33 @@ function normalizeToProjectPath(source: string, importerPath: string): string {
     else if (part !== ".") resolved.push(part);
   }
   return resolved.join("/");
+}
+
+function collectNamedExports(code: string): Set<string> {
+  const names = new Set<string>();
+  const addMatch = (regex: RegExp) => {
+    for (const match of code.matchAll(regex)) {
+      const name = match[1]?.trim();
+      if (name) names.add(name);
+    }
+  };
+
+  addMatch(/export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g);
+  addMatch(/export\s+class\s+([A-Za-z_$][\w$]*)/g);
+  addMatch(/export\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g);
+
+  for (const match of code.matchAll(/export\s*\{([^}]+)\}/g)) {
+    const parts = match[1]
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    for (const part of parts) {
+      const aliasMatch = part.match(/^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/);
+      names.add(aliasMatch ? aliasMatch[2] : part);
+    }
+  }
+
+  return names;
 }
 
 /**
@@ -60,9 +100,9 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
   for (const file of files) {
     if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
 
-    // 1. Unresolved local imports
-    for (const match of file.content.matchAll(IMPORT_RE)) {
-      const source = match[1];
+    // 1. Unresolved local imports and export-shape mismatches
+    for (const imp of parseImports(file.content)) {
+      const source = imp.source;
       if (!source.startsWith("@/") && !source.startsWith("./") && !source.startsWith("../")) continue;
       if (source.startsWith("@/components/ui/") || source === "@/lib/utils") continue;
 
@@ -72,6 +112,35 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
           file: file.path,
           severity: "warning",
           message: `Unresolved local import: ${source}`,
+        });
+        continue;
+      }
+
+      const resolvedPath = resolveExistingProjectPath(fileMap, projectPath);
+      const targetFile = resolvedPath ? fileMap.get(resolvedPath) : null;
+      if (!targetFile) {
+        continue;
+      }
+
+      const hasDefaultExport = /\bexport\s+default\b/.test(targetFile.content);
+      const namedExports = collectNamedExports(targetFile.content);
+
+      if (imp.defaultImport && !hasDefaultExport) {
+        issues.push({
+          file: file.path,
+          severity: "error",
+          message: `Local import expects a default export from ${source}, but none was found`,
+        });
+      }
+
+      for (const binding of imp.namedImports) {
+        if (namedExports.has(binding.imported)) continue;
+        issues.push({
+          file: file.path,
+          severity: "error",
+          message: hasDefaultExport
+            ? `Local import expects named export ${binding.imported} from ${source}, but the target only exposes a default export`
+            : `Local import expects named export ${binding.imported} from ${source}, but none was found`,
         });
       }
     }

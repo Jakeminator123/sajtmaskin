@@ -460,6 +460,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
     expect(response.status).toBe(200);
 
     const events = await readSseEvents(response);
+    const contentEvent = events.find((event) => event.event === "content");
     const integrationEvent = events.find((event) => event.event === "integration");
     const doneEvent = events.find((event) => event.event === "done");
 
@@ -468,16 +469,17 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         expect.objectContaining({
           key: "supabase",
           envVars: ["SUPABASE_URL"],
-          status: "Kräver konfiguration",
+          status: "Behöver konfiguration inför publicering",
         }),
       ],
     });
+    expect(contentEvent?.data).toContain("preview-kod");
     expect(doneEvent?.data).toMatchObject({
       chatId: "engine_chat_1",
       versionId: null,
       messageId: null,
       demoUrl: null,
-      awaitingInput: true,
+      awaitingInput: false,
       reason: "done_empty_output",
       toolCalls: ["suggestIntegration"],
     });

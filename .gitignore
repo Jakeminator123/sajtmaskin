@@ -101,6 +101,10 @@ next_sidan_skrapning.txt
 environments.production
 vercel-env-deploy.txt
 git_env.txt
+OLD_ENV_KEYS.txt
+
+# Local agent scratch (notes); canonical copies live under docs/ when promoted
+.j_to_agent/
 
 /old/
 senaste_miljovariablar/

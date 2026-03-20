@@ -91,9 +91,12 @@ builder-flodena resolverar idag alltid till own engine, inte till legacy-v0-buil
 |---|---|---|
 | `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | `128000` | Fallback när tier saknas; bygg-spåret använder **per-tier** tak (se `defaults.ts`) |
 | `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS` | `32768` | Max output-tokens för autofix/LLM-fixer (lättare spår än huvudbuild) |
+| `SAJTMASKIN_AUTOFIX_SYNTAX_MAX_PASSES` | `6` | Antal LLM-syntaxfix-rundor (per-fil + merged preflight); motsvarar fler iterationer mot en “dev compile”-känsla utan full `next build` |
 | `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `81920` | Max output-tokens för brief/chat assist (cappas av `AI_*_MAX_TOKENS` nedan) |
 | `AI_CHAT_MAX_TOKENS` | `131072` (inbyggd default om unset) | Hård cap per request för `/api/ai/chat` |
 | `AI_BRIEF_MAX_TOKENS` | `131072` (inbyggd default om unset) | Hård cap per request för `/api/ai/brief` |
+
+Nuvarande per-tier tak i runtime (`src/lib/gen/defaults.ts`): `fast=32768`, `pro=65536`, `max=128000`, `codex=128000`, `anthropic=128000`.
 
 ### Hur modellerna hänger ihop
 
@@ -117,6 +120,7 @@ Observera:
 - `/api/ai/spec` finns, men ligger inte i normal builder-kedja i dag
 - UI-labels som `Tanker` kan fortfarande drifta fran faktisk provider om `SAJTMASKIN_MODEL_*` overridas
 - `Thinking` ar separat fran build-profile-ID:t och ar **på som standard** (API-validering + UI); stänger av resonemang/ext. thinking nar anvandaren kryssar ur
+- OpenAI-reasoning mappas per tier när `Thinking=true`: `pro -> medium`, `max/codex -> high`, medan `fast` eller `Thinking=false` skickar ingen explicit reasoning-parameter
 
 ### Overlay-hjalpare for modellspårning
 
@@ -201,11 +205,10 @@ källa.
 `project_data.meta.projectEnvVars`.
 
 - **Server-/plattformsnyckel för Sajtmaskin** (samma typ som `JWT_SECRET`), inte slutanvändarens API-nycklar. Den används bara för att kryptera värden innan de lagras i er databas.
-- Om nyckeln saknas (eller är avstängd) **kan du inte spara känsliga projektspecifika env-vars** i UI — då får du felet `ENV_VAR_ENCRYPTION_KEY must be configured...`. Lösning lokalt: sätt en slumpad hemlig sträng i `.env.local` (t.ex. `openssl rand -hex 32`) och starta om dev-servern.
+- Om nyckeln saknas (eller är avstängd) kan känsliga projektspecifika env-vars fortfarande sparas, men då utan kryptering (plaintext i lagring). UI fortsätter ändå maskera dem som känsliga.
 - Följande värden behandlas också som **avstängt läge**:
   `n`, `no`, `false`, `0`, `off`, `disabled`
-- I avstängt läge lagras inte känsliga projektspecifika env-vars i klartext; i
-  stället blockeras sådana skrivningar tills en riktig nyckel finns.
+- I avstängt läge används alltså kompatibilitetsbeteende: sparning tillåts men kryptering hoppas över.
 - När ni vill aktivera kryptering senare: sätt en riktig, stabil hemlighet med
   samma värde i `.env.local`, `.env.production` och Vercel-targets innan ni
   börjar spara känsliga projektspecifika env-vars.
@@ -307,6 +310,7 @@ Bildflöde i generering:
 | `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Standard-polishmodell for `Skriv om` (Anthropic-lane overrider den i jamforelselaget) |
 | `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 128000              | Fallback + env-override; tier använder egna tak |
 | `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 32768               | Autofix-pipeline                              |
+| `SAJTMASKIN_AUTOFIX_SYNTAX_MAX_PASSES`         | 6                   | Autofix-syntaxiterationer (per-fil + preflight) |
 | `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS`          | 81920               | Assist/brief/chat default innan route-cap     |
 | `SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS`          | 720000 (12 min)     | Klient-timeout innan stream avbryts           |
 | `SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS` | 800                 | Route maxDuration för build/refine            |

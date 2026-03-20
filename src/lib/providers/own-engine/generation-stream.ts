@@ -151,6 +151,7 @@ export function createOwnEngineGenerationStream(
 
       const handleEmptyGeneration = async (reason: string, error: EmptyGenerationError) => {
         const toolCalls = Array.from(toolCallNames);
+        const hasClarifyingQuestion = toolCallNames.has("askClarifyingQuestion");
         warnLog("engine", "No code emitted before finalize", {
           chatId: error.chatId,
           scaffold: error.scaffoldId,
@@ -159,7 +160,12 @@ export function createOwnEngineGenerationStream(
         });
 
         if (toolCalls.length > 0) {
-          await finishWithoutVersion(reason, { awaitingInput: sawBlockingToolCall });
+          await finishWithoutVersion(reason, {
+            awaitingInput: hasClarifyingQuestion,
+            userMessage: hasClarifyingQuestion
+              ? undefined
+              : "Jag hittade integrations- eller miljövariabelbehov inför publicering, men den här körningen returnerade ingen användbar preview-kod. Försök gärna igen - previewn ska normalt kunna byggas vidare med mockdata och placeholders tills riktiga nycklar finns.",
+          });
           return;
         }
 
@@ -305,7 +311,6 @@ export function createOwnEngineGenerationStream(
                 if (toolName) toolCallNames.add(toolName);
 
                 if (toolName === "suggestIntegration") {
-                  sawBlockingToolCall = true;
                   const envVars = Array.isArray(toolArgs.envVars) ? toolArgs.envVars as string[] : [];
                   safeEnqueue(enc.encode(formatSSEEvent("integration", {
                     items: [{
@@ -314,7 +319,7 @@ export function createOwnEngineGenerationStream(
                       provider: typeof toolArgs.provider === "string" ? toolArgs.provider : undefined,
                       intent: "env_vars" as const,
                       envVars,
-                      status: "Kräver konfiguration",
+                      status: "Behöver konfiguration inför publicering",
                       reason: typeof toolArgs.reason === "string" ? toolArgs.reason : undefined,
                       setupHint: typeof toolArgs.setupHint === "string" ? toolArgs.setupHint : undefined,
                     }],
@@ -323,14 +328,13 @@ export function createOwnEngineGenerationStream(
                   toolSignaledProviders.add(providerKey);
                   debugLog("engine", "Tool: suggestIntegration", { provider: providerKey });
                 } else if (toolName === "requestEnvVar") {
-                  sawBlockingToolCall = true;
                   safeEnqueue(enc.encode(formatSSEEvent("integration", {
                     items: [{
                       key: "custom-env",
                       name: "Miljövariabel",
                       intent: "env_vars" as const,
                       envVars: [typeof toolArgs.key === "string" ? toolArgs.key : "UNKNOWN"],
-                      status: typeof toolArgs.description === "string" ? toolArgs.description : "Kräver konfiguration",
+                      status: "Behöver värde inför publicering",
                     }],
                   })));
                 } else if (toolName === "askClarifyingQuestion") {

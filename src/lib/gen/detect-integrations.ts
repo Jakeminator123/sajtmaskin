@@ -171,7 +171,7 @@ export function detectIntegrations(code: string): DetectedIntegration[] {
         provider: integration.provider,
         intent: "env_vars",
         envVars: integration.envVars,
-        status: "Kräver konfiguration",
+        status: "Behöver konfiguration inför publicering",
         setupGuide: integration.setupGuide,
       });
     }
@@ -196,7 +196,7 @@ export function detectIntegrations(code: string): DetectedIntegration[] {
       name: "Miljövariabler",
       intent: "env_vars",
       envVars: uncovered,
-      status: "Kräver konfiguration",
+      status: "Behöver konfiguration inför publicering",
     });
   }
 

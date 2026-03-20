@@ -14,7 +14,7 @@ import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/p
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId } from "@/lib/models/catalog";
-import { ENGINE_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
+import { getEngineMaxOutputTokens, getReasoningEffort } from "@/lib/gen/defaults";
 import {
   createChat as createSqliteChat,
   addMessage,
@@ -22,7 +22,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
-import { streamText } from "ai";
+import { streamText, type ModelMessage } from "ai";
 import { getOpenAIModel } from "@/lib/gen/models";
 import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
 import {
@@ -227,18 +227,40 @@ export async function POST(req: Request) {
           const ownSystemPrompt = ownOrchestration.engineSystemPrompt;
 
           const engineModel = resolveEngineModelId(resolvedModelTier, false);
+          const maxOutputTokens = getEngineMaxOutputTokens(resolvedModelTier);
+          const reasoningEffort = getReasoningEffort(resolvedModelTier, resolvedThinking);
+          const isAnthropicModel = engineModel.startsWith("claude-");
           debugLog("engine", "Own engine model resolved", {
             resolvedModelTier,
             engineModel,
+            maxOutputTokens,
+            reasoningEffort,
+            thinking: resolvedThinking,
             fallback: false,
           });
           const model = getOpenAIModel(engineModel);
-          const genResult = streamText({
+          const messages = [
+            { role: "user" as const, content: buildUserPromptContent(optimizedMessage, requestAttachments) },
+          ];
+          const baseCall = {
             model,
             system: ownSystemPrompt,
-            messages: [{ role: "user", content: buildUserPromptContent(optimizedMessage, requestAttachments) }],
-            maxOutputTokens: ENGINE_MAX_OUTPUT_TOKENS,
-          });
+            messages: messages as ModelMessage[],
+            maxOutputTokens,
+          };
+          const genResult = streamText(
+            isAnthropicModel && resolvedThinking
+              ? {
+                  ...baseCall,
+                  providerOptions: { anthropic: { thinking: { type: "adaptive" as const } } },
+                }
+              : !isAnthropicModel && reasoningEffort !== "none"
+                ? {
+                    ...baseCall,
+                    providerOptions: { openai: { reasoningEffort } },
+                  }
+                : baseCall,
+          );
 
           const fullContent = await genResult.text;
           const usage = await genResult.usage;

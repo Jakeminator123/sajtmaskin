@@ -27,8 +27,9 @@ export const INTEGRATION_PROVIDERS = [
 export const suggestIntegration = tool({
   description:
     "Signal that the generated site requires an external integration or service. " +
-    "Call this BEFORE writing code that depends on the integration so the user " +
-    "can configure it. Include all required environment variables.",
+    "Use this to tell the builder which environment variables will be needed later, " +
+    "but keep the preview generation moving with mock data, placeholders, or graceful " +
+    "fallbacks when possible. Include all required environment variables.",
   inputSchema: z.object({
     name: z.string().describe("Human-readable integration name, e.g. 'Supabase'"),
     provider: z
@@ -50,8 +51,9 @@ export const suggestIntegration = tool({
 export const requestEnvVar = tool({
   description:
     "Signal that the generated code requires a specific environment variable " +
-    "that the user must configure. Use this for custom env vars not covered " +
-    "by a known integration provider.",
+    "that the user may need to configure before publishing. Keep the preview " +
+    "working with placeholders or mocked behavior when possible. Use this for " +
+    "custom env vars not covered by a known integration provider.",
   inputSchema: z.object({
     key: z
       .string()

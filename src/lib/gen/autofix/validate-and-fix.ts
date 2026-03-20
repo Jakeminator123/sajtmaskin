@@ -1,5 +1,6 @@
 import { runLlmFixer } from "./llm-fixer";
 import { runAutoFix } from "./pipeline";
+import { AUTOFIX_SYNTAX_MAX_PASSES } from "@/lib/gen/defaults";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -20,11 +21,9 @@ export type ValidateFixProgressCallback = (event: {
   errorCount: number;
 }) => void;
 
-const MAX_FIX_PASSES = 3;
-
 /**
  * Validates generated code via esbuild, and if syntax errors are found,
- * attempts up to MAX_FIX_PASSES LLM fixer rounds (SAJTMASKIN_MODEL_PRO)
+ * attempts up to AUTOFIX_SYNTAX_MAX_PASSES LLM fixer rounds (SAJTMASKIN_MODEL_PRO)
  * followed by re-autofix + re-validation each time. Returns the best
  * available content.
  *
@@ -53,7 +52,7 @@ export async function validateAndFix(
     let fixerImproved = false;
     let passCount = 0;
 
-    for (let pass = 1; pass <= MAX_FIX_PASSES; pass++) {
+    for (let pass = 1; pass <= AUTOFIX_SYNTAX_MAX_PASSES; pass++) {
       passCount = pass;
       onProgress?.({ pass, phase: "validating", errorCount: 0 });
       devLogAppend("in-progress", {
@@ -104,7 +103,7 @@ export async function validateAndFix(
         })),
       });
 
-      if (pass === MAX_FIX_PASSES) {
+      if (pass === AUTOFIX_SYNTAX_MAX_PASSES) {
         onProgress?.({ pass, phase: "gave-up", errorCount: validation.errors.length });
         devLogAppend("in-progress", {
           type: "syntax-validation.gave-up",

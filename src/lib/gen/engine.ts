@@ -1,7 +1,6 @@
 import { streamText, type ModelMessage, type ToolSet } from "ai";
 
 import {
-  ENGINE_MAX_OUTPUT_TOKENS,
   getEngineMaxOutputTokens,
   getReasoningEffort,
 } from "./defaults";

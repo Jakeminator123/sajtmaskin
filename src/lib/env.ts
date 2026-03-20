@@ -141,6 +141,7 @@ export const serverSchema = z.object({
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS: z.string().optional(),
+  SAJTMASKIN_AUTOFIX_SYNTAX_MAX_PASSES: z.string().optional(),
   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS: z.string().optional(),
   SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),

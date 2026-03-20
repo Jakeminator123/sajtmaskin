@@ -1,5 +1,6 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
+import { parseImports } from "@/lib/gen/preview/import-parser";
 
 type RepairEntry = {
   fixer: string;
@@ -21,6 +22,117 @@ const EVENT_HANDLERS_RE =
   /\b(onClick|onChange|onSubmit|onKeyDown|onKeyUp|onFocus|onBlur|onMouseEnter|onMouseLeave)\b/;
 const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
 const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
+const CODE_FILE_RE = /\.(tsx?|jsx?)$/i;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeToProjectPath(source: string, importerPath: string): string {
+  if (source.startsWith("@/")) return source.slice(2);
+  const dir = importerPath.includes("/")
+    ? importerPath.slice(0, importerPath.lastIndexOf("/"))
+    : ".";
+  const parts = [...dir.split("/"), ...source.split("/")];
+  const resolved: string[] = [];
+  for (const part of parts) {
+    if (part === "..") resolved.pop();
+    else if (part !== ".") resolved.push(part);
+  }
+  return resolved.join("/");
+}
+
+function resolveExistingProjectPath(
+  fileMap: Map<string, CodeFile>,
+  source: string,
+  importerPath: string,
+): string | null {
+  const basePath = normalizeToProjectPath(source, importerPath);
+  const candidates = [
+    basePath,
+    ...[".tsx", ".ts", ".jsx", ".js"].map((ext) => `${basePath}${ext}`),
+    ...[".tsx", ".ts", ".jsx", ".js"].map((ext) => `${basePath}/index${ext}`),
+    `src/${basePath}`,
+    ...[".tsx", ".ts", ".jsx", ".js"].map((ext) => `src/${basePath}${ext}`),
+    ...[".tsx", ".ts", ".jsx", ".js"].map((ext) => `src/${basePath}/index${ext}`),
+  ];
+  return candidates.find((candidate) => fileMap.has(candidate)) ?? null;
+}
+
+function collectNamedExports(code: string): Set<string> {
+  const names = new Set<string>();
+  const addMatch = (regex: RegExp) => {
+    for (const match of code.matchAll(regex)) {
+      const name = match[1]?.trim();
+      if (name) names.add(name);
+    }
+  };
+
+  addMatch(/export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g);
+  addMatch(/export\s+class\s+([A-Za-z_$][\w$]*)/g);
+  addMatch(/export\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g);
+
+  for (const match of code.matchAll(/export\s*\{([^}]+)\}/g)) {
+    const parts = match[1]
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    for (const part of parts) {
+      const aliasMatch = part.match(/^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/);
+      names.add(aliasMatch ? aliasMatch[2] : part);
+    }
+  }
+
+  return names;
+}
+
+function repairNamedImportDefaultMismatch(
+  file: CodeFile,
+  fileMap: Map<string, CodeFile>,
+): { content: string; fixes: RepairEntry[] } {
+  let content = file.content;
+  const fixes: RepairEntry[] = [];
+
+  for (const imp of parseImports(file.content)) {
+    if (!imp.source.startsWith("@/") && !imp.source.startsWith("./") && !imp.source.startsWith("../")) {
+      continue;
+    }
+    if (imp.defaultImport || imp.namespaceImport || imp.namedImports.length !== 1) {
+      continue;
+    }
+
+    const binding = imp.namedImports[0];
+    const targetPath = resolveExistingProjectPath(fileMap, imp.source, file.path);
+    if (!targetPath) continue;
+
+    const targetFile = fileMap.get(targetPath);
+    if (!targetFile) continue;
+
+    const hasDefaultExport = /\bexport\s+default\b/.test(targetFile.content);
+    if (!hasDefaultExport) continue;
+
+    const namedExports = collectNamedExports(targetFile.content);
+    if (namedExports.has(binding.imported)) continue;
+
+    const importStatementRe = new RegExp(
+      `(^|\\n)([ \\t]*)import\\s+\\{\\s*${escapeRegExp(binding.imported)}(?:\\s+as\\s+${escapeRegExp(binding.local)})?\\s*\\}\\s+from\\s+(["'])${escapeRegExp(imp.source)}\\3\\s*;?`,
+      "m",
+    );
+    if (!importStatementRe.test(content)) continue;
+
+    content = content.replace(
+      importStatementRe,
+      `$1$2import ${binding.local} from $3${imp.source}$3;`,
+    );
+    fixes.push({
+      fixer: "named-import-default-mismatch-fixer",
+      description: `Rewrote missing named import ${binding.imported} to default import from ${imp.source}`,
+      file: file.path,
+    });
+  }
+
+  return { content, fixes };
+}
 
 function insertImportAfterDirectives(code: string, importLine: string): string {
   const directiveRe = /^("use client"|'use client'|"use server"|'use server');?\s*$/gm;
@@ -172,9 +284,10 @@ export function repairGeneratedFiles(files: CodeFile[]): {
   fixes: RepairEntry[];
 } {
   const fixes: RepairEntry[] = [];
+  const fileMap = new Map(files.map((file) => [file.path, file]));
 
   const repairedFiles = files.map((file) => {
-    if (!/\.(tsx?|jsx?)$/i.test(file.path)) {
+    if (!CODE_FILE_RE.test(file.path)) {
       return file;
     }
 
@@ -202,6 +315,15 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     if (metadataConflictResult.fixed) {
       content = metadataConflictResult.code;
       fixes.push(...metadataConflictResult.fixes);
+    }
+
+    const namedImportMismatchResult = repairNamedImportDefaultMismatch(
+      { ...file, content },
+      fileMap,
+    );
+    if (namedImportMismatchResult.fixes.length > 0) {
+      content = namedImportMismatchResult.content;
+      fixes.push(...namedImportMismatchResult.fixes);
     }
 
     return content === file.content ? file : { ...file, content };

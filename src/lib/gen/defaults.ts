@@ -29,6 +29,7 @@ function readStringEnv(name: string, fallback: string): string {
 //   # ── Token-gränser ────────────────────────────────────────────
 //   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=131072
 //   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=32768
+//   SAJTMASKIN_AUTOFIX_SYNTAX_MAX_PASSES=6
 //   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=81920
 //
 // ============================================================================
@@ -60,7 +61,7 @@ export const ENGINE_MAX_OUTPUT_TOKENS = readIntEnv(
 /** Per-tier caps for the main code-generation stream (build). Fast stays at gpt-4.1-class ceiling. */
 const TIER_MAX_OUTPUT_TOKENS: Record<string, number> = {
   fast: 32_768,
-  pro: 128_000,
+  pro: 65_536,
   max: 128_000,
   codex: 128_000,
   anthropic: 128_000,
@@ -71,24 +72,24 @@ export function getEngineMaxOutputTokens(tier?: string | null): number {
   return TIER_MAX_OUTPUT_TOKENS[tier] ?? ENGINE_MAX_OUTPUT_TOKENS;
 }
 
-export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
+export type ReasoningEffort = "none" | "low" | "medium" | "high";
 
 const TIER_REASONING_EFFORT: Record<string, ReasoningEffort> = {
   fast: "none",
-  pro: "high",
-  max: "xhigh",
-  codex: "xhigh",
+  pro: "medium",
+  max: "high",
+  codex: "high",
   anthropic: "none",
 };
 
 /**
  * Map builder "Thinking" to OpenAI `reasoning.effort`.
- * Default: reasoning on unless explicitly disabled (`thinking === false`).
+ * Only apply explicit reasoning when `thinking === true`.
  */
 export function getReasoningEffort(tier?: string | null, thinking?: boolean): ReasoningEffort {
-  if (thinking === false) return "none";
-  if (!tier) return "high";
-  return TIER_REASONING_EFFORT[tier] ?? "high";
+  if (thinking !== true) return "none";
+  if (!tier) return "none";
+  return TIER_REASONING_EFFORT[tier] ?? "none";
 }
 
 export const AUTOFIX_MAX_OUTPUT_TOKENS = readIntEnv(
@@ -96,6 +97,18 @@ export const AUTOFIX_MAX_OUTPUT_TOKENS = readIntEnv(
   32_768,
   2_048,
   65_536,
+);
+
+/**
+ * How many LLM fixer rounds to run for syntax validation (per-file stream) and
+ * merged-project preflight. Closer to a local `next dev` compile loop without
+ * running a full production build in CI.
+ */
+export const AUTOFIX_SYNTAX_MAX_PASSES = readIntEnv(
+  "SAJTMASKIN_AUTOFIX_SYNTAX_MAX_PASSES",
+  6,
+  1,
+  20,
 );
 
 export const ASSIST_MAX_OUTPUT_TOKENS = readIntEnv(

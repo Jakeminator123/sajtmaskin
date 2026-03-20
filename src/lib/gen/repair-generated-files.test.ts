@@ -1,0 +1,43 @@
+import { describe, expect, it } from "vitest";
+
+import { repairGeneratedFiles } from "./repair-generated-files";
+
+describe("repairGeneratedFiles", () => {
+  it("rewrites a single missing named import to a default import when the target only exports default", () => {
+    const files = [
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content: [
+          'import { SectionHeading } from "@/components/section-heading";',
+          "",
+          "export default function Page() {",
+          "  return <SectionHeading />;",
+          "}",
+        ].join("\n"),
+      },
+      {
+        path: "components/section-heading.tsx",
+        language: "tsx",
+        content: [
+          "export default function SectionHeading() {",
+          "  return <h2>Hej</h2>;",
+          "}",
+        ].join("\n"),
+      },
+    ];
+
+    const result = repairGeneratedFiles(files);
+    const page = result.files.find((file) => file.path === "app/page.tsx");
+
+    expect(page?.content).toContain('import SectionHeading from "@/components/section-heading";');
+    expect(result.fixes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fixer: "named-import-default-mismatch-fixer",
+          file: "app/page.tsx",
+        }),
+      ]),
+    );
+  });
+});

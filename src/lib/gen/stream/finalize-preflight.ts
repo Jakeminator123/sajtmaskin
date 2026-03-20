@@ -1,4 +1,5 @@
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
+import { AUTOFIX_SYNTAX_MAX_PASSES } from "@/lib/gen/defaults";
 import { buildPreviewHtml } from "@/lib/gen/preview";
 import type { CodeFile } from "@/lib/gen/parser";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
@@ -91,34 +92,38 @@ export async function runFinalizePreflight({
       });
 
       const { runLlmFixer } = await import("@/lib/gen/autofix/llm-fixer");
-      const fixerResult = await runLlmFixer(
-        mergedProjectContent,
-        mergedSyntax.errors.map((error) => `${error.file}:${error.line} ${error.message}`),
-      );
 
-      if (fixerResult.success) {
-        const reFixed = await runAutoFix(fixerResult.fixedContent, { chatId, model });
-        const reValidated = await validateGeneratedCode(reFixed.fixedContent);
-        if (reValidated.valid || reValidated.errors.length < mergedSyntax.errors.length) {
-          finalFiles = (
-            JSON.parse(parseFilesFromContent(reFixed.fixedContent)) as Array<{
-              path: string;
-              content: string;
-              language?: string;
-            }>
-          ).map((file) => ({ ...file, language: file.language || "tsx" }));
-          const postFixRepair = repairGeneratedFiles(finalFiles);
-          finalFiles = postFixRepair.files;
-          nextFilesJson = JSON.stringify(finalFiles);
-          mergedProjectContent = reFixed.fixedContent;
-          mergedSyntax = reValidated;
-          devLogAppend("in-progress", {
-            type: "merged-syntax.fixed",
-            chatId,
-            errorsBefore: initialMergedSyntaxErrorCount,
-            errorsAfter: reValidated.errors.length,
-            repairFixes: postFixRepair.fixes,
-          });
+      for (let pass = 1; pass <= AUTOFIX_SYNTAX_MAX_PASSES && !mergedSyntax.valid; pass++) {
+        const fixerResult = await runLlmFixer(
+          mergedProjectContent,
+          mergedSyntax.errors.map((error) => `${error.file}:${error.line} ${error.message}`),
+        );
+
+        if (fixerResult.success) {
+          const reFixed = await runAutoFix(fixerResult.fixedContent, { chatId, model });
+          const reValidated = await validateGeneratedCode(reFixed.fixedContent);
+          if (reValidated.valid || reValidated.errors.length < mergedSyntax.errors.length) {
+            finalFiles = (
+              JSON.parse(parseFilesFromContent(reFixed.fixedContent)) as Array<{
+                path: string;
+                content: string;
+                language?: string;
+              }>
+            ).map((file) => ({ ...file, language: file.language || "tsx" }));
+            const postFixRepair = repairGeneratedFiles(finalFiles);
+            finalFiles = postFixRepair.files;
+            nextFilesJson = JSON.stringify(finalFiles);
+            mergedProjectContent = reFixed.fixedContent;
+            mergedSyntax = reValidated;
+            devLogAppend("in-progress", {
+              type: "merged-syntax.fixed",
+              chatId,
+              pass,
+              errorsBefore: initialMergedSyntaxErrorCount,
+              errorsAfter: reValidated.errors.length,
+              repairFixes: postFixRepair.fixes,
+            });
+          }
         }
       }
 
