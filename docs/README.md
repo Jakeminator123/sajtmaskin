@@ -84,6 +84,7 @@ Not runtime dependencies:
 | Current active plans | `docs/plans/active/` |
 | Plan status index | `docs/architecture/agent-roadmap-and-handoff.md` |
 | Engine architecture | `docs/architecture/engine-status.md` |
+| Pipeline audit (stream, truncation, env) | `docs/architecture/2026-03-20-own-engine-pipeline-rapport.md` |
 | Own Engine vs V0 map | `docs/architecture/own-engine-vs-v0.md` |
 | Builder model routing | `docs/architecture/builder-model-routing-and-trace.md` |
 | Builder entry flow | `docs/architecture/builder-entry-flow.md` |
