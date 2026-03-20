@@ -52,7 +52,7 @@ src/components/ui/
 public/
 
 # One-off scripts (TS build scripts that still live here)
-scripts/**
+#scripts/**
 !scripts/README.md
 
 # Admin dashboard routes
@@ -105,6 +105,8 @@ vercel_usecase_next_react_templates/
 # Generated reports and machine-generated artifacts (6+ MB)
 data/scaffold-candidates-curated.json
 src/lib/gen/data/docs-embeddings.json
+src/lib/gen/data/docs-snippets.ts
+src/lib/gen/preview/shims.ts
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
 src/lib/gen/template-library/template-library-embeddings.json
