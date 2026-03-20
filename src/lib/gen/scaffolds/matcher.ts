@@ -34,6 +34,33 @@ const LANDING_KEYWORDS = [
   "byrå",
   "tjänster",
   "kampanj",
+  // SNI F – Byggverksamhet
+  "bygg", "byggföretag", "byggfirma", "snickare", "hantverkare",
+  "elektriker", "rörmokare", "målare", "renovering", "plåtslagare",
+  "takläggare", "markarbeten", "VVS", "kakel", "golv",
+  // SNI H – Transport & logistik
+  "transport", "frakt", "logistik", "åkeri", "flyttfirma", "budtjänst",
+  "spedition", "taxi",
+  // SNI K – Finans, försäkring, ekonomi
+  "redovisning", "bokföring", "revisor", "ekonomibyrå", "skatterådgivning",
+  "försäkring", "rådgivning", "finansiell",
+  // SNI M – Juridik
+  "advokat", "jurist", "advokatbyrå", "juridisk",
+  // SNI L – Fastighet
+  "mäklare", "fastighetsmäklare", "fastighetsförmedling",
+  // SNI G45 – Fordonsservice
+  "bilverkstad", "mekaniker", "bilservice", "däckbyte", "lackering",
+  // SNI J – Kommunikation & reklam
+  "reklambyrå", "kommunikationsbyrå", "webbbyrå", "mediabyrå", "PR-byrå",
+  "eventbyrå", "produktionsbyrå",
+  // SNI N – Bemanning & service
+  "bevakning", "larm", "säkerhet", "bemanning", "rekrytering",
+  // SNI S – Övrig service
+  "begravningsbyrå", "kemtvätt",
+  // SNI A – Jordbruk
+  "lantbruk", "gård", "jordbruk",
+  // SNI C – Tillverkning
+  "fabrik", "tillverkning", "industri",
 ];
 
 const SAAS_KEYWORDS = [
@@ -57,6 +84,7 @@ const SAAS_KEYWORDS = [
   "prisplaner",
   "prispaket",
   "testperiod",
+  "priser",
 ];
 
 const PORTFOLIO_KEYWORDS = [
@@ -84,6 +112,14 @@ const PORTFOLIO_KEYWORDS = [
   "kreatör",
   "personlig",
   "case",
+  // SNI M71 – Arkitektur & design
+  "arkitekt", "arkitektkontor", "formgivare", "inredare", "inredningsarkitekt",
+  // SNI R – Kultur & konst
+  "konstnär", "musiker", "band", "DJ", "filmare", "regissör",
+  "skulptör", "keramiker", "textilkonstnär", "grafisk formgivare",
+  "tatuerare", "animatör",
+  // Visning av verk
+  "galleri", "utställning", "verk", "showreel", "lookbook",
 ];
 
 const BLOG_KEYWORDS = [
@@ -109,6 +145,11 @@ const BLOG_KEYWORDS = [
   "krönika",
   "dagbok",
   "tips",
+  // Nya medieformer
+  "podcast", "podd", "vlogg", "videoblogg",
+  "reseberättelse", "reseblogg", "hälsoblogg", "modeblogg",
+  "träningsblogg", "teknikblogg",
+  "nyhetsbrev", "avsnitt", "prenumerera",
 ];
 
 const DASHBOARD_KEYWORDS = [
@@ -217,6 +258,11 @@ const ECOMMERCE_KEYWORDS = [
   "catalog",
   "katalog",
   "storefront",
+  // SNI G – Detaljhandel specifikt
+  "kläder", "mode", "inredning", "möbler", "present", "gåvor",
+  "smycken", "accessoarer", "elektronik", "sport", "leksaker",
+  "kosmetika", "hälsokost", "livsmedel", "vin", "kaffe",
+  "handgjord", "vintage", "second hand",
 ];
 
 const RESTAURANT_KEYWORDS = [
@@ -224,12 +270,6 @@ const RESTAURANT_KEYWORDS = [
   "restaurant",
   "café",
   "cafe",
-  "frisör",
-  "salong",
-  "salon",
-  "gym",
-  "klinik",
-  "clinic",
   "meny",
   "menu",
   "food",
@@ -248,6 +288,11 @@ const RESTAURANT_KEYWORDS = [
   "sushi",
   "thai",
   "indisk",
+  // SNI I – Hotell & mat
+  "krog", "bistro", "matsal", "brunch", "food truck",
+  "catering", "hotell", "vandrarhem", "bed and breakfast",
+  "stuguthyrning", "wok", "kebab", "hamburgare", "glass",
+  "taqueria", "ramen", "gastropub",
 ];
 
 const BOOKING_KEYWORDS = [
@@ -257,11 +302,9 @@ const BOOKING_KEYWORDS = [
   "appointment",
   "boka tid",
   "boka",
-  "tid",
   "schedule",
   "terapeut",
   "therapist",
-  "konsult",
   "massage",
   "behandling",
   "treatment",
@@ -274,6 +317,15 @@ const BOOKING_KEYWORDS = [
   "veterinär",
   "lediga tider",
   "available",
+  // SNI Q – Hälso- och sjukvård
+  "psykolog", "fysioterapeut", "sjukgymnast", "dietist", "logoped",
+  "optiker", "naprapati", "akupunktur", "zonterapi",
+  // SNI S96 – Kroppsvård
+  "frisör", "salong", "spa", "wellness", "skönhet",
+  "skönhetssalong", "personlig tränare",
+  "hundtrimmare", "djurklinik",
+  // Generella bokningstermer
+  "konsultation", "mottagning", "klinik",
 ];
 
 const ASSOCIATION_KEYWORDS = [
@@ -302,6 +354,12 @@ const ASSOCIATION_KEYWORDS = [
   "samfund",
   "kyrka",
   "church",
+  // Fler föreningstyper
+  "fackförening", "studentförening", "elevkår",
+  "stiftelse", "fond", "hembygdsförening", "byalag",
+  "supporterklubb", "intresseförening", "pensionärsförening",
+  "föräldraförening", "välgörenhet", "insamling",
+  "Lions", "Rotary", "partidistrik",
 ];
 
 const CONTENT_KEYWORDS = [
@@ -336,6 +394,11 @@ const CONTENT_KEYWORDS = [
   "dokumentationssida",
   "informationssida",
   "kunskapsbank",
+  // SNI P – Utbildning
+  "skola", "utbildning", "kurs", "kurser", "universitet", "gymnasium",
+  "förskola", "lärare", "akademi", "folkbildning", "studieförbund",
+  // SNI O/R – Offentlig sektor & kultur
+  "museum", "bibliotek", "arkiv", "region", "länsstyrelse",
   "landing",
   "marketing",
   "startup",
