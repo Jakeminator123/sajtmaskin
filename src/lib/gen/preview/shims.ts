@@ -7,6 +7,7 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
   const lines: string[] = [
     "const __previewRoot = document.getElementById('root');",
     "const __previewReportedErrors = new Set();",
+    "var dynamic = undefined; var revalidate = undefined; var runtime = undefined; var fetchCache = undefined;",
     `const __previewPathname = ${JSON.stringify(routePath)};`,
     "function __previewPost(type, payload) {",
     "  try {",
@@ -640,6 +641,13 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
           } else {
             emitBinding(binding.local, "() => undefined");
           }
+        }
+        continue;
+      }
+
+      if (imp.source === "next/dynamic") {
+        if (imp.defaultImport) {
+          emitBinding(imp.defaultImport, "function dynamic(loader) { var C = typeof loader === 'function' ? loader() : null; if (C && typeof C.then === 'function') { return function(props) { return null; }; } return C || function(props) { return null; }; }");
         }
         continue;
       }
