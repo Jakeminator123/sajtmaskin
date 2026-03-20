@@ -167,6 +167,7 @@ export async function generateSiteFromPrompt(
     prompt: enginePrompt,
     systemPrompt,
     model: String(engineModel),
+    modelTier: modelSelection.modelTier,
     thinking,
   });
 

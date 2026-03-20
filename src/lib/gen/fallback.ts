@@ -5,6 +5,7 @@ export interface PipelineOptions {
   prompt: string;
   systemPrompt: string;
   model?: string;
+  modelTier?: string;
   chatHistory?: GenerateOptions["chatHistory"];
   thinking?: boolean;
   maxTokens?: number;
@@ -25,6 +26,7 @@ export function createGenerationPipeline(
     prompt: options.prompt,
     systemPrompt: options.systemPrompt,
     model: options.model,
+    modelTier: options.modelTier,
     chatHistory: options.chatHistory,
     thinking: options.thinking,
     maxTokens: options.maxTokens,

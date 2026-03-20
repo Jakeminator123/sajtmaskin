@@ -1,17 +1,23 @@
 import { streamText, type ModelMessage, type ToolSet } from "ai";
 
-import { ENGINE_MAX_OUTPUT_TOKENS } from "./defaults";
+import {
+  ENGINE_MAX_OUTPUT_TOKENS,
+  getEngineMaxOutputTokens,
+  getReasoningEffort,
+} from "./defaults";
 import { getOpenAIModel, DEFAULT_MODEL } from "./models";
 import {
   buildUserPromptContent,
   type RequestAttachment,
 } from "./request-metadata";
 import { createCodeGenSSEStream, type StreamMeta } from "./stream-format";
+import { debugLog } from "@/lib/utils/debug";
 
 export interface GenerateOptions {
   prompt: string;
   systemPrompt: string;
   model?: string;
+  modelTier?: string;
   chatHistory?: ModelMessage[];
   thinking?: boolean;
   maxTokens?: number;
@@ -40,6 +46,7 @@ export function generateCode(
     prompt,
     systemPrompt,
     model: modelId,
+    modelTier,
     chatHistory,
     thinking = true,
     maxTokens,
@@ -50,18 +57,35 @@ export function generateCode(
   } = options;
 
   const model = getOpenAIModel(modelId ?? DEFAULT_MODEL);
+  const resolvedMaxTokens = maxTokens ?? getEngineMaxOutputTokens(modelTier);
+  const reasoningEffort = getReasoningEffort(modelTier, thinking);
+  const isAnthropicModel = (modelId ?? DEFAULT_MODEL).startsWith("claude-");
+
+  debugLog("engine", "Generation config", {
+    modelId: modelId ?? DEFAULT_MODEL,
+    modelTier,
+    maxOutputTokens: resolvedMaxTokens,
+    reasoningEffort,
+    thinking,
+  });
 
   const messages = [
     ...(chatHistory ?? []),
     { role: "user" as const, content: buildUserPromptContent(prompt, referenceAttachments) },
   ];
 
+  const providerOptions =
+    !isAnthropicModel && reasoningEffort !== "none"
+      ? { openai: { reasoningEffort } }
+      : undefined;
+
   const result = streamText({
     model,
     system: systemPrompt,
     messages: messages as ModelMessage[],
-    maxOutputTokens: maxTokens ?? ENGINE_MAX_OUTPUT_TOKENS,
+    maxOutputTokens: resolvedMaxTokens,
     abortSignal,
+    ...(providerOptions ? { providerOptions } : {}),
     ...(tools ? { tools, maxSteps: maxSteps ?? 2 } : {}),
   });
 

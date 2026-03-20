@@ -49,12 +49,42 @@ export const POLISH_MODEL = readStringEnv("SAJTMASKIN_POLISH_MODEL", "openai/gpt
 // TOKEN BUDGETS
 // ============================================================================
 
+/** Legacy single value — prefer getEngineMaxOutputTokens(tier) for per-tier limits. */
 export const ENGINE_MAX_OUTPUT_TOKENS = readIntEnv(
   "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
   32_768,
   4_096,
   262_144,
 );
+
+const TIER_MAX_OUTPUT_TOKENS: Record<string, number> = {
+  fast: 32_768,
+  pro: 65_536,
+  max: 128_000,
+  codex: 128_000,
+  anthropic: 64_000,
+};
+
+export function getEngineMaxOutputTokens(tier?: string | null): number {
+  if (!tier) return ENGINE_MAX_OUTPUT_TOKENS;
+  return TIER_MAX_OUTPUT_TOKENS[tier] ?? ENGINE_MAX_OUTPUT_TOKENS;
+}
+
+export type ReasoningEffort = "none" | "low" | "medium" | "high";
+
+const TIER_REASONING_EFFORT: Record<string, ReasoningEffort> = {
+  fast: "none",
+  pro: "medium",
+  max: "high",
+  codex: "high",
+  anthropic: "none",
+};
+
+export function getReasoningEffort(tier?: string | null, thinking?: boolean): ReasoningEffort {
+  if (!thinking) return "none";
+  if (!tier) return "medium";
+  return TIER_REASONING_EFFORT[tier] ?? "medium";
+}
 
 export const AUTOFIX_MAX_OUTPUT_TOKENS = readIntEnv(
   "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
