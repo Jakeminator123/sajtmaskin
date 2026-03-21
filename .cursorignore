@@ -85,12 +85,14 @@ src/app/api/auth/
 # Landing page components (stable after design)
 src/components/landing-v2/
 
-# Legacy research paths (kept for backward compat)
+# Research / external discovery (Zone 1 raw stays outside repo; Zone 2 normalized committed but not indexed)
 research/
 !research/README.md
+scaffold-pipeline/
 _template_refs/
 _sidor/
 vercel_usecase_next_react_templates/
+GRUND/
 
 # Generated reports and machine-generated artifacts
 src/lib/gen/data/docs-embeddings.json

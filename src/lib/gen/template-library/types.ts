@@ -9,6 +9,62 @@ export type TemplateLibraryVerdict =
   | "missing_repo"
   | "unverified";
 
+export type NormalizedRepoType =
+  | "boilerplate"
+  | "starter_kit"
+  | "full_app"
+  | "landing_template"
+  | "commerce_template"
+  | "vertical_demo"
+  | "design_reference_only"
+  | "unknown";
+
+export type PromotionDecision =
+  | "runtime_scaffold_candidate"
+  | "dossier_only"
+  | "template_library_only"
+  | "ignore";
+
+export interface NormalizedCatalogEntry {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  sourceUrl: string;
+  repoUrl: string | null;
+  demoUrl: string | null;
+  categorySlug: string;
+  categoryName: string;
+  stackTags: string[];
+  frameworkMatch: boolean;
+  frameworkReason: string;
+  repoType: NormalizedRepoType;
+  promotionDecision: PromotionDecision;
+  qualityScore: number;
+  signals: TemplateLibrarySignals;
+  recommendedScaffoldFamilies: ScaffoldFamily[];
+  repoHealth: NormalizedRepoHealth;
+  rationale: string;
+}
+
+export interface NormalizedRepoHealth {
+  hasReadme: boolean;
+  hasPackageJson: boolean;
+  hasAppDir: boolean;
+  hasSrcAppDir: boolean;
+  isMonorepo: boolean;
+  packageManager: "npm" | "pnpm" | "yarn" | "bun" | "unknown";
+  envVarCount: number;
+  placeholderCopyRatio: number;
+}
+
+export interface NormalizedCatalogFile {
+  generatedAt: string;
+  rawSourcePath: string;
+  entryCount: number;
+  entries: NormalizedCatalogEntry[];
+}
+
 export interface TemplateLibrarySelectedFile {
   path: string;
   reason: string;

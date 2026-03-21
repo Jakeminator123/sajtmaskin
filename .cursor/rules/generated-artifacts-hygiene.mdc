@@ -9,6 +9,7 @@ Apply when editing or reviewing **committed generated outputs** under:
 
 - `src/lib/gen/**/template-library.generated.json`, `template-library-embeddings.json`
 - `src/lib/gen/scaffolds/scaffold-research.generated.json`, `scaffold-embeddings.json`
+- `research/normalized-catalog.json` (Zone 2 bridge from external scrape)
 - any script that writes **absolute filesystem paths** into JSON tracked by git
 
 ## If you notice a problem
@@ -17,6 +18,7 @@ If you see **any** of the following after running a build script or agent automa
 
 - Windows user paths such as `C:\\Users\\` or `C:/Users/` inside committed JSON
 - Legacy segments such as `research/external-templates` in paths that should be repo-relative or empty
+- Raw scraper output paths (Zone 1 paths like `~/vercel-scrape/…`) leaking into committed JSON — `rawSourcePath` in `normalized-catalog.json` is informational only and must not be used as a runtime import path
 
 **Stop** the current “ship it” path. Do **not** commit blindly.
 

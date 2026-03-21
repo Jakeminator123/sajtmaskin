@@ -1,0 +1,114 @@
+Ja — det här är nära rätt, och mycket bättre formulerat än innan.
+
+Men jag hade justerat några saker så att det blir mer exakt mot hur repot faktiskt fungerar idag.
+
+Det som är bra
+
+Det här är helt rätt tänkt:
+
+externa källor först
+rådata utanför repot
+en liten normaliserad mellanprodukt i repot
+dossiers / template-library som research-lane
+promotion som mellanlager
+interna runtime-scaffolds som slutlig sanningskälla
+
+Det ligger bra i linje med att research/ är non-runtime research inputs, medan runtime ska gå via genererade artefakter och interna scaffolds.
+Det ligger också i linje med scaffold-systemet där registry.ts är single source of truth för runtime-scaffolds och där scaffold-data sedan går in i runtime-flödet som scaffold context.
+
+Det jag hade justerat
+1. runtimeScaffolds --> builder är lite för grovt
+
+Det är nästan rätt, men egentligen är flödet mer:
+
+runtimeScaffolds --> generation context --> working project --> preview/builder
+
+För just idag säger scaffold-README:n att flödet är:
+
+resolve scaffold
+serialisera scaffold
+lägg till scaffold-research
+skicka in det i buildSystemPrompt()
+
+Så runtime-scaffolds går inte direkt till buildern som “UI-bas”, utan de går först in i genereringskontexten.
+
+2. Hänvisningen till registry.ts är inte helt rätt
+
+Du skriver:
+
+Externa templates ska vara research/reference, inte rå runtime-data, vilket redan sägs i src/lib/gen/scaffolds/registry.ts.
+
+Det där hade jag ändrat till:
+
+research/README.md säger att research är non-runtime och att runtime inte ska bero direkt på research-mappen.
+src/lib/gen/scaffolds/README.md säger att runtime-scaffolds är interna och att registry.ts är single source of truth.
+
+Det är alltså sant i sak, men fel fil att hänvisa till.
+
+3. “Det finns idag ingen tydlig npm-byggväg” bör tonas ner lite
+
+Det kan mycket väl vara din upplevelse, men i texten hade jag skrivit försiktigare, typ:
+
+Den nuvarande byggkedjan för template-library och scaffold-research känns delvis legacy och bör ersättas av en tydligare officiell buildväg.
+
+Det låter mer korrekt och mindre tvärsäkert.
+
+4. Om du tänker på preview också, saknas ett sista lager
+
+Om målet också är att förklara hur användarens preview ska fungera, då hade jag lagt till:
+
+runtimeScaffolds --> workingProject --> preview
+
+För annars ser det lite ut som att buildern lever direkt på scaffolds, men vi var ju inne på att scaffolden snarare ska materialiseras till ett projekt, och sedan är det det projektet som previewn visar.
+
+Min rekommenderade version av diagrammet
+
+Jag hade skrivit det så här i stället:
+
+Den versionen är närmare hur repo:t faktiskt beskriver runtime-flödet.
+
+Min dom om resten av texten
+Ja, detta är bra:
+ny ingest-arkitektur
+normaliserad mellanprodukt
+klassificering i buildkedjan, inte i scrapern
+promotion som kontrollerat mellanlager
+hygiene från dag ett
+
+Det här är sund design.
+
+Det jag särskilt gillar
+
+Den här formuleringen är stark:
+
+promotion-decision: ignore, template_library_only, dossier_only, runtime_scaffold_candidate
+
+Det är exakt den sorts mellanlager som behövs om du vill att nya dataset på sikt ska ersätta gamla scaffolds utan att rådata går rakt in i runtime.
+
+Min viktigaste justering i innehållet
+
+Jag hade ändrat sista delen:
+
+Första etappen bör inte försöka ersätta alla runtime-scaffolds direkt.
+
+till något i stil med:
+
+Första etappen bör bygga den nya ingest-, normaliserings- och promotion-kedjan, samt kunna producera scaffold-kandidater eller scaffold-v2 under kontrollerade former. Full ersättning av nuvarande runtime-scaffolds bör komma först efter verifiering.
+
+Det matchar bättre det du egentligen verkar vilja:
+
+du vill ersätta dem
+men du vill inte göra det blint i första steget
+Kort svar
+
+Ja, detta är i stort sett rätt.
+Men jag hade:
+
+bytt runtimeScaffolds --> builder till runtimeScaffolds --> generationContext --> workingProject --> preview
+hänvisat till research/README.md och src/lib/gen/scaffolds/README.md i stället för registry.ts
+tonat ner några för tvärsäkra formuleringar om nuvarande buildkedja
+lagt till att första fasen gärna får producera scaffold candidates / scaffold-v2, inte bara research-artefakter
+
+Den här versionen är redan tillräckligt bra för att användas som styrande riktning i PlanMode.
+
+Jag kan skriva om hela texten till en ren, skarpare version som du kan klistra in direkt i Cursor.

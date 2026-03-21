@@ -6,6 +6,8 @@ Prefer npm scripts from the repo root (`package.json` prefixes paths with `confi
 
 | Area | npm examples |
 |------|----------------|
+| Research normalize (Zone 1 → 2) | **`research:normalize`** `-- --input <raw-dir>` → `research/normalized-catalog.json` |
+| Template library build (Zone 2 → artifacts) | **`template-library:build`**, `template-library:rebuild` (build + embeddings) |
 | Scaffold build pipeline | **`scaffolds:build`** (research + embeddings + validate), `scaffolds:embeddings`, `scaffolds:research`, `scaffolds:validate` |
 | Generated JSON hygiene | **`verify:generated-paths`**, **`normalize:generated-paths`** (template-library + scaffold-research stubs under `src/lib/gen/`) |
 | Gallery / marketing templates | `templates:embeddings` |

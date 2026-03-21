@@ -91,22 +91,57 @@ och referensmaterial, och AI-modellen genererar koden.
 
 | Uppgift | Kommando |
 |---|---|
+| Normalisera råskrapning → mellanprodukt | `npm run research:normalize -- --input <dir>` |
+| Bygg template-library från mellanprodukt | `npm run template-library:build` |
+| Bygg template-library + embeddings | `npm run template-library:rebuild` |
 | Validera manifester | `npm run scaffolds:validate` |
-| Regenerera embeddings | `npm run scaffolds:embeddings` |
+| Regenerera scaffold-embeddings | `npm run scaffolds:embeddings` |
 | Bygga research-artefakt från dossiers | `npm run scaffolds:research` |
-| Allt ovan i sekvens | `npm run scaffolds:build` |
+| Allt ovan (research+embed+validate) | `npm run scaffolds:build` |
 | Verifiera genererade JSON-vägar | `npm run verify:generated-paths` |
 
-## Filstruktur
+## Filstruktur (lane model)
 
 ```
-src/lib/gen/scaffolds/           <-- Runtime scaffolds (manifests, matchning, serialisering)
-src/lib/gen/template-library/    <-- Valfri referenskatalog + embeddings för prompten (kan vara tom)
-research/dossiers/               <-- Build-time dossiers som matar scaffold-research (ej runtime)
-research/raw-discovery/          <-- Rå discovery-data, ej trackad i git
+<utanför repo>                   <-- Zone 1: Raw scrape output, kloner (aldrig committed)
+research/normalized-catalog.json <-- Zone 2: Normaliserad mellanprodukt (committed, cursorignored)
+research/dossiers/               <-- Zone 2: Build-time dossiers som matar scaffold-research (ej runtime)
+src/lib/gen/template-library/    <-- Zone 2→3: Referenskatalog + embeddings för prompten
+src/lib/gen/scaffolds/           <-- Zone 3: Runtime scaffolds (manifests, matchning, serialisering)
 ```
 
-När du fyller `template-library.generated.json` igen: håll `clonePath` repo-relativt och kör `verify:generated-paths`.
+Se `docs/architecture/scaffold-lane-model.md` för den fullständiga tre-zone-modellen.
+
+## Promotion-pipeline (Zone 2 → Zone 3)
+
+Varje entry i `normalized-catalog.json` får en `promotionDecision`:
+
+| Decision | Vad det innebär |
+|----------|----------------|
+| `runtime_scaffold_candidate` | Hög kvalitet, tydlig scaffold-fit. Kandidat till nytt internt manifest i `src/lib/gen/scaffolds/`. |
+| `dossier_only` | Bra referens, men passar befintlig scaffold. Blir dossier i `research/dossiers/`. |
+| `template_library_only` | Användbar som prompt-referens men utan tillräcklig scaffold-signal. Matar `template-library.generated.json`. |
+| `ignore` | Inte Next/React, saknar repo, eller för låg kvalitet. Tas inte med alls. |
+
+### Regler (implementerade i `config/scripts/normalize-raw-catalog.ts`)
+
+1. Inget framework-match → `ignore`.
+2. Ingen repo-URL → `template_library_only` (kan fortfarande vara prompt-referens).
+3. Repo-typ `design_reference_only` → `template_library_only`.
+4. qualityScore >= 75 **och** minst en matchande scaffold-familj → `runtime_scaffold_candidate`.
+5. qualityScore >= 50 → `dossier_only`.
+6. Annars → `template_library_only`.
+
+### Promotion till runtime-scaffold (manuell)
+
+En entry med `runtime_scaffold_candidate` blir **inte** automatiskt ett runtime-scaffold. Promotion kräver:
+
+1. Manuell granskning av repot (struktur, routes, komponenter).
+2. Bedömning: motiverar layoutskillnaden ett eget scaffold, eller räcker en dossier?
+3. Om ja: skapa `src/lib/gen/scaffolds/<id>/manifest.ts`, registrera i `registry.ts`, lägg nyckelord i `matcher.ts`.
+4. Kör `npm run scaffolds:build`.
+
+När du fyller `template-library.generated.json` igen: kör `npm run template-library:build` och sedan `npm run verify:generated-paths`.
 
 ## När ska en idé bli runtime-scaffold vs dossier?
 

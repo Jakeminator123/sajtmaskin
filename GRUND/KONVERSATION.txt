@@ -1,0 +1,117 @@
+Hej! Jag undrar om du kan sammanställa ett flödesschema för hur en person som kommer in på min sida ska passera genom olika lager utifrån sin prompt, för att få sin startsida. Jag vill veta om det ser korrekt ut, om något ser dåligt ut, om det finns saker som bör läggas till, eller om vi har tänkt likadant.
+
+Jag tar fram ett konkret flöde direkt från repo:t och markerar samtidigt var jag tycker det ser starkt ut respektive skört.
+
+Thought for 33s
+
+Ja — och ni verkar i stort ha tänkt rätt.
+
+Utifrån repo:t skulle jag sammanfatta flödet så här. Det stämmer ganska väl med både prompt-tree.md och projektöversikten: startlägena leder in i buildern, prompten kan först förbättras, sedan orkestreras den, scaffold väljs, systemprompt byggs, koden genereras, fixas, renderas i preview och kan sedan förfinas eller deployas.
+
+Mitt förslag på flödesschema
+En enklare version, i ord
+Personen kommer in via startsidan och väljer sätt att börja. Repo:t beskriver fyra startlägen: Wizard, Kategori, Audit och Fritext, och alla leder vidare till buildern.
+I buildern anger personen prompt, eventuella bilder, tema, scaffoldläge, modell och egna instruktioner. De här värdena finns uttryckligen i builder state, bland annat buildMethod, buildIntent, scaffoldMode, designTheme, customInstructions, promptAssistModel och attachments.
+Prompten kan först förbättras via prompt assist. Repo:t skiljer tydligt mellan build-lane och prompt-assist-lane, där prompt assist kan vara av eller använda olika modeller, och deep brief-läge kan skapa en mer strukturerad brief innan byggningen.
+Därefter körs prompt orchestration, som väljer om prompten ska skickas direkt, sammanfattas eller struktureras i faser beroende på storlek och typ.
+API-routen plockar ut metadata som brief, theme, bilder och scaffoldinställningar och väljer sedan own engine eller v0-fallback. Own engine är default; v0 är fallback och redan beskriven som soft-deprecated.
+prepareGenerationContext() bygger generationskontexten: scaffold väljs, route plan tas fram, capabilities gissas och pre-generation contracts byggs.
+buildSystemPrompt() sätter ihop en stor statisk kärna och ett dynamiskt lager med custom instructions, scaffold, brief, theme, designreferenser, template references och snippets.
+Motorn genererar koden. Sedan kommer post-processing: autofix, validering, parsing, scaffold merge och därefter preview. Det är också ungefär så projektöversikten beskriver builderflödet.
+Användaren kan sedan iterera eller deploya.
+Det som ser bra ut
+
+Det starkaste i er design är att ni redan har en tydlig uppdelning mellan:
+
+input-lager
+promptförädling
+scaffold-val
+kontextorkestrering
+generering
+post-processing
+
+Det är bra att scaffold inte ligger först som ett hårt val, utan först efter att prompten har förbättrats och orkestrerats. Det ger bättre chans att välja rätt grundmall.
+
+Det är också bra att ni skiljer på:
+
+runtime scaffolds
+template gallery
+research lane
+
+Repo:t är tydligt med att template gallery inte är runtime-registry, och att research lane inte används direkt i runtime. Det är helt rätt tänkt.
+
+Att custom instructions blir kortare när scaffold är aktivt och längre när scaffold är off är också logiskt. Det minskar dubbelstyrning.
+
+Det som ser svagare ut
+
+Det största skavet jag ser är att flödet lätt blir väldigt många lager före själva byggandet:
+
+prompt assist
+prompt orchestration
+metadata extraction
+scaffold resolution
+route plan
+contracts
+system prompt med väldigt många delar
+
+Det är kraftfullt, men risken är att användarens ursprungliga vilja blir “utspädd” om flera lager omskriver samma sak. prompt-tree.md nämner också uttryckligen att dokumentet finns för att förstå vad som styr vad och var duplicering finns.
+
+Det andra svaga området är att v0-fallback fortfarande finns kvar som parallell väg. Eftersom own engine är default och v0 redan är soft-deprecated skapar det mental och teknisk komplexitet. Jag hade fortsatt behandla v0 som reservspår, inte som något centralt i huvuddiagrammet.
+
+Det tredje är att buildern verkar ha många användarval samtidigt: model tier, scaffold mode, prompt assist model, deep mode, theme, custom instructions, attachments. För avancerade användare är det bra, men för vanliga användare finns risk att flödet känns “för cockpit”.
+
+Det jag hade lagt till
+
+Jag hade lagt till ett tydligt beslutslager före generering:
+
+1. Ett “är briefen tillräcklig?”-steg
+
+Om prompten är för vag borde systemet välja mellan:
+
+auto-antaganden
+eller en snabb följdfråga
+
+Just nu finns contracts och plan mode, men i flödet hade jag gjort detta mer synligt som en riktig grind före generation. Repo:t har redan stöd för plan mode och pre-generation contracts, så det här är mer ett produktlager än en ny teknik.
+
+2. Ett synligt “plan/spec-godkännande” för större jobb
+
+För mer komplexa sajter hade jag ibland låtit användaren se:
+
+föreslagen struktur
+sidor
+vald scaffold
+antaganden
+
+innan full kod körs. Det finns redan plan mode i arkitekturen, så detta känns som något ni delvis tänkt likadant kring.
+
+3. Ett tydligare “confidence”-lager vid scaffold-val
+
+Om auto-matchningen är osäker skulle det vara bra att markera:
+
+hög säkerhet → kör direkt
+låg säkerhet → föreslå 2–3 scaffolds eller fråga användaren
+
+Det skulle minska risken för fel startkod.
+
+Om vi tänker likadant
+
+Ja — ganska mycket.
+
+Det jag läser ur repo:t är att ni redan tänker i termer av:
+
+användarinput → förädling → strukturell tolkning → scaffoldbas → generering → fix → preview → iteration
+
+Det är också ungefär så jag själv hade ritat huvudflödet.
+
+Min största justering hade bara varit att göra två saker mer uttalade i produktflödet:
+
+en brief/ambiguity gate
+en plan/scaffold-confirmation gate för större jobb
+Min korta dom
+
+Det ser i grunden rätt och ganska genomtänkt ut.
+Det som är bra är separeringen av ansvar mellan lagren.
+Det som riskerar att bli dåligt är att ni har så många promptlager att intention kan spädas ut och att buildern kan bli för avancerad för vissa användare.
+Det jag hade lagt till är tydligare grindar för oklar brief och osäkert scaffold-val.
+
+Vill du, kan jag också göra detta som ett renodlat diagram i ännu snyggare form, antingen som mermaid för docs eller som en kortare produktversion för teamdiskussion.

@@ -1,0 +1,13 @@
+# GRUND — ingång
+
+Tidigare lång konversation om shadcn.io-kategorier, shadcn i appen vs i motor vs i användarsajter, och var material ska sparas är **uppdelad** i nedan filer så det blir lättare att hitta och underhålla.
+
+| Fil | Innehåll |
+|-----|----------|
+| [KALLOR_shadcn_io.md](./KALLOR_shadcn_io.md) | De fyra länkarna, prioritering Next/React/Tailwind/Radix, hur varje kategori används |
+| [ROLLER_app_motor_användarsajt.md](./ROLLER_app_motor_användarsajt.md) | Var shadcn “ska finnas”: Sajtmaskin-app, motor (registry/prompts), genererad sajt; manuellt för användare |
+| [WORKFLOW_nedladdning_mappar.md](./WORKFLOW_nedladdning_mappar.md) | Install vs dossier vs tillfällig klon, shortlist, mappar i repo, vad man inte ska göra |
+
+Övrigt i mappen: `ANTAL_SCARFOLDS.txt` (räkningar/kontext för scaffolds).
+
+*Arkiv: Rå chat-export fanns tidigare i denna fil; innehållet återfinns strukturerat i de tre .md-filerna ovan.*

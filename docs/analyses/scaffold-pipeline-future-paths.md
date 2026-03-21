@@ -2,7 +2,8 @@
 
 > **Lägesnotis (2026-03-21):** Dossiers ligger i `research/dossiers/`; det finns
 > inget `scaffold-pipeline/`-träd eller `npm run scaffold-pipeline` längre.
-> Byggkommandon: `scaffolds:*` i `package.json` (källor under `config/scripts/`).
+> Byggkommandon: `scaffolds:*` och `research:normalize` / `template-library:build` i `package.json`.
+> Se `docs/architecture/scaffold-lane-model.md` för den kanoniska tre-zone-modellen.
 
 Sparad: 2026-03-20
 Kontext: Efter hybridisering av scaffold-systemet (17 scaffolds, site-profile,
@@ -33,7 +34,7 @@ list_template_categories()
   -> grupperar template-library.generated.json per categorySlug
 
 get_template_dossier(templateId)
-  -> laser manifest.json + summary.md fran scaffold-pipeline/dossiers/
+  -> laser manifest.json + summary.md fran research/dossiers/
 
 compare_template_to_scaffold(templateId, scaffoldId)
   -> hamtar dossier + scaffold manifest, jamfor struktur
@@ -119,7 +120,7 @@ template-sok, byt ut steg 1 i pipelinen.
 
 | Server | Vad den gor | Relation till dessa spar |
 |---|---|---|
-| `sajtmaskin-scaffolds` | Inspekterar de 17 runtime scaffolds | Spar A utvidgar med template-sokning |
+| `sajtmaskin-scaffolds` | Inspekterar de 10 runtime scaffolds | Spar A utvidgar med template-sokning |
 | `sajtmaskin-engine` | Genererar sajter, hamtar genererad kod | Oberoende |
 | `Vercel` MCP | Deployments, projekt, docs | Spar C beror pa om de lagger till templates |
 | `v0` MCP | v0 chattar och generering | Oberoende |
