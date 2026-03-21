@@ -49,8 +49,8 @@ function isTimedOutVerificationState(
 function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
   return {
     id: "missing-env",
-    title: "Projektet saknar obligatoriska miljövariabler.",
-    detail: `Saknas: ${missingEnvKeys.join(", ")}`,
+    title: "Projektet behöver miljövariabler innan deploy.",
+    detail: `Saknas före publicering: ${missingEnvKeys.join(", ")}`,
     severity: "blocker",
     action: "env",
   };
@@ -211,8 +211,8 @@ async function buildEngineReadiness(
   if (requiredEnvKeys.length > 0 && !chat.project_id) {
     blockers.push({
       id: "project-context-missing",
-      title: "Projektkontext saknas för miljövariabler.",
-      detail: "Spara projektet först så att miljövariabler kan kopplas till rätt projekt.",
+      title: "Projektet måste sparas innan deploy-setup kan kopplas.",
+      detail: "Spara projektet först så att miljövariabler och integrationer kan kopplas till rätt projekt.",
       severity: "blocker",
       action: "env",
     });

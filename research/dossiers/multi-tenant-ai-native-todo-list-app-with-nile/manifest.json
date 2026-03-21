@@ -1,0 +1,27 @@
+{
+  "id": "vercel-multi-tenant-ai-native-todo-list-app-with-nile",
+  "title": "Multi-tenant AI-native todo list app with Nile",
+  "categorySlug": "multi-tenant-apps",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Multi-tenant architecture",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "base-nextjs",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

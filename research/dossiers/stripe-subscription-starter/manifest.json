@@ -1,0 +1,29 @@
+{
+  "id": "vercel-stripe-subscription-starter",
+  "title": "Stripe Subscription Starter",
+  "categorySlug": "ecommerce",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Has dashboard / analytics UI",
+    "Includes pricing page patterns",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "ecommerce",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Product grid with filtering",
+    "Cart state management",
+    "Checkout flow with form validation",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": []
+}

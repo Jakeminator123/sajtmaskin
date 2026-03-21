@@ -1,0 +1,27 @@
+{
+  "id": "vercel-sveltekit-authentication",
+  "title": "SvelteKit Authentication",
+  "categorySlug": "authentication",
+  "qualityScore": 80,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "High quality score"
+  ],
+  "scaffoldId": "auth-pages",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Login / register form with validation",
+    "Password reset flow",
+    "Protected route pattern",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

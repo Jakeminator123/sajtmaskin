@@ -1,0 +1,24 @@
+{
+  "id": "vercel-ip-blocking-with-upstash",
+  "title": "IP Blocking with Upstash",
+  "categorySlug": "edge-middleware",
+  "qualityScore": 80,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "base-nextjs",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "vercel-turborepo-sveltekit-starter",
+  "title": "Turborepo & SvelteKit Starter",
+  "categorySlug": "monorepos",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "High quality score"
+  ],
+  "scaffoldId": "landing-page",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Hero section with clear CTA",
+    "Feature highlights",
+    "Footer with navigation links",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

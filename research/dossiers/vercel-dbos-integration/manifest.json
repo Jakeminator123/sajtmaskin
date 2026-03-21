@@ -1,0 +1,25 @@
+{
+  "id": "vercel-vercel-dbos-integration",
+  "title": "Vercel + DBOS Integration",
+  "categorySlug": "cron",
+  "qualityScore": 80,
+  "strengths": [
+    "Next.js / React compatible",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "base-nextjs",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

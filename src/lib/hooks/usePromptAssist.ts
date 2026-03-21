@@ -42,8 +42,9 @@ type UsePromptAssistParams = {
 // maxTokens is intentionally NOT sent from the client.
 // The gateway/model uses its own maximum when omitted, avoiding
 // validation failures when the gateway cap is lower than expected.
-// 10 minutes to accommodate slow models or gateway delays
-const PROMPT_ASSIST_TIMEOUT_MS = 600_000;
+// 12 minutes to accommodate slower assist/brief runs without failing eagerly.
+const PROMPT_ASSIST_TIMEOUT_MS = 720_000;
+const SPEC_FIRST_TIMEOUT_MS = 90_000;
 
 type PromptAssistMode = "rewrite" | "polish";
 
@@ -256,7 +257,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
       try {
         const loadingMsg = useDeep
-          ? "Skapar detaljerad brief (kan ta 30-60s)..."
+          ? "Skapar detaljerad brief (kan ta 30-90s)..."
           : mode === "polish"
             ? "Rättar prompt..."
             : "Förbättrar prompt...";
@@ -552,7 +553,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         });
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60_000);
+        const timeoutId = setTimeout(() => controller.abort(), SPEC_FIRST_TIMEOUT_MS);
 
         let res: Response;
         try {

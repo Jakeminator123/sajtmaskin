@@ -1,0 +1,28 @@
+{
+  "id": "vercel-bulk-redirects-via-a-cms",
+  "title": "Bulk Redirects via a CMS",
+  "categorySlug": "cdn",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "content-site",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Content hierarchy with sections",
+    "Internal linking structure",
+    "SEO metadata on all pages",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

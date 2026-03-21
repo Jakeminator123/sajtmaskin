@@ -1,0 +1,27 @@
+{
+  "id": "vercel-magic-portfolio-for-nextjs",
+  "title": "Magic Portfolio for Next.js",
+  "categorySlug": "portfolio",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "High quality score"
+  ],
+  "scaffoldId": "blog",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Article list with pagination",
+    "Single post with rich typography",
+    "Author and date metadata",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

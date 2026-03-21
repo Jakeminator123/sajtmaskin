@@ -95,10 +95,6 @@ function resolveAnthropicModelId(model: string): string {
   return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
 }
 
-function isProbablyOnVercel(): boolean {
-  return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
-}
-
 export async function POST(req: Request) {
   return withRateLimit(req, "ai:chat", async () => {
     try {
@@ -166,26 +162,23 @@ export async function POST(req: Request) {
           );
         }
 
-        const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
-        const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
-        if (!hasGatewayApiKey && !hasOidcToken && !isProbablyOnVercel()) {
-          warnLog("AI", "AI Gateway auth missing for prompt assist");
+        const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY?.trim());
+        if (!hasOpenAiKey) {
+          warnLog("AI", "OPENAI_API_KEY missing for prompt assist");
           return NextResponse.json(
             {
-              error: "Missing AI Gateway auth for gateway provider",
-              setup:
-                "Set AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN for local dev, or deploy on Vercel to use OIDC authentication.",
+              error: "Missing OPENAI_API_KEY for prompt assist",
+              setup: "Set OPENAI_API_KEY in .env.local for local prompt assist and brief routes.",
             },
             { status: 401 },
           );
         }
 
-        const gatewayAuth = hasGatewayApiKey ? "api-key" : hasOidcToken ? "oidc" : "none";
+        const keySource = "OPENAI_API_KEY";
         debugLog("AI", "AI Gateway auth resolved", {
-          auth: gatewayAuth,
+          auth: keySource,
           provider: "gateway",
           model: normalizedModel,
-          onVercel: isProbablyOnVercel(),
         });
 
         const result = streamText({
@@ -208,7 +201,7 @@ export async function POST(req: Request) {
           headers: {
             "Cache-Control": "no-store",
             "X-Provider": resolvedProvider,
-            "X-Key-Source": gatewayAuth,
+            "X-Key-Source": keySource,
           },
         });
       }

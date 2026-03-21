@@ -1,0 +1,28 @@
+{
+  "id": "vercel-update-redirects-in-realtime",
+  "title": "Update Redirects in Realtime",
+  "categorySlug": "cdn",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "app-shell",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Sidebar or top navigation layout",
+    "Settings or configuration UI",
+    "Loading and empty states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

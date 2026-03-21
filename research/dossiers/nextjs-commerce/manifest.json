@@ -1,0 +1,31 @@
+{
+  "id": "vercel-nextjs-commerce",
+  "title": "Next.js Commerce",
+  "categorySlug": "ecommerce",
+  "qualityScore": 80,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes pricing page patterns",
+    "E-commerce / product catalog patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Multi-tenant architecture",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "ecommerce",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Product grid with filtering",
+    "Cart state management",
+    "Checkout flow with form validation",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

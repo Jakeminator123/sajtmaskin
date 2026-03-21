@@ -1,0 +1,30 @@
+{
+  "id": "vercel-wallet-manager-with-coinbase-developer-platform",
+  "title": "Wallet Manager with Coinbase Developer Platform",
+  "categorySlug": "web3",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Has dashboard / analytics UI",
+    "Includes pricing page patterns",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Multi-tenant architecture",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "dashboard",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Data visualization with charts",
+    "Sidebar navigation pattern",
+    "Responsive table/card views",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": []
+}

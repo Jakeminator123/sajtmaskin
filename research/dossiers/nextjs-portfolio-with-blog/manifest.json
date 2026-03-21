@@ -1,0 +1,28 @@
+{
+  "id": "vercel-nextjs-portfolio-with-blog",
+  "title": "Next.js Portfolio with Blog",
+  "categorySlug": "portfolio",
+  "qualityScore": 80,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Has dashboard / analytics UI",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "blog",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Article list with pagination",
+    "Single post with rich typography",
+    "Author and date metadata",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": []
+}

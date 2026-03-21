@@ -1,0 +1,26 @@
+{
+  "id": "vercel-elysia-on-vercel",
+  "title": "Elysia on Vercel",
+  "categorySlug": "backend",
+  "qualityScore": 80,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "High quality score"
+  ],
+  "scaffoldId": "app-shell",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Sidebar or top navigation layout",
+    "Settings or configuration UI",
+    "Loading and empty states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

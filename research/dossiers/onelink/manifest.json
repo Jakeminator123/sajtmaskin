@@ -1,0 +1,28 @@
+{
+  "id": "vercel-onelink",
+  "title": "Onelink",
+  "categorySlug": "saas",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "saas-landing",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Feature comparison grid",
+    "Pricing tier cards",
+    "Social proof / testimonials section",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

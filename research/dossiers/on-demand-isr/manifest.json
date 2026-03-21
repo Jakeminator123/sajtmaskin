@@ -1,0 +1,27 @@
+{
+  "id": "vercel-on-demand-isr",
+  "title": "On-Demand ISR",
+  "categorySlug": "cdn",
+  "qualityScore": 80,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "High quality score"
+  ],
+  "scaffoldId": "content-site",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Content hierarchy with sections",
+    "Internal linking structure",
+    "SEO metadata on all pages",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

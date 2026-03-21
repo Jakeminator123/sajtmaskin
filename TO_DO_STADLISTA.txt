@@ -1,0 +1,140 @@
+Städlista
+Här är den korta, konkreta städlistan jag skulle ta först.
+
+Tighta project-scaffold.ts så att build-varningen försvinner.
+Just nu gör quality-gate-vägen ett dynamiskt filuppslag med fs.readFileSync(...), vilket Turbopack tolkar som ett väldigt brett mönster.
+
+project-scaffold.ts
+Lines 332-344
+function readUiComponent(name: string, searchDirs: string[]): string | null {
+  const filename = `${name}.tsx`;
+  for (const dir of searchDirs) {
+    const fullPath = nodePath.join(dir, filename);
+    try {
+      return fs.readFileSync(fullPath, "utf-8");
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+Förslag:
+
+bygg en liten manifest/lista över tillåtna ui-komponenter
+eller använd en explicit map button -> src/components/ui/button.tsx
+eller läs katalogen en gång och slå upp därifrån, i stället för dynamiskt path-join per fil
+Städa testmocken för telemetry i finalize-version.test.ts.
+Testerna passerar, men mocken saknar createGenerationTelemetryRecord, så du får onödigt stderr-brus. Det är inte produktionskritiskt, men det gör felsökning sämre.
+
+Dokumentera ännu tydligare skillnaden mellan preview, sandbox och deploy.
+Koden är tydlig, men det är lätt att blanda ihop dem i produkt- och admin-språk:
+
+preview = intern snabbvisning
+sandbox = riktig isolerad Next-runtime för verifiering
+deploy = riktig Vercel-URL
+
+generate-site.ts
+Lines 90-97
+const buildIntent: BuildIntent = normalizeBuildIntent(params.buildIntent ?? "website");
+const scaffoldMode = params.scaffoldMode ?? "auto";
+const runtimeMode = params.runtimeMode ?? "preview";
+const thinking = typeof params.thinking === "boolean" ? params.thinking : true;
+const imageGenerations =
+  typeof params.imageGenerations === "boolean" ? params.imageGenerations : true;
+Byt gärna namn i UI där det idag ser ut som att preview är en riktig demo-sajt.
+Om användaren ser en intern preview-URL men tror att det är en “riktig sida”, uppstår förvirring. En enkel produktstädning är:
+
+“Preview” för intern /api/preview-render
+“Live preview” eller “Public preview” för riktig sandbox/deploy-URL
+“Deploy” för permanent Vercel-version
+Lägg till en liten readiness-signal för sandbox/deploy i buildern.
+Eftersom sandbox kräver Vercel-credentials vore det bra att visa det tydligt innan användaren försöker köra quality gate eller live preview.
+
+
+runtime-url.ts
+Lines 78-82
+if (!isSandboxConfigured()) {
+  throw new Error(
+    "Sandbox requires authentication. Set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID in .env.local.",
+  );
+}
+Om användare ska få “riktiga” demo-URLs
+Om du vill att användare ska få se sina demo-URLs i riktig version, alltså en faktisk Next/React-runtime och inte bara den interna render-previewn, skulle jag rekommendera en tvåstegsmodell.
+
+Rekommenderad modell
+Behåll dagens snabba internal preview direkt efter generering.
+Den är snabb, billig och bra för första feedbacken.
+
+route.ts
+Lines 10-18
+/**
+ * Serves a self-contained HTML preview of generated code.
+ * Used by the own engine path to provide instant preview
+ * without waiting for a @vercel/sandbox to boot.
+ *
+ * Query params:
+ *   chatId    — required
+ *   versionId — optional (uses latest version if omitted)
+ */
+Lägg till ett separat steg: “Skapa live preview”.
+Det steget ska inte bara visa /api/preview-render, utan faktiskt:
+
+ta versionsfilerna
+bygga ett komplett projekt
+köra dem i sandbox eller deploya dem till Vercel preview
+Spara två olika URL-fält i datamodellen/UI:t.
+
+previewUrl = intern snabbvisning
+liveDemoUrl eller deploymentUrl = riktig publik URL
+Visa rätt etikett i buildern.
+
+“Snabb preview”
+“Riktig demo-länk”
+“Deployad version”
+Vad jag skulle välja tekniskt
+Det finns tre realistiska vägar.
+
+Sandbox som live preview Bra för verifiering och “nästan riktig” runtime. Nackdel: sandboxar är temporära, kostar mer, och är inte lika bra som permanent användar-URL.
+
+runtime-url.ts
+Lines 57-88
+export async function createSandboxRuntimeFromFiles(
+  files: RuntimeFile[],
+  options: SandboxRuntimeOptions = {},
+) {
+  ...
+  const runtime = options.runtime ?? "node24";
+  const vcpus = options.vcpus ?? 2;
+  const timeoutMs = options.timeoutMs ?? 5 * 60_000;
+  const installCommand = options.installCommand ?? "npm install";
+  const startCommand = options.startCommand ?? "npm run dev";
+Vercel preview deploy per version Det här är det bästa om målet är att användaren verkligen ska kunna öppna och dela en riktig demo-URL. Flöde:
+
+generering klar
+skriv ut komplett Next-projekt
+skapa preview deployment på Vercel
+returnera https://...vercel.app
+spara URL:n på versionen
+Det här ger den mest “riktiga” upplevelsen för Next/React.
+
+Hybridmodell Detta är min rekommendation:
+
+direkt efter generation: intern preview
+vid “Verifiera” eller “Skapa demo-länk”: sandbox checks
+vid “Publicera demo” eller “Skapa riktig demo-URL”: Vercel preview deploy
+Min rekommendation
+Om du tänker produktmässigt skulle jag göra så här:
+
+Behåll intern preview som default.
+Den är snabb och bra för iteration.
+
+Använd sandbox för quality gate och teknisk verifiering.
+Inte som huvud-URL för användaren.
+
+Inför en riktig Vercel preview deploy för användarens demo-länk.
+Då får användaren en URL som faktiskt motsvarar ett riktigt Next-projekt i riktig runtime.
+
+Döp om UI:t så att det blir kristallklart vad användaren tittar på.
+Det är nog den viktigaste produktstädningen just nu.
+
+Om du vill kan jag nästa steg skriva en konkret plan för exakt hur demoUrl, previewUrl, sandboxUrl och en framtida deploymentUrl borde separeras i kod och UI.

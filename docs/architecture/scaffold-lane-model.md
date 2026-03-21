@@ -37,12 +37,15 @@ Zone 1: RAW (outside repo or          Zone 2: NORMALIZED (in repo)         Zone 
 │  Zone 1: RAW     │  summary.json, ingestion_report.json, metadata.json per entry,
 │  (outside repo)  │  optional shallow clones under <path-outside-repo>/<slug>/repo/
 └────────┬─────────┘
-         │  npm run research:normalize (new)
+         │  npm run research:normalize
          │  reads raw summary + cloned repos → classifies, scores, extracts signals
          v
 ┌──────────────────┐
 │  Zone 2: NORM.   │  research/normalized-catalog.json  (small, committed)
 │  (in repo)       │  research/dossiers/<slug>/manifest.json + notes
+│                  │
+│  Dossier gen:    │  npm run research:generate-dossiers
+│    auto-creates  │    → research/dossiers/<slug>/manifest.json per scaffold family
 │                  │
 │  Build scripts:  │  npm run scaffolds:build
 │    scaffolds:    │    → scaffold-research.generated.json
@@ -92,6 +95,7 @@ Zone 1: RAW (outside repo or          Zone 2: NORMALIZED (in repo)         Zone 
 | Script | Purpose |
 |--------|---------|
 | `research:normalize` | Zone 1 → Zone 2: reads raw scrape output, writes `research/normalized-catalog.json` |
+| `research:generate-dossiers` | Zone 2 → dossiers: reads normalized catalog, auto-generates `research/dossiers/<slug>/manifest.json` per scaffold family |
 | `template-library:build` | Zone 2 → artifacts: reads normalized catalog, writes `template-library.generated.json` |
 | `template-library:embeddings` | Generates `template-library-embeddings.json` from the catalog |
 | `scaffolds:research` | Reads dossiers, writes `scaffold-research.generated.json` |

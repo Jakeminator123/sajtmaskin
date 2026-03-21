@@ -1,0 +1,27 @@
+{
+  "id": "vercel-liveblocks-starter-kit",
+  "title": "Liveblocks Starter Kit",
+  "categorySlug": "saas",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "High quality score"
+  ],
+  "scaffoldId": "saas-landing",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Feature comparison grid",
+    "Pricing tier cards",
+    "Social proof / testimonials section",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

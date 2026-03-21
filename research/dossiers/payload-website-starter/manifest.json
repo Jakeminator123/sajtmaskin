@@ -1,0 +1,30 @@
+{
+  "id": "vercel-payload-website-starter",
+  "title": "Payload Website Starter",
+  "categorySlug": "cms",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Has dashboard / analytics UI",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Multi-tenant architecture",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "landing-page",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Hero section with clear CTA",
+    "Feature highlights",
+    "Footer with navigation links",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": []
+}

@@ -1,0 +1,28 @@
+{
+  "id": "vercel-coinbase-commerce",
+  "title": "Coinbase Commerce",
+  "categorySlug": "web3",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "E-commerce / product catalog patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "ecommerce",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Product grid with filtering",
+    "Cart state management",
+    "Checkout flow with form validation",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

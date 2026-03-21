@@ -1,0 +1,27 @@
+{
+  "id": "vercel-logspot",
+  "title": "Logspot",
+  "categorySlug": "blog",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "blog",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Article list with pagination",
+    "Single post with rich typography",
+    "Author and date metadata",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

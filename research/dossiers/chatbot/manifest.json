@@ -1,0 +1,29 @@
+{
+  "id": "vercel-chatbot",
+  "title": "Chatbot",
+  "categorySlug": "ai",
+  "qualityScore": 80,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "auth-pages",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Login / register form with validation",
+    "Password reset flow",
+    "Protected route pattern",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

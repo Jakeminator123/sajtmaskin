@@ -1,0 +1,29 @@
+{
+  "id": "vercel-rollbar-vercel-starter-kit",
+  "title": "Rollbar + Vercel starter kit",
+  "categorySlug": "realtime-apps",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Blog / content publishing support",
+    "E-commerce / product catalog patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "landing-page",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Hero section with clear CTA",
+    "Feature highlights",
+    "Footer with navigation links",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

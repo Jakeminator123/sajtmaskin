@@ -1,0 +1,30 @@
+{
+  "id": "vercel-cms-kit-sanity-nextjs-15-visual-site-builder",
+  "title": "CMS-Kit: Sanity + Next.js 15 Visual Site Builder",
+  "categorySlug": "cms",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Has dashboard / analytics UI",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Multi-tenant architecture",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "content-site",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Content hierarchy with sections",
+    "Internal linking structure",
+    "SEO metadata on all pages",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": []
+}

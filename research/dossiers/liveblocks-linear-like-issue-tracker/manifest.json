@@ -1,0 +1,29 @@
+{
+  "id": "vercel-liveblocks-linear-like-issue-tracker",
+  "title": "Liveblocks Linear-like Issue Tracker",
+  "categorySlug": "realtime-apps",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Multi-tenant architecture",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "app-shell",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Sidebar or top navigation layout",
+    "Settings or configuration UI",
+    "Loading and empty states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

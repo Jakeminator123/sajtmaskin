@@ -81,12 +81,12 @@ function main() {
     const dossiers = dossiersByScaffold.get(scaffold.id);
 
     if (dossiers && dossiers.length > 0) {
-      const checklist = dossiers
-        .flatMap((d) => d.qualityChecklist ?? [])
-        .filter(Boolean);
-      const upgradeTargets = dossiers
-        .flatMap((d) => d.upgradeTargets ?? [])
-        .filter(Boolean);
+      const checklist = [...new Set(
+        dossiers.flatMap((d) => d.qualityChecklist ?? []).filter(Boolean),
+      )];
+      const upgradeTargets = [...new Set(
+        dossiers.flatMap((d) => d.upgradeTargets ?? []).filter(Boolean),
+      )];
       const referenceTemplates = dossiers
         .sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0))
         .slice(0, 3)

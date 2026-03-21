@@ -1,0 +1,28 @@
+{
+  "id": "vercel-virtual-event-starter-kit",
+  "title": "Virtual Event Starter Kit",
+  "categorySlug": "virtual-event",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "High quality score"
+  ],
+  "scaffoldId": "landing-page",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Hero section with clear CTA",
+    "Feature highlights",
+    "Footer with navigation links",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

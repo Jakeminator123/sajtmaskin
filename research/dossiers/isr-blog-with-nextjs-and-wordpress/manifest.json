@@ -1,0 +1,30 @@
+{
+  "id": "vercel-isr-blog-with-nextjs-and-wordpress",
+  "title": "ISR Blog with Next.js and WordPress",
+  "categorySlug": "blog",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "blog",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Article list with pagination",
+    "Single post with rich typography",
+    "Author and date metadata",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

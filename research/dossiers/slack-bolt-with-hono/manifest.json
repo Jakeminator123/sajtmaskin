@@ -1,0 +1,27 @@
+{
+  "id": "vercel-slack-bolt-with-hono",
+  "title": "Slack Bolt with Hono",
+  "categorySlug": "backend",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Has dashboard / analytics UI",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Multi-tenant architecture",
+    "High quality score"
+  ],
+  "scaffoldId": "app-shell",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Sidebar or top navigation layout",
+    "Settings or configuration UI",
+    "Loading and empty states",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": []
+}

@@ -78,18 +78,8 @@ export function buildContractClarificationQuestion(params: {
     };
   }
 
-  if (
-    hasUnresolved(context, "integration") &&
-    (buildIntent === "app" || contracts.dataMode === "persisted" || contracts.dataMode === "mixed")
-  ) {
-    return {
-      kind: "integration",
-      question: "Ska vi bygga den externa integrationen som mockad först eller koppla mot en riktig tjänst redan nu?",
-      options: ["Mockad först", "Riktig tjänst nu", "Osäker / behöver välja senare"],
-      blocking: true,
-      reason: "Prompten antyder extern integration men provider eller setup är fortfarande oklar.",
-    };
-  }
+  // Integration uncertainty should no longer block the first build pass.
+  // We surface it later in readiness/deploy setup instead.
 
   return null;
 }

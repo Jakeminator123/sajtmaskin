@@ -1,0 +1,27 @@
+{
+  "id": "vercel-turborepo-nextjs-starter",
+  "title": "Turborepo & Next.js Starter",
+  "categorySlug": "monorepos",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "High quality score"
+  ],
+  "scaffoldId": "landing-page",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Hero section with clear CTA",
+    "Feature highlights",
+    "Footer with navigation links",
+    "Auth-aware UI states",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

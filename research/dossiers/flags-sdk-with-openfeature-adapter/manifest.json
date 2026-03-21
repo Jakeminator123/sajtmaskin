@@ -1,0 +1,25 @@
+{
+  "id": "vercel-flags-sdk-with-openfeature-adapter",
+  "title": "Flags SDK with OpenFeature adapter",
+  "categorySlug": "edge-config",
+  "qualityScore": 80,
+  "strengths": [
+    "Next.js / React compatible",
+    "E-commerce / product catalog patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "base-nextjs",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

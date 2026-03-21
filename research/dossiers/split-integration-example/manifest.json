@@ -1,0 +1,25 @@
+{
+  "id": "vercel-split-integration-example",
+  "title": "Split Integration example",
+  "categorySlug": "edge-middleware",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Has dashboard / analytics UI",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Multi-tenant architecture",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "base-nextjs",
+  "qualityChecklist": [
+    "Responsive mobile-first layout",
+    "Semantic HTML with proper heading hierarchy",
+    "Accessible navigation with keyboard support",
+    "Lighthouse 90+ target"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed"
+  ]
+}

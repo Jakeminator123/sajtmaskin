@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import nodePath from "node:path";
+import { fileURLToPath } from "node:url";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
 
@@ -288,11 +289,16 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
 }
 
 const UI_IMPORT_RE = /@\/components\/ui\/([a-z][a-z0-9-]*)/g;
+const PROJECT_SCAFFOLD_DIR = nodePath.dirname(fileURLToPath(import.meta.url));
+const SRC_UI_COMPONENT_DIR = nodePath.resolve(PROJECT_SCAFFOLD_DIR, "../../components/ui");
+const ROOT_UI_COMPONENT_DIR = nodePath.resolve(PROJECT_SCAFFOLD_DIR, "../../../components/ui");
 
 interface UiComponent {
   filename: string;
   content: string;
 }
+
+let uiComponentIndexCache: Map<string, UiComponent> | null = null;
 
 function collectRequiredUiComponents(files: CodeFile[]): UiComponent[] {
   const needed = new Set<string>();
@@ -302,10 +308,7 @@ function collectRequiredUiComponents(files: CodeFile[]): UiComponent[] {
     }
   }
 
-  const searchDirs = [
-    nodePath.resolve(process.cwd(), "src/components/ui"),
-    nodePath.resolve(process.cwd(), "components/ui"),
-  ];
+  const componentIndex = getUiComponentIndex();
   const resolved = new Map<string, UiComponent>();
   const queue = [...needed];
 
@@ -313,12 +316,12 @@ function collectRequiredUiComponents(files: CodeFile[]): UiComponent[] {
     const name = queue.shift();
     if (!name || resolved.has(name)) continue;
 
-    const content = readUiComponent(name, searchDirs);
-    if (!content) continue;
+    const component = readUiComponent(name, componentIndex);
+    if (!component) continue;
 
-    resolved.set(name, { filename: `${name}.tsx`, content });
+    resolved.set(name, component);
 
-    for (const match of content.matchAll(UI_IMPORT_RE)) {
+    for (const match of component.content.matchAll(UI_IMPORT_RE)) {
       const dependency = match[1];
       if (!resolved.has(dependency)) {
         queue.push(dependency);
@@ -329,19 +332,36 @@ function collectRequiredUiComponents(files: CodeFile[]): UiComponent[] {
   return Array.from(resolved.values());
 }
 
-function readUiComponent(name: string, searchDirs: string[]): string | null {
-  const filename = `${name}.tsx`;
-
-  for (const dir of searchDirs) {
-    const fullPath = nodePath.join(dir, filename);
-    try {
-      return fs.readFileSync(fullPath, "utf-8");
-    } catch {
-      continue;
-    }
+function getUiComponentIndex(): Map<string, UiComponent> {
+  if (uiComponentIndexCache) {
+    return uiComponentIndexCache;
   }
 
-  return null;
+  const index = new Map<string, UiComponent>();
+  readUiComponentDirIntoIndex(SRC_UI_COMPONENT_DIR, index);
+  readUiComponentDirIntoIndex(ROOT_UI_COMPONENT_DIR, index);
+
+  uiComponentIndexCache = index;
+  return index;
+}
+
+function readUiComponentDirIntoIndex(dir: string, index: Map<string, UiComponent>): void {
+  if (!fs.existsSync(dir)) return;
+
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".tsx")) continue;
+    const componentName = entry.name.slice(0, -4);
+    if (!componentName || index.has(componentName)) continue;
+    const fullPath = nodePath.join(dir, entry.name);
+    index.set(componentName, {
+      filename: entry.name,
+      content: fs.readFileSync(fullPath, "utf-8"),
+    });
+  }
+}
+
+function readUiComponent(name: string, componentIndex: Map<string, UiComponent>): UiComponent | null {
+  return componentIndex.get(name) ?? null;
 }
 
 function inferLanguage(filePath: string): string {

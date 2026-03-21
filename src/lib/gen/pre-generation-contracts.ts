@@ -419,7 +419,9 @@ function applyIntegrationAnswer(
       status: "chosen",
       envVars: rule.envVars,
     });
-    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat integrationsval.", true);
+    // External integrations should be surfaced as setup/deploy requirements,
+    // not block the first preview/build pass.
+    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat integrationsval.", false);
     removeUnresolved(unresolvedDecisions, "integration");
     return;
   }
@@ -491,7 +493,8 @@ export function inferPreGenerationContracts(params: {
       status: rule.status ?? "chosen",
       envVars: rule.envVars,
     });
-    pushEnvVars(envVars, rule.envVars, rule.reason, true);
+    const shouldRequireEnvNow = rule.kind === "integration" ? false : true;
+    pushEnvVars(envVars, rule.envVars, rule.reason, shouldRequireEnvNow);
   }
 
   if (capabilities.needsAuth && !contracts.authProvider) {
