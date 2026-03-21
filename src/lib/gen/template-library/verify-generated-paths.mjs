@@ -21,6 +21,7 @@ const BAD_SUBSTRINGS = [
 const FILES_TO_SCAN = [
   "src/lib/gen/template-library/template-library.generated.json",
   "src/lib/gen/scaffolds/scaffold-research.generated.json",
+  "research/normalized-catalog.json",
 ];
 
 function scanText(relPath, text) {

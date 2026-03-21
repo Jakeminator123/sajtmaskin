@@ -1,143 +1,116 @@
 # =============================================================================
 # SAJTMASKIN .cursorignore
 # =============================================================================
-# Files here are NOT indexed by Cursor.
-# Agents can still read ignored files via explicit path when needed.
-# This reduces indexing noise and keeps Cursor fast.
-# =============================================================================
+# Gäller bara filer INOM denna workspace. Cursor indexerar inte mappar utanför
+# repot (t.ex. C:\...\vercel-scrape) — skrap/kloner dit påverkar inte indexet här.
+# Stora dataset i repot (_template_refs, ev. vercel-scrape i roten) ignoreras nedan.
 #
-# README policy (indexing)
-# ------------------------
-# Where a directory is ignored below, we often re-include `README.md` with a
-# leading `!` so agents still see a short "what lives here" entry.
-# Exception: do NOT re-include READMEs under path segments named `old`,
-# `archive`, or `archived` (e.g. docs/old, docs/plans/archived,
-# .cursor/migration-archive, .cursor/automation/archive,
-# .cursor/orchestrator/archive). Those trees stay fully ignored for indexing;
-# open files by explicit path if needed.
+# Negation (!) fungerar bara om en tidigare rad ignorerat samma sökväg — därför
+# måste huvudmönstret vara aktivt (inte kommenterat med # i början av raden).
 # =============================================================================
 
-# Build/cache
-node_modules
-.next
-.cache
-dist
-build
-coverage
-materials
-
-# Git metadata / generated lockfiles
-.git
+# --- Build & cache (tunga, ändras ofta)
+node_modules/
+.next/
+.cache/
+dist/
+build/
+coverage/
 tsconfig.tsbuildinfo
-package-lock.json
 
-# Local env / secrets / local status
+# --- Git (onödigt för kodindex)
+.git/
+
+# --- Secrets & lokal status
 .env
 .env.*
 .env.local
 .env.production
 .token-status.json
 
-# Local browser / automation config
-#config.browser.txt
+# --- Lokal dev / automation-config (sällan relevant för kod)
 config.txt
 config.example.txt
 sajtmaskin.code-workspace
 
-# Large media
-public/video/
-public/images/
+# --- Stor media (hela public/ ignoreras nedan; detta fångar mp4 var som helst)
 *.mp4
 *.webm
 
+# --- Agent scratch (delvis)
 .j_to_agent/structure_bugs_and_parralells
 .j_to_agent/analysis
 
-# ---------------------------------------------------------------------------
-# Stable code that rarely changes (read via explicit path when needed)
-# ---------------------------------------------------------------------------
-
-# shadcn/ui primitives — generated, not hand-edited
+# --- Sällan ändrad kod: indexera README/entrypoints, inte allt
 src/components/ui/
 
-# Static assets
-public/
-
-# Dev runner scripts (Next, DB, Vercel template sync) — keep README + entrypoints.
-#Scripts/**
+Scripts/**
 !Scripts/README.md
 !Scripts/*.mjs
 !Scripts/*.ts
 
-# Offline pipeline / embeddings / research helpers (see config/README.md)
-#config/scripts/**
+config/scripts/**
 !config/scripts/README.md
 !config/scripts/*.ts
 
-# Admin dashboard routes
+# API-ytor som sällan behövs i generell sökning
 src/app/api/admin/
-
-# Payment routes (sensitive, rarely changed)
 src/app/api/stripe/
-
-# Auth routes (stable, rarely changed)
 src/app/api/auth/
 
-# Landing page components (stable after design)
 src/components/landing-v2/
 
-# Research / external discovery (Zone 1 raw stays outside repo; Zone 2 normalized committed but not indexed)
+# --- Statiska assets (stora, sällan "läs som kod")
+public/
+
+# --- Research & mall-discovery (Zon 1 i repo + pipeline; Zon 2 JSON under research/ men README synlig)
 research/
 !research/README.md
+
 scaffold-pipeline/
 _template_refs/
 _sidor/
+
+# Om du någon gång lägger skrapdata i repots rot (annars tomt — skadar inte)
 vercel-scrape/
 vercel_usecase_next_react_templates/
 
-
-# Generated reports and machine-generated artifacts
+# --- Genererade JSON/TS (byggs om; undvik brus i sök)
 src/lib/gen/data/docs-embeddings.json
 src/lib/gen/data/docs-snippets.ts
-# src/lib/gen/preview/shims.ts — unignored for preview debugging
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
 src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
 
-# Recovery package
+# --- Övrigt stort / återhämtning
 world-class-recovery/
 
-# MCP scraped docs (prefer MCP search/fetch instead)
+# --- MCP-dokumentation (om mappen skapas; stor cache)
 services/mpc/docs/docgrab__*/
 services/mpc/docs/local/
 services/mpc/docs/*llms*
 services/mpc/docs/shad/
 services/mpc/logs/
 
-# ---------------------------------------------------------------------------
-# Session state and legacy
-# ---------------------------------------------------------------------------
-
-# Local Cursor session state
-#.cursor/plans/
-#.cursor/documents/
+# --- Cursor automation & arkiv
 .cursor/automation/runs/
 .cursor/automation/archive/
 .cursor/automation/input/
-
-# Archived or low-signal docs (no README re-include; see README policy header)
-docs/old/**
-docs/plans/archived/**
-#docs/analyses/
-
-# Migration archive (moved from STOR_MIGRATION/ to .cursor/migration-archive/)
 .cursor/migration-archive/**
 
-# Temporary / local dev folders
+.cursor/orchestrator/run/*/
+.cursor/orchestrator/archive/
+
+# --- Dokumentation du medvetet gömmer från index
+docs/old/**
+docs/plans/archived/**
+
+# --- Temp / legacy i roten
 old/
 skrapning/
 ovrigt/
+materials/
 .preprompt_history.json
 
 logs/
@@ -146,16 +119,7 @@ input_files_for_cursor/
 DOM_dev_tols.txt
 chat_till_vanster.txt
 
-# Misc legacy folders
-#.j_to_agent/
-
-# Orchestrator run folders
-.cursor/orchestrator/run/*/
-.cursor/orchestrator/archive/
-
 tests/openclaw/**
 !tests/openclaw/README.md
 
 internt_jakob/
-#.vercel/
-

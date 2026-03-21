@@ -26,7 +26,17 @@ import type {
 } from "../../src/lib/gen/template-library/types";
 import type { ScaffoldFamily } from "../../src/lib/gen/scaffolds/types";
 
-const OUTPUT_PATH = path.resolve(__dirname, "../../research/normalized-catalog.json");
+const WORKSPACE_ROOT = path.resolve(__dirname, "../..");
+const OUTPUT_PATH = path.join(WORKSPACE_ROOT, "research/normalized-catalog.json");
+
+/** Repo-relative or `../...` path; avoids embedding C:\\Users\\... in committed JSON. */
+function portableRawSourcePath(inputDirAbs: string): string {
+  const rel = path.relative(WORKSPACE_ROOT, inputDirAbs);
+  if (path.isAbsolute(rel) || /^([a-zA-Z]:)/.test(rel)) {
+    return "external";
+  }
+  return rel.replace(/\\/g, "/") || ".";
+}
 
 interface RawTemplateInfo {
   category_slug: string;
@@ -237,7 +247,7 @@ function main() {
 
   const catalog: NormalizedCatalogFile = {
     generatedAt: new Date().toISOString(),
-    rawSourcePath: inputDir.replace(/\\/g, "/"),
+    rawSourcePath: portableRawSourcePath(path.resolve(inputDir)),
     entryCount: entries.length,
     entries,
   };
