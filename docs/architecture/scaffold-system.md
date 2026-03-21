@@ -99,19 +99,14 @@ och referensmaterial, och AI-modellen genererar koden.
 
 | Uppgift | Kommando |
 |---|---|
-| Kör hela pipelinen | `npm run scaffold-pipeline` |
-| Kör med ny skrapning | `npm run scaffold-pipeline:full` |
-| Testa matchning | `npm run scaffolds:test-matching` |
-| Befordra dossier | `npm run scaffolds:promote <dossier-id>` |
 | Validera manifester | `npm run scaffolds:validate` |
-| Interaktiv meny | `python scaffold-pipeline/scripts/scaffold-pipeline.py` |
+| Verifiera genererade JSON-vägar | `npm run verify:generated-paths` |
 
 ## Filstruktur
 
 ```
-src/lib/gen/scaffolds/           <-- Runtime (17 scaffolds, matchning, serialisering)
-src/lib/gen/template-library/    <-- Genererade artefakter (embeddings, referensdata)
-scaffold-pipeline/               <-- Pipeline (discovery, dossiers, katalog, skript)
+src/lib/gen/scaffolds/           <-- Runtime scaffolds (manifests, matchning, serialisering)
+src/lib/gen/template-library/    <-- Valfri referenskatalog + embeddings för prompten (kan vara tom)
 ```
 
-Se `scaffold-pipeline/README.md` för detaljer om pipeline-strukturen.
+När du fyller `template-library.generated.json` igen: håll `clonePath` repo-relativt och kör `verify:generated-paths`.

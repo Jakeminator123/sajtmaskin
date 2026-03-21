@@ -1,6 +1,6 @@
 # Scripts (dev & build entrypoints)
 
-Small **Node** helpers wired into `npm run dev|build|start` and day-to-day template sync. They live at repo root as `Scripts/` (capital **S**) so they stay distinct from `config/scripts/` (offline pipeline).
+Small **Node** helpers wired into `npm run dev|build|start` and day-to-day template sync. They live at repo root as `Scripts/` (capital **S**) so they stay distinct from `config/scripts/` (offline helpers).
 
 | Script | Purpose |
 |--------|---------|
@@ -8,32 +8,18 @@ Small **Node** helpers wired into `npm run dev|build|start` and day-to-day templ
 | `refresh-token.mjs` | Dev token refresh (`predev`). |
 | `db-init.mjs` | Local DB bootstrap (`predev`, `db:init`). |
 | `run-migrations.ts` | SQL migrations (`db:migrate`). |
-| `generate-site-cli.ts` | Local CLI wrapper around `src/lib/mcp/generate-site.ts` for prompt -> preview runs from PowerShell/npm. |
-| `sync-v0-templates.mjs` | Sync v0/Vercel-facing template metadata used by the product. |
-| `validate-templates.mjs` | Validates synced template data. |
+| `generate-site-cli.ts` | Local CLI wrapper around `src/lib/mcp/generate-site.ts` for prompt → preview runs from PowerShell/npm. |
+| `sync-v0-templates.mjs` | Sync **v0 gallery** template metadata (`src/lib/templates/`) used by the product UI. |
+| `validate-templates.mjs` | Validates synced gallery template data. |
+| `scan-repo-health.mjs` | Heuristic scan for leaked machine paths, legacy path segments, merge markers (`npm run scan:repo-health`). Use `--all` for the whole workspace. |
 
-## Offline pipeline (embeddings, dossiers, scaffolds)
+## Generated JSON (stubs)
 
-Heavy research/build steps moved to **`config/scripts/`**. Use npm scripts (paths already updated):
+Runtime still loads `src/lib/gen/template-library/*.json` and `src/lib/gen/scaffolds/scaffold-*.json`. After manual edits, run:
 
 ```bash
 npm run verify:generated-paths
-npm run template-library:build
-npm run template-library:embeddings
-npm run scaffolds:embeddings
-npm run scaffolds:promote -- --help
-```
-
-If `verify:generated-paths` fails after a bad merge, run `npm run normalize:generated-paths` (see `docs/README.md` → Generated JSON hygiene).
-
-Full narrative commands and ordering: **`config/scripts/README.md`** and **`scaffold-pipeline/README.md`**.
-
-## Reference repo clones (GitHub mirrors)
-
-```bash
-node config/scripts/sync-scaffold-refs.mjs
-node config/scripts/sync-scaffold-refs.mjs --force
-node config/scripts/sync-scaffold-refs.mjs --only=nextjs-saas-starter,ibelick-nim
+npm run normalize:generated-paths   # if paths need normalizing
 ```
 
 ## AI defaults → `.env.local`
@@ -59,11 +45,11 @@ Why:
 - PowerShell cannot execute a raw `.ts` file directly.
 - The wrapper loads the module via `tsx`, parses CLI flags, and prints a usable result summary.
 
-## Interactive Python menu (whole pipeline)
+## Terminology: v0 gallery vs Vercel templates vs runtime scaffolds
 
-```bash
-python scaffold-pipeline/scripts/scaffold-pipeline.py
-```
+- **v0 gallery templates** — what `templates:sync` / `src/lib/templates/` describe: browse cards, often animation-heavy single pages or small apps from v0.dev; they steer the *initial prompt*, not committed starter code in this repo.
+- **Vercel templates** — public starters on vercel.com/templates (external ecosystem); not the same as v0 gallery JSON.
+- **Runtime scaffolds** — hand-authored starters under `src/lib/gen/scaffolds/` that the own-engine uses as real base code.
 
 ## Recovery PowerShell (optional)
 

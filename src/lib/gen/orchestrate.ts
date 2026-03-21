@@ -18,6 +18,7 @@ import { classifySiteProfile, type SiteProfile } from "./scaffolds/site-profile"
 import {
   serializeScaffoldForPrompt,
   detectScaffoldMode,
+  type ScaffoldSerializeMode,
 } from "./scaffolds/serialize";
 import {
   buildSystemPrompt,
@@ -53,6 +54,11 @@ export interface OrchestrationInput {
   persistedScaffoldId?: string | null;
   /** Previously confirmed contract answers reconstructed from chat history */
   contractAnswers?: ConfirmedContractAnswer[];
+  /**
+   * When true, the user hit the max sequential clarification rounds — the model must
+   * not ask another blocking pre-generation contract question this turn.
+   */
+  contractClarificationCapReached?: boolean;
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
 }
@@ -60,6 +66,7 @@ export interface OrchestrationInput {
 export interface OrchestrationResult {
   resolvedScaffold: ScaffoldManifest | null;
   scaffoldMatchMeta: ScaffoldMatchMeta | null;
+  scaffoldSerializeMode: ScaffoldSerializeMode | null;
   scaffoldContext: string | undefined;
   siteProfile: SiteProfile;
   routePlan: RoutePlan;
@@ -93,6 +100,7 @@ export async function prepareGenerationContext(
     designReferences = [],
     persistedScaffoldId = null,
     contractAnswers = [],
+    contractClarificationCapReached = false,
     customInstructions,
   } = input;
 
@@ -141,13 +149,14 @@ export async function prepareGenerationContext(
   }
 
   let scaffoldContext: string | undefined;
+  let scaffoldSerializeMode: ScaffoldSerializeMode | null = null;
   if (resolvedScaffold) {
     const briefStyleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords)
       ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords
           ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
       : undefined;
-    const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
-    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode);
+    scaffoldSerializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
+    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, scaffoldSerializeMode);
   }
 
   const briefPages = Array.isArray((brief as { pages?: unknown } | null)?.pages)
@@ -195,6 +204,7 @@ export async function prepareGenerationContext(
     resolvedScaffold,
     routePlan,
     preGenerationContracts,
+    contractClarificationCapReached,
     componentPalette,
     designThemePreset,
     designReferences,
@@ -210,6 +220,7 @@ export async function prepareGenerationContext(
   return {
     resolvedScaffold,
     scaffoldMatchMeta,
+    scaffoldSerializeMode,
     scaffoldContext,
     siteProfile,
     routePlan,

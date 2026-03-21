@@ -198,6 +198,9 @@ export function createOwnEngineGenerationStream(
         buildIntent: engineIntent,
         routePlan,
         resolvedScaffold,
+        scaffoldMatchSource: typeof meta.scaffoldMatchSource === "string" ? meta.scaffoldMatchSource : null,
+        scaffoldEmbeddingScore: typeof meta.scaffoldEmbeddingScore === "number" ? meta.scaffoldEmbeddingScore : null,
+        scaffoldSerializeMode: typeof meta.scaffoldSerializeMode === "string" ? meta.scaffoldSerializeMode : null,
         urlMap,
         startedAt: engineStartedAt,
         tokenUsage: {

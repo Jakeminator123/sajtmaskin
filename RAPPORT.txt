@@ -1,0 +1,283 @@
+# Djupanalys: varför “own engine”-genereringarna i `sajtmaskin` blivit mindre imponerande
+
+## Sammanfattning
+
+Din `bra-branch` har fått en klunga förändringar under perioden **2026‑03‑18 22:43 (+0100) → 2026‑03‑20 14:41 (+0100)**, vilket är ~40 timmar (39h 58m 18s) mellan bas‑commit och HEAD. Baslinjen jag använde är commit **`168520e` (2026‑03‑18 22:43)** och nuvarande HEAD på `bra-branch` är **`9469bae` (2026‑03‑20 14:41)**. citeturn52view1turn52view0
+
+Den starkaste, mest sannolika regressionsorsaken för “mindre imponerande” output i din *own engine* är en kombination av:
+
+1) **Prompt‑förädlingen (“Förbättra” / Forbattra) gör nu ofta mindre jobb** för korta prompts: om det saknas “extra‑sektioner/stil/krav/bilagor” och prompten är kort (<300 tecken) returneras i praktiken en “renad” prompt utan den tidigare strukturen/berikningen. Detta kan direkt minska hur mycket layout‑/sections‑/visual‑direction som når generatorn. citeturn53view0
+
+2) **Tokenbudget och “Thinking → reasoningEffort” kopplades in och tier‑max begränsar nu output per tier**. Om du tidigare förlitade dig på en hög `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`‑override eller fick “rikare” resultat via större output‑utrymme, kan den effekten ha försvagats när `modelTier` alltid skickas och per‑tier‑tak används. citeturn20view1turn53view0
+
+3) **Modell‑/profilmappningar ändrades** (bl.a. “codex” och quality‑mapping), vilket kan göra att du idag kör en annan modell än “för några commits sen” (eller i varje fall en annan modell för “codex”‑läget). Modellbyte kan ge synligt annorlunda stil/ambitionsnivå. citeturn53view0
+
+4) **Scaffold‑urvalet har förändrats kraftigt** (nya scaffolds + omtag i matchningslogik/tags). Om din upplevda “imponerande” kvalitet delvis kom från att vissa prompts matchade ett scaffold med särskilt bra default‑layout/komponenter, kan nya tags/guardrails göra att du nu hamnar i ett “sämre” scaffold oftare (eller mer generiskt). citeturn50view0turn49view0turn40view0
+
+Det finns också stabilitetsfixar som sannolikt **förbättrar** (inte försämrar) resultat, t.ex. normalisering av Claude‑modellnamn till korrekt API‑format och schema‑anpassning för Anthropic. Men dessa kan indirekt göra att du *nu faktiskt kör* Anthropic‑vägen (som tidigare kanske failade tyst) och då upplever annorlunda outputs. citeturn24view2turn51view0
+
+## Förutsättningar, avgränsningar och metod
+
+Du gav ingen repo‑URL eller tokens, och bad mig anta att detta var ospecificerat samt att jag inte ska försöka nå privat data. Jag har därför gjort analysen **enbart via publik GitHub‑åtkomst** (ingen kloning, inga secrets, inga interna system). citeturn25view0turn27view0
+
+Begränsning: GitHub kunde inte rendera en komplett `compare` mellan `168520e...bra-branch` i webbläget (för stor diff), och rekommenderade lokal `git diff` för full jämförelse. Det påverkar hur mycket jag kan “svepa” hela diffen här, men jag kan fortfarande peka ut de mest lastbärande commits och kodrader som tydligt ändrar generationsbeteende. citeturn33view0
+
+Metod i korthet:
+- Identifiera commits på `bra-branch` och `main` senaste ~48h och välja bascommit ~40h bakåt. citeturn25view0turn27view0turn52view1turn52view0
+- Prioritera commits som rör `src/lib/gen/*`, `src/lib/models/*`, `src/lib/builder/*` samt scaffold‑matcher/manifest. citeturn20view1turn53view0turn50view0turn23view0
+- Extrahera exakta diff‑snuttar från patchar för misstänkta regressionspunkter. citeturn20view1turn53view0turn51view0turn50view0
+
+## Commit-översikt och jämförelser
+
+### Branch-läge och “fönster” för jämförelse
+
+- `bra-branch` HEAD i analysen: **`9469bae` (2026‑03‑20 14:41:18 +0100)**. citeturn52view0turn25view0
+- Baslinje ~40h tidigare: **`168520e` (2026‑03‑18 22:43:00 +0100)**. citeturn52view1turn33view0
+- `main` har commits 2026‑03‑18 och 2026‑03‑19, medan `bra-branch` har en större mängd commits 2026‑03‑20 ovanpå. citeturn27view0turn25view0
+
+### “Senaste ~48h” (praktiskt) – vilka commits syns på grenarna?
+
+På `bra-branch` syns en stor serie commits 2026‑03‑20 och flera 2026‑03‑19, samt underliggande 2026‑03‑18. Exempel på tydligt generator‑relaterade commits i listan är bl.a. “per-tier token limits”, “prompt rewrite”, “autofix”, “scaffold system overhaul”, “add new scaffolds”. citeturn26view0turn25view0
+
+På `main` syns motsvarande baslager 2026‑03‑18→2026‑03‑19 (bl.a. “replace Vercel AI Gateway…”, “normalize Anthropic model names…”) men inte 2026‑03‑20‑förändringarna. citeturn27view0turn29view0
+
+### Tabell: nyckelcommits i fönstret, filer och sannolik påverkan
+
+Tabellen nedan fokuserar på commits som antingen (a) direkt ändrar generation/prompt/scaffold/modellval eller (b) är viktiga referenspunkter i tidslinjen. För “full listning med exakt tid + alla filer” rekommenderar jag att du kör `git log`/`git show` lokalt (kommandon i åtgärdssektionen).
+
+| Gren | Commit | Tid (author date) | Sammanfattning | Ändrade filer (urval / count) | Trolig påverkan på “imponering” |
+|---|---:|---|---|---|---|
+| bra-branch | `168520e` | 2026‑03‑18 22:43 | Background‑merge: uppdaterar bl.a. docs/terminologi + builder controller + env schema | 11 filer (bl.a. builder hooks, env, docs) citeturn52view1 | **Baslinje**. Inte primär kvalitetsregression, men beskriver pipeline-steg tydligt |
+| main + bra-branch | `ef71502` | 2026‑03‑18 23:19 | Byter från Vercel AI Gateway till direkta provider‑anrop (OpenAI/Anthropic) i många routes + policy | 12 filer (AI routes + `gateway-policy.ts` + `src/lib/gen/models.ts`) citeturn23view0 | **Hög risk för kvalitets-/beteendeskift** (fallbacks/provider‑routing kan ändras; assist/brief kan bli annorlunda) |
+| main + bra-branch | `439a23f` | 2026‑03‑19 04:06 | Normaliserar Claude‑modellnamn (t.ex. `…4.6`→`…4-6`) för att undvika “model not found” | 4 filer (brief/chat/gateway-policy/gen models) citeturn24view2 | Troligen **förbättrar stabilitet**; men kan göra att Anthropic‑lane nu faktiskt används → annorlunda output |
+| bra-branch | `941ddba` | 2026‑03‑20 02:59 | 4 nya scaffolds + “narrow” restaurant/content-site + ändrar matcher/embeddings | 10 filer (matcher/registry/manifest/embeddings) citeturn50view0turn49view0 | **Hög påverkan**: scaffoldval och bas‑layout kan ändras → mindre imponerande om “fel” scaffold väljs |
+| bra-branch | `58b4962` | 2026‑03‑20 04:13 | Per‑tier maxOutputTokens + “Thinking checkbox → reasoningEffort” och skickar `modelTier` till engine | 6 filer (routes + `defaults.ts` + `engine.ts` + pipeline) citeturn20view1 | **Hög påverkan**: kan strypa output (token caps) / ändra resonemangsprofil |
+| bra-branch | `c4a46ba` | 2026‑03‑20 12:02 | Modell‑ID alignment + “xhigh reasoning” + **fix Forbattra prompt rewrite** | 10 filer (promptAssist, defaults, model catalog/tests) citeturn53view0 | **Mycket hög påverkan**: prompt‑berikning blir ofta kortare + modellmapping ändras |
+| bra-branch | `369b95f` | 2026‑03‑20 14:34 | Anthropic‑kompatibelt brief‑schema + engine‑logg tydligare för Claude | 4 filer (brief route + `gen/engine.ts`) citeturn51view0 | Blandat: stabilare brief, men kan ge **mindre “rika” briefs** pga släppta `min()`‑krav |
+| bra-branch | `9469bae` | 2026‑03‑20 14:41 | Preview shims (`next/dynamic`, route segment globals) | 1 fil (`src/lib/gen/preview/shims.ts`) citeturn52view0 | Inte output‑kvalitet; mer preview‑stabilitet |
+
+## Förändringar som sannolikt sänker kvaliteten
+
+Här är de mest “load‑bearing” kodförändringarna som kan göra att generationer upplevs mindre imponerande, med exakta diff‑snuttar där det går.
+
+### Prompt Assist/“Förbättra” ger ofta mindre berikning
+
+I commit **`c4a46ba`** ändrades `formatPrompt()` så att den **tidigt returnerar** en kort, normaliserad prompt om det inte finns “extra” metadata och prompten är kort (<300). citeturn53view0
+
+Nyckelsnutt (beteendeskifte):
+
+```ts
+const hasExtras = sections.length > 0 || styles.length > 0 || constraints.length > 0 || urls.length > 0;
+if (!hasExtras && normalized.length < 300) return normalized;
+```
+
+Konsekvens: om din workflow ofta är “skriv en kort prompt → klicka Förbättra → generera”, så kan generatorn nu få **mindre explicit layout/sektioner/visuell riktning** än tidigare. Det brukar ge mer generiska sidor.
+
+Dessutom ändrades “rewrite system prompt”‑reglerna så att output *inte* ska wrap:as i generiska rubriker som “Mål/Sektioner/Stil/Constraints”, och att en kort input ska ge kort output — vilket är bra för kostnad/latency men kan minska “wow‑faktor” om du förväntar dig att assistenten fyller i mer design. citeturn53view0
+
+### Tokenbudget och reasoning‑koppling kan göra output kortare eller mindre kapabel
+
+Commit **`58b4962`** införde:
+- per‑tier `maxOutputTokens` (fast/pro/max/codex/anthropic) och
+- koppling mellan “Thinking” och OpenAI “reasoningEffort” via `providerOptions`, samt
+- att `modelTier` nu skickas in i `generateCode`. citeturn20view1
+
+Kod i `engine.ts` visar mekaniken (förkortat):
+
+```ts
+const resolvedMaxTokens = maxTokens ?? getEngineMaxOutputTokens(modelTier);
+const reasoningEffort = getReasoningEffort(modelTier, thinking);
+
+const result = streamText({
+  ...
+  maxOutputTokens: resolvedMaxTokens,
+  ...(providerOptions ? { providerOptions } : {}),
+});
+```
+
+citeturn20view1
+
+Varför detta kan ge regression:
+- Om du tidigare hade en **hög env‑override** (t.ex. högt `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`) och nu alltid skickar `modelTier`, kan den override i praktiken spela mindre roll eftersom per‑tier‑tabellen används när tier finns (och bara “fallbackar” när tier saknas). Det framgår också i dokumentationsdiffen att tiers har egna tak och att env‑värdet används som fallback. citeturn20view1turn53view0
+- Om du ofta kör tier “fast”, så är reasoningEffort för fast definierad som `"none"` även när Thinking är på (enligt den nya tier‑mappingen i defaults). Då blir resultatet typiskt mindre “resonerande”/ambitiöst än om du kör “pro/max/codex”. citeturn20view1turn53view0
+
+### Modellmappningar ändrades och codex‑profilen bytte defaultmodell
+
+I **`c4a46ba`** flyttades “codex” default från `gpt-5.1-codex-max` till `gpt-5.4`, både i default‑profil och i katalog/mappning. citeturn53view0
+
+Det här kan påverka upplevd kvalitet på två sätt:
+- Om `gpt-5.1-codex-max` gav dig en särskild “kod‑stil” eller mer aggressiv kodproduktion, kan `gpt-5.4` kännas annorlunda.
+- Kvalitetskartan (`QUALITY_TO_OPENAI_MODEL`) ändrades så att `max` går till `gpt-5.4` i stället för `gpt-5.1-codex-max`. citeturn53view0
+
+Det är alltså fullt möjligt att du “kör samma tier i UI” men i praktiken fått en annan modell bakom kulisserna.
+
+### Scaffoldvalet har ändrats (vilket ofta känns som “kvalitet”)
+
+I **`941ddba`** ändrades scaffolds/taggar/manifest så att `content-site` inte längre beskrivs som “hero/features/testimonials” för landing/portfolio/blog, utan som en dokumentations-/informations‑layout med sidebar och FAQ‑känsla. Dessutom rensades tags som “landing/portfolio/blog/marketing” bort och ersattes av mer “docs/knowledge base”‑taggar. citeturn49view0turn50view0
+
+Det betyder att prompts som tidigare råkade matcha `content-site` kan matcha **annat scaffold** nu (t.ex. `landing-page`), vilket kan kännas mer generiskt och därmed mindre imponerande.
+
+Samtidigt introducerades nya scaffolds (clinic/local-shop/event/school). Det kan vara förbättringar i sak, men i en övergångsperiod är det vanligt att matchningen “flappar” (byter scaffold för samma prompt) och då får du stora skillnader i layoutkvalitet. citeturn50view0turn49view0
+
+Utöver detta finns en mycket stor “scaffold system overhaul”‑commit (**`b412991`**) som explicit säger att den förändrar pipeline‑struktur, lägger nya scaffolds, förbättrar svensk matchning, och visar match‑metadata i UI. Den typen av commit är nästan alltid en kandidat när output “känns annorlunda” även om själva LLM‑prompten är samma. citeturn40view0turn44view0
+
+### Direct-provider refactor kan ändra assist/brief-fasen som formar generationen
+
+I **`ef71502`** byttes `gateway(normalizedModel)` ut mot `createDirectModel(normalizedModel)` i flera route‑endpoints (bl.a. `/api/ai/chat` och `/api/ai/brief`). Samtidigt togs gateway‑specifika fallback‑listor och provider‑order‑routing bort från requesten. citeturn23view0
+
+Även om “own engine” kör via `src/lib/gen/engine.ts`, så påverkas totalen av att prompten ofta först passerar “prompt assist” och “deep brief”. Om de stegen blir mer sparsamma, eller tappar fallback, kan slutprompten bli sämre → sämre generation.
+
+### Anthropic-brief schema förenklades (stabilitet vs detaljrikedom)
+
+I **`369b95f`** togs flera `min()`‑krav bort (t.ex. `toneAndVoice` min 2, bullets min 1, styleKeywords min 3, etc.) för att hålla sig inom Anthropic’s grammar‑kompilationsgränser, och förenklade schemat gjordes mindre “optional‑tungt”. citeturn51view0
+
+Detta kan betyda att brief‑agenten (särskilt i Claude‑läge) nu *kan* returnera mer tomma listor eller färre punkter, vilket kan kännas mindre “rikt”. (Det kan samtidigt vara helt rätt tradeoff om du tidigare hade hårda failures.)
+
+## Rekommenderade åtgärder och testplan
+
+### Snabbt: isolera vilken commit som orsakar upplevd regression
+
+Du kan göra ett A/B‑test lokalt utan att gissa:
+
+1) **Sätt en fast prompt** (en du vet brukar bli “imponerande” och som nu känns sämre).
+2) Kör generation på:
+   - Bas: `168520e` (≈40h bakåt)
+   - HEAD: `bra-branch` (nu)
+   - Jämför även med `main` (för att se om regressionen är gren-specifik)
+
+Lokala kommandon:
+
+```bash
+git fetch origin
+
+# Baslinje (~40h bakåt):
+git checkout 168520e66b378a32d9b33cfe472c3d8f693ae1c0
+
+# Nuvarande:
+git checkout bra-branch
+
+# Jämför förändringar i de viktigaste områdena:
+git diff 168520e66b378a32d9b33cfe472c3d8f693ae1c0..bra-branch -- \
+  src/lib/builder/promptAssist.ts \
+  src/lib/gen/defaults.ts \
+  src/lib/gen/engine.ts \
+  src/lib/gen/scaffolds \
+  src/lib/models
+```
+
+GitHub själv föreslår samma diff‑kommando när compare‑renderingen blir för stor. citeturn33view0
+
+### Mest sannolika “fix först”-spår
+
+#### Återställ eller mildra Forbattra‑tidig retur
+
+Om du vill ha tillbaka mer “ambitiös” prompt‑berikning, testa en minimal ändring:
+
+- Ta bort eller höj tröskeln för tidig retur:
+
+```diff
+- if (!hasExtras && normalized.length < 300) return normalized;
++ // Behåll alltid en lätt struktur även för korta prompts, så generatorn får mer riktning.
++ // (Alternativ: sänk tröskeln till t.ex. 120)
++ if (!hasExtras && normalized.length < 120) return normalized;
+```
+
+Den raden är en av de mest direkta förklaringarna till “mindre imponerande” när prompts är korta. citeturn53view0
+
+Praktisk revert‑test (utan att hand‑patcha) är också möjlig:
+
+```bash
+git checkout bra-branch
+git revert c4a46ba611d965db742c69c963b9da571464d23e
+```
+
+#### Säkerställ att token‑override fortfarande fungerar när `modelTier` alltid skickas
+
+Om du vill kunna “cranka upp” output för alla tiers via env, behöver du antingen:
+- låta env‑värdet fungera som “minsta tak”, eller
+- ha per‑tier env vars (t.ex. `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS_PRO`).
+
+Varför: nu används `getEngineMaxOutputTokens(modelTier)` som default när tier finns. citeturn20view1turn53view0
+
+Ett enkelt temporärt test är att *inte* skicka `modelTier` i pipeline (bara i ett experiment) och se om output blir rikare. I din codebase skickas `modelTier` nu in från stream‑routes, så en snabb testbranch kan kommentera det vid anropet tills du bekräftat hypotesen. citeturn20view1
+
+#### Bekräfta att du verkligen använder rätt tier/modell
+
+Efter `c4a46ba` är codex‑mappingen ändrad (codex→`gpt-5.4` + `xhigh`). citeturn53view0
+Om din upplevelse “mindre imponerande” sammanfaller med att du bytte till/ifrån “Codex Max” eller “Max”, kan det i själva verket vara ett modellbyte.
+
+Konkreta test:
+- Kör samma prompt i UI men explicit välj tier “pro” och “max” och jämför output.
+- Loggningen i engine uppdaterades också för Anthropic‑läget (för att inte visa missvisande `reasoningEffort: none`), så se till att loggen du tittar på verkligen speglar rätt lane. citeturn51view0
+
+#### Scaffold-regression: verifiera att samma prompt matchar samma scaffold
+
+Eftersom scaffolds och content-site‑tags ändrats, är det mycket möjligt att scaffoldvalet har “glidit”. citeturn50view0turn49view0
+Om scaffold blev mer generiskt → output känns mniej.
+
+Taktik:
+- Kör kontrollerna som repo numera dokumenterar för scaffold/matching/eval (de finns listade i `KOMMANDON.txt`). citeturn51view0
+- Jämför scaffoldval + embedding score för samma prompt i bascommit vs nu (UI-stöd nämns i scaffold overhaul‑commit). citeturn40view0
+
+### Rekommenderad “kvalitetsregression”-checklista lokalt
+
+Den här ordningen ger snabbast signal:
+
+```bash
+# 1) Se exakt commitlista senaste ~48h per gren
+git log --since="48 hours ago" --decorate --oneline bra-branch
+git log --since="48 hours ago" --decorate --oneline main
+
+# 2) Fokusera på generation/prompt/scaffold
+git log --since="48 hours ago" --name-status bra-branch -- \
+  src/lib/gen src/lib/models src/lib/builder/promptAssist.ts
+
+# 3) Diffa bas (~40h) till nu i samma fokus
+git diff 168520e66b3...bra-branch -- src/lib/gen src/lib/models src/lib/builder/promptAssist.ts
+
+# 4) Kör snabbaste verifieringar i repot (exempel, anpassa efter package.json)
+npm run typecheck
+npm run test:ci
+
+# 5) Kör generation lokalt via wrapper (om du använder den)
+npm run mcp:generate-site -- --prompt "Din testprompt här"
+```
+
+Kommandoförslag i repo är konsekvent listade i `KOMMANDON.txt` som skapades i samband med engine/brief‑fixar. citeturn51view0
+
+## Mermaid-diagram
+
+### Tidslinje över nyckelcommits (bas → nu)
+
+```mermaid
+timeline
+    title Nyckelcommits som kan påverka upplevd generationskvalitet (bra-branch)
+    2026-03-18 22:43 : 168520e "Baslinje (~40h bakåt): background merge + pipeline-doc"
+    2026-03-18 23:19 : ef71502 "Byt AI Gateway → direkta provider calls"
+    2026-03-19 04:06 : 439a23f "Claude modell-id normalisering (dot→hyphen)"
+    2026-03-20 02:59 : 941ddba "Nya scaffolds + ändrade tags/matcher/embeddings"
+    2026-03-20 04:13 : 58b4962 "Per-tier token limits + Thinking→reasoningEffort"
+    2026-03-20 12:02 : c4a46ba "Forbattra rewrite ändras + modellmapping/codex"
+    2026-03-20 14:34 : 369b95f "Anthropic brief schema-lättning + engine-logg"
+    2026-03-20 14:41 : 9469bae "Preview shims (stabilitet, ej kvalitet)"
+```
+
+Källor för tidsstämplar och innehåll: citeturn52view1turn23view0turn24view2turn50view0turn20view1turn53view0turn51view0turn52view0
+
+### Flödesschema: generation pipeline (own engine)
+
+Pipeline‑steg enligt repo‑beskrivningen (sammanfattat):
+
+```mermaid
+flowchart TD
+  A[Användare skriver prompt i Builder UI] --> B[Ev. Prompt Assist /api/ai/chat\n("Förbättra"/polish)]
+  B --> C[Prompt orchestration\n(budget/strategy)]
+  C --> D[Scaffold auto-match\n(embedding + nyckelord)]
+  D --> E[prepareGenerationContext()\nbygger systemprompt:\nscaffold + brief + theme + custom instructions]
+  E --> F[Own engine: streamText()\nOpenAI/Anthropic]
+  F --> G[Post-generation:\nautofix + validering + scaffold merge + parsing]
+  G --> H[PreviewPanel renderar preview]
+  H --> I[Iterera / Deploy]
+```
+
+Stegen “prompt orchestration”, scaffold‑automatch, `prepareGenerationContext()`, SSE‑streaming och post‑generation är explicit nämnda i repo‑översikten för generation pipeline. citeturn52view1

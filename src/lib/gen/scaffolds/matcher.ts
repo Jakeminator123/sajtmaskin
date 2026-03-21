@@ -558,6 +558,7 @@ export function matchScaffold(
 }
 
 const EMBEDDING_MIN_SCORE = 0.35;
+const EMBEDDING_HIGH_CONFIDENCE = 0.50;
 
 export interface ScaffoldMatchMeta {
   matchSource: "keyword" | "embedding" | "manual" | "persisted" | "off";
@@ -611,7 +612,7 @@ export async function matchScaffoldWithEmbeddings(
       const embeddingScore = Math.round(results[0].score * 1000) / 1000;
 
       const guardrailKeywords = EMBEDDING_GUARDRAILS[embeddingResult.id];
-      if (guardrailKeywords) {
+      if (guardrailKeywords && embeddingScore < EMBEDDING_HIGH_CONFIDENCE) {
         const guardrailScore = countKeywordMatches(lower, guardrailKeywords);
         if (guardrailScore < 1) {
           return {

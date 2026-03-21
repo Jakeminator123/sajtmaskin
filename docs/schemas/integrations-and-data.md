@@ -11,7 +11,6 @@ Primary code sources:
 - `Scripts/db-init.mjs`
 - `src/lib/validations/chatSchemas.ts`
 - `src/lib/gen/template-library/types.ts`
-- `scaffold-pipeline/catalog/schema.template-manifest.json`
 
 ## Database
 
@@ -64,17 +63,15 @@ This file defines:
 
 ## External reference schema
 
-Curated external template data is documented by:
+Curated external template reference data is typed in:
 
 - `src/lib/gen/template-library/types.ts`
-- `scaffold-pipeline/catalog/schema.template-manifest.json`
 
 Important boundary:
 
-- `TemplateLibraryEntry` is the full runtime/generated TypeScript shape.
-- `schema.template-manifest.json` documents the per-dossier manifest and minimal
-  schema surface used in the curated reference library. It should not be treated
-  as a complete JSON schema for every field on `TemplateLibraryEntry`.
+- `TemplateLibraryEntry` is the TypeScript shape for rows in
+  `template-library.generated.json`. The catalog may be empty while you rebuild
+  a smaller intentional set.
 
 Key concepts:
 
@@ -82,8 +79,6 @@ Key concepts:
 - `TemplateLibraryCatalogFile`
 - `TemplateLibraryRepoInfo`
 - `TemplateLibrarySignals`
-- per-dossier `manifest.json` files in
-  `scaffold-pipeline/dossiers/*`
 
 ## Production boundary
 

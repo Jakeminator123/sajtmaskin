@@ -6,6 +6,7 @@ import { normalizeV0Error } from "@/lib/v0/errors";
 import { prepareCredits } from "@/lib/credits/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import { maybeExpandShortPromptWithBrief } from "@/lib/builder/promptBriefExpander";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
@@ -21,6 +22,10 @@ import {
   getBuildProfileId,
 } from "@/lib/models/catalog";
 import { createGenerationPipeline } from "@/lib/gen/fallback";
+import {
+  MAX_CONTRACT_CLARIFICATION_ROUNDS,
+  shouldOfferContractClarification,
+} from "@/lib/gen/contract-clarification-policy";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -134,7 +139,27 @@ export async function POST(req: Request) {
         promptSourcePreservePayload: metaPromptSourcePreservePayload,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
-      const optimizedMessage = promptOrchestration.finalMessage;
+      let optimizedMessage = promptOrchestration.finalMessage;
+      let promptBriefExpanded = false;
+      const expandResult = await maybeExpandShortPromptWithBrief({
+        message: optimizedMessage,
+        brief: extractBriefFromMeta(meta),
+        strategy: strategyMeta.strategy,
+        promptSourcePreservePayload: metaPromptSourcePreservePayload,
+        initialBuildTurn: true,
+        buildIntent: metaBuildIntent,
+        abortSignal: req.signal,
+        meta: meta && typeof meta === "object" ? (meta as Record<string, unknown>) : null,
+      });
+      if (expandResult.wasExpanded) {
+        optimizedMessage = expandResult.message;
+        promptBriefExpanded = true;
+        devLogAppend("in-progress", {
+          type: "prompt.brief.expand",
+          originalLength: promptOrchestration.finalMessage.length,
+          expandedLength: optimizedMessage.length,
+        });
+      }
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking =
@@ -185,6 +210,9 @@ export async function POST(req: Request) {
                 const copy = { ...(meta as Record<string, unknown>) };
                 delete copy.promptOriginal;
                 delete copy.promptFormatted;
+                if (promptBriefExpanded) {
+                  copy.promptBriefExpanded = true;
+                }
                 copy.promptStrategy = strategyMeta.strategy;
                 copy.promptType = strategyMeta.promptType;
                 copy.promptBudgetTarget = strategyMeta.budgetTarget;
@@ -195,6 +223,7 @@ export async function POST(req: Request) {
                 return Object.keys(copy).length > 0 ? copy : null;
               })()
             : {
+                ...(promptBriefExpanded ? { promptBriefExpanded: true } : {}),
                 promptStrategy: strategyMeta.strategy,
                 promptType: strategyMeta.promptType,
                 promptBudgetTarget: strategyMeta.budgetTarget,
@@ -466,6 +495,7 @@ export async function POST(req: Request) {
         const {
           resolvedScaffold,
           scaffoldMatchMeta,
+          scaffoldSerializeMode,
           routePlan,
           preGenerationContracts,
           capabilities: engineCapabilities,
@@ -521,19 +551,24 @@ export async function POST(req: Request) {
           envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
           unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
         });
-        if (contractClarification) {
+        if (shouldOfferContractClarification(Boolean(contractClarification), 0)) {
           const assistantQuestion = await chatRepo.addMessage(
             engineChat.id,
             "assistant",
-            contractClarification.question,
+            contractClarification!.question,
             undefined,
-            [buildStoredContractClarificationUiPart(contractClarification)],
+            [
+              buildStoredContractClarificationUiPart(contractClarification!, {
+                roundIndex: 1,
+                maxRounds: MAX_CONTRACT_CLARIFICATION_ROUNDS,
+              }),
+            ],
           ).catch(() => null);
           devLogAppend("in-progress", {
             type: "contracts.clarification-requested",
             chatId: engineChat.id,
-            kind: contractClarification.kind,
-            reason: contractClarification.reason,
+            kind: contractClarification!.kind,
+            reason: contractClarification!.reason,
           });
           const contractGateStream = new ReadableStream({
             start(controller) {
@@ -555,6 +590,7 @@ export async function POST(req: Request) {
                     scaffoldLabel: resolvedScaffold?.label ?? null,
                     scaffoldMatchSource: scaffoldMatchMeta?.matchSource ?? null,
                     scaffoldEmbeddingScore: scaffoldMatchMeta?.embeddingScore ?? null,
+                    scaffoldSerializeMode: scaffoldSerializeMode ?? null,
                     capabilities: engineCapabilities,
                     contractDataMode: preGenerationContracts.contracts.dataMode,
                     contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
@@ -582,11 +618,11 @@ export async function POST(req: Request) {
                   formatSSEEvent("tool-call", {
                     toolName: "askClarifyingQuestion",
                     toolCallId: `contracts-${Date.now()}`,
-                    args: contractClarification,
+                    args: contractClarification!,
                   }),
                 ),
               );
-              controller.enqueue(enc.encode(formatSSEEvent("content", contractClarification.question)));
+              controller.enqueue(enc.encode(formatSSEEvent("content", contractClarification!.question)));
               controller.enqueue(
                 enc.encode(
                   formatSSEEvent("done", {
@@ -638,6 +674,7 @@ export async function POST(req: Request) {
             scaffoldLabel: resolvedScaffold?.label ?? null,
             scaffoldMatchSource: scaffoldMatchMeta?.matchSource ?? null,
             scaffoldEmbeddingScore: scaffoldMatchMeta?.embeddingScore ?? null,
+            scaffoldSerializeMode: scaffoldSerializeMode ?? null,
             capabilities: engineCapabilities,
             contractDataMode: preGenerationContracts.contracts.dataMode,
             contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,

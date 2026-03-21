@@ -17,6 +17,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import { MAX_CONTRACT_CLARIFICATION_ROUNDS } from "./contract-clarification-policy";
 import type { PreGenerationContractContext } from "./pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -435,6 +436,8 @@ export interface DynamicContextOptions {
   resolvedScaffold?: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
+  /** Max sequential contract clarification rounds reached */
+  contractClarificationCapReached?: boolean;
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
@@ -556,6 +559,7 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     resolvedScaffold,
     routePlan,
     preGenerationContracts,
+    contractClarificationCapReached = false,
     componentPalette,
     designThemePreset,
     designReferences,
@@ -642,6 +646,13 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
       unresolvedDecisions.length > 0;
     if (hasContractSignal) {
       parts.push("## Pre-Generation Contracts", "");
+      if (contractClarificationCapReached) {
+        parts.push(
+          `- **Clarification status:** max sequential rounds (${MAX_CONTRACT_CLARIFICATION_ROUNDS}) reached — **do not** ask another blocking pre-generation contract question this turn.`,
+          `- **Resolution policy:** use preview-safe mocks, placeholders, and documented env slots for anything still unresolved.`,
+          "",
+        );
+      }
       parts.push(`- **Data mode:** ${contracts.dataMode}`);
       if (contracts.databaseProvider) parts.push(`- **Database:** ${contracts.databaseProvider}`);
       if (contracts.authProvider) parts.push(`- **Auth:** ${contracts.authProvider}`);
@@ -663,17 +674,29 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
       if (unresolvedDecisions.length > 0) {
         parts.push("", "- **Unresolved decisions:**");
         parts.push(...unresolvedDecisions.map((entry) => `  - ${entry.kind}: ${entry.reason}`));
-        parts.push(
-          "  - If these decisions matter for backend/runtime behavior, ask a clarifying question before generating provider-specific code.",
-          "  - If the user has not chosen the provider yet, keep the preview working with mock or placeholder data instead of inventing secrets or backend wiring.",
-        );
+        if (contractClarificationCapReached) {
+          parts.push(
+            "  - **Cap reached:** do not block on these — choose preview-safe defaults and label assumptions in code comments.",
+          );
+        } else {
+          parts.push(
+            "  - If these decisions matter for backend/runtime behavior, ask a clarifying question before generating provider-specific code.",
+            "  - If the user has not chosen the provider yet, keep the preview working with mock or placeholder data instead of inventing secrets or backend wiring.",
+          );
+        }
       }
       if (preGenerationContracts.confirmedAnswers.length > 0) {
-        parts.push("", "- **Confirmed contract answers from the user:**");
+        parts.push("", "- **Confirmed contract answers from the user (sequential):**");
+        const cap = contractClarificationCapReached
+          ? MAX_CONTRACT_CLARIFICATION_ROUNDS
+          : 6;
         parts.push(
           ...preGenerationContracts.confirmedAnswers
-            .slice(0, 6)
-            .map((entry) => `  - ${entry.kind}: ${entry.answer}`),
+            .slice(0, cap)
+            .map(
+              (entry) =>
+                `  - ${entry.kind}: Q: ${entry.question} → A: ${entry.answer}`,
+            ),
         );
       }
       parts.push("");
@@ -938,6 +961,7 @@ export interface BuildSystemPromptOptions {
   resolvedScaffold?: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
+  contractClarificationCapReached?: boolean;
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
@@ -963,6 +987,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     resolvedScaffold: options.resolvedScaffold,
     routePlan: options.routePlan,
     preGenerationContracts: options.preGenerationContracts,
+    contractClarificationCapReached: options.contractClarificationCapReached,
     componentPalette: options.componentPalette,
     designThemePreset: options.designThemePreset,
     designReferences: options.designReferences,

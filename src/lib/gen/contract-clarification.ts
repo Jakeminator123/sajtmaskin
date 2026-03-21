@@ -1,4 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { MAX_CONTRACT_CLARIFICATION_ROUNDS } from "@/lib/gen/contract-clarification-policy";
 import type { PreGenerationContractContext } from "./pre-generation-contracts";
 
 export interface ContractClarificationQuestion {
@@ -11,7 +12,10 @@ export interface ContractClarificationQuestion {
 
 export function buildStoredContractClarificationUiPart(
   clarification: ContractClarificationQuestion,
+  roundMeta?: { roundIndex: number; maxRounds?: number },
 ): Record<string, unknown> {
+  const maxRounds = roundMeta?.maxRounds ?? MAX_CONTRACT_CLARIFICATION_ROUNDS;
+  const roundIndex = roundMeta?.roundIndex ?? 1;
   return {
     type: "tool:awaiting-input",
     toolName: "Klargörande fråga",
@@ -24,6 +28,8 @@ export function buildStoredContractClarificationUiPart(
       reason: clarification.reason,
       awaitingInput: true,
       contractClarification: true,
+      clarificationRound: roundIndex,
+      clarificationMaxRounds: maxRounds,
     },
   };
 }

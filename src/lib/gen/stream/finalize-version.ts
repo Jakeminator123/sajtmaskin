@@ -53,6 +53,9 @@ export interface FinalizeParams {
   routePlan?: RoutePlan | null;
   resolvedScaffold: ScaffoldManifest | null;
   scaffoldAlternatives?: string[];
+  scaffoldMatchSource?: string | null;
+  scaffoldEmbeddingScore?: number | null;
+  scaffoldSerializeMode?: string | null;
   urlMap: Record<string, string>;
   startedAt: number;
   runAutofix?: boolean;
@@ -116,9 +119,11 @@ export async function finalizeAndSaveVersion(
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
   let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
+  const phaseTiming: Record<string, number> = {};
 
   // 1. Autofix
   if (runAutofix) {
+    const t0 = performance.now();
     onProgress?.("autofix", { phase: "start", chatId });
     try {
       const autoFixResult = await runAutoFix(accumulatedContent, {
@@ -145,9 +150,11 @@ export async function finalizeAndSaveVersion(
       console.warn("[autofix] Pipeline error, using raw content:", autofixErr);
       onProgress?.("autofix", { phase: "error" });
     }
+    phaseTiming.autofixMs = Math.round(performance.now() - t0);
   }
 
   // 2. Syntax validation + multi-pass fix (LLM fixer gated by runAutofix)
+  const syntaxT0 = performance.now();
   onProgress?.("validation", { phase: "start" });
   const syntaxResult = await validateAndFix(contentForVersion, {
     chatId,
@@ -173,11 +180,13 @@ export async function finalizeAndSaveVersion(
       errorsAfter: syntaxResult.errorsAfter,
     });
   }
+  phaseTiming.syntaxMs = Math.round(performance.now() - syntaxT0);
 
   // 3. URL expansion
   contentForVersion = expandUrls(contentForVersion, urlMap);
 
   // 3b. Image materialization (replace /placeholder.svg?text=... with real Unsplash URLs)
+  const imgT0 = performance.now();
   try {
     const imgResult = await materializeImages(contentForVersion);
     if (imgResult.replacedCount > 0) {
@@ -193,6 +202,7 @@ export async function finalizeAndSaveVersion(
   } catch (imgErr) {
     console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
   }
+  phaseTiming.imageMs = Math.round(performance.now() - imgT0);
 
   if (!contentForVersion.trim()) {
     warnLog("engine", "Skipping empty generation output", {
@@ -236,12 +246,14 @@ export async function finalizeAndSaveVersion(
     previousFiles,
   });
 
+  const preflightT0 = performance.now();
   const preflightResult = await runFinalizePreflight({
     chatId,
     model,
     filesJson,
     routePlan,
   });
+  phaseTiming.preflightMs = Math.round(performance.now() - preflightT0);
   filesJson = preflightResult.filesJson;
   finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
   preflightFileCount = preflightResult.preflightFileCount;
@@ -357,10 +369,15 @@ export async function finalizeAndSaveVersion(
       fileCount: preflightFileCount,
       scaffoldRetryUsed: false,
       scaffoldRetrySuggested: scaffoldRetry?.suggestedScaffoldId ?? null,
-      meta:
-        resolvedTier && isCanonicalModelId(resolvedTier)
+      meta: {
+        ...(resolvedTier && isCanonicalModelId(resolvedTier)
           ? { phaseRouting: getPhaseRoutingSummary(resolvedTier) }
-          : undefined,
+          : {}),
+        scaffoldMatchSource: params.scaffoldMatchSource ?? null,
+        scaffoldEmbeddingScore: params.scaffoldEmbeddingScore ?? null,
+        scaffoldSerializeMode: params.scaffoldSerializeMode ?? null,
+        phaseTiming,
+      },
     });
   } catch (telemetryErr) {
     console.warn("[telemetry] Failed to write generation telemetry:", telemetryErr);

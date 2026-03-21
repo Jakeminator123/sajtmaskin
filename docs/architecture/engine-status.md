@@ -77,6 +77,15 @@ What that means in practice:
 When you need something closer to a real Node.js runtime, the intended path is
 Sandbox or actual deployment, not the default preview iframe.
 
+### Fidelity gap
+
+The preview renders React 18 UMD + Tailwind CDN in a single HTML document.
+This means: no App Router, no Server Components, no `next/font`, no
+`next/image`, and limited import resolution. The generated code is often
+significantly better-looking when exported and run with `npm run dev` or
+deployed. The preview panel shows a subtle "Snabb preview — begränsad
+fidelity" badge to set expectations.
+
 ## Own-engine runtime flow
 
 ```mermaid
@@ -259,9 +268,8 @@ utan också i den riktiga own-engine-kedjan som bygger preview-versioner.
 
 ## Kända kvarvarande begränsningar
 
-- Extern template-research är kanoniskt under `scaffold-pipeline/` (discovery,
-  repo-cache, dossiers); rå discovery och repo-cache är fortfarande
-  build-time/research-time och inte runtime-input
+- Mallreferenskatalogen (`src/lib/gen/template-library/`) kan fyllas på igen med
+  utvalda källor; tom stub är giltig tills ni kuraterar om
 - Preview stubs approximerar shadcn -- inte pixelperfekt
 - Route-plan och kontraktssvar syns nu i builderns model-info och i dev-loggar,
   men har ännu inte en större dedikerad Phase 8-statusyta i buildern

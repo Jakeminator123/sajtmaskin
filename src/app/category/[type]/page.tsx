@@ -33,10 +33,10 @@ import {
   type Template,
 } from "@/lib/templates/template-data";
 import { createProject } from "@/lib/project-client";
+import { toast } from "sonner";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import Image from "next/image";
 import { PreviewModal } from "@/components/templates";
-import { toast } from "sonner";
 
 // Icon mapping - includes all icons used in V0_CATEGORIES and legacy CATEGORIES
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -435,6 +435,11 @@ function V0TemplateCard({
       router.push(`/builder?${params.toString()}`);
     } catch (error) {
       console.error("Failed to create project from template:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Kunde inte skapa projekt. Kontrollera att du inte nått max antal projekt.",
+      );
       setIsCreating(false);
     }
   };

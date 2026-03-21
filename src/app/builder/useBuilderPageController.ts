@@ -963,14 +963,14 @@ export function useBuilderPageController() {
     }
   }, [chatId, applyInstructionsOnce, hasLoadedInstructionsOnce]);
 
-  // Health features
+  // Health features (no AbortController: aborting this cheap GET in Strict Mode
+  // or on fast remount spams DevTools with "Fetch failed loading" even when /api/health is fine.)
   useEffect(() => {
     let isActive = true;
-    const controller = new AbortController();
 
     const loadImageStrategyDefault = async () => {
       try {
-        const flags = await fetchHealthFeatures(controller.signal);
+        const flags = await fetchHealthFeatures();
         if (!flags) return;
         const { blobEnabled, v0Enabled, reasons } = flags;
         if (!isActive) return;
@@ -996,7 +996,6 @@ export function useBuilderPageController() {
     loadImageStrategyDefault();
     return () => {
       isActive = false;
-      controller.abort();
     };
   }, [fetchHealthFeatures, setIsMediaEnabled, setIsImageGenerationsSupported, setEnableImageGenerations, featureWarnedRef]);
 

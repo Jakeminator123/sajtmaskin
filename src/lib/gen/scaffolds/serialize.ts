@@ -24,14 +24,14 @@ export type ScaffoldSerializeMode = "structural" | "inspirational";
 export function detectScaffoldMode(prompt: string, styleKeywords?: string[]): ScaffoldSerializeMode {
   const lower = prompt.toLowerCase();
   const kwHits = CREATIVE_THEME_KEYWORDS.filter((kw) => lower.includes(kw));
-  if (kwHits.length >= 1) return "inspirational";
   if (styleKeywords && styleKeywords.length > 0) {
     const styleLower = styleKeywords.map((s) => s.toLowerCase());
     const styleHits = CREATIVE_THEME_KEYWORDS.filter((kw) =>
       styleLower.some((s) => s.includes(kw)),
     );
-    if (styleHits.length >= 1) return "inspirational";
+    if (kwHits.length + styleHits.length >= 2) return "inspirational";
   }
+  if (kwHits.length >= 2) return "inspirational";
   return "structural";
 }
 
@@ -45,12 +45,15 @@ export function serializeScaffoldForPrompt(
 
   if (mode === "inspirational") {
     const filePaths = scaffold.files.map((f) => `- ${f.path}`).join("\n");
-    const globalsCss = scaffold.files.find((f) => f.path.endsWith("globals.css"));
-    const themeBlock = globalsCss
-      ? `\n\n## Scaffold Theme Reference (adapt freely)\n\n\`\`\`css file="${globalsCss.path}"\n${globalsCss.content}\n\`\`\``
-      : "";
+    const ANCHOR_PATTERNS = [/globals\.css$/, /layout\.tsx$/, /page\.tsx$/];
+    const anchorFiles = scaffold.files.filter((f) =>
+      ANCHOR_PATTERNS.some((p) => p.test(f.path)),
+    );
+    const anchorBlocks = anchorFiles
+      .map((f) => `\`\`\`${inferLang(f.path)} file="${f.path}"\n${f.content}\n\`\`\``)
+      .join("\n\n");
 
-    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely. Replace scaffold placeholder marketing copy with project-specific headings, body text, CTAs, and imagery cues that match the user's request.\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}${themeBlock}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` uses deliberately neutral gray tokens (hue 0, no color). You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks gray/neutral, you forgot to adapt the colors.${hints}`;
+    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely. Replace scaffold placeholder marketing copy with project-specific headings, body text, CTAs, and imagery cues that match the user's request.\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Scaffold Anchor Files (structural reference — adapt freely)\n\n${anchorBlocks}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` uses deliberately neutral gray tokens (hue 0, no color). You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks gray/neutral, you forgot to adapt the colors.${hints}`;
   }
 
   const ctx = buildFileContext({

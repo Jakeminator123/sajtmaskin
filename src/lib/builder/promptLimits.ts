@@ -119,3 +119,26 @@ export const ORCHESTRATION_PHASE_FORCE_AUDIT_CHARS = readIntEnv(
   MAX_CHAT_MESSAGE_CHARS,
 );
 
+/**
+ * When the user message is at most this many characters (after orchestration),
+ * we may run the brief-backed prompt expander to merge wizard/structured brief
+ * context into a richer build instruction (initial build only).
+ */
+export const BRIEF_EXPAND_MAX_USER_CHARS = readIntEnv(
+  "SAJTMASKIN_BRIEF_EXPAND_MAX_USER_CHARS",
+  360,
+  40,
+  4_000,
+);
+
+/**
+ * Minimum "signal" extracted from `meta.brief` (recursive string length sum)
+ * before expansion is allowed — avoids paying for an LLM call on empty stubs.
+ */
+export const BRIEF_EXPAND_MIN_BRIEF_SIGNAL_CHARS = readIntEnv(
+  "SAJTMASKIN_BRIEF_EXPAND_MIN_BRIEF_SIGNAL_CHARS",
+  48,
+  8,
+  20_000,
+);
+

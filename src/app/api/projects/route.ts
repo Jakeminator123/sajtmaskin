@@ -3,6 +3,7 @@ import {
   createProject,
   getAllProjectsForOwner,
   getProjectData,
+  isAdminEmail,
   type Project,
 } from "@/lib/db/services";
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
@@ -93,29 +94,32 @@ export async function POST(request: NextRequest) {
     // Get user and session from request (cookies, not body)
     const user = await getCurrentUser(request);
     const sessionId = session.sessionId;
-    const isPaidUser = user ? user.diamonds > 100 : false; // Simple check - could be more sophisticated
+    const isAdmin = user?.email ? isAdminEmail(user.email) : false;
+    const isPaidUser = isAdmin || (user ? user.diamonds > 100 : false);
 
-    const limitCheck = await canCreateProject(user?.id || null, sessionId || null, isPaidUser);
+    if (!isAdmin) {
+      const limitCheck = await canCreateProject(user?.id || null, sessionId || null, isPaidUser);
 
-    if (!limitCheck.allowed) {
-      console.info("[API/projects] Project limit reached:", {
-        userId: user?.id,
-        sessionId,
-        current: limitCheck.current,
-        limit: limitCheck.limit,
-      });
-      return attachSessionCookie(
-        NextResponse.json(
-          {
-            success: false,
-            error: limitCheck.reason,
-            limitReached: true,
-            current: limitCheck.current,
-            limit: limitCheck.limit,
-          },
-          { status: 403 },
-        ),
-      );
+      if (!limitCheck.allowed) {
+        console.info("[API/projects] Project limit reached:", {
+          userId: user?.id,
+          sessionId,
+          current: limitCheck.current,
+          limit: limitCheck.limit,
+        });
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              error: limitCheck.reason,
+              limitReached: true,
+              current: limitCheck.current,
+              limit: limitCheck.limit,
+            },
+            { status: 403 },
+          ),
+        );
+      }
     }
 
     const project = await createProject(
@@ -137,7 +141,7 @@ export async function POST(request: NextRequest) {
       NextResponse.json({
         success: true,
         project,
-        projectsRemaining: limitCheck.limit - limitCheck.current - 1,
+        projectsRemaining: isAdmin ? Infinity : undefined,
       }),
     );
   } catch (error: unknown) {

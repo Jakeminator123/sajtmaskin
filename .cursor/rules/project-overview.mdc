@@ -31,7 +31,7 @@ User prompt -> Builder UI -> Own engine (default) -> Generated code -> Preview -
 - **Runtime scaffolds**: `src/lib/gen/scaffolds/` — 17 starter projects used as generation base (auto-matched, manually picked, or off).
 - **Custom instructions**: `src/lib/builder/defaults.ts` — CORE (always) + EXTENDED (without scaffold). Editable in builder header.
 - **Template gallery**: `src/lib/templates/` — user-facing browsing/search surface. Not the runtime scaffold registry.
-- **Research lane**: `scaffold-pipeline/` — curated dossiers that improve scaffolds via generated artifacts. Not used at runtime directly.
+- **Template reference catalog** (optional): `src/lib/gen/template-library/` — JSON + embeddings for ranking external template *references* in the system prompt. May be empty while you curate a new set; not the v0 gallery (`src/lib/templates/`).
 
 ### Key directories
 
@@ -42,7 +42,7 @@ User prompt -> Builder UI -> Own engine (default) -> Generated code -> Preview -
 | `src/app/api/v0/` | Chat/stream routes (own engine eller v0 proxy) |
 | `src/lib/gen/` | Own engine — runtime scaffolds, system prompt, autofix, preview |
 | `src/lib/templates/` | Product template gallery and semantic search |
-| `scaffold-pipeline/` | Raw discovery plus curated external reference dossiers |
+| `src/lib/gen/template-library/` | Optional reference catalog + embeddings for prompt augmentation (not the gallery) |
 | `src/app/api/auth/` | Authentication (email, Google, GitHub OAuth) |
 | `src/app/api/ai/` | AI Gateway routes (prompt assist, brief, spec) |
 | `src/components/builder/` | Builder UI components (ChatInterface, MessageList, PreviewPanel) |

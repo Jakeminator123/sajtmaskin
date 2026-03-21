@@ -10,11 +10,6 @@ decisions, even though they are not indexed for performance reasons.
 
 ## When to explicitly read from ignored paths
 
-- **`scaffold-pipeline/dossiers/`** (curated dossiers) and **`scaffold-pipeline/catalog/`**
-  (catalog files) — inform scaffold quality. Read when scaffold work or template library
-  regeneration is discussed. Dossier bulk under `scaffold-pipeline/dossiers/` is
-  cursorignored, but each dossier's `manifest.json` and `summary.md` are not (exceptions
-  in `.cursorignore`).
 - **`docs/old/`** and **`docs/plans/archived/`** — completed plans and
   historical analyses. Read when context about past decisions is needed.
 - **`.cursor/migration-archive/`** — STOR_MIGRATION analysis and agent
@@ -23,9 +18,12 @@ decisions, even though they are not indexed for performance reasons.
   **`src/lib/gen/template-library/template-library.generated.json`** — large
   generated files. Do not read whole files; use the READMEs in those
   directories instead.
-- **`Scripts/`** — dev runner and DB/migration entrypoints. **`config/scripts/`** —
-  offline pipeline (embeddings, template-library, scaffolds). Read when discussing
-  tooling or research builds.
+- **`Scripts/`** — dev runner and DB/migration entrypoints. `README.md`, `*.mjs`,
+  and `*.ts` files are now indexed; only subdirs and non-code assets stay ignored.
+  **`config/scripts/`** — offline helpers (docs embeddings, eval, audits).
+  `README.md` and `*.ts` files are indexed.
+- **`src/lib/gen/preview/shims.ts`** — preview import-shims (70 kB). Now indexed
+  so agents can search/reference it directly when debugging preview render errors.
 
 ## How to search
 

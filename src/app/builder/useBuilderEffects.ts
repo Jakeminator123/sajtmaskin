@@ -94,8 +94,6 @@ export function useBuilderEffects({
         console.error("[Builder] Template init failed:", error);
         if (isActive) {
           toast.error(message);
-          // Prevent repeated auto-init loops on failed template startup
-          // (e.g. insufficient credits or temporary API errors).
           const params = new URLSearchParams(searchParams.toString());
           params.delete("templateId");
           const query = params.toString();

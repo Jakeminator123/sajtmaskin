@@ -51,23 +51,13 @@ when they are excluded from normal Cursor indexing.
 
 Guidelines:
 
-- Treat these files as runtime-critical artifacts, not disposable local output.
-- Do not hand-edit them as a normal workflow. Prefer regenerating them from the
-  scripts documented in `Scripts/README.md` and `config/scripts/README.md`.
-- Keeping them in `.cursorignore` is about search/indexing cost, not about
-  forbidding access. Read them directly when a task actually depends on their
-  structure or contents.
-- When you only need orientation, prefer this README plus
-  `docs/architecture/repo-hygiene.md` over opening the full JSON artifacts.
+- Treat these files as runtime-critical artifacts. They may be **minimal stubs**
+  (empty catalogs / empty embedding lists) while you curate a new reference set.
+- Prefer `npm run verify:generated-paths` after edits; use
+  `npm run normalize:generated-paths` if paths need normalization.
+- Keeping large JSON in `.cursorignore` is about indexing cost; open by path when needed.
 
-Common regeneration entry points:
-
-```bash
-npm run template-library:build
-npm run template-library:embeddings
-npm run scaffolds:embeddings
-npm run scaffolds:curate
-```
+Gallery template embeddings (v0 browse cards) use `npm run templates:embeddings` — see `Scripts/README.md`.
 
 ## Adding New Suspense Rules
 

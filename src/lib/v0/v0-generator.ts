@@ -1025,6 +1025,12 @@ export async function generateFromTemplate(
   quality: QualityLevel = "standard",
   maxRetries: number = 2,
 ): Promise<GenerationResult> {
+  const templateInitMaxWaitMs = 25_000;
+  const templateInitPollDelayMs = 2_500;
+  const templateInitPollAttempts = Math.max(
+    1,
+    Math.ceil(templateInitMaxWaitMs / templateInitPollDelayMs),
+  );
   const model = MODEL_MAP[quality];
   console.info(
     "[v0-generator] Initializing from template:",
@@ -1047,7 +1053,7 @@ export async function generateFromTemplate(
       }
       // Note: model parameter does not apply to template init (just cloning template)
       // Template init only accepts templateId and chatPrivacy
-      const chat = (await v0.chats.init({
+      let chat = (await v0.chats.init({
         type: "template",
         templateId: templateId,
         chatPrivacy: "private",
@@ -1063,6 +1069,26 @@ export async function generateFromTemplate(
       if (status === "failed") {
         console.error("[v0-generator] Template loading failed with status: failed");
         throw new Error("Template loading failed - status was 'failed'");
+      }
+
+      // For template init we allow a short wait-window so delayed demoUrl/files can settle.
+      const hasFiles = (chat.latestVersion?.files?.length ?? 0) > 0;
+      const hasDemoUrl = !!chat.latestVersion?.demoUrl;
+      const hasCompleteContent = hasFiles && hasDemoUrl;
+      if (!hasCompleteContent && status !== "completed") {
+        console.info(
+          `[v0-generator] Template not ready yet, waiting up to ${Math.floor(templateInitMaxWaitMs / 1000)}s for preview/files...`,
+        );
+        const readyChat = await waitForVersionReady(
+          chat.id,
+          templateInitPollAttempts,
+          templateInitPollDelayMs,
+        );
+        if (readyChat) {
+          chat = readyChat;
+        } else {
+          console.warn("[v0-generator] Template polling timed out, using current response");
+        }
       }
 
       // Extract files from the response

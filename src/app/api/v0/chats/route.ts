@@ -286,6 +286,9 @@ export async function POST(req: Request) {
             chatId: chat.id,
             model: engineModel,
             resolvedScaffold: ownOrchestration.resolvedScaffold,
+            scaffoldMatchSource: ownOrchestration.scaffoldMatchMeta?.matchSource ?? null,
+            scaffoldEmbeddingScore: ownOrchestration.scaffoldMatchMeta?.embeddingScore ?? null,
+            scaffoldSerializeMode: ownOrchestration.scaffoldSerializeMode ?? null,
             urlMap: {},
             startedAt: genStartedAt,
             tokenUsage: {

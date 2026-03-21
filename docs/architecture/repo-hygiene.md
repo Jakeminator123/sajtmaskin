@@ -5,22 +5,10 @@ local-only, and which should be evaluated for later extraction from this repo.
 
 ## Why the repo feels large
 
-There are two different size problems:
-
-- local working-set bloat from `scaffold-pipeline/repo-cache/`
-  and similar research helpers
-- tracked context bloat from generated artifacts, reference dossiers, and a few
-  large media/report files
-
-The current research flow already separates those lanes:
-
-```mermaid
-flowchart TD
-  rawDiscovery["scaffold-pipeline/discovery"] --> repoCache["scaffold-pipeline/repo-cache"]
-  rawDiscovery --> dossiers["scaffold-pipeline/dossiers"]
-  dossiers --> generatedArtifacts["src/lib/gen artifacts"]
-  generatedArtifacts --> runtimeApp["runtime app"]
-```
+- **Historical note:** the old `scaffold-pipeline/` tree (discovery, dossiers, catalog) was removed.
+  Optional reference data now lives only in small committed stubs under `src/lib/gen/template-library/`
+  and `src/lib/gen/scaffolds/scaffold-*.json` until you rebuild a curated set.
+- **Still true:** large media, generated JSON, and docs can add weight — keep them classified below.
 
 ## Classification
 
@@ -28,10 +16,8 @@ flowchart TD
 |------|------|------|
 | `keep` | `src/`, `docs/`, `public/video/` | App/runtime code, canonical docs, and currently used product assets. |
 | `keep` | `src/lib/gen/template-library/`, `src/lib/gen/scaffolds/`, `src/lib/gen/data/docs-embeddings.json` | Runtime code imports these generated artifacts directly. Keep them committed even when some large generated JSON files are excluded from Cursor indexing. |
-| `local-only` | `scaffold-pipeline/repo-cache/`, `scaffold-pipeline/discovery/` (bulk), `_template_refs/`, `_sidor/`, `research/_sidor/` | Reproducible research inputs, clone mirrors, or legacy migration data. |
+| `local-only` | `_template_refs/`, `_sidor/`, `research/` (legacy) | Local datasets / clone mirrors; not required for the runtime app. |
 | `archive` | `docs/plans/archived/`, `docs/old/` | Useful historical context, but low-value for day-to-day indexing. |
-| `move-later` | `scaffold-pipeline/catalog/` (large JSON), `scaffold-pipeline/dossiers/` (bulk) | Valuable curated research, but not a runtime dependency. Largest trackable research surface. |
-| `move-later` | `data/scaffold-candidates-curated.json` | Regenerable report artifact written by scripts, not a runtime source of truth. |
 | `archive` | `docs/old/2026-03-holding-area/next-sidan-skrapning.txt` | Historical intake notes kept as a final holding-area reference, not active guidance. |
 
 ## Ignore policy
@@ -73,55 +59,15 @@ Important distinction:
 
 ## Safe local cleanup
 
-These folders can be deleted locally and recreated later:
+Optional local-only folders (not required for `npm run dev`):
 
-- `scaffold-pipeline/repo-cache/`
-- `scaffold-pipeline/discovery/current/`
 - `_template_refs/`
 
-PowerShell examples:
-
-```powershell
-Remove-Item "scaffold-pipeline/repo-cache" -Recurse -Force
-Remove-Item "scaffold-pipeline/discovery/current" -Recurse -Force
-Remove-Item "_template_refs" -Recurse -Force
-```
-
-Rebuild only what you need:
+After you hand-edit `src/lib/gen/template-library/*.json` or scaffold research stubs:
 
 ```bash
-npm run references:discover
-npm run template-library:hydrate-cache
-npm run template-library:build
-npm run template-library:embeddings
-npm run scaffolds:curate
+npm run verify:generated-paths
 ```
-
-Notes:
-
-- `repo-cache/` is expected to grow large again after hydration.
-- Do not delete `scaffold-pipeline/dossiers/` wholesale unless you are
-  intentionally rebuilding or relocating that curated layer.
-- Do not delete `src/lib/gen/` artifacts unless you are ready to regenerate and
-  validate runtime behavior.
-
-## Reference library decision
-
-Current recommendation:
-
-- keep `scaffold-pipeline/dossiers/` (manifests + summaries) versioned for now
-- exclude it from Cursor indexing
-- treat it as a research lane, not a runtime dependency
-- re-evaluate moving it out if either file count, churn, or onboarding cost keeps
-  growing
-
-Move it to a sibling repo or archive only when all of these are true:
-
-1. The generated runtime artifacts in `src/lib/gen/` are confirmed sufficient for
-   day-to-day app work.
-2. Research workflows can regenerate or fetch dossiers without depending on this
-   repo clone as the canonical storage location.
-3. Team members no longer need routine PR review on dossier-level changes.
 
 Until then, the best cost/benefit move is to reduce indexing noise first and
 avoid adding more local-only artifacts to Git.

@@ -27,7 +27,6 @@ boundaries:
 8. When closing a workstream, re-check the nearest relevant schema docs and
    `README.md` files for compact reality-sync fixes even if they were not the
    primary edit target.
-9. After editing or regenerating committed artifacts under `src/lib/gen/**` or
-   `scaffold-pipeline/dossiers/`, run `npm run verify:generated-paths` (and
-   `npm run normalize:generated-paths` if it fails). See
-   `.cursor/rules/generated-artifacts-hygiene.mdc`.
+9. After editing or regenerating committed artifacts under `src/lib/gen/**`,
+   run `npm run verify:generated-paths` (and `npm run normalize:generated-paths`
+   if it fails). See `.cursor/rules/generated-artifacts-hygiene.mdc`.

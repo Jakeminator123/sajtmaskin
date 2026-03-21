@@ -2,15 +2,14 @@
 
 Offline and build-time TypeScript/Node helpers. **Not imported by the Next.js app.**
 
-Prefer npm scripts from the repo root (`package.json` prefixes paths with `config/scripts/`). Typical flows are documented in `Scripts/README.md` and `scaffold-pipeline/README.md`.
+Prefer npm scripts from the repo root (`package.json` prefixes paths with `config/scripts/`). See `Scripts/README.md` for dev entrypoints.
 
 | Area | npm examples |
 |------|----------------|
-| Template library + dossiers | `template-library:import`, `hydrate-cache`, `build`, `embeddings`, **`verify:generated-paths`**, **`normalize:generated-paths`** |
-| Runtime scaffolds | `scaffolds:embeddings`, `curate`, `promote`, `test-matching` |
+| Generated JSON hygiene | **`verify:generated-paths`**, **`normalize:generated-paths`** (template-library + scaffold-research stubs under `src/lib/gen/`) |
 | Gallery / marketing templates | `templates:embeddings` |
 | Docs RAG | `docs:embeddings` |
 | Eval | `eval` |
-| Reference repo clones | run `node config/scripts/sync-scaffold-refs.mjs` |
+| Runtime library audit | `runtime-library:audit` |
 
 All imports use `../../src/...` because this directory is **two levels** below the repo root.

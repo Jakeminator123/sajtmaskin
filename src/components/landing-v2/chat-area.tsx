@@ -112,13 +112,6 @@ function useTerminalTypewriter() {
 
 const categories = [
   {
-    id: "mall",
-    label: "Mall",
-    icon: Layout,
-    description: "Webbplats / App",
-    placeholder: "Vilken typ av webbplats vill du skapa? Ber\u00e4tta om ditt f\u00f6retag...",
-  },
-  {
     id: "analyserad",
     label: "Analyserad",
     icon: MessageCircleQuestion,
@@ -127,9 +120,9 @@ const categories = [
   },
   {
     id: "kategori",
-    label: "Kategori",
+    label: "Mallar",
     icon: Palette,
-    description: "V\u00e4lj typ av sida",
+    description: "V\u00e4lj mall eller kategori",
     placeholder: "V\u00e4lj en kategori nedan eller beskriv din vision...",
   },
   {

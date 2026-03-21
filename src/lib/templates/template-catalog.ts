@@ -1,6 +1,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import {
   TEMPLATES,
+  V0_CATEGORIES,
   type Template,
   getTemplateCategoryId,
   getTemplateCategoryTitle,
@@ -51,4 +52,30 @@ export function getTemplateCatalog(params: {
   const { intent } = params;
   const v0Items = TEMPLATES.map(mapV0Template);
   return v0Items.filter((item) => (intent ? item.buildIntent === intent : true));
+}
+
+/**
+ * Convert a gallery template pick into a generation prompt for the own engine.
+ * The scaffold matcher will auto-select the right scaffold from the prompt text.
+ */
+export function buildTemplatePrompt(templateId: string): {
+  prompt: string;
+  buildIntent: BuildIntent;
+  categoryId: string;
+} | null {
+  const template = TEMPLATES.find((t) => t.id === templateId);
+  if (!template) return null;
+
+  const categoryId = getTemplateCategoryId(template);
+  const categoryInfo = V0_CATEGORIES[categoryId];
+  const buildIntent = inferBuildIntent(categoryId);
+  const categoryLabel = categoryInfo?.title ?? categoryId;
+
+  const prompt =
+    `Skapa en professionell webbsida inspirerad av: "${template.title}". ` +
+    `Kategori: ${categoryLabel}. ` +
+    `Designa med modern layout, tydlig visuell hierarki, responsiv design och professionellt utseende. ` +
+    `Inkludera relevanta sektioner för den här typen av sida.`;
+
+  return { prompt, buildIntent, categoryId };
 }

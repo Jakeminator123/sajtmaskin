@@ -38,7 +38,7 @@ package-lock.json
 .token-status.json
 
 # Local browser / automation config
-config.browser.txt
+#config.browser.txt
 config.txt
 config.example.txt
 sajtmaskin.code-workspace
@@ -62,13 +62,16 @@ src/components/ui/
 # Static assets
 public/
 
-# Dev runner scripts (Next, DB, Vercel template sync) — keep README for agents.
-Scripts/**
+# Dev runner scripts (Next, DB, Vercel template sync) — keep README + entrypoints.
+#Scripts/**
 !Scripts/README.md
+!Scripts/*.mjs
+!Scripts/*.ts
 
 # Offline pipeline / embeddings / research helpers (see config/README.md)
-config/scripts/**
+#config/scripts/**
 !config/scripts/README.md
+!config/scripts/*.ts
 
 # Admin dashboard routes
 src/app/api/admin/
@@ -82,37 +85,6 @@ src/app/api/auth/
 # Landing page components (stable after design)
 src/components/landing-v2/
 
-# ---------------------------------------------------------------------------
-# Scaffold pipeline — discovery, dossiers, catalog (was research/)
-# ---------------------------------------------------------------------------
-
-# Raw discovery data (large, gitignored bulk — only READMEs tracked)
-scaffold-pipeline/discovery/**
-!scaffold-pipeline/discovery/README.md
-!scaffold-pipeline/discovery/SCHEMA.md
-!scaffold-pipeline/discovery/schema.summary.json
-
-# Repo cache (shallow clones, gitignored)
-scaffold-pipeline/repo-cache/
-!scaffold-pipeline/repo-cache/README.md
-
-# Dossier bulk (339+ files) — keep manifests and summaries readable
-scaffold-pipeline/dossiers/**
-!scaffold-pipeline/dossiers/*/manifest.json
-!scaffold-pipeline/dossiers/*/summary.md
-
-# Catalog bulk (catalog.json is 9600+ lines)
-scaffold-pipeline/catalog/**
-!scaffold-pipeline/catalog/README.md
-!scaffold-pipeline/catalog/catalog.md
-!scaffold-pipeline/catalog/schema.template-manifest.json
-!scaffold-pipeline/catalog/EVALUATION_CHECKLIST.md
-!scaffold-pipeline/catalog/PROMOTION_WORKFLOW.md
-
-# Pipeline scripts
-scaffold-pipeline/scripts/**
-!scaffold-pipeline/scripts/scaffold-pipeline.py
-
 # Legacy research paths (kept for backward compat)
 research/
 !research/README.md
@@ -120,11 +92,10 @@ _template_refs/
 _sidor/
 vercel_usecase_next_react_templates/
 
-# Generated reports and machine-generated artifacts (6+ MB)
-data/scaffold-candidates-curated.json
+# Generated reports and machine-generated artifacts
 src/lib/gen/data/docs-embeddings.json
 src/lib/gen/data/docs-snippets.ts
-src/lib/gen/preview/shims.ts
+# src/lib/gen/preview/shims.ts — unignored for preview debugging
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
 src/lib/gen/template-library/template-library-embeddings.json
@@ -173,7 +144,6 @@ chat_till_vanster.txt
 
 # Misc legacy folders
 #.j_to_agent/
-vercel_templates_levels/
 
 # Orchestrator run folders
 .cursor/orchestrator/run/*/
@@ -184,3 +154,4 @@ tests/openclaw/**
 
 internt_jakob/
 #.vercel/
+

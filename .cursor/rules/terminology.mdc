@@ -53,11 +53,11 @@ When discussing generation architecture, prefer this mental model:
 | Lane | What belongs here | What it is not |
 |------|-------------------|----------------|
 | **Runtime lane** | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not raw external datasets |
-| **Research lane** | `scaffold-pipeline/catalog/`, raw discovery under `scaffold-pipeline/discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
+| **Reference catalog lane** | Curated JSON + embeddings in `src/lib/gen/template-library/` (optional; may be empty) | Not the template gallery, not the runtime scaffold registry |
 
 Important rule:
 - Treat the **template gallery** in `src/lib/templates/` as a product/UI discovery surface, not as a third generation lane.
-- Do NOT describe the system as if runtime generation alternates between "templates" and "scaffolds". Runtime generation should be described as scaffold-driven.
+- Do NOT describe runtime generation as if **v0 gallery templates** were the same thing as **runtime scaffolds**. Gallery items steer browsing/prompt; scaffolds are internal starter code in `src/lib/gen/scaffolds/`.
 
 ### Builder model lanes (user-facing)
 
@@ -71,7 +71,7 @@ When discussing model selection inside the builder, use this lane vocabulary:
 | **Thinking flag** | `tankeflagga` | Extra reasoning behavior in generation metadata | `Thinking` toggle |
 
 Important rules:
-- Do NOT mix up `operational lanes` (runtime vs research) with `builder model lanes`.
+- Do NOT mix up `operational lanes` (runtime vs optional reference catalog) with `builder model lanes`.
 - `Anthropic` can be selected in the **model lane** (build profile `anthropic`) and also in the **product lane** (`anthropic/*` assist model strings).
 - The `Anthropic-jamforelse` preset intentionally aligns both model lane and product lane to Anthropic for apples-to-apples comparison.
 - `Thinking` is not a lane and does not replace model or product lane selection.
@@ -82,17 +82,16 @@ Three concepts that must not be mixed:
 
 | Term | Swedish label | Meaning | Scope |
 |------|---------------|---------|-------|
-| **Sajtmaskin template gallery item** | `hemsidemall` or `kategori-mall` | A user-facing gallery entry from `src/lib/templates/`. For browsing and inspiration. NOT used at generation runtime. | Product/UI concept |
-| **Runtime scaffold** | `grundmall` | One of ~10 internal starter projects in `src/lib/gen/scaffolds/`. The engine uses these as a base instead of generating from scratch. Auto-selected by embedding matching or manually chosen. | Runtime generation concept |
+| **Sajtmaskin template gallery item** (v0) | `hemsidemall` or `kategori-mall` | A user-facing gallery entry from `src/lib/templates/` (v0.dev previews). Browsing/inspiration; steers the initial prompt, not committed starter code. | Product/UI concept |
+| **Runtime scaffold** | `grundmall` | Internal starter projects in `src/lib/gen/scaffolds/`. The engine uses these as a base instead of generating from scratch. Auto-selected by embedding matching (when vectors exist) or keyword matcher, or manually chosen. | Runtime generation concept |
 | **Vercel Template** | `extern Vercel-template` | A public starter repo from vercel.com/templates. External reference only. | External ecosystem concept |
 
-Research and curation concepts (not used at runtime):
+Reference catalog (optional prompt augmentation):
 
 | Term | Swedish label | Meaning |
 |------|---------------|---------|
-| **Reference dossier** | `referensdossier` | Curated per-template research package under `scaffold-pipeline/dossiers/`. Contains manifest, summary, selected files. Feeds into scaffold improvements via build scripts. |
-| **Generated research artifact** | `genererad research-artefakt` | Committed JSON/embeddings in `src/lib/gen/template-library/` and `scaffold-research.generated.json`. Derived from dossiers at build time, consumed at runtime for template reference ranking. |
-| **Raw discovery** | `rå upptäckt` | Noisy scrape output under `scaffold-pipeline/discovery/`. Gitignored. Not runtime data. |
+| **Template reference entry** | `mallreferens` | Row in `template-library.generated.json` used to rank code/idea snippets for the system prompt. Distinct from **v0 gallery** items. |
+| **Generated reference artifact** | `genererad referensartefakt` | Committed JSON/embeddings under `src/lib/gen/template-library/` and optional `scaffold-research.generated.json` overrides. |
 
 Architecture concepts:
 
@@ -106,13 +105,13 @@ Preferred terminology:
 - `src/lib/templates/`: **`template gallery`** or **`gallery item`**
 - `src/lib/gen/scaffolds/`: **`scaffold`** or **`runtime scaffold`**
 - Vercel's public library: **`Vercel template`** (always qualify)
-- `scaffold-pipeline/dossiers/`: **`reference dossier`**
-- `scaffold-research.generated.json` etc.: **`generated research artifact`**
+- Rows in `template-library.generated.json`: **`template reference entry`**
+- `scaffold-research.generated.json` etc.: **`generated reference artifact`**
 
 Key rules:
-- Do NOT call scaffolds just `templates` — that term is for the gallery.
-- Do NOT describe dossiers as a second scaffold registry — they are research input.
-- Do NOT imply dossiers are used at runtime — only their generated artifacts are.
+- Do NOT call scaffolds just `templates` — that term is for the v0 gallery.
+- Do NOT treat v0 gallery items as runtime scaffolds — scaffolds live in `src/lib/gen/scaffolds/`.
+- **Vercel templates** (vercel.com) are external ecosystem starters; **v0 gallery templates** are product browse cards — use distinct names.
 
 ### Common chat aliases
 
@@ -164,15 +163,11 @@ Selection: `getDefaultCustomInstructions(scaffoldMode)`:
 
 The user can edit these in the builder header dialog. `isDefaultCustomInstructions()` detects manual edits.
 
-### Research pipeline terms
+### Reference catalog terms
 
-Use this pipeline vocabulary consistently:
-
-1. `raw discovery` -> scrape output such as `scaffold-pipeline/discovery/`
-2. `raw template dataset` -> `_sidor`-style local datasets used for curation
-3. `reference dossier` -> curated per-template package under `scaffold-pipeline/dossiers/`
-4. `generated research artifacts` -> committed JSON/embeddings in `src/lib/gen/template-library/` and scaffold research JSON
-5. `runtime scaffold` -> internal starter used directly by generation
+1. **Template reference entry** — one object in `template-library.generated.json` (optional snippets for the prompt).
+2. **Generated reference artifact** — committed JSON/embeddings under `src/lib/gen/template-library/` and optional `scaffold-research.generated.json`.
+3. **Runtime scaffold** — internal starter in `src/lib/gen/scaffolds/` used directly by generation.
 
 ### Build method (`BuildMethod`)
 

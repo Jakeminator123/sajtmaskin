@@ -474,6 +474,7 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
     "var useSpring = function(v) { return v || { get: function() { return 0; } }; };",
     "var useScroll = function() { return { scrollY: { get: function() { return 0; } }, scrollYProgress: { get: function() { return 0; } }, scrollX: { get: function() { return 0; } }, scrollXProgress: { get: function() { return 0; } } }; };",
     "var useInView = function() { return false; };",
+    "var useReducedMotion = function() { return false; };",
     "var useAnimation = function() { return { start: function() { return Promise.resolve(); }, stop: function() {}, set: function() {} }; };",
 
     "var __chartShim = React.forwardRef(function ChartShim(props, ref) {",
@@ -664,7 +665,7 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
           emitBinding(imp.defaultImport, "motion");
         }
         if (imp.namespaceImport) {
-          emitBinding(imp.namespaceImport, "{ motion, AnimatePresence, useMotionValue, useTransform, useSpring, useScroll, useInView, useAnimation }");
+          emitBinding(imp.namespaceImport, "{ motion, AnimatePresence, useMotionValue, useTransform, useSpring, useScroll, useInView, useReducedMotion, useAnimation }");
         }
         for (const binding of imp.namedImports) {
           const knownShims: Record<string, string> = {
@@ -675,6 +676,7 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
             useSpring: "useSpring",
             useScroll: "useScroll",
             useInView: "useInView",
+            useReducedMotion: "useReducedMotion",
             useAnimation: "useAnimation",
           };
           const shimValue = knownShims[binding.imported];

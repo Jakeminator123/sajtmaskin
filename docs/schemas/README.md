@@ -67,8 +67,6 @@ These docs summarize the system, but the runtime truth lives in:
 - `src/lib/gen/scaffolds/types.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/template-library/types.ts`
-- `scaffold-pipeline/catalog/schema.template-manifest.json`
-
 ## Archive note
 
 Older overlapping schema notes were moved to `docs/old/schemas/`. Keep them

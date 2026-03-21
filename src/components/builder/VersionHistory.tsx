@@ -545,6 +545,10 @@ export function VersionHistory({
                   : qualityTier === "preview"
                     ? "Preview-klar"
                     : null;
+            // Quality tier defaults to "preview" for any non-failed version with demoUrl,
+            // which incorrectly showed "Preview-klar" alongside "Verifying" during checks.
+            const showQualityTierBadge =
+              Boolean(qualityTierLabel) && lifecycleStatus !== "verifying";
             const qualityTierBadgeClass =
               qualityTier === "production"
                 ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"
@@ -599,7 +603,7 @@ export function VersionHistory({
                           {lifecycleStatus === "retrying" && <RotateCcw className="h-3 w-3" />}
                           {lifecycleLabel}
                         </Badge>
-                        {qualityTierLabel && (
+                        {showQualityTierBadge && (
                           <Badge
                             variant="outline"
                             className={cn("px-1.5 py-0 text-[10px]", qualityTierBadgeClass)}

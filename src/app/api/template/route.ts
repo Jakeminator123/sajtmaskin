@@ -309,6 +309,20 @@ export async function POST(request: NextRequest) {
 
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
+      if (
+        errorMessage.includes("V0_API_KEY") &&
+        errorMessage.toLowerCase().includes("not set")
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "V0_API_KEY saknas i miljön. Lägg till en v0 Platform API-nyckel i .env.local för att öppna mallar från galleriet.",
+          },
+          { status: 503 },
+        );
+      }
+
       // Handle specific error types with appropriate status codes
       if (errorMessage.includes("not found") || errorMessage.includes("404")) {
         return NextResponse.json(
@@ -334,7 +348,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: "API-konfigurationsfel. Kontakta support.",
+            error:
+              "v0 Platform API avvisade nyckeln (401). Sätt V0_API_KEY i .env.local i projektroten (nyckel från v0/Vercel), spara och starta om dev-servern. OPENAI_API_KEY räcker inte för galleri-mallar — det är en separat integration.",
           },
           { status: 500 },
         );

@@ -7,8 +7,8 @@ alwaysApply: false
 
 Apply when editing or reviewing **committed generated outputs** under:
 
-- `src/lib/gen/**/template-library.generated.json`, `scaffold-research.generated.json`
-- `scaffold-pipeline/dossiers/*/manifest.json`
+- `src/lib/gen/**/template-library.generated.json`, `template-library-embeddings.json`
+- `src/lib/gen/scaffolds/scaffold-research.generated.json`, `scaffold-embeddings.json`
 - any script that writes **absolute filesystem paths** into JSON tracked by git
 
 ## If you notice a problem
@@ -16,13 +16,12 @@ Apply when editing or reviewing **committed generated outputs** under:
 If you see **any** of the following after running a build script or agent automation:
 
 - Windows user paths such as `C:\\Users\\` or `C:/Users/` inside committed JSON
-- Legacy segments such as `research/external-templates` in paths that should be canonical `scaffold-pipeline/`
-- Hardcoded developer machine paths in `config/scripts/*.ts` fallbacks
+- Legacy segments such as `research/external-templates` in paths that should be repo-relative or empty
 
 **Stop** the current “ship it” path. Do **not** commit blindly.
 
 1. Run `npm run verify:generated-paths` — it must exit 0 before merge.
-2. If it fails, run `npm run normalize:generated-paths` (rewrites portable `clonePath` / `sourceRoot`) or fix the **generator** (prefer `toPortableClonePath`-style output in `build-template-library.ts`) and regenerate.
+2. If it fails, run `npm run normalize:generated-paths` or hand-edit JSON to remove machine paths.
 3. Remove hardcoded absolute fallbacks from scripts; use workspace-relative resolution only.
 4. Re-run `npm run verify:generated-paths`.
 

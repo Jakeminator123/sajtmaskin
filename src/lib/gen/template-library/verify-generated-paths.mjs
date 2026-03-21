@@ -36,19 +36,6 @@ function scanText(relPath, text) {
   return [];
 }
 
-function walkDossierManifests() {
-  const root = path.join(WORKSPACE_ROOT, "scaffold-pipeline/dossiers");
-  const out = [];
-  if (!fs.existsSync(root)) return out;
-  for (const name of fs.readdirSync(root)) {
-    const manifestPath = path.join(root, name, "manifest.json");
-    if (!fs.existsSync(manifestPath)) continue;
-    const text = fs.readFileSync(manifestPath, "utf-8");
-    out.push(...scanText(`scaffold-pipeline/dossiers/${name}/manifest.json`, text));
-  }
-  return out;
-}
-
 function main() {
   const errors = [];
   for (const rel of FILES_TO_SCAN) {
@@ -57,13 +44,10 @@ function main() {
     const text = fs.readFileSync(abs, "utf-8");
     errors.push(...scanText(rel, text));
   }
-  errors.push(...walkDossierManifests());
 
   if (errors.length > 0) {
     console.error("[verify-generated-paths] FAILED:\n" + errors.map((e) => `  - ${e}`).join("\n"));
-    console.error(
-      "\nFix: run `npm run normalize:generated-paths`, or regenerate with `npm run template-library:build` after discovery data exists.",
-    );
+    console.error("\nFix: run `npm run normalize:generated-paths`, or edit the JSON to remove machine paths.");
     process.exit(1);
   }
   console.info("[verify-generated-paths] ok");

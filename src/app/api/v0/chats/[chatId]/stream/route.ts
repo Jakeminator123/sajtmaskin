@@ -9,11 +9,11 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { normalizeV0Error } from "@/lib/v0/errors";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import { maybeExpandShortPromptWithBrief } from "@/lib/builder/promptBriefExpander";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import {
-  canonicalModelIdToOwnModelId,
   DEFAULT_MODEL_ID,
   MODEL_LABELS,
   getBuildProfileId,
@@ -26,6 +26,13 @@ import {
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract-answer-context";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import {
+  getClarificationCapOwnModelId,
+  MAX_CONTRACT_CLARIFICATION_ROUNDS,
+  resolveClarificationCapMaxOutputTokens,
+  shouldOfferContractClarification,
+  shouldUseClarificationCapBuild,
+} from "@/lib/gen/contract-clarification-policy";
 import { buildPlannerSystemPrompt } from "@/lib/gen/plan-prompt";
 import {
   buildPlanSummaryMessage,
@@ -183,6 +190,26 @@ export async function handleMessageStreamRequest(
           try {
             previousFiles = JSON.parse(latestEngineVersion.files_json) as CodeFile[];
           } catch { /* ignore malformed JSON */ }
+        }
+
+        const briefExpandResult = await maybeExpandShortPromptWithBrief({
+          message: optimizedMessage,
+          brief: metaBrief,
+          strategy: promptOrchestration.strategyMeta.strategy,
+          promptSourcePreservePayload: metaPromptSourcePreservePayload,
+          initialBuildTurn: previousFiles.length === 0,
+          buildIntent: metaBuildIntent,
+          abortSignal: req.signal,
+          meta: meta && typeof meta === "object" ? (meta as Record<string, unknown>) : null,
+        });
+        if (briefExpandResult.wasExpanded) {
+          optimizedMessage = briefExpandResult.message;
+          devLogAppend("in-progress", {
+            type: "prompt.brief.expand",
+            chatId,
+            originalLength: promptOrchestration.finalMessage.length,
+            expandedLength: optimizedMessage.length,
+          });
         }
 
         const skipIntentClassification =
@@ -419,6 +446,7 @@ export async function handleMessageStreamRequest(
             : "website";
         const persistedScaffoldId = engineChat.scaffold_id;
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
+        const clarificationConfirmedCount = contractAnswerContext.confirmedAnswers.length;
         const orchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
           buildIntent: engineIntent,
@@ -432,13 +460,31 @@ export async function handleMessageStreamRequest(
           designReferences,
           persistedScaffoldId,
           contractAnswers: contractAnswerContext.confirmedAnswers,
+          contractClarificationCapReached: shouldUseClarificationCapBuild(clarificationConfirmedCount),
           customInstructions: trimmedSystem || undefined,
         });
-        const { resolvedScaffold, routePlan, preGenerationContracts, engineSystemPrompt } = orchestration;
+        const {
+          resolvedScaffold,
+          routePlan,
+          preGenerationContracts,
+          engineSystemPrompt,
+          capabilities: engineCapabilitiesFromOrch,
+        } = orchestration;
         const contractClarification = buildContractClarificationQuestion({
           buildIntent: engineIntent,
           context: preGenerationContracts,
         });
+        if (
+          contractClarification &&
+          !shouldOfferContractClarification(true, clarificationConfirmedCount)
+        ) {
+          devLogAppend("in-progress", {
+            type: "contracts.clarification-capped",
+            chatId,
+            clarificationConfirmedCount,
+            unresolvedKinds: preGenerationContracts.unresolvedDecisions.map((e) => e.kind),
+          });
+        }
         if (resolvedScaffold && !persistedScaffoldId) {
           try {
             await chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
@@ -465,14 +511,22 @@ export async function handleMessageStreamRequest(
             content: m.content,
           }));
 
-        const engineModel = resolveEngineModelId(resolvedModelTier);
+        const useClarificationCapBuild = shouldUseClarificationCapBuild(clarificationConfirmedCount);
+        const engineModel = useClarificationCapBuild
+          ? getClarificationCapOwnModelId()
+          : resolveEngineModelId(resolvedModelTier);
+        const clarificationCapMaxTokens = useClarificationCapBuild
+          ? resolveClarificationCapMaxOutputTokens(resolvedModelTier)
+          : undefined;
         debugLog("build", "Follow-up chat stream request", {
           chatId,
           buildProfileId,
           buildProfileLabel: MODEL_LABELS[resolvedModelTier],
           internalModelSelection: resolvedModelTier,
           enginePath: "own-engine",
-          engineModel: canonicalModelIdToOwnModelId(resolvedModelTier),
+          engineModel,
+          clarificationCapBuild: useClarificationCapBuild,
+          clarificationConfirmedCount,
           promptLength: optimizedMessage.length,
           originalPromptLength: message.length,
           attachments: requestAttachments.length,
@@ -486,19 +540,30 @@ export async function handleMessageStreamRequest(
           engineModel,
           fallback: false,
         });
-        if (contractClarification) {
+        if (
+          shouldOfferContractClarification(Boolean(contractClarification), clarificationConfirmedCount)
+        ) {
+          const nextRound = Math.min(
+            clarificationConfirmedCount + 1,
+            MAX_CONTRACT_CLARIFICATION_ROUNDS,
+          );
           const assistantQuestion = await chatRepo.addMessage(
             chatId,
             "assistant",
-            contractClarification.question,
+            contractClarification!.question,
             undefined,
-            [buildStoredContractClarificationUiPart(contractClarification)],
+            [
+              buildStoredContractClarificationUiPart(contractClarification!, {
+                roundIndex: nextRound,
+                maxRounds: MAX_CONTRACT_CLARIFICATION_ROUNDS,
+              }),
+            ],
           ).catch(() => null);
           devLogAppend("in-progress", {
             type: "contracts.clarification-requested",
             chatId,
-            kind: contractClarification.kind,
-            reason: contractClarification.reason,
+            kind: contractClarification!.kind,
+            reason: contractClarification!.reason,
           });
           const contractGateStream = new ReadableStream({
             start(controller) {
@@ -542,11 +607,11 @@ export async function handleMessageStreamRequest(
                   formatSSEEvent("tool-call", {
                     toolName: "askClarifyingQuestion",
                     toolCallId: `contracts-${Date.now()}`,
-                    args: contractClarification,
+                    args: contractClarification!,
                   }),
                 ),
               );
-              controller.enqueue(enc.encode(formatSSEEvent("content", contractClarification.question)));
+              controller.enqueue(enc.encode(formatSSEEvent("content", contractClarification!.question)));
               controller.enqueue(
                 enc.encode(
                   formatSSEEvent("done", {
@@ -568,6 +633,16 @@ export async function handleMessageStreamRequest(
         }
         const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
         const agentTools = getAgentTools();
+        if (useClarificationCapBuild) {
+          devLogAppend("in-progress", {
+            type: "contracts.clarification-cap-build",
+            chatId,
+            clarificationConfirmedCount,
+            model: engineModel,
+            maxOutputTokens: clarificationCapMaxTokens ?? null,
+          });
+        }
+
         const pipelineStream = createGenerationPipeline({
           prompt: enginePrompt,
           systemPrompt: engineSystemPrompt,
@@ -578,6 +653,7 @@ export async function handleMessageStreamRequest(
           abortSignal: req.signal,
           tools: agentTools,
           maxSteps: 2,
+          maxTokens: clarificationCapMaxTokens,
           referenceAttachments: requestAttachments,
         });
 
@@ -595,7 +671,9 @@ export async function handleMessageStreamRequest(
             imageGenerations: resolvedImageGenerations,
             scaffoldId: resolvedScaffold?.id ?? null,
             scaffoldFamily: resolvedScaffold?.family ?? null,
-            capabilities: orchestration.capabilities,
+            capabilities: engineCapabilitiesFromOrch,
+            contractClarificationCapBuild: useClarificationCapBuild,
+            clarificationCapMaxOutputTokens: clarificationCapMaxTokens ?? null,
             contractDataMode: preGenerationContracts.contracts.dataMode,
             contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
             contractAuthProvider: preGenerationContracts.contracts.authProvider ?? null,

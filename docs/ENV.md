@@ -311,6 +311,10 @@ Bildflöde i generering:
 | `SAJTMASKIN_MODEL_ANTHROPIC`                   | `claude-opus-4.6`   | Modell för Anthropic-jämförelseläge           |
 | `SAJTMASKIN_ASSIST_MODEL`                      | `openai/gpt-5.4`    | Default prompt-assistmodell for `Forbattra`   |
 | `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Standard-polishmodell for `Skriv om` (Anthropic-lane overrider den i jamforelselaget) |
+| `SAJTMASKIN_BRIEF_EXPAND_MAX_USER_CHARS`       | 360                 | Max längd på användarmeddelande (efter orchestration) for server-side brief-expansion |
+| `SAJTMASKIN_BRIEF_EXPAND_MIN_BRIEF_SIGNAL_CHARS` | 48                | Minsta "signal" i `meta.brief` (summa stränglängder) innan expansion körs |
+| `SAJTMASKIN_CLARIFICATION_CAP_MODEL`           | `gpt-5.2`         | Egen-modell efter max antal kontraktsförtydliganden (7) innan full build |
+| `SAJTMASKIN_CLARIFICATION_CAP_OUTPUT_FRACTION` | `0.45`            | Andel av tier-tak för max-output vid cap-build (≈ halva budgeten) |
 | `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 128000              | Fallback + env-override; tier använder egna tak |
 | `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 32768               | Autofix-pipeline                              |
 | `SAJTMASKIN_AUTOFIX_SYNTAX_MAX_PASSES`         | 6                   | Autofix-syntaxiterationer (per-fil + preflight) |
@@ -345,12 +349,7 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 5. Kör `npm run db:init` för att skapa databasschemat.
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
 7. MCP-servrar i Cursor (`.cursor/mcp.json`): `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx tools/mcp/...`.
-8. Extern template-research (scaffold-pipeline):
-   - `npm run references:discover` skriver kanonisk rå discovery till `scaffold-pipeline/discovery/current/`
-   - `npm run template-library:import-legacy` importerar legacy `_sidor`-summary till samma plats
-   - `npm run template-library:hydrate-cache` bygger lokal shallow-clone cache i `scaffold-pipeline/repo-cache/`
-   - `npm run template-library:build` bygger kuraterade dossiers i `scaffold-pipeline/dossiers/`
-   - runtime fortsätter läsa genererade artefakter i `src/lib/gen/template-library/`
+8. Mallreferenser i own engine: runtime läser valfria JSON-stubbar under `src/lib/gen/template-library/` (kan vara tomma medan ni kuraterar om). Kör `npm run verify:generated-paths` efter ändringar.
 
 ## Keep / legacy / remove later
 

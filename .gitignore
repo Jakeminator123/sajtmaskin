@@ -159,25 +159,6 @@ test-results/
 node_modules/
 _scaffold_discovery/
 
-# Scaffold pipeline — discovery, dossiers, catalog
-scaffold-pipeline/discovery/**
-!scaffold-pipeline/discovery/README.md
-!scaffold-pipeline/discovery/SCHEMA.md
-!scaffold-pipeline/discovery/schema.summary.json
-scaffold-pipeline/repo-cache/**
-!scaffold-pipeline/repo-cache/README.md
-scaffold-pipeline/dossiers/**
-!scaffold-pipeline/dossiers/*/manifest.json
-!scaffold-pipeline/dossiers/*/summary.md
-scaffold-pipeline/catalog/**
-!scaffold-pipeline/catalog/README.md
-!scaffold-pipeline/catalog/catalog.md
-!scaffold-pipeline/catalog/schema.template-manifest.json
-!scaffold-pipeline/catalog/EVALUATION_CHECKLIST.md
-!scaffold-pipeline/catalog/PROMOTION_WORKFLOW.md
-scaffold-pipeline/scripts/**
-!scaffold-pipeline/scripts/scaffold-pipeline.py
-
 # Legacy research paths (kept for backward compat, entire tree ignored)
 research/
 vercel_usecase_next_react_templates/

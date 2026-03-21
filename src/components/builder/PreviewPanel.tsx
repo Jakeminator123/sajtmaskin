@@ -4087,6 +4087,11 @@ export function PreviewPanel({
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             title="Preview"
           />
+          {isOwnEnginePreview && !iframeLoading && !iframeError && (
+            <div className="absolute bottom-0 right-0 z-10 rounded-tl bg-gray-900/80 px-2 py-0.5 text-[10px] text-gray-500 backdrop-blur-sm select-none">
+              Snabb preview — begränsad fidelity
+            </div>
+          )}
 
           {showPlacementOverlay && (
             <>

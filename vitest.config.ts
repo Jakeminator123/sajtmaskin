@@ -18,7 +18,6 @@ export default defineConfig({
       ".next/**",
       "old/**",
       "docs/old/**",
-      "vercel_templates_levels/**",
       "research/**",
       "_template_refs/**",
     ],

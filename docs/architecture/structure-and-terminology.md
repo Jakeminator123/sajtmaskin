@@ -41,14 +41,14 @@ Working interpretation of the intent board:
 - `done` means historical context only.
 - Missing or stale heartbeat means "treat carefully", not "safe to ignore blindly".
 
-## Runtime lane vs research lane
+## Runtime lane vs reference catalog
 
-Use this two-lane model when discussing generation architecture:
+Use this model when discussing generation architecture:
 
 | Lane | What belongs here | What it is not |
 |------|-------------------|----------------|
-| `runtime lane` | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not raw research datasets |
-| `research lane` | `scaffold-pipeline/catalog/`, `scaffold-pipeline/discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
+| `runtime lane` | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not ad-hoc datasets |
+| `reference catalog` (optional) | Curated JSON in `src/lib/gen/template-library/` for ranking extra references in the system prompt | Not the v0 gallery (`src/lib/templates/`), not the runtime scaffold registry |
 
 The template gallery is a product discovery surface, not a third runtime lane.
 
@@ -61,9 +61,8 @@ These terms must not be mixed:
 | `template gallery item` | User-facing gallery entry from `src/lib/templates/` | Product/UI |
 | `runtime scaffold` | Internal starter project from `src/lib/gen/scaffolds/` | Runtime generation |
 | `Vercel template` | Public starter repo/page from Vercel's ecosystem | External reference |
-| `reference dossier` | Curated per-template research package in `scaffold-pipeline/dossiers/` | Research |
-| `generated research artifact` | Committed JSON/embeddings derived from dossiers, mainly in `src/lib/gen/template-library/` and `src/lib/gen/scaffolds/scaffold-research.generated.json` | Runtime input derived from research |
-| `raw discovery` | Noisy scrape/discovery output in `scaffold-pipeline/discovery/` | Non-canonical research input |
+| `template reference entry` | One curated row in `template-library.generated.json` | Optional prompt augmentation |
+| `generated reference artifact` | Committed JSON/embeddings in `src/lib/gen/template-library/` and optional `scaffold-research.generated.json` | Runtime input (may be empty) |
 
 Preferred wording:
 
@@ -107,13 +106,10 @@ Keep these as the main canonical homes:
 
 - `src/lib/templates/` for template gallery data
 - `src/lib/gen/scaffolds/` for runtime scaffolds
-- `src/lib/gen/template-library/` for generated research artifacts used at runtime
-- `scaffold-pipeline/dossiers/` for curated research dossiers
+- `src/lib/gen/template-library/` for optional reference catalog JSON/embeddings
 
 Treat these as non-canonical or local-only support areas:
 
-- `scaffold-pipeline/discovery/` (bulk gitignored)
-- `scaffold-pipeline/repo-cache/` (local clone mirrors, gitignored)
 - local `_sidor` datasets and ad-hoc desktop datasets
 - temporary migration notes that duplicate the canonical docs
 
@@ -125,13 +121,9 @@ Related but separate:
 
 ```mermaid
 flowchart TD
-  rawDiscovery["Raw discovery"] --> referenceLibrary["Reference dossiers"]
-  rawDatasets["Raw template datasets"] --> referenceLibrary
-  referenceLibrary --> generatedArtifacts["Generated research artifacts"]
-  generatedArtifacts --> promptEnrichment["Prompt enrichment"]
-  generatedArtifacts --> scaffoldEnrichment["Scaffold research enrichment"]
-  scaffoldEnrichment --> runtimeScaffolds["Runtime scaffolds"]
-  galleryTemplates["Template gallery items"] --> templateStart["Template-driven builder entry"]
+  refCatalog["Template reference catalog JSON"] --> promptEnrichment["Prompt enrichment"]
+  galleryTemplates["v0 gallery items"] --> templateStart["Template-driven builder entry"]
+  runtimeScaffolds["Runtime scaffolds"] --> generation["Own-engine generation"]
 ```
 
 ## Working rule

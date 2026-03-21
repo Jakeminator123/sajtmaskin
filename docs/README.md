@@ -72,19 +72,14 @@ Not runtime dependencies:
 
 - MCP server availability
 - browser-driven doc helpers in `tools/doc-browser/`
-- raw discovery under `scaffold-pipeline/discovery/`
-- local shallow clone cache under `scaffold-pipeline/repo-cache/`
-- raw local `_sidor` datasets
+- raw local `_sidor` datasets (legacy)
 
-### Generated JSON hygiene (template library + dossiers)
+### Generated JSON hygiene (template library + scaffold research stubs)
 
-After regenerating or hand-editing committed artifacts under `src/lib/gen/**` or
-`scaffold-pipeline/dossiers/*/manifest.json`:
+After regenerating or hand-editing committed artifacts under `src/lib/gen/**`:
 
 - `npm run verify:generated-paths` — fails on machine-specific absolutes (`C:\\Users\\…`) or legacy `research/external-templates` path segments.
-- `npm run normalize:generated-paths` — rewrites portable `clonePath` / `sourceRoot` when verify fails (see `.cursor/rules/generated-artifacts-hygiene.mdc`).
-
-`build-template-library.ts` now emits **repo-relative** `clonePath` values for new builds.
+- `npm run normalize:generated-paths` — normalizes `clonePath` / `sourceRoot` in `template-library.generated.json` when verify fails (see `.cursor/rules/generated-artifacts-hygiene.mdc`).
 
 ## Key navigation
 
