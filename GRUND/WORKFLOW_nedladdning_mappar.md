@@ -2,6 +2,11 @@
 
 Tre spår i stället för ett: **installera lite i appen**, **spara research som dossiers**, **klona tunga saker tillfälligt utanför (eller gitignored) repo**.
 
+**Kör från repo-root:** Python-skript för Vercel (`scripts/hamta_sidor.py`) och shadcn.io (`scripts/mirror_shadcn_io_templates.py`) med valfri `--interactive` — se [`scripts/README.md`](../scripts/README.md).
+
+**Praktisk regel för mappar:**  
+`vercel-scrape/` kan mycket gärna ligga som **syskonmapp till repot** (t.ex. `../vercel-scrape/`). `_template_refs/` är däremot en rimlig **lokal-only cache inne i repot** för sådant som shadcn.io-speglingen, så länge den är gitignored/cursorignored.
+
 ## Beslutsträder
 
 ### A. Ladda in i appen (riktig kod)
@@ -81,3 +86,11 @@ Efter analys: skriv **slutsatser** i ett dossier under `reference-library/dossie
 ## Slutregel
 
 **Ladda ner komponenter. Referera bibliotek. Klon starters tillfälligt. Promota bara destillerat in i egna scaffolds.**
+
+## Om “boilerplate”, “starter”, “full app”
+
+De här etiketterna är bäst som **klassificering i den normaliserade katalogen**, inte som råa mappnamn i själva `vercel-scrape/`.
+
+- I `vercel-scrape/` är det rimligt att behålla **källans egna grupper** (`saas/`, `ecommerce/`, `blog/`, …) så att du ser varifrån en mall kom.
+- Efter `npm run research:normalize` får varje entry i stället metadata som `repoType`, `promotionDecision`, `recommendedScaffoldFamilies` och `signals`.
+- Det är där indelningar som **`boilerplate`**, **`starter_kit`**, **`full_app`** och beslut som **`runtime_scaffold_candidate`** hör hemma.

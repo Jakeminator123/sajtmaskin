@@ -5,7 +5,8 @@ Canonical model for how external templates flow into Sajtmaskins runtime.
 ## Three zones
 
 ```
-Zone 1: RAW (outside repo)            Zone 2: NORMALIZED (in repo)         Zone 3: RUNTIME (in repo)
+Zone 1: RAW (outside repo or          Zone 2: NORMALIZED (in repo)         Zone 3: RUNTIME (in repo)
+        local-only cache)
 ─────────────────────────────         ──────────────────────────────       ────────────────────────────
   Vercel scrape output                  research/dossiers/<slug>/           src/lib/gen/scaffolds/
   git clone mirrors                     research/normalized-catalog.json    src/lib/gen/template-library/
@@ -15,8 +16,9 @@ Zone 1: RAW (outside repo)            Zone 2: NORMALIZED (in repo)         Zone 
                                         (all committed, cursorignored)
   ────────────────────────────
   NOT committed. NOT indexed.
-  Lives in a separate directory
-  outside the workspace, or in
+  Prefer a sibling folder such as
+  ../vercel-scrape/ for Vercel intake.
+  Auxiliary mirrors may also live in
   local-only gitignored paths.
 ```
 
@@ -24,7 +26,7 @@ Zone 1: RAW (outside repo)            Zone 2: NORMALIZED (in repo)         Zone 
 
 ```
 ┌──────────────────┐
-│  External source │  hamta_sidor.py / vercel_template_cli.py / manual URL list
+│  External source │  `scripts/hamta_sidor.py` / vercel_template_cli.py / manual URL list
 │  (Vercel, shadcn │
 │   GitHub, …)     │
 └────────┬─────────┘
@@ -74,7 +76,7 @@ Zone 1: RAW (outside repo)            Zone 2: NORMALIZED (in repo)         Zone 
 
 | Zone | Path | Committed | Cursor-indexed |
 |------|------|-----------|----------------|
-| Raw | `<outside-repo>/…` (e.g. `~/vercel-scrape/`) | No | No |
+| Raw | `<repo-parent>/vercel-scrape/` (e.g. `../vercel-scrape/`, `~/vercel-scrape/`) | No | No |
 | Raw (alt) | `_template_refs/`, `_sidor/` | No (gitignored) | No |
 | Normalized | `research/normalized-catalog.json` | Yes | No (cursorignored) |
 | Normalized | `research/dossiers/<slug>/manifest.json` | Yes | No (cursorignored via `research/`) |
@@ -100,9 +102,10 @@ Zone 1: RAW (outside repo)            Zone 2: NORMALIZED (in repo)         Zone 
 
 ## Key rules
 
-1. **Raw data never enters the repo.** Scrapers write to a path outside the workspace (or to a gitignored local dir). The repo only receives the small, normalized catalog.
+1. **Raw Vercel scrape data stays outside the git root when practical.** The simplest default is a sibling folder like `../vercel-scrape/`. Auxiliary mirrors like `_template_refs/` are acceptable local-only caches inside the repo as long as they remain gitignored/cursorignored. The repo only receives the small, normalized catalog.
 2. **Normalized catalog is the single bridge.** All downstream build scripts read from `research/normalized-catalog.json` and `research/dossiers/`, never from raw HTML or clone directories.
 3. **Promotion is explicit.** A normalized entry does not become a runtime scaffold automatically. It must be promoted to `src/lib/gen/scaffolds/<id>/manifest.ts` and registered in `registry.ts`. The first phase should produce scaffold candidates and dossiers; full replacement of current runtime scaffolds comes after verification.
 4. **IDs are stable.** The `id` field in normalized entries, dossier manifests, `referenceTemplates`, and `template-library.generated.json` must all use the same key scheme so lookups in `system-prompt.ts` resolve correctly.
 5. **Path hygiene.** All committed JSON must pass `npm run verify:generated-paths` before merge. No `C:\Users\…` or other machine-specific paths.
 6. **Runtime scaffolds feed generation context, not the builder UI directly.** The resolved scaffold is serialized into the system prompt via `buildSystemPrompt()` / `buildDynamicContext()`. The builder UI only sees the scaffold as a selection/display label. See `research/README.md` and `src/lib/gen/scaffolds/README.md` for the authoritative separation between research and runtime.
+7. **Source grouping and repo-type grouping are different things.** Zone 1 Vercel scrape output should usually keep source-aligned folders like `saas/`, `ecommerce/`, `blog/` so the intake is traceable to Vercel. Cross-cutting labels like `boilerplate`, `starter_kit`, `full_app`, and `runtime_scaffold_candidate` are added later in `research/normalized-catalog.json`, not by renaming raw folders.

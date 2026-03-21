@@ -6,10 +6,10 @@
  * research/.
  *
  * Usage:
- *   npx tsx config/scripts/normalize-raw-catalog.ts --input ~/vercel-scrape
- *   npm run research:normalize -- --input ~/vercel-scrape
+ *   npx tsx config/scripts/normalize-raw-catalog.ts --input ../vercel-scrape
+ *   npm run research:normalize -- --input ../vercel-scrape
  *
- * The input directory should contain summary.json (from hamta_sidor.py) and
+ * The input directory should contain summary.json (from scripts/hamta_sidor.py) and
  * optionally ingestion_report.json.  The script never reads large clone dirs;
  * it only consumes JSON metadata files.
  */

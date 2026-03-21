@@ -1,0 +1,60 @@
+borde jag ha systemet med 10 scarfolds eller 13 scarfolds? När var detta syste msom bäst?
+
+Jag jämför nu scaffold-uppsättningen och letar efter när den faktiskt presterade bäst i historiken, snarare än bara hur många det var.
+
+Jag har redan en tydlig signal: det nuvarande runtime-systemet är uttryckligen byggt runt 10 interna scaffolds, medan annat material verkar vara research/referens och inte samma sak som extra runtime-scaffolds. Jag öppnar de centrala filerna för att kunna svara säkert om “10 vs 13”.
+
+Thought for 41s
+
+Min raka rekommendation: 10 runtime-scaffolds, inte 13.
+
+Varför:
+Det nuvarande systemet är uttryckligen byggt så att de 10 i registry.ts är hela runtime-registret och “single source of truth”. README:n säger också rakt ut att det är 10 scaffolds, och att research/dossiers/embeddings används för att förbättra dem, inte för att lägga till fler runtime-spår.
+
+Det betyder på enkel svenska:
+
+10 scaffolds = renare, tydligare, mindre risk att matchern väljer fel
+13 scaffolds = bara bättre om de 3 extra är väldigt tydliga, riktigt genomarbetade och faktiskt behövs
+annars blir det ofta mer “splittrad” matchning och sämre träffsäkerhet
+
+Repo:t stödjer också det här tänket tekniskt:
+
+embedding-sökningen hämtar bara från scaffolds i registret
+research-overrides läggs ovanpå de befintliga scaffolds, inte som ett separat extra lager av runtime-scaffolds
+Så vad hade jag valt?
+
+Jag hade kört:
+
+Behåll 10 som runtime-kärna
+och
+lägg tillbaka dossiers / research / raw material som enrichment-lager
+
+Alltså:
+
+inte 13 “konkurrerande” scaffolds i runtime
+utan 10 tydliga scaffolds som blir smartare av bättre research
+När var systemet bäst?
+
+Min bästa bedömning är:
+
+Bäst var sannolikt när ni hade den enklare 10-scaffold-kärnan, men fortfarande ett rikare research/dossier-flöde runt den.
+
+Det vill säga ungefär:
+
+innan den större scaffold-omläggningen som vi redan varit inne på
+men efter att ni hade hunnit få in embeddings, research-overrides och bättre scaffold-context
+
+Det jag inte ser stöd för i koden är att “fler scaffolds i sig” skulle vara vinsten. Koden pekar snarare mot att vinsten kommer från:
+
+bättre matchning
+bättre embeddings
+bättre research per scaffold
+bättre scaffold-context i prompten
+Min korta dom
+Välj 10
+Ta tillbaka dossiers/research
+Gör de 10 bättre, i stället för att göra dem fler
+
+Om du vill ha min allra kortaste formulering:
+
+10 scaffolds + stark dossiers/research = troligen ditt bästa läge.

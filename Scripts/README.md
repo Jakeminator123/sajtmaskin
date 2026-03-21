@@ -1,64 +1,113 @@
-# Scripts (dev & build entrypoints)
+# Skript (manuell research / Zone 1)
 
-Small **Node** helpers wired into `npm run dev|build|start` and day-to-day template sync. They live at repo root as `Scripts/` (capital **S**) so they stay distinct from `config/scripts/` (offline helpers).
+Alla kommandon körs från **projektroten** (`sajtmaskin/`) sökvägar är relativa dit.
 
-| Script | Purpose |
-|--------|---------|
-| `next-runner.mjs` | Wraps `next dev` / `build` / `start` with repo env conventions. |
-| `refresh-token.mjs` | Dev token refresh (`predev`). |
-| `db-init.mjs` | Local DB bootstrap (`predev`, `db:init`). |
-| `run-migrations.ts` | SQL migrations (`db:migrate`). |
-| `generate-site-cli.ts` | Local CLI wrapper around `src/lib/mcp/generate-site.ts` for prompt → preview runs from PowerShell/npm. |
-| `sync-v0-templates.mjs` | Sync **v0 gallery** template metadata (`src/lib/templates/`) used by the product UI. |
-| `validate-templates.mjs` | Validates synced gallery template data. |
-| `scan-repo-health.mjs` | Heuristic scan for leaked machine paths, legacy path segments, merge markers (`npm run scan:repo-health`). Use `--all` for the whole workspace. |
-
-## Generated JSON (stubs)
-
-Runtime loads `src/lib/gen/template-library/*.json`, `scaffold-embeddings.json`, and `scaffold-research.generated.json`. After changing **registry**, scaffold manifests, or **`research/dossiers/`**, regenerate and validate:
+**Python:** en gång per maskin:
 
 ```bash
+pip install requests beautifulsoup4
+```
+
+---
+
+## 1) Vercel Templates — `hamta_sidor.py`
+
+Skrapar Vercel mallsidor (use-case-kategorier eller egna URL:er), skriver `summary.json`, `ingestion_report.json` och valfritt klonar till `…/repo/` per mall.
+
+**Standard output-mapp:** en **syskonmapp bredvid repot**, normalt `../vercel-scrape` från `sajtmaskin/`.
+
+På din maskin betyder det typiskt:
+
+- `C:\Users\jakem\dev\projects\vercel-scrape`
+
+Du kan fortfarande override:a med `--output` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`.
+
+**Kanoniska exempel-URL:er** (ingår som konstant i skriptet och kan köras med `--canonical-urls`):
+
+- `https://vercel.com/templates/next.js/nextjs-boilerplate`
+- `https://vercel.com/templates/saas/platforms-starter-kit`
+- `https://vercel.com/templates/ecommerce/nextjs-commerce`
+
+### Interaktiv körning (rekommenderat)
+
+```bash
+python scripts/hamta_sidor.py --interactive
+```
+
+### Steg 1 — metadata utan klon (snabbt, inga GB)
+
+```bash
+python scripts/hamta_sidor.py --skip-download
+```
+
+(Använder standard `../vercel-scrape` — sätt t.ex. `--output D:\vercel-scrape` om du vill.)
+
+Fler mallar per kategori:
+
+```bash
+python scripts/hamta_sidor.py --skip-download --per-category 15
+```
+
+Bara de tre kanoniska URL:erna:
+
+```bash
+python scripts/hamta_sidor.py --skip-download --canonical-urls
+```
+
+Specifika URL:er:
+
+```bash
+python scripts/hamta_sidor.py --skip-download --urls ^
+  "https://vercel.com/templates/next.js/nextjs-boilerplate" ^
+  "https://vercel.com/templates/saas/platforms-starter-kit" ^
+  "https://vercel.com/templates/ecommerce/nextjs-commerce"
+```
+
+### Steg 2 — granska
+
+Öppna `../vercel-scrape/ingestion_report.json` (eller din `--output`).
+
+### Steg 3 — klon (valfritt)
+
+Kör om utan `--skip-download`, eller klona enstaka repo manuellt till samma struktur som skriptet skulle skapat.
+
+### Steg 4–7 — normalisera och bygg (i repot)
+
+```bash
+npm run research:normalize -- --input ../vercel-scrape
+npm run template-library:rebuild
 npm run scaffolds:build
-```
-
-After other manual edits to those JSON blobs, run:
-
-```bash
 npm run verify:generated-paths
-npm run normalize:generated-paths   # if paths need normalizing
 ```
 
-Offline TypeScript that powers `scaffolds:*`, `templates:embeddings`, `docs:embeddings`, etc. lives in **`config/scripts/`** — see `config/scripts/README.md`.
+`../vercel-scrape/` ska ligga **utanför** git-roten och Cursor-index (se `docs/architecture/repo-hygiene.md`).
 
-## AI defaults → `.env.local`
+### Viktig skillnad: mappstruktur vs klassificering
 
-See **`config/README.md`** and `config/profiles/ai.defaults.ini`. Quick print:
+`vercel-scrape/` behåller **Vercels egna source-kategorier** som mappar (`ai/`, `saas/`, `ecommerce/`, ...). Det är avsiktligt, eftersom det gör råskrapet spårbart tillbaka till källan.
+
+Klassificering som **`boilerplate`**, **`starter_kit`**, **`full_app`** och liknande sker **senare** i `npm run research:normalize`, och syns då i `research/normalized-catalog.json` som `repoType` och `promotionDecision`.
+
+---
+
+## 2) shadcn.io — `mirror_shadcn_io_templates.py`
+
+Listar GitHub-repon från de fyra kategorisidorna på shadcn.io, paginerar, deduplicerar och kan **shallow-klona** till `_template_refs/shadcn-io-mirror/` (eller `$SHADCN_IO_MIRROR_DIR`).
+
+Detta är medvetet en **lokal-only cache i repot**, inte runtime-data. Den får ligga kvar där så länge den är gitignored/cursorignored. Flytta bara ut den om storleken blir störande eller om du vill ha allt researchmaterial samlat på annan disk.
+
+Om du kör en större spegling (t.ex. 200+ shallow clones) kan `_template_refs/shadcn-io-mirror/` snabbt bli **1 GB+**. Då är det fullt rimligt att i stället sätta `SHADCN_IO_MIRROR_DIR` till en syskonmapp som `../shadcn-io-mirror/`.
+
+### Interaktiv körning
 
 ```bash
-npm run config:env-print
+python scripts/mirror_shadcn_io_templates.py --interactive
 ```
 
-## Local MCP generate-site wrapper
-
-Use this instead of trying to run `src/lib/mcp/generate-site.ts` directly:
+### Endast manifest (ingen clone)
 
 ```bash
-npm run mcp:generate-site -- --prompt "Bygg en enkel frisörsida"
-npm run mcp:generate-site -- "Bygg en enkel frisörsida"
-npm run mcp:generate-site -- --prompt-file .\\prompt.txt --json
+python scripts/mirror_shadcn_io_templates.py --dry-run
 ```
 
-Why:
-- `src/lib/mcp/generate-site.ts` is a library module, not a shell command.
-- PowerShell cannot execute a raw `.ts` file directly.
-- The wrapper loads the module via `tsx`, parses CLI flags, and prints a usable result summary.
-
-## Terminology: v0 gallery vs Vercel templates vs runtime scaffolds
-
-- **v0 gallery templates** — what `templates:sync` / `src/lib/templates/` describe: browse cards, often animation-heavy single pages or small apps from v0.dev; they steer the *initial prompt*, not committed starter code in this repo.
-- **Vercel templates** — public starters on vercel.com/templates (external ecosystem); not the same as v0 gallery JSON.
-- **Runtime scaffolds** — hand-authored starters under `src/lib/gen/scaffolds/` that the own-engine uses as real base code.
-
-## Recovery PowerShell (optional)
-
-If present under `Scripts/recovery/`, see historical notes in git history; paths in docs may still say `scripts/recovery/`.
+Se även `GRUND/KALLOR_shadcn_io.md`.

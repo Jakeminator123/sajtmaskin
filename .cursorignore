@@ -24,6 +24,7 @@ node_modules
 dist
 build
 coverage
+materials
 
 # Git metadata / generated lockfiles
 .git
@@ -91,8 +92,9 @@ research/
 scaffold-pipeline/
 _template_refs/
 _sidor/
+vercel-scrape/
 vercel_usecase_next_react_templates/
-GRUND/
+
 
 # Generated reports and machine-generated artifacts
 src/lib/gen/data/docs-embeddings.json

@@ -2,7 +2,7 @@
 
 Offline and build-time TypeScript/Node helpers. **Not imported by the Next.js app.**
 
-Prefer npm scripts from the repo root (`package.json` prefixes paths with `config/scripts/`). See `Scripts/README.md` for dev entrypoints.
+Prefer npm scripts from the repo root (`package.json` prefixes paths with `config/scripts/`). Python research scripts (Vercel scrape, shadcn.io mirror) live under **`scripts/README.md`** at the repo root.
 
 | Area | npm examples |
 |------|----------------|
