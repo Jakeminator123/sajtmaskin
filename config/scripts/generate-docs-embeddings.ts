@@ -13,7 +13,8 @@ import { config } from "dotenv";
 import { generateDocsEmbeddings } from "../../src/lib/gen/data/docs-embeddings-core";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: resolve(__dirname, "..", ".env.local") });
+const repoRoot = resolve(__dirname, "..", "..");
+config({ path: resolve(repoRoot, ".env.local") });
 
 async function main() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -25,7 +26,7 @@ async function main() {
   console.info("Generating docs embeddings...");
   const result = await generateDocsEmbeddings({ apiKey });
 
-  const outPath = resolve(__dirname, "..", "src", "lib", "gen", "data", "docs-embeddings.json");
+  const outPath = resolve(repoRoot, "src", "lib", "gen", "data", "docs-embeddings.json");
   writeFileSync(outPath, JSON.stringify(result, null, 2), "utf-8");
 
   console.info(`Done. ${result._meta.count} embeddings written to ${outPath}`);

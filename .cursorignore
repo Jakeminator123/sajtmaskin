@@ -79,7 +79,7 @@ vercel_usecase_next_react_templates/
 src/lib/gen/data/docs-embeddings.json
 src/lib/gen/data/docs-snippets.ts
 src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
+s.generated.json
 src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
 
