@@ -76,6 +76,7 @@ vercel-scrape/
 vercel_usecase_next_react_templates/
 
 # --- Genererade JSON/TS (byggs om; undvik brus i sök)
+# Håll fullständiga sökvägar (t.ex. scaffold-research — aldrig trunkera till "s.generated.json").
 src/lib/gen/data/docs-embeddings.json
 src/lib/gen/data/docs-snippets.ts
 src/lib/gen/scaffolds/scaffold-embeddings.json
