@@ -1,0 +1,289 @@
+Tack så mycket. Jag vill gärna att du påminner mig om att följa upp det här svaret efter nästa svar. Jag skulle nu vilja att du pratar lite om de fyra länkarna jag gav dig, där du tyckte att några var bättre än andra. Det handlade om Chakra UI, Next.js och så vidare, med olika typer av komponenter och komponentbibliotek. Hur skulle du vilja att man kopplar detta till det vi nu arbetar med, så att en AI som bygger en användares hemsida får rätt sortiment av verktyg för att kunna bygga upp sin sida?
+
+Jag kopplar nu ihop de externa komponentkällorna med hur ditt interna scaffold-/preview-system faktiskt bör fungera, så svaret blir konkret för Sajtmaskin och inte bara allmän frontendteori.
+
+Jag öppnar de centrala filerna nu för att kunna citera exakt hur stacken, research-lanet och scaffold-lanet redan är tänkta att fungera i Sajtmaskin.
+
+Thought for 1m 11s
+
+Ja — jag skulle koppla de fyra länkarna till Sajtmaskin så här:
+
+Grundprincip
+
+Låt inte AI:n själv välja mellan flera UI-ekosystem när den bygger en sida.
+
+I ditt repo är kärnan redan ganska tydligt låst till:
+
+Next.js App Router
+React
+Tailwind CSS v4
+shadcn/ui på Radix-primitives
+
+Och systemprompten säger redan att shadcn/ui-komponenter är förinstallerade och ska importeras, inte genereras. Den säger också att outputen ska vara kompletta Next.js-projekt, med Tailwind som styling och shadcn/ui som komponentbas.
+
+Så mitt huvudråd är:
+
+de fyra länkarna ska inte bli fyra likvärdiga valbara “stackar”.
+De ska bli fyra olika typer av underlag som matar samma interna byggsystem.
+
+Så hade jag använt varje kategori
+1. Next.js
+
+Det här är den viktigaste av de fyra.
+
+Använd den som källa för:
+
+scaffold-struktur
+route-mönster
+layoutmönster
+app-shells
+dashboard-upplägg
+auth-flöden
+blog/content-site-struktur
+
+Alltså:
+Next.js-källorna ska främst stärka runtime-scaffolds.
+
+Det passar exakt med att Sajtmaskin redan är scaffold-driven i runtime, där 10 interna scaffolds används som generationens bas.
+
+2. React
+
+React-källorna ska inte främst styra hela sajtens struktur, utan mer:
+
+komponentlogik
+stateful UI-mönster
+formulärflöden
+tabeller
+filter/sortering
+interaktiva widgets
+
+Alltså:
+React-källor = beteende- och komponentmönster, inte hela scaffold-basen.
+
+De passar bäst i:
+
+dossiers
+template-library references
+interna komponentpaket
+promptstöd för app-liknande byggen
+3. Tailwind
+
+Tailwind-källorna är bäst för:
+
+sektioner
+visuella block
+spacing
+layout-variation
+hero-sektioner
+feature grids
+pricing blocks
+polish
+
+Alltså:
+Tailwind-källor = visuellt språk och sektionstyper.
+
+De bör främst mata:
+
+theme presets
+section packs
+design rules
+exempel på klassmönster
+
+Det passar bra med att dina custom instructions redan styr AI:n mot Tailwind-v4, semantiska tokens och återanvändbara block.
+
+4. Radix UI
+
+Radix ska du se som:
+
+tillgänglighet
+primitives
+dialoger
+sheets
+dropdowns
+popovers
+accordions
+interaction safety
+
+Alltså:
+Radix-källor = interaktions- och a11y-lager.
+
+De ska inte vara en egen “site style”.
+De ska i stället förbättra dina interna shadcn/ui-komponenter och regler för interaktiva element.
+
+Det stämmer också med hur repo:t redan beskriver stacken: shadcn/ui ovanpå Radix primitives.
+
+Om du menade Chakra UI också
+
+Om du även tänker på Chakra UI, då hade jag inte gjort det till en del av core runtime just nu.
+
+Skälet är att din motor redan är tydligt optimerad för:
+
+shadcn/ui
+Tailwind
+Radix
+Next.js
+
+Att blanda in Chakra i själva runtime skulle ge AI:n två olika sätt att bygga UI på, vilket nästan alltid gör generationen mer splittrad och mindre förutsägbar.
+
+Så min hållning hade varit:
+
+Chakra UI = inspiration eller dossier-material
+inte core runtime-stack
+
+åtminstone tills du medvetet vill stödja en andra intern UI-stack.
+
+Hur detta ska kopplas till det ni bygger nu
+
+Det du vill åt är egentligen inte “fler länkar”, utan ett internt verktygssortiment för AI:n.
+
+Jag hade delat upp det i fyra interna lager:
+
+A. Runtime scaffold
+
+Detta är startstrukturen.
+
+Här ska AI:n få:
+
+rätt route-form
+rätt sidtyp
+rätt grundlayout
+rätt informationsarkitektur
+
+Detta ska mest matas av Next.js-källor.
+
+B. Component palette
+
+Detta är vilka byggklossar AI:n får använda.
+
+Här ska AI:n få:
+
+vilka shadcn/ui-komponenter som är relevanta
+vilka Radix-mönster som passar
+vilka React-mönster som behövs
+vilka tabeller, kort, formulär, sheets, dialogs och nav-mönster som är tillåtna
+
+Detta ska mest matas av:
+
+React
+Radix
+interna shadcn/ui-regler
+
+Repo:t är redan på väg åt det hållet: systemprompten säger att shadcn/ui är förinstallerat och ska användas som komponentbas, inte genereras från noll.
+
+C. Section pack / visual pack
+
+Detta är det visuella lagret.
+
+Här ska AI:n få:
+
+hero-varianter
+feature-section-varianter
+pricing-varianter
+testimonials
+CTA-block
+grid- och spacing-idéer
+animation/polish-regler
+
+Detta ska mest matas av:
+
+Tailwind-källor
+delar av Next.js-källor
+visuellt starka reference dossiers
+D. Prompt support / reference layer
+
+Detta är research-lagret.
+
+Där passar de externa källorna in som:
+
+template library entries
+dossiers
+selected reference files
+snippets
+ranked references
+
+Och det är redan så systemprompten är byggd: den kan använda template-library-sökning och registry-enrichment som dynamiskt stöd, medan runtime fortfarande är scaffold-driven.
+
+Så AI:n får rätt “sortiment av verktyg”
+
+Jag hade velat att AI:n får verktygen i denna ordning:
+
+1. Först: låst stack
+
+AI:n ska alltid veta:
+
+detta är Next.js
+detta är React
+detta är Tailwind
+detta är shadcn/ui
+detta är Radix-baserade primitives
+
+Det har du redan i repo:t och i systemprompten.
+
+2. Sedan: vald scaffold-familj
+
+Till exempel:
+
+landing-page
+saas-landing
+dashboard
+blog
+app-shell
+
+Scaffolden avgör grundformen.
+
+3. Sedan: rätt komponentpalette
+
+Exempel:
+
+marketing/site → cards, badges, accordions, nav menus, hero sections
+dashboard/app → tables, dialogs, sheets, tabs, forms, filters
+auth/app-shell → inputs, forms, dialogs, dropdowns, settings panels
+4. Sedan: rätt reference packs
+
+Baserat på prompten kan du injicera:
+
+1–3 template references
+selected files
+snippets
+design/reference notes
+
+Det är här de fyra länkarna ska ge värde.
+
+Min rekommenderade modell i en mening
+
+Next.js ska mata struktur.
+React ska mata beteende.
+Tailwind ska mata visuellt språk.
+Radix ska mata interaktionssäkerhet.
+
+Och allt detta ska sedan översättas till:
+
+interna scaffolds
+interna component palettes
+interna section packs
+interna research artifacts
+
+Inte skickas in som råa externa källor direkt till runtime. Det stämmer också med att research-lanet i projektet inte används direkt i runtime, utan förbättrar scaffolds via genererade artefakter.
+
+Min mest praktiska rekommendation till dig
+
+Om du vill att AI:n ska få “rätt sortiment av verktyg”, bygg dessa interna artefakter:
+
+Scaffold families
+från Next.js-källor
+Component packs
+från React + Radix + shadcn-mönster
+Section packs
+från Tailwind + visuella Next.js-exempel
+Reference dossiers
+från alla fyra, men med olika roller
+Per-scaffold allowed toolkit
+till exempel:
+landing-page → Button, Card, Badge, Accordion, Hero blocks
+dashboard → Table, Tabs, Dialog, Sheet, Form, Charts
+blog/content-site → prose, cards, nav, article layout
+auth-pages → form, input, label, dialog, tabs
+
+Det här är mycket bättre än att låta modellen själv improvisera bibliotek varje gång.
+
+Påminnelse till dig: följ upp mitt förra svar om lane-modellen och promotion-pipelinen efter detta.
