@@ -6,6 +6,7 @@ Prefer npm scripts from the repo root (`package.json` prefixes paths with `confi
 
 | Area | npm examples |
 |------|----------------|
+| Scaffold build pipeline | **`scaffolds:build`** (research + embeddings + validate), `scaffolds:embeddings`, `scaffolds:research`, `scaffolds:validate` |
 | Generated JSON hygiene | **`verify:generated-paths`**, **`normalize:generated-paths`** (template-library + scaffold-research stubs under `src/lib/gen/`) |
 | Gallery / marketing templates | `templates:embeddings` |
 | Docs RAG | `docs:embeddings` |

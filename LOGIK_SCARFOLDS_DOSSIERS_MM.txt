@@ -1,0 +1,404 @@
+# Sajtmaskin: enkel guide till scaffolds, research och hur allt används
+
+## Kort version
+
+Det finns fyra nivåer i systemet:
+
+1. **Raw discovery** = råa fynd
+2. **Research / dossiers** = sorterade och bättre referenser
+3. **Genererade research-filer** = bryggan mellan research och runtime
+4. **Runtime scaffolds** = de riktiga mallarna som Sajtmaskin faktiskt använder när den bygger
+
+Det viktiga är:
+
+* allt som hittas ute i världen blir **inte** direkt en scaffold
+* först samlas det in
+* sedan sorteras det
+* sedan görs det om till bättre underlag
+* först därefter påverkar det de riktiga scaffolds som används i appen
+
+---
+
+## 1. Raw discovery – vad är det?
+
+Det här är **råmaterialet**.
+
+Här lägger du sådant som du hittar från till exempel:
+
+* Vercel Templates
+* gamla datasets
+* repos
+* demos
+* andra inspirationskällor
+
+Tänk på raw discovery som en **insamlingslåda**.
+
+Här kan materialet vara:
+
+* stökigt
+* blandat
+* delvis fel
+* ofullständigt
+* fullt av brus
+
+Det är helt okej, för den här nivån är bara till för att **samla in**.
+
+### Var finns det?
+
+I repo:t ligger detta under ungefär:
+
+* `research/raw-discovery/`
+
+### Hur ska det användas?
+
+Det ska användas för att:
+
+* samla in många kandidater
+* spara metadata
+* normalisera dem till samma format
+* ge input till nästa steg
+
+Det ska **inte** användas direkt i runtime.
+
+Alltså:
+
+**raw discovery är inte det som bygger användarens hemsida.**
+
+---
+
+## 2. Research / dossiers – vad är det?
+
+Det här är **det förädlade lagret**.
+
+När du har hittat något intressant i raw discovery ska du inte stoppa in det direkt i systemet.
+I stället gör du en bättre, renare och smartare version av det.
+
+Det är det dossiers gör.
+
+Ett dossier är ungefär:
+
+* en kuraterad referens
+* en sammanställning av vad som är bra i en template
+* vilka delar som faktiskt är användbara
+* vilken scaffold-familj den passar bäst till
+* vad som är struktur och vad som bara är yta
+
+### Vad gör dossiers bra för Sajtmaskin?
+
+De hjälper dig att förstå:
+
+* vad som är återanvändbart
+* vilken typ av sajt en template egentligen är
+* vilka sektioner som är värdefulla
+* vilka mönster som gör en scaffold bättre
+
+### Var finns det?
+
+Under ungefär:
+
+* `research/dossiers/`
+
+### Hur ska det användas?
+
+Det ska användas för att:
+
+* välja ut bra templates från råmaterialet
+* bryta ner dem i användbara mönster
+* bestämma vilken intern scaffold de ska stärka
+* skapa bättre research-underlag
+
+Det ska fortfarande **inte** användas direkt i runtime.
+
+Alltså:
+
+**dossiers hjälper scaffolds att bli bättre, men dossiers är inte själva scaffolden.**
+
+---
+
+## 3. Genererade research-filer – vad är det?
+
+Det här är **bryggan mellan research och runtime**.
+
+Nu börjar research bli användbar för själva appen.
+
+Här finns genererade filer som till exempel innehåller:
+
+* research per scaffold
+* quality checklists
+* referenstemplates
+* embeddings
+* metadata som hjälper matchning
+
+Det här är alltså steget där research omvandlas till något som koden faktiskt kan läsa.
+
+### Var finns det?
+
+Under ungefär:
+
+* `src/lib/gen/scaffolds/`
+
+Till exempel filer som:
+
+* `scaffold-research.generated.json`
+* `scaffold-embeddings.json`
+
+### Hur ska det användas?
+
+Det används för att:
+
+* hjälpa systemet att välja rätt scaffold
+* ge extra kontext till prompten
+* förbättra träffsäkerhet
+* ge bättre struktur och kvalitetskrav
+
+Det här är alltså **första nivån som faktiskt får påverka runtime**.
+
+Men de här filerna är fortfarande inte själva scaffold-koden.
+De är mer som:
+
+* stödminne
+* styrsignaler
+* förbättringslager
+
+---
+
+## 4. Runtime scaffolds – vad är det?
+
+Det här är **de riktiga mallarna som Sajtmaskin använder när den bygger en webbplats**.
+
+Det är dessa som faktiskt används när användaren skriver något som:
+
+* “bygg en portfolio”
+* “gör en saas-landningssida”
+* “skapa en blogg”
+* “jag vill ha en dashboard”
+
+I repo:t finns ett register med de riktiga scaffolds som används i runtime.
+
+### Vad är de?
+
+Det är ungefär dessa familjer:
+
+* `base-nextjs`
+* `landing-page`
+* `saas-landing`
+* `portfolio`
+* `blog`
+* `dashboard`
+* `auth-pages`
+* `ecommerce`
+* `content-site`
+* `app-shell`
+
+### Var finns de?
+
+Under ungefär:
+
+* `src/lib/gen/scaffolds/`
+* särskilt i `registry.ts`
+
+### Hur ska de användas?
+
+Det är dessa som:
+
+* väljs av systemet
+* serialiseras till prompttext
+* används som byggstart
+* påverkar vilka filer, sektioner och strukturer som genereras
+
+Alltså:
+
+**runtime scaffolds är det som faktiskt bygger sidan.**
+
+---
+
+## Så här hänger allt ihop
+
+Enkel kedja:
+
+**1. Du hittar templates**
+→ lägg dem i raw discovery
+
+**2. Du sorterar och granskar dem**
+→ gör dossiers / curated references
+
+**3. Du genererar research-filer**
+→ embeddings, metadata, quality checklist
+
+**4. Du förbättrar interna scaffolds**
+→ registry, manifests, scaffold-filer
+
+**5. Sajtmaskin bygger**
+→ använder bara runtime scaffolds + genererad scaffold-research
+
+---
+
+## Vad ska användas direkt i appen?
+
+### Ska användas direkt i appen
+
+* runtime scaffolds
+* genererade scaffold-research-filer
+* embeddings och matchning
+
+### Ska inte användas direkt i appen
+
+* raw discovery
+* dossiers
+* annan research som inte först blivit genererad till kodnära artefakter
+
+---
+
+## Praktisk regel för dig
+
+### När du hittar en ny bra template
+
+Gör så här:
+
+1. Lägg den i `research/raw-discovery/`
+2. Granska om den faktiskt är bra
+3. Gör den till en dossier under `research/dossiers/<id>/` (manifest.json + ev. summary.md)
+4. Bestäm vilken scaffold-familj den passar bäst till
+5. Ta bara ut återanvändbar struktur
+6. Uppdatera intern scaffold (manifest i `src/lib/gen/scaffolds/`)
+7. Kör `npm run scaffolds:build` (research + embeddings + validate)
+8. Testa igen
+
+### Gör inte så här
+
+* kopiera in hela externa templates direkt som nya runtime-scaffolds
+* låt runtime läsa direkt från `research/`
+* skapa ett parallellt scaffold-system vid sidan av registry
+* öka antal scaffolds bara för att du hittar fler templates
+
+---
+
+## Hur vet Sajtmaskin vilken stack som ska användas?
+
+Det korta svaret är:
+
+**Nej, allt är inte automatiskt kompatibelt bara för att det ligger i samma kategori.**
+
+En template kan till exempel vara:
+
+* Next.js
+* React utan Next
+* SvelteKit
+* Nuxt
+* ett monorepo
+* en template med konstiga beroenden
+* något som bara ser snyggt ut men inte passar din runtime
+
+Så Sajtmaskin kan inte bara tänka:
+
+* “detta är ecommerce”
+* alltså är det kompatibelt
+
+Det funkar inte så.
+
+### Det som egentligen måste stämma
+
+För att något ska passa som grund för dina interna scaffolds måste det bland annat vara:
+
+* rätt framework eller nära nog
+* rätt app-struktur
+* kompatibelt med din interna runtime-logik
+* möjligt att representera i din `ScaffoldManifest`
+* utan massa irrelevanta specialkopplingar
+
+### Hur vet systemet det?
+
+Det görs i flera steg:
+
+#### 1. Raw discovery sparar metadata
+
+Där finns fält som till exempel framework-match och stack-tags.
+Det hjälper dig att se vad mallen verkar bygga på.
+
+#### 2. Curation avgör om den verkligen passar
+
+I dossier-steget avgör du:
+
+* är detta verkligen en bra Next.js/React-kandidat?
+* stärker den en befintlig scaffold?
+* finns det riktig struktur att återanvända?
+
+#### 3. Promotion-checklistan stoppar fel mallar
+
+Innan något får påverka intern scaffold ska du kolla att:
+
+* repo-länken är riktig
+* implementationen är riktig
+* det inte bara är marknadsföring eller demo-brus
+* den passar en befintlig scaffold-familj
+* den inte bryter dina runtime-antaganden
+
+### Viktig princip
+
+**Kategori betyder bara ungefär vad den är till för.**
+
+Men **stack-kompatibilitet** betyder:
+
+* kan detta faktiskt fungera ihop med Sajtmaskins interna sätt att bygga?
+
+Det måste alltså kontrolleras separat.
+
+---
+
+## Bästa sättet att tänka kring stack
+
+Tänk så här:
+
+### Kategori svarar på:
+
+* vilken sorts sajt är detta?
+* blog?
+* portfolio?
+* saas?
+* ecommerce?
+
+### Stack svarar på:
+
+* kan vi faktiskt använda strukturen här utan att det blir fel?
+* passar detta vår Next.js-baserade scaffold-värld?
+* går det att plocka ut mönster utan att dra in massa skräp?
+
+Du behöver alltså båda.
+
+---
+
+## Min rekommendation för Sajtmaskin
+
+### Behåll detta upplägg
+
+* `research/raw-discovery/` = insamling
+* `research/dossiers/` = curation och dossiers
+* `src/lib/gen/scaffolds/scaffold-research.generated.json` + `scaffold-embeddings.json` = bryggan
+* `src/lib/gen/scaffolds/registry.ts` = verkliga runtime-scaffolds
+
+### När du tar in Vercel Templates
+
+Använd dem så här:
+
+* som råmaterial först
+* sedan som curated reference
+* sedan som förbättringar av befintliga scaffold-familjer
+* inte som direkt import till runtime
+
+### Tänk kring kompatibilitet så här
+
+Fråga inte bara:
+
+* “vilken kategori är detta?”
+
+Fråga också:
+
+* “är detta tekniskt och strukturellt kompatibelt med våra interna scaffolds?”
+
+---
+
+## En enkel slutregel
+
+**Allt du hittar ute i världen är inspiration först.**
+
+**Bara det som blivit granskat, förädlat och omgjort till interna scaffold-förbättringar får styra runtime.**

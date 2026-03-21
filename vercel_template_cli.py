@@ -8,14 +8,11 @@ later be converted into internal scaffold manifests in
 ``src/lib/gen/scaffolds/``.  The runtime scaffold source of truth is
 always the internal registry (``registry.ts``), never live scraping.
 
-Curation pipeline::
+Curation pipeline (offline; must match scripts that exist in ``package.json``)::
 
-  1. Run this script with ``--candidates`` to discover external templates.
-  2. Run ``npm run scaffolds:curate`` to score and rank.
-  3. Human review -> add approved repos to ``config/scripts/sync-scaffold-refs.mjs``.
-  4. Run ``sync-scaffold-refs.mjs`` to download reference code.
-  5. Build new internal scaffolds in ``src/lib/gen/scaffolds/``.
-  6. Regenerate embeddings with ``npm run scaffolds:embeddings``.
+  1. Run this script with ``--candidates`` (and optionally ``--json``) to discover external templates.
+  2. Curate dossiers under ``research/dossiers/<id>/`` (see ``research/README.md``), or author internal scaffolds directly under ``src/lib/gen/scaffolds/`` and register them in ``registry.ts``.
+  3. Regenerate committed artifacts: ``npm run scaffolds:build`` (runs ``scaffolds:research``, ``scaffolds:embeddings``, ``scaffolds:validate``). There is no separate ``scaffolds:curate`` or ``sync-scaffold-refs`` helper in this repo.
 
 This module provides a command-line interface for scraping the
 Vercel template directory across *all* of the available filter groups

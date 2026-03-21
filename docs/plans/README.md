@@ -13,6 +13,9 @@ equally current.
 - `archived/`
   Completed or superseded plans kept only for traceability.
 
+Superseded material that is kept for traceability but should not steer work may
+also live under `docs/old/` (example: `docs/old/scaffold-expansion-brief.md`).
+
 ## Current status map
 
 Verified `2026-03-20`.

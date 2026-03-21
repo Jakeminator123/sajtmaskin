@@ -33,18 +33,29 @@ Generated path hygiene
 npm run verify:generated-paths
 npm run normalize:generated-paths
 
-Scaffold / template-library
----------------------------
-npm run template-library:hydrate-cache
-npm run template-library:build
-npm run template-library:embeddings
+Scaffolds & research (10 runtime-scaffolds)
+-------------------------------------------
+# Efter andringar i registry, manifest eller research/dossiers:
+npm run scaffolds:build
+# Eller steg for steg:
+npm run scaffolds:research
 npm run scaffolds:embeddings
-npm run scaffolds:curate
-npm run scaffolds:promote -- --help
 npm run scaffolds:validate
-npm run scaffolds:test-matching
-npm run scaffold-pipeline
-npm run scaffold-pipeline:full
+
+v0-mallbibliotek / galleri (browse-kort)
+----------------------------------------
+npm run templates:sync
+npm run templates:validate
+npm run templates:refresh
+npm run templates:embeddings
+
+Docs-embeddings (gen-stod)
+--------------------------
+npm run docs:embeddings
+
+Snabb "lokal CI" (typecheck + paths + scaffolds + test + lint)
+----------------------------------------------------------------
+npm run devtest
 
 Eval
 ----

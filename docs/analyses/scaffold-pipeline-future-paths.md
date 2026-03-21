@@ -1,5 +1,9 @@
 # Scaffold/Template Pipeline — tre alternativa spar
 
+> **Lägesnotis (2026-03-21):** Dossiers ligger i `research/dossiers/`; det finns
+> inget `scaffold-pipeline/`-träd eller `npm run scaffold-pipeline` längre.
+> Byggkommandon: `scaffolds:*` i `package.json` (källor under `config/scripts/`).
+
 Sparad: 2026-03-20
 Kontext: Efter hybridisering av scaffold-systemet (17 scaffolds, site-profile,
 route bucketing, embedding-guardrails). Fragan ar hur man gor nasta steg for
@@ -55,26 +59,27 @@ template-referenser utan att du manuellt ger dem ID:n.
 ## Spar B: Automatisk ingestion (CI/cron)
 
 ### Vad det loser
-Idag kors scaffold-pipeline manuellt. Om Vercel lagger till nya templates
-eller befintliga repos uppdateras, marker du det inte forran nasta manuella
-kor.
+Idag kors `scaffolds:build` / `templates:refresh` + embeddings manuellt. Om
+Vercel lagger till nya templates eller repos uppdateras marks det inte forran
+nasta manuella kor.
 
 ### Implementation
-- GitHub Actions workflow som kor `npm run scaffold-pipeline` pa schedule (tex veckovis)
+- GitHub Actions workflow som kor t.ex. `npm run scaffolds:build` och/eller
+  `npm run templates:refresh && npm run templates:embeddings` pa schedule
 - PR skapas automatiskt med uppdaterade generated JSON-filer
 - Du reviewar och mergar
 
 ### Alternativ: lokal cron
-- Windows Task Scheduler kor `npm run scaffold-pipeline` en gang per vecka
+- Windows Task Scheduler kor samma npm-skript en gang per vecka
 - Resultatet committas lokalt
 
 ### Uppskattning
 - 1-2 timmar for GitHub Actions
-- Kostnad: ~$0.02/kor (OpenAI embeddings for 17 scaffolds + 60 templates)
+- Kostnad: beror pa antal mallar och embedding-anrop (10 runtime-scaffolds + galleri)
 
 ### Nar
-Gor det nar du har fler an 20 scaffolds eller fler utvecklare som jobbar
-med pipeline-data. Idag ar manuell korning via Python GUI tillracklig.
+Gor det nar du har storre team eller ofta andrad pipeline-data. Idag racker
+manuell korning fran repo-root.
 
 ---
 

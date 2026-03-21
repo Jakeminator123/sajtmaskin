@@ -176,14 +176,16 @@ Default selected profile: **Max** (`max`)
 | Deep Brief | `AI_GATEWAY_API_KEY` (gateway-only) |
 | V0 Platform (legacy/mall) | `V0_API_KEY` (inte för kodgenerering; `V0_FALLBACK_BUILDER` är deprecated) |
 
-## Scaffold-system (17 scaffolds)
+## Scaffold-system (10 runtime-scaffolds)
 
-base-nextjs, landing-page, saas-landing, portfolio, blog, dashboard, auth-pages, ecommerce, content-site, app-shell
+`base-nextjs`, `landing-page`, `saas-landing`, `portfolio`, `blog`, `dashboard`,
+`auth-pages`, `ecommerce`, `content-site`, `app-shell` — se `registry.ts`.
 
-Matcher: keyword-baserad med ordgräns-regex, svenska + engelska, med
-embedding-baserad fallback när keyword-matchningen bara ger generiska defaultfall.
-Scaffold-kontext injiceras i system prompt (inte user message).
-Import-checker körs efter merge.
+Matcher: nyckelord först (deterministiskt), embedding-fallback när träffen är
+generisk (`landing-page` / `base-nextjs`). Research-artefakter från
+`scaffold-research.generated.json` (byggd från `research/dossiers/` via
+`npm run scaffolds:research`). Scaffold-kontext i systemprompt; import-check
+efter merge. Canonical doc: `docs/architecture/scaffold-system.md`.
 
 ## Implementerat
 
@@ -205,7 +207,7 @@ Import-checker körs efter merge.
 | 792 Lucide-ikoner | `src/lib/gen/data/lucide-icons.ts` | Fungerar |
 | Preview-render | `src/lib/gen/preview/*` | Fungerar |
 | Projekt-scaffold | `src/lib/gen/project-scaffold.ts` | Fungerar |
-| 17 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
+| 10 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` + `registry.ts` | Alla klara |
 | Plan-mode + review-step | `src/app/api/v0/chats/stream/route.ts`, `src/app/api/v0/chats/[chatId]/stream/route.ts`, `src/components/builder/BuildPlanCard.tsx` | Ny |
 | Readiness + launch-gating | `src/app/api/v0/chats/[chatId]/readiness/route.ts`, builder-UI, deploy-actions | Ny |
 | Route planning | `src/lib/gen/route-plan.ts`, `src/lib/gen/orchestrate.ts`, `src/lib/gen/system-prompt.ts` | Ny |

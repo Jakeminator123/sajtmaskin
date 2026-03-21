@@ -3,7 +3,7 @@
  *
  * Uses keyword matching as primary strategy, with embedding-based
  * semantic search as fallback when keywords yield only generic defaults.
- * Only matches against the 13 internal scaffolds in registry.ts.
+ * Only matches against the 10 internal scaffolds in registry.ts.
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -273,103 +273,6 @@ const ECOMMERCE_KEYWORDS = [
   "handgjord", "vintage", "second hand",
 ];
 
-const RESTAURANT_KEYWORDS = [
-  "restaurang",
-  "restaurant",
-  "café",
-  "cafe",
-  "meny",
-  "menu",
-  "food",
-  "mat",
-  "dining",
-  "öppettider",
-  "opening hours",
-  "boka bord",
-  "table",
-  "pizzeria",
-  "bar",
-  "pub",
-  "konditori",
-  "bageri",
-  "bakery",
-  "sushi",
-  "thai",
-  "indisk",
-  // SNI I – Hotell & mat
-  "krog", "bistro", "matsal", "brunch", "food truck",
-  "catering", "hotell", "vandrarhem", "bed and breakfast",
-  "stuguthyrning", "wok", "kebab", "hamburgare", "glass",
-  "taqueria", "ramen", "gastropub",
-];
-
-const BOOKING_KEYWORDS = [
-  "bokning",
-  "booking",
-  "tidsbokning",
-  "appointment",
-  "boka tid",
-  "boka",
-  "schedule",
-  "terapeut",
-  "therapist",
-  "massage",
-  "behandling",
-  "treatment",
-  "hudvård",
-  "nagelstudio",
-  "osteopat",
-  "kiropraktor",
-  "läkare",
-  "tandläkare",
-  "veterinär",
-  "lediga tider",
-  "available",
-  // SNI Q – Hälso- och sjukvård
-  "psykolog", "fysioterapeut", "sjukgymnast", "dietist", "logoped",
-  "optiker", "naprapati", "akupunktur", "zonterapi",
-  // SNI S96 – Kroppsvård
-  "frisör", "salong", "spa", "wellness", "skönhet",
-  "skönhetssalong", "personlig tränare",
-  "hundtrimmare", "djurklinik",
-  // Generella bokningstermer
-  "konsultation", "mottagning", "klinik",
-];
-
-const ASSOCIATION_KEYWORDS = [
-  "förening",
-  "organisation",
-  "ideell",
-  "nonprofit",
-  "klubb",
-  "club",
-  "brf",
-  "bostadsrättsförening",
-  "idrottsklubb",
-  "sportklubb",
-  "scoutkår",
-  "medlemmar",
-  "members",
-  "evenemang",
-  "styrelse",
-  "board",
-  "årsmöte",
-  "stadgar",
-  "bli medlem",
-  "membership",
-  "frivillig",
-  "volunteer",
-  "samfund",
-  "kyrka",
-  "church",
-  // Fler föreningstyper
-  "fackförening", "studentförening", "elevkår",
-  "stiftelse", "fond", "hembygdsförening", "byalag",
-  "supporterklubb", "intresseförening", "pensionärsförening",
-  "föräldraförening", "välgörenhet", "insamling",
-  "Lions", "Rotary", "partidistrik",
-];
-
 const CONTENT_KEYWORDS = [
   "content",
   "innehåll",
@@ -500,21 +403,6 @@ export function matchScaffold(
     return getScaffoldByFamily("app-shell");
   }
 
-  const restaurantScore = countKeywordMatches(lower, RESTAURANT_KEYWORDS);
-  if (restaurantScore >= MIN_SCORE) {
-    return getScaffoldById("restaurant");
-  }
-
-  const bookingScore = countKeywordMatches(lower, BOOKING_KEYWORDS);
-  if (bookingScore >= MIN_SCORE) {
-    return getScaffoldById("booking");
-  }
-
-  const associationScore = countKeywordMatches(lower, ASSOCIATION_KEYWORDS);
-  if (associationScore >= MIN_SCORE) {
-    return getScaffoldById("association");
-  }
-
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
   const portfolioScore = countKeywordMatches(lower, PORTFOLIO_KEYWORDS);
   const landingScore = countKeywordMatches(lower, LANDING_KEYWORDS);
@@ -567,9 +455,6 @@ export async function matchScaffoldWithEmbeddings(
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   const appScore = countKeywordMatches(lower, APP_KEYWORDS);
   const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
-  const restaurantScore = countKeywordMatches(lower, RESTAURANT_KEYWORDS);
-  const bookingScore = countKeywordMatches(lower, BOOKING_KEYWORDS);
-  const associationScore = countKeywordMatches(lower, ASSOCIATION_KEYWORDS);
 
   const isGenericDefault =
     !keywordResult ||
@@ -602,27 +487,6 @@ export async function matchScaffoldWithEmbeddings(
         appScore < 1 &&
         dashboardScore < 1
       ) {
-        return {
-          scaffold: keywordResult,
-          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
-        };
-      }
-
-      if (embeddingResult.id === "restaurant" && restaurantScore < 1) {
-        return {
-          scaffold: keywordResult,
-          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
-        };
-      }
-
-      if (embeddingResult.id === "booking" && bookingScore < 1) {
-        return {
-          scaffold: keywordResult,
-          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
-        };
-      }
-
-      if (embeddingResult.id === "association" && associationScore < 1) {
         return {
           scaffold: keywordResult,
           matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },

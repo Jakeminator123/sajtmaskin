@@ -36,6 +36,17 @@ The own engine is the sole generation path. v0 Platform API (`v0-sdk`) is still
 used for legacy operations: templates (`generateFromTemplate`), registry init
 (`initFromRegistry`), and download (`downloadVersionAsZip`).
 
+## Scaffold lane (10 runtime scaffolds)
+
+Runtime scaffold selection is `getAllScaffolds()` in `scaffolds/registry.ts`
+(keywords + optional embedding fallback in `matcher.ts`). Dossiers under
+`research/dossiers/` are **not** imported by the Next app; they feed build
+scripts that emit `scaffold-research.generated.json` and
+`scaffold-embeddings.json`. After changing manifests, registry, or dossiers,
+run `npm run scaffolds:build` (or `scaffolds:research` / `scaffolds:embeddings`
+/ `scaffolds:validate` separately). See `docs/architecture/scaffold-system.md`
+and `research/README.md`.
+
 ## Generated Artifacts And Indexing
 
 Large generated files under `src/lib/gen/` are part of the runtime surface, even

@@ -15,12 +15,20 @@ Small **Node** helpers wired into `npm run dev|build|start` and day-to-day templ
 
 ## Generated JSON (stubs)
 
-Runtime still loads `src/lib/gen/template-library/*.json` and `src/lib/gen/scaffolds/scaffold-*.json`. After manual edits, run:
+Runtime loads `src/lib/gen/template-library/*.json`, `scaffold-embeddings.json`, and `scaffold-research.generated.json`. After changing **registry**, scaffold manifests, or **`research/dossiers/`**, regenerate and validate:
+
+```bash
+npm run scaffolds:build
+```
+
+After other manual edits to those JSON blobs, run:
 
 ```bash
 npm run verify:generated-paths
 npm run normalize:generated-paths   # if paths need normalizing
 ```
+
+Offline TypeScript that powers `scaffolds:*`, `templates:embeddings`, `docs:embeddings`, etc. lives in **`config/scripts/`** — see `config/scripts/README.md`.
 
 ## AI defaults → `.env.local`
 

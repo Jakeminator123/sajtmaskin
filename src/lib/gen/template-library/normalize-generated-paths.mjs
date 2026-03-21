@@ -1,6 +1,9 @@
 /**
  * Rewrite machine-specific paths in committed template-library.generated.json.
- * Dossier/scaffold-pipeline normalization was removed with the research pipeline.
+ *
+ * Strips absolute Windows/macOS paths from `clonePath` and `sourceRoot` so that
+ * verify-generated-paths.mjs passes in CI. Legacy `scaffold-pipeline/` path
+ * segments are also blanked — that directory no longer exists.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -12,21 +15,17 @@ const WORKSPACE_ROOT = path.resolve(__dirname, "../../../..");
 function normalizeClonePath(value) {
   if (value == null || value === "") return null;
   const unix = value.replace(/\\/g, "/");
-  const m = unix.match(/\/repo-cache\/([^/]+)\/?$/);
-  if (!m) return null;
-  return `scaffold-pipeline/repo-cache/${m[1]}`;
+  if (/[A-Z]:[/\\]Users/i.test(unix) || unix.startsWith("/Users/")) return null;
+  if (unix.includes("scaffold-pipeline/")) return null;
+  return value;
 }
 
 function normalizeSourceRoot(value) {
   if (!value) return "";
   const unix = value.replace(/\\/g, "/");
-  if (unix.includes("scaffold-pipeline/discovery")) {
-    const idx = unix.indexOf("scaffold-pipeline/discovery");
-    return unix.slice(idx);
-  }
-  if (unix.includes("raw-discovery")) {
-    return "";
-  }
+  if (/[A-Z]:[/\\]Users/i.test(unix) || unix.startsWith("/Users/")) return "";
+  if (unix.includes("scaffold-pipeline/")) return "";
+  if (unix.includes("raw-discovery")) return "";
   return value;
 }
 

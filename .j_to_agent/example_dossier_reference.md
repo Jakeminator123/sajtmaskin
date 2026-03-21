@@ -9,7 +9,7 @@ kodexempel och kvalitetssignaler som inspiration vid generering.
 ## Aktuellt exempel: `ai-chatbot` dossier (kvalitetspoäng 94)
 
 ```
-scaffold-pipeline/dossiers/ai-chatbot/
+research/dossiers/ai-chatbot/
 ├── manifest.json       ← metadata, poäng, styrkor, rekommenderade scaffold-familjer
 ├── summary.md          ← kort mänsklig sammanfattning
 └── selected_files/     ← handplockade kodfiler från det externa repot
@@ -45,41 +45,29 @@ scaffold-pipeline/dossiers/ai-chatbot/
 
 1. Användare skriver: "Bygg en chattapplikation med inloggning"
 2. Scaffold-matchning väljer `app-shell` (grund)
-3. `rankTemplateReferences()` söker embeddings mot alla 53 dossiers
-4. `ai-chatbot` rankas högt (hög kvalitetspoäng + scaffold-fit)
+3. Mallbibliotek / template-referenser (`rankTemplateReferences()` m.m.) kan söka mot det kurerade `template-library`-artefaktet; dossiers matar **research**-artefakter (`scaffold-research.generated.json`), inte direkt filsystemläsning per request.
+4. Högt rankade dossier-rader i research kan förstärka promptkontext (checklist, sammanfattning).
 5. Systemprompt får:
-   - Dossier-summary
-   - Kodexempel från `app-layout-tsx.md` och `components-ui-sidebar-tsx.md`
+   - Dossier-summary (via genererad research-data)
+   - Ev. kodexempel om sådana finns i dossier-paket som byggts in i pipelinen
    - Quality checklist-items
 
-**AI-modellen ser aldrig dossiern direkt — den ser utvalda snippets som
-inspiration i systemprompt.**
+**AI-modellen ser aldrig råa dossier-mappar direkt — den ser material som
+formats in via byggda artefakter och promptlager.**
 
-## Alla 53 dossiers per kategori
+## Dossiers per kategori (exempel — räkna i `research/dossiers/`)
 
-| Kategori | Antal | Relevanta för svenska slutanvändare |
-|---|---|---|
-| Portfolio | 3 | Hög |
-| Authentication | 2 | Hög (inlogg-mönster) |
-| Ecommerce | 2 | Hög |
-| SaaS | 4 | Medel-Hög |
-| Blog | 2 | Hög |
-| AI | 3 | Medel (för chatbots, inte hemsidor) |
-| Admin Dashboard | 1 | Medel |
-| CMS | 2 | Medel |
-| Documentation | 3 | Låg-Medel |
-| CDN/Edge/Cron | 15 | Låg (developer-verktyg) |
-| Övriga | 16 | Låg |
+Historiska totalsiffror (t.ex. 53) gäller äldre pipeline; dagens repo kan ha färre
+kurerade dossiers. Använd kataloglistning eller egen inventering.
 
 ## Hur utöka
 
-**Alternativ 1: Skrapa och filtrera (befintlig pipeline)**
-```bash
-npm run scaffold-pipeline:full   # Skrapar vercel.com, bygger dossiers
-```
+**Alternativ 1: Rå discovery → kurerad dossier**
+Lägg skrapad rådata under `research/raw-discovery/`, granska, flytta till
+`research/dossiers/<id>/`, kör `npm run scaffolds:build`.
 
 **Alternativ 2: Manuellt kurerat paket**
-Skapa en mapp i `scaffold-pipeline/dossiers/<id>/` med:
+Skapa en mapp i `research/dossiers/<id>/` med:
 - `manifest.json` (metadata + styrkor)
 - `summary.md` (beskrivning)
 - `selected_files/` (kodexempel)

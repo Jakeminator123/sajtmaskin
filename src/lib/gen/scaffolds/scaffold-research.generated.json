@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-03-16T03:19:19.091Z",
-  "source": "scripts/build-template-library.ts",
+  "source": "config/scripts/build-scaffold-research.ts",
   "scaffolds": {
     "base-nextjs": {
       "qualityChecklist": [

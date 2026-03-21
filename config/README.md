@@ -6,7 +6,7 @@ This folder holds **machine-readable policy** and **offline helpers** — not Ne
 |------|------|
 | `env-policy.json` | Allowed / expected env keys for admin validation and drift checks. |
 | `profiles/ai.defaults.ini` | Human-friendly defaults for AI models and token budgets (see comments inside). |
-| `scripts/` | Offline helpers: docs embeddings, eval, audits. Run via `npm run …` from repo root. |
+| `scripts/` | Offline helpers: scaffold research/embeddings, template-gallery embeddings, docs embeddings, eval, audits. Run via `npm run …` from repo root (`scaffolds:build`, `templates:embeddings`, …). See `config/scripts/README.md`. |
 
 ## Lighter-than-`.env` profiles
 
@@ -25,3 +25,4 @@ Runtime code still reads **environment variables** (`src/lib/gen/defaults.ts`, `
 
 - **Dev / build entrypoints** (Next runner, DB init, Vercel gallery sync): `Scripts/` at repo root.
 - **Template gallery (v0) embeddings**: `npm run templates:embeddings` (see `Scripts/README.md`).
+- **Runtime scaffolds (research JSON + embeddings)**: `npm run scaffolds:build` or individual `scaffolds:*` scripts (`config/scripts/README.md`).

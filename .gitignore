@@ -159,8 +159,8 @@ test-results/
 node_modules/
 _scaffold_discovery/
 
-# Legacy research paths (kept for backward compat, entire tree ignored)
-research/
+# Research lane: dossiers are tracked, raw discovery is local-only
+research/raw-discovery/
 vercel_usecase_next_react_templates/
 _template_refs/
 _sidor/

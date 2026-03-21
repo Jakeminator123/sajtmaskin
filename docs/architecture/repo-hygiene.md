@@ -5,9 +5,9 @@ local-only, and which should be evaluated for later extraction from this repo.
 
 ## Why the repo feels large
 
-- **Historical note:** the old `scaffold-pipeline/` tree (discovery, dossiers, catalog) was removed.
-  Optional reference data now lives only in small committed stubs under `src/lib/gen/template-library/`
-  and `src/lib/gen/scaffolds/scaffold-*.json` until you rebuild a curated set.
+- **Historical note:** the old `scaffold-pipeline/` tree was removed. Dossiers now live under
+  `research/dossiers/` as build-time enrichment data. Build scripts produce generated artifacts
+  committed under `src/lib/gen/scaffolds/` and `src/lib/gen/template-library/`.
 - **Still true:** large media, generated JSON, and docs can add weight — keep them classified below.
 
 ## Classification
@@ -16,7 +16,8 @@ local-only, and which should be evaluated for later extraction from this repo.
 |------|------|------|
 | `keep` | `src/`, `docs/`, `public/video/` | App/runtime code, canonical docs, and currently used product assets. |
 | `keep` | `src/lib/gen/template-library/`, `src/lib/gen/scaffolds/`, `src/lib/gen/data/docs-embeddings.json` | Runtime code imports these generated artifacts directly. Keep them committed even when some large generated JSON files are excluded from Cursor indexing. |
-| `local-only` | `_template_refs/`, `_sidor/`, `research/` (legacy) | Local datasets / clone mirrors; not required for the runtime app. |
+| `keep` | `research/dossiers/`, `research/README.md` | Build-time enrichment layer for scaffold research artifacts. |
+| `local-only` | `_template_refs/`, `_sidor/`, `research/raw-discovery/` | Local datasets / clone mirrors; not required for the runtime app. |
 | `archive` | `docs/plans/archived/`, `docs/old/` | Useful historical context, but low-value for day-to-day indexing. |
 | `archive` | `docs/old/2026-03-holding-area/next-sidan-skrapning.txt` | Historical intake notes kept as a final holding-area reference, not active guidance. |
 

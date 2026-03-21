@@ -1,5 +1,13 @@
 # Scaffold & Template Pipeline Expansion Brief
 
+> **Superseded / historik:** Detta dokument skrevs nar `scaffold-pipeline/` och
+> 13-scaffold-modellen fanns. **Aktuell sanning:** 10 runtime-scaffolds i
+> `src/lib/gen/scaffolds/registry.ts`, dossiers under `research/dossiers/`,
+> byggkommandon i `package.json` (`scaffolds:*`). Las
+> `docs/architecture/scaffold-system.md` och `research/README.md` forst.
+> Avsnitt nedan kan fortfarande namnge borttagna sokvagar eller kommandon —
+> anvand dem inte som kallor utan att verifiera mot repot.
+
 Input-dokument for agent som arbetar med att utoka scaffold-pipeline,
 dossier-taeckning, embeddings, och skapande av en sokbar MCP-yta.
 
@@ -10,7 +18,7 @@ Kalla: Konversation mellan Jakob och kodagent.
 
 ## 1. Nuvarande arkitektur — snabbkarta
 
-### 1.1 Runtime-scaffolds (13 st)
+### 1.1 Runtime-scaffolds (10 st) — uppdaterat 2026-03-21
 
 Registryt: `src/lib/gen/scaffolds/registry.ts`
 
@@ -26,90 +34,72 @@ Registryt: `src/lib/gen/scaffolds/registry.ts`
 | ecommerce       | ecommerce     | E-handel                     |
 | content-site    | content-site  | Innehallssida                |
 | app-shell       | app-shell     | Appskal                      |
-| restaurant      | landing-page  | Restaurang & Tjanster        |
-| booking         | landing-page  | Bokning & Tidsbokning        |
-| association     | content-site  | Forening & Organisation      |
 
-ScaffoldFamily-typen (types.ts) har 10 varden:
-`base-nextjs`, `content-site`, `app-shell`, `landing-page`, `saas-landing`,
-`portfolio`, `blog`, `dashboard`, `auth-pages`, `ecommerce`.
+`ScaffoldFamily` i `types.ts` speglar dessa familjer. Extra mappar under
+`scaffolds/` (t.ex. aldre kandidater) som inte finns i registret anvands **inte**
+i matchning — de kan finnas kvar som referens eller for framtida promotion.
 
-Nyare scaffolds (restaurant, booking, association) ateranvander befintliga
-familjer. Det ar helt korrekt — en family ar en arkitektonisk bas, inte en
-unik kategori.
+Tidigare experiment med separata runtime-IDs for restaurant/booking/association
+ar **inte** aktiva; motsvarande behov tackas med befintliga familjer +
+prompt/route-plan.
 
-### 1.2 Pipeline-oversikt
+### 1.2 Kataloger (nuvarande)
 
 ```
-scaffold-pipeline/
-├── discovery/          Ra skrapdata fran vercel.com/templates (gitignored bulk)
-├── repo-cache/         Shallow clones (gitignored, skapas av hydrate)
-├── dossiers/           53 kuraterade referenspaket (manifest.json + summary.md)
-│   └── */selected_files/   Kodutdrag (gitignored, regenereras vid build)
-├── catalog/            catalog.json, catalog.md, evaluation checklist
-└── scripts/            scaffold-pipeline.py (interaktiv meny)
+research/
+  dossiers/           Kurerade referenspaket (manifest.json, ev. summary.md)
+  raw-discovery/        Rå discovery (gitignored; inte canonical)
+config/scripts/
+  build-scaffold-research.ts
+  generate-scaffold-embeddings.ts
+src/lib/gen/scaffolds/
+  scaffold-embeddings.json
+  scaffold-research.generated.json
 ```
 
 ### 1.3 Genererade artefakter
 
-| Fil                                                | Storlek  | Var         |
-|----------------------------------------------------|----------|-------------|
-| template-library.generated.json                    | ~6 MB    | src/lib/gen/template-library/ |
-| template-library-embeddings.json                   | ~3 MB    | src/lib/gen/template-library/ |
-| scaffold-embeddings.json                           | ~2 MB    | src/lib/gen/scaffolds/        |
-| scaffold-research.generated.json                   | ~1 MB    | src/lib/gen/scaffolds/        |
+| Fil | Storlek (typiskt) | Var |
+|-----|-------------------|-----|
+| template-library.generated.json | stor | `src/lib/gen/template-library/` |
+| template-library-embeddings.json | stor | `src/lib/gen/template-library/` |
+| scaffold-embeddings.json | mindre | `src/lib/gen/scaffolds/` |
+| scaffold-research.generated.json | mindre | `src/lib/gen/scaffolds/` |
 
-### 1.4 Pipelinens steg
+### 1.4 Byggkommandon (runtime-scaffolds)
 
 ```
-1. Discovery     npm run references:discover         (Playwright, skrapar vercel.com/templates)
-2. Import        npm run template-library:import-legacy  (normaliserar till discovery/current/)
-3. Hydrate       npm run template-library:hydrate-cache  (shallow clones)
-4. Build         npm run template-library:build          (dossiers + generated JSON)
-5. Embeddings    npm run template-library:embeddings     (OpenAI vektorer for template-library)
-6. Scaffold emb  npm run scaffolds:embeddings            (OpenAI vektorer for runtime-scaffolds)
-7. Test          npm run scaffolds:test-matching         (90+ testprompter)
+npm run scaffolds:research     # scaffold-research.generated.json
+npm run scaffolds:embeddings    # scaffold-embeddings.json
+npm run scaffolds:validate
+npm run scaffolds:build         # ovan i ordning
 ```
 
-Interaktiv meny: `python scaffold-pipeline/scripts/scaffold-pipeline.py`
-Snabbkommando: `npm run scaffold-pipeline` (steg 3-7) eller
-`npm run scaffold-pipeline:full` (steg 1+3-7).
+Mallbibliotek (`template-library.*`, v0-kort): `templates:*` i `package.json`;
+se `Scripts/README.md`.
 
 ---
 
 ## 2. Status — vad som finns och vad som saknas
 
-### 2.1 selected_files/ — gitignorerade, inte raderade
+### 2.1 Dossier-innehall
 
-`selected_files/`-mapparna inuti varje dossier skapas av
-`config/scripts/build-template-library.ts` och innehaller kodutdrag (markdown-filer
-med excerpts fran klonade repos).
-
-De ar uttryckligen gitignorerade:
-```
-# .gitignore rad 169
-scaffold-pipeline/dossiers/*/selected_files/
-```
-
-Kommentaren i .gitignore: "regenerated by build-template-library.ts, not
-needed in git".
-
-Efter en fresh checkout maste pipelinen koras (minst steg 3+4) for att
-regenerera dem. De paverkar poang i `scoreEntry()` — fler selected_files
-ger hogre qualityScore — men saknas de sa far entries lagre poang, inte
-fel.
+`research/dossiers/<id>/` innehaller minst `manifest.json`; `summary.md` ar
+valfri. Aldre pipeline skapade `selected_files/` via separata byggscript — om
+det aterinfors hanteras det utanfor denna brief. Se `research/README.md`.
 
 ### 2.2 Dossier-coverage
 
-Nuvarande: 53 dossiers, 64 kuraterade entries, 105 auditerade templates.
-Vercel har uppskattningsvis 200-300+ templates pa vercel.com/templates.
-Vi fanger alltsa ungefar 35-50% av den externa referensytan.
+Antal dossiers andras over tid; rakna under `research/dossiers/`. Separat
+template-library-yta (v0-mallar) lever i `src/lib/gen/template-library/*` och
+`templates:*`-skript.
 
 ### 2.3 Runtime scaffold-taeckning
 
-13 scaffolds tacker de vanligaste svenska anvandningsfallen. De tre senaste
-(restaurant, booking, association) visar monstret for hur man utvidgar utan
-att lagga till nya familjer.
+10 scaffolds (se tabell i 1.1) tacker huvudfallen. Vertikaler som "restaurang"
+eller "forening" styrs med befintliga **families** + innehall i prompt och
+route-plan, inte separata runtime-IDs (savida ni inte medvetet aterinfor dem i
+`registry.ts`).
 
 ---
 
