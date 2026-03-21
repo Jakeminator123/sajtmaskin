@@ -39,13 +39,16 @@ const emptyAnalyticsReview: AnalyticsReview = {
 function buildArtifacts(params: {
   editorialReview?: EditorialReview;
   businessWorkflowReview?: BusinessWorkflowReview;
+  resolvedDemoUrl?: string | null;
+  preflight?: { previewBlocked: boolean; verificationBlocked: boolean; previewBlockingReason: string | null } | null;
+  runtimePreviewState?: "pending" | "skipped" | null;
 }) {
   return buildPostCheckArtifacts({
     currentFileCount: 1,
     versionId: "ver_test",
     changes: null,
     warnings: [],
-    preflight: null,
+    preflight: params.preflight ?? null,
     previousVersionId: null,
     streamQuality: undefined,
     missingRoutes: [],
@@ -78,7 +81,11 @@ function buildArtifacts(params: {
     sanityErrors: [],
     sanityWarnings: [],
     imageValidation: null,
-    resolvedDemoUrl: "https://preview.example/ver_test",
+    resolvedDemoUrl:
+      params.resolvedDemoUrl === undefined
+        ? "https://preview.example/ver_test"
+        : params.resolvedDemoUrl,
+    runtimePreviewState: params.runtimePreviewState ?? null,
   });
 }
 
@@ -194,6 +201,43 @@ describe("post-checks-results", () => {
     ]);
     expect(artifacts.output.businessWorkflowSummary.labels).toHaveLength(
       artifacts.output.businessWorkflowSummary.suggestedPrompts.length,
+    );
+  });
+
+  it("does not queue autofix when runtime preview is still pending after clean static preflight", () => {
+    const artifacts = buildArtifacts({
+      resolvedDemoUrl: null,
+      runtimePreviewState: "pending",
+      preflight: {
+        previewBlocked: false,
+        verificationBlocked: false,
+        previewBlockingReason: null,
+      },
+    });
+
+    expect(artifacts.autoFixReasons).toEqual([]);
+    expect(artifacts.output.summary.autoFixQueued).toBe(false);
+    expect(artifacts.output.summary.qualityTier).toBe("preview");
+    expect(artifacts.output.steps).toContain(
+      "Runtime preview invantar sandbox-start innan riktig Next-runtime visas.",
+    );
+  });
+
+  it("treats skipped sandbox runtime as non-blocking without claiming it is still pending", () => {
+    const artifacts = buildArtifacts({
+      resolvedDemoUrl: null,
+      runtimePreviewState: "skipped",
+      preflight: {
+        previewBlocked: false,
+        verificationBlocked: false,
+        previewBlockingReason: null,
+      },
+    });
+
+    expect(artifacts.autoFixReasons).toEqual([]);
+    expect(artifacts.output.summary.qualityTier).toBe("preview");
+    expect(artifacts.output.steps).toContain(
+      "Runtime preview kunde inte startas automatiskt i sandbox, men den statiska versionen passerade.",
     );
   });
 });

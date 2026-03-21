@@ -133,9 +133,12 @@ export const serverSchema = z.object({
   OPENCLAW_GATEWAY_URL: z.string().optional(),
   OPENCLAW_GATEWAY_TOKEN: z.string().optional(),
 
-  // AI – Direct OpenAI (Responses API)
+  // AI – Model routing (see src/lib/gen/models.ts for priority logic)
+  // AI_GATEWAY_API_KEY / AI_GATEWAY: Vercel AI Gateway key (preferred when set)
+  // OPENAI_API_KEY: direct OpenAI fallback
   OPENAI_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
+  AI_GATEWAY: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
   AI_CHAT_MAX_TOKENS: z.string().optional(),
@@ -160,6 +163,9 @@ export const serverSchema = z.object({
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),
   AUDIT_WEB_SEARCH: z.string().optional(),
+  PREVIEW: z.string().optional(),
+  SANDBOX_AUTO: z.string().optional(),
+  NEXT_PUBLIC_SANDBOX_AUTO: z.string().optional(),
   V0_STREAMING_ENABLED: z.string().optional(),
   V0_MAX_PROMPT_LENGTH: z.string().optional(),
   V0_WARN_PROMPT_LENGTH: z.string().optional(),
@@ -174,6 +180,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_DEV_LOG: z.string().optional(),
   SAJTMASKIN_DEV_LOG_STDOUT: z.string().optional(),
   SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS: z.string().optional(),
+  /** When "1", skip blocking auth/payment/db contract modals and use placeholder decisions (defer real setup to project settings). */
+  SAJTMASKIN_CONTRACT_DEFER_TO_SETTINGS: z.string().optional(),
   CRON_SECRET: z.string().optional(),
 
   // Inspector / capture worker
@@ -228,4 +236,16 @@ export function getServerEnv(): ServerEnv {
 
   _cached = result.data;
   return _cached;
+}
+
+export function isLegacyPreviewShimsEnabled(): boolean {
+  return isAffirmativeEnvValue(getServerEnv().PREVIEW);
+}
+
+export function isSandboxAutoEnabledServer(): boolean {
+  const env = getServerEnv();
+  return (
+    isAffirmativeEnvValue(env.SANDBOX_AUTO) ||
+    isAffirmativeEnvValue(env.NEXT_PUBLIC_SANDBOX_AUTO)
+  );
 }

@@ -8,6 +8,7 @@ const runProjectSanityChecks = vi.hoisted(() => vi.fn());
 const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 const runLlmFixer = vi.hoisted(() => vi.fn());
+const isLegacyPreviewShimsEnabled = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/autofix/pipeline", () => ({
   runAutoFix,
@@ -49,6 +50,10 @@ vi.mock("@/lib/logging/devLog", () => ({
   devLogAppend: vi.fn(),
 }));
 
+vi.mock("@/lib/env", () => ({
+  isLegacyPreviewShimsEnabled,
+}));
+
 import { runFinalizePreflight } from "./finalize-preflight";
 
 describe("runFinalizePreflight", () => {
@@ -61,6 +66,7 @@ describe("runFinalizePreflight", () => {
     parseFilesFromContent.mockReset();
     validateGeneratedCode.mockReset();
     runLlmFixer.mockReset();
+    isLegacyPreviewShimsEnabled.mockReset();
 
     repairGeneratedFiles.mockImplementation((files: unknown) => ({ files, fixes: [] }));
     buildCompleteProject.mockImplementation((files: unknown) => files);
@@ -68,6 +74,7 @@ describe("runFinalizePreflight", () => {
     validateGeneratedCode.mockResolvedValue({ valid: true, errors: [] });
     runLlmFixer.mockResolvedValue({ success: false });
     runAutoFix.mockResolvedValue({ fixedContent: "", fixes: [], warnings: [], dependencies: [] });
+    isLegacyPreviewShimsEnabled.mockReturnValue(true);
   });
 
   it("marks preview as blocked when no renderable page can be built", async () => {
@@ -153,5 +160,29 @@ describe("runFinalizePreflight", () => {
       severity: "error",
       message: "Missing required export",
     });
+  });
+
+  it("skips shim-preview blocking checks when runtime-first preview mode is active", async () => {
+    isLegacyPreviewShimsEnabled.mockReturnValue(false);
+    buildPreviewHtml.mockReturnValue(null);
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        {
+          path: "src/app/page.tsx",
+          content: "export default function Page() { return <div>Hello</div>; }",
+          language: "tsx",
+        },
+      ]),
+    });
+
+    expect(result.previewBlockingReason).toBeNull();
+    expect(result.preflightIssues).not.toContainEqual(
+      expect.objectContaining({
+        file: "preview",
+      }),
+    );
   });
 });

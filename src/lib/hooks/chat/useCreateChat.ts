@@ -18,7 +18,12 @@ import {
   updateCreateChatLockChatId,
   writeCreateChatLock,
 } from "./helpers";
-import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import {
+  runPostGenerationChecks,
+  runSandboxQualityGate,
+  triggerImageMaterialization,
+} from "./post-checks";
+import { isSandboxAutoEnabled, resolveSandboxAutoEnabled } from "@/lib/sandbox/sandbox-auto";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 
@@ -278,14 +283,47 @@ export function useCreateChat(
         }
         toast.success("Sajt skapad!");
 
-        if (resolvedDemoUrl) {
-          setCurrentDemoUrl(resolvedDemoUrl);
+        const sandboxAutoEnabled = resolveSandboxAutoEnabled(
+          data.sandboxAutoEnabled,
+          isSandboxAutoEnabled(),
+        );
+        const isLegacyPreviewUrl = Boolean(
+          resolvedDemoUrl && resolvedDemoUrl.startsWith("/api/preview-render"),
+        );
+        const shouldDeferPreviewForSandbox =
+          sandboxAutoEnabled && Boolean(resolvedVersionId) && !isLegacyPreviewUrl;
+        let finalDemoUrl = resolvedDemoUrl;
+        let sandboxRuntimeStatus: "passed" | "failed" | "skipped" | null = null;
+
+        if (shouldDeferPreviewForSandbox) {
+          const toastId = "sandbox-auto-preview";
+          toast.loading("Startar sandlåda och verifierar innan preview...", { id: toastId });
+          try {
+            const qualityGate = await runSandboxQualityGate({
+              chatId: String(newChatId),
+              versionId: String(resolvedVersionId),
+              assistantMessageId,
+              setMessages,
+              onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+              bootRuntime: true,
+            });
+            finalDemoUrl = qualityGate.runtimeUrl ?? finalDemoUrl;
+            sandboxRuntimeStatus = qualityGate.status;
+          } finally {
+            toast.dismiss(toastId);
+          }
+          mutateVersions();
+        }
+
+        if (finalDemoUrl) {
+          setCurrentDemoUrl(finalDemoUrl);
           onPreviewRefresh?.();
         }
+
         onGenerationComplete?.({
           chatId: String(newChatId),
           versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-          demoUrl: resolvedDemoUrl ?? undefined,
+          demoUrl: finalDemoUrl ?? undefined,
         });
         if (resolvedVersionId) {
           void triggerImageMaterialization({
@@ -298,11 +336,19 @@ export function useCreateChat(
           void runPostGenerationChecks({
             chatId: String(newChatId),
             versionId: String(resolvedVersionId),
-            demoUrl: resolvedDemoUrl,
+            demoUrl: finalDemoUrl,
             preflight,
             assistantMessageId,
             setMessages,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+            skipQualityGate: Boolean(shouldDeferPreviewForSandbox),
+            runtimePreviewState:
+              shouldDeferPreviewForSandbox &&
+              sandboxRuntimeStatus !== "passed" &&
+              sandboxRuntimeStatus !== null &&
+              !finalDemoUrl
+                ? "skipped"
+                : null,
           });
         }
 

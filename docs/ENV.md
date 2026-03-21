@@ -52,6 +52,21 @@ python manage_env.py reconcile         # dry-run cleanup-plan för Vercel drift
 python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga entries på Vercel)
 ```
 
+## Preview- och sandbox-flaggor
+
+De här flaggorna styr nu hur buildern väljer previewyta:
+
+| Env-variabel | Rekommenderad användning | Effekt |
+|---|---|---|
+| `PREVIEW` | Sätt `y` endast om du vill behålla legacy preview-rendering lokalt | När flaggan är sann används den interna `/api/preview-render`-ytan med shim-mar för snabbare, men mindre trogen, rendering |
+| `SANDBOX_AUTO` | Server-side flagga för runtime-first-läge | När flaggan är sann får own-engine-flödet försöka starta riktig sandbox-runtime efter en fungerande statisk version |
+| `NEXT_PUBLIC_SANDBOX_AUTO` | Valfri publik spegling av `SANDBOX_AUTO` | Klienten kan läsa den direkt, men servern skickar även motsvarande beslut i API/SSE-svaren |
+
+Praktisk tumregel:
+
+- `PREVIEW=y` = legacy/shim-preview.
+- Utan `PREVIEW=y` = runtime-first. Buildern väntar då på sandbox/deploy-URL i stället för att låtsas att shim-previewen är samma sak som riktig Next.js-runtime.
+
 ## Modellkonfiguration
 
 Modellkonfigurationen ar uppdelad mellan flera filer:

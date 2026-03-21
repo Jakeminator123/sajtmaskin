@@ -18,8 +18,13 @@ import {
   recordStreamText,
 } from "./helpers";
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
-import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import {
+  runPostGenerationChecks,
+  runSandboxQualityGate,
+  triggerImageMaterialization,
+} from "./post-checks";
 import { readPreviewPreflight } from "./post-checks-preview";
+import { isSandboxAutoEnabled, resolveSandboxAutoEnabled } from "@/lib/sandbox/sandbox-auto";
 
 export type StreamContext = {
   streamType: "create" | "send";
@@ -68,7 +73,15 @@ export async function handleSseStream(
     versionId: string;
     demoUrl?: string | null;
     preflight?: PreviewPreflightState | null;
+    skipQualityGate?: boolean;
+    runtimePreviewState?: "pending" | "skipped" | null;
   }> = [];
+  type SandboxAutoDeferredPayload = {
+    chatId: string;
+    versionId: string;
+    demoUrl: string | null;
+  };
+  const sandboxAutoBucket: { current: SandboxAutoDeferredPayload | null } = { current: null };
   const materializeQueue: Array<{ chatId: string; versionId: string }> = [];
   let streamQuality: StreamQualitySignal = { hasCriticalAnomaly: false, reasons: [] };
   const streamStats = initStreamStats(ctx.streamType, ctx.assistantMessageId);
@@ -540,10 +553,6 @@ export async function handleSseStream(
               v0ProjectIdFromStream = String(doneV0ProjectId);
               onV0ProjectId?.(v0ProjectIdFromStream);
             }
-            if (doneData.demoUrl) {
-              setCurrentDemoUrl(doneData.demoUrl as string);
-            }
-            onPreviewRefresh?.();
             const resolvedChatId =
               doneData.chatId || doneData.id || chatIdFromStream || effectiveChatId || null;
             const resolvedVersionId =
@@ -701,11 +710,43 @@ export async function handleSseStream(
               toast.success(planArtifact ? "Plan skapad!" : "Sajt skapad!");
             }
             mutateVersions();
-            onGenerationComplete?.({
-              chatId: nextId,
-              versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-              demoUrl: doneData.demoUrl as string | undefined,
-            });
+
+            const demoUrlStr =
+              typeof doneData.demoUrl === "string" && doneData.demoUrl.trim().length > 0
+                ? doneData.demoUrl.trim()
+                : "";
+            const sandboxAutoEnabled = resolveSandboxAutoEnabled(
+              doneData.sandboxAutoEnabled,
+              isSandboxAutoEnabled(),
+            );
+            const isLegacyPreviewUrl = demoUrlStr.startsWith("/api/preview-render");
+            const shouldDeferPreviewForSandbox =
+              sandboxAutoEnabled &&
+              Boolean(resolvedVersionId) &&
+              !isLegacyPreviewUrl &&
+              !awaitingInput;
+
+            if (shouldDeferPreviewForSandbox) {
+              sandboxAutoBucket.current = {
+                chatId: nextId,
+                versionId: String(resolvedVersionId),
+                demoUrl: demoUrlStr || null,
+              };
+            } else {
+              if (demoUrlStr) {
+                setCurrentDemoUrl(demoUrlStr);
+              }
+              onPreviewRefresh?.();
+            }
+
+            if (!shouldDeferPreviewForSandbox) {
+              onGenerationComplete?.({
+                chatId: nextId,
+                versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
+                demoUrl: demoUrlStr || undefined,
+              });
+            }
+
             if (resolvedChatId && resolvedVersionId) {
               materializeQueue.push({
                 chatId: String(resolvedChatId),
@@ -714,8 +755,9 @@ export async function handleSseStream(
               postCheckQueue.push({
                 chatId: String(resolvedChatId),
                 versionId: String(resolvedVersionId),
-                demoUrl: (doneData.demoUrl as string) ?? null,
+                demoUrl: demoUrlStr || null,
                 preflight: donePreflight,
+                skipQualityGate: Boolean(shouldDeferPreviewForSandbox),
               });
             }
             break;
@@ -748,6 +790,48 @@ export async function handleSseStream(
     throw new Error("No chat ID returned from stream");
   }
 
+  const sandboxAutoDeferred = sandboxAutoBucket.current;
+  if (sandboxAutoDeferred) {
+    const toastId = "sandbox-auto-preview";
+    toast.loading("Startar sandlåda och verifierar innan preview...", { id: toastId });
+    let sandboxRuntimeUrl: string | null = null;
+    let sandboxRuntimeStatus: "passed" | "failed" | "skipped" | null = null;
+    try {
+      const qualityGate = await runSandboxQualityGate({
+        chatId: sandboxAutoDeferred.chatId,
+        versionId: sandboxAutoDeferred.versionId,
+        assistantMessageId,
+        setMessages,
+        onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+        bootRuntime: true,
+      });
+      sandboxRuntimeUrl = qualityGate.runtimeUrl ?? null;
+      sandboxRuntimeStatus = qualityGate.status;
+    } finally {
+      toast.dismiss(toastId);
+    }
+    const resolvedDemoUrl = sandboxRuntimeUrl ?? sandboxAutoDeferred.demoUrl;
+    if (resolvedDemoUrl) {
+      setCurrentDemoUrl(resolvedDemoUrl);
+      onPreviewRefresh?.();
+    }
+    mutateVersions();
+    onGenerationComplete?.({
+      chatId: sandboxAutoDeferred.chatId,
+      versionId: sandboxAutoDeferred.versionId,
+      demoUrl: resolvedDemoUrl ?? undefined,
+    });
+    const latestDeferredPostCheck =
+      postCheckQueue.length > 0 ? postCheckQueue[postCheckQueue.length - 1] : null;
+    if (latestDeferredPostCheck?.versionId === sandboxAutoDeferred.versionId) {
+      latestDeferredPostCheck.demoUrl = resolvedDemoUrl;
+      latestDeferredPostCheck.runtimePreviewState =
+        sandboxRuntimeStatus !== "passed" && sandboxRuntimeStatus !== null && !resolvedDemoUrl
+          ? "skipped"
+          : null;
+    }
+  }
+
   setMessages((prev) => {
     const msg = prev.find((m) => m.id === assistantMessageId);
     if (!msg?.isStreaming) return prev;
@@ -778,6 +862,8 @@ export async function handleSseStream(
       setMessages,
       streamQuality,
       onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+      skipQualityGate: Boolean(latestPostCheck.skipQualityGate),
+      runtimePreviewState: latestPostCheck.runtimePreviewState ?? null,
     });
   }
 

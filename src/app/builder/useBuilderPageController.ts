@@ -1142,7 +1142,7 @@ export function useBuilderPageController() {
       setClearedPreviewVersionId(null);
     }
 
-    if (!didChangeVersion && currentDemoUrl) return;
+    if (!didChangeVersion && currentDemoUrl && !derived.activeVersionId) return;
     if (!didChangeVersion && clearedPreviewVersionId === derived.activeVersionId) return;
 
     const activeVersionMatch = derived.activeVersionId
@@ -1160,15 +1160,17 @@ export function useBuilderPageController() {
     const canUseServerDemoUrl =
       !serverProjectChatId || !chatId || serverProjectChatId === chatId;
     const nextDemoUrl =
-      persistedPreviewOverride ||
-      activeVersionMatch?.demoUrl ||
-      chatObj?.demoUrl ||
-      chatObj?.latestVersion?.demoUrl ||
-      derived.effectiveVersionsList[0]?.demoUrl ||
-      (canUseServerDemoUrl ? serverProjectDemoUrl : null) ||
-      null;
+      persistedPreviewOverride !== null
+        ? persistedPreviewOverride
+        : activeVersionMatch
+          ? (activeVersionMatch.demoUrl ?? null)
+          : chatObj?.demoUrl ||
+            chatObj?.latestVersion?.demoUrl ||
+            derived.effectiveVersionsList[0]?.demoUrl ||
+            (canUseServerDemoUrl ? serverProjectDemoUrl : null) ||
+            null;
 
-    if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
+    if (nextDemoUrl !== currentDemoUrl) {
       setCurrentDemoUrl(nextDemoUrl);
       setPreviewRefreshToken(Date.now());
     }

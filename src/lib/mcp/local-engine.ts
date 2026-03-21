@@ -137,11 +137,16 @@ export async function createLocalGeneratedRuntime(
   const projectId = await getOwnEngineProjectId(chatId);
 
   if (mode === "preview") {
-    const resolvedVersionId = versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null;
+    const resolvedVersion =
+      (versionId ? await chatRepo.getVersionById(versionId) : await chatRepo.getLatestVersion(chatId)) ??
+      null;
+    const resolvedVersionId = resolvedVersion?.id ?? null;
     return buildOwnEnginePreviewRuntime({
       chatId,
       versionId: resolvedVersionId,
       projectId,
+      sandboxUrl: resolvedVersion?.sandbox_url ?? null,
+      version: resolvedVersion,
     });
   }
 

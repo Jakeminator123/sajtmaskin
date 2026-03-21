@@ -78,13 +78,11 @@ export function useBuilderEffects({
             router.replace(`/builder?${params.toString()}`);
           }
         }
-        if (data?.demoUrl) {
-          setCurrentDemoUrl(data.demoUrl);
-        }
+        setCurrentDemoUrl(data?.demoUrl ?? null);
         if (data?.chatId && appProjectId) {
           saveProjectData(appProjectId, {
             chatId: data.chatId,
-            demoUrl: data.demoUrl ?? undefined,
+            demoUrl: data.demoUrl ?? null,
           }).catch((error) => {
             console.warn("[Builder] Failed to save template project mapping:", error);
           });

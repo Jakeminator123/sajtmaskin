@@ -26,7 +26,7 @@ export type PersistedMessage =
 export interface ProjectData {
   project_id: string;
   chat_id?: string;
-  demo_url?: string;
+  demo_url?: string | null;
   current_code?: string;
   files: PersistedFile[];
   messages: PersistedMessage[];
@@ -115,7 +115,7 @@ export async function saveProjectData(
   projectId: string,
   data: {
     chatId?: string;
-    demoUrl?: string;
+    demoUrl?: string | null;
     currentCode?: string;
     files?: PersistedFile[];
     messages?: PersistedMessage[];

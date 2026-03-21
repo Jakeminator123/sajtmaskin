@@ -8,7 +8,7 @@ const runProjectSanityChecks = vi.hoisted(() => vi.fn());
 const expandUrls = vi.hoisted(() => vi.fn());
 const materializeImages = vi.hoisted(() => vi.fn());
 const buildPreviewHtml = vi.hoisted(() => vi.fn());
-const buildPreviewUrl = vi.hoisted(() => vi.fn());
+const resolveEngineDemoUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
@@ -19,6 +19,7 @@ const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
+const isLegacyPreviewShimsEnabled = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/autofix/pipeline", () => ({
   runAutoFix,
@@ -50,7 +51,10 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
 
 vi.mock("@/lib/gen/preview", () => ({
   buildPreviewHtml,
-  buildPreviewUrl,
+}));
+
+vi.mock("@/lib/gen/demo-url", () => ({
+  resolveEngineDemoUrl,
 }));
 
 vi.mock("@/lib/gen/repair-generated-files", () => ({
@@ -70,6 +74,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 
 vi.mock("@/lib/db/services", () => ({
   createEngineVersionErrorLogs,
+  createGenerationTelemetryRecord: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
@@ -90,6 +95,10 @@ vi.mock("@/lib/utils/debug", () => ({
   warnLog: vi.fn(),
 }));
 
+vi.mock("@/lib/env", () => ({
+  isLegacyPreviewShimsEnabled,
+}));
+
 vi.mock("@/lib/db/client", () => ({
   db: new Proxy({}, { get() { return vi.fn(); } }),
   dbConfigured: false,
@@ -101,10 +110,6 @@ vi.mock("@/lib/gen/scaffolds/scaffold-aware-retry", () => ({
 
 vi.mock("@/lib/gen/validation/seo-preflight", () => ({
   runSeoPreflightChecks: vi.fn().mockReturnValue([]),
-}));
-
-vi.mock("@/lib/db/services/generation-telemetry", () => ({
-  createGenerationTelemetryRecord: vi.fn().mockResolvedValue({}),
 }));
 
 import { finalizeAndSaveVersion } from "./finalize-version";
@@ -119,7 +124,7 @@ describe("finalizeAndSaveVersion", () => {
     expandUrls.mockReset();
     materializeImages.mockReset();
     buildPreviewHtml.mockReset();
-    buildPreviewUrl.mockReset();
+    resolveEngineDemoUrl.mockReset();
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
     addMessage.mockReset();
@@ -130,6 +135,7 @@ describe("finalizeAndSaveVersion", () => {
     parseFilesFromContent.mockReset();
     mergeVersionFilesWithWarnings.mockReset();
     validateGeneratedCode.mockReset();
+    isLegacyPreviewShimsEnabled.mockReset();
 
     runAutoFix.mockResolvedValue({
       fixedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
@@ -182,6 +188,7 @@ describe("finalizeAndSaveVersion", () => {
       valid: true,
       errors: [],
     });
+    isLegacyPreviewShimsEnabled.mockReturnValue(true);
     runProjectSanityChecks.mockReturnValue({
       valid: true,
       issues: [],
@@ -191,7 +198,7 @@ describe("finalizeAndSaveVersion", () => {
     logGeneration.mockResolvedValue({});
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
-    buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
+    resolveEngineDemoUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
   });
 
   it("emits a terminal autofix progress event even when autofix makes no changes", async () => {
@@ -258,7 +265,7 @@ describe("finalizeAndSaveVersion", () => {
     expect(result.previewUrl).toBe("https://preview.example/chat_1/ver_1");
     expect(result.preflight.previewBlocked).toBe(false);
     expect(result.preflight.verificationBlocked).toBe(true);
-    expect(buildPreviewUrl).toHaveBeenCalledWith("chat_1", "ver_1");
+    expect(resolveEngineDemoUrl).toHaveBeenCalledWith("chat_1", { id: "ver_1" });
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",
@@ -291,7 +298,7 @@ describe("finalizeAndSaveVersion", () => {
     expect(result.preflight.previewBlockingReason).toBe(
       "Automatic preflight could not build a renderable own-engine preview entrypoint.",
     );
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
+    expect(resolveEngineDemoUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",

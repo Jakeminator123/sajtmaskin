@@ -23,7 +23,7 @@ import {
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { streamText, type ModelMessage } from "ai";
-import { getOpenAIModel } from "@/lib/gen/models";
+import { resolveModel } from "@/lib/gen/models";
 import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
 import {
   buildUserPromptContent,
@@ -36,6 +36,7 @@ import {
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
+import { isSandboxAutoEnabledServer } from "@/lib/env";
 
 export async function GET(req: Request) {
   try {
@@ -238,7 +239,7 @@ export async function POST(req: Request) {
             thinking: resolvedThinking,
             fallback: false,
           });
-          const model = getOpenAIModel(engineModel);
+          const model = resolveModel(engineModel);
           const messages = [
             { role: "user" as const, content: buildUserPromptContent(optimizedMessage, requestAttachments) },
           ];
@@ -326,6 +327,7 @@ export async function POST(req: Request) {
               internalChatId: chat.id,
               model: engineModel,
               demoUrl: finalized.previewUrl,
+              sandboxAutoEnabled: isSandboxAutoEnabledServer(),
               preflight: finalized.preflight,
               previewBlocked: finalized.preflight.previewBlocked,
               verificationBlocked: finalized.preflight.verificationBlocked,

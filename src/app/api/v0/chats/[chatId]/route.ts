@@ -9,9 +9,8 @@ import {
   getProjectByIdForRequest,
 } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
-import { buildPreviewUrl } from "@/lib/gen/preview";
+import { resolveEngineDemoUrl } from "@/lib/gen/demo-url";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
-import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 
 type V0ChatSummary = {
   latest: {
@@ -69,10 +68,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           (await getPreferredVersion(resolvedChatId)) ??
           (await getLatestVersion(resolvedChatId));
         const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
-        const previewUrl =
-          latest && canExposeEnginePreview(latest)
-            ? buildPreviewUrl(resolvedChatId, latest.id)
-            : null;
+        const previewUrl = resolveEngineDemoUrl(resolvedChatId, latest);
 
         return NextResponse.json({
           id: chat.id,

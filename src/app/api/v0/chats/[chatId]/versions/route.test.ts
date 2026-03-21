@@ -7,7 +7,7 @@ const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const getProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
 const updateVersionSandboxUrl = vi.hoisted(() => vi.fn());
-const buildPreviewUrl = vi.hoisted(() => vi.fn());
+const resolveEngineDemoUrl = vi.hoisted(() => vi.fn());
 const assertV0Key = vi.hoisted(() => vi.fn());
 const v0ChatsGetById = vi.hoisted(() => vi.fn());
 
@@ -27,8 +27,8 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateVersionSandboxUrl,
 }));
 
-vi.mock("@/lib/gen/preview", () => ({
-  buildPreviewUrl,
+vi.mock("@/lib/gen/demo-url", () => ({
+  resolveEngineDemoUrl,
 }));
 
 vi.mock("@/lib/v0", () => ({
@@ -84,9 +84,10 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     getProjectByIdForRequest.mockReset();
     getVersionsByChat.mockReset();
     updateVersionSandboxUrl.mockReset();
-    buildPreviewUrl.mockReset();
+    resolveEngineDemoUrl.mockReset();
     assertV0Key.mockReset();
     v0ChatsGetById.mockReset();
+    resolveEngineDemoUrl.mockReturnValue(null);
   });
 
   it("returns failed own-engine versions without a preview URL", async () => {
@@ -113,7 +114,10 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].demoUrl).toBeNull();
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
+    expect(resolveEngineDemoUrl).toHaveBeenCalledWith("chat_1", expect.objectContaining({
+      id: "ver_failed",
+      sandbox_url: "https://sandbox.example",
+    }));
   });
 
   it("does not leak raw v0 fallback versions for unowned projects", async () => {
@@ -169,5 +173,26 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
       versionId: "ver_1",
       sandboxUrl: "https://sandbox.example/ver_1",
     });
+  });
+
+  it("rejects non-http sandbox URLs for own-engine versions", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+
+    const response = await PATCH(
+      new Request("https://example.com/api/v0/chats/chat_1/versions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver_1",
+          sandboxUrl: "javascript:alert(1)",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json).toEqual({ error: "sandboxUrl must use http or https" });
+    expect(updateVersionSandboxUrl).not.toHaveBeenCalled();
   });
 });

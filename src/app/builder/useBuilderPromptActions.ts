@@ -259,7 +259,7 @@ export function useBuilderPromptActions({
         if (appProjectId) {
           saveProjectData(appProjectId, {
             chatId: data.chatId,
-            demoUrl: data.demoUrl ?? undefined,
+            demoUrl: data.demoUrl ?? null,
           }).catch((error) => {
             console.warn("[Builder] Failed to save registry project mapping:", error);
           });

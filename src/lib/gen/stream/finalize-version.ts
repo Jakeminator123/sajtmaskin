@@ -2,11 +2,14 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
+import { runSharedRepair } from "@/lib/gen/autofix/shared-repair";
+import { syntaxErrorsToDiagnostics } from "@/lib/gen/autofix/repair-diagnostics";
+import { BROAD_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 import { expandUrls } from "@/lib/gen/url-compress";
 import type { PreviewPreflightSummary } from "@/lib/gen/preview-diagnostics";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import type { CodeFile } from "@/lib/gen/parser";
-import { buildPreviewUrl } from "@/lib/gen/preview";
+import { resolveEngineDemoUrl } from "@/lib/gen/demo-url";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import {
   inferScaffoldRetrySuggestion,
@@ -181,6 +184,52 @@ export async function finalizeAndSaveVersion(
     });
   }
   phaseTiming.syntaxMs = Math.round(performance.now() - syntaxT0);
+
+  // 2b. Broad repair pass — if syntax left errors, use the shared repair with
+  //     a small budget (default 2). Skips if syntax already resolved everything.
+  if (runAutofix && syntaxResult.errorsAfter > 0) {
+    const broadT0 = performance.now();
+    onProgress?.("broad-repair", { phase: "start" });
+    try {
+      const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
+      const broadResult = await runSharedRepair(
+        contentForVersion,
+        syntaxErrorsToDiagnostics(
+          (await validateGeneratedCode(contentForVersion)).errors,
+        ),
+        async (c) => {
+          const v = await validateGeneratedCode(c);
+          return syntaxErrorsToDiagnostics(v.errors);
+        },
+        {
+          chatId,
+          model,
+          resolvedTier,
+          maxPasses: BROAD_REPAIR_MAX_PASSES,
+          onProgress: (evt) =>
+            onProgress?.("broad-repair", {
+              pass: evt.pass,
+              phase: evt.phase,
+              errorCount: evt.errorCount,
+            }),
+        },
+      );
+      contentForVersion = broadResult.content;
+      if (broadResult.fixerUsed) {
+        devLogAppend("in-progress", {
+          type: "broad-repair.result",
+          chatId,
+          fixerImproved: broadResult.fixerImproved,
+          diagnosticsBefore: broadResult.diagnosticsBefore,
+          diagnosticsAfter: broadResult.diagnosticsAfter,
+          passes: broadResult.passes,
+        });
+      }
+    } catch (broadErr) {
+      console.warn("[broad-repair] Non-fatal error:", broadErr);
+    }
+    phaseTiming.broadRepairMs = Math.round(performance.now() - broadT0);
+  }
 
   // 3. URL expansion
   contentForVersion = expandUrls(contentForVersion, urlMap);
@@ -445,7 +494,9 @@ export async function finalizeAndSaveVersion(
     }
   }
 
-  const previewUrl = hasPreviewBlockingPreflightErrors ? null : buildPreviewUrl(chatId, version.id);
+  const previewUrl = hasPreviewBlockingPreflightErrors
+    ? null
+    : resolveEngineDemoUrl(chatId, version);
 
   debugLog("engine", "Version saved via finalizeAndSaveVersion", {
     chatId,

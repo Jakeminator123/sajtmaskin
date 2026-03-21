@@ -11,6 +11,11 @@ type DonePayload = {
   messageId?: string | null;
   versionId?: string | null;
   demoUrl?: string | null;
+  sandboxAutoEnabled?: boolean;
+  preflight?: unknown;
+  previewBlocked?: boolean;
+  verificationBlocked?: boolean;
+  previewBlockingReason?: string | null;
   awaitingInput?: boolean;
   reason?: string | null;
   toolCalls?: unknown;
@@ -162,6 +167,12 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
       messageId,
       versionId,
       demoUrl,
+      sandboxAutoEnabled: done.sandboxAutoEnabled === true,
+      preflight: done.preflight ?? null,
+      previewBlocked: done.previewBlocked === true,
+      verificationBlocked: done.verificationBlocked === true,
+      previewBlockingReason:
+        typeof done.previewBlockingReason === "string" ? done.previewBlockingReason : null,
       text: assistantText,
       message: assistantText,
       awaitingInput: done.awaitingInput === true,

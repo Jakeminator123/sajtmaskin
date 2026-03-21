@@ -100,6 +100,10 @@ export async function runPostGenerationChecks(params: {
   setMessages: SetMessages;
   streamQuality?: StreamQualitySignal;
   onAutoFix?: (payload: AutoFixPayload) => void;
+  /** When true, sandbox quality gate was already executed (e.g. SANDBOX_AUTO preview defer). */
+  skipQualityGate?: boolean;
+  /** Override the post-check handling when runtime preview is pending or unavailable. */
+  runtimePreviewState?: "pending" | "skipped" | null;
 }) {
   const {
     chatId,
@@ -110,7 +114,11 @@ export async function runPostGenerationChecks(params: {
     setMessages,
     streamQuality,
     onAutoFix,
+    skipQualityGate,
+    runtimePreviewState,
   } = params;
+  const resolvedRuntimePreviewState =
+    runtimePreviewState ?? (!demoUrl && preflight?.previewBlocked === false ? "pending" : null);
   const toolCallId = `post-check:${versionId}`;
   const controller = new AbortController();
 
@@ -166,6 +174,7 @@ export async function runPostGenerationChecks(params: {
       sanityWarnings: baseline.sanityWarnings,
       imageValidation,
       resolvedDemoUrl: baseline.resolvedDemoUrl,
+      runtimePreviewState: resolvedRuntimePreviewState,
     });
 
     void persistVersionErrorLogs({
@@ -208,7 +217,21 @@ export async function runPostGenerationChecks(params: {
       }),
     );
 
-    if (artifacts.autoFixReasons.length === 0) {
+    // Always run sandbox quality gate when configured so that tsc/build
+    // diagnostics are persisted regardless of whether post-check autofix
+    // was already queued. Quality gate can still trigger its own autofix
+    // if the sandbox reveals additional failures.
+    /** Preflight could not prepare preview — skip redundant sandbox round-trip. */
+    const skipGateForPreflight = Boolean(preflight?.previewBlocked);
+    if (skipGateForPreflight && !skipQualityGate) {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId: `quality-gate:${versionId}`,
+        state: "output-available",
+        output: { skipped: true, reason: "Preview blocked in preflight" },
+      } as UiMessagePart);
+    } else if (!skipQualityGate && !skipGateForPreflight) {
       void runSandboxQualityGate({
         chatId,
         versionId,
@@ -216,18 +239,6 @@ export async function runPostGenerationChecks(params: {
         setMessages,
         onAutoFix,
       });
-    } else {
-      appendToolPartToMessage(setMessages, assistantMessageId, {
-        type: "tool:quality-gate",
-        toolName: "Quality gate",
-        toolCallId: `quality-gate:${versionId}`,
-        state: "output-available",
-        output: {
-          skipped: true,
-          reason: "Skippad eftersom autofix redan har köats från post-check.",
-          autoFixQueued: true,
-        },
-      } as UiMessagePart);
     }
   } catch (error) {
     void persistVersionErrorLogs({
@@ -261,14 +272,17 @@ type QualityGateCheckResult = {
   output: string;
 };
 
-async function runSandboxQualityGate(params: {
+/** Runs @vercel/sandbox typecheck/build; exported for SANDBOX_AUTO preview defer. */
+export async function runSandboxQualityGate(params: {
   chatId: string;
   versionId: string;
   assistantMessageId: string;
   setMessages: SetMessages;
   onAutoFix?: (payload: AutoFixPayload) => void;
+  bootRuntime?: boolean;
 }) {
-  const { chatId, versionId, assistantMessageId, setMessages, onAutoFix } = params;
+  const { chatId, versionId, assistantMessageId, setMessages, onAutoFix, bootRuntime = false } =
+    params;
   const toolCallId = `quality-gate:${versionId}`;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -285,7 +299,7 @@ async function runSandboxQualityGate(params: {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, checks: ["typecheck", "build"] }),
+        body: JSON.stringify({ versionId, checks: ["typecheck", "build"], bootRuntime }),
       },
     );
 
@@ -297,13 +311,22 @@ async function runSandboxQualityGate(params: {
         state: "output-available",
         output: { skipped: true, reason: "Sandbox not configured" },
       } as UiMessagePart);
-      return;
+      return {
+        status: "skipped" as const,
+        passed: false,
+        runtimeUrl: null,
+        sandboxId: null,
+        ports: [] as number[],
+      };
     }
 
     const data = (await res.json().catch(() => null)) as {
       passed?: boolean;
       checks?: QualityGateCheckResult[];
       sandboxDurationMs?: number;
+      runtimeUrl?: string | null;
+      sandboxId?: string | null;
+      ports?: number[];
       error?: string;
     } | null;
 
@@ -315,7 +338,13 @@ async function runSandboxQualityGate(params: {
         state: "output-error",
         errorText: data?.error || `Quality gate request failed (HTTP ${res.status})`,
       } as UiMessagePart);
-      return;
+      return {
+        status: "failed" as const,
+        passed: false,
+        runtimeUrl: null,
+        sandboxId: null,
+        ports: [] as number[],
+      };
     }
 
     const steps: string[] = [];
@@ -339,6 +368,7 @@ async function runSandboxQualityGate(params: {
         steps,
         checks: data.checks,
         sandboxDurationMs: data.sandboxDurationMs,
+        runtimeUrl: data.runtimeUrl ?? null,
       },
     } as UiMessagePart);
 
@@ -354,6 +384,14 @@ async function runSandboxQualityGate(params: {
         meta: { qualityGate: failedOutputs },
       });
     }
+
+    return {
+      status: data.passed ? ("passed" as const) : ("failed" as const),
+      passed: Boolean(data.passed),
+      runtimeUrl: typeof data.runtimeUrl === "string" ? data.runtimeUrl : null,
+      sandboxId: typeof data.sandboxId === "string" ? data.sandboxId : null,
+      ports: Array.isArray(data.ports) ? data.ports : [],
+    };
   } catch {
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: "tool:quality-gate",
@@ -362,5 +400,12 @@ async function runSandboxQualityGate(params: {
       state: "output-error",
       errorText: "Quality gate request failed (network error)",
     } as UiMessagePart);
+    return {
+      status: "failed" as const,
+      passed: false,
+      runtimeUrl: null,
+      sandboxId: null,
+      ports: [] as number[],
+    };
   }
 }

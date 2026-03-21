@@ -13,6 +13,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
+import { isSandboxAutoEnabledServer } from "@/lib/env";
 
 type UrlMap = Record<string, string>;
 
@@ -248,6 +249,7 @@ export function createOwnEngineGenerationStream(
               versionId: finalized.version.id,
               messageId: finalized.messageId,
               demoUrl: finalized.previewUrl,
+              sandboxAutoEnabled: isSandboxAutoEnabledServer(),
               preflight: finalized.preflight,
               previewBlocked: finalized.preflight.previewBlocked,
               verificationBlocked: finalized.preflight.verificationBlocked,

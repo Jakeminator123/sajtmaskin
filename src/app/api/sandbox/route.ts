@@ -4,40 +4,31 @@ import ms, { StringValue } from "ms";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import type { CodeFile } from "@/lib/gen/parser";
+import { getVersionFiles } from "@/lib/gen/version-manager";
+import { isSafeRelativePath } from "@/lib/mcp/runtime-url";
 import { getSandboxCredentials, isSandboxConfigured } from "@/lib/sandbox-auth";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 
 const createSandboxSchema = z.object({
-  source: z.discriminatedUnion("type", [
-    z.object({
-      type: z.literal("git"),
-      url: z.string().url("Invalid Git URL"),
-      branch: z.string().optional(),
-    }),
-    z.object({
-      type: z.literal("files"),
-      files: z.record(z.string(), z.string()),
-    }),
-  ]),
+  source: z.object({
+    type: z.literal("version"),
+    chatId: z.string().min(1),
+    versionId: z.string().min(1),
+  }),
   timeout: z.string().optional().default("5m"),
   ports: z.array(z.number()).optional().default([3000]),
   runtime: z.enum(["node24", "node22", "python3.13"]).optional().default("node24"),
   vcpus: z.number().min(1).max(8).optional().default(2),
-  installCommand: z.string().optional().default("npm install"),
-  startCommand: z.string().optional().default("npm run dev"),
 });
 
 const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
-
-function isSafeRelativePath(path: string): boolean {
-  if (!path || path.includes("\0")) return false;
-  if (path.startsWith("/") || path.startsWith("\\")) return false;
-  if (path.includes("..")) return false;
-  return /^[A-Za-z0-9._/-]+$/.test(path);
-}
+const INSTALL_COMMAND = "npm install";
+const START_COMMAND = "npm run dev";
 
 function inferLanguage(fileName: string): string {
   const normalized = fileName.toLowerCase();
@@ -51,15 +42,19 @@ function inferLanguage(fileName: string): string {
   return "text";
 }
 
-function buildSandboxProjectFiles(sourceFiles: Record<string, string>): Array<[string, string]> {
-  const codeFiles: CodeFile[] = Object.entries(sourceFiles).map(([path, content]) => ({
-    path,
-    content: String(content ?? ""),
-    language: inferLanguage(path),
-  }));
-
+function buildSandboxProjectFiles(codeFiles: CodeFile[]): Array<[string, string]> {
   const completedFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
   return completedFiles.map((file) => [file.path, file.content]);
+}
+
+function withSessionCookie(
+  response: NextResponse,
+  setCookie: string | null,
+): NextResponse {
+  if (setCookie) {
+    response.headers.append("Set-Cookie", setCookie);
+  }
+  return response;
 }
 
 export async function POST(req: Request) {
@@ -79,6 +74,7 @@ export async function POST(req: Request) {
         );
       }
 
+      const session = ensureSessionIdFromRequest(req);
       const body = await req.json();
       const validationResult = createSandboxSchema.safeParse(body);
 
@@ -89,52 +85,69 @@ export async function POST(req: Request) {
         );
       }
 
-      const { source, timeout, ports, runtime, vcpus, installCommand, startCommand } =
-        validationResult.data;
+      const { source, timeout, ports, runtime, vcpus } = validationResult.data;
 
       const timeoutMs = ms(timeout as StringValue);
-
-      const fileEntries = source.type === "files" ? buildSandboxProjectFiles(source.files) : null;
-      if (fileEntries) {
-        if (fileEntries.length > MAX_FILES) {
-          return NextResponse.json(
+      const scopedVersion = await getEngineVersionForChatByIdForRequest(
+        req,
+        source.chatId,
+        source.versionId,
+        { sessionId: session.sessionId },
+      );
+      if (!scopedVersion) {
+        return withSessionCookie(
+          NextResponse.json({ error: "Version not found for chat" }, { status: 404 }),
+          session.setCookie,
+        );
+      }
+      const versionFiles = await getVersionFiles(scopedVersion.version.id);
+      if (!versionFiles || versionFiles.length === 0) {
+        return withSessionCookie(
+          NextResponse.json({ error: "No files found for this version" }, { status: 404 }),
+          session.setCookie,
+        );
+      }
+      const normalizedFiles: CodeFile[] = versionFiles.map((file) => ({
+        path: file.path,
+        content: String(file.content ?? ""),
+        language: file.language || inferLanguage(file.path),
+      }));
+      const fileEntries = buildSandboxProjectFiles(normalizedFiles);
+      if (fileEntries.length > MAX_FILES) {
+        return withSessionCookie(
+          NextResponse.json(
             { error: `Too many files for sandbox (${fileEntries.length} > ${MAX_FILES})` },
             { status: 413 },
-          );
-        }
-
-        let totalBytes = 0;
-        for (const [filePath, content] of fileEntries) {
-          if (!isSafeRelativePath(filePath)) {
-            return NextResponse.json({ error: `Unsafe file path: ${filePath}` }, { status: 400 });
-          }
-          totalBytes += Buffer.byteLength(content ?? "", "utf8");
-          if (totalBytes > MAX_TOTAL_BYTES) {
-            return NextResponse.json(
-              { error: `Sandbox files too large (${totalBytes} bytes > ${MAX_TOTAL_BYTES})` },
-              { status: 413 },
-            );
-          }
-        }
+          ),
+          session.setCookie,
+        );
       }
 
-      let sourceConfig: { type: "git"; url: string; revision?: string } | undefined;
-
-      if (source.type === "git") {
-        sourceConfig = {
-          type: "git",
-          url: source.url,
-          ...(source.branch && { revision: source.branch }),
-        };
-      } else {
-        sourceConfig = {
-          type: "git",
-          url: "https://github.com/vercel/sandbox-example-next.git",
-        };
+      let totalBytes = 0;
+      for (const [filePath, content] of fileEntries) {
+        if (!isSafeRelativePath(filePath)) {
+          return withSessionCookie(
+            NextResponse.json({ error: `Unsafe file path: ${filePath}` }, { status: 400 }),
+            session.setCookie,
+          );
+        }
+        totalBytes += Buffer.byteLength(content ?? "", "utf8");
+        if (totalBytes > MAX_TOTAL_BYTES) {
+          return withSessionCookie(
+            NextResponse.json(
+              { error: `Sandbox files too large (${totalBytes} bytes > ${MAX_TOTAL_BYTES})` },
+              { status: 413 },
+            ),
+            session.setCookie,
+          );
+        }
       }
 
       const sandbox = await Sandbox.create({
-        source: sourceConfig,
+        source: {
+          type: "git",
+          url: "https://github.com/vercel/sandbox-example-next.git",
+        },
         resources: { vcpus },
         timeout: timeoutMs,
         ports,
@@ -157,7 +170,7 @@ export async function POST(req: Request) {
 
         const installResult = await sandbox.runCommand({
           cmd: "bash",
-          args: ["-c", installCommand],
+          args: ["-c", INSTALL_COMMAND],
         });
 
         if (installResult.exitCode !== 0) {
@@ -166,7 +179,7 @@ export async function POST(req: Request) {
 
         await sandbox.runCommand({
           cmd: "bash",
-          args: ["-c", startCommand],
+          args: ["-c", START_COMMAND],
           detached: true,
         });
 
@@ -175,15 +188,18 @@ export async function POST(req: Request) {
           urls[port] = sandbox.domain(port);
         }
 
-        return NextResponse.json({
-          success: true,
-          sandboxId,
-          urls,
-          primaryUrl: urls[ports[0]] || null,
-          timeout,
-          runtime,
-          ports,
-        });
+        return withSessionCookie(
+          NextResponse.json({
+            success: true,
+            sandboxId,
+            urls,
+            primaryUrl: urls[ports[0]] || null,
+            timeout,
+            runtime,
+            ports,
+          }),
+          session.setCookie,
+        );
       } catch (err) {
         try {
           await sandbox.stop();
@@ -203,55 +219,17 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const sandboxId = searchParams.get("sandboxId");
-
-  if (!sandboxId) {
-    return NextResponse.json({ error: "sandboxId query parameter is required" }, { status: 400 });
-  }
-
-  try {
-    const sandbox = await Sandbox.get({ sandboxId, ...getSandboxCredentials() });
-
-    const ports = [3000];
-    const urls: Record<number, string> = {};
-    for (const port of ports) {
-      urls[port] = sandbox.domain(port);
-    }
-
-    return NextResponse.json({
-      sandboxId: sandbox.sandboxId,
-      urls,
-      primaryUrl: urls[3000] || null,
-      status: sandbox.status,
-      createdAt: sandbox.createdAt,
-    });
-  } catch (err) {
-    console.error("Error getting sandbox:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to get sandbox" },
-      { status: 500 },
-    );
-  }
+  void req;
+  return NextResponse.json(
+    { error: "Sandbox status lookup is disabled on this route." },
+    { status: 405 },
+  );
 }
 
 export async function DELETE(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const sandboxId = searchParams.get("sandboxId");
-
-  if (!sandboxId) {
-    return NextResponse.json({ error: "sandboxId query parameter is required" }, { status: 400 });
-  }
-
-  try {
-    const sandbox = await Sandbox.get({ sandboxId, ...getSandboxCredentials() });
-    await sandbox.stop();
-    return NextResponse.json({ success: true, sandboxId });
-  } catch (err) {
-    console.error("Error deleting sandbox:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to delete sandbox" },
-      { status: 500 },
-    );
-  }
+  void req;
+  return NextResponse.json(
+    { error: "Sandbox deletion is disabled on this route." },
+    { status: 405 },
+  );
 }

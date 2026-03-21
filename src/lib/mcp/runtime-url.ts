@@ -1,5 +1,8 @@
 import { Sandbox } from "@vercel/sandbox";
-import { buildPreviewUrl } from "@/lib/gen/preview";
+import {
+  resolveEngineDemoUrlDetails,
+  type EngineDemoUrlVersionLike,
+} from "@/lib/gen/demo-url";
 import { getSandboxCredentials, isSandboxConfigured } from "@/lib/sandbox-auth";
 
 export type RuntimeMode = "preview" | "sandbox";
@@ -24,33 +27,43 @@ const MAX_TOTAL_BYTES = 2_500_000;
 export function isSafeRelativePath(filePath: string): boolean {
   if (!filePath || filePath.includes("\0")) return false;
   if (filePath.startsWith("/") || filePath.startsWith("\\")) return false;
-  if (filePath.includes("..")) return false;
-  return /^[A-Za-z0-9._/-]+$/.test(filePath);
+  const segments = filePath.split("/");
+  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
+    return false;
+  }
+  return /^[A-Za-z0-9._/@()[\]-]+$/.test(filePath);
 }
 
 export function buildOwnEnginePreviewRuntime(params: {
   chatId: string;
   versionId: string | null;
   projectId?: string | null;
+  sandboxUrl?: string | null;
+  version?: EngineDemoUrlVersionLike | null;
 }) {
-  const paramsForUrl = new URLSearchParams({
-    chatId: params.chatId,
-  });
-  if (params.versionId) {
-    paramsForUrl.set("versionId", params.versionId);
-  }
-  if (params.projectId) {
-    paramsForUrl.set("projectId", params.projectId);
-  }
+  const version =
+    params.version ??
+    (params.versionId
+      ? {
+          id: params.versionId,
+          sandboxUrl: params.sandboxUrl ?? null,
+          verificationState: "pending",
+        }
+      : null);
+  const resolved = version
+    ? resolveEngineDemoUrlDetails(
+        params.chatId,
+        version,
+        params.projectId,
+      )
+    : { demoUrl: null, legacyPreviewUrl: null, mode: "none" as const };
 
   return {
-    mode: "preview" as const,
+    mode: resolved.mode === "runtime" ? ("sandbox" as const) : ("preview" as const),
     chatId: params.chatId,
-    versionId: params.versionId,
+    versionId: version?.id ?? params.versionId,
     projectId: params.projectId ?? null,
-    url: params.versionId
-      ? buildPreviewUrl(params.chatId, params.versionId, params.projectId)
-      : `/api/preview-render?${paramsForUrl.toString()}`,
+    url: resolved.demoUrl ?? undefined,
   };
 }
 

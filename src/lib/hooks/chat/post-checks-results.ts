@@ -274,6 +274,7 @@ export function buildPostCheckArtifacts(params: {
   sanityWarnings: SanityIssue[];
   imageValidation: ImageValidationResult | null;
   resolvedDemoUrl: string | null;
+  runtimePreviewState?: "pending" | "skipped" | null;
 }): PostCheckArtifacts {
   const {
     currentFileCount,
@@ -297,10 +298,15 @@ export function buildPostCheckArtifacts(params: {
     sanityWarnings,
     imageValidation,
     resolvedDemoUrl,
+    runtimePreviewState = null,
   } = params;
 
   const previewBlockingReason = getPreviewBlockingReason(preflight);
   const steps: string[] = [];
+  const suppressMissingDemoUrl =
+    !resolvedDemoUrl &&
+    (runtimePreviewState === "pending" || runtimePreviewState === "skipped") &&
+    preflight?.previewBlocked === false;
 
   if (changes) {
     steps.push(
@@ -378,7 +384,11 @@ export function buildPostCheckArtifacts(params: {
   }
 
   const finalDemoUrl = imageValidation?.demoUrl || resolvedDemoUrl;
-  if (!finalDemoUrl) {
+  if (!finalDemoUrl && runtimePreviewState === "pending") {
+    steps.push("Runtime preview invantar sandbox-start innan riktig Next-runtime visas.");
+  } else if (!finalDemoUrl && runtimePreviewState === "skipped") {
+    steps.push("Runtime preview kunde inte startas automatiskt i sandbox, men den statiska versionen passerade.");
+  } else if (!finalDemoUrl) {
     steps.push(buildPreviewUnavailableStep(preflight));
   }
   if (preflight?.scaffoldRetry) {
@@ -402,7 +412,7 @@ export function buildPostCheckArtifacts(params: {
   if (changedFilesCount === 0) {
     qualityGateFailures.push("no_file_changes");
   }
-  if (!finalDemoUrl) {
+  if (!finalDemoUrl && !suppressMissingDemoUrl) {
     qualityGateFailures.push(getPreviewUnavailableQualityGateFailure(preflight));
   }
   if (streamQuality?.hasCriticalAnomaly) {
@@ -421,7 +431,7 @@ export function buildPostCheckArtifacts(params: {
   const qualityGatePassed = qualityGateFailures.length === 0;
 
   const criticalReasons: string[] = [];
-  if (!finalDemoUrl) {
+  if (!finalDemoUrl && !suppressMissingDemoUrl) {
     criticalReasons.push(getPreviewUnavailableAutoFixReason(preflight));
   }
   if (sanityErrors.length > 0) criticalReasons.push("kodsanity error");
@@ -449,7 +459,9 @@ export function buildPostCheckArtifacts(params: {
 
   const qualityTier: QualityTier =
     !finalDemoUrl || criticalReasons.length > 0
-      ? "none"
+      ? suppressMissingDemoUrl && criticalReasons.length === 0
+        ? "preview"
+        : "none"
       : qualityGatePassed && warningReasons.length === 0
         ? "sandbox"
         : "preview";
@@ -529,7 +541,7 @@ export function buildPostCheckArtifacts(params: {
   };
 
   const logItems: VersionErrorLogPayload[] = [];
-  if (!finalDemoUrl) {
+  if (!finalDemoUrl && !suppressMissingDemoUrl) {
     logItems.push(buildPreviewUnavailableLog(versionId, preflight));
   }
   if (missingRoutes.length > 0) {

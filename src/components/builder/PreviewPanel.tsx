@@ -2207,19 +2207,6 @@ export function PreviewPanel({
   const handleIframeError = useCallback(() => {
     clearPreviewReadyTimer();
 
-    const looksLikeSandbox = demoUrl
-      ? /sandbox/i.test((() => { try { return new URL(demoUrl, "http://localhost").hostname; } catch { return demoUrl; } })())
-      : false;
-    if (looksLikeSandbox && chatId && versionId) {
-      const runtimeUrl = `/api/preview-render?chatId=${encodeURIComponent(chatId)}&versionId=${encodeURIComponent(versionId)}`;
-      console.info("[PreviewPanel] Sandbox preview failed, falling back to runtime preview");
-      onNavigatePreviewUrl?.(runtimeUrl);
-      setIframeLoading(true);
-      setIframeError(false);
-      setIframeErrorMessage(null);
-      return;
-    }
-
     setIframeLoading(false);
     setIframeError(true);
     setIframeErrorMessage(describePreviewDiagnosticCode("preview_transport_error"));
@@ -2232,7 +2219,7 @@ export function PreviewPanel({
         source: "preview-iframe",
       });
     }
-  }, [clearPreviewReadyTimer, demoUrl, chatId, versionId, onNavigatePreviewUrl, isOwnEnginePreview, reportOwnEngineRenderFailure]);
+  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportOwnEngineRenderFailure]);
 
   const handleRefresh = () => {
     clearPreviewReadyTimer();
@@ -2323,18 +2310,18 @@ export function PreviewPanel({
     }
     if (isOwnEnginePreview) {
       return {
-        label: "Runtime preview",
+        label: "Legacy preview",
         detail:
-          "Primär sanningsyta under iteration. Renderas från den genererade koden i builderns egen runtime och fångar previewfel direkt.",
+          "Begränsad builder-rendering via /api/preview-render. Bra för snabb kontroll, men den shim-mar flera bibliotek och motsvarar inte full Next.js-runtime.",
         className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
         badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
       };
     }
     if (isSandboxPreview) {
       return {
-        label: "Sandbox preview",
+        label: "Runtime preview",
         detail:
-          "Närmare riktig Next.js-runtime än fallback-preview, men kan fortfarande ha separat miljö och token-setup.",
+          "Körs i riktig sandbox med Node/Next/React. Det här är den skarpa previewytan när legacy preview är avstängd.",
         className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
         badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
       };
@@ -2357,6 +2344,7 @@ export function PreviewPanel({
   }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview]);
   if (!demoUrl && !isCodeView) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
+    const isRuntimePreviewPending = Boolean(chatId && versionId && !externalLoading && !awaitingInput);
     const normalizedAwaitingQuestion =
       typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
         ? awaitingInputQuestion.trim()
@@ -2376,9 +2364,11 @@ export function PreviewPanel({
         ? "AI tänker... preview kommer strax."
         : isInitialEmpty
           ? "Skriv en prompt till vänster så genererar vi första preview."
-          : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
+          : isRuntimePreviewPending
+            ? "Den här versionen har ännu ingen skarp runtime-URL. Starta sandbox eller deploy för att se den riktiga Next.js-runtime-previewen."
+            : "Preview saknas för senaste versionen.";
     const showFixAction = Boolean(
-      onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput,
+      onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput && !isRuntimePreviewPending,
     );
     const EmptyIcon = awaitingInput ? MessageCircleQuestion : isInitialEmpty ? Wand2 : AlertCircle;
     return (
@@ -2598,8 +2588,8 @@ export function PreviewPanel({
             )}
             {showSandboxWarning && (
               <div>
-                Preview körs från sandbox. Sandbox har separat runtime och kan sakna samma
-                miljövariabler som din ordinarie miljö (t.ex. blob-token).
+                Preview körs från riktig sandbox-runtime. Kontrollera att samma miljövariabler
+                finns där som i din ordinarie miljö (t.ex. blob-token).
               </div>
             )}
             {showBlobWarning && (

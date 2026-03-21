@@ -1,5 +1,7 @@
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { AUTOFIX_SYNTAX_MAX_PASSES } from "@/lib/gen/defaults";
+import { BROAD_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
+import { runSharedRepair } from "@/lib/gen/autofix/shared-repair";
+import { syntaxErrorsToDiagnostics } from "@/lib/gen/autofix/repair-diagnostics";
 import { buildPreviewHtml } from "@/lib/gen/preview";
 import type { CodeFile } from "@/lib/gen/parser";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
@@ -10,6 +12,7 @@ import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { isLegacyPreviewShimsEnabled } from "@/lib/env";
 
 export type FinalizePreflightIssue = {
   file: string;
@@ -83,7 +86,6 @@ export async function runFinalizePreflight({
     let mergedProjectContent = serializeFilesToCodeProject(finalFiles);
     let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
     if (!mergedSyntax.valid) {
-      const initialMergedSyntaxErrorCount = mergedSyntax.errors.length;
       devLogAppend("in-progress", {
         type: "merged-syntax.invalid",
         chatId,
@@ -91,40 +93,40 @@ export async function runFinalizePreflight({
         errors: mergedSyntax.errors.slice(0, 8),
       });
 
-      const { runLlmFixer } = await import("@/lib/gen/autofix/llm-fixer");
+      const repairResult = await runSharedRepair(
+        mergedProjectContent,
+        syntaxErrorsToDiagnostics(mergedSyntax.errors),
+        async (c) => {
+          const v = await validateGeneratedCode(c);
+          return syntaxErrorsToDiagnostics(v.errors);
+        },
+        { chatId, model, maxPasses: BROAD_REPAIR_MAX_PASSES },
+      );
 
-      for (let pass = 1; pass <= AUTOFIX_SYNTAX_MAX_PASSES && !mergedSyntax.valid; pass++) {
-        const fixerResult = await runLlmFixer(
-          mergedProjectContent,
-          mergedSyntax.errors.map((error) => `${error.file}:${error.line} ${error.message}`),
-        );
-
-        if (fixerResult.success) {
-          const reFixed = await runAutoFix(fixerResult.fixedContent, { chatId, model });
-          const reValidated = await validateGeneratedCode(reFixed.fixedContent);
-          if (reValidated.valid || reValidated.errors.length < mergedSyntax.errors.length) {
-            finalFiles = (
-              JSON.parse(parseFilesFromContent(reFixed.fixedContent)) as Array<{
-                path: string;
-                content: string;
-                language?: string;
-              }>
-            ).map((file) => ({ ...file, language: file.language || "tsx" }));
-            const postFixRepair = repairGeneratedFiles(finalFiles);
-            finalFiles = postFixRepair.files;
-            nextFilesJson = JSON.stringify(finalFiles);
-            mergedProjectContent = reFixed.fixedContent;
-            mergedSyntax = reValidated;
-            devLogAppend("in-progress", {
-              type: "merged-syntax.fixed",
-              chatId,
-              pass,
-              errorsBefore: initialMergedSyntaxErrorCount,
-              errorsAfter: reValidated.errors.length,
-              repairFixes: postFixRepair.fixes,
-            });
-          }
+      if (repairResult.fixerUsed) {
+        mergedProjectContent = repairResult.content;
+        mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+        try {
+          finalFiles = (
+            JSON.parse(parseFilesFromContent(mergedProjectContent)) as Array<{
+              path: string;
+              content: string;
+              language?: string;
+            }>
+          ).map((file) => ({ ...file, language: file.language || "tsx" }));
+          const postFixRepair = repairGeneratedFiles(finalFiles);
+          finalFiles = postFixRepair.files;
+          nextFilesJson = JSON.stringify(finalFiles);
+        } catch {
+          // parse failed — keep existing finalFiles
         }
+        devLogAppend("in-progress", {
+          type: "merged-syntax.shared-repair",
+          chatId,
+          diagnosticsBefore: repairResult.diagnosticsBefore,
+          diagnosticsAfter: repairResult.diagnosticsAfter,
+          passes: repairResult.passes,
+        });
       }
 
       if (!mergedSyntax.valid) {
@@ -139,32 +141,34 @@ export async function runFinalizePreflight({
     }
 
     finalizedFilesForPreview = finalFiles;
-    try {
-      const previewHtml = buildPreviewHtml(finalizedFilesForPreview);
-      if (!previewHtml) {
+    if (isLegacyPreviewShimsEnabled()) {
+      try {
+        const previewHtml = buildPreviewHtml(finalizedFilesForPreview);
+        if (!previewHtml) {
+          previewBlockingReason =
+            "Automatic preflight could not build a renderable own-engine preview entrypoint.";
+          preflightIssues.push({
+            file: "preview",
+            severity: "error",
+            message: previewBlockingReason,
+          });
+        }
+      } catch (previewErr) {
         previewBlockingReason =
-          "Automatic preflight could not build a renderable own-engine preview entrypoint.";
+          previewErr instanceof Error
+            ? `Automatic preflight failed while preparing preview: ${previewErr.message}`
+            : "Automatic preflight failed while preparing preview.";
         preflightIssues.push({
           file: "preview",
           severity: "error",
           message: previewBlockingReason,
         });
+        devLogAppend("in-progress", {
+          type: "preview-preflight.error",
+          chatId,
+          message: previewBlockingReason,
+        });
       }
-    } catch (previewErr) {
-      previewBlockingReason =
-        previewErr instanceof Error
-          ? `Automatic preflight failed while preparing preview: ${previewErr.message}`
-          : "Automatic preflight failed while preparing preview.";
-      preflightIssues.push({
-        file: "preview",
-        severity: "error",
-        message: previewBlockingReason,
-      });
-      devLogAppend("in-progress", {
-        type: "preview-preflight.error",
-        chatId,
-        message: previewBlockingReason,
-      });
     }
 
     const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(finalFiles)).files;

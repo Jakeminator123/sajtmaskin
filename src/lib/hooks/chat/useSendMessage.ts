@@ -12,7 +12,12 @@ import {
   isAbortLikeError,
   isNetworkError,
 } from "./helpers";
-import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import {
+  runPostGenerationChecks,
+  runSandboxQualityGate,
+  triggerImageMaterialization,
+} from "./post-checks";
+import { isSandboxAutoEnabled, resolveSandboxAutoEnabled } from "@/lib/sandbox/sandbox-auto";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 
@@ -112,11 +117,47 @@ export function useSendMessage(
           ((data?.latestVersion as Record<string, unknown>)?.demoUrl as string) ||
           null;
         const preflight = readPreviewPreflight(data);
-        if (demoUrl) setCurrentDemoUrl(demoUrl);
-        onPreviewRefresh?.();
         const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
           data?.versionId || latestVersion?.id || latestVersion?.versionId || null;
+        const awaitingInputEarly = Boolean(data?.awaitingInput);
+        const sandboxAutoEnabled = resolveSandboxAutoEnabled(
+          data?.sandboxAutoEnabled,
+          isSandboxAutoEnabled(),
+        );
+        const isLegacyPreviewUrl = Boolean(
+          demoUrl && typeof demoUrl === "string" && demoUrl.startsWith("/api/preview-render"),
+        );
+        const shouldDeferPreviewForSandbox =
+          sandboxAutoEnabled &&
+          Boolean(resolvedVersionId) &&
+          !isLegacyPreviewUrl &&
+          !awaitingInputEarly;
+        let finalDemoUrl = demoUrl;
+        let sandboxRuntimeStatus: "passed" | "failed" | "skipped" | null = null;
+        if (shouldDeferPreviewForSandbox) {
+          const toastId = "sandbox-auto-preview";
+          toast.loading("Startar sandlåda och verifierar innan preview...", { id: toastId });
+          try {
+            const qualityGate = await runSandboxQualityGate({
+              chatId: chatId || "",
+              versionId: String(resolvedVersionId),
+              assistantMessageId,
+              setMessages,
+              onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+              bootRuntime: true,
+            });
+            finalDemoUrl = qualityGate.runtimeUrl ?? finalDemoUrl;
+            sandboxRuntimeStatus = qualityGate.status;
+          } finally {
+            toast.dismiss(toastId);
+          }
+          mutateVersions();
+        }
+        if (finalDemoUrl) {
+          setCurrentDemoUrl(finalDemoUrl);
+          onPreviewRefresh?.();
+        }
         const responseText =
           (typeof data?.text === "string" && data.text) ||
           (typeof data?.message === "string" && data.message) ||
@@ -163,7 +204,7 @@ export function useSendMessage(
         onGenerationComplete?.({
           chatId: chatId || "",
           versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-          demoUrl: demoUrl ?? undefined,
+          demoUrl: finalDemoUrl ?? undefined,
         });
         if (chatId && resolvedVersionId) {
           void triggerImageMaterialization({
@@ -176,11 +217,19 @@ export function useSendMessage(
           void runPostGenerationChecks({
             chatId: String(chatId),
             versionId: String(resolvedVersionId),
-            demoUrl: demoUrl ?? null,
+            demoUrl: finalDemoUrl ?? null,
             preflight,
             assistantMessageId,
             setMessages,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+            skipQualityGate: Boolean(shouldDeferPreviewForSandbox),
+            runtimePreviewState:
+              shouldDeferPreviewForSandbox &&
+              sandboxRuntimeStatus !== "passed" &&
+              sandboxRuntimeStatus !== null &&
+              !finalDemoUrl
+                ? "skipped"
+                : null,
           });
         }
       };

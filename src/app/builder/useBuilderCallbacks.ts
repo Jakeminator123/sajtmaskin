@@ -41,7 +41,7 @@ export function useBuilderCallbacks({
     }
     const prompt = currentDemoUrl
       ? "Preview verkar vara fel eller laddar inte. Fixa versionen och returnera en fungerande demoUrl. Behåll layouten om möjligt. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt."
-      : "Preview-länk saknas. Regenerera senaste versionen så att en demoUrl returneras. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt.";
+      : "Ingen runtime-previewlank finns just nu. Fixa bara koden om det finns verkliga build- eller runtimefel. Regenerera inte en fungerande statisk version enbart for att fa en demoUrl. Om du anvander Dialog, sakerstall att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby ar korrekt.";
     await sendMessage(prompt);
   }, [chatId, currentDemoUrl, sendMessage]);
 
@@ -56,10 +56,8 @@ export function useBuilderCallbacks({
       const match = effectiveVersionsList.find(
         (version) => version.versionId === versionId || version.id === versionId,
       );
-      if (match?.demoUrl) {
-        setCurrentDemoUrl(match.demoUrl);
-        bumpPreviewRefreshToken();
-      }
+      setCurrentDemoUrl(match?.demoUrl ?? null);
+      bumpPreviewRefreshToken();
     },
     [effectiveVersionsList, bumpPreviewRefreshToken, setCurrentDemoUrl, setSelectedVersionId],
   );

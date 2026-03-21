@@ -9,9 +9,11 @@ import {
   failVersionVerification,
   markVersionVerifying,
   promoteVersion,
+  updateVersionSandboxUrl,
 } from "@/lib/db/chat-repository-pg";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { isSafeRelativePath } from "@/lib/mcp/runtime-url";
 import { getSandboxCredentials, isSandboxConfigured } from "@/lib/sandbox-auth";
 
 export const runtime = "nodejs";
@@ -23,6 +25,7 @@ const requestSchema = z.object({
     .array(z.enum(["typecheck", "build", "lint"]))
     .optional()
     .default(["typecheck", "build"]),
+  bootRuntime: z.boolean().optional().default(false),
 });
 
 type CheckResult = {
@@ -36,6 +39,9 @@ type GateResult = {
   passed: boolean;
   checks: CheckResult[];
   sandboxDurationMs: number;
+  runtimeUrl?: string | null;
+  sandboxId?: string | null;
+  ports?: number[];
 };
 
 function buildQualityGateSummaryLog(params: {
@@ -75,22 +81,64 @@ const CHECK_COMMANDS: Record<string, string> = {
   lint: "npx eslint . --max-warnings=0 2>&1",
 };
 
-function isSafeRelativePath(path: string): boolean {
-  if (!path || path.includes("\0")) return false;
-  if (path.startsWith("/") || path.startsWith("\\")) return false;
-  if (path.includes("..")) return false;
-  return /^[A-Za-z0-9._/@-]+$/.test(path);
+const RUNTIME_PORTS = [3000];
+const RUNTIME_START_COMMAND = "npm run dev";
+const WAIT_FOR_RUNTIME_SCRIPT = `
+const http = require("node:http");
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function requestStatus() {
+  return new Promise((resolve, reject) => {
+    const req = http.get("http://127.0.0.1:3000", (res) => {
+      const status = res.statusCode || 0;
+      res.resume();
+      resolve(status);
+    });
+    req.on("error", reject);
+    req.setTimeout(2000, () => req.destroy(new Error("timeout")));
+  });
 }
+
+(async () => {
+  for (let attempt = 0; attempt < 45; attempt += 1) {
+    try {
+      const status = await requestStatus();
+      if (status > 0 && status < 500) {
+        console.log("runtime-ready:" + status);
+        process.exit(0);
+      }
+    } catch (error) {
+      if (attempt === 44) {
+        console.error(error instanceof Error ? error.message : String(error));
+      }
+    }
+    await wait(2000);
+  }
+  console.error("Timed out waiting for sandbox runtime on port 3000.");
+  process.exit(1);
+})().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
+`.trim();
 
 async function runSandboxChecks(
   sandboxFiles: Array<{ name: string; content: string }>,
   checks: string[],
-): Promise<{ results: CheckResult[]; sandboxDurationMs: number }> {
+  bootRuntime: boolean,
+): Promise<{
+  results: CheckResult[];
+  sandboxDurationMs: number;
+  runtimeUrl: string | null;
+  sandboxId: string | null;
+  ports: number[];
+}> {
   if (!isSandboxConfigured()) {
     throw new SandboxNotConfiguredError();
   }
 
   const startMs = Date.now();
+  let keepSandboxAlive = false;
   const sandbox = await Sandbox.create({
     source: {
       type: "git",
@@ -98,18 +146,20 @@ async function runSandboxChecks(
     },
     resources: { vcpus: 2 },
     timeout: 90_000,
-    ports: [3000],
+    ports: RUNTIME_PORTS,
     runtime: "node24",
     ...getSandboxCredentials(),
   });
 
   try {
-    const writePayload = sandboxFiles
-      .filter((file) => isSafeRelativePath(file.name))
-      .map((file) => ({
-        path: file.name,
-        content: Buffer.from(file.content, "utf-8"),
-      }));
+    const invalidFile = sandboxFiles.find((file) => !isSafeRelativePath(file.name));
+    if (invalidFile) {
+      throw new Error(`Unsafe file path: ${invalidFile.name}`);
+    }
+    const writePayload = sandboxFiles.map((file) => ({
+      path: file.name,
+      content: Buffer.from(file.content, "utf-8"),
+    }));
     if (writePayload.length > 0) {
       await sandbox.writeFiles(writePayload);
     }
@@ -132,9 +182,50 @@ async function runSandboxChecks(
       });
     }
 
-    return { results, sandboxDurationMs: Date.now() - startMs };
+    let runtimeUrl: string | null = null;
+    if (bootRuntime && results.every((result) => result.passed)) {
+      await sandbox.runCommand({
+        cmd: "bash",
+        args: ["-c", RUNTIME_START_COMMAND],
+        detached: true,
+      });
+
+      const runtimeProbe = await sandbox.runCommand({
+        cmd: "node",
+        args: ["-e", WAIT_FOR_RUNTIME_SCRIPT],
+      });
+      const runtimeStdout = typeof runtimeProbe.stdout === "string" ? runtimeProbe.stdout : "";
+      const runtimeStderr = typeof runtimeProbe.stderr === "string" ? runtimeProbe.stderr : "";
+      const runtimeOutput = ([runtimeStdout, runtimeStderr] as string[])
+        .filter((part) => part.trim().length > 0)
+        .join("\n")
+        .trim()
+        .slice(0, 8000);
+
+      results.push({
+        check: "runtime",
+        passed: runtimeProbe.exitCode === 0,
+        exitCode: runtimeProbe.exitCode ?? 1,
+        output: runtimeOutput || "No runtime probe output captured.",
+      });
+
+      if (runtimeProbe.exitCode === 0) {
+        runtimeUrl = sandbox.domain(RUNTIME_PORTS[0]) || null;
+        keepSandboxAlive = Boolean(runtimeUrl);
+      }
+    }
+
+    return {
+      results,
+      sandboxDurationMs: Date.now() - startMs,
+      runtimeUrl,
+      sandboxId: keepSandboxAlive ? sandbox.sandboxId : null,
+      ports: keepSandboxAlive ? RUNTIME_PORTS : [],
+    };
   } finally {
-    await sandbox.stop().catch(() => {});
+    if (!keepSandboxAlive) {
+      await sandbox.stop().catch(() => {});
+    }
   }
 }
 
@@ -157,7 +248,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       );
     }
 
-    const { versionId, checks } = validation.data;
+    const { versionId, checks, bootRuntime } = validation.data;
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
     if (!scopedVersion) {
@@ -183,12 +274,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       });
 
       try {
-        const { results, sandboxDurationMs } = await runSandboxChecks(sandboxFiles, checks);
+        const { results, sandboxDurationMs, runtimeUrl, sandboxId, ports } = await runSandboxChecks(
+          sandboxFiles,
+          checks,
+          bootRuntime,
+        );
 
         const gateResult: GateResult = {
           passed: results.every((r) => r.passed),
           checks: results,
           sandboxDurationMs,
+          runtimeUrl,
+          sandboxId,
+          ports,
         };
 
         const logs = [
@@ -221,10 +319,20 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
         const verificationSummary = buildVerificationSummary(results);
         if (gateResult.passed) {
+          if (bootRuntime) {
+            await updateVersionSandboxUrl(internalVersionId, runtimeUrl ?? null).catch((err) => {
+              console.warn("[quality-gate] Failed to persist sandbox runtime URL:", err);
+            });
+          }
           await promoteVersion(internalVersionId, verificationSummary).catch((err) => {
             console.warn("[quality-gate] Failed to promote version:", err);
           });
         } else {
+          if (bootRuntime) {
+            await updateVersionSandboxUrl(internalVersionId, null).catch((err) => {
+              console.warn("[quality-gate] Failed to clear sandbox runtime URL:", err);
+            });
+          }
           await failVersionVerification(internalVersionId, verificationSummary).catch((err) => {
             console.warn("[quality-gate] Failed to mark version failed:", err);
           });

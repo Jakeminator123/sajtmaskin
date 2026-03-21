@@ -15,8 +15,7 @@ import {
   getVersionsByChat,
   updateVersionSandboxUrl,
 } from "@/lib/db/chat-repository-pg";
-import { buildPreviewUrl } from "@/lib/gen/preview";
-import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
+import { resolveEngineDemoUrl } from "@/lib/gen/demo-url";
 
 type V0LatestVersionLike = {
   id?: string | null;
@@ -43,7 +42,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const versionsList = engineVersions.map((v) => ({
           id: v.id,
           versionId: v.id,
-          demoUrl: canExposeEnginePreview(v) ? buildPreviewUrl(engineChatId, v.id) : null,
+          demoUrl: resolveEngineDemoUrl(engineChatId, v),
           createdAt: v.created_at,
           versionNumber: v.version_number,
           messageId: v.message_id,
@@ -171,10 +170,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ chatId: strin
           );
         }
         if (normalizedSandboxUrl) {
+          let parsedSandboxUrl: URL;
           try {
-            new URL(normalizedSandboxUrl);
+            parsedSandboxUrl = new URL(normalizedSandboxUrl);
           } catch {
             return NextResponse.json({ error: "sandboxUrl must be a valid URL" }, { status: 400 });
+          }
+          if (parsedSandboxUrl.protocol !== "http:" && parsedSandboxUrl.protocol !== "https:") {
+            return NextResponse.json({ error: "sandboxUrl must use http or https" }, { status: 400 });
           }
         }
 
@@ -252,9 +255,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     return NextResponse.json({
       success: true,
       versionId: restoredVersion.id,
-      demoUrl: canExposeEnginePreview(restoredVersion)
-        ? buildPreviewUrl(engineChat.id, restoredVersion.id)
-        : null,
+      demoUrl: resolveEngineDemoUrl(engineChat.id, restoredVersion),
     });
   } catch (err) {
     return NextResponse.json(

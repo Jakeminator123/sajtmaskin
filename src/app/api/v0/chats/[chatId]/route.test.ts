@@ -6,7 +6,7 @@ const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const getProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
-const buildPreviewUrl = vi.hoisted(() => vi.fn());
+const resolveEngineDemoUrl = vi.hoisted(() => vi.fn());
 const getScaffoldById = vi.hoisted(() => vi.fn());
 const assertV0Key = vi.hoisted(() => vi.fn());
 const v0ChatsGetById = vi.hoisted(() => vi.fn());
@@ -26,8 +26,8 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getLatestVersion,
 }));
 
-vi.mock("@/lib/gen/preview", () => ({
-  buildPreviewUrl,
+vi.mock("@/lib/gen/demo-url", () => ({
+  resolveEngineDemoUrl,
 }));
 
 vi.mock("@/lib/gen/scaffolds", () => ({
@@ -80,10 +80,11 @@ describe("GET /api/v0/chats/[chatId]", () => {
     getProjectByIdForRequest.mockReset();
     getPreferredVersion.mockReset();
     getLatestVersion.mockReset();
-    buildPreviewUrl.mockReset();
+    resolveEngineDemoUrl.mockReset();
     getScaffoldById.mockReset();
     assertV0Key.mockReset();
     v0ChatsGetById.mockReset();
+    resolveEngineDemoUrl.mockReturnValue(null);
   });
 
   it("does not expose a preview URL for failed own-engine versions", async () => {
@@ -117,7 +118,10 @@ describe("GET /api/v0/chats/[chatId]", () => {
     expect(response.status).toBe(200);
     expect(json.demoUrl).toBeNull();
     expect(json.latestVersion.demoUrl).toBeNull();
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
+    expect(resolveEngineDemoUrl).toHaveBeenCalledWith("chat_1", expect.objectContaining({
+      id: "ver_failed",
+      sandbox_url: "https://sandbox.example",
+    }));
   });
 
   it("rejects raw v0 fallback chats when the project is not owned by the request", async () => {

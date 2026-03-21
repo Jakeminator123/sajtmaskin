@@ -460,7 +460,7 @@ export function useBuilderDeployActions({
       if (appProjectId && data.chatId) {
         saveProjectData(appProjectId, {
           chatId: data.chatId,
-          demoUrl: data.demoUrl ?? undefined,
+          demoUrl: data.demoUrl ?? null,
         }).catch((error) => {
           console.warn("[Builder] Failed to save project chat mapping:", error);
         });

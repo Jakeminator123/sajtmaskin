@@ -293,7 +293,9 @@ export async function generateSiteFromPrompt(
       chatId: chat.id,
       versionId: finalized.version.id,
       projectId,
-    }).url;
+      sandboxUrl: finalized.version.sandbox_url ?? null,
+      version: finalized.version,
+    }).url ?? null;
   }
 
   try {
