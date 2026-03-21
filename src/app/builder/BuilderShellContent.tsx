@@ -29,6 +29,7 @@ import {
   type PromptSourceMeta,
 } from "@/lib/builder/prompt-builder";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
+import { withSandboxUrlExpiry } from "@/lib/gen/demo-url";
 import { saveProjectData } from "@/lib/project-client";
 import {
   MODEL_TIER_OPTIONS,
@@ -37,6 +38,7 @@ import {
 import type { ChatMessage } from "@/lib/builder/types";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
+import ms, { type StringValue } from "ms";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BuilderLayout } from "./BuilderLayout";
@@ -535,8 +537,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   );
 
   const persistSandboxUrlForVersion = useCallback(
-    async (url: string) => {
+    async (url: string, timeout: string) => {
       if (!vm.chatId || !vm.activeVersionId) return;
+      let ttlMs = ms(timeout as StringValue);
+      if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
+        ttlMs = 5 * 60_000;
+      }
       try {
         const response = await fetch(
           `/api/v0/chats/${encodeURIComponent(vm.chatId)}/versions`,
@@ -545,7 +551,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               versionId: vm.activeVersionId,
-              sandboxUrl: url,
+              sandboxUrl: withSandboxUrlExpiry(url, ttlMs),
             }),
           },
         );
@@ -566,14 +572,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   );
 
   const handleUseSandboxInPreview = useCallback(
-    (url: string) => {
+    (url: string, timeout: string) => {
       vm.setClearedPreviewVersionId(null);
       vm.setCurrentDemoUrl(url);
-      void persistPreviewOverride(url, vm.activeVersionId);
-      void persistSandboxUrlForVersion(url);
+      void persistPreviewOverride(null, null);
+      void persistSandboxUrlForVersion(url, timeout);
     },
     [
-      vm.activeVersionId,
       vm.setClearedPreviewVersionId,
       vm.setCurrentDemoUrl,
       persistPreviewOverride,

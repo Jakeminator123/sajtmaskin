@@ -11,7 +11,7 @@ interface SandboxModalProps {
   onClose: () => void;
   chatId: string | null;
   versionId: string | null;
-  onUseInPreview?: (url: string) => void;
+  onUseInPreview?: (url: string, timeout: string) => void;
 }
 
 type SandboxCreateResponse = {
@@ -116,7 +116,7 @@ export function SandboxModal({
 
   const useInPreview = () => {
     if (result?.primaryUrl && onUseInPreview) {
-      onUseInPreview(result.primaryUrl);
+      onUseInPreview(result.primaryUrl, result.timeout);
       onClose();
     }
   };

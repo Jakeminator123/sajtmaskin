@@ -11,7 +11,7 @@ vi.mock("@/lib/env", () => ({
   isLegacyPreviewShimsEnabled,
 }));
 
-import { resolveEngineDemoUrl, resolveEngineDemoUrlDetails } from "./demo-url";
+import { resolveEngineDemoUrl, resolveEngineDemoUrlDetails, withSandboxUrlExpiry } from "./demo-url";
 
 describe("resolveEngineDemoUrl", () => {
   beforeEach(() => {
@@ -34,11 +34,12 @@ describe("resolveEngineDemoUrl", () => {
     expect(buildPreviewUrl).toHaveBeenCalledWith("chat_1", "ver_1", undefined);
   });
 
-  it("prefers the sandbox runtime URL when legacy preview is disabled", () => {
+  it("uses a fresh sandbox URL in runtime-first mode", () => {
+    const now = Date.now();
     const result = resolveEngineDemoUrlDetails("chat_1", {
       id: "ver_1",
       verification_state: "passed",
-      sandbox_url: "https://sandbox.example/ver_1",
+      sandbox_url: withSandboxUrlExpiry("https://sandbox.example/ver_1", 60_000, now),
     });
 
     expect(result).toEqual({
@@ -48,11 +49,11 @@ describe("resolveEngineDemoUrl", () => {
     });
   });
 
-  it("keeps demoUrl empty while runtime is still pending", () => {
+  it("keeps demoUrl empty while runtime is still pending or expired", () => {
     const result = resolveEngineDemoUrlDetails("chat_1", {
       id: "ver_1",
       verification_state: "pending",
-      sandbox_url: null,
+      sandbox_url: withSandboxUrlExpiry("https://sandbox.example/ver_1", 1, 0),
     });
 
     expect(result).toEqual({

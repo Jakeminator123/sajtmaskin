@@ -16,10 +16,42 @@ export type EngineDemoUrlResolution = {
   mode: EngineDemoUrlResolutionMode;
 };
 
+const SANDBOX_EXPIRY_HASH_KEY = "sajtmaskinSandboxExpires";
+
 function normalizeUrl(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeSandboxRuntimeUrl(value: string | null | undefined, now = Date.now()): string | null {
+  const normalized = normalizeUrl(value);
+  if (!normalized) return null;
+
+  try {
+    const parsed = new URL(normalized);
+    const hashParams = new URLSearchParams(parsed.hash.startsWith("#") ? parsed.hash.slice(1) : parsed.hash);
+    const expiresAtRaw = hashParams.get(SANDBOX_EXPIRY_HASH_KEY);
+    if (expiresAtRaw) {
+      const expiresAt = Number(expiresAtRaw);
+      if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+        return null;
+      }
+      hashParams.delete(SANDBOX_EXPIRY_HASH_KEY);
+      parsed.hash = hashParams.toString();
+    }
+    return parsed.toString();
+  } catch {
+    return normalized;
+  }
+}
+
+export function withSandboxUrlExpiry(url: string, ttlMs: number, now = Date.now()): string {
+  const parsed = new URL(url);
+  const hashParams = new URLSearchParams(parsed.hash.startsWith("#") ? parsed.hash.slice(1) : parsed.hash);
+  hashParams.set(SANDBOX_EXPIRY_HASH_KEY, String(now + Math.max(0, ttlMs)));
+  parsed.hash = hashParams.toString();
+  return parsed.toString();
 }
 
 export function resolveEngineDemoUrl(
@@ -45,7 +77,7 @@ export function resolveEngineDemoUrlDetails(
     return { demoUrl: legacyPreviewUrl, legacyPreviewUrl, mode: "legacy-preview" };
   }
 
-  const sandboxUrl = normalizeUrl(version.sandboxUrl ?? version.sandbox_url);
+  const sandboxUrl = normalizeSandboxRuntimeUrl(version.sandboxUrl ?? version.sandbox_url);
   if (sandboxUrl) {
     return { demoUrl: sandboxUrl, legacyPreviewUrl, mode: "runtime" };
   }

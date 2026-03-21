@@ -13,6 +13,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { withSandboxUrlExpiry } from "@/lib/gen/demo-url";
 import { isSafeRelativePath } from "@/lib/mcp/runtime-url";
 import { getSandboxCredentials, isSandboxConfigured } from "@/lib/sandbox-auth";
 
@@ -83,6 +84,7 @@ const CHECK_COMMANDS: Record<string, string> = {
 
 const RUNTIME_PORTS = [3000];
 const RUNTIME_START_COMMAND = "npm run dev";
+const RUNTIME_TIMEOUT_MS = 90_000;
 const WAIT_FOR_RUNTIME_SCRIPT = `
 const http = require("node:http");
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -145,7 +147,7 @@ async function runSandboxChecks(
       url: "https://github.com/vercel/sandbox-example-next.git",
     },
     resources: { vcpus: 2 },
-    timeout: 90_000,
+    timeout: RUNTIME_TIMEOUT_MS,
     ports: RUNTIME_PORTS,
     runtime: "node24",
     ...getSandboxCredentials(),
@@ -319,8 +321,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
         const verificationSummary = buildVerificationSummary(results);
         if (gateResult.passed) {
-          if (bootRuntime) {
-            await updateVersionSandboxUrl(internalVersionId, runtimeUrl ?? null).catch((err) => {
+          if (bootRuntime && runtimeUrl) {
+            await updateVersionSandboxUrl(
+              internalVersionId,
+              withSandboxUrlExpiry(runtimeUrl, RUNTIME_TIMEOUT_MS),
+            ).catch((err) => {
               console.warn("[quality-gate] Failed to persist sandbox runtime URL:", err);
             });
           }
