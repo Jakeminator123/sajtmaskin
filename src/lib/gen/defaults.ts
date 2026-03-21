@@ -78,7 +78,8 @@ const TIER_REASONING_EFFORT: Record<string, ReasoningEffort> = {
   fast: "none",
   pro: "medium",
   max: "high",
-  codex: "xhigh",
+  /** Kod Max: same ceiling as Tanker — xhigh burns tokens/latency without clear UX gain */
+  codex: "high",
   anthropic: "none",
 };
 
@@ -109,6 +110,17 @@ export const AUTOFIX_SYNTAX_MAX_PASSES = readIntEnv(
   6,
   1,
   20,
+);
+
+/**
+ * Shared LLM repair budget for the broader repair path (syntax + preview +
+ * quality-gate diagnostics combined). Kept low to avoid runaway costs.
+ */
+export const BROAD_REPAIR_MAX_PASSES = readIntEnv(
+  "SAJTMASKIN_BROAD_REPAIR_MAX_PASSES",
+  2,
+  1,
+  6,
 );
 
 export const ASSIST_MAX_OUTPUT_TOKENS = readIntEnv(

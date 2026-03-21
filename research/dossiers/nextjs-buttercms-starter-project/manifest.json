@@ -2,7 +2,7 @@
   "id": "vercel-nextjs-buttercms-starter-project",
   "title": "Next.JS ButterCMS Starter Project",
   "categorySlug": "cms",
-  "qualityScore": 85,
+  "qualityScore": 95,
   "strengths": [
     "Next.js / React compatible",
     "AI integration patterns",
@@ -12,13 +12,13 @@
   ],
   "scaffoldId": "landing-page",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Hero section with clear CTA",
-    "Feature highlights",
-    "Footer with navigation links",
-    "Lighthouse 90+ target"
+    "Hero section with primary CTA",
+    "Feature highlights with icons or illustrations",
+    "Social proof or partner logos",
+    "Newsletter signup or lead capture form",
+    "Footer with sitemap links",
+    "AI interaction pattern (chat/generate/suggest)",
+    "CMS content rendering with rich blocks"
   ],
   "upgradeTargets": [
     "Add authentication when needed",

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { getOpenAIClientConfig } from "@/lib/gen/models";
+import { debugLog } from "@/lib/utils/debug";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,31 +12,6 @@ const MAX_FILES = 6;
 
 const INPUT_COST_PER_M = 0.15;
 const OUTPUT_COST_PER_M = 0.6;
-
-function getGatewayApiKey(): string | null {
-  const key = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
-  return key?.trim() || null;
-}
-
-function getDirectApiKey(): string | null {
-  const key = process.env.OPENAI_API_KEY;
-  return key?.trim() || null;
-}
-
-function createClient(): OpenAI | null {
-  const gatewayKey = getGatewayApiKey();
-  if (gatewayKey) {
-    return new OpenAI({
-      apiKey: gatewayKey,
-      baseURL: "https://ai-gateway.vercel.sh/v1",
-    });
-  }
-  const directKey = getDirectApiKey();
-  if (directKey) {
-    return new OpenAI({ apiKey: directKey });
-  }
-  return null;
-}
 
 type RequestBody = {
   xPercent: number;
@@ -62,13 +39,23 @@ function truncateCode(files: Array<{ name: string; content: string }>): string {
 }
 
 export async function POST(req: Request) {
-  const client = createClient();
-  if (!client) {
+  let clientConfig: ReturnType<typeof getOpenAIClientConfig>;
+  try {
+    clientConfig = getOpenAIClientConfig();
+  } catch {
     return NextResponse.json(
       { success: false, error: "Ingen AI-nyckel konfigurerad (AI_GATEWAY_API_KEY eller OPENAI_API_KEY)." },
       { status: 501 },
     );
   }
+
+  const client = new OpenAI({
+    apiKey: clientConfig.apiKey,
+    ...(clientConfig.baseURL ? { baseURL: clientConfig.baseURL } : {}),
+  });
+  const useGateway = clientConfig.route === "ai-gateway";
+
+  debugLog("model", "Inspector AI match", { route: clientConfig.route, model: MODEL });
 
   const body = (await req.json().catch(() => null)) as RequestBody | null;
   if (!body?.files?.length || !Number.isFinite(body.xPercent) || !Number.isFinite(body.yPercent)) {
@@ -114,7 +101,7 @@ Källkod:
 ${codeBlock}`;
 
   try {
-    const modelId = getGatewayApiKey() ? `openai/${MODEL}` : MODEL;
+    const modelId = useGateway ? `openai/${MODEL}` : MODEL;
     const completion = await client.chat.completions.create({
       model: modelId,
       messages: [

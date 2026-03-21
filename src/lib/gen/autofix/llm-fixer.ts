@@ -1,7 +1,7 @@
 import { streamText } from "ai";
 
 import { AUTOFIX_MAX_OUTPUT_TOKENS } from "../defaults";
-import { getOpenAIModel } from "../models";
+import { resolveModel } from "../models";
 import { parseCodeProject, type CodeFile } from "../parser";
 import { FIXER_SYSTEM_PROMPT, buildFixerUserPrompt } from "./fixer-prompt";
 
@@ -22,7 +22,7 @@ export async function runLlmFixer(
 
   try {
     const userPrompt = buildFixerUserPrompt(content, errors);
-    const model = getOpenAIModel(options?.model ?? DEFAULT_FIXER_MODEL);
+    const model = resolveModel(options?.model ?? DEFAULT_FIXER_MODEL);
 
     const result = streamText({
       model,

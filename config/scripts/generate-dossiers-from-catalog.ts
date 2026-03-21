@@ -87,55 +87,98 @@ function deriveStrengths(entry: NormalizedEntry): string[] {
   return strengths;
 }
 
+const SCAFFOLD_CHECKLISTS: Record<string, string[]> = {
+  ecommerce: [
+    "Product grid with filtering and sorting",
+    "Cart state management with add/remove/quantity",
+    "Checkout flow with form validation",
+    "Product detail page with image gallery",
+    "Order confirmation and receipt",
+  ],
+  dashboard: [
+    "Data visualization with charts (bar/line/pie)",
+    "Sidebar navigation with collapsible sections",
+    "Responsive table and card views",
+    "KPI summary cards with trend indicators",
+    "Filter/search controls for data views",
+  ],
+  blog: [
+    "Article list with pagination or infinite scroll",
+    "Single post with rich typography and code blocks",
+    "Author profile and publish date metadata",
+    "Category/tag filtering",
+    "RSS feed or sitemap generation",
+  ],
+  "auth-pages": [
+    "Login form with email/password validation",
+    "Registration form with confirmation",
+    "Password reset flow with email link",
+    "Protected route redirect pattern",
+    "Session indicator in header/navbar",
+  ],
+  "saas-landing": [
+    "Feature comparison grid or bento layout",
+    "Pricing tier cards with toggle (monthly/yearly)",
+    "Social proof section (testimonials/logos)",
+    "Hero with clear value proposition and CTA",
+    "FAQ accordion section",
+  ],
+  portfolio: [
+    "Project gallery with category filtering",
+    "Case study detail pages with images",
+    "Contact form with validation",
+    "Skills or services overview section",
+    "About page with bio and timeline",
+  ],
+  "landing-page": [
+    "Hero section with primary CTA",
+    "Feature highlights with icons or illustrations",
+    "Social proof or partner logos",
+    "Newsletter signup or lead capture form",
+    "Footer with sitemap links",
+  ],
+  "content-site": [
+    "Table of contents or sidebar navigation",
+    "Search functionality for content",
+    "Breadcrumb navigation",
+    "SEO metadata on all content pages",
+    "Cross-linking between related content",
+  ],
+  "app-shell": [
+    "Sidebar or top navigation with active state",
+    "Settings or configuration panel",
+    "Loading skeletons and empty states",
+    "Breadcrumb or page title bar",
+    "Notification or toast system",
+  ],
+  "base-nextjs": [
+    "App Router page structure",
+    "Responsive header with mobile menu",
+    "Theme-aware color scheme",
+    "Proper metadata exports",
+    "Clean component file structure",
+  ],
+};
+
+const MAX_CHECKLIST_ITEMS = 8;
+
 function deriveQualityChecklist(entry: NormalizedEntry, scaffoldId: string): string[] {
-  const checklist: string[] = [];
+  const checklist = [...(SCAFFOLD_CHECKLISTS[scaffoldId] ?? [])];
 
-  checklist.push("Responsive mobile-first layout");
-  checklist.push("Semantic HTML with proper heading hierarchy");
-  checklist.push("Accessible navigation with keyboard support");
-
-  if (scaffoldId === "ecommerce") {
-    checklist.push("Product grid with filtering");
-    checklist.push("Cart state management");
-    checklist.push("Checkout flow with form validation");
-  } else if (scaffoldId === "dashboard") {
-    checklist.push("Data visualization with charts");
-    checklist.push("Sidebar navigation pattern");
-    checklist.push("Responsive table/card views");
-  } else if (scaffoldId === "blog") {
-    checklist.push("Article list with pagination");
-    checklist.push("Single post with rich typography");
-    checklist.push("Author and date metadata");
-  } else if (scaffoldId === "auth-pages") {
-    checklist.push("Login / register form with validation");
-    checklist.push("Password reset flow");
-    checklist.push("Protected route pattern");
-  } else if (scaffoldId === "saas-landing") {
-    checklist.push("Feature comparison grid");
-    checklist.push("Pricing tier cards");
-    checklist.push("Social proof / testimonials section");
-  } else if (scaffoldId === "portfolio") {
-    checklist.push("Project gallery with filtering");
-    checklist.push("Case study detail pages");
-    checklist.push("Contact form");
-  } else if (scaffoldId === "landing-page") {
-    checklist.push("Hero section with clear CTA");
-    checklist.push("Feature highlights");
-    checklist.push("Footer with navigation links");
-  } else if (scaffoldId === "content-site") {
-    checklist.push("Content hierarchy with sections");
-    checklist.push("Internal linking structure");
-    checklist.push("SEO metadata on all pages");
-  } else if (scaffoldId === "app-shell") {
-    checklist.push("Sidebar or top navigation layout");
-    checklist.push("Settings or configuration UI");
-    checklist.push("Loading and empty states");
+  if (entry.signals.auth && scaffoldId !== "auth-pages") {
+    checklist.push("Auth-aware UI states");
+  }
+  if (entry.signals.ai) {
+    checklist.push("AI interaction pattern (chat/generate/suggest)");
+  }
+  if (entry.signals.cms) {
+    checklist.push("CMS content rendering with rich blocks");
+  }
+  if (entry.signals.multiTenant) {
+    checklist.push("Tenant-scoped data and navigation");
   }
 
-  if (entry.signals.auth) checklist.push("Auth-aware UI states");
-  if (entry.qualityScore >= 75) checklist.push("Lighthouse 90+ target");
-
-  return checklist;
+  return checklist.slice(0, MAX_CHECKLIST_ITEMS);
 }
 
 function deriveUpgradeTargets(entry: NormalizedEntry): string[] {

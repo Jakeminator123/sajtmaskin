@@ -2,7 +2,7 @@
   "id": "vercel-builderio-personalization-starter",
   "title": "Builder.io Personalization Starter",
   "categorySlug": "cms",
-  "qualityScore": 85,
+  "qualityScore": 95,
   "strengths": [
     "Next.js / React compatible",
     "E-commerce / product catalog patterns",
@@ -14,13 +14,13 @@
   ],
   "scaffoldId": "portfolio",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Project gallery with filtering",
-    "Case study detail pages",
-    "Contact form",
-    "Lighthouse 90+ target"
+    "Project gallery with category filtering",
+    "Case study detail pages with images",
+    "Contact form with validation",
+    "Skills or services overview section",
+    "About page with bio and timeline",
+    "AI interaction pattern (chat/generate/suggest)",
+    "CMS content rendering with rich blocks"
   ],
   "upgradeTargets": [
     "Add authentication when needed",

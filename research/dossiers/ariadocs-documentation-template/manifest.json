@@ -2,7 +2,7 @@
   "id": "vercel-ariadocs-documentation-template",
   "title": "AriaDocs: Documentation Template",
   "categorySlug": "documentation",
-  "qualityScore": 85,
+  "qualityScore": 95,
   "strengths": [
     "Next.js / React compatible",
     "Blog / content publishing support",
@@ -14,13 +14,13 @@
   ],
   "scaffoldId": "blog",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Article list with pagination",
-    "Single post with rich typography",
-    "Author and date metadata",
-    "Lighthouse 90+ target"
+    "Article list with pagination or infinite scroll",
+    "Single post with rich typography and code blocks",
+    "Author profile and publish date metadata",
+    "Category/tag filtering",
+    "RSS feed or sitemap generation",
+    "AI interaction pattern (chat/generate/suggest)",
+    "Tenant-scoped data and navigation"
   ],
   "upgradeTargets": [
     "Add authentication when needed",

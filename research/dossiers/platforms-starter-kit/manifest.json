@@ -2,7 +2,7 @@
   "id": "vercel-platforms-starter-kit",
   "title": "Platforms Starter Kit",
   "categorySlug": "saas",
-  "qualityScore": 85,
+  "qualityScore": 95,
   "strengths": [
     "Next.js / React compatible",
     "Includes authentication patterns",
@@ -15,14 +15,14 @@
   ],
   "scaffoldId": "saas-landing",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Feature comparison grid",
-    "Pricing tier cards",
-    "Social proof / testimonials section",
+    "Feature comparison grid or bento layout",
+    "Pricing tier cards with toggle (monthly/yearly)",
+    "Social proof section (testimonials/logos)",
+    "Hero with clear value proposition and CTA",
+    "FAQ accordion section",
     "Auth-aware UI states",
-    "Lighthouse 90+ target"
+    "AI interaction pattern (chat/generate/suggest)",
+    "Tenant-scoped data and navigation"
   ],
   "upgradeTargets": []
 }

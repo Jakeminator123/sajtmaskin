@@ -40,4 +40,52 @@ describe("repairGeneratedFiles", () => {
       ]),
     );
   });
+
+  it("adds missing siteConfig import when JSON-LD references it", () => {
+    const files = [
+      {
+        path: "site-config.ts",
+        language: "ts",
+        content: [
+          "export const siteConfig = {",
+          "  name: 'Test',",
+          "  url: 'https://example.com',",
+          "  description: 'x',",
+          "  email: 'a@b.com',",
+          "};",
+        ].join("\n"),
+      },
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content: [
+          'import type { Metadata } from "next";',
+          "",
+          "const jsonLd = {",
+          '  "@context": "https://schema.org",',
+          '  "@type": "FinancialService",',
+          "  name: siteConfig.name,",
+          "  url: siteConfig.url,",
+          "};",
+          "",
+          "export default function Page() {",
+          "  return <script type=\"application/ld+json\">{JSON.stringify(jsonLd)}</script>;",
+          "}",
+        ].join("\n"),
+      },
+    ];
+
+    const result = repairGeneratedFiles(files);
+    const page = result.files.find((f) => f.path === "app/page.tsx");
+
+    expect(page?.content).toContain('import { siteConfig } from "../site-config"');
+    expect(result.fixes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fixer: "site-config-import-fixer",
+          file: "app/page.tsx",
+        }),
+      ]),
+    );
+  });
 });

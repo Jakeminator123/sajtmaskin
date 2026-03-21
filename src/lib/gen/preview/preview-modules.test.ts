@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeFilePath, normalizeRoutePath, routeFromPageFile, resolveLocalImportPath, escapeInlineScript } from "./utils";
 import { parseImports, stripNextImports, rewriteModuleExports } from "./import-parser";
-import { findPageFile, findCssFiles } from "./file-resolution";
+import { findPageFile, findCssFiles, sortComponentFilesForPreview } from "./file-resolution";
 import { isPreviewBuiltinImportSource } from "./constants";
 import { buildPreviewBaseCss, normalizePreviewCss } from "./css";
 import type { CodeFile } from "./types";
@@ -141,6 +141,33 @@ describe("file-resolution", () => {
     it("filters CSS files", () => {
       const files = [file("app/page.tsx", ""), file("globals.css", "body {}"), file("theme.css", "")];
       expect(findCssFiles(files)).toHaveLength(2);
+    });
+  });
+
+  describe("sortComponentFilesForPreview", () => {
+    it("places config modules before components that import them", () => {
+      const siteConfig = file(
+        "site-config.ts",
+        "export const siteConfig = { supportEmail: 'a@b.com' };",
+        "ts",
+      );
+      const footer = file(
+        "site-footer.tsx",
+        `import { siteConfig } from "./site-config";\nexport default function Footer() { return siteConfig.supportEmail; }`,
+      );
+      const frame = file(
+        "site-frame.tsx",
+        `import Footer from "./site-footer";\nexport default function Frame() { return <Footer />; }`,
+      );
+      const page = file(
+        "app/page.tsx",
+        `import Frame from "../site-frame";\nexport default function Page() { return <Frame />; }`,
+      );
+
+      const wrongOrder = [footer, siteConfig, frame];
+      const sorted = sortComponentFilesForPreview(page, wrongOrder);
+
+      expect(sorted.map((f) => f.path)).toEqual(["site-config.ts", "site-footer.tsx", "site-frame.tsx"]);
     });
   });
 });

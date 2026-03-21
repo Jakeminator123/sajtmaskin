@@ -64,6 +64,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
+    "@ai-sdk/gateway": "^3.0.77",
     "@ai-sdk/openai": "^3.0.18",
     "@base-ui/react": "^1.2.0",
     "@d-id/client-sdk": "^1.1.52",

@@ -13,13 +13,12 @@
   ],
   "scaffoldId": "saas-landing",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Feature comparison grid",
-    "Pricing tier cards",
-    "Social proof / testimonials section",
-    "Lighthouse 90+ target"
+    "Feature comparison grid or bento layout",
+    "Pricing tier cards with toggle (monthly/yearly)",
+    "Social proof section (testimonials/logos)",
+    "Hero with clear value proposition and CTA",
+    "FAQ accordion section",
+    "AI interaction pattern (chat/generate/suggest)"
   ],
   "upgradeTargets": [
     "Add authentication when needed",

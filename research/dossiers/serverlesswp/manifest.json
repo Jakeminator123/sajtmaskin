@@ -1,0 +1,28 @@
+{
+  "id": "vercel-serverlesswp",
+  "title": "ServerlessWP",
+  "categorySlug": "cms",
+  "qualityScore": 95,
+  "strengths": [
+    "Next.js / React compatible",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "High quality score"
+  ],
+  "scaffoldId": "content-site",
+  "qualityChecklist": [
+    "Table of contents or sidebar navigation",
+    "Search functionality for content",
+    "Breadcrumb navigation",
+    "SEO metadata on all content pages",
+    "Cross-linking between related content",
+    "AI interaction pattern (chat/generate/suggest)",
+    "CMS content rendering with rich blocks"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

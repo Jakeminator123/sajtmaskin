@@ -12,14 +12,12 @@
   ],
   "scaffoldId": "auth-pages",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Login / register form with validation",
-    "Password reset flow",
-    "Protected route pattern",
-    "Auth-aware UI states",
-    "Lighthouse 90+ target"
+    "Login form with email/password validation",
+    "Registration form with confirmation",
+    "Password reset flow with email link",
+    "Protected route redirect pattern",
+    "Session indicator in header/navbar",
+    "AI interaction pattern (chat/generate/suggest)"
   ],
   "upgradeTargets": [
     "Add analytics dashboard"

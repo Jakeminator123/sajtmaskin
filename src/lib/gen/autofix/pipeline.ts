@@ -2,6 +2,7 @@ import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
+import { fixReactHookImports, fixDomGlobalShadowing } from "./react-hook-import-fixer";
 import { fixFontImport } from "./rules/font-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
 import { fixMissingMetadataImport, fixMissingMetadataRouteImport, fixMissingCnImport } from "./rules/metadata-import-fixer";
@@ -44,12 +45,14 @@ export interface AutoFixContext {
  * `file="..."` attributes). Each file is processed independently.
  *
  * Fixer order:
- *  1. use-client-fixer  — prepend "use client" when client APIs detected
- *  2. import-validator   — fix shadcn import paths
- *  3. react-import-fixer — add missing `import React`
- *  4. syntax-validator   — esbuild transform check (async)
- *  5. jsx-checker        — tag matching warnings
- *  6. dep-completer      — collect third-party dependencies
+ *  1. use-client-fixer        — prepend "use client" when client APIs detected
+ *  2. import-validator         — fix shadcn import paths
+ *  3. react-import-fixer       — add missing `import React` (for React.* usage)
+ *  3a. react-hook-import-fixer — add missing named hook imports (useState, useEffect, ...)
+ *  3a2. dom-shadow-fixer       — remove local imports that shadow DOM globals
+ *  4. syntax-validator         — esbuild transform check (async)
+ *  5. jsx-checker              — tag matching warnings
+ *  6. dep-completer            — collect third-party dependencies
  *
  * Fail-safe: if any fixer throws, it is skipped and a warning is logged.
  */
@@ -131,6 +134,40 @@ export async function runAutoFix(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] react-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3a. react-hook-import-fixer — add missing named React hook imports
+      try {
+        const hookResult = fixReactHookImports(currentCode);
+        if (hookResult.fixed) {
+          currentCode = hookResult.code;
+          allFixes.push({
+            fixer: "react-hook-import-fixer",
+            description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] react-hook-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3a2. dom-shadow-fixer — remove local imports that shadow DOM globals
+      try {
+        const shadowResult = fixDomGlobalShadowing(currentCode);
+        if (shadowResult.fixed) {
+          currentCode = shadowResult.code;
+          allFixes.push({
+            fixer: "dom-shadow-fixer",
+            description: `Removed local imports shadowing DOM globals: ${shadowResult.removedImports.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] dom-shadow-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

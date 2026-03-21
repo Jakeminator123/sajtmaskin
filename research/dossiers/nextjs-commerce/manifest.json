@@ -16,13 +16,14 @@
   ],
   "scaffoldId": "ecommerce",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Product grid with filtering",
-    "Cart state management",
+    "Product grid with filtering and sorting",
+    "Cart state management with add/remove/quantity",
     "Checkout flow with form validation",
-    "Lighthouse 90+ target"
+    "Product detail page with image gallery",
+    "Order confirmation and receipt",
+    "AI interaction pattern (chat/generate/suggest)",
+    "CMS content rendering with rich blocks",
+    "Tenant-scoped data and navigation"
   ],
   "upgradeTargets": [
     "Add authentication when needed",

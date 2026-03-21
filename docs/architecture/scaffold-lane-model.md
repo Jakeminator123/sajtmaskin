@@ -104,6 +104,10 @@ Zone 1: RAW (outside repo or          Zone 2: NORMALIZED (in repo)         Zone 
 | `scaffolds:build` | Runs `scaffolds:research` → `scaffolds:embeddings` → `scaffolds:validate` |
 | `verify:generated-paths` | Ensures no machine-specific paths in committed JSON |
 
+## Shadcn.io mirror (~150 repos) vs runtime
+
+The `_template_refs/shadcn-io-mirror/` tree (from `mirror_shadcn_io_templates.py`) is **Zone 1 raw cache**, same lane as optional Vercel clones: useful for **offline research** and future curation, **not** wired into scaffold selection or the shadcn/ui components under `src/components/ui/` at dev time. For a concise operator summary see `docs/handoffs/local-operator-guide.md`.
+
 ## Key rules
 
 1. **Raw Vercel scrape data stays outside the git root when practical.** The simplest default is a sibling folder like `../vercel-scrape/`. Auxiliary mirrors like `_template_refs/` are acceptable local-only caches inside the repo as long as they remain gitignored/cursorignored. The repo only receives the small, normalized catalog.

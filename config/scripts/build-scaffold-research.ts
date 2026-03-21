@@ -61,19 +61,13 @@ function loadDossiers(): Map<string, DossierManifest[]> {
   return byScaffold;
 }
 
+const MAX_CHECKLIST_ITEMS = 10;
+const MAX_UPGRADE_TARGETS = 6;
+const MAX_REFERENCE_TEMPLATES = 3;
+
 function main() {
   const scaffolds = getAllScaffolds();
   const dossiersByScaffold = loadDossiers();
-
-  let existingData: Record<string, unknown> = {};
-  if (fs.existsSync(OUTPUT_PATH)) {
-    try {
-      existingData = JSON.parse(fs.readFileSync(OUTPUT_PATH, "utf-8"))
-        .scaffolds as Record<string, unknown>;
-    } catch {
-      /* fresh start */
-    }
-  }
 
   const scaffoldsOut: Record<string, unknown> = {};
 
@@ -83,13 +77,15 @@ function main() {
     if (dossiers && dossiers.length > 0) {
       const checklist = [...new Set(
         dossiers.flatMap((d) => d.qualityChecklist ?? []).filter(Boolean),
-      )];
+      )].slice(0, MAX_CHECKLIST_ITEMS);
+
       const upgradeTargets = [...new Set(
         dossiers.flatMap((d) => d.upgradeTargets ?? []).filter(Boolean),
-      )];
+      )].slice(0, MAX_UPGRADE_TARGETS);
+
       const referenceTemplates = dossiers
         .sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0))
-        .slice(0, 3)
+        .slice(0, MAX_REFERENCE_TEMPLATES)
         .map((d) => ({
           id: d.id,
           title: d.title,
@@ -99,36 +95,9 @@ function main() {
         }));
 
       scaffoldsOut[scaffold.id] = {
-        qualityChecklist:
-          checklist.length > 0
-            ? checklist
-            : (
-                (existingData[scaffold.id] as Record<string, unknown>)
-                  ?.qualityChecklist ?? []
-              ),
-        research: {
-          upgradeTargets:
-            upgradeTargets.length > 0
-              ? upgradeTargets
-              : (
-                  (
-                    (existingData[scaffold.id] as Record<string, unknown>)
-                      ?.research as Record<string, unknown>
-                  )?.upgradeTargets ?? []
-                ),
-          referenceTemplates:
-            referenceTemplates.length > 0
-              ? referenceTemplates
-              : (
-                  (
-                    (existingData[scaffold.id] as Record<string, unknown>)
-                      ?.research as Record<string, unknown>
-                  )?.referenceTemplates ?? []
-                ),
-        },
+        qualityChecklist: checklist,
+        research: { upgradeTargets, referenceTemplates },
       };
-    } else if (existingData[scaffold.id]) {
-      scaffoldsOut[scaffold.id] = existingData[scaffold.id];
     } else {
       scaffoldsOut[scaffold.id] = {
         qualityChecklist: [],
@@ -144,13 +113,16 @@ function main() {
   };
 
   fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2), "utf-8");
-  console.info(`Wrote research for ${Object.keys(scaffoldsOut).length} scaffolds to ${OUTPUT_PATH}`);
 
-  const hasDossiers = dossiersByScaffold.size > 0;
-  if (!hasDossiers) {
-    console.info(
-      "No dossiers found in research/dossiers/ — preserved existing data where available.",
-    );
+  const totalChecklist = Object.values(scaffoldsOut).reduce(
+    (sum: number, s) => sum + ((s as { qualityChecklist: string[] }).qualityChecklist?.length ?? 0),
+    0,
+  );
+  console.info(`Wrote research for ${Object.keys(scaffoldsOut).length} scaffolds to ${OUTPUT_PATH}`);
+  console.info(`Total checklist items: ${totalChecklist} (cap: ${MAX_CHECKLIST_ITEMS}/scaffold)`);
+
+  if (dossiersByScaffold.size === 0) {
+    console.info("No dossiers found in research/dossiers/ — all scaffolds get empty research stubs.");
   }
 }
 

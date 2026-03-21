@@ -11,13 +11,12 @@
   ],
   "scaffoldId": "app-shell",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Sidebar or top navigation layout",
-    "Settings or configuration UI",
-    "Loading and empty states",
-    "Lighthouse 90+ target"
+    "Sidebar or top navigation with active state",
+    "Settings or configuration panel",
+    "Loading skeletons and empty states",
+    "Breadcrumb or page title bar",
+    "Notification or toast system",
+    "AI interaction pattern (chat/generate/suggest)"
   ],
   "upgradeTargets": [
     "Add authentication when needed",

@@ -359,8 +359,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
           if (provider === "gateway") {
             return (
-              "Kunde inte nå AI Gateway. Sätt AI_GATEWAY_API_KEY eller VERCEL_OIDC_TOKEN i .env.local (lokalt), " +
-              "eller kör på Vercel för OIDC-autentisering."
+              "Kunde inte nå AI-modellen. Sätt AI_GATEWAY_API_KEY (Vercel AI Gateway) eller OPENAI_API_KEY (direkt) i .env.local."
             );
           }
           if (provider === "v0")

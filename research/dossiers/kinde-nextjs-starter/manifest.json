@@ -1,0 +1,28 @@
+{
+  "id": "vercel-kinde-nextjs-starter",
+  "title": "Kinde Next.js Starter",
+  "categorySlug": "authentication",
+  "qualityScore": 95,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "landing-page",
+  "qualityChecklist": [
+    "Hero section with primary CTA",
+    "Feature highlights with icons or illustrations",
+    "Social proof or partner logos",
+    "Newsletter signup or lead capture form",
+    "Footer with sitemap links",
+    "Auth-aware UI states",
+    "AI interaction pattern (chat/generate/suggest)"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

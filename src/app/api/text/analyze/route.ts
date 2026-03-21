@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import OpenAI from "openai";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
+import { getOpenAIClientConfig } from "@/lib/gen/models";
+import { debugLog } from "@/lib/utils/debug";
 
 /**
  * Text Analysis API
@@ -48,9 +50,12 @@ const TEXT_ANALYZE_SCHEMA = {
   additionalProperties: false,
 };
 
-function getGatewayApiKey(): string | null {
-  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
-  return apiKey && apiKey.trim() ? apiKey : null;
+function hasAnyAIKey(): boolean {
+  return Boolean(
+    process.env.AI_GATEWAY_API_KEY?.trim() ||
+    process.env.AI_GATEWAY?.trim() ||
+    process.env.OPENAI_API_KEY?.trim(),
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -68,8 +73,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Gate: need either OPENAI_API_KEY (Responses API) or gateway key
-    if (!SECRETS.openaiApiKey && !getGatewayApiKey()) {
+    if (!SECRETS.openaiApiKey && !hasAnyAIKey()) {
       console.info("[Text/Analyze] No AI keys configured, using defaults");
       return NextResponse.json({
         success: true,
@@ -135,14 +139,17 @@ ${truncatedContent}`;
       });
     }
 
-    // ── Gateway fallback path (old behaviour) ───────────────────
+    // ── AI Gateway / direct OpenAI fallback path ────────────────
+    const clientConfig = getOpenAIClientConfig();
+    const useGateway = clientConfig.route === "ai-gateway";
     const openai = new OpenAI({
-      apiKey: getGatewayApiKey() ?? "",
-      baseURL: "https://ai-gateway.vercel.sh/v1",
+      apiKey: clientConfig.apiKey,
+      ...(clientConfig.baseURL ? { baseURL: clientConfig.baseURL } : {}),
     });
+    debugLog("model", "Text analyze (fallback)", { route: clientConfig.route, model: ANALYSIS_MODEL });
 
     const response = await openai.responses.create({
-      model: `openai/${ANALYSIS_MODEL}`,
+      model: useGateway ? `openai/${ANALYSIS_MODEL}` : ANALYSIS_MODEL,
       instructions,
       input: `${inputText}
 

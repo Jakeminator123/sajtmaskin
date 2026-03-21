@@ -13,8 +13,10 @@ during generation, before the version is saved. Current rules:
 |------|------|--------------|
 | 3a | use-client-fixer | Missing "use client" in client components |
 | 3b | import-validator | Incorrect shadcn import paths |
-| 3b2 | react-import-fixer | Missing `import React` |
-| 3b3 | font-import-fixer | Incorrect font imports in layout |
+| 3b2 | react-import-fixer | Missing `import React` (for `React.*` usage) |
+| 3b3 | react-hook-import-fixer | Missing named hook imports (`useState`, `useEffect`, `useRef`, etc.) |
+| 3b4 | dom-shadow-fixer | Local imports shadowing DOM globals (`HTMLFormElement`, etc.) |
+| 3b5 | font-import-fixer | Incorrect font imports in layout |
 | 3c | metadata-import-fixer | Missing `Metadata` type import from next |
 | 3c2 | metadata-route-import-fixer | Missing `MetadataRoute` in robots/sitemap |
 | 3c3 | cn-import-fixer | Missing `cn` import from `@/lib/utils` |
@@ -63,6 +65,15 @@ replaces `/placeholder.svg?text=...` with real Unsplash photos. Known behavior:
    The model copies cn patterns but forgets the import.
    Fixed by `cn-import-fixer`.
 
+5. **`useState(...)` without `import { useState } from "react"`**.
+   The model uses React hooks as bare identifiers without importing them.
+   The old `react-import-fixer` only caught `React.*` usage.
+   Fixed by `react-hook-import-fixer` (covers all standard hooks).
+
+6. **Local import shadows a DOM global** (e.g. `import HTMLFormElement from "@/components/html-form-element"`).
+   Confuses TypeScript and causes runtime errors when the global type is expected.
+   Fixed by `dom-shadow-fixer`.
+
 ## Platform Issues (resolved)
 
 ### Client-bundle crash from server-only imports
@@ -76,10 +87,16 @@ separate from the model's native limit (128K). Do not hardcode model
 limits -- let the gateway decide by omitting `maxOutputTokens` when
 the client does not explicitly request a value.
 
-### Auto-fix can create worse versions
-The automatic post-check follow-up (`useAutoFix`) sometimes generates
-code with more errors than the original. Disabled by default. Enable
-via `localStorage.setItem("sajtmaskin:autofix-enabled", "true")`.
+### Auto-fix is now enabled by default (2026-03-21)
+Client-side autofix (`useAutoFix`) is now **on by default** as a safety net.
+Disable via `localStorage.setItem("sajtmaskin:autofix-enabled", "false")`.
+Limits: 2 attempts per reason, 3 per chat, 5-minute dedupe window.
+
+### Shared LLM repair budget (2026-03-21)
+A unified server-side repair helper (`shared-repair.ts`) runs the existing
+`runLlmFixer` with a broader set of diagnostics (syntax, preview, quality-gate)
+and a shared budget of 2 LLM passes (`SAJTMASKIN_BROAD_REPAIR_MAX_PASSES`).
+Machine autofix always runs first; LLM only when deterministic fixers leave errors.
 
 ### CSP for Sandbox iframe
 `frame-src` in `proxy.ts` must include `*.vercel.run` and `*.vercel.app`

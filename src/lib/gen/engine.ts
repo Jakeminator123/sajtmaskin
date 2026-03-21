@@ -4,7 +4,8 @@ import {
   getEngineMaxOutputTokens,
   getReasoningEffort,
 } from "./defaults";
-import { getOpenAIModel, DEFAULT_MODEL } from "./models";
+import { isAIGatewayEnabled, resolveModel, DEFAULT_MODEL } from "./models";
+import { defaultFallbackModels } from "@/lib/builder/gateway-policy";
 import {
   buildUserPromptContent,
   type RequestAttachment,
@@ -55,7 +56,7 @@ export function generateCode(
     referenceAttachments,
   } = options;
 
-  const model = getOpenAIModel(modelId ?? DEFAULT_MODEL);
+  const model = resolveModel(modelId ?? DEFAULT_MODEL);
   const resolvedMaxTokens = maxTokens ?? getEngineMaxOutputTokens(modelTier);
   const reasoningEffort = getReasoningEffort(modelTier, thinking);
   const isAnthropicModel = (modelId ?? DEFAULT_MODEL).startsWith("claude-");
@@ -85,17 +86,32 @@ export function generateCode(
     ...(tools ? { tools, maxSteps: maxSteps ?? 2 } : {}),
   };
 
+  // AI Gateway-only: failover chain if primary model is unavailable (direct OpenAI has no equivalent).
+  const resolvedId = modelId ?? DEFAULT_MODEL;
+  const gatewayFallbackModels =
+    !isAnthropicModel && isAIGatewayEnabled()
+      ? defaultFallbackModels(`openai/${resolvedId}`)
+      : [];
+
+  const openAiGatewayProviderOptions =
+    !isAnthropicModel &&
+    (reasoningEffort !== "none" || gatewayFallbackModels.length > 0)
+      ? {
+          ...(reasoningEffort !== "none" ? { openai: { reasoningEffort } } : {}),
+          ...(gatewayFallbackModels.length > 0
+            ? { gateway: { models: gatewayFallbackModels } }
+            : {}),
+        }
+      : null;
+
   const result = streamText(
     isAnthropicModel && thinking
       ? {
           ...baseCall,
           providerOptions: { anthropic: { thinking: { type: "adaptive" as const } } },
         }
-      : !isAnthropicModel && reasoningEffort !== "none"
-        ? {
-            ...baseCall,
-            providerOptions: { openai: { reasoningEffort } },
-          }
+      : openAiGatewayProviderOptions
+        ? { ...baseCall, providerOptions: openAiGatewayProviderOptions }
         : baseCall,
   );
 

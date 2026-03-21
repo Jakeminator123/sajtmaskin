@@ -1,0 +1,29 @@
+{
+  "id": "vercel-glide-publishing-platform-nextjs-starter",
+  "title": "Glide Publishing Platform - Next.js Starter",
+  "categorySlug": "cms",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Multi-tenant architecture",
+    "High quality score"
+  ],
+  "scaffoldId": "landing-page",
+  "qualityChecklist": [
+    "Hero section with primary CTA",
+    "Feature highlights with icons or illustrations",
+    "Social proof or partner logos",
+    "Newsletter signup or lead capture form",
+    "Footer with sitemap links",
+    "AI interaction pattern (chat/generate/suggest)",
+    "CMS content rendering with rich blocks",
+    "Tenant-scoped data and navigation"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

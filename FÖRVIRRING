@@ -1,0 +1,158 @@
+# Deep Research Report on `sajtmaskin` Bra Branch, `Scaffolds`/`dossiers`, and the “static preview” + `vercel-scrape` confusion
+
+> **Nota 2026-03:** För *aktuell* drift — vad som gäller vid `npm run dev`, dossiers,
+> sandbox/quality gate, och skillnad mot shadcn-io-speglade repon — se
+> **`docs/handoffs/local-operator-guide.md`**. Denna fil är en extern/analytisk
+> genomgång och kan skilja sig i detaljer från senaste kod.
+
+## What I needed to learn to answer well
+
+To diagnose what you’re describing, I focused on six evidence needs: how Bra Branch changes the generation pipeline; how `Scaffolds` are intended to be used (and whether external repos are runtime inputs); what `dossiers` and the template library actually contain; what `vercel-scrape` is supposed to be (location + contents); what mechanism produces a “small static page” experience; and what conditions would make user-downloadable projects look “thin”.
+
+Everything below is grounded in your selected GitHub repo (`Jakeminator123/sajtmaskin`) and specifically the Bra Branch implementation documents + code paths. fileciteturn6file0L1-L1
+
+## What Bra Branch actually is doing differently
+
+Bra Branch introduces (or formalizes) an internal “own engine” pipeline where:
+
+- A scaffold is selected (keyword match with an embedding fallback) from a *small internal registry* of scaffolds. fileciteturn35file0L1-L1
+- A route plan is inferred (pages like `/about`, `/contact`, etc.) and used as a strong constraint in the system prompt. fileciteturn14file0L1-L1
+- The system prompt is built to generate a Next.js App Router project and explicitly discourages collapsing multi-route sites into one long single-page output. fileciteturn13file0L1-L1
+- There are two runtime experiences: a fast “own-engine preview” HTML renderer, and a “sandbox” runtime that can actually boot the app using `@vercel/sandbox`. fileciteturn12file0L1-L1
+
+A key practical consequence: if you’re mostly experiencing the **own-engine preview**, it will *feel like the system “just makes a static page”*, even when the underlying target is a Next.js project, because the preview is literally a single self-contained HTML response intended for speed and resilience (not full fidelity). fileciteturn33file0L1-L1
+
+This preview vs sandbox distinction is also called out very explicitly in the Bra Branch head commit notes (including the product/UX confusion risk). fileciteturn32file0L1-L1
+
+## Why `vercel-scrape` should be outside the repo, and what it is supposed to contain
+
+Bra Branch’s architecture docs describe a “lane model” that separates:
+
+- **Zone 1 (raw scrape output + local clones)**: **outside the repo**, never committed.
+- **Zone 2 (normalized + generated artifacts)**: committed into the repo (`research/normalized-catalog.json`, generated JSON and embeddings).
+- **Zone 3 (runtime)**: the actual generation runtime that should not depend on machine-local raw paths. fileciteturn23file0L1-L1
+
+This is reinforced by the practical workflow doc: `vercel-scrape/` is expected to be a **sibling folder** (for example `../vercel-scrape/`), not something you ship inside a user project or commit into the repo. fileciteturn18file0L1-L1
+
+So, to your direct question:
+
+Yes: in *this architecture*, `vercel-scrape` is intended to live **outside** the `sajtmaskin` repo (and outside user projects) as a local cache/work area. fileciteturn18file0L1-L1
+Yes: it is entirely plausible (and sometimes correct) that `vercel-scrape` contains mostly “ingestion artifacts” rather than full repos—*depending on how you ran the ingestion step*. fileciteturn23file0L1-L1
+
+## Why your `vercel-scrape` looks “thin” and what that usually means
+
+The script that produces `vercel-scrape` (`Scripts/hamta_sidor.py`) has a first-class mode called `--skip-download`, whose stated purpose is to collect **metadata only** (no git clones). fileciteturn24file0L1-L1
+
+Even more importantly: in the interactive prompt flow, the default choice is effectively “metadata only” (it asks if you want only metadata and no git clone). fileciteturn24file0L1-L1
+
+That means a “thin” `vercel-scrape` folder—containing things like per-template `metadata.json` and `INFO_*.md`, plus an index/summary—usually indicates you ran ingestion in a metadata-first mode (intentionally or accidentally). That is not inherently wrong, but it has implications:
+
+- If you expected actual repo source trees to exist locally for deeper extraction, they won’t be there.
+- If later steps assume clones exist (for file sampling, signal extraction, etc.), those later steps will either degrade gracefully or silently end up with reduced-quality inputs depending on how defensive they are.
+
+Bra Branch’s lane model explicitly describes raw-zone shallow clones as **optional** (`<path>/<slug>/repo/`), which aligns with this “sometimes metadata-only” reality. fileciteturn23file0L1-L1
+
+## The “bug” where the system thinks a static page is enough is very likely the preview renderer doing exactly what it was designed to do
+
+Your symptom description matches the Bra Branch preview renderer almost perfectly: “it’s enough to create a small static page; as long as it’s static it can render without sandbox/server; quality is low; many errors; tried to add LLM support…”
+
+In Bra Branch, the `/api/preview-render` route literally “serves a self-contained HTML preview of generated code” and is explicitly used to preview without waiting for a sandbox to boot. fileciteturn33file0L1-L1
+
+Then, `buildPreviewHtml()` does something that is very important for your mental model:
+
+- It finds a single page file and renders it into a single HTML document.
+- It uses Tailwind via CDN and React UMD builds, not your app’s real Next.js compilation/runtime.
+- It is a best-effort component preview layer. fileciteturn34file0L1-L1
+
+So the experience “it’s just a little static page” is **not** necessarily a core generation failure; it can be the **UI/runtime mode** selecting the own-engine preview path (or defaulting to it), which will never be as faithful as a real Next.js runtime.
+
+This is also why you can see “many errors” even when the underlying project would run fine in a sandbox/dev server: the preview environment is intentionally limited (it’s not Next.js, not a bundler, and it cannot execute every Next/runtime feature). fileciteturn34file0L1-L1
+
+## Why user-downloadable projects can look “magra” even when your system “works”
+
+There are two separate “thinness” failure modes that are easy to confuse:
+
+### Downloads are exporting the preview artifact or partial file set instead of a runnable project
+
+The system prompt is designed around an assumption: there are “Existing Files” in the runtime base, and the model should not regenerate them unless needed. That means the model might output only a subset of files, relying on the base scaffold/runtime to provide the rest. fileciteturn13file0L1-L1
+
+Bra Branch finalization explicitly merges generated output with scaffold base files when a scaffold is present (`mergeGeneratedProjectFiles()`), producing a “complete” file set for the version. fileciteturn16file0L1-L1
+That merge happens during finalization. fileciteturn15file0L1-L1
+
+If your “download user project” code path is exporting **pre-merge** files (or exporting the preview’s inferred “renderable subset”), users may receive something that looks skeletal.
+
+### You are expecting `vercel-scrape` (external templates) to be the “stuff users download”
+
+Bra Branch is pretty explicit that external Vercel templates are **reference material** and that only the internal scaffold set is used as a runtime base. fileciteturn20file0L1-L1
+
+So if some part of your system started treating `vercel-scrape` entries as “downloadable projects,” you’ll get “magra” results because ingestion outputs are not meant to be standalone apps.
+
+## What is most likely happening in your story, end-to-end
+
+Putting your timeline together with what Bra Branch code/docs say, the most parsimonious explanation is:
+
+- Early in Bra Branch you were trying to unify two “report”/pipeline versions (likely: v0-ish vs own-engine and/or preview vs sandbox semantics).
+- As you layered in `Scaffolds` + `dossiers`, you introduced more moving pieces: scaffold selection, scaffold context serialization modes, dossier-driven research overrides, template library ranking, and a fast preview renderer that can mask whether you’re generating a runnable app or just previewing one route. fileciteturn10file0L1-L1
+- At some point you removed scaffolds/dossiers and “quality improved”—which can happen if what you removed was mostly noisy/low-signal context or mismatched references in the prompt, leaving the model to follow the simpler Next.js instructions. fileciteturn13file0L1-L1
+- Then you reintroduced the idea of scaffolds as a “base system + research area” (which is aligned with the lane model), but you pulled in a library (`vercel-scrape`) that, in its current form, is plausibly **metadata-only** (because ingestion defaults strongly encourage `--skip-download`). fileciteturn24file0L1-L1
+- The “connections got wrong” feeling is consistent with confusing Zone 1 raw ingestion artifacts with Zone 2+3 runtime artifacts. Bra Branch’s docs explicitly warn by design: raw scrape/clones are outside repo, while normalized/generated artifacts must be committed and referenced via stable IDs. fileciteturn23file0L1-L1
+- Meanwhile, your product experience started “believing a static page is enough” because the default runtime mode is often **preview**, and preview is literally a self-contained HTML page renderer for speed. fileciteturn33file0L1-L1
+
+## Concrete checks and fixes that map directly to your questions
+
+### Put `vercel-scrape` where the architecture expects it
+
+A working mental model and folder layout (as described by your docs) looks like:
+
+- `sajtmaskin/` (repo, committed code + generated artifacts)
+- `../vercel-scrape/` (raw ingestion output + optional `repo/` clones, never committed) fileciteturn18file0L1-L1
+- `sajtmaskin/research/normalized-catalog.json` (bridge artifact)
+- `sajtmaskin/src/lib/gen/...` (template library, scaffold research, embeddings used at runtime) fileciteturn23file0L1-L1
+
+If `vercel-scrape` is currently inside something you ship or inside user projects, that is almost certainly the wrong layer (Zone 1 leaking into Zone 3). fileciteturn23file0L1-L1
+
+### Decide whether you actually want full clones, and run ingestion accordingly
+
+If your goal is just ranking and metadata curation, `--skip-download` is fine.
+If your goal is to extract real code signals and populate a richer research library, do **not** run ingestion in “metadata-only mode”.
+
+The script supports this explicitly (`--skip-download`). fileciteturn24file0L1-L1
+
+### Treat the “static page” symptom as a runtime-mode/UX issue first, not a generation-quality issue
+
+If you want fidelity, you must route users (or yourself) toward sandbox/deploy for “real app behavior,” because preview-render is intentionally not a Next.js runtime. fileciteturn34file0L1-L1
+
+This also matches the Bra Branch head commit notes: preview vs sandbox vs deploy needs clearer distinction. fileciteturn32file0L1-L1
+
+### Ensure downloads are exporting the finalized merged project files
+
+If users download projects that seem “magra,” verify that the download zip is made from the **finalized merged** file set, not a partial intermediate:
+
+- Finalization merges scaffold base + generated delta. fileciteturn16file0L1-L1
+- That merge is invoked during `finalizeAndSaveVersion`. fileciteturn15file0L1-L1
+
+A very common regression is: “download uses the same file list the preview renderer uses,” which will always be incomplete by design.
+
+### Understand what Bra Branch’s template library currently contains (and what it does not)
+
+In `config/scripts/build-template-library.ts`, the template library entries are built with `clonePath: null` and `selectedFiles: []` in the produced structure. fileciteturn25file0L1-L1
+
+So even if your normalized catalog has rich info, your runtime template library (as currently produced by this script) may provide *much less* concrete code context than you expect—because selected file excerpts/code snippets may not be present.
+
+If you were expecting “a library of small repos” to act like importable code scaffolds, this is a mismatch: the current pipeline is closer to “metadata references for prompting,” not vendored code templates. fileciteturn20file0L1-L1
+
+### Verify scaffold matching isn’t being disabled accidentally
+
+Your generator can disable scaffold matching via params (`disableScaffoldMatching`). If that is accidentally flipped on somewhere in the calling code, the system will lose the most important stabilizer (the base scaffold and its context). fileciteturn10file0L1-L1
+
+Normally, scaffold matching is designed to always return an internal scaffold (landing-page/base-nextjs fallbacks) for website/template intents. fileciteturn35file0L1-L1
+
+If you are observing “no scaffold behavior,” it strongly suggests an upstream toggle, not the matcher itself.
+
+## Bottom line answers to your final questions
+
+`vercel-scrape` outside the project? Yes—Bra Branch’s own workflow and lane model treat it as a sibling folder / raw-zone cache that should not be shipped or committed. fileciteturn18file0L1-L1
+
+Should it “only contain what it does,” i.e., just thin metadata? It can—if ingestion was run in metadata-only mode (`--skip-download`), which the ingestion script explicitly supports and nudges you toward in interactive mode. If you want repos, you need the non-skip path so raw-zone includes clones (still outside the repo). fileciteturn24file0L1-L1
+
+And the most likely reason the system “thinks a static page is enough” is that you’re seeing the own-engine preview renderer (self-contained HTML) rather than a sandboxed Next.js runtime—this is a design choice in Bra Branch, and it will inherently be lower-fidelity and sometimes error-prone compared to running the project in a real server environment. fileciteturn33file0L1-L1

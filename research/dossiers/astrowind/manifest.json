@@ -1,0 +1,28 @@
+{
+  "id": "vercel-astrowind",
+  "title": "AstroWind",
+  "categorySlug": "portfolio",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "portfolio",
+  "qualityChecklist": [
+    "Project gallery with category filtering",
+    "Case study detail pages with images",
+    "Contact form with validation",
+    "Skills or services overview section",
+    "About page with bio and timeline",
+    "AI interaction pattern (chat/generate/suggest)",
+    "CMS content rendering with rich blocks"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

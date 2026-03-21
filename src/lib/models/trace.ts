@@ -220,7 +220,9 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     openai: Boolean(process.env.OPENAI_API_KEY?.trim()),
     anthropic: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
     v0PlatformConfigured: Boolean(process.env.V0_API_KEY?.trim()),
-    aiGatewayApiKey: Boolean(process.env.AI_GATEWAY_API_KEY?.trim()),
+    aiGatewayApiKey: Boolean(
+      process.env.AI_GATEWAY_API_KEY?.trim() || process.env.AI_GATEWAY?.trim(),
+    ),
     vercelOidcToken: Boolean(process.env.VERCEL_OIDC_TOKEN?.trim()),
     onVercel: isProbablyOnVercel(),
   };
@@ -287,11 +289,12 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
   if (
     selectedAssistProvider === "gateway" &&
     !auth.aiGatewayApiKey &&
+    !auth.openai &&
     !auth.vercelOidcToken &&
     !auth.onVercel
   ) {
     warnings.push(
-      "Gateway-class prompt assist is selected, but AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN is missing for local use.",
+      "OpenAI-class prompt assist is selected, but no AI key found. Set AI_GATEWAY_API_KEY or OPENAI_API_KEY.",
     );
   }
   if (

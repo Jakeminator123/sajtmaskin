@@ -24,7 +24,7 @@ describe("getReasoningEffort", () => {
   it("maps thinking=true to tier-specific effort", () => {
     expect(getReasoningEffort("pro", true)).toBe("medium");
     expect(getReasoningEffort("max", true)).toBe("high");
-    expect(getReasoningEffort("codex", true)).toBe("xhigh");
+    expect(getReasoningEffort("codex", true)).toBe("high");
     expect(getReasoningEffort("fast", true)).toBe("none");
   });
 

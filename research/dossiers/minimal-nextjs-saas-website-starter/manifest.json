@@ -1,0 +1,28 @@
+{
+  "id": "vercel-minimal-nextjs-saas-website-starter",
+  "title": "Minimal Next.js SaaS Website Starter",
+  "categorySlug": "saas",
+  "qualityScore": 95,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "Blog / content publishing support",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "saas-landing",
+  "qualityChecklist": [
+    "Feature comparison grid or bento layout",
+    "Pricing tier cards with toggle (monthly/yearly)",
+    "Social proof section (testimonials/logos)",
+    "Hero with clear value proposition and CTA",
+    "FAQ accordion section",
+    "Auth-aware UI states",
+    "AI interaction pattern (chat/generate/suggest)"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

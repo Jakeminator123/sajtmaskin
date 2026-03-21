@@ -6,6 +6,10 @@
  * needed so that callers never diverge in what signals reach the model.
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import {
+  applyDeferredContractPlaceholders,
+  shouldDeferContractClarificationToSettings,
+} from "@/lib/gen/pre-generation-contracts";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -189,6 +193,10 @@ export async function prepareGenerationContext(
     capabilities,
     contractAnswers,
   });
+
+  if (shouldDeferContractClarificationToSettings()) {
+    applyDeferredContractPlaceholders(preGenerationContracts);
+  }
 
   const scaffoldAndCapability = [scaffoldContext, capabilityHints]
     .filter(Boolean)

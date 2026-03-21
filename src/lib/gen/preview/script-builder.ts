@@ -1,7 +1,7 @@
 import type { CodeFile, PreparedModule, PreviewValidationIssue } from "./types";
 import { PREVIEW_TRANSPILE_ERROR_LIMIT, isPreviewBuiltinImportSource } from "./constants";
 import { escapeInlineScript, resolveLocalImportPath } from "./utils";
-import { buildCodeFileMap, buildPreparedModuleMap } from "./file-resolution";
+import { buildCodeFileMap, buildPreparedModuleMap, sortComponentFilesForPreview } from "./file-resolution";
 import { prepareModules } from "./transpile";
 import { buildPreviewPrelude } from "./shims";
 
@@ -135,7 +135,8 @@ export function buildPreviewScript(
   componentFiles: CodeFile[],
   routePath: string,
 ): string {
-  const modules = prepareModules(pageFile, componentFiles);
+  const orderedComponents = sortComponentFilesForPreview(pageFile, componentFiles);
+  const modules = prepareModules(pageFile, orderedComponents);
   const prelude = buildPreviewPrelude(modules, routePath);
   const transpileFailures = modules.flatMap((module) =>
     module.transpileErrors.map((error) => `${module.file.path}: ${error}`),

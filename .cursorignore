@@ -44,64 +44,59 @@ sajtmaskin.code-workspace
 # --- Sällan ändrad kod: indexera README/entrypoints, inte allt
 src/components/ui/
 
-Scripts/**
-!Scripts/README.md
-!Scripts/*.mjs
-!Scripts/*.ts
-
-config/scripts/**
-!config/scripts/README.md
-!config/scripts/*.ts
+#scripts/
 
 # API-ytor som sällan behövs i generell sökning
-src/app/api/admin/
-src/app/api/stripe/
-src/app/api/auth/
+#src/app/api/admin/
+#src/app/api/stripe/
+#src/app/api/auth/
 
-src/components/landing-v2/
+#src/components/landing-v2/
 
 # --- Statiska assets (stora, sällan "läs som kod")
-public/
+#public/
 
 # --- Research & mall-discovery (Zon 1 i repo + pipeline; Zon 2 JSON under research/ men README synlig)
-research/
-!research/README.md
+#research/
+#!research/README.md
 
 scaffold-pipeline/
 _template_refs/
 _sidor/
 
+old
+
 # Om du någon gång lägger skrapdata i repots rot (annars tomt — skadar inte)
-vercel-scrape/
-vercel_usecase_next_react_templates/
+#vercel-scrape/
+#vercel_usecase_next_react_templates/
 
 # --- Genererade JSON/TS (byggs om; undvik brus i sök)
 # Håll fullständiga sökvägar (t.ex. scaffold-research — aldrig trunkera till "s.generated.json").
-src/lib/gen/data/docs-embeddings.json
-src/lib/gen/data/docs-snippets.ts
-src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
+#src/lib/gen/data/docs-embeddings.json
+#src/lib/gen/data/docs-snippets.ts
+#src/lib/gen/scaffolds/scaffold-embeddings.json
+#src/lib/gen/scaffolds/scaffold-research.generated.json
+#src/lib/gen/template-library/template-library-embeddings.json
+#src/lib/gen/template-library/template-library.generated.json
 
 # --- Övrigt stort / återhämtning
-world-class-recovery/
+#world-class-recovery/
 
 # --- MCP-dokumentation (om mappen skapas; stor cache)
-services/mpc/docs/docgrab__*/
-services/mpc/docs/local/
-services/mpc/docs/*llms*
-services/mpc/docs/shad/
-services/mpc/logs/
+#services/mpc/docs/docgrab__*/
+#services/mpc/docs/local/
+#services/mpc/docs/*llms*
+#services/mpc/docs/shad/
+#services/mpc/logs/
 
 # --- Cursor automation & arkiv
-.cursor/automation/runs/
-.cursor/automation/archive/
-.cursor/automation/input/
+#.cursor/automation/runs/
+#.cursor/automation/archive/
+#.cursor/automation/input/
 .cursor/migration-archive/**
 
-.cursor/orchestrator/run/*/
-.cursor/orchestrator/archive/
+#.cursor/orchestrator/run/*/
+#.cursor/orchestrator/archive/
 
 # --- Dokumentation du medvetet gömmer från index
 docs/old/**
@@ -124,4 +119,6 @@ tests/openclaw/**
 !tests/openclaw/README.md
 
 internt_jakob/
-research/dossiers/
+#research/dossiers/
+
+NEXT_PUBLIC_SANDBOX_AUTO=yes

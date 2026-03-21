@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { CodeFile } from "@/lib/gen/parser";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
 import { parseImports } from "@/lib/gen/preview/import-parser";
@@ -132,6 +133,92 @@ function repairNamedImportDefaultMismatch(
   }
 
   return { content, fixes };
+}
+
+function fileImportsSiteConfigBinding(code: string): boolean {
+  for (const imp of parseImports(code)) {
+    if (imp.defaultImport === "siteConfig") return true;
+    for (const n of imp.namedImports) {
+      if (n.local === "siteConfig") return true;
+    }
+  }
+  return false;
+}
+
+function isSiteConfigNamedExporter(content: string): boolean {
+  return (
+    /\bexport\s+const\s+siteConfig\b/.test(content) ||
+    /\bexport\s*\{[^}]*\bsiteConfig\b/.test(content)
+  );
+}
+
+function toRelativeImportPath(fromFile: string, toFile: string): string {
+  const fromDir = path.posix.dirname(fromFile.replace(/\\/g, "/"));
+  const toNorm = toFile.replace(/\\/g, "/");
+  let rel = path.posix.relative(fromDir, toNorm);
+  if (!rel.startsWith(".")) rel = `./${rel}`;
+  return rel.replace(/\.(tsx|ts|jsx|js)$/, "");
+}
+
+function pickSiteConfigExporter(importerPath: string, exporters: string[]): string | null {
+  if (exporters.length === 0) return null;
+  if (exporters.length === 1) return exporters[0];
+  const preferred = exporters.find(
+    (p) => p.endsWith("site-config.ts") || p.endsWith("site-config.tsx"),
+  );
+  if (preferred) return preferred;
+
+  let best = exporters[0];
+  let bestLen = toRelativeImportPath(importerPath, best).length;
+  for (const e of exporters.slice(1)) {
+    const len = toRelativeImportPath(importerPath, e).length;
+    if (len < bestLen) {
+      best = e;
+      bestLen = len;
+    }
+  }
+  return best;
+}
+
+/**
+ * Adds `import { siteConfig } from "..."` when the model references siteConfig
+ * (e.g. JSON-LD in page.tsx) but omits the import. Next SSR fails at module
+ * evaluation — this is not caught by esbuild-only validation.
+ */
+function fixMissingSiteConfigImports(files: CodeFile[]): { files: CodeFile[]; fixes: RepairEntry[] } {
+  const fileMap = new Map(files.map((f) => [f.path, f]));
+  const exporters = [...fileMap.entries()]
+    .filter(([p, f]) => CODE_FILE_RE.test(p) && isSiteConfigNamedExporter(f.content))
+    .map(([p]) => p);
+
+  if (exporters.length === 0) {
+    return { files, fixes: [] };
+  }
+
+  const fixes: RepairEntry[] = [];
+  const nextFiles = files.map((file) => {
+    if (!CODE_FILE_RE.test(file.path)) return file;
+    if (exporters.includes(file.path)) return file;
+    if (!/\bsiteConfig\b/.test(file.content)) return file;
+    if (fileImportsSiteConfigBinding(file.content)) return file;
+
+    const target = pickSiteConfigExporter(file.path, exporters);
+    if (!target) return file;
+
+    const importPath = toRelativeImportPath(file.path, target);
+    const line = `import { siteConfig } from "${importPath}";`;
+    const newContent = insertImportAfterDirectives(file.content, line);
+    if (newContent === file.content) return file;
+
+    fixes.push({
+      fixer: "site-config-import-fixer",
+      description: `Added missing import for siteConfig from ${importPath}`,
+      file: file.path,
+    });
+    return { ...file, content: newContent };
+  });
+
+  return { files: nextFiles, fixes };
 }
 
 function insertImportAfterDirectives(code: string, importLine: string): string {
@@ -329,5 +416,8 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     return content === file.content ? file : { ...file, content };
   });
 
-  return { files: repairedFiles, fixes };
+  const siteConfigRepair = fixMissingSiteConfigImports(repairedFiles);
+  fixes.push(...siteConfigRepair.fixes);
+
+  return { files: siteConfigRepair.files, fixes };
 }

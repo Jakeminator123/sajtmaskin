@@ -13,13 +13,13 @@
   ],
   "scaffoldId": "content-site",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Content hierarchy with sections",
-    "Internal linking structure",
-    "SEO metadata on all pages",
-    "Lighthouse 90+ target"
+    "Table of contents or sidebar navigation",
+    "Search functionality for content",
+    "Breadcrumb navigation",
+    "SEO metadata on all content pages",
+    "Cross-linking between related content",
+    "AI interaction pattern (chat/generate/suggest)",
+    "Tenant-scoped data and navigation"
   ],
   "upgradeTargets": [
     "Add authentication when needed",

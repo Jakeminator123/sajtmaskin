@@ -13,13 +13,13 @@
   ],
   "scaffoldId": "landing-page",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Hero section with clear CTA",
-    "Feature highlights",
-    "Footer with navigation links",
-    "Lighthouse 90+ target"
+    "Hero section with primary CTA",
+    "Feature highlights with icons or illustrations",
+    "Social proof or partner logos",
+    "Newsletter signup or lead capture form",
+    "Footer with sitemap links",
+    "AI interaction pattern (chat/generate/suggest)",
+    "Tenant-scoped data and navigation"
   ],
   "upgradeTargets": [
     "Add authentication when needed",

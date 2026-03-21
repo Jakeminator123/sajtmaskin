@@ -2,7 +2,7 @@
   "id": "vercel-cron-og-cards",
   "title": "Cron OG Cards",
   "categorySlug": "cron",
-  "qualityScore": 85,
+  "qualityScore": 95,
   "strengths": [
     "Next.js / React compatible",
     "AI integration patterns",
@@ -12,10 +12,12 @@
   ],
   "scaffoldId": "base-nextjs",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Lighthouse 90+ target"
+    "App Router page structure",
+    "Responsive header with mobile menu",
+    "Theme-aware color scheme",
+    "Proper metadata exports",
+    "Clean component file structure",
+    "AI interaction pattern (chat/generate/suggest)"
   ],
   "upgradeTargets": [
     "Add authentication when needed",

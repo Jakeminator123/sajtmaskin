@@ -1,0 +1,25 @@
+{
+  "id": "vercel-flask-hello-world",
+  "title": "Flask Hello World",
+  "categorySlug": "backend",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "High quality score"
+  ],
+  "scaffoldId": "app-shell",
+  "qualityChecklist": [
+    "Sidebar or top navigation with active state",
+    "Settings or configuration panel",
+    "Loading skeletons and empty states",
+    "Breadcrumb or page title bar",
+    "Notification or toast system",
+    "AI interaction pattern (chat/generate/suggest)"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

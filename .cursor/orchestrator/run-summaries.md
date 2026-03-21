@@ -112,3 +112,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-20-robustness-env-naming-123635/`
 
+## 2026-03-21-real-next-preview-runtime (archived 2026-03-21 15:35)
+- **Scope:** See archived FINAL_REPORT.md for details.
+- **Workloads:** 4 completed, 4 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-21-real-next-preview-runtime-153505/`
+

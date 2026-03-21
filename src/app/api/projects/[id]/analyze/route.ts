@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getProjectData, getProjectByIdForOwner } from "@/lib/db/services";
-import { SECRETS } from "@/lib/config";
 import OpenAI from "openai";
+import { getOpenAIClientConfig } from "@/lib/gen/models";
+import { debugLog } from "@/lib/utils/debug";
 
 /**
  * Project Analysis API
@@ -18,40 +19,15 @@ import OpenAI from "openai";
  * This is a FREE analysis (no diamond cost) to help users understand their project.
  */
 
-// Allow up to 60 seconds for analysis
 export const maxDuration = 60;
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-function getGatewayApiKey(): string | null {
-  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
-  return apiKey && apiKey.trim() ? apiKey : null;
-}
-
 function resolveModelId(model: string, useGateway: boolean): string {
   if (!useGateway || model.includes("/")) return model;
   return `openai/${model}`;
-}
-
-function getOpenAIClient(): { client: OpenAI; useGateway: boolean } {
-  const gatewayKey = getGatewayApiKey();
-  if (gatewayKey) {
-    return {
-      client: new OpenAI({ apiKey: gatewayKey, baseURL: "https://ai-gateway.vercel.sh/v1" }),
-      useGateway: true,
-    };
-  }
-
-  const directKey = SECRETS.openaiApiKey;
-  if (directKey) {
-    return { client: new OpenAI({ apiKey: directKey }), useGateway: false };
-  }
-
-  throw new Error(
-    "No AI key configured. Set AI_GATEWAY_API_KEY, VERCEL_OIDC_TOKEN, or OPENAI_API_KEY.",
-  );
 }
 
 // Analysis system prompt
@@ -186,7 +162,14 @@ Ge en strukturerad analys enligt formatet.`;
     console.info("[Analyze] Sending to OpenAI, context length:", totalChars);
 
     // 7. Call OpenAI Responses API
-    const { client: openai, useGateway } = getOpenAIClient();
+    const clientConfig = getOpenAIClientConfig();
+    const useGateway = clientConfig.route === "ai-gateway";
+    const openai = new OpenAI({
+      apiKey: clientConfig.apiKey,
+      ...(clientConfig.baseURL ? { baseURL: clientConfig.baseURL } : {}),
+    });
+    debugLog("model", "Project analyze", { route: clientConfig.route, model: "gpt-4o-mini" });
+
     const response = await openai.responses.create({
       model: resolveModelId("gpt-4o-mini", useGateway),
       instructions: ANALYSIS_SYSTEM_PROMPT,

@@ -17,14 +17,14 @@
   ],
   "scaffoldId": "dashboard",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
-    "Data visualization with charts",
-    "Sidebar navigation pattern",
-    "Responsive table/card views",
+    "Data visualization with charts (bar/line/pie)",
+    "Sidebar navigation with collapsible sections",
+    "Responsive table and card views",
+    "KPI summary cards with trend indicators",
+    "Filter/search controls for data views",
     "Auth-aware UI states",
-    "Lighthouse 90+ target"
+    "AI interaction pattern (chat/generate/suggest)",
+    "Tenant-scoped data and navigation"
   ],
   "upgradeTargets": []
 }

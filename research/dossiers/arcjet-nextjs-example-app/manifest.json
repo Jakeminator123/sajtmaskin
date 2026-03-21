@@ -2,7 +2,7 @@
   "id": "vercel-arcjet-nextjs-example-app",
   "title": "Arcjet Next.js Example App",
   "categorySlug": "security",
-  "qualityScore": 80,
+  "qualityScore": 90,
   "strengths": [
     "Next.js / React compatible",
     "Includes authentication patterns",
@@ -12,11 +12,13 @@
   ],
   "scaffoldId": "base-nextjs",
   "qualityChecklist": [
-    "Responsive mobile-first layout",
-    "Semantic HTML with proper heading hierarchy",
-    "Accessible navigation with keyboard support",
+    "App Router page structure",
+    "Responsive header with mobile menu",
+    "Theme-aware color scheme",
+    "Proper metadata exports",
+    "Clean component file structure",
     "Auth-aware UI states",
-    "Lighthouse 90+ target"
+    "AI interaction pattern (chat/generate/suggest)"
   ],
   "upgradeTargets": [
     "Add analytics dashboard"

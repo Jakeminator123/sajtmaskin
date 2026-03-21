@@ -108,3 +108,65 @@ export function findComponentFiles(files: CodeFile[], excluding: string): CodeFi
     return normalized !== normalizedPagePath && reachableModules.has(normalized);
   });
 }
+
+/**
+ * Order component files so dependencies execute before dependents.
+ * Preview bundles all modules into one script; if `site-config.ts` is emitted
+ * after `site-footer.tsx` but the footer references `siteConfig` at module
+ * top-level, the runtime throws ReferenceError. Topological order fixes that.
+ */
+export function sortComponentFilesForPreview(pageFile: CodeFile, componentFiles: CodeFile[]): CodeFile[] {
+  if (componentFiles.length <= 1) return componentFiles;
+
+  const allFiles = [pageFile, ...componentFiles];
+  const fileMap = buildCodeFileMap(allFiles);
+  const pageNorm = normalizeFilePath(pageFile.path);
+  const visiting = new Set<string>();
+  const done = new Set<string>();
+  const postOrder: string[] = [];
+
+  function visit(normalizedPath: string): void {
+    if (done.has(normalizedPath)) return;
+    if (visiting.has(normalizedPath)) return;
+    visiting.add(normalizedPath);
+
+    const currentFile = fileMap.get(normalizedPath);
+    if (currentFile) {
+      const withoutNextImports = stripNextImports(currentFile.content);
+      const imports = parseImports(withoutNextImports);
+      for (const imp of imports) {
+        if (isPreviewBuiltinImportSource(imp.source)) continue;
+        const targetPath = resolveLocalImportPath(fileMap, currentFile.path, imp.source);
+        if (!targetPath) continue;
+        const targetNorm = normalizeFilePath(targetPath);
+        if (targetNorm === pageNorm) continue;
+        if (fileMap.has(targetNorm)) {
+          visit(targetNorm);
+        }
+      }
+    }
+
+    visiting.delete(normalizedPath);
+    done.add(normalizedPath);
+    postOrder.push(normalizedPath);
+  }
+
+  visit(pageNorm);
+
+  const byPath = new Map(componentFiles.map((f) => [normalizeFilePath(f.path), f]));
+  const ordered: CodeFile[] = [];
+  for (const p of postOrder) {
+    if (p === pageNorm) continue;
+    const cf = byPath.get(p);
+    if (cf) ordered.push(cf);
+  }
+
+  const orderedPaths = new Set(ordered.map((f) => normalizeFilePath(f.path)));
+  for (const f of componentFiles) {
+    if (!orderedPaths.has(normalizeFilePath(f.path))) {
+      ordered.push(f);
+    }
+  }
+
+  return ordered;
+}

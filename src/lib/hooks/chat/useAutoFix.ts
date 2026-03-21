@@ -8,13 +8,16 @@ import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events"
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
+/**
+ * Client-side autofix is now on by default as a safety net.
+ * Users can explicitly disable it via localStorage.
+ */
 const AUTOFIX_ENABLED =
   typeof window !== "undefined" &&
-  (localStorage.getItem("sajtmaskin:autofix-enabled") === "true" ||
-    new URLSearchParams(window.location.search).has("autofix"));
+  localStorage.getItem("sajtmaskin:autofix-enabled") !== "false";
 
-const MAX_ATTEMPTS_PER_REASON = 1;
-const MAX_AUTOFIX_PER_CHAT = 2;
+const MAX_ATTEMPTS_PER_REASON = 2;
+const MAX_AUTOFIX_PER_CHAT = 3;
 const DEDUPE_TTL_MS = 5 * 60 * 1000;
 
 type AttemptEntry = { count: number; ts: number };

@@ -28,7 +28,13 @@ versions that fail blocking server-side preflight checks.
 flowchart TD
   userPrompt[User prompt] --> streamRoute[Stream route]
   streamRoute --> engineStream[Engine content and thinking SSE]
-  engineStream --> finalizeVersion[FinalizeAndSaveVersion]
+  engineStream --> machineAutofix[Machine autofix pipeline]
+  machineAutofix --> syntaxValidation[Syntax validation]
+  syntaxValidation --> broadRepair{Errors remain?}
+  broadRepair -->|no| finalizeVersion[FinalizeAndSaveVersion]
+  broadRepair -->|yes| sharedLlmRepair[Shared LLM repair budget]
+  sharedLlmRepair --> machineAutofix
+  sharedLlmRepair -->|budget exhausted| finalizeVersion
   finalizeVersion --> versionCreated[Version created]
   versionCreated --> previewGate{Blocking preflight errors?}
   previewGate -->|no| previewReady[Preview URL available]
@@ -38,13 +44,29 @@ flowchart TD
   postChecks --> errorLogs[Version error logs]
   postChecks --> qualityGate[Sandbox quality gate]
   qualityGate --> errorLogs
-  postChecks --> autoFix{Auto fix needed}
+  postChecks --> autoFix{Auto fix needed?}
   qualityGate --> autoFix
   autoFix -->|yes| autoFixMessage[Auto-fix follow-up message]
   autoFixMessage --> streamRoute
   versionCreated --> deployFlow[Deploy and publish flow]
   deployFlow --> errorLogs
 ```
+
+### Repair architecture (updated 2026-03-21)
+
+The repair chain now has three layers:
+
+1. **Machine autofix** (`pipeline.ts`): deterministic per-file fixers run first
+   (use-client, shadcn imports, React hook imports, DOM shadow guard, font/metadata
+   imports, syntax check, JSX, deps). Always runs.
+
+2. **Shared LLM repair** (`shared-repair.ts`): if machine autofix leaves errors,
+   the existing `runLlmFixer` runs with a unified budget (default 2 passes,
+   `SAJTMASKIN_BROAD_REPAIR_MAX_PASSES`). Machine autofix re-runs after each LLM pass.
+
+3. **Client autofix fallback** (`useAutoFix.ts`): enabled by default as safety net.
+   Triggers when preview/runtime errors or quality-gate failures occur after the
+   version is saved. Sends a repair prompt as a follow-up message.
 
 ## What Is Persisted Today
 

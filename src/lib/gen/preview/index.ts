@@ -108,7 +108,13 @@ export function buildPreviewUrl(
 export type { CodeFile, ImportBinding, ParsedImport, PreparedModule, PreviewValidationIssue } from "./types";
 export { isPreviewBuiltinImportSource, PREVIEW_BUILTIN_SOURCES } from "./constants";
 export { normalizeFilePath, normalizeRoutePath, routeFromPageFile, resolveLocalImportPath } from "./utils";
-export { findPageFile, findCssFiles, findComponentFiles, buildCodeFileMap } from "./file-resolution";
+export {
+  findPageFile,
+  findCssFiles,
+  findComponentFiles,
+  buildCodeFileMap,
+  sortComponentFilesForPreview,
+} from "./file-resolution";
 export { parseImports, stripNextImports } from "./import-parser";
 export { buildPreviewBaseCss, normalizePreviewCss } from "./css";
 export { prepareModules } from "./transpile";

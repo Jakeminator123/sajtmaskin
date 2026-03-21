@@ -1,9 +1,9 @@
 import type { BuildIntent } from "./build-intent";
 import type { ThemeColors } from "./theme-presets";
 
-// "gateway" refers to Vercel AI Gateway (same gateway API used by /api/ai/* routes).
-// "v0" refers to the v0 Model API (openai-compat).
-// "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
+// "gateway" = OpenAI-class models (routed via AI Gateway when key is set, otherwise direct).
+// "v0" = v0 Model API (openai-compat, legacy).
+// "anthropic" = Anthropic direct API access via ANTHROPIC_API_KEY.
 export type PromptAssistProvider = "gateway" | "v0" | "anthropic";
 
 export const GATEWAY_ASSIST_MODELS = [

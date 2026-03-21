@@ -1,0 +1,27 @@
+{
+  "id": "vercel-django-hello-world",
+  "title": "Django Hello World",
+  "categorySlug": "backend",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Multi-tenant architecture",
+    "High quality score"
+  ],
+  "scaffoldId": "app-shell",
+  "qualityChecklist": [
+    "Sidebar or top navigation with active state",
+    "Settings or configuration panel",
+    "Loading skeletons and empty states",
+    "Breadcrumb or page title bar",
+    "Notification or toast system",
+    "AI interaction pattern (chat/generate/suggest)",
+    "Tenant-scoped data and navigation"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

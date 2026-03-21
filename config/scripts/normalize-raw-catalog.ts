@@ -178,6 +178,16 @@ function detectPackageManager(raw: RawTemplateInfo): "npm" | "pnpm" | "yarn" | "
   return "unknown";
 }
 
+function cleanRepoUrl(url: string | null): string | null {
+  if (!url) return null;
+  return url
+    .replace(/\/tree\/main\/\.\/.*$/, "")
+    .replace(/\/tree\/main\/?$/, "")
+    .replace(/\/blob\/main\/.*$/, "")
+    .replace(/\.git$/, "")
+    .replace(/\/$/, "");
+}
+
 function normalizeEntry(raw: RawTemplateInfo, cloneInfo: IngestReportEntry | undefined): NormalizedCatalogEntry {
   const cloneOk = cloneInfo?.clone_ok ?? null;
   const partial = {
@@ -186,7 +196,7 @@ function normalizeEntry(raw: RawTemplateInfo, cloneInfo: IngestReportEntry | und
     title: raw.title,
     description: raw.description,
     sourceUrl: raw.template_url,
-    repoUrl: raw.repo_url,
+    repoUrl: cleanRepoUrl(raw.repo_url),
     demoUrl: raw.demo_url,
     categorySlug: raw.category_slug,
     categoryName: raw.category_name,

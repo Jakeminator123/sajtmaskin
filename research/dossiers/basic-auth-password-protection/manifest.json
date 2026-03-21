@@ -1,0 +1,28 @@
+{
+  "id": "vercel-basic-auth-password-protection",
+  "title": "Basic Auth Password Protection",
+  "categorySlug": "edge-middleware",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Includes authentication patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Multi-tenant architecture",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "auth-pages",
+  "qualityChecklist": [
+    "Login form with email/password validation",
+    "Registration form with confirmation",
+    "Password reset flow with email link",
+    "Protected route redirect pattern",
+    "Session indicator in header/navbar",
+    "AI interaction pattern (chat/generate/suggest)",
+    "Tenant-scoped data and navigation"
+  ],
+  "upgradeTargets": [
+    "Add analytics dashboard"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "vercel-pagination-with-ssg",
+  "title": "Pagination with SSG",
+  "categorySlug": "documentation",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "content-site",
+  "qualityChecklist": [
+    "Table of contents or sidebar navigation",
+    "Search functionality for content",
+    "Breadcrumb navigation",
+    "SEO metadata on all content pages",
+    "Cross-linking between related content",
+    "AI interaction pattern (chat/generate/suggest)"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed",
+    "Add analytics dashboard"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "vercel-shopware-ecommerce-store-with-nuxt",
+  "title": "Shopware Ecommerce Store with Nuxt",
+  "categorySlug": "ecommerce",
+  "qualityScore": 85,
+  "strengths": [
+    "Next.js / React compatible",
+    "Has dashboard / analytics UI",
+    "E-commerce / product catalog patterns",
+    "AI integration patterns",
+    "Documentation site patterns",
+    "CMS integration",
+    "Multi-tenant architecture",
+    "Tailwind CSS styling",
+    "High quality score"
+  ],
+  "scaffoldId": "ecommerce",
+  "qualityChecklist": [
+    "Product grid with filtering and sorting",
+    "Cart state management with add/remove/quantity",
+    "Checkout flow with form validation",
+    "Product detail page with image gallery",
+    "Order confirmation and receipt",
+    "AI interaction pattern (chat/generate/suggest)",
+    "CMS content rendering with rich blocks",
+    "Tenant-scoped data and navigation"
+  ],
+  "upgradeTargets": [
+    "Add authentication when needed"
+  ]
+}
