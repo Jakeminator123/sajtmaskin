@@ -1,24 +1,38 @@
-# Runtime scaffolds
+# Runtime Scaffolds (partially cursorignored)
 
-Hand-authored starter projects under `*/manifest.ts`, registered in `registry.ts`. These are the **real base code** the model extends — separate from the **v0 gallery** (`src/lib/templates/`) and separate from any **Vercel.com template** marketing pages.
+The scaffold manifests and code are indexed, but the large generated/embedding
+files are cursorignored. Agents can read this README for context.
 
-## Generated JSON (optional overrides)
+## Cursorignored files
 
-| File | Role |
-|------|------|
-| `scaffold-embeddings.json` | Precomputed vectors for `searchScaffolds()` / embedding-based matching. Empty ⇒ semantic auto-match is disabled; keyword `matcher.ts` still applies. |
-| `scaffold-research.generated.json` | Optional per-scaffold `qualityChecklist` / `research` overrides. Empty object ⇒ manifests use only what is in each `manifest.ts`. |
+| File | Size | What it is |
+|------|------|-----------|
+| `scaffold-embeddings.json` | ~2 MB | OpenAI vectors for each scaffold. Used by `matchScaffoldWithEmbeddings()` in auto mode. |
+| `scaffold-research.generated.json` | ~1 MB | Per-scaffold `qualityChecklist` and `research` (upgradeTargets, referenceTemplates). Generated from dossiers by `scripts/build-template-library.ts`. |
 
-## Core modules
+## Indexed files (readable by agents)
 
-| File | Role |
-|------|------|
-| `registry.ts` | Scaffold manifests. |
-| `matcher.ts` | Keyword routing when embeddings are empty or as fallback. |
-| `serialize.ts` | `serializeScaffoldForPrompt()`. |
-| `scaffold-search.ts` | Embedding search when `scaffold-embeddings.json` has rows. |
-| `scaffold-research.ts` | Merges `scaffold-research.generated.json` onto manifests. |
+| File | What it does |
+|------|-------------|
+| `registry.ts` | The 10 scaffold manifests. Single source of truth. |
+| `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. |
+| `matcher.ts` | Keyword-based scaffold matching (fallback for embedding search). |
+| `serialize.ts` | `serializeScaffoldForPrompt()` — turns a scaffold into system prompt text. |
+| `scaffold-search.ts` | Embedding-based `matchScaffoldWithEmbeddings()`. |
+| `scaffold-scoring.ts` | Telemetry-based boost/penalize for generic scaffolds. |
+| `scaffold-aware-retry.ts` | Picks alternative scaffold if generation fails. |
+| `scaffold-research.ts` | Loads `scaffold-research.generated.json` overrides. |
 
-## Regenerating scaffold embeddings (optional)
+## The 10 scaffolds
 
-When you change scaffolds and want semantic matching again, run a small script that calls `generateScaffoldEmbeddings()` from `scaffold-embeddings-core.ts` with `OPENAI_API_KEY`, or reintroduce a thin `config/scripts` helper — the previous bulk pipeline was removed.
+`base-nextjs`, `landing-page`, `saas-landing`, `portfolio`, `blog`,
+`dashboard`, `auth-pages`, `ecommerce`, `content-site`, `app-shell`.
+
+Each has a directory with `manifest.ts` (metadata + files) and template files.
+
+## Runtime flow
+
+1. `orchestrate.ts` resolves scaffold (auto/manual/off)
+2. `serializeScaffoldForPrompt()` turns it into prompt text
+3. `scaffold-research.generated.json` adds quality checklist + reference templates
+4. Everything goes into `buildSystemPrompt()` as scaffold context

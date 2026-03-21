@@ -21,7 +21,6 @@ export const landingPageManifest: ScaffoldManifest = {
     "Use this scaffold for polished company sites, campaign pages, and service-led websites.",
     "Keep the overall rhythm: strong hero, trust signals, offer sections, testimonial, and CTA.",
     "Modify copy, sections, and imagery to fit the user's business instead of rewriting the whole structure.",
-    "Replace ALL placeholder text ([Företagsnamn], [Kundens namn], generic descriptions) with specific, project-relevant content. Never ship scaffold boilerplate in the final output.",
   ],
   files: [
     {
@@ -99,26 +98,26 @@ import { ArrowRight, BadgeCheck, Clock3, Handshake, Sparkles } from "lucide-reac
 
 const offers = [
   {
-    title: "Skräddarsydda lösningar",
-    description: "Vi analyserar era behov och bygger tjänster som passar er verksamhet, oavsett bransch och storlek.",
+    title: "Strategi och positionering",
+    description: "Hjälper dig att formulera ett tydligt erbjudande, rätt budskap och en sida som faktiskt leder vidare till affär.",
     icon: Sparkles,
   },
   {
-    title: "Kvalitet i varje steg",
-    description: "Från första mötet till färdig leverans — vi håller hög standard och tydlig kommunikation genom hela processen.",
+    title: "Design som känns färdig",
+    description: "Sektioner, rytm, färg och typografi är redan på plats så att resultatet känns genomarbetat direkt.",
     icon: BadgeCheck,
   },
   {
     title: "Snabb leverans",
-    description: "Effektiva arbetsflöden gör att ni kommer igång snabbt utan att kompromissa med resultatet.",
+    description: "Bra för kampanjer, lanseringar och företagssajter där du vill få ut något starkt utan att börja från noll.",
     icon: Clock3,
   },
 ];
 
 const process = [
-  "Vi börjar med ett kort samtal för att förstå er verksamhet, målgrupp och mål.",
-  "Sedan tar vi fram ett förslag med tydlig struktur, design och innehåll.",
-  "Ni granskar, vi justerar, och levererar ett färdigt resultat redo att användas.",
+  "Förtydliga mål, målgrupp och primär CTA.",
+  "Anpassa hero, erbjudande, social proof och innehållssektioner.",
+  "Förfina tonalitet, färger, bilder och nästa steg för besökaren.",
 ];
 
 export default function HomePage() {
@@ -127,53 +126,53 @@ export default function HomePage() {
       <section className="px-6 py-20 sm:px-8 sm:py-24 lg:py-32">
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           <div className="space-y-8">
-            <Badge className="rounded-full px-3 py-1 text-sm">Välkommen</Badge>
+            <Badge className="rounded-full px-3 py-1 text-sm">Conversion-ready starter</Badge>
             <div className="space-y-5">
               <h1 className="max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl">
-                Vi hjälper er att nå rätt kunder med rätt budskap.
+                Bygg en säljorienterad hemsida utan att börja från ett tomt blad.
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                Professionella tjänster som ger er verksamhet en tydlig position, ett starkt erbjudande
-                och en sajt som faktiskt leder till affärer.
+                Den här startmallen är formad för företagssajter, kampanjsidor och tjänsteerbjudanden med
+                tydlig hero, förtroendesignaler och stark call to action.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button size="lg" className="rounded-full px-7">
-                Boka ett samtal <ArrowRight className="ml-2 h-4 w-4" />
+                Starta projekt <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button size="lg" variant="outline" className="rounded-full px-7">
-                Se våra tjänster
+                Se upplägget
               </Button>
             </div>
             <div className="grid gap-4 text-sm text-muted-foreground sm:grid-cols-3">
               <div className="rounded-2xl border bg-card/70 p-4">
-                <p className="text-2xl font-semibold text-foreground">200+</p>
-                <p>nöjda kunder</p>
+                <p className="text-2xl font-semibold text-foreground">3 min</p>
+                <p>att anpassa grundstrukturen</p>
               </div>
               <div className="rounded-2xl border bg-card/70 p-4">
-                <p className="text-2xl font-semibold text-foreground">10+ år</p>
-                <p>branscherfarenhet</p>
+                <p className="text-2xl font-semibold text-foreground">5+ sektioner</p>
+                <p>redo för erbjudande och social proof</p>
               </div>
               <div className="rounded-2xl border bg-card/70 p-4">
-                <p className="text-2xl font-semibold text-foreground">100 %</p>
-                <p>fokus på ert resultat</p>
+                <p className="text-2xl font-semibold text-foreground">1 tydlig CTA</p>
+                <p>som går att specialisera direkt</p>
               </div>
             </div>
           </div>
 
           <Card className="overflow-hidden border-primary/15 bg-card/90 shadow-xl shadow-primary/10">
             <CardHeader className="space-y-5 p-7">
-              <Badge variant="secondary" className="w-fit rounded-full">Varför vi?</Badge>
+              <Badge variant="secondary" className="w-fit rounded-full">Preview structure</Badge>
               <div className="space-y-3">
-                <CardTitle className="text-2xl">Det ni får när ni väljer oss</CardTitle>
+                <CardTitle className="text-2xl">Vad den här mallen redan löser</CardTitle>
                 <p className="text-sm leading-7 text-muted-foreground">
-                  En tydlig strategi, genomtänkt design och snabb leverans — anpassat efter er
-                  verksamhet och era kunders förväntningar.
+                  Hero, trust-rad, erbjudandesektion, arbetsprocess, testimonial och CTA-footer är redan
+                  upplagda för att modellen ska börja från en bättre grund.
                 </p>
               </div>
             </CardHeader>
             <CardContent className="space-y-5 p-7 pt-0">
-              {["Personligt engagemang i varje projekt", "Transparent process och tydliga milstolpar", "Resultat som syns redan från dag ett"].map((item) => (
+              {["Tydlig första rubrik", "Sektioner med rytm och luft", "Färdig struktur för vidare iteration"].map((item) => (
                 <div key={item} className="flex items-start gap-3 rounded-2xl bg-secondary/70 p-4">
                   <Handshake className="mt-0.5 h-5 w-5 text-primary" />
                   <p className="text-sm leading-6">{item}</p>
@@ -186,12 +185,12 @@ export default function HomePage() {
 
       <section className="px-6 sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 rounded-4xl border bg-card/70 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Betrodda av</p>
+          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Trusted starter shape</p>
           <div className="flex flex-wrap gap-4 text-sm text-foreground/80">
-            <span>Företag AB</span>
-            <span>Kreativa Byrån</span>
-            <span>Startup Nordic</span>
-            <span>Firma & Partners</span>
+            <span>Studio sites</span>
+            <span>Service businesses</span>
+            <span>Campaign launches</span>
+            <span>Consulting pages</span>
           </div>
         </div>
       </section>
@@ -199,10 +198,10 @@ export default function HomePage() {
       <section id="tjanster" className="px-6 py-20 sm:px-8">
         <div className="mx-auto max-w-6xl space-y-10">
           <div className="max-w-2xl space-y-3">
-            <Badge variant="secondary" className="rounded-full">Våra tjänster</Badge>
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Allt ni behöver under ett tak</h2>
+            <Badge variant="secondary" className="rounded-full">Core sections</Badge>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Sektioner som ger ett bättre första utkast</h2>
             <p className="text-lg leading-8 text-muted-foreground">
-              Vi erbjuder helhetslösningar som hjälper er att växa — från strategi och positionering till design och genomförande.
+              Använd den här strukturen för att fokusera på innehåll och erbjudande i stället för att lägga tid på sidans grundform.
             </p>
           </div>
           <div className="grid gap-5 lg:grid-cols-3">
@@ -227,9 +226,9 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="space-y-3">
             <Badge variant="secondary" className="rounded-full">Process</Badge>
-            <h2 className="text-3xl font-semibold tracking-tight">Så här jobbar vi</h2>
+            <h2 className="text-3xl font-semibold tracking-tight">En tydlig väg från prompt till färdig sida</h2>
             <p className="text-lg leading-8 text-muted-foreground">
-              En enkel och transparent process som tar er från första kontakt till färdigt resultat utan onödig väntan.
+              Mallen funkar bäst när användaren snabbt kan byta namn, budskap, sektioner och visuella signaler utan att förlora strukturen.
             </p>
           </div>
           <div className="space-y-5">
@@ -252,9 +251,9 @@ export default function HomePage() {
         <div className="mx-auto max-w-5xl rounded-4xl border bg-linear-to-br from-primary/10 via-background to-accent/40 p-8 sm:p-10">
           <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
             <div className="space-y-4">
-              <Badge className="rounded-full px-3 py-1">Kundröster</Badge>
+              <Badge className="rounded-full px-3 py-1">Customer quote</Badge>
               <p className="text-2xl font-semibold leading-10 tracking-tight sm:text-3xl">
-                “Samarbetet var smidigt från start till mål. Vi fick en sajt som verkligen speglar vilka vi är.”
+                “Vi gick från ett tunt första utkast till en sida som faktiskt kändes som ett riktigt lanseringsmaterial.”
               </p>
               <Separator className="max-w-32" />
               <div>
@@ -263,13 +262,13 @@ export default function HomePage() {
               </div>
             </div>
             <div className="rounded-[1.6rem] bg-background/85 p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.16em] text-muted-foreground">Nästa steg</p>
-              <h3 className="mt-2 text-2xl font-semibold">Redo att komma igång?</h3>
+              <p className="text-sm uppercase tracking-[0.16em] text-muted-foreground">Next step</p>
+              <h3 className="mt-2 text-2xl font-semibold">Gör den till din egen</h3>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                Berätta om ert projekt och era mål så återkommer vi med ett förslag inom 24 timmar.
+                Byt ut copy, lägg till sektioner och anpassa tonaliteten efter användarens bransch, målgrupp och erbjudande.
               </p>
               <Button className="mt-6 w-full rounded-full" size="lg">
-                Kontakta oss <ArrowRight className="ml-2 h-4 w-4" />
+                Anpassa mallen <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -356,7 +355,7 @@ export function SiteFooter() {
         <div className="space-y-4">
           <p className="text-lg font-semibold tracking-tight">[Företagsnamn]</p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
-            Professionella tjänster för företag som vill växa med rätt strategi, design och kommunikation.
+            Starter för moderna företagssidor där struktur, tydlighet och nästa steg redan finns på plats.
           </p>
           <a href="mailto:hello@example.com" className="inline-flex items-center gap-2 text-sm font-medium">
             hello@example.com <ArrowUpRight className="h-4 w-4" />

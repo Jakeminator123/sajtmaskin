@@ -21,10 +21,6 @@ import { ecommerceManifest } from "./ecommerce/manifest";
 import { restaurantManifest } from "./restaurant/manifest";
 import { bookingManifest } from "./booking/manifest";
 import { associationManifest } from "./association/manifest";
-import { clinicManifest } from "./clinic/manifest";
-import { localShopManifest } from "./local-shop/manifest";
-import { eventManifest } from "./event/manifest";
-import { schoolManifest } from "./school/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 
 const BASE_SCAFFOLDS: ScaffoldManifest[] = [
@@ -41,10 +37,6 @@ const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   restaurantManifest,
   bookingManifest,
   associationManifest,
-  clinicManifest,
-  localShopManifest,
-  eventManifest,
-  schoolManifest,
 ];
 
 const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => ({

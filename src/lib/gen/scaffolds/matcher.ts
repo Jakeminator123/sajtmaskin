@@ -3,7 +3,7 @@
  *
  * Uses keyword matching as primary strategy, with embedding-based
  * semantic search as fallback when keywords yield only generic defaults.
- * Only matches against internal scaffolds in registry.ts (see getAllScaffolds()).
+ * Only matches against the 13 internal scaffolds in registry.ts.
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -370,41 +370,16 @@ const ASSOCIATION_KEYWORDS = [
   "Lions", "Rotary", "partidistrik",
 ];
 
-const CLINIC_KEYWORDS = [
-  "klinik", "mottagning", "läkare", "doktor",
-  "tandläkare", "tandvård", "tandklinik",
-  "vårdcentral", "sjukvård", "hälsovård",
-  "patient", "remiss", "provtagning",
-  "vaccination", "hälsokontroll",
-  "blodprov", "allergi", "dermatolog",
-];
-
-const LOCAL_SHOP_KEYWORDS = [
-  "lanthandel", "lanthandlare", "bybutik", "bygdens butik",
-  "lokal butik", "affär", "sortiment", "speceriaffär",
-  "gårdsbutik", "torghandel", "marknad",
-];
-
-const EVENT_KEYWORDS = [
-  "event", "evenemang", "konferens", "conference",
-  "festival", "meetup", "seminarium", "workshop",
-  "mässa", "gala", "tillställning",
-  "talare", "speakers", "biljetter", "tickets",
-  "schema", "program", "agenda",
-];
-
-const SCHOOL_KEYWORDS = [
-  "skola", "utbildning", "kurs", "kurser",
-  "universitet", "gymnasium", "förskola",
-  "lärare", "akademi", "folkbildning",
-  "studieförbund", "undervisning", "elev",
-  "student", "ansökan", "termin",
-  "campus", "läroplan", "pedagogik",
-];
-
 const CONTENT_KEYWORDS = [
   "content",
   "innehåll",
+  "gallery",
+  "galleri",
+  "showcase",
+  "work",
+  "projekt",
+  "projects",
+  "stories",
   "dokumentation",
   "documentation",
   "docs",
@@ -419,14 +394,45 @@ const CONTENT_KEYWORDS = [
   "faq",
   "vanliga frågor",
   "manual",
+  "sidofält",
+  "sidofältet",
+  "navigation",
   "helpdesk",
   "hjälpcenter",
   "dokumentationssida",
   "informationssida",
   "kunskapsbank",
-  "sidofält", "sidofältet", "navigation",
+  // SNI P – Utbildning
+  "skola", "utbildning", "kurs", "kurser", "universitet", "gymnasium",
+  "förskola", "lärare", "akademi", "folkbildning", "studieförbund",
   // SNI O/R – Offentlig sektor & kultur
   "museum", "bibliotek", "arkiv", "region", "länsstyrelse",
+  "landing",
+  "marketing",
+  "startup",
+  "company",
+  "business",
+  "brand",
+  "hemsida",
+  "webbplats",
+  "sajt",
+  "företag",
+  "byrå",
+  "fotograf",
+  "saas",
+  "software",
+  "pricing",
+  "subscription",
+  "tier",
+  "feature",
+  "product",
+  "service",
+  "solution",
+  "plattform",
+  "tjänst",
+  "mjukvara",
+  "pris",
+  "abonnemang",
 ];
 
 function escapeRegex(value: string): string {
@@ -509,26 +515,6 @@ export function matchScaffold(
     return getScaffoldById("association");
   }
 
-  const clinicScore = countKeywordMatches(lower, CLINIC_KEYWORDS);
-  if (clinicScore >= MIN_SCORE) {
-    return getScaffoldById("clinic");
-  }
-
-  const localShopScore = countKeywordMatches(lower, LOCAL_SHOP_KEYWORDS);
-  if (localShopScore >= MIN_SCORE) {
-    return getScaffoldById("local-shop");
-  }
-
-  const eventScore = countKeywordMatches(lower, EVENT_KEYWORDS);
-  if (eventScore >= MIN_SCORE) {
-    return getScaffoldById("event");
-  }
-
-  const schoolScore = countKeywordMatches(lower, SCHOOL_KEYWORDS);
-  if (schoolScore >= MIN_SCORE) {
-    return getScaffoldById("school");
-  }
-
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
   const portfolioScore = countKeywordMatches(lower, PORTFOLIO_KEYWORDS);
   const landingScore = countKeywordMatches(lower, LANDING_KEYWORDS);
@@ -558,7 +544,6 @@ export function matchScaffold(
 }
 
 const EMBEDDING_MIN_SCORE = 0.35;
-const EMBEDDING_HIGH_CONFIDENCE = 0.50;
 
 export interface ScaffoldMatchMeta {
   matchSource: "keyword" | "embedding" | "manual" | "persisted" | "off";
@@ -579,6 +564,12 @@ export async function matchScaffoldWithEmbeddings(
 ): Promise<{ scaffold: ScaffoldManifest | null; matchMeta: ScaffoldMatchMeta }> {
   const keywordResult = matchScaffold(prompt, buildIntent);
   const lower = prompt.toLowerCase();
+  const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
+  const appScore = countKeywordMatches(lower, APP_KEYWORDS);
+  const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
+  const restaurantScore = countKeywordMatches(lower, RESTAURANT_KEYWORDS);
+  const bookingScore = countKeywordMatches(lower, BOOKING_KEYWORDS);
+  const associationScore = countKeywordMatches(lower, ASSOCIATION_KEYWORDS);
 
   const isGenericDefault =
     !keywordResult ||
@@ -592,34 +583,50 @@ export async function matchScaffoldWithEmbeddings(
     };
   }
 
-  const EMBEDDING_GUARDRAILS: Record<string, readonly string[]> = {
-    "auth-pages": AUTH_KEYWORDS,
-    "dashboard": [...DASHBOARD_KEYWORDS, ...APP_KEYWORDS],
-    "app-shell": [...DASHBOARD_KEYWORDS, ...APP_KEYWORDS],
-    "restaurant": RESTAURANT_KEYWORDS,
-    "booking": BOOKING_KEYWORDS,
-    "association": ASSOCIATION_KEYWORDS,
-    "clinic": CLINIC_KEYWORDS,
-    "local-shop": LOCAL_SHOP_KEYWORDS,
-    "event": EVENT_KEYWORDS,
-    "school": SCHOOL_KEYWORDS,
-  };
-
   try {
     const results = await searchScaffolds(prompt, 1);
     if (results.length > 0 && results[0].score >= EMBEDDING_MIN_SCORE) {
       const embeddingResult = results[0].scaffold;
       const embeddingScore = Math.round(results[0].score * 1000) / 1000;
 
-      const guardrailKeywords = EMBEDDING_GUARDRAILS[embeddingResult.id];
-      if (guardrailKeywords && embeddingScore < EMBEDDING_HIGH_CONFIDENCE) {
-        const guardrailScore = countKeywordMatches(lower, guardrailKeywords);
-        if (guardrailScore < 1) {
-          return {
-            scaffold: keywordResult,
-            matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
-          };
-        }
+      if (embeddingResult.id === "auth-pages" && authScore < 1) {
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
+      }
+
+      if (
+        buildIntent !== "app" &&
+        (embeddingResult.id === "dashboard" || embeddingResult.id === "app-shell") &&
+        appScore < 1 &&
+        dashboardScore < 1
+      ) {
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
+      }
+
+      if (embeddingResult.id === "restaurant" && restaurantScore < 1) {
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
+      }
+
+      if (embeddingResult.id === "booking" && bookingScore < 1) {
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
+      }
+
+      if (embeddingResult.id === "association" && associationScore < 1) {
+        return {
+          scaffold: keywordResult,
+          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        };
       }
 
       return {

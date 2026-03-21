@@ -3,20 +3,19 @@ import type { ScaffoldManifest } from "../types";
 export const restaurantManifest: ScaffoldManifest = {
   id: "restaurant",
   family: "landing-page",
-  label: "Restaurang & Mat",
+  label: "Restaurang & Tjänster",
   description:
-    "Starter for restaurants, cafés, bakeries, bars, and food businesses with menu, opening hours, location, and reservation CTA.",
+    "Starter for restaurants, cafés, salons, gyms, and local service businesses with menu/service list, opening hours, location, and booking CTA.",
   buildIntents: ["website", "template"],
   tags: [
-    "restaurang", "restaurant", "café", "cafe", "meny", "menu",
-    "öppettider", "food", "mat", "dining", "pizzeria", "bar", "pub",
-    "konditori", "bageri", "bistro", "krog", "gastropub",
-    "catering", "food truck",
+    "restaurang", "restaurant", "café", "frisör", "salong", "gym",
+    "klinik", "meny", "menu", "öppettider", "bokning", "lokal",
+    "local", "service", "food", "dining",
   ],
   promptHints: [
-    "Use this scaffold for food and dining businesses: restaurants, cafés, bakeries, bars, pubs, catering.",
-    "Keep the structure: hero with business name, menu section, opening hours, location/map placeholder, and reservation/contact CTA.",
-    "Adapt the menu items, hours, and contact info to the user's specific food business.",
+    "Use this scaffold for local service businesses: restaurants, cafés, salons, gyms, clinics.",
+    "Keep the structure: hero with business name, menu/services section, opening hours, location/map placeholder, and booking/contact CTA.",
+    "Adapt the menu items, services, hours, and contact info to the user's specific business.",
   ],
   files: [
     {

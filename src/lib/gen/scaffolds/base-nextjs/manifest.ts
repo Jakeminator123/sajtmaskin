@@ -9,9 +9,7 @@ export const baseNextjsManifest: ScaffoldManifest = {
   buildIntents: ["website", "template"],
   tags: ["starter", "minimal", "nextjs"],
   promptHints: [
-    "This is a minimal base — add a header, footer, hero section, and at least 2–3 content sections to create a complete page.",
-    "Replace the neutral gray color tokens with a vivid palette that matches the user's subject matter. Gray output means the colors were not adapted.",
-    "Create visual depth: layered backgrounds, gradient heroes, alternating section treatments, and at least one memorable visual motif.",
+    "Keep it simple. This is a minimal base — add sections as needed.",
   ],
   files: [
     {
