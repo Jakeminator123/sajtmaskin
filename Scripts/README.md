@@ -80,6 +80,8 @@ npm run scaffolds:build
 npm run verify:generated-paths
 ```
 
+`template-library:rebuild` uppdaterar **bara** referenskatalogen under `src/lib/gen/template-library/` (inte v0-galleriets `template-embeddings.json`). Vill du även bygga om v0-vektorerna: `npm run template-library:rebuild:with-v0-gallery` eller `npm run templates:embeddings` separat.
+
 `../vercel-scrape/` ska ligga **utanför** git-roten och Cursor-index (se `docs/architecture/repo-hygiene.md`).
 
 ### Viktig skillnad: mappstruktur vs klassificering

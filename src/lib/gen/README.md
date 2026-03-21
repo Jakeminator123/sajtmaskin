@@ -68,7 +68,7 @@ Guidelines:
   `npm run normalize:generated-paths` if paths need normalization.
 - Keeping large JSON in `.cursorignore` is about indexing cost; open by path when needed.
 
-Gallery template embeddings (v0 browse cards) use `npm run templates:embeddings` — see `Scripts/README.md`.
+Gallery template embeddings (v0 browse cards) use `npm run templates:embeddings` — see `src/lib/templates/README.md`. Reference catalog rebuild (`template-library:rebuild`) does **not** touch that file.
 
 ## Adding New Suspense Rules
 

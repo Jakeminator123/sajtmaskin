@@ -24,5 +24,6 @@ Runtime code still reads **environment variables** (`src/lib/gen/defaults.ts`, `
 ## Where the rest lives
 
 - **Dev / build entrypoints** (Next runner, DB init, Vercel gallery sync): `Scripts/` at repo root.
-- **Template gallery (v0) embeddings**: `npm run templates:embeddings` (see `Scripts/README.md`).
+- **Template gallery (v0) embeddings**: `npm run templates:embeddings` → `src/lib/templates/template-embeddings.json` (see `src/lib/templates/README.md`).
+- **Reference catalog (own-engine prompt)**: `npm run template-library:rebuild` — separate from v0; see `config/scripts/README.md`.
 - **Runtime scaffolds (research JSON + embeddings)**: `npm run scaffolds:build` or individual `scaffolds:*` scripts (`config/scripts/README.md`).

@@ -93,7 +93,8 @@ och referensmaterial, och AI-modellen genererar koden.
 |---|---|
 | Normalisera råskrapning → mellanprodukt | `npm run research:normalize -- --input <dir>` |
 | Bygg template-library från mellanprodukt | `npm run template-library:build` |
-| Bygg template-library + embeddings | `npm run template-library:rebuild` |
+| Bygg template-library + embeddings (referenskatalog; ej v0-galleri) | `npm run template-library:rebuild` |
+| Valfritt: samma + v0 gallery-embeddings | `npm run template-library:rebuild:with-v0-gallery` |
 | Validera manifester | `npm run scaffolds:validate` |
 | Regenerera scaffold-embeddings | `npm run scaffolds:embeddings` |
 | Bygga research-artefakt från dossiers | `npm run scaffolds:research` |

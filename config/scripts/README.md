@@ -7,7 +7,9 @@ Prefer npm scripts from the repo root (`package.json` prefixes paths with `confi
 | Area | npm examples |
 |------|----------------|
 | Research normalize (Zone 1 → 2) | **`research:normalize`** `-- --input <raw-dir>` → `research/normalized-catalog.json` |
-| Template library build (Zone 2 → artifacts) | **`template-library:build`**, **`template-library:embeddings`** (reference vectors → `gen/template-library/…`), **`template-library:rebuild`** (build + reference embeddings + **`templates:embeddings`** for v0 gallery) |
+| Template library build (Zone 2 → artifacts) | **`template-library:build`**, **`template-library:embeddings`**, **`template-library:rebuild`** (reference catalog only — **not** v0 gallery) |
+| Optional: also refresh v0 gallery vectors | **`template-library:rebuild:with-v0-gallery`** or run **`templates:embeddings`** separately |
+| Local reference smoke (needs `OPENAI_API_KEY`) | **`template-library:smoke-search`** |
 | Scaffold build pipeline | **`scaffolds:build`** (research + embeddings + validate), `scaffolds:embeddings`, `scaffolds:research`, `scaffolds:validate` |
 | Generated JSON hygiene | **`verify:generated-paths`**, **`normalize:generated-paths`** (template-library + scaffold-research stubs under `src/lib/gen/`) |
 | v0 gallery embeddings only | `templates:embeddings` → `src/lib/templates/template-embeddings.json` |
