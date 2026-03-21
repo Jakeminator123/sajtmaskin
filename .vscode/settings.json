@@ -4,7 +4,8 @@
   "editor.tabSize": 2,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
-    "source.organizeImports": "explicit"
+    "source.organizeImports": "explicit",
+    "source.fixAll.tailwindCSS": "never"
   },
   "prettier.enable": false,
   "eslint.useFlatConfig": true,
@@ -38,12 +39,5 @@
   },
   "[javascriptreact]": {
     "editor.defaultFormatter": "dbaeumer.vscode-eslint"
-  },
-  "files.autoSave": "afterDelay",
-  "files.autoSaveDelay": 500,
-  "git.autofetch": true,
-  "git.autofetchPeriod": 0,
-  "terminal.integrated.autoReplies": {
-    "Terminate batch job (Y/N)": "Y\r"
   }
 }
