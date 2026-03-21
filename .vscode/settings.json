@@ -39,7 +39,8 @@
   "[javascriptreact]": {
     "editor.defaultFormatter": "dbaeumer.vscode-eslint"
   },
-  "files.autoSave": "off",
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 500,
   "git.autofetch": true,
   "git.autofetchPeriod": 0,
   "terminal.integrated.autoReplies": {
