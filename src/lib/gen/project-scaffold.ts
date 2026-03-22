@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import nodePath from "node:path";
 import { fileURLToPath } from "node:url";
-import { runDepCompleter } from "./autofix/dep-completer";
+import { runDepCompleter, KNOWN_PACKAGES } from "./autofix/dep-completer";
+import {
+  collectExternalPackageNames,
+  ensureDependenciesInPackageJson,
+  SHADCN_FALLBACK_VERSIONS,
+} from "@/lib/deploy/dependency-utils";
 import type { CodeFile } from "./parser";
 
 /**
@@ -302,6 +307,30 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
       result.push(file);
     }
   }
+
+  // Second pass: scan all files for external imports and patch any that the
+  // first pass (dep-completer KNOWN_PACKAGES + canonical scaffold) missed.
+  // Uses the same robust specifier parser the deploy pipeline uses.
+  const pkgIdx = result.findIndex((f) => f.path === "package.json");
+  if (pkgIdx !== -1) {
+    const allFiles = result.map((f) => ({ name: f.path, content: f.content }));
+    const externalPackages = collectExternalPackageNames(allFiles);
+    if (externalPackages.size > 0) {
+      const versionMap = { ...KNOWN_PACKAGES, ...SHADCN_FALLBACK_VERSIONS };
+      try {
+        const canonical = JSON.parse(PACKAGE_JSON);
+        Object.assign(versionMap, canonical.dependencies ?? {});
+        Object.assign(versionMap, canonical.devDependencies ?? {});
+      } catch { /* canonical parse already succeeded above */ }
+      const patched = ensureDependenciesInPackageJson({
+        packageJsonContent: result[pkgIdx].content,
+        requiredPackages: externalPackages,
+        versionMap,
+      });
+      result[pkgIdx] = { ...result[pkgIdx], content: patched.content };
+    }
+  }
+
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }
 

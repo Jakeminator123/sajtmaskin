@@ -1,6 +1,8 @@
 import type { AutoFixEntry } from "./pipeline";
 
-const IMPORT_SOURCE_RE = /from\s+["']([^"'./@][^"']*)["']/g;
+// Matches both unscoped (`recharts`) and @-scoped (`@vercel/analytics/next`)
+// import sources; excludes path aliases (`@/…`) via negative lookahead.
+const IMPORT_SOURCE_RE = /from\s+["'](@(?!\/)[^"']+|[^"'./@][^"']*)["']/g;
 
 /**
  * Packages the sandbox already ships (Next.js, React, tailwind, etc.).
@@ -31,9 +33,12 @@ const BUILTIN_PACKAGES = new Set([
 /**
  * Third-party packages frequently used by LLM-generated code.
  * Maps npm package name to latest known compatible version.
- * Used to auto-complete dependencies for the preview sandbox.
+ * Used to auto-complete dependencies for the preview sandbox and exports.
+ *
+ * Exported so `project-scaffold.ts` can build a unified version map
+ * together with `SHADCN_FALLBACK_VERSIONS` from `dependency-utils.ts`.
  */
-const KNOWN_PACKAGES: Record<string, string> = {
+export const KNOWN_PACKAGES: Record<string, string> = {
   "recharts": "^2",
   "framer-motion": "^12",
   "motion": "^12",
@@ -65,6 +70,14 @@ const KNOWN_PACKAGES: Record<string, string> = {
   "@radix-ui/react-slider": "^1",
   "@radix-ui/react-toggle": "^1",
   "@radix-ui/react-toggle-group": "^1",
+  "@radix-ui/react-collapsible": "^1",
+  "@radix-ui/react-alert-dialog": "^1",
+  "@radix-ui/react-context-menu": "^2",
+  "@radix-ui/react-hover-card": "^1",
+  "@radix-ui/react-menubar": "^1",
+  "@radix-ui/react-navigation-menu": "^1",
+  "@radix-ui/react-radio-group": "^1",
+  "@radix-ui/react-toast": "^1",
   "cmdk": "^1",
   "sonner": "^1",
   "vaul": "^1",
@@ -108,6 +121,16 @@ const KNOWN_PACKAGES: Record<string, string> = {
   "visx": "^3",
   "mathjs": "^13",
   "katex": "^0.16",
+  "@vercel/analytics": "^1",
+  "@vercel/speed-insights": "^1",
+  "tw-animate-css": "^1",
+  "tailwindcss-animate": "^1",
+  "@supabase/supabase-js": "^2",
+  "@clerk/nextjs": "^6",
+  "stripe": "^17",
+  "@stripe/stripe-js": "^5",
+  "ai": "^4",
+  "@ai-sdk/openai": "^1",
 };
 
 function normalizePackageName(source: string): string {

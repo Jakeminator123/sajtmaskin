@@ -63,6 +63,34 @@ describe("resolveEngineDemoUrl", () => {
     });
   });
 
+  it("falls back to legacy preview for version with no sandbox URL at all", () => {
+    const result = resolveEngineDemoUrlDetails("chat_1", {
+      id: "ver_1",
+      verification_state: "pending",
+      sandbox_url: null,
+    });
+
+    expect(result).toEqual({
+      demoUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
+      legacyPreviewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
+      mode: "pending-runtime",
+    });
+  });
+
+  it("falls back to legacy preview for version with empty sandbox URL", () => {
+    const result = resolveEngineDemoUrlDetails("chat_1", {
+      id: "ver_1",
+      verification_state: "passed",
+      sandbox_url: "",
+    });
+
+    expect(result).toEqual({
+      demoUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
+      legacyPreviewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
+      mode: "pending-runtime",
+    });
+  });
+
   it("hides demoUrl entirely for failed versions", () => {
     const result = resolveEngineDemoUrlDetails("chat_1", {
       id: "ver_failed",

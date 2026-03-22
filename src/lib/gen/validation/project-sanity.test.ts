@@ -117,6 +117,72 @@ describe("runProjectSanityChecks", () => {
     expect(pkgIssues.length).toBe(0);
   });
 
+  it("warns when external imports are missing from package.json", () => {
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({
+          scripts: { dev: "next dev", build: "next build" },
+          dependencies: { next: "^16.0.0", react: "^19.0.0", "react-dom": "^19.0.0" },
+        }),
+      },
+      {
+        path: "app/layout.tsx",
+        language: "tsx",
+        content: [
+          'import { Analytics } from "@vercel/analytics/next";',
+          'export default function Layout({ children }: { children: React.ReactNode }) {',
+          "  return <html><body><Analytics />{children}</body></html>;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: "package.json",
+          severity: "warning",
+          message: expect.stringContaining("@vercel/analytics"),
+        }),
+      ]),
+    );
+  });
+
+  it("does not warn when external imports are present in package.json", () => {
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({
+          scripts: { dev: "next dev", build: "next build" },
+          dependencies: {
+            next: "^16.0.0",
+            react: "^19.0.0",
+            "react-dom": "^19.0.0",
+            "@vercel/analytics": "^1",
+          },
+        }),
+      },
+      {
+        path: "app/layout.tsx",
+        language: "tsx",
+        content: [
+          'import { Analytics } from "@vercel/analytics/next";',
+          'export default function Layout({ children }: { children: React.ReactNode }) {',
+          "  return <html><body><Analytics />{children}</body></html>;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    const depWarnings = result.issues.filter(
+      (i) => i.file === "package.json" && i.message.includes("@vercel/analytics"),
+    );
+    expect(depWarnings).toHaveLength(0);
+  });
+
   it("allows matching named exports", () => {
     const result = runProjectSanityChecks([
       {

@@ -1,5 +1,9 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { parseImports } from "@/lib/gen/preview/import-parser";
+import {
+  collectExternalPackageNames,
+  getPackageNameFromImport,
+} from "@/lib/deploy/dependency-utils";
 
 export interface SanityIssue {
   file: string;
@@ -223,7 +227,27 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     }
   }
 
-  // 5. globals.css must exist and contain @theme
+  // 5. External imports must have corresponding package.json entries
+  if (packageJson) {
+    try {
+      const pkg = JSON.parse(packageJson.content);
+      const allDeps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+      const codeFiles = files.filter((f) => /\.(tsx?|jsx?)$/.test(f.path));
+      const externalPackages = collectExternalPackageNames(
+        codeFiles.map((f) => ({ name: f.path, content: f.content })),
+      );
+      for (const pkgName of externalPackages) {
+        if (allDeps[pkgName]) continue;
+        issues.push({
+          file: "package.json",
+          severity: "warning",
+          message: `External import "${pkgName}" has no matching entry in package.json`,
+        });
+      }
+    } catch { /* JSON parse already validated above */ }
+  }
+
+  // 6. globals.css must exist and contain @theme
   const globalsCss = fileMap.get("app/globals.css") ?? fileMap.get("src/app/globals.css");
   if (!globalsCss) {
     issues.push({
@@ -239,7 +263,7 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     });
   }
 
-  // 6. layout.tsx must exist
+  // 7. layout.tsx must exist
   const layout = fileMap.get("app/layout.tsx") ?? fileMap.get("src/app/layout.tsx");
   if (!layout) {
     issues.push({
@@ -249,7 +273,7 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     });
   }
 
-  // 7. Duplicate route detection
+  // 8. Duplicate route detection
   const routes = new Set<string>();
   for (const file of files) {
     const routeMatch = file.path.match(/^(?:src\/)?app(\/.*)\/(page|layout)\.(tsx|jsx|ts|js)$/);

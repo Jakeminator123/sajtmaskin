@@ -349,18 +349,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
         return NextResponse.json(gateResult);
       } catch (err) {
-        await failVersionVerification(
-          internalVersionId,
-          "Automatic verification could not complete.",
-        ).catch(
-          (updateErr) => {
-            console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
-          },
-        );
         if (err instanceof SandboxNotConfiguredError) {
+          // Infrastructure issue — code is not at fault; leave version
+          // in its current state so legacy preview stays available.
           return NextResponse.json({ error: err.message }, { status: 501 });
         }
-        throw err;
+        // Other sandbox infra errors (network, timeout, API failures) are
+        // not code quality issues — leave the version as verifying/pending
+        // rather than permanently marking it failed and hiding preview.
+        console.warn("[quality-gate] Sandbox infrastructure error (version NOT marked failed):", err);
+        return NextResponse.json(
+          { error: err instanceof Error ? err.message : "Sandbox infrastructure error" },
+          { status: 502 },
+        );
       }
     }
 
