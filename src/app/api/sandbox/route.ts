@@ -5,8 +5,7 @@ import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
-import { buildCompleteProject } from "@/lib/gen/project-scaffold";
-import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { prepareSandboxProjectFiles } from "@/lib/gen/sandbox-project-files";
 import type { CodeFile } from "@/lib/gen/parser";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { isSafeRelativePath } from "@/lib/mcp/runtime-url";
@@ -43,8 +42,8 @@ function inferLanguage(fileName: string): string {
 }
 
 function buildSandboxProjectFiles(codeFiles: CodeFile[]): Array<[string, string]> {
-  const completedFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
-  return completedFiles.map((file) => [file.path, file.content]);
+  const completedFiles = prepareSandboxProjectFiles(codeFiles);
+  return completedFiles.map((file) => [file.name, file.content]);
 }
 
 function withSessionCookie(

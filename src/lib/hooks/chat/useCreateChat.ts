@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { buildPreviewUrl } from "@/lib/gen/preview";
 import { formatPrompt, resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/promptAssist";
 import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
@@ -307,7 +308,11 @@ export function useCreateChat(
               onAutoFix: (payload) => autoFixHandlerRef.current(payload),
               bootRuntime: true,
             });
+            const fallbackLegacy = buildPreviewUrl(String(newChatId), String(resolvedVersionId));
             finalDemoUrl = qualityGate.runtimeUrl ?? finalDemoUrl;
+            if (!finalDemoUrl) {
+              finalDemoUrl = fallbackLegacy;
+            }
             sandboxRuntimeStatus = qualityGate.status;
           } finally {
             toast.dismiss(toastId);

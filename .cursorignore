@@ -121,4 +121,3 @@ tests/openclaw/**
 internt_jakob/
 #research/dossiers/
 
-NEXT_PUBLIC_SANDBOX_AUTO=yes

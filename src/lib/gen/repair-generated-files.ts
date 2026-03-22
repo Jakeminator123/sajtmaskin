@@ -24,6 +24,8 @@ const EVENT_HANDLERS_RE =
 const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
 const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
 const CODE_FILE_RE = /\.(tsx?|jsx?)$/i;
+const PREVIEW_STRIPPED_IMPORT_RE =
+  /^([ \t]*)\/\/\s*(import\s+.+?)\s+\(stripped for preview compatibility\)\s*$/gm;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -366,6 +368,34 @@ function fixLucideLinkImport(code: string, filePath: string): {
   };
 }
 
+function restorePreviewStrippedImports(code: string, filePath: string): {
+  code: string;
+  fixed: boolean;
+  fixes: RepairEntry[];
+} {
+  let restoredCount = 0;
+  const nextCode = code.replace(
+    PREVIEW_STRIPPED_IMPORT_RE,
+    (_match, indent: string, importStatement: string) => {
+      restoredCount += 1;
+      return `${indent}${importStatement.trim()}`;
+    },
+  );
+
+  return {
+    code: nextCode,
+    fixed: nextCode !== code,
+    fixes:
+      nextCode !== code
+        ? [{
+            fixer: "preview-import-restore-fixer",
+            description: `Restored ${restoredCount} preview-stripped import line(s)`,
+            file: filePath,
+          }]
+        : [],
+  };
+}
+
 export function repairGeneratedFiles(files: CodeFile[]): {
   files: CodeFile[];
   fixes: RepairEntry[];
@@ -379,6 +409,12 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     }
 
     let content = file.content;
+
+    const previewImportRestore = restorePreviewStrippedImports(content, file.path);
+    if (previewImportRestore.fixed) {
+      content = previewImportRestore.code;
+      fixes.push(...previewImportRestore.fixes);
+    }
 
     const fontResult = fixFontImport(content, file.path);
     if (fontResult.fixed) {

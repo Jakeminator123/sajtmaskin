@@ -22,6 +22,18 @@ const CODE_BLOCK_RE = /```(\w+)\s+file="([^"]+)"[^\n]*\n([\s\S]*?)```/g;
 const GENERIC_CODE_BLOCK_RE = /```(\w+)?[^\n]*\n([\s\S]*?)```/g;
 const THINKING_RE = /<Thinking>([\s\S]*?)<\/Thinking>/gi;
 
+function splitFilePath(path: string): { fileName: string; parentPath: string } {
+  const normalized = path.replace(/\\/g, "/");
+  const lastSlash = normalized.lastIndexOf("/");
+  if (lastSlash < 0) {
+    return { fileName: normalized, parentPath: "" };
+  }
+  return {
+    fileName: normalized.slice(lastSlash + 1),
+    parentPath: normalized.slice(0, lastSlash),
+  };
+}
+
 function parseGenerationContent(raw: string): ParsedContent {
   const files: GeneratedFile[] = [];
   let genericCodeBlocks = 0;
@@ -88,6 +100,14 @@ export const GenerationSummary = memo(function GenerationSummary({
 }: GenerationSummaryProps) {
   const [showRaw, setShowRaw] = useState(false);
   const parsed = useMemo(() => parseGenerationContent(content), [content]);
+  const basenameCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const file of parsed.files) {
+      const fileName = splitFilePath(file.path).fileName;
+      counts.set(fileName, (counts.get(fileName) ?? 0) + 1);
+    }
+    return counts;
+  }, [parsed.files]);
   const streamingNotice =
     "Buildern genererar nu komponenter och filer. Följ agentloggen för detaljer medan innehållet sammanställs.";
 
@@ -156,6 +176,8 @@ export const GenerationSummary = memo(function GenerationSummary({
           <div className="flex flex-wrap gap-1 px-3 pb-2.5">
             {parsed.files.map((file) => {
               const badge = langBadge(file.language);
+              const { fileName, parentPath } = splitFilePath(file.path);
+              const hasDuplicateBasename = (basenameCounts.get(fileName) ?? 0) > 1;
               return (
                 <span
                   key={file.path}
@@ -166,8 +188,13 @@ export const GenerationSummary = memo(function GenerationSummary({
                   title={file.path}
                 >
                   <span className="max-w-[140px] truncate font-mono">
-                    {file.path.split("/").pop()}
+                    {fileName}
                   </span>
+                  {hasDuplicateBasename && parentPath && (
+                    <span className="max-w-[140px] truncate text-zinc-300/80">
+                      {parentPath}
+                    </span>
+                  )}
                   <span className="opacity-50">{file.lineCount}L</span>
                 </span>
               );

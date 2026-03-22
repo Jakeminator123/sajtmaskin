@@ -49,7 +49,7 @@ describe("resolveEngineDemoUrl", () => {
     });
   });
 
-  it("keeps demoUrl empty while runtime is still pending or expired", () => {
+  it("falls back to legacy preview URL when sandbox URL is missing or expired", () => {
     const result = resolveEngineDemoUrlDetails("chat_1", {
       id: "ver_1",
       verification_state: "pending",
@@ -57,7 +57,7 @@ describe("resolveEngineDemoUrl", () => {
     });
 
     expect(result).toEqual({
-      demoUrl: null,
+      demoUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
       legacyPreviewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
       mode: "pending-runtime",
     });

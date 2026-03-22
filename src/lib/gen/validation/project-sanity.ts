@@ -191,7 +191,39 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     }
   }
 
-  // 4. globals.css must exist and contain @theme
+  // 4. package.json must have valid scripts and core dependencies for Next.js
+  const packageJson = fileMap.get("package.json");
+  if (packageJson) {
+    try {
+      const pkg = JSON.parse(packageJson.content);
+      const scripts = pkg.scripts ?? {};
+      if (!scripts.dev || !scripts.build) {
+        issues.push({
+          file: "package.json",
+          severity: "error",
+          message: "package.json is missing required scripts (dev and/or build)",
+        });
+      }
+      const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+      for (const required of ["next", "react", "react-dom"]) {
+        if (!deps[required]) {
+          issues.push({
+            file: "package.json",
+            severity: "error",
+            message: `package.json is missing core dependency: ${required}`,
+          });
+        }
+      }
+    } catch {
+      issues.push({
+        file: "package.json",
+        severity: "error",
+        message: "package.json contains invalid JSON",
+      });
+    }
+  }
+
+  // 5. globals.css must exist and contain @theme
   const globalsCss = fileMap.get("app/globals.css") ?? fileMap.get("src/app/globals.css");
   if (!globalsCss) {
     issues.push({
@@ -207,7 +239,7 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     });
   }
 
-  // 5. layout.tsx must exist
+  // 6. layout.tsx must exist
   const layout = fileMap.get("app/layout.tsx") ?? fileMap.get("src/app/layout.tsx");
   if (!layout) {
     issues.push({
@@ -217,7 +249,7 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     });
   }
 
-  // 6. Duplicate route detection
+  // 7. Duplicate route detection
   const routes = new Set<string>();
   for (const file of files) {
     const routeMatch = file.path.match(/^(?:src\/)?app(\/.*)\/(page|layout)\.(tsx|jsx|ts|js)$/);

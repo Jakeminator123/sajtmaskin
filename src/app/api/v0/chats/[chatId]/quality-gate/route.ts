@@ -175,7 +175,11 @@ async function runSandboxChecks(
       const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", cmd] });
       const stdout = typeof result.stdout === "string" ? result.stdout : "";
       const stderr = typeof result.stderr === "string" ? result.stderr : "";
-      const output = (stdout + "\n" + stderr).trim().slice(0, 8000);
+      const combinedOutput = (stdout + "\n" + stderr).trim();
+      const output =
+        combinedOutput.length > 0
+          ? combinedOutput.slice(0, 8000)
+          : "No output captured from sandbox command.";
       results.push({
         check,
         passed: result.exitCode === 0,

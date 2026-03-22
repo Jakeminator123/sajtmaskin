@@ -261,13 +261,25 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   const detected = runDepCompleter(allCode);
 
   for (const [filePath, content] of Object.entries(SCAFFOLD_FILES)) {
-    if (filePath === "package.json" && !generatedPaths.has(filePath)) {
+    if (filePath === "package.json") {
+      const generatedPkg = generatedFiles.find((f) => f.path === "package.json");
       try {
-        const pkg = JSON.parse(content);
-        pkg.dependencies = { ...pkg.dependencies, ...detected.dependencies };
-        result.push({ path: filePath, content: JSON.stringify(pkg, null, 2), language: "json" });
+        const canonical = JSON.parse(content);
+        canonical.dependencies = { ...canonical.dependencies, ...detected.dependencies };
+        if (generatedPkg) {
+          const modelPkg = JSON.parse(generatedPkg.content);
+          canonical.dependencies = { ...canonical.dependencies, ...(modelPkg.dependencies ?? {}) };
+          canonical.devDependencies = { ...canonical.devDependencies, ...(modelPkg.devDependencies ?? {}) };
+          if (modelPkg.name && typeof modelPkg.name === "string") {
+            canonical.name = modelPkg.name;
+          }
+        }
+        result.push({ path: filePath, content: JSON.stringify(canonical, null, 2), language: "json" });
       } catch {
         result.push({ path: filePath, content, language: "json" });
+      }
+      if (generatedPkg) {
+        generatedPaths.delete("package.json");
       }
       continue;
     }
@@ -284,7 +296,12 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
     }
   }
 
-  result.push(...generatedFiles);
+  const mergedPaths = new Set(result.map((f) => f.path));
+  for (const file of generatedFiles) {
+    if (!mergedPaths.has(file.path)) {
+      result.push(file);
+    }
+  }
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }
 

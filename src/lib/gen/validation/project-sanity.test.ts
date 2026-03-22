@@ -39,6 +39,84 @@ describe("runProjectSanityChecks", () => {
     );
   });
 
+  it("flags package.json with missing scripts", () => {
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({ name: "test", dependencies: { next: "^16.0.0", react: "^19.0.0", "react-dom": "^19.0.0" } }),
+      },
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content: 'export default function Page() { return <div>Hello</div>; }',
+      },
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: "package.json",
+          severity: "error",
+          message: expect.stringContaining("missing required scripts"),
+        }),
+      ]),
+    );
+  });
+
+  it("flags package.json with missing core dependencies", () => {
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({ scripts: { dev: "next dev", build: "next build" }, dependencies: {} }),
+      },
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content: 'export default function Page() { return <div>Hello</div>; }',
+      },
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: "package.json",
+          severity: "error",
+          message: expect.stringContaining("missing core dependency: next"),
+        }),
+      ]),
+    );
+  });
+
+  it("accepts a valid package.json", () => {
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({
+          scripts: { dev: "next dev", build: "next build" },
+          dependencies: { next: "^16.0.0", react: "^19.0.0", "react-dom": "^19.0.0" },
+        }),
+      },
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content: 'export default function Page() { return <div>Hello</div>; }',
+      },
+      {
+        path: "app/layout.tsx",
+        language: "tsx",
+        content: 'export default function Layout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }',
+      },
+    ]);
+
+    const pkgIssues = result.issues.filter((i) => i.file === "package.json");
+    expect(pkgIssues.length).toBe(0);
+  });
+
   it("allows matching named exports", () => {
     const result = runProjectSanityChecks([
       {

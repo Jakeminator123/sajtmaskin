@@ -1,5 +1,6 @@
 import type { ToolSet } from "ai";
 import { generateCode as generateWithEngine, type GenerateOptions } from "./engine";
+import type { StreamMeta } from "./stream-format";
 
 export interface PipelineOptions {
   prompt: string;
@@ -13,6 +14,7 @@ export interface PipelineOptions {
   tools?: ToolSet;
   maxSteps?: number;
   referenceAttachments?: GenerateOptions["referenceAttachments"];
+  streamMeta?: StreamMeta;
 }
 
 /**
@@ -34,5 +36,5 @@ export function createGenerationPipeline(
     tools: options.tools,
     maxSteps: options.maxSteps,
     referenceAttachments: options.referenceAttachments,
-  });
+  }, options.streamMeta);
 }

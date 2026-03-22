@@ -1,5 +1,7 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { getLatestVersionFiles, getVersionFiles } from "@/lib/gen/version-manager";
+import { prepareSandboxProjectFiles } from "@/lib/gen/sandbox-project-files";
+import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
@@ -155,11 +157,15 @@ export async function createLocalGeneratedRuntime(
     throw new Error("No files found for the requested chat/version");
   }
 
+  const codeFiles: CodeFile[] = files.map((file) => ({
+    path: file.name,
+    content: file.content,
+    language: file.language,
+  }));
+  const sandboxFiles = prepareSandboxProjectFiles(codeFiles);
+
   const sandboxRuntime = await createSandboxRuntimeFromFiles(
-    files.map((file) => ({
-      name: file.name,
-      content: file.content,
-    })),
+    sandboxFiles,
     sandboxOptions,
   );
 

@@ -24,6 +24,8 @@ import {
   buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
 } from "./runtime-url";
+import { prepareSandboxProjectFiles } from "@/lib/gen/sandbox-project-files";
+import type { CodeFile } from "@/lib/gen/parser";
 
 export type GenerateSiteParams = {
   prompt: string;
@@ -169,6 +171,7 @@ export async function generateSiteFromPrompt(
     model: String(engineModel),
     modelTier: modelSelection.modelTier,
     thinking,
+    streamMeta: { chatId: chat.id },
   });
 
   const reader = pipelineStream.getReader();
@@ -268,7 +271,13 @@ export async function generateSiteFromPrompt(
   const files = JSON.parse(finalized.filesJson) as Array<{
     path: string;
     content: string;
+    language?: string;
   }>;
+  const codeFiles: CodeFile[] = files.map((file) => ({
+    path: file.path,
+    content: file.content,
+    language: file.language || "tsx",
+  }));
   const runtimeFiles: RuntimeFile[] = files.map((file) => ({
     name: file.path,
     content: file.content,
@@ -280,8 +289,9 @@ export async function generateSiteFromPrompt(
   let ports: number[] | undefined;
 
   if (runtimeMode === "sandbox") {
+    const sandboxFiles = prepareSandboxProjectFiles(codeFiles);
     const sandboxRuntime = await createSandboxRuntimeFromFiles(
-      runtimeFiles,
+      sandboxFiles,
       params.sandbox,
     );
     runtimeUrl = sandboxRuntime.primaryUrl;

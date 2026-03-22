@@ -68,6 +68,92 @@ export const maxDuration = 800;
 const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
 const STREAM_RESOLVE_DELAY_MS = 1200;
 
+function extractBaseVersionIdFromMeta(meta: unknown): string | null {
+  const value = (meta as { baseVersionId?: unknown })?.baseVersionId;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function parseCodeFilesFromJson(raw: string | null | undefined): CodeFile[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((entry) => {
+      if (!entry || typeof entry !== "object") return [];
+      const path = typeof (entry as { path?: unknown }).path === "string"
+        ? (entry as { path: string }).path
+        : null;
+      const content = typeof (entry as { content?: unknown }).content === "string"
+        ? (entry as { content: string }).content
+        : null;
+      if (!path || content === null) return [];
+      const language = typeof (entry as { language?: unknown }).language === "string"
+        ? (entry as { language: string }).language
+        : "tsx";
+      return [{ path, content, language }];
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function resolveFollowUpBaseFiles(
+  chatId: string,
+  requestedBaseVersionId: string | null,
+): Promise<{
+  previousFiles: CodeFile[];
+  sourceVersionId: string | null;
+  source: "requested" | "latest" | "fallback" | "none";
+}> {
+  if (requestedBaseVersionId) {
+    const requestedVersion = await chatRepo.getVersionById(requestedBaseVersionId);
+    if (requestedVersion?.chat_id === chatId) {
+      const requestedFiles = parseCodeFilesFromJson(requestedVersion.files_json);
+      if (requestedFiles.length > 0) {
+        return {
+          previousFiles: requestedFiles,
+          sourceVersionId: requestedVersion.id,
+          source: "requested",
+        };
+      }
+    }
+  }
+
+  const latestVersion = await chatRepo.getLatestVersion(chatId);
+  if (latestVersion) {
+    const latestFiles = parseCodeFilesFromJson(latestVersion.files_json);
+    if (latestFiles.length > 0) {
+      return {
+        previousFiles: latestFiles,
+        sourceVersionId: latestVersion.id,
+        source: "latest",
+      };
+    }
+  }
+
+  const versions = await chatRepo.getVersionsByChat(chatId);
+  for (const version of versions) {
+    if (requestedBaseVersionId && version.id === requestedBaseVersionId) continue;
+    if (latestVersion && version.id === latestVersion.id) continue;
+    const files = parseCodeFilesFromJson(version.files_json);
+    if (files.length > 0) {
+      return {
+        previousFiles: files,
+        sourceVersionId: version.id,
+        source: "fallback",
+      };
+    }
+  }
+
+  return {
+    previousFiles: [],
+    sourceVersionId: null,
+    source: "none",
+  };
+}
+
 export async function handleMessageStreamRequest(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
@@ -157,6 +243,7 @@ export async function handleMessageStreamRequest(
         const metaPalette = extractPaletteStateFromMeta(meta);
         const designReferences = summarizeDesignReferences(requestAttachments);
         const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
+        const metaBaseVersionId = extractBaseVersionIdFromMeta(meta);
 
         if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
           try {
@@ -184,12 +271,17 @@ export async function handleMessageStreamRequest(
         });
         let optimizedMessage = promptOrchestration.finalMessage;
 
-        const latestEngineVersion = await chatRepo.getLatestVersion(chatId);
-        let previousFiles: CodeFile[] = [];
-        if (latestEngineVersion?.files_json) {
-          try {
-            previousFiles = JSON.parse(latestEngineVersion.files_json) as CodeFile[];
-          } catch { /* ignore malformed JSON */ }
+        const followUpBase = await resolveFollowUpBaseFiles(chatId, metaBaseVersionId);
+        const previousFiles = followUpBase.previousFiles;
+        if (followUpBase.source !== "none") {
+          devLogAppend("in-progress", {
+            type: "followup.base-version",
+            chatId,
+            source: followUpBase.source,
+            versionId: followUpBase.sourceVersionId,
+            requestedVersionId: metaBaseVersionId,
+            fileCount: previousFiles.length,
+          });
         }
 
         const briefExpandResult = await maybeExpandShortPromptWithBrief({
@@ -655,6 +747,7 @@ export async function handleMessageStreamRequest(
           maxSteps: 2,
           maxTokens: clarificationCapMaxTokens,
           referenceAttachments: requestAttachments,
+          streamMeta: { chatId },
         });
 
         const engineStream = createOwnEngineGenerationStream({

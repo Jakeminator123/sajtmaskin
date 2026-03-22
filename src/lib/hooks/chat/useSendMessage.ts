@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { buildPreviewUrl } from "@/lib/gen/preview";
 import { formatPrompt } from "@/lib/builder/promptAssist";
 import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
@@ -39,6 +40,7 @@ export function useSendMessage(
 ) {
   const {
     chatId,
+    selectedVersionId,
     appProjectId,
     selectedModelTier,
     enableImageGenerations,
@@ -147,7 +149,14 @@ export function useSendMessage(
               onAutoFix: (payload) => autoFixHandlerRef.current(payload),
               bootRuntime: true,
             });
+            const fallbackLegacy =
+              chatId && resolvedVersionId
+                ? buildPreviewUrl(chatId, String(resolvedVersionId))
+                : null;
             finalDemoUrl = qualityGate.runtimeUrl ?? finalDemoUrl;
+            if (!finalDemoUrl && fallbackLegacy) {
+              finalDemoUrl = fallbackLegacy;
+            }
             sandboxRuntimeStatus = qualityGate.status;
           } finally {
             toast.dismiss(toastId);
@@ -259,6 +268,7 @@ export function useSendMessage(
         if (buildMethod) promptMeta.buildMethod = buildMethod;
         if (effectiveScaffoldMode && effectiveScaffoldMode !== "off") promptMeta.scaffoldMode = effectiveScaffoldMode;
         if (effectiveScaffoldId) promptMeta.scaffoldId = effectiveScaffoldId;
+        if (selectedVersionId) promptMeta.baseVersionId = selectedVersionId;
         if (appProjectId) promptMeta.appProjectId = appProjectId;
         if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;

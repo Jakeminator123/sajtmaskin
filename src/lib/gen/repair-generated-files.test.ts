@@ -88,4 +88,36 @@ describe("repairGeneratedFiles", () => {
       ]),
     );
   });
+
+  it("restores preview-stripped imports back to real import statements", () => {
+    const files = [
+      {
+        path: "app/demo/actions.ts",
+        language: "ts",
+        content: [
+          '// import { headers } from "next/headers"; (stripped for preview compatibility)',
+          '// import "server-only"; (stripped for preview compatibility)',
+          "",
+          "export async function getServerActionData() {",
+          "  return { ok: true };",
+          "}",
+        ].join("\n"),
+      },
+    ];
+
+    const result = repairGeneratedFiles(files);
+    const repaired = result.files.find((file) => file.path === "app/demo/actions.ts");
+
+    expect(repaired?.content).toContain('import { headers } from "next/headers";');
+    expect(repaired?.content).toContain('import "server-only";');
+    expect(repaired?.content).not.toContain("(stripped for preview compatibility)");
+    expect(result.fixes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fixer: "preview-import-restore-fixer",
+          file: "app/demo/actions.ts",
+        }),
+      ]),
+    );
+  });
 });

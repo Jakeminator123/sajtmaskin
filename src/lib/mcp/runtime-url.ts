@@ -3,6 +3,8 @@ import {
   resolveEngineDemoUrlDetails,
   type EngineDemoUrlVersionLike,
 } from "@/lib/gen/demo-url";
+import { prepareSandboxProjectFiles, type SandboxFile } from "@/lib/gen/sandbox-project-files";
+import type { CodeFile } from "@/lib/gen/parser";
 import { getSandboxCredentials, isSandboxConfigured } from "@/lib/sandbox-auth";
 
 export type RuntimeMode = "preview" | "sandbox";
@@ -71,12 +73,19 @@ export async function createSandboxRuntimeFromFiles(
   files: RuntimeFile[],
   options: SandboxRuntimeOptions = {},
 ) {
-  if (files.length > MAX_FILES) {
-    throw new Error(`Too many files for sandbox (${files.length} > ${MAX_FILES})`);
+  const codeFiles: CodeFile[] = files.map((f) => ({
+    path: f.name,
+    content: f.content,
+    language: f.name.endsWith(".tsx") ? "tsx" : f.name.endsWith(".ts") ? "ts" : f.name.endsWith(".css") ? "css" : f.name.endsWith(".json") ? "json" : "text",
+  }));
+  const sandboxFiles: SandboxFile[] = prepareSandboxProjectFiles(codeFiles);
+
+  if (sandboxFiles.length > MAX_FILES) {
+    throw new Error(`Too many files for sandbox (${sandboxFiles.length} > ${MAX_FILES})`);
   }
 
   let totalBytes = 0;
-  for (const file of files) {
+  for (const file of sandboxFiles) {
     if (!isSafeRelativePath(file.name)) {
       throw new Error(`Unsafe file path: ${file.name}`);
     }
@@ -115,7 +124,7 @@ export async function createSandboxRuntimeFromFiles(
 
   try {
     await sandbox.writeFiles(
-      files.map((file) => ({
+      sandboxFiles.map((file) => ({
         path: file.name,
         content: Buffer.from(file.content, "utf-8"),
       })),

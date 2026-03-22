@@ -64,8 +64,20 @@ De här flaggorna styr nu hur buildern väljer previewyta:
 
 Praktisk tumregel:
 
-- `PREVIEW=y` = legacy/shim-preview.
-- Utan `PREVIEW=y` = runtime-first. Buildern väntar då på sandbox/deploy-URL i stället för att låtsas att shim-previewen är samma sak som riktig Next.js-runtime.
+- `PREVIEW=y` = legacy/shim-preview som **primär** demo-URL (samma som tidigare).
+- Utan `PREVIEW=y` = runtime-first när en **sandbox-URL** finns på versionen; annars faller resolve-logiken tillbaka till `/api/preview-render` så preview-panelen inte står tom medan sandlådan saknas eller inte bootat klart.
+
+### Checklista: riktig Next-runtime i iframe
+
+Alla dessa måste vara uppfyllda lokalt för att preview-iframe ska kunna visa en riktig Next-runtime:
+
+1. `PREVIEW` ska **inte** vara satt (eller satt till tomt/`n`).
+2. `SANDBOX_AUTO=yes` (eller `NEXT_PUBLIC_SANDBOX_AUTO=yes`).
+3. `VERCEL_TOKEN`, `VERCEL_TEAM_ID` och `VERCEL_PROJECT_ID` alla tre satta i `.env.local`.
+4. Nätverksåtkomst till `@vercel/sandbox` API.
+
+Om (3) saknas returnerar quality-gate-API:t **501** och preview-panelen visar "skipped".
+Se `src/lib/sandbox-auth.ts` och `docs/handoffs/local-operator-guide.md` för detaljer.
 
 ## Modellkonfiguration
 

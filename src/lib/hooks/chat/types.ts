@@ -140,6 +140,7 @@ export type SetMessages = (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatM
 
 export type ChatMessagingParams = {
   chatId: string | null;
+  selectedVersionId?: string | null;
   setChatId: (id: string | null) => void;
   chatIdParam: string | null;
   router: RouterLike;

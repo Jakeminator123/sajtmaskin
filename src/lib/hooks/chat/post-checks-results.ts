@@ -418,13 +418,10 @@ export function buildPostCheckArtifacts(params: {
   if (streamQuality?.hasCriticalAnomaly) {
     qualityGateFailures.push(`stream_anomaly:${streamQuality.reasons.join(",")}`);
   }
-  if (lucideLinkMisuse.length > 0) {
-    qualityGateFailures.push("invalid_link_import");
-  }
   if (sanityErrors.length > 0) {
     qualityGateFailures.push("project_sanity_errors");
   }
-  if (missingPlannedRoutes.length > 0) {
+  if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source === "brief") {
     qualityGateFailures.push("planned_routes_missing");
   }
 

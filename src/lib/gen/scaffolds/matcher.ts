@@ -162,6 +162,7 @@ const BLOG_KEYWORDS = [
 
 const DASHBOARD_KEYWORDS = [
   "dashboard",
+  "dashboards",
   "instrumentpanel",
   "admin-panel",
   "adminpanel",
@@ -177,6 +178,7 @@ const DASHBOARD_KEYWORDS = [
   "rapport",
   "rapporter",
   "chart",
+  "charts",
   "diagram",
   "table",
   "tabell",
@@ -227,6 +229,8 @@ const AUTH_KEYWORDS = [
   "register",
   "password",
   "lösenord",
+  "lösenordsskyddad",
+  "lösenordsskydd",
   "forgot password",
   "glömt lösenord",
   "reset password",
@@ -237,6 +241,9 @@ const AUTH_KEYWORDS = [
   "verifiera",
   "verifiering",
   "tvåfaktor",
+  "skyddad",
+  "behörighet",
+  "åtkomst",
 ];
 
 const ECOMMERCE_KEYWORDS = [
@@ -271,6 +278,70 @@ const ECOMMERCE_KEYWORDS = [
   "smycken", "accessoarer", "elektronik", "sport", "leksaker",
   "kosmetika", "hälsokost", "livsmedel", "vin", "kaffe",
   "handgjord", "vintage", "second hand",
+];
+
+const INTERACTIVE_SIGNAL_KEYWORDS = [
+  "state",
+  "data",
+  "database",
+  "databas",
+  "api",
+  "fetch",
+  "form",
+  "formulär",
+  "upload",
+  "upload",
+  "notification",
+  "notifikation",
+  "real-time",
+  "realtid",
+  "websocket",
+  "filter",
+  "filtrera",
+  "search",
+  "sök",
+  "sökfunktion",
+  "pagination",
+  "paginering",
+  "modal",
+  "dialog",
+  "tab",
+  "tabs",
+  "flikar",
+  "drag",
+  "drop",
+  "dra och släpp",
+  "kanban",
+  "board",
+  "tavla",
+  "lista",
+  "list view",
+  "grid view",
+  "table view",
+  "intern",
+  "internal",
+  "intranet",
+  "backoffice",
+  "back office",
+  "inventory",
+  "lagersaldo",
+  "booking system",
+  "bokningssystem",
+  "reservation",
+  "schedule",
+  "schema",
+  "calendar",
+  "kalender",
+  "task",
+  "uppgift",
+  "workflow",
+  "arbetsflöde",
+  "approval",
+  "godkännande",
+  "role",
+  "roller",
+  "permission",
+  "behörighet",
 ];
 
 const CONTENT_KEYWORDS = [
@@ -424,6 +495,14 @@ export function matchScaffold(
     return getScaffoldByFamily("content-site");
   }
 
+  const interactiveSignals = countKeywordMatches(lower, INTERACTIVE_SIGNAL_KEYWORDS);
+  if (interactiveSignals >= MIN_SCORE) {
+    if (dashboardScore >= 1) {
+      return getScaffoldByFamily("dashboard");
+    }
+    return getScaffoldByFamily("app-shell");
+  }
+
   if (buildIntent === "website" || buildIntent === "template") {
     return getScaffoldById("landing-page");
   }
@@ -481,11 +560,13 @@ export async function matchScaffoldWithEmbeddings(
         };
       }
 
+      const interactiveScore = countKeywordMatches(lower, INTERACTIVE_SIGNAL_KEYWORDS);
       if (
         buildIntent !== "app" &&
         (embeddingResult.id === "dashboard" || embeddingResult.id === "app-shell") &&
         appScore < 1 &&
-        dashboardScore < 1
+        dashboardScore < 1 &&
+        interactiveScore < MIN_SCORE
       ) {
         return {
           scaffold: keywordResult,

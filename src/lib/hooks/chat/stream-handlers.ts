@@ -17,6 +17,7 @@ import {
   recordStreamParts,
   recordStreamText,
 } from "./helpers";
+import { buildPreviewUrl } from "@/lib/gen/preview";
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
 import {
   runPostGenerationChecks,
@@ -810,7 +811,14 @@ export async function handleSseStream(
     } finally {
       toast.dismiss(toastId);
     }
-    const resolvedDemoUrl = sandboxRuntimeUrl ?? sandboxAutoDeferred.demoUrl;
+    const fallbackLegacyPreview =
+      sandboxAutoDeferred.chatId && sandboxAutoDeferred.versionId
+        ? buildPreviewUrl(sandboxAutoDeferred.chatId, sandboxAutoDeferred.versionId)
+        : null;
+    let resolvedDemoUrl = sandboxRuntimeUrl ?? sandboxAutoDeferred.demoUrl;
+    if (!resolvedDemoUrl) {
+      resolvedDemoUrl = fallbackLegacyPreview;
+    }
     if (resolvedDemoUrl) {
       setCurrentDemoUrl(resolvedDemoUrl);
       onPreviewRefresh?.();

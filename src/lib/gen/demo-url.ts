@@ -82,5 +82,8 @@ export function resolveEngineDemoUrlDetails(
     return { demoUrl: sandboxUrl, legacyPreviewUrl, mode: "runtime" };
   }
 
-  return { demoUrl: null, legacyPreviewUrl, mode: "pending-runtime" };
+  // No live sandbox URL yet (missing, still booting, or expired): still expose legacy
+  // `/api/preview-render` so the builder iframe shows an approximate preview instead
+  // of a blank panel. True Next runtime remains preferred when `sandboxUrl` exists.
+  return { demoUrl: legacyPreviewUrl, legacyPreviewUrl, mode: "pending-runtime" };
 }
