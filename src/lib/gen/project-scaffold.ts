@@ -331,6 +331,11 @@ function collectRequiredUiComponents(files: CodeFile[]): UiComponent[] {
   return Array.from(resolved.values());
 }
 
+/**
+ * Reads a shadcn-style file from disk when composing a downloadable/sandbox project.
+ * Turbopack may warn that `fs.readFileSync` + dynamic paths look like "many files" — at runtime
+ * only `components/ui/<name>.tsx` under the two fixed dirs above are read.
+ */
 function readUiComponent(name: string, searchDirs: string[]): string | null {
   const filename = `${name}.tsx`;
 

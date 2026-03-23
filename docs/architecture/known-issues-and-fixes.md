@@ -35,6 +35,16 @@ project files when exporting. Key improvements:
   Pexels, Vercel Blob, Dicebear, Picsum, and placeholder.
 - **Port**: Dev server runs on port 1555 by default.
 
+### Turbopack: “Overly broad patterns” on `project-scaffold.ts`
+
+Production build may log a Turbopack warning on `fs.readFileSync` / `path.join` inside
+[`project-scaffold.ts`](../../src/lib/gen/project-scaffold.ts) (import trace often includes
+`src/app/api/v0/chats/[chatId]/quality-gate/route.ts`). The bundler
+conservatively assumes **many** `.tsx` paths could be read; at **runtime** only existing files under
+`src/components/ui/` and `components/ui/` are loaded, by **name** from `@/components/ui/...` imports
+in the generated code. The build still completes successfully — this is a trace heuristic, not proof
+that the whole repo is being bundled into the route.
+
 ## Image Materialization
 
 The image materializer (`src/lib/gen/post-process/image-materializer.ts`)
