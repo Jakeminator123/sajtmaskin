@@ -1,9 +1,6 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { parseImports } from "@/lib/gen/preview/import-parser";
-import {
-  collectExternalPackageNames,
-  getPackageNameFromImport,
-} from "@/lib/deploy/dependency-utils";
+import { collectExternalPackageNames } from "@/lib/deploy/dependency-utils-shared";
 
 export interface SanityIssue {
   file: string;
