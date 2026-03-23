@@ -1,0 +1,93 @@
+Hej, jag har en tjej som är duktig på `Figma`. Kan du gå igenom hela projektet och bedöma hur mycket och hur bra `Figma` kan påverka det? Kommer det att överlappa befintlig logik och skapa problem, eller kan det ge ett mervärde? Om det ger mervärde, rekommenderar du att jag använder `Figma`, och hur skulle jag i så fall göra det rekomenderar du?
+
+Här är min analys efter att ha gått igenom hela projektet.
+
+Nuläget: Figma i Sajtmaskin idag
+Projektet har redan en grundläggande Figma-integration, men den är ytlig:
+
+Vad som finns	Hur det fungerar
+/api/figma/preview	Tar en Figma-URL, hämtar en PNG-bild via Figma REST API
+"Figma-länk" i builder	Användaren klistrar in en URL, den blir en bildbilaga
+purpose: "figma-reference"	Markerar bilagan som design-referens i systemprompten
+Systemprompt-instruktioner	AI:n uppmanas tolka hierarki, spacing och komposition från bilden
+Vad som INTE finns:
+
+Ingen Figma-till-kod-pipeline (inga komponenter, tokens eller lager extraheras)
+Ingen koppling mellan Figma-design och designTheme/themeColors
+Ingen mappning från Figma-komponenter till shadcn/ui-komponenter
+AI:n ser bara en platt PNG-bild -- inte strukturdata
+Överlapp och risker
+Låg risk för konflikter. Figma-flödet lever bredvid den interna design-systemlogiken utan att krocka:
+
+Sajtmaskins interna system	Figma-potential	Överlapp?
+designTheme / themeColors (OKLCh-presets)	Figma kan definiera exakt samma tokens	Nej -- de kompletterar varandra. Figma kan fylla de tokens som idag är generiska presets
+Scaffold globals.css (neutrala CSS-tokens)	Figma kan ge de faktiska färgvärdena	Nej -- scaffolds instruerar redan modellen att ersätta neutrala tokens
+shadcn/ui-komponentbibliotek	Figma kan designa utseendet på dessa komponenter	Nej -- shadcn/ui är kodbiblioteket, Figma är design-ytan
+EXTENDED_CUSTOM_INSTRUCTIONS (layout, motion, bilder)	Figma kan göra dessa instruktioner överflödiga	Möjlig överlapp -- men instruktionerna är redan off när scaffold är aktiv
+Den enda risken: om Figma-designen använder komponenter/patterns som inte finns i shadcn/ui, kan AI:n generera custom-kod som driftar från ert design system. Men det är hanterbart med rätt instruktioner.
+
+Mervärde -- ja, tydligt
+Figma ger mervärde på tre nivåer, från enklast till mest avancerat:
+
+Nivå 1: Bättre visuell referens (fungerar redan idag)
+Din Figma-designer kan redan nu:
+
+Skapa layouts i Figma
+Klistra in URL:en i buildern
+AI:n tolkar bilden som referens
+Problem med nuvarande flöde: AI:n ser bara en platt bild. Den gissar typsnitt, färger och spacing. Resultatet varierar.
+
+Nivå 2: Design tokens-brygga (kräver lite utveckling)
+Figma kan ge exakta design-tokens som matas in i generationen:
+
+Figma Variables → Extrahera → designTheme + themeColors + typography
+Konkret: Figma har "Variables" (färger, spacing, typografi). Dessa kan exporteras som JSON och mappas direkt till:
+
+--color-primary, --color-secondary, --color-accent i globals.css
+themeColors i build-kontexten
+Typografi-par i visualDirection.typography
+Detta eliminerar gissning -- AI:n får exakt rätt färgpalett och typsnitt.
+
+Nivå 3: Komponent-guidning (mest avancerat)
+Figma-designern bygger med komponenter som speglar shadcn/ui:
+
+Figma Button → shadcn/ui Button
+Figma Card → shadcn/ui Card
+Figma Dialog → shadcn/ui Dialog
+Om Figma-biblioteket är strukturerat efter shadcn/ui, kan komponent-metadata extraheras och injiceras i componentPalette -- så AI:n vet exakt vilka komponenter som ska användas.
+
+Rekommendation
+Ja, använd Figma. Men gör det smart:
+
+Steg 1: Etablera ett Figma-kit (designern gör)
+Låt henne bygga ett Sajtmaskin Design Kit i Figma med:
+
+Färg-tokens som Figma Variables -- matcha --color-primary, --color-secondary, --color-accent, --color-background, --color-foreground
+Typografi-stilar -- headings + body med riktiga Google Fonts
+shadcn/ui-baserade komponenter -- Button, Card, Dialog, Badge, Input, etc. som Figma-komponenter
+Sektions-templates -- Hero, Features, Testimonials, CTA, Footer
+Steg 2: Använd referens-flödet direkt (noll kodutveckling)
+Med kitet kan hon designa kundwebbplatser i Figma och:
+
+Klistra in Figma-URL i buildern
+Välja rätt designTheme manuellt som matchar Figma-färgerna
+AI:n genererar kod som visuellt matchar designen
+Det här fungerar idag utan kodändringar.
+
+Steg 3: Bygg tokens-bryggan (liten insats, stor effekt)
+Om du vill ta det ett steg längre, bygg ett litet extract-steg:
+
+Figma-designern exporterar Variables som JSON (via Figma Plugin eller REST API)
+Ett nytt API-endpoint /api/figma/extract-tokens som:
+Hämtar Figma Variables via API
+Mappar till ThemeColors + typografi
+Auto-sätter designTheme: "custom" med rätt themeColors
+Det eliminerar det manuella steget och ger pixelperfekt färg-matchning.
+
+Sammanfattning
+Fråga	Svar
+Ger Figma mervärde?	Ja, tydligt -- särskilt för visuell kvalitet och konsistens
+Skapar det problem?	Nej -- det lever parallellt med befintlig logik
+Överlapp?	Minimal -- Figma kompletterar, ersätter inte
+Rekommendation?	Börja med Steg 1+2 (noll kodutveckling), bygg Steg 3 när det bevisats värdefullt
+Största vinsten?	Kunderna får professionell design utan att AI:n gissar -- din designer styr det visuella

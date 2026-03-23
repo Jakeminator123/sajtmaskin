@@ -20,11 +20,11 @@ tsconfig.tsbuildinfo
 package-lock.json
 
 # Local env / secrets / local status
-.env
-.env.*
-.env.local
-.env.production
-.token-status.json
+#.env
+#.env.*
+#.env.local
+#.env.production
+#.token-status.json
 
 # Local browser / automation config
 config.browser.txt

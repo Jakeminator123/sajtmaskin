@@ -14,6 +14,8 @@ import { OpenClawChatLazy } from "@/components/openclaw/OpenClawChatLazy";
 import { OPENCLAW, URLS } from "@/lib/config";
 
 const openclawSurfaceEnabled = OPENCLAW.surfaceEnabled;
+const shouldLoadVercelRuntimeScripts =
+  process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -88,8 +90,8 @@ export default async function RootLayout({
           <OrganizationJsonLd />
           <SoftwareApplicationJsonLd />
           <AnalyticsTracker />
-          <Analytics />
-          <SpeedInsights />
+          {shouldLoadVercelRuntimeScripts ? <Analytics /> : null}
+          {shouldLoadVercelRuntimeScripts ? <SpeedInsights /> : null}
           <BetaBanner />
           {children}
           <Toaster position="top-right" />
