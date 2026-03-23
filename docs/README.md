@@ -78,7 +78,7 @@ Not runtime dependencies:
 
 After regenerating or hand-editing committed artifacts under `src/lib/gen/**`:
 
-- `npm run scaffolds:build` — after changes to `src/lib/gen/scaffolds/registry.ts`, manifests, or `research/dossiers/` (research JSON + scaffold embeddings + validation).
+- `npm run scaffolds:build` — after changes to `src/lib/gen/scaffolds/registry.ts` or manifests (research stubs + scaffold embeddings + validation).
 - `npm run verify:generated-paths` — fails on machine-specific absolutes (`C:\\Users\\…`) or legacy `research/external-templates` path segments.
 - `npm run normalize:generated-paths` — normalizes `clonePath` / `sourceRoot` in `template-library.generated.json` when verify fails (see `.cursor/rules/generated-artifacts-hygiene.mdc`).
 

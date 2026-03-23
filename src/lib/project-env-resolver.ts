@@ -10,6 +10,7 @@
 
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import { detectIntegrations, type DetectedIntegration } from "@/lib/gen/detect-integrations";
+import { isPlaceholderValue } from "@/lib/project-env-placeholders";
 
 export type ResolvedProjectEnv = {
   source: "app-project" | "none";
@@ -23,6 +24,7 @@ export type ResolvedProjectEnvRequirements = {
   requiredEnvKeys: string[];
   configuredEnvKeys: string[];
   missingEnvKeys: string[];
+  placeholderEnvKeys: string[];
 };
 
 export async function resolveProjectEnv(
@@ -71,10 +73,16 @@ export function resolveEnvRequirements(
     (key) => !env.configuredKeys.has(key),
   );
 
+  const placeholderEnvKeys = configuredEnvKeys.filter((key) => {
+    const value = env.configuredMap[key];
+    return typeof value === "string" && isPlaceholderValue(value);
+  });
+
   return {
     detectedIntegrations,
     requiredEnvKeys,
     configuredEnvKeys,
     missingEnvKeys,
+    placeholderEnvKeys,
   };
 }

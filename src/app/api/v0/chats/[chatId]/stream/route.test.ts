@@ -149,7 +149,7 @@ vi.mock("@/lib/models/catalog", () => ({
   isCanonicalModelId: () => false,
 }));
 
-vi.mock("@/lib/gen/fallback", () => ({
+vi.mock("@/lib/gen/pipeline", () => ({
   shouldUseExplicitBuilderFallback: () => false,
   shouldUseV0Fallback: () => false,
   createGenerationPipeline,

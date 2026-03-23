@@ -5,7 +5,7 @@ Sajtmaskin's own code generation engine. Uses OpenAI models (gpt-5.3-codex defau
 ## Architecture
 
 ```
-createGenerationPipeline()  (fallback.ts)
+createGenerationPipeline()  (pipeline.ts)
     │
     └─ engine.ts (streamText + createCodeGenSSEStream)
             │
@@ -19,8 +19,9 @@ createGenerationPipeline()  (fallback.ts)
 
 | File | Role |
 |------|------|
-| `fallback.ts` | Entry point. `createGenerationPipeline()` delegates to the own engine. |
+| `pipeline.ts` | Entry point. `createGenerationPipeline()` delegates to the own engine. |
 | `engine.ts` | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
+| `orchestrate.ts` | Pre-generation orchestration: scaffold matching, route planning, brief expansion. |
 | `system-prompt.ts` | Builds the system prompt (static core + dynamic context). |
 | `stream-format.ts` | Converts AI SDK stream to SSE events (`meta`, `thinking`, `content`, `done`, `error`). |
 | `url-compress.ts` | Compresses long URLs to aliases before LLM (saves tokens), expands after. |
@@ -29,6 +30,7 @@ createGenerationPipeline()  (fallback.ts)
 | `parser.ts` | Parses fenced code blocks from streamed content. |
 | `preview/` | Preview runtime modules. `preview/index.ts` exposes `buildPreviewHtml()` and `buildPreviewUrl()`, while sibling files split resolution, CSS, transpilation, script assembly, and shims. |
 | `version-manager.ts` | Creates versions from content, parses files. |
+| `plan-schema.ts` | Structured plan artifact schema, normalization, and serialization for plan mode. |
 
 ## v0 Platform API (not used for generation)
 
@@ -36,16 +38,33 @@ The own engine is the sole generation path. v0 Platform API (`v0-sdk`) is still
 used for legacy operations: templates (`generateFromTemplate`), registry init
 (`initFromRegistry`), and download (`downloadVersionAsZip`).
 
+## Embedding lanes (three separate spurs)
+
+The own engine uses three distinct embedding indexes. They serve different
+purposes and must not be confused:
+
+| Lane | Index file | Search module | Purpose |
+|------|-----------|---------------|---------|
+| **Runtime scaffolds** | `scaffolds/scaffold-embeddings.json` | `scaffolds/scaffold-search.ts` → `matcher.ts` | Selects the internal scaffold for generation. |
+| **Reference / template-library** | `template-library/template-library-embeddings.json` | `template-library/search.ts` | Injects curated code references into the system prompt. Not a scaffold choice. |
+| **v0 gallery** | `src/lib/templates/` (separate) | `src/lib/templates/template-search.ts` | Powers the product gallery / browse cards. Not used at generation time. |
+
+**Dossiers** (`research/dossiers/`) are no longer part of any runtime path.
+
+For a longer explanation see `docs/architecture/embeddings-and-template-lanes.md`.
+
 ## Scaffold lane (10 runtime scaffolds)
 
-Runtime scaffold selection is `getAllScaffolds()` in `scaffolds/registry.ts`
-(keywords + optional embedding fallback in `matcher.ts`). Dossiers under
-`research/dossiers/` are **not** imported by the Next app; they feed build
-scripts that emit `scaffold-research.generated.json` and
-`scaffold-embeddings.json`. After changing manifests, registry, or dossiers,
-run `npm run scaffolds:build` (or `scaffolds:research` / `scaffolds:embeddings`
-/ `scaffolds:validate` separately). See `docs/architecture/scaffold-system.md`
-and `research/README.md`.
+Runtime scaffold selection uses **embedding similarity** via
+`matchScaffoldWithEmbeddings()` in `scaffolds/matcher.ts`. The prompt is
+embedded and compared against pre-computed scaffold vectors in
+`scaffold-embeddings.json`. Candidates are filtered by `buildIntent` so a
+website-only scaffold cannot win when the user asks for an app. When embeddings
+are unavailable, a deterministic fallback selects a default scaffold based on
+`buildIntent`.
+
+After changing manifests or registry, run `npm run scaffolds:build`
+(`scaffolds:research` + `scaffolds:embeddings` + `scaffolds:validate`).
 
 ## Generated Artifacts And Indexing
 

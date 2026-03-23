@@ -60,7 +60,7 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "codex",
     label: "Kod Max",
-    description: "Tung kodprofil. GPT-5.4 med xhigh reasoning for stora byggprojekt.",
+    description: "Tung kodprofil. GPT-5.4 med high reasoning (Thinking) for stora byggprojekt.",
   },
   {
     value: "anthropic",

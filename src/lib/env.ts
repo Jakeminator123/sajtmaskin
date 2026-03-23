@@ -182,6 +182,14 @@ export const serverSchema = z.object({
   SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS: z.string().optional(),
   /** When "1", skip blocking auth/payment/db contract modals and use placeholder decisions (defer real setup to project settings). */
   SAJTMASKIN_CONTRACT_DEFER_TO_SETTINGS: z.string().optional(),
+  /** When affirmative, auto-insert dev placeholder values for missing project env vars so they never block deploy readiness. */
+  SAJTMASKIN_AUTO_PLACEHOLDER_ENV: z.string().optional(),
+  /** Value used for auto-inserted placeholder env vars. Defaults to "dev-placeholder-not-set". */
+  SAJTMASKIN_PLACEHOLDER_ENV_VALUE: z.string().optional(),
+  /** When affirmative, raise autofix limits and reduce delays so quality-gate failures are repaired faster. */
+  SAJTMASKIN_AGGRESSIVE_AUTOFIX: z.string().optional(),
+  /** When affirmative, auto-deploy to Vercel after a version passes readiness (no blockers). */
+  SAJTMASKIN_AUTO_DEPLOY_AFTER_REPAIR: z.string().optional(),
   CRON_SECRET: z.string().optional(),
 
   // Inspector / capture worker

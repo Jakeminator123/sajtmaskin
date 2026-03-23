@@ -25,6 +25,7 @@ import type {
   StreamQualitySignal,
   VersionErrorLogPayload,
 } from "./types";
+import { maybeAutoDeployVersion } from "./auto-deploy";
 
 async function persistVersionErrorLogs(params: {
   chatId: string;
@@ -183,13 +184,13 @@ export async function runPostGenerationChecks(params: {
       logs: artifacts.logItems,
     });
 
-    if (artifacts.autoFixReasons.length > 0) {
-      onAutoFix?.({
-        chatId,
-        versionId,
-        reasons: artifacts.autoFixReasons,
-        meta: buildAutoFixMeta(baseline, imageValidation, artifacts.finalDemoUrl, preflight),
-      });
+    const postCheckAutoFixReasons = artifacts.autoFixReasons;
+    const postCheckAutoFixMeta = postCheckAutoFixReasons.length > 0
+      ? buildAutoFixMeta(baseline, imageValidation, artifacts.finalDemoUrl, preflight)
+      : undefined;
+
+    if (postCheckAutoFixReasons.length > 0) {
+      console.info(`[post-check] Critical reasons (${postCheckAutoFixReasons.length}): ${postCheckAutoFixReasons.join(", ")}`);
     }
 
     appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -223,14 +224,31 @@ export async function runPostGenerationChecks(params: {
     // if the sandbox reveals additional failures.
     /** Preflight could not prepare preview — skip redundant sandbox round-trip. */
     const skipGateForPreflight = Boolean(preflight?.previewBlocked);
-    if (skipGateForPreflight && !skipQualityGate) {
+    const skipGateForPreviewIssue = postCheckAutoFixReasons.some((reason) =>
+      reason.toLowerCase().startsWith("preview"),
+    );
+    if ((skipGateForPreflight || skipGateForPreviewIssue) && !skipQualityGate) {
       appendToolPartToMessage(setMessages, assistantMessageId, {
         type: "tool:quality-gate",
         toolName: "Quality gate",
         toolCallId: `quality-gate:${versionId}`,
         state: "output-available",
-        output: { skipped: true, reason: "Preview blocked in preflight" },
+        output: {
+          skipped: true,
+          reason: skipGateForPreflight
+            ? "Preview blocked in preflight"
+            : "Preview issue already detected in post-check",
+        },
       } as UiMessagePart);
+      if (postCheckAutoFixReasons.length > 0 && onAutoFix) {
+        console.info(`[autofix-trigger] Gate skipped, firing post-check reasons only (${postCheckAutoFixReasons.length})`);
+        onAutoFix({
+          chatId,
+          versionId,
+          reasons: postCheckAutoFixReasons,
+          meta: postCheckAutoFixMeta ?? {},
+        });
+      }
     } else if (!skipQualityGate && !skipGateForPreflight) {
       void runSandboxQualityGate({
         chatId,
@@ -238,6 +256,16 @@ export async function runPostGenerationChecks(params: {
         assistantMessageId,
         setMessages,
         onAutoFix,
+        pendingPostCheckReasons: postCheckAutoFixReasons,
+        pendingPostCheckMeta: postCheckAutoFixMeta as Record<string, unknown> | undefined,
+      });
+    } else if (postCheckAutoFixReasons.length > 0 && onAutoFix) {
+      console.info(`[autofix-trigger] No gate configured, firing post-check reasons only (${postCheckAutoFixReasons.length})`);
+      onAutoFix({
+        chatId,
+        versionId,
+        reasons: postCheckAutoFixReasons,
+        meta: postCheckAutoFixMeta ?? {},
       });
     }
   } catch (error) {
@@ -280,9 +308,15 @@ export async function runSandboxQualityGate(params: {
   setMessages: SetMessages;
   onAutoFix?: (payload: AutoFixPayload) => void;
   bootRuntime?: boolean;
+  pendingPostCheckReasons?: string[];
+  pendingPostCheckMeta?: Record<string, unknown>;
 }) {
-  const { chatId, versionId, assistantMessageId, setMessages, onAutoFix, bootRuntime = false } =
-    params;
+  const {
+    chatId, versionId, assistantMessageId, setMessages, onAutoFix,
+    bootRuntime = true,
+    pendingPostCheckReasons = [],
+    pendingPostCheckMeta,
+  } = params;
   const toolCallId = `quality-gate:${versionId}`;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -290,7 +324,7 @@ export async function runSandboxQualityGate(params: {
     toolName: "Quality gate",
     toolCallId,
     state: "input-streaming",
-    input: { chatId, versionId, checks: ["typecheck", "build"] },
+    input: { chatId, versionId, checks: ["typecheck", "build"], bootRuntime },
   } as UiMessagePart);
 
   try {
@@ -357,6 +391,13 @@ export async function runSandboxQualityGate(params: {
     if (data.sandboxDurationMs) {
       steps.push(`Duration: ${Math.round(data.sandboxDurationMs / 1000)}s`);
     }
+    if (bootRuntime) {
+      steps.push(
+        data.runtimeUrl
+          ? "Runtime sandbox: READY"
+          : "Runtime sandbox: not started",
+      );
+    }
 
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: "tool:quality-gate",
@@ -372,16 +413,26 @@ export async function runSandboxQualityGate(params: {
       },
     } as UiMessagePart);
 
-    if (!data.passed && failedChecks.length > 0 && onAutoFix) {
+    const gateReasons = !data.passed && failedChecks.length > 0
+      ? failedChecks.map((check) => `${check} failed`)
+      : [];
+    const allReasons = [...pendingPostCheckReasons, ...gateReasons];
+
+    if (data.passed && allReasons.length === 0) {
+      maybeAutoDeployVersion({ chatId, versionId });
+    }
+
+    if (allReasons.length > 0 && onAutoFix) {
       const failedOutputs: Record<string, string> = {};
       for (const check of data.checks ?? []) {
         if (!check.passed) failedOutputs[check.check] = check.output.slice(0, 2000);
       }
+      console.info(`[autofix-trigger] Merged reasons (${allReasons.length}): ${allReasons.join(", ")}`);
       onAutoFix({
         chatId,
         versionId,
-        reasons: failedChecks.map((check) => `${check} failed`),
-        meta: { qualityGate: failedOutputs },
+        reasons: allReasons,
+        meta: { ...pendingPostCheckMeta, qualityGate: Object.keys(failedOutputs).length > 0 ? failedOutputs : undefined },
       });
     }
 

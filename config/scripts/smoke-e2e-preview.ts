@@ -10,7 +10,8 @@
  *   npx tsx config/scripts/smoke-e2e-preview.ts "Bygg ett bokningssystem med kalender"
  */
 import "dotenv/config";
-import { matchScaffoldWithEmbeddings, matchScaffold } from "../../src/lib/gen/scaffolds/matcher";
+import { matchScaffoldWithEmbeddings } from "../../src/lib/gen/scaffolds/matcher";
+import { getScaffoldByFamily } from "../../src/lib/gen/scaffolds/registry";
 import { getAllScaffolds } from "../../src/lib/gen/scaffolds/registry";
 import { prepareSandboxProjectFiles } from "../../src/lib/gen/sandbox-project-files";
 import { runProjectSanityChecks } from "../../src/lib/gen/validation/project-sanity";
@@ -75,20 +76,12 @@ async function main() {
     } else { warn("Template lib embeddings empty"); w++; }
   } catch { warn("template-library-embeddings.json missing (keyword fallback)"); w++; }
 
-  // 2. Keyword matching
-  hdr("2. Keyword scaffold matching");
-  for (const t of TESTS) {
-    const r = matchScaffold(t.prompt, t.intent);
-    if (r?.family === t.expect) { ok(`${t.label} -> ${r.family}`); p++; }
-    else { fail(`${t.label} -> ${r?.family ?? "null"} (expected ${t.expect})`); f++; }
-  }
-
-  // 3. Embedding matching
-  hdr("3. Embedding scaffold matching (requires OPENAI_API_KEY)");
+  // 2. Embedding scaffold matching
+  hdr("2. Embedding scaffold matching (requires OPENAI_API_KEY)");
   if (!key) { warn("OPENAI_API_KEY missing -- skipping"); w++; }
   else if (!embOk) { warn("Embeddings not loaded -- skipping"); w++; }
   else {
-    for (const t of TESTS.slice(0, 3)) {
+    for (const t of TESTS) {
       try {
         const r = await matchScaffoldWithEmbeddings(t.prompt, t.intent);
         dim(`${t.label} -> ${r.scaffold?.family ?? "null"} (src=${r.matchMeta.matchSource}, score=${r.matchMeta.embeddingScore ?? "n/a"})`);
@@ -172,7 +165,7 @@ async function main() {
   hdr("8. Route plan & capabilities");
   const prompt = custom || "Bygg en restaurangsida med meny, bokning och kontakt";
   dim(`Prompt: "${prompt}"`);
-  const sc = matchScaffold(prompt, "website");
+  const sc = getScaffoldByFamily("landing-page");
   dim(`Scaffold: ${sc?.id ?? "null"} (${sc?.family ?? "n/a"})`);
 
   const rp = buildRoutePlan({ prompt, buildIntent: "website", brief: null, resolvedScaffold: sc });

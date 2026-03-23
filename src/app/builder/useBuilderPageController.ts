@@ -234,7 +234,7 @@ export function useBuilderPageController() {
   // ── Deployment status SSE ──────────────────────────────────────────
   const deploymentStatus = useDeploymentStatus(state.activeDeploymentId);
 
-  // ── V0 Chat messaging ───────────────────────────────────────────────
+  // ── Chat messaging ─────────────────────────────────────────────────
   const resetBeforeCreateChat = useCallback(() => {
     setCurrentDemoUrl(null);
     setPreviewRefreshToken(0);

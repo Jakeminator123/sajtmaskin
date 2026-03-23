@@ -48,27 +48,6 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-const QUERY_HINTS: Array<{ match: RegExp; hint: string }> = [
-  { match: /\b(animation|motion|animate|rörelse|animering)\b/i, hint: "framer-motion animation transition spring stagger" },
-  { match: /\b(3d|three|webgl|canvas|mesh|orb|sphere)\b/i, hint: "react-three-fiber 3d canvas webgl scene" },
-  { match: /\b(chart|graph|diagram|analytics|graf)\b/i, hint: "recharts chart line-chart bar-chart data visualization" },
-  { match: /\b(form|input|validation|formulär|validering)\b/i, hint: "react-hook-form zod validation form submit" },
-  { match: /\b(auth|login|inloggning|registrering)\b/i, hint: "authentication login signup password session" },
-  { match: /\b(dark|light|theme|tema|mörkt)\b/i, hint: "next-themes dark-mode light-mode theme toggle" },
-  { match: /\b(carousel|slider|karusell|bildspel)\b/i, hint: "embla-carousel slider slideshow gallery" },
-  { match: /\b(table|tabell|sorting|pagination)\b/i, hint: "tanstack-table data-table sorting filtering" },
-  { match: /\b(toast|notification|notis|alert)\b/i, hint: "sonner toast notification alert feedback" },
-  { match: /\b(sidebar|sidopanel|navigation|meny)\b/i, hint: "sidebar sheet navigation responsive menu" },
-];
-
-function expandQuery(query: string): string {
-  const hints = QUERY_HINTS
-    .filter(({ match }) => match.test(query))
-    .map(({ hint }) => hint);
-  if (hints.length === 0) return query;
-  return `${query}\n\nRelated: ${Array.from(new Set(hints)).join(", ")}`;
-}
-
 export async function searchKnowledgeBaseSemantic(
   query: string,
   topK: number = 5,
@@ -86,7 +65,7 @@ export async function searchKnowledgeBaseSemantic(
   try {
     const response = await openai.embeddings.create({
       model: DOCS_EMBEDDING_MODEL,
-      input: expandQuery(query),
+      input: query,
       dimensions: DOCS_EMBEDDING_DIMENSIONS,
     });
     queryEmbedding = response.data[0].embedding;

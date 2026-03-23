@@ -5,13 +5,13 @@ local-only, and which should be evaluated for later extraction from this repo.
 
 ## Why the repo feels large
 
-- **Historical note:** the old `scaffold-pipeline/` tree was removed. Dossiers now live under
-  `research/dossiers/` as build-time enrichment data. Build scripts produce generated artifacts
-  committed under `src/lib/gen/scaffolds/` and `src/lib/gen/template-library/`.
+- **Historical note:** the old `scaffold-pipeline/` and dossier pipeline were removed.
+  Build scripts produce generated artifacts committed under `src/lib/gen/scaffolds/`
+  and `src/lib/gen/template-library/`.
 - **Lane model (2026-03):** raw Vercel scrape output should usually live **outside the repo**
   (preferably as a sibling folder like `../vercel-scrape/`), while helper mirrors such as
   `_template_refs/` can stay inside the repo as **local-only gitignored caches**. Only a small
-  normalized catalog (`research/normalized-catalog.json`) and dossiers enter the repo.
+  normalized catalog (`research/normalized-catalog.json`) enters the repo.
   See `docs/architecture/scaffold-lane-model.md` for the full three-zone model.
 - **Still true:** large media, generated JSON, and docs can add weight — keep them classified below.
 
@@ -21,7 +21,7 @@ local-only, and which should be evaluated for later extraction from this repo.
 |------|------|------|
 | `keep` | `src/`, `docs/`, `public/video/` | App/runtime code, canonical docs, and currently used product assets. |
 | `keep` | `src/lib/gen/template-library/`, `src/lib/gen/scaffolds/`, `src/lib/gen/data/docs-embeddings.json` | Runtime code imports these generated artifacts directly. Keep them committed even when some large generated JSON files are excluded from Cursor indexing. |
-| `keep` | `research/dossiers/`, `research/README.md` | Build-time enrichment layer for scaffold research artifacts. |
+| `keep` | `research/README.md` | Research lane documentation. |
 | `local-only` | `_template_refs/`, `_sidor/`, `research/raw-discovery/` | Local datasets / clone mirrors that are convenient to keep near the repo, but never committed and not needed by the runtime app. If a cache grows to GB-scale (for example a large shadcn.io mirror), it is also reasonable to move it to a sibling folder outside the repo. |
 | `outside-repo` | Raw Vercel scrape output (e.g. `../vercel-scrape/` or `~/vercel-scrape/`) | Best default for Zone 1 intake from `scripts/hamta_sidor.py`: source-aligned scrape output stays outside the git root and outside normal Cursor indexing. |
 | `keep` | `research/normalized-catalog.json` | Small normalized bridge from Zone 1 → Zone 2; committed but cursorignored. |

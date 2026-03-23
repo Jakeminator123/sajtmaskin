@@ -1009,8 +1009,8 @@ export function buildAgentLogItems(toolParts: ToolPart[]) {
         const label = scaffoldLabel || scaffoldId;
         const sourceTag = matchSource === "embedding"
           ? `via embedding${embScore != null ? ` (${embScore})` : ""}`
-          : matchSource === "keyword"
-            ? "via nyckelord"
+          : matchSource === "fallback"
+            ? "standard-scaffold"
             : matchSource === "manual"
               ? "manuellt vald"
               : matchSource === "persisted"

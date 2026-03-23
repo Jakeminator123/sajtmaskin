@@ -54,13 +54,15 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsAuth",
     patterns: [
-      /\b(auth|login|sign.?up|sign.?in|register|password|forgot.?password|reset.?password|inloggning|registrer|logga.?in|lösenord|konto|session|oauth|jwt)\b/i,
+      /\b(auth|login|sign.?up|sign.?in|register|password|forgot.?password|reset.?password|session|oauth|jwt)\b/i,
+      /\b(inloggning|registrer|logga.?in|lösenord|konto)/i,
     ],
   },
   {
     key: "needsAppShell",
     patterns: [
-      /\b(dashboard|admin.?panel|sidebar|crm|backoffice|settings.?page|user.?manage|instrumentpanel|kontrollpanel|workspace|portal)\b/i,
+      /\b(dashboard|admin.?panel|sidebar|crm|backoffice|settings.?page|user.?manage|workspace|portal)\b/i,
+      /\b(instrumentpanel|kontrollpanel|administrat)/i,
     ],
   },
   {
@@ -72,13 +74,15 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsForms",
     patterns: [
-      /\b(form|contact.?form|booking|boka|survey|questionnaire|formulär|kontakt|multi.?step|wizard.?form)\b/i,
+      /\b(form|contact.?form|booking|survey|questionnaire|multi.?step|wizard.?form)\b/i,
+      /\b(boka|bokning|formulär|kontakt)/i,
     ],
   },
   {
     key: "needsEcommerce",
     patterns: [
-      /\b(ecommerce|e-?commerce|e-?handel|shop|store|cart|varukorg|checkout|kassa|product|produkt|storefront|webshop|payment)\b/i,
+      /\b(ecommerce|e-?commerce|shop|store|cart|checkout|product|storefront|webshop|payment)\b/i,
+      /\b(e-?handel|varukorg|kassa|produkt)/i,
     ],
   },
   {

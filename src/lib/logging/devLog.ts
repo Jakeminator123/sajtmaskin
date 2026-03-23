@@ -41,6 +41,8 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "site.done",
   "site.message.done",
   "comm.error.create",
+  "quality-gate.result",
+  "seo-baseline",
 ]);
 
 type SanitizeOptions = {
@@ -294,8 +296,16 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
     case "site.done":
     case "site.message.done":
       if (readNumber(entry, "durationMs") !== null) details.push(`durationMs=${readNumber(entry, "durationMs")}`);
-      if (readString(entry, "demoUrl")) details.push(`preview=${truncateInline(readString(entry, "demoUrl")!, 70)}`);
+      if (readString(entry, "demoUrl")) details.push(`demoUrl=${truncateInline(readString(entry, "demoUrl")!, 70)}`);
       if (readBoolean(entry, "awaitingInput") !== null) details.push(`awaitingInput=${readBoolean(entry, "awaitingInput")}`);
+      break;
+    case "quality-gate.result":
+      if (readBoolean(entry, "passed") !== null) details.push(`passed=${readBoolean(entry, "passed")}`);
+      if (readNumber(entry, "exitCode") !== null) details.push(`exit=${readNumber(entry, "exitCode")}`);
+      if (readString(entry, "path")) details.push(`path=${readString(entry, "path")}`);
+      break;
+    case "seo-baseline":
+      if (countArray(entry, "fixes") !== null) details.push(`fixes=${countArray(entry, "fixes")}`);
       break;
     default:
       break;

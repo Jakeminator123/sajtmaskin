@@ -16,7 +16,7 @@ question UX, see `docs/architecture/project-settings-and-builder-questions.md`.
 ## Scope
 
 This describes the current behavior after the preview-guard and error-memory
-hardening pass on `egen-motor-v2`.
+hardening pass on the own-engine branch (historically `egen-motor-v2`, now merged to main).
 
 The system still creates a persisted version before the client-side post-check
 and quality-gate layers finish, but it now withholds the active preview URL for

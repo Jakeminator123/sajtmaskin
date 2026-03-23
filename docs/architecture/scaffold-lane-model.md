@@ -8,9 +8,9 @@ Canonical model for how external templates flow into Sajtmaskins runtime.
 Zone 1: RAW (outside repo or          Zone 2: NORMALIZED (in repo)         Zone 3: RUNTIME (in repo)
         local-only cache)
 ─────────────────────────────         ──────────────────────────────       ────────────────────────────
-  Vercel scrape output                  research/dossiers/<slug>/           src/lib/gen/scaffolds/
-  git clone mirrors                     research/normalized-catalog.json    src/lib/gen/template-library/
-  ingestion_report.json                 scaffold-research.generated.json    scaffold-embeddings.json
+  Vercel scrape output                  research/normalized-catalog.json    src/lib/gen/scaffolds/
+  git clone mirrors                     scaffold-research.generated.json    src/lib/gen/template-library/
+  ingestion_report.json                 template-library.generated.json     scaffold-embeddings.json
   summary.json                          template-library.generated.json
   raw HTML / metadata.json              template-library-embeddings.json
                                         (all committed, cursorignored)
@@ -42,11 +42,7 @@ Zone 1: RAW (outside repo or          Zone 2: NORMALIZED (in repo)         Zone 
          v
 ┌──────────────────┐
 │  Zone 2: NORM.   │  research/normalized-catalog.json  (small, committed)
-│  (in repo)       │  research/dossiers/<slug>/manifest.json + notes
-│                  │
-│  Dossier gen:    │  npm run research:generate-dossiers
-│    auto-creates  │    → research/dossiers/<slug>/manifest.json per scaffold family
-│                  │
+│  (in repo)       │
 │  Build scripts:  │  npm run scaffolds:build
 │    scaffolds:    │    → scaffold-research.generated.json
 │    research      │    → scaffold-embeddings.json
@@ -82,7 +78,7 @@ Zone 1: RAW (outside repo or          Zone 2: NORMALIZED (in repo)         Zone 
 | Raw | `<repo-parent>/vercel-scrape/` (e.g. `../vercel-scrape/`, `~/vercel-scrape/`) | No | No |
 | Raw (alt) | `_template_refs/`, `_sidor/` | No (gitignored) | No |
 | Normalized | `research/normalized-catalog.json` | Yes | No (cursorignored) |
-| Normalized | `research/dossiers/<slug>/manifest.json` | Yes | No (cursorignored via `research/`) |
+| Normalized | `research/README.md` | Yes | No (cursorignored via `research/`) |
 | Artifacts | `src/lib/gen/template-library/template-library.generated.json` | Yes | No (cursorignored) |
 | Artifacts | `src/lib/gen/template-library/template-library-embeddings.json` | Yes | No (cursorignored) |
 | Artifacts | `src/lib/gen/scaffolds/scaffold-research.generated.json` | Yes | No (cursorignored) |
@@ -95,13 +91,13 @@ Zone 1: RAW (outside repo or          Zone 2: NORMALIZED (in repo)         Zone 
 | Script | Purpose |
 |--------|---------|
 | `research:normalize` | Zone 1 → Zone 2: reads raw scrape output, writes `research/normalized-catalog.json` |
-| `research:generate-dossiers` | Zone 2 → dossiers: reads normalized catalog, auto-generates `research/dossiers/<slug>/manifest.json` per scaffold family |
+| `scaffolds:research` | Generates minimal `scaffold-research.generated.json` stubs from registry (no dossier dependency) |
 | `template-library:build` | Zone 2 → artifacts: reads normalized catalog, writes `template-library.generated.json` |
 | `template-library:embeddings` | Generates `template-library-embeddings.json` from the catalog |
-| `scaffolds:research` | Reads dossiers, writes `scaffold-research.generated.json` |
+| `scaffolds:embeddings` | Generates `scaffold-embeddings.json` for runtime matching |
 | `scaffolds:embeddings` | Generates `scaffold-embeddings.json` for runtime matching |
 | `scaffolds:validate` | Validates all scaffold manifests |
-| `scaffolds:build` | Runs `scaffolds:research` → `scaffolds:embeddings` → `scaffolds:validate` |
+| `scaffolds:build` | research stubs + embeddings + validate in sequence |
 | `verify:generated-paths` | Ensures no machine-specific paths in committed JSON |
 
 ## Shadcn.io mirror (~150 repos) vs runtime
@@ -111,7 +107,7 @@ The `_template_refs/shadcn-io-mirror/` tree (from `mirror_shadcn_io_templates.py
 ## Key rules
 
 1. **Raw Vercel scrape data stays outside the git root when practical.** The simplest default is a sibling folder like `../vercel-scrape/`. Auxiliary mirrors like `_template_refs/` are acceptable local-only caches inside the repo as long as they remain gitignored/cursorignored. The repo only receives the small, normalized catalog.
-2. **Normalized catalog is the single bridge.** All downstream build scripts read from `research/normalized-catalog.json` and `research/dossiers/`, never from raw HTML or clone directories.
+2. **Normalized catalog is the single bridge.** All downstream build scripts read from `research/normalized-catalog.json`, never from raw HTML or clone directories.
 3. **Promotion is explicit.** A normalized entry does not become a runtime scaffold automatically. It must be promoted to `src/lib/gen/scaffolds/<id>/manifest.ts` and registered in `registry.ts`. The first phase should produce scaffold candidates and dossiers; full replacement of current runtime scaffolds comes after verification.
 4. **IDs are stable.** The `id` field in normalized entries, dossier manifests, `referenceTemplates`, and `template-library.generated.json` must all use the same key scheme so lookups in `system-prompt.ts` resolve correctly.
 5. **Path hygiene.** All committed JSON must pass `npm run verify:generated-paths` before merge. No `C:\Users\…` or other machine-specific paths.

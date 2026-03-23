@@ -3,7 +3,7 @@ import type { ScaffoldManifest } from "./scaffolds/types";
 import type { SiteProfile } from "./scaffolds/site-profile";
 
 export type RoutePlanSiteType = "one-page" | "brochure" | "content-heavy" | "app-shell";
-export type RoutePlanSource = "brief" | "prompt" | "scaffold";
+export type RoutePlanSource = "brief" | "prompt" | "scaffold" | "existing";
 
 export interface PlannedRoute {
   path: string;
@@ -319,8 +319,27 @@ export function buildRoutePlan(params: {
   brief?: Record<string, unknown> | null;
   resolvedScaffold: ScaffoldManifest | null;
   siteProfile?: SiteProfile | null;
+  existingFilePaths?: string[];
 }): RoutePlan {
-  const { prompt, buildIntent, brief, resolvedScaffold, siteProfile } = params;
+  const { prompt, buildIntent, brief, resolvedScaffold, siteProfile, existingFilePaths } = params;
+
+  if (existingFilePaths && existingFilePaths.length > 0) {
+    const existingRoutes = extractAppRoutePathsFromFilePaths(existingFilePaths);
+    if (existingRoutes.length > 0) {
+      return {
+        source: "existing",
+        siteType: inferSiteType(buildIntent, existingRoutes.length),
+        reason: "Follow-up: route plan derived from the existing project files. Do not invent new routes unless the user explicitly asks for them.",
+        routes: existingRoutes.map((path) => ({
+          path,
+          name: path === "/" ? "Home" : path.split("/").filter(Boolean).pop() ?? "Page",
+          intent: "Existing route — edit in place, do not duplicate or rename.",
+          required: true,
+        })),
+      };
+    }
+  }
+
   const briefPlan = buildRoutesFromBrief(brief, buildIntent);
   if (briefPlan) return briefPlan;
 
@@ -345,11 +364,11 @@ export function buildRoutePlan(params: {
 
   applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
 
-  if (siteProfile && siteProfile.confidence !== "low") {
+  if (buildIntent !== "app" && siteProfile && siteProfile.confidence !== "low") {
     applyCategoryDefaults(siteProfile.businessCategory, routes);
   }
 
-  const pageBucket = siteProfile?.pageBucket ?? null;
+  const pageBucket = buildIntent !== "app" ? (siteProfile?.pageBucket ?? null) : null;
   const finalRoutes = pageBucket ? trimRoutesToBucket(routes, pageBucket) : routes;
 
   return {

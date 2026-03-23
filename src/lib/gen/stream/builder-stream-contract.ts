@@ -2,7 +2,7 @@
  * Builder Stream Contract
  *
  * This module defines the typed SSE event contract consumed by the builder UI.
- * Both own-engine and v0-fallback providers must translate their output into
+ * The own-engine provider translates its output into
  * these event shapes before the response reaches the client.
  *
  * Lifecycle of a normal generation stream:

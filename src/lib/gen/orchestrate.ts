@@ -1,6 +1,6 @@
 /**
  * Shared generation orchestration — single source of truth for context
- * preparation that both the own engine and v0 fallback consume.
+ * preparation that the own engine consumes.
  *
  * Resolves scaffold, builds system prompt context, and returns everything
  * needed so that callers never diverge in what signals reach the model.
@@ -65,6 +65,8 @@ export interface OrchestrationInput {
   contractClarificationCapReached?: boolean;
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
+  /** File paths from the previous version — when set, route plan is derived from existing files instead of re-inferred from prompt. */
+  previousFilePaths?: string[];
 }
 
 export interface OrchestrationResult {
@@ -78,15 +80,15 @@ export interface OrchestrationResult {
   capabilities: InferredCapabilities;
   /** Full system prompt (STATIC_CORE + dynamic) for own engine */
   engineSystemPrompt: string;
-  /** Dynamic-only context suitable for injecting into v0 fallback `system` */
+  /** Dynamic-only context (scaffold + brief enrichment, without static core) */
   v0EnrichmentContext: string;
 }
 
 /**
  * Prepare all generation context in one place.
  *
- * Both the own engine path and the v0 fallback path should call this
- * so that scaffold, brief, theme, and intent flow identically.
+ * The own engine path calls this so that scaffold, brief, theme,
+ * and intent flow through a single preparation point.
  */
 export async function prepareGenerationContext(
   input: OrchestrationInput,
@@ -106,6 +108,7 @@ export async function prepareGenerationContext(
     contractAnswers = [],
     contractClarificationCapReached = false,
     customInstructions,
+    previousFilePaths,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
@@ -113,13 +116,20 @@ export async function prepareGenerationContext(
 
   if (scaffoldMode === "off") {
     resolvedScaffold = null;
-    scaffoldMatchMeta = { matchSource: "off", embeddingScore: null, keywordFallbackId: null };
+    scaffoldMatchMeta = { matchSource: "off", embeddingScore: null, embeddingRunnerUpId: null };
   } else if (scaffoldMode === "manual" && scaffoldId) {
     resolvedScaffold = getScaffoldById(scaffoldId);
-    scaffoldMatchMeta = { matchSource: "manual", embeddingScore: null, keywordFallbackId: null };
+    scaffoldMatchMeta = { matchSource: "manual", embeddingScore: null, embeddingRunnerUpId: null };
   } else if (persistedScaffoldId) {
     resolvedScaffold = getScaffoldById(persistedScaffoldId);
-    scaffoldMatchMeta = { matchSource: "persisted", embeddingScore: null, keywordFallbackId: null };
+    if (resolvedScaffold) {
+      scaffoldMatchMeta = { matchSource: "persisted", embeddingScore: null, embeddingRunnerUpId: null };
+    } else {
+      console.warn("[orchestrate] persistedScaffoldId %s not found in registry — falling back to embedding match", persistedScaffoldId);
+      const matchResult = await matchScaffoldWithEmbeddings(prompt, buildIntent);
+      resolvedScaffold = matchResult.scaffold;
+      scaffoldMatchMeta = matchResult.matchMeta;
+    }
   } else if (scaffoldMode === "auto") {
     const matchResult = await matchScaffoldWithEmbeddings(prompt, buildIntent);
     resolvedScaffold = matchResult.scaffold;
@@ -185,6 +195,7 @@ export async function prepareGenerationContext(
     brief,
     resolvedScaffold,
     siteProfile,
+    existingFilePaths: previousFilePaths,
   });
   const preGenerationContracts = inferPreGenerationContracts({
     prompt,

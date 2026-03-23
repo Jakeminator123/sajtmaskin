@@ -780,7 +780,7 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
 
   const steps = [`Prompt optimerad: ${strategyLabel}`, `Typ: ${meta.promptType}`, lengthLine];
   if (meta.reason) steps.push(`Orsak: ${meta.reason}`);
-  steps.push("Genererar innehåll och filer från prompten.");
+  steps.push("Prompt klar — generering startar.");
   return steps;
 }
 
@@ -989,6 +989,11 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     "- All internal links resolve to existing routes.",
     "- No broken images or invalid React use() calls.",
   ];
+  if (reasons.includes("kritisk SEO-metadata")) {
+    lines.push(
+      "- Root layout must export Next.js metadata with at least `title` and `description` (or fix generateMetadata return) so launch readiness passes.",
+    );
+  }
   if (currentVersionErrors.length > 0) {
     lines.push("", "Persisted errors for this version:", ...currentVersionErrors.map((entry) => `- ${entry}`));
   }

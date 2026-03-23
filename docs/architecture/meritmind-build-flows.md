@@ -11,8 +11,8 @@ Alla saker som leder in till buildern är inte egna genereringsmotorer.
 
 - `wizard`, `category`, `audit`, `freeform`, `kostnadsfri` är ingångssätt till
   buildern.
-- `plan-mode`, `own-engine` och `v0-fallback` är runtime-vägar inne i
-  genereringsflödet.
+- `plan-mode` och `own-engine` är runtime-vägar inne i genereringsflödet.
+  (`v0-fallback` är historisk och inte längre en aktiv runtime-väg.)
 - `post-checks`, `autofix`, `quality-gate` och `deploy` är eftersteg eller
   sidoflöden, inte primära genereringsmotorer.
 

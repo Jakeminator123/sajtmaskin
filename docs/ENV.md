@@ -24,7 +24,10 @@ Obs:
 
 - `.vercel/.env.*.local` ska behandlas som lokala pull/export-snapshots, inte som canonical source of truth.
 - De kan innehålla temporära eller development-scope:ade värden, t.ex. `VERCEL_OIDC_TOKEN`, även när filnamnet råkar säga `production`.
-- `vercel env pull` skriver en lokal env-fil och kan skriva over/ersatta innehall i `.env.local` eller annan target-fil om du pekar dit.
+- `vercel env pull` skriver en lokal env-fil och kan skriva över/ersätta innehåll i `.env.local` eller annan target-fil om du pekar dit.
+- `vercel link` uppdaterar `.vercel/project.json` (projekt- och teamkoppling). Kör det medvetet; en felaktig länk kan göra att CLI pekar på fel Vercel-projekt.
+- Du kan återanvända **samma Upstash Redis** lokalt och i molnet: appen lägger på separata nyckelprefix `dev:` / `preview:` / `prod:` (`REDIS_KEY_PREFIX` i `src/lib/config.ts`). Det är inte samma sak som kunders projektnycklar (`projectEnvVars`) — de lagras och följer respektive genererad sajt.
+- För att återställa samma kommentarsblock i `.env.local` / `.env.production` efter manuella ändringar finns `python Scripts/patch-env-reference-headers.py` (idempotent).
 - `python manage_env.py pull` drar inte ner secret values; kommandot listar bara vilka nycklar som finns på Vercel men saknas lokalt.
 
 **Arbetsflöde vid ny env-variabel:**
@@ -66,6 +69,7 @@ Praktisk tumregel:
 
 - `PREVIEW=y` = legacy/shim-preview som **primär** demo-URL (samma som tidigare).
 - Utan `PREVIEW=y` = runtime-first när en **sandbox-URL** finns på versionen; annars faller resolve-logiken tillbaka till `/api/preview-render` så preview-panelen inte står tom medan sandlådan saknas eller inte bootat klart.
+- Builderns quality gate begär nu sandbox-runtime som default när den körs från vanliga builderflöden. När sandboxen blir klar sparas runtime-URL på versionen; när den inte blir klar visas fortsatt intern snabb visning som fallback.
 
 ### Checklista: riktig Next-runtime i iframe
 
@@ -78,6 +82,23 @@ Alla dessa måste vara uppfyllda lokalt för att preview-iframe ska kunna visa e
 
 Om (3) saknas returnerar quality-gate-API:t **501** och preview-panelen visar "skipped".
 Se `src/lib/sandbox-auth.ts` och `docs/handoffs/local-operator-guide.md` för detaljer.
+
+### Kostnad och livstid för sandbox
+
+- Quality gate använder normalt **2 vCPU** och håller nu sandbox-instansen vid liv i upp till **10 minuter** när runtime faktiskt startas. Om runtime inte startas stoppas sandboxen direkt efter kontrollerna.
+- Med Vercel Sandbox-priser på Pro hamnar en vanlig `tsc + next build`-runda typiskt runt **~$0.01–$0.03**. En runtime som står uppe i cirka 10 minuter brukar fortfarande vara låg kostnad, normalt bara några extra cent.
+- All sandbox-användning räknas mot Vercels vanliga **$20/mån kredit** på Pro innan separat debitering börjar.
+
+### Automatisk platshållar-env, autofix och auto-deploy
+
+| Env-variabel | Rekommenderad användning | Effekt |
+|---|---|---|
+| `SAJTMASKIN_AUTO_PLACEHOLDER_ENV` | Sätt `1` i dev/staging | Readiness auto-fyller saknade projekt-miljövariabler med ett platshållarvärde så env-blockers aldrig hindrar preview/deploy under utveckling. En **warning** visas istället för blocker. |
+| `SAJTMASKIN_PLACEHOLDER_ENV_VALUE` | Valfritt, default `dev-placeholder-not-set` | Värdet som skrivs för platshållar-variabler. **Vercel-deploy med t.ex. RESEND_API_KEY=platshållare gör inte e-post levande.** |
+| `SAJTMASKIN_AGGRESSIVE_AUTOFIX` | Sätt `1` i `.env.local` för snabbare reparationsloopar | `layout.tsx` sätter `data-aggressive-autofix="1"` som `useAutoFix.ts` läser; valfritt override i dev: `localStorage` `sajtmaskin:aggressive-autofix` = `1`. Höjer gränser till 5 försök per chat (annars 3) och 3 per felorsak (annars 2); kortare delay mellan rundor. |
+| `SAJTMASKIN_AUTO_DEPLOY_AFTER_REPAIR` | Sätt `1` om du vill att lyckad quality gate automatiskt triggar Vercel-deploy | Klienten anropar `POST /api/v0/deployments` fire-and-forget när quality gate passerar. Deduplicerar per `versionId`. |
+
+Ny server-side repair-endpoint: `POST /api/v0/chats/{chatId}/repair-version` kör maskinell autofix → LLM-fixer → sparar filer → loggar resultat i `engine_version_error_logs` med kategori `autofix:llm-success` / `autofix:repair-version`.
 
 ## Modellkonfiguration
 
@@ -102,7 +123,7 @@ Viktig skillnad:
 | `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | Snabb | Liten/billig profil for enklare sidor |
 | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | Lagom | Mellanprofil med bra balans |
 | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | Tanker | Stor/dyrare profil for mer resonemang |
-| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.4` | Kod Max | Specialiserad kodprofil (xhigh reasoning) |
+| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.4` | Kod Max | Specialiserad kodprofil (`high` reasoning när Thinking är på) |
 | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-opus-4.6` | Anthropic | Jamforelselage via Anthropic API |
 
 Byggprofilerna gar genom own-engine-routes under `/api/v0/...`, men de aktiva
@@ -334,7 +355,7 @@ Bildflöde i generering:
 | `SAJTMASKIN_MODEL_FAST`                        | `gpt-4.1`           | Modell för Fast-tier                          |
 | `SAJTMASKIN_MODEL_PRO`                         | `gpt-5.3-codex`     | Modell för Pro-tier (rekommenderad)           |
 | `SAJTMASKIN_MODEL_MAX`                         | `gpt-5.4`           | Modell för Max-tier                           |
-| `SAJTMASKIN_MODEL_CODEX`                       | `gpt-5.4`           | Modell för Codex Max-tier (xhigh reasoning)   |
+| `SAJTMASKIN_MODEL_CODEX`                       | `gpt-5.4`           | Modell för Codex Max-tier (`high` reasoning när Thinking är på) |
 | `SAJTMASKIN_MODEL_ANTHROPIC`                   | `claude-opus-4.6`   | Modell för Anthropic-jämförelseläge           |
 | `SAJTMASKIN_ASSIST_MODEL`                      | `openai/gpt-5.4`    | Default prompt-assistmodell for `Forbattra`   |
 | `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Standard-polishmodell for `Skriv om` (Anthropic-lane overrider den i jamforelselaget) |

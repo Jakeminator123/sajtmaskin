@@ -18,7 +18,7 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { createGenerationPipeline } from "@/lib/gen/fallback";
+import { createGenerationPipeline } from "@/lib/gen/pipeline";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -455,6 +455,9 @@ export async function handleMessageStreamRequest(
             designThemePreset: metaDesignThemePreset,
             designReferences,
             persistedScaffoldId,
+            previousFilePaths: previousFiles.length > 0
+              ? previousFiles.map((f) => f.path)
+              : undefined,
           });
           const planResolvedScaffold = planOrchestration.resolvedScaffold;
           if (planResolvedScaffold && !persistedScaffoldId) {
@@ -554,6 +557,9 @@ export async function handleMessageStreamRequest(
           contractAnswers: contractAnswerContext.confirmedAnswers,
           contractClarificationCapReached: shouldUseClarificationCapBuild(clarificationConfirmedCount),
           customInstructions: trimmedSystem || undefined,
+          previousFilePaths: previousFiles.length > 0
+            ? previousFiles.map((f) => f.path)
+            : undefined,
         });
         const {
           resolvedScaffold,

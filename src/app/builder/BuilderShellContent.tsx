@@ -199,8 +199,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               uiSurfaces: [
                 "vänster chatpanel",
                 "Launch readiness-kortet",
-                "previewpanelen",
-                "sidchipsen under Preview",
+                "visningspanelen",
+                "sidchipsen under Visning",
                 "Kodvy",
                 "Elementregister",
                 "versionspanelen till höger",
@@ -728,7 +728,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           )}
         >
           <Eye className="h-4 w-4" />
-          Preview
+          Visning
           {vm.currentDemoUrl && mobileTab !== "preview" && (
             <span className="bg-brand-blue h-2 w-2 rounded-full" />
           )}

@@ -52,7 +52,7 @@ vi.mock("drizzle-orm", () => ({
   or: vi.fn(),
 }));
 
-vi.mock("@/lib/gen/fallback", () => ({
+vi.mock("@/lib/gen/pipeline", () => ({
   shouldUseV0Fallback,
 }));
 

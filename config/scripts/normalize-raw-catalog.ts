@@ -151,7 +151,7 @@ function inferPromotionDecision(entry: Omit<NormalizedCatalogEntry, "promotionDe
   if (entry.qualityScore >= 75 && entry.recommendedScaffoldFamilies.length > 0) {
     return "runtime_scaffold_candidate";
   }
-  if (entry.qualityScore >= 50) return "dossier_only";
+  if (entry.qualityScore >= 50) return "reference_only";
   return "template_library_only";
 }
 
@@ -180,12 +180,14 @@ function detectPackageManager(raw: RawTemplateInfo): "npm" | "pnpm" | "yarn" | "
 
 function cleanRepoUrl(url: string | null): string | null {
   if (!url) return null;
-  return url
-    .replace(/\/tree\/main\/\.\/.*$/, "")
-    .replace(/\/tree\/main\/?$/, "")
-    .replace(/\/blob\/main\/.*$/, "")
-    .replace(/\.git$/, "")
-    .replace(/\/$/, "");
+  const trimmed = url.split("#")[0].split("?")[0].trim();
+  const gh = /^https?:\/\/github\.com\/([^/]+)\/([^/#]+)/i.exec(trimmed);
+  if (gh) {
+    let repo = gh[2];
+    if (repo.toLowerCase().endsWith(".git")) repo = repo.slice(0, -4);
+    return `https://github.com/${gh[1]}/${repo}`;
+  }
+  return trimmed.replace(/\.git$/i, "").replace(/\/$/, "");
 }
 
 function normalizeEntry(raw: RawTemplateInfo, cloneInfo: IngestReportEntry | undefined): NormalizedCatalogEntry {

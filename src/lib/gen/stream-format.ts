@@ -173,6 +173,8 @@ export function createCodeGenSSEStream(
           enqueue(createBuilderStreamEvent("meta", meta));
         }
 
+        let streamErrorSeen = false;
+
         for await (const part of result.fullStream) {
           eventCounts.set(part.type, (eventCounts.get(part.type) ?? 0) + 1);
           if (part.type === "tool-call" && part.toolName) {
@@ -224,6 +226,7 @@ export function createCodeGenSSEStream(
             }
 
             case "error":
+              streamErrorSeen = true;
               enqueue(
                 createBuilderStreamEvent("error", {
                   message: part.error instanceof Error ? part.error.message : "Stream error",
@@ -238,13 +241,18 @@ export function createCodeGenSSEStream(
         }
 
         const usage = await result.usage;
-        summarizeStream("done", usage);
-        enqueue(
-          createBuilderStreamEvent("done", {
-            promptTokens: usage?.inputTokens ?? 0,
-            completionTokens: usage?.outputTokens ?? 0,
-          }),
-        );
+
+        if (streamErrorSeen) {
+          summarizeStream("error", usage);
+        } else {
+          summarizeStream("done", usage);
+          enqueue(
+            createBuilderStreamEvent("done", {
+              promptTokens: usage?.inputTokens ?? 0,
+              completionTokens: usage?.outputTokens ?? 0,
+            }),
+          );
+        }
       } catch (err) {
         summarizeStream("error");
         try {

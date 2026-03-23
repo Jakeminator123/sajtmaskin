@@ -21,6 +21,10 @@ import {
   resolveEnvRequirements,
 } from "@/lib/project-env-resolver";
 import {
+  ensurePlaceholderEnvVars,
+  isAutoPlaceholderEnvEnabled,
+} from "@/lib/project-env-placeholders";
+import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
@@ -205,7 +209,16 @@ async function buildEngineReadiness(
     .filter((file) => typeof file?.path === "string" && typeof file?.content === "string")
     .map((file) => `// File: ${file.path}\n${file.content}`)
     .join("\n\n");
-  const envRequirements = resolveEnvRequirements(code, projectEnv);
+  let envRequirements = resolveEnvRequirements(code, projectEnv);
+
+  if (envRequirements.missingEnvKeys.length > 0 && chat.project_id && isAutoPlaceholderEnvEnabled()) {
+    const inserted = await ensurePlaceholderEnvVars(chat.project_id, envRequirements.missingEnvKeys);
+    if (inserted.length > 0) {
+      const refreshedEnv = await resolveProjectEnv(chat.project_id);
+      envRequirements = resolveEnvRequirements(code, refreshedEnv);
+    }
+  }
+
   const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys } = envRequirements;
 
   if (requiredEnvKeys.length > 0 && !chat.project_id) {
@@ -218,6 +231,16 @@ async function buildEngineReadiness(
     });
   } else if (missingEnvKeys.length > 0) {
     blockers.push(buildMissingEnvBlocker(missingEnvKeys));
+  }
+
+  if (envRequirements.placeholderEnvKeys.length > 0) {
+    warnings.push({
+      id: "placeholder-env",
+      title: "Miljövariabler har platshållarvärden.",
+      detail: `Byt ut platshållare innan produktion: ${envRequirements.placeholderEnvKeys.join(", ")}`,
+      severity: "warning",
+      action: "env",
+    });
   }
 
   const latestPreviewSignal = errorLogs.find(

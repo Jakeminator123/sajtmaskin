@@ -5,22 +5,21 @@ export const landingPageManifest: ScaffoldManifest = {
   family: "landing-page",
   label: "Landing Page",
   description:
-    "Marketing-focused starter for company sites, service businesses, and polished one-page launches.",
+    "Marketing-focused company website with hero, trust signals, service sections, testimonial, and conversion CTA. " +
+    "Suited for service businesses, agencies, consultancies, tradespeople, and campaign launches. " +
+    "Swedish and international small business sites that need a professional first impression.",
   buildIntents: ["website", "template"],
   tags: [
-    "landing",
-    "marketing",
-    "company",
-    "agency",
-    "services",
-    "startup",
-    "business",
-    "one-page",
+    "landing", "marketing", "company", "agency", "services", "startup", "business",
+    "one-page", "campaign", "hemsida", "webbplats", "företag", "byrå", "tjänster",
+    "konsult", "hantverkare", "byggföretag", "städfirma", "frisör", "restaurang",
+    "advokat", "redovisning", "klinik", "salong",
   ],
   promptHints: [
-    "Use this scaffold for polished company sites, campaign pages, and service-led websites.",
-    "Keep the overall rhythm: strong hero, trust signals, offer sections, testimonial, and CTA.",
-    "Modify copy, sections, and imagery to fit the user's business instead of rewriting the whole structure.",
+    "Use this scaffold for company sites, service businesses, campaign pages, and professional landing pages.",
+    "Keep the section rhythm: hero with CTA, trust bar, offer/service cards, process steps, testimonial quote, and contact CTA.",
+    "Adapt copy, colors, imagery, and section order to the user's business — do not rewrite the structural skeleton.",
+    "Works for any industry where the goal is to present services and drive inquiries or bookings.",
   ],
   files: [
     {

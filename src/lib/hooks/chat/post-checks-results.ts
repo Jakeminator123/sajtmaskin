@@ -437,6 +437,13 @@ export function buildPostCheckArtifacts(params: {
     criticalReasons.push("planerade routes saknas");
   }
 
+  const hasCriticalSeoForAutofix = seoReview.issues.some(
+    (issue) => issue.code === "missing-metadata" || issue.code === "missing-title",
+  );
+  if (hasCriticalSeoForAutofix) {
+    criticalReasons.push("kritisk SEO-metadata saknas (layout title/metadata)");
+  }
+
   const warningReasons: string[] = [];
   if (missingRoutes.length > 0) warningReasons.push("saknade routes");
   if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source !== "brief") {

@@ -54,7 +54,6 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
     typeof scaffoldRetryData.failureType === "string" &&
     typeof scaffoldRetryData.reason === "string" &&
     (scaffoldRetryData.source === "heuristic" ||
-      scaffoldRetryData.source === "keyword" ||
       scaffoldRetryData.source === "embedding") &&
     (scaffoldRetryData.confidence === "medium" || scaffoldRetryData.confidence === "high")
       ? {
@@ -65,7 +64,7 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
           suggestedScaffoldFamily: scaffoldRetryData.suggestedScaffoldFamily,
           failureType: scaffoldRetryData.failureType,
           reason: scaffoldRetryData.reason,
-          source: scaffoldRetryData.source as "heuristic" | "keyword" | "embedding",
+          source: scaffoldRetryData.source as "heuristic" | "embedding",
           confidence: scaffoldRetryData.confidence as "medium" | "high",
         }
       : null;

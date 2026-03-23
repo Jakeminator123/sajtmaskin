@@ -1,628 +1,75 @@
 {
-  "generatedAt": "2026-03-21T10:50:35.599Z",
+  "generatedAt": "2026-03-23T06:57:38.043Z",
   "source": "config/scripts/build-scaffold-research.ts",
   "scaffolds": {
     "base-nextjs": {
-      "qualityChecklist": [
-        "App Router page structure",
-        "Responsive header with mobile menu",
-        "Theme-aware color scheme",
-        "Proper metadata exports",
-        "Clean component file structure",
-        "AI interaction pattern (chat/generate/suggest)",
-        "Auth-aware UI states",
-        "Tenant-scoped data and navigation"
-      ],
+      "qualityChecklist": [],
       "research": {
-        "upgradeTargets": [
-          "Add authentication when needed",
-          "Add analytics dashboard"
-        ],
-        "referenceTemplates": [
-          {
-            "id": "vercel-block-bad-bots-firewall-rule",
-            "title": "Block Bad Bots Firewall Rule",
-            "categorySlug": "vercel-firewall",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-coinbase-onchain",
-            "title": "Coinbase Onchain",
-            "categorySlug": "web3",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-cron-og-cards",
-            "title": "Cron OG Cards",
-            "categorySlug": "cron",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          }
-        ]
+        "upgradeTargets": [],
+        "referenceTemplates": []
       }
     },
     "landing-page": {
-      "qualityChecklist": [
-        "Hero section with primary CTA",
-        "Feature highlights with icons or illustrations",
-        "Social proof or partner logos",
-        "Newsletter signup or lead capture form",
-        "Footer with sitemap links",
-        "Auth-aware UI states",
-        "AI interaction pattern (chat/generate/suggest)",
-        "Tenant-scoped data and navigation",
-        "CMS content rendering with rich blocks"
-      ],
+      "qualityChecklist": [],
       "research": {
-        "upgradeTargets": [
-          "Add analytics dashboard",
-          "Add authentication when needed"
-        ],
-        "referenceTemplates": [
-          {
-            "id": "vercel-anycable-real-time-starter-kit",
-            "title": "AnyCable Real-time Starter Kit",
-            "categorySlug": "realtime-apps",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Multi-tenant architecture",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-b2b-multi-tenant-starter-kit",
-            "title": "B2B Multi-Tenant Starter Kit",
-            "categorySlug": "multi-tenant-apps",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Has dashboard / analytics UI",
-              "Includes pricing page patterns",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Multi-tenant architecture",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-hume-ai-empathic-voice-interface-starter",
-            "title": "Hume AI - Empathic Voice Interface Starter",
-            "categorySlug": "ai",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          }
-        ]
+        "upgradeTargets": [],
+        "referenceTemplates": []
       }
     },
     "saas-landing": {
-      "qualityChecklist": [
-        "Feature comparison grid or bento layout",
-        "Pricing tier cards with toggle (monthly/yearly)",
-        "Social proof section (testimonials/logos)",
-        "Hero with clear value proposition and CTA",
-        "FAQ accordion section",
-        "Auth-aware UI states",
-        "AI interaction pattern (chat/generate/suggest)",
-        "CMS content rendering with rich blocks",
-        "Tenant-scoped data and navigation"
-      ],
+      "qualityChecklist": [],
       "research": {
-        "upgradeTargets": [
-          "Add analytics dashboard",
-          "Add authentication when needed"
-        ],
-        "referenceTemplates": [
-          {
-            "id": "vercel-envshare",
-            "title": "EnvShare",
-            "categorySlug": "saas",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Has dashboard / analytics UI",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-finwise-saas-landing-page",
-            "title": "Finwise: SaaS Landing Page",
-            "categorySlug": "saas",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Includes pricing page patterns",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-minimal-nextjs-saas-website-starter",
-            "title": "Minimal Next.js SaaS Website Starter",
-            "categorySlug": "saas",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          }
-        ]
+        "upgradeTargets": [],
+        "referenceTemplates": []
       }
     },
     "portfolio": {
-      "qualityChecklist": [
-        "Project gallery with category filtering",
-        "Case study detail pages with images",
-        "Contact form with validation",
-        "Skills or services overview section",
-        "About page with bio and timeline",
-        "AI interaction pattern (chat/generate/suggest)",
-        "CMS content rendering with rich blocks",
-        "Tenant-scoped data and navigation",
-        "Auth-aware UI states"
-      ],
+      "qualityChecklist": [],
       "research": {
-        "upgradeTargets": [
-          "Add authentication when needed",
-          "Add analytics dashboard"
-        ],
-        "referenceTemplates": [
-          {
-            "id": "vercel-astrozen-personal-portfolio",
-            "title": "AstroZen Personal Portfolio",
-            "categorySlug": "portfolio",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-builderio-personalization-starter",
-            "title": "Builder.io Personalization Starter",
-            "categorySlug": "cms",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "E-commerce / product catalog patterns",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "CMS integration",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-once-ui-design-starter-for-nextjs",
-            "title": "Once UI Design Starter for Next.js",
-            "categorySlug": "portfolio",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "High quality score"
-            ]
-          }
-        ]
+        "upgradeTargets": [],
+        "referenceTemplates": []
       }
     },
     "blog": {
-      "qualityChecklist": [
-        "Article list with pagination or infinite scroll",
-        "Single post with rich typography and code blocks",
-        "Author profile and publish date metadata",
-        "Category/tag filtering",
-        "RSS feed or sitemap generation",
-        "Auth-aware UI states",
-        "AI interaction pattern (chat/generate/suggest)",
-        "CMS content rendering with rich blocks",
-        "Tenant-scoped data and navigation"
-      ],
+      "qualityChecklist": [],
       "research": {
-        "upgradeTargets": [
-          "Add analytics dashboard",
-          "Add authentication when needed"
-        ],
-        "referenceTemplates": [
-          {
-            "id": "vercel-a-nextjs-14-blog-with-server-components",
-            "title": "A Next.js 14 Blog with Server Components",
-            "categorySlug": "blog",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "CMS integration",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-ariadocs-documentation-template",
-            "title": "AriaDocs: Documentation Template",
-            "categorySlug": "documentation",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Multi-tenant architecture",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-blog-starter-kit",
-            "title": "Blog Starter Kit",
-            "categorySlug": "blog",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          }
-        ]
+        "upgradeTargets": [],
+        "referenceTemplates": []
       }
     },
     "dashboard": {
-      "qualityChecklist": [
-        "Data visualization with charts (bar/line/pie)",
-        "Sidebar navigation with collapsible sections",
-        "Responsive table and card views",
-        "KPI summary cards with trend indicators",
-        "Filter/search controls for data views",
-        "Auth-aware UI states",
-        "AI interaction pattern (chat/generate/suggest)",
-        "Tenant-scoped data and navigation"
-      ],
+      "qualityChecklist": [],
       "research": {
         "upgradeTargets": [],
-        "referenceTemplates": [
-          {
-            "id": "vercel-modernize-nextjs-admin-dashboard-template",
-            "title": "Modernize Next.js Admin Dashboard Template",
-            "categorySlug": "admin-dashboard",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Has dashboard / analytics UI",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Multi-tenant architecture",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-wallet-manager-with-coinbase-developer-platform",
-            "title": "Wallet Manager with Coinbase Developer Platform",
-            "categorySlug": "web3",
-            "qualityScore": 85,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Has dashboard / analytics UI",
-              "Includes pricing page patterns",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Multi-tenant architecture",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "auth-pages": {
-      "qualityChecklist": [
-        "Login form with email/password validation",
-        "Registration form with confirmation",
-        "Password reset flow with email link",
-        "Protected route redirect pattern",
-        "Session indicator in header/navbar",
-        "AI interaction pattern (chat/generate/suggest)",
-        "Tenant-scoped data and navigation"
-      ],
+      "qualityChecklist": [],
       "research": {
-        "upgradeTargets": [
-          "Add analytics dashboard"
-        ],
-        "referenceTemplates": [
-          {
-            "id": "vercel-gemini-ai-chatbot",
-            "title": "Gemini AI Chatbot",
-            "categorySlug": "ai",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-mcp-with-nextjs-and-descope",
-            "title": "MCP with Next.js and Descope",
-            "categorySlug": "authentication",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-next-forge",
-            "title": "next-forge",
-            "categorySlug": "monorepos",
-            "qualityScore": 90,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Includes pricing page patterns",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          }
-        ]
+        "upgradeTargets": [],
+        "referenceTemplates": []
       }
     },
     "ecommerce": {
-      "qualityChecklist": [
-        "Product grid with filtering and sorting",
-        "Cart state management with add/remove/quantity",
-        "Checkout flow with form validation",
-        "Product detail page with image gallery",
-        "Order confirmation and receipt",
-        "AI interaction pattern (chat/generate/suggest)",
-        "CMS content rendering with rich blocks",
-        "Tenant-scoped data and navigation",
-        "Auth-aware UI states"
-      ],
+      "qualityChecklist": [],
       "research": {
-        "upgradeTargets": [
-          "Add authentication when needed",
-          "Add analytics dashboard"
-        ],
-        "referenceTemplates": [
-          {
-            "id": "vercel-ecommerce-template-with-crystallize-and-remix",
-            "title": "Ecommerce Template with Crystallize and Remix",
-            "categorySlug": "ecommerce",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "E-commerce / product catalog patterns",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "CMS integration",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-sveltekit-commerce",
-            "title": "SvelteKit Commerce",
-            "categorySlug": "ecommerce",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "E-commerce / product catalog patterns",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-whop-saas-template",
-            "title": "Whop SaaS Template",
-            "categorySlug": "ecommerce",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Includes pricing page patterns",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "High quality score"
-            ]
-          }
-        ]
+        "upgradeTargets": [],
+        "referenceTemplates": []
       }
     },
     "content-site": {
-      "qualityChecklist": [
-        "Table of contents or sidebar navigation",
-        "Search functionality for content",
-        "Breadcrumb navigation",
-        "SEO metadata on all content pages",
-        "Cross-linking between related content",
-        "AI interaction pattern (chat/generate/suggest)",
-        "CMS content rendering with rich blocks",
-        "Auth-aware UI states",
-        "Tenant-scoped data and navigation"
-      ],
+      "qualityChecklist": [],
       "research": {
-        "upgradeTargets": [
-          "Add authentication when needed",
-          "Add analytics dashboard"
-        ],
-        "referenceTemplates": [
-          {
-            "id": "vercel-serverlesswp",
-            "title": "ServerlessWP",
-            "categorySlug": "cms",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "CMS integration",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-bulk-redirects-via-a-cms",
-            "title": "Bulk Redirects via a CMS",
-            "categorySlug": "cdn",
-            "qualityScore": 85,
-            "strengths": [
-              "Next.js / React compatible",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "CMS integration",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-cms-kit-sanity-nextjs-15-visual-site-builder",
-            "title": "CMS-Kit: Sanity + Next.js 15 Visual Site Builder",
-            "categorySlug": "cms",
-            "qualityScore": 85,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "Has dashboard / analytics UI",
-              "Blog / content publishing support",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "CMS integration",
-              "Multi-tenant architecture",
-              "Tailwind CSS styling",
-              "High quality score"
-            ]
-          }
-        ]
+        "upgradeTargets": [],
+        "referenceTemplates": []
       }
     },
     "app-shell": {
-      "qualityChecklist": [
-        "Sidebar or top navigation with active state",
-        "Settings or configuration panel",
-        "Loading skeletons and empty states",
-        "Breadcrumb or page title bar",
-        "Notification or toast system",
-        "AI interaction pattern (chat/generate/suggest)",
-        "Tenant-scoped data and navigation",
-        "CMS content rendering with rich blocks",
-        "Auth-aware UI states"
-      ],
+      "qualityChecklist": [],
       "research": {
-        "upgradeTargets": [
-          "Add authentication when needed",
-          "Add analytics dashboard"
-        ],
-        "referenceTemplates": [
-          {
-            "id": "vercel-nextjs-convex-template",
-            "title": "Next.js Convex Template",
-            "categorySlug": "backend",
-            "qualityScore": 95,
-            "strengths": [
-              "Next.js / React compatible",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-nestjs-on-vercel",
-            "title": "NestJS on Vercel",
-            "categorySlug": "backend",
-            "qualityScore": 90,
-            "strengths": [
-              "Next.js / React compatible",
-              "Includes authentication patterns",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "High quality score"
-            ]
-          },
-          {
-            "id": "vercel-django-hello-world",
-            "title": "Django Hello World",
-            "categorySlug": "backend",
-            "qualityScore": 85,
-            "strengths": [
-              "Next.js / React compatible",
-              "AI integration patterns",
-              "Documentation site patterns",
-              "Multi-tenant architecture",
-              "High quality score"
-            ]
-          }
-        ]
+        "upgradeTargets": [],
+        "referenceTemplates": []
       }
     }
   }

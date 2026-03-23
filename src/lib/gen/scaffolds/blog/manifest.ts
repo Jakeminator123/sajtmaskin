@@ -5,22 +5,20 @@ export const blogManifest: ScaffoldManifest = {
   family: "blog",
   label: "Blog",
   description:
-    "Content-first blog starter with article list, post layout, author, featured posts, and reading-friendly typography.",
+    "Content-first blog with article list, featured posts, single-post layout with rich typography, author metadata, and category filtering. " +
+    "For personal blogs, company blogs, newsletters, editorial sites, recipe sites, and content-driven publications. " +
+    "Optimized for reading experience with proper heading hierarchy and responsive images.",
   buildIntents: ["website", "template"],
   tags: [
-    "blog",
-    "article",
-    "post",
-    "content",
-    "writer",
-    "newsletter",
-    "magazine",
-    "editorial",
+    "blog", "article", "post", "content", "writer", "newsletter", "magazine", "editorial",
+    "blogg", "artikel", "inlägg", "nyhetsbrev", "recept", "podcast", "reseberättelse",
+    "teknikblogg", "modeblogg",
   ],
   promptHints: [
-    "Use this scaffold for blogs, articles, editorial sites, and content-driven publications.",
-    "Keep the blog rhythm: article list, post detail layout, metadata (date, author, tags), and reading-friendly typography.",
-    "Modify post content, categories, and author info to fit the user's topic instead of replacing the whole structure.",
+    "Use this scaffold for blogs, editorial sites, newsletters, and content-driven publications.",
+    "Keep the blog structure: article list with featured post, single-post layout with author/date/tags, and reading-friendly typography.",
+    "Adapt post content, categories, and author info to the user's topic — do not replace the reading-experience structure.",
+    "Category/tag filtering and pagination are part of the expected pattern.",
   ],
   files: [
     {

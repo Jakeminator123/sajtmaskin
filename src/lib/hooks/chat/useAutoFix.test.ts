@@ -50,4 +50,29 @@ describe("summarizeVersionLogsForAutoFix", () => {
     expect(diagnostics.some((entry) => entry.includes("Preview rendered successfully"))).toBe(false);
     expect(diagnostics.some((entry) => entry.startsWith("[seo]"))).toBe(false);
   });
+
+  it("keeps SEO log lines when critical SEO codes are present alongside blocking diagnostics", () => {
+    const diagnostics = summarizeVersionLogsForAutoFix([
+      {
+        level: "error",
+        category: "quality-gate:build",
+        message: "build failed (exit 1)",
+        meta: { output: "some error" },
+      },
+      {
+        level: "warning",
+        category: "seo",
+        message: "SEO review hittade 2 launch-varning(ar).",
+        meta: {
+          issues: [
+            { code: "missing-metadata", message: "Layouten saknar export av metadata." },
+            { code: "missing-robots", message: "Saknar robots" },
+          ],
+        },
+      },
+    ]);
+
+    expect(diagnostics.some((entry) => entry.startsWith("[seo]"))).toBe(true);
+    expect(diagnostics.some((entry) => entry.includes("seo:issues"))).toBe(true);
+  });
 });

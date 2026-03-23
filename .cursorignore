@@ -22,11 +22,11 @@ tsconfig.tsbuildinfo
 .git/
 
 # --- Secrets & lokal status
-.env
-.env.*
-.env.local
-.env.production
-.token-status.json
+#.env
+#.env.*
+#.env.local
+#.env.production
+#.token-status.json
 
 # --- Lokal dev / automation-config (sällan relevant för kod)
 config.txt
@@ -60,9 +60,9 @@ src/components/ui/
 #research/
 #!research/README.md
 
-scaffold-pipeline/
+#scaffold-pipeline/
 _template_refs/
-_sidor/
+#sidor/
 
 old
 
@@ -120,4 +120,3 @@ tests/openclaw/**
 
 internt_jakob/
 #research/dossiers/
-

@@ -5,7 +5,8 @@
 This document maps every prompt-related parameter, file, and transformation
 from user input in the builder UI to the final system prompt consumed by the
 generation engine. Use it to understand what controls what, where duplication
-exists, and where the own-engine and v0-fallback paths diverge.
+exists. The own-engine is the sole active generation path (v0-fallback is
+historical and no longer used at runtime).
 
 ## High-level flow
 
@@ -20,7 +21,7 @@ API Route (/api/v0/chats/stream or /api/v0/chats/[chatId]/stream)
        │
        ├─► Request Metadata extraction (attachments, brief, theme, scaffold settings)
        │
-       ├─► Route Decision: active own-engine path vs remaining legacy v0 branches
+       ├─► Route Decision: own-engine (sole active path)
        │
        ▼
 Orchestrate Context (prepareGenerationContext)
@@ -117,7 +118,7 @@ promptSourcePreservePayload.
 3. Run `orchestratePromptMessage()` on the raw message
 4. Resolve model selection via `resolveModelSelection()`
 5. Check credits
-6. Branch: own-engine vs v0-fallback (via `shouldUseV0Fallback()`)
+6. Enter own-engine generation path
 
 **For own-engine path:**
 - Call `prepareGenerationContext()` → get full `OrchestrationResult`
@@ -273,7 +274,7 @@ Two separate concepts exist and must not be conflated:
 | Concept | State key | Where stored | Used by | Status |
 |---------|-----------|-------------|---------|--------|
 | **Internal theme preset** | `designTheme` | localStorage `sajtmaskin:designTheme` | own-engine via `themeColors` in system-prompt | Active, has UI in ChatInterface/UnifiedElementPicker |
-| **v0 Design System** | `designSystemId` | localStorage `sajtmaskin:designSystemId` | v0-fallback via `chats.create` | Deprecated — no UI setter, v0-only |
+| **v0 Design System** | `designSystemId` | localStorage `sajtmaskin:designSystemId` | Historical (v0-fallback removed) | Deprecated — no UI setter |
 
 `designTheme` resolves to OKLCh `ThemeColors` via `getThemeColors()` in
 `theme-presets.ts` and is injected into the system prompt's Visual Identity
@@ -307,7 +308,7 @@ than syncing continuously.
 | System | Status | Key files | Keep/Remove |
 |--------|--------|-----------|-------------|
 | Own engine (default) | Active | `src/lib/gen/`, `src/lib/providers/own-engine/` | Keep |
-| V0 fallback | Active (opt-in) | `src/lib/providers/v0-fallback/`, `src/lib/v0/` | Soft deprecate |
+| V0 fallback | Historical | `src/lib/providers/v0-fallback/`, `src/lib/v0/` | Removed from active runtime |
 | Vercel deploy/blob/domains | Active | `src/lib/vercel/` | Keep (do not remove) |
 | designTheme (internal) | Active | `src/lib/builder/theme-presets.ts` | Keep |
 | designSystemId (v0) | Wired but no UI | `src/lib/config.ts`, `v0-generator.ts` | Soft deprecate with v0 |

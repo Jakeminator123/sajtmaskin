@@ -7,7 +7,6 @@ Prefer npm scripts from the repo root (`package.json` prefixes paths with `confi
 | Area | npm examples |
 |------|----------------|
 | Research normalize (Zone 1 → 2) | **`research:normalize`** `-- --input <raw-dir>` → `research/normalized-catalog.json` |
-| Generate dossiers (Zone 2 → dossiers) | **`research:generate-dossiers`** → `research/dossiers/<slug>/manifest.json` per scaffold family |
 | Template library build (Zone 2 → artifacts) | **`template-library:build`**, **`template-library:embeddings`**, **`template-library:rebuild`** (reference catalog only — **not** v0 gallery) |
 | Optional: also refresh v0 gallery vectors | **`template-library:rebuild:with-v0-gallery`** or run **`templates:embeddings`** separately |
 | Local reference smoke (needs `OPENAI_API_KEY`) | **`template-library:smoke-search`** |

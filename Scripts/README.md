@@ -113,3 +113,30 @@ python scripts/mirror_shadcn_io_templates.py --dry-run
 ```
 
 Se även `GRUND/KALLOR_shadcn_io.md`.
+
+---
+
+## 3) Vercel — städa teamprojekt — `prune-vercel-projects.ps1`
+
+Listar alla projekt under ett Vercel-team och raderar alla **utom** en fast lista (standard: `sajtmaskin`, `app-directory`, `flytta_nu`, `aev`, `aecv`, `blazel`, `dg-97`, samt `v0-dg-97` och `v0-bla-zel` om samma appar skapats med v0-prefix). Använder [Vercel REST API](https://vercel.com/docs/rest-api) (`GET/DELETE /v9/projects`).
+
+**Miljö:** `VERCEL_TOKEN` och `VERCEL_TEAM_ID` (t.ex. `team_...`). Enklast: låt `_run-prune-from-envlocal.ps1` läsa dem från `.env.local`:
+
+```powershell
+pwsh .\Scripts\_run-prune-from-envlocal.ps1
+pwsh .\Scripts\_run-prune-from-envlocal.ps1 -Force
+```
+
+Samma sak med manuellt satta variabler: `pwsh .\Scripts\prune-vercel-projects.ps1` (torrkörning) eller `... -Force`. Valfritt: `-Keep 'proj-a','proj-b'` för att override:a allowlisten.
+
+---
+
+## 4) Env-referenskommentarer — `patch-env-reference-headers.py`
+
+Lägger till (eller återställer) dokumentationsblock överst i `.env.local` och motsvarande block i `.env.production` om det saknas: Vercel CLI (`vercel link`, `vercel env pull`), delad Upstash Redis med `REDIS_KEY_PREFIX`, samt byter `AI_GATEWAY` + kommenterad `AI_GATEWAY_API_KEY` till en ren `AI_GATEWAY_API_KEY`-rad i `.env.local` (flera API-rutter kollar bara det namnet).
+
+```bash
+python Scripts/patch-env-reference-headers.py
+```
+
+Idempotent — säkert att köra om efter att du redigerat manuellt.

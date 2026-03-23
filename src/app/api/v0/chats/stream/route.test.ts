@@ -145,7 +145,7 @@ vi.mock("@/lib/config", () => ({
   },
 }));
 
-vi.mock("@/lib/gen/fallback", () => ({
+vi.mock("@/lib/gen/pipeline", () => ({
   shouldUseExplicitBuilderFallback: () => false,
   shouldUseV0Fallback: () => false,
   createGenerationPipeline,

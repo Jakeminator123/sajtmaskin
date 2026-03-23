@@ -13,7 +13,6 @@ import {
   SPEC_FILE_INSTRUCTION,
 } from "@/lib/builder/defaults";
 import {
-  formatPrompt,
   isGatewayAssistModel,
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
@@ -138,7 +137,7 @@ export function useBuilderPromptActions({
         mode: "polish",
         modelOverride: polishModelOverride,
       });
-      return formatPrompt(enhanced);
+      return enhanced;
     },
     [maybeEnhanceInitialPrompt, promptAssistModel],
   );

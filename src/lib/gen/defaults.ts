@@ -78,7 +78,7 @@ const TIER_REASONING_EFFORT: Record<string, ReasoningEffort> = {
   fast: "none",
   pro: "medium",
   max: "high",
-  /** Kod Max: same ceiling as Tanker — xhigh burns tokens/latency without clear UX gain */
+  /** Kod Max: same reasoning ceiling as Tanker (`high` when Thinking is on). */
   codex: "high",
   anthropic: "none",
 };

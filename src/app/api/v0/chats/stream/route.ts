@@ -21,7 +21,7 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { createGenerationPipeline } from "@/lib/gen/fallback";
+import { createGenerationPipeline } from "@/lib/gen/pipeline";
 import {
   MAX_CONTRACT_CLARIFICATION_ROUNDS,
   shouldOfferContractClarification,

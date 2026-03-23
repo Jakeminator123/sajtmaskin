@@ -76,6 +76,8 @@ export default async function RootLayout({
       lang="sv"
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${spaceGrotesk.variable}`}
       suppressHydrationWarning
+      data-aggressive-autofix={process.env.SAJTMASKIN_AGGRESSIVE_AUTOFIX === "1" ? "1" : undefined}
+      data-auto-deploy-after-repair={process.env.SAJTMASKIN_AUTO_DEPLOY_AFTER_REPAIR === "1" ? "1" : undefined}
     >
       <body className="font-sans antialiased">
         <noscript>

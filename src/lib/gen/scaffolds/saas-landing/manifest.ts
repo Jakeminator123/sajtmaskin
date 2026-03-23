@@ -5,22 +5,20 @@ export const saasLandingManifest: ScaffoldManifest = {
   family: "saas-landing",
   label: "SaaS Landing",
   description:
-    "Product-led marketing starter with feature narrative, dashboard preview, pricing, FAQ, and conversion-ready sections.",
+    "SaaS product marketing page with feature narrative, dashboard preview card, pricing tiers, FAQ accordion, and conversion CTA. " +
+    "For software products, subscription services, B2B platforms, and developer tools that need a polished product launch page. " +
+    "Includes social proof, feature walkthrough, and pricing toggle (monthly/yearly).",
   buildIntents: ["website", "template"],
   tags: [
-    "saas",
-    "software",
-    "platform",
-    "pricing",
-    "subscription",
-    "dashboard",
-    "product",
-    "b2b",
+    "saas", "software", "platform", "pricing", "subscription", "dashboard", "product",
+    "b2b", "startup", "app", "mjukvara", "plattform", "abonnemang", "pris",
+    "prisplaner", "testperiod", "produktsida", "developer-tools",
   ],
   promptHints: [
-    "Use this scaffold when the prompt is clearly about software, subscriptions, dashboards, or B2B products.",
-    "Keep the product narrative: problem, product value, feature panels, pricing, FAQ, and final CTA.",
-    "The right-side hero card is a product preview slot and should stay visually product-led.",
+    "Use this scaffold for SaaS products, software platforms, subscription services, and B2B product marketing pages.",
+    "Keep the narrative arc: problem statement, value proposition, feature walkthrough, pricing tiers, FAQ, and final CTA.",
+    "The hero card shows a product/dashboard preview — keep it product-led, not generic marketing.",
+    "Pricing section should support tier comparison; adapt feature lists and price points to the user's product.",
   ],
   files: [
     {

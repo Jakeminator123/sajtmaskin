@@ -5,29 +5,21 @@ export const contentSiteManifest: ScaffoldManifest = {
   family: "content-site",
   label: "Content Site",
   description:
-    "Content-first website with hero, features, testimonials, and footer. Great for landing pages, portfolios, and blogs.",
+    "Multi-page content site with navigation, sidebar or table-of-contents, search, breadcrumbs, and SEO metadata. " +
+    "For documentation sites, knowledge bases, wikis, educational platforms, FAQ sections, and information-heavy organizations. " +
+    "Designed for sites where structured, searchable content is the primary value.",
   buildIntents: ["website", "template"],
   tags: [
-    "landing",
-    "portfolio",
-    "blog",
-    "marketing",
-    "content",
-    "company",
-    "agency",
-    "saas",
-    "software",
-    "platform",
-    "pricing",
-    "service",
+    "content", "documentation", "docs", "wiki", "knowledge-base", "faq",
+    "guide", "manual", "informationssajt", "kunskapsbas", "dokumentation",
+    "utbildning", "kurs", "skola", "kommun", "myndighet",
+    "helpdesk", "hjälpcenter",
   ],
   promptHints: [
-    "This scaffold has a hero, features grid, testimonials, and footer.",
-    "Modify the content and sections to match the user's business.",
-    "Add or remove sections as needed. Keep the navigation and footer structure.",
-    "Use Unsplash images where appropriate.",
-    "For SaaS/software sites: include pricing tiers, feature comparison, trust signals, and clear CTAs.",
-    "For company/brand sites: include hero, about, team, services, and contact sections.",
+    "Use this scaffold for documentation sites, knowledge bases, wikis, and content-heavy information sites.",
+    "Keep the navigation structure, sidebar/table-of-contents, and breadcrumbs.",
+    "Add or remove content sections as needed — preserve the searchable, structured content pattern.",
+    "SEO metadata should be present on all content pages.",
   ],
   files: [
     {

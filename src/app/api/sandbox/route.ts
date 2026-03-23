@@ -18,8 +18,8 @@ const createSandboxSchema = z.object({
     chatId: z.string().min(1),
     versionId: z.string().min(1),
   }),
-  timeout: z.string().optional().default("5m"),
-  ports: z.array(z.number()).optional().default([3000]),
+  timeout: z.string().optional().default("10m"),
+  ports: z.array(z.number()).min(1).optional().default([3000]),
   runtime: z.enum(["node24", "node22", "python3.13"]).optional().default("node24"),
   vcpus: z.number().min(1).max(8).optional().default(2),
 });
@@ -28,6 +28,49 @@ const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
 const INSTALL_COMMAND = "npm install";
 const START_COMMAND = "npm run dev";
+const RUNTIME_BOOT_WAIT_MS = 90_000;
+
+function buildWaitForPortReadyScript(port: number, timeoutMs: number): string {
+  const attempts = Math.max(1, Math.ceil(timeoutMs / 2_000));
+  return `
+const http = require("node:http");
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function requestStatus() {
+  return new Promise((resolve, reject) => {
+    const req = http.get("http://127.0.0.1:${port}", (res) => {
+      const status = res.statusCode || 0;
+      res.resume();
+      resolve(status);
+    });
+    req.on("error", reject);
+    req.setTimeout(2000, () => req.destroy(new Error("timeout")));
+  });
+}
+
+(async () => {
+  for (let attempt = 0; attempt < ${attempts}; attempt += 1) {
+    try {
+      const status = await requestStatus();
+      if (status > 0 && status < 500) {
+        console.log("runtime-ready:" + status);
+        process.exit(0);
+      }
+    } catch (error) {
+      if (attempt === ${attempts - 1}) {
+        console.error(error instanceof Error ? error.message : String(error));
+      }
+    }
+    await wait(2000);
+  }
+  console.error("Timed out waiting for sandbox runtime on port ${port}.");
+  process.exit(1);
+})().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
+  `.trim();
+}
 
 function inferLanguage(fileName: string): string {
   const normalized = fileName.toLowerCase();
@@ -181,6 +224,14 @@ export async function POST(req: Request) {
           args: ["-c", START_COMMAND],
           detached: true,
         });
+
+        const runtimeProbe = await sandbox.runCommand({
+          cmd: "bash",
+          args: ["-c", `node -e ${JSON.stringify(buildWaitForPortReadyScript(ports[0], RUNTIME_BOOT_WAIT_MS))}`],
+        });
+        if (runtimeProbe.exitCode !== 0) {
+          throw new Error("Sandbox runtime did not become ready in time.");
+        }
 
         const urls: Record<number, string> = {};
         for (const port of ports) {

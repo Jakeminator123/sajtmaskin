@@ -5,7 +5,11 @@
 
 export type DependencyVersionMap = Record<string, string>;
 
-/** Mirrors `require("module").builtinModules` (Node 22) for import parsing without Node APIs. */
+/**
+ * Mirrors `require("module").builtinModules` for import parsing without Node APIs.
+ * Baseline: Node 22.14. Update when the project's minimum Node version changes:
+ *   node -e "console.log(JSON.stringify(require('module').builtinModules, null, 2))"
+ */
 const NODE_BUILTIN_MODULE_NAMES = [
   "_http_agent",
   "_http_client",

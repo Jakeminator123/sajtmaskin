@@ -124,8 +124,9 @@ export async function finalizeAndSaveVersion(
   let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
   const phaseTiming: Record<string, number> = {};
 
-  // 1. Autofix
+  // 1. Autofix (machine fixers)
   if (runAutofix) {
+    console.info(`[finalize:autofix] Starting machine fixers for chat=${chatId}`);
     const t0 = performance.now();
     onProgress?.("autofix", { phase: "start", chatId });
     try {
@@ -157,6 +158,7 @@ export async function finalizeAndSaveVersion(
   }
 
   // 2. Syntax validation + multi-pass fix (LLM fixer gated by runAutofix)
+  console.info(`[finalize:syntax] Starting syntax validation for chat=${chatId}`);
   const syntaxT0 = performance.now();
   onProgress?.("validation", { phase: "start" });
   const syntaxResult = await validateAndFix(contentForVersion, {
@@ -185,9 +187,9 @@ export async function finalizeAndSaveVersion(
   }
   phaseTiming.syntaxMs = Math.round(performance.now() - syntaxT0);
 
-  // 2b. Broad repair pass — if syntax left errors, use the shared repair with
-  //     a small budget (default 2). Skips if syntax already resolved everything.
+  // 2b. Broad repair pass
   if (runAutofix && syntaxResult.errorsAfter > 0) {
+    console.info(`[finalize:broad-repair] ${syntaxResult.errorsAfter} errors remain, starting broad repair for chat=${chatId}`);
     const broadT0 = performance.now();
     onProgress?.("broad-repair", { phase: "start" });
     try {
@@ -295,6 +297,7 @@ export async function finalizeAndSaveVersion(
     previousFiles,
   });
 
+  console.info(`[finalize:preflight] Starting preflight checks for chat=${chatId}`);
   const preflightT0 = performance.now();
   const preflightResult = await runFinalizePreflight({
     chatId,

@@ -223,6 +223,64 @@ describe("post-checks-results", () => {
     );
   });
 
+  it("queues autofix when critical SEO codes are present", () => {
+    const criticalSeo: SeoReview = {
+      passed: false,
+      issues: [
+        {
+          severity: "warning",
+          code: "missing-metadata",
+          message: "Layouten saknar export av metadata.",
+          file: "app/layout.tsx",
+        },
+      ],
+      signals: {
+        metadata: false,
+        title: false,
+        description: false,
+        canonical: false,
+        openGraph: false,
+        ogImage: false,
+        twitter: false,
+        robots: false,
+        sitemap: false,
+        jsonLd: false,
+        homeH1Count: null,
+      },
+    };
+    const artifacts = buildPostCheckArtifacts({
+      currentFileCount: 1,
+      versionId: "ver_test",
+      changes: null,
+      warnings: [],
+      preflight: null,
+      previousVersionId: null,
+      streamQuality: undefined,
+      missingRoutes: [],
+      missingPlannedRoutes: [],
+      lucideLinkMisuse: [],
+      suspiciousUseCalls: [],
+      designTokens: null,
+      seoReview: criticalSeo,
+      analyticsReview: emptyAnalyticsReview,
+      editorialReview: {
+        packs: [],
+        signals: { hasBlogCollection: false, hasContactFlow: false },
+      },
+      businessWorkflowReview: {
+        packs: [],
+        signals: { hasLeadCapture: false, hasBookingFlow: false, hasCrmSync: false },
+      },
+      sanityIssues: [],
+      sanityErrors: [],
+      sanityWarnings: [],
+      imageValidation: null,
+      resolvedDemoUrl: "https://preview.example/ver_test",
+    });
+    expect(artifacts.autoFixReasons.some((r) => r.includes("SEO"))).toBe(true);
+    expect(artifacts.output.summary.autoFixQueued).toBe(true);
+  });
+
   it("treats skipped sandbox runtime as non-blocking without claiming it is still pending", () => {
     const artifacts = buildArtifacts({
       resolvedDemoUrl: null,

@@ -25,6 +25,50 @@ export type SandboxRuntimeOptions = {
 
 const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
+const DEFAULT_SANDBOX_TIMEOUT_MS = 10 * 60_000;
+const DEFAULT_SANDBOX_BOOT_WAIT_MS = 90_000;
+
+function buildWaitForPortReadyScript(port: number, timeoutMs: number): string {
+  const attempts = Math.max(1, Math.ceil(timeoutMs / 2_000));
+  return `
+const http = require("node:http");
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function requestStatus() {
+  return new Promise((resolve, reject) => {
+    const req = http.get("http://127.0.0.1:${port}", (res) => {
+      const status = res.statusCode || 0;
+      res.resume();
+      resolve(status);
+    });
+    req.on("error", reject);
+    req.setTimeout(2000, () => req.destroy(new Error("timeout")));
+  });
+}
+
+(async () => {
+  for (let attempt = 0; attempt < ${attempts}; attempt += 1) {
+    try {
+      const status = await requestStatus();
+      if (status > 0 && status < 500) {
+        console.log("runtime-ready:" + status);
+        process.exit(0);
+      }
+    } catch (error) {
+      if (attempt === ${attempts - 1}) {
+        console.error(error instanceof Error ? error.message : String(error));
+      }
+    }
+    await wait(2000);
+  }
+  console.error("Timed out waiting for sandbox runtime on port ${port}.");
+  process.exit(1);
+})().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
+  `.trim();
+}
 
 export function isSafeRelativePath(filePath: string): boolean {
   if (!filePath || filePath.includes("\0")) return false;
@@ -105,10 +149,10 @@ export async function createSandboxRuntimeFromFiles(
 
   const runtime = options.runtime ?? "node24";
   const vcpus = options.vcpus ?? 2;
-  const timeoutMs = options.timeoutMs ?? 5 * 60_000;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_SANDBOX_TIMEOUT_MS;
   const installCommand = options.installCommand ?? "npm install";
   const startCommand = options.startCommand ?? "npm run dev";
-  const ports = options.ports ?? [3000];
+  const ports = options.ports && options.ports.length > 0 ? options.ports : [3000];
 
   const sandbox = await Sandbox.create({
     source: {
@@ -140,6 +184,14 @@ export async function createSandboxRuntimeFromFiles(
       args: ["-c", startCommand],
       detached: true,
     });
+
+    const runtimeProbe = await sandbox.runCommand({
+      cmd: "bash",
+      args: ["-c", `node -e ${JSON.stringify(buildWaitForPortReadyScript(ports[0], DEFAULT_SANDBOX_BOOT_WAIT_MS))}`],
+    });
+    if (runtimeProbe.exitCode !== 0) {
+      throw new Error("Sandbox runtime did not become ready in time.");
+    }
 
     const urls: Record<number, string> = {};
     for (const port of ports) {

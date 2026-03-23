@@ -20,11 +20,11 @@ const REPO_FILES = {
   agentTools: "src/lib/gen/agent-tools.ts",
   detectIntegrations: "src/lib/gen/detect-integrations.ts",
   planPrompt: "src/lib/gen/plan-prompt.ts",
-  planExecution: "src/lib/gen/plan-execution.ts",
+  pipeline: "src/lib/gen/pipeline.ts",
+  matcher: "src/lib/gen/scaffolds/matcher.ts",
   validateAndFix: "src/lib/gen/autofix/validate-and-fix.ts",
   orchestrate: "src/lib/gen/orchestrate.ts",
   generateSite: "src/lib/mcp/generate-site.ts",
-  fallback: "src/lib/gen/fallback.ts",
   packageJson: "package.json",
 } as const;
 
@@ -125,17 +125,14 @@ function buildRepoCapabilityChecks(repoTexts: Record<RepoFileKey, string>): Chec
     buildRepoCheck(repoTexts, "plan-structure", "Plan prompt and emitted artifacts are implemented", [
       { file: "planPrompt", needle: "PLAN_SYSTEM_PROMPT", label: "planner system prompt" },
       { file: "agentTools", needle: "emitPlanArtifact", label: "plan artifact tool" },
-      { file: "planExecution", needle: "createPlanRun", label: "plan state creation" },
     ]),
     buildRepoCheck(repoTexts, "plan-blockers", "Blocking questions flow from tools to client UI", [
       { file: "agentTools", needle: "askClarifyingQuestion", label: "clarifying-question tool" },
       { file: "streamHandlers", needle: "planBlockers", label: "plan blocker extraction" },
       { file: "streamHandlers", needle: "Awaiting input", label: "awaiting-input UI copy" },
     ]),
-    buildRepoCheck(repoTexts, "plan-steps", "Plan execution helpers support phased work", [
-      { file: "planExecution", needle: "createPlanRun", label: "plan run state" },
-      { file: "planExecution", needle: "canAdvance", label: "phase advancement gate" },
-      { file: "planExecution", needle: "buildPhasePrompt", label: "phase prompt builder" },
+    buildRepoCheck(repoTexts, "plan-steps", "Plan review and serialization support phased work", [
+      { file: "agentTools", needle: "emitPlanArtifact", label: "plan artifact tool emission" },
     ]),
     buildRepoCheck(repoTexts, "autofix-improvement", "Autofix records before/after validation metrics", [
       { file: "validateAndFix", needle: "fixerImproved", label: "fixer improvement flag" },
@@ -183,7 +180,7 @@ function buildBuildStackChecks(repoTexts: Record<RepoFileKey, string>): CheckRes
       { file: "generateSite", needle: 'scaffoldMode === "auto"', label: "MCP scaffold auto mode" },
     ]),
     buildRepoCheck(repoTexts, "own-build-default", "Own-engine builds are the primary path", [
-      { file: "fallback", needle: "createGenerationPipeline", label: "own-engine pipeline" },
+      { file: "pipeline", needle: "createGenerationPipeline", label: "own-engine pipeline" },
       { file: "generateSite", needle: "createGenerationPipeline", label: "MCP own-engine generation" },
       { file: "createRoute", needle: "prepareGenerationContext", label: "create-route own-engine path" },
     ]),

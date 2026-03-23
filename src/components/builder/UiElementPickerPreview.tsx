@@ -119,7 +119,7 @@ export function UiElementPickerPreview({
               onClick={() => window.open(previewLink, "_blank", "noopener,noreferrer")}
             >
               <ExternalLink className="size-3" />
-              {isBlock ? "Preview" : "Docs"}
+              {isBlock ? "Visning" : "Docs"}
             </Button>
           )}
           <Button

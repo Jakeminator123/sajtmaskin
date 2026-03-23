@@ -28,7 +28,7 @@ export type ScaffoldRetryState = {
   suggestedScaffoldFamily: string;
   failureType: string;
   reason: string;
-  source: "heuristic" | "keyword" | "embedding";
+  source: "heuristic" | "embedding";
   confidence: "medium" | "high";
 };
 

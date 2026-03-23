@@ -90,10 +90,7 @@ function getAnthropicApiKey(): string | null {
   return process.env.ANTHROPIC_API_KEY?.trim() || null;
 }
 
-function resolveAnthropicModelId(model: string): string {
-  const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
-  return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
-}
+import { normalizeAnthropicModelId as resolveAnthropicModelId } from "@/lib/gen/models";
 
 export async function POST(req: Request) {
   return withRateLimit(req, "ai:chat", async () => {

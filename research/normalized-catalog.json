@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-21T10:50:07.810Z",
+  "generatedAt": "2026-03-23T06:47:42.735Z",
   "rawSourcePath": "../vercel-scrape",
-  "entryCount": 147,
+  "entryCount": 98,
   "entries": [
     {
       "id": "vercel-chatbot",
@@ -25,7 +25,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "unknown",
-      "qualityScore": 80,
+      "qualityScore": 90,
       "signals": {
         "auth": true,
         "dashboard": false,
@@ -53,7 +53,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[auth-pages,base-nextjs]"
+      "rationale": "repoType=unknown, quality=90, families=[auth-pages,base-nextjs]"
     },
     {
       "id": "vercel-hume-ai-empathic-voice-interface-starter",
@@ -180,7 +180,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": true,
         "dashboard": true,
@@ -207,7 +207,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[base-nextjs]"
     },
     {
       "id": "vercel-customer-reviews-ai-summary",
@@ -306,7 +306,7 @@
         "envVarCount": 0,
         "placeholderCopyRatio": 0
       },
-      "promotionDecision": "dossier_only",
+      "promotionDecision": "reference_only",
       "rationale": "repoType=unknown, quality=95, families=[]"
     },
     {
@@ -315,7 +315,7 @@
       "title": "Morphic: AI-powered answer engine",
       "description": "AI answer engine with Generative UI.",
       "sourceUrl": "https://vercel.com/templates/ai/morphic-ai-answer-engine-generative-ui",
-      "repoUrl": "https://github.com/miurla/morphic/stargazers",
+      "repoUrl": "https://github.com/miurla/morphic",
       "demoUrl": "#",
       "categorySlug": "ai",
       "categoryName": "AI",
@@ -331,7 +331,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "full_app",
-      "qualityScore": 80,
+      "qualityScore": 90,
       "signals": {
         "auth": true,
         "dashboard": false,
@@ -355,8 +355,8 @@
         "envVarCount": 0,
         "placeholderCopyRatio": 0
       },
-      "promotionDecision": "dossier_only",
-      "rationale": "repoType=full_app, quality=80, families=[]"
+      "promotionDecision": "reference_only",
+      "rationale": "repoType=full_app, quality=90, families=[]"
     },
     {
       "id": "vercel-pinecone-vercel-ai-sdk-starter",
@@ -380,7 +380,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -408,7 +408,7 @@
         "placeholderCopyRatio": 0.0022271714922048997
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[landing-page,base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[landing-page,base-nextjs]"
     },
     {
       "id": "vercel-qrgpt-ai-qr-code-generator",
@@ -519,7 +519,7 @@
       "title": "Next.js Commerce",
       "description": "Starter kit for high-performance commerce with Shopify.",
       "sourceUrl": "https://vercel.com/templates/ecommerce/nextjs-commerce",
-      "repoUrl": "https://github.com/vercel/commerce/tree/v1",
+      "repoUrl": "https://github.com/vercel/commerce",
       "demoUrl": "#",
       "categorySlug": "ecommerce",
       "categoryName": "Ecommerce",
@@ -535,7 +535,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "starter_kit",
-      "qualityScore": 80,
+      "qualityScore": 90,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -564,7 +564,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=starter_kit, quality=80, families=[ecommerce,landing-page,base-nextjs]"
+      "rationale": "repoType=starter_kit, quality=90, families=[ecommerce,landing-page,base-nextjs]"
     },
     {
       "id": "vercel-stripe-subscription-starter",
@@ -586,9 +586,9 @@
         "Related Templates"
       ],
       "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
+      "frameworkReason": "Next.js",
       "repoType": "starter_kit",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": true,
         "dashboard": true,
@@ -619,7 +619,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=starter_kit, quality=85, families=[ecommerce,saas-landing,landing-page,auth-pages,base-nextjs]"
+      "rationale": "repoType=starter_kit, quality=95, families=[ecommerce,saas-landing,landing-page,auth-pages,base-nextjs]"
     },
     {
       "id": "vercel-ecommerce-template-with-crystallize-and-remix",
@@ -747,9 +747,9 @@
         "AI"
       ],
       "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
+      "frameworkReason": "Next.js",
       "repoType": "commerce_template",
-      "qualityScore": 80,
+      "qualityScore": 90,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -779,7 +779,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=commerce_template, quality=80, families=[ecommerce,landing-page,content-site,base-nextjs]"
+      "rationale": "repoType=commerce_template, quality=90, families=[ecommerce,landing-page,content-site,base-nextjs]"
     },
     {
       "id": "vercel-sveltekit-commerce",
@@ -839,7 +839,7 @@
       "title": "Shopware Ecommerce Store with Nuxt",
       "description": "A reference ecommerce store implementation using Shopware, Nuxt 3, and Tailwind CSS.",
       "sourceUrl": "https://vercel.com/templates/ecommerce/shopware-nuxt-ecommerce",
-      "repoUrl": "https://github.com/shopware/frontends/tree/main/templates/vue-starter-template",
+      "repoUrl": "https://github.com/shopware/frontends",
       "demoUrl": "#",
       "categorySlug": "ecommerce",
       "categoryName": "Ecommerce",
@@ -853,9 +853,9 @@
         "Fluid Compute"
       ],
       "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
+      "frameworkReason": "Next.js",
       "repoType": "commerce_template",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": true,
@@ -882,7 +882,7 @@
         "placeholderCopyRatio": 0.004048582995951417
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=commerce_template, quality=85, families=[ecommerce]"
+      "rationale": "repoType=commerce_template, quality=95, families=[ecommerce]"
     },
     {
       "id": "vercel-contentstack-commerce",
@@ -890,7 +890,7 @@
       "title": "Contentstack Commerce",
       "description": "Learn to use Contentstack SDK to create apps with Next.js and Vercel.",
       "sourceUrl": "https://vercel.com/templates/ecommerce/cms-contentstack-commerce",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "ecommerce",
       "categoryName": "Ecommerce",
@@ -959,7 +959,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "commerce_template",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -987,7 +987,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=commerce_template, quality=85, families=[ecommerce,base-nextjs]"
+      "rationale": "repoType=commerce_template, quality=95, families=[ecommerce,base-nextjs]"
     },
     {
       "id": "vercel-whop-saas-template",
@@ -1154,7 +1154,7 @@
       "title": "Liveblocks Starter Kit",
       "description": "Real-time collaborative product starter kit built with Next.js and Liveblocks",
       "sourceUrl": "https://vercel.com/templates/saas/liveblocks-starter-kit",
-      "repoUrl": "https://github.com/user-attachments/assets/26f6ca5f-0675-4968-957c-6d99b240b7ea",
+      "repoUrl": null,
       "demoUrl": "#",
       "categorySlug": "saas",
       "categoryName": "SaaS",
@@ -1170,7 +1170,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "starter_kit",
-      "qualityScore": 85,
+      "qualityScore": 70,
       "signals": {
         "auth": true,
         "dashboard": false,
@@ -1199,8 +1199,8 @@
         "envVarCount": 0,
         "placeholderCopyRatio": 0
       },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=starter_kit, quality=85, families=[saas-landing,landing-page,auth-pages,base-nextjs]"
+      "promotionDecision": "template_library_only",
+      "rationale": "repoType=starter_kit, quality=70, families=[saas-landing,landing-page,auth-pages,base-nextjs]"
     },
     {
       "id": "vercel-onelink",
@@ -1484,9 +1484,9 @@
         "AI"
       ],
       "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
+      "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": true,
         "dashboard": false,
@@ -1514,7 +1514,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[saas-landing,base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[saas-landing,base-nextjs]"
     },
     {
       "id": "vercel-syntro",
@@ -1574,7 +1574,7 @@
       "title": "ISR Blog with Next.js and WordPress",
       "description": "An Incremental Static Regeneration Blog Example Using Next.js and WordPress",
       "sourceUrl": "https://vercel.com/templates/blog/isr-blog-nextjs-wordpress",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "blog",
       "categoryName": "Blog",
@@ -1854,7 +1854,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 80,
+      "qualityScore": 90,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -1883,7 +1883,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[blog,content-site,base-nextjs]"
+      "rationale": "repoType=unknown, quality=90, families=[blog,content-site,base-nextjs]"
     },
     {
       "id": "vercel-blog-with-agility-cms-and-nextjs",
@@ -1907,7 +1907,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": true,
         "dashboard": false,
@@ -1937,7 +1937,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[blog,landing-page,content-site,base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[blog,landing-page,content-site,base-nextjs]"
     },
     {
       "id": "vercel-clean-nextjs-sanity-app",
@@ -1961,7 +1961,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "unknown",
-      "qualityScore": 80,
+      "qualityScore": 90,
       "signals": {
         "auth": true,
         "dashboard": false,
@@ -1991,7 +1991,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[blog,auth-pages,content-site,base-nextjs]"
+      "rationale": "repoType=unknown, quality=90, families=[blog,auth-pages,content-site,base-nextjs]"
     },
     {
       "id": "vercel-sitecore-xm-cloud-nextjs-starter",
@@ -1999,7 +1999,7 @@
       "title": "Sitecore XM Cloud Next.js Starter",
       "description": "Simple Next.js blog site that connects to a Sitecore XM Cloud site using the Sitecore JavaScript Rendering SDK (JSS).",
       "sourceUrl": "https://vercel.com/templates/blog/sitecore-starter",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "blog",
       "categoryName": "Blog",
@@ -2106,7 +2106,7 @@
       "title": "Portfolio Starter Kit",
       "description": "Easily create a portfolio with Next.js and Markdown.",
       "sourceUrl": "https://vercel.com/templates/portfolio/portfolio-starter-kit",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "portfolio",
       "categoryName": "Portfolio",
@@ -2160,7 +2160,7 @@
       "title": "Next.js Portfolio with Blog",
       "description": "Easily create a portfolio with Next.js and Markdown.",
       "sourceUrl": "https://vercel.com/templates/portfolio/nextjs-portfolio",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "portfolio",
       "categoryName": "Portfolio",
@@ -2282,7 +2282,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -2311,7 +2311,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[blog,portfolio,content-site]"
+      "rationale": "repoType=unknown, quality=95, families=[blog,portfolio,content-site]"
     },
     {
       "id": "vercel-professional-card-astro",
@@ -2491,7 +2491,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -2519,7 +2519,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[portfolio,content-site]"
+      "rationale": "repoType=unknown, quality=95, families=[portfolio,content-site]"
     },
     {
       "id": "vercel-nim-minimalist-personal-site",
@@ -2543,7 +2543,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -2571,7 +2571,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[portfolio,base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[portfolio,base-nextjs]"
     },
     {
       "id": "vercel-nextjs-portfolio-with-pageview-counter",
@@ -2595,7 +2595,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -2624,7 +2624,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[portfolio,content-site,base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[portfolio,content-site,base-nextjs]"
     },
     {
       "id": "vercel-sanity-nextjs-personal-website",
@@ -2685,7 +2685,7 @@
       "title": "CMS-Kit: Sanity + Next.js 15 Visual Site Builder",
       "description": "A production-ready boilerplate for Sanity on Next.js, making Headless CMS-based development accessible, comfortable, and fast.",
       "sourceUrl": "https://vercel.com/templates/cms/cms-kit-sanity",
-      "repoUrl": "https://github.com/settings/installations",
+      "repoUrl": null,
       "demoUrl": "#",
       "categorySlug": "cms",
       "categoryName": "CMS",
@@ -2701,7 +2701,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "boilerplate",
-      "qualityScore": 85,
+      "qualityScore": 70,
       "signals": {
         "auth": true,
         "dashboard": true,
@@ -2728,8 +2728,8 @@
         "envVarCount": 0,
         "placeholderCopyRatio": 0
       },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=boilerplate, quality=85, families=[content-site,base-nextjs]"
+      "promotionDecision": "template_library_only",
+      "rationale": "repoType=boilerplate, quality=70, families=[content-site,base-nextjs]"
     },
     {
       "id": "vercel-nextjs-buttercms-starter-project",
@@ -2858,9 +2858,9 @@
         "Payload"
       ],
       "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
+      "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": true,
         "dashboard": true,
@@ -2889,7 +2889,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[landing-page,content-site,base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[landing-page,content-site,base-nextjs]"
     },
     {
       "id": "vercel-basehub-marketing-website",
@@ -2912,7 +2912,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "landing_template",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -2941,7 +2941,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=landing_template, quality=85, families=[landing-page,content-site,base-nextjs]"
+      "rationale": "repoType=landing_template, quality=95, families=[landing-page,content-site,base-nextjs]"
     },
     {
       "id": "vercel-serverlesswp",
@@ -3000,7 +3000,7 @@
       "title": "Next.js Waitlist with Notion CMS",
       "description": "A simple Next.js waitlist template with Notion as a CMS, Upstash Redis for rate limiting, and Resend for sending emails via custom domain.",
       "sourceUrl": "https://vercel.com/templates/cms/next-js-waitlist-with-notion-cms",
-      "repoUrl": "https://github.com/lakshaybhushan/nextjs-notion-waitlist-template/tree/yoda",
+      "repoUrl": "https://github.com/lakshaybhushan/nextjs-notion-waitlist-template",
       "demoUrl": "#",
       "categorySlug": "cms",
       "categoryName": "CMS",
@@ -3016,7 +3016,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "full_app",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": true,
@@ -3044,7 +3044,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=full_app, quality=85, families=[content-site,base-nextjs]"
+      "rationale": "repoType=full_app, quality=95, families=[content-site,base-nextjs]"
     },
     {
       "id": "vercel-glide-publishing-platform-nextjs-starter",
@@ -3068,7 +3068,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -3097,7 +3097,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[landing-page,content-site,base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[landing-page,content-site,base-nextjs]"
     },
     {
       "id": "vercel-optimizely-saas-cms-nextjs-15",
@@ -3121,7 +3121,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "starter_kit",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -3151,1493 +3151,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=starter_kit, quality=85, families=[saas-landing,landing-page,content-site,base-nextjs]"
-    },
-    {
-      "id": "vercel-express-on-bun",
-      "slug": "express-on-bun",
-      "title": "Express on Bun",
-      "description": "Deploy Express backends using the Bun runtime.",
-      "sourceUrl": "https://vercel.com/templates/backend/express-on-bun",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/framework-boilerplates/express-bun",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Express",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js",
-        "Observability"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "bun",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[app-shell,base-nextjs]"
-    },
-    {
-      "id": "vercel-hono-on-bun",
-      "slug": "hono-on-bun",
-      "title": "Hono on Bun",
-      "description": "Deploy Hono backends using the Bun runtime.",
-      "sourceUrl": "https://vercel.com/templates/backend/hono-on-bun",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/framework-boilerplates/hono-bun",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Hono",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js",
-        "Observability"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "bun",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[app-shell,base-nextjs]"
-    },
-    {
-      "id": "vercel-slack-bolt-with-hono",
-      "slug": "slack-bolt-with-hono",
-      "title": "Slack Bolt with Hono",
-      "description": "This is a generic Bolt for JavaScript (TypeScript) template app used to build out Slack apps with Hono",
-      "sourceUrl": "https://vercel.com/templates/backend/slack-bolt-with-hono",
-      "repoUrl": "https://github.com/vercel-partner-solutions/slack-bolt-with-hono",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Hono",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": true,
-        "dashboard": true,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": true,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[app-shell,base-nextjs]"
-    },
-    {
-      "id": "vercel-slack-bolt-with-nitro",
-      "slug": "slack-bolt-with-nitro",
-      "title": "Slack Bolt with Nitro",
-      "description": "This is a generic Bolt for JavaScript (TypeScript) template app used to build out Slack apps with the Nitro framework.",
-      "sourceUrl": "https://vercel.com/templates/backend/slack-bolt-with-nitro",
-      "repoUrl": "https://github.com/vercel-partner-solutions/slack-bolt-with-nitro",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Nitro",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": true,
-        "dashboard": true,
-        "pricing": false,
-        "blog": true,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": true,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[app-shell,base-nextjs]"
-    },
-    {
-      "id": "vercel-nestjs-on-vercel",
-      "slug": "nestjs-on-vercel",
-      "title": "NestJS on Vercel",
-      "description": "Deploying an API on Vercel with NestJS",
-      "sourceUrl": "https://vercel.com/templates/backend/nestjs-on-vercel",
-      "repoUrl": "https://github.com/nestjs/nest",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Other",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 90,
-      "signals": {
-        "auth": true,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=90, families=[app-shell,base-nextjs]"
-    },
-    {
-      "id": "vercel-elysia-on-vercel",
-      "slug": "elysia-on-vercel",
-      "title": "Elysia on Vercel",
-      "description": "Deploying an API on Vercel with Elysia.",
-      "sourceUrl": "https://vercel.com/templates/backend/elysia-on-vercel",
-      "repoUrl": "https://github.com/vercel/vercel/tree/main/examples/elysia",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Other",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "bun",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[app-shell,base-nextjs]"
-    },
-    {
-      "id": "vercel-flask-hello-world",
-      "slug": "flask-hello-world",
-      "title": "Flask Hello World",
-      "description": "Use Flask 3 on Vercel with Serverless Functions using the Python Runtime.",
-      "sourceUrl": "https://vercel.com/templates/backend/flask-hello-world",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/python/flask3",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Python",
-        "CSS",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "npm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[app-shell]"
-    },
-    {
-      "id": "vercel-django-hello-world",
-      "slug": "django-hello-world",
-      "title": "Django Hello World",
-      "description": "Use Django 4 on Vercel with Serverless Functions using the Python Runtime.",
-      "sourceUrl": "https://vercel.com/templates/backend/django-hello-world",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/python/django",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Python",
-        "CSS",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": true,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[app-shell]"
-    },
-    {
-      "id": "vercel-nodejs-serverless-function",
-      "slug": "nodejs-serverless-function",
-      "title": "Node.js Serverless Function",
-      "description": "Use Node.js with Vercel Serverless Functions.",
-      "sourceUrl": "https://vercel.com/templates/backend/nodejs-serverless-function-express",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/solutions/node-hello-world",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Other",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "npm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[app-shell,base-nextjs]"
-    },
-    {
-      "id": "vercel-nextjs-convex-template",
-      "slug": "nextjs-convex-template",
-      "title": "Next.js Convex Template",
-      "description": "A minimal template for building full-stack React applications using Next.js, Vercel, and Convex.",
-      "sourceUrl": "https://vercel.com/templates/backend/next-js-convex-template",
-      "repoUrl": "https://github.com/get-convex/vercel-marketplace-convex",
-      "demoUrl": "#",
-      "categorySlug": "backend",
-      "categoryName": "Backend",
-      "stackTags": [
-        "Join the community",
-        "Join the",
-        "Convex Discord community",
-        "to get help in real-time.",
-        "Follow"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
-      "repoType": "unknown",
-      "qualityScore": 95,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=95, families=[app-shell,base-nextjs]"
-    },
-    {
-      "id": "vercel-optimizely-feature-experimentation",
-      "slug": "optimizely-feature-experimentation",
-      "title": "Optimizely Feature Experimentation",
-      "description": "Fast and safe experimentation with Next.js App Router, Vercel Feature Flags, and Optimizely Feature Experimentation",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/optimizely-feature-experimentation",
-      "repoUrl": "https://github.com/vercel/nextjs-optimizely-experimentation",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
-      "repoType": "unknown",
-      "qualityScore": 95,
-      "signals": {
-        "auth": true,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": true,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=95, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-power-parity-pricing",
-      "slug": "power-parity-pricing",
-      "title": "Power Parity Pricing",
-      "description": "Implement power parity pricing using information from the request geolocation object in Edge Middleware.",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/power-parity-pricing",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": true,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "saas-landing",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[saas-landing,base-nextjs]"
-    },
-    {
-      "id": "vercel-adding-response-headers-in-edge-middleware",
-      "slug": "adding-response-headers-in-edge-middleware",
-      "title": "Adding Response Headers in Edge Middleware",
-      "description": "Learn to add response headers at the edge.",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/edge-functions-add-header",
-      "repoUrl": "https://github.com/vercel/examples",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-split-integration-example",
-      "slug": "split-integration-example",
-      "title": "Split Integration example",
-      "description": "Learn to use Split, a feature delivery platform that powers feature flag management, software experimentation and continuous delivery.",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/ab-testing-split",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Experimentation",
-        "Split",
-        "Related Templates",
-        "Products",
-        "AI"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "vertical_demo",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": true,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": true,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=vertical_demo, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-ip-blocking-with-upstash",
-      "slug": "ip-blocking-with-upstash",
-      "title": "IP Blocking with Upstash",
-      "description": "Template featuring IP Blocking at the edge using Upstash.",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/ip-blocking",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-geolocation-in-edge-middleware",
-      "slug": "geolocation-in-edge-middleware",
-      "title": "Geolocation in Edge Middleware",
-      "description": "Learn how to use visitor's location at the edge.",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/edge-functions-geolocation",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-basic-auth-password-protection",
-      "slug": "basic-auth-password-protection",
-      "title": "Basic Auth Password Protection",
-      "description": "Password protect pages in your application using Edge Middleware.",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/basic-auth-password",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": true,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": true,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "auth-pages",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[auth-pages,base-nextjs]"
-    },
-    {
-      "id": "vercel-i18n-in-edge-middleware",
-      "slug": "i18n-in-edge-middleware",
-      "title": "i18n in Edge Middleware",
-      "description": "This template shows how to redirect users based on i18n configuration.",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/edge-functions-i18n",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-user-agent-based-rendering",
-      "slug": "user-agent-based-rendering",
-      "title": "User-Agent Based Rendering",
-      "description": "Learn how to render a different page based on the User-Agent header.",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/edge-functions-user-agent-based-rendering",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-blue-green-deployments-on-vercel",
-      "slug": "blue-green-deployments-on-vercel",
-      "title": "Blue-Green Deployments on Vercel",
-      "description": "See how Vercel's Skew Protection feature enables production-ready blue-green deployments with just a few lines of code.",
-      "sourceUrl": "https://vercel.com/templates/edge-middleware/blue-green-deployments-vercel",
-      "repoUrl": "https://github.com/vercel-labs/blue-green",
-      "demoUrl": "#",
-      "categorySlug": "edge-middleware",
-      "categoryName": "Edge Middleware",
-      "stackTags": [
-        "Next.js",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-statsig-experimentation-with-flags-sdk",
-      "slug": "statsig-experimentation-with-flags-sdk",
-      "title": "Statsig Experimentation with Flags SDK",
-      "description": "Run experiments on static pages with Statsig and the Flags SDK",
-      "sourceUrl": "https://vercel.com/templates/edge-config/statsig-experimentation-with-flags-sdk",
-      "repoUrl": "https://github.com/vercel/examples",
-      "demoUrl": "#",
-      "categorySlug": "edge-config",
-      "categoryName": "Edge Config",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Experimentation",
-        "Statsig",
-        "Related Templates",
-        "Products",
-        "AI"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-launchdarkly-flags-sdk-example",
-      "slug": "launchdarkly-flags-sdk-example",
-      "title": "LaunchDarkly Flags SDK Example",
-      "description": "Learn how to set up LaunchDarkly, including experimentation alongside Flags SDK and Edge Config.",
-      "sourceUrl": "https://vercel.com/templates/edge-config/launchdarkly-flags-sdk",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/flags-sdk/launchdarkly",
-      "demoUrl": "#",
-      "categorySlug": "edge-config",
-      "categoryName": "Edge Config",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Experimentation",
-        "LaunchDarkly",
-        "Related Templates",
-        "Products",
-        "AI"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "vertical_demo",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": true,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=vertical_demo, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-growthbook-flags-sdk-example",
-      "slug": "growthbook-flags-sdk-example",
-      "title": "Growthbook Flags SDK Example",
-      "description": "Learn how to set up Growthbook flags and experiments using Flags SDK.",
-      "sourceUrl": "https://vercel.com/templates/edge-config/growthbook-flags-sdk-example",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/flags-sdk/growthbook",
-      "demoUrl": "#",
-      "categorySlug": "edge-config",
-      "categoryName": "Edge Config",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Experimentation",
-        "Growthbook",
-        "Related Templates",
-        "Products",
-        "AI"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "vertical_demo",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": true,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=vertical_demo, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-flags-sdk-with-hypertune-and-nextjs",
-      "slug": "flags-sdk-with-hypertune-and-nextjs",
-      "title": "Flags SDK with Hypertune and Next.js",
-      "description": "An e-commerce example built with Hypertune and Flags SDK that works well with Vercel Marketplace",
-      "sourceUrl": "https://vercel.com/templates/edge-config/flags-sdk-hypertune-nextjs",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/flags-sdk/hypertune",
-      "demoUrl": "#",
-      "categorySlug": "edge-config",
-      "categoryName": "Edge Config",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Experimentation",
-        "Hypertune",
-        "Related Templates",
-        "Products",
-        "AI"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "commerce_template",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": true,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "ecommerce",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=commerce_template, quality=85, families=[ecommerce,base-nextjs]"
-    },
-    {
-      "id": "vercel-experimentation-with-statsig",
-      "slug": "experimentation-with-statsig",
-      "title": "Experimentation with Statsig",
-      "description": "Reduce CLS and improve performance from client-loaded experiments at the edge with Statsig",
-      "sourceUrl": "https://vercel.com/templates/edge-config/ab-testing-statsig",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "edge-config",
-      "categoryName": "Edge Config",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "yarn",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-flags-sdk-with-openfeature-adapter",
-      "slug": "flags-sdk-with-openfeature-adapter",
-      "title": "Flags SDK with OpenFeature adapter",
-      "description": "Use OpenFeature providers with the Flags SDK",
-      "sourceUrl": "https://vercel.com/templates/edge-config/flags-sdk-openfeature",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/flags-sdk/openfeature",
-      "demoUrl": "#",
-      "categorySlug": "edge-config",
-      "categoryName": "Edge Config",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": true,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-vercel-cron-job-example",
-      "slug": "vercel-cron-job-example",
-      "title": "Vercel Cron Job Example",
-      "description": "A Next.js app that uses Vercel Cron Jobs to update data at different intervals.",
-      "sourceUrl": "https://vercel.com/templates/cron/vercel-cron",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "cron",
-      "categoryName": "Cron",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Database",
-        "Redis",
-        "Related Templates",
-        "Products",
-        "AI"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "vertical_demo",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=vertical_demo, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-vercel-dbos-integration",
-      "slug": "vercel-dbos-integration",
-      "title": "Vercel + DBOS Integration",
-      "description": "Run durable background workflows from your Vercel app.",
-      "sourceUrl": "https://vercel.com/templates/cron/vercel-dbos-integration",
-      "repoUrl": "https://github.com/dbos-inc/dbos-vercel-integration",
-      "demoUrl": "#",
-      "categorySlug": "cron",
-      "categoryName": "Cron",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 90,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": true,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=90, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-cron-og-cards",
-      "slug": "cron-og-cards",
-      "title": "Cron OG Cards",
-      "description": "A template for scheduled updates to your OG social cards using Vercel Cron Jobs and Upstash Redis.",
-      "sourceUrl": "https://vercel.com/templates/cron/cron-og",
-      "repoUrl": "https://github.com/gt-codes/og-cron",
-      "demoUrl": "#",
-      "categorySlug": "cron",
-      "categoryName": "Cron",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Database",
-        "Upstash",
-        "Redis",
-        "Related Templates",
-        "Products"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 95,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "npm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=95, families=[base-nextjs]"
+      "rationale": "repoType=starter_kit, quality=95, families=[saas-landing,landing-page,content-site,base-nextjs]"
     },
     {
       "id": "vercel-b2b-multi-tenant-starter-kit",
@@ -4699,7 +3213,7 @@
       "title": "Turso Per User Starter",
       "description": "Demo multi-tenancy with the Turso Platforms API",
       "sourceUrl": "https://vercel.com/templates/multi-tenant-apps/turso-per-user-starter",
-      "repoUrl": "https://github.com/notrab/turso-per-user-starter/wiki/Webhooks#using-webhooks-in-production",
+      "repoUrl": "https://github.com/notrab/turso-per-user-starter",
       "demoUrl": "#",
       "categorySlug": "multi-tenant-apps",
       "categoryName": "Multi-Tenant Apps",
@@ -4715,7 +3229,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "vertical_demo",
-      "qualityScore": 80,
+      "qualityScore": 90,
       "signals": {
         "auth": true,
         "dashboard": true,
@@ -4744,7 +3258,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=vertical_demo, quality=80, families=[landing-page,auth-pages,base-nextjs]"
+      "rationale": "repoType=vertical_demo, quality=90, families=[landing-page,auth-pages,base-nextjs]"
     },
     {
       "id": "vercel-multi-tenant-ai-native-todo-list-app-with-nile",
@@ -4752,7 +3266,7 @@
       "title": "Multi-tenant AI-native todo list app with Nile",
       "description": "This template shows how to use Nile with NextJS for a multi-tenant AI-native TODO list application.",
       "sourceUrl": "https://vercel.com/templates/multi-tenant-apps/multi-tenant-ai-native-todo-list-app-with-nile",
-      "repoUrl": "https://github.com/niledatabase/niledatabase/tree/main/examples/quickstart/nextjs",
+      "repoUrl": "https://github.com/niledatabase/niledatabase",
       "demoUrl": "#",
       "categorySlug": "multi-tenant-apps",
       "categoryName": "Multi-Tenant Apps",
@@ -4766,9 +3280,9 @@
         "AI"
       ],
       "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
+      "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": true,
         "dashboard": false,
@@ -4795,7 +3309,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[base-nextjs]"
     },
     {
       "id": "vercel-liveblocks-tldraw-whiteboard",
@@ -4819,7 +3333,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -4847,7 +3361,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[app-shell,base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[app-shell,base-nextjs]"
     },
     {
       "id": "vercel-anycable-real-time-starter-kit",
@@ -4908,7 +3422,7 @@
       "title": "Liveblocks Linear-like Issue Tracker",
       "description": "A Linear-like collaborative issue tracker using Liveblocks and Next.js.",
       "sourceUrl": "https://vercel.com/templates/realtime-apps/liveblocks-linear-like-issue-tracker",
-      "repoUrl": "https://github.com/liveblocks/liveblocks/tree/main/examples/nextjs-linear-like-issue-tracker",
+      "repoUrl": "https://github.com/liveblocks/liveblocks",
       "demoUrl": "#",
       "categorySlug": "realtime-apps",
       "categoryName": "Realtime Apps",
@@ -4924,7 +3438,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -4952,7 +3466,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[app-shell,base-nextjs]"
+      "rationale": "repoType=unknown, quality=95, families=[app-shell,base-nextjs]"
     },
     {
       "id": "vercel-rollbar-vercel-starter-kit",
@@ -5028,7 +3542,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "starter_kit",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": true,
         "dashboard": true,
@@ -5057,7 +3571,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=starter_kit, quality=85, families=[landing-page,app-shell,base-nextjs]"
+      "rationale": "repoType=starter_kit, quality=95, families=[landing-page,app-shell,base-nextjs]"
     },
     {
       "id": "vercel-nextra-docs-starter-kit",
@@ -5119,7 +3633,7 @@
       "title": "Headlesshost Knowledgebase",
       "description": "The Headelesshost knowledgebase template can be used to create a simple documentation website using Headlesshost and Next.js.",
       "sourceUrl": "https://vercel.com/templates/documentation/headlesshost-knowledgebase",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "documentation",
       "categoryName": "Documentation",
@@ -5171,7 +3685,7 @@
       "title": "Docusaurus 2",
       "description": "Docusaurus site that can be deployed to Vercel with zero configuration",
       "sourceUrl": "https://vercel.com/templates/documentation/docusaurus-2",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/framework-boilerplates/docusaurus-2",
+      "repoUrl": "https://github.com/vercel/examples",
       "demoUrl": "#",
       "categorySlug": "documentation",
       "categoryName": "Documentation",
@@ -5222,7 +3736,7 @@
       "title": "Docusaurus",
       "description": "Docusaurus site that can be deployed to Vercel with zero configuration.",
       "sourceUrl": "https://vercel.com/templates/documentation/Docusaurus",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/framework-boilerplates/docusaurus",
+      "repoUrl": "https://github.com/vercel/examples",
       "demoUrl": "#",
       "categorySlug": "documentation",
       "categoryName": "Documentation",
@@ -5289,7 +3803,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "starter_kit",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -5318,7 +3832,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=starter_kit, quality=85, families=[landing-page,content-site,base-nextjs]"
+      "rationale": "repoType=starter_kit, quality=95, families=[landing-page,content-site,base-nextjs]"
     },
     {
       "id": "vercel-ariadocs-documentation-template",
@@ -5379,7 +3893,7 @@
       "title": "Combining data fetching strategies",
       "description": "Learn how to use different data fetching strategies to avoid switching from static pre-rendering.",
       "sourceUrl": "https://vercel.com/templates/documentation/combining-data-fetching-strategies",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "documentation",
       "categoryName": "Documentation",
@@ -5431,7 +3945,7 @@
       "title": "Docus",
       "description": "Markdown-based documentation starter with Nuxt and Vue components.",
       "sourceUrl": "https://vercel.com/templates/documentation/docus",
-      "repoUrl": "https://github.com/nuxt-themes/docus/tree/main/.starters/i18n",
+      "repoUrl": "https://github.com/nuxt-themes/docus",
       "demoUrl": "#",
       "categorySlug": "documentation",
       "categoryName": "Documentation",
@@ -5447,7 +3961,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 95,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -5476,7 +3990,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[blog,landing-page,content-site]"
+      "rationale": "repoType=unknown, quality=95, families=[blog,landing-page,content-site]"
     },
     {
       "id": "vercel-pagination-with-ssg",
@@ -5484,7 +3998,7 @@
       "title": "Pagination with SSG",
       "description": "Learn to implement page based pagination with Next.js and Vercel.",
       "sourceUrl": "https://vercel.com/templates/documentation/pagination-with-ssg",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "documentation",
       "categoryName": "Documentation",
@@ -5536,7 +4050,7 @@
       "title": "next/image loading offset",
       "description": "Learn how lazy loading works on next/image.",
       "sourceUrl": "https://vercel.com/templates/documentation/image-offset",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "documentation",
       "categoryName": "Documentation",
@@ -5583,65 +4097,12 @@
       "rationale": "repoType=unknown, quality=80, families=[content-site,base-nextjs]"
     },
     {
-      "id": "vercel-virtual-event-starter-kit",
-      "slug": "virtual-event-starter-kit",
-      "title": "Virtual Event Starter Kit",
-      "description": "Jumpstart your virtual event and scale to any size with Next.js and Vercel.",
-      "sourceUrl": "https://vercel.com/templates/virtual-event/virtual-event-starter-kit",
-      "repoUrl": "https://github.com/vercel/virtual-event-starter-kit#cms",
-      "demoUrl": "#",
-      "categorySlug": "virtual-event",
-      "categoryName": "Virtual Event",
-      "stackTags": [
-        "Next.js",
-        "CSS Modules",
-        "Database",
-        "Redis",
-        "Supabase",
-        "CMS",
-        "Prismic"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "starter_kit",
-      "qualityScore": 85,
-      "signals": {
-        "auth": true,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": true
-      },
-      "recommendedScaffoldFamilies": [
-        "landing-page",
-        "content-site",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "yarn",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=starter_kit, quality=85, families=[landing-page,content-site,base-nextjs]"
-    },
-    {
       "id": "vercel-monorepo-with-nx",
       "slug": "monorepo-with-nx",
       "title": "Monorepo with Nx",
       "description": "Learn to implement a monorepo with a single Next.js site using Nx.",
       "sourceUrl": "https://vercel.com/templates/monorepos/monorepo-nx",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/solutions/nx-monorepo/./apps/app",
+      "repoUrl": "https://github.com/vercel/examples",
       "demoUrl": "#",
       "categorySlug": "monorepos",
       "categoryName": "Monorepos",
@@ -5692,7 +4153,7 @@
       "title": "Turborepo + Hono",
       "description": "A Turborepo with Hono backend and Next.js frontend",
       "sourceUrl": "https://vercel.com/templates/monorepos/turborepo-with-hono",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/starter/turborepo-with-hono",
+      "repoUrl": "https://github.com/vercel/examples",
       "demoUrl": "#",
       "categorySlug": "monorepos",
       "categoryName": "Monorepos",
@@ -5744,7 +4205,7 @@
       "title": "Turborepo & Next.js Starter",
       "description": "This is an official starter Turborepo with two Next.js sites and three local packages",
       "sourceUrl": "https://vercel.com/templates/monorepos/turborepo-next-basic",
-      "repoUrl": "https://github.com/vercel/turborepo/tree/main/examples/basic",
+      "repoUrl": "https://github.com/vercel/turborepo",
       "demoUrl": "#",
       "categorySlug": "monorepos",
       "categoryName": "Monorepos",
@@ -5796,7 +4257,7 @@
       "title": "Turborepo & Gatsby Starter",
       "description": "This is an official starter Turborepo with a Gatsby app, a Next.js app, and a React.js component library shared by both applications.",
       "sourceUrl": "https://vercel.com/templates/monorepos/turborepo-gatsby-starter",
-      "repoUrl": "https://github.com/vercel/turborepo/tree/main/examples/with-gatsby",
+      "repoUrl": "https://github.com/vercel/turborepo",
       "demoUrl": "#",
       "categorySlug": "monorepos",
       "categoryName": "Monorepos",
@@ -5848,7 +4309,7 @@
       "title": "Turborepo & SvelteKit Starter",
       "description": "This is an official starter Turborepo with two SvelteKit apps and two local packages.",
       "sourceUrl": "https://vercel.com/templates/monorepos/turborepo-sveltekit-starter",
-      "repoUrl": "https://github.com/vercel/turborepo/tree/main/examples/with-svelte",
+      "repoUrl": "https://github.com/vercel/turborepo",
       "demoUrl": "#",
       "categorySlug": "monorepos",
       "categoryName": "Monorepos",
@@ -5899,7 +4360,7 @@
       "title": "Turborepo & React Native Starter",
       "description": "This is an official starter Turborepo with a Next.js site, a React Native app, and two local packages.",
       "sourceUrl": "https://vercel.com/templates/monorepos/turborepo-react-native",
-      "repoUrl": "https://github.com/vercel/turborepo/tree/main/examples/with-react-native-web",
+      "repoUrl": "https://github.com/vercel/turborepo",
       "demoUrl": "#",
       "categorySlug": "monorepos",
       "categoryName": "Monorepos",
@@ -5951,7 +4412,7 @@
       "title": "Monorepo with Turborepo",
       "description": "Learn to implement a monorepo with a two Next.js sites that has installed three local packages.",
       "sourceUrl": "https://vercel.com/templates/monorepos/monorepo-turborepo",
-      "repoUrl": "https://github.com/vercel/turborepo/tree/main/examples/basic",
+      "repoUrl": "https://github.com/vercel/turborepo",
       "demoUrl": "#",
       "categorySlug": "monorepos",
       "categoryName": "Monorepos",
@@ -6049,731 +4510,12 @@
       "rationale": "repoType=unknown, quality=90, families=[auth-pages,base-nextjs]"
     },
     {
-      "id": "vercel-mint-a-single-nft-with-moralis",
-      "slug": "mint-a-single-nft-with-moralis",
-      "title": "Mint a single NFT with Moralis",
-      "description": "Learn to mint an NFT using Next.js and Moralis.",
-      "sourceUrl": "https://vercel.com/templates/web3/mint-nft-moralis",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/solutions/mint-nft",
-      "demoUrl": "#",
-      "categorySlug": "web3",
-      "categoryName": "Web3",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-wallet-manager-with-coinbase-developer-platform",
-      "slug": "wallet-manager-with-coinbase-developer-platform",
-      "title": "Wallet Manager with Coinbase Developer Platform",
-      "description": "Wallet manager dashboard built with Coinbase Developer Platform to create and manage wallets, track balances, and fund wallets.",
-      "sourceUrl": "https://vercel.com/templates/web3/wallet-dashboard-with-coinbase-developer-platform",
-      "repoUrl": "https://github.com/vercel/next.js",
-      "demoUrl": "#",
-      "categorySlug": "web3",
-      "categoryName": "Web3",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Database",
-        "Postgres",
-        "Related Templates",
-        "Products",
-        "AI"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": true,
-        "dashboard": true,
-        "pricing": true,
-        "blog": true,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": true,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "dashboard",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[dashboard,base-nextjs]"
-    },
-    {
-      "id": "vercel-coinbase-onchain",
-      "slug": "coinbase-onchain",
-      "title": "Coinbase Onchain",
-      "description": "Build on Base with OnchainKit. Includes wallet connection, transaction flows, and onchain data fetching.",
-      "sourceUrl": "https://vercel.com/templates/web3/coinbase-onchain",
-      "repoUrl": "https://github.com/neodaoist/onchainkit-early-adopter",
-      "demoUrl": "#",
-      "categorySlug": "web3",
-      "categoryName": "Web3",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 95,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "bun",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=95, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-coinbase-commerce",
-      "slug": "coinbase-commerce",
-      "title": "Coinbase Commerce",
-      "description": "Embed USDC payment and commerce capabilities in a few lines of code, powered by Coinbase Smart Wallet and Coinbase Commerce.",
-      "sourceUrl": "https://vercel.com/templates/web3/coinbase-commerce",
-      "repoUrl": "https://github.com/coinbase/onchain-commerce-template",
-      "demoUrl": "#",
-      "categorySlug": "web3",
-      "categoryName": "Web3",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "commerce_template",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": true,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "ecommerce",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "bun",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=commerce_template, quality=85, families=[ecommerce,base-nextjs]"
-    },
-    {
-      "id": "vercel-web3-data-fetching",
-      "slug": "web3-data-fetching",
-      "title": "Web3 Data Fetching",
-      "description": "Fetching data from smart contracts",
-      "sourceUrl": "https://vercel.com/templates/web3/web3-data-fetching",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/solutions/web3-data-fetching",
-      "demoUrl": "#",
-      "categorySlug": "web3",
-      "categoryName": "Web3",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-rate-limit-api-requests-firewall-rule",
-      "slug": "rate-limit-api-requests-firewall-rule",
-      "title": "Rate Limit API Requests Firewall Rule",
-      "description": "Adds a rule to your Vercel Firewall that rate limits API requests.",
-      "sourceUrl": "https://vercel.com/templates/vercel-firewall/rate-limit-api-requests-firewall-rule",
-      "repoUrl": "https://github.com/vercel/firewall-templates/tree/main/api-rate-limit",
-      "demoUrl": "#",
-      "categorySlug": "vercel-firewall",
-      "categoryName": "Vercel Firewall",
-      "stackTags": [
-        "Other",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": true,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0.00819672131147541
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-block-ofac-sanctioned-countries-firewall-rule",
-      "slug": "block-ofac-sanctioned-countries-firewall-rule",
-      "title": "Block OFAC-Sanctioned Countries Firewall Rule",
-      "description": "Use this template to quickly implement blocks against traffic from OFAC-sanctioned countries with the Vercel Web Application Firewall (WAF).",
-      "sourceUrl": "https://vercel.com/templates/vercel-firewall/block-ofac-sanctioned-countries-firewall-rule",
-      "repoUrl": "https://github.com/vercel/firewall-templates/tree/main/ofac-sanctioned-countries",
-      "demoUrl": "#",
-      "categorySlug": "vercel-firewall",
-      "categoryName": "Vercel Firewall",
-      "stackTags": [
-        "Other",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-emergency-redirect-firewall-rule",
-      "slug": "emergency-redirect-firewall-rule",
-      "title": "Emergency Redirect Firewall Rule",
-      "description": "Use this template to quickly implement an emergency redirect rule with the Vercel Web Application Firewall (WAF).",
-      "sourceUrl": "https://vercel.com/templates/vercel-firewall/emergency-redirect-firewall-rule",
-      "repoUrl": "https://github.com/vercel/firewall-templates/tree/main/emergency-redirect-rule",
-      "demoUrl": "#",
-      "categorySlug": "vercel-firewall",
-      "categoryName": "Vercel Firewall",
-      "stackTags": [
-        "Other",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-block-wordpress-urls-firewall-rule",
-      "slug": "block-wordpress-urls-firewall-rule",
-      "title": "Block WordPress URLs Firewall Rule",
-      "description": "Adds a rule to your Vercel Firewall that blocks common WordPress-related URLs.",
-      "sourceUrl": "https://vercel.com/templates/vercel-firewall/block-wordpress-urls-firewall-rule",
-      "repoUrl": "https://github.com/vercel/firewall-templates/tree/main/wordpress-firewall-rule",
-      "demoUrl": "#",
-      "categorySlug": "vercel-firewall",
-      "categoryName": "Vercel Firewall",
-      "stackTags": [
-        "Other",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-block-bad-bots-firewall-rule",
-      "slug": "block-bad-bots-firewall-rule",
-      "title": "Block Bad Bots Firewall Rule",
-      "description": "Adds a rule to your Vercel Firewall that identifies bots that you might not want requesting your projects.",
-      "sourceUrl": "https://vercel.com/templates/vercel-firewall/block-bad-bots-firewall-rule",
-      "repoUrl": "https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker",
-      "demoUrl": "#",
-      "categorySlug": "vercel-firewall",
-      "categoryName": "Vercel Firewall",
-      "stackTags": [
-        "Other",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 95,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=95, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-block-ai-bots-firewall-rule",
-      "slug": "block-ai-bots-firewall-rule",
-      "title": "Block AI Bots Firewall Rule",
-      "description": "Adds a rule to your Vercel Firewall that detects common AI Bots.",
-      "sourceUrl": "https://vercel.com/templates/vercel-firewall/block-ai-bots-firewall-rule",
-      "repoUrl": "https://github.com/ai-robots-txt/ai.robots.txt",
-      "demoUrl": "#",
-      "categorySlug": "vercel-firewall",
-      "categoryName": "Vercel Firewall",
-      "stackTags": [
-        "Other",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute",
-        "Next.js"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": true,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[base-nextjs]"
-    },
-    {
-      "id": "vercel-single-spa-starter",
-      "slug": "single-spa-starter",
-      "title": "single-spa Starter",
-      "description": "Vite + React microfrontends application using Single SPA.",
-      "sourceUrl": "https://vercel.com/templates/microfrontends/microfrontends-single-spa",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/microfrontends/single-spa",
-      "demoUrl": "#",
-      "categorySlug": "microfrontends",
-      "categoryName": "Microfrontends",
-      "stackTags": [
-        "React",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "landing-page"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[landing-page]"
-    },
-    {
-      "id": "vercel-nextjs-multi-zones-starter",
-      "slug": "nextjs-multi-zones-starter",
-      "title": "Next.js Multi-Zones Starter",
-      "description": "Split a single Next.js application by path into multiple applications for faster build times and independent development.",
-      "sourceUrl": "https://vercel.com/templates/microfrontends/microfrontends-multi-zones",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/microfrontends/nextjs-multi-zones",
-      "demoUrl": "#",
-      "categorySlug": "microfrontends",
-      "categoryName": "Microfrontends",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "landing-page",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": true,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[landing-page,base-nextjs]"
-    },
-    {
-      "id": "vercel-saas-microservices",
-      "slug": "saas-microservices",
-      "title": "SaaS Microservices",
-      "description": "A SaaS dashboard that talks to 2 API microservices defined in Nitro and Hono, all running under the same domain.",
-      "sourceUrl": "https://vercel.com/templates/microfrontends/saas-microservices",
-      "repoUrl": "https://github.com/vercel/examples/tree/main/microfrontends/saas-microservices",
-      "demoUrl": "#",
-      "categorySlug": "microfrontends",
-      "categoryName": "Microfrontends",
-      "stackTags": [
-        "Next.js",
-        "Express",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": true,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "saas-landing",
-        "dashboard",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[saas-landing,dashboard,base-nextjs]"
-    },
-    {
       "id": "vercel-supabase-starter",
       "slug": "supabase-starter",
       "title": "Supabase Starter",
       "description": "A Next.js App Router template configured with cookie-based auth using Supabase, TypeScript and Tailwind CSS.",
       "sourceUrl": "https://vercel.com/templates/authentication/supabase",
-      "repoUrl": "https://github.com/orgs/supabase/discussions/29260",
+      "repoUrl": "https://github.com/orgs/supabase",
       "demoUrl": "#",
       "categorySlug": "authentication",
       "categoryName": "Authentication",
@@ -6825,7 +4567,7 @@
       "title": "SvelteKit Authentication",
       "description": "A SvelteKit app with authentication.",
       "sourceUrl": "https://vercel.com/templates/authentication/sveltekit-authentication",
-      "repoUrl": "https://github.com/nextauthjs/next-auth/tree/main/apps/examples/sveltekit",
+      "repoUrl": "https://github.com/nextauthjs/next-auth",
       "demoUrl": "#",
       "categorySlug": "authentication",
       "categoryName": "Authentication",
@@ -6841,7 +4583,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js",
       "repoType": "unknown",
-      "qualityScore": 80,
+      "qualityScore": 90,
       "signals": {
         "auth": true,
         "dashboard": false,
@@ -6868,7 +4610,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[auth-pages]"
+      "rationale": "repoType=unknown, quality=90, families=[auth-pages]"
     },
     {
       "id": "vercel-nextjs-saas-starter",
@@ -6983,7 +4725,7 @@
       "title": "Auth for subdomains",
       "description": "Learn how to secure sub domains using Next.js and NextAuth.",
       "sourceUrl": "https://vercel.com/templates/authentication/subdomains-auth",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
+      "repoUrl": "https://github.com/vercel/next.js",
       "demoUrl": "#",
       "categorySlug": "authentication",
       "categoryName": "Authentication",
@@ -7035,7 +4777,7 @@
       "title": "Precedent – Next.js Starter",
       "description": "A collection of components, hooks, and utilities built on Next.js, Typescript, Tailwind, Radix, Framer Motion, Prisma, and PostgreSQL.",
       "sourceUrl": "https://vercel.com/templates/authentication/precedent",
-      "repoUrl": "https://github.com/user-attachments/assets/aef3c099-e371-43bf-b426-f5ba73185a7c",
+      "repoUrl": null,
       "demoUrl": "#",
       "categorySlug": "authentication",
       "categoryName": "Authentication",
@@ -7051,7 +4793,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "unknown",
-      "qualityScore": 85,
+      "qualityScore": 70,
       "signals": {
         "auth": true,
         "dashboard": true,
@@ -7079,8 +4821,8 @@
         "envVarCount": 0,
         "placeholderCopyRatio": 0
       },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[landing-page,auth-pages,base-nextjs]"
+      "promotionDecision": "template_library_only",
+      "rationale": "repoType=unknown, quality=70, families=[landing-page,auth-pages,base-nextjs]"
     },
     {
       "id": "vercel-partner-gallery",
@@ -7299,7 +5041,7 @@
       "title": "Drupal Marketing Site",
       "description": "Example landing page using Drupal for content.",
       "sourceUrl": "https://vercel.com/templates/marketing-sites/drupal-nextjs-marketing-site",
-      "repoUrl": "https://github.com/chapter-three/next-drupal/tree/main/examples/example-marketing",
+      "repoUrl": "https://github.com/chapter-three/next-drupal",
       "demoUrl": "#",
       "categorySlug": "marketing-sites",
       "categoryName": "Marketing Sites",
@@ -7315,7 +5057,7 @@
       "frameworkMatch": true,
       "frameworkReason": "Next.js, React",
       "repoType": "landing_template",
-      "qualityScore": 80,
+      "qualityScore": 90,
       "signals": {
         "auth": false,
         "dashboard": false,
@@ -7344,215 +5086,7 @@
         "placeholderCopyRatio": 0
       },
       "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=landing_template, quality=80, families=[landing-page,content-site,base-nextjs]"
-    },
-    {
-      "id": "vercel-on-demand-isr",
-      "slug": "on-demand-isr",
-      "title": "On-Demand ISR",
-      "description": "Instantly update content without redeploying.",
-      "sourceUrl": "https://vercel.com/templates/cdn/on-demand-incremental-static-regeneration",
-      "repoUrl": "https://github.com/vercel/on-demand-isr",
-      "demoUrl": "#",
-      "categorySlug": "cdn",
-      "categoryName": "CDN",
-      "stackTags": [
-        "Next.js",
-        "CSS",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
-      "repoType": "unknown",
-      "qualityScore": 80,
-      "signals": {
-        "auth": true,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "content-site",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "unknown",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=80, families=[content-site,base-nextjs]"
-    },
-    {
-      "id": "vercel-rewrite-docs-to-mintlify",
-      "slug": "rewrite-docs-to-mintlify",
-      "title": "Rewrite docs to Mintlify",
-      "description": "Learn how to rewrite the /docs path on your domain to Mintlify, a popular documentation platform.",
-      "sourceUrl": "https://vercel.com/templates/cdn/rewrite-docs-to-mintlify",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "cdn",
-      "categoryName": "CDN",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": true,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "content-site",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": true,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[content-site,base-nextjs]"
-    },
-    {
-      "id": "vercel-bulk-redirects-via-a-cms",
-      "slug": "bulk-redirects-via-a-cms",
-      "title": "Bulk Redirects via a CMS",
-      "description": "Learn how to create redirects via Contentful, synced at build time to Vercel’s CDN using vercel.ts",
-      "sourceUrl": "https://vercel.com/templates/cdn/bulk-redirects-via-a-cms",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "cdn",
-      "categoryName": "CDN",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "CMS",
-        "Contentful",
-        "Products",
-        "AI",
-        "Enterprise"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": true
-      },
-      "recommendedScaffoldFamilies": [
-        "content-site",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[content-site,base-nextjs]"
-    },
-    {
-      "id": "vercel-update-redirects-in-realtime",
-      "slug": "update-redirects-in-realtime",
-      "title": "Update Redirects in Realtime",
-      "description": "Learn how to update redirects served by Vercel when redirects change in the CMS without redeploying.",
-      "sourceUrl": "https://vercel.com/templates/cdn/update-redirects-in-realtime",
-      "repoUrl": "https://github.com/vercel/next.js/tree/canary/packages/create-next-app",
-      "demoUrl": "#",
-      "categorySlug": "cdn",
-      "categoryName": "CDN",
-      "stackTags": [
-        "Next.js",
-        "Tailwind",
-        "Related Templates",
-        "Products",
-        "AI",
-        "Enterprise",
-        "Fluid Compute"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js",
-      "repoType": "unknown",
-      "qualityScore": 85,
-      "signals": {
-        "auth": false,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": true
-      },
-      "recommendedScaffoldFamilies": [
-        "app-shell",
-        "content-site",
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "pnpm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=unknown, quality=85, families=[app-shell,content-site,base-nextjs]"
+      "rationale": "repoType=landing_template, quality=90, families=[landing-page,content-site,base-nextjs]"
     },
     {
       "id": "vercel-modernize-nextjs-admin-dashboard-template",
@@ -7607,57 +5141,6 @@
       },
       "promotionDecision": "runtime_scaffold_candidate",
       "rationale": "repoType=unknown, quality=95, families=[dashboard,auth-pages,app-shell,base-nextjs]"
-    },
-    {
-      "id": "vercel-arcjet-nextjs-example-app",
-      "slug": "arcjet-nextjs-example-app",
-      "title": "Arcjet Next.js Example App",
-      "description": "Rate limiting and bot detection for Next.js",
-      "sourceUrl": "https://vercel.com/templates/security/arcjet-next-js-example-app",
-      "repoUrl": "https://github.com/arcjet/example-nextjs-form",
-      "demoUrl": "#",
-      "categorySlug": "security",
-      "categoryName": "Security",
-      "stackTags": [
-        "App:",
-        "Next.js",
-        "Form handling:",
-        "React Hook Form",
-        "(see also",
-        "our",
-        "full form protection"
-      ],
-      "frameworkMatch": true,
-      "frameworkReason": "Next.js, React",
-      "repoType": "vertical_demo",
-      "qualityScore": 90,
-      "signals": {
-        "auth": true,
-        "dashboard": false,
-        "pricing": false,
-        "blog": false,
-        "portfolio": false,
-        "ecommerce": false,
-        "docs": true,
-        "ai": true,
-        "multiTenant": false,
-        "cms": false
-      },
-      "recommendedScaffoldFamilies": [
-        "base-nextjs"
-      ],
-      "repoHealth": {
-        "hasReadme": false,
-        "hasPackageJson": false,
-        "hasAppDir": false,
-        "hasSrcAppDir": false,
-        "isMonorepo": false,
-        "packageManager": "npm",
-        "envVarCount": 0,
-        "placeholderCopyRatio": 0
-      },
-      "promotionDecision": "runtime_scaffold_candidate",
-      "rationale": "repoType=vertical_demo, quality=90, families=[base-nextjs]"
     }
   ]
 }

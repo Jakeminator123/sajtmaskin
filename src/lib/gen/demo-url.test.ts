@@ -91,7 +91,9 @@ describe("resolveEngineDemoUrl", () => {
     });
   });
 
-  it("hides demoUrl entirely for failed versions", () => {
+  it("shows legacy preview for failed versions so iframe is never blank", () => {
+    buildPreviewUrl.mockReturnValue("/api/preview-render?chatId=chat_1&versionId=ver_failed");
+
     const result = resolveEngineDemoUrlDetails("chat_1", {
       id: "ver_failed",
       verification_state: "failed",
@@ -99,9 +101,9 @@ describe("resolveEngineDemoUrl", () => {
     });
 
     expect(result).toEqual({
-      demoUrl: null,
-      legacyPreviewUrl: null,
-      mode: "none",
+      demoUrl: "/api/preview-render?chatId=chat_1&versionId=ver_failed",
+      legacyPreviewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_failed",
+      mode: "verification-failed",
     });
   });
 });

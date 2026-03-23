@@ -5,22 +5,20 @@ export const ecommerceManifest: ScaffoldManifest = {
   family: "ecommerce",
   label: "E-handel",
   description:
-    "Storefront starter with product grid, category filtering, product detail page, cart drawer, and checkout-ready layout.",
+    "E-commerce storefront with product grid, category filtering, product detail page with image gallery, cart drawer, and checkout-ready layout. " +
+    "For online stores, webshops, product catalogs, fashion, food, handmade goods, and retail businesses. " +
+    "Client-side cart state with add/remove/quantity; designed for Stripe or similar payment integration.",
   buildIntents: ["website", "template"],
   tags: [
-    "ecommerce",
-    "shop",
-    "store",
-    "products",
-    "cart",
-    "webshop",
-    "storefront",
-    "retail",
+    "ecommerce", "shop", "store", "products", "cart", "webshop", "storefront", "retail",
+    "e-handel", "butik", "varukorg", "kassa", "produkt", "produkter", "beställning",
+    "mode", "kläder", "inredning", "present", "handgjord",
   ],
   promptHints: [
-    "Use this scaffold for online stores, product catalogs, and webshops.",
-    "The cart drawer is a client-side sheet — keep product data in a simple array or context for now.",
-    "Adapt product categories, imagery, and pricing to the user's niche. Replace all placeholder names.",
+    "Use this scaffold for online stores, product catalogs, webshops, and retail storefronts.",
+    "The cart drawer uses client-side state — keep product data in a simple array or context.",
+    "Adapt product categories, imagery, pricing, and checkout flow to the user's niche.",
+    "Product detail page should include image gallery, price, description, and add-to-cart button.",
   ],
   files: [
     {

@@ -1,4 +1,4 @@
-import { canExposeEnginePreview, type EngineVersionLifecycleLike } from "@/lib/db/engine-version-lifecycle";
+import { resolveEngineVersionLifecycleStatus, type EngineVersionLifecycleLike } from "@/lib/db/engine-version-lifecycle";
 import { isLegacyPreviewShimsEnabled } from "@/lib/env";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 
@@ -8,7 +8,7 @@ export type EngineDemoUrlVersionLike = EngineVersionLifecycleLike & {
   sandbox_url?: string | null;
 };
 
-export type EngineDemoUrlResolutionMode = "legacy-preview" | "runtime" | "pending-runtime" | "none";
+export type EngineDemoUrlResolutionMode = "legacy-preview" | "runtime" | "pending-runtime" | "verification-failed" | "none";
 
 export type EngineDemoUrlResolution = {
   demoUrl: string | null;
@@ -68,11 +68,17 @@ export function resolveEngineDemoUrlDetails(
   projectId?: string | null,
 ): EngineDemoUrlResolution {
   const versionId = normalizeUrl(version?.id);
-  if (!version || !versionId || !canExposeEnginePreview(version)) {
+  if (!version || !versionId) {
     return { demoUrl: null, legacyPreviewUrl: null, mode: "none" };
   }
 
+  const lifecycle = resolveEngineVersionLifecycleStatus(version);
   const legacyPreviewUrl = buildPreviewUrl(chatId, versionId, projectId);
+
+  if (lifecycle === "failed") {
+    return { demoUrl: legacyPreviewUrl, legacyPreviewUrl, mode: "verification-failed" };
+  }
+
   if (isLegacyPreviewShimsEnabled()) {
     return { demoUrl: legacyPreviewUrl, legacyPreviewUrl, mode: "legacy-preview" };
   }
@@ -82,8 +88,5 @@ export function resolveEngineDemoUrlDetails(
     return { demoUrl: sandboxUrl, legacyPreviewUrl, mode: "runtime" };
   }
 
-  // No live sandbox URL yet (missing, still booting, or expired): still expose legacy
-  // `/api/preview-render` so the builder iframe shows an approximate preview instead
-  // of a blank panel. True Next runtime remains preferred when `sandboxUrl` exists.
   return { demoUrl: legacyPreviewUrl, legacyPreviewUrl, mode: "pending-runtime" };
 }

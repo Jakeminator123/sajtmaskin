@@ -1,8 +1,8 @@
 /**
  * Builder model catalog.
  *
- * This is the neutral source of truth for internal model tiers used across the
- * own engine, pricing, validation, and the v0 fallback adapter.
+ * Neutral source of truth for internal model tiers used across the
+ * own engine, pricing, and validation.
  */
 
 /** Explicit v0 Platform API model IDs — only used on fallback paths. */
@@ -22,7 +22,7 @@ export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
 
 export const DEFAULT_MODEL_ID: CanonicalModelId = "max";
 
-/** Model IDs for the default engine (when not using v0 fallback). */
+/** Model IDs for the own engine. */
 export const OWN_MODEL_IDS = [
   "gpt-5.4",
   "gpt-5.3-codex",

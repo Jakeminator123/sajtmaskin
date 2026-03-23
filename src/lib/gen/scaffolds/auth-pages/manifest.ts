@@ -5,21 +5,20 @@ export const authPagesManifest: ScaffoldManifest = {
   family: "auth-pages",
   label: "Auth Pages",
   description:
-    "Login, signup, and forgot-password pages with form layout, validation-ready structure, and minimal branding.",
+    "Authentication pages with login, signup, and forgot-password forms in a centered card layout. " +
+    "Validation-ready structure with email/password fields, form links between pages, and minimal branding. " +
+    "Works as standalone auth or as part of a larger app that needs protected routes.",
   buildIntents: ["website", "app", "template"],
   tags: [
-    "auth",
-    "login",
-    "signup",
-    "register",
-    "password",
-    "inloggning",
-    "registrering",
+    "auth", "login", "signup", "register", "password", "authentication",
+    "inloggning", "registrering", "logga in", "skapa konto", "lösenord",
+    "glömt lösenord", "konto", "session", "skyddad",
   ],
   promptHints: [
-    "Use this scaffold for authentication flows: login, signup, forgot password.",
-    "Keep the form layout, validation structure, and link flow between auth pages. Replace branding and copy.",
-    "Add OAuth buttons or additional fields as needed. Preserve the centered card layout.",
+    "Use this scaffold for authentication flows: login, signup, and forgot password.",
+    "Keep the centered card layout, form validation structure, and navigation links between auth pages.",
+    "Add OAuth buttons (Google, GitHub) or additional fields as needed.",
+    "Adapt branding, colors, and copy — preserve the form-centric structure.",
   ],
   files: [
     {

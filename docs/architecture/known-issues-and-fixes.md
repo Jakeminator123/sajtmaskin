@@ -107,3 +107,27 @@ for Sandbox preview to render in the builder iframe.
 `buildFinalizeParams` -> `finalizeAndSaveVersion` for follow-up
 generations to merge with previous version files instead of
 regenerating from scratch.
+
+### Preview shown even for failed versions (2026-03-23)
+`resolveEngineDemoUrlDetails` now returns a legacy `/api/preview-render` URL
+for versions with `verification_state === "failed"` using mode
+`"verification-failed"`. Previously these returned `demoUrl: null` which
+left the iframe completely blank while autofix iterated in the background.
+
+### Placeholder env vars (2026-03-23)
+When `SAJTMASKIN_AUTO_PLACEHOLDER_ENV=1`, missing project environment
+variables (detected by `resolveEnvRequirements`) are auto-filled with dev
+placeholder values so they never block readiness. A warning replaces the
+blocker so the user can see which keys still need real configuration.
+
+### Quality gate sandbox output (2026-03-23)
+`@vercel/sandbox` `runCommand` may return stdout/stderr as `Buffer` or
+`Uint8Array`. The quality gate route now normalizes these to strings so
+autofix prompts receive actual `tsc`/`next build` error text instead of
+the fallback "No output captured from sandbox command."
+
+### Supabase vs Vercel hosting
+Supabase provides Sajtmaskin's own database (Postgres). It does **not**
+host generated Next.js sites. Supabase egress limits affect DB reads/writes
+for Sajtmaskin's API but not the Vercel build/hosting of customer sites.
+See `docs/architecture/repair-deploy-loop.md` for the full picture.

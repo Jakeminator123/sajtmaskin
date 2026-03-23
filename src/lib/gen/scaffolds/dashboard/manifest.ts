@@ -5,18 +5,14 @@ export const dashboardManifest: ScaffoldManifest = {
   family: "dashboard",
   label: "Dashboard",
   description:
-    "Analytics and overview dashboard with sidebar, stats cards, data tables, and chart placeholders. For admin panels, analytics, and SaaS apps.",
+    "Analytics dashboard with collapsible sidebar, KPI stat cards, data tables, and chart areas. " +
+    "For admin panels, SaaS analytics, internal tools, and business intelligence views. " +
+    "Includes responsive table/card views and filter controls.",
   buildIntents: ["app"],
   tags: [
-    "dashboard",
-    "analytics",
-    "admin",
-    "stats",
-    "metrics",
-    "panel",
-    "overview",
-    "instrumentpanel",
-    "statistik",
+    "dashboard", "analytics", "admin", "stats", "metrics", "panel", "overview",
+    "instrumentpanel", "statistik", "nyckeltal", "rapport", "rapporter",
+    "kontrollpanel", "användarhantering", "graf", "diagram", "tabell",
   ],
   promptHints: [
     "Use this scaffold for dashboards, analytics panels, admin views, and data-heavy applications.",

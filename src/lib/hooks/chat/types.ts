@@ -1,5 +1,5 @@
 /**
- * Chat hook types — shared by both the own engine and v0 fallback.
+ * Chat hook types for the own engine generation flow.
  */
 import type { ChatMessage } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";

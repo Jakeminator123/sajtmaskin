@@ -1,4 +1,3 @@
-import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { BROAD_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 import { runSharedRepair } from "@/lib/gen/autofix/shared-repair";
 import { syntaxErrorsToDiagnostics } from "@/lib/gen/autofix/repair-diagnostics";
@@ -9,6 +8,7 @@ import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type RoutePlan } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
+import { applyCriticalSeoBaseline } from "@/lib/gen/validation/seo-auto-baseline";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -138,6 +138,17 @@ export async function runFinalizePreflight({
           })),
         );
       }
+    }
+
+    const seoBaseline = applyCriticalSeoBaseline(finalFiles);
+    if (seoBaseline.fixes.length > 0) {
+      finalFiles = seoBaseline.files;
+      nextFilesJson = JSON.stringify(finalFiles);
+      devLogAppend("in-progress", {
+        type: "seo-baseline",
+        chatId,
+        fixes: seoBaseline.fixes,
+      });
     }
 
     finalizedFilesForPreview = finalFiles;

@@ -1,590 +1,79 @@
 /**
- * Scaffold matching — selects the best internal scaffold for a prompt.
+ * Scaffold matching — selects the best internal scaffold for a prompt
+ * using embedding-based semantic search, filtered by buildIntent.
  *
- * Uses keyword matching as primary strategy, with embedding-based
- * semantic search as fallback when keywords yield only generic defaults.
- * Only matches against the 10 internal scaffolds in registry.ts.
+ * Falls back to a deterministic default when embeddings are unavailable
+ * (missing API key or empty embeddings file) or when no intent-compatible
+ * candidate scores above the similarity threshold.
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { getScaffoldByFamily, getScaffoldById } from "./registry";
+import { getAllScaffolds, getScaffoldByFamily, getScaffoldById } from "./registry";
+import type { ScaffoldSearchResult } from "./scaffold-search";
 import { searchScaffolds } from "./scaffold-search";
 
-const LANDING_KEYWORDS = [
-  "landing",
-  "marketing",
-  "campaign",
-  "company",
-  "business",
-  "services",
-  "service",
-  "consulting",
-  "consultant",
-  "studio",
-  "agency",
-  "corporate",
-  "startup",
-  "brand",
-  "homepage",
-  "home page",
-  "hemsida",
-  "webbplats",
-  "sajt",
-  "företag",
-  "byrå",
-  "tjänster",
-  "kampanj",
-  // SNI F – Byggverksamhet
-  "bygg", "byggföretag", "byggfirma", "snickare", "hantverkare",
-  "elektriker", "rörmokare", "målare", "måleri", "målerifirma",
-  "renovering", "plåtslagare", "takläggare", "markarbeten", "VVS",
-  "kakel", "golv", "fasadrenovering", "murare",
-  // SNI H – Transport & logistik
-  "transport", "transportbolag", "transportföretag", "frakt", "logistik",
-  "åkeri", "flyttfirma", "budtjänst", "spedition", "taxi",
-  // SNI K – Finans, försäkring, ekonomi
-  "redovisning", "bokföring", "revisor", "ekonomibyrå", "skatterådgivning",
-  "försäkring", "rådgivning", "finansiell",
-  // SNI M – Juridik
-  "advokat", "jurist", "juristfirma", "juristbyrå", "advokatbyrå",
-  "juridisk", "affärsjuridik",
-  // SNI L – Fastighet
-  "mäklare", "fastighetsmäklare", "fastighetsförmedling",
-  "fastighetsförvaltning", "mäklarfirma",
-  // SNI G45 – Fordonsservice
-  "bilverkstad", "mekaniker", "bilservice", "däckbyte", "lackering",
-  "bilreparation", "fordonsservice",
-  // SNI J – Kommunikation & reklam
-  "reklambyrå", "kommunikationsbyrå", "webbbyrå", "mediabyrå", "PR-byrå",
-  "eventbyrå", "produktionsbyrå", "marknadsföring", "marknadsföringsbyrå",
-  "digital byrå",
-  // SNI N – Bemanning & service
-  "bevakning", "larm", "säkerhet", "bemanning", "rekrytering",
-  // SNI N81 – Städ & fastighetsservice
-  "städ", "städföretag", "städfirma", "städbolag", "städning",
-  "lokalvård", "fastighetsskötsel", "fönsterputsning",
-  // SNI S – Övrig service
-  "begravningsbyrå", "kemtvätt",
-  // SNI A – Jordbruk
-  "lantbruk", "gård", "jordbruk", "lanthandel", "lanthandlare",
-  // SNI C – Tillverkning
-  "fabrik", "tillverkning", "industri",
-];
-
-const SAAS_KEYWORDS = [
-  "saas",
-  "software",
-  "platform",
-  "subscription",
-  "pricing",
-  "billing",
-  "product-led",
-  "product led",
-  "b2b",
-  "workspace",
-  "dashboard preview",
-  "free trial",
-  "mjukvara",
-  "mjukvarutjänst",
-  "plattform",
-  "abonnemang",
-  "pris",
-  "prisplaner",
-  "prispaket",
-  "testperiod",
-  "priser",
-];
-
-const PORTFOLIO_KEYWORDS = [
-  "portfolio",
-  "designer",
-  "developer",
-  "photographer",
-  "creative",
-  "creator",
-  "personal",
-  "resume",
-  "cv",
-  "selected work",
-  "case study",
-  "case studies",
-  "founder profile",
-  "artist",
-  "stylist",
-  "copywriter",
-  "consultant profile",
-  "illustrator",
-  "videographer",
-  "portfolio site",
-  "fotograf",
-  "kreatör",
-  "personlig",
-  "case",
-  // SNI M71 – Arkitektur & design
-  "arkitekt", "arkitektkontor", "formgivare", "inredare", "inredningsarkitekt",
-  // SNI R – Kultur & konst
-  "konstnär", "musiker", "band", "DJ", "filmare", "regissör",
-  "skulptör", "keramiker", "textilkonstnär", "grafisk formgivare",
-  "tatuerare", "animatör",
-  // Visning av verk
-  "galleri", "utställning", "verk", "showreel", "lookbook",
-];
-
-const BLOG_KEYWORDS = [
-  "blog",
-  "blogg",
-  "article",
-  "artikel",
-  "post",
-  "inlägg",
-  "writer",
-  "författare",
-  "newsletter",
-  "magazine",
-  "magasin",
-  "editorial",
-  "redaktion",
-  "content",
-  "innehåll",
-  "reading",
-  "läsa",
-  "recept",
-  "matlagning",
-  "krönika",
-  "dagbok",
-  "tips",
-  // Nya medieformer
-  "podcast", "podd", "vlogg", "videoblogg",
-  "reseberättelse", "reseblogg", "hälsoblogg", "modeblogg",
-  "träningsblogg", "teknikblogg",
-  "nyhetsbrev", "avsnitt", "prenumerera",
-];
-
-const DASHBOARD_KEYWORDS = [
-  "dashboard",
-  "dashboards",
-  "instrumentpanel",
-  "admin-panel",
-  "adminpanel",
-  "analytics",
-  "analys",
-  "stats",
-  "statistik",
-  "metrics",
-  "mätvärden",
-  "overview",
-  "översikt",
-  "reports",
-  "rapport",
-  "rapporter",
-  "chart",
-  "charts",
-  "diagram",
-  "table",
-  "tabell",
-  "kontrollpanel",
-  "nyckeltal",
-  "graf",
-  "grafer",
-  "sammanställning",
-  "användarhantering",
-];
-
-const APP_KEYWORDS = [
-  "admin",
-  "crm",
-  "panel",
-  "settings",
-  "inställningar",
-  "users",
-  "användare",
-  "sidebar",
-  "sidopanel",
-  "tool",
-  "verktyg",
-  "management",
-  "monitor",
-  "application",
-  "app",
-  "workspace",
-  "portal",
-  "backoffice",
-  "administrera",
-  "hantera",
-  "kontoinställningar",
-  "kontohantering",
-  "systemvy",
-  "översiktsvy",
-];
-
-const AUTH_KEYWORDS = [
-  "auth",
-  "login",
-  "inloggning",
-  "logga in",
-  "signup",
-  "sign up",
-  "registrera",
-  "registrering",
-  "register",
-  "password",
-  "lösenord",
-  "lösenordsskyddad",
-  "lösenordsskydd",
-  "forgot password",
-  "glömt lösenord",
-  "reset password",
-  "återställ",
-  "autentisering",
-  "konto",
-  "skapa konto",
-  "verifiera",
-  "verifiering",
-  "tvåfaktor",
-  "skyddad",
-  "behörighet",
-  "åtkomst",
-];
-
-const ECOMMERCE_KEYWORDS = [
-  "ecommerce",
-  "e-commerce",
-  "e-handel",
-  "webshop",
-  "webbshop",
-  "shop",
-  "butik",
-  "store",
-  "online store",
-  "nätbutik",
-  "product",
-  "produkt",
-  "produkter",
-  "cart",
-  "varukorg",
-  "kundvagn",
-  "checkout",
-  "kassa",
-  "betalning",
-  "order",
-  "beställning",
-  "inventory",
-  "lager",
-  "catalog",
-  "katalog",
-  "storefront",
-  // SNI G – Detaljhandel specifikt
-  "kläder", "mode", "inredning", "möbler", "present", "gåvor",
-  "smycken", "accessoarer", "elektronik", "sport", "leksaker",
-  "kosmetika", "hälsokost", "livsmedel", "vin", "kaffe",
-  "handgjord", "vintage", "second hand",
-];
-
-const INTERACTIVE_SIGNAL_KEYWORDS = [
-  "state",
-  "data",
-  "database",
-  "databas",
-  "api",
-  "fetch",
-  "form",
-  "formulär",
-  "upload",
-  "upload",
-  "notification",
-  "notifikation",
-  "real-time",
-  "realtid",
-  "websocket",
-  "filter",
-  "filtrera",
-  "search",
-  "sök",
-  "sökfunktion",
-  "pagination",
-  "paginering",
-  "modal",
-  "dialog",
-  "tab",
-  "tabs",
-  "flikar",
-  "drag",
-  "drop",
-  "dra och släpp",
-  "kanban",
-  "board",
-  "tavla",
-  "lista",
-  "list view",
-  "grid view",
-  "table view",
-  "intern",
-  "internal",
-  "intranet",
-  "backoffice",
-  "back office",
-  "inventory",
-  "lagersaldo",
-  "booking system",
-  "bokningssystem",
-  "reservation",
-  "schedule",
-  "schema",
-  "calendar",
-  "kalender",
-  "task",
-  "uppgift",
-  "workflow",
-  "arbetsflöde",
-  "approval",
-  "godkännande",
-  "role",
-  "roller",
-  "permission",
-  "behörighet",
-];
-
-const CONTENT_KEYWORDS = [
-  "content",
-  "innehåll",
-  "gallery",
-  "galleri",
-  "showcase",
-  "work",
-  "projekt",
-  "projects",
-  "stories",
-  "dokumentation",
-  "documentation",
-  "docs",
-  "guide",
-  "guider",
-  "undersidor",
-  "kommun",
-  "myndighet",
-  "informationssajt",
-  "kunskapsbas",
-  "wiki",
-  "faq",
-  "vanliga frågor",
-  "manual",
-  "sidofält",
-  "sidofältet",
-  "navigation",
-  "helpdesk",
-  "hjälpcenter",
-  "dokumentationssida",
-  "informationssida",
-  "kunskapsbank",
-  // SNI P – Utbildning
-  "skola", "utbildning", "kurs", "kurser", "universitet", "gymnasium",
-  "förskola", "lärare", "akademi", "folkbildning", "studieförbund",
-  // SNI O/R – Offentlig sektor & kultur
-  "museum", "bibliotek", "arkiv", "region", "länsstyrelse",
-  "landing",
-  "marketing",
-  "startup",
-  "company",
-  "business",
-  "brand",
-  "hemsida",
-  "webbplats",
-  "sajt",
-  "företag",
-  "byrå",
-  "fotograf",
-  "saas",
-  "software",
-  "pricing",
-  "subscription",
-  "tier",
-  "feature",
-  "product",
-  "service",
-  "solution",
-  "plattform",
-  "tjänst",
-  "mjukvara",
-  "pris",
-  "abonnemang",
-];
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function countKeywordMatches(text: string, keywords: readonly string[]): number {
-  return keywords.reduce((count, keyword) => {
-    const pattern = new RegExp(
-      `(^|[^\\p{L}\\p{N}])${escapeRegex(keyword)}([^\\p{L}\\p{N}]|$)`,
-      "iu",
-    );
-    return count + (pattern.test(text) ? 1 : 0);
-  }, 0);
-}
-
-/** Minimum score to prefer a specific scaffold over fallbacks */
-const MIN_SCORE = 2;
-
-/** Picks the best scaffold from scored candidates, or null if none meets threshold */
-function pickBestScaffold(
-  scores: Array<{ id: string; score: number }>,
-): ScaffoldManifest | null {
-  const sorted = [...scores].sort((a, b) => b.score - a.score);
-  const best = sorted[0];
-  if (!best || best.score < MIN_SCORE) return null;
-  return getScaffoldById(best.id);
-}
-
-/**
- * Synchronous keyword-based scaffold matching.
- * Fast and deterministic -- used as the primary matcher.
- */
-export function matchScaffold(
-  prompt: string,
-  buildIntent?: BuildIntent | null,
-): ScaffoldManifest | null {
-  const lower = prompt.toLowerCase();
-
-  const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
-  if (authScore >= MIN_SCORE) {
-    return getScaffoldByFamily("auth-pages");
-  }
-
-  const ecommerceScore = countKeywordMatches(lower, ECOMMERCE_KEYWORDS);
-  if (ecommerceScore >= MIN_SCORE) {
-    return getScaffoldByFamily("ecommerce");
-  }
-
-  if (buildIntent === "app") {
-    const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
-    const appScore = countKeywordMatches(lower, APP_KEYWORDS);
-    if (dashboardScore >= MIN_SCORE && dashboardScore >= appScore) {
-      return getScaffoldByFamily("dashboard");
-    }
-    return getScaffoldByFamily("app-shell");
-  }
-
-  const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
-  const appScore = countKeywordMatches(lower, APP_KEYWORDS);
-  if (appScore >= MIN_SCORE || dashboardScore >= MIN_SCORE) {
-    if (dashboardScore >= appScore) {
-      return getScaffoldByFamily("dashboard");
-    }
-    return getScaffoldByFamily("app-shell");
-  }
-
-  const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
-  const portfolioScore = countKeywordMatches(lower, PORTFOLIO_KEYWORDS);
-  const landingScore = countKeywordMatches(lower, LANDING_KEYWORDS);
-  const blogScore = countKeywordMatches(lower, BLOG_KEYWORDS);
-
-  const bestContent = pickBestScaffold([
-    { id: "saas-landing", score: saasScore },
-    { id: "portfolio", score: portfolioScore },
-    { id: "landing-page", score: landingScore },
-    { id: "blog", score: blogScore },
-  ]);
-
-  if (bestContent) {
-    return bestContent;
-  }
-
-  const contentScore = countKeywordMatches(lower, CONTENT_KEYWORDS);
-  if (contentScore >= MIN_SCORE) {
-    return getScaffoldByFamily("content-site");
-  }
-
-  const interactiveSignals = countKeywordMatches(lower, INTERACTIVE_SIGNAL_KEYWORDS);
-  if (interactiveSignals >= MIN_SCORE) {
-    if (dashboardScore >= 1) {
-      return getScaffoldByFamily("dashboard");
-    }
-    return getScaffoldByFamily("app-shell");
-  }
-
-  if (buildIntent === "website" || buildIntent === "template") {
-    return getScaffoldById("landing-page");
-  }
-
-  return getScaffoldByFamily("base-nextjs");
-}
-
 const EMBEDDING_MIN_SCORE = 0.35;
+const DEFAULT_WEBSITE_SCAFFOLD = "landing-page";
+const DEFAULT_APP_SCAFFOLD = "app-shell";
+const ULTIMATE_FALLBACK_SCAFFOLD = "base-nextjs";
 
 export interface ScaffoldMatchMeta {
-  matchSource: "keyword" | "embedding" | "manual" | "persisted" | "off";
+  matchSource: "embedding" | "manual" | "persisted" | "off" | "fallback";
   embeddingScore: number | null;
-  keywordFallbackId: string | null;
+  embeddingRunnerUpId: string | null;
+}
+
+function determineFallback(buildIntent?: BuildIntent | null): ScaffoldManifest | null {
+  if (buildIntent === "app") return getScaffoldByFamily(DEFAULT_APP_SCAFFOLD);
+  if (buildIntent === "website" || buildIntent === "template") return getScaffoldById(DEFAULT_WEBSITE_SCAFFOLD);
+  return getScaffoldByFamily(ULTIMATE_FALLBACK_SCAFFOLD);
+}
+
+function isIntentCompatible(scaffold: ScaffoldManifest, intent: BuildIntent | null | undefined): boolean {
+  if (!intent) return true;
+  const allowed = scaffold.buildIntents;
+  if (allowed.includes(intent as typeof allowed[number])) return true;
+  if (intent === "template" && allowed.includes("website")) return true;
+  if (intent === "website" && allowed.includes("template")) return true;
+  return false;
 }
 
 /**
- * Async scaffold matching that combines keyword matching with semantic
- * embedding search. Uses keyword match as the primary result; falls back
- * to embedding search when keywords only produce a generic default
- * (landing-page or base-nextjs), which suggests the prompt uses
- * vocabulary not covered by the keyword lists.
+ * Async scaffold matching using semantic embedding search.
+ *
+ * Embedding candidates are filtered by `buildIntents` so a website-only
+ * scaffold cannot win when the user asks for an app. Returns the best
+ * intent-compatible match above the similarity threshold, or a deterministic
+ * fallback based on buildIntent.
  */
 export async function matchScaffoldWithEmbeddings(
   prompt: string,
   buildIntent?: BuildIntent | null,
 ): Promise<{ scaffold: ScaffoldManifest | null; matchMeta: ScaffoldMatchMeta }> {
-  const keywordResult = matchScaffold(prompt, buildIntent);
-  const lower = prompt.toLowerCase();
-  const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
-  const appScore = countKeywordMatches(lower, APP_KEYWORDS);
-  const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
-
-  const isGenericDefault =
-    !keywordResult ||
-    keywordResult.id === "landing-page" ||
-    keywordResult.id === "base-nextjs";
-
-  if (!isGenericDefault) {
-    return {
-      scaffold: keywordResult,
-      matchMeta: { matchSource: "keyword", embeddingScore: null, keywordFallbackId: null },
-    };
-  }
+  const fallback = determineFallback(buildIntent);
 
   try {
-    const results = await searchScaffolds(prompt, 1);
-    if (results.length > 0 && results[0].score >= EMBEDDING_MIN_SCORE) {
-      const embeddingResult = results[0].scaffold;
-      const embeddingScore = Math.round(results[0].score * 1000) / 1000;
+    const results = await searchScaffolds(prompt, getAllScaffolds().length);
+    const compatible = results.filter((r) => isIntentCompatible(r.scaffold, buildIntent));
 
-      if (embeddingResult.id === "auth-pages" && authScore < 1) {
-        return {
-          scaffold: keywordResult,
-          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
-        };
-      }
-
-      const interactiveScore = countKeywordMatches(lower, INTERACTIVE_SIGNAL_KEYWORDS);
-      if (
-        buildIntent !== "app" &&
-        (embeddingResult.id === "dashboard" || embeddingResult.id === "app-shell") &&
-        appScore < 1 &&
-        dashboardScore < 1 &&
-        interactiveScore < MIN_SCORE
-      ) {
-        return {
-          scaffold: keywordResult,
-          matchMeta: { matchSource: "keyword", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
-        };
-      }
-
+    if (compatible.length > 0 && compatible[0].score >= EMBEDDING_MIN_SCORE) {
+      const best = compatible[0];
+      const runnerUp = compatible.length > 1 ? compatible[1] : null;
       return {
-        scaffold: embeddingResult,
-        matchMeta: { matchSource: "embedding", embeddingScore, keywordFallbackId: keywordResult?.id ?? null },
+        scaffold: best.scaffold,
+        matchMeta: {
+          matchSource: "embedding",
+          embeddingScore: Math.round(best.score * 1000) / 1000,
+          embeddingRunnerUpId: runnerUp?.scaffold.id ?? null,
+        },
       };
     }
   } catch {
-    // embedding search is best-effort; fall through to keyword result
+    // Embedding search is best-effort; fall through to deterministic fallback.
   }
 
   return {
-    scaffold: keywordResult,
-    matchMeta: { matchSource: "keyword", embeddingScore: null, keywordFallbackId: null },
+    scaffold: fallback,
+    matchMeta: { matchSource: "fallback", embeddingScore: null, embeddingRunnerUpId: null },
   };
 }

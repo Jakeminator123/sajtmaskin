@@ -508,7 +508,7 @@ export function VersionHistory({
               lifecycleStatus === "promoted"
                 ? "Promoted"
                 : lifecycleStatus === "preview-ready"
-                  ? "Preview-klar"
+                  ? "Visning redo"
                   : lifecycleStatus === "verifying"
                     ? "Verifying"
                     : lifecycleStatus === "retrying"
@@ -543,10 +543,10 @@ export function VersionHistory({
                 : qualityTier === "sandbox"
                   ? "Sandbox-klar"
                   : qualityTier === "preview"
-                    ? "Preview-klar"
+                    ? "Visning redo"
                     : null;
             // Quality tier defaults to "preview" for any non-failed version with demoUrl,
-            // which incorrectly showed "Preview-klar" alongside "Verifying" during checks.
+            // which incorrectly showed "Visning redo" alongside "Verifying" during checks.
             const showQualityTierBadge =
               Boolean(qualityTierLabel) && lifecycleStatus !== "verifying";
             const qualityTierBadgeClass =

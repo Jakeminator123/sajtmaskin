@@ -42,7 +42,6 @@
     "inspector:docker:logs": "docker compose -f infra/inspector-worker/docker-compose.yml logs -f inspector-worker",
     "inspector:docker:ps": "docker compose -f infra/inspector-worker/docker-compose.yml ps",
     "research:normalize": "npx tsx config/scripts/normalize-raw-catalog.ts",
-    "research:generate-dossiers": "npx tsx config/scripts/generate-dossiers-from-catalog.ts",
     "template-library:build": "npx tsx config/scripts/build-template-library.ts",
     "template-library:embeddings": "npx tsx config/scripts/generate-template-library-embeddings.ts",
     "template-library:rebuild": "npm run template-library:build && npm run template-library:embeddings",

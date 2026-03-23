@@ -16,8 +16,13 @@ const AUTOFIX_ENABLED =
   typeof window !== "undefined" &&
   localStorage.getItem("sajtmaskin:autofix-enabled") !== "false";
 
-const MAX_ATTEMPTS_PER_REASON = 2;
-const MAX_AUTOFIX_PER_CHAT = 3;
+const AGGRESSIVE_AUTOFIX =
+  typeof window !== "undefined" &&
+  (document.documentElement.dataset.aggressiveAutofix === "1" ||
+    localStorage.getItem("sajtmaskin:aggressive-autofix") === "1");
+
+const MAX_ATTEMPTS_PER_REASON = AGGRESSIVE_AUTOFIX ? 3 : 2;
+const MAX_AUTOFIX_PER_CHAT = AGGRESSIVE_AUTOFIX ? 5 : 3;
 const DEDUPE_TTL_MS = 5 * 60 * 1000;
 
 type AttemptEntry = { count: number; ts: number };
@@ -176,13 +181,30 @@ function isBlockingAutoFixLog(log: PersistedVersionLog): boolean {
   );
 }
 
+/** Keep SEO lines when publicering blockeras på title/metadata (readiness blocker). */
+function hasCriticalSeoIssuesInMeta(meta: Record<string, unknown> | null): boolean {
+  if (!meta) return false;
+  const issues = meta.issues;
+  if (!Array.isArray(issues)) return false;
+  return issues.some((issue) => {
+    if (!issue || typeof issue !== "object") return false;
+    const code = (issue as { code?: unknown }).code;
+    return code === "missing-metadata" || code === "missing-title";
+  });
+}
+
 export function summarizeVersionLogsForAutoFix(logs: PersistedVersionLog[]): string[] {
   const relevant = logs.filter((log) => !isNoiseForAutoFix(log));
   const hasBlockingDiagnostics = relevant.some(isBlockingAutoFixLog);
   const filtered = relevant.filter((log) => {
     const category = typeof log.category === "string" ? log.category.trim() : "";
     if (!hasBlockingDiagnostics) return true;
-    return category !== "seo";
+    if (category === "seo") {
+      const meta =
+        log.meta && typeof log.meta === "object" ? (log.meta as Record<string, unknown>) : null;
+      return hasCriticalSeoIssuesInMeta(meta);
+    }
+    return true;
   });
 
   const lines: string[] = [];
@@ -310,7 +332,9 @@ export function useAutoFix(
           scaffoldRetry && typeof scaffoldRetry.suggestedScaffoldId === "string"
             ? scaffoldRetry.suggestedScaffoldId
             : null;
-        const delayMs = chatTotal === 0 ? 1500 : 4000;
+        const delayMs = AGGRESSIVE_AUTOFIX
+          ? (chatTotal === 0 ? 500 : 1500)
+          : (chatTotal === 0 ? 1500 : 4000);
 
         if (pendingTimerRef.current) {
           clearTimeout(pendingTimerRef.current);

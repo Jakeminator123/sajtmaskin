@@ -21,30 +21,32 @@ TEMPLATES_URL = f"{BASE_URL}/templates"
 
 USE_CASES: List[Tuple[str, str]] = [
     ("ai", "AI"),
-    ("starter", "Starter"),
     ("ecommerce", "Ecommerce"),
     ("saas", "SaaS"),
     ("blog", "Blog"),
     ("portfolio", "Portfolio"),
     ("cms", "CMS"),
-    ("backend", "Backend"),
-    ("edge-functions", "Edge Functions"),
-    ("edge-middleware", "Edge Middleware"),
-    ("edge-config", "Edge Config"),
-    ("cron", "Cron"),
     ("multi-tenant-apps", "Multi-Tenant Apps"),
     ("realtime-apps", "Realtime Apps"),
     ("documentation", "Documentation"),
-    ("virtual-event", "Virtual Event"),
     ("monorepos", "Monorepos"),
-    ("web3", "Web3"),
-    ("vercel-firewall", "Vercel Firewall"),
-    ("microfrontends", "Microfrontends"),
     ("authentication", "Authentication"),
     ("marketing-sites", "Marketing Sites"),
-    ("cdn", "CDN"),
     ("admin-dashboard", "Admin Dashboard"),
-    ("security", "Security"),
+]
+
+# Framework-filter: bara Next.js/React-mallar hämtas.
+FRAMEWORK_FILTER: List[str] = ["next.js", "react"]
+
+# CSS-tekniker att spara som metadata-signal per mall (inte ett filter-gate).
+CSS_TAGS_OF_INTEREST: List[str] = [
+    "tailwind",
+    "radix-ui",
+    "css-modules",
+    "css-in-jsx",
+    "material-ui",
+    "styled-components",
+    "chakra",
 ]
 
 # Vanliga exempel från dokumentation / manuell körning (direkt-URL-läge → _direct/<slug>/)
@@ -129,10 +131,40 @@ _GITHUB_REPO_RE = re.compile(
     r"https?://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/?",
     re.I,
 )
+# Första två path-segmenten efter github.com (för klonbar bas-URL, utan /tree/, /blob/, #anchor)
+_GITHUB_CLONE_BASE_RE = re.compile(
+    r"^https?://github\.com/([^/]+)/([^/#?]+)",
+    re.I,
+)
 _VERCEL_TEMPLATE_PATH_RE = re.compile(
     r"^https?://vercel\.com/templates/([^/]+)/([^/?#]+)/?$",
     re.I,
 )
+
+
+def normalize_github_clone_url(url: Optional[str]) -> Optional[str]:
+    """
+    Gör om GitHub-webblänkar (…/tree/branch/path, …/blob/…, #fragment) till en URL
+    som `git clone` accepterar: https://github.com/owner/repo
+    Returnerar None om länken inte ser ut som ett repo.
+    """
+    if not url:
+        return None
+    u = url.strip()
+    if "github.com" not in u.lower():
+        return None
+    u = u.split("#")[0].split("?")[0].strip()
+    m = _GITHUB_CLONE_BASE_RE.match(u)
+    if not m:
+        return None
+    owner, repo = m.group(1), m.group(2)
+    if repo.lower().endswith(".git"):
+        repo = repo[:-4]
+    # Reject non-repo GitHub paths (attachments, avatars, raw content, etc.)
+    reject_owners = {"user-attachments", "avatars", "raw", "objects", "assets", "settings", "orgs", "organizations"}
+    if owner.lower() in reject_owners:
+        return None
+    return f"https://github.com/{owner}/{repo}"
 
 
 def _walk_json_for_github_urls(obj: object) -> List[str]:
@@ -166,6 +198,15 @@ def dir_size_bytes(path: Path) -> int:
     return total
 
 
+MONOREPO_EXAMPLE_REPOS = {
+    "vercel/next.js",
+    "vercel/vercel",
+    "vercel/examples",
+    "vercel/turborepo",
+    "vercel/firewall-templates",
+}
+
+
 @dataclass
 class TemplateInfo:
     category_slug: str
@@ -178,6 +219,12 @@ class TemplateInfo:
     framework_match: bool
     framework_reason: str
     stack_tags: List[str]
+    css_tags: List[str]
+    use_case_badges: List[str]
+    database_badges: List[str]
+    auth_badges: List[str]
+    is_monorepo_example: bool
+    is_tutorial_template: bool
     important_lines: List[str]
 
 
@@ -201,11 +248,17 @@ def ensure_dir(path: Path) -> None:
 
 
 class VercelTemplateScraper:
-    def __init__(self, timeout: int = 30, delay: float = 0.4):
+    def __init__(
+        self,
+        timeout: int = 30,
+        delay: float = 0.4,
+        loose_framework_match: bool = False,
+    ):
         self.session = requests.Session()
         self.session.headers.update(DEFAULT_HEADERS)
         self.timeout = timeout
         self.delay = delay
+        self.loose_framework_match = loose_framework_match
 
     def get_html(self, url: str) -> Optional[str]:
         try:
@@ -225,9 +278,10 @@ class VercelTemplateScraper:
 
     def get_category_template_urls(self, category_slug: str) -> List[str]:
         """
-        Hämtar alla template-URL:er från en use-case-sida.
+        Hämtar alla template-URL:er från en use-case-sida, filtrerade på FRAMEWORK_FILTER.
         """
-        url = f"{TEMPLATES_URL}/{category_slug}"
+        fw_params = "&".join(f"framework={fw}" for fw in FRAMEWORK_FILTER)
+        url = f"{TEMPLATES_URL}/{category_slug}?{fw_params}"
         soup = self.get_soup(url)
         if not soup:
             return []
@@ -257,7 +311,18 @@ class VercelTemplateScraper:
         repo_url = self.extract_repo_url(soup)
         demo_url = self.extract_demo_url(soup)
         stack_tags = self.extract_stack_tags(soup)
-        framework_match, framework_reason = self.is_next_or_react(title, description, page_text, stack_tags)
+        css_tags = self.extract_css_tags(stack_tags, page_text)
+        use_case_badges = self.extract_sidebar_badges(soup, "Use Cases")
+        database_badges = self.extract_sidebar_badges(soup, "Database")
+        auth_badges = self.extract_sidebar_badges(soup, "Authentication")
+        is_monorepo = self.detect_monorepo_example(repo_url)
+        is_tutorial = self.detect_tutorial_template(page_text, repo_url)
+        fw_fn = (
+            self.is_next_or_react_loose
+            if self.loose_framework_match
+            else self.is_next_or_react
+        )
+        framework_match, framework_reason = fw_fn(title, description, page_text, stack_tags)
         important_lines = self.extract_important_lines(page_text)
 
         return TemplateInfo(
@@ -271,6 +336,12 @@ class VercelTemplateScraper:
             framework_match=framework_match,
             framework_reason=framework_reason,
             stack_tags=stack_tags,
+            css_tags=css_tags,
+            use_case_badges=use_case_badges,
+            database_badges=database_badges,
+            auth_badges=auth_badges,
+            is_monorepo_example=is_monorepo,
+            is_tutorial_template=is_tutorial,
             important_lines=important_lines,
         )
 
@@ -326,6 +397,8 @@ class VercelTemplateScraper:
         def normalize_href(h: str) -> str:
             return h.strip().split("?")[0].rstrip("/")
 
+        chosen: Optional[str] = None
+
         # 1) JSON-LD (ofta codeRepository) — minskar risk för fel första <a>-träff
         for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
             raw = script.string or script.get_text() or ""
@@ -338,44 +411,48 @@ class VercelTemplateScraper:
             candidates = _walk_json_for_github_urls(data)
             for c in candidates:
                 if _GITHUB_REPO_RE.search(c):
-                    return normalize_href(c)
+                    chosen = normalize_href(c)
+                    break
+            if chosen:
+                break
 
         # 2) Ankare med tydlig GitHub-etikett
-        labeled: List[Tuple[str, str]] = []
-        for a in soup.find_all("a", href=True):
-            text = a.get_text(" ", strip=True).lower()
-            href = normalize_href(a["href"])
-            if "github.com" not in href:
-                continue
-            if not _GITHUB_REPO_RE.search(href):
-                continue
-            labeled.append((href, text))
-            if "github repo" in text:
-                return href
+        if not chosen:
+            labeled: List[Tuple[str, str]] = []
+            for a in soup.find_all("a", href=True):
+                text = a.get_text(" ", strip=True).lower()
+                href = normalize_href(a["href"])
+                if "github.com" not in href:
+                    continue
+                if not _GITHUB_REPO_RE.search(href):
+                    continue
+                labeled.append((href, text))
+                if "github repo" in text:
+                    chosen = href
+                    break
 
         # 3) Samla alla github owner/repo-länkar; undvik github.com/vercel/vercel om det finns alternativ
-        repos = [h for h, _ in labeled]
-        if not repos:
-            for a in soup.find_all("a", href=True):
-                href = normalize_href(a["href"])
-                if "github.com" in href and _GITHUB_REPO_RE.search(href):
-                    repos.append(href)
+        if not chosen:
+            repos = [h for h, _ in labeled] if labeled else []
+            if not repos:
+                for a in soup.find_all("a", href=True):
+                    href = normalize_href(a["href"])
+                    if "github.com" in href and _GITHUB_REPO_RE.search(href):
+                        repos.append(href)
 
-        if not repos:
-            return None
+            if repos:
+                dedup: List[str] = []
+                seen = set()
+                for h in repos:
+                    low = h.lower()
+                    if low not in seen:
+                        seen.add(low)
+                        dedup.append(h)
 
-        dedup: List[str] = []
-        seen = set()
-        for h in repos:
-            low = h.lower()
-            if low not in seen:
-                seen.add(low)
-                dedup.append(h)
+                non_v_self = [h for h in dedup if "github.com/vercel/vercel" not in h.lower()]
+                chosen = non_v_self[0] if non_v_self else dedup[0]
 
-        non_v_self = [h for h in dedup if "github.com/vercel/vercel" not in h.lower()]
-        if non_v_self:
-            return non_v_self[0]
-        return dedup[0]
+        return normalize_github_clone_url(chosen)
 
     @staticmethod
     def extract_demo_url(soup: BeautifulSoup) -> Optional[str]:
@@ -411,12 +488,156 @@ class VercelTemplateScraper:
         return out
 
     @staticmethod
+    def extract_css_tags(stack_tags: List[str], page_text: str) -> List[str]:
+        """Match known CSS frameworks from stack tags and page text."""
+        haystack = " ".join(stack_tags).lower() + " " + page_text[:8000].lower()
+        found: List[str] = []
+        for css in CSS_TAGS_OF_INTEREST:
+            normalized = css.replace("-", " ").replace("_", " ")
+            if normalized in haystack or css in haystack:
+                found.append(css)
+        return found
+
+    @staticmethod
+    def extract_sidebar_badges(soup: BeautifulSoup, label: str) -> List[str]:
+        """
+        Parse badge-links from the Vercel template detail page sidebar.
+
+        The sidebar has sections like "Use Cases", "Stack", "Database" with
+        short link-badges underneath. We find the label as a visible text node,
+        then collect immediately following <a> siblings whose text is short
+        (badges, not paragraph text).
+        """
+        badges: List[str] = []
+
+        for span in soup.find_all(["span"]):
+            text = span.get_text(strip=True)
+            if text.lower() != label.lower():
+                continue
+
+            container = span.parent
+            if not container:
+                continue
+
+            stop_labels = {
+                "stack", "database", "authentication", "css",
+                "cms", "experimentation", "framework",
+                "github repo", "related templates", "use cases",
+            }
+            stop_labels.discard(label.lower())
+
+            label_classes = set(span.get("class") or [])
+
+            for sibling in container.find_all_next(limit=40):
+                if sibling.name == "span" and sibling is not span:
+                    sib_classes = set(sibling.get("class") or [])
+                    if sib_classes & label_classes:
+                        exact = sibling.get_text(strip=True).lower()
+                        if exact in stop_labels:
+                            break
+                if sibling.name == "a":
+                    link_text = sibling.get_text(strip=True)
+                    if not link_text or len(link_text) > 40:
+                        continue
+                    href = (sibling.get("href") or "").lower()
+                    if "/templates/" in href:
+                        badges.append(link_text)
+            if badges:
+                break
+
+        return badges
+
+    @staticmethod
+    def detect_monorepo_example(repo_url: Optional[str]) -> bool:
+        if not repo_url:
+            return False
+        for known in MONOREPO_EXAMPLE_REPOS:
+            if known.lower() in repo_url.lower():
+                return True
+        return False
+
+    @staticmethod
+    def detect_tutorial_template(page_text: str, repo_url: Optional[str]) -> bool:
+        lower = page_text[:10000].lower()
+        if "create-next-app --example" in lower or "create next app --example" in lower:
+            return True
+        if repo_url and any(m in repo_url.lower() for m in MONOREPO_EXAMPLE_REPOS):
+            if "execute" in lower and "--example" in lower:
+                return True
+        return False
+
+    @staticmethod
     def is_next_or_react(title: str, description: str, page_text: str, stack_tags: List[str]) -> Tuple[bool, str]:
+        """
+        Strikt gate: vi tar bara in mallar som tydligt är Next.js och/eller React-appar
+        som passar motorns lane (inte SvelteKit, Vue, ren Docusaurus, m.m.).
+
+        "React" i sidfot/relaterade mallar räcker inte — kräver Next.js-spår eller
+        tydlig React-starter utan konkurrerande primär stack.
+        """
+        narrow = " ".join(
+            [title or "", description or "", " ".join(stack_tags), page_text[:6000]]
+        ).lower()
+        full_hay = " ".join(
+            [title or "", description or "", page_text[:12000], " ".join(stack_tags)]
+        ).lower()
+
+        # Primär stack vi inte har hantering för (ord/gränser, längre först)
+        non_next_patterns: List[Tuple[str, str]] = [
+            (r"\bsveltekit\b", "SvelteKit"),
+            (r"\bsvelte\b", "Svelte"),
+            (r"\bvue\.?js\b", "Vue.js"),
+            (r"\bvue\b", "Vue"),
+            (r"\bnuxt\b", "Nuxt"),
+            (r"\bangular\b", "Angular"),
+            (r"\bsolid(?:js)?\b", "Solid"),
+            (r"\bastro\b", "Astro"),
+            (r"\bgatsby\b", "Gatsby"),
+            (r"\bdocusaurus\b", "Docusaurus"),
+            (r"\bvitepress\b", "VitePress"),
+            (r"\beleventy\b", "Eleventy"),
+            (r"\bhugo\b", "Hugo"),
+            (r"\bjekyll\b", "Jekyll"),
+            (r"\bmkdocs\b", "MkDocs"),
+        ]
+
+        has_next = (
+            "next.js" in narrow
+            or "nextjs" in narrow
+            or re.search(r"\bnext\.js\b", full_hay)
+        )
+
+        for pat, label in non_next_patterns:
+            if re.search(pat, narrow) and not has_next:
+                return False, f"Primär stack: {label} (inte Next.js-lane)"
+
+        hits: List[str] = []
+        if has_next or "next.js" in full_hay or "nextjs" in full_hay:
+            hits.append("Next.js")
+        if re.search(r"\breact\b", narrow):
+            hits.append("React")
+        if "create react app" in narrow:
+            hits.append("Create React App")
+        if "react router" in narrow:
+            hits.append("React Router")
+
+        if has_next:
+            return True, ", ".join(sorted(set(hits))) if hits else "Next.js"
+
+        # Utan Next.js: tillåt bara om React tydligt i titel/beskrivning/stack (smal yta)
+        if re.search(r"\breact\b", narrow) and hits:
+            return True, ", ".join(sorted(set(hits)))
+
+        return False, "Ingen tydlig Next.js/React för denna lane (strikt läge)"
+
+    @staticmethod
+    def is_next_or_react_loose(title: str, description: str, page_text: str, stack_tags: List[str]) -> Tuple[bool, str]:
+        """Tidigare heuristik (bredare träffar); används bara med --loose-framework-match."""
         haystack = " ".join(
             [title or "", description or "", page_text[:12000], " ".join(stack_tags)]
         ).lower()
 
-        hits = []
+        hits: List[str] = []
 
         if "next.js" in haystack or "nextjs" in haystack:
             hits.append("Next.js")
@@ -465,6 +686,11 @@ class VercelTemplateScraper:
             print("[WARN] git finns inte i PATH. Hoppar över repo-download.")
             return False, "git_saknas_i_path"
 
+        clone_url = normalize_github_clone_url(repo_url)
+        if not clone_url:
+            print(f"[WARN] Ogiltig GitHub-repo-URL (efter normalisering): {repo_url!r}")
+            return False, "ogiltig_github_url"
+
         if target_dir.exists() and any(target_dir.iterdir()):
             print(f"[INFO] Repo-mapp finns redan, hoppar över: {target_dir}")
             return True, None
@@ -473,7 +699,7 @@ class VercelTemplateScraper:
 
         try:
             subprocess.run(
-                ["git", "clone", "--depth", "1", repo_url, str(target_dir)],
+                ["git", "clone", "--depth", "1", clone_url, str(target_dir)],
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -482,7 +708,7 @@ class VercelTemplateScraper:
             return True, None
         except subprocess.CalledProcessError as exc:
             err = (exc.stderr or "").strip() or "clone_failed"
-            print(f"[WARN] Kunde inte klona {repo_url}: {err}")
+            print(f"[WARN] Kunde inte klona {clone_url}: {err}")
             return False, err
 
 
@@ -505,6 +731,10 @@ def write_info_file(template: TemplateInfo, folder: Path) -> None:
         f"> **Framework-match:** {'Ja' if template.framework_match else 'Nej'}",
         ">",
         f"> **Varför:** {template.framework_reason}",
+        ">",
+        f"> **Monorepo-example:** {'Ja' if template.is_monorepo_example else 'Nej'}",
+        ">",
+        f"> **Tutorial-template:** {'Ja' if template.is_tutorial_template else 'Nej'}",
         "",
         "## Kort beskrivning",
         "",
@@ -519,6 +749,38 @@ def write_info_file(template: TemplateInfo, folder: Path) -> None:
             lines.append(f"- {tag}")
     else:
         lines.append("- Inga tydliga stack-taggar hittades.")
+
+    lines += [
+        "",
+        "## CSS-tekniker",
+        "",
+    ]
+    if template.css_tags:
+        for css in template.css_tags:
+            lines.append(f"- {css}")
+    else:
+        lines.append("- Inga kända CSS-tekniker identifierade.")
+
+    lines += ["", "## Use case-badges", ""]
+    if template.use_case_badges:
+        for badge in template.use_case_badges:
+            lines.append(f"- {badge}")
+    else:
+        lines.append("- Inga use-case-badges hittades.")
+
+    lines += ["", "## Database", ""]
+    if template.database_badges:
+        for badge in template.database_badges:
+            lines.append(f"- {badge}")
+    else:
+        lines.append("- Ingen databas angiven.")
+
+    lines += ["", "## Authentication", ""]
+    if template.auth_badges:
+        for badge in template.auth_badges:
+            lines.append(f"- {badge}")
+    else:
+        lines.append("- Ingen auth angiven.")
 
     lines += [
         "",
@@ -555,10 +817,11 @@ def write_metadata_file(template: TemplateInfo, folder: Path) -> None:
 def write_index_file(root: Path, collected: Dict[str, List[TemplateInfo]]) -> None:
     path = root / "INDEX_SV.md"
     lines = [
-        "# Vercel templates – Next.js / React",
+        "# Vercel templates – Next.js / React (filtrerat)",
         "",
-        "Detta index innehåller upp till 6 mallar per Use Case-kategori.",
-        "Bara mallar som matchar Next.js eller React har tagits med.",
+        f"Framework-filter: {', '.join(FRAMEWORK_FILTER)}",
+        "",
+        "Bara mallar som passerar strikt Next.js/React-lane och Vercels framework-filter tas med.",
         "",
     ]
 
@@ -646,6 +909,14 @@ def parse_args() -> argparse.Namespace:
         "-i",
         action="store_true",
         help="Interaktiv meny (rekommenderat vid manuell körning från repo-root).",
+    )
+    parser.add_argument(
+        "--loose-framework-match",
+        action="store_true",
+        help=(
+            "Använd äldre, bredare Next/React-heuristik (kan ta med Svelte/Docusaurus m.m.). "
+            "Standard är strikt lane-matchning."
+        ),
     )
     return parser.parse_args()
 
@@ -738,6 +1009,7 @@ def interactive_args() -> argparse.Namespace:
         delay=delay,
         interactive=False,
         canonical_urls=canonical,
+        loose_framework_match=False,
     )
 
 
@@ -775,11 +1047,15 @@ def _persist_template(
     repo_dir = template_dir / "repo"
 
     if not args.skip_download and template.repo_url:
-        clone_attempted = True
-        ok, clone_error = scraper.download_repo(template.repo_url, repo_dir)
-        clone_ok = ok
-        if ok and repo_dir.is_dir():
-            disk_bytes_repo = dir_size_bytes(repo_dir)
+        if template.is_monorepo_example:
+            print(f"[SKIP] Hoppar över kloning av monorepo-example: {template.repo_url}")
+            clone_error = "monorepo_example_skipped"
+        else:
+            clone_attempted = True
+            ok, clone_error = scraper.download_repo(template.repo_url, repo_dir)
+            clone_ok = ok
+            if ok and repo_dir.is_dir():
+                disk_bytes_repo = dir_size_bytes(repo_dir)
     elif not template.repo_url:
         clone_ok = None
 
@@ -813,7 +1089,10 @@ def run_scrape(args: argparse.Namespace) -> int:
     root = Path(args.output).expanduser().resolve()
     ensure_dir(root)
 
-    scraper = VercelTemplateScraper(delay=args.delay)
+    scraper = VercelTemplateScraper(
+        delay=args.delay,
+        loose_framework_match=getattr(args, "loose_framework_match", False),
+    )
     collected: Dict[str, List[TemplateInfo]] = {}
     report_entries: List[Dict] = []
 

@@ -37,22 +37,22 @@ The three existing credit tiers (coins) can optionally align with these stages:
 |---|---|---|---|
 | `draft` | Draft | gray/secondary | Version just created, no verification run yet |
 | `verifying` | Verifying | gray/secondary | Automatic verification in progress |
-| `preview-ready` | Preview-klar | amber/yellow | Verification failed but a working preview URL exists. Normal state during Forhandsgranskning. |
+| `preview-ready` | Visning redo | amber/yellow | Verification failed but a working demo/view URL exists. Normal state during Forhandsgranskning. |
 | `retrying` | Omtag | amber/yellow | Verification failed and a newer version already exists |
 | `failed` | Fel | red/destructive | Verification failed, no preview URL, and no newer version exists |
 | `promoted` | Promoted | green/default | Version passed verification and is promoted for publish |
 
 ## Rules
 
-1. A version should only show red "Fel" when it has no usable preview and no
-   recovery path. If a preview URL exists, show "Preview-klar" instead.
+1. A version should only show red "Fel" when it has no usable demo/view URL and no
+   recovery path. If a demo URL exists, show "Visning redo" instead.
 
-2. "Preview-klar" is the normal state during Forhandsgranskning. Most
+2. "Visning redo" is the normal state during Forhandsgranskning. Most
    first-generation versions will land here because automatic verification
    is strict.
 
 3. Publish/deploy readiness is a separate check from version display status.
-   A version can be "Preview-klar" in the UI but still have publish blockers
+   A version can be "Visning redo" in the UI but still have publish blockers
    (missing env vars, SEO issues, etc.).
 
 4. "Promoted" should only appear after explicit verification pass, not after

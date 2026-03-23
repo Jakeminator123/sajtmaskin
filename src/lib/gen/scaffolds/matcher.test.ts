@@ -1,68 +1,75 @@
-import { describe, expect, it } from "vitest";
-import { matchScaffold } from "./matcher";
+import { describe, expect, it, vi } from "vitest";
+import { matchScaffoldWithEmbeddings } from "./matcher";
 
-describe("matchScaffold", () => {
-  it("returns landing-page for generic Swedish business prompt under website intent", () => {
-    const result = matchScaffold("Vi är ett byggföretag i Stockholm som vill ha en hemsida", "website");
-    expect(result?.id).toBe("landing-page");
+vi.mock("./scaffold-search", () => ({
+  searchScaffolds: vi.fn().mockResolvedValue([]),
+}));
+
+describe("matchScaffoldWithEmbeddings", () => {
+  it("returns landing-page fallback for website intent when embeddings return nothing", async () => {
+    const result = await matchScaffoldWithEmbeddings("Vi vill ha en hemsida", "website");
+    expect(result.scaffold?.id).toBe("landing-page");
+    expect(result.matchMeta.matchSource).toBe("fallback");
   });
 
-  it("returns app-shell for prompts with interactive signals under website intent", () => {
-    const result = matchScaffold(
-      "Jag vill ha ett bokningssystem med kalender och filter för mina kunder",
-      "website",
-    );
-    expect(result?.family).toBe("app-shell");
+  it("returns app-shell fallback for app intent when embeddings return nothing", async () => {
+    const result = await matchScaffoldWithEmbeddings("Bygg en enkel plattform", "app");
+    expect(result.scaffold?.family).toBe("app-shell");
+    expect(result.matchMeta.matchSource).toBe("fallback");
   });
 
-  it("returns dashboard for prompts with dashboard keywords at app intent", () => {
-    const result = matchScaffold(
-      "Bygg en instrumentpanel med analys och statistik",
-      "app",
-    );
-    expect(result?.family).toBe("dashboard");
+  it("returns base-nextjs fallback when no intent and embeddings return nothing", async () => {
+    const result = await matchScaffoldWithEmbeddings("gör något", undefined);
+    expect(result.scaffold?.family).toBe("base-nextjs");
+    expect(result.matchMeta.matchSource).toBe("fallback");
   });
 
-  it("returns app-shell for explicit app intent even without strong keywords", () => {
-    const result = matchScaffold("Bygg en enkel plattform", "app");
-    expect(result?.family).toBe("app-shell");
+  it("uses embedding result when searchScaffolds returns above threshold", async () => {
+    const { searchScaffolds } = await import("./scaffold-search");
+    const mock = vi.mocked(searchScaffolds);
+    const { getScaffoldById } = await import("./registry");
+    const blogScaffold = getScaffoldById("blog");
+
+    mock.mockResolvedValueOnce([
+      { scaffold: blogScaffold!, score: 0.72 },
+    ]);
+
+    const result = await matchScaffoldWithEmbeddings("En blogg med artiklar", "website");
+    expect(result.scaffold?.id).toBe("blog");
+    expect(result.matchMeta.matchSource).toBe("embedding");
+    expect(result.matchMeta.embeddingScore).toBeGreaterThanOrEqual(0.35);
   });
 
-  it("returns dashboard for app intent with dashboard keywords", () => {
-    const result = matchScaffold("Bygg en instrumentpanel med statistik och nyckeltal", "app");
-    expect(result?.family).toBe("dashboard");
+  it("skips website-only embedding match when buildIntent is app", async () => {
+    const { searchScaffolds } = await import("./scaffold-search");
+    const mock = vi.mocked(searchScaffolds);
+    const { getScaffoldById } = await import("./registry");
+    const landingScaffold = getScaffoldById("landing-page");
+
+    mock.mockResolvedValueOnce([
+      { scaffold: landingScaffold!, score: 0.85 },
+    ]);
+
+    const result = await matchScaffoldWithEmbeddings("Build a project management tool", "app");
+    expect(result.scaffold?.family).toBe("app-shell");
+    expect(result.matchMeta.matchSource).toBe("fallback");
   });
 
-  it("returns auth-pages for auth-heavy prompts", () => {
-    const result = matchScaffold("Skapa en inloggning och registrering med lösenord", "website");
-    expect(result?.family).toBe("auth-pages");
-  });
+  it("picks intent-compatible runner-up over incompatible top hit", async () => {
+    const { searchScaffolds } = await import("./scaffold-search");
+    const mock = vi.mocked(searchScaffolds);
+    const { getScaffoldById, getScaffoldByFamily } = await import("./registry");
+    const landingScaffold = getScaffoldById("landing-page");
+    const dashboardScaffold = getScaffoldByFamily("dashboard");
 
-  it("returns ecommerce for shop prompts", () => {
-    const result = matchScaffold("En e-handel med produkter och varukorg", "website");
-    expect(result?.family).toBe("ecommerce");
-  });
+    mock.mockResolvedValueOnce([
+      { scaffold: landingScaffold!, score: 0.80 },
+      { scaffold: dashboardScaffold!, score: 0.60 },
+    ]);
 
-  it("returns blog for blog prompts", () => {
-    const result = matchScaffold("En blogg med artiklar och nyhetsbrev", "website");
-    expect(result?.family).toBe("blog");
-  });
-
-  it("returns portfolio for creative prompts", () => {
-    const result = matchScaffold("Portfolio för en fotograf med case studies", "website");
-    expect(result?.family).toBe("portfolio");
-  });
-
-  it("returns base-nextjs as final fallback for non-website/non-template intents", () => {
-    const result = matchScaffold("gör något", undefined);
-    expect(result?.family).toBe("base-nextjs");
-  });
-
-  it("promotes to app-shell when prompt mentions workflow and internal tools", () => {
-    const result = matchScaffold(
-      "Bygg ett internt verktyg med arbetsflöde och godkännande",
-      "website",
-    );
-    expect(result?.family).toBe("app-shell");
+    const result = await matchScaffoldWithEmbeddings("Bygg en dashboard med analytics", "app");
+    expect(result.scaffold?.family).toBe("dashboard");
+    expect(result.matchMeta.matchSource).toBe("embedding");
+    expect(result.matchMeta.embeddingScore).toBe(0.6);
   });
 });

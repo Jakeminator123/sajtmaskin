@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
-import { createGenerationPipeline } from "@/lib/gen/fallback";
+import { createGenerationPipeline } from "@/lib/gen/pipeline";
 import { inferPreGenerationContracts } from "@/lib/gen/pre-generation-contracts";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { buildSystemPrompt } from "@/lib/gen/system-prompt";

@@ -16,9 +16,10 @@ import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { withSandboxUrlExpiry } from "@/lib/gen/demo-url";
 import { isSafeRelativePath } from "@/lib/mcp/runtime-url";
 import { getSandboxCredentials, isSandboxConfigured } from "@/lib/sandbox-auth";
+import { devLogAppend } from "@/lib/logging/devLog";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const requestSchema = z.object({
   versionId: z.string().min(1),
@@ -26,7 +27,7 @@ const requestSchema = z.object({
     .array(z.enum(["typecheck", "build", "lint"]))
     .optional()
     .default(["typecheck", "build"]),
-  bootRuntime: z.boolean().optional().default(false),
+  bootRuntime: z.boolean().optional().default(true),
 });
 
 type CheckResult = {
@@ -82,9 +83,34 @@ const CHECK_COMMANDS: Record<string, string> = {
   lint: "npx eslint . --max-warnings=0 2>&1",
 };
 
+/** @vercel/sandbox may return Buffer/Uint8Array; treating non-strings as empty broke autofix prompts. */
+function normalizeSandboxStream(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof Buffer !== "undefined" && Buffer.isBuffer(value)) {
+    return value.toString("utf8");
+  }
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value).toString("utf8");
+  }
+  if (value instanceof ArrayBuffer) {
+    return Buffer.from(value).toString("utf8");
+  }
+  return "";
+}
+
+function combinedRunCommandOutput(result: {
+  stdout?: unknown;
+  stderr?: unknown;
+}): string {
+  const stdout = normalizeSandboxStream(result.stdout);
+  const stderr = normalizeSandboxStream(result.stderr);
+  return (stdout + "\n" + stderr).trim();
+}
+
 const RUNTIME_PORTS = [3000];
 const RUNTIME_START_COMMAND = "npm run dev";
-const RUNTIME_TIMEOUT_MS = 90_000;
+const RUNTIME_TIMEOUT_MS = 10 * 60_000;
 const WAIT_FOR_RUNTIME_SCRIPT = `
 const http = require("node:http");
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -173,9 +199,7 @@ async function runSandboxChecks(
       const cmd = CHECK_COMMANDS[check];
       if (!cmd) continue;
       const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", cmd] });
-      const stdout = typeof result.stdout === "string" ? result.stdout : "";
-      const stderr = typeof result.stderr === "string" ? result.stderr : "";
-      const combinedOutput = (stdout + "\n" + stderr).trim();
+      const combinedOutput = combinedRunCommandOutput(result);
       const output =
         combinedOutput.length > 0
           ? combinedOutput.slice(0, 8000)
@@ -200,13 +224,7 @@ async function runSandboxChecks(
         cmd: "node",
         args: ["-e", WAIT_FOR_RUNTIME_SCRIPT],
       });
-      const runtimeStdout = typeof runtimeProbe.stdout === "string" ? runtimeProbe.stdout : "";
-      const runtimeStderr = typeof runtimeProbe.stderr === "string" ? runtimeProbe.stderr : "";
-      const runtimeOutput = ([runtimeStdout, runtimeStderr] as string[])
-        .filter((part) => part.trim().length > 0)
-        .join("\n")
-        .trim()
-        .slice(0, 8000);
+      const runtimeOutput = combinedRunCommandOutput(runtimeProbe).slice(0, 8000);
 
       results.push({
         check: "runtime",
@@ -322,6 +340,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             console.warn("[quality-gate] Failed to persist error logs:", err);
           });
         }
+
+        devLogAppend("in-progress", {
+          type: "quality-gate.result",
+          chatId,
+          versionId: internalVersionId,
+          passed: gateResult.passed,
+          checks: results.map((r) => r.check).join(","),
+          failedChecks: results.filter((r) => !r.passed).map((r) => `${r.check}:exit${r.exitCode}`).join(",") || null,
+        });
 
         const verificationSummary = buildVerificationSummary(results);
         if (gateResult.passed) {

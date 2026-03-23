@@ -30,7 +30,7 @@ finalizes/autofixes, and renders preview — without the V0 Platform API.
 |------|----------|
 | Core engine, scaffolds, orchestration | `src/lib/gen/` (`engine.ts`, `orchestrate.ts`, `scaffolds/`) |
 | Own-engine stream providers | `src/lib/providers/own-engine/` |
-| Pipeline entry (name is legacy; not a fallback) | `src/lib/gen/fallback.ts` |
+| Pipeline entry | `src/lib/gen/pipeline.ts` |
 | Model catalog and selection | `src/lib/models/` (`catalog.ts`, `selection.ts`) |
 | System prompt assembly | `src/lib/gen/system-prompt.ts` |
 | Autofix and post-generation | `src/lib/gen/autofix/`, `src/lib/gen/stream/` |

@@ -90,7 +90,7 @@ export function resolveModelFromPrefixed(model: string): LanguageModel {
     if (!apiKey) {
       throw new Error("ANTHROPIC_API_KEY is required for Anthropic models.");
     }
-    const normalizedModelId = modelId.replace(/(\d+)\.(\d+)$/g, "$1-$2");
+    const normalizedModelId = normalizeAnthropicModelId(modelId);
     logRoute("direct-anthropic", normalizedModelId);
     return createAnthropic({ apiKey })(normalizedModelId);
   }
@@ -117,6 +117,15 @@ function parseModelString(model: string): { provider: string; modelId: string } 
   const slashIdx = model.indexOf("/");
   if (slashIdx <= 0) return { provider: "openai", modelId: model };
   return { provider: model.slice(0, slashIdx), modelId: model.slice(slashIdx + 1) };
+}
+
+/**
+ * Strip provider prefixes and normalize Anthropic dot-version notation
+ * (e.g. "anthropic/claude-sonnet-4.6" → "claude-sonnet-4-6").
+ */
+export function normalizeAnthropicModelId(model: string): string {
+  const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
+  return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
 }
 
 /**

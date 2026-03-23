@@ -522,7 +522,7 @@ export function PreviewPanel({
       if (previewIssueKeysRef.current.has(dedupeKey)) return;
       previewIssueKeysRef.current.add(dedupeKey);
 
-      const reason = describePreviewDiagnosticCode(code) ?? "Previewfel upptackt.";
+      const reason = describePreviewDiagnosticCode(code) ?? "Visningsfel upptäckt.";
       const meta = {
         source,
         demoUrl,
@@ -551,7 +551,7 @@ export function PreviewPanel({
           },
         );
       } catch (error) {
-        console.warn("[Preview] Failed to persist preview issue:", error);
+        console.warn("[visning] Kunde inte spara visningsfel:", error);
       }
 
       if (shouldAutoFixPreviewDiagnostic(code)) {
@@ -561,7 +561,7 @@ export function PreviewPanel({
           reasons: [reason],
           meta,
         });
-        toast.error("Preview-fel upptäckt. Försöker reparera automatiskt.", { duration: 5000 });
+        toast.error("Visningsfel upptäckt. Försöker reparera automatiskt.", { duration: 5000 });
       } else {
         toast.error(reason, { duration: 5000 });
       }
@@ -578,7 +578,7 @@ export function PreviewPanel({
       const errorMsg =
         typeof payload.message === "string" && payload.message.trim()
           ? payload.message
-          : "Preview render error";
+          : "Visning misslyckades";
       const errorKind = typeof payload.kind === "string" ? payload.kind : "runtime";
       const errorCode =
         typeof payload.code === "string" ? payload.code : previewDiagnosticCodeFromKind(errorKind);
@@ -647,6 +647,27 @@ export function PreviewPanel({
     }
   }, [chatId, versionId]);
 
+  const isInspectablePreviewTarget = useCallback((url: string) => {
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      if (
+        hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        hostname === "::1" ||
+        hostname.endsWith(".local") ||
+        hostname.endsWith(".internal")
+      ) {
+        return false;
+      }
+      if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname)) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const fetchElementMap = useCallback(
     async (
       url: string,
@@ -661,6 +682,13 @@ export function PreviewPanel({
         const inspectorUrl = url.startsWith("/") ? `${window.location.origin}${url}` : url;
 
         const isOwnEnginePreview = inspectorUrl.includes("/api/preview-render");
+        if (!isInspectablePreviewTarget(inspectorUrl)) {
+          if (requestToken !== inspectFetchTokenRef.current) return 0;
+          setElementMap([]);
+          setInspectorUnavailable(true);
+          console.info("[inspector] Skipping localhost/private preview target.");
+          return 0;
+        }
 
         const res = await fetch("/api/inspector-element-map", {
           method: "POST",
@@ -698,7 +726,7 @@ export function PreviewPanel({
         }
       }
     },
-    [],
+    [isInspectablePreviewTarget],
   );
 
   const handleToggleInspect = useCallback(() => {
@@ -1018,7 +1046,7 @@ export function PreviewPanel({
 
         if (!response.ok) {
           toast.error(data?.error || "Punkt tillagd utan bild.");
-          setInspectStatus("Punkt tillagd utan bild (kunde inte skapa preview).");
+          setInspectStatus("Punkt tillagd utan bild (kunde inte skapa miniatyr).");
           return;
         }
 
@@ -2310,34 +2338,32 @@ export function PreviewPanel({
     }
     if (isOwnEnginePreview) {
       return {
-        label: "Legacy preview",
+        label: "Snabb visning",
         detail:
-          "Begränsad builder-rendering via /api/preview-render. Bra för snabb kontroll, men den shim-mar flera bibliotek och motsvarar inte full Next.js-runtime.",
+          "Förenklad visning av genererad layout medan sandlåda eller deploy startar. Motsvarar inte full produktionsmiljö.",
         className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
         badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
       };
     }
     if (isSandboxPreview) {
       return {
-        label: "Runtime preview",
-        detail:
-          "Körs i riktig sandbox med Node/Next/React. Det här är den skarpa previewytan när legacy preview är avstängd.",
+        label: "Sandlåda",
+        detail: "Körs i isolerad miljö med Node/Next — närmast riktig runtime i byggaren.",
         className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
         badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
       };
     }
     if (isV0Preview) {
       return {
-        label: "Fallback preview",
-        detail:
-          "Visar en extern previewyta. Bra för snabb kontroll, men den kan avvika från lokal runtime och publicerad build.",
+        label: "Extern visning",
+        detail: "Hostad visning via extern tjänst; kan skilja sig från lokal körning.",
         className: "border-yellow-900/40 bg-yellow-950/30 text-yellow-100",
         badgeClassName: "border-yellow-500/30 bg-yellow-500/10 text-yellow-200",
       };
     }
     return {
-      label: "Extern preview",
-      detail: "Visar den aktuella preview-URL:en för vald version.",
+      label: "Webbvisning",
+      detail: "Aktuell visnings-URL för vald version.",
       className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
       badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
     };
@@ -2357,16 +2383,16 @@ export function PreviewPanel({
       ? "AI väntar på ditt svar"
       : isInitialEmpty
         ? "Välkommen"
-        : "Ingen förhandsvisning ännu";
+        : "Ingen visning ännu";
     const subtitle = awaitingInput
-      ? "AI behöver ditt svar innan nästa preview kan genereras."
+      ? "AI behöver ditt svar innan nästa visning kan genereras."
       : externalLoading
-        ? "AI tänker... preview kommer strax."
+        ? "AI tänker… visning uppdateras strax."
         : isInitialEmpty
-          ? "Skriv en prompt till vänster så genererar vi första preview."
+          ? "Skriv en prompt till vänster så genererar vi första visningen."
           : isRuntimePreviewPending
-            ? "Den här versionen har ännu ingen skarp runtime-URL. Starta sandbox eller deploy för att se den riktiga Next.js-runtime-previewen."
-            : "Preview saknas för senaste versionen.";
+            ? "Ingen sandlåde-URL ännu. Vänta in sandlåda eller öppna deploy — snabb visning kan visas under tiden."
+            : "Ingen visning tillgänglig för den här versionen ännu.";
     const showFixAction = Boolean(
       onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput && !isRuntimePreviewPending,
     );
@@ -2402,7 +2428,7 @@ export function PreviewPanel({
         ) : null}
         {showFixAction && (
           <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>
-            Försök reparera preview
+            Försök reparera visningen
           </Button>
         )}
       </div>
@@ -4052,7 +4078,7 @@ export function PreviewPanel({
                   "Preview kunde inte laddas i iframe. Öppna i ny flik istället."}
               </p>
               <p className="mb-4 text-center text-xs text-gray-500">
-                Öppna i ny flik eller försök reparera previewn om felet kvarstår.
+                Öppna i ny flik eller försök reparera visningen om felet kvarstår.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button onClick={handleOpenInNewTab}>
@@ -4061,7 +4087,7 @@ export function PreviewPanel({
                 </Button>
                 {onFixPreview && (
                   <Button variant="outline" onClick={onFixPreview} disabled={isLoading}>
-                    Försök reparera preview
+                    Försök reparera visningen
                   </Button>
                 )}
               </div>
@@ -4075,13 +4101,8 @@ export function PreviewPanel({
             onLoad={handleIframeLoad}
             onError={handleIframeError}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            title="Preview"
+            title="Webbvisning"
           />
-          {isOwnEnginePreview && !iframeLoading && !iframeError && (
-            <div className="absolute bottom-0 right-0 z-10 rounded-tl bg-gray-900/80 px-2 py-0.5 text-[10px] text-gray-500 backdrop-blur-sm select-none">
-              Snabb preview — begränsad fidelity
-            </div>
-          )}
 
           {showPlacementOverlay && (
             <>
@@ -4107,7 +4128,7 @@ export function PreviewPanel({
               <div className="absolute top-3 right-3 left-3 z-30 rounded border border-sky-700/70 bg-sky-950/85 px-3 py-2 text-xs text-sky-100 shadow-lg backdrop-blur-sm">
                 <div className="font-semibold tracking-tight text-sky-300">Placering aktiv</div>
                 <div className="mt-1">
-                  Klicka i previewn för att placera{" "}
+                  Klicka i visningen för att placera{" "}
                   <span className="font-medium text-white">
                     {pendingPlacementItem?.title || "det valda elementet"}
                   </span>
@@ -4268,8 +4289,8 @@ export function PreviewPanel({
                       {inspectEngine === "map"
                         ? "Hovra för att markera element. Klicka för att välja."
                         : inspectEngine === "ai"
-                          ? "Klicka i previewn — AI identifierar elementet i koden."
-                          : "Klicka i previewn — Playwright tar screenshot + hittar DOM-element."}
+                          ? "Klicka i visningen — AI identifierar elementet i koden."
+                          : "Klicka i visningen — Playwright tar screenshot + hittar DOM-element."}
                     </div>
                     {inspectStatus && (
                       <div className="mt-1 whitespace-pre-line text-zinc-500">{inspectStatus}</div>

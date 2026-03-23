@@ -21,7 +21,7 @@ export type NormalizedRepoType =
 
 export type PromotionDecision =
   | "runtime_scaffold_candidate"
-  | "dossier_only"
+  | "reference_only"
   | "template_library_only"
   | "ignore";
 
