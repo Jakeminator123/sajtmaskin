@@ -68,10 +68,10 @@ Viktig skillnad:
 | Env-variabel | Default | Tier i UI | Vad den gör |
 |---|---|---|---|
 | `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | Snabb | Liten/billig profil for enklare sidor |
-| `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | Lagom | Mellanprofil med bra balans |
+| `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | Lagom | Mellanprofil (Codex); se [GPT-5.3-Codex](https://developers.openai.com/api/docs/models/gpt-5.3-codex) |
 | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | Tanker | Stor/dyrare profil for mer resonemang |
-| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | Kod Max | Specialiserad kodprofil |
-| `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | Jamforelselage via Anthropic API |
+| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.4` | Kod Max (`codex`) | Kan sättas t.ex. till `gpt-5.1-codex-max` om du vill |
+| `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-opus-4.6` | Anthropic | Build-lane via Anthropic API (own engine); override t.ex. till Sonnet |
 
 Byggprofilerna gar genom own-engine-routes under `/api/v0/...`, men de aktiva
 builder-flodena resolverar idag alltid till own engine, inte till legacy-v0-buildern.
@@ -83,13 +83,44 @@ builder-flodena resolverar idag alltid till own engine, inte till legacy-v0-buil
 | `SAJTMASKIN_ASSIST_MODEL` | `openai/gpt-5.4` | Default for `Forbattra`, Deep Brief och dynamiska instruktioner |
 | `SAJTMASKIN_POLISH_MODEL` | `openai/gpt-5.3-codex` | Default for `Skriv om` / promptpolish |
 
-### Token-gränser
+### Deep Brief Mode (förprompt)
 
-| Env-variabel | Default | Vad den styr |
-|---|---|---|
-| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | `32768` | Max output-tokens för kodgenerering |
-| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS` | `12288` | Max output-tokens för autofix/LLM-fixer |
-| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `16384` | Max output-tokens för brief/chat assist |
+När **Deep** är på i buildern (före första chatten) anropar klienten `POST /api/ai/brief` med **samma modell som vald under Förbättra** (`promptAssistModel`), t.ex. `anthropic/claude-opus-4.6` eller `openai/gpt-5.4`.
+
+- **Max output tokens:** `min(SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS, AI_BRIEF_MAX_TOKENS)` — default **81 920** om inget annat sätts (`src/app/api/ai/brief/route.ts`). Vid fallback till **förenklad schema** för Anthropic/OpenAI sänks taket till **`min(samma, 40_960)`**.
+- **Anthropic:** kräver `ANTHROPIC_API_KEY`; använder `generateObject` mot `createDirectModel` (direkt API, inte gateway).
+- **Verifiera nyckel lokalt:** `node verify-anthropic-env.mjs` (läser `.env.local`, skriver **inte** ut nyckeln).
+
+### Token-gränser (max output)
+
+Värdena nedan är **samma som i** `src/lib/gen/defaults.ts` (`readIntEnv`). Om env saknas används default; ogiltiga värden klampas till intervallet.
+
+| Env-variabel | Default | Klamp | Vad den styr |
+|---|---|---|---|
+| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | `200000` | 4096–262144 | Global övre gräns; kombineras med **tier** (se nedan) till `resolveBuildMaxOutputTokens(tier)` för build-streams. GPT-5.3-Codex stödjer t.ex. upp till **128k** output ([dokumentation](https://developers.openai.com/api/docs/models/gpt-5.3-codex)); tier/pro-env begränsar ytterligare. |
+| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS` | `32768` | 2048–262144 | Autofix / LLM-syntaxfixer (`llm-fixer.ts`). |
+| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `81920` | 4096–262144 | Bas för assist när klienten inte skickar `maxTokens`. |
+| `AI_BRIEF_MAX_TOKENS` | `81920` | 4096–262144 | Tak per request för `POST /api/ai/brief`. **Effektiv gräns:** `min(SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS, AI_BRIEF_MAX_TOKENS)` — sätter du t.ex. någon av dem till `12000` blir briefen begränsad till 12k output (ofta för lågt för stor JSON-brief). |
+| `AI_CHAT_MAX_TOKENS` | `81920` | 4096–262144 | Tak per request för `POST /api/ai/chat` (samma `min(...)`-logik mot `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS`). |
+
+**Tier och tokens:** `resolveBuildMaxOutputTokens(tier)` = `min(SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS, tierCap)` där `tierCap` är t.ex. fast 32k, pro 131k, max/codex/anthropic 200k (`getEngineMaxOutputTokens`). **Huvudbygg** (`generateCode` / `createGenerationPipeline`) skickar `modelTier` så att output-taket följer vald profil; sänker du env `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` begränsas alla tier. Kontrakts-cap (`resolveClarificationCapMaxOutputTokens`) använder samma bas.
+
+**Thinking (reasoning):** När användaren har Thinking på skickar own-engine `streamText` med `providerOptions.openai.reasoningEffort` för GPT-5 / Codex / o-serien (via Vercel AI SDK + `@ai-sdk/openai`). `POST /api/ai/chat` och `POST /api/ai/brief` (gateway-läge, OpenAI-modeller) skickar samma flagga som standard (`thinking: true` i JSON); sätt `thinking: false` om du vill stänga av. `gpt-4.1` (Snabb) får inget reasoning-anrop — modellen stödjer det inte. Se [Vercel AI Gateway provider options](https://vercel.com/docs/ai-gateway/models-and-providers/provider-options) och OpenAI modellsidor (t.ex. [GPT-5.3-Codex](https://developers.openai.com/api/docs/models/gpt-5.3-codex)).
+
+### Referens: AI Gateway (ungefärlig kontext och pris)
+
+Indikativa värden från Vercel AI Gateway-modellistan (kan ändras av leverantör). Används för att förstå **kontextfönster** och **$/M token** — inte som hårdkodade gränser i appen.
+
+| Modell (gateway-id) | Kontext | Input $/1M | Output $/1M |
+|---|---|---|---|
+| `openai/gpt-5.4` | 1.1M | $2.50 | $15.00 |
+| `openai/gpt-5.2` | 400K | $1.75 | $14.00 |
+| `openai/gpt-5.3-codex` | 400K | $1.75 | $14.00 |
+| `openai/gpt-5.2-codex` | 400K | $1.75 | $14.00 |
+| `openai/gpt-5.1-instant` | 128K | $1.25 | $10.00 |
+| `openai/gpt-4o-mini` | 128K | $0.15 | $0.60 |
+
+*Latency och tps varierar; se aktuell dashboard.*
 
 ### Hur modellerna hänger ihop
 
@@ -294,14 +325,14 @@ Bildflöde i generering:
 | Variabel                                       | Default             | Beskrivning                                   |
 | ---------------------------------------------- | ------------------- | --------------------------------------------- |
 | `SAJTMASKIN_MODEL_FAST`                        | `gpt-4.1`           | Modell för Fast-tier                          |
-| `SAJTMASKIN_MODEL_PRO`                         | `gpt-5.3-codex`     | Modell för Pro-tier (rekommenderad)           |
+| `SAJTMASKIN_MODEL_PRO`                         | `gpt-5.3-codex`     | Modell för Pro-tier (Lagom)                 |
 | `SAJTMASKIN_MODEL_MAX`                         | `gpt-5.4`           | Modell för Max-tier                           |
-| `SAJTMASKIN_MODEL_CODEX`                       | `gpt-5.1-codex-max` | Modell för Codex Max-tier                     |
-| `SAJTMASKIN_MODEL_ANTHROPIC`                   | `claude-sonnet-4.6` | Modell för Anthropic-jämförelseläge           |
+| `SAJTMASKIN_MODEL_CODEX`                       | `gpt-5.4`           | Modell för Codex Max-tier                     |
+| `SAJTMASKIN_MODEL_ANTHROPIC`                   | `claude-opus-4.6`   | Modell för Anthropic build-profil            |
 | `SAJTMASKIN_ASSIST_MODEL`                      | `openai/gpt-5.4`    | Default prompt-assistmodell for `Forbattra`   |
 | `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Standard-polishmodell for `Skriv om` (Anthropic-lane overrider den i jamforelselaget) |
-| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 32768               | Max output-tokens för sidgenerering           |
-| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 12288               | Autofix-pipeline                              |
+| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 200000              | Max output-tokens (eget tak om stream inte sätter `maxTokens`) |
+| `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 32768               | Autofix-pipeline                              |
 | `SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS`          | 720000 (12 min)     | Klient-timeout innan stream avbryts           |
 | `SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS` | 800                 | Route maxDuration för build/refine            |
 | `SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS` | 600                 | Route maxDuration för prompt-assist och brief |

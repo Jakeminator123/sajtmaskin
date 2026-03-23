@@ -1,0 +1,30 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "next-template",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@types/node": "18.11.11",
+    "@types/react": "18.0.26",
+    "@types/react-dom": "18.0.9",
+    "@whop-sdk/core": "^0.0.7",
+    "eslint": "8.29.0",
+    "eslint-config-next": "13.0.6",
+    "next": "13.2.4",
+    "next-auth": "^4.18.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "typescript": "4.9.3"
+  }
+}
+```

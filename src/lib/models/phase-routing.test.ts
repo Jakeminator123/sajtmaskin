@@ -48,18 +48,16 @@ describe("resolvePhaseModel", () => {
     const verifier = resolvePhaseModel("codex", "verifier");
     const generator = resolvePhaseModel("codex", "generator");
 
-    expect(planner.modelId).toBe("gpt-5.1-codex-max");
-    expect(verifier.modelId).toBe("gpt-5.1-codex-max");
-    expect(generator.modelId).toBe("gpt-5.1-codex-max");
+    expect(planner.modelId).toBe("gpt-5.4");
+    expect(verifier.modelId).toBe("gpt-5.4");
+    expect(generator.modelId).toBe("gpt-5.4");
   });
 
   it("generator always uses full tier", () => {
     expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
-    expect(resolvePhaseModel("codex", "generator").modelId).toBe(
-      "gpt-5.1-codex-max",
-    );
-    expect(resolvePhaseModel("anthropic", "generator").modelId).toBe("claude-sonnet-4.6");
+    expect(resolvePhaseModel("codex", "generator").modelId).toBe("gpt-5.4");
+    expect(resolvePhaseModel("anthropic", "generator").modelId).toBe("claude-opus-4.6");
   });
 });
 
@@ -92,10 +90,10 @@ describe("getPhaseRoutingSummary", () => {
 
   it("uses Claude across all phases in anthropic tier", () => {
     const summary = getPhaseRoutingSummary("anthropic");
-    expect(summary.planner).toBe("claude-sonnet-4.6");
-    expect(summary.generator).toBe("claude-sonnet-4.6");
-    expect(summary.fixer).toBe("claude-sonnet-4.6");
-    expect(summary.verifier).toBe("claude-sonnet-4.6");
-    expect(summary["deploy-assistant"]).toBe("claude-sonnet-4.6");
+    expect(summary.planner).toBe("claude-opus-4.6");
+    expect(summary.generator).toBe("claude-opus-4.6");
+    expect(summary.fixer).toBe("claude-opus-4.6");
+    expect(summary.verifier).toBe("claude-opus-4.6");
+    expect(summary["deploy-assistant"]).toBe("claude-opus-4.6");
   });
 });

@@ -9,6 +9,7 @@ export type PromptAssistProvider = "gateway" | "v0" | "anthropic";
 export const GATEWAY_ASSIST_MODELS = [
   "openai/gpt-5.4",
   "openai/gpt-5.3-codex",
+  "openai/gpt-5.2-codex",
   "openai/gpt-5.2",
   "anthropic/claude-opus-4.6",
   "anthropic/claude-sonnet-4.6",

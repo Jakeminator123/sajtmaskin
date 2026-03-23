@@ -5,7 +5,7 @@
 - Quality score: 86
 - Scaffold families: content-site
 - Repo: https://github.com/rubixvi/rubix-documents
-- Demo: https://rubix-documents.vercel.app
+- Demo: #
 
 Documents: Simple Next.js Documentation is a Documentation reference with verified Next.js codebase, App Router structure. Verdict: valid.
 

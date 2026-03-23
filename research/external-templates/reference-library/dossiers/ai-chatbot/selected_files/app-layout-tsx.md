@@ -5,8 +5,8 @@ Reason: Layout and navigation reference
 ```text
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  maximumScale: 1, // Disable auto-zoom on mobile Safari
+  maximumScale: 1,
 };
 
 const geist = Geist({
@@ -61,10 +61,6 @@ export default function RootLayout({
   return (
     <html
       className={`${geist.variable} ${geistMono.variable}`}
-      // `next-themes` injects an extra classname to the body element to avoid
-      // visual flicker before hydration. Hence the `suppressHydrationWarning`
-      // prop is necessary to avoid the React hydration mismatch warning.
-      // https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app
       lang="en"
       suppressHydrationWarning
     >
@@ -78,7 +74,17 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <ThemeProvider
-          attribute="clas
+          attribute="class"
+          defaultTheme="system"
+          disableTransitionOnChange
+          enableSystem
+        >
+          <SessionProvider
+            basePath={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/auth`}
+          >
+            <TooltipProvider>{children}</TooltipProvider>
+          </SessionProvider>
+        </Th
 
 // ... truncated
 ```

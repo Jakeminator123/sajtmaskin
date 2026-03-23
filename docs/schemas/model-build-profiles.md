@@ -54,17 +54,17 @@ They are not the same thing as:
 - default selected build profile: `max`
 - default resolved own-engine build model: `gpt-5.4`
 - default prompt-assist model: `openai/gpt-5.4`
-- default polish model: `openai/gpt-5.3-codex`
+- default polish model: `openai/gpt-5.2-codex`
 
 ## Build profile mapping
 
 | Profile | UI label | Env key | Default own-engine model | Default provider family | Legacy v0 fallback model |
 |---------|----------|---------|--------------------------|-------------------------|--------------------------|
 | `fast` | `Snabb` | `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | OpenAI | `v0-max-fast` |
-| `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | OpenAI | `v0-1.5-md` |
+| `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.2-codex` | OpenAI | `v0-1.5-md` |
 | `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | OpenAI | `v0-1.5-lg` |
-| `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | OpenAI | `v0-gpt-5` |
-| `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | `v0-1.5-lg` |
+| `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.4` (override t.ex. `gpt-5.1-codex-max`) | OpenAI | `v0-gpt-5` |
+| `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-opus-4.6` | Anthropic | `v0-1.5-lg` |
 
 Important nuance:
 
@@ -138,7 +138,7 @@ Important current nuance:
 Prompt assist accepts provider-coded model strings such as:
 
 - `openai/gpt-5.4`
-- `openai/gpt-5.3-codex`
+- `openai/gpt-5.2-codex`
 - `anthropic/claude-sonnet-4.6`
 - `anthropic/claude-opus-4.6`
 - `v0-1.5-md`

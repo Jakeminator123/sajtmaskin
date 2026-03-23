@@ -419,7 +419,9 @@ function applyIntegrationAnswer(
       status: "chosen",
       envVars: rule.envVars,
     });
-    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat integrationsval.", true);
+    // External integrations should be surfaced as setup/deploy requirements,
+    // not block the first preview/build pass.
+    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat integrationsval.", false);
     removeUnresolved(unresolvedDecisions, "integration");
     return;
   }
@@ -491,7 +493,8 @@ export function inferPreGenerationContracts(params: {
       status: rule.status ?? "chosen",
       envVars: rule.envVars,
     });
-    pushEnvVars(envVars, rule.envVars, rule.reason, true);
+    const shouldRequireEnvNow = rule.kind === "integration" ? false : true;
+    pushEnvVars(envVars, rule.envVars, rule.reason, shouldRequireEnvNow);
   }
 
   if (capabilities.needsAuth && !contracts.authProvider) {
@@ -535,4 +538,40 @@ export function inferPreGenerationContracts(params: {
     unresolvedDecisions,
     confirmedAnswers: contractAnswers,
   };
+}
+
+/**
+ * Resolves all blocking contract decisions with the same answers as the
+ * quick-reply options "Ingen auth ännu", payment/database/integration
+ * placeholders, so generation can proceed without modal gating.
+ *
+ * Enable via `SAJTMASKIN_CONTRACT_DEFER_TO_SETTINGS=1` (see orchestrate).
+ * Real configuration is deferred to project settings / integrations / env later.
+ */
+export function applyDeferredContractPlaceholders(
+  context: PreGenerationContractContext,
+): void {
+  const { contracts, unresolvedDecisions } = context;
+  const kinds = new Set(unresolvedDecisions.map((d) => d.kind));
+
+  if (kinds.has("auth")) {
+    applyAuthAnswer("Ingen auth ännu", contracts, unresolvedDecisions);
+  }
+  if (kinds.has("payment")) {
+    applyPaymentAnswer("Ingen ännu / placeholder", contracts, unresolvedDecisions);
+  }
+  if (kinds.has("database")) {
+    applyDatabaseAnswer("Mockad data först", contracts, unresolvedDecisions);
+  }
+  if (kinds.has("integration")) {
+    applyIntegrationAnswer("mockad placeholder", contracts, unresolvedDecisions);
+  }
+}
+
+export function shouldDeferContractClarificationToSettings(): boolean {
+  const raw = process.env.SAJTMASKIN_CONTRACT_DEFER_TO_SETTINGS?.trim();
+  if (!raw) return false;
+  const lower = raw.toLowerCase();
+  if (["0", "false", "no", "off"].includes(lower)) return false;
+  return ["1", "true", "yes", "on", "y"].includes(lower);
 }

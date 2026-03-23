@@ -346,9 +346,9 @@ export function BuilderHeader(props: {
                       Den här modellen styr den tyngre förbättringen: deep brief, scaffold-hjälp,
                       designbrief och dynamiska instruktioner före första bygget. Den snabba knappen
                       `Skriv om prompt` använder normalt den lättare polish-modellen bara för texten i
-                      inmatningsrutan, men följer Anthropic-spåret när Claude är vald för jämförelse. For
-                      en ren Anthropic-jamforelse: valj Anthropic under byggmodell och Claude under
-                      Forbattra, eller anvand snabbknappen nedan.
+                      inmatningsrutan, men följer Anthropic-spåret när Claude är vald för jämförelse. För
+                      en ren Anthropic-jämförelse: välj Anthropic under byggmodell och Claude Opus/Sonnet under
+                      Förbättra, eller använd snabbknappen nedan (sätter Opus 4.6 + Deep Brief på nya chattar).
                     </p>
                   </TooltipContent>
                 </Tooltip>

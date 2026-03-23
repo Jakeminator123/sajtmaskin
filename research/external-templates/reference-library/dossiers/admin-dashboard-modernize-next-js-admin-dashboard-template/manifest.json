@@ -5,17 +5,17 @@
   "categorySlug": "admin-dashboard",
   "categoryName": "Admin Dashboard",
   "templateUrl": "https://vercel.com/templates/admin-dashboard/modernize-admin-dashboard",
-  "demoUrl": null,
+  "demoUrl": "#",
   "description": "Download our modernized admin template for your upcoming web application powered by Next.js, free of charge.",
   "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 96,
+  "qualityScore": 94,
   "repo": {
     "url": "https://github.com/adminmart/Modernize-Nextjs-Free",
     "normalizedUrl": "https://github.com/adminmart/Modernize-Nextjs-Free",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\adminmart-modernize-nextjs-free",
+    "clonePath": "../vercel-scrape/admin-dashboard/modernize-next-js-admin-dashboard-template/repo",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,
@@ -50,14 +50,14 @@
     "Vercel Agent",
     "Vercel documentation",
     "Deploy at the speed of AI",
-    "Ship features, not infrastructure"
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
   ],
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
     "auth flow reference",
-    "dashboard shell patterns",
-    "multi-tenant or workspace patterns"
+    "dashboard shell patterns"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
@@ -74,7 +74,7 @@
     "ecommerce": false,
     "docs": false,
     "ai": true,
-    "multiTenant": true,
+    "multiTenant": false,
     "cms": false
   },
   "summary": "Modernize Next.js Admin Dashboard Template is a Admin Dashboard reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",

@@ -1,0 +1,112 @@
+{
+  "id": "portfolio-next-js-portfolio-with-pageview-counter",
+  "slug": "portfolio-next-js-portfolio-with-pageview-counter",
+  "title": "Next.js Portfolio with Pageview Counter",
+  "categorySlug": "portfolio",
+  "categoryName": "Portfolio",
+  "templateUrl": "https://vercel.com/templates/portfolio/nextjs-portfolio-pageview-counter",
+  "demoUrl": "#",
+  "description": "Portfolio site with pageview counter, built with Next.js 13 App Router, Contentlayer, and Upstash Redis.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/chronark/chronark.com",
+    "normalizedUrl": "https://github.com/chronark/chronark.com",
+    "subpath": null,
+    "clonePath": "../vercel-scrape/portfolio/next-js-portfolio-with-pageview-counter/repo",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Database",
+    "Upstash",
+    "Related Templates",
+    "Products",
+    "AI"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Portfolio site with pageview counter, built with Next.js 13 App Router, Contentlayer, and Upstash Redis.",
+    "Deploy",
+    "and deployed to",
+    "Vercel",
+    "Running Locally",
+    ".env",
+    ".env.example",
+    "Then install dependencies and run the development server:",
+    "pnpm",
+    "install"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "editorial content hierarchy",
+    "portfolio or gallery presentation"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "portfolio",
+    "blog"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": true,
+    "portfolio": true,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Next.js Portfolio with Pageview Counter is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<div align=\"center\">\n    <a href=\"https://chronark.com\"><h1 align=\"center\">chronark.com</h1></a>\n\nMy personal website, built with [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/), [Upstash](https://upstash.com?ref=chronark.com), [Contentlayer](https://www.contentlayer.dev/) and deployed to [Vercel](https://vercel.com/).\n\n</div>\n\n<br/>\n\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/upstash/clone?demo-title=Next.js%20Portfolio%20with%20Pageview%20Counter&demo-description=Portfolio%20site%20with%20pageview%20counter%2C%20built%20with%20Next.js%2013%20App%20Router%2C%20Contentlayer%2C%20and%20Upstash%20Redis.&demo-url=https%3A%2F%2Fchronark.com%2F&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F1DA8n5a6WaP9p1FXf9LmUY%2Fc6264fa2732355787bf657df92dda8a1%2FCleanShot_2023-04-17_at_14.17.37.png&project-name=Next.js%20Portfolio%20with%20Pageview%20Counter&repository-name=nextjs-portfolio-pageview-counter&repository-url=https%3A%2F%2Fgithub.com%2Fchronark%2Fchronark.com&from=templates&integration-ids=oac_V3R1GIpkoJorr6fqyiwdhl17)\n\n## Running Locally\n\n\n```sh-session\ngit clone https://github.com/chronark/chronark.com.git\ncd chronark.com\n```\n\n\nCreate a `.env` file similar to [`.env.example`](https://github.com/chronark/chronark.com/blob/main/.env.example).\n\nThen install dependencies and run the development server:\n```sh-session\npnpm install\npnpm dev\n```\n\n\n## Cloning / Forking\n\nPlease remove all of my personal information (projects, images, etc.) before deploying your own version of this site."
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"chronark.com\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"fmt\": \"pnpm rome check . --apply-unsafe && pnpm rome format . --write\"\n  },\n  \"dependencies\": {\n    \"@next/font\": \"^13.5.4\",\n    \"@next/mdx\": \"^13.5.4\",\n    \"@upstash/redis\": \"^1.23.3\",\n    \"contentlayer\": \"^0.3.4\",\n    \"framer-motion\": \"^10.16.4\",\n    \"lucide-react\": \"^0.284.0\",\n    \"markdown-wasm\": \"^1.2.0\",\n    \"next\": \"^13.5.4\",\n    \"next-contentlayer\": \"^0.3.4\",\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\",\n    \"react-wrap-balancer\": \"^1.1.0\",\n    \"rehype-autolink-headings\": \"^7.0.0\",\n    \"rehype-pretty-code\": \"^0.10.1\",\n    \"rehype-slug\": \"^6.0.0\",\n    \"remark-gfm\": \"3.0.1\",\n    \"typescript\": \"^5.2.2\"\n  },\n  \"devDependencies\": {\n    \"@opentelemetry/api\": \"1.6.0\",\n    \"@tailwindcss/line-clamp\": \"^0.4.4\",\n    \"@tailwindcss/typography\": \"^0.5.10\",\n    \"@types/node\": \"^20.8.4\",\n    \"@types/react\": \"^18.2.28\",\n    \"@types/react-dom\": \"^18.2.13\",\n    \"autoprefixer\": \"^10.4.16\",\n    \"postcss\": \"^8.4.31\",\n    \"postcss-nesting\": \"^12.0.1\",\n    \"rome\": \"^12.1.3\",\n    \"tailwindcss\": \"^3.3.3\",\n    \"tailwindcss-debug-screens\": \"^2.2.1\"\n  },\n  \"pnpm\": {\n    \"overrides\": {\n      \"@opentelemetry/api\": \"1.4.1\",\n      \"@opentelemetry/core\": \"1.13.0\",\n      \"@opentelemetry/exporter-trace-otlp-grpc\": \"0.39.1\",\n      \"@opentelemetry/resources\": \"1.13.0\",\n      \"@opentelemetry/sdk-trace-base\": \"1.13.0\",\n      \"@opentelemetry/sdk-trace-node\": \"1.13.0\",\n      \"@opentelemetry/semantic-conventions\": \"1.13.0\"\n    }\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import \"../global.css\";\nimport { Inter } from \"@next/font/google\";\nimport LocalFont from \"@next/font/local\";\nimport { Metadata } from \"next\";\nimport { Analytics } from \"./components/analytics\";\n\nexport const metadata: Metadata = {\n  title: {\n    default: \"chronark.com\",\n    template: \"%s | chronark.com\",\n  },\n  description: \"Co-founder of unkey.dev and founder of planetfall.io\",\n  openGraph: {\n    title: \"chronark.com\",\n    description:\n      \"Co-founder of unkey.dev and founder of planetfall.io\",\n    url: \"https://chronark.com\",\n    siteName: \"chronark.com\",\n    images: [\n      {\n        url: \"https://chronark.com/og.png\",\n        width: 1920,\n        height: 1080,\n      },\n    ],\n    locale: \"en-US\",\n    type: \"website\",\n  },\n  robots: {\n    index: true,\n    follow: true,\n    googleBot: {\n      index: true,\n      follow: true,\n      \"max-video-preview\": -1,\n      \"max-image-preview\": \"large\",\n      \"max-snippet\": -1,\n    },\n  },\n  twitter: {\n    title: \"Chronark\",\n    card: \"summary_large_image\",\n  },\n  icons: {\n    shortcut: \"/favicon.png\",\n  },\n};\nconst inter = Inter({\n  subsets: [\"latin\"],\n  variable: \"--font-inter\",\n});\n\nconst calSans = LocalFont({\n  src: \"../public/fonts/CalSans-SemiBold.ttf\",\n  variable: \"--font-calsans\",\n});\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\" className={[inter.variable, calSans.variable].join(\" \")}>\n      <head>\n        <Analytics />\n      </head>\n      <body\n        className={`bg-black ${process.env.NODE_ENV === \"development\" ? \"debug-screens\" : undefined\n          }`}\n      >\n        {children}\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Link from \"next/link\";\nimport React from \"react\";\nimport Particles from \"./components/particles\";\n\nconst navigation = [\n  { name: \"Projects\", href: \"/projects\" },\n  { name: \"Contact\", href: \"/contact\" },\n];\n\nexport default function Home() {\n  return (\n    <div className=\"flex flex-col items-center justify-center w-screen h-screen overflow-hidden bg-gradient-to-tl from-black via-zinc-600/20 to-black\">\n      <nav className=\"my-16 animate-fade-in\">\n        <ul className=\"flex items-center justify-center gap-4\">\n          {navigation.map((item) => (\n            <Link\n              key={item.href}\n              href={item.href}\n              className=\"text-sm duration-500 text-zinc-500 hover:text-zinc-300\"\n            >\n              {item.name}\n            </Link>\n          ))}\n        </ul>\n      </nav>\n      <div className=\"hidden w-screen h-px animate-glow md:block animate-fade-left bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0\" />\n      <Particles\n        className=\"absolute inset-0 -z-10 animate-fade-in\"\n        quantity={100}\n      />\n      <h1 className=\"py-3.5 px-0.5 z-10 text-4xl text-transparent duration-1000 bg-white cursor-default text-edge-outline animate-title font-display sm:text-6xl md:text-9xl whitespace-nowrap bg-clip-text \">\n        chronark\n      </h1>\n\n      <div className=\"hidden w-screen h-px animate-glow md:block animate-fade-right bg-gradient-to-r from-zinc-300/0 via-zinc-300/50 to-zinc-300/0\" />\n      <div className=\"my-16 text-center animate-fade-in\">\n        <h2 className=\"text-sm text-zinc-500 \">\n          I'm building{\" \"}\n          <Link\n            target=\"_blank\"\n            href=\"https://unkey.dev\"\n            className=\"underline duration-500 hover:text-zinc-300\"\n          >\n            unkey.dev\n          </Link> to solve API authentication and authorization for developers.\n        </h2>\n      </div>\n    </div>\n  );\n\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "UPSTASH_REDIS_REST_URL=\nUPSTASH_REDIS_REST_TOKEN="
+    },
+    {
+      "path": "app/projects/[slug]/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "\"use client\";\nimport { ArrowLeft, Eye, Github, Twitter } from \"lucide-react\";\nimport Link from \"next/link\";\nimport React, { useEffect, useRef, useState } from \"react\";\n\ntype Props = {\n\tproject: {\n\t\turl?: string;\n\t\ttitle: string;\n\t\tdescription: string;\n\t\trepository?: string;\n\t};\n\n\tviews: number;\n};\nexport const Header: React.FC<Props> = ({ project, views }) => {\n\tconst ref = useRef<HTMLElement>(null);\n\tconst [isIntersecting, setIntersecting] = useState(true);\n\n\tconst links: { label: string; href: string }[] = [];\n\tif (project.repository) {\n\t\tlinks.push({\n\t\t\tlabel: \"GitHub\",\n\t\t\thref: `https://github.com/${project.repository}`,\n\t\t});\n\t}\n\tif (project.url) {\n\t\tlinks.push({\n\t\t\tlabel: \"Website\",\n\t\t\thref: project.url,\n\t\t});\n\t}\n\tuseEffect(() => {\n\t\tif (!ref.current) return;\n\t\tconst observer = new IntersectionObserver(([entry]) =>\n\t\t\tsetIntersecting(entry.isIntersecting),\n\t\t);\n\n\t\tobserver.observe(ref.current);\n\t\treturn () => observer.disconnect();\n\t}, []);\n\n\treturn (\n\t\t<header\n\t\t\tref={ref}\n\t\t\tclassName=\"relative isolate overflow-hidden bg-gradient-to-tl from-black via-zinc-900 to-black\"\n\t\t>\n\t\t\t<div\n\t\t\t\tclassName={`fixed inset-x-0 top-0 z-50 backdrop-blur lg:backdrop-blur-none duration-200 border-b lg:bg-transparent ${\n\t\t\t\t\tisIntersecting\n\t\t\t\t\t\t? \"bg-zinc-900/0 border-transparent\"\n\t\t\t\t\t\t: \"bg-white/10  border-zinc-200 lg:border-transparent\"\n\t\t\t\t}`}\n\t\t\t>\n\t\t\t\t<div className=\"container flex flex-row-reverse items-center justify-between p-6 mx-auto\">\n\t\t\t\t\t<div className=\"flex justify-between gap-8\">\n\t\t\t\t\t\t<span\n\t\t\t\t\t\t\ttitle=\"View counter for this page\"\n\t\t\t\t\t\t\tclassName={`duration-200 hover:font-medium flex items-center gap-1 ${\n\t\t\t\t\t\t\t\tisIntersecting\n\t\t\t\t\t\t\t\t\t? \" text-zinc-400 hover:text-zinc-100\"\n\t\t\t\t\t\t\t\t\t: \"text-zinc-600 hover:text-zinc-900\"\n\t\t\t\t\t\t\t} `}\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\t<Eye className=\"w-5 h-5\" />{\" \"}\n\t\t\t\t\t\t\t{Intl.NumberFormat(\"en-US\", { notation: \"compact\" }).format(\n\t\t\t\t\t\t\t\tviews,\n\t\t\t\t\t\t\t)}\n\t\t\t\t\t\t</span>\n\t\t\t\t\t\t<Link target=\"_blank\" href=\"https://twitter.com/chronark_\">\n\t\t\t\t\t\t\t<Twitter\n\t\t\t\t\t\t\t\tclassName={`w-6 h-6 duration-200 hover:font-medium ${\n\t\t\t\t\t\t\t\t\tisIntersecting\n\t\t\t\t\t\t\t\t\t\t? \" text-zinc-400 hover:text-zinc-100\"\n\t\t\t\t\t\t\t\t\t\t: \"text-zinc-600 hover:text-zinc-900\"\n\t\t\t\t\t\t\t\t} `}\n\t\t\t\t\t\t\t/>\n\t\t\t\t\t\t</Link>\n\t\t\t\t\t\t<Link target=\"_blank\" href=\"https://github.com/chronark\">\n\t\t\t\t\t\t\t<Github\n\t\t\t\t\t\t\t\tclass\n\n// ... truncated"
+    }
+  ]
+}

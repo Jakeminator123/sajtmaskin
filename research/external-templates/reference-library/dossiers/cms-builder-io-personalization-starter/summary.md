@@ -5,7 +5,7 @@
 - Quality score: 92
 - Scaffold families: content-site, ecommerce
 - Repo: https://github.com/vercel/commerce
-- Demo: https://nextjs-edge-personalization-demo.vercel.app/
+- Demo: #
 
 Builder.io Personalization Starter is a CMS reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.
 

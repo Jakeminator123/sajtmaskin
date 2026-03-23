@@ -1,0 +1,99 @@
+{
+  "id": "cms-glide-publishing-platform-next-js-starter",
+  "slug": "cms-glide-publishing-platform-next-js-starter",
+  "title": "Glide Publishing Platform - Next.js Starter",
+  "categorySlug": "cms",
+  "categoryName": "CMS",
+  "templateUrl": "https://vercel.com/templates/cms/gpp-starter",
+  "demoUrl": "#",
+  "description": "A complete Bootstrap app with built-in features like routing, page rendering and basic SEO.",
+  "frameworkReason": "Next.js, React",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 76,
+  "repo": {
+    "url": "https://github.com/GlideCMS/nextjs-demo-public",
+    "normalizedUrl": "https://github.com/GlideCMS/nextjs-demo-public",
+    "subpath": null,
+    "clonePath": "../vercel-scrape/cms/glide-publishing-platform-next-js-starter/repo",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "CSS-in-JSX",
+    "CSS",
+    "CMS",
+    "Glide Publishing Platform",
+    "Related Templates",
+    "Products"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "A complete Bootstrap app with built-in features like routing, page rendering and basic SEO.",
+    "Deploy",
+    "Bootstrap app helps you to build responsive and mobile-friendly websites and applications, and achieve many tasks out of the box including complete dynamic routing, API tool kits, client-side rendering and much more. It also eases customisations and extending current functionalities.",
+    "Application Setup",
+    "In order to use our Bootstrap application you will need to obtain your environment API details from your GPP representative. Your introductory screen when deploying via Vercel will display welcome message with some useful links and other information which can be useful for start.",
+    "Next step would be to edit environment variables in Vercel settings where you need to add two mandatory and one optional variable:",
+    "CONNECT_API_URL",
+    "CONNECT_API_KEY",
+    "MEDIA_BASE_PATH",
+    "PREGENERATE_PATHS"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "Glide Publishing Platform - Next.js Starter is a CMS reference with verified Next.js codebase, CMS integration hints. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "## Intro\n\nWelcome to Glide Publishing Platform.\nWe are experts in helping users manage their content better and more effectively, to boost the things that matter like engagement, revenues, and content output .\n\nWe’re keen to help users build their own applications so have created a Bootstrap application powered by Next.js\nBootstrap app helps you to build responsive and mobile-friendly websites and applications, and achieve many tasks out of the box including complete dynamic routing, API tool kits, client-side rendering and much more. It also eases customisations and extending current functionalities.\nPlease check our documentation or reach out via our support portal if you need more information.\n\n\n\n## Application Setup\n\nIn order to use our Bootstrap application you will need to obtain your environment API details from your GPP representative. Your introductory screen when deploying via Vercel will display welcome message with some useful links and other information which can be useful for start.\n\n![GPP Landing page](https://media.sandbox-gc1.gcpp.io/sandbox/images/original/187c97ecec6e-screenshot-2024-07-04-at-141641.png \"GPP Landing page\")\n\n\n\n\nNext step would be to edit environment variables in Vercel settings where you need to add two mandatory and one optional variable:\n\n\n\nMandatory:\n\n\n\n- `CONNECT_API_URL`\n\n\n\n- `CONNECT_API_KEY`\n\n\n\n- `MEDIA_BASE_PATH` - GPP media base path\n\n\nOptional:\n\n- `PREGENERATE_PATHS` - array of slugs which will be pre generated e.g. `PREGENERATE_PATHS=[\"\",\"sport\",\"news\"]`\n\n\n\n![Vercel environment config](https://media.gpp.io/prod/images/widget_background_image/09482b655848-screenshot-2023-09-21-at-150706-1.png \"Vercel environment config\")\n\n\nAfter you successfully deploy the application, you should able to see a message confirming that your application is configured correctly, and you can then proceed with Glide configuration. This message will remain until you create and publish your first page in Glide.\n\n![GPP Starter](https://media.sandbox-gc1.gcpp.io/sandbox/images/original/273bc03fa552-screenshot-2024-07-04-at-141557.png \"GPP Starter\")\n\n\n\n\n\nNote that with app deployment you will get some generic components which you can use directly in your CMS app configuration or you can use/extend them in your custom functionalities and components.\nTo find out\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"next-js-gpp-demo\",\n  \"version\": \"0.0.2\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build && NODE_OPTIONS='--inspect'\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@glidecms/core-tools\": \"0.1.3\",\n    \"@glidecms/deliver-core-dev\": \"2.0.16\",\n    \"@glidecms/next-tools\": \"0.1.4\",\n    \"@types/node\": \"20.4.0\",\n    \"@types/react\": \"18.2.14\",\n    \"@types/react-dom\": \"18.2.6\",\n    \"@vercel/edge-config\": \"^0.2.1\",\n    \"axios\": \"^1.4.0\",\n    \"bootstrap\": \"^5.3.0\",\n    \"classnames\": \"^2.3.2\",\n    \"dotenv\": \"^16.3.1\",\n    \"eslint\": \"8.44.0\",\n    \"eslint-config-next\": \"13.4.8\",\n    \"html-react-parser\": \"^4.0.0\",\n    \"jquery\": \"^3.7.1\",\n    \"mitt\": \"^3.0.1\",\n    \"next\": \"^14.0.0\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"^18.2.0\",\n    \"react-intersection-observer\": \"^9.5.2\",\n    \"typescript\": \"5.1.6\",\n    \"vertx\": \"^0.0.1-security\"\n  },\n  \"devDependencies\": {\n    \"sass\": \"^1.63.6\"\n  }\n}"
+    },
+    {
+      "path": "middleware.ts",
+      "reason": "Useful structural reference",
+      "excerpt": "import { NextRequest, NextResponse } from \"next/server\";\n\nexport async function middleware(req: NextRequest) {\n  const basePath = req.nextUrl.basePath;\n  const response = NextResponse.next();\n  //logic which will add no idex tag\n  if (process.env.ENVIRONMENT !== \"prod\") {\n    response.headers.set(\"x-robots-tag\", \"noindex\");\n  } else if (process.env.NOINDEX_LIST) {\n    const noIndexArray = process.env.NOINDEX_LIST\n      ? JSON.parse(process.env.NOINDEX_LIST)\n      : null;\n    const addNoIndex = noIndexArray.some((t) => new RegExp(t).test(basePath));\n    if (addNoIndex) {\n      response.headers.set(\"x-robots-tag\", \"noindex\");\n    }\n  }\n  return response;\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "#required variables\nCONNECT_API_URL=\nCONNECT_API_KEY=\nMEDIA_BASE_PATH=\n\n#optional variables\nENVIRONMENT=\nPREGENERATE_PATHS="
+    }
+  ]
+}

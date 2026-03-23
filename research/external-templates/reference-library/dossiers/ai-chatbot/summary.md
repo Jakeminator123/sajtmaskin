@@ -5,7 +5,7 @@
 - Quality score: 94
 - Scaffold families: app-shell, auth-pages, dashboard
 - Repo: https://github.com/vercel/chatbot
-- Demo: https://chatbot.ai-sdk.dev/demo
+- Demo: #
 
 Chatbot is a AI reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.
 

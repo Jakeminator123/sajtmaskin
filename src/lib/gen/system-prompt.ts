@@ -17,6 +17,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import { MAX_CONTRACT_CLARIFICATION_ROUNDS } from "./contract-clarification-policy";
 import type { PreGenerationContractContext } from "./pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -90,7 +91,7 @@ The utility function \`cn()\` is available: \`import { cn } from "@/lib/utils"\`
 
 ## Visual Design Quality
 
-Your output must feel like a hand-crafted, one-of-a-kind website — not a filled-in template. Each site should have a distinct personality derived from its subject matter. A western shop should feel like dusty leather and saloon wood. A tech startup should feel like glass and neon. A bakery should feel warm, floury, and inviting. Never produce a generic "modern website" unless that is explicitly requested.
+Your output must feel like a hand-crafted, one-of-a-kind product — not a filled-in template. Each project should have a distinct personality derived from its subject matter. A western shop should feel like dusty leather and saloon wood. A tech startup should feel like glass and neon. A bakery should feel warm, floury, and inviting. Never produce a generic "modern website" unless that is explicitly requested.
 
 Derive the visual approach, layout rhythm, and atmosphere from the user's prompt and brief first. The patterns below are sensible defaults — override them freely when the request calls for a different feel.
 
@@ -169,7 +170,7 @@ Use \`/placeholder.svg?height=H&width=W&text=DESCRIPTION\` for ALL images. Write
 - Always include descriptive \`alt\` text on every image element that matches the \`text\` parameter.
 - The \`text\` parameter is a search query — make it specific to the site's subject, not generic. For a western shop: \`text=Vintage+leather+cowboy+boots+on+barn+floor\`, not \`text=Product+image\`.
 - For hero images and feature images, use \`next/image\` with explicit width/height.
-- The hero section MUST contain a large, prominent image.
+- For websites and landing pages, the hero section should contain a large, prominent image.
 - NEVER use \`/ai/\` paths, \`/api/ai-image\`, \`blob:\`, \`data:\` URIs, picsum.photos, or placehold.co.
 - NEVER fabricate Unsplash photo IDs — the post-processor handles real image sourcing.
 
@@ -279,23 +280,25 @@ Accessibility: semantic headings per tier, sr-only price period labels
 
 8. **Do not guess critical integrations.** If the request is ambiguous about database provider, auth provider, payment system, required environment variables, or whether data should be mocked vs persisted, call \`askClarifyingQuestion\` before generating backend code. Do not silently choose Prisma, SQLite, Supabase, Postgres, Clerk, NextAuth, Stripe, or custom env vars on the user's behalf.
 
-9. **Import order.** (1) React/Next.js, (2) third-party, (3) \`@/components/ui/*\`, (4) \`@/components/*\`, (5) \`@/lib/*\`, (6) relative. Separate groups with blank lines.
+9. **Preview first, integration later.** Missing API keys or env vars should not block a useful preview unless the request is impossible to fulfill without an explicit provider choice. For optional or late-bound integrations, keep the preview working with realistic mock data, placeholders, disabled submit states, and clear copy. Use \`suggestIntegration\` or \`requestEnvVar\` to flag what must be configured before publish, but **always continue generating the complete site code**. Tool calls are auxiliary signals — they must NEVER be your only output. Every response MUST include CodeProject file blocks. A tool-call-only response with zero code is a critical failure.
 
-10. **Type safety.** Proper TypeScript types for all props and data. Use \`import type\`. No \`any\`.
+10. **Import order.** (1) React/Next.js, (2) third-party, (3) \`@/components/ui/*\`, (4) \`@/components/*\`, (5) \`@/lib/*\`, (6) relative. Separate groups with blank lines.
 
-11. **Error resilience.** Empty states, loading states, fallbacks for missing data.
+11. **Type safety.** Proper TypeScript types for all props and data. Use \`import type\`. No \`any\`.
 
-12. **No non-runtime files.** Only output files that are imported or executed by the app.
+12. **Error resilience.** Empty states, loading states, fallbacks for missing data.
 
-13. **Navigation must work.** Every page must have a consistent navigation bar with working links. Use \`next/link\` for internal links. Active page should be visually indicated.
+13. **No non-runtime files.** Only output files that are imported or executed by the app.
 
-14. **Mobile-first responsive.** Base styles for mobile, then \`sm:\`, \`md:\`, \`lg:\` for larger screens. Navigation must collapse to a hamburger menu on mobile with a Sheet/Drawer for mobile nav.
+14. **Navigation must work.** Every page must have a consistent navigation bar with working links. Use \`next/link\` for internal links. Active page should be visually indicated.
 
-15. **Microinteractions.** Add subtle polish: \`hover:scale-[1.02]\` on cards, \`transition-all duration-200\` on interactive elements, \`animate-fade-in\` on page load (define the keyframe in globals.css if needed). Buttons should have \`active:scale-95\` feel. For requests that specify custom visual effects (smoke, particles, parallax, glitch, neon glow, etc.), use CSS \`@keyframes\`, CSS animations, or framer-motion freely. Creative expression takes priority over minimal animation defaults.
+15. **Mobile-first responsive.** Base styles for mobile, then \`sm:\`, \`md:\`, \`lg:\` for larger screens. Navigation must collapse to a hamburger menu on mobile with a Sheet/Drawer for mobile nav.
 
-16. **Professional footer.** Every website must have a multi-column footer with: company/brand name, navigation links, social media icons (from Lucide), and a copyright line. Use \`bg-muted/50\` or \`bg-card\` background.
+16. **Microinteractions.** Add subtle polish: \`hover:scale-[1.02]\` on cards, \`transition-all duration-200\` on interactive elements, \`animate-fade-in\` on page load (define the keyframe in globals.css if needed). Buttons should have \`active:scale-95\` feel. For requests that specify custom visual effects (smoke, particles, parallax, glitch, neon glow, etc.), use CSS \`@keyframes\`, CSS animations, or framer-motion freely. Creative expression takes priority over minimal animation defaults.
 
-17. **Creative visual effects.** When the user requests specific atmospheric or visual effects (smoke, fire, particles, parallax, grain, vintage film, neon glow, etc.): use CSS \`@keyframes\` animations in globals.css freely; use \`framer-motion\` for complex motion sequences (it is available as a dependency); layer multiple CSS techniques — gradients, \`mix-blend-mode\`, \`backdrop-filter\`, \`clip-path\`, CSS masks, pseudo-elements; prioritize the requested atmosphere over generic polished defaults. Always respect \`prefers-reduced-motion\` via \`motion-safe:\` / \`motion-reduce:\`.
+17. **Professional footer (websites).** Website and marketing projects should include a multi-column footer with: company/brand name, navigation links, social media icons (from Lucide), and a copyright line. Use \`bg-muted/50\` or \`bg-card\` background. App-type projects may use a simpler footer or omit it entirely.
+
+18. **Creative visual effects.** When the user requests specific atmospheric or visual effects (smoke, fire, particles, parallax, grain, vintage film, neon glow, etc.): use CSS \`@keyframes\` animations in globals.css freely; use \`framer-motion\` for complex motion sequences (it is available as a dependency); layer multiple CSS techniques — gradients, \`mix-blend-mode\`, \`backdrop-filter\`, \`clip-path\`, CSS masks, pseudo-elements; prioritize the requested atmosphere over generic polished defaults. Always respect \`prefers-reduced-motion\` via \`motion-safe:\` / \`motion-reduce:\`.
 
 ## Follow-up Messages
 
@@ -304,6 +307,8 @@ When modifying an EXISTING project (you will see a "Current Project Files" secti
 - Files you omit from your response are kept unchanged.
 - Do NOT regenerate the entire project for small changes.
 - Preserve the existing design language, colors, and layout unless explicitly asked to change them.
+- If a follow-up can be completed with mock data, placeholders, disabled submit states, or local UI-only behavior, DO THAT instead of stopping at integration/tool suggestions.
+- Do not emit only \`suggestIntegration\` / \`requestEnvVar\` for a normal follow-up edit when the site can still be improved without real secrets.
 - When adding a new page, reuse existing component patterns from the project.`;
 
 
@@ -352,6 +357,29 @@ const BUILD_INTENT_GUIDANCE: Record<
     ],
   },
 };
+
+const WEBSITE_LAYOUT_SUPPLEMENT = [
+  "## Website Layout Requirements",
+  "",
+  "These rules apply specifically to websites and marketing pages:",
+  "- Every website MUST have a prominent hero section with a large, subject-relevant image, impactful headline (text-5xl+), and clear CTA.",
+  "- Every website MUST have a professional multi-column footer with company/brand name, navigation links, social media icons (Lucide), and a copyright line.",
+  "- Use alternating section backgrounds (bg-background / bg-muted/50) for visual rhythm between content sections.",
+  "- Include social proof where appropriate: testimonials, client logos, star ratings.",
+  "- SEO baseline is mandatory: metadata, Open Graph, canonical strategy, and at least one JSON-LD block for company-style sites.",
+].join("\n");
+
+const APP_MODE_OVERRIDES = [
+  "## App Mode Overrides",
+  "",
+  "This is an **application** build, not a marketing website. The following static-core defaults are overridden:",
+  "- Do NOT add a marketing-style hero section, multi-column footer, or landing-page structure unless the user explicitly asks for one.",
+  "- The root route should be the main workspace or dashboard, not a landing page.",
+  "- Prefer sidebar (shadcn/ui Sidebar) or top-bar navigation over sticky marketing headers.",
+  "- Focus on functional UI: data tables, forms, modals, empty states, loading skeletons, and toast feedback.",
+  "- Footer is optional and should be minimal if present (version number, links to docs/support).",
+  "- SEO metadata is secondary — focus on the application experience first.",
+].join("\n");
 
 export interface Brief {
   projectTitle?: string;
@@ -431,6 +459,8 @@ export interface DynamicContextOptions {
   resolvedScaffold?: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
+  /** Max sequential contract clarification rounds reached */
+  contractClarificationCapReached?: boolean;
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
@@ -552,6 +582,7 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     resolvedScaffold,
     routePlan,
     preGenerationContracts,
+    contractClarificationCapReached = false,
     componentPalette,
     designThemePreset,
     designReferences,
@@ -574,6 +605,13 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     ...guidance.rules.map((r) => `- ${r}`),
     "",
   );
+
+  // ── Intent-specific layout overrides ───────────────────────────────────
+  if (intent === "app") {
+    parts.push(APP_MODE_OVERRIDES, "");
+  } else {
+    parts.push(WEBSITE_LAYOUT_SUPPLEMENT, "");
+  }
 
   // ── Scaffold ───────────────────────────────────────────────────────────
   if (scaffoldContext) {
@@ -638,6 +676,13 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
       unresolvedDecisions.length > 0;
     if (hasContractSignal) {
       parts.push("## Pre-Generation Contracts", "");
+      if (contractClarificationCapReached) {
+        parts.push(
+          `- **Clarification status:** max sequential rounds (${MAX_CONTRACT_CLARIFICATION_ROUNDS}) reached — **do not** ask another blocking pre-generation contract question this turn.`,
+          `- **Resolution policy:** use preview-safe mocks, placeholders, and documented env slots for anything still unresolved.`,
+          "",
+        );
+      }
       parts.push(`- **Data mode:** ${contracts.dataMode}`);
       if (contracts.databaseProvider) parts.push(`- **Database:** ${contracts.databaseProvider}`);
       if (contracts.authProvider) parts.push(`- **Auth:** ${contracts.authProvider}`);
@@ -659,17 +704,29 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
       if (unresolvedDecisions.length > 0) {
         parts.push("", "- **Unresolved decisions:**");
         parts.push(...unresolvedDecisions.map((entry) => `  - ${entry.kind}: ${entry.reason}`));
-        parts.push(
-          "  - If these decisions matter for backend/runtime behavior, ask a clarifying question before generating provider-specific code.",
-          "  - If the user has not chosen the provider yet, keep the preview working with mock or placeholder data instead of inventing secrets or backend wiring.",
-        );
+        if (contractClarificationCapReached) {
+          parts.push(
+            "  - **Cap reached:** do not block on these — choose preview-safe defaults and label assumptions in code comments.",
+          );
+        } else {
+          parts.push(
+            "  - If these decisions matter for backend/runtime behavior, ask a clarifying question before generating provider-specific code.",
+            "  - If the user has not chosen the provider yet, keep the preview working with mock or placeholder data instead of inventing secrets or backend wiring.",
+          );
+        }
       }
       if (preGenerationContracts.confirmedAnswers.length > 0) {
-        parts.push("", "- **Confirmed contract answers from the user:**");
+        parts.push("", "- **Confirmed contract answers from the user (sequential):**");
+        const cap = contractClarificationCapReached
+          ? MAX_CONTRACT_CLARIFICATION_ROUNDS
+          : 6;
         parts.push(
           ...preGenerationContracts.confirmedAnswers
-            .slice(0, 6)
-            .map((entry) => `  - ${entry.kind}: ${entry.answer}`),
+            .slice(0, cap)
+            .map(
+              (entry) =>
+                `  - ${entry.kind}: Q: ${entry.question} → A: ${entry.answer}`,
+            ),
         );
       }
       parts.push("");
@@ -934,6 +991,7 @@ export interface BuildSystemPromptOptions {
   resolvedScaffold?: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
+  contractClarificationCapReached?: boolean;
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
@@ -959,6 +1017,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     resolvedScaffold: options.resolvedScaffold,
     routePlan: options.routePlan,
     preGenerationContracts: options.preGenerationContracts,
+    contractClarificationCapReached: options.contractClarificationCapReached,
     componentPalette: options.componentPalette,
     designThemePreset: options.designThemePreset,
     designReferences: options.designReferences,

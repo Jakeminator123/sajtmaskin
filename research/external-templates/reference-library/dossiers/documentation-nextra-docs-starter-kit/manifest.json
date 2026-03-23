@@ -5,7 +5,7 @@
   "categorySlug": "documentation",
   "categoryName": "Documentation",
   "templateUrl": "https://vercel.com/templates/documentation/documentation-starter-kit",
-  "demoUrl": "https://nextra-docs-template.vercel.app/",
+  "demoUrl": "#",
   "description": "Simple, powerful and flexible markdown-powered docs site. Built with Next.js.",
   "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
@@ -15,7 +15,7 @@
     "url": "https://github.com/shuding/nextra-docs-template",
     "normalizedUrl": "https://github.com/shuding/nextra-docs-template",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\shuding-nextra-docs-template",
+    "clonePath": "../vercel-scrape/documentation/nextra-docs-starter-kit/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -27,8 +27,10 @@
     "Next.js",
     "Tailwind",
     "Related Templates",
-    "Docus",
-    "Next.js Boilerplate"
+    "Products",
+    "AI",
+    "Enterprise",
+    "Fluid Compute"
   ],
   "usefulLines": [
     "AI workflows in live environments",

@@ -38,30 +38,9 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-const QUERY_HINTS: Array<{ match: RegExp; hint: string }> = [
-  { match: /\b(restaurang|restaurant|meny|menu)\b/i, hint: "restaurant food dining menu" },
-  { match: /\b(bokning|booking|boka|appointment)\b/i, hint: "booking reservation appointment" },
-  { match: /\b(event|konferens|bröllop|festival)\b/i, hint: "event conference wedding" },
-  { match: /\b(förening|ideell|nonprofit|välgörenhet)\b/i, hint: "nonprofit charity organization" },
-  { match: /\b(butik|shop|e-handel|webshop)\b/i, hint: "ecommerce shop store products" },
-  { match: /\b(blogg|blog|artikel|inlägg)\b/i, hint: "blog articles posts editorial" },
-  { match: /\b(portfolio|fotograf|designer|kreatör)\b/i, hint: "portfolio creative showcase" },
-  { match: /\b(saas|plattform|abonnemang|pricing)\b/i, hint: "saas platform subscription" },
-  { match: /\b(login|inloggning|registrering|auth)\b/i, hint: "authentication login signup" },
-  { match: /\b(dashboard|instrumentpanel|statistik)\b/i, hint: "dashboard analytics metrics" },
-];
-
-function expandQuery(query: string): string {
-  const hints = QUERY_HINTS
-    .filter(({ match }) => match.test(query))
-    .map(({ hint }) => hint);
-  if (hints.length === 0) return query;
-  return `${query}\n\nRelated: ${Array.from(new Set(hints)).join(", ")}`;
-}
-
 /**
  * Semantic scaffold search using pre-computed embeddings.
- * Returns the best-matching scaffold or null if no embeddings or API key available.
+ * Returns the best-matching scaffolds ranked by cosine similarity.
  */
 export async function searchScaffolds(
   query: string,
@@ -79,7 +58,7 @@ export async function searchScaffolds(
   try {
     const response = await openai.embeddings.create({
       model: SCAFFOLD_EMBEDDING_MODEL,
-      input: expandQuery(query),
+      input: query,
       dimensions: SCAFFOLD_EMBEDDING_DIMENSIONS,
     });
     queryEmbedding = response.data[0].embedding;

@@ -71,8 +71,8 @@ describe("resolveEngineModelId", () => {
   it("maps the internal profile to OpenAI model when useV0Fallback is false", () => {
     expect(resolveEngineModelId("fast", false)).toBe("gpt-4.1");
     expect(resolveEngineModelId("pro", false)).toBe("gpt-5.3-codex");
-    expect(resolveEngineModelId("codex", false)).toBe("gpt-5.1-codex-max");
+    expect(resolveEngineModelId("codex", false)).toBe("gpt-5.4");
     expect(resolveEngineModelId("max", false)).toBe("gpt-5.4");
-    expect(resolveEngineModelId("anthropic", false)).toBe("claude-sonnet-4.6");
+    expect(resolveEngineModelId("anthropic", false)).toBe("claude-opus-4.6");
   });
 });

@@ -49,34 +49,30 @@ src/components/ui/
 public/
 
 # One-off scripts
-scripts/
+#scripts/
 
 # Admin dashboard routes
-src/app/api/admin/
+#src/app/api/admin/
 
 # Payment routes (sensitive, rarely changed)
-src/app/api/stripe/
+#src/app/api/stripe/
 
 # Auth routes (stable, rarely changed)
-src/app/api/auth/
+#src/app/api/auth/
 
 # Landing page components (stable after design)
-src/components/landing-v2/
+#src/components/landing-v2/
 
 # ---------------------------------------------------------------------------
 # Research and generated artifacts
 # ---------------------------------------------------------------------------
 
-# Local research lanes and clone mirrors (345+ files)
+# Local research lanes and clone mirrors
 research/external-templates/raw-discovery/
-research/external-templates/repo-cache/
 research/external-templates/reference-library/
 _template_refs/
-_sidor/
-research/_sidor/
-vercel_usecase_next_react_templates/
 
-# Generated reports and machine-generated artifacts (6+ MB)
+# Generated reports and machine-generated artifacts
 data/scaffold-candidates-curated.json
 src/lib/gen/data/docs-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
@@ -84,23 +80,12 @@ src/lib/gen/scaffolds/scaffold-research.generated.json
 src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
 
-# Recovery package
-world-class-recovery/
-
-# MCP scraped docs (prefer MCP search/fetch instead)
-services/mpc/docs/docgrab__*/
-services/mpc/docs/local/
-services/mpc/docs/*llms*
-services/mpc/docs/shad/
-services/mpc/logs/
-
 # ---------------------------------------------------------------------------
 # Session state and legacy
 # ---------------------------------------------------------------------------
 
 # Local Cursor session state
 #.cursor/plans/
-#.cursor/documents/
 .cursor/automation/runs/
 .cursor/automation/archive/
 .cursor/automation/input/
@@ -110,7 +95,7 @@ docs/old/
 docs/plans/archived/
 #docs/analyses/
 
-# Migration archive (moved from STOR_MIGRATION/ to .cursor/migration-archive/)
+# Migration archive
 .cursor/migration-archive/
 
 # Temporary / local dev folders

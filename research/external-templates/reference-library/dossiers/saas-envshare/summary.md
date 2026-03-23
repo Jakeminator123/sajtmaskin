@@ -2,10 +2,10 @@
 
 - Category: SaaS (saas)
 - Verdict: valid
-- Quality score: 94
+- Quality score: 92
 - Scaffold families: saas-landing, app-shell, dashboard
 - Repo: https://github.com/chronark/envshare
-- Demo: https://envshare.dev/
+- Demo: #
 
 EnvShare is a SaaS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.
 
@@ -13,7 +13,6 @@ EnvShare is a SaaS reference with verified Next.js codebase, App Router structur
 - verified Next.js codebase
 - App Router structure
 - dashboard shell patterns
-- editorial content hierarchy
 
 ## Weaknesses
 - none noted

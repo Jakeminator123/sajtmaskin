@@ -66,7 +66,8 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "anthropic",
     label: "Anthropic",
-    description: "Jamforelselage. Claude Sonnet 4.6 via Anthropic API for hela build-lanen.",
+    description:
+      "Claude via Anthropic API for hela build-lanen. Standard: Opus 4.6 (`SAJTMASKIN_MODEL_ANTHROPIC`).",
     hint: "compare",
   },
 ];
@@ -93,6 +94,7 @@ export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
   { value: "openai/gpt-5.4", label: "OpenAI GPT-5.4" },
   { value: "openai/gpt-5.3-codex", label: "OpenAI GPT-5.3 Codex" },
+  { value: "openai/gpt-5.2-codex", label: "OpenAI GPT-5.2 Codex" },
   { value: "openai/gpt-5.2", label: "OpenAI GPT-5.2" },
   { value: "anthropic/claude-sonnet-4.6", label: "Anthropic Claude Sonnet 4.6" },
   { value: "anthropic/claude-opus-4.6", label: "Anthropic Claude Opus 4.6" },

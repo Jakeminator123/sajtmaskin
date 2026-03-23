@@ -5,7 +5,7 @@
   "categorySlug": "saas",
   "categoryName": "SaaS",
   "templateUrl": "https://vercel.com/templates/saas/replicache-starter",
-  "demoUrl": "https://replicache-todo.vercel.app",
+  "demoUrl": "#",
   "description": "Todo list app powered by Replicache, NextJS and Supabase.",
   "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
@@ -15,7 +15,7 @@
     "url": "https://github.com/rocicorp/replicache-vercel-template",
     "normalizedUrl": "https://github.com/rocicorp/replicache-vercel-template",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\rocicorp-replicache-vercel-template",
+    "clonePath": "../vercel-scrape/saas/replicache-starter/repo",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,
@@ -29,7 +29,8 @@
     "Database",
     "Supabase",
     "Related Templates",
-    "Next.js Boilerplate"
+    "Products",
+    "AI"
   ],
   "usefulLines": [
     "AI workflows in live environments",

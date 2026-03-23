@@ -1,0 +1,284 @@
+Hej, jag skulle vilja att du hittar en till två stora buggar, eller fem små buggar. Skriv ut i chatten vad de är, samt procent på sannolikhet att det är en bugg och hur stor påverkan den har, båda i procent. Välj en av dessa vägar: två stora eller fem små.
+
+----
+
+
+1) BRA AGENT!!!
+
+Granskar kodbasen systematiskt för att hitta verkliga buggar eller sannolika fel.
+
+Jag har gått igenom API-lager, DB-tjänster och chat-hooks. Jag väljer vägen två stora (djupare risker med tydlig påverkan).
+
+1. Företagsprofil: GET med companyName saknar ägar-/scope-filtrering
+Vad: I GET /api/company-profile anropas getCompanyProfileByName(companyName) utan OwnerScope, medan searchCompanyProfiles och getAllCompanyProfiles filtrerar via användarens projekt-ID:n. getCompanyProfileByName gör en ren WHERE company_name = ? över hela tabellen.
+
+
+route.ts
+Lines 52-58
+    // Get by company name
+    if (companyName) {
+      const profile = await getCompanyProfileByName(companyName);
+      if (!profile) {
+        return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
+      }
+
+company-profiles.ts
+Lines 101-108
+export async function getCompanyProfileByName(name: string): Promise<CompanyProfile | null> {
+  assertDbConfigured();
+  const rows = await db
+    .select()
+    .from(companyProfiles)
+    .where(eq(companyProfiles.company_name, name))
+    .limit(1);
+  return rows[0] ?? null;
+}
+Sannolikhet att det är en bugg (saknad avsiktlig isolering): 88%
+Påverkan: 84% (horisontell läsning av annan kunds profil vid känt/gissat företagsnamn — PII, audit-fält, m.m.)
+
+2. Länka profil till projekt: ägarskap av projekt men inte av profil
+Vad: PATCH med linkCompanyProfileToProject verifierar att projektet tillhör anroparen, men inte att profilen gör det. Någon kan alltså länka en annans profileId till sitt eget projekt (om ID läcker eller är gissningsbart), vilket rubbar dataintegritet och kan användas illvilligt.
+
+
+company-profiles.ts
+Lines 142-157
+export async function linkCompanyProfileToProject(
+  profileId: number | string,
+  projectId: string,
+  scope: OwnerScope,
+): Promise<void> {
+  assertDbConfigured();
+  const owned = await verifyProjectOwnership(projectId, scope);
+  if (!owned) throw new Error("Project not found or access denied");
+  const id = typeof profileId === "string" ? parseInt(profileId, 10) : profileId;
+  await db
+    .update(companyProfiles)
+    .set({ project_id: projectId, updated_at: new Date() })
+    .where(eq(companyProfiles.id, id));
+}
+Sannolikhet att det är en bugg: 86%
+Påverkan: 79% (IDOR på skrivning — fel projekt kan “ta över” en befintlig profilrad)
+
+Kort om vad jag inte räknade som “stor” här
+Det finns fler sannolika problem (t.ex. att isNetworkError i src/lib/hooks/chat/helpers.ts returnerar true för alla TypeError, vilket kan trigga fel fallback-flöde). Jag lämnar dem utanför de två stora för att hålla listan ren enligt din begäran.
+
+Vill du att jag i nästa steg föreslår konkreta kodändringar (t.ex. scope på namnlookup + verifyProfileOwnership vid länk)?
+
+
+----
+
+
+2)
+
+Utforskar kodbasen systematiskt efter sannolika buggar i kritiska vägar (API:er, auth, felhantering).
+
+Jag valde två stora buggar efter att ha gått igenom audit-API:t och template-API:t.
+
+1. Audit: inFlightAudits rensas inte vid lyckad return efter fel (t.ex. scraping)
+Vad: Efter inFlightAudits.set(...) (ca rad 1181) finns flera return NextResponse.json(...) inne i yttre try (t.ex. när scraping kastar och fångas i inner catch, rad 1219–1225, eller vid tom AI-respons / gateway av). Då körs inte yttre catch (som anropar inFlightAudits.delete), och det finns inget finally som kommentaren vid rad 1179 antyder. Posten ligger kvar tills den åldras bort (t.ex. upp till ~10 minuter enligt IN_FLIGHT_MAX_AGE_MS / städning).
+
+Konsekvens: Användaren får ett tydligt fel (t.ex. ogiltig URL / timeout), försöker direkt igen med samma URL och möts då av 409 med text om att en audit redan pågår – trots att den tidigare inte pågick.
+
+Sannolikhet att det är en riktig bugg: 92%
+Påverkan (användarupplevelse / blockerande beteende): 78%
+2. Template-init: fel-svar sätter inte sessions-cookie
+Vad: I POST för /api/template wrappas alla lyckade och många tidiga svar med attachSessionCookie(...), men catch-blocket (ca rad 307–365) returnerar NextResponse.json(...) utan attachSessionCookie. Om en ny eller uppdaterad session skulle behöva skickas med även vid fel (samma mönster som i init-registry), får klienten inte Set-Cookie på felvägen.
+
+Konsekvens: Kan ge inkonsistent session för anonyma/gäst-flöden när template-anropet faller (nätverk, v0, validering), t.ex. svårare att spåra krediter/gästgränser eller upprepade anrop i samma session.
+
+Sannolikhet att det är en riktig bugg: 88%
+Påverkan: 42% (beror på hur ofta fel inträffar och hur kritisk sessionen är just då; inte lika “hård” som 409-låsningen ovan)
+Sammanfattning: Den första är den tyngsta (felaktig 409-duplicering efter misslyckad audit). Den andra är en tydlig inkonsekvent API-yta mellan succé och fel för session-cookies. Vill du att jag ska föreslå konkreta patchar (t.ex. finally eller delete före varje relevant return, och attachSessionCookie i template-catch)?
+
+
+---
+
+
+
+1. inFlightAudits rensas inte vid flera lyckade return efter att nyckeln lagts in
+Vad det är: Efter inFlightAudits.set(inFlightKey, …) finns flera vanliga felvägar som gör return NextResponse.json(...) utan att ta bort posten. Exempel i samma fil:
+
+Misslyckad scraping (ca rad 1219)
+Tom AI-respons i Responses API-läget (ca rad 1295)
+AI Gateway avstängd / tom gateway-respons (ca rad 1313 och 1352)
+inFlightAudits.delete sker bara vid lyckad slutreturn (före ca rad 1615) eller i yttre catch vid kastade fel (ca rad 1630–1631). Vanliga return i try-blocket hoppar över catch, så nyckeln läcker tills cleanupStaleInFlightAudits tar den (max ~10 min enligt IN_FLIGHT_MAX_AGE_MS) eller processen startar om.
+
+Sannolikhet att det är en riktig bugg: ~92%
+Påverkan: ~88% — användaren kan i praktiken låsas med 409 (“audit pågår redan”) efter ett tillfälligt fel (t.ex. timeout, tom AI-respons), trots att inget längre körs.
+
+2. Duplicerings-/in-flight-skydd är bara i minnet i en Node-process
+Vad det är: inFlightAudits är en modul-global Map. På t.ex. Vercel kan samtidiga anrop hamna i olika isolat/instanser utan delat minne. Då ser vardera instansen kartan som tom → två parallella audits för samma användare + URL kan köras (dubbel scraping, dubbel AI-kostnad, oförutsägbar last).
+
+Sannolikhet att det räknas som en bugg / produktionsgap: ~78% (det kan vara medvetet förenklad design, men beteendet motsvarar inte den avsedda “duplicate”-skyddet i skala.)
+
+Påverkan: ~72% — mest märkbar under last, flera regioner eller många samtidiga anrop; risk för onödig kostnad och inkonsekvent UX jämfört med en enda kö.
+
+Sammanfattning: Bug 1 är en tydlig livscykel-bugg i samma request-handler. Bug 2 är ett arkitektur-/skalningsgap där skyddet inte är distribuerat. Vill du att jag föreslår en minimal fix (t.ex. try/finally eller delad Redis-nyckel) för någon av dem?
+
+
+---
+
+
+
+Granskar kodbasen systematiskt efter sannolika buggar i kritiska vägar (API, generering, builder).
+
+Här är resultatet av en riktad genomgång (API:er, credits, chat-hooks, wizard). Jag väljer vägen fem små buggar och anger sannolikhet (att det verkligen är ett fel/avsaknad) och påverkan (hur mycket det märks i produkt/UX/säkerhet), båda i procent.
+
+1. Gäst utan session får canProceed: true i credits-check
+Vad: I GET /api/credits/check returneras canProceed: true när användaren inte är inloggad och getSessionIdFromRequest saknar session — utan att gästens verkliga kvot kan avgöras.
+
+    if (!sessionId) {
+      return NextResponse.json({
+        success: true,
+        canProceed: true,
+        reason: null,
+        authenticated: false,
+        cost,
+        guest: {
+          generationsUsed: 0,
+          refinesUsed: 0,
+        },
+      });
+    }
+Sannolikhet: 88% — det är en logisk inkonsistens jämfört med prepareCredits som kräver session för gäster.
+Påverkan: 35% — ofta bara fel UI (“du kan köra”) följt av 400 från den riktiga åtgärden; sällan ren säkerhetsbypass om backend ändå spärrar.
+
+2. Felklassning via lösa includes("500") / "401" i strängar
+Vad: I init-registry tolkas upstream-fel med msg.includes("500"), "401" osv. vilket kan träffa andra texter som råkar innehålla samma siffror (t.ex. radnummer, ID:n).
+
+      // Server error
+      if (
+        msg.includes("500") ||
+        msg.includes("502") ||
+        msg.includes("503") ||
+        msg.includes("504")
+      ) {
+Sannolikhet: 55% — det är en skör heuristik; i praktiken ofta rätt men inte garanterat.
+Påverkan: 25% — fel HTTP-status/meddelande till klienten i ovanliga felsträngar.
+
+3. Meddelande-ID:n från Date.now() kan kollidera
+Vad: Varje sändning sätter både user- och assistant-id till samma tidsstämpel. Två sendMessage inom samma millisekund kan ge duplicerade React-nycklar och fel uppdatering av fel bubbla.
+
+      const now = Date.now();
+      const userMessageId = `user-${now}`;
+      const assistantMessageId = `assistant-${now}`;
+Sannolikhet: 40% som ren “bugg” (kollision är sällsynt men möjlig); högre om dubbelklick/automation skickar extremt snabbt.
+Påverkan: 30% — när det inträffar kan UI/streaming-state bli fel.
+
+4. Wizard fetch tolkar svar utan response.ok
+Vad: Company lookup (och liknande) gör r.json() utan att först kontrollera HTTP-status; felkropp kan felaktigt tolkas som CompanyLookupResult eller tyst ignoreras.
+
+      fetch("/api/wizard/company-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({ companyName: name }),
+      })
+        .then((r) => r.json())
+        .then((data: CompanyLookupResult) => {
+          if (data.found) setCompanyLookup(data);
+        })
+Sannolikhet: 70% — mönstret är en klassisk källa till tysta eller felaktiga tillstånd.
+Påverkan: 28% — oftast bara utebliven autofyll; ibland förvirrande om payload råkar se “sann” ut.
+
+5. touchStreamSafetyTimer nollställer timern vid varje SSE-aktivitet
+Vad: Säkerhetstimern startas om vid aktivitet; en lång men “levande” ström (t.ex. många små chunk/hjärtbeat utan slut) kan skjuta upp timeout i praktiken obegränsat, så användaren får inte den avsedda nödbromsen.
+
+  const touchStreamSafetyTimer = useCallback(
+    (timeoutMs?: number) => {
+      const resolvedTimeoutMs = timeoutMs ?? activeStreamTimeoutMsRef.current;
+      if (streamingTimerRef.current) clearTimeout(streamingTimerRef.current);
+      streamingTimerRef.current = setTimeout(() => {
+        streamingTimerRef.current = null;
+        warnLog("v0", "Stream safety timeout reached — force-clearing isStreaming");
+        streamAbortRef.current?.abort();
+        toast.error("Genereringen tog för lång tid. Försök igen eller kör reparera preview.", {
+          duration: 8000,
+        });
+        setMessages((prev) =>
+          prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
+        );
+      }, resolvedTimeoutMs);
+    },
+    [setMessages],
+  );
+Sannolikhet: 50% — beroende på om backend faktiskt kan skicka eviga “aktiva” strömmar.
+Påverkan: 32% — användaren kan fastna i “streaming” tills manuell åtgärd.
+
+Sammanfattning: Jag valde fem små buggrisker med tydlig koppling till kod; procentsatserna är bedömningar, inte mätdata. Vill du nästa steg kan vi å
+
+---
+
+Granskar kodbasen systematiskt efter verkliga buggar i kritiska flöden (API:er, auth, generering).
+
+Verifierar try/catch-strukturen kring scrape-felet:
+
+Jag granskade källkoden (bland annat src/app/api/audit/route.ts, preview/error-log och webhooks) och väljer två stora problem nedan.
+
+1. Audit: inFlightAudits rensas inte vid flera tidiga return
+Vad: Efter att en rad lagts in i inFlightAudits (lås för dubbletter) finns flera vägar som gör return NextResponse.json(...) utan inFlightAudits.delete(inFlightKey). Det gäller minst när scraping misslyckas (rad ~1219–1225), när AI-svaret är tomt (Responses API ~1295, Gateway ~1352) och när Gateway inte är konfigurerad (~1313). Kommentaren säger att det rensas i en finally-block, men ett sådant finns inte kring den här logiken.
+
+
+route.ts
+Lines 1179-1225
+    // Mark this audit as in-flight (will be cleaned up in finally block)
+    // We use a placeholder promise here - actual result tracking would require refactoring
+    inFlightAudits.set(inFlightKey, {
+      startTime: Date.now(),
+      userId: user.id,
+      promise: Promise.resolve({} as AuditResult), // Placeholder
+    });
+    // Scrape website content
+    console.info(`[${requestId}] Scraping website...`);
+    let websiteContent;
+    try {
+      websiteContent = await scrapeWebsite(normalizedUrl);
+      // ...
+    } catch (error) {
+      // ...
+      return NextResponse.json(
+        {
+          success: false,
+          error: errorMessage,
+        },
+        { status: statusCode },
+      );
+    }
+Konsekvens: Nyckeln sitter kvar tills den automatiskt rensas efter 10 minuter (eller vid annan lyckad bana). Användaren kan då få 409 (“en audit för denna URL pågår redan”) trots att det föregående försöket redan misslyckats – alltså felaktig spärr i upp till tio minuter.
+
+Mätetal	Värde
+Sannolikhet att det är en bugg	95%
+Påverkan	85%
+2. Audit: success: true även när kreditdragning (commit) misslyckas
+Vad: Om await creditCheck.commit() kastas fångas felet, loggas det, och svaret blir ändå success: true med fullt result (kommentar: “Still return result even if transaction fails”).
+
+
+route.ts
+Lines 1597-1619
+    try {
+      await creditCheck.commit();
+      if (creditCheck.isTest) {
+        console.info(`[${requestId}] Test user - no diamonds deducted`);
+      } else {
+        console.info(`[${requestId}] Deducted ${auditCost} diamonds from user ${user.id}`);
+      }
+    } catch (txError) {
+      console.error(`[${requestId}] Failed to deduct diamonds:`, txError);
+      // Still return result even if transaction fails
+    }
+    const totalDuration = Date.now() - requestStartTime;
+    console.info(`[${requestId}] Audit completed in ${totalDuration}ms`);
+    // Clean up in-flight tracking
+    inFlightAudits.delete(inFlightKey);
+    return NextResponse.json(
+      {
+        success: true,
+        result,
+      },
+Konsekvens: Vid tillfälligt DB-/transaktionsfel kan användaren få en full audit utan att credits debiteras, medan API:t signalerar lyckad betalning/affärslogik. Det ger redovisnings- och produkt-risk (gratis audit, dubbel användning om man utnyttjar fel-läget).
+
+Mätetal	Värde
+Sannolikhet att det är en bugg (oönskad affärslogik)	88%
+Påverkan	78%
+Sammanfattning: Jag valde två stora spår: (1) felaktig “pågår redan”-låsning efter misslyckade audits, (2) lyckat API-svar trots misslyckad debitering. Vill du att jag föreslår konkreta patchar (t.ex. try/finally runt inFlightKey och tydlig status när commit faller)?
+

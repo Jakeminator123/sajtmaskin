@@ -1,6 +1,7 @@
 import { streamText } from "ai";
 
-import { AUTOFIX_MAX_OUTPUT_TOKENS } from "../defaults";
+import { AUTOFIX_MAX_OUTPUT_TOKENS, MODEL_PRO } from "../defaults";
+import { buildOpenAIReasoningProviderOptions } from "../openai-reasoning";
 import { getOpenAIModel } from "../models";
 import { parseCodeProject, type CodeFile } from "../parser";
 import { FIXER_SYSTEM_PROMPT, buildFixerUserPrompt } from "./fixer-prompt";
@@ -12,7 +13,7 @@ export interface FixerResult {
   durationMs: number;
 }
 
-const DEFAULT_FIXER_MODEL = process.env.SAJTMASKIN_MODEL_PRO?.trim() || "gpt-5.3-codex";
+const DEFAULT_FIXER_MODEL = process.env.SAJTMASKIN_MODEL_PRO?.trim() || MODEL_PRO;
 export async function runLlmFixer(
   content: string,
   errors: string[],
@@ -22,13 +23,15 @@ export async function runLlmFixer(
 
   try {
     const userPrompt = buildFixerUserPrompt(content, errors);
-    const model = getOpenAIModel(options?.model ?? DEFAULT_FIXER_MODEL);
+    const fixerModelId = options?.model ?? DEFAULT_FIXER_MODEL;
+    const model = getOpenAIModel(fixerModelId);
 
     const result = streamText({
       model,
       system: FIXER_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
       maxOutputTokens: options?.maxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS,
+      ...buildOpenAIReasoningProviderOptions(fixerModelId, "pro", true),
     });
 
     const fixedText = await result.text;

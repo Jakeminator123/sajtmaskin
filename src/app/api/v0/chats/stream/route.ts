@@ -20,7 +20,7 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { createGenerationPipeline } from "@/lib/gen/fallback";
+import { createGenerationPipeline } from "@/lib/gen/pipeline";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -348,6 +348,7 @@ export async function POST(req: Request) {
           prompt: optimizedMessage,
           systemPrompt: planSystemPrompt,
           model: planModel,
+          modelTier: resolvedModelTier,
           thinking: resolvedThinking,
           abortSignal: req.signal,
           tools: planTools,
@@ -608,6 +609,7 @@ export async function POST(req: Request) {
           prompt: enginePrompt,
           systemPrompt: engineSystemPrompt,
           model: engineModel,
+          modelTier: resolvedModelTier,
           thinking: resolvedThinking,
           abortSignal: req.signal,
           tools: agentTools,

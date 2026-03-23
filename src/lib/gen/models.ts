@@ -8,9 +8,13 @@ export const DEFAULT_MODEL = DEFAULT_OWN_MODEL_ID;
 const ANTHROPIC_PREFIX_RE = /^claude-/;
 
 /**
- * Returns an AI SDK LanguageModel for code generation.
- * OpenAI models use OPENAI_API_KEY directly.
- * Anthropic models use ANTHROPIC_API_KEY directly.
+ * Returns an AI SDK `LanguageModel` for code generation.
+ *
+ * - **OpenAI** (`gpt-*`, etc.): `createOpenAI` + `OPENAI_API_KEY`.
+ * - **Anthropic** (`claude-*`): `createAnthropic` + `ANTHROPIC_API_KEY`. IDs are
+ *   normalized to the hyphen form the Claude Messages API expects (e.g.
+ *   `claude-opus-4.6` → `claude-opus-4-6`). Same REST surface as
+ *   [Anthropic API overview](https://platform.claude.com/docs/en/api/overview).
  */
 export function getOpenAIModel(modelId?: string) {
   const id = modelId ?? DEFAULT_MODEL;

@@ -610,7 +610,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   const handleApplyAnthropicComparePreset = useCallback(() => {
     vm.setSelectedModelTier("anthropic");
-    vm.handlePromptAssistModelChange("anthropic/claude-sonnet-4.6");
+    vm.handlePromptAssistModelChange("anthropic/claude-opus-4.6");
     vm.setPromptAssistDeep(!vm.chatId);
   }, [
     vm,

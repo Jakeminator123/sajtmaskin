@@ -5,7 +5,7 @@
   "categorySlug": "blog",
   "categoryName": "Blog",
   "templateUrl": "https://vercel.com/templates/blog/nextjs-contentlayer",
-  "demoUrl": "https://next-contentlayer.vercel.app/",
+  "demoUrl": "#",
   "description": "A blog template with Next.js 13 App Router, Contentlayer, Tailwind CSS and dark mode.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
@@ -15,7 +15,7 @@
     "url": "https://github.com/shadcn/next-contentlayer",
     "normalizedUrl": "https://github.com/shadcn/next-contentlayer",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\shadcn-next-contentlayer",
+    "clonePath": "../vercel-scrape/blog/next-js-contentlayer-blog-starter/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -27,8 +27,10 @@
     "Next.js",
     "Tailwind",
     "Related Templates",
-    "Next.js Portfolio with Pageview Counter",
-    "Astro Blog"
+    "Products",
+    "AI",
+    "Enterprise",
+    "Fluid Compute"
   ],
   "usefulLines": [
     "AI workflows in live environments",

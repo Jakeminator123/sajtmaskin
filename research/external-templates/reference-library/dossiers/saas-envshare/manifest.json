@@ -5,17 +5,17 @@
   "categorySlug": "saas",
   "categoryName": "SaaS",
   "templateUrl": "https://vercel.com/templates/saas/envshare",
-  "demoUrl": "https://envshare.dev/",
+  "demoUrl": "#",
   "description": "Simple Next.js + Upstash app to share environment variables securely using AES-CBC encryption.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 94,
+  "qualityScore": 92,
   "repo": {
     "url": "https://github.com/chronark/envshare",
     "normalizedUrl": "https://github.com/chronark/envshare",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\chronark-envshare",
+    "clonePath": "../vercel-scrape/saas/envshare/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -29,7 +29,8 @@
     "Database",
     "Upstash",
     "Related Templates",
-    "Blog (with comments)"
+    "Products",
+    "AI"
   ],
   "usefulLines": [
     "EnvShare",
@@ -54,8 +55,7 @@
   "strengths": [
     "verified Next.js codebase",
     "App Router structure",
-    "dashboard shell patterns",
-    "editorial content hierarchy"
+    "dashboard shell patterns"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
@@ -67,7 +67,7 @@
     "auth": false,
     "dashboard": true,
     "pricing": false,
-    "blog": true,
+    "blog": false,
     "portfolio": false,
     "ecommerce": false,
     "docs": false,

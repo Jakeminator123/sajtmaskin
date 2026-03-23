@@ -5,17 +5,17 @@
   "categorySlug": "ecommerce",
   "categoryName": "Ecommerce",
   "templateUrl": "https://vercel.com/templates/ecommerce/nextjs-commerce",
-  "demoUrl": "https://demo.vercel.store/",
+  "demoUrl": "#",
   "description": "Starter kit for high-performance commerce with Shopify.",
   "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
   "verdict": "valid",
   "qualityScore": 88,
   "repo": {
-    "url": "https://github.com/vercel/commerce/tree/v1",
+    "url": "https://github.com/vercel/commerce",
     "normalizedUrl": "https://github.com/vercel/commerce",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-commerce",
+    "clonePath": "../vercel-scrape/ecommerce/next-js-commerce/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -27,8 +27,10 @@
     "Next.js",
     "Tailwind",
     "Related Templates",
-    "Next.js Boilerplate",
-    "Platforms Starter Kit"
+    "Products",
+    "AI",
+    "Enterprise",
+    "Fluid Compute"
   ],
   "usefulLines": [
     "AI workflows in live environments",

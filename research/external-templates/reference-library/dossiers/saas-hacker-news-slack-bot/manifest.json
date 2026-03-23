@@ -1,0 +1,94 @@
+{
+  "id": "saas-hacker-news-slack-bot",
+  "slug": "saas-hacker-news-slack-bot",
+  "title": "Hacker News Slack Bot",
+  "categorySlug": "saas",
+  "categoryName": "SaaS",
+  "templateUrl": "https://vercel.com/templates/saas/hacker-news-slack-bot",
+  "demoUrl": "#",
+  "description": "A bot that notifies you on Slack whenever your company/product is mentioned on Hacker News.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 74,
+  "repo": {
+    "url": "https://github.com/vercel-labs/slacker",
+    "normalizedUrl": "https://github.com/vercel-labs/slacker",
+    "subpath": null,
+    "clonePath": "../vercel-scrape/saas/hacker-news-slack-bot/repo",
+    "packageManager": "yarn",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Database",
+    "Upstash",
+    "Related Templates",
+    "Products",
+    "AI"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "Vercel Functions",
+    "event subscriptions via webhooks",
+    "Vercel Cron Jobs",
+    "Redis",
+    "Set up a",
+    "Vercel cron job",
+    "One-Click Install",
+    "that walks you through the installation process, step-by-step.",
+    "You can click the button below to install the bot directly into your desired Slack workspace:"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "multi-tenant or workspace patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "saas-landing",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": true,
+    "cms": false
+  },
+  "summary": "Hacker News Slack Bot is a SaaS reference with verified Next.js codebase, multi-tenant or workspace patterns. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<div align=\"center\">\n    <img alt=\"Slacker OG Image\" src=\"https://slacker.run/api/og?latest\">\n    <h3 align=\"center\">Slacker</h3>\n    <p>A bot that notifies you on Slack whenever your company/product is mentioned on Hacker News.</p>\n    <picture>\n        <source media=\"(prefers-color-scheme: dark)\" srcset=\"https://user-images.githubusercontent.com/28986134/182243546-7687d077-280e-4c13-b96b-c6639c2a9e8e.png\">\n        <source media=\"(prefers-color-scheme: light)\" srcset=\"https://user-images.githubusercontent.com/28986134/182243511-a118223b-ebe2-4a07-a3d1-58d4a88d541e.png\">\n        <img alt=\"Demo\" src=\"https://user-images.githubusercontent.com/28986134/182243511-a118223b-ebe2-4a07-a3d1-58d4a88d541e.png\">\n    </picture>\n</div>\n\n<div align=\"center\">\n  <a href=\"https://slack.com/oauth/v2/authorize?scope=chat:write,chat:write.public,links:read,links:write,commands,team:read&client_id=12364000946.3845028209600\"><img alt=\"Add to Slack\" height=\"40\" width=\"139\" src=\"https://platform.slack-edge.com/img/add_to_slack@2x.png\" /></a>\n</div>\n\n<p align=\"center\">\n  <a href=\"#deploy-your-own\"><strong><i>or deploy your own</i></strong></a>\n</p>\n<br/>\n\n## Built With\n\n1. [Vercel Functions](https://vercel.com/docs/concepts/functions) for [cron processes](https://github.com/vercel-labs/slacker/blob/main/pages/api/cron/index.ts) & [event subscriptions via webhooks](https://github.com/vercel-labs/slacker/blob/main/pages/api/event.ts)\n2. [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs) for triggering cron processes.\n3. [Hacker News API](https://github.com/HackerNews/API) for [pulling data](https://github.com/vercel-labs/slacker/blob/main/lib/hn.ts)\n4. [Slack API](https://api.slack.com/docs) for [sending](https://github.com/vercel-labs/slacker/blob/main/lib/slack.ts#L47) and [unfurling](https://github.com/vercel-labs/slacker/blob/main/lib/slack.ts#L73) messages\n5. [Upstash](https://upstash.com) for key-value storage ([Redis](https://upstash.com/redis)).\n\n<br/>\n\n## How It Works\n\n1. Set up a [Vercel cron job](https://vercel.com/docs/cron-jobs) that pings our [`/api/cron` endpoint](https://github.com/vercel-labs/slacker/blob/main/pages/api/cron/index.ts) once every 60 seconds.\n2. Get the last checked HN post ID ([`lastCheckedId`](https://github.com/vercel-labs/slacker/blob/main/lib/cron.ts#L11)) and the list of `keywords` to check against from Upstash.\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"slacker\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@next/font\": \"^13.1.6\",\n    \"@tailwindcss/forms\": \"^0.5.2\",\n    \"@upstash/redis\": \"^1.10.2\",\n    \"@vercel/analytics\": \"^0.1.9-beta.6\",\n    \"@vercel/og\": \"^0.1.0\",\n    \"escape-string-regexp\": \"5.0.0\",\n    \"framer-motion\": \"^9.0.7\",\n    \"html-entities\": \"^2.3.3\",\n    \"html-to-mrkdwn\": \"^3.0.0\",\n    \"lucide-react\": \"^0.115.0\",\n    \"next\": \"^13.1.6\",\n    \"p-retry\": \"^5.1.1\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\",\n    \"react-wrap-balancer\": \"^0.4.0\",\n    \"swr\": \"^1.3.0\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"18.0.6\",\n    \"@types/react\": \"18.0.15\",\n    \"@types/react-dom\": \"18.0.6\",\n    \"@types/turndown\": \"^5.0.1\",\n    \"autoprefixer\": \"^10.4.7\",\n    \"eslint\": \"8.20.0\",\n    \"eslint-config-next\": \"12.2.2\",\n    \"postcss\": \"^8.4.14\",\n    \"tailwindcss\": \"^3.1.6\",\n    \"typescript\": \"4.7.4\"\n  }\n}"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "UPSTASH_REDIS_REST_URL=\nUPSTASH_REDIS_REST_TOKEN=\nSLACK_SIGNING_SECRET=\nSLACK_VERIFICATION_TOKEN=\nNEXT_PUBLIC_SLACK_CLIENT_ID="
+    }
+  ]
+}

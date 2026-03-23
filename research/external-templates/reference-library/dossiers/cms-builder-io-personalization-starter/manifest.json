@@ -5,7 +5,7 @@
   "categorySlug": "cms",
   "categoryName": "CMS",
   "templateUrl": "https://vercel.com/templates/cms/personalization-builder-io",
-  "demoUrl": "https://nextjs-edge-personalization-demo.vercel.app/",
+  "demoUrl": "#",
   "description": "Learn how to use Builder.io to personalize your Next.js pages.",
   "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
@@ -15,7 +15,7 @@
     "url": "https://github.com/vercel/commerce",
     "normalizedUrl": "https://github.com/vercel/commerce",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-commerce",
+    "clonePath": "../vercel-scrape/cms/builder-io-personalization-starter/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -29,7 +29,8 @@
     "CMS",
     "Builder.io",
     "Related Templates",
-    "A/B Testing Simple"
+    "Products",
+    "AI"
   ],
   "usefulLines": [
     "AI workflows in live environments",

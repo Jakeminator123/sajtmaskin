@@ -21,9 +21,14 @@ import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
 export const runtime = "nodejs";
 export const maxDuration = 600;
 
-import { ASSIST_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
-
-const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 81_920;
+import {
+  ASSIST_MAX_OUTPUT_TOKENS,
+  BRIEF_MAX_OUTPUT_TOKEN_CEILING,
+} from "@/lib/gen/defaults";
+import {
+  buildOpenAIReasoningProviderOptions,
+  openaiModelIdFromAssistString,
+} from "@/lib/gen/openai-reasoning";
 
 const briefRequestSchema = z.object({
   prompt: z
@@ -32,21 +37,22 @@ const briefRequestSchema = z.object({
     .min(1, "prompt is required")
     .max(MAX_AI_BRIEF_PROMPT_CHARS, `prompt too long (max ${MAX_AI_BRIEF_PROMPT_CHARS} chars)`),
   provider: z.enum(["gateway", "v0", "anthropic"]).optional(),
-  // gpt-5.2 provides best quality briefs; used as default for prompt assist
-  model: z.string().min(1).optional().default("openai/gpt-5.2"),
+  // GPT-5.3 Codex: strong briefs + reasoning; override via SAJTMASKIN_ASSIST_MODEL
+  model: z.string().min(1).optional().default("openai/gpt-5.3-codex"),
   temperature: z.number().min(0).max(2).optional(),
   imageGenerations: z.boolean().optional().default(true),
-  maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
+  maxTokens: z.number().int().positive().max(BRIEF_MAX_OUTPUT_TOKEN_CEILING).optional(),
+  thinking: z.boolean().optional().default(true),
 });
 
 function resolveMaxTokens(requested: number | undefined): number {
   const base = typeof requested === "number" ? requested : ASSIST_MAX_OUTPUT_TOKENS;
-  const capped = Math.min(base, ENV_MAX_TOKENS);
+  const capped = Math.min(base, BRIEF_MAX_OUTPUT_TOKEN_CEILING);
   if (typeof requested === "number" && capped !== requested) {
     debugLog("AI", "Brief maxTokens capped by env limit", {
       requested,
       capped,
-      envLimit: ENV_MAX_TOKENS,
+      envLimit: BRIEF_MAX_OUTPUT_TOKEN_CEILING,
     });
   }
   return capped;
@@ -301,6 +307,7 @@ export async function POST(req: Request) {
         temperature,
         imageGenerations,
         maxTokens: requestedMaxTokens,
+        thinking,
       } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
@@ -525,16 +532,21 @@ export async function POST(req: Request) {
 
       try {
         result = await generateObject({
-          model: directModel,
-          schema: siteBriefSchema,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          maxRetries: 1,
-          maxOutputTokens: maxTokens,
-          ...getTemperatureConfig(normalizedModel, temperature),
-        });
+            model: directModel,
+            schema: siteBriefSchema,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            maxRetries: 1,
+            maxOutputTokens: maxTokens,
+            ...getTemperatureConfig(normalizedModel, temperature),
+            ...buildOpenAIReasoningProviderOptions(
+              openaiModelIdFromAssistString(normalizedModel),
+              undefined,
+              thinking,
+            ),
+          });
       } catch (fullSchemaErr) {
         debugLog("AI", "Full brief schema failed, trying simplified", {
           error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
@@ -551,6 +563,11 @@ export async function POST(req: Request) {
             maxRetries: 1,
             maxOutputTokens: Math.min(maxTokens, 40_960),
             ...getTemperatureConfig(normalizedModel, temperature),
+            ...buildOpenAIReasoningProviderOptions(
+              openaiModelIdFromAssistString(normalizedModel),
+              undefined,
+              thinking,
+            ),
           });
           usedSimplified = true;
         } catch (simplifiedErr) {

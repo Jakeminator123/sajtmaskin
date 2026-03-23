@@ -1,0 +1,43 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+  "name": "nextjs-starter-buttercms",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix"
+  },
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "acorn": "^8.11.3",
+    "bootstrap": "^5.3.2",
+    "buttercms": "^3.0.0",
+    "camelcase-keys": "^9.1.2",
+    "date-fns": "^3.3.1",
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "sharp": "^0.33.2",
+    "tiny-slider": "^2.9.4",
+    "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.1.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.5.1",
+    "glob": "^10.3.10",
+    "prettier": "^3.6.1",
+    "rimraf": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=20.18.0"
+  }
+}
+```

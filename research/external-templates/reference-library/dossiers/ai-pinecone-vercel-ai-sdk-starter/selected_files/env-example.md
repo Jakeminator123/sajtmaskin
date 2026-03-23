@@ -1,0 +1,17 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+OPENAI_API_KEY=
+
+# Retrieve the following from the Pinecone Console.
+
+# Navigate to API Keys under your Project to retrieve the API key
+PINECONE_API_KEY=
+PINECONE_CLOUD=
+PINECONE_REGION=
+
+# Navigate to Indexes under your Project to retrieve the Index name
+PINECONE_INDEX=
+```

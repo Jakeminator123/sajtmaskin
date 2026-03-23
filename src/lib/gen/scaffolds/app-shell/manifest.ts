@@ -5,14 +5,20 @@ export const appShellManifest: ScaffoldManifest = {
   family: "app-shell",
   label: "App Shell",
   description:
-    "Dashboard/app shell with sidebar navigation, stats cards, and data area. Great for admin panels, analytics dashboards, and SaaS apps.",
+    "Application shell with sidebar navigation, settings panel, loading states, breadcrumbs, and notification system. " +
+    "For internal tools, CRM systems, project management apps, booking systems, and any interactive web application. " +
+    "Designed for apps with authenticated users, multiple views, and stateful interactions.",
   buildIntents: ["app"],
-  tags: ["dashboard", "admin", "analytics", "saas", "app", "panel", "crm"],
+  tags: [
+    "app", "admin", "crm", "panel", "tool", "internal", "backoffice",
+    "verktyg", "interna", "bokningssystem", "projekthantering", "arbetsflöde",
+    "portal", "inställningar", "sidebar", "application",
+  ],
   promptHints: [
-    "This scaffold has a sidebar, stats cards, and content area.",
-    "Modify the navigation items, stats, and main content to match the user's needs.",
-    "Add charts, tables, or other data displays in the main area.",
-    "Keep the sidebar/topbar navigation pattern.",
+    "Use this scaffold for interactive applications, internal tools, CRM, booking systems, and project management apps.",
+    "Keep the sidebar/topbar navigation pattern, loading skeletons, and empty states.",
+    "Add charts, tables, forms, or domain-specific views in the main content area.",
+    "Adapt navigation items and settings panel to the user's application domain.",
   ],
   files: [
     {

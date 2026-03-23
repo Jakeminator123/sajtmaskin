@@ -25,9 +25,11 @@ export const maxDuration = 600;
 
 const BASE_URL = "https://api.v0.dev/v1";
 
-import { ASSIST_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
-
-const ENV_MAX_TOKENS = Number(process.env.AI_CHAT_MAX_TOKENS) || 81_920;
+import { ASSIST_MAX_OUTPUT_TOKENS, CHAT_MAX_OUTPUT_TOKEN_CEILING } from "@/lib/gen/defaults";
+import {
+  buildOpenAIReasoningProviderOptions,
+  openaiModelIdFromAssistString,
+} from "@/lib/gen/openai-reasoning";
 
 const messageSchema = z.discriminatedUnion("role", [
   z.object({
@@ -49,14 +51,20 @@ const chatRequestSchema = z.object({
   model: z.string().optional().default("openai/gpt-5.3-codex"),
   temperature: z.number().min(0).max(2).optional(),
   provider: z.enum(["gateway", "v0", "anthropic"]).optional(),
-  maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
+  maxTokens: z.number().int().positive().max(CHAT_MAX_OUTPUT_TOKEN_CEILING).optional(),
+  /** When true (default), OpenAI reasoning-capable models get `reasoningEffort` via AI SDK. */
+  thinking: z.boolean().optional().default(true),
 });
 
 function resolveMaxTokens(requested: number | undefined): number {
   const base = typeof requested === "number" ? requested : ASSIST_MAX_OUTPUT_TOKENS;
-  const capped = Math.min(base, ENV_MAX_TOKENS);
+  const capped = Math.min(base, CHAT_MAX_OUTPUT_TOKEN_CEILING);
   if (typeof requested === "number" && capped !== requested) {
-    warnLog("AI", "maxTokens capped by env limit", { requested, capped, envLimit: ENV_MAX_TOKENS });
+    warnLog("AI", "maxTokens capped by env limit", {
+      requested,
+      capped,
+      envLimit: CHAT_MAX_OUTPUT_TOKEN_CEILING,
+    });
   }
   return capped;
 }
@@ -112,7 +120,14 @@ export async function POST(req: Request) {
         );
       }
 
-      const { messages, model, temperature, provider, maxTokens: requestedMaxTokens } = parsed.data;
+      const {
+        messages,
+        model,
+        temperature,
+        provider,
+        maxTokens: requestedMaxTokens,
+        thinking,
+      } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
       const maxTokens = resolveMaxTokens(requestedMaxTokens);
@@ -191,6 +206,11 @@ export async function POST(req: Request) {
           messages,
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
+          ...buildOpenAIReasoningProviderOptions(
+            openaiModelIdFromAssistString(normalizedModel),
+            undefined,
+            thinking,
+          ),
           onFinish({ text }) {
             devLogAppend("latest", {
               type: "assist.chat.response",

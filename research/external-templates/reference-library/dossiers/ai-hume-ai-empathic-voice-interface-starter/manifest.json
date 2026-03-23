@@ -5,7 +5,7 @@
   "categorySlug": "ai",
   "categoryName": "AI",
   "templateUrl": "https://vercel.com/templates/ai/empathic-voice-interface-starter",
-  "demoUrl": "https://hume-evi-next-js-starter.vercel.app/",
+  "demoUrl": "#",
   "description": "This template creates a voice chat using Hume AI's Empathic Voice Interface.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
@@ -15,7 +15,7 @@
     "url": "https://github.com/humeai/hume-evi-next-js-starter",
     "normalizedUrl": "https://github.com/humeai/hume-evi-next-js-starter",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\humeai-hume-evi-next-js-starter",
+    "clonePath": "../vercel-scrape/ai/hume-ai-empathic-voice-interface-starter/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -27,7 +27,10 @@
     "Next.js",
     "Tailwind",
     "Related Templates",
-    "Spirals – AI Spiral Art Generator"
+    "Products",
+    "AI",
+    "Enterprise",
+    "Fluid Compute"
   ],
   "usefulLines": [
     "AI workflows in live environments",

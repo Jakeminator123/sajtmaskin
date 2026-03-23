@@ -11,7 +11,7 @@ export {
 export {
   createGenerationPipeline,
   type PipelineOptions,
-} from "./fallback";
+} from "./pipeline";
 export { parseCodeProject, type CodeFile, type CodeProject } from "./parser";
 export {
   createVersionFromContent,

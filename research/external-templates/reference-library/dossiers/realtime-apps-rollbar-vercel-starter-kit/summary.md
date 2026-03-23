@@ -5,7 +5,7 @@
 - Quality score: 82
 - Scaffold families: landing-page
 - Repo: https://github.com/rollbar/rollbar-vercel
-- Demo: https://rollbar-app.vercel.app/
+- Demo: #
 
 Rollbar + Vercel starter kit is a Realtime Apps reference with verified Next.js codebase, App Router structure. Verdict: valid.
 

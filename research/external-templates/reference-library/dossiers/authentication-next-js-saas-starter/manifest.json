@@ -5,7 +5,7 @@
   "categorySlug": "authentication",
   "categoryName": "Authentication",
   "templateUrl": "https://vercel.com/templates/authentication/next-js-saas-starter",
-  "demoUrl": null,
+  "demoUrl": "#",
   "description": "Get started building with Next.js quickly. This template handles Postgres, Auth, Tailwind, shadcn/ui, and more.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
@@ -15,7 +15,7 @@
     "url": "https://github.com/nextjs/saas-starter",
     "normalizedUrl": "https://github.com/nextjs/saas-starter",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\nextjs-saas-starter",
+    "clonePath": "../vercel-scrape/authentication/next-js-saas-starter/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -29,7 +29,8 @@
     "Database",
     "Postgres",
     "Related Templates",
-    "Blog Starter Kit"
+    "Products",
+    "AI"
   ],
   "usefulLines": [
     "AI workflows in live environments",
@@ -57,8 +58,7 @@
     "auth flow reference",
     "dashboard shell patterns",
     "pricing or billing structure",
-    "storefront or checkout patterns",
-    "editorial content hierarchy"
+    "storefront or checkout patterns"
   ],
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
@@ -70,7 +70,7 @@
     "auth": true,
     "dashboard": true,
     "pricing": true,
-    "blog": true,
+    "blog": false,
     "portfolio": false,
     "ecommerce": true,
     "docs": false,

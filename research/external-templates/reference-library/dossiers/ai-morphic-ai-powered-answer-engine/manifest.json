@@ -1,0 +1,117 @@
+{
+  "id": "ai-morphic-ai-powered-answer-engine",
+  "slug": "ai-morphic-ai-powered-answer-engine",
+  "title": "Morphic: AI-powered answer engine",
+  "categorySlug": "ai",
+  "categoryName": "AI",
+  "templateUrl": "https://vercel.com/templates/ai/morphic-ai-answer-engine-generative-ui",
+  "demoUrl": "#",
+  "description": "AI answer engine with Generative UI.",
+  "frameworkReason": "Next.js, React",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/miurla/morphic",
+    "normalizedUrl": "https://github.com/miurla/morphic",
+    "subpath": null,
+    "clonePath": "../vercel-scrape/ai/morphic-ai-powered-answer-engine/repo",
+    "packageManager": "bun",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "🚀",
+    "Quickstart",
+    "🌐",
+    "Deploy",
+    "👥",
+    "Contributing",
+    "📄"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "Features",
+    "🛠 Features",
+    "Core Features",
+    "Authentication",
+    "User authentication powered by",
+    "Supabase Auth",
+    "Chat history automatically stored in PostgreSQL database",
+    "Vercel AI Gateway",
+    "Models are configured in"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "app-shell",
+    "auth-pages",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Morphic: AI-powered answer engine is a AI reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<div align=\"center\">\n\n# Morphic\n\nAn AI-powered search engine with a generative UI.\n\n[![DeepWiki](https://img.shields.io/badge/DeepWiki-miurla%2Fmorphic-blue.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==)](https://deepwiki.com/miurla/morphic) [![GitHub stars](https://img.shields.io/github/stars/miurla/morphic?style=flat&colorA=000000&colorB=000000)](https://github.com/miurla/morphic/stargazers) [![GitHub forks](https://img.shields.io/github/forks/miurla/morphic?style=flat&colorA=000000&colorB=000000)](https://github.com/miurla/morphic/network/members)\n\n<a href=\"https://vercel.com/oss\">\n  <img alt=\"Vercel OSS Program\" src=\"https://vercel.com/oss/program-badge.svg\" />\n</a>\n\n<br />\n<br />\n\n<a href=\"https://trendshift.io/repositories/9207\" target=\"_blank\"><img src=\"https://trendshift.io/api/badge/repositories/9207\" alt=\"miurla%2Fmorphic | Trendshift\" style=\"width: 250px; height: 55px;\" width=\"250\" height=\"55\"/></a>\n\n<img src=\"./public/screenshot-2026-02-07.png\" />\n\n</div>\n\n## 🗂️ Overview\n\n- 🛠 [Features](#-features)\n- 🧱 [Stack](#-stack)\n- 🚀 [Quickstart](#-quickstart)\n- 🌐 [Deploy](#-deploy)\n- 👥 [Contributing](#-contributing)\n- 📄 [License](#-lic\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"morphic\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"license\": \"Apache-2.0\",\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"eslint .\",\n    \"typecheck\": \"tsc --noEmit\",\n    \"format\": \"prettier --write .\",\n    \"format:check\": \"prettier --check .\",\n    \"migrate\": \"bun run lib/db/migrate.ts\",\n    \"test\": \"NODE_ENV=test vitest run\",\n    \"test:watch\": \"vitest --watch\",\n    \"chat\": \"bun run scripts/chat-cli.ts\"\n  },\n  \"dependencies\": {\n    \"@ai-sdk/anthropic\": \"^3.0.54\",\n    \"@ai-sdk/gateway\": \"^3.0.63\",\n    \"@ai-sdk/google\": \"^3.0.37\",\n    \"@ai-sdk/openai\": \"^3.0.39\",\n    \"@ai-sdk/react\": \"^3.0.113\",\n    \"@aws-sdk/client-s3\": \"^3.850.0\",\n    \"@opentelemetry/api-logs\": \"0.57.2\",\n    \"@opentelemetry/instrumentation\": \"0.57.2\",\n    \"@opentelemetry/sdk-logs\": \"0.57.2\",\n    \"@paralleldrive/cuid2\": \"^2.2.2\",\n    \"@radix-ui/react-alert-dialog\": \"^1.0.5\",\n    \"@radix-ui/react-avatar\": \"^1.1.9\",\n    \"@radix-ui/react-checkbox\": \"^1.0.4\",\n    \"@radix-ui/react-collapsible\": \"^1.0.3\",\n    \"@radix-ui/react-dialog\": \"^1.1.11\",\n    \"@radix-ui/react-dropdown-menu\": \"^2.1.16\",\n    \"@radix-ui/react-hover-card\": \"^1.1.15\",\n    \"@radix-ui/react-label\": \"^2.1.6\",\n    \"@radix-ui/react-popover\": \"^1.1.5\",\n    \"@radix-ui/react-select\": \"^2.1.2\",\n    \"@radix-ui/react-separator\": \"^1.1.4\",\n    \"@radix-ui/react-slider\": \"^1.1.2\",\n    \"@radix-ui/react-slot\": \"^1.2.2\",\n    \"@radix-ui/react-switch\": \"^1.0.3\",\n    \"@radix-ui/react-toggle\": \"^1.1.1\",\n    \"@radix-ui/react-tooltip\": \"^1.2.4\",\n    \"@supabase/auth-helpers-nextjs\": \"^0.10.0\",\n    \"@supabase/auth-ui-react\": \"^0.4.7\",\n    \"@supabase/auth-ui-shared\": \"^0.1.8\",\n    \"@supabase/ssr\": \"^0.6.1\",\n    \"@supabase/supabase-js\": \"^2.49.4\",\n    \"@tailwindcss/typography\": \"^0.5.12\",\n    \"@upstash/redis\": \"^1.35.5\",\n    \"@vercel/analytics\": \"^1.5.0\",\n    \"@vercel/otel\": \"^1.13.0\",\n    \"ai\": \"^6.0.111\",\n    \"class-variance-authority\": \"^0.7.1\",\n    \"clsx\": \"^2.1.0\",\n    \"cmdk\": \"1.0.0\",\n    \"dotenv\": \"^17.2.1\",\n    \"drizzle-kit\": \"^0.31.4\",\n    \"drizzle-orm\": \"^0.44.3\",\n    \"embla-carousel-react\": \"^8.0.0\",\n    \"exa-js\": \"^1.0.12\",\n    \"js-tiktoken\": \"^1.0.20\",\n    \"jsdom\": \"^26.1.0\",\n    \"katex\": \"^0.16.10\",\n    \"langfuse-vercel\": \"^3.38.4\",\n    \"lucide-react\": \"^0.507.0\",\n    \"next\": \"^16.2.1\",\n    \"next-themes\n\n// ... truncated"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata, Viewport } from 'next'\nimport { Inter as FontSans } from 'next/font/google'\n\nimport { Analytics } from '@vercel/analytics/next'\n\nimport { UserProvider } from '@/lib/contexts/user-context'\nimport { createClient } from '@/lib/supabase/server'\nimport { cn } from '@/lib/utils'\n\nimport { SidebarProvider } from '@/components/ui/sidebar'\nimport { Toaster } from '@/components/ui/sonner'\n\nimport AppSidebar from '@/components/app-sidebar'\nimport ArtifactRoot from '@/components/artifact/artifact-root'\nimport Header from '@/components/header'\nimport { ThemeProvider } from '@/components/theme-provider'\n\nimport './globals.css'\n\nconst fontSans = FontSans({\n  subsets: ['latin'],\n  variable: '--font-sans'\n})\n\nconst title = 'Morphic'\nconst description =\n  'A fully open-source AI-powered answer engine with a generative UI.'\n\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://morphic.sh'),\n  title,\n  description,\n  openGraph: {\n    title,\n    description\n  },\n  twitter: {\n    title,\n    description,\n    card: 'summary_large_image',\n    creator: '@miiura'\n  }\n}\n\nexport const viewport: Viewport = {\n  width: 'device-width',\n  initialScale: 1,\n  minimumScale: 1,\n  maximumScale: 1\n}\n\nexport default async function RootLayout({\n  children\n}: Readonly<{\n  children: React.ReactNode\n}>) {\n  let user = null\n  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL\n  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY\n\n  if (supabaseUrl && supabaseAnonKey) {\n    const supabase = await createClient()\n    const {\n      data: { user: supabaseUser }\n    } = await supabase.auth.getUser()\n    user = supabaseUser\n  }\n\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body\n        className={cn(\n          'min-h-screen flex flex-col font-sans antialiased overflow-hidden',\n          fontSans.variable\n        )}\n      >\n        <ThemeProvider\n          attribute=\"class\"\n          defaultTheme=\"system\"\n          enableSystem\n          disableTransitionOnChange\n        >\n          <UserProvider hasUser={!!user}>\n            <SidebarProvider defaultOpen={false}>\n              {user && <AppSidebar />}\n              <div className=\"flex flex-col flex-1 min-w-0\">\n                <Header user={user} />\n                <main className=\"flex flex-1 min-\n\n// ... truncated"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import { getCurrentUserId } from '@/lib/auth/get-current-user'\n\nimport { Chat } from '@/components/chat'\n\nexport default async function Page() {\n  const userId = await getCurrentUserId()\n  return <Chat isGuest={!userId} />\n}"
+    },
+    {
+      "path": ".env.local.example",
+      "reason": "Useful structural reference",
+      "excerpt": "###############################################################################\n# Morphic Configuration\n###############################################################################\n\n# =============================================================================\n# REQUIRED CONFIGURATION\n# These settings are essential for the application to function\n# =============================================================================\n\n# -----------------------------------------------------------------------------\n# Database Configuration (Required)\n# -----------------------------------------------------------------------------\n# PostgreSQL connection string (supports Neon, Supabase, or standard PostgreSQL)\n# Format: postgresql://[user]:[password]@[host]/[database]?sslmode=require\n#\n# For local development: Use your local PostgreSQL instance\n# DATABASE_URL=postgresql://user:password@localhost:5432/morphic\n#\n# For Docker: Use the postgres service name from docker-compose.yaml\n# DATABASE_URL=postgresql://morphic:morphic@postgres:5432/morphic\n#\n# For cloud providers (Neon, Supabase, etc.): Add ?sslmode=require\n# DATABASE_URL=postgresql://user:password@host/database?sslmode=require\nDATABASE_URL=[YOUR_DATABASE_URL]\n\n# -----------------------------------------------------------------------------\n# AI Provider Configuration (At least one required)\n# -----------------------------------------------------------------------------\n# IMPORTANT: When using non-OpenAI providers, you must update the model\n# configuration in config/models/*.json to use compatible model IDs for your\n# chosen provider. See docs/CONFIGURATION.md for provider-specific model IDs.\n\n# Option 1: OpenAI\n# Get your API key at: https://platform.openai.com/api-keys\nOPENAI_API_KEY=[YOUR_OPENAI_API_KEY]\n\n# Option 2: Anthropic Claude\n# Requires updating config/models/*.json with Anthropic model IDs\n# ANTHROPIC_API_KEY=[YOUR_ANTHROPIC_API_KEY]\n\n# Option 3: Google Gemini\n# Requires updating config/models/*.json with Google model IDs\n# GOOGLE_GENERATIVE_AI_API_KEY=[YOUR_GOOGLE_GENERATIVE_AI_API_KEY]\n\n# Option 4: Vercel AI Gateway\n# Unified API gateway for multiple providers\n# AI_GATEWAY_API_KEY=[YOUR_AI_GATEWAY_API_KEY]\n\n# Option 5: Ollama\n# Run local AI models with Ollama\n# Requires Ollama to be installed and running: https://ollama.com/\n# Models must support 'to\n\n// ... truncated"
+    },
+    {
+      "path": "components/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client'\n\n// import Link from 'next/link' // No longer needed directly here for Sign In button\nimport React, { useState } from 'react'\nimport { usePathname } from 'next/navigation'\n\nimport { User } from '@supabase/supabase-js'\n\nimport { cn } from '@/lib/utils'\n\nimport { useSidebar } from '@/components/ui/sidebar'\n\nimport { Button } from './ui/button'\nimport { FeedbackModal } from './feedback-modal'\n// import { Button } from './ui/button' // No longer needed directly here for Sign In button\nimport GuestMenu from './guest-menu' // Import the new GuestMenu component\nimport UserMenu from './user-menu'\n\ninterface HeaderProps {\n  user: User | null\n}\n\nexport const Header: React.FC<HeaderProps> = ({ user }) => {\n  const { open } = useSidebar()\n  const pathname = usePathname()\n  const [feedbackOpen, setFeedbackOpen] = useState(false)\n  const isRootPage = pathname === '/'\n\n  return (\n    <>\n      <header\n        className={cn(\n          'absolute top-0 right-0 p-3 flex justify-between items-center z-10 backdrop-blur-sm lg:backdrop-blur-none bg-background/80 lg:bg-transparent transition-[width] duration-200 ease-linear',\n          open ? 'md:w-[calc(100%-var(--sidebar-width))]' : 'md:w-full',\n          'w-full'\n        )}\n      >\n        {/* This div can be used for a logo or title on the left if needed */}\n        <div></div>\n\n        <div className=\"flex items-center gap-2\">\n          {isRootPage && (\n            <Button\n              variant=\"outline\"\n              size=\"sm\"\n              onClick={() => setFeedbackOpen(true)}\n            >\n              Feedback\n            </Button>\n          )}\n          {user ? <UserMenu user={user} /> : <GuestMenu />}\n        </div>\n      </header>\n\n      {isRootPage && (\n        <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} />\n      )}\n    </>\n  )\n}\n\nexport default Header"
+    },
+    {
+      "path": "components/ui/sidebar.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "'use client'\n\nimport * as React from 'react'\n\nimport { Slot } from '@radix-ui/react-slot'\nimport { cva, VariantProps } from 'class-variance-authority'\nimport { PanelLeft } from 'lucide-react'\n\nimport { cn } from '@/lib/utils/index'\n\nimport { useIsMobile } from '@/hooks/use-mobile'\n\nimport { Button } from '@/components/ui/button'\nimport { Input } from '@/components/ui/input'\nimport { Separator } from '@/components/ui/separator'\nimport {\n  Sheet,\n  SheetContent,\n  SheetDescription,\n  SheetHeader,\n  SheetTitle\n} from '@/components/ui/sheet'\nimport { Skeleton } from '@/components/ui/skeleton'\nimport {\n  Tooltip,\n  TooltipContent,\n  TooltipProvider,\n  TooltipTrigger\n} from '@/components/ui/tooltip'\n\nconst SIDEBAR_COOKIE_NAME = 'sidebar_state'\nconst SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7\nconst SIDEBAR_WIDTH = '16rem'\nconst SIDEBAR_WIDTH_MOBILE = '18rem'\nconst SIDEBAR_WIDTH_ICON = '3rem'\nconst SIDEBAR_KEYBOARD_SHORTCUT = 'b'\n\ntype SidebarContextProps = {\n  state: 'expanded' | 'collapsed'\n  open: boolean\n  setOpen: (open: boolean) => void\n  openMobile: boolean\n  setOpenMobile: (open: boolean) => void\n  isMobile: boolean\n  toggleSidebar: () => void\n}\n\nconst SidebarContext = React.createContext<SidebarContextProps | null>(null)\n\nfunction useSidebar() {\n  const context = React.useContext(SidebarContext)\n  if (!context) {\n    throw new Error('useSidebar must be used within a SidebarProvider.')\n  }\n\n  return context\n}\n\n// Helper function to get cookie value\nfunction getCookie(name: string): string | null {\n  if (typeof document === 'undefined') return null\n\n  const value = `; ${document.cookie}`\n  const parts = value.split(`; ${name}=`)\n  if (parts.length === 2) {\n    return parts.pop()?.split(';').shift() || null\n  }\n  return null\n}\n\nconst SidebarProvider = React.forwardRef<\n  HTMLDivElement,\n  React.ComponentProps<'div'> & {\n    defaultOpen?: boolean\n    open?: boolean\n    onOpenChange?: (open: boolean) => void\n  }\n>(\n  (\n    {\n      defaultOpen = true,\n      open: openProp,\n      onOpenChange: setOpenProp,\n      className,\n      style,\n      children,\n      ...props\n    },\n    ref\n  ) => {\n    const isMobile = useIsMobile()\n    const [openMobile, setOpenMobile] = React.useState(false)\n\n    // Initialize state - for SSR we use defaultOpen, for client we read from cookie\n\n// ... truncated"
+    }
+  ]
+}

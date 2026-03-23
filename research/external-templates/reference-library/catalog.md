@@ -1,70 +1,57 @@
 # Template Library Catalog
 
-Generated: 2026-03-16T03:19:18.628Z
-Source root: C:\Users\jakem\dev\projects\sajtmaskin\research\external-templates\raw-discovery\current
-Total templates audited: 105
-Curated templates: 64
+Generated: 2026-03-23T12:23:51.666Z
+Source root: ../vercel-scrape
+Total templates audited: 98
+Curated templates: 54
 
 ## Verdict counts
 
-- valid: 53
-- huge_monorepo: 9
-- non_next_template: 29
-- research_only: 2
-- bad_repo_link: 12
+- valid: 40
+- huge_monorepo: 14
+- non_next_template: 18
+- research_only: 25
+- bad_repo_link: 1
 
 ## Curated entries
 
-- **Modernize Next.js Admin Dashboard Template** (valid, score 96) -> dashboard, app-shell, auth-pages
-- **Multi-tenant AI-native todo list app with Nile** (valid, score 96) -> app-shell, auth-pages, dashboard
-- **Next.js Portfolio with Blog** (valid, score 96) -> portfolio, app-shell, dashboard
 - **Next.js SaaS Starter** (valid, score 96) -> auth-pages, app-shell, ecommerce
-- **Portfolio Starter Kit** (valid, score 96) -> portfolio, app-shell, dashboard
 - **Stripe Subscription Starter** (valid, score 96) -> ecommerce, app-shell, auth-pages
 - **Turso Per User Starter** (valid, score 96) -> app-shell, auth-pages, dashboard
 - **Chatbot** (valid, score 94) -> app-shell, auth-pages, dashboard
-- **EnvShare** (valid, score 94) -> saas-landing, app-shell, dashboard
-- **Liveblocks Starter Kit** (valid, score 94) -> saas-landing, app-shell, auth-pages
+- **Kinde Next.js Starter** (valid, score 94) -> auth-pages, app-shell, dashboard
 - **Magic Portfolio for Next.js** (valid, score 94) -> portfolio, blog, content-site
-- **Arcjet Next.js Example App** (valid, score 92) -> app-shell, auth-pages, content-site
+- **Modernize Next.js Admin Dashboard Template** (valid, score 94) -> dashboard, app-shell, auth-pages
+- **Morphic: AI-powered answer engine** (valid, score 94) -> app-shell, auth-pages, dashboard
+- **Next.js Waitlist with Notion CMS** (valid, score 94) -> content-site, app-shell, saas-landing
+- **Whop SaaS Template** (valid, score 94) -> ecommerce, app-shell, auth-pages
+- **A Next.js 14 Blog with Server Components** (valid, score 92) -> blog, content-site
+- **Blog with Agility CMS and Next.js** (valid, score 92) -> blog, content-site
 - **Builder.io Personalization Starter** (valid, score 92) -> content-site, ecommerce
-- **Coinbase Commerce** (valid, score 92) -> ecommerce, saas-landing
+- **Clean Next.js + Sanity App** (valid, score 92) -> blog, content-site
+- **EnvShare** (valid, score 92) -> saas-landing, app-shell, dashboard
+- **Minimal Next.js SaaS Website Starter** (valid, score 92) -> saas-landing, app-shell, auth-pages
 - **Next.js Contentlayer Blog Starter** (valid, score 92) -> blog, portfolio
-- **Platforms Starter Kit** (valid, score 92) -> saas-landing, app-shell, content-site
-- **Rewrite docs to Mintlify** (valid, score 92) -> content-site, app-shell, saas-landing
+- **Next.js Portfolio with Pageview Counter** (valid, score 92) -> portfolio, blog
 - **Ably and Next.js Starter Kit** (valid, score 90) -> app-shell, dashboard
-- **Optimizely Feature Experimentation** (valid, score 90) -> ecommerce, content-site
+- **Finwise: SaaS Landing Page** (valid, score 90) -> saas-landing, content-site
+- **Platforms Starter Kit** (valid, score 90) -> saas-landing, app-shell
 - **BaseHub Marketing Website** (valid, score 88) -> content-site
-- **Bulk Redirects via a CMS** (valid, score 88) -> content-site
-- **Flags SDK with Hypertune and Next.js** (valid, score 88) -> ecommerce
-- **Flags SDK with OpenFeature adapter** (valid, score 88) -> ecommerce
-- **Growthbook Flags SDK Example** (valid, score 88) -> ecommerce
-- **LaunchDarkly Flags SDK Example** (valid, score 88) -> ecommerce
 - **Next.js Commerce** (valid, score 88) -> ecommerce
-- **Update Redirects in Realtime** (valid, score 88) -> content-site
+- **Nim: Minimalist Personal Site** (valid, score 88) -> portfolio
+- **Optimizely SaaS CMS + Next.js 15** (valid, score 88) -> content-site
 - **AnyCable Real-time Starter Kit** (valid, score 86) -> landing-page
 - **Customer Reviews AI Summary** (valid, score 86) -> landing-page
 - **Documents: Simple Next.js Documentation** (valid, score 86) -> content-site
 - **Hume AI - Empathic Voice Interface Starter** (valid, score 86) -> landing-page
-- **Liveblocks Linear-like Issue Tracker** (valid, score 86) -> landing-page
-- **On-Demand ISR** (valid, score 86) -> content-site
-- **SaaS Microservices** (valid, score 86) -> app-shell, auth-pages, dashboard
-- **Split Integration example** (valid, score 86) -> app-shell, dashboard, saas-landing
-- **Vercel + DBOS Integration** (valid, score 86) -> landing-page
+- **Pinecone - Vercel AI SDK Starter** (valid, score 86) -> content-site
+- **Prismic Blog** (valid, score 86) -> blog, content-site
+- **qrGPT – AI QR Code Generator** (valid, score 86) -> landing-page
 - **Rollbar + Vercel starter kit** (valid, score 82) -> landing-page
-- **Virtual Event Starter Kit** (valid, score 82) -> app-shell, auth-pages, content-site
-- **Next.js Multi-Zones Starter** (valid, score 78) -> content-site
-- **Turborepo & Next.js Starter** (valid, score 78) -> content-site
-- **Turborepo & React Native Starter** (valid, score 78) -> content-site
-- **Turborepo + Hono** (valid, score 78) -> content-site
+- **Builder.io Shopify Commerce** (valid, score 80) -> ecommerce, app-shell, dashboard
+- **Partner Gallery** (valid, score 80) -> auth-pages, app-shell, dashboard
+- **Glide Publishing Platform - Next.js Starter** (valid, score 76) -> content-site
+- **Hacker News Slack Bot** (valid, score 74) -> saas-landing, app-shell
 - **Nextra: Docs Starter Kit** (valid, score 74) -> content-site, app-shell, saas-landing
-- **Auth for subdomains** (valid, score 70) -> auth-pages, app-shell, saas-landing
+- **Next.JS ButterCMS Starter Project** (valid, score 70) -> content-site
 - **Replicache Starter** (valid, score 70) -> saas-landing
-- **Drupal Marketing Site** (valid, score 68) -> landing-page, content-site
-- **ISR Blog with Next.js and WordPress** (valid, score 68) -> blog, content-site
-- **Turborepo & Gatsby Starter** (valid, score 66) -> content-site
-- **Power Parity Pricing** (valid, score 64) -> saas-landing
-- **Experimentation with Statsig** (valid, score 62) -> landing-page
-- **Headlesshost Knowledgebase** (valid, score 62) -> content-site
-- **IP Blocking with Upstash** (valid, score 62) -> landing-page
-- **Vercel Cron Job Example** (valid, score 62) -> landing-page

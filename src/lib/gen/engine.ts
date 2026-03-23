@@ -1,6 +1,7 @@
 import { streamText, type ModelMessage, type ToolSet } from "ai";
 
-import { ENGINE_MAX_OUTPUT_TOKENS } from "./defaults";
+import { resolveBuildMaxOutputTokens } from "./defaults";
+import { buildOpenAIReasoningProviderOptions } from "./openai-reasoning";
 import { getOpenAIModel, DEFAULT_MODEL } from "./models";
 import {
   buildUserPromptContent,
@@ -12,6 +13,7 @@ export interface GenerateOptions {
   prompt: string;
   systemPrompt: string;
   model?: string;
+  modelTier?: string;
   chatHistory?: ModelMessage[];
   thinking?: boolean;
   maxTokens?: number;
@@ -40,6 +42,7 @@ export function generateCode(
     prompt,
     systemPrompt,
     model: modelId,
+    modelTier,
     chatHistory,
     thinking = true,
     maxTokens,
@@ -49,19 +52,27 @@ export function generateCode(
     referenceAttachments,
   } = options;
 
-  const model = getOpenAIModel(modelId ?? DEFAULT_MODEL);
+  const resolvedModelId = modelId ?? DEFAULT_MODEL;
+  const model = getOpenAIModel(resolvedModelId);
 
   const messages = [
     ...(chatHistory ?? []),
     { role: "user" as const, content: buildUserPromptContent(prompt, referenceAttachments) },
   ];
 
+  const reasoningOpts = buildOpenAIReasoningProviderOptions(
+    resolvedModelId,
+    modelTier,
+    thinking,
+  );
+
   const result = streamText({
     model,
     system: systemPrompt,
     messages: messages as ModelMessage[],
-    maxOutputTokens: maxTokens ?? ENGINE_MAX_OUTPUT_TOKENS,
+    maxOutputTokens: maxTokens ?? resolveBuildMaxOutputTokens(modelTier),
     abortSignal,
+    ...reasoningOpts,
     ...(tools ? { tools, maxSteps: maxSteps ?? 2 } : {}),
   });
 

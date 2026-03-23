@@ -5,17 +5,17 @@
   "categorySlug": "documentation",
   "categoryName": "Documentation",
   "templateUrl": "https://vercel.com/templates/documentation/documents-simple-next-js-documentation",
-  "demoUrl": "https://rubix-documents.vercel.app",
+  "demoUrl": "#",
   "description": "This Document Starter Kit serves as a flexible and scalable foundation for building documentation websites or content-driven projects.",
   "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
   "verdict": "valid",
   "qualityScore": 86,
   "repo": {
-    "url": "https://github.com/rubixvi/rubix-documents/tree/main/",
+    "url": "https://github.com/rubixvi/rubix-documents",
     "normalizedUrl": "https://github.com/rubixvi/rubix-documents",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\rubixvi-rubix-documents",
+    "clonePath": "../vercel-scrape/documentation/documents-simple-next-js-documentation/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -27,8 +27,10 @@
     "Next.js",
     "Tailwind",
     "Related Templates",
-    "AriaDocs: Documentation Template",
-    "Nextra: Docs Starter Kit"
+    "Products",
+    "AI",
+    "Enterprise",
+    "Fluid Compute"
   ],
   "usefulLines": [
     "AI workflows in live environments",

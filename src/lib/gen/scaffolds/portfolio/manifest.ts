@@ -5,22 +5,21 @@ export const portfolioManifest: ScaffoldManifest = {
   family: "portfolio",
   label: "Portfolio",
   description:
-    "Personal portfolio starter with intro, selected work, writing, credibility, and contact sections.",
+    "Personal portfolio with intro section, selected work gallery, writing/blog area, credibility signals, and contact section. " +
+    "For designers, developers, photographers, artists, architects, freelancers, and consultants who want to showcase their work. " +
+    "Focused on an individual or small team rather than a corporate brand.",
   buildIntents: ["website", "template"],
   tags: [
-    "portfolio",
-    "personal",
-    "creative",
-    "designer",
-    "developer",
-    "photographer",
-    "consultant",
-    "agency",
+    "portfolio", "personal", "creative", "designer", "developer", "photographer",
+    "consultant", "agency", "freelancer", "artist", "architect",
+    "fotograf", "kreatör", "formgivare", "arkitekt", "konstnär", "frilansare",
+    "personlig", "galleri", "showreel", "case", "cv",
   ],
   promptHints: [
-    "Use this scaffold for personal brands, creative professionals, studios, consultants, and lightweight agency profiles.",
-    "Keep the portfolio rhythm: intro, selected work, experience or credibility, writing, and contact.",
-    "Adapt the visuals and tone to the person or studio rather than turning it into a generic company landing page.",
+    "Use this scaffold for personal brands, creatives, studios, freelancers, consultants, and small-team showcases.",
+    "Keep the structure: intro, selected work gallery, credibility/testimonials, writing section, and contact.",
+    "Adapt visuals, project cards, and tone to the user's craft — do not turn it into a generic company landing page.",
+    "Works for any profession where showing completed work is more important than listing services.",
   ],
   files: [
     {

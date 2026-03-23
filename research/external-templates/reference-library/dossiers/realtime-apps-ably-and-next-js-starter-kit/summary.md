@@ -5,7 +5,7 @@
 - Quality score: 90
 - Scaffold families: app-shell, dashboard
 - Repo: https://github.com/ably-labs/ably-nextjs-fundamentals-kit
-- Demo: https://ably-nextjs-fundamentals-kit-six.vercel.app/
+- Demo: #
 
 Ably and Next.js Starter Kit is a Realtime Apps reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.
 

@@ -1,0 +1,88 @@
+{
+  "id": "cms-next-js-buttercms-starter-project",
+  "slug": "cms-next-js-buttercms-starter-project",
+  "title": "Next.JS ButterCMS Starter Project",
+  "categorySlug": "cms",
+  "categoryName": "CMS",
+  "templateUrl": "https://vercel.com/templates/cms/NextJS-starter-buttercms",
+  "demoUrl": "#",
+  "description": "A fully-functional, drop-in proof-of-concept Next.js app, fully integrated with your ButterCMS account",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 70,
+  "repo": {
+    "url": "https://github.com/ButterCMS/nextjs-starter-buttercms",
+    "normalizedUrl": "https://github.com/ButterCMS/nextjs-starter-buttercms",
+    "subpath": null,
+    "clonePath": "../vercel-scrape/cms/next-js-buttercms-starter-project/repo",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "CSS",
+    "CMS",
+    "ButterCMS",
+    "Related Templates",
+    "Products",
+    "AI"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "https://nextjs-starter-buttercms.vercel.app/",
+    "A copy of this starter project can be easily and quickly deployed to Vercel or Heroku with the click of a button.",
+    "1) Installation",
+    "First, install the dependencies by cloning the repo and running one of the following commands, depending on your current setup:",
+    "npm",
+    "install",
+    "# or yarn install",
+    "To fetch your ButterCMS content, add your API token as an environment variable.",
+    "'NEXT_PUBLIC_BUTTER_CMS_API_KEY=<Your API Token>'"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "Next.JS ButterCMS Starter Project is a CMS reference with verified Next.js codebase, CMS integration hints. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Next.js + ButterCMS Starter Project\n![recommended node version](https://img.shields.io/badge/node-v20-green)\n\nLive Demo: https://nextjs-starter-buttercms.vercel.app/\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FButterCMS%2Fnextjs-starter-buttercms&env=NEXT_PUBLIC_BUTTER_CMS_API_KEY&envDescription=Your%20ButterCMS%20API%20Token&envLink=https%3A%2F%2Fbuttercms.com%2Fsettings%2F&project-name=nextjs-starter-buttercms&repo-name=nextjs-starter-buttercms&redirect-url=https%3A%2F%2Fbuttercms.com%2Fonboarding%2Fvercel-starter-deploy-callback%2F&production-deploy-hook=Deploy%20Triggered%20from%20ButterCMS&demo-title=ButterCMS%20Next.js%20Starter&demo-description=Fully%20integrated%20with%20your%20ButterCMS%20account&demo-url=https%3A%2F%2Fnextjs-starter-buttercms.vercel.app%2F&demo-image=https://cdn.buttercms.com/r0tGK8xFRti2iRKBJ0eY&repository-name=nextjs-starter-buttercms)\n\n[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/ButterCMS/nextjs-starter-buttercms&env%5BNEXT_PUBLIC_BUTTER_CMS_API_KEY%5D=check%20https://buttercms.com/settings)\n\nThis Next.js starter project fully integrates with dynamic sample content from your ButterCMS account, including main menu, pages, blog posts, categories, and tags, all with a beautiful, custom theme with already-implemented search functionality. All of the included sample content is automatically created in your account dashboard when you sign up for a free trial of ButterCMS.\n\nA copy of this starter project can be easily and quickly deployed to Vercel or Heroku with the click of a button.\n## 1) Installation\n\nFirst, install the dependencies by cloning the repo and running one of the following commands, depending on your current setup:\n```bash\ngit clone https://github.com/ButterCMS/nextjs-starter-buttercms.git\ncd nextjs-starter-buttercms\nnpm install # or yarn install\n```\n\n## 2) Set API Token\n\nTo fetch your ButterCMS content, add your API token as an environment variable.\n\n```bash\n$ echo 'NEXT_PUBLIC_BUTTER_CMS_API_KEY=<Your API Token>' >> .env\n```\n\n## 3) Run the local server\n\nTo view the app in a browser, you'll need to run the local development server:\n\n```bash\nnpm run dev # or yarn dev\n```\n\nCongratulations! Your starter project is now live: [http://localhos\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-starter-buttercms\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"lint:fix\": \"next lint --fix\"\n  },\n  \"dependencies\": {\n    \"@popperjs/core\": \"^2.11.8\",\n    \"acorn\": \"^8.11.3\",\n    \"bootstrap\": \"^5.3.2\",\n    \"buttercms\": \"^3.0.0\",\n    \"camelcase-keys\": \"^9.1.2\",\n    \"date-fns\": \"^3.3.1\",\n    \"next\": \"^14.1.0\",\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\",\n    \"sharp\": \"^0.33.2\",\n    \"tiny-slider\": \"^2.9.4\",\n    \"typescript\": \"^5.3.3\"\n  },\n  \"devDependencies\": {\n    \"eslint\": \"^8.57.0\",\n    \"eslint-config-next\": \"^14.1.0\",\n    \"eslint-config-prettier\": \"^10.1.5\",\n    \"eslint-plugin-prettier\": \"^5.5.1\",\n    \"glob\": \"^10.3.10\",\n    \"prettier\": \"^3.6.1\",\n    \"rimraf\": \"^5.0.5\"\n  },\n  \"engines\": {\n    \"node\": \">=20.18.0\"\n  }\n}"
+    }
+  ]
+}

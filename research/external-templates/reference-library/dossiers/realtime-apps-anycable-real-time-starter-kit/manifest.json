@@ -5,7 +5,7 @@
   "categorySlug": "realtime-apps",
   "categoryName": "Realtime Apps",
   "templateUrl": "https://vercel.com/templates/realtime-apps/anycable",
-  "demoUrl": "https://vercel-anycable-demo.vercel.app/",
+  "demoUrl": "#",
   "description": "AnyCable/Next.js chat application demonstrating how to build real-time features, with all benefits of open-source. No PaaS bills.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
@@ -15,7 +15,7 @@
     "url": "https://github.com/anycable/vercel-anycable-demo",
     "normalizedUrl": "https://github.com/anycable/vercel-anycable-demo",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\anycable-vercel-anycable-demo",
+    "clonePath": "../vercel-scrape/realtime-apps/anycable-real-time-starter-kit/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -27,8 +27,10 @@
     "Next.js",
     "Tailwind",
     "Related Templates",
-    "Chatbot",
-    "Chatbot UI"
+    "Products",
+    "AI",
+    "Enterprise",
+    "Fluid Compute"
   ],
   "usefulLines": [
     "AI workflows in live environments",

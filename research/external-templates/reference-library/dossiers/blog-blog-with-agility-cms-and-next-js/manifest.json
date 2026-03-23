@@ -1,0 +1,106 @@
+{
+  "id": "blog-blog-with-agility-cms-and-next-js",
+  "slug": "blog-blog-with-agility-cms-and-next-js",
+  "title": "Blog with Agility CMS and Next.js",
+  "categorySlug": "blog",
+  "categoryName": "Blog",
+  "templateUrl": "https://vercel.com/templates/blog/blog-agility-cms-nextjs",
+  "demoUrl": "#",
+  "description": "Jumpstart your app development process with our pre-built solutions. Browse our list of Agility CMS themes, starters and templates.",
+  "frameworkReason": "Next.js, React",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 92,
+  "repo": {
+    "url": "https://github.com/agility/agilitycms-nextjs-starter",
+    "normalizedUrl": "https://github.com/agility/agilitycms-nextjs-starter",
+    "subpath": null,
+    "clonePath": "../vercel-scrape/blog/blog-with-agility-cms-and-next-js/repo",
+    "packageManager": "yarn",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "CMS",
+    "Agility",
+    "Related Templates",
+    "Products",
+    "AI"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "✨ Features",
+    "- Webhook-triggered cache invalidation",
+    "Multi-Locale Ready",
+    "Deployment",
+    "npm or yarn package manager",
+    "Installation",
+    "Install dependencies",
+    "npm",
+    "install"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "editorial content hierarchy",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "blog",
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "Blog with Agility CMS and Next.js is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Agility CMS & Next.js Starter\n\nA modern, production-ready starter for building content-managed websites with [Agility CMS](https://agilitycms.com) and [Next.js 15](https://nextjs.org/).\n\n[Live Website Demo](https://agilitycms-nextjs-starter-blog.vercel.app/)\n\n[New to Agility CMS? Sign up for a FREE account](https://agilitycms.com/free)\n\n## ✨ Features\n\n### Next.js 15 & React 18\n\n- **App Router** - Modern Next.js routing with Server Components\n- **TypeScript** - Full type safety throughout the project\n- **Tailwind CSS 4** - Utility-first styling with dark mode support\n- **Static Site Generation (SSG)** - Pre-rendered pages with Incremental Static Regeneration (ISR)\n- **Server Components** - React Server Components for optimal performance\n\n### Agility CMS Integration\n\n- **Dynamic Page Routing** - Automatic page generation from Agility CMS sitemap\n- **Component Module System** - CMS components mapped to React components\n- **Content Fetching** - Server-side data fetching with caching strategies\n- **Preview Mode** - Real-time content preview for editors\n- **On-Demand Revalidation** - Webhook-triggered cache invalidation\n- **Multi-Locale Ready** - Framework supports multiple languages\n\n### Developer Experience\n\n- **Component-Level Data Fetching** - Fetch data where you need it\n- **Cache Tag Strategy** - Granular cache control with automatic invalidation\n- **Dark Mode** - Built-in dark mode toggle with persistence\n- **Responsive Design** - Mobile-first responsive layout\n- **Image Optimization** - Next.js Image component integration\n- **TypeScript Interfaces** - Strongly typed CMS content models\n\n## 📋 Table of Contents\n\n- [Quick Start](#quick-start)\n- [Project Structure](#project-structure)\n- [Architecture](#architecture)\n- [Content Models](#content-models)\n- [Components](#components)\n- [Data Fetching](#data-fetching)\n- [Caching Strategy](#caching-strategy)\n- [Preview Mode](#preview-mode)\n- [Deployment](#deployment)\n- [Advanced Guides](#advanced-guides)\n\n## 🚀 Quick Start\n\n### Prerequisites\n\n- Node.js 18.x or higher\n- npm or yarn package manager\n- An Agility CMS instance ([sign up for free](https://agilitycms.com/free))\n\n### Installation\n\n1. **Clone the repository**\n\n   ```bash\n   git clone https://github.com/agility/agilitycms-nextjs-starter.git\n   cd agilitycms-nextjs-starter\n   ```\n\n2. **Install\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n\t\"name\": \"agility-next-starter\",\n\t\"version\": \"13.0.0\",\n\t\"private\": true,\n\t\"scripts\": {\n\t\t\"dev\": \"next dev\",\n\t\t\"build\": \"next build\",\n\t\t\"build-swa\": \"next build && rm -rf ./.next/cache\",\n\t\t\"start\": \"next start\",\n\t\t\"lint\": \"next lint\"\n\t},\n\t\"engines\": {\n\t\t\"node\": \">=18.x\"\n\t},\n\t\"dependencies\": {\n\t\t\"@headlessui/react\": \"^2.2.4\",\n\t\t\"@tabler/icons-react\": \"^3.34.0\",\n\t\t\"@types/node\": \"18.11.9\",\n\t\t\"@types/react\": \"19.2.7\",\n\t\t\"@types/react-dom\": \"19.2.3\",\n\t\t\"classnames\": \"^2.3.2\",\n\t\t\"eslint\": \"8.27.0\",\n\t\t\"eslint-config-next\": \"13.0.3\",\n\t\t\"html-react-parser\": \"^5.1.19\",\n\t\t\"luxon\": \"^3.1.0\",\n\t\t\"next\": \"16.0.7\",\n\t\t\"react\": \"19.2.1\",\n\t\t\"react-dom\": \"19.2.1\",\n\t\t\"react-icons\": \"^4.11.0\",\n\t\t\"react-infinite-scroll-component\": \"^6.1.0\",\n\t\t\"string-strip-html\": \"^13.4.8\",\n\t\t\"typescript\": \"5.7.2\"\n\t},\n\t\"devDependencies\": {\n\t\t\"@agility/content-fetch\": \"^2.0.0\",\n\t\t\"shx\": \"^0.3.4\",\n\t\t\"@agility/nextjs\": \"^16.0.7\",\n\t\t\"@tailwindcss/postcss\": \"^4.1.10\",\n\t\t\"@tailwindcss/typography\": \"^0.5.8\",\n\t\t\"@types/luxon\": \"^3.1.0\",\n\t\t\"postcss\": \"^8.4.19\",\n\t\t\"tailwindcss\": \"^4.1.10\"\n\t}\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import { draftMode } from \"next/headers\"\nimport PreviewBar from \"components/common/PreviewBar\"\nimport SiteFooter from \"components/common/SiteFooter\"\nimport SiteHeader from \"components/common/SiteHeader\"\n\nimport { getAgilityContext } from \"lib/cms/getAgilityContext\"\n\nimport { Inter } from \"next/font/google\"\n\nimport \"../styles/globals.css\"\n\nimport { getHeaderContent } from \"lib/cms-content/getHeaderContent\"\nimport { redirect } from \"next/navigation\"\nimport Script from \"next/script\"\n\nconst inter = Inter({\n  subsets: [\"latin\"],\n  variable: \"--font-inter\",\n})\n\nexport default async function RootLayout({\n  children,\n}: {\n  children: React.ReactNode\n}) {\n  const { locale, sitemap, isDevelopmentMode, isPreview } = await getAgilityContext()\n  const header = await getHeaderContent({ sitemap, locale })\n\n  async function startPreviewMode(pathname: string) {\n    \"use server\";\n\n    //turn on draft/preview mode\n    (await draftMode()).enable()\n\n    // Redirect to the same page\n    let url = `${pathname}`\n    if (url.includes(\"?\")) {\n      url = `${url}&preview=1`\n    } else {\n      url = `${url}?preview=1`\n    }\n\n    redirect(url)\n  }\n\n  return (\n    <html lang=\"en\" className={`${inter.className} bg-white dark:bg-gray-900 transition-colors duration-300`}>\n      <body data-agility-guid={process.env.AGILITY_GUID} className=\"bg-white dark:bg-gray-900 transition-colors duration-300\">\n        <div id=\"site-wrapper\">\n          <div id=\"site\">\n            <PreviewBar\n              {...{ isDevelopmentMode, isPreview, startPreviewMode }}\n            />\n\n            <div className=\"flex flex-col min-h-screen\">\n              <SiteHeader {...{ header }} />\n\n              <main className={`grow`}>{children}</main>\n              <SiteFooter />\n            </div>\n          </div>\n        </div>\n      </body>\n      <Script src=\"https://unpkg.com/@agility/web-studio-sdk@latest/dist/index.js\" />\n    </html>\n  )\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "/**\n * the root page - just pull exports from the main slug...\n */\nexport { generateMetadata } from \"./[...slug]/page\"\nexport { default} from \"./[...slug]/page\"\n\nexport const revalidate = 60\nexport const runtime = \"nodejs\"\nexport const dynamic = \"force-static\""
+    },
+    {
+      "path": ".env.local.example",
+      "reason": "Useful structural reference",
+      "excerpt": "# get these values from the API Keys page in Agility Settings => https://manager.agilitycms.com/settings/apikeys\nAGILITY_GUID=\nAGILITY_API_FETCH_KEY=\nAGILITY_API_PREVIEW_KEY=\nAGILITY_SECURITY_KEY=\n\n# if you have multiple locales, comma separate them (e.g: en-us,fr-ca) without a space!\nAGILITY_LOCALES=en-us\nAGILITY_SITEMAP=website"
+    }
+  ]
+}

@@ -1,8 +1,9 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "./scaffolds/types";
+import type { SiteProfile } from "./scaffolds/site-profile";
 
 export type RoutePlanSiteType = "one-page" | "brochure" | "content-heavy" | "app-shell";
-export type RoutePlanSource = "brief" | "prompt" | "scaffold";
+export type RoutePlanSource = "brief" | "prompt" | "scaffold" | "existing";
 
 export interface PlannedRoute {
   path: string;
@@ -189,13 +190,156 @@ function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: Scaff
   }
 }
 
+const CATEGORY_ROUTE_DEFAULTS: Record<string, PlannedRoute[]> = {
+  "hair-salon": [
+    { path: "/services", name: "Tjänster", intent: "Show available treatments, prices, and service descriptions.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact info, opening hours, and optional booking link.", required: true },
+  ],
+  "beauty-wellness": [
+    { path: "/services", name: "Behandlingar", intent: "Show available treatments and pricing.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact info with optional booking form.", required: true },
+  ],
+  "restaurant-cafe": [
+    { path: "/menu", name: "Meny", intent: "Show the food and drink menu.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Location, opening hours, and optional table reservation.", required: true },
+  ],
+  "accounting-firm": [
+    { path: "/services", name: "Tjänster", intent: "Describe service areas: bookkeeping, tax, advisory.", required: true },
+    { path: "/about", name: "Om oss", intent: "Team, expertise, and trust-building information.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact form and office details.", required: true },
+  ],
+  "law-firm": [
+    { path: "/services", name: "Rättsområden", intent: "Describe legal practice areas.", required: true },
+    { path: "/about", name: "Om byrån", intent: "Team, credentials, and firm history.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact form and office details.", required: true },
+  ],
+  "construction": [
+    { path: "/services", name: "Tjänster", intent: "Construction services overview with examples.", required: true },
+    { path: "/projects", name: "Projekt", intent: "Photo gallery of completed projects.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and quote request form.", required: true },
+  ],
+  "cleaning-service": [
+    { path: "/services", name: "Tjänster", intent: "Cleaning service packages and pricing.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and booking form.", required: true },
+  ],
+  "rural-general-store": [
+    { path: "/products", name: "Sortiment", intent: "Overview of product categories and local specialties.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Location, opening hours, and directions.", required: true },
+  ],
+  "car-workshop": [
+    { path: "/services", name: "Tjänster", intent: "Service types, pricing, and booking.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Location, opening hours, and contact.", required: true },
+  ],
+  "advertising-agency": [
+    { path: "/services", name: "Tjänster", intent: "Service offerings and specializations.", required: true },
+    { path: "/work", name: "Case", intent: "Portfolio of previous campaigns and projects.", required: true },
+    { path: "/about", name: "Om oss", intent: "Team and agency story.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact form.", required: true },
+  ],
+  "medical-clinic": [
+    { path: "/services", name: "Behandlingar", intent: "List available treatments, examinations, and healthcare services.", required: true },
+    { path: "/team", name: "Vårt team", intent: "Doctor/staff profiles with credentials and specialties.", required: true },
+    { path: "/about", name: "Om kliniken", intent: "Clinic history, values, and patient-facing information.", required: false },
+    { path: "/contact", name: "Kontakt", intent: "Address, opening hours, phone, and appointment booking.", required: true },
+  ],
+  "dental-clinic": [
+    { path: "/services", name: "Behandlingar", intent: "Dental treatments, pricing, and descriptions.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Address, opening hours, and booking.", required: true },
+  ],
+  "school-education": [
+    { path: "/courses", name: "Kurser", intent: "Course catalog with descriptions, schedules, and enrollment info.", required: true },
+    { path: "/teachers", name: "Lärare", intent: "Teacher/instructor profiles.", required: true },
+    { path: "/enrollment", name: "Ansökan", intent: "Application form, dates, and requirements.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact info and campus directions.", required: true },
+  ],
+  "event-agency": [
+    { path: "/schedule", name: "Schema", intent: "Event schedule with times, speakers, and sessions.", required: true },
+    { path: "/speakers", name: "Talare", intent: "Speaker profiles with bios and topics.", required: true },
+    { path: "/tickets", name: "Biljetter", intent: "Ticket tiers, pricing, and registration.", required: true },
+    { path: "/venue", name: "Plats", intent: "Venue info, directions, and practical details.", required: true },
+  ],
+  "electrician": [
+    { path: "/services", name: "Tjänster", intent: "Electrical services and pricing.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and quote request.", required: true },
+  ],
+  "plumber-hvac": [
+    { path: "/services", name: "Tjänster", intent: "Plumbing/HVAC services and emergency contact.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and emergency number.", required: true },
+  ],
+  "painter": [
+    { path: "/services", name: "Tjänster", intent: "Painting services with examples.", required: true },
+    { path: "/projects", name: "Projekt", intent: "Before/after gallery of completed work.", required: false },
+    { path: "/contact", name: "Kontakt", intent: "Contact and quote request.", required: true },
+  ],
+  "transport-logistics": [
+    { path: "/services", name: "Tjänster", intent: "Transport and logistics services.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact and booking.", required: true },
+  ],
+  "real-estate": [
+    { path: "/services", name: "Tjänster", intent: "Real estate services: buying, selling, valuation.", required: true },
+    { path: "/listings", name: "Objekt", intent: "Current property listings.", required: true },
+    { path: "/about", name: "Om oss", intent: "Team and agency credentials.", required: false },
+    { path: "/contact", name: "Kontakt", intent: "Contact form and office info.", required: true },
+  ],
+  "consulting": [
+    { path: "/services", name: "Tjänster", intent: "Consulting areas and methodology.", required: true },
+    { path: "/about", name: "Om oss", intent: "Team, credentials, and approach.", required: true },
+    { path: "/contact", name: "Kontakt", intent: "Contact form.", required: true },
+  ],
+  "insurance": [
+    { path: "/services", name: "Försäkringar", intent: "Insurance types and coverage.", required: true },
+    { path: "/about", name: "Om oss", intent: "Company information and trust signals.", required: false },
+    { path: "/contact", name: "Kontakt", intent: "Contact and claims.", required: true },
+  ],
+};
+
+function applyCategoryDefaults(category: string, routes: PlannedRoute[]): void {
+  const defaults = CATEGORY_ROUTE_DEFAULTS[category];
+  if (!defaults) return;
+  for (const route of defaults) {
+    pushRoute(routes, route);
+  }
+}
+
+function trimRoutesToBucket(routes: PlannedRoute[], pageBucket: number): PlannedRoute[] {
+  if (routes.length <= pageBucket) return routes;
+  const required = routes.filter((r) => r.required);
+  const optional = routes.filter((r) => !r.required);
+  const trimmed = [...required];
+  for (const route of optional) {
+    if (trimmed.length >= pageBucket) break;
+    trimmed.push(route);
+  }
+  return trimmed.slice(0, pageBucket);
+}
+
 export function buildRoutePlan(params: {
   prompt: string;
   buildIntent: BuildIntent;
   brief?: Record<string, unknown> | null;
   resolvedScaffold: ScaffoldManifest | null;
+  siteProfile?: SiteProfile | null;
+  existingFilePaths?: string[];
 }): RoutePlan {
-  const { prompt, buildIntent, brief, resolvedScaffold } = params;
+  const { prompt, buildIntent, brief, resolvedScaffold, siteProfile, existingFilePaths } = params;
+
+  if (existingFilePaths && existingFilePaths.length > 0) {
+    const existingRoutes = extractAppRoutePathsFromFilePaths(existingFilePaths);
+    if (existingRoutes.length > 0) {
+      return {
+        source: "existing",
+        siteType: inferSiteType(buildIntent, existingRoutes.length),
+        reason: "Follow-up: route plan derived from the existing project files. Do not invent new routes unless the user explicitly asks for them.",
+        routes: existingRoutes.map((path) => ({
+          path,
+          name: path === "/" ? "Home" : path.split("/").filter(Boolean).pop() ?? "Page",
+          intent: "Existing route — edit in place, do not duplicate or rename.",
+          required: true,
+        })),
+      };
+    }
+  }
+
   const briefPlan = buildRoutesFromBrief(brief, buildIntent);
   if (briefPlan) return briefPlan;
 
@@ -220,14 +364,21 @@ export function buildRoutePlan(params: {
 
   applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
 
+  if (buildIntent !== "app" && siteProfile && siteProfile.confidence !== "low") {
+    applyCategoryDefaults(siteProfile.businessCategory, routes);
+  }
+
+  const pageBucket = buildIntent !== "app" ? (siteProfile?.pageBucket ?? null) : null;
+  const finalRoutes = pageBucket ? trimRoutesToBucket(routes, pageBucket) : routes;
+
   return {
     source: resolvedScaffold ? "prompt" : "prompt",
-    siteType: inferSiteType(buildIntent, routes.length),
+    siteType: inferSiteType(buildIntent, finalRoutes.length),
     reason:
-      routes.length > 1
-        ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."
+      finalRoutes.length > 1
+        ? `Prompt analysis suggests a multi-route build (page budget: ${pageBucket ?? "auto"}); keep real App Router pages instead of collapsing everything into one page.`
         : "Prompt analysis suggests a compact default route structure unless the model has strong evidence to add more pages.",
-    routes,
+    routes: finalRoutes,
   };
 }
 

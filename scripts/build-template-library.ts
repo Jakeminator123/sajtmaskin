@@ -52,6 +52,14 @@ const SOURCE_ROOT_CANDIDATES = [
   LEGACY_SUMMARY_PATH ? path.dirname(LEGACY_SUMMARY_PATH) : "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates",
 ];
 
+function normalizeGeneratedPath(target: string | null | undefined): string | null {
+  if (!target) return null;
+  const absolute = path.resolve(target);
+  const relative = path.relative(WORKSPACE_ROOT, absolute);
+  const normalized = (relative || path.basename(absolute)).split(path.sep).join("/");
+  return normalized;
+}
+
 const NOISE_LINE_RE =
   /\b(Vercel Agent|Vercel documentation|Deploy at the speed of AI|Ship features, not infrastructure|SDKs by Vercel)\b/i;
 
@@ -606,7 +614,7 @@ function buildEntry(
     url: repoUrl.url,
     normalizedUrl: repoUrl.normalizedUrl,
     subpath: repoUrl.subpath,
-    clonePath: fs.existsSync(cloneRoot) ? cloneRoot : null,
+    clonePath: fs.existsSync(cloneRoot) ? normalizeGeneratedPath(cloneRoot) : null,
   };
   const signals = detectSignals(template, selectedFiles);
   const strengths = deriveStrengths(signals, repoInfo);
@@ -837,7 +845,7 @@ function main(): void {
 
   const catalog: TemplateLibraryCatalogFile = {
     generatedAt: new Date().toISOString(),
-    sourceRoot: sourceDir,
+    sourceRoot: normalizeGeneratedPath(sourceDir) ?? sourceDir,
     totalTemplates: entries.length,
     curatedTemplates: curatedEntries.length,
     entries,
@@ -856,7 +864,7 @@ function main(): void {
   writeScaffoldCandidateReport(curatedEntries, {
     outputPath: SCAFFOLD_CANDIDATE_REPORT_PATH,
     source: "scripts/build-template-library.ts",
-    input: summaryPath,
+    input: normalizeGeneratedPath(summaryPath),
   });
 
   console.info(`[template-library] Total templates audited: ${catalog.totalTemplates}`);

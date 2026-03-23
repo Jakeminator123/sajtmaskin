@@ -5,17 +5,17 @@
   "categorySlug": "saas",
   "categoryName": "SaaS",
   "templateUrl": "https://vercel.com/templates/saas/platforms-starter-kit",
-  "demoUrl": "https://vercel.pub/",
+  "demoUrl": "#",
   "description": "Next.js template for building multi-tenant applications with the App Router and Redis.",
   "frameworkReason": "Next.js, React",
   "frameworkMatch": true,
   "verdict": "valid",
-  "qualityScore": 92,
+  "qualityScore": 90,
   "repo": {
     "url": "https://github.com/vercel/platforms",
     "normalizedUrl": "https://github.com/vercel/platforms",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\vercel-platforms",
+    "clonePath": "../vercel-scrape/saas/platforms-starter-kit/repo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -29,7 +29,8 @@
     "Database",
     "Redis",
     "Related Templates",
-    "Nextra: Docs Starter Kit"
+    "Products",
+    "AI"
   ],
   "usefulLines": [
     "AI workflows in live environments",
@@ -59,8 +60,7 @@
   "weaknesses": [],
   "recommendedScaffoldFamilies": [
     "saas-landing",
-    "app-shell",
-    "content-site"
+    "app-shell"
   ],
   "signals": {
     "auth": false,
@@ -69,7 +69,7 @@
     "blog": false,
     "portfolio": false,
     "ecommerce": false,
-    "docs": true,
+    "docs": false,
     "ai": true,
     "multiTenant": true,
     "cms": false

@@ -5,29 +5,24 @@ export const contentSiteManifest: ScaffoldManifest = {
   family: "content-site",
   label: "Content Site",
   description:
-    "Content-first website with hero, features, testimonials, and footer. Great for landing pages, portfolios, and blogs.",
+    "Multi-page business website with proper navigation, service pages, about page, contact, and SEO metadata. " +
+    "The default scaffold for service businesses, agencies, tradespeople, restaurants, salons, clinics, law firms, " +
+    "accounting firms, and any Swedish small business that needs a professional multi-page site. " +
+    "Also suitable for documentation, knowledge bases, and content-heavy organizations.",
   buildIntents: ["website", "template"],
   tags: [
-    "landing",
-    "portfolio",
-    "blog",
-    "marketing",
-    "content",
-    "company",
-    "agency",
-    "saas",
-    "software",
-    "platform",
-    "pricing",
-    "service",
+    "content", "business", "company", "services", "multi-page", "website",
+    "hemsida", "webbplats", "företag", "byrå", "tjänster", "konsult",
+    "hantverkare", "byggföretag", "städfirma", "frisör", "restaurang",
+    "advokat", "redovisning", "klinik", "salong", "verkstad",
+    "documentation", "docs", "wiki", "knowledge-base", "faq",
+    "informationssajt", "kunskapsbas",
   ],
   promptHints: [
-    "This scaffold has a hero, features grid, testimonials, and footer.",
-    "Modify the content and sections to match the user's business.",
-    "Add or remove sections as needed. Keep the navigation and footer structure.",
-    "Use Unsplash images where appropriate.",
-    "For SaaS/software sites: include pricing tiers, feature comparison, trust signals, and clear CTAs.",
-    "For company/brand sites: include hero, about, team, services, and contact sections.",
+    "Use this scaffold for multi-page business websites, service companies, and content-heavy sites.",
+    "Keep proper navigation with header/footer, multiple routes (/services, /about, /contact), and SEO metadata.",
+    "Adapt sections and routes to the user's business type and Swedish context.",
+    "This is the default scaffold for any prompt asking for a business website or company site.",
   ],
   files: [
     {

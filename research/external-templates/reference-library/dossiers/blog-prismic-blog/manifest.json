@@ -1,0 +1,88 @@
+{
+  "id": "blog-prismic-blog",
+  "slug": "blog-prismic-blog",
+  "title": "Prismic Blog",
+  "categorySlug": "blog",
+  "categoryName": "Blog",
+  "templateUrl": "https://vercel.com/templates/blog/prismic-blog",
+  "demoUrl": "#",
+  "description": "A simple CMS-backed blog powered by Prismic.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/prismicio-community/nextjs-starter-prismic-blog",
+    "normalizedUrl": "https://github.com/prismicio-community/nextjs-starter-prismic-blog",
+    "subpath": null,
+    "clonePath": "../vercel-scrape/blog/prismic-blog/repo",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": true
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "CMS",
+    "Prismic",
+    "Related Templates",
+    "Products",
+    "AI"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    ". Get it up and running in minutes. Modify and adapt it to your liking; it's all yours!",
+    "npx degit prismicio-community/nextjs-starter-prismic-blog your-project-name",
+    "npx @slicemachine/init@latest",
+    "npm",
+    "http://www.apache.org/licenses/LICENSE-2.0"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "editorial content hierarchy",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "blog",
+    "content-site"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": true,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "Prismic Blog is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Prismic + Next.js Blog Starter\n\nThis sample blog is an excellent starting point to explore [Next.js][nextjs] and [Prismic][prismic]. Get it up and running in minutes. Modify and adapt it to your liking; it's all yours!\n\n- **Demo**: [Open live demo][live-demo]\n- **Learn more about Prismic and Next.js**: [Prismic Next.js Documentation][prismic-docs]\n\n&nbsp;\n\n<img src=\"https://user-images.githubusercontent.com/8601064/163122284-5b80a81e-a4fd-482e-9bd5-99b22f61175f.png\" alt=\"Screenshots of the site seen on deskop and mobile browsers\" />\n\n&nbsp;\n\n## 🚀 Quick Start\n\nTo start a new project using this starter, run the following commands in your terminal:\n\n```sh\nnpx degit prismicio-community/nextjs-starter-prismic-blog your-project-name\ncd your-project-name\nnpx @slicemachine/init@latest\n```\n\nThe commands will do the following:\n\n1. Start a new Next.js project using this starter.\n2. Ask you to log in to Prismic or [create an account][prismic-sign-up].\n3. Create a new Prismic content repository with sample content.\n\nWhen you're ready to start your project, run the following command:\n\n```sh\nnpm run dev\n```\n\n## Documentation\n\nTo learn how to work with your new project, [**see this starter's docs**][starter-docs].\n\nTo learn more about working with Prismic, [**see the Prismic docs**][prismic-docs].\n\n## License\n\n```\nCopyright 2013-2023 Prismic <contact@prismic.io> (https://prismic.io)\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.\n```\n\n[prismic]: https://prismic.io/\n[prismic-docs]: https://prismic.io/docs/technologies/nextjs\n[prismic-sign-up]: https://prismic.io/dashboard/signup\n[starter-docs]: ./docs/README.md\n[nextjs]: https://nextjs.org/\n[live-demo]: https://nextjs-starter-prismic-blog.vercel.app/"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-starter-prismic-blog\",\n  \"version\": \"0.0.0\",\n  \"private\": true,\n  \"license\": \"Apache-2.0\",\n  \"author\": \"Prismic <contact@prismic.io> (https://prismic.io)\",\n  \"scripts\": {\n    \"dev\": \"concurrently \\\"npm:next:dev\\\" \\\"npm:slicemachine\\\" --names \\\"next,slicemachine\\\" --prefix-colors blue,magenta\",\n    \"next:dev\": \"next\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"slicemachine\": \"start-slicemachine\",\n    \"format\": \"prettier --write .\",\n    \"gen\": \"prismic-ts-codegen\"\n  },\n  \"dependencies\": {\n    \"@prismicio/client\": \"^7.12.0\",\n    \"@prismicio/next\": \"^1.7.1\",\n    \"@prismicio/react\": \"^2.9.1\",\n    \"clsx\": \"^2.1.1\",\n    \"next\": \"15.0.7\",\n    \"react\": \"^18.3.1\",\n    \"react-dom\": \"^18.3.1\"\n  },\n  \"devDependencies\": {\n    \"@slicemachine/adapter-next\": \"^0.3.55\",\n    \"@tailwindcss/aspect-ratio\": \"^0.4.2\",\n    \"@types/react\": \"18.3.12\",\n    \"autoprefixer\": \"^10.4.20\",\n    \"concurrently\": \"^9.0.1\",\n    \"eslint\": \"9.13.0\",\n    \"eslint-config-next\": \"^15.0.2\",\n    \"postcss\": \"^8.4.47\",\n    \"prettier\": \"^3.3.3\",\n    \"prettier-plugin-tailwindcss\": \"^0.6.8\",\n    \"slice-machine-ui\": \"^2.10.1\",\n    \"tailwindcss\": \"^3.4.14\"\n  }\n}"
+    }
+  ]
+}

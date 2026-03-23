@@ -18,14 +18,14 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { createGenerationPipeline } from "@/lib/gen/fallback";
+import { createGenerationPipeline } from "@/lib/gen/pipeline";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
 } from "@/lib/gen/contract-clarification";
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract-answer-context";
 import { compressUrls } from "@/lib/gen/url-compress";
-import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import { prepareGenerationContext, enrichPromptWithContext } from "@/lib/gen/orchestrate";
 import { buildPlannerSystemPrompt } from "@/lib/gen/plan-prompt";
 import {
   buildPlanSummaryMessage,
@@ -358,6 +358,7 @@ export async function handleMessageStreamRequest(
             prompt: optimizedMessage,
             systemPrompt: planSystemPrompt,
             model: planModel,
+            modelTier: resolvedModelTier,
             chatHistory: planChatHistory,
             thinking: resolvedThinking,
             abortSignal: req.signal,
@@ -408,8 +409,6 @@ export async function handleMessageStreamRequest(
 
         await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
 
-        const promptForLlm = optimizedMessage;
-
         const engineIntent: BuildIntent =
           metaBuildIntent === "template" ||
           metaBuildIntent === "website" ||
@@ -434,6 +433,7 @@ export async function handleMessageStreamRequest(
           customInstructions: trimmedSystem || undefined,
         });
         const { resolvedScaffold, routePlan, preGenerationContracts, engineSystemPrompt } = orchestration;
+        const promptForLlm = enrichPromptWithContext(optimizedMessage, orchestration);
         const contractClarification = buildContractClarificationQuestion({
           buildIntent: engineIntent,
           context: preGenerationContracts,
@@ -571,6 +571,7 @@ export async function handleMessageStreamRequest(
           prompt: enginePrompt,
           systemPrompt: engineSystemPrompt,
           model: engineModel,
+          modelTier: resolvedModelTier,
           chatHistory,
           thinking: resolvedThinking,
           abortSignal: req.signal,

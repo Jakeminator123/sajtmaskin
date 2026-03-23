@@ -5,7 +5,7 @@
   "categorySlug": "portfolio",
   "categoryName": "Portfolio",
   "templateUrl": "https://vercel.com/templates/portfolio/magic-portfolio-for-next-js",
-  "demoUrl": "https://demo.magic-portfolio.com",
+  "demoUrl": "#",
   "description": "Creative portfolio boilerplate built with Next.js. SEO-optimized, accessible, responsive. Includes projects, blog and gallery.",
   "frameworkReason": "Next.js",
   "frameworkMatch": true,
@@ -15,7 +15,7 @@
     "url": "https://github.com/once-ui-system/magic-portfolio",
     "normalizedUrl": "https://github.com/once-ui-system/magic-portfolio",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\once-ui-system-magic-portfolio",
+    "clonePath": "../vercel-scrape/portfolio/magic-portfolio-for-next-js/repo",
     "packageManager": "npm",
     "hasNext": true,
     "hasReact": true,
@@ -27,8 +27,10 @@
     "Next.js",
     "CSS Modules",
     "Related Templates",
-    "Portfolio Starter Kit",
-    "Next.js Portfolio with Blog"
+    "Products",
+    "AI",
+    "Enterprise",
+    "Fluid Compute"
   ],
   "usefulLines": [
     "AI workflows in live environments",
@@ -48,7 +50,8 @@
     "Vercel Agent",
     "Vercel documentation",
     "Deploy at the speed of AI",
-    "Ship features, not infrastructure"
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
   ],
   "strengths": [
     "verified Next.js codebase",

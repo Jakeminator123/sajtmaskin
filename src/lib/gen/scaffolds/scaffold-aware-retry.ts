@@ -5,7 +5,6 @@ import type { FinalizePreflightIssue } from "@/lib/gen/stream/finalize-preflight
 import { db } from "@/lib/db/client";
 import { generationTelemetry } from "@/lib/db/schema";
 import { getScaffoldById } from "./registry";
-import { matchScaffold } from "./matcher";
 import { searchScaffolds } from "./scaffold-search";
 import type { ScaffoldManifest } from "./types";
 
@@ -29,7 +28,7 @@ export interface ScaffoldRetrySuggestion {
   suggestedScaffoldFamily: string;
   failureType: ScaffoldRetryFailureType;
   reason: string;
-  source: "heuristic" | "keyword" | "embedding";
+  source: "heuristic" | "embedding";
   confidence: "medium" | "high";
   historicalRetrySuccessRate?: number | null;
 }
@@ -240,21 +239,6 @@ export async function inferScaffoldRetrySuggestion({
         failureType === "missing-core-files"
           ? "high"
           : "medium",
-    });
-  }
-
-  const keywordCandidate = matchScaffold(prompt, buildIntent);
-  if (keywordCandidate && keywordCandidate.id !== resolvedScaffold.id) {
-    return withHistoricalRate({
-      currentScaffoldId: resolvedScaffold.id,
-      currentScaffoldLabel: resolvedScaffold.label,
-      suggestedScaffoldId: keywordCandidate.id,
-      suggestedScaffoldLabel: keywordCandidate.label,
-      suggestedScaffoldFamily: keywordCandidate.family,
-      failureType,
-      reason: buildFailureReason(failureType, resolvedScaffold, keywordCandidate),
-      source: "keyword",
-      confidence: "medium",
     });
   }
 

@@ -5,22 +5,19 @@ export const landingPageManifest: ScaffoldManifest = {
   family: "landing-page",
   label: "Landing Page",
   description:
-    "Marketing-focused starter for company sites, service businesses, and polished one-page launches.",
+    "Single-page or minimal marketing landing page with hero, trust signals, and conversion CTA. " +
+    "Best for campaign launches, product announcements, event pages, and focused lead-capture pages. " +
+    "Not the default for multi-page business sites — use content-site or other scaffolds for those.",
   buildIntents: ["website", "template"],
   tags: [
-    "landing",
-    "marketing",
-    "company",
-    "agency",
-    "services",
-    "startup",
-    "business",
-    "one-page",
+    "landing", "marketing", "campaign", "launch", "one-page", "lead-capture",
+    "event", "product-launch", "startup-launch", "kampanj", "lansering",
   ],
   promptHints: [
-    "Use this scaffold for polished company sites, campaign pages, and service-led websites.",
-    "Keep the overall rhythm: strong hero, trust signals, offer sections, testimonial, and CTA.",
-    "Modify copy, sections, and imagery to fit the user's business instead of rewriting the whole structure.",
+    "Use this scaffold ONLY for focused landing pages, campaigns, or single-page lead-capture sites.",
+    "Keep the section rhythm: hero with CTA, trust bar, offer/service cards, and contact CTA.",
+    "Do NOT use this for multi-page business websites — use content-site instead.",
+    "Adapt copy, colors, and imagery to the campaign or product being launched.",
   ],
   files: [
     {

@@ -1,0 +1,50 @@
+# package.json
+
+Reason: Dependency and script verification
+
+```text
+{
+	"name": "agility-next-starter",
+	"version": "13.0.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev",
+		"build": "next build",
+		"build-swa": "next build && rm -rf ./.next/cache",
+		"start": "next start",
+		"lint": "next lint"
+	},
+	"engines": {
+		"node": ">=18.x"
+	},
+	"dependencies": {
+		"@headlessui/react": "^2.2.4",
+		"@tabler/icons-react": "^3.34.0",
+		"@types/node": "18.11.9",
+		"@types/react": "19.2.7",
+		"@types/react-dom": "19.2.3",
+		"classnames": "^2.3.2",
+		"eslint": "8.27.0",
+		"eslint-config-next": "13.0.3",
+		"html-react-parser": "^5.1.19",
+		"luxon": "^3.1.0",
+		"next": "16.0.7",
+		"react": "19.2.1",
+		"react-dom": "19.2.1",
+		"react-icons": "^4.11.0",
+		"react-infinite-scroll-component": "^6.1.0",
+		"string-strip-html": "^13.4.8",
+		"typescript": "5.7.2"
+	},
+	"devDependencies": {
+		"@agility/content-fetch": "^2.0.0",
+		"shx": "^0.3.4",
+		"@agility/nextjs": "^16.0.7",
+		"@tailwindcss/postcss": "^4.1.10",
+		"@tailwindcss/typography": "^0.5.8",
+		"@types/luxon": "^3.1.0",
+		"postcss": "^8.4.19",
+		"tailwindcss": "^4.1.10"
+	}
+}
+```

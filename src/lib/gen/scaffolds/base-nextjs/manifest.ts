@@ -5,11 +5,18 @@ export const baseNextjsManifest: ScaffoldManifest = {
   family: "base-nextjs",
   label: "Base Next.js",
   description:
-    "Minimal Next.js starter with Tailwind, App Router, and dark theme.",
+    "Minimal Next.js starter with Tailwind CSS, App Router, responsive header, and clean file structure. " +
+    "Ultimate fallback scaffold when no specific category matches. " +
+    "Works as a blank canvas for any type of website or application.",
   buildIntents: ["website", "template"],
-  tags: ["starter", "minimal", "nextjs"],
+  tags: [
+    "starter", "minimal", "nextjs", "base", "grundläggande", "enkel",
+    "generell", "allround", "blank",
+  ],
   promptHints: [
-    "Keep it simple. This is a minimal base — add sections as needed.",
+    "This is the minimal fallback scaffold — use it when no other family is a strong match.",
+    "Keep the clean structure: App Router pages, responsive header with mobile menu, and proper metadata.",
+    "Add sections, routes, and components as the prompt requires — this is a blank canvas.",
   ],
   files: [
     {

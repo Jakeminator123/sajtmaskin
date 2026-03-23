@@ -1,0 +1,99 @@
+{
+  "id": "ai-qrgpt-ai-qr-code-generator",
+  "slug": "ai-qrgpt-ai-qr-code-generator",
+  "title": "qrGPT – AI QR Code Generator",
+  "categorySlug": "ai",
+  "categoryName": "AI",
+  "templateUrl": "https://vercel.com/templates/ai/qrGPT",
+  "demoUrl": "#",
+  "description": "QrGPT is an AI tool for you to generate beautiful QR codes using AI with one click. Powered by Vercel and Replicate.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 86,
+  "repo": {
+    "url": "https://github.com/nutlope/qrGPT",
+    "normalizedUrl": "https://github.com/nutlope/qrGPT",
+    "subpath": null,
+    "clonePath": "../vercel-scrape/ai/qrgpt-ai-qr-code-generator/repo",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Database",
+    "Vercel Blob",
+    "Related Templates",
+    "Products",
+    "AI"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "QrGPT is an AI tool for you to generate beautiful QR codes using AI with one click. Powered by Vercel and Replicate.",
+    "Deploy",
+    "Vercel Blob",
+    "Vercel KV",
+    "for redis storage and rate limiting",
+    "Deploy Your Own",
+    "You can deploy this template to Vercel with the button below:",
+    "Set up",
+    "Authors",
+    "Database"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "landing-page"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "qrGPT – AI QR Code Generator is a AI reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<a href=\"https://qrGPT.io\">\n  <img alt=\"QrGPT – Generate beautiful AI QR Codes in seconds.\" src=\"/public/og-image.png\">\n  <h1 align=\"center\">qrGPT</h1>\n</a>\n\n<p align=\"center\">\n  Generate beautiful AI QR Codes in seconds. Powered by Vercel and Replicate.\n</p>\n\n<p align=\"center\">\n  <a href=\"https://codeium.com?repo_name=nutlope%2Fqrgpt\">\n    <img src=\"https://codeium.com/badges/main\" alt=\"Codium\" />\n  </a>\n</p>\n\n<p align=\"center\">\n  <a href=\"#tech-stack\"><strong>Tech Stack</strong></a> ·\n  <a href=\"#deploy-your-own\"><strong>Deploy Your Own</strong></a> ·\n  <a href=\"#authors\"><strong>Authors</strong></a> ·\n  <a href=\"#credits\"><strong>Credits</strong></a>\n</p>\n<br/>\n\n## Tech Stack\n\n- Next.js [App Router](https://nextjs.org/docs/app)\n- [Replicate](https://replicate.com/) for the AI model\n- [Vercel Blob](https://vercel.com/storage/blob) for image storage\n- [Vercel KV](https://vercel.com/storage/kv) for redis storage and rate limiting\n- [Shadcn UI](https://ui.shadcn.com/) for the component library\n\n## Deploy Your Own\n\nYou can deploy this template to Vercel with the button below:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.fyi/qrGPT)\n\nNote that you'll need to:\n\n- Set up [Replicate](https://replicate.com)\n- Set up [Vercel KV](https://vercel.com/docs/storage/vercel-kv/quickstart)\n- Set up [Vercel Blob](https://vercel.com/docs/storage/vercel-blob/quickstart)\n\n## Authors\n\n- Hassan El Mghari ([@nutlope](https://twitter.com/nutlope))\n- Kevin Hou ([@kevinhou22](https://twitter.com/kevinhou22))\n\n## Credits\n\n- [Codeium](https://codeium.com?repo_name=nutlope%2Fqrgpt) and [v0](https://v0.dev/) for quick prototyping and AI autocomplete\n- [Spirals](https://spirals.vercel.app/) for great code patterns and some code (ty Steven)\n- [Lim Zi Yang](https://github.com/ZYLIM0702) for the original AI model"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"qr-gpt\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"format\": \"prettier --write .\"\n  },\n  \"dependencies\": {\n    \"@hookform/resolvers\": \"^3.3.1\",\n    \"@radix-ui/react-label\": \"^2.0.2\",\n    \"@radix-ui/react-slot\": \"^1.0.2\",\n    \"@tailwindcss/forms\": \"^0.5.6\",\n    \"@types/node\": \"20.6.2\",\n    \"@types/react\": \"18.2.21\",\n    \"@types/react-dom\": \"18.2.7\",\n    \"@upstash/ratelimit\": \"^0.4.4\",\n    \"@vercel/analytics\": \"^1.0.2\",\n    \"@vercel/blob\": \"^0.12.4\",\n    \"@vercel/kv\": \"^0.2.2\",\n    \"autoprefixer\": \"10.4.15\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.0.0\",\n    \"lucide-react\": \"^0.279.0\",\n    \"nanoid\": \"^5.0.1\",\n    \"next\": \"^13.5.2\",\n    \"next-plausible\": \"^3.11.3\",\n    \"postcss\": \"8.4.29\",\n    \"prettier\": \"^3.0.3\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\",\n    \"react-hook-form\": \"^7.46.1\",\n    \"react-hot-toast\": \"^2.4.1\",\n    \"replicate\": \"^0.18.0\",\n    \"tailwind-merge\": \"^1.14.0\",\n    \"tailwindcss\": \"3.3.3\",\n    \"tailwindcss-animate\": \"^1.0.7\",\n    \"typescript\": \"5.2.2\",\n    \"zod\": \"^3.22.2\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/typography\": \"^0.5.10\",\n    \"eslint\": \"8.49.0\",\n    \"eslint-config-next\": \"13.4.19\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import Navbar from '@/components/Navbar';\nimport './globals.css';\nimport type { Metadata } from 'next';\nimport { Inter } from 'next/font/google';\nimport Footer from '@/components/Footer';\nimport { Analytics } from '@vercel/analytics/react';\nimport PlausibleProvider from 'next-plausible';\n\nconst inter = Inter({ subsets: ['latin'] });\n\nlet title = 'QrGPT - QR Code Generator';\nlet description = 'Generate your AI QR Code in seconds';\nlet url = 'https://www.qrgpt.io';\nlet ogimage = 'https://www.qrgpt.io/og-image.png';\nlet sitename = 'qrGPT.io';\n\nexport const metadata: Metadata = {\n  metadataBase: new URL(url),\n  title,\n  description,\n  icons: {\n    icon: '/favicon.ico',\n  },\n  openGraph: {\n    images: [ogimage],\n    title,\n    description,\n    url: url,\n    siteName: sitename,\n    locale: 'en_US',\n    type: 'website',\n  },\n  twitter: {\n    card: 'summary_large_image',\n    images: [ogimage],\n    title,\n    description,\n  },\n};\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\">\n      <head>\n        <PlausibleProvider domain=\"qrgpt.io\" />\n      </head>\n      <body className={inter.className}>\n        <Navbar />\n        <main>{children}</main>\n        <Analytics />\n        <Footer />\n      </body>\n    </html>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import CTA from '@/components/CTA';\nimport GradientWrapper from '@/components/GradientWrapper';\nimport Hero from '@/components/Hero';\n\nexport default function Home() {\n  return (\n    <>\n      <Hero />\n      <GradientWrapper></GradientWrapper>\n      <CTA />\n    </>\n  );\n}"
+    }
+  ]
+}

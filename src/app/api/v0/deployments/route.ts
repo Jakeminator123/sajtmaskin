@@ -21,6 +21,7 @@ import {
   toVercelFilesFromTextFiles,
 } from "@/lib/vercelDeploy";
 import {
+  getAppProjectByIdForRequest,
   getChatByIdForRequest,
   getChatByV0ChatIdForRequest,
   getProjectByIdForRequest,
@@ -378,9 +379,17 @@ export async function POST(req: Request) {
           { status: 403 },
         );
       }
-      const ownedProject = await getProjectByIdForRequest(req, engineProjectId);
-      if (!ownedProject) {
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+      // Own-engine chats store app_projects.id in engine_chats.project_id.
+      // Legacy v0 flows may still reference the older `projects` table — check both.
+      const ownedAppProject = await getAppProjectByIdForRequest(req, engineProjectId);
+      if (!ownedAppProject) {
+        const ownedLegacyProject = await getProjectByIdForRequest(req, engineProjectId);
+        if (!ownedLegacyProject) {
+          return NextResponse.json(
+            { error: "Project not found or access denied" },
+            { status: 404 },
+          );
+        }
       }
       if (!codeFiles || codeFiles.length === 0) {
         return NextResponse.json(

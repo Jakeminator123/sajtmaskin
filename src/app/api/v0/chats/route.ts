@@ -14,13 +14,14 @@ import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/p
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId } from "@/lib/models/catalog";
-import { ENGINE_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
+import { resolveBuildMaxOutputTokens } from "@/lib/gen/defaults";
+import { buildOpenAIReasoningProviderOptions } from "@/lib/gen/openai-reasoning";
 import {
   createChat as createSqliteChat,
   addMessage,
   listChatsByProject,
 } from "@/lib/db/chat-repository-pg";
-import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import { prepareGenerationContext, enrichPromptWithContext } from "@/lib/gen/orchestrate";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { streamText } from "ai";
 import { getOpenAIModel } from "@/lib/gen/models";
@@ -232,12 +233,18 @@ export async function POST(req: Request) {
             engineModel,
             fallback: false,
           });
+          const enrichedMessage = enrichPromptWithContext(optimizedMessage, ownOrchestration);
           const model = getOpenAIModel(engineModel);
           const genResult = streamText({
             model,
             system: ownSystemPrompt,
-            messages: [{ role: "user", content: buildUserPromptContent(optimizedMessage, requestAttachments) }],
-            maxOutputTokens: ENGINE_MAX_OUTPUT_TOKENS,
+            messages: [{ role: "user", content: buildUserPromptContent(enrichedMessage, requestAttachments) }],
+            maxOutputTokens: resolveBuildMaxOutputTokens(resolvedModelTier),
+            ...buildOpenAIReasoningProviderOptions(
+              String(engineModel),
+              resolvedModelTier,
+              resolvedThinking,
+            ),
           });
 
           const fullContent = await genResult.text;
