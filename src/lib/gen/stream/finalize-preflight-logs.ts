@@ -76,7 +76,15 @@ export function buildFinalizePreflightLogBundle({
       level: preflightErrors.length > 0 ? "error" : "warning",
       category: "preflight:issues",
       message: "Automatic preflight reported issues.",
-      meta: { issues: preflightIssues.slice(0, 20) },
+      meta: {
+        issues: preflightIssues.slice(0, 20),
+        ...(preflightErrors.length > 0 && {
+          primaryBlocker: {
+            file: preflightErrors[0].file,
+            message: preflightErrors[0].message,
+          },
+        }),
+      },
     });
   }
 
@@ -134,6 +142,10 @@ export function buildFinalizePreflightLogBundle({
     preflightLogs,
     preflightFailureSummary: hasPreviewBlockingPreflightErrors
       ? "Automatic preflight found preview-blocking issues."
-      : "Automatic preflight found verification-blocking issues.",
+      : hasVerificationBlockingPreflightErrors
+        ? "Automatic preflight found verification-blocking issues."
+        : preflightWarnings.length > 0
+          ? "Automatic preflight completed with warnings."
+          : "Automatic preflight completed.",
   };
 }

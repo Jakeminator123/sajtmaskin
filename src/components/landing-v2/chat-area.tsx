@@ -217,7 +217,7 @@ const features = [
     highlights: [
       "TypeScript strict mode \u2014 inga implicit any, inga null-krascher",
       "Zod-schemas validerar all indata p\u00e5 server och klient",
-      "End-to-end typs\u00e4kerhet: Prisma \u2192 tRPC/API \u2192 React-formul\u00e4r",
+      "End-to-end typs\u00e4kerhet: Drizzle/SQL \u2192 tRPC/API \u2192 React-formul\u00e4r",
       "Automatisk TypeScript-generering fr\u00e5n API-kontrakt",
     ],
     codeFile: "schema.ts",
@@ -278,7 +278,7 @@ const techStack: TechStackItem[] = [
   { name: "Vercel Edge", category: "Hosting", detail: "Global rendering", icon: Rocket, glow: "rgba(244, 244, 245, 0.12)" },
   { name: "PostgreSQL", category: "Databas", detail: "Relational core", icon: Database, glow: "rgba(96, 165, 250, 0.15)" },
   { name: "Zod", category: "Validering", detail: "Trusted input", icon: ShieldCheck, glow: "rgba(250, 204, 21, 0.15)" },
-  { name: "Prisma", category: "ORM", detail: "Schema to app", icon: GitBranch, glow: "rgba(167, 139, 250, 0.16)" },
+  { name: "Drizzle", category: "ORM", detail: "Type-safe SQL", icon: GitBranch, glow: "rgba(167, 139, 250, 0.16)" },
   { name: "Stripe", category: "Betalning", detail: "Checkout & billing", icon: CreditCard, glow: "rgba(139, 92, 246, 0.16)" },
   { name: "Resend", category: "E-post", detail: "Transactional flows", icon: Send, glow: "rgba(251, 146, 60, 0.15)" },
   { name: "Sentry", category: "Monitoring", detail: "Errors & traces", icon: Activity, glow: "rgba(244, 63, 94, 0.16)" },

@@ -69,7 +69,28 @@ describe("matchScaffoldWithEmbeddings", () => {
 
     const result = await matchScaffoldWithEmbeddings("Bygg en dashboard med analytics", "app");
     expect(result.scaffold?.family).toBe("dashboard");
-    expect(result.matchMeta.matchSource).toBe("embedding");
+    expect(result.matchMeta.matchSource).toBe("heuristic");
     expect(result.matchMeta.embeddingScore).toBe(0.6);
+  });
+
+  it("uses heuristic to avoid content-site for immersive arcade-style website prompts", async () => {
+    const { searchScaffolds } = await import("./scaffold-search");
+    const mock = vi.mocked(searchScaffolds);
+    const { getScaffoldById } = await import("./registry");
+    const contentSite = getScaffoldById("content-site");
+    const baseNext = getScaffoldById("base-nextjs");
+
+    mock.mockResolvedValueOnce([
+      { scaffold: contentSite!, score: 0.362 },
+      { scaffold: baseNext!, score: 0.284 },
+    ]);
+
+    const result = await matchScaffoldWithEmbeddings(
+      "Bygg en tv-spelssajt med Pac-Man minispel, retro neon, 3D-effekter och flytande animationer",
+      "website",
+    );
+    expect(result.scaffold?.id).toBe("base-nextjs");
+    expect(result.matchMeta.matchSource).toBe("heuristic");
+    expect(result.matchMeta.embeddingScore).toBe(0.284);
   });
 });

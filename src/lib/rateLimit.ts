@@ -1,6 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { REDIS_KEY_PREFIX } from "./config";
+import { getUpstashRestRedis } from "./upstash-rest";
 
 const _resolvedRestUrl =
   process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
@@ -67,33 +68,14 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "v0:stream": { maxRequests: 30, windowMs: 60 * 1000 },
 };
 
-let _cachedRedis: Redis | null = null;
-let _cachedRedisConfigKey: string | null = null;
 const _cachedLimiters = new Map<string, Ratelimit>();
 
-function resolveRedisCredentials(): { url: string; token: string } | null {
+function getRedis(): { redis: Redis; cacheKey: string } | null {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
-  if (!url || !token) return null;
-  return { url, token };
-}
-
-function getRedis(): { redis: Redis; cacheKey: string } | null {
-  const creds = resolveRedisCredentials();
-  if (!creds) {
-    _cachedRedis = null;
-    _cachedRedisConfigKey = null;
-    return null;
-  }
-
-  const cacheKey = `${creds.url}:${creds.token}`;
-  if (_cachedRedis && _cachedRedisConfigKey === cacheKey) {
-    return { redis: _cachedRedis, cacheKey };
-  }
-
-  _cachedRedis = new Redis({ url: creds.url, token: creds.token });
-  _cachedRedisConfigKey = cacheKey;
-  return { redis: _cachedRedis, cacheKey };
+  const redis = getUpstashRestRedis();
+  if (!redis || !url || !token) return null;
+  return { redis, cacheKey: `${url}:${token}` };
 }
 
 function getLimiter(

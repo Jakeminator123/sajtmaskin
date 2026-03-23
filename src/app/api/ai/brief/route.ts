@@ -81,7 +81,8 @@ const siteBriefSchema = z.object({
   oneSentencePitch: z.string().describe("A single sentence describing what the site is about"),
   targetAudience: z.string().describe("Primary audience / persona"),
   primaryCallToAction: z.string().describe('Main CTA label, e.g. "Book a demo"'),
-  toneAndVoice: z.array(z.string()).min(2).max(8).describe("Tone keywords"),
+  // Anthropic structured output: array minItems must be 0 or 1 only (not 2+).
+  toneAndVoice: z.array(z.string()).min(1).max(8).describe("Tone keywords"),
   pages: z
     .array(
       z.object({
@@ -96,14 +97,14 @@ const siteBriefSchema = z.object({
               bullets: z.array(z.string()).min(1).max(8),
             }),
           )
-          .min(3)
+          .min(1)
           .max(14),
       }),
     )
     .min(1)
     .max(10),
   visualDirection: z.object({
-    styleKeywords: z.array(z.string()).min(3).max(12),
+    styleKeywords: z.array(z.string()).min(1).max(12),
     colorPalette: z.object({
       primary: z.string().describe("Hex or CSS color"),
       secondary: z.string().describe("Hex or CSS color"),
@@ -118,19 +119,19 @@ const siteBriefSchema = z.object({
   }),
   imagery: z.object({
     needsImages: z.boolean(),
-    styleKeywords: z.array(z.string()).min(2).max(12),
-    suggestedSubjects: z.array(z.string()).min(2).max(16),
-    altTextRules: z.array(z.string()).min(2).max(8),
+    styleKeywords: z.array(z.string()).min(1).max(12),
+    suggestedSubjects: z.array(z.string()).min(1).max(16),
+    altTextRules: z.array(z.string()).min(1).max(8),
   }),
   uiNotes: z.object({
-    components: z.array(z.string()).min(3).max(16),
-    interactions: z.array(z.string()).min(2).max(16),
-    accessibility: z.array(z.string()).min(3).max(16),
+    components: z.array(z.string()).min(1).max(16),
+    interactions: z.array(z.string()).min(1).max(16),
+    accessibility: z.array(z.string()).min(1).max(16),
   }),
   seo: z.object({
     titleTemplate: z.string().describe('e.g. "{page} | Brand"'),
     metaDescription: z.string().describe("One concise meta description"),
-    keywords: z.array(z.string()).min(3).max(30),
+    keywords: z.array(z.string()).min(1).max(30),
   }),
 });
 
@@ -205,6 +206,102 @@ const simplifiedBriefSchema = z.object({
     })
     .optional(),
 });
+
+/**
+ * Anthropic tool/schema compilation rejects "too many optional parameters" on the
+ * simplified Zod shape. This variant has **no** `.optional()` fields — only required
+ * keys (use empty strings / empty arrays where unknown).
+ */
+const anthropicCompactBriefSchema = z.object({
+  projectTitle: z.string(),
+  brandName: z.string(),
+  oneSentencePitch: z.string(),
+  targetAudience: z.string(),
+  primaryCallToAction: z.string(),
+  toneAndVoice: z.array(z.string()),
+  pages: z.array(
+    z.object({
+      name: z.string(),
+      path: z.string(),
+      purpose: z.string(),
+      sections: z.array(
+        z.object({
+          type: z.string(),
+          heading: z.string(),
+          bullets: z.array(z.string()),
+        }),
+      ),
+    }),
+  ),
+  styleKeywords: z.array(z.string()),
+  colorPrimary: z.string(),
+  colorSecondary: z.string(),
+  colorAccent: z.string(),
+  colorBackground: z.string(),
+  colorText: z.string(),
+  fontHeadings: z.string(),
+  fontBody: z.string(),
+  metaTitleTemplate: z.string(),
+  metaDescription: z.string(),
+  seoKeywords: z.array(z.string()),
+});
+
+type AnthropicCompactBrief = z.infer<typeof anthropicCompactBriefSchema>;
+
+function padToneKeywords(values: string[]): string[] {
+  const next = values.map((s) => s.trim()).filter(Boolean);
+  const padded = [...next];
+  while (padded.length < 2) {
+    padded.push(padded.length === 0 ? "tydlig" : "professionell");
+  }
+  return padded.slice(0, 8);
+}
+
+function expandAnthropicCompactBrief(raw: AnthropicCompactBrief): Record<string, unknown> {
+  const kw = raw.styleKeywords.map((s) => s.trim()).filter(Boolean);
+  const imageryKeywords =
+    kw.length >= 2 ? kw.slice(0, 12) : [...kw, "professionellt", "webb"].slice(0, 12);
+  return {
+    projectTitle: raw.projectTitle,
+    brandName: raw.brandName,
+    oneSentencePitch: raw.oneSentencePitch,
+    targetAudience: raw.targetAudience,
+    primaryCallToAction: raw.primaryCallToAction,
+    toneAndVoice: padToneKeywords(raw.toneAndVoice),
+    pages: raw.pages,
+    visualDirection: {
+      styleKeywords: kw.length > 0 ? kw.slice(0, 12) : ["modernt", "rent", "tydligt"],
+      colorPalette: {
+        primary: raw.colorPrimary.trim() || "#3b82f6",
+        secondary: raw.colorSecondary.trim() || "#6366f1",
+        accent: raw.colorAccent.trim() || "#f59e0b",
+        background: raw.colorBackground.trim() || "#0a0a0a",
+        text: raw.colorText.trim() || "#ffffff",
+      },
+      typography: {
+        headings: raw.fontHeadings.trim() || "Inter",
+        body: raw.fontBody.trim() || "Inter",
+      },
+    },
+    imagery: {
+      needsImages: true,
+      styleKeywords: imageryKeywords,
+      suggestedSubjects: [] as string[],
+      altTextRules: ["Beskriv innehållet kort", "Undvik tomma alt-texter"],
+    },
+    uiNotes: {
+      components: ["Navigation", "CTA", "Sektionskort"],
+      interactions: ["Hover-states", "Mjuka övergångar"],
+      accessibility: ["Kontrast", "Tangentbordsnavigering", "Tydliga etiketter"],
+    },
+    seo: {
+      titleTemplate: raw.metaTitleTemplate.trim() || "{page} | Site",
+      metaDescription:
+        raw.metaDescription.trim() || raw.oneSentencePitch.trim().slice(0, 155),
+      keywords: raw.seoKeywords,
+    },
+  };
+}
 
 type SiteTypeRule = {
   hint: string;
@@ -410,7 +507,8 @@ export async function POST(req: Request) {
           `anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`,
         );
 
-        let usedSimplified = false;
+        type AnthropicBriefSchemaTag = "full" | "simplified" | "compact";
+        let briefSchemaTag: AnthropicBriefSchemaTag = "full";
         let result;
 
         try {
@@ -447,29 +545,65 @@ export async function POST(req: Request) {
               maxOutputTokens: Math.min(maxTokens, 40_960),
               ...getTemperatureConfig(normalizedModel, temperature),
             });
-            usedSimplified = true;
+            briefSchemaTag = "simplified";
           } catch (simplifiedErr) {
-            const errMsg =
+            const simplifiedErrMsg =
               simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
 
-            errorLog("AI", "Anthropic brief generation failed - both schemas", {
-              model: normalizedModel,
-              promptLength: prompt.length,
-              fullError:
-                fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
-              simplifiedError: errMsg,
+            debugLog("AI", "Simplified Anthropic brief schema failed, trying compact", {
+              error: simplifiedErrMsg,
             });
 
-            return NextResponse.json(
-              {
-                error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
-                details: errMsg.includes("could not parse")
-                  ? "Modellen returnerade ett ogiltigt svar."
-                  : errMsg,
-                suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
-              },
-              { status: 422 },
-            );
+            try {
+              const compactSystem =
+                systemPrompt +
+                "\n\nIMPORTANT: Respond with ONLY the required flat fields. " +
+                "Every key is required; use \"\" or [] when unknown. " +
+                "pages: 1–3 pages; each page: 3–6 sections; each section: 2–4 bullets.";
+
+              const compactResult = await generateObject({
+                model: directModel,
+                schema: anthropicCompactBriefSchema,
+                messages: [
+                  { role: "system", content: compactSystem },
+                  { role: "user", content: userPrompt },
+                ],
+                maxRetries: 1,
+                maxOutputTokens: Math.min(maxTokens, 40_960),
+                ...getTemperatureConfig(normalizedModel, temperature),
+              });
+
+              result = {
+                ...compactResult,
+                object: expandAnthropicCompactBrief(compactResult.object),
+              };
+              briefSchemaTag = "compact";
+            } catch (compactErr) {
+              const compactErrMsg =
+                compactErr instanceof Error ? compactErr.message : String(compactErr);
+
+              errorLog("AI", "Anthropic brief generation failed - all schemas", {
+                model: normalizedModel,
+                promptLength: prompt.length,
+                fullError:
+                  fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
+                simplifiedError: simplifiedErrMsg,
+                compactError: compactErrMsg,
+              });
+
+              const surfaceMsg = compactErrMsg.includes("could not parse")
+                ? "Modellen returnerade ett ogiltigt svar."
+                : compactErrMsg;
+
+              return NextResponse.json(
+                {
+                  error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
+                  details: surfaceMsg,
+                  suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
+                },
+                { status: 422 },
+              );
+            }
           }
         }
 
@@ -479,7 +613,7 @@ export async function POST(req: Request) {
           type: "assist.brief.response",
           provider: "anthropic",
           model: normalizedModel,
-          schema: usedSimplified ? "simplified" : "full",
+          schema: briefSchemaTag,
           projectTitle:
             typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
           pages,
@@ -489,7 +623,7 @@ export async function POST(req: Request) {
             "Cache-Control": "no-store",
             "X-Provider": "anthropic",
             "X-Key-Source": "ANTHROPIC_API_KEY",
-            ...(usedSimplified ? { "X-Schema": "simplified" } : {}),
+            ...(briefSchemaTag !== "full" ? { "X-Schema": briefSchemaTag } : {}),
           },
         });
       }

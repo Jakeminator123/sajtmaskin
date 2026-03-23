@@ -70,11 +70,12 @@ const KNOWN_INTEGRATIONS: KnownIntegration[] = [
     setupGuide: "Skapa en Redis-databas på console.upstash.com. Kopiera REST URL och REST Token.",
   },
   {
-    pattern: /(?:@prisma\/|prisma\.)/i,
-    name: "Prisma",
-    provider: "prisma",
+    pattern: /(?:drizzle-orm|from\s+["']drizzle-orm|drizzle\.config)/i,
+    name: "Drizzle",
+    provider: "drizzle",
     envVars: ["DATABASE_URL"],
-    setupGuide: "Satt DATABASE_URL till den databas du faktiskt valt. For SQLite: file:./dev.db. For hosted drift: anvand en Postgres- eller MySQL-anslutning. Valj inte provider pa chans.",
+    setupGuide:
+      "Sätt DATABASE_URL till din Postgres (t.ex. Supabase). Drizzle använder samma anslutningssträng som resten av stacken.",
   },
   {
     pattern: /(?:better-sqlite3|sqlite|drizzle-orm\/sqlite|file:\.\/.*\.db)/i,

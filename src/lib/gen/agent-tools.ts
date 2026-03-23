@@ -16,7 +16,7 @@ export const INTEGRATION_PROVIDERS = [
   "next-auth",
   "resend",
   "upstash",
-  "prisma",
+  "drizzle",
   "openai",
   "vercel-blob",
   "vercel-kv",

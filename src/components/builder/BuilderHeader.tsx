@@ -434,7 +434,7 @@ export function BuilderHeader(props: {
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Hemsidemall — startpunkt för genererad kod</p>
+                <p>Auto väljer från samma interna scaffold-lista som motorn använder. Av skickar utan scaffold.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

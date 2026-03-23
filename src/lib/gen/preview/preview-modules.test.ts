@@ -102,6 +102,12 @@ describe("import-parser", () => {
       expect(stripNextImports(code)).not.toContain("next/image");
     });
 
+    it("strips next/dynamic import", () => {
+      const code = 'import dynamic from "next/dynamic";\nconst x = 1;';
+      expect(stripNextImports(code)).toContain("const x = 1");
+      expect(stripNextImports(code)).not.toContain("next/dynamic");
+    });
+
     it("strips use client directive", () => {
       const result = stripNextImports('"use client";\nconst x = 1;');
       expect(result).not.toContain("use client");

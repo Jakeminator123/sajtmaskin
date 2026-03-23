@@ -98,12 +98,19 @@ export async function getCompanyProfileByProjectId(
   return rows[0] ?? null;
 }
 
-export async function getCompanyProfileByName(name: string): Promise<CompanyProfile | null> {
+export async function getCompanyProfileByName(
+  name: string,
+  scope: OwnerScope,
+): Promise<CompanyProfile | null> {
   assertDbConfigured();
+  const projectIds = await getOwnedProjectIds(scope);
+  if (projectIds.length === 0) return null;
   const rows = await db
     .select()
     .from(companyProfiles)
-    .where(eq(companyProfiles.company_name, name))
+    .where(
+      and(eq(companyProfiles.company_name, name), inArray(companyProfiles.project_id, projectIds)),
+    )
     .limit(1);
   return rows[0] ?? null;
 }
@@ -150,6 +157,21 @@ export async function linkCompanyProfileToProject(
   if (!owned) throw new Error("Project not found or access denied");
 
   const id = typeof profileId === "string" ? parseInt(profileId, 10) : profileId;
+  if (!Number.isFinite(id)) throw new Error("Profile not found or access denied");
+
+  const existing = await db
+    .select()
+    .from(companyProfiles)
+    .where(eq(companyProfiles.id, id))
+    .limit(1);
+  const profile = existing[0];
+  if (!profile) throw new Error("Profile not found or access denied");
+
+  if (profile.project_id) {
+    const ownsCurrent = await verifyProjectOwnership(profile.project_id, scope);
+    if (!ownsCurrent) throw new Error("Profile not found or access denied");
+  }
+
   await db
     .update(companyProfiles)
     .set({ project_id: projectId, updated_at: new Date() })

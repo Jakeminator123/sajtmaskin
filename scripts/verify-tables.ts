@@ -1,18 +1,15 @@
-import { config } from "dotenv";
+﻿import { config } from "dotenv";
 import { Pool } from "pg";
+import { resolveMigrationsDbEnv } from "../src/lib/db/env";
 
 config({ path: ".env.local" });
 
-const url =
-  process.env.POSTGRES_URL ||
-  process.env.POSTGRES_PRISMA_URL ||
-  process.env.POSTGRES_URL_NON_POOLING ||
-  "";
-
-if (!url) {
-  console.error("No POSTGRES_URL configured");
+const resolved = resolveMigrationsDbEnv(process.env);
+if (!resolved?.connectionString) {
+  console.error("No database URL configured (POSTGRES_URL_NON_POOLING or POSTGRES_URL)");
   process.exit(1);
 }
+const url = resolved.connectionString;
 
 const cleanUrl = (() => {
   try {

@@ -88,7 +88,7 @@ builder-flodena resolverar idag alltid till own engine, inte till legacy-v0-buil
 När **Deep** är på i buildern (före första chatten) anropar klienten `POST /api/ai/brief` med **samma modell som vald under Förbättra** (`promptAssistModel`), t.ex. `anthropic/claude-opus-4.6` eller `openai/gpt-5.4`.
 
 - **Max output tokens:** `min(SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS, AI_BRIEF_MAX_TOKENS)` — default **81 920** om inget annat sätts (`src/app/api/ai/brief/route.ts`). Vid fallback till **förenklad schema** för Anthropic/OpenAI sänks taket till **`min(samma, 40_960)`**.
-- **Anthropic:** kräver `ANTHROPIC_API_KEY`; använder `generateObject` mot `createDirectModel` (direkt API, inte gateway).
+- **Anthropic:** kräver `ANTHROPIC_API_KEY`; använder `generateObject` mot `createDirectModel` (direkt API, inte gateway). API:ets begränsningar för structured output (t.ex. `minItems` 0/1, tak på valfria fält) och appens triple-fallback för brief-schemat beskrivs i [`docs/handoffs/2026-03-23-builder-env-preflight.md`](./handoffs/2026-03-23-builder-env-preflight.md).
 - **Verifiera nyckel lokalt:** `node verify-anthropic-env.mjs` (läser `.env.local`, skriver **inte** ut nyckeln).
 
 ### Token-gränser (max output)
@@ -239,11 +239,37 @@ källa.
   sparade värden är bundna till samma nyckel och kan annars bli oläsbara utan
   migration.
 
+## Postgres / Supabase (pooler vs migrationer)
+
+Applikationen läser databas-URL i denna ordning i **runtime** (`src/lib/db/client.ts` via `resolveConfiguredDbEnv`):
+
+1. `POSTGRES_URL`
+2. `POSTGRES_PRISMA_URL` (Vercels namn för en *alternativ poolad* URL — **inte** Prisma ORM; appen använder **Drizzle**)
+3. `POSTGRES_URL_NON_POOLING`
+
+**Rekommendation för Supabase:** sätt `POSTGRES_URL` till **transaction pooler** (värd `*.pooler.supabase.com`, port **6543**) för Next.js-serverless — många korta anslutningar. Sätt `POSTGRES_URL_NON_POOLING` till **direct** eller **session**-URL (typiskt port **5432**) från Supabase Dashboard.
+
+**Migrationer och Drizzle CLI** använder `resolveMigrationsDbEnv` (`src/lib/db/env.ts`) i denna ordning:
+
+1. `POSTGRES_URL_NON_POOLING` (om du sätter den explicit)
+2. **Härledd direkt-URL** om `POSTGRES_HOST` ser ut som `db.<ref>.supabase.co` och `POSTGRES_PASSWORD` finns (vanligt med Vercels Supabase-integration) — port **5432**, användare `postgres`
+3. `POSTGRES_URL` (ofta pooler :6543 — sista utväg för migrationer)
+4. `POSTGRES_PRISMA_URL`
+
+Det gäller [`drizzle.config.ts`](../drizzle.config.ts), [`scripts/run-migrations.ts`](../scripts/run-migrations.ts) och [`scripts/verify-tables.ts`](../scripts/verify-tables.ts). Om `POSTGRES_URL_NON_POOLING` saknas faller allt tillbaka till pooler-URL:en (ofta OK för enkla SQL-filer, men Supabase rekommenderar direktanslutning för vissa DDL-scenarier).
+
+**Hälsa:** `GET /api/health` kör `SELECT 1` mot runtime-poolen och returnerar `db.source` (vilket env-namn som användes) samt `poolerHint` när värd/port tyder på Supabase transaction pooler — utan att exponera hela connection string.
+
+Synka samma variabler i Vercel (production/preview) och ev. via `manage_env.py` / `vercel env pull`.
+
+**Konceptuellt:** skillnaden mellan Postgres (beständig SQL-data) och Redis (cache/lås/rate limits) beskrivs i [`docs/architecture/postgres-vs-redis.md`](architecture/postgres-vs-redis.md).
+
 ## Kritiska (måste vara satta i produktion)
 
 | Variabel              | Lokalt     | Vercel              | Beskrivning                                                             |
 | --------------------- | ---------- | ------------------- | ----------------------------------------------------------------------- |
-| `POSTGRES_URL`        | .env.local | production, preview | Primär databas (Supabase)                                               |
+| `POSTGRES_URL`        | .env.local | production, preview | Primär databas (Supabase); för serverless ofta transaction pooler :6543 |
+| `POSTGRES_URL_NON_POOLING` | .env.local (valfritt) | production, preview (valfritt) | Direct/session-URL för migrationer & Drizzle; rekommenderas tillsammans med pooler i `POSTGRES_URL` |
 | `JWT_SECRET`          | .env.local | production, preview | Auth-tokens                                                             |
 | `OPENAI_API_KEY`      | .env.local | production, preview | Own engine (krävs när V0_FALLBACK_BUILDER inte är satt)                 |
 | `V0_API_KEY`          | .env.local | production, preview | v0 Platform API, v0-baserad prompt assist och vissa integrationer. Krävs för fallback-läge när `V0_FALLBACK_BUILDER=y` |
@@ -285,7 +311,11 @@ räcker `REDIS_URL` + `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`.
 De `KV_*`-alias skapas automatiskt av Vercels Upstash-integration.
 
 Utan Redis faller rate limiting tillbaka till in-memory (opålitligt i serverless).
-Utan Redis fungerar appen men utan caching -- alla requests går direkt till Postgres.
+Utan Redis fungerar appen men utan caching — alla requests går direkt till Postgres.
+
+När `UPSTASH_REDIS_REST_URL` + token finns används samma REST-klient även för **distribuerat in-flight-lås** vid `POST /api/audit` (duplicate-skydd mellan serverless-isolat). Saknas REST-credentials används processlokal `Map` som tidigare.
+
+Se även [`docs/architecture/postgres-vs-redis.md`](architecture/postgres-vs-redis.md) för när man ska använda vilket lager.
 
 ## E-post och korrespondens
 

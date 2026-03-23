@@ -31,6 +31,10 @@ import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
 } from "@/lib/gen/plan-review";
+import {
+  FOLLOWUP_FILE_CONTEXT_MAX_CHARS,
+  FOLLOWUP_FILE_CONTEXT_MAX_FILES,
+} from "@/lib/gen/defaults";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import {
@@ -223,9 +227,15 @@ export async function handleMessageStreamRequest(
         if (previousFiles.length > 0) {
           const fileCtx = buildFileContext({
             files: previousFiles,
-            maxChars: 140_000,
+            maxChars: FOLLOWUP_FILE_CONTEXT_MAX_CHARS,
             includeContents: true,
-            maxFilesWithContent: 8,
+            maxFilesWithContent: FOLLOWUP_FILE_CONTEXT_MAX_FILES,
+          });
+          debugLog("build", "Follow-up file context budget", {
+            maxChars: FOLLOWUP_FILE_CONTEXT_MAX_CHARS,
+            maxFilesWithContent: FOLLOWUP_FILE_CONTEXT_MAX_FILES,
+            projectFiles: previousFiles.length,
+            summaryChars: fileCtx.summary.length,
           });
 
           if (skipIntentClassification) {

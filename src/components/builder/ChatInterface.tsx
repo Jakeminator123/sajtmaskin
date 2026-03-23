@@ -896,14 +896,14 @@ export function ChatInterface({
                 className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
                 onClick={handleEnhancePrompt}
                 disabled={inputDisabled || isEnhancing || !input.trim()}
-                title="Gör prompten tydligare utan att ändra innebörd"
+                title="Förbättra prompten med vald assistmodell och deep brief när det är påslaget"
               >
                 {isEnhancing ? (
                   <Loader2 className="size-3 animate-spin" />
                 ) : (
                   <Wand2 className="size-3" />
                 )}
-                Skriv om
+                Förbättra
               </button>
             )}
             <button

@@ -21,6 +21,9 @@ const EVENT_HANDLERS_RE =
   /\b(onClick|onChange|onSubmit|onKeyDown|onKeyUp|onFocus|onBlur|onMouseEnter|onMouseLeave)\b/;
 const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
 const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
+const NAMED_IMPORT_BLOCK_RE = /import\s*\{([\s\S]*?)\}\s*from\s*(["'][^"']+["']);?/gm;
+const HAS_NESTED_IMPORT_LINE_RE = /^\s*import\s+.+$/m;
+const NESTED_IMPORT_LINE_RE = /^\s*import\s+.+$/gm;
 
 function insertImportAfterDirectives(code: string, importLine: string): string {
   const directiveRe = /^("use client"|'use client'|"use server"|'use server');?\s*$/gm;
@@ -121,6 +124,49 @@ function fixMetadataClientConflict(code: string, filePath: string): {
   return { code, fixed: false, fixes: [] };
 }
 
+function fixNestedImportStatements(code: string, filePath: string): {
+  code: string;
+  fixed: boolean;
+  fixes: RepairEntry[];
+} {
+  let didFix = false;
+  const nextCode = code.replace(
+    NAMED_IMPORT_BLOCK_RE,
+    (full, importBody: string, source: string) => {
+      if (!HAS_NESTED_IMPORT_LINE_RE.test(importBody)) {
+        return full;
+      }
+
+      const cleanedBody = importBody
+        .replace(NESTED_IMPORT_LINE_RE, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+
+      didFix = true;
+      if (!cleanedBody) {
+        return "";
+      }
+
+      return `import {\n${cleanedBody}\n} from ${source};`;
+    },
+  );
+
+  return {
+    code: nextCode,
+    fixed: didFix && nextCode !== code,
+    fixes:
+      didFix && nextCode !== code
+        ? [
+            {
+              fixer: "nested-import-block-fixer",
+              description: "Removed invalid nested import statements from named import block",
+              file: filePath,
+            },
+          ]
+        : [],
+  };
+}
+
 function fixLucideLinkImport(code: string, filePath: string): {
   code: string;
   fixed: boolean;
@@ -179,6 +225,12 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     }
 
     let content = file.content;
+
+    const nestedImportResult = fixNestedImportStatements(content, file.path);
+    if (nestedImportResult.fixed) {
+      content = nestedImportResult.code;
+      fixes.push(...nestedImportResult.fixes);
+    }
 
     const fontResult = fixFontImport(content, file.path);
     if (fontResult.fixed) {

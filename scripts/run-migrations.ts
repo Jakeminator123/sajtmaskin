@@ -1,20 +1,21 @@
-import { readdir, readFile } from "fs/promises";
+﻿import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { Pool } from "pg";
 import { config } from "dotenv";
+import { resolveMigrationsDbEnv } from "../src/lib/db/env";
 
 config({ path: ".env.local" });
 
 const MIGRATIONS_DIR = join(process.cwd(), "src/lib/db/migrations");
 
 function resolveConnectionString(): string {
-  const url =
-    process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    process.env.POSTGRES_URL_NON_POOLING ||
-    "";
-  if (!url) throw new Error("No POSTGRES_URL configured");
-  return url;
+  const resolved = resolveMigrationsDbEnv(process.env);
+  if (!resolved?.connectionString) {
+    throw new Error(
+      "No database URL configured. Set POSTGRES_URL_NON_POOLING (recommended for migrations) or POSTGRES_URL.",
+    );
+  }
+  return resolved.connectionString;
 }
 
 async function main() {

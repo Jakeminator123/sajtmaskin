@@ -81,6 +81,9 @@ Not runtime dependencies:
 | Current active plans | `docs/plans/active/` |
 | Plan status index | `docs/architecture/agent-roadmap-and-handoff.md` |
 | Engine architecture | `docs/architecture/engine-status.md` |
+| Postgres vs Redis (Supabase vs Upstash) | `docs/architecture/postgres-vs-redis.md` |
+| Follow-up prompts, components, preview limits | `docs/architecture/follow-up-prompts-components-and-preview.md` |
+| Example: preview OK but error log / quality gate | `docs/architecture/example-preview-preflight-failure-log.md` |
 | Builder model routing | `docs/architecture/builder-model-routing-and-trace.md` |
 | Builder entry flow | `docs/architecture/builder-entry-flow.md` |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |

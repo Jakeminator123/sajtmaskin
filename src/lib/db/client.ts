@@ -4,7 +4,7 @@ import * as schema from "./schema";
 import { resolveConfiguredDbEnv } from "./env";
 
 const MISSING_DB_MESSAGE =
-  "Missing database connection string. Set POSTGRES_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING).";
+  "Missing database connection string. Set POSTGRES_URL (or alternate pooled URL / POSTGRES_URL_NON_POOLING). See docs/ENV.md.";
 
 function isBuildPhase(): boolean {
   return (

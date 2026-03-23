@@ -44,6 +44,10 @@ export const serverSchema = z.object({
   POSTGRES_URL: z.string().optional(),
   POSTGRES_PRISMA_URL: z.string().optional(),
   POSTGRES_URL_NON_POOLING: z.string().optional(),
+  /** Vercel Supabase integration: direct host db.<ref>.supabase.co (used to derive migration URL) */
+  POSTGRES_HOST: z.string().optional(),
+  POSTGRES_PASSWORD: z.string().optional(),
+  POSTGRES_DATABASE: z.string().optional(),
 
   // Redis
   REDIS_URL: z.string().optional(),
@@ -140,6 +144,8 @@ export const serverSchema = z.object({
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
+  SAJTMASKIN_FOLLOWUP_FILE_CONTEXT_MAX_CHARS: z.string().optional(),
+  SAJTMASKIN_FOLLOWUP_FILE_CONTEXT_MAX_FILES: z.string().optional(),
   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS: z.string().optional(),
   SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),

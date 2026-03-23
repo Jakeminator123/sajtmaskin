@@ -14,6 +14,11 @@ export function stripNextImports(code: string): string {
   );
 
   result = result.replace(
+    /import\s+[A-Za-z_$][\w$]*\s+from\s+['"]next\/dynamic['"]\s*;?/g,
+    "",
+  );
+
+  result = result.replace(
     /import\s+\{[^}]*\}\s+from\s+['"]next\/navigation['"]\s*;?/g,
     "",
   );

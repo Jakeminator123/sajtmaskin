@@ -459,7 +459,7 @@ const KNOWN_PROVIDERS = [
   "supabase", "neon", "upstash", "redis", "stripe", "openai",
   "elevenlabs", "resend", "twilio", "sendgrid", "clerk", "auth0",
   "firebase", "mongodb", "planetscale", "turso", "drizzle",
-  "prisma", "convex", "appwrite", "sanity", "contentful",
+  "convex", "appwrite", "sanity", "contentful",
 ];
 
 function deriveProviderKey(signal: IntegrationSseSignal): string {
@@ -765,7 +765,6 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
 
   const steps = [`Prompt optimerad: ${strategyLabel}`, `Typ: ${meta.promptType}`, lengthLine];
   if (meta.reason) steps.push(`Orsak: ${meta.reason}`);
-  steps.push("Genererar innehåll och filer från prompten.");
   return steps;
 }
 

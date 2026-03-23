@@ -49,9 +49,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, profile });
     }
 
-    // Get by company name
+    // Get by company name (scoped to projects the caller owns)
     if (companyName) {
-      const profile = await getCompanyProfileByName(companyName);
+      const profile = await getCompanyProfileByName(companyName, scope);
       if (!profile) {
         return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
       }

@@ -1,6 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-18 (Plan 9 completed, Plan 10 delivered: telemetry, feedback, scaffold learning, collaboration, phase-aware model routing, eval suite. V0 fallback stream extracted. DB migrations applied.)
+> Senast uppdaterad: 2026-03-23 — se även [`postgres-vs-redis.md`](postgres-vs-redis.md), [`follow-up-prompts-components-and-preview.md`](follow-up-prompts-components-and-preview.md) och [`example-preview-preflight-failure-log.md`](example-preview-preflight-failure-log.md) (preview OK vs felpanel).
 
 ## Arkitektur
 

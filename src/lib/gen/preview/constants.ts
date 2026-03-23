@@ -19,6 +19,7 @@ export const PREVIEW_BUILTIN_SOURCES = new Set([
   "react",
   "next/image",
   "next/link",
+  "next/dynamic",
   "next/navigation",
   "lucide-react",
   "framer-motion",

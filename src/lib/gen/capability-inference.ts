@@ -48,7 +48,7 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsDatabase",
     patterns: [
-      /\b(database|db|postgres|postgresql|mysql|sqlite|supabase|prisma|drizzle|sql|schema|migration|env\b.*database|databas)\b/i,
+      /\b(database|db|postgres|postgresql|mysql|sqlite|supabase|drizzle|sql|schema|migration|env\b.*database|databas)\b/i,
     ],
   },
   {
@@ -137,7 +137,7 @@ export function capabilitiesToDocCategories(
   if (caps.needsMotion) hints.push("animation", "motion", "framer", "transition");
   if (caps.needs3D) hints.push("3d", "three", "webgl", "canvas", "react-three");
   if (caps.needsCharts) hints.push("chart", "recharts", "analytics", "graph");
-  if (caps.needsDatabase) hints.push("database", "postgres", "supabase", "sqlite", "prisma");
+    if (caps.needsDatabase) hints.push("database", "postgres", "supabase", "sqlite", "drizzle");
   if (caps.needsAuth) hints.push("auth", "login", "password", "session");
   if (caps.needsAppShell) hints.push("dashboard", "sidebar", "admin");
   if (caps.needsDataUI) hints.push("data-table", "tanstack", "sorting", "pagination");
@@ -174,7 +174,7 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
     lines.push("- **Forms requested**: Use react-hook-form + zod + shadcn Form components. Always define a zod schema.");
   }
   if (caps.needsDatabase) {
-    lines.push("- **Database or persistence requested**: Do not assume Prisma, SQLite, Supabase, or Postgres unless the user explicitly chose one. If the provider, auth coupling, or required env vars are unclear, ask a clarifying question before generating backend code. Keep preview-safe mock data in the UI until the backend choice is confirmed.");
+    lines.push("- **Database or persistence requested**: Do not assume SQLite, Supabase, Postgres, or Drizzle unless the user explicitly chose one. If the provider, auth coupling, or required env vars are unclear, ask a clarifying question before generating backend code. Keep preview-safe mock data in the UI until the backend choice is confirmed.");
   }
   if (caps.needsAuth) {
     lines.push("- **Auth pages requested**: Include login, register, and password reset flows. Use shadcn form components + zod validation.");

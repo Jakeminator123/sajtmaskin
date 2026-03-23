@@ -36,6 +36,10 @@ function readStringEnv(name: string, fallback: string): string {
 //   AI_CHAT_MAX_TOKENS=81920           (per-route tak för POST /api/ai/chat)
 //   Effektiv brief-gräns: min(SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS, AI_BRIEF_MAX_TOKENS)
 //
+//   # ── Follow-up (redan genererad sajt) ───────────────────────────
+//   SAJTMASKIN_FOLLOWUP_FILE_CONTEXT_MAX_CHARS=140000   (5k–200k, default 140k)
+//   SAJTMASKIN_FOLLOWUP_FILE_CONTEXT_MAX_FILES=8        (1–24, default 8)
+//
 // ============================================================================
 
 /** Generation models — used directly against OpenAI API */
@@ -161,6 +165,25 @@ export const CHAT_MAX_OUTPUT_TOKEN_CEILING = readIntEnv(
   81_920,
   4_096,
   262_144,
+);
+
+/**
+ * Follow-up generations attach the previous version's files so the model can edit
+ * precisely. This inflates prompt size (often 50k–140k+ chars) even for tiny user asks.
+ * Lower these to reduce input tokens on small refinements (at the risk of missing context).
+ */
+export const FOLLOWUP_FILE_CONTEXT_MAX_CHARS = readIntEnv(
+  "SAJTMASKIN_FOLLOWUP_FILE_CONTEXT_MAX_CHARS",
+  140_000,
+  5_000,
+  200_000,
+);
+
+export const FOLLOWUP_FILE_CONTEXT_MAX_FILES = readIntEnv(
+  "SAJTMASKIN_FOLLOWUP_FILE_CONTEXT_MAX_FILES",
+  8,
+  1,
+  24,
 );
 
 // ============================================================================

@@ -126,11 +126,18 @@ async function runSandboxChecks(
       const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", cmd] });
       const stdout = typeof result.stdout === "string" ? result.stdout : "";
       const stderr = typeof result.stderr === "string" ? result.stderr : "";
-      const output = (stdout + "\n" + stderr).trim().slice(0, 8000);
+      const combined = (stdout + "\n" + stderr).trim();
+      const exitCode = result.exitCode ?? 1;
+      const output = (
+        combined ||
+        (result.exitCode === 0
+          ? ""
+          : `No stdout/stderr captured from sandbox (exit ${exitCode}). Run the same check locally or inspect Vercel Sandbox logs.`)
+      ).slice(0, 8000);
       results.push({
         check,
         passed: result.exitCode === 0,
-        exitCode: result.exitCode ?? 1,
+        exitCode,
         output,
       });
     }

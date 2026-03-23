@@ -8,14 +8,10 @@ import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/palette";
 import { briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
-import {
-  DEFAULT_PROMPT_POLISH_MODEL,
-  SPEC_FILE_INSTRUCTION,
-} from "@/lib/builder/defaults";
+import { SPEC_FILE_INSTRUCTION } from "@/lib/builder/defaults";
 import {
   formatPrompt,
   isGatewayAssistModel,
-  resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import { saveProjectData } from "@/lib/project-client";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
@@ -129,18 +125,14 @@ export function useBuilderPromptActions({
 
   const handlePromptEnhance = useCallback(
     async (message: string) => {
-      const polishModelOverride =
-        resolvePromptAssistProvider(promptAssistModel) === "anthropic"
-          ? promptAssistModel
-          : DEFAULT_PROMPT_POLISH_MODEL;
       const enhanced = await maybeEnhanceInitialPrompt(message, {
-        forceShallow: true,
-        mode: "polish",
-        modelOverride: polishModelOverride,
+        forceShallow: !promptAssistDeep,
+        mode: "rewrite",
+        modelOverride: promptAssistModel,
       });
       return formatPrompt(enhanced);
     },
-    [maybeEnhanceInitialPrompt, promptAssistModel],
+    [maybeEnhanceInitialPrompt, promptAssistDeep, promptAssistModel],
   );
 
   const captureInstructionSnapshot = useCallback(() => {

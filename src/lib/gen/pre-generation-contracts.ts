@@ -47,14 +47,6 @@ const PROVIDER_RULES: ProviderRule[] = [
   },
   {
     kind: "database",
-    provider: "Prisma",
-    name: "Prisma",
-    envVars: ["DATABASE_URL"],
-    patterns: [/\bprisma\b/i],
-    reason: "Prompten nämner Prisma uttryckligen.",
-  },
-  {
-    kind: "database",
     provider: "Drizzle",
     name: "Drizzle",
     envVars: ["DATABASE_URL"],

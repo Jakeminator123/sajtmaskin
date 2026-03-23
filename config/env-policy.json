@@ -93,6 +93,9 @@
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
     "OPENCLAW_GATEWAY_TOKEN",
     "OPENCLAW_GATEWAY_URL",
+    "POSTGRES_DATABASE",
+    "POSTGRES_HOST",
+    "POSTGRES_PASSWORD",
     "PEXELS_API_KEY",
     "REDIS_URL",
     "REGISTRY_AUTH_TOKEN",
@@ -102,6 +105,8 @@
     "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
+    "SAJTMASKIN_FOLLOWUP_FILE_CONTEXT_MAX_CHARS",
+    "SAJTMASKIN_FOLLOWUP_FILE_CONTEXT_MAX_FILES",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
     "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
     "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
@@ -178,13 +183,31 @@
       "key": "POSTGRES_PRISMA_URL",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Alternate pooled database URL."
+      "notes": "Legacy Vercel name for an alternate pooled Postgres URL — not Prisma ORM. App uses Drizzle."
     },
     {
       "key": "POSTGRES_URL_NON_POOLING",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Direct non-pooled database URL."
+    },
+    {
+      "key": "POSTGRES_HOST",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Often set by Vercel Supabase integration (db.<ref>.supabase.co). Used with POSTGRES_PASSWORD to build direct migration URL when POSTGRES_URL_NON_POOLING is unset."
+    },
+    {
+      "key": "POSTGRES_PASSWORD",
+      "classification": "shared_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Database password; with POSTGRES_HOST enables derived direct URL for migrations."
+    },
+    {
+      "key": "POSTGRES_DATABASE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Database name (default postgres) when deriving migration URL from split Supabase env."
     },
     {
       "key": "JWT_SECRET",

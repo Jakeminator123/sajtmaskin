@@ -7,6 +7,8 @@
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/data/redis";
 import { FEATURES, REDIS_CONFIG } from "@/lib/config";
+import { dbConfigured, pool } from "@/lib/db/client";
+import { resolveConfiguredDbEnv } from "@/lib/db/env";
 
 export async function GET() {
   const v0Reason = FEATURES.useV0Api
@@ -67,6 +69,38 @@ export async function GET() {
     checks.redis = {
       status: "disabled",
       reason: "REDIS_URL/KV_URL not configured",
+    };
+  }
+
+  // PostgreSQL (runtime pool — same URL as app, e.g. Supabase transaction pooler)
+  if (dbConfigured && pool) {
+    try {
+      const res = await pool.query("SELECT 1 AS ok");
+      const row = res.rows[0] as { ok?: number | string } | undefined;
+      const ok = row != null && (Number(row.ok) === 1 || row.ok === 1);
+      const cfg = resolveConfiguredDbEnv(process.env);
+      const source = cfg?.name ?? "unknown";
+      const raw = cfg ? (process.env[cfg.name] ?? "").toLowerCase() : "";
+      const poolerHint =
+        raw.includes("pooler.supabase") || raw.includes(":6543")
+          ? "likely_supabase_transaction_pooler"
+          : null;
+      checks.db = {
+        status: ok ? "ok" : "unexpected_result",
+        source,
+        poolerHint,
+      };
+    } catch (error) {
+      checks.db = {
+        status: "error",
+        source: resolveConfiguredDbEnv(process.env)?.name ?? "unknown",
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  } else {
+    checks.db = {
+      status: "not_configured",
+      reason: "POSTGRES_URL (or fallback) missing",
     };
   }
 

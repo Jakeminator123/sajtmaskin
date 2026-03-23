@@ -14,7 +14,8 @@ import { prepareCredits } from "@/lib/credits/server";
 import { getCreditCost, type CreditAction } from "@/lib/credits/pricing";
 import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import { buildAuditPrompt, extractFirstJsonObject, parseJsonWithRepair } from "@/lib/audit-prompts";
-import { FEATURES, SECRETS } from "@/lib/config";
+import { FEATURES, REDIS_KEY_PREFIX, SECRETS } from "@/lib/config";
+import { getUpstashRestRedis } from "@/lib/upstash-rest";
 import { withRateLimit } from "@/lib/rateLimit";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
 
@@ -36,6 +37,8 @@ const inFlightAudits = new Map<string, InFlightAudit>();
 
 // Cleanup stale entries after 10 minutes (safety net)
 const IN_FLIGHT_MAX_AGE_MS = 10 * 60 * 1000;
+/** Redis TTL for distributed in-flight lock (seconds) */
+const IN_FLIGHT_REDIS_TTL_SEC = Math.ceil(IN_FLIGHT_MAX_AGE_MS / 1000);
 
 function cleanupStaleInFlightAudits() {
   const now = Date.now();
@@ -1098,6 +1101,7 @@ export async function POST(request: NextRequest) {
 
     // Track in-flight key for cleanup (set after user auth succeeds)
     let inFlightKey: string | null = null;
+    let releaseAuditLock: (() => Promise<void>) | null = null;
 
     try {
     // Parse request body
@@ -1153,36 +1157,75 @@ export async function POST(request: NextRequest) {
       `[${requestId}] User ${user.id} has ${user.diamonds} diamonds (test: ${creditCheck.isTest})`,
     );
 
-    // Check for duplicate in-flight audit (same user + URL)
+    // Check for duplicate in-flight audit (same user + URL) — Upstash when configured, else in-memory Map
     inFlightKey = `${user.id}:${canonicalKey}`;
-    const existingAudit = inFlightAudits.get(inFlightKey);
-    if (existingAudit) {
-      const ageMs = Date.now() - existingAudit.startTime;
-      console.info(
-        `[${requestId}] Duplicate audit request detected (in-flight for ${Math.round(
-          ageMs / 1000,
-        )}s)`,
-      );
-      // Return 409 Conflict to indicate a duplicate request
-      return NextResponse.json(
-        {
-          success: false,
-          error: `En audit för denna URL pågår redan. Vänta tills den är klar (startat för ${Math.round(
+    const upstash = getUpstashRestRedis();
+    if (upstash) {
+      const redisLockKey = `${REDIS_KEY_PREFIX}audit:inflight:${inFlightKey}`;
+      const payload = JSON.stringify({ startTime: Date.now(), userId: user.id });
+      const setResult = await upstash.set(redisLockKey, payload, {
+        nx: true,
+        ex: IN_FLIGHT_REDIS_TTL_SEC,
+      });
+      if (setResult !== "OK") {
+        let ageMs = 0;
+        try {
+          const existing = await upstash.get<string>(redisLockKey);
+          if (existing) {
+            const parsed = JSON.parse(existing) as { startTime?: number };
+            if (typeof parsed.startTime === "number") {
+              ageMs = Date.now() - parsed.startTime;
+            }
+          }
+        } catch {
+          /* ignore parse errors */
+        }
+        console.info(
+          `[${requestId}] Duplicate audit (Redis lock) in-flight ~${Math.round(ageMs / 1000)}s`,
+        );
+        return NextResponse.json(
+          {
+            success: false,
+            error: `En audit för denna URL pågår redan. Vänta tills den är klar (startat för ${Math.round(
+              ageMs / 1000,
+            )} sekunder sedan).`,
+            duplicate: true,
+          },
+          { status: 409 },
+        );
+      }
+      releaseAuditLock = async () => {
+        await upstash.del(redisLockKey);
+      };
+    } else {
+      const existingAudit = inFlightAudits.get(inFlightKey);
+      if (existingAudit) {
+        const ageMs = Date.now() - existingAudit.startTime;
+        console.info(
+          `[${requestId}] Duplicate audit request detected (in-flight for ${Math.round(
             ageMs / 1000,
-          )} sekunder sedan).`,
-          duplicate: true,
-        },
-        { status: 409 },
-      );
+          )}s)`,
+        );
+        return NextResponse.json(
+          {
+            success: false,
+            error: `En audit för denna URL pågår redan. Vänta tills den är klar (startat för ${Math.round(
+              ageMs / 1000,
+            )} sekunder sedan).`,
+            duplicate: true,
+          },
+          { status: 409 },
+        );
+      }
+      inFlightAudits.set(inFlightKey, {
+        startTime: Date.now(),
+        userId: user.id,
+        promise: Promise.resolve({} as AuditResult),
+      });
+      releaseAuditLock = async () => {
+        if (inFlightKey) inFlightAudits.delete(inFlightKey);
+      };
     }
-
-    // Mark this audit as in-flight (will be cleaned up in finally block)
-    // We use a placeholder promise here - actual result tracking would require refactoring
-    inFlightAudits.set(inFlightKey, {
-      startTime: Date.now(),
-      userId: user.id,
-      promise: Promise.resolve({} as AuditResult), // Placeholder
-    });
 
     // Scrape website content
     console.info(`[${requestId}] Scraping website...`);
@@ -1603,14 +1646,24 @@ export async function POST(request: NextRequest) {
       }
     } catch (txError) {
       console.error(`[${requestId}] Failed to deduct diamonds:`, txError);
-      // Still return result even if transaction fails
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Kunde inte registrera krediter för denna audit. Ingen debitering har gjorts — försök igen.",
+        },
+        {
+          status: 503,
+          headers: {
+            "X-Request-ID": requestId,
+            "X-Response-Time": `${Date.now() - requestStartTime}ms`,
+          },
+        },
+      );
     }
 
     const totalDuration = Date.now() - requestStartTime;
     console.info(`[${requestId}] Audit completed in ${totalDuration}ms`);
-
-    // Clean up in-flight tracking
-    inFlightAudits.delete(inFlightKey);
 
     return NextResponse.json(
       {
@@ -1626,11 +1679,6 @@ export async function POST(request: NextRequest) {
       },
     );
     } catch (error: unknown) {
-    // Clean up in-flight tracking on error
-    if (inFlightKey) {
-      inFlightAudits.delete(inFlightKey);
-    }
-
     const totalDuration = Date.now() - requestStartTime;
     const err = error as { message?: string; status?: number; code?: string };
 
@@ -1679,6 +1727,10 @@ export async function POST(request: NextRequest) {
         },
       },
     );
+    } finally {
+      if (releaseAuditLock) {
+        await releaseAuditLock().catch(() => undefined);
+      }
     }
   });
 }
