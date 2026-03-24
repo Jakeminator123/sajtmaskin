@@ -1,9 +1,19 @@
 # Structure And Terminology Overview
 
+## Pairing with `.cursor/rules/terminology.mdc`
+
+| This document | `terminology.mdc` |
+|---------------|-------------------|
+| **Filesystem layout**, renames, research pipeline, gallery vs scaffold vs dossier vs generated JSON | **Product layers**, builder entry modes (`freeform` / Fritext), **model lanes** vs **scaffold / v0-templates / Vercel-mall research**, Swedish UI vs code identifiers |
+
+Do **not** copy the full builder glossary here — link to the Cursor rule instead.
+
+---
+
 This document is the canonical human-readable overview for how Sajtmaskin
 organizes:
 
-- product gallery templates
+- v0-templates (product browse)
 - runtime scaffolds
 - external reference research
 - generated research artifacts
@@ -11,7 +21,7 @@ organizes:
 ## What to keep
 
 - `src/lib/templates/`
-  Product-facing template gallery data used by the UI and v0 template-start flow.
+  **v0-templates** — product-facing browse/search data used by the UI and v0 template-start flow (landing **Template** tab, `buildMethod=category`).
 - `src/lib/gen/scaffolds/`
   The only runtime scaffold registry used directly by prompt-based generation.
 - `src/lib/gen/template-library/`
@@ -44,8 +54,8 @@ Related but separate:
 
 ## Canonical terminology
 
-- `gallery template`
-  A product/UI template entry from `src/lib/templates/`.
+- `v0-template` / `gallery template`
+  A product/UI entry from `src/lib/templates/` (v0-templates browse surface).
 - `runtime scaffold`
   An internal starter project from `src/lib/gen/scaffolds/`.
 - `external reference template`

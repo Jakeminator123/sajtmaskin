@@ -1,4 +1,4 @@
-﻿# Plan 1: Design System via Registry
+# Plan 1: Design System via Registry
 
 **Status: COMPLETED (2026-03-03)**
 

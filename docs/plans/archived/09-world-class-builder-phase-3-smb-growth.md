@@ -10,7 +10,7 @@ iteration over versions.
 
 ## Why this phase matters
 
-`docs/analyses/sajtmaskin-matris.md` makes the product position clear:
+`docs/old/analyses/sajtmaskin-matris.md` makes the product position clear:
 
 - Next.js-based sites win on performance, SEO, integration depth, and future
   extensibility
@@ -50,7 +50,7 @@ real implementation in this phase:
   reliably, including smoke/save-flow QA around `PreviewPanel` and `MessageList`
 
 For a fuller implementation trace and honest remaining gaps, see
-`docs/analyses/phase-09-smb-growth-implementation-status.md`.
+`docs/old/analyses/phase-09-smb-growth-implementation-status.md`.
 
 ## Workstreams
 

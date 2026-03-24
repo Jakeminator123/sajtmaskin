@@ -1,5 +1,9 @@
 # Integrations And Data Schema Surfaces
 
+**Terminology:** Integration *types* in the builder UI are described in product
+docs and `.cursor/rules/terminology.mdc` where they overlap naming; this file
+focuses on **DB tables**, **validation**, and **template-library** shapes.
+
 ## Scope
 
 This document collects the most important non-scaffold schema surfaces: request

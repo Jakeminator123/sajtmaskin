@@ -1,4 +1,4 @@
-﻿# Plan 5: Template Search UI med Embeddings
+# Plan 5: Template Search UI med Embeddings
 
 **Status: COMPLETED (2026-03-03)**
 

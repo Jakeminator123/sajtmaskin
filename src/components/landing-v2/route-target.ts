@@ -8,12 +8,12 @@ export type LandingRouteTarget = {
 
 export function resolveLandingRouteTarget(categoryId: string | null): LandingRouteTarget {
   switch (categoryId) {
+    case "template":
     case "mall":
+    case "kategori":
       return { buildMethod: "category", buildIntent: "template" };
     case "analyserad":
       return { buildMethod: "wizard", buildIntent: "website" };
-    case "kategori":
-      return { buildMethod: "category", buildIntent: "template" };
     case "audit":
       return { buildMethod: "audit", buildIntent: "website", source: "audit" };
     case "fritext":

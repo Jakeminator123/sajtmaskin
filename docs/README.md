@@ -2,21 +2,25 @@
 
 `docs/` is the main home for human-readable documentation.
 
-## Main areas
+## Terminology (two layers — do not duplicate)
 
-- **`docs/architecture/`** — Canonical system overviews, engine status,
-  generation pipeline, builder prompt layer, builder entry flow, agent handoff,
-  known issues, quickstarts, webhook docs, prompt tree, and v0 deprecation
-  plan.
-- **`docs/schemas/`** — Human docs for schemas, model/build profiles, builder
-  entry contracts, scaffold contracts, and UI parts.
-- **`docs/plans/`** — Planning material split by lifecycle:
-  `active/`, `review-needed/`, `archived/`.
-  Currently one active plan: `17-repo-separation-and-independence.md`.
-- **`docs/analyses/`** — Active investigations and reference analyses.
-  Completed analyses are moved to `docs/old/analyses/`.
-- **`docs/old/`** — Historical, superseded, or completed material kept for
-  traceability. Cursorignored to reduce indexing noise.
+| Audience / topic | Canonical location | What it covers |
+|------------------|-------------------|----------------|
+| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | Sajtmaskin vs Vercel vs v0, builder modes (`freeform` vs “Fritext”), **model lanes** vs **scaffold / v0-templates / Vercel-mall research**, naming in code. **Hur du öppnar filen i Cursor:** se `.cursor/README.md`. |
+| **Repo layout & research pipeline** | `docs/architecture/structure-and-terminology.md` | Paths (`src/lib/templates/` vs scaffolds vs dossiers), renames, generated artifacts, mermaid data flow. |
+
+**Rule:** Add new **UI/product** terms to `terminology.mdc`. Add new **folder / artifact** terms to `structure-and-terminology.md`. Link between them; avoid pasting the full glossary into random plans.
+
+## Quick path (when `docs/` feels heavy)
+
+1. This file → **Key navigation** table below.
+2. `docs/architecture/engine-status.md` — current engine picture.
+3. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
+4. `docs/ENV.md` — env topology when debugging deploy/local.
+
+Everything else is deep reference, history, or plans.
+
+**Folder map:** `architecture/` (system docs) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `old/` (history; analyses under `old/analyses/`). Routing policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
 
 ## Source of truth policy
 
@@ -28,8 +32,9 @@ Important code sources of truth include:
 - `src/lib/templates/template-data.ts`
 - `src/lib/db/schema.ts`
 - `src/lib/validations/chatSchemas.ts`
-- `src/lib/v0/models.ts`
-- `src/lib/v0/modelSelection.ts`
+- `src/lib/models/catalog.ts` — build profiles and model IDs (own engine)
+- `src/lib/models/selection.ts` — model resolution for requests
+- `src/lib/v0/*` — legacy v0 helpers (SDK usage, errors, env); not the primary model catalog
 - `src/lib/gen/scaffolds/types.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/template-library/types.ts`
@@ -78,13 +83,17 @@ Not runtime dependencies:
 
 | What you need | Where to look |
 |---|---|
-| Current active plans | `docs/plans/active/` |
-| Plan status index | `docs/architecture/agent-roadmap-and-handoff.md` |
+| Plans (all buckets) | `docs/plans/README.md` |
+| Doc lifecycle / where to put drafts | `docs/architecture/documentation-lifecycle.md` |
+| Plan / agent handoff index | `docs/architecture/agent-roadmap-and-handoff.md` |
+| Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
+| Terminology (folders + research flow) | `docs/architecture/structure-and-terminology.md` |
 | Engine architecture | `docs/architecture/engine-status.md` |
 | Builder model routing | `docs/architecture/builder-model-routing-and-trace.md` |
 | Builder entry flow | `docs/architecture/builder-entry-flow.md` |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |
 | Env setup | `docs/ENV.md` |
+| Scripts inventory + scaffolds overview | `docs/architecture/scripts-scaffolds-inventory.md` |
 | Orchestrator protocol | `docs/architecture/orchestrator-run-protocol.md` |
 | Orchestrator runs | `.cursor/orchestrator/run/` (local, cursorignored) |

@@ -1,6 +1,9 @@
 # Plan 17: Repo Separation and Independence
 
-**Status:** Active — planning and prioritization phase.
+**Status:** Active — **core workstreams WS-1–WS-4 delivered** (2026-03-18/19).
+Remaining: WS-5 (large-file / research hygiene), WS-6 (optional services), and
+deferred cleanup (strip lingering `AI_GATEWAY_*` / OIDC gate messaging, sync
+`ENV.md` + `config/env-policy.json`).
 
 ## Goal
 

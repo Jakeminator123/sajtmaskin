@@ -13,6 +13,8 @@ export interface KBSearchOptions {
   maxResults?: number;
   maxChars?: number;
   categories?: Array<DocSnippet["category"]>;
+  /** When false, skip semantic embedding fallback (keyword hits only). Default true. */
+  allowSemantic?: boolean;
 }
 
 const STOPWORDS = new Set([
@@ -95,12 +97,16 @@ export function searchKnowledgeBase(options: KBSearchOptions): KBMatch[] {
  * Use this when you can afford the async overhead (e.g. in orchestrate.ts).
  */
 export async function searchKnowledgeBaseAsync(options: KBSearchOptions): Promise<KBMatch[]> {
-  const { query, maxResults = 5, maxChars = 3000, categories } = options;
+  const { query, maxResults = 5, maxChars = 3000, categories, allowSemantic = true } = options;
 
   const kwResults = keywordSearch(query, maxResults, maxChars, categories);
   const bestScore = kwResults[0]?.score ?? 0;
 
   if (bestScore >= KEYWORD_MIN_QUALITY_SCORE) {
+    return kwResults;
+  }
+
+  if (!allowSemantic) {
     return kwResults;
   }
 

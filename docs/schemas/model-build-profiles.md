@@ -1,5 +1,9 @@
 # Model And Build Profile Schema
 
+**Terminology:** “Model lane”, “product lane”, “polish lane”, and “Thinking” are
+defined in `.cursor/rules/terminology.mdc` (§ Builder model lanes). This file
+maps those concepts to **profile IDs**, **env keys**, and **code entry points**.
+
 ## Scope
 
 This document describes the builder's active model surfaces and how they differ.

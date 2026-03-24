@@ -1,4 +1,4 @@
-﻿# Plan 4: Deployment Status via SSE (ersätt polling)
+# Plan 4: Deployment Status via SSE (ersätt polling)
 
 **Status: COMPLETED (2026-03-03)**
 

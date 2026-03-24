@@ -103,7 +103,7 @@ Varfor den ar bra:
 
 - Visar brytpunkten dar aldre `stortest`/own-engine-dokument flyttades eller
   togs bort, vilket gor den idealisk som jamforelse mot `c0b7f67`.
-- Flyttar `stortest`-material till `docs/analyses/2026-03-smb-orchestration-notes/`
+- Flyttar `stortest`-material till `docs/old/analyses/2026-03-smb-orchestration-notes/`
   och tar bort de tva `OWN_ENGINE_*`-filerna fran roten.
 - Bra for recovery, eftersom den visar vad som bevarades, vad som arkiverades
   och vad som forsvann ur den dagliga arbetsytan.
@@ -111,7 +111,7 @@ Varfor den ar bra:
 Viktiga historiska flyttar:
 
 - `stora_natten/stortest_repo/stortest_gpt_utvardering.txt` ->
-  `docs/analyses/2026-03-smb-orchestration-notes/stortest-gpt-utvardering.txt`
+  `docs/old/analyses/2026-03-smb-orchestration-notes/stortest-gpt-utvardering.txt`
 - `OWN_ENGINE_FLOW_V2.md` -> borttagen
 - `OWN_ENGINE_PREVIEW_SUMMARY.txt` -> borttagen
 

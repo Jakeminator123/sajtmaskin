@@ -23,7 +23,7 @@ The landing page with 4 entry modes shown as tabs/cards:
 | Mode | Code name | Component | What it does |
 |------|-----------|-----------|-------------|
 | **Analyserad** (Wizard) | `wizard` | `PromptWizardModalV2` | 5-step guided questionnaire that builds a detailed prompt |
-| **Kategori** (Templates) | `category` | `TemplateGallery` | Browse template categories, pick a starting point |
+| **Template** (v0-templates) | `category` | `TemplateGallery` | Browse **v0-templates** from `src/lib/templates/`, pick a starting point. Landing tab id `template` (legacy query/deep links: `kategori`, `mall`). |
 | **Audit** | `audit` | `SiteAuditSection` + `AuditModal` | Analyze an existing website URL, show improvement suggestions |
 | **Fritext** (Freeform) | `freeform` | `PromptInput` | Type a free-text description directly |
 
@@ -46,18 +46,29 @@ Internal dashboard with tabs: Database, Environment, Analytics, Prompts.
 
 ## Key concepts
 
-### Two operational lanes
+### v0-templates, scaffolds, and Vercel mall (research)
 
-When discussing generation architecture, prefer this mental model:
+Do **not** use the old “operational lanes” triad. One mental model:
 
-| Lane | What belongs here | What it is not |
-|------|-------------------|----------------|
-| **Runtime lane** | `src/lib/gen/scaffolds/`, scaffold matching, scaffold serialization, preview/deploy generation flow | Not the template gallery, not raw external datasets |
-| **Research lane** | `research/external-templates/reference-library/`, raw discovery under `research/external-templates/raw-discovery/`, curated generated JSON in `src/lib/gen/template-library/` | Not the runtime scaffold registry |
+| Layer | Where | Role |
+|-------|--------|------|
+| **Runtime generation** | `src/lib/gen/scaffolds/`, matcher, stream, preview/deploy | **Scaffold-driven** — not driven by gallery rows at generation time. |
+| **v0-templates** | `src/lib/templates/`, `TemplateGallery` | Product browse/search; `buildMethod=category`; landing **Template** tab. |
+| **Vercel mall** (research) | `research/external-templates/`, dossiers, `src/lib/gen/template-library/`, scaffold research JSON | Curated reference + artifacts that **inform scaffolds** and ranking — not the landing Template label. |
 
-Important rule:
-- Treat the **template gallery** in `src/lib/templates/` as a product/UI discovery surface, not as a third generation lane.
-- Do NOT describe the system as if runtime generation alternates between "templates" and "scaffolds". Runtime generation should be described as scaffold-driven.
+| Term | Swedish / UI | Meaning |
+|------|--------------|---------|
+| **v0-templates** | **Template** / **Templates** (nav) | Gallery entries from `src/lib/templates/`; not the runtime codegen base. |
+| **Runtime scaffold** | `grundmall` | Internal starters in `src/lib/gen/scaffolds/`; own-engine generation base (auto / manual / off). |
+| **Vercel mall** | disambiguate when needed | Vercel ecosystem + **reference dossiers** + **generated research artifacts** — not the v0-templates tab. |
+| **Vercel Template** | `extern Vercel-template` | One public starter from vercel.com/templates. |
+| **Reference dossier** | `referensdossier` | Curated package under `.../dossiers/`; feeds build scripts, not runtime directly. |
+| **Generated research artifact** | — | Committed JSON/embeddings in `template-library/`, `scaffold-research.generated.json`; consumed for ranking / enrichment. |
+| **Raw discovery** | `rå upptäckt` | Noisy scrape under `raw-discovery/`; gitignored. |
+| **Multi-tenant** | `delad plattform` | One app serving many tenants. |
+| **Multi-project** | `separata kundprojekt` | One Vercel project per customer site. |
+
+Rules: **scaffold** vs **v0-template** — never call runtime scaffolds plain “templates”. **Mall** / **Vercel mall** → research and scaffolds, not the primary **Template** gallery UI. Dossiers are research input, not a second scaffold registry; only **generated artifacts** matter at runtime. Do not mix this block with **builder model lanes** (below).
 
 ### Builder model lanes (user-facing)
 
@@ -71,48 +82,10 @@ When discussing model selection inside the builder, use this lane vocabulary:
 | **Thinking flag** | `tankeflagga` | Extra reasoning behavior in generation metadata | `Thinking` toggle |
 
 Important rules:
-- Do NOT mix up `operational lanes` (runtime vs research) with `builder model lanes`.
+- Do NOT mix up **scaffold / Vercel-mall research** concerns with `builder model lanes`.
 - `Anthropic` can be selected in the **model lane** (build profile `anthropic`) and also in the **product lane** (`anthropic/*` assist model strings).
 - The `Anthropic-jamforelse` preset intentionally aligns both model lane and product lane to Anthropic for apples-to-apples comparison.
 - `Thinking` is not a lane and does not replace model or product lane selection.
-
-### Template vs scaffold vs Vercel template
-
-Three concepts that must not be mixed:
-
-| Term | Swedish label | Meaning | Scope |
-|------|---------------|---------|-------|
-| **Sajtmaskin template gallery item** | `hemsidemall` or `kategori-mall` | A user-facing gallery entry from `src/lib/templates/`. For browsing and inspiration. NOT used at generation runtime. | Product/UI concept |
-| **Runtime scaffold** | `grundmall` | One of ~10 internal starter projects in `src/lib/gen/scaffolds/`. The engine uses these as a base instead of generating from scratch. Auto-selected by embedding matching or manually chosen. | Runtime generation concept |
-| **Vercel Template** | `extern Vercel-template` | A public starter repo from vercel.com/templates. External reference only. | External ecosystem concept |
-
-Research and curation concepts (not used at runtime):
-
-| Term | Swedish label | Meaning |
-|------|---------------|---------|
-| **Reference dossier** | `referensdossier` | Curated per-template research package under `research/external-templates/reference-library/dossiers/`. Contains manifest, summary, selected files. Feeds into scaffold improvements via build scripts. |
-| **Generated research artifact** | `genererad research-artefakt` | Committed JSON/embeddings in `src/lib/gen/template-library/` and `scaffold-research.generated.json`. Derived from dossiers at build time, consumed at runtime for template reference ranking. |
-| **Raw discovery** | `rå upptäckt` | Noisy scrape output under `research/external-templates/raw-discovery/`. Gitignored. Not runtime data. |
-
-Architecture concepts:
-
-| Term | Swedish label | Meaning |
-|------|---------------|---------|
-| **Multi-tenant** | `delad plattform` | One codebase serving many tenants. Describes the sajtmaskin app itself. |
-| **Multi-project** | `separata kundprojekt` | One Vercel project per customer site. Describes deploy targets. |
-
-Preferred terminology:
-- Product UI copy: **`hemsidemall`** or **`kategori-mall`**
-- `src/lib/templates/`: **`template gallery`** or **`gallery item`**
-- `src/lib/gen/scaffolds/`: **`scaffold`** or **`runtime scaffold`**
-- Vercel's public library: **`Vercel template`** (always qualify)
-- `research/external-templates/reference-library/dossiers/`: **`reference dossier`**
-- `scaffold-research.generated.json` etc.: **`generated research artifact`**
-
-Key rules:
-- Do NOT call scaffolds just `templates` — that term is for the gallery.
-- Do NOT describe dossiers as a second scaffold registry — they are research input.
-- Do NOT imply dossiers are used at runtime — only their generated artifacts are.
 
 ### Common chat aliases
 
@@ -124,6 +97,18 @@ Treat common misspellings and spoken-style aliases as canonical platform names:
 | `Veenol`, `Venol` | `v0` |
 
 When answering, prefer canonical names (`Vercel`, `v0`) even if user writes an alias.
+
+### Embeddings vs semantics (English ↔ Swedish)
+
+These English words look similar but mean different things. Match Swedish copy to the right concept:
+
+| English (code, logs, filenames) | Meaning | Swedish in product/admin UI | Do not confuse with |
+|---------------------------------|---------|------------------------------|---------------------|
+| **semantics**, **semantic HTML** | Correct HTML elements and roles (structure, a11y) | **semantik**, **semantisk HTML**, **semantiska element** | ML “semantic” |
+| **semantic search** (docs, KB, templates) | Similarity search using vectors | **semantisk sökning**; when clarifying for admins: **sökning med vektorinbäddningar** | HTML semantics |
+| **embedding** / **embeddings** | Numeric vector from an embedding model (e.g. OpenAI `text-embedding-3-small`) | **inbäddning** / **inbäddningar** (optional: *embeddings* in parens for devs) | HTML semantics |
+
+Identifiers (`semantic-search.ts`, API paths) stay English; Swedish for UI copy only. **Tailwind semantic tokens** (`bg-primary`, …) = **tematokens** / design tokens — not HTML semantics and not ML embeddings.
 
 ### Orchestrator terms
 
@@ -164,15 +149,9 @@ Selection: `getDefaultCustomInstructions(scaffoldMode)`:
 
 The user can edit these in the builder header dialog. `isDefaultCustomInstructions()` detects manual edits.
 
-### Research pipeline terms
+### Research pipeline (order)
 
-Use this pipeline vocabulary consistently:
-
-1. `raw discovery` -> scrape output such as `research/external-templates/raw-discovery/`
-2. `raw template dataset` -> `_sidor`-style local datasets used for curation
-3. `reference dossier` -> curated per-template package under `research/external-templates/reference-library/dossiers/`
-4. `generated research artifacts` -> committed JSON/embeddings in `src/lib/gen/template-library/` and scaffold research JSON
-5. `runtime scaffold` -> internal starter used directly by generation
+`raw discovery` → (optional raw datasets) → **reference dossier** → **generated research artifacts** → consumed for search/ranking; **runtime scaffold** remains the codegen base. Paths: `docs/architecture/structure-and-terminology.md`.
 
 ### Build method (`BuildMethod`)
 
@@ -181,15 +160,16 @@ How the user entered the builder. One of:
 
 ### Engine path naming
 
-- Use `own-engine` as the canonical technical value in metadata, routes, and logs.
-- Use `egen motor` only as the Swedish display label in UI copy.
+- **`own-engine`** and **`egen motor`** are the **same** product concept: the default Sajtmaskin code-generation path (not v0 fallback).
+- Use **`own-engine`** as the canonical technical string in metadata, routes, and logs.
+- Use **`egen motor`** only as the Swedish display label in UI copy.
 
 ### Build intent (`BuildIntent`)
 
 What the user wants to build:
 - `website` - standard multi-page website (default)
 - `app` - interactive app with logic/flows
-- `template` - compact 1-2 page template
+- `template` - compact 1-2 page scope (UI label **Kompakt** — not “Mall”, to avoid clashing with **Vercel mall** / scaffold vocabulary)
 
 ### Internal theme vs Figma vs v0 design system
 
@@ -199,17 +179,9 @@ These concepts are also different and should NOT be mixed:
 |------|--------------------|---------|-------|
 | **Internal theme preset** | `designTheme` / `themeColors` | Sajtmaskin's own theme preset and derived semantic colors used to steer the own engine's output. | Internal builder + own engine |
 | **Figma reference** | attachment with `purpose: "figma-reference"` | A visual reference used to guide hierarchy, spacing, composition, and styling. Not a reusable component system by itself. | Prompt/reference concept |
-| **v0 Design System** | `designSystemId` / `v0DesignSystemId` | External registry-backed design system consumed by v0. Tokens/components/registry concept, separate from our own theme presets. | External v0 integration |
+| **v0 Design System** | `designSystemId` / `v0DesignSystemId` | External registry-backed design system for v0 — not the same as `designTheme` or a Figma file. Prefer `v0DesignSystemId` in code talk. | External v0 integration |
 
-Preferred terminology:
-- Say **`designTheme`** or **`theme preset`** for Sajtmaskin's internal theme choice
-- Say **`Figma reference`** for linked/imported Figma used as visual inspiration
-- Say **`v0 design system`** or **`external design system`** for registry-backed `designSystemId`
-
-Important rule:
-- Do NOT call `designTheme` a `design system` without qualifier
-- Do NOT describe a Figma file as if it were the same thing as a registry-backed `designSystemId`
-- When needed in code discussions, prefer `v0DesignSystemId` as the clearer name for the external concept
+Do not call **`designTheme`** a “design system” without qualifier; Figma ≠ registry-backed `designSystemId`.
 
 ### Project
 
@@ -264,3 +236,10 @@ The builder toolbar now centers on a unified picker flow:
 | Deployed URL | `url` (in deployment) | `"https://my-site.vercel.app"` |
 | Entry mode | `buildMethod` | `"wizard"` |
 | Build type | `buildIntent` | `"website"` |
+
+## See also (human docs in `docs/`)
+
+- **Folder layout, research pipeline, gallery vs scaffold paths:** `docs/architecture/structure-and-terminology.md`
+- **Schema contracts index:** `docs/schemas/README.md`
+- **Docs hub + navigation:** `docs/README.md`
+- **Plans lifecycle:** `docs/plans/README.md`

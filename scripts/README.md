@@ -1,5 +1,10 @@
 # Scripts
 
+## Översikt och inventering
+
+- **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.
+- **Vercel use-case-skrapning (Python):** scripts/hamta_sidor.py (kanonisk). Utökad variant i repo root: hamta_sidor_branch_emil.py — se inventeringsdokumentet innan du slår ihop dem.
+
 ## sync-scaffold-refs.mjs
 
 Hämtar externa GitHub-referenser till `_template_refs/` för scaffold- och hemsidemallsarbete.

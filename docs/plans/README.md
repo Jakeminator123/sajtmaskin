@@ -1,25 +1,21 @@
 # Plans
 
-This area uses explicit lifecycle buckets instead of treating every plan as
-equally current.
-
-## Buckets
-
-- `active/`
-  Execution-ready plans that should still steer implementation.
-- `review-needed/`
-  Older or partial plans that may still contain value, but need a reality check
-  before reuse.
-- `archived/`
-  Completed or superseded plans kept only for traceability.
+Lifecycle buckets: **`active/`** (steer now) · **`review-needed/`** (verify before reuse) · **`archived/`** (traceability only).  
+Workflow and routing rules: **`docs/architecture/documentation-lifecycle.md`**.  
+Subfolders (`active/`, `review-needed/`, `archived/`) keep a one-line `README.md` pointing back here.
 
 ## Current status map
 
-Verified `2026-03-18` (post plan-finalization-and-cleanup run).
+Last tightened `2026-03-24` (docs hub + terminology cross-links).
 
 `active`
 
-- `active/17-repo-separation-and-independence.md` — repo separation: v0 phase-out, Blob abstraction, AI Gateway replacement, dead code removal
+- `active/17-repo-separation-and-independence.md` — repo separation / independence:
+  **WS-1–WS-4 largely delivered** (v0 fallback removed from builder paths, Blob
+  `StorageProvider`, direct OpenAI/Anthropic for former gateway routes). **Still
+  open:** WS-5/WS-6, deferred env/docs cleanup (`AI_GATEWAY_*` references, `ENV.md`).
+  Treat this file as **roadmap + audit trail**, not day-to-day architecture (use
+  `docs/architecture/engine-status.md` for “how it works now”).
 
 `review-needed`
 
@@ -45,11 +41,12 @@ Verified `2026-03-18` (post plan-finalization-and-cleanup run).
 - `archived/16-provider-adapter-architecture.md` — **COMPLETED 2026-03-17**
 - `archived/2026-03-bug-recheck-sweep.md` — completed
 - `archived/2026-03-openclaw-rollout-roadmap.md` — completed
+- `archived/own-engine-ai-stack-audit-2026-03-18.md` — audit artifact (moved from review-needed)
 - `archived/world-class-commit-selection-report.md` — recovery artifact
 - `archived/world-class-branch-map-2026-03-13-to-now.md` — recovery artifact
 
 Plans 14-16 originated from the external deep-research audit
-(`docs/analyses/2026-03-deep-research-buggar-overlapp.md`).
+(`docs/old/analyses/2026-03-deep-research-buggar-overlapp.md`).
 
 These are planning artifacts, not runtime documentation. New plan files should
 be created in `docs/plans/active/`, not in this root folder.

@@ -9,7 +9,6 @@ import {
   X,
   Check,
   Video,
-  Layout,
   MessageCircleQuestion,
   ChevronDown,
   ArrowRight,
@@ -112,13 +111,6 @@ function useTerminalTypewriter() {
 
 const categories = [
   {
-    id: "mall",
-    label: "Mall",
-    icon: Layout,
-    description: "Webbplats / App",
-    placeholder: "Vilken typ av webbplats vill du skapa? Ber\u00e4tta om ditt f\u00f6retag...",
-  },
-  {
     id: "analyserad",
     label: "Analyserad",
     icon: MessageCircleQuestion,
@@ -126,11 +118,11 @@ const categories = [
     placeholder: "Ber\u00e4tta lite om ditt f\u00f6retag s\u00e5 st\u00e4ller v\u00e5r AI f\u00f6ljdfr\u00e5gor...",
   },
   {
-    id: "kategori",
-    label: "Kategori",
+    id: "template",
+    label: "Template",
     icon: Palette,
-    description: "V\u00e4lj typ av sida",
-    placeholder: "V\u00e4lj en kategori nedan eller beskriv din vision...",
+    description: "Bl\u00e4ddra v0-templates och v\u00e4lj startpunkt",
+    placeholder: "V\u00e4lj en template nedan eller beskriv din vision...",
   },
   {
     id: "audit",
@@ -296,8 +288,8 @@ const landingJourneySteps = [
     number: "02",
     scenePosition: 1,
     title: "Välj spår och fyll i input",
-    description: "Fritext, mall, analyserad eller audit. Du kan skriva, tala eller visa referenser för att styra riktningen.",
-    bullets: ["Fyra inmatningslägen", "Prompt, röst, video och mallar"],
+    description: "Fritext, Template, analyserad eller audit. Du kan skriva, tala eller visa referenser för att styra riktningen.",
+    bullets: ["Fyra inmatningslägen", "Prompt, röst, video och v0-templates"],
   },
   {
     number: "03",
@@ -1855,7 +1847,7 @@ export function ChatArea({
             style={{ animationDelay: "0.4s" }}
           >
             Beskriv ditt f&ouml;retag &mdash; f&aring; en professionell sajt som driver aff&auml;rer, inte bara ser bra ut.
-            Inga f&ouml;rkunskaper kr&auml;vs. Byggt f&ouml;r svenska f&ouml;retagare som beh&ouml;ver mer &auml;n en mall.
+            Inga f&ouml;rkunskaper kr&auml;vs. Byggt f&ouml;r svenska f&ouml;retagare som beh&ouml;ver mer &auml;n en statisk startsida.
           </p>
 
           {/* Category buttons */}
@@ -1984,7 +1976,7 @@ export function ChatArea({
                   <p className="text-xs text-muted-foreground">
                     {activeCategory
                       ? `L\u00e4ge: ${activeCategory.label}`
-                      : "V\u00e4lj en kategori ovan eller skriv fritt"}
+                      : "V\u00e4lj Template ovan eller skriv fritt"}
                   </p>
                   <div className="flex items-center gap-2">
                     {!isAuditMode && (
@@ -2622,7 +2614,7 @@ export function ChatArea({
                   <li><a href="#funktioner" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Funktioner</a></li>
                   <li><a href="#teknik" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Teknik</a></li>
                   <li><a href="#priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Priser</a></li>
-                  <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Mallar</a></li>
+                  <li><a href="/templates" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Templates</a></li>
                 </ul>
               </div>
               <div>

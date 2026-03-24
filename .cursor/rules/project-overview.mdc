@@ -30,8 +30,7 @@ User prompt -> Builder UI -> Own engine (default) -> Generated code -> Preview -
 - **v0 fallback** (soft-deprecated): När V0_FALLBACK_BUILDER=y skickas till v0 Platform API. Kräver V0_API_KEY.
 - **Runtime scaffolds**: `src/lib/gen/scaffolds/` — 10 starter projects used as generation base (auto-matched, manually picked, or off).
 - **Custom instructions**: `src/lib/builder/defaults.ts` — CORE (always) + EXTENDED (without scaffold). Editable in builder header.
-- **Template gallery**: `src/lib/templates/` — user-facing browsing/search surface. Not the runtime scaffold registry.
-- **Research lane**: `research/external-templates/` — curated dossiers that improve scaffolds via generated artifacts. Not used at runtime directly.
+- **v0-templates** vs **runtime scaffolds** vs **Vercel mall (research)**: see **`.cursor/rules/terminology.mdc`** (single source of truth for product wording).
 
 ### Key directories
 
@@ -41,7 +40,7 @@ User prompt -> Builder UI -> Own engine (default) -> Generated code -> Preview -
 | `src/app/admin/` | Admin dashboard |
 | `src/app/api/v0/` | Chat/stream routes (own engine eller v0 proxy) |
 | `src/lib/gen/` | Own engine — runtime scaffolds, system prompt, autofix, preview |
-| `src/lib/templates/` | Product template gallery and semantic search |
+| `src/lib/templates/` | v0-templates product data and semantic search |
 | `research/external-templates/` | Raw discovery plus curated external reference dossiers |
 | `src/app/api/auth/` | Authentication (email, Google, GitHub OAuth) |
 | `src/app/api/ai/` | AI Gateway routes (prompt assist, brief, spec) |

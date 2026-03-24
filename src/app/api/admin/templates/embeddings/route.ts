@@ -42,15 +42,15 @@ export async function POST(req: NextRequest) {
       dimensions: result.generated._meta.dimensions,
       elapsedMs: result.elapsedMs,
       message: result.persisted
-        ? `Embeddings regenererade och sparade (${result.storage}).`
-        : "Embeddings regenererade (dry run).",
+        ? `Inbäddningar byggdes om och sparades (${result.storage}).`
+        : "Inbäddningar byggdes om (provkörning, inget sparat).",
     });
   } catch (error) {
     console.error("[API/admin/templates/embeddings] Error:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to regenerate embeddings",
+        error: error instanceof Error ? error.message : "Kunde inte bygga om inbäddningar",
       },
       { status: 500 },
     );

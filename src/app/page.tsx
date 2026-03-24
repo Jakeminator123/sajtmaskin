@@ -171,7 +171,7 @@ function RootLandingContent() {
 
       setSelectedCategory(id);
 
-      if (id === "kategori" || id === "mall") {
+      if (id === "template" || id === "kategori" || id === "mall") {
         setExpandedSection("category");
       } else if (id === "audit") {
         setExpandedSection("audit");
@@ -325,7 +325,7 @@ function RootLandingContent() {
             <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
             <span className="text-xs font-medium text-primary tracking-widest uppercase flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              Välj kategori
+              Templates
             </span>
             <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
           </div>

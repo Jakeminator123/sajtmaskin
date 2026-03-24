@@ -1,5 +1,9 @@
 # Builder Prompt Layer
 
+**Full pipeline (UI → system prompt):** `docs/architecture/prompt-tree.md`.
+
+---
+
 This document describes the builder-specific prompt layer introduced to keep
 UI intent selection separate from technical prompt construction.
 

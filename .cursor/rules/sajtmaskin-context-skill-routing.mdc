@@ -12,9 +12,8 @@ Use `.cursor/skills/sajtmaskin-context/SKILL.md` as the first context layer for 
 Apply the skill when the task mentions or implies:
 
 - Builder flow, build methods, build intent, prompt modes
-- Template gallery vs scaffold vs Vercel template distinctions
+- v0-templates vs scaffold vs Vercel mall / template (product + research vocabulary)
 - Project/chat/version concepts, demoUrl, preview, deployment flow
-- Runtime lane vs research lane generation architecture
 - Platform behavior or docs for `v0`, `Vercel`, OpenAI APIs, or OpenClaw
 
 ## Coordination notes

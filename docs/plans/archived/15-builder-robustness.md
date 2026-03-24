@@ -10,7 +10,7 @@ These are not crashes, but they leave users in broken or confusing states.
 
 ## Source
 
-Items trace to `docs/analyses/2026-03-deep-research-buggar-overlapp.md`.
+Items trace to `docs/old/analyses/2026-03-deep-research-buggar-overlapp.md`.
 Verified 2026-03-17: both issues are still present or only partially fixed.
 
 ## Workstreams

@@ -2,6 +2,12 @@
 
 > Senast uppdaterad: 2026-03-18
 
+**Narrower scope:** `docs/architecture/builder-prompt-layer.md` covers only the
+`prompt-builder` / placement path for picker-driven inserts — not the whole tree
+below.
+
+---
+
 This document maps every prompt-related parameter, file, and transformation
 from user input in the builder UI to the final system prompt consumed by the
 generation engine. Use it to understand what controls what, where duplication

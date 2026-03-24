@@ -12,7 +12,7 @@ behavior.
 
 ## Source
 
-Structural recommendation from `docs/analyses/2026-03-deep-research-buggar-overlapp.md`.
+Structural recommendation from `docs/old/analyses/2026-03-deep-research-buggar-overlapp.md`.
 The audit identified that own-engine and v0-mirroring are interlaced in the
 same API routes with extensive branch code, and that model/tier logic sits in
 `src/lib/v0/models.ts` but is used by own-engine too.

@@ -310,7 +310,7 @@ export function AdminDatabaseTab({
                 ) : (
                   <RefreshCw className="h-4 w-4" />
                 )}
-                Synka mallar (GitHub)
+                Synka v0-templates (GitHub)
               </Button>
             ) : null}
             <Button
@@ -328,11 +328,11 @@ export function AdminDatabaseTab({
                     | { success?: boolean; error?: string; message?: string }
                     | null;
                   if (!res.ok || !data?.success) {
-                    throw new Error(data?.error || "Kunde inte regenerera embeddings");
+                    throw new Error(data?.error || "Kunde inte bygga om inbäddningar");
                   }
-                  showMessage(data.message || "Embeddings regenererade");
+                  showMessage(data.message || "Inbäddningar uppdaterade");
                 } catch (err) {
-                  showMessage(err instanceof Error ? err.message : "Kunde inte regenerera embeddings");
+                  showMessage(err instanceof Error ? err.message : "Kunde inte bygga om inbäddningar");
                 }
                 setActionLoading(null);
               }}
@@ -344,7 +344,7 @@ export function AdminDatabaseTab({
               ) : (
                 <Wand2 className="h-4 w-4" />
               )}
-              Regenerera embeddings (Vercel)
+              Bygg om inbäddningar (Vercel)
             </Button>
             <Button
               variant="outline"
@@ -423,8 +423,8 @@ export function AdminDatabaseTab({
         </div>
         <p className="text-sm text-gray-500">
           Spara templates lokalt för att undvika API-kostnader. Exportera → spara filen → importera
-          på andra enheter. Regenerera embeddings (Vercel) använder OPENAI_API_KEY och sparar
-          embeddings i vald lagring.
+          på andra enheter. Knappen för att bygga om inbäddningar använder OPENAI_API_KEY och skriver
+          vektorinbäddningar (embeddings) för v0-templates till vald lagring.
         </p>
       </div>
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const productLinks = [
   { label: "Skapa", href: "/" },
-  { label: "Mallar", href: "/templates" },
+  { label: "Templates", href: "/templates" },
   { label: "Priser", href: "/buy-credits" },
 ];
 

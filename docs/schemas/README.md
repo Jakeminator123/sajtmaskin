@@ -2,6 +2,10 @@
 
 This folder is the canonical human-readable schema area for Sajtmaskin.
 
+**Terminology:** Builder **model lanes** (Byggmodell / Förbättra / Skriv om / Thinking)
+and **template vs scaffold** naming live in `.cursor/rules/terminology.mdc`. This
+folder documents **contracts and field shapes** only — not the full product glossary.
+
 ## What lives here
 
 - `model-build-profiles.md`
@@ -19,22 +23,13 @@ This folder is the canonical human-readable schema area for Sajtmaskin.
   including persisted plan-review cards.
 
 Only stable, canonical schema docs belong in this folder. If a schema note is
-still exploratory, partially true, or comparing alternatives, place it in
-`docs/analyses/` while active or `docs/old/schemas/` when it becomes historical.
+still exploratory, partially true, or comparing alternatives, place it under
+`docs/old/analyses/` (or a new `docs/analyses/` if you reintroduce that bucket)
+or `docs/old/schemas/` when it becomes historical.
 
 ## Code sources of truth
 
-These docs summarize the system, but the runtime truth lives in:
-
-- `src/lib/models/catalog.ts`
-- `src/lib/models/selection.ts`
-- `src/lib/validations/chatSchemas.ts`
-- `src/lib/db/schema.ts`
-- `src/lib/gen/plan-schema.ts`
-- `src/lib/gen/scaffolds/types.ts`
-- `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
-- `src/lib/gen/template-library/types.ts`
-- `research/external-templates/reference-library/schema.template-manifest.json`
+Runtime truth: same core files as [`docs/README.md`](../README.md) § Source of truth (models, `chatSchemas`, `db/schema`, scaffolds, template-library). Schema-specific extras: `src/lib/gen/plan-schema.ts`, `research/external-templates/reference-library/schema.template-manifest.json`.
 
 ## Archive note
 

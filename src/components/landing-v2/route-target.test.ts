@@ -15,7 +15,15 @@ describe("resolveLandingRouteTarget", () => {
       buildIntent: "website",
       source: "audit",
     });
+    expect(resolveLandingRouteTarget("template")).toEqual({
+      buildMethod: "category",
+      buildIntent: "template",
+    });
     expect(resolveLandingRouteTarget("kategori")).toEqual({
+      buildMethod: "category",
+      buildIntent: "template",
+    });
+    expect(resolveLandingRouteTarget("mall")).toEqual({
       buildMethod: "category",
       buildIntent: "template",
     });

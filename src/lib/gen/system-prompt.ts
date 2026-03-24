@@ -23,7 +23,11 @@ import type { ScaffoldManifest } from "./scaffolds/types";
 import { searchKnowledgeBaseAsync } from "./context/knowledge-base";
 import { enrichWithRegistry } from "./context/registry-enricher";
 import { getTemplateLibraryEntryById } from "./template-library/catalog";
-import { searchTemplateLibrary, selectTemplateReferenceFiles } from "./template-library/search";
+import {
+  searchTemplateLibrary,
+  searchTemplateLibraryKeywordsOnly,
+  selectTemplateReferenceFiles,
+} from "./template-library/search";
 import type { TemplateLibraryEntry } from "./template-library/types";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -436,6 +440,11 @@ export interface DynamicContextOptions {
   designReferences?: DesignReferenceAsset[];
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
+  /**
+   * When false, skip semantic KB fallback and embedding-based template reference search.
+   * Default true. Used by offline CLI traces; production omits this.
+   */
+  embeddingEnrichment?: boolean;
 }
 
 function str(v: unknown): string {
@@ -492,8 +501,11 @@ function addTemplateReferenceCandidate(
 async function rankTemplateReferences(
   originalPrompt: string,
   resolvedScaffold: ScaffoldManifest | null | undefined,
+  useEmbeddingSearch = true,
 ): Promise<RankedTemplateReference[]> {
-  const promptMatches = await searchTemplateLibrary(originalPrompt, 6);
+  const promptMatches = useEmbeddingSearch
+    ? await searchTemplateLibrary(originalPrompt, 6)
+    : searchTemplateLibraryKeywordsOnly(originalPrompt, 6);
   const candidates = new Map<string, RankedTemplateReference>();
   const scaffoldLabel = resolvedScaffold?.label ?? "the selected scaffold";
 
@@ -556,6 +568,7 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     designThemePreset,
     designReferences,
     customInstructions,
+    embeddingEnrichment = true,
   } = options;
 
   const parts: string[] = [];
@@ -839,7 +852,12 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
 
   // ── Relevant Documentation (KB search + registry enrichment) ────────────
   if (originalPrompt) {
-    const kbMatches = await searchKnowledgeBaseAsync({ query: originalPrompt, maxResults: 7, maxChars: 4000 });
+    const kbMatches = await searchKnowledgeBaseAsync({
+      query: originalPrompt,
+      maxResults: 7,
+      maxChars: 4000,
+      allowSemantic: embeddingEnrichment,
+    });
     if (kbMatches.length > 0) {
       parts.push("## Relevant Documentation", "");
       for (const match of kbMatches) {
@@ -858,7 +876,11 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
   }
 
   if (originalPrompt) {
-    const templateMatches = await rankTemplateReferences(originalPrompt, resolvedScaffold);
+    const templateMatches = await rankTemplateReferences(
+      originalPrompt,
+      resolvedScaffold,
+      embeddingEnrichment,
+    );
     const usefulTemplateMatches = templateMatches.slice(0, 3);
     if (usefulTemplateMatches.length > 0) {
       parts.push("## Relevant Template References", "");
@@ -938,6 +960,7 @@ export interface BuildSystemPromptOptions {
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
   customInstructions?: string;
+  embeddingEnrichment?: boolean;
 }
 
 /**
@@ -963,6 +986,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     designThemePreset: options.designThemePreset,
     designReferences: options.designReferences,
     customInstructions: options.customInstructions,
+    embeddingEnrichment: options.embeddingEnrichment,
   });
 
   return `${STATIC_CORE}${SYSTEM_PROMPT_SEPARATOR}${dynamicContext}`;

@@ -11,8 +11,8 @@ export const BUILD_INTENT_OPTIONS: Array<{
 }> = [
   {
     value: "template",
-    label: "Mall",
-    description: "Snabb start, liten scope",
+    label: "Kompakt",
+    description: "Snabb start, liten scope (1–2 sidor)",
   },
   {
     value: "website",

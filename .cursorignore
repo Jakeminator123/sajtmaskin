@@ -1,10 +1,3 @@
-# =============================================================================
-# SAJTMASKIN .cursorignore
-# =============================================================================
-# Files here are NOT indexed by Cursor.
-# Agents can still read ignored files via explicit path when needed.
-# This reduces indexing noise and keeps Cursor fast.
-# =============================================================================
 
 # Build/cache
 node_modules
@@ -43,56 +36,58 @@ public/images/
 # ---------------------------------------------------------------------------
 
 # shadcn/ui primitives — generated, not hand-edited
-src/components/ui/
+#src/components/ui/
 
 # Static assets
-public/
+#public/
 
-# One-off scripts
-scripts/
+# One-off scripts — keep commented so scripts/ stays indexed (see
+# docs/architecture/scripts-scaffolds-inventory.md). If you uncomment scripts/,
+# add exceptions e.g. !scripts/README.md and !scripts/*.ts.
+#scripts/
 
 # Admin dashboard routes
-src/app/api/admin/
+#src/app/api/admin/
 
 # Payment routes (sensitive, rarely changed)
-src/app/api/stripe/
+#src/app/api/stripe/
 
 # Auth routes (stable, rarely changed)
-src/app/api/auth/
+#src/app/api/auth/
 
 # Landing page components (stable after design)
-src/components/landing-v2/
+#src/components/landing-v2/
 
 # ---------------------------------------------------------------------------
 # Research and generated artifacts
 # ---------------------------------------------------------------------------
 
 # Local research lanes and clone mirrors (345+ files)
-research/external-templates/raw-discovery/
-research/external-templates/repo-cache/
-research/external-templates/reference-library/
-_template_refs/
-_sidor/
-research/_sidor/
-vercel_usecase_next_react_templates/
+#research/external-templates/raw-discovery/
+#research/external-templates/repo-cache/
+#research/external-templates/reference-library/
+#_template_refs/
+#_sidor/
+#research/_sidor/
+#vercel_usecase_next_react_templates/
 
 # Generated reports and machine-generated artifacts (6+ MB)
-data/scaffold-candidates-curated.json
-src/lib/gen/data/docs-embeddings.json
-src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
+#data/scaffold-candidates-curated.json
+#src/lib/gen/data/docs-embeddings.json
+#src/lib/gen/scaffolds/scaffold-embeddings.json
+#src/lib/gen/scaffolds/scaffold-research.generated.json
+#src/lib/gen/template-library/template-library-embeddings.json
+#src/lib/gen/template-library/template-library.generated.json
 
 # Recovery package
-world-class-recovery/
+#world-class-recovery/
 
 # MCP scraped docs (prefer MCP search/fetch instead)
-services/mpc/docs/docgrab__*/
-services/mpc/docs/local/
-services/mpc/docs/*llms*
-services/mpc/docs/shad/
-services/mpc/logs/
+#services/mpc/docs/docgrab__*/
+#services/mpc/docs/local/
+#services/mpc/docs/*llms*
+#services/mpc/docs/shad/
+#services/mpc/logs/
 
 # ---------------------------------------------------------------------------
 # Session state and legacy

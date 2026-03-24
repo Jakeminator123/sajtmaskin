@@ -162,7 +162,7 @@ Sajtmaskin-installationen:
 
 - databas och cache: `POSTGRES_URL`, `REDIS_URL`, `KV_URL`, `UPSTASH_*`
 - auth och sessioner: `JWT_SECRET`
-- AI och buildermotor: `OPENAI_API_KEY`, `AI_GATEWAY_API_KEY`, `ANTHROPIC_API_KEY`, `V0_API_KEY`
+- AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (direktanrop efter Plan 17); `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` kan fortfarande krävas av **vissa** routes (t.ex. prompt-assist portvakt lokalt) — se `ARBETSANTECKNINGAR.txt` / kod; `V0_API_KEY` för kvarvarande v0-hantering och opt-in `V0_FALLBACK_BUILDER`
 - deploy och Vercel: `VERCEL_TOKEN`, valfritt `VERCEL_TEAM_ID`, `BLOB_READ_WRITE_TOKEN`
 - interna tjänster: `OPENCLAW_*`, `INSPECTOR_*`, `RESEND_API_KEY`
 

@@ -1,4 +1,4 @@
-﻿# Plan 2: Custom Domain Self-Service UI
+# Plan 2: Custom Domain Self-Service UI
 
 **Status: COMPLETED (2026-03-03)**
 

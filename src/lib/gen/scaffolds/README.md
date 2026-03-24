@@ -1,7 +1,6 @@
 # Runtime Scaffolds (partially cursorignored)
 
-The scaffold manifests and code are indexed, but the large generated/embedding
-files are cursorignored. Agents can read this README for context.
+Large generated JSON is cursorignored. Overview: [`../README.md`](../README.md) · Product terms: `.cursor/rules/terminology.mdc` (scaffold vs v0-templates).
 
 ## Cursorignored files
 

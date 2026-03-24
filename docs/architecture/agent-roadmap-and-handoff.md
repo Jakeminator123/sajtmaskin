@@ -4,8 +4,8 @@ This file is the operational handoff index for plan artifacts. Use it when a new
 agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
-Status re-verified against the current plan set on `2026-03-18`.
-Updated after orchestrator runs `2026-03-18-plan9-10-completion`,
+Status re-verified `2026-03-24` (docs tightening). Earlier verification
+`2026-03-18` after orchestrator runs `2026-03-18-plan9-10-completion`,
 `2026-03-18-wl11-migrations-qa`, and `2026-03-18-plan-finalization-and-cleanup`.
 
 ## Status legend
@@ -30,7 +30,7 @@ Updated after orchestrator runs `2026-03-18-plan9-10-completion`,
 | `08-world-class-builder-phase-2-site-planning.md` | `archived` | Completed planning-layer phase for the own-engine path; remaining future parity/orchestration work should be treated as new roadmap scope |
 | `09-world-class-builder-phase-3-smb-growth.md` | `archived` | **COMPLETED** -- Team editor, SEO guarantees, integration setup wizard, version diff/rollback UX |
 | `10-world-class-builder-phase-4-learning-moat.md` | `archived` | **LEVERERAT** -- All 6 workstreams delivered. DB tables live. Remaining: production validation only. |
-| `17-repo-separation-and-independence.md` | `active` | Repo separation: v0 phase-out, Blob abstraction, AI Gateway replacement, dead code removal |
+| `17-repo-separation-and-independence.md` | `active` | **WS-1–WS-4 delivered** (v0 fallback off main builder path, Blob `StorageProvider`, direct provider calls). Remaining: WS-5/6 + env/docs cleanup — see plan file. |
 | `11-next-vercel-build-plan-core-config.md` | `archived` | Completed phased optimization plan (core Next.js config) |
 | `12-next-vercel-build-plan-server-routes.md` | `archived` | Completed phased optimization plan (server/API improvements) |
 | `13-next-vercel-build-plan-ui-performance.md` | `archived` | Completed phased optimization plan (UI rendering improvements) |
@@ -54,7 +54,7 @@ Updated after orchestrator runs `2026-03-18-plan9-10-completion`,
   archived roadmap work. Planner `uiParts` now round-trip through engine chat
   storage, raw chat reload restores the review card, and the stale
   `usePlanExecution.ts` path has been removed. See
-  `docs/analyses/phase-08-plan-persistence-and-orchestration.md` for the
+  `docs/old/analyses/phase-08-plan-persistence-and-orchestration.md` for the
   closure trace.
 - Phase `9` is now **archived / complete**. All remaining items delivered in
   orchestrator run `2026-03-18-plan9-10-completion`: team Kodvy editor,

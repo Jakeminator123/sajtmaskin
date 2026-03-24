@@ -10,6 +10,6 @@ Use this bucket for:
 - raw command or test output
 - one-off investigation dumps that are worth preserving
 
-Prefer promoting durable conclusions into `docs/architecture/`, `docs/analyses/`,
+Prefer promoting durable conclusions into `docs/architecture/`, `docs/old/analyses/`,
 or `docs/plans/` instead of relying on these transcripts as source-of-truth
 material.

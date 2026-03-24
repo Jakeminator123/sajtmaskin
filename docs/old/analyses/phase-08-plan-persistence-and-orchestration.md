@@ -6,7 +6,7 @@
 This note captures the last meaningful Phase 8 uncertainty after the March 2026
 planning pass.
 
-It is intentionally placed in `docs/analyses/` rather than `docs/schemas/`
+It is intentionally placed in `docs/old/analyses/` rather than `docs/schemas/`
 because the runtime contract is not fully settled yet.
 
 ## Original gap

@@ -76,32 +76,6 @@ npm run scaffolds:embeddings
 npm run scaffolds:curate
 ```
 
-## Adding New Suspense Rules
+## Adding suspense stream rules
 
-1. Create a new rule file in `suspense/rules/`, e.g. `my-fix.ts`:
-
-```ts
-import type { SuspenseRule, StreamContext } from "../transform";
-
-export const myFix: SuspenseRule = {
-  name: "my-fix",
-  transform(line: string, context: StreamContext): string {
-    // Transform the line. Return unchanged if no match.
-    return line.replace(/pattern/g, "replacement");
-  },
-};
-```
-
-2. Export it from `suspense/index.ts`:
-
-```ts
-export { myFix } from "./rules/my-fix";
-```
-
-3. Add it to `DEFAULT_RULES` in `suspense/index.ts`:
-
-```ts
-const DEFAULT_RULES = [shadcnImportFix, lucideIconFix, urlAliasExpand, myFix];
-```
-
-Rules run in order. Each rule receives the output of the previous. Do not throw — return the original line on error to avoid corrupting the stream.
+Add `suspense/rules/<name>.ts` implementing `SuspenseRule` from `suspense/transform.ts`, export it from `suspense/index.ts`, and append to `DEFAULT_RULES` (order matters). Do not throw from `transform` — return the line unchanged on failure. Copy an existing rule as a template.

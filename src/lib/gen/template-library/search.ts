@@ -141,6 +141,14 @@ export function selectTemplateReferenceFiles(
   return selected;
 }
 
+/** Keyword-only search (no OpenAI embeddings). Used for offline CLI traces. */
+export function searchTemplateLibraryKeywordsOnly(
+  query: string,
+  topK: number = DEFAULT_TOP_K,
+): TemplateLibrarySearchResult[] {
+  return keywordSearch(query, topK);
+}
+
 export async function searchTemplateLibrary(
   query: string,
   topK: number = DEFAULT_TOP_K,

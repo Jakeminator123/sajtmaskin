@@ -23,7 +23,7 @@ environment during closeout.
 - Confirmed bugs were validated and fixed sequentially.
 - Adjacent confirmed issues discovered during implementation were folded into the
   relevant pass when they were directly connected.
-- Full execution trace lives in `docs/analyses/bug-recheck-sweep-ledger.md`.
+- Full execution trace lives in `docs/old/analyses/bug-recheck-sweep-ledger.md`.
 
 ## Completed sweep order
 

@@ -288,7 +288,7 @@ export function useBuilderPromptActions({
     (templateId: string) => {
       if (!templateId) return;
       if (isTemplateLoading || isPreparingPrompt) {
-        toast.error("Vänta tills nuvarande mall/process är klar innan du väljer en ny mall.");
+        toast.error("Vänta tills nuvarande process är klar innan du väljer en ny v0-template.");
         return;
       }
 
@@ -303,7 +303,7 @@ export function useBuilderPromptActions({
 
       if (chatId) {
         const shouldStartFresh = window.confirm(
-          "Du har redan en aktiv chat. Vill du starta en ny chat från vald mall?",
+          "Du har redan en aktiv chat. Vill du starta en ny chat från vald template?",
         );
         if (!shouldStartFresh) return;
       }

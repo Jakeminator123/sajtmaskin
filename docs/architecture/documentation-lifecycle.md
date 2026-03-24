@@ -1,5 +1,7 @@
 # Documentation Lifecycle
 
+**Navigation hub:** [`docs/README.md`](../README.md) (terminology layers, env table, key links).
+
 This document defines how planning docs, schema notes, and handoff material
 should be routed in this repository so they do not pile up as one flat archive.
 
@@ -37,9 +39,10 @@ Use these three states consistently:
 
 ## Current classification
 
-- `active`: `docs/plans/active/06-world-class-builder-roadmap.md`, `docs/plans/active/09-world-class-builder-phase-3-smb-growth.md`, and `docs/plans/active/10-world-class-builder-phase-4-learning-moat.md`
-- `review-needed`: no current numbered or dated plan sits in this bucket
-- `archived`: `docs/plans/archived/01-design-system-registry.md` through `docs/plans/archived/05-template-search-ui.md`, `docs/plans/archived/07-world-class-builder-phase-1-trust-launch.md`, `docs/plans/archived/08-world-class-builder-phase-2-site-planning.md`, `docs/plans/archived/11-next-vercel-build-plan-core-config.md` through `docs/plans/archived/13-next-vercel-build-plan-ui-performance.md`, plus `docs/plans/archived/2026-03-bug-recheck-sweep.md` and `docs/plans/archived/2026-03-openclaw-rollout-roadmap.md`
+Do **not** duplicate the plan inventory here — it goes stale quickly. Use:
+
+- `docs/plans/README.md` — bucket list and short status map
+- `docs/architecture/agent-roadmap-and-handoff.md` — handoff narrative
 
 ## Schema rule
 
@@ -47,7 +50,9 @@ Use these three states consistently:
 
 If a schema note is exploratory, partially true, or comparing alternatives:
 
-- put it in `docs/analyses/` if it is still active thinking
+- put it under `docs/old/analyses/` while it is active thinking (there is no
+  top-level `docs/analyses/` folder at the moment), or create `docs/analyses/`
+  again if you want that bucket back — then update `docs/README.md`
 - put it in `docs/old/schemas/` if it is historical or superseded
 
 ## Update checklist

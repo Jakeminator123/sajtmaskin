@@ -11,6 +11,7 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
   getScaffoldById,
+  matchScaffold,
   matchScaffoldWithEmbeddings,
 } from "./scaffolds";
 import {
@@ -53,6 +54,16 @@ export interface OrchestrationInput {
   contractAnswers?: ConfirmedContractAnswer[];
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
+  /**
+   * When false, auto scaffold selection uses keyword matching only (no embedding API).
+   * Default true. Used by CLI trace tools; production callers omit this.
+   */
+  embeddingScaffoldMatch?: boolean;
+  /**
+   * When false, system prompt dynamic context skips semantic KB + embedding template refs.
+   * Default true. Used by offline CLI traces.
+   */
+  embeddingEnrichment?: boolean;
 }
 
 export interface OrchestrationResult {
@@ -90,6 +101,8 @@ export async function prepareGenerationContext(
     persistedScaffoldId = null,
     contractAnswers = [],
     customInstructions,
+    embeddingScaffoldMatch = true,
+    embeddingEnrichment = true,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
@@ -101,7 +114,9 @@ export async function prepareGenerationContext(
   } else if (persistedScaffoldId) {
     resolvedScaffold = getScaffoldById(persistedScaffoldId);
   } else if (scaffoldMode === "auto") {
-    resolvedScaffold = await matchScaffoldWithEmbeddings(prompt, buildIntent);
+    resolvedScaffold = embeddingScaffoldMatch
+      ? await matchScaffoldWithEmbeddings(prompt, buildIntent)
+      : matchScaffold(prompt, buildIntent);
 
     if (
       resolvedScaffold &&
@@ -167,6 +182,7 @@ export async function prepareGenerationContext(
     designThemePreset,
     designReferences,
     customInstructions,
+    embeddingEnrichment,
   };
 
   const engineSystemPrompt = await buildSystemPrompt({

@@ -1,6 +1,6 @@
 # Generation Data (partially cursorignored)
 
-Static data files used by the knowledge base and system prompt.
+Knowledge base + prompt support. Parent: [`../README.md`](../README.md). **Inbäddningar** for docs KB: `docs-embeddings.json` + `context/semantic-search.ts` (see `.cursor/rules/terminology.mdc` § embeddings vs semantics).
 
 ## Cursorignored files
 

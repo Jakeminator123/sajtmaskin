@@ -4,7 +4,7 @@ export {
   TEMPLATE_LIBRARY_EMBEDDING_MODEL,
   generateTemplateLibraryEmbeddings,
 } from "./embeddings-core";
-export { searchTemplateLibrary } from "./search";
+export { searchTemplateLibrary, searchTemplateLibraryKeywordsOnly } from "./search";
 export type {
   TemplateLibraryCatalogFile,
   TemplateLibraryEntry,

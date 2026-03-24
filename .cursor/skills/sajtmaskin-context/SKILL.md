@@ -1,6 +1,6 @@
 ---
 name: sajtmaskin-context
-description: Apply Sajtmaskin project context, terminology, and MCP routing rules for v0, Vercel, OpenAI, and OpenClaw questions. Use when tasks mention builder flow, generation architecture, scaffolds, template gallery, deployments, demoUrl, chats, versions, or external docs lookup.
+description: Apply Sajtmaskin project context, terminology, and MCP routing rules for v0, Vercel, OpenAI, and OpenClaw questions. Use when tasks mention builder flow, generation architecture, scaffolds, v0-templates, deployments, demoUrl, chats, versions, or external docs lookup.
 ---
 
 # Sajtmaskin Context
@@ -18,20 +18,9 @@ Use this skill to align decisions and wording with this repository's domain mode
 
 ## Terminology guardrails
 
-- Treat **Vercel**, **v0**, **Sajtmaskin**, and **demo sites** as separate layers.
-- Distinguish:
-  - `template gallery item` (`src/lib/templates/`) as product/UI discovery
-  - `runtime scaffold` (`src/lib/gen/scaffolds/`) as internal generation starter
-  - `Vercel template` as external ecosystem starter
-- Do not call internal scaffolds only "templates" without qualifier.
-- Do not describe template gallery entries as Vercel templates unless explicitly referring to upstream source.
+**Canonical detail:** `.cursor/rules/terminology.mdc` (always loaded). Keep **Vercel**, **v0**, **Sajtmaskin**, and **demo sites** as separate layers.
 
-## Generation lanes
-
-- Use two-lane model:
-  - Runtime lane: scaffold-driven generation flow
-  - Research lane: curated external reference data and generated artifacts
-- Do not describe the template gallery as a third runtime generation lane.
+Summary: **scaffold-driven** runtime (`src/lib/gen/scaffolds/`); **v0-templates** = product gallery (`src/lib/templates/`, landing **Template**); **Vercel mall** = research/dossiers/artifacts, not the gallery tab. No “operational lanes” triad. **Inbäddningar** (ML) ≠ **semantik** (HTML/a11y) — see terminology § embeddings vs semantics.
 
 ## MCP routing defaults
 

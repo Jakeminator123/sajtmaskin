@@ -1,7 +1,6 @@
 # Template Library (cursorignored generated data)
 
-This directory is cursorignored because the generated JSON files are large.
-Agents can read this README to understand the contents without loading them.
+Large JSON is cursorignored. Context: [`../README.md`](../README.md), [`../../../../docs/architecture/structure-and-terminology.md`](../../../../docs/architecture/structure-and-terminology.md) (Vercel mall / generated artifacts).
 
 ## Files
 

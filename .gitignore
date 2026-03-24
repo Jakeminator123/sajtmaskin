@@ -23,6 +23,8 @@ next-env.d.ts
 .env
 .env.*
 .env.local
+# Renamed snapshots used for diffing against Vercel — often contain real secrets
+OLD.env*
 *.pem
 *key
 .env.production
@@ -33,6 +35,11 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 data/uploads/
+
+# Local scaffold trace runs (python scripts/prompt_generation_trace.py)
+scripts/output_test_scaffold/
+scripts/testning_scarf/output_test_scaffold/
+scripts/testning_scarf/output_first_llm_underlag/
 
 # Local generated reports (recreate from scripts when needed)
 data/scaffold-candidates-curated.json
@@ -170,3 +177,6 @@ STOR_MIGRATION
 
 
 internt_jakob/
+
+.vercel
+.env*.local

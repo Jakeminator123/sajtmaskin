@@ -1,0 +1,70 @@
+Sajtmaskin — arbetsanteckningar (pågående genomgång)
+====================================================
+Skapad: 2026-03-24. Vi ska gå igenom punkterna nedan tillsammans i kommande pass —
+detta är bara en samlad minneslista, inte beslut eller färdig dokumentation.
+
+1) Miljövariabler & Vercel
+--------------------------
+- vercel link / vercel env pull: kopplar projekt och hämtar env; kontrollera preview vs production separat.
+- Canonical kedja i repot: docs/ENV.md, src/lib/env.ts (Zod), config/env-policy.json, manage_env.py audit.
+
+2) Lucka: "AI Gateway" i namn vs direktanrop (Plan 17)
+---------------------------------------------------------
+- gateway-policy.ts använder createDirectModel() (OPENAI_API_KEY / ANTHROPIC_API_KEY).
+- Flera routes (bl.a. /api/ai/chat, /api/ai/brief) gate:ar lokalt på AI_GATEWAY_API_KEY eller VERCEL_OIDC_TOKEN eller VERCEL — kan ge 401 även om OPENAI_API_KEY finns.
+- Överväg: tillåt OPENAI_API_KEY som giltig lokal portvakt för "gateway"-assist, eller uppdatera felmeddelanden + docs.
+- Andra filer som nämner AI_GATEWAY_API_KEY: analyze-website, audit, wizard/enrich, domain-suggestions, m.fl. (grep i src/).
+
+3) validateEnv() (config.ts)
+----------------------------
+- Produktion: kräver jwtSecret, openaiApiKey, POSTGRES_URL — övriga tjänster (Redis, Blob, sandbox, audit, …) valideras inte där.
+
+4) Kvotering / störningar
+-------------------------
+- src/lib/rateLimit.ts: 429 + Retry-After (Upstash om satt, annars in-memory per instans).
+- Credits (src/lib/credits/server.ts): gäst ~1 generate + 1 refine per session; inloggad diamonds.
+- Leverantör: 402 / quota_exceeded m.m. (helpers i chat-flödet).
+
+5) Fritext → own-engine (grovt flöde)
+--------------------------------------
+- / → fritext → buildMethod freeform → createProject + /api/prompts + /builder?…
+- Builder: POST /api/v0/chats/stream → stream/route.ts → prepareGenerationContext, createOwnEngineGenerationStream, m.m.
+- Prompt-assist (Förbättra/brief) går separat via /api/ai/* — kan falla på env innan bygg-stream.
+
+6) Git / backup (referens)
+---------------------------
+- backup-2026-03-24-main finns lokalt och på origin (snapshot av main vid tillfället).
+- Grenen "jakob" borttagen på remote efter merge; innehåll via merge PR #40 (commit a15d8e83).
+
+7) Nästa steg (för gemensam genomgång)
+--------------------------------------
+- Gå igenom env-lista mot Vercel per miljö.
+- Besluta om kodfix för gateway-portvakt vs bara dokumentation.
+- Eventuellt fördjupa own-engine-fil för fil (entry points, credits vid stream, plan mode).
+
+8) Env-jämförelse 2026-03-24 (gamla filer + Vercel pull)
+--------------------------------------------------------
+- Se `ENV_JAMFORRELSE.txt` för nyckel-diff (utan värden).
+- Aktuell Vercel production snapshot: `.env.vercel.production.pulled` (gitignored).
+- `OLD.env*` är nu i `.gitignore` — innehåller hemligheter, committa inte.
+
+9) Dokumentationsstäd 2026-03-24
+--------------------------------
+- `docs/architecture/meritmind-build-flows.md` ersatt med kort pekare (lång version i git-historik).
+- `docs/architecture/engine-quick-score-boosts.md` borttagen (datumstämplad handoff; ingen annan länk).
+- `docs/ENV.md`: tydligare rad om AI-nycklar vs Plan 17 / kvarvarande gateway-portvakt.
+- Trasiga `docs/analyses/...`-länkar bulk-fixade till `docs/old/analyses/...` där filer fanns.
+- `prompt-tree.md` ↔ `builder-prompt-layer.md` korslänkade; `runtime-lane-refactor...` pekar på engine-status.
+
+10) Cursor: terminologi + lokala MCP (2026-03-24)
+-------------------------------------------------
+- Ny `.cursor/README.md`: var terminologi finns, hur man öppnar den, tabell över lokala MCP-servrar.
+- `MCP-Servers.mdc` utökad med verktygsnamn för `sajtmaskin-engine` och `sajtmaskin-scaffolds`.
+- `docs/README.md` länkar till `.cursor/README.md` i terminologiraden.
+
+11) Svenska vs engelska: inbäddningar vs semantik (2026-03-24)
+---------------------------------------------------------------
+- `terminology.mdc`: tabell som särskiljer **semantik/semantisk HTML** (a11y/struktur) från **inbäddningar/embeddings** (vektorer) och **semantisk sökning** (ML).
+- Admin Database: knapptext/hjälptext för ombyggnad av template-vektorer; "Synka mallar" → **Synka v0-templates** (GitHub).
+- API `/api/admin/templates/embeddings`: svenska `message`-strängar där de visas i admin.
+- `.cursor/README.md`: v0-templates vs scaffold + pekare på inbäddningar/semantik i terminologidokumentet.

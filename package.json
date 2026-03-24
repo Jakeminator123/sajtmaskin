@@ -59,7 +59,11 @@
     "eval:baseline": "npx tsx src/lib/gen/eval/cli.ts --save-baseline",
     "db:migrate": "npx tsx scripts/run-migrations.ts",
     "db:push": "npx drizzle-kit push",
-    "db:generate": "npx drizzle-kit generate"
+    "db:generate": "npx drizzle-kit generate",
+    "prompt:trace": "tsx scripts/trace-generation-context.ts",
+    "scaffold:suite": "python scripts/run_scaffold_suite.py",
+    "first-llm:lab": "python devtools/first_llm_promptlab.py",
+    "first-llm:live": "npx tsx devtools/run_first_llm_live.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
@@ -162,6 +166,7 @@
     "playwright": "^1.58.2",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
+    "tsx": "^4.20.5",
     "vitest": "^4.0.18"
   },
   "overrides": {

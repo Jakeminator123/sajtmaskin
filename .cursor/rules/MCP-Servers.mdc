@@ -14,8 +14,8 @@ före web search eller träningsdata.
 
 | Server | Vad den gör |
 |--------|-------------|
-| `sajtmaskin-engine` | Lokal own-engine MCP-server för generering, manifest, filer och runtime-URL:er utan HTTP-proxy via appens MCP-routes. |
-| `sajtmaskin-scaffolds` | Inspektera interna scaffolds -- manifests, filer, taggar, jämför. Läser direkt från registret. |
+| `sajtmaskin-engine` | Lokal own-engine MCP (`tools/mcp/engine-server.ts`). Verktyg: `generate_site`, `get_site_files`, `get_site_manifest`, `get_site_file`, `create_site_runtime` — talar med `src/lib/mcp/*` direkt, inte via Next API. |
+| `sajtmaskin-scaffolds` | Lokal scaffold-MCP (`tools/mcp/scaffold-server.ts`). Verktyg: `list_scaffolds`, `get_scaffold`, `get_scaffold_file`, `search_scaffolds_by_tag`, `compare_scaffolds` — endast **runtime-scaffolds** i `src/lib/gen/scaffolds/`, inte mallgalleriet. |
 
 Dessa körs lokalt via `npx tsx tools/mcp/...` och ska användas för
 projektinterna arbetsflöden som inte hör hemma i produktionsrouten eller

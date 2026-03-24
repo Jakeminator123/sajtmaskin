@@ -1,5 +1,10 @@
 # Runtime Lane Refactor And Log Viewer
 
+**See also:** `docs/architecture/engine-status.md` (current engine/preview picture)
+and `docs/architecture/generation-loop-and-error-memory.md` (finalize/stream).
+
+---
+
 This document summarizes the runtime-lane refactors completed on `Refactor`
 after the original preview split, plus the lightweight local `/logg` viewer
 that makes the prompt/runtime flow easier to inspect during `npm run dev`.

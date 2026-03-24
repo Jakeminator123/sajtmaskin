@@ -157,7 +157,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                   : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
               }`}
             >
-              Mallar
+              Templates
             </Button>
           </Link>
           <Link href="/buy-credits">
