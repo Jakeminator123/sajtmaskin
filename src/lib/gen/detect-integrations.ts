@@ -73,8 +73,12 @@ const KNOWN_INTEGRATIONS: KnownIntegration[] = [
     pattern: /(?:@prisma\/|prisma\.)/i,
     name: "Prisma",
     provider: "prisma",
-    envVars: ["DATABASE_URL"],
-    setupGuide: "Satt DATABASE_URL till den databas du faktiskt valt. For SQLite: file:./dev.db. For hosted drift: anvand en Postgres- eller MySQL-anslutning. Valj inte provider pa chans.",
+    /** Intentionally no envVars: Prisma is an ORM in the generated app, not a connectable "integration".
+     *  Requiring DATABASE_URL here made the builder panel show red for almost every Prisma scaffold
+     *  even when preview works with sqlite/file or mock data. DATABASE_URL belongs in setupGuide/deploy. */
+    envVars: [],
+    setupGuide:
+      "Prisma är ett ORM-lager i den genererade koden — inte en separat Sajtmaskin-integration. Sätt DATABASE_URL i ditt Vercel-projekt när du kopplar en riktig databas (t.ex. Postgres). För lokal preview räcker ofta SQLite (file:./…) utan att denna panel ska lysa rött.",
   },
   {
     pattern: /(?:better-sqlite3|sqlite|drizzle-orm\/sqlite|file:\.\/.*\.db)/i,

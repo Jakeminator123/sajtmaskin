@@ -752,7 +752,9 @@ export function ProjectEnvVarsPanel({
                   <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-200">automatisk</span>
                 </div>
                 <div className="text-muted-foreground mt-1 text-[11px]">
-                  Heuristiskt detekterat från koden i den valda versionen. Kan visa falska signaler.
+                  Heuristiskt detekterat från koden i den valda versionen. Kan visa falska signaler. ORM-lager
+                  (t.ex. Prisma) är inte samma sak som en extern tjänst — röd status gäller bara när vi listar
+                  konkreta nycklar som saknas i projektets miljö.
                 </div>
                 {isLoadingDetectedIntegrations ? (
                   <div className="text-muted-foreground mt-2 flex items-center gap-2 text-[11px]">
