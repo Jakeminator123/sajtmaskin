@@ -84,22 +84,6 @@ const KNOWN_INTEGRATIONS: KnownIntegration[] = [
     setupGuide: "SQLite passar lokalt eller i enklare demos. Anvand t.ex. DATABASE_URL=file:./dev.db. For Vercel-deployad datahantering ar en hostad databas ofta battre.",
   },
   {
-    pattern: /(?:mongoose|mongodb\+srv|mongodb:\/\/|MONGODB_URI)/i,
-    name: "MongoDB",
-    provider: "mongodb",
-    envVars: ["MONGODB_URI"],
-    setupGuide:
-      "Skapa en MongoDB Atlas-kluster eller lokal instans. Sätt MONGODB_URI till din anslutningssträng (inkl. auth om det behövs).",
-  },
-  {
-    pattern: /(?:@aws-sdk\/client-dynamodb|DynamoDBClient|dynamodb)/i,
-    name: "Amazon DynamoDB",
-    provider: "dynamodb",
-    envVars: ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
-    setupGuide:
-      "Skapa tabell i AWS DynamoDB och ge appen IAM-nycklar eller använd temporära credentials lokalt. Sätt AWS_REGION och tabellnamn i koden.",
-  },
-  {
     pattern: /(?:openai|OPENAI_API_KEY)/i,
     name: "OpenAI",
     provider: "openai",

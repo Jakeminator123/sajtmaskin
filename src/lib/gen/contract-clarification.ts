@@ -70,8 +70,6 @@ export function buildContractClarificationQuestion(params: {
         "Mockad data först",
         "Supabase",
         "Postgres / DATABASE_URL",
-        "MongoDB",
-        "DynamoDB",
         "Annat / vet inte än",
       ],
       blocking: true,

@@ -78,22 +78,6 @@ const PROVIDER_RULES: ProviderRule[] = [
     reason: "Prompten nämner SQLite uttryckligen.",
   },
   {
-    kind: "database",
-    provider: "MongoDB",
-    name: "MongoDB",
-    envVars: ["MONGODB_URI"],
-    patterns: [/\bmongodb\b|\bmongoose\b/i],
-    reason: "Prompten nämner MongoDB eller Mongoose.",
-  },
-  {
-    kind: "database",
-    provider: "DynamoDB",
-    name: "Amazon DynamoDB",
-    envVars: ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
-    patterns: [/\bdynamodb\b|\bdynamo\s*db\b|\baws-sdk\/client-dynamodb\b/i],
-    reason: "Prompten nämner DynamoDB eller AWS DynamoDB-klient.",
-  },
-  {
     kind: "auth",
     provider: "Clerk",
     name: "Clerk",
@@ -416,24 +400,6 @@ function applyDatabaseAnswer(
     pushEnvVars(contracts.envVars, ["DATABASE_URL"], "Bekräftat databasval.", true);
     removeUnresolved(unresolvedDecisions, "database");
     return;
-  }
-  if (/\bmongodb\b|\bmongoose\b/i.test(normalized)) {
-    contracts.databaseProvider = "MongoDB";
-    contracts.dataMode = "persisted";
-    pushEnvVars(contracts.envVars, ["MONGODB_URI"], "Bekräftat databasval.", true);
-    removeUnresolved(unresolvedDecisions, "database");
-    return;
-  }
-  if (/\bdynamodb\b|\bdynamo\s*db\b/i.test(normalized)) {
-    contracts.databaseProvider = "DynamoDB";
-    contracts.dataMode = "persisted";
-    pushEnvVars(
-      contracts.envVars,
-      ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
-      "Bekräftat databasval.",
-      true,
-    );
-    removeUnresolved(unresolvedDecisions, "database");
   }
 }
 
