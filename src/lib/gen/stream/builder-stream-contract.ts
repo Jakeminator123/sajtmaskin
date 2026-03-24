@@ -46,6 +46,17 @@ export type BuilderTextPayload =
       reasoning?: string;
     };
 
+export type BuilderSandboxReadyPayload = {
+  sandboxUrl: string;
+  sandboxId: string;
+};
+
+export type BuilderBuildErrorPayload = {
+  stage: "repair" | "sandbox-create" | "install" | "build";
+  message: string;
+  raw?: string;
+};
+
 export interface BuilderStreamEventMap {
   meta: BuilderMetaPayload;
   thinking: BuilderTextPayload;
@@ -57,6 +68,8 @@ export interface BuilderStreamEventMap {
   ping: BuilderPingPayload;
   chatId: BuilderChatIdPayload;
   projectId: BuilderProjectIdPayload;
+  "sandbox-ready": BuilderSandboxReadyPayload;
+  "build-error": BuilderBuildErrorPayload;
   done: BuilderDonePayload;
   error: BuilderErrorPayload;
 }
@@ -79,6 +92,8 @@ const BUILDER_STREAM_EVENT_NAMES = new Set<BuilderStreamEventName>([
   "ping",
   "chatId",
   "projectId",
+  "sandbox-ready",
+  "build-error",
   "done",
   "error",
 ]);

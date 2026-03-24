@@ -12,6 +12,10 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import {
+  isSandboxConfigured as isSandboxAuthConfigured,
+  resolveSandboxAccessCredentials,
+} from "@/lib/mcp/runtime-url";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -85,17 +89,14 @@ async function runSandboxChecks(
   sandboxFiles: Array<{ name: string; content: string }>,
   checks: string[],
 ): Promise<{ results: CheckResult[]; sandboxDurationMs: number }> {
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-  const token = process.env.VERCEL_TOKEN;
-  const teamId = process.env.VERCEL_TEAM_ID;
-  const projectId = process.env.VERCEL_PROJECT_ID;
-
-  if (!oidcToken && (!token || !teamId || !projectId)) {
+  const access = resolveSandboxAccessCredentials();
+  if (!process.env.VERCEL_OIDC_TOKEN?.trim() && !access) {
     throw new SandboxNotConfiguredError();
   }
 
   const startMs = Date.now();
   const sandbox = await Sandbox.create({
+    ...(access ?? {}),
     source: {
       type: "git",
       url: "https://github.com/vercel/sandbox-example-next.git",
@@ -147,14 +148,6 @@ class SandboxNotConfiguredError extends Error {
   }
 }
 
-function isSandboxConfigured(): boolean {
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-  const token = process.env.VERCEL_TOKEN;
-  const teamId = process.env.VERCEL_TEAM_ID;
-  const projectId = process.env.VERCEL_PROJECT_ID;
-  return Boolean(oidcToken || (token && teamId && projectId));
-}
-
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
@@ -177,7 +170,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     const internalVersionId = scopedVersion.version.id;
     const codeFiles = await getVersionFiles(internalVersionId);
     if (codeFiles && codeFiles.length > 0) {
-      if (!isSandboxConfigured()) {
+      if (!isSandboxAuthConfigured()) {
         return NextResponse.json(
           { error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)" },
           { status: 501 },

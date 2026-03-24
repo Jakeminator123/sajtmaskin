@@ -1085,6 +1085,11 @@ export function PreviewPanel({
     return demoUrl.startsWith("/api/preview-render");
   }, [demoUrl]);
 
+  const isSandboxUrl = useMemo(() => {
+    if (!demoUrl) return false;
+    return /sandbox/i.test(demoUrl) && !demoUrl.startsWith("/api/preview-render");
+  }, [demoUrl]);
+
   useEffect(() => {
     return () => {
       if (inspectPulseTimerRef.current) {

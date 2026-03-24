@@ -210,7 +210,9 @@ preview uses v0 `demoUrl` on `*.vusercontent.net` — keep this distinct from
 user-site preview above.
 
 **Degraded preview env:** placeholder values for third-party keys so preview
-can start without real integrations; documented in `config/user_degraded_env.txt`.
+can start without real integrations; canonical KEY=value fragment
+`config/ai_models/40-generated-site-integration-placeholders.env.txt` (see
+`config/ai_models/manifest.json`), policy text `config/user_degraded_env.txt`.
 Generated sites should degrade gracefully (mock / no-op) per
 `config/prompt-static/11-behavioral-rules.md`.
 

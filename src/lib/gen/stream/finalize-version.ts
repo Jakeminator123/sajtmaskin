@@ -66,6 +66,8 @@ export interface FinalizeResult {
   version: Awaited<ReturnType<typeof chatRepo.createDraftVersion>>;
   messageId: string;
   previewUrl: string | null;
+  /** Sandbox URL when full Next.js preview is started (null until sandbox boots). */
+  sandboxUrl: string | null;
   filesJson: string;
   contentForVersion: string;
   preflight: PreviewPreflightSummary;
@@ -430,6 +432,7 @@ export async function finalizeAndSaveVersion(
     version,
     messageId: assistantMsg.id,
     previewUrl,
+    sandboxUrl: null,
     filesJson,
     contentForVersion,
     preflight: {

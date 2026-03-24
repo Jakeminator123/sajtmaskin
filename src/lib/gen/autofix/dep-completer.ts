@@ -31,7 +31,7 @@ const BUILTIN_PACKAGES = new Set([
 /**
  * Third-party packages frequently used by LLM-generated code.
  * Maps npm package name to latest known compatible version.
- * Used to auto-complete dependencies for the preview sandbox.
+ * Used to auto-complete dependencies so npm install succeeds in @vercel/sandbox.
  */
 const KNOWN_PACKAGES: Record<string, string> = {
   "recharts": "^2",

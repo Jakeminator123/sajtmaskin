@@ -4,6 +4,10 @@ import ms, { StringValue } from "ms";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
+import {
+  isSandboxConfigured,
+  resolveSandboxAccessCredentials,
+} from "@/lib/mcp/runtime-url";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import type { CodeFile } from "@/lib/gen/parser";
@@ -67,21 +71,18 @@ export async function POST(req: Request) {
       const botError = requireNotBot(req);
       if (botError) return botError;
 
-      const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-      const token = process.env.VERCEL_TOKEN;
-      const teamId = process.env.VERCEL_TEAM_ID;
-      const projectId = process.env.VERCEL_PROJECT_ID;
-
-      if (!oidcToken && (!token || !teamId || !projectId)) {
+      if (!isSandboxConfigured()) {
         return NextResponse.json(
           {
             error: "Sandbox requires authentication",
             setup:
-              "Run `vercel link` then `vercel env pull` to get OIDC token, or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID",
+              "Run `vercel link` then `vercel env pull` (OIDC), or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID and pass them to Sandbox.create (see docs/architecture/vercel-sandbox-credentials.md).",
           },
           { status: 401 },
         );
       }
+
+      const access = resolveSandboxAccessCredentials();
 
       const body = await req.json();
       const validationResult = createSandboxSchema.safeParse(body);
@@ -138,6 +139,7 @@ export async function POST(req: Request) {
       }
 
       const sandbox = await Sandbox.create({
+        ...(access ?? {}),
         source: sourceConfig,
         resources: { vcpus },
         timeout: timeoutMs,

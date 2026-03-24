@@ -1,3 +1,11 @@
+/**
+ * Integration env names and codegen contracts for the builder.
+ *
+ * Central registry for **models, workloads, and preview placeholders** lives under
+ * `config/ai_models/` (`manifest.json` + `40-generated-site-integration-placeholders.env.txt`).
+ * This file stays the source for `PROVIDER_RULES` until a future refactor imports
+ * structured provider metadata from the manifest.
+ */
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { InferredCapabilities } from "./capability-inference";
 import type {

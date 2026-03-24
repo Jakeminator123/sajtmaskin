@@ -8,9 +8,10 @@ import type { PreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
 export const runtime = "nodejs";
 
 /**
- * Serves a self-contained HTML preview of generated code.
- * Used by the own engine path to provide instant preview
- * without waiting for a @vercel/sandbox to boot.
+ * Serves a self-contained HTML preview of generated code (legacy / fast path).
+ * Primary own-engine preview after generation is @vercel/sandbox (see
+ * startSandboxPreview + runtime-url). This route remains useful for quick
+ * render and older demoUrl values pointing at /api/preview-render.
  *
  * Query params:
  *   chatId    — required

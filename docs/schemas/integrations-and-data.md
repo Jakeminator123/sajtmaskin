@@ -38,7 +38,7 @@ These tables are used by the own-engine build path and are fully integrated:
 
 - `engine_chats` — chat sessions, scaffold choice, model
 - `engine_messages` — message history
-- `engine_versions` — generated code (`files_json`), release state
+- `engine_versions` — generated code (`files_json`), release state, optional **`sandbox_url`** (URL till `@vercel/sandbox` när full Next-preview lyckats; tom tills dess). Första `demoUrl` i UI kan fortfarande vara HTML-shim (`/api/preview-render`) — se [preview-and-sandbox-flow.md](../architecture/preview-and-sandbox-flow.md).
 - `engine_generation_logs` — token usage, duration, errors
 - `engine_version_error_logs` — per-version error diagnostics
 
@@ -47,6 +47,13 @@ These tables are used by the own-engine build path and are fully integrated:
 - `project_data` — project metadata, `demo_url`, `files`, `messages`, `meta`
 - `meta.projectEnvVars` — project-specific env vars (encrypted when sensitive)
 - Used by both own-engine (after save) and v0-fallback
+
+**Lagringsmodell (användarprojekt):** Kanonisk kod per version ligger i **`engine_versions.files_json`** (versionerad, lämplig för historik och rebuild). `project_data` speglar ofta samma sajt i ett app-projekt-format (t.ex. MCP-flöden). Stora monorepon eller binärt innehåll lagras inte som git i databasen — `files_json`-storlek och Postgres-kostnad är avvägningar; för tung media använd blob/CDN. Se även [ENV.md](../ENV.md) för Supabase/infra.
+
+### Preview vs persisted URL
+
+- **Shim:** ingen separat kolumn — `demo_url` i `project_data` / builder-state kan peka på preview-render tills något annat uppdateras.
+- **Sandbox:** `engine_versions.sandbox_url` när servern sparat lyckad sandbox-start ([preview-and-sandbox-flow.md](../architecture/preview-and-sandbox-flow.md)).
 
 ## Request validation
 

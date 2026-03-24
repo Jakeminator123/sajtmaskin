@@ -354,7 +354,8 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 
 ## Genererade sajter — preview / degraded env (referens)
 
-- **`config/user_degraded_env.txt`** är en **dokumenterad lista** med placeholder-värden för tredjepartsnycklar när en **användares** genererade Next-projekt ska starta utan riktiga integrationer. Den laddas **inte** automatiskt av Sajtmaskin-appen; använd som referens för preview/sandbox eller framtida tooling.
+- **`config/ai_models/40-generated-site-integration-placeholders.env.txt`** är den **kanoniska** dotenv-liknande listan (KEY=value) för icke-hemliga placeholders när en **användares** genererade Next-projekt ska byggas eller startas utan riktiga integrationer. Den indexeras från **`config/ai_models/manifest.json`** (`generatedSiteIntegrationPlaceholders`) och kan läsas i Node via `src/lib/ai-models/load-generated-site-placeholders.ts`. Sajtmaskin injicerar den **inte** automatiskt i preview ännu; använd manuellt, i scripts eller framtida pipeline.
+- **`config/user_degraded_env.txt`** beskriver **policy och motivering** (samma målgrupp som ovan); den duplicerar inte längre alla nycklar.
 
 ### Sajtmaskin-appen vs genererade användarsajter (tre lager)
 
@@ -362,7 +363,7 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 |-------|-----|--------|
 | **`config/env-policy.json`** | Sajtmaskin (denna repo) | Klassificering och regler för **appens** miljövariabler; styr `manage_env.py` / `env-audit`. |
 | **`.env.local` / Vercel Dashboard** | Sajtmaskin | Riktiga hemligheter för **plattformen** (DB, OpenAI, Stripe för credits, osv.). |
-| **`config/user_degraded_env.txt`** | Dokumentation | **Inte** samma som env-policy: avser **kod som genereras till slutkunder**, så preview kan köra utan riktiga Resend/Redis/Blob-nycklar. **Auto-injicering** av dessa värden i preview/deploy-pipeline är **inte** implementerad här; det kräver separat produkt-/runtime-arbete. |
+| **`config/ai_models/` + `user_degraded_env.txt`** | Dokumentation / fragment | **Inte** samma som env-policy: avser **kod som genereras till slutkunder**. Placeholder-nycklar ligger i `40-generated-site-integration-placeholders.env.txt`. **Auto-injicering** i preview/deploy-pipeline är valfri produktutveckling. |
 
 Tomma **`VERCEL_*` / `VERCEL_GIT_*`** i en pullad `.env.vercel.production.pulled` är normalt (byggmetadata finns bara under deployment). De finns i `knownEmptyOk` i `env-policy.json` så audit inte flaggar dem.
 

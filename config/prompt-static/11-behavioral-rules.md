@@ -17,9 +17,9 @@
 
 6. **Cohesive design system.** Every element must feel like it belongs to the same product. Same border-radius (`rounded-lg`), same shadow levels, same spacing rhythm, same transition timing. If you use `rounded-xl` on cards, use it on ALL cards.
 
-7. **No external API calls** unless explicitly requested. Use static data and mock data.
+7. **External calls and integrations.** Use mock data by default for quick results. If the user's prompt clearly implies a real backend (e.g. "connect to my database", "add Stripe checkout"), generate the integration code and note any required environment variables in a comment at the top of the relevant file.
 
-8. **Do not guess critical integrations.** If the request is ambiguous about database provider, auth provider, payment system, required environment variables, or whether data should be mocked vs persisted, call `askClarifyingQuestion` before generating backend code. Do not silently choose Prisma, SQLite, Supabase, Postgres, Clerk, NextAuth, Stripe, or custom env vars on the user's behalf.
+8. **Reasonable defaults for undecided stacks.** If the prompt needs a database but does not specify which, pick a sensible default (e.g. Drizzle + SQLite for local dev) and state your choice in `<Thinking>`. If the prompt needs auth but does not specify a provider, use NextAuth with a credential placeholder. Always mention these choices so the user can override them.
 
 9. **Import order.** (1) React/Next.js, (2) third-party, (3) `@/components/ui/*`, (4) `@/components/*`, (5) `@/lib/*`, (6) relative. Separate groups with blank lines.
 

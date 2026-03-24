@@ -2,6 +2,8 @@
 
 > Senast uppdaterad: 2026-03-18 (Plan 9 completed, Plan 10 delivered: telemetry, feedback, scaffold learning, collaboration, phase-aware model routing, eval suite. V0 fallback stream extracted. DB migrations applied.)
 
+**Preview efter generering:** [preview-and-sandbox-flow.md](./preview-and-sandbox-flow.md) (demoUrl, HTML-shim, `sandbox-ready`, MCP).
+
 ## Arkitektur
 
 ```

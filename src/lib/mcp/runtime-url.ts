@@ -3,6 +3,55 @@ import { buildPreviewUrl } from "@/lib/gen/preview";
 
 export type RuntimeMode = "preview" | "sandbox";
 
+/**
+ * Credentials for @vercel/sandbox when not using VERCEL_OIDC_TOKEN.
+ * The SDK does not read VERCEL_TOKEN from the environment by itself — it must be
+ * passed into Sandbox.create() together with teamId and projectId. See:
+ * https://vercel.com/docs/vercel-sandbox/concepts/authentication#access-tokens
+ */
+export type SandboxAccessCredentials = {
+  token: string;
+  teamId: string;
+  projectId: string;
+};
+
+/**
+ * Pick which env var holds the Vercel access token when both VERCEL_TOKEN and
+ * VERCEL_TOKEN_FULL are set. Prefer the value that looks like a current access
+ * token (e.g. vcp_…) so an old short VERCEL_TOKEN does not shadow VERCEL_TOKEN_FULL.
+ */
+function pickVercelAccessTokenFromEnv(): string {
+  const primary = process.env.VERCEL_TOKEN?.trim() ?? "";
+  const secondary = process.env.VERCEL_TOKEN_FULL?.trim() ?? "";
+  const looksLikeModernAccess = (t: string) =>
+    t.startsWith("vcp_") || t.startsWith("vercel_");
+  if (secondary && looksLikeModernAccess(secondary) && !looksLikeModernAccess(primary)) {
+    return secondary;
+  }
+  return primary || secondary;
+}
+
+/**
+ * Resolve access-token auth for Sandbox.create(). Supports VERCEL_ORG_ID (CLI)
+ * and VERCEL_TOKEN_FULL (optional alias for local .env only).
+ */
+export function resolveSandboxAccessCredentials(): SandboxAccessCredentials | null {
+  const token = pickVercelAccessTokenFromEnv();
+  const teamId =
+    process.env.VERCEL_TEAM_ID?.trim() || process.env.VERCEL_ORG_ID?.trim() || "";
+  const projectId = process.env.VERCEL_PROJECT_ID?.trim() || "";
+  if (token && teamId && projectId) {
+    return { token, teamId, projectId };
+  }
+  return null;
+}
+
+export function isSandboxConfigured(): boolean {
+  return Boolean(
+    process.env.VERCEL_OIDC_TOKEN?.trim() || resolveSandboxAccessCredentials(),
+  );
+}
+
 export type RuntimeFile = {
   name: string;
   content: string;
@@ -74,14 +123,10 @@ export async function createSandboxRuntimeFromFiles(
     }
   }
 
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-  const token = process.env.VERCEL_TOKEN;
-  const teamId = process.env.VERCEL_TEAM_ID;
-  const projectId = process.env.VERCEL_PROJECT_ID;
-
-  if (!oidcToken && (!token || !teamId || !projectId)) {
+  const access = resolveSandboxAccessCredentials();
+  if (!process.env.VERCEL_OIDC_TOKEN?.trim() && !access) {
     throw new Error(
-      "Sandbox requires authentication. Run `vercel link` then `vercel env pull`, or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID.",
+      "Sandbox requires authentication. Either set VERCEL_OIDC_TOKEN (vercel link && vercel env pull), or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID (team id = .vercel/project.json orgId). Optional: VERCEL_ORG_ID instead of VERCEL_TEAM_ID; VERCEL_TOKEN_FULL instead of VERCEL_TOKEN.",
     );
   }
 
@@ -93,6 +138,7 @@ export async function createSandboxRuntimeFromFiles(
   const ports = options.ports ?? [3000];
 
   const sandbox = await Sandbox.create({
+    ...(access ?? {}),
     source: {
       type: "git",
       url: "https://github.com/vercel/sandbox-example-next.git",
@@ -111,10 +157,17 @@ export async function createSandboxRuntimeFromFiles(
       })),
     );
 
-    await sandbox.runCommand({
+    const installResult = await sandbox.runCommand({
       cmd: "bash",
       args: ["-c", installCommand],
     });
+    const installOut =
+      `${typeof installResult.stdout === "string" ? installResult.stdout : ""}\n${typeof installResult.stderr === "string" ? installResult.stderr : ""}`.trim();
+    const installExit = installResult.exitCode ?? 1;
+    if (installExit !== 0) {
+      const snippet = installOut.slice(0, 6000) || "No output from sandbox.";
+      throw new Error(`npm install failed (exit ${installExit}). ${snippet}`);
+    }
 
     await sandbox.runCommand({
       cmd: "bash",

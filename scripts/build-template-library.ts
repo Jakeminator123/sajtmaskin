@@ -45,11 +45,12 @@ const SCAFFOLD_CANDIDATE_REPORT_PATH = path.resolve(
 );
 const LEGACY_SUMMARY_PATH = resolveExistingLegacySummaryPath();
 const SOURCE_ROOT_CANDIDATES = [
+  path.resolve(WORKSPACE_ROOT, "scraped-vercel-scorefolds"),
   RAW_DISCOVERY_CURRENT_ROOT,
   RAW_DISCOVERY_ROOT,
   path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
   path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
-  LEGACY_SUMMARY_PATH ? path.dirname(LEGACY_SUMMARY_PATH) : "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates",
+  ...(LEGACY_SUMMARY_PATH ? [path.dirname(LEGACY_SUMMARY_PATH)] : []),
 ];
 
 const NOISE_LINE_RE =

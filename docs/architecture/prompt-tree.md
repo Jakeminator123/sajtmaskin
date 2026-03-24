@@ -60,6 +60,12 @@ buildSystemPrompt()
 Generation stream (own engine) or v0 enrichment context (fallback)
 ```
 
+## Efter generering: demo-URL och preview (own engine)
+
+När streamen finaliserat en version skickas **`done`** med `demoUrl` som i första läget pekar på **`/api/preview-render`** (snabb HTML-shim). Om Vercel Sandbox är konfigurerad kan **`sandbox-ready`** komma strax efter och ersätta `demoUrl` med en riktig Next.js-runtime. Fel från t.ex. `npm install` kommer som **`build-error`**.
+
+Statiska promptfragment under `config/prompt-static/` (via [`codegen-static-prompt.json`](../../config/codegen-static-prompt.json)) ska vara **paritetiska** med det målet: full `next build`, inte bara shim. Se **[preview-and-sandbox-flow.md](./preview-and-sandbox-flow.md)** för sekvens, MCP-skillnad och lagring (`sandbox_url`).
+
 ## Layer 1 — Builder UI State
 
 **Files:**

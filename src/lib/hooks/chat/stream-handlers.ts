@@ -517,6 +517,22 @@ export async function handleSseStream(
             }
             break;
           }
+          case "sandbox-ready": {
+            const sandboxData = data as Record<string, unknown>;
+            if (sandboxData.sandboxUrl) {
+              setCurrentDemoUrl(sandboxData.sandboxUrl as string);
+              onPreviewRefresh?.();
+            }
+            break;
+          }
+          case "build-error": {
+            const buildErrorData = data as Record<string, unknown>;
+            const stage = String(buildErrorData.stage ?? "build");
+            const message = String(buildErrorData.message ?? "Build failed");
+            appendProgressPart("build-error", "error", { stage, message });
+            toast.error(`Sandbox / build: [${stage}] ${message.slice(0, 500)}`);
+            break;
+          }
           case "done": {
             didReceiveDone = true;
             streamStats.didReceiveDone = true;

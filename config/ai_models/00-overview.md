@@ -15,6 +15,18 @@ Alla **standardvärden** som går att styra centralt ligger i [`manifest.json`](
 
 Detaljer per fil och exakt `invocation`-fält finns under `workloads[]` i `manifest.json`.
 
+## Genererade användarsajter — preview-placeholders (inte Sajtmaskin `.env`)
+
+För att **genererade** Next-projekt ofta ska kunna byggas/köras utan riktiga Resend, Supabase, Stripe osv. ligger en **dotenv-liknande** fil i samma bibliotek:
+
+- [`40-generated-site-integration-placeholders.env.txt`](40-generated-site-integration-placeholders.env.txt) — kanoniska `KEY=value`-rader (osanna värden).
+- [`manifest.json`](manifest.json) → fältet `generatedSiteIntegrationPlaceholders` pekar på filnamnet och länkar till policy i [`../user_degraded_env.txt`](../user_degraded_env.txt).
+- TypeScript: [`src/lib/ai-models/load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts) (endast Node — inte i klientbundles).
+
+Detta är **parallellt med** `config/codegen-static-prompt.json` + `prompt-static/*.md`: manifest + vanlig text under `config/`, men här är nyttolasten env-placeholders för slutkundsprojekt, inte systemprompt.
+
+**Medvetet idag:** Sajtmaskin läser filen via Node men **slår inte automatiskt in** den i preview/sandbox. Det är ett repo-kontrakt + loader så nästa steg kan vara explicit koppling (t.ex. sandbox eller MCP) till `readGeneratedSitePlaceholdersEnvText()` — se [_READ_ME_FIRST.md — Handoff](_READ_ME_FIRST.md).
+
 ## Direkt API vs AI Gateway (viktigt)
 
 Fältet **`manifest.documentationDirectApiNote`** och varje post i **`manifest.docLinks[].appliesTo`** skiljer:
@@ -39,3 +51,4 @@ Primära direkt-API-länkar (canonical listan ligger i `manifest.json`):
 - [10-own-engine.md](10-own-engine.md) — byggprofiler och `claude-*`-normalisering.
 - [20-prompt-assist.md](20-prompt-assist.md) — `gateway`-benämningen vs faktiska anrop.
 - [30-embeddings-and-misc.md](30-embeddings-and-misc.md) — embedding-modeller och övriga routes.
+- [40-generated-site-integration-placeholders.env.txt](40-generated-site-integration-placeholders.env.txt) — preview-env för genererade sajter (se även [../user_degraded_env.txt](../user_degraded_env.txt)).

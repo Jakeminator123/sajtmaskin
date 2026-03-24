@@ -21,6 +21,10 @@ It belongs to the research lane, not the runtime lane.
 - `dossiers/<template-id>/summary.md`
 - `dossiers/<template-id>/selected_files/*.md`
 
+### Minimal / trimmed checkouts
+
+The `dossiers/` tree may be **empty or partial** in some commits (catalog can still list audited templates with `verdict: research_only` and `curatedTemplates: 0`). That keeps the repo smaller; runtime scaffolds do not read this folder directly. To repopulate curated dossiers, run the template-library pipeline from repo root, for example `pnpm run template-library:build` (and related `template-library:*` scripts in `package.json`).
+
 ## Important boundary
 
 This folder does not directly power runtime scaffolds.

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-16T03:19:19.091Z",
+  "generatedAt": "2026-03-24T11:18:12.314Z",
   "source": "scripts/build-template-library.ts",
   "scaffolds": {
     "base-nextjs": {
@@ -12,67 +12,7 @@
           "Cleaner starter structure",
           "Better default docs and env hints"
         ],
-        "referenceTemplates": [
-          {
-            "id": "authentication-next-js-saas-starter",
-            "title": "Next.js SaaS Starter",
-            "categorySlug": "authentication",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "portfolio-portfolio-starter-kit",
-            "title": "Portfolio Starter Kit",
-            "categorySlug": "portfolio",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          },
-          {
-            "id": "ecommerce-stripe-subscription-starter",
-            "title": "Stripe Subscription Starter",
-            "categorySlug": "ecommerce",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "pricing or billing structure"
-            ]
-          },
-          {
-            "id": "saas-platforms-starter-kit",
-            "title": "Platforms Starter Kit",
-            "categorySlug": "saas",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "multi-tenant or workspace patterns"
-            ]
-          },
-          {
-            "id": "blog-next-js-contentlayer-blog-starter",
-            "title": "Next.js Contentlayer Blog Starter",
-            "categorySlug": "blog",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "landing-page": {
@@ -85,58 +25,7 @@
           "Stronger hero and CTA rhythm",
           "More realistic section hierarchy"
         ],
-        "referenceTemplates": [
-          {
-            "id": "realtime-apps-anycable-real-time-starter-kit",
-            "title": "AnyCable Real-time Starter Kit",
-            "categorySlug": "realtime-apps",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          },
-          {
-            "id": "ai-customer-reviews-ai-summary",
-            "title": "Customer Reviews AI Summary",
-            "categorySlug": "ai",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          },
-          {
-            "id": "ai-hume-ai-empathic-voice-interface-starter",
-            "title": "Hume AI - Empathic Voice Interface Starter",
-            "categorySlug": "ai",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          },
-          {
-            "id": "realtime-apps-liveblocks-linear-like-issue-tracker",
-            "title": "Liveblocks Linear-like Issue Tracker",
-            "categorySlug": "realtime-apps",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          },
-          {
-            "id": "cron-vercel-dbos-integration",
-            "title": "Vercel + DBOS Integration",
-            "categorySlug": "cron",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "saas-landing": {
@@ -149,66 +38,7 @@
           "Better pricing and product proof",
           "More convincing product preview patterns"
         ],
-        "referenceTemplates": [
-          {
-            "id": "saas-envshare",
-            "title": "EnvShare",
-            "categorySlug": "saas",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          },
-          {
-            "id": "saas-liveblocks-starter-kit",
-            "title": "Liveblocks Starter Kit",
-            "categorySlug": "saas",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "web3-coinbase-commerce",
-            "title": "Coinbase Commerce",
-            "categorySlug": "web3",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "pricing or billing structure",
-              "storefront or checkout patterns"
-            ]
-          },
-          {
-            "id": "saas-platforms-starter-kit",
-            "title": "Platforms Starter Kit",
-            "categorySlug": "saas",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "multi-tenant or workspace patterns"
-            ]
-          },
-          {
-            "id": "cdn-rewrite-docs-to-mintlify",
-            "title": "Rewrite docs to Mintlify",
-            "categorySlug": "cdn",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "multi-tenant or workspace patterns"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "portfolio": {
@@ -221,56 +51,7 @@
           "Richer project storytelling",
           "More image-forward layout options"
         ],
-        "referenceTemplates": [
-          {
-            "id": "portfolio-next-js-portfolio-with-blog",
-            "title": "Next.js Portfolio with Blog",
-            "categorySlug": "portfolio",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          },
-          {
-            "id": "portfolio-portfolio-starter-kit",
-            "title": "Portfolio Starter Kit",
-            "categorySlug": "portfolio",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          },
-          {
-            "id": "portfolio-magic-portfolio-for-next-js",
-            "title": "Magic Portfolio for Next.js",
-            "categorySlug": "portfolio",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          },
-          {
-            "id": "blog-next-js-contentlayer-blog-starter",
-            "title": "Next.js Contentlayer Blog Starter",
-            "categorySlug": "blog",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "blog": {
@@ -283,44 +64,7 @@
           "Better article and archive patterns",
           "Stronger editorial hierarchy"
         ],
-        "referenceTemplates": [
-          {
-            "id": "portfolio-magic-portfolio-for-next-js",
-            "title": "Magic Portfolio for Next.js",
-            "categorySlug": "portfolio",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          },
-          {
-            "id": "blog-next-js-contentlayer-blog-starter",
-            "title": "Next.js Contentlayer Blog Starter",
-            "categorySlug": "blog",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          },
-          {
-            "id": "blog-isr-blog-with-next-js-and-wordpress",
-            "title": "ISR Blog with Next.js and WordPress",
-            "categorySlug": "blog",
-            "qualityScore": 68,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "CMS integration hints"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "dashboard": {
@@ -333,68 +77,7 @@
           "More realistic data density",
           "Better sidebar and table patterns"
         ],
-        "referenceTemplates": [
-          {
-            "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
-            "title": "Modernize Next.js Admin Dashboard Template",
-            "categorySlug": "admin-dashboard",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "multi-tenant-apps-multi-tenant-ai-native-todo-list-app-with-nile",
-            "title": "Multi-tenant AI-native todo list app with Nile",
-            "categorySlug": "multi-tenant-apps",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "portfolio-next-js-portfolio-with-blog",
-            "title": "Next.js Portfolio with Blog",
-            "categorySlug": "portfolio",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          },
-          {
-            "id": "portfolio-portfolio-starter-kit",
-            "title": "Portfolio Starter Kit",
-            "categorySlug": "portfolio",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          },
-          {
-            "id": "multi-tenant-apps-turso-per-user-starter",
-            "title": "Turso Per User Starter",
-            "categorySlug": "multi-tenant-apps",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "auth-pages": {
@@ -407,68 +90,7 @@
           "Richer auth flow linking",
           "More realistic account recovery and OAuth affordances"
         ],
-        "referenceTemplates": [
-          {
-            "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
-            "title": "Modernize Next.js Admin Dashboard Template",
-            "categorySlug": "admin-dashboard",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "multi-tenant-apps-multi-tenant-ai-native-todo-list-app-with-nile",
-            "title": "Multi-tenant AI-native todo list app with Nile",
-            "categorySlug": "multi-tenant-apps",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "authentication-next-js-saas-starter",
-            "title": "Next.js SaaS Starter",
-            "categorySlug": "authentication",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "ecommerce-stripe-subscription-starter",
-            "title": "Stripe Subscription Starter",
-            "categorySlug": "ecommerce",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "pricing or billing structure"
-            ]
-          },
-          {
-            "id": "multi-tenant-apps-turso-per-user-starter",
-            "title": "Turso Per User Starter",
-            "categorySlug": "multi-tenant-apps",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "ecommerce": {
@@ -481,67 +103,7 @@
           "Stronger product and checkout patterns",
           "Clearer storefront information architecture"
         ],
-        "referenceTemplates": [
-          {
-            "id": "authentication-next-js-saas-starter",
-            "title": "Next.js SaaS Starter",
-            "categorySlug": "authentication",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "ecommerce-stripe-subscription-starter",
-            "title": "Stripe Subscription Starter",
-            "categorySlug": "ecommerce",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "pricing or billing structure"
-            ]
-          },
-          {
-            "id": "cms-builder-io-personalization-starter",
-            "title": "Builder.io Personalization Starter",
-            "categorySlug": "cms",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "storefront or checkout patterns",
-              "CMS integration hints"
-            ]
-          },
-          {
-            "id": "web3-coinbase-commerce",
-            "title": "Coinbase Commerce",
-            "categorySlug": "web3",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "pricing or billing structure",
-              "storefront or checkout patterns"
-            ]
-          },
-          {
-            "id": "edge-middleware-optimizely-feature-experimentation",
-            "title": "Optimizely Feature Experimentation",
-            "categorySlug": "edge-middleware",
-            "qualityScore": 90,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "storefront or checkout patterns"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "content-site": {
@@ -554,65 +116,7 @@
           "Broader reusable section coverage",
           "More believable content-first defaults"
         ],
-        "referenceTemplates": [
-          {
-            "id": "portfolio-magic-portfolio-for-next-js",
-            "title": "Magic Portfolio for Next.js",
-            "categorySlug": "portfolio",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          },
-          {
-            "id": "security-arcjet-next-js-example-app",
-            "title": "Arcjet Next.js Example App",
-            "categorySlug": "security",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference"
-            ]
-          },
-          {
-            "id": "cms-builder-io-personalization-starter",
-            "title": "Builder.io Personalization Starter",
-            "categorySlug": "cms",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "storefront or checkout patterns",
-              "CMS integration hints"
-            ]
-          },
-          {
-            "id": "saas-platforms-starter-kit",
-            "title": "Platforms Starter Kit",
-            "categorySlug": "saas",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "multi-tenant or workspace patterns"
-            ]
-          },
-          {
-            "id": "cdn-rewrite-docs-to-mintlify",
-            "title": "Rewrite docs to Mintlify",
-            "categorySlug": "cdn",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "multi-tenant or workspace patterns"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "app-shell": {
@@ -625,68 +129,7 @@
           "Deeper app navigation patterns",
           "More settings, account, and workspace affordances"
         ],
-        "referenceTemplates": [
-          {
-            "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
-            "title": "Modernize Next.js Admin Dashboard Template",
-            "categorySlug": "admin-dashboard",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "multi-tenant-apps-multi-tenant-ai-native-todo-list-app-with-nile",
-            "title": "Multi-tenant AI-native todo list app with Nile",
-            "categorySlug": "multi-tenant-apps",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "portfolio-next-js-portfolio-with-blog",
-            "title": "Next.js Portfolio with Blog",
-            "categorySlug": "portfolio",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          },
-          {
-            "id": "authentication-next-js-saas-starter",
-            "title": "Next.js SaaS Starter",
-            "categorySlug": "authentication",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "portfolio-portfolio-starter-kit",
-            "title": "Portfolio Starter Kit",
-            "categorySlug": "portfolio",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     }
   }

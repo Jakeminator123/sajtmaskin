@@ -64,6 +64,7 @@ const BUILD_INTENT_GUIDANCE: Record<
   website: {
     label: "Website",
     rules: [
+      "Ship code that passes a real App Router build: valid `next/image`, metadata exports, and Server Components by default — not patterns that only work inside a browser-transpiled preview.",
       "Build a complete, visually polished website that looks like it was designed by a professional agency.",
       "Every website MUST include: (1) sticky navigation header, (2) hero section with headline + subtext + CTA, (3) 2-4 content sections, (4) multi-column footer.",
       "Hero sections must be impactful: large typography (text-5xl+), generous padding (py-24+), clear call-to-action buttons.",
@@ -86,6 +87,7 @@ const BUILD_INTENT_GUIDANCE: Record<
       "Add empty states with illustrations (Lucide icons), loading skeletons, and error boundaries.",
       "Structure state with React hooks (useState, useReducer). Only add Context if state is shared across many components.",
       "Include toast notifications (via Sonner) for actions like save, delete, and error feedback.",
+      "Full Next.js runtime is available: Server Actions, API routes, middleware, and any npm package. Use them when the app needs real data flow.",
     ],
   },
 };
@@ -407,7 +409,7 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
         parts.push(...unresolvedDecisions.map((entry) => `  - ${entry.kind}: ${entry.reason}`));
         parts.push(
           "  - If these decisions matter for backend/runtime behavior, ask a clarifying question before generating provider-specific code.",
-          "  - If the user has not chosen the provider yet, keep the preview working with mock or placeholder data instead of inventing secrets or backend wiring.",
+          "  - If the user has not chosen the provider yet, use a sensible default (e.g. Drizzle + SQLite) with mock data. State your choice so the user can override it.",
         );
       }
       if (preGenerationContracts.confirmedAnswers.length > 0) {

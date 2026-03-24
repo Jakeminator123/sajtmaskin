@@ -9,10 +9,12 @@ import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
-import type { CodeFile } from "@/lib/gen/parser";
+import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
+import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
+import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
 
 type UrlMap = Record<string, string>;
 
@@ -256,6 +258,46 @@ export function createOwnEngineGenerationStream(
         });
         devLogFinalizeSite();
         await commitCredits();
+
+        if (isSandboxConfigured() && finalized.contentForVersion) {
+          let parsedFiles: CodeFile[] = [];
+          try {
+            parsedFiles = parseCodeProject(finalized.contentForVersion).files;
+          } catch {
+            /* best-effort */
+          }
+
+          if (parsedFiles.length > 0) {
+            safeEnqueue(enc.encode(formatSSEEvent("progress", { stage: "sandbox-starting" })));
+
+            startSandboxPreview(parsedFiles).then((sandboxResult) => {
+              if (sandboxResult.ok) {
+                safeEnqueue(
+                  enc.encode(
+                    formatSSEEvent("sandbox-ready", {
+                      sandboxUrl: sandboxResult.result.sandboxUrl,
+                      sandboxId: sandboxResult.result.sandboxId,
+                    }),
+                  ),
+                );
+                chatRepo.updateVersionSandboxUrl(finalized.version.id, sandboxResult.result.sandboxUrl).catch(() => {});
+              } else {
+                safeEnqueue(
+                  enc.encode(formatSSEEvent("build-error", sandboxResult.error)),
+                );
+              }
+            }).catch((err) => {
+              safeEnqueue(
+                enc.encode(
+                  formatSSEEvent("build-error", {
+                    stage: "sandbox-create" as const,
+                    message: err instanceof Error ? err.message : "Sandbox failed",
+                  }),
+                ),
+              );
+            });
+          }
+        }
       };
 
       try {
