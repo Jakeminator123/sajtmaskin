@@ -62,6 +62,7 @@ export const authPagesManifest: ScaffoldManifest = {
     {
       path: "app/layout.tsx",
       content: `import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -72,7 +73,7 @@ export const metadata: Metadata = {
   description: "Login, signup, and forgot-password pages with form layout.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="sv" className="dark">
       <body className={\`\${inter.variable} antialiased\`}>{children}</body>
@@ -92,9 +93,9 @@ export default function HomePage() {
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-6">
       <div className="text-center space-y-4">
         <h1 className="text-3xl font-semibold tracking-tight">Auth Pages Starter</h1>
-        <p className="text-muted-foreground max-w-md">
+        <h2 className="text-muted-foreground max-w-md text-base font-normal">
           This scaffold provides login, signup, and forgot-password pages. Replace the landing with your app home or redirect.
-        </p>
+        </h2>
       </div>
       <div className="flex gap-4">
         <Button asChild size="lg" className="rounded-full">

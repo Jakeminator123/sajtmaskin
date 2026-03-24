@@ -11,6 +11,8 @@ const toast = vi.hoisted(() => {
   return Object.assign(fn, {
     success: vi.fn(),
     warning: vi.fn(),
+    error: vi.fn(),
+    message: vi.fn(),
   });
 });
 

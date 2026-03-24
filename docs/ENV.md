@@ -47,6 +47,17 @@ python manage_env.py reconcile         # dry-run cleanup-plan för Vercel drift
 python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga entries på Vercel)
 ```
 
+## Ordlista: Node, Next, «Nix» och datalagring
+
+- **Node.js** är JavaScript-runtimen som kör Sajtmaskin och den genererade Next-appen (lokalt och i Vercel Sandbox, t.ex. `node24`).
+- **Next.js** är ramverket för App Router-projekt som buildern genererar.
+- **«Nix»** som ibland syns i Vercel-sammanhang (t.ex. Nixpacks) är en **byggcontainer** på Vercels plattform — inte en separat integration i Sajtmaskin. Din sajt byggs fortfarande som **Node + Next**.
+- **Chattar, versioner och `files_json`** lagras i **Postgres** (t.ex. via Supabase om `POSTGRES_URL` pekar dit). Det finns ingen parallell «projektkatalog på disken» för samma data i appen; lokalt finns bara cache (`.next`, osv.).
+
+## Klient-autofix (builder)
+
+- **Autofix vid fel** (quality gate / preview) är **på som standard**. Stäng av under **Settings** (kugghjul) i buildern, eller sätt `localStorage`-nyckeln `sajtmaskin:autofix-enabled` till `"false"`. URL-parametrarna `?noautofix` och `?autofix` kan användas för tillfällig override.
+
 ## Modellkonfiguration
 
 Modellkonfigurationen ar uppdelad mellan flera filer:

@@ -53,6 +53,7 @@ import {
   Save,
   Settings2,
   Wand2,
+  Wrench,
   TerminalSquare,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -93,6 +94,8 @@ export function BuilderHeader(props: {
   onChatPrivacyChange: (v: "private" | "unlisted") => void;
   enableBlobMedia: boolean;
   onEnableBlobMediaChange: (v: boolean) => void;
+  enableAutofix: boolean;
+  onEnableAutofixChange: (v: boolean) => void;
 
   showStructuredChat: boolean;
   onShowStructuredChatChange: (v: boolean) => void;
@@ -152,6 +155,8 @@ export function BuilderHeader(props: {
     onChatPrivacyChange,
     enableBlobMedia,
     onEnableBlobMediaChange,
+    enableAutofix,
+    onEnableAutofixChange,
     showStructuredChat,
     onShowStructuredChatChange,
     tipsEnabled,
@@ -560,6 +565,30 @@ export function BuilderHeader(props: {
                   <p className="text-xs">
                     Kopierar externa bild-URL:er till Vercel Blob vid deploy. Stäng av om du vill
                     köra med externa länkar.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={enableAutofix}
+                      onCheckedChange={onEnableAutofixChange}
+                      disabled={isBusy}
+                    >
+                      <Wrench className="mr-2 h-4 w-4" />
+                      Autofix vid fel
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    När quality gate eller preview misslyckas skickas automatiskt en reparationsprompt.
+                    Stäng av om du vill styra allt manuellt. URL-parametrarna ?autofix och ?noautofix
+                    åsidosätter tillfälligt.
                   </p>
                 </TooltipContent>
               </Tooltip>

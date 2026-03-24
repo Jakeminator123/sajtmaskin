@@ -4,6 +4,10 @@
 
 Det här dokumentet beskriver hur **demo-URL** och **förhandsvisning** fungerar när användaren promptar i buildern med **egen motor** (inte v0-fallback). För Vercel Sandbox-autentisering, se [vercel-sandbox-credentials.md](./vercel-sandbox-credentials.md).
 
+## Demo-URL-prioritet i UI
+
+När en version har både **shim-URL** (`/api/preview-render`) och **`sandbox_url`** i databasen prioriteras **sandbox** före extern v0-hostad preview och före shim, så att du ser full Next-runtime när den finns.
+
 ## Två faser: snabb HTML-shim, sedan riktig Next.js (valfritt)
 
 Efter att en version sparats får klienten nästan alltid en **`demoUrl` direkt i SSE `done`**-eventet. Den pekar på **`/api/preview-render`** (byggd av `buildPreviewUrl` i [`src/lib/gen/preview/index.ts`](../../src/lib/gen/preview/index.ts)). Den routen renderar en **självständig HTML-sida** med CDN Tailwind + React UMD — en **snabb visuell approximation**, inte en full Next.js-server.

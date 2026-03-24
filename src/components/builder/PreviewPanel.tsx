@@ -24,6 +24,7 @@ import {
   useTransition,
   type MouseEvent,
 } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -328,6 +329,8 @@ interface PreviewPanelProps {
   awaitingInput?: boolean;
   awaitingInputQuestion?: string | null;
   awaitingInputOptions?: string[];
+  /** Last SSE sandbox/build failure for this session (cleared on sandbox-ready or version change). */
+  sandboxBuildError?: { stage: string; message: string } | null;
   placementMode?: boolean;
   pendingPlacementItem?: {
     title: string;
@@ -376,6 +379,7 @@ export function PreviewPanel({
   awaitingInput = false,
   awaitingInputQuestion = null,
   awaitingInputOptions = [],
+  sandboxBuildError = null,
   placementMode = false,
   pendingPlacementItem = null,
   onPlacementComplete,
@@ -2561,6 +2565,20 @@ export function PreviewPanel({
       <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
         {surfaceDescriptor.detail}
       </div>
+      {sandboxBuildError ? (
+        <Alert
+          variant="destructive"
+          className="mx-4 mt-2 border-rose-900/55 bg-rose-950/45 text-rose-50"
+        >
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle className="text-sm text-rose-100">
+            Sandbox / build: {sandboxBuildError.stage}
+          </AlertTitle>
+          <AlertDescription className="max-h-36 overflow-y-auto font-mono text-[11px] whitespace-pre-wrap text-rose-200/95">
+            {sandboxBuildError.message}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0) && (
         <div className="border-b border-gray-800 bg-black/30 px-4 py-2">
           <div className="mb-1 text-[11px] font-medium text-gray-300">Sidor i skapad preview</div>

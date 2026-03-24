@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
 import {
   describePreviewDiagnosticCode,
@@ -8,24 +9,62 @@ import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events"
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
-function isAutofixEnabledInBrowser(): boolean {
-  if (typeof window === "undefined") return false;
+export const AUTOFIX_LOCAL_STORAGE_KEY = "sajtmaskin:autofix-enabled";
+
+/** Persisted opt-out only; default is on when key is unset. */
+export function readAutofixLocalStorageOnly(): boolean {
+  if (typeof window === "undefined") return true;
   try {
-    const ls = window.localStorage;
-    if (ls && typeof ls.getItem === "function") {
-      if (ls.getItem("sajtmaskin:autofix-enabled") === "true") return true;
-    }
+    return window.localStorage.getItem(AUTOFIX_LOCAL_STORAGE_KEY) !== "false";
   } catch {
-    /* private mode / incomplete test env */
-  }
-  try {
-    return new URLSearchParams(window.location.search).has("autofix");
-  } catch {
-    return false;
+    return true;
   }
 }
 
-const AUTOFIX_ENABLED = isAutofixEnabledInBrowser();
+export function writeAutofixLocalStorage(enabled: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (enabled) {
+      window.localStorage.removeItem(AUTOFIX_LOCAL_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(AUTOFIX_LOCAL_STORAGE_KEY, "false");
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Client-side post-check autofix: **on by default**. Opt out via Settings or
+ * localStorage `sajtmaskin:autofix-enabled` = `"false"`, or URL `?noautofix`.
+ * `?autofix` forces on for that page load.
+ */
+export function readAutofixClientPreference(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("noautofix")) return false;
+    if (params.has("autofix")) return true;
+  } catch {
+    /* ignore */
+  }
+  return readAutofixLocalStorageOnly();
+}
+
+let lastAutofixDisabledToastAt = 0;
+const AUTOFIX_DISABLED_TOAST_COOLDOWN_MS = 12_000;
+
+function notifyAutofixSkipped(reasons: string[]) {
+  const now = Date.now();
+  if (now - lastAutofixDisabledToastAt < AUTOFIX_DISABLED_TOAST_COOLDOWN_MS) return;
+  lastAutofixDisabledToastAt = now;
+  const preview = reasons.slice(0, 2).join("; ");
+  toast.message("Autofix är avstängt", {
+    description:
+      `${preview || "Fel hittades"} — slå på Autofix under Settings (kugghjul) eller ta bort ?noautofix från URL:en.`,
+    duration: 8_000,
+  });
+}
 
 const MAX_ATTEMPTS_PER_REASON = 1;
 const MAX_AUTOFIX_PER_CHAT = 2;
@@ -293,7 +332,10 @@ export function useAutoFix(
 
   const handleAutoFix = useCallback(
     (payload: AutoFixPayload) => {
-      if (!AUTOFIX_ENABLED) return;
+      if (!readAutofixClientPreference()) {
+        notifyAutofixSkipped(payload.reasons);
+        return;
+      }
       void (async () => {
         const now = Date.now();
         pruneStale(autoFixAttemptsRef.current, now);

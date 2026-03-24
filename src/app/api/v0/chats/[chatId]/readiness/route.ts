@@ -80,9 +80,11 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
   if (status === "failed") {
     return {
       id: "version-failed",
-      title: "Versionen är markerad som misslyckad.",
-      detail: summary || "Åtgärda verifieringsfelen eller välj en tidigare stabil version.",
-      severity: "blocker",
+      title: "Versionen är markerad som misslyckad (quality gate).",
+      detail:
+        summary ||
+        "Deploy är inte blockerad — kontrollera loggar och kör autofix om du vill. För produktion bör build/typecheck passera.",
+      severity: "warning",
       action: "versions",
     };
   }
@@ -186,12 +188,16 @@ async function buildEngineReadiness(
     verificationState: version.verification_state,
   });
 
-  const lifecycleBlocker = buildLifecycleBlocker(
+  const lifecycleItem = buildLifecycleBlocker(
     lifecycleStatus,
     version.verification_summary ?? null,
   );
-  if (lifecycleBlocker) {
-    blockers.push(lifecycleBlocker);
+  if (lifecycleItem) {
+    if (lifecycleItem.severity === "blocker") {
+      blockers.push(lifecycleItem);
+    } else {
+      warnings.push(lifecycleItem);
+    }
   }
 
   const [versionFiles, projectEnv, errorLogs] = await Promise.all([

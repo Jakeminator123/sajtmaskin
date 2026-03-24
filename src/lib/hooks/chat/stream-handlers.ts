@@ -1,6 +1,11 @@
 import { consumeSseResponse } from "@/lib/builder/sse";
 import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
-import type { AutoFixPayload, SetMessages, StreamQualitySignal } from "./types";
+import type {
+  AutoFixPayload,
+  SandboxBuildErrorPayload,
+  SetMessages,
+  StreamQualitySignal,
+} from "./types";
 import { toast } from "sonner";
 import {
   appendModelInfoPart,
@@ -38,6 +43,7 @@ export type StreamContext = {
   onV0ProjectId?: (projectId: string) => void;
 
   setCurrentDemoUrl: (url: string | null) => void;
+  setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
   onPreviewRefresh?: () => void;
   onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
   mutateVersions: () => void;
@@ -86,6 +92,7 @@ export async function handleSseStream(
     pendingCreateKeyRef,
     onV0ProjectId,
     setCurrentDemoUrl,
+    setSandboxBuildError,
     onPreviewRefresh,
     onGenerationComplete,
     mutateVersions,
@@ -521,6 +528,7 @@ export async function handleSseStream(
             const sandboxData = data as Record<string, unknown>;
             if (sandboxData.sandboxUrl) {
               const sandboxUrl = sandboxData.sandboxUrl as string;
+              setSandboxBuildError?.(null);
               setCurrentDemoUrl(sandboxUrl);
               onPreviewRefresh?.();
               // Post-check is queued at `done` with shim URL; upgrade when sandbox arrives in the same stream.
@@ -535,6 +543,7 @@ export async function handleSseStream(
             const buildErrorData = data as Record<string, unknown>;
             const stage = String(buildErrorData.stage ?? "build");
             const message = String(buildErrorData.message ?? "Build failed");
+            setSandboxBuildError?.({ stage, message });
             appendProgressPart("build-error", "error", { stage, message });
             toast.error(`Sandbox / build: [${stage}] ${message.slice(0, 500)}`);
             break;

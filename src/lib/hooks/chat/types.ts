@@ -128,6 +128,11 @@ export type DesignTokenSummary = {
   tokens: Array<{ name: string; value: string }>;
 };
 
+export type SandboxBuildErrorPayload = {
+  stage: string;
+  message: string;
+};
+
 export type VersionErrorLogPayload = {
   level: "info" | "warning" | "error";
   category?: string | null;
@@ -166,6 +171,8 @@ export type ChatMessagingParams = {
   pendingBriefRef?: MutableRefObject<Record<string, unknown> | null>;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
+  /** Cleared on sandbox-ready; set on SSE build-error for inline preview UI. */
+  setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
   onPreviewRefresh?: () => void;
   onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
   onV0ProjectId?: (projectId: string) => void;

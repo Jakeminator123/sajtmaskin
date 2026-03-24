@@ -236,9 +236,19 @@ export function useBuilderPageController() {
   const deploymentStatus = useDeploymentStatus(state.activeDeploymentId);
 
   // ── V0 Chat messaging ───────────────────────────────────────────────
+  const [sandboxBuildError, setSandboxBuildError] = useState<{
+    stage: string;
+    message: string;
+  } | null>(null);
+
+  const clearSandboxBuildError = useCallback(() => {
+    setSandboxBuildError(null);
+  }, []);
+
   const resetBeforeCreateChat = useCallback(() => {
     setCurrentDemoUrl(null);
     setPreviewRefreshToken(0);
+    setSandboxBuildError(null);
   }, [setCurrentDemoUrl, setPreviewRefreshToken]);
 
   const bumpPreviewRefreshToken = useCallback(() => {
@@ -272,6 +282,7 @@ export function useBuilderPageController() {
       pendingBriefRef: state.pendingBriefRef,
       mutateVersions,
       setCurrentDemoUrl: state.setCurrentDemoUrl,
+      setSandboxBuildError,
       onPreviewRefresh: bumpPreviewRefreshToken,
       onGenerationComplete: deployActions.handleGenerationComplete,
       onV0ProjectId: (nextId) => state.setV0ProjectId(nextId),
@@ -1168,8 +1179,8 @@ export function useBuilderPageController() {
         : null;
     const nextDemoUrl =
       persistedPreviewOverride ||
-      (preferV0HostedPreview && v0HostedDemoUrl ? v0HostedDemoUrl : null) ||
       activeVersionMatch?.sandboxUrl ||
+      (preferV0HostedPreview && v0HostedDemoUrl ? v0HostedDemoUrl : null) ||
       activeVersionMatch?.demoUrl ||
       chatObj?.demoUrl ||
       chatObj?.latestVersion?.demoUrl ||
@@ -1359,6 +1370,8 @@ export function useBuilderPageController() {
     v0ProjectId: state.v0ProjectId,
     paletteState: state.paletteState,
     currentDemoUrl: state.currentDemoUrl,
+    sandboxBuildError,
+    clearSandboxBuildError,
     serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,
     isVersionPanelCollapsed: state.isVersionPanelCollapsed,

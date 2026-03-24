@@ -72,11 +72,25 @@ function buildVerificationSummary(checkResults: CheckResult[]): string {
   return `Automatic verification failed: ${failedChecks.join(", ")}.`;
 }
 
+/** Base shell commands (no `2>&1`); stderr is merged via log file in runSandboxChecks. */
 const CHECK_COMMANDS: Record<string, string> = {
-  typecheck: "npx tsc --noEmit 2>&1",
-  build: "npx next build 2>&1",
-  lint: "npx eslint . --max-warnings=0 2>&1",
+  typecheck: "npx tsc --noEmit",
+  build: "npx next build",
+  lint: "npx eslint . --max-warnings=0",
 };
+
+const OUTPUT_CAP = 12_000;
+
+function buildCheckShellScript(baseCmd: string, logFile: string): string {
+  return [
+    "set +e",
+    `${baseCmd} > "${logFile}" 2>&1`,
+    "ec=$?",
+    `cat "${logFile}" 2>/dev/null || true`,
+    `rm -f "${logFile}" 2>/dev/null || true`,
+    "exit $ec",
+  ].join("\n");
+}
 
 function isSafeRelativePath(path: string): boolean {
   if (!path || path.includes("\0")) return false;
@@ -121,17 +135,29 @@ async function runSandboxChecks(
     await sandbox.runCommand({ cmd: "bash", args: ["-c", "npm install --prefer-offline 2>&1 || true"] });
 
     const results: CheckResult[] = [];
+    const logSuffix = `${startMs}-${Math.random().toString(36).slice(2, 9)}`;
     for (const check of checks) {
-      const cmd = CHECK_COMMANDS[check];
-      if (!cmd) continue;
-      const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", cmd] });
+      const baseCmd = CHECK_COMMANDS[check];
+      if (!baseCmd) continue;
+      const logFile = `/tmp/sajtmaskin-qg-${check}-${logSuffix}.log`;
+      const script = buildCheckShellScript(baseCmd, logFile);
+      const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", script] });
       const stdout = typeof result.stdout === "string" ? result.stdout : "";
       const stderr = typeof result.stderr === "string" ? result.stderr : "";
-      const output = (stdout + "\n" + stderr).trim().slice(0, 8000);
+      let output = (stdout + "\n" + stderr).trim().slice(0, OUTPUT_CAP);
+      const exitCode = result.exitCode ?? 1;
+      const passed = exitCode === 0;
+      if (!passed && !output) {
+        output = [
+          `(No log output captured from sandbox; exit ${exitCode}.)`,
+          `Command: ${baseCmd}`,
+          "If this persists, the sandbox runner may not be streaming stdout; check Vercel Sandbox logs.",
+        ].join("\n");
+      }
       results.push({
         check,
-        passed: result.exitCode === 0,
-        exitCode: result.exitCode ?? 1,
+        passed,
+        exitCode,
         output,
       });
     }

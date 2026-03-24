@@ -53,6 +53,7 @@ export function useSendMessage(
     pendingBriefRef,
     mutateVersions,
     setCurrentDemoUrl,
+    setSandboxBuildError,
     onPreviewRefresh,
     onGenerationComplete,
     setMessages,
@@ -93,6 +94,7 @@ export function useSendMessage(
         engineModel,
       });
 
+      setSandboxBuildError?.(null);
       setMessages((prev) => [
         ...prev,
         { id: userMessageId, role: "user", content: messageText },
@@ -288,6 +290,7 @@ export function useSendMessage(
             setMessages,
             touchStreamSafetyTimer,
             setCurrentDemoUrl,
+            setSandboxBuildError,
             onPreviewRefresh,
             onGenerationComplete,
             mutateVersions,
@@ -369,6 +372,7 @@ export function useSendMessage(
       systemPrompt,
       setMessages,
       setCurrentDemoUrl,
+      setSandboxBuildError,
       onPreviewRefresh,
       onGenerationComplete,
       selectedModelTier,

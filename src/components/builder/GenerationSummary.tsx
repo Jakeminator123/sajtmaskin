@@ -133,7 +133,13 @@ export const GenerationSummary = memo(function GenerationSummary({
               {isStreaming ? "Genererar" : "Genererat"}{" "}
               <span className="text-emerald-400">{generatedUnitLabel}</span>
             </span>
-            <span className="text-[10px] text-zinc-500">{parsed.totalCodeLines} rader</span>
+            {!isStreaming ? (
+              <span className="text-[10px] text-zinc-500">{parsed.totalCodeLines} rader</span>
+            ) : (
+              <span className="text-[10px] text-zinc-500" title="Radantal räknas först när strömmen är klar">
+                …
+              </span>
+            )}
           </div>
           {!isStreaming && (
             <button

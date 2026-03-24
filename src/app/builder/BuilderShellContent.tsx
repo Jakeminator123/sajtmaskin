@@ -45,6 +45,10 @@ import {
   getPromptAssistModelLabel,
 } from "@/lib/builder/defaults";
 import type { ChatMessage } from "@/lib/builder/types";
+import {
+  readAutofixLocalStorageOnly,
+  writeAutofixLocalStorage,
+} from "@/lib/hooks/chat/useAutoFix";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -154,6 +158,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             ? "Publicering pågår redan."
             : deployReadinessBlocker?.detail || deployReadinessBlocker?.title || null;
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
+  const [enableAutofix, setEnableAutofix] = useState(true);
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [tipPanelOpen, setTipPanelOpen] = useState(false);
   const [tipText, setTipText] = useState<string | null>(null);
@@ -604,6 +609,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   const handleVersionSelect = useCallback(
     (versionId: string, demoUrl?: string) => {
+      vm.clearSandboxBuildError();
       vm.setClearedPreviewVersionId(null);
       if (vm.serverProjectPreviewOverrideVersionId === versionId) {
         void persistPreviewOverride(null, null);
@@ -612,6 +618,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     },
     [
       vm.handleVersionSelect,
+      vm.clearSandboxBuildError,
       vm.serverProjectPreviewOverrideVersionId,
       vm.setClearedPreviewVersionId,
       persistPreviewOverride,
@@ -625,6 +632,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, [
     vm,
   ]);
+
+  useEffect(() => {
+    setEnableAutofix(readAutofixLocalStorageOnly());
+  }, []);
+
+  const handleEnableAutofixChange = useCallback((next: boolean) => {
+    writeAutofixLocalStorage(next);
+    setEnableAutofix(next);
+  }, []);
 
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
@@ -656,6 +672,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onChatPrivacyChange={vm.setChatPrivacy}
         enableBlobMedia={vm.enableBlobMedia}
         onEnableBlobMediaChange={vm.setEnableBlobMedia}
+        enableAutofix={enableAutofix}
+        onEnableAutofixChange={handleEnableAutofixChange}
         showStructuredChat={vm.showStructuredChat}
         onShowStructuredChatChange={vm.setShowStructuredChat}
         tipsEnabled={vm.tipsEnabled}
@@ -875,6 +893,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
               demoUrl={vm.currentDemoUrl}
+              sandboxBuildError={vm.sandboxBuildError}
               onNavigatePreviewUrl={(url) => vm.setCurrentDemoUrl(url)}
               isLoading={vm.isAnyStreaming || vm.isCreatingChat}
               imageGenerationsEnabled={vm.enableImageGenerations}

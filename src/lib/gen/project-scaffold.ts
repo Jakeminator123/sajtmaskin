@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import nodePath from "node:path";
+import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
 
 /**
@@ -158,6 +159,7 @@ const GLOBALS_CSS = `@import "tailwindcss";
 `;
 
 const LAYOUT_TSX = `import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -190,7 +192,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="sv" className="dark">
@@ -256,9 +258,6 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
 
   const allCode = generatedFiles.map((f) => f.content).join("\n");
-  const { runDepCompleter } = require("./autofix/dep-completer") as {
-    runDepCompleter: (code: string) => { dependencies: Record<string, string> };
-  };
   const detected = runDepCompleter(allCode);
 
   for (const [filePath, content] of Object.entries(SCAFFOLD_FILES)) {
