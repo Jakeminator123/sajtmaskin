@@ -21,3 +21,18 @@ Källa: fyra LLM-granskningar under `pot_buggs/buggar _llm/` (fzrm, hxmp, kzwr, 
 - Byte från AI SDK till rå OpenAI/Anthropic REST.
 - Omdöpning av `/api/v0/*` till annat prefix.
 - Browser-autofix som standard, obligatorisk LLM-uppföljning, sammanslagning av dubbla LLM-fixpipelines, “Gravity”.
+
+## Övriga observationer (inte egna buggfixar i denna runda)
+
+Under samma fyra rapporter dök följande upp som **risker eller backlog**, inte som verifierade runtime-buggar vi åtgärdade:
+
+| Tema | Kort kommentar |
+|------|----------------|
+| **AI SDK överallt** | Arkitekturval; `streamText` + `@ai-sdk/*` är avsiktligt tills en eventuell migration till rå REST. |
+| **Prefix `/api/v0/`** | Naming-debt; egen motor bor i samma route-träd som historiska v0-proxy — kan förvirra nya utvecklare. |
+| **Dubblerad LLM-fix** | `validateAndFix` vs `runFinalizePreflight` (qvnj): risk för divergerande beteende över tid; refaktor snarare än en enkel bugfix. |
+| **Browser-autofix av** | Produktsbeslut (`useAutoFix`); rapporterna noterar att preview-fel inte alltid triggar auto-omgenerering utan flagga/query. |
+| **“Uppföljningsprompt”** | Produktgap om kravet är alltid LLM-genererad nästa steg; idag fri assistenttext + heuristiska post-checks. |
+| **Klargörande före bygg** | UX-risk: användare kan uppleva “ingenting hände” om UI inte förtydligar att svaret är en fråga, inte codegen (fzrm). |
+| **SQLite vs Postgres i äldre text** | Dokumentationsdrift i enstaka anteckningar; kanon är Postgres/Drizzle i aktuell kodbas (kzwr). |
+| **Gravity** | Nämnd som önskad stack men ingen tydlig dependency som Fiber/Three — framtida capability om produkt väljer bibliotek. |
