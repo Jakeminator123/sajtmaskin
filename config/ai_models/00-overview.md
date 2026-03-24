@@ -7,7 +7,7 @@ Alla **standardvärden** som går att styra centralt ligger i [`manifest.json`](
 | Bana | Vad | Typiskt API | Nycklar (se kod) |
 |------|-----|-------------|-------------------|
 | **Own engine** | Kodgenerering i buildern | Vercel AI SDK `streamText` + `@ai-sdk/openai` / `@ai-sdk/anthropic` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
-| **Prompt assist** | Förbättra prompt, chat | `streamText` + `createDirectModel` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `V0_API_KEY` |
+| **Prompt assist** | Förbättra prompt, chat | `streamText` + `createDirectModel` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
 | **Autofix** | Eftergenereringsfixar | `streamText` | `OPENAI_API_KEY` |
 | **Embeddings** | Semantisk sök i index | `openai.embeddings.create` | `OPENAI_API_KEY` |
 | **Vissa admin/wizard/inspektor** | Analys, JSON | OpenAI **Responses** API | `OPENAI_API_KEY` eller **Vercel AI Gateway** |

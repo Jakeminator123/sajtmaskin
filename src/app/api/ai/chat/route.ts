@@ -1,5 +1,4 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -11,7 +10,6 @@ import {
   isAnthropicAssistModel,
   isGatewayAssistModel,
   isPromptAssistModelAllowed,
-  isV0AssistModel,
   normalizeAssistModel,
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
@@ -22,8 +20,6 @@ import {
 import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
 export const runtime = "nodejs";
 export const maxDuration = 600;
-
-const BASE_URL = "https://api.v0.dev/v1";
 
 import { ASSIST_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
 
@@ -48,7 +44,7 @@ const chatRequestSchema = z.object({
   messages: z.array(messageSchema).min(1, "messages is required").max(40, "Too many messages"),
   model: z.string().optional().default("openai/gpt-5.3-codex"),
   temperature: z.number().min(0).max(2).optional(),
-  provider: z.enum(["gateway", "v0", "anthropic"]).optional(),
+  provider: z.enum(["gateway", "anthropic"]).optional(),
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
 });
 
@@ -59,23 +55,6 @@ function resolveMaxTokens(requested: number | undefined): number {
     warnLog("AI", "maxTokens capped by env limit", { requested, capped, envLimit: ENV_MAX_TOKENS });
   }
   return capped;
-}
-
-function getV0ModelApiKey(): { apiKey: string | null; source: string } {
-  const v0ApiKey = process.env.V0_API_KEY;
-
-  if (v0ApiKey && v0ApiKey.trim()) {
-    return { apiKey: v0ApiKey, source: "V0_API_KEY" };
-  }
-
-  return { apiKey: null, source: "none" };
-}
-
-function getOpenAICompatProvider(apiKey: string) {
-  return createOpenAI({
-    apiKey,
-    baseURL: BASE_URL,
-  });
 }
 
 function getAnthropicProvider(apiKey: string) {
@@ -91,10 +70,6 @@ function getAnthropicApiKey(): string | null {
 function resolveAnthropicModelId(model: string): string {
   const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
   return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
-}
-
-function isProbablyOnVercel(): boolean {
-  return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
 }
 
 export async function POST(req: Request) {
@@ -121,7 +96,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error: "Model not allowed for prompt assist",
-            setup: "Välj en modell från listan i buildern (gateway eller v0-md/lg).",
+            setup: "Välj en modell från listan i buildern (OpenAI eller Anthropic).",
           },
           { status: 400 },
         );
@@ -158,32 +133,28 @@ export async function POST(req: Request) {
           return NextResponse.json(
             {
               error: "Invalid model for gateway provider",
-              setup: 'Set model to a supported OpenAI gateway-class prompt-assist model.',
+              setup: "Set model to a supported OpenAI prompt-assist model.",
             },
             { status: 400 },
           );
         }
 
-        const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
-        const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
-        if (!hasGatewayApiKey && !hasOidcToken && !isProbablyOnVercel()) {
-          warnLog("AI", "AI Gateway auth missing for prompt assist");
+        const hasOpenAI = Boolean(process.env.OPENAI_API_KEY?.trim());
+        if (!hasOpenAI) {
+          warnLog("AI", "OPENAI_API_KEY missing for OpenAI prompt assist");
           return NextResponse.json(
             {
-              error: "Missing AI Gateway auth for gateway provider",
+              error: "Missing OpenAI API key",
               setup:
-                "Set AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN for local dev, or deploy on Vercel to use OIDC authentication.",
+                "Set OPENAI_API_KEY. Prompt-assist OpenAI models use the OpenAI API directly (see createDirectModel in gateway-policy), not Vercel AI Gateway.",
             },
             { status: 401 },
           );
         }
 
-        const gatewayAuth = hasGatewayApiKey ? "api-key" : hasOidcToken ? "oidc" : "none";
-        debugLog("AI", "AI Gateway auth resolved", {
-          auth: gatewayAuth,
-          provider: "gateway",
+        debugLog("AI", "OpenAI prompt assist (direct API)", {
+          provider: resolvedProvider,
           model: normalizedModel,
-          onVercel: isProbablyOnVercel(),
         });
 
         const result = streamText({
@@ -205,7 +176,7 @@ export async function POST(req: Request) {
           headers: {
             "Cache-Control": "no-store",
             "X-Provider": resolvedProvider,
-            "X-Key-Source": gatewayAuth,
+            "X-Key-Source": "OPENAI_API_KEY",
           },
         });
       }
@@ -261,42 +232,13 @@ export async function POST(req: Request) {
         });
       }
 
-      const { apiKey, source } = getV0ModelApiKey();
-      if (!apiKey) {
-        warnLog("AI", "V0 Model API key missing for v0 provider");
-        return NextResponse.json(
-          {
-            error: "Missing V0 API key",
-            setup: "Set V0_API_KEY for the v0 Model API.",
-          },
-          { status: 401 },
-        );
-      }
-      debugLog("AI", "AI chat using v0 Model API", { model: normalizedModel, keySource: source });
-
-      const modelProvider = getOpenAICompatProvider(apiKey);
-      const result = streamText({
-        model: modelProvider(normalizedModel),
-        messages,
-        maxOutputTokens: maxTokens,
-        ...getTemperatureConfig(normalizedModel, temperature),
-        onFinish({ text }) {
-          devLogAppend("latest", {
-            type: "assist.chat.response",
-            provider: resolvedProvider,
-            model: normalizedModel,
-            text,
-          });
+      return NextResponse.json(
+        {
+          error: "Unsupported prompt-assist configuration",
+          setup: "Välj en tillåten assist-modell (OpenAI eller Anthropic).",
         },
-      });
-
-      return result.toTextStreamResponse({
-        headers: {
-          "Cache-Control": "no-store",
-          "X-Provider": resolvedProvider,
-          "X-Key-Source": source,
-        },
-      });
+        { status: 500 },
+      );
     } catch (err) {
       errorLog("AI", "AI chat error", err);
       devLogAppend("latest", {

@@ -642,12 +642,12 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
   }
   if (typeof info.promptAssistProvider === "string") {
     const providerLabel =
-      info.promptAssistProvider === "v0"
-        ? "Model API"
-        : info.promptAssistProvider === "gateway"
-          ? "Gateway"
-          : info.promptAssistProvider === "anthropic"
-            ? "Anthropic"
+      info.promptAssistProvider === "gateway"
+        ? "OpenAI"
+        : info.promptAssistProvider === "anthropic"
+          ? "Anthropic"
+          : info.promptAssistProvider === "v0"
+            ? "v0 (legacy)"
             : info.promptAssistProvider;
     steps.push(`Provider: ${providerLabel}`);
   }

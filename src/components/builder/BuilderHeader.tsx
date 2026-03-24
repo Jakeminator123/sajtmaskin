@@ -209,8 +209,7 @@ export function BuilderHeader(props: {
   const assistModelLabel = getPromptAssistModelLabel(promptAssistModel);
   const assistProviderName = (() => {
     const provider = resolvePromptAssistProvider(promptAssistModel);
-    if (provider === "v0") return "Model API";
-    if (provider === "gateway") return "Gateway";
+    if (provider === "gateway") return "OpenAI";
     if (provider === "anthropic") return "Anthropic";
     return provider;
   })();

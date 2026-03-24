@@ -1,12 +1,67 @@
 {
   "folders": [
     {
+      "name": "sajtmaskin",
       "path": "."
     }
   ],
   "settings": {
     "git.autofetch": true,
+    "git.autofetchPeriod": 0,
     "json.schemaDownload.enable": true,
-    "markdown.validate.enabled": true
+    "markdown.validate.enabled": true,
+    "markdownlint.ignore": [
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/out/**",
+      "**/build/**",
+      "**/dist/**",
+      "**/coverage/**",
+      "**/research/**",
+      "**/pot_buggs/**",
+      "**/src/templates/**",
+      "**/.cursor/**"
+    ],
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": null,
+    "editor.tabSize": 2,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "prettier.enable": false,
+    "eslint.useFlatConfig": true,
+    "files.eol": "\n",
+    "files.exclude": {
+      "**/.git": true,
+      "**/.next": true,
+      "**/node_modules": true
+    },
+    "search.exclude": {
+      "**/.next": true,
+      "**/node_modules": true,
+      "**/out": true,
+      "**/build": true
+    },
+    "[jsonc]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "tailwindCSS.experimental.classRegex": [
+      ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+      ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+    ],
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+    },
+    "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascript]": {
+      "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+    },
+    "[javascriptreact]": {
+      "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+    },
+    "files.autoSave": "off"
   }
 }

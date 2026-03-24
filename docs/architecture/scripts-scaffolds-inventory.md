@@ -41,7 +41,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 
 | Fil | Anteckning |
 |-----|------------|
-| `sync-scaffold-refs.mjs` | [`scripts/README.md`](../../scripts/README.md), [`vercel_template_cli.py`](../../vercel_template_cli.py) |
+| `sync-scaffold-refs.mjs` | [`scripts/README.md`](../../scripts/README.md) |
 | `scaffold-pipeline.py` | [`scripts/README.md`](../../scripts/README.md) — interaktiv meny för template-library-kedjan |
 | `hamta_sidor.py` | Se avsnitt ovan |
 | `recovery/recreate-repo-branch-commit.ps1` | [`scripts/README.md`](../../scripts/README.md) |
@@ -55,6 +55,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 
 | Fil | Skäl |
 |-----|------|
+| `vercel_template_cli.py` (repo root) | Ingen aktiv kedja i repot; forsknings-/mall-referens ersatt av interna skript. |
 | `hamta_sidor.py` (repo root) | Dublett av `scripts/hamta_sidor.py`. |
 | `_verify_password.mjs` | Tom fil (0 byte), inga referenser. |
 | `verify-tables.ts` | Engångs-/lokal Postgres-listning, inga referenser i repot; återfinns i git-historik vid behov. |

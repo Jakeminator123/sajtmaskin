@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  ANTHROPIC_ASSIST_MODELS,
-  GATEWAY_ASSIST_MODELS,
-  V0_ASSIST_MODELS,
-} from "@/lib/builder/promptAssist";
+import { ANTHROPIC_ASSIST_MODELS, GATEWAY_ASSIST_MODELS } from "@/lib/builder/promptAssist";
 import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import { existsSync } from "node:fs";
 
@@ -26,7 +22,7 @@ describe("config/ai_models/manifest.json parity", () => {
 
     expect([...allowed.gatewayClassModels]).toEqual([...GATEWAY_ASSIST_MODELS]);
     expect([...allowed.anthropicDirectModels]).toEqual([...ANTHROPIC_ASSIST_MODELS]);
-    expect([...allowed.v0Models]).toEqual([...V0_ASSIST_MODELS]);
+    expect(allowed.v0Models).toEqual([]);
 
     if (!process.env.SAJTMASKIN_ASSIST_MODEL?.trim()) {
       expect(ASSIST_MODEL).toBe(m.promptAssist.defaults.assist);

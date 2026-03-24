@@ -357,18 +357,16 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         const betterMessage = (() => {
           if (isAbort) return "AI Assist tog för lång tid (timeout).";
           if (isGatewayTimeout) {
-            return "AI Gateway tog för lång tid. Prova igen eller välj en snabbare modell.";
+            return "Prompt-assist-anropet tog för lång tid. Prova igen eller välj en snabbare modell.";
           }
           if (!isFailedFetch) return rawMessage;
 
           if (provider === "gateway") {
-            return (
-              "Kunde inte nå AI Gateway. Sätt AI_GATEWAY_API_KEY eller VERCEL_OIDC_TOKEN i .env.local (lokalt), " +
-              "eller kör på Vercel för OIDC-autentisering."
-            );
+            return "Kunde inte nå OpenAI för prompt-assist. Sätt OPENAI_API_KEY i .env.local (eller motsvarande i Vercel).";
           }
-          if (provider === "v0")
-            return "Kunde inte nå Model API. Sätt V0_API_KEY i .env.local.";
+          if (provider === "anthropic") {
+            return "Kunde inte nå Anthropic för prompt-assist. Sätt ANTHROPIC_API_KEY i .env.local (eller motsvarande i Vercel).";
+          }
           return "Kunde inte nå AI Assist-endpointen. Kontrollera att servern kör.";
         })();
 

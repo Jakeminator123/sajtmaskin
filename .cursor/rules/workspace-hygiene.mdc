@@ -1,0 +1,14 @@
+---
+description: Single-root workspace and where editor tooling config lives
+alwaysApply: true
+---
+
+# Workspace hygiene (Cursor / VS Code)
+
+- Treat **this repository** as a **single-root** workspace: the checkout root of `sajtmaskin` only.
+- Prefer opening **`sajtmaskin.code-workspace`** at the repo root (one folder entry: `.`). Avoid adding extra workspace roots such as `%USERPROFILE%\.cursor\plans`, global `.cursor\worktrees\…`, or unrelated sibling folders unless you are explicitly debugging those trees.
+- **Shared editor / extension settings** (ESLint flat config, Prettier toggle, markdownlint ignores, Tailwind regex, etc.) live in **`.vscode/settings.json`**. The workspace file **`sajtmaskin.code-workspace`** mirrors the same `settings` block so behaviour stays aligned whether you open the folder or the `.code-workspace` file.
+- **Cursor-only** project toggles (for example the Vercel plugin) live in **`.cursor/settings.json`**. That file is **not** a substitute for `.vscode` or the workspace file for standard extensions.
+- **Markdownlint** project rules: **`.markdownlint.json`** and **`.markdownlintignore`**. If Problems still show noise for Markdown files **outside** this repo (e.g. Cursor Plans on disk under `%USERPROFILE%\.cursor\`), add `markdownlint.ignore` globs in **Cursor User Settings** or remove those paths from the workspace.
+
+When changing ignores for ESLint, Prettier, or markdownlint, update **`.vscode/settings.json`**, **`sajtmaskin.code-workspace`** (the `settings` object), and the relevant ignore files together so they do not drift.

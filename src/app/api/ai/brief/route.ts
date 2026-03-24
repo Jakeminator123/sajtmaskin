@@ -9,7 +9,6 @@ import {
   isAnthropicAssistModel,
   isGatewayAssistModel,
   isPromptAssistModelAllowed,
-  isV0AssistModel,
   normalizeAssistModel,
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
@@ -31,7 +30,7 @@ const briefRequestSchema = z.object({
     .trim()
     .min(1, "prompt is required")
     .max(MAX_AI_BRIEF_PROMPT_CHARS, `prompt too long (max ${MAX_AI_BRIEF_PROMPT_CHARS} chars)`),
-  provider: z.enum(["gateway", "v0", "anthropic"]).optional(),
+  provider: z.enum(["gateway", "anthropic"]).optional(),
   // gpt-5.2 provides best quality briefs; used as default for prompt assist
   model: z.string().min(1).optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
@@ -359,17 +358,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error: "Model not allowed for prompt assist",
-            setup: "Välj en modell från listan i buildern (gateway eller v0-md/lg).",
-          },
-          { status: 400 },
-        );
-      }
-
-      if (resolvedProvider === "v0" || isV0AssistModel(normalizedModel)) {
-        return NextResponse.json(
-          {
-            error: "Deep brief is not supported via the v0 Model API",
-            setup: "Välj en OpenAI- eller Anthropic-modell som stöder Deep Brief.",
+            setup: "Välj en modell från listan i buildern (OpenAI eller Anthropic).",
           },
           { status: 400 },
         );

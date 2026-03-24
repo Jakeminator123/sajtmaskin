@@ -1,4 +1,16 @@
 {
+  "markdownlint.ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/out/**",
+    "**/build/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/research/**",
+    "**/pot_buggs/**",
+    "**/src/templates/**",
+    "**/.cursor/**"
+  ],
   "editor.formatOnSave": false,
   "editor.defaultFormatter": null,
   "editor.tabSize": 2,

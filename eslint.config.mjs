@@ -14,6 +14,9 @@ export default defineConfig([
 
   // Global ignores
   globalIgnores([
+    // Vendored / cached third-party trees (not maintained in this repo)
+    "research/**/*",
+    "pot_buggs/**/*",
     "src/templates/**/*",
     ".next/**/*",
     ".vercel/**/*",

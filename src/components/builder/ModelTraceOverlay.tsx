@@ -27,7 +27,7 @@ function providerLabel(value: string) {
   if (value === "openai") return "OpenAI";
   if (value === "anthropic") return "Anthropic";
   if (value === "unknown") return "Unknown";
-  if (value === "gateway") return "Gateway";
+  if (value === "gateway") return "OpenAI";
   return value;
 }
 

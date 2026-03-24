@@ -1,10 +1,10 @@
 import type { BuildIntent } from "./build-intent";
 import type { ThemeColors } from "./theme-presets";
 
-// "gateway" refers to Vercel AI Gateway (same gateway API used by /api/ai/* routes).
-// "v0" refers to the v0 Model API (openai-compat).
+// "gateway" is the UI label for OpenAI-class assist models; `/api/ai/chat` calls OpenAI via OPENAI_API_KEY (createDirectModel), not Vercel AI Gateway.
 // "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
-export type PromptAssistProvider = "gateway" | "v0" | "anthropic";
+// Prompt assist does not use the v0 Model API.
+export type PromptAssistProvider = "gateway" | "anthropic";
 
 export const GATEWAY_ASSIST_MODELS = [
   "openai/gpt-5.4",
@@ -20,11 +20,8 @@ export const ANTHROPIC_ASSIST_MODELS = [
   "anthropic-direct/claude-opus-4-6",
 ] as const;
 
-export const V0_ASSIST_MODELS = ["v0-1.5-md", "v0-1.5-lg"] as const;
-
 export type GatewayAssistModel = (typeof GATEWAY_ASSIST_MODELS)[number];
 export type AnthropicAssistModel = (typeof ANTHROPIC_ASSIST_MODELS)[number];
-export type V0AssistModel = (typeof V0_ASSIST_MODELS)[number];
 
 export function normalizeAssistModel(rawModel: string): string {
   const raw = String(rawModel || "").trim();
@@ -32,10 +29,6 @@ export function normalizeAssistModel(rawModel: string): string {
   if (raw.startsWith("v0-")) return raw;
   if (raw.includes("/")) return raw;
   return `openai/${raw}`;
-}
-
-export function isV0AssistModel(model: string): model is V0AssistModel {
-  return V0_ASSIST_MODELS.includes(model as V0AssistModel);
 }
 
 export function isGatewayAssistModel(model: string): model is GatewayAssistModel {
@@ -54,14 +47,13 @@ export function isPromptAssistModelAllowed(model: string): boolean {
   return (
     isPromptAssistOff(model) ||
     isGatewayAssistModel(model) ||
-    isAnthropicAssistModel(model) ||
-    isV0AssistModel(model)
+    isAnthropicAssistModel(model)
   );
 }
 
 export function resolvePromptAssistProvider(model: string): PromptAssistProvider {
   if (isAnthropicAssistModel(model) || model.startsWith("anthropic/")) return "anthropic";
-  return isV0AssistModel(model) ? "v0" : "gateway";
+  return "gateway";
 }
 
 const SECTION_KEYWORDS = [

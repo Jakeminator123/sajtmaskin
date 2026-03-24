@@ -79,9 +79,8 @@ flowchart TD
 
   AiChat --> AssistProvider{"Prompt-assist provider"}
   Brief --> AssistProvider
-  AssistProvider -- "openai/* gateway-class" --> DirectAssist["createDirectModel()\nroute still checks gateway auth"]
-  AssistProvider -- "anthropic/* or anthropic-direct/*" --> DirectClaude["Direct Anthropic client"]
-  AssistProvider -- "v0-*" --> V0Compat["OpenAI-compatible v0 Model API"]
+  AssistProvider -- "internal label gateway\n(openai/* assist models)" --> DirectAssist["createDirectModel()\nOPENAI_API_KEY"]
+  AssistProvider -- "anthropic\n(anthropic/* + anthropic-direct/*)" --> DirectClaude["createDirectModel()\nANTHROPIC_API_KEY"]
 
   SpecRoute["/api/ai/spec"] -. "defined, but not normal builder path" .-> SpecChain["processPromptWithSpec()"]
 ```
@@ -149,8 +148,8 @@ main picker labels.
 
 1. `Byggmodell` labels are now more semantic than vendor-marketing-heavy, but they are still not guaranteed provider truth.
    If `SAJTMASKIN_MODEL_MAX` is overridden to a Claude model, the UI can still say `Tanker`.
-2. `Gateway` is partly historical naming.
-   The prompt-assist routes still talk about gateway auth, but the current implementation builds direct provider clients in `src/lib/builder/gateway-policy.ts`.
+2. `Gateway` is historical naming for the **OpenAI-class** prompt-assist branch (`provider === "gateway"` in `/api/ai/chat` and `/api/ai/brief`).
+   That branch uses `createDirectModel()` with **`OPENAI_API_KEY`** (not Vercel AI Gateway). Shared policy lives in `src/lib/builder/gateway-policy.ts`.
 3. `Thinking` is a boolean feature flag, not a profile such as `pro` or `max`.
 4. `Skriv om` is not the same as `Forbattra`.
    It is the separate polish lane; for Anthropic comparison it follows the Anthropic product lane model.

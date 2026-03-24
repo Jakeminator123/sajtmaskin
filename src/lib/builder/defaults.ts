@@ -16,15 +16,15 @@
  *   - off:            No preprocessing, send prompt directly to the build engine.
  *   - openai/*:       OpenAI prompt-assist path.
  *   - anthropic/*:    Anthropic prompt-assist path.
- *   - openai-compat:  Model API fallback models.
+ *   - (v0 Model API is not used for prompt assist — only OpenAI/Anthropic direct.)
  *
  * Deep Brief Mode:
  *   When enabled, AI first generates a structured "brief" (specification)
- *   which is then used to construct a better prompt for v0. Takes longer
+ *   which is then used to construct a better prompt for the build engine. Takes longer
  *   but produces more thorough results for complex projects.
  */
 
-import { GATEWAY_ASSIST_MODELS, V0_ASSIST_MODELS } from "./promptAssist";
+import { GATEWAY_ASSIST_MODELS } from "./promptAssist";
 import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
@@ -98,13 +98,10 @@ export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: "openai/gpt-5.2", label: "OpenAI GPT-5.2" },
   { value: "anthropic/claude-sonnet-4.6", label: "Anthropic Claude Sonnet 4.6" },
   { value: "anthropic/claude-opus-4.6", label: "Anthropic Claude Opus 4.6" },
-  { value: "v0-1.5-md", label: "Model API Medium" },
-  { value: "v0-1.5-lg", label: "Model API Large" },
 ];
 
 const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
   ...GATEWAY_ASSIST_MODELS,
-  ...V0_ASSIST_MODELS,
   "anthropic-direct/claude-haiku-4-5-20251001",
   "anthropic-direct/claude-sonnet-4-6",
   "anthropic-direct/claude-opus-4-6",

@@ -98,9 +98,9 @@
         "anthropic-direct/claude-sonnet-4-6",
         "anthropic-direct/claude-opus-4-6"
       ],
-      "v0Models": ["v0-1.5-md", "v0-1.5-lg"]
+      "v0Models": []
     },
-    "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*. The branch still checks AI_GATEWAY_API_KEY / VERCEL_OIDC for historical reasons — see config/ai_models/20-prompt-assist.md."
+    "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*. Prompt assist does not use the v0 Model API; v0Models in allowed is kept empty for schema parity."
   },
   "tokenBudgets": {
     "engineMaxOutputTokens": {

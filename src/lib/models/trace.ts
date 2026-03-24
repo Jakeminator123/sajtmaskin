@@ -10,7 +10,6 @@ import {
   isGatewayAssistModel,
   isPromptAssistModelAllowed,
   isPromptAssistOff,
-  isV0AssistModel,
   normalizeAssistModel,
   resolvePromptAssistProvider,
   type PromptAssistProvider,
@@ -115,7 +114,6 @@ function resolveBuildProvider(modelId: string): ModelProviderFamily {
 
 function resolvePromptAssistProviderFamily(model: string): ModelProviderFamily {
   if (isPromptAssistOff(model)) return "off";
-  if (isV0AssistModel(model)) return "v0";
   if (
     isAnthropicAssistModel(model) ||
     model.startsWith("anthropic/") ||
@@ -284,14 +282,9 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       `Prompt assist model "${selectedAssistModel}" is not on the current allowlist.`,
     );
   }
-  if (
-    selectedAssistProvider === "gateway" &&
-    !auth.aiGatewayApiKey &&
-    !auth.vercelOidcToken &&
-    !auth.onVercel
-  ) {
+  if (selectedAssistProvider === "gateway" && !auth.openai) {
     warnings.push(
-      "Gateway-class prompt assist is selected, but AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN is missing for local use.",
+      'OpenAI-class prompt assist is selected (internal label "gateway"), but OPENAI_API_KEY is missing.',
     );
   }
   if (
@@ -353,7 +346,7 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       '"Skriv om" normally uses the dedicated polish model, but follows Anthropic when the active assist lane is Anthropic.',
       "Thinking is a boolean generation flag. It is not a separate model profile.",
       "Prompt-assist model strings are provider-coded. Build profiles are internal tiers that resolve later.",
-      "Gateway-class prompt assist still passes through direct provider clients in the current route implementation.",
+      "OpenAI-class prompt assist uses createDirectModel() with OPENAI_API_KEY; the internal provider label remains \"gateway\".",
     ],
   };
 }

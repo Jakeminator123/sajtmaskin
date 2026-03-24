@@ -60,19 +60,19 @@ python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga e
 
 ## Modellkonfiguration
 
-Modellkonfigurationen ar uppdelad mellan flera filer:
+Modellkonfigurationen är uppdelad mellan flera filer:
 
 - `src/lib/models/catalog.ts` mappar build-profiler till konkreta build-modeller
-- `src/lib/builder/defaults.ts` styr UI-defaults for `Forbattra` och `Skriv om`
-- `src/lib/gen/models.ts` valjer OpenAI vs Anthropic for own-engine generation
-- `src/lib/builder/gateway-policy.ts` valjer provider-klient for prompt assist
+- `src/lib/builder/defaults.ts` styr UI-defaults för `Förbättra` och `Skriv om`
+- `src/lib/gen/models.ts` väljer OpenAI vs Anthropic för own-engine generation
+- `src/lib/builder/gateway-policy.ts` väljer provider-klient för prompt assist
 
 Viktig skillnad:
 
-- `Byggmodell` valjer en intern build-profil
-- `Forbattra` valjer en prompt-assist modellstrang
-- `Skriv om` anvander en separat polish-modell
-- `Thinking` ar en flagga, inte en egen modell
+- `Byggmodell` väljer en intern build-profil
+- `Förbättra` väljer en prompt-assist-modellsträng
+- `Skriv om` använder en separat polish-modell
+- `Thinking` är en flagga, inte en egen modell
 
 ### Byggmodeller (own-engine build lane)
 
@@ -82,17 +82,17 @@ Viktig skillnad:
 | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | Lagom | Mellanprofil med bra balans |
 | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | Tanker | Stor/dyrare profil for mer resonemang |
 | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | Kod Max | Specialiserad kodprofil |
-| `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | Jamforelselage via Anthropic API |
+| `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | Jämförelseläge via Anthropic API |
 
-Byggprofilerna gar genom own-engine-routes under `/api/v0/...`, men de aktiva
-builder-flodena resolverar idag alltid till own engine, inte till legacy-v0-buildern.
+Byggprofilerna går genom own-engine-routes under `/api/v0/...`, men de aktiva
+builder-flödena resolverar idag alltid till own engine, inte till legacy-v0-buildern.
 
-### Prompt assist-modeller (for pre-build promptarbete)
+### Prompt assist-modeller (för promptarbete före build)
 
 | Env-variabel | Default | Vad den gör |
 |---|---|---|
-| `SAJTMASKIN_ASSIST_MODEL` | `openai/gpt-5.4` | Default for `Forbattra`, Deep Brief och dynamiska instruktioner |
-| `SAJTMASKIN_POLISH_MODEL` | `openai/gpt-5.3-codex` | Default for `Skriv om` / promptpolish |
+| `SAJTMASKIN_ASSIST_MODEL` | `openai/gpt-5.4` | Default för `Förbättra`, Deep Brief och dynamiska instruktioner |
+| `SAJTMASKIN_POLISH_MODEL` | `openai/gpt-5.3-codex` | Default för `Skriv om` / promptpolish |
 
 ### Token-gränser
 
@@ -173,7 +173,7 @@ Sajtmaskin-installationen:
 
 - databas och cache: `POSTGRES_URL`, `REDIS_URL`, `KV_URL`, `UPSTASH_*`
 - auth och sessioner: `JWT_SECRET`
-- AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (direktanrop efter Plan 17); `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` kan fortfarande krävas av **vissa** routes (t.ex. prompt-assist portvakt lokalt) — se `ARBETSANTECKNINGAR.txt` / kod; `V0_API_KEY` för v0 SDK-anrop (mallar, registry, nedladdning, m.m.); valfri `V0_FALLBACK_BUILDER` styr **endast** om byggaren ska föredra v0-hostad preview (`*.vusercontent.net`) framför sandbox när båda finns — **inte** kodgenerering (egen motor alltid för stream-pipelinen)
+- AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (direktanrop till OpenAI/Anthropic för egen motor och prompt assist via `createDirectModel`); `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` kan fortfarande krävas av **andra** routes (t.ex. vissa audit-/admin-flöden) — sök i kod efter `AI_GATEWAY`; `V0_API_KEY` för v0 SDK (mallar, registry, zip, m.m.) — **inte** för prompt assist; valfri `V0_FALLBACK_BUILDER` styr **endast** om byggaren ska föredra v0-hostad preview (`*.vusercontent.net`) framför sandbox när båda finns — **inte** kodgenerering (egen motor alltid för stream-pipelinen)
 - deploy och Vercel: `VERCEL_TOKEN`, valfritt `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID`, `BLOB_READ_WRITE_TOKEN`; full Next-preview i sandbox: se [architecture/vercel-sandbox-credentials.md](./architecture/vercel-sandbox-credentials.md) och [architecture/preview-and-sandbox-flow.md](./architecture/preview-and-sandbox-flow.md)
 - interna tjänster: `OPENCLAW_*`, `INSPECTOR_*`, `RESEND_API_KEY`
 
@@ -225,8 +225,8 @@ källa.
 | --------------------- | ---------- | ------------------- | ----------------------------------------------------------------------- |
 | `POSTGRES_URL`        | .env.local | production, preview | Primär databas (Supabase)                                               |
 | `JWT_SECRET`          | .env.local | production, preview | Auth-tokens                                                             |
-| `OPENAI_API_KEY`      | .env.local | production, preview | Own engine (builder-codegen)                                              |
-| `V0_API_KEY`          | .env.local | production, preview | v0 SDK: mallar, registry, zip, m.m.; prompt assist som använder Model API. Inte kopplat till `V0_FALLBACK_BUILDER` |
+| `OPENAI_API_KEY`      | .env.local | production, preview | Egen motor (builder-codegen) och prompt-assist OpenAI-modeller (`openai/gpt-5.*`) |
+| `V0_API_KEY`          | .env.local | production, preview | v0 SDK: mallar, registry, zip, m.m. (prompt assist använder OpenAI/Anthropic direkt). Inte kopplat till `V0_FALLBACK_BUILDER` |
 | `V0_FALLBACK_BUILDER` | .env.local | development (typiskt) | **Av** som standard. Sätt `y` / `yes` / `true` / `1` / `on` för att föredra v0-hostad `demoUrl` i preview när den finns. Värden som `n`, `no`, `false`, tomt → av. Påverkar inte codegen. Vid build kopieras värdet till `NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK` (se `next.config.ts`). |
 | `NEXT_PUBLIC_APP_URL` | .env.local | production, preview | Appens publika URL (t.ex. https://sajtmaskin.se)                        |
 
@@ -292,9 +292,8 @@ Bildflöde i generering:
 
 ## AI Gateway och Blob
 
-- `AI_GATEWAY_API_KEY` ska finnas lokalt när du kör gateway-class prompt-assist-routes via `npm run dev` eller annan icke-Vercel-miljö.
-- På deployad Vercel-runtime kan samma flöden i stället autha via `VERCEL_OIDC_TOKEN`.
-- Viktig nuvarande detalj: OpenAI-gateway-klassen fortsatter krava `AI_GATEWAY_API_KEY` eller `VERCEL_OIDC_TOKEN` lokalt, medan Anthropic-sparet nu kan koras direkt via `ANTHROPIC_API_KEY` for ren jamforelse.
+- Prompt-assist med **OpenAI-modeller** (`openai/gpt-5.*` i assist-listan) använder **`OPENAI_API_KEY`** direkt (`/api/ai/chat` + `createDirectModel`), inte Vercel AI Gateway.
+- `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` används fortfarande av **vissa andra** routes (sök efter `AI_GATEWAY_API_KEY` i kodbasen), t.ex. delar av audit/admin där gateway fortfarande är kopplad.
 - `BLOB_READ_WRITE_TOKEN` behåller `@vercel/blob` som default provider och behövs för blob-backed preview-media och blob-lagrad backoffice-data.
 - Om `BLOB_READ_WRITE_TOKEN` saknas lokalt faller användaruppladdningar via `src/lib/vercel/blob-service.ts` tillbaka till lokal filsystemslagring under `data/uploads/`, serverad via `/api/uploads/media/...`.
 - Bildmaterialisering och annan funktion som uttryckligen behöver publik blob-URL fortsätter att kräva Blob-token och faller annars tillbaka till externa URL:er eller lokal JSON-lagring beroende på flöde.

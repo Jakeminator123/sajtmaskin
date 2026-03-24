@@ -1,2 +1,19 @@
 # Disallow resurrecting extensionless monolith (canonical: config/prompt-static/ + codegen-static-prompt.json)
 config/systemprompt
+
+# Same exclusions as tooling (Prettier / ESLint) — not maintained as prose docs here
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+src/templates/
+base/
+sajtmaskin/
+research/
+pot_buggs/
+
+# Cursor / local worktrees (if present inside repo clone)
+.cursor/
+**/.cursor/**
