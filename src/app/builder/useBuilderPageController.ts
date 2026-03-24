@@ -1436,6 +1436,9 @@ export function useBuilderPageController() {
     requestCreateChat: promptActions.requestCreateChat,
     handleStartFromRegistry: promptActions.handleStartFromRegistry,
     handleStartFromTemplate: promptActions.handleStartFromTemplate,
+    templateSwitchDialog: promptActions.templateSwitchDialog,
+    confirmTemplateSwitchDialog: promptActions.confirmTemplateSwitchDialog,
+    cancelTemplateSwitchDialog: promptActions.cancelTemplateSwitchDialog,
     handleGoHome: promptActions.handleGoHome,
     handlePaletteSelection: promptActions.handlePaletteSelection,
 

@@ -27,6 +27,7 @@ export const PREVIEW_BUILTIN_SOURCES = new Set([
   "three",
   "@react-three/fiber",
   "@react-three/drei",
+  "@react-three/rapier",
   "sonner",
   "embla-carousel-react",
   "react-hook-form",

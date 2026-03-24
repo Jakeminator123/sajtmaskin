@@ -66,7 +66,14 @@ export function buildContractClarificationQuestion(params: {
     return {
       kind: "database",
       question: "Vilken datalagring ska vi bygga mot nu?",
-      options: ["Mockad data först", "Supabase", "Postgres / DATABASE_URL", "Annat / vet inte än"],
+      options: [
+        "Mockad data först",
+        "Supabase",
+        "Postgres / DATABASE_URL",
+        "MongoDB",
+        "DynamoDB",
+        "Annat / vet inte än",
+      ],
       blocking: true,
       reason: "Prompten tyder på verklig persistence men databas/provider är inte vald ännu.",
     };
@@ -82,6 +89,24 @@ export function buildContractClarificationQuestion(params: {
       options: ["Mockad först", "Riktig tjänst nu", "Osäker / behöver välja senare"],
       blocking: true,
       reason: "Prompten antyder extern integration men provider eller setup är fortfarande oklar.",
+    };
+  }
+
+  if (hasUnresolved(context, "env")) {
+    const envReason =
+      context.unresolvedDecisions.find((d) => d.kind === "env")?.reason ??
+      "Miljövariabler behövs för valda integrationer.";
+    return {
+      kind: "env",
+      question:
+        "Hur vill du hantera miljövariabler (API-nycklar) innan vi går vidare med generering?",
+      options: [
+        "Jag fyller i nycklar i projektpanelen nu",
+        "Fortsätt med mock / degraded preview först",
+        "Visa mig vilka nycklar som behövs",
+      ],
+      blocking: true,
+      reason: envReason,
     };
   }
 

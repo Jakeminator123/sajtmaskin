@@ -25,7 +25,11 @@ import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
 } from "@/lib/gen/contract-clarification";
-import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import {
+  finalizeOrchestrationPrompts,
+  prepareGenerationContext,
+  resolveOrchestrationBase,
+} from "@/lib/gen/orchestrate";
 import { buildPlannerSystemPrompt } from "@/lib/gen/plan-prompt";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import { compressUrls } from "@/lib/gen/url-compress";
@@ -463,7 +467,7 @@ export async function POST(req: Request) {
         const metaPalette = extractPaletteStateFromMeta(meta);
         const designReferences = summarizeDesignReferences(requestAttachments);
 
-        const orchestration = await prepareGenerationContext({
+        const orchestrationInput = {
           prompt: optimizedMessage,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
@@ -475,25 +479,18 @@ export async function POST(req: Request) {
           designThemePreset: metaDesignThemePreset,
           designReferences,
           customInstructions: trimmedSystemPrompt || undefined,
-        });
+        };
+        const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
         const {
           resolvedScaffold,
           routePlan,
           preGenerationContracts,
           capabilities: engineCapabilities,
-          engineSystemPrompt,
-        } = orchestration;
-        dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
-          route: "POST /api/v0/chats/stream",
-          planMode: false,
-        });
+        } = orchestrationBase;
         const contractClarification = buildContractClarificationQuestion({
           buildIntent: engineIntent,
           context: preGenerationContracts,
         });
-
-        const promptLengths = getSystemPromptLengths(engineSystemPrompt);
-        debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
         const engineModel = resolveEngineModelId(resolvedModelTier, false);
         debugLog("engine", "Own engine model resolved", {
@@ -518,25 +515,25 @@ export async function POST(req: Request) {
             ),
           );
         }
-        const engineChat = await chatRepo.createChat(
-          projectIdForChat,
-          engineModel,
-          engineSystemPrompt,
-          resolvedScaffold?.id,
-        );
-        await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
-        devLogAppend("in-progress", {
-          type: "contracts.inferred",
-          chatId: engineChat.id,
-          dataMode: preGenerationContracts.contracts.dataMode,
-          databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
-          authProvider: preGenerationContracts.contracts.authProvider ?? null,
-          paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
-          integrations: preGenerationContracts.contracts.integrations.map((entry) => entry.provider),
-          envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
-          unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
-        });
         if (contractClarification) {
+          const engineChat = await chatRepo.createChat(
+            projectIdForChat,
+            engineModel,
+            undefined,
+            resolvedScaffold?.id,
+          );
+          await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+          devLogAppend("in-progress", {
+            type: "contracts.inferred",
+            chatId: engineChat.id,
+            dataMode: preGenerationContracts.contracts.dataMode,
+            databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+            authProvider: preGenerationContracts.contracts.authProvider ?? null,
+            paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+            integrations: preGenerationContracts.contracts.integrations.map((entry) => entry.provider),
+            envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
+            unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
+          });
           const assistantQuestion = await chatRepo.addMessage(
             engineChat.id,
             "assistant",
@@ -584,7 +581,7 @@ export async function POST(req: Request) {
                     promptReductionRatio: strategyMeta.reductionRatio,
                     promptStrategyReason: strategyMeta.reason,
                     promptComplexityScore: strategyMeta.complexityScore,
-                    systemPromptLength: engineSystemPrompt.length,
+                    systemPromptLength: 0,
                     briefApplied: Boolean(metaBrief),
                     customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
                   }),
@@ -608,6 +605,7 @@ export async function POST(req: Request) {
                     messageId: assistantQuestion?.id ?? null,
                     demoUrl: null,
                     awaitingInput: true,
+                    awaitingInputPrompt: contractClarification.question,
                     reason: "pre_generation_contracts",
                   }),
                 ),
@@ -619,6 +617,35 @@ export async function POST(req: Request) {
             headers: createSSEHeaders(),
           }));
         }
+        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(
+          orchestrationBase,
+          orchestrationInput,
+        );
+        dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
+          route: "POST /api/v0/chats/stream",
+          planMode: false,
+        });
+        const promptLengths = getSystemPromptLengths(engineSystemPrompt);
+        debugLog("prompt-cache", "System prompt lengths", promptLengths);
+
+        const engineChat = await chatRepo.createChat(
+          projectIdForChat,
+          engineModel,
+          engineSystemPrompt,
+          resolvedScaffold?.id,
+        );
+        await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+        devLogAppend("in-progress", {
+          type: "contracts.inferred",
+          chatId: engineChat.id,
+          dataMode: preGenerationContracts.contracts.dataMode,
+          databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+          authProvider: preGenerationContracts.contracts.authProvider ?? null,
+          paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+          integrations: preGenerationContracts.contracts.integrations.map((entry) => entry.provider),
+          envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
+          unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
+        });
         const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
         const agentTools = getAgentTools();
         const pipelineStream = createGenerationPipeline({

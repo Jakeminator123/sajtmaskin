@@ -100,3 +100,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Added canonical builder-entry architecture and schema docs, synced docs to the latest completed builder-preview reality, and archived the run.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-19-builder-entry-standardization-013542/`
 
+## 2026-03-24-builder-backlog (archived 2026-03-24 15:35)
+- **Scope:** Delivered: Stream contract gate before full system prompt; env/Mongo/Dynamo contracts; 3D package breadth; preview badges; awaitingInputPrompt; template AlertDialog; architecture doc and tests.
+- **Workloads:** 0 completed, 0 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-24-builder-backlog-153503/`
+

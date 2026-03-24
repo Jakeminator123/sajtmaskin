@@ -184,6 +184,7 @@ export function buildAwaitingClarificationStream(params: {
             messageId: null,
             demoUrl: null,
             awaitingInput: true,
+            awaitingInputPrompt: clarification.question,
             reason: clarification.reason,
           }),
         ),

@@ -85,6 +85,7 @@ const KNOWN_PACKAGES: Record<string, string> = {
   "three": "^0.183",
   "@react-three/fiber": "^9",
   "@react-three/drei": "^10",
+  "@react-three/rapier": "^1",
   "gsap": "^3",
   "lottie-react": "^2",
   "react-icons": "^5",

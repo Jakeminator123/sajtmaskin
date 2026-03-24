@@ -25,7 +25,11 @@ import {
 } from "@/lib/gen/contract-clarification";
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract-answer-context";
 import { compressUrls } from "@/lib/gen/url-compress";
-import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import {
+  finalizeOrchestrationPrompts,
+  prepareGenerationContext,
+  resolveOrchestrationBase,
+} from "@/lib/gen/orchestrate";
 import { buildPlannerSystemPrompt } from "@/lib/gen/plan-prompt";
 import {
   buildPlanSummaryMessage,
@@ -433,7 +437,7 @@ export async function handleMessageStreamRequest(
             : "website";
         const persistedScaffoldId = engineChat.scaffold_id;
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
-        const orchestration = await prepareGenerationContext({
+        const orchestrationInput = {
           prompt: optimizedMessage,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
@@ -447,13 +451,9 @@ export async function handleMessageStreamRequest(
           persistedScaffoldId,
           contractAnswers: contractAnswerContext.confirmedAnswers,
           customInstructions: trimmedSystem || undefined,
-        });
-        const { resolvedScaffold, routePlan, preGenerationContracts, engineSystemPrompt } =
-          orchestration;
-        dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
-          route: "POST /api/v0/chats/[chatId]/stream",
-          planMode: false,
-        });
+        };
+        const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
+        const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
         const contractClarification = buildContractClarificationQuestion({
           buildIntent: engineIntent,
           context: preGenerationContracts,
@@ -474,8 +474,6 @@ export async function handleMessageStreamRequest(
           envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
           unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
         });
-        const promptLengths = getSystemPromptLengths(engineSystemPrompt);
-        debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
         const chatHistory = engineChat.messages
           .filter((m) => m.role === "user" || m.role === "assistant")
@@ -550,7 +548,7 @@ export async function handleMessageStreamRequest(
                     promptReductionRatio: promptOrchestration.strategyMeta.reductionRatio,
                     promptStrategyReason: promptOrchestration.strategyMeta.reason,
                     promptComplexityScore: promptOrchestration.strategyMeta.complexityScore,
-                    systemPromptLength: engineSystemPrompt.length,
+                    systemPromptLength: 0,
                     briefApplied: Boolean(metaBrief),
                     customInstructionsLength: trimmedSystem?.length ?? 0,
                   }),
@@ -574,6 +572,7 @@ export async function handleMessageStreamRequest(
                     messageId: assistantQuestion?.id ?? null,
                     demoUrl: null,
                     awaitingInput: true,
+                    awaitingInputPrompt: contractClarification.question,
                     reason: "pre_generation_contracts",
                   }),
                 ),
@@ -585,6 +584,17 @@ export async function handleMessageStreamRequest(
             headers: createSSEHeaders(),
           }));
         }
+        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(
+          orchestrationBase,
+          orchestrationInput,
+        );
+        dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
+          route: "POST /api/v0/chats/[chatId]/stream",
+          planMode: false,
+        });
+        const promptLengths = getSystemPromptLengths(engineSystemPrompt);
+        debugLog("prompt-cache", "System prompt lengths", promptLengths);
+
         const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
         const agentTools = getAgentTools();
         const pipelineStream = createGenerationPipeline({
@@ -613,7 +623,7 @@ export async function handleMessageStreamRequest(
             imageGenerations: resolvedImageGenerations,
             scaffoldId: resolvedScaffold?.id ?? null,
             scaffoldFamily: resolvedScaffold?.family ?? null,
-            capabilities: orchestration.capabilities,
+            capabilities: orchestrationBase.capabilities,
             contractDataMode: preGenerationContracts.contracts.dataMode,
             contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
             contractAuthProvider: preGenerationContracts.contracts.authProvider ?? null,

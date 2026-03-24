@@ -35,8 +35,9 @@ const RULES: CapabilityRule[] = [
   {
     key: "needs3D",
     patterns: [
-      /\b(3d|three\.?js|webgl|canvas|mesh|orb|sphere|particle|three-fiber|drei|scene|3d-?model)\b/i,
+      /\b(3d|three\.?js|webgl|canvas|mesh|orb|sphere|particle|three-fiber|@react-three|drei|scene|3d-?model)\b/i,
       /\b(rotat.*3d|tilt|perspect.*card|floating.*object)\b/i,
+      /\b(rapier|cannon|physics|gravitation|gravity|rigidbody|collider|gltf|glb|usegltf)\b/i,
     ],
   },
   {
@@ -156,7 +157,9 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
   const lines: string[] = [];
 
   if (caps.needs3D) {
-    lines.push("- **3D/WebGL requested**: Use @react-three/fiber + @react-three/drei. Wrap Canvas in a \"use client\" component. Add three, @react-three/fiber, @react-three/drei to deps.");
+    lines.push(
+      "- **3D/WebGL requested**: Use @react-three/fiber + @react-three/drei. Wrap Canvas in a \"use client\" component. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. For **physics / gravity**, add @react-three/rapier (Physics, RigidBody). For **GLB/GLTF**, use useGLTF from drei and put assets under public/.",
+    );
   }
   if (caps.needsMotion && !caps.needs3D) {
     lines.push("- **Motion/animation requested**: Use framer-motion for entrance animations, scroll reveals, and microinteractions. Add framer-motion to deps.");

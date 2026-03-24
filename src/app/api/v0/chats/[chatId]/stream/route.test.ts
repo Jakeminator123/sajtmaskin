@@ -372,6 +372,8 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       messageId: null,
       demoUrl: null,
       awaitingInput: true,
+      awaitingInputPrompt:
+        "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?",
       reason: "followup_redesign_ambiguous",
     });
   });
@@ -409,6 +411,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       messageId: null,
       demoUrl: null,
       awaitingInput: true,
+      awaitingInputPrompt: "Vad vill du att jag fokuserar på i nästa ändring?",
       reason: "followup_edit_underspecified",
     });
   });

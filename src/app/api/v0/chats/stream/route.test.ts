@@ -6,6 +6,8 @@ const commitCredits = vi.hoisted(() => vi.fn());
 const resolveAppProjectIdForRequest = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
 const prepareGenerationContext = vi.hoisted(() => vi.fn());
+const resolveOrchestrationBase = vi.hoisted(() => vi.fn());
+const finalizeOrchestrationPrompts = vi.hoisted(() => vi.fn());
 const createChat = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
@@ -153,6 +155,8 @@ vi.mock("@/lib/gen/fallback", () => ({
 
 vi.mock("@/lib/gen/orchestrate", () => ({
   prepareGenerationContext,
+  resolveOrchestrationBase,
+  finalizeOrchestrationPrompts,
 }));
 
 vi.mock("@/lib/gen/plan-prompt", () => ({
@@ -327,7 +331,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         family: "marketing",
         label: "Marketing",
       },
-      capabilities: { layout: true },
+      routePlan: null,
       preGenerationContracts: {
         contracts: {
           dataMode: "none",
@@ -338,7 +342,62 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
           envVars: [],
         },
         unresolvedDecisions: [],
+        confirmedAnswers: [],
       },
+      capabilities: {
+        needsMotion: false,
+        needs3D: false,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: false,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: false,
+        needsEcommerce: false,
+        needsCarousel: false,
+        needsPremiumVisuals: false,
+      },
+      scaffoldContext: undefined,
+      scaffoldAndCapability: "",
+      engineSystemPrompt: "SYSTEM",
+      v0EnrichmentContext: "V0",
+    });
+    resolveOrchestrationBase.mockResolvedValue({
+      resolvedScaffold: {
+        id: "scaffold_1",
+        family: "marketing",
+        label: "Marketing",
+      },
+      scaffoldContext: undefined,
+      routePlan: null,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          databaseProvider: null,
+          authProvider: null,
+          paymentProvider: null,
+          integrations: [],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+        confirmedAnswers: [],
+      },
+      capabilities: {
+        needsMotion: false,
+        needs3D: false,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: false,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: false,
+        needsEcommerce: false,
+        needsCarousel: false,
+        needsPremiumVisuals: false,
+      },
+      scaffoldAndCapability: "",
+    });
+    finalizeOrchestrationPrompts.mockResolvedValue({
       engineSystemPrompt: "SYSTEM",
       v0EnrichmentContext: "V0",
     });

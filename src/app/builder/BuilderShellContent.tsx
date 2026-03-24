@@ -17,6 +17,16 @@ import { ModelTraceOverlay } from "@/components/builder/ModelTraceOverlay";
 import { LaunchReadinessCard } from "@/components/builder/LaunchReadinessCard";
 import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
 import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { DomainManager } from "@/components/builder/DomainManager";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
@@ -805,6 +815,34 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             onCancel={() => vm.setDeployNameDialogOpen(false)}
             onConfirm={vm.handleConfirmDeploy}
           />
+
+          <AlertDialog
+            open={vm.templateSwitchDialog !== null}
+            onOpenChange={(open) => {
+              if (!open) vm.cancelTemplateSwitchDialog();
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {vm.templateSwitchDialog?.kind === "new-chat"
+                    ? "Starta ny chat från template?"
+                    : "Avbryta pågående generering?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {vm.templateSwitchDialog?.kind === "new-chat"
+                    ? "Du har redan en aktiv chat. En ny chat startas från vald template och nuvarande konversation finns kvar i historiken."
+                    : "Generering pågår just nu. Vill du avbryta och starta från mallen istället?"}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel type="button">Avbryt</AlertDialogCancel>
+                <AlertDialogAction type="button" onClick={() => vm.confirmTemplateSwitchDialog()}>
+                  Fortsätt
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           <DomainSearchDialog
             open={vm.domainSearchOpen}

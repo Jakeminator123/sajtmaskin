@@ -1117,10 +1117,28 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
       ),
     );
     if (hasAwaitingInput) {
+      for (let ti = toolParts.length - 1; ti >= 0; ti -= 1) {
+        const tool = toolParts[ti]!.tool as Partial<ToolUIPart> & {
+          type?: string;
+          output?: unknown;
+        };
+        const t = tool as { type?: string };
+        if (t.type !== "tool:awaiting-input") continue;
+        const fromOutput = extractQuestionPrompt(tool.output);
+        if (fromOutput?.question?.trim()) {
+          return {
+            key: `${message.id}:awaiting-input-output`,
+            messageId: message.id,
+            question: normalizeQuestionText(fromOutput.question.trim()),
+            options: fromOutput.options.map(normalizeApprovalOptionLabel),
+            planMode: hasPlanAwaitingInput,
+          };
+        }
+      }
       return {
         key: `${message.id}:awaiting-input-fallback`,
         messageId: message.id,
-        question: "V0 väntar på ditt svar. Kontrollera meddelandet ovan och skriv ett svar.",
+        question: "AI väntar på ditt svar. Kontrollera meddelandet ovan och skriv ett svar.",
         options: [],
         planMode: hasPlanAwaitingInput,
       };

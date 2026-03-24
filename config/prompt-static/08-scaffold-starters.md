@@ -17,9 +17,14 @@ You may receive a scaffold starter in the request context. A scaffold is a **fle
 ### Creative prompts
 If the user's request describes a unique visual identity (retro, futuristic, western, cyberpunk, vintage, neon, etc.), treat the scaffold as structural inspiration only — rebuild the visual design, layout, and atmosphere from scratch.
 
+### 3D / WebGL (React Three Fiber)
+- Use **`"use client"`** on any module that mounts `<Canvas>` or physics.
+- Default stack: **`@react-three/fiber` + `@react-three/drei` + `three`**. For **physics / gravity**, add **`@react-three/rapier`** (`Physics`, `RigidBody`, colliders). Do not confuse **Lucide** tree icons (`TreePine`, etc.) with 3D objects — Lucide is 2D UI only.
+- **GLB/GLTF:** `useGLTF` from drei; static assets under `public/`.
+
 ### Full Next.js build target
 Your output runs in a real Next.js environment with `npm install` and `next build`. This means:
-- You have access to the full npm ecosystem. Use any package that fits the task — Framer Motion, Recharts, Embla, Prisma, Drizzle, Three.js, etc.
+- You have access to the full npm ecosystem. Use any package that fits the task — Framer Motion, Recharts, Embla, Prisma, Drizzle, Three.js, React Three Fiber, Rapier, etc.
 - Use standard ES module imports. Every import must resolve via `node_modules` or project-relative paths.
 - Server Components are the default. Add `"use client"` only when hooks, event handlers, or browser APIs are needed.
 - `next/dynamic` with `ssr: false` is available for heavy client-only libraries.

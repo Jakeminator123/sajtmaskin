@@ -78,6 +78,22 @@ const PROVIDER_RULES: ProviderRule[] = [
     reason: "Prompten nämner SQLite uttryckligen.",
   },
   {
+    kind: "database",
+    provider: "MongoDB",
+    name: "MongoDB",
+    envVars: ["MONGODB_URI"],
+    patterns: [/\bmongodb\b|\bmongoose\b/i],
+    reason: "Prompten nämner MongoDB eller Mongoose.",
+  },
+  {
+    kind: "database",
+    provider: "DynamoDB",
+    name: "Amazon DynamoDB",
+    envVars: ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
+    patterns: [/\bdynamodb\b|\bdynamo\s*db\b|\baws-sdk\/client-dynamodb\b/i],
+    reason: "Prompten nämner DynamoDB eller AWS DynamoDB-klient.",
+  },
+  {
     kind: "auth",
     provider: "Clerk",
     name: "Clerk",
@@ -399,6 +415,25 @@ function applyDatabaseAnswer(
     contracts.dataMode = "persisted";
     pushEnvVars(contracts.envVars, ["DATABASE_URL"], "Bekräftat databasval.", true);
     removeUnresolved(unresolvedDecisions, "database");
+    return;
+  }
+  if (/\bmongodb\b|\bmongoose\b/i.test(normalized)) {
+    contracts.databaseProvider = "MongoDB";
+    contracts.dataMode = "persisted";
+    pushEnvVars(contracts.envVars, ["MONGODB_URI"], "Bekräftat databasval.", true);
+    removeUnresolved(unresolvedDecisions, "database");
+    return;
+  }
+  if (/\bdynamodb\b|\bdynamo\s*db\b/i.test(normalized)) {
+    contracts.databaseProvider = "DynamoDB";
+    contracts.dataMode = "persisted";
+    pushEnvVars(
+      contracts.envVars,
+      ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
+      "Bekräftat databasval.",
+      true,
+    );
+    removeUnresolved(unresolvedDecisions, "database");
   }
 }
 
@@ -453,6 +488,9 @@ function applyConfirmedAnswers(
         break;
       case "integration":
         applyIntegrationAnswer(answer, contracts, unresolvedDecisions);
+        break;
+      case "env":
+        removeUnresolved(unresolvedDecisions, "env");
         break;
       default:
         break;
@@ -537,6 +575,32 @@ export function inferPreGenerationContracts(params: {
   }
 
   applyConfirmedAnswers(contractAnswers, contracts, unresolvedDecisions);
+
+  const answeredEnvStep = contractAnswers.some((c) => c.kind === "env" && asString(c.answer).length > 0);
+  const hasRequiredEnv = contracts.envVars.some((e) => e.required);
+  const databaseResolved =
+    Boolean(contracts.databaseProvider) &&
+    contracts.databaseProvider !== "unresolved" &&
+    contracts.databaseProvider !== "mock data";
+  const onlyDatabaseUrlEnv =
+    contracts.envVars.length > 0 && contracts.envVars.every((e) => e.key === "DATABASE_URL");
+  const skipEnvBecauseDatabaseUrlOnly =
+    databaseResolved && onlyDatabaseUrlEnv && contracts.integrations.length === 0;
+
+  if (
+    !answeredEnvStep &&
+    hasRequiredEnv &&
+    unresolvedDecisions.length === 0 &&
+    (contracts.dataMode === "persisted" || contracts.dataMode === "mixed") &&
+    !mentionsMockData(corpus) &&
+    !skipEnvBecauseDatabaseUrlOnly
+  ) {
+    unresolvedDecisions.push({
+      kind: "env",
+      reason:
+        "Valda integrationer kräver miljövariabler. Bekräfta om vi ska fortsätta med mock/degraded preview eller om du vill ange nycklar i projektpanelen först.",
+    });
+  }
 
   return {
     contracts,

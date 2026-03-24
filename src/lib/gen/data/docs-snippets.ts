@@ -818,6 +818,41 @@ Must be wrapped in a "use client" component.
 Add "@react-three/fiber", "@react-three/drei", "three" to dependencies.`,
   },
   {
+    id: "lib-react-three-lucide-vs-drei",
+    category: "library",
+    keywords: ["tree", "lucide", "drei", "icon", "3d", "import", "collision", "namn"],
+    title: "Lucide icons vs @react-three/drei (avoid import confusion)",
+    content: `Do NOT confuse **lucide-react** tree icons with 3D scene objects.
+- UI icons: import { TreeDeciduous, TreePine, Trees } from "lucide-react" (2D SVG icons).
+- 3D decorative trees/scenery: use @react-three/drei helpers (e.g. low-poly tree patterns) or custom meshes inside <Canvas> — not Lucide.
+Never import a "Tree" from drei unless that export exists in your drei version; prefer documented drei components (Float, Environment, useGLTF for models).
+Add the correct package for each layer: lucide-react for UI, fiber+drei+three for WebGL.`,
+  },
+  {
+    id: "lib-react-three-rapier",
+    category: "library",
+    keywords: ["rapier", "physics", "gravity", "rigidbody", "collider", "cannon", "3d"],
+    title: "React Three Rapier (physics / gravity)",
+    content: `"use client" — physics for R3F via Rapier WASM:
+import { Physics, RigidBody, CuboidCollider } from "@react-three/rapier"
+<Canvas><Physics gravity={[0, -9.81, 0]}><RigidBody><mesh>...</mesh></RigidBody></Physics></Canvas>
+Product language "gravity" in 3D usually means a physics engine: prefer **@react-three/rapier** (maintained) over legacy cannon.
+Add "@react-three/rapier" plus existing "three", "@react-three/fiber", "@react-three/drei" as needed.
+Note: Rapier uses WASM; keep the Canvas in a client component and avoid SSR for the physics world.`,
+  },
+  {
+    id: "lib-react-three-gltf",
+    category: "library",
+    keywords: ["gltf", "glb", "model", "usegltf", "preload", "asset"],
+    title: "GLTF / GLB models with drei",
+    content: `Load 3D models with drei:
+import { useGLTF } from "@react-three/drei"
+const { scene } = useGLTF("/models/foo.glb")
+useGLTF.preload("/models/foo.glb") // optional preload in same module
+Place files under public/ and reference with absolute paths. Combine with <Canvas> from fiber.
+Dependencies: three, @react-three/fiber, @react-three/drei.`,
+  },
+  {
     id: "lib-embla-carousel",
     category: "library",
     keywords: ["carousel", "slider", "slideshow", "gallery", "swipe", "karusell", "bildspel"],

@@ -12,7 +12,7 @@
  *   chatId? -> meta? -> error
  *
  * Awaiting-input path (clarification / plan blockers):
- *   chatId -> meta? -> tool-call(askClarifyingQuestion) -> content -> done(awaitingInput: true)
+ *   chatId -> meta? -> tool-call(askClarifyingQuestion) -> content -> done(awaitingInput: true, awaitingInputPrompt?: string)
  *
  * Provider adapters live under `src/lib/providers/` and are responsible for
  * mapping provider-specific output into `BuilderStreamEvent` before the route

@@ -62,17 +62,22 @@ export interface OrchestrationInput {
   embeddingScaffoldMatch?: boolean;
   /**
    * When false, system prompt dynamic context skips semantic KB + embedding template refs.
-   * Default true. Used by offline CLI traces.
+   * Default true. Used for offline CLI traces.
    */
   embeddingEnrichment?: boolean;
 }
 
-export interface OrchestrationResult {
+export interface OrchestrationBase {
   resolvedScaffold: ScaffoldManifest | null;
   scaffoldContext: string | undefined;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
+  /** Combined scaffold + capability hints string for dynamic context */
+  scaffoldAndCapability: string;
+}
+
+export interface OrchestrationResult extends OrchestrationBase {
   /** Full system prompt (STATIC_CORE + dynamic) for own engine */
   engineSystemPrompt: string;
   /** Dynamic-only context suitable for injecting into v0 fallback `system` */
@@ -80,30 +85,21 @@ export interface OrchestrationResult {
 }
 
 /**
- * Prepare all generation context in one place.
- *
- * Both the own engine path and the v0 fallback path should call this
- * so that scaffold, brief, theme, and intent flow identically.
+ * Resolve scaffold, route plan, and contracts without building the full system prompt.
+ * Use before a pre-generation contract gate so clarification does not pay for STATIC_CORE + KB.
  */
-export async function prepareGenerationContext(
+export async function resolveOrchestrationBase(
   input: OrchestrationInput,
-): Promise<OrchestrationResult> {
+): Promise<OrchestrationBase> {
   const {
     prompt,
     buildIntent,
     scaffoldMode = "auto",
     scaffoldId = null,
     brief = null,
-    themeColors = null,
-    imageGenerations = false,
-    componentPalette = null,
-    designThemePreset = null,
-    designReferences = [],
     persistedScaffoldId = null,
     contractAnswers = [],
-    customInstructions,
     embeddingScaffoldMatch = true,
-    embeddingEnrichment = true,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
@@ -169,16 +165,46 @@ export async function prepareGenerationContext(
     .filter(Boolean)
     .join("\n\n");
 
+  return {
+    resolvedScaffold,
+    scaffoldContext,
+    routePlan,
+    preGenerationContracts,
+    capabilities,
+    scaffoldAndCapability,
+  };
+}
+
+/**
+ * Build full system prompt and v0 enrichment from a resolved orchestration base.
+ */
+export async function finalizeOrchestrationPrompts(
+  base: OrchestrationBase,
+  input: OrchestrationInput,
+): Promise<{ engineSystemPrompt: string; v0EnrichmentContext: string }> {
+  const {
+    prompt,
+    buildIntent,
+    brief = null,
+    themeColors = null,
+    imageGenerations = false,
+    componentPalette = null,
+    designThemePreset = null,
+    designReferences = [],
+    customInstructions,
+    embeddingEnrichment = true,
+  } = input;
+
   const dynamicOpts: DynamicContextOptions = {
     intent: buildIntent,
     brief: brief as DynamicContextOptions["brief"],
     themeOverride: themeColors,
     imageGenerations,
     originalPrompt: prompt,
-    scaffoldContext: scaffoldAndCapability || undefined,
-    resolvedScaffold,
-    routePlan,
-    preGenerationContracts,
+    scaffoldContext: base.scaffoldAndCapability || undefined,
+    resolvedScaffold: base.resolvedScaffold,
+    routePlan: base.routePlan,
+    preGenerationContracts: base.preGenerationContracts,
     componentPalette,
     designThemePreset,
     designReferences,
@@ -197,18 +223,31 @@ export async function prepareGenerationContext(
     { "latest.md": v0EnrichmentContext },
     {
       buildIntent,
-      scaffoldId: resolvedScaffold?.id ?? null,
-      scaffoldFamily: resolvedScaffold?.family ?? null,
+      scaffoldId: base.resolvedScaffold?.id ?? null,
+      scaffoldFamily: base.resolvedScaffold?.family ?? null,
       promptLength: prompt.length,
     },
   );
 
+  return { engineSystemPrompt, v0EnrichmentContext };
+}
+
+/**
+ * Prepare all generation context in one place.
+ *
+ * Both the own engine path and the v0 fallback path should call this
+ * so that scaffold, brief, theme, and intent flow identically.
+ */
+export async function prepareGenerationContext(
+  input: OrchestrationInput,
+): Promise<OrchestrationResult> {
+  const base = await resolveOrchestrationBase(input);
+  const { engineSystemPrompt, v0EnrichmentContext } = await finalizeOrchestrationPrompts(
+    base,
+    input,
+  );
   return {
-    resolvedScaffold,
-    scaffoldContext,
-    routePlan,
-    preGenerationContracts,
-    capabilities,
+    ...base,
     engineSystemPrompt,
     v0EnrichmentContext,
   };

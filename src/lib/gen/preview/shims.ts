@@ -512,6 +512,22 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
     "var MeshDistortMaterial = function() { return null; };",
     "var Sphere = function() { return null; };",
     "var Box = function() { return null; };",
+    "var Cloud = function() { return null; };",
+    "var ContactShadows = function() { return null; };",
+    "var Billboard = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var Stage = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var Sky = function() { return null; };",
+    "var CycleRaycast = function() { return null; };",
+    "var Line = function() { return null; };",
+    "var PositionalAudio = function() { return null; };",
+    "var Tree = function() { return null; };",
+    "var Physics = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var RigidBody = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var CuboidCollider = function() { return null; };",
+    "var BallCollider = function() { return null; };",
+    "var CylinderCollider = function() { return null; };",
+    "var RoundedBox = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
+    "var MeshCollider = function(props) { return React.createElement(React.Fragment, null, props?.children); };",
 
     "var toast = function() {};",
     "toast.success = function() {}; toast.error = function() {}; toast.info = function() {};",
@@ -697,9 +713,31 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
             Environment: "Environment", Stars: "Stars", Float: "Float", Text3D: "Text3D",
             Center: "Center", useGLTF: "useGLTF", MeshDistortMaterial: "MeshDistortMaterial",
             Sphere: "Sphere", Box: "Box",
+            Cloud: "Cloud", ContactShadows: "ContactShadows", Billboard: "Billboard", Stage: "Stage",
+            Sky: "Sky", CycleRaycast: "CycleRaycast", Line: "Line", PositionalAudio: "PositionalAudio",
+            // drei exports vary by version; stubs keep preview from crashing
+            Tree: "Tree",
           };
           const shimValue = knownR3f[binding.imported];
           emitBinding(binding.local, shimValue || "function() { return null; }");
+        }
+        continue;
+      }
+
+      if (imp.source === "@react-three/rapier") {
+        if (imp.defaultImport) emitBinding(imp.defaultImport, "{}");
+        if (imp.namespaceImport) emitBinding(imp.namespaceImport, "{}");
+        for (const binding of imp.namedImports) {
+          const rapierShim: Record<string, string> = {
+            Physics: "Physics",
+            RigidBody: "RigidBody",
+            CuboidCollider: "CuboidCollider",
+            BallCollider: "BallCollider",
+            CylinderCollider: "CylinderCollider",
+            RoundedBox: "RoundedBox",
+            MeshCollider: "MeshCollider",
+          };
+          emitBinding(binding.local, rapierShim[binding.imported] || "function() { return null; }");
         }
         continue;
       }

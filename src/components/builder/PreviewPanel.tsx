@@ -2443,11 +2443,29 @@ export function PreviewPanel({
   return (
     <div className="flex h-full flex-col bg-black/40">
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-semibold tracking-tight text-white">Preview</h3>
           <Badge variant="outline" className={surfaceDescriptor.badgeClassName}>
             {surfaceDescriptor.label}
           </Badge>
+          {isOwnEnginePreview ? (
+            <Badge
+              variant="outline"
+              className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
+              title="Förhandsvisningen kör i builderns runtime med modul-shims (t.ex. 3D-paket). Det är inte samma isolerade miljö som en extern sandbox."
+            >
+              Shim-preview
+            </Badge>
+          ) : null}
+          {demoUrl && isSandboxPreview && !isOwnEnginePreview ? (
+            <Badge
+              variant="outline"
+              className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
+              title="Preview körs mot en separat sandbox-runtime. Beteende och miljö kan skilja sig från shim-preview och lokal build."
+            >
+              Sandbox-runtime
+            </Badge>
+          ) : null}
         </div>
         <div className="flex items-center gap-1">
           {showWorkerLamp && (

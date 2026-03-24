@@ -18,11 +18,21 @@ import {
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import { saveProjectData } from "@/lib/project-client";
-import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import {
+  useCallback,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
 import { toast } from "sonner";
 import type { CreateChatOptions } from "./types";
 import { MODEL_TIER_TO_QUALITY } from "./types";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
+
+export type TemplateSwitchDialogState =
+  | null
+  | { kind: "abort-gen" | "new-chat"; templateId: string };
 
 type Args = {
   chatId: string | null;
@@ -120,6 +130,56 @@ export function useBuilderPromptActions({
   resetBeforeCreateChat,
   applyAppProjectId,
 }: Args) {
+  const [templateSwitchDialog, setTemplateSwitchDialog] = useState<TemplateSwitchDialogState>(null);
+
+  const applyTemplateSwitch = useCallback(
+    (templateId: string) => {
+      setTemplateSwitchDialog(null);
+      setChatId(null);
+      setMessages([]);
+      setCurrentDemoUrl(null);
+      setSelectedVersionId(null);
+      setEntryIntentActive(false);
+      templateInitAttemptKeyRef.current = null;
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("chatId");
+      params.delete("prompt");
+      params.delete("promptId");
+      params.delete("source");
+      params.set("templateId", templateId);
+      router.replace(`/builder?${params.toString()}`);
+    },
+    [
+      router,
+      searchParams,
+      setChatId,
+      setCurrentDemoUrl,
+      setEntryIntentActive,
+      setMessages,
+      setSelectedVersionId,
+      templateInitAttemptKeyRef,
+    ],
+  );
+
+  const confirmTemplateSwitchDialog = useCallback(() => {
+    if (!templateSwitchDialog) return;
+    if (templateSwitchDialog.kind === "abort-gen") {
+      cancelActiveGeneration();
+      const tid = templateSwitchDialog.templateId;
+      if (chatId) {
+        setTemplateSwitchDialog({ kind: "new-chat", templateId: tid });
+      } else {
+        applyTemplateSwitch(tid);
+      }
+      return;
+    }
+    applyTemplateSwitch(templateSwitchDialog.templateId);
+  }, [applyTemplateSwitch, cancelActiveGeneration, chatId, templateSwitchDialog]);
+
+  const cancelTemplateSwitchDialog = useCallback(() => {
+    setTemplateSwitchDialog(null);
+  }, []);
+
   const handlePromptAssistModelChange = useCallback((model: string) => {
     setPromptAssistModel(model);
     if (!isGatewayAssistModel(model)) {
@@ -297,49 +357,24 @@ export function useBuilderPromptActions({
 
       const hasActiveGeneration = isCreatingChat || isAnyStreaming;
       if (hasActiveGeneration) {
-        const shouldAbort = window.confirm(
-          "Generering pågår just nu. Vill du avbryta och starta från mallen istället?",
-        );
-        if (!shouldAbort) return;
-        cancelActiveGeneration();
+        setTemplateSwitchDialog({ kind: "abort-gen", templateId });
+        return;
       }
 
       if (chatId) {
-        const shouldStartFresh = window.confirm(
-          "Du har redan en aktiv chat. Vill du starta en ny chat från vald template?",
-        );
-        if (!shouldStartFresh) return;
+        setTemplateSwitchDialog({ kind: "new-chat", templateId });
+        return;
       }
 
-      setChatId(null);
-      setMessages([]);
-      setCurrentDemoUrl(null);
-      setSelectedVersionId(null);
-      setEntryIntentActive(false);
-      templateInitAttemptKeyRef.current = null;
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("chatId");
-      params.delete("prompt");
-      params.delete("promptId");
-      params.delete("source");
-      params.set("templateId", templateId);
-      router.replace(`/builder?${params.toString()}`);
+      applyTemplateSwitch(templateId);
     },
     [
+      applyTemplateSwitch,
       chatId,
       isAnyStreaming,
       isCreatingChat,
       isPreparingPrompt,
       isTemplateLoading,
-      cancelActiveGeneration,
-      router,
-      searchParams,
-      setChatId,
-      setMessages,
-      setCurrentDemoUrl,
-      setSelectedVersionId,
-      setEntryIntentActive,
-      templateInitAttemptKeyRef,
     ],
   );
 
@@ -364,6 +399,9 @@ export function useBuilderPromptActions({
   }, [setPaletteState]);
 
   return {
+    templateSwitchDialog,
+    confirmTemplateSwitchDialog,
+    cancelTemplateSwitchDialog,
     handlePromptAssistModelChange,
     handlePromptEnhance,
     captureInstructionSnapshot,

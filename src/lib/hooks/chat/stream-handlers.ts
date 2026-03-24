@@ -603,7 +603,12 @@ export async function handleSseStream(
                 return arr.length > 0 ? arr : null;
               })();
 
+              const serverAwaitingPrompt =
+                typeof doneData.awaitingInputPrompt === "string"
+                  ? doneData.awaitingInputPrompt.trim()
+                  : "";
               const questionPreview = (() => {
+                if (serverAwaitingPrompt) return serverAwaitingPrompt;
                 if (planBlockers) {
                   return planBlockers
                     .map((b) => String(b.question ?? ""))
@@ -670,7 +675,9 @@ export async function handleSseStream(
                   };
                 }),
               );
-              toast(planBlockers ? "Planen kräver dina svar." : "AI väntar på ditt svar för att fortsätta.");
+              toast(planBlockers ? "Planen kräver dina svar." : "AI väntar på ditt svar för att fortsätta.", {
+                id: "builder-awaiting-input",
+              });
             }
 
             const planArtifact = doneData.planArtifact as Record<string, unknown> | undefined;
@@ -711,7 +718,7 @@ export async function handleSseStream(
               toast.warning(
                 `Streamen rapporterade fel tidigare, men en version eller demo returnerades ändå. ${errTail}${pendingStreamErrorMessage.length > 280 ? "…" : ""}`,
               );
-            } else if (ctx.streamType === "create") {
+            } else if (ctx.streamType === "create" && !awaitingInput) {
               toast.success(planArtifact ? "Plan skapad!" : "Sajt skapad!");
             }
             mutateVersions();
