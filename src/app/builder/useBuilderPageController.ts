@@ -1162,6 +1162,7 @@ export function useBuilderPageController() {
       !serverProjectChatId || !chatId || serverProjectChatId === chatId;
     const nextDemoUrl =
       persistedPreviewOverride ||
+      activeVersionMatch?.sandboxUrl ||
       activeVersionMatch?.demoUrl ||
       chatObj?.demoUrl ||
       chatObj?.latestVersion?.demoUrl ||

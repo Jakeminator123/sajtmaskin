@@ -520,8 +520,14 @@ export async function handleSseStream(
           case "sandbox-ready": {
             const sandboxData = data as Record<string, unknown>;
             if (sandboxData.sandboxUrl) {
-              setCurrentDemoUrl(sandboxData.sandboxUrl as string);
+              const sandboxUrl = sandboxData.sandboxUrl as string;
+              setCurrentDemoUrl(sandboxUrl);
               onPreviewRefresh?.();
+              // Post-check is queued at `done` with shim URL; upgrade when sandbox arrives in the same stream.
+              const pendingPost = postCheckQueue[postCheckQueue.length - 1];
+              if (pendingPost) {
+                pendingPost.demoUrl = sandboxUrl;
+              }
             }
             break;
           }
@@ -701,8 +707,9 @@ export async function handleSseStream(
               prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
             );
             if (pendingStreamErrorMessage) {
+              const errTail = pendingStreamErrorMessage.slice(0, 280);
               toast.warning(
-                "Streamen tappade kontakt men versionen räddades i fallback-lage. Granska resultatet extra noga.",
+                `Streamen rapporterade fel tidigare, men en version eller demo returnerades ändå. ${errTail}${pendingStreamErrorMessage.length > 280 ? "…" : ""}`,
               );
             } else if (ctx.streamType === "create") {
               toast.success(planArtifact ? "Plan skapad!" : "Sajt skapad!");

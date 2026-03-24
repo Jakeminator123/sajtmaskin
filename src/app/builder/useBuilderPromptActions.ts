@@ -188,7 +188,6 @@ export function useBuilderPromptActions({
     },
     [
       chatId,
-      scaffoldMode,
       customInstructions,
       generateDynamicInstructions,
       paletteState,
@@ -208,7 +207,11 @@ export function useBuilderPromptActions({
     async (message: string, options?: CreateChatOptions) => {
       setEntryIntentActive(false);
       const dynamicInstructions = await applyDynamicInstructionsForNewChat(message);
-      captureInstructionSnapshot();
+      // Dynamic path sets pendingInstructionsRef synchronously to `combined`; captureInstructionSnapshot
+      // would overwrite it with stale `customInstructions` from the previous render (setState is async).
+      if (dynamicInstructions == null) {
+        captureInstructionSnapshot();
+      }
       const systemOverride = dynamicInstructions?.trim() ? dynamicInstructions.trim() : undefined;
       await createNewChat(message, options, systemOverride);
       return true;

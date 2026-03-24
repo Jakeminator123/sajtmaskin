@@ -8,7 +8,7 @@ Det här dokumentet beskriver hur **demo-URL** och **förhandsvisning** fungerar
 
 Efter att en version sparats får klienten nästan alltid en **`demoUrl` direkt i SSE `done`**-eventet. Den pekar på **`/api/preview-render`** (byggd av `buildPreviewUrl` i [`src/lib/gen/preview/index.ts`](../../src/lib/gen/preview/index.ts)). Den routen renderar en **självständig HTML-sida** med CDN Tailwind + React UMD — en **snabb visuell approximation**, inte en full Next.js-server.
 
-Om sandbox är konfigurerad (`isSandboxConfigured()` i [`src/lib/mcp/runtime-url.ts`](../../src/lib/mcp/runtime-url.ts)) startar servern **asynkront** efter `done` en riktig miljö via [`startSandboxPreview`](../../src/lib/gen/sandbox-preview.ts) (`npm install`, `npm run dev` i `@vercel/sandbox`). Resultatet skickas som:
+Om sandbox är konfigurerad (`isSandboxConfigured()` i [`src/lib/mcp/runtime-url.ts`](../../src/lib/mcp/runtime-url.ts)) startar servern efter `done` en riktig miljö via [`startSandboxPreview`](../../src/lib/gen/sandbox-preview.ts) (`npm install`, `npm run dev` i `@vercel/sandbox`). **SSE-strömmen väntar** på att sandbox-steget slutförts (eller fel rapporterats) innan anslutningen stängs, så att `sandbox-ready` / `build-error` hinner levereras till klienten. Resultatet skickas som:
 
 - **`sandbox-ready`** — `sandboxUrl` ersätter `demoUrl` i klienten ([`stream-handlers.ts`](../../src/lib/hooks/chat/stream-handlers.ts)).
 - **`build-error`** — fel från t.ex. `npm install` (toast + progress).
@@ -27,9 +27,9 @@ sequenceDiagram
   Fin-->>API: previewUrl via buildPreviewUrl
   API->>UI: SSE done demoUrl equals previewUrl
   opt isSandboxConfigured
-    API->>SB: async startSandboxPreview
+    API->>SB: await startSandboxPreview (innan stream stängs)
     SB-->>UI: sandbox-ready eller build-error
-    Note over UI: demoUrl uppdateras till sandboxUrl
+    Note over UI: demoUrl uppdateras till sandboxUrl; post-check använder sandbox-URL om den kommit
   end
 ```
 
@@ -47,7 +47,9 @@ sequenceDiagram
 
 ## PreviewPanel och `postMessage`
 
-[`PreviewPanel.tsx`](../../src/components/builder/PreviewPanel.tsx) lyssnar på `postMessage` från iframen (`sajtmaskin-preview`) för **own-engine shim** (navigation, `preview-ready`, `preview-error`). En **sandbox-URL** är en vanlig Next-app på annan host — samma postMessage-protokoll gäller **inte** automatiskt där. Render-outcome-rapportering kan därför skilja sig mellan shim och sandbox.
+[`PreviewPanel.tsx`](../../src/components/builder/PreviewPanel.tsx) lyssnar på `postMessage` från iframen (`sajtmaskin-preview`) för **own-engine shim** (navigation, `preview-ready`, `preview-error`). En **sandbox-URL** är en vanlig Next-app på annan host — samma postMessage-protokoll gäller **inte** automatiskt där (kräver injicerad bro i den genererade appen om ni vill ha identiska signaler).
+
+**Praktisk paritet idag:** För shim pollar panelen egen DOM och `preview-ready`; för **sandbox** (och andra externa URL:er) används iframe-`load` för att släppa laddningsindikator (`handleIframeLoad`), men strukturerade fel/navigationshändelser från `postMessage` finns bara där shim-skriptet skickar dem. Versionssynk: om API:t returnerar `sandboxUrl` på en version prioriteras den i demo-URL-kedjan när användaren byter aktiv version ([`useBuilderPageController`](../../src/app/builder/useBuilderPageController.ts)).
 
 ## MCP-generering (annan väg)
 

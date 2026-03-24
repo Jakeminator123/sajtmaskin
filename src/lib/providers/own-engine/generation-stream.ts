@@ -270,7 +270,8 @@ export function createOwnEngineGenerationStream(
           if (parsedFiles.length > 0) {
             safeEnqueue(enc.encode(formatSSEEvent("progress", { stage: "sandbox-starting" })));
 
-            startSandboxPreview(parsedFiles).then((sandboxResult) => {
+            try {
+              const sandboxResult = await startSandboxPreview(parsedFiles);
               if (sandboxResult.ok) {
                 safeEnqueue(
                   enc.encode(
@@ -280,13 +281,13 @@ export function createOwnEngineGenerationStream(
                     }),
                   ),
                 );
-                chatRepo.updateVersionSandboxUrl(finalized.version.id, sandboxResult.result.sandboxUrl).catch(() => {});
+                chatRepo
+                  .updateVersionSandboxUrl(finalized.version.id, sandboxResult.result.sandboxUrl)
+                  .catch(() => {});
               } else {
-                safeEnqueue(
-                  enc.encode(formatSSEEvent("build-error", sandboxResult.error)),
-                );
+                safeEnqueue(enc.encode(formatSSEEvent("build-error", sandboxResult.error)));
               }
-            }).catch((err) => {
+            } catch (err) {
               safeEnqueue(
                 enc.encode(
                   formatSSEEvent("build-error", {
@@ -295,7 +296,7 @@ export function createOwnEngineGenerationStream(
                   }),
                 ),
               );
-            });
+            }
           }
         }
       };

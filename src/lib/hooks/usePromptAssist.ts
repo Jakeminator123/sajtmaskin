@@ -191,7 +191,12 @@ export function usePromptAssist(params: UsePromptAssistParams) {
             enhancedLength: enhanced.length,
           });
         }
-        if (hasSwedishChars(originalNormalized) && !hasSwedishChars(enhanced) && !allowLanguageSwitch) {
+        if (
+          source !== "brief" &&
+          hasSwedishChars(originalNormalized) &&
+          !hasSwedishChars(enhanced) &&
+          !allowLanguageSwitch
+        ) {
           return guardFallback("language_mismatch");
         }
         const overlap = computeOverlapRatio(originalNormalized, enhanced);

@@ -167,6 +167,18 @@ export async function POST(req: Request) {
 
         if (installResult.exitCode !== 0) {
           console.error("Install failed with exit code:", installResult.exitCode);
+          try {
+            await sandbox.stop();
+          } catch (stopError) {
+            console.error("Failed to stop sandbox after install failure:", stopError);
+          }
+          return NextResponse.json(
+            {
+              success: false,
+              error: `npm install failed (exit ${installResult.exitCode})`,
+            },
+            { status: 502 },
+          );
         }
 
         await sandbox.runCommand({

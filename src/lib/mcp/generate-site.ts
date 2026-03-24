@@ -265,10 +265,17 @@ export async function generateSiteFromPrompt(
     tokenUsage,
   });
 
-  const files = JSON.parse(finalized.filesJson) as Array<{
-    path: string;
-    content: string;
-  }>;
+  let files: Array<{ path: string; content: string }>;
+  try {
+    const parsed: unknown = JSON.parse(finalized.filesJson);
+    if (!Array.isArray(parsed)) {
+      throw new Error("filesJson is not a JSON array");
+    }
+    files = parsed as Array<{ path: string; content: string }>;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Invalid filesJson";
+    throw new Error(`Could not parse generated files: ${msg}`);
+  }
   const runtimeFiles: RuntimeFile[] = files.map((file) => ({
     name: file.path,
     content: file.content,
