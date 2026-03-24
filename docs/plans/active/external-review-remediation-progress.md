@@ -1,0 +1,39 @@
+# External review remediation — progress
+
+Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator).
+
+Last code touch: landing `chat-area.tsx` (mousemove utan React state, reduced motion för tilt, tech stack vs `package.json`, footer, videoknapp).
+
+## Overall fill (approximate)
+
+| Segment | Done | Remaining |
+|--------|------|-----------|
+| **Whole vision** (alla tre dokument + stora migrationer) | **~18%** | **~82%** |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~45%** | **~55%** |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~0%** | **~100%** |
+| **Own-engine** (`2.txt`) | **~0%** | **~100%** |
+| **Scripts / naming hygiene** (`3.txt`) | **~0%** | **~100%** |
+
+## Done (in repo)
+
+- 3D tilt + tech/integration card glow + terminal glow: DOM / CSS-variabler, inte `setState` per rörelse.
+- `prefers-reduced-motion` stoppar tilt-uppdateringar.
+- Tech stack: Drizzle ORM, Vercel Analytics (stämmer med `@vercel/analytics` + Speed Insights i `src/app/layout.tsx`).
+- Integrationer-rad: OpenAI; Sentry bort från listan.
+- Zod-feature copy: Drizzle / server actions / API.
+- Footer: `/privacy`, `/terms`, `/faq`, `mailto:`; inga falska social-URL:er.
+- Video-knapp: väljer Analyserad + toast.
+
+## Next (recommended order)
+
+1. Bryt ut `ChatArea` + `useLandingController` (`1.txt`).
+2. `LandingBackground` semantiskt per läge; färre samtidiga effekter; mer reduced-motion / in-view för 3D.
+3. `integration-registry` + manifest + tunnare deploy (`1.txt`).
+4. Own-engine remediation (`2.txt`).
+5. Scripts-städ (`hamta_sidor*`, lab-mappar, README-drift) (`3.txt`).
+
+## Uncertainties / product follow-ups
+
+- Footer “Om oss” / “Blogg” pekar på `/faq` tills dedikerade sidor finns.
+- Social copy ersätter länkar tills URL:er finns.
+- `IntegrationCard` har kvar CSS `float`-animationer (ej reduced-motion ännu).

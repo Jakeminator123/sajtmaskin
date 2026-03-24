@@ -27,12 +27,21 @@ import {
   Gauge,
   Layers,
   Server,
+  Sparkles,
   Wind,
   type LucideIcon,
 } from "lucide-react"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
-import { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from "react"
+import {
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+  type MouseEvent as ReactMouseEvent,
+} from "react"
 import { useRouter } from "next/navigation"
 import { createProject } from "@/lib/project-client"
 import { toast } from "sonner"
@@ -47,30 +56,49 @@ const HowItWorksScene = dynamic(
 )
 
 /* ──────────────────── 3D TILT HOOK ──────────────────── */
+/* Updates transform on the DOM node only — no setState per mousemove (Vercel rerender guidance). */
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
+const TILT_NEUTRAL = "perspective(800px) rotateX(0deg) rotateY(0deg) scale(1)"
 
 function use3DTilt(intensity = 12) {
   const ref = useRef<HTMLDivElement>(null)
-  const [style, setStyle] = useState({ transform: "perspective(800px) rotateX(0deg) rotateY(0deg) scale(1)" })
+  const reduceMotionRef = useRef(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia(REDUCED_MOTION_QUERY)
+    const sync = () => {
+      reduceMotionRef.current = mq.matches
+    }
+    sync()
+    mq.addEventListener("change", sync)
+    return () => mq.removeEventListener("change", sync)
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el) el.style.transform = TILT_NEUTRAL
+  }, [])
 
   const handleMove = useCallback(
     (e: ReactMouseEvent) => {
       const el = ref.current
-      if (!el) return
+      if (!el || reduceMotionRef.current) return
       const rect = el.getBoundingClientRect()
       const x = (e.clientX - rect.left) / rect.width - 0.5
       const y = (e.clientY - rect.top) / rect.height - 0.5
-      setStyle({
-        transform: `perspective(800px) rotateX(${-y * intensity}deg) rotateY(${x * intensity}deg) scale(1.02)`,
-      })
+      el.style.transform = `perspective(800px) rotateX(${-y * intensity}deg) rotateY(${x * intensity}deg) scale(1.02)`
     },
-    [intensity]
+    [intensity],
   )
 
   const handleLeave = useCallback(() => {
-    setStyle({ transform: "perspective(800px) rotateX(0deg) rotateY(0deg) scale(1)" })
+    const el = ref.current
+    if (!el) return
+    el.style.transform = TILT_NEUTRAL
   }, [])
 
-  return { ref, style, handleMove, handleLeave }
+  return { ref, handleMove, handleLeave }
 }
 
 /* ──────────────────── TERMINAL TYPEWRITER HOOK ──────────────────── */
@@ -209,7 +237,7 @@ const features = [
     highlights: [
       "TypeScript strict mode \u2014 inga implicit any, inga null-krascher",
       "Zod-schemas validerar all indata p\u00e5 server och klient",
-      "End-to-end typs\u00e4kerhet: Prisma \u2192 tRPC/API \u2192 React-formul\u00e4r",
+      "End-to-end typs\u00e4kerhet: Drizzle \u2192 server actions/API \u2192 React-formul\u00e4r",
       "Automatisk TypeScript-generering fr\u00e5n API-kontrakt",
     ],
     codeFile: "schema.ts",
@@ -270,10 +298,10 @@ const techStack: TechStackItem[] = [
   { name: "Vercel Edge", category: "Hosting", detail: "Global rendering", icon: Rocket, glow: "rgba(244, 244, 245, 0.12)" },
   { name: "PostgreSQL", category: "Databas", detail: "Relational core", icon: Database, glow: "rgba(96, 165, 250, 0.15)" },
   { name: "Zod", category: "Validering", detail: "Trusted input", icon: ShieldCheck, glow: "rgba(250, 204, 21, 0.15)" },
-  { name: "Prisma", category: "ORM", detail: "Schema to app", icon: GitBranch, glow: "rgba(167, 139, 250, 0.16)" },
+  { name: "Drizzle ORM", category: "ORM", detail: "Typsäkra SQL-queries", icon: GitBranch, glow: "rgba(167, 139, 250, 0.16)" },
   { name: "Stripe", category: "Betalning", detail: "Checkout & billing", icon: CreditCard, glow: "rgba(139, 92, 246, 0.16)" },
   { name: "Resend", category: "E-post", detail: "Transactional flows", icon: Send, glow: "rgba(251, 146, 60, 0.15)" },
-  { name: "Sentry", category: "Monitoring", detail: "Errors & traces", icon: Activity, glow: "rgba(244, 63, 94, 0.16)" },
+  { name: "Vercel Analytics", category: "Insikter", detail: "Analytics + Speed Insights", icon: Activity, glow: "rgba(244, 63, 94, 0.16)" },
 ]
 
 const landingJourneySteps = [
@@ -400,7 +428,7 @@ const integrations: IntegrationItem[] = [
   { name: "Vercel", detail: "Preview & deploy", icon: Rocket, glow: "rgba(148, 163, 184, 0.14)" },
   { name: "Stripe", detail: "Checkout & billing", icon: CreditCard, glow: "rgba(139, 92, 246, 0.16)" },
   { name: "Resend", detail: "E-postflöden", icon: Send, glow: "rgba(251, 146, 60, 0.16)" },
-  { name: "Sentry", detail: "Spårning i drift", icon: Activity, glow: "rgba(244, 63, 94, 0.16)" },
+  { name: "OpenAI", detail: "Modeller i generering", icon: Sparkles, glow: "rgba(56, 189, 248, 0.14)" },
 ]
 
 type ComparisonParamKey =
@@ -1276,9 +1304,8 @@ function LighthouseGauges() {
 /* ──────────────────── TECH STACK CARD ──────────────────── */
 
 function TechStackCard({ tech, index }: { tech: TechStackItem; index: number }) {
-  const { ref: tiltRef, style, handleMove, handleLeave } = use3DTilt(8)
+  const { ref: tiltRef, handleMove, handleLeave } = use3DTilt(8)
   const { ref: viewRef, visible } = useInView(0.15)
-  const [glowPoint, setGlowPoint] = useState({ x: 120, y: 60 })
   const Icon = tech.icon
 
   const setRefs = useCallback(
@@ -1291,8 +1318,10 @@ function TechStackCard({ tech, index }: { tech: TechStackItem; index: number }) 
 
   const handleMouseMove = useCallback(
     (e: ReactMouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect()
-      setGlowPoint({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+      const el = e.currentTarget
+      const rect = el.getBoundingClientRect()
+      el.style.setProperty("--glow-x", `${e.clientX - rect.left}px`)
+      el.style.setProperty("--glow-y", `${e.clientY - rect.top}px`)
       handleMove(e)
     },
     [handleMove],
@@ -1307,16 +1336,17 @@ function TechStackCard({ tech, index }: { tech: TechStackItem; index: number }) 
         visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
       }`}
       style={{
-        ...style,
         transitionDelay: `${index * 60}ms`,
         boxShadow: visible ? "0 20px 60px rgba(8, 15, 30, 0.22)" : "none",
+        ["--glow-x" as string]: "120px",
+        ["--glow-y" as string]: "60px",
       }}
     >
       <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.04),transparent_40%,rgba(45,212,191,0.05)_100%)]" />
       <div
         className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
-          background: `radial-gradient(220px circle at ${glowPoint.x}px ${glowPoint.y}px, ${tech.glow} 0%, transparent 72%)`,
+          background: `radial-gradient(220px circle at var(--glow-x, 120px) var(--glow-y, 60px), ${tech.glow} 0%, transparent 72%)`,
         }}
       />
       <div className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-linear-to-r from-transparent via-primary/30 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
@@ -1375,9 +1405,8 @@ function HowItWorksFallback() {
 }
 
 function IntegrationCard({ item, index }: { item: IntegrationItem; index: number }) {
-  const { ref: tiltRef, style, handleMove, handleLeave } = use3DTilt(6)
+  const { ref: tiltRef, handleMove, handleLeave } = use3DTilt(6)
   const { ref: viewRef, visible } = useInView(0.15)
-  const [glowPoint, setGlowPoint] = useState({ x: 120, y: 40 })
   const Icon = item.icon
 
   const setRefs = useCallback(
@@ -1390,8 +1419,10 @@ function IntegrationCard({ item, index }: { item: IntegrationItem; index: number
 
   const handleMouseMove = useCallback(
     (e: ReactMouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect()
-      setGlowPoint({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+      const el = e.currentTarget
+      const rect = el.getBoundingClientRect()
+      el.style.setProperty("--glow-x", `${e.clientX - rect.left}px`)
+      el.style.setProperty("--glow-y", `${e.clientY - rect.top}px`)
       handleMove(e)
     },
     [handleMove],
@@ -1406,15 +1437,16 @@ function IntegrationCard({ item, index }: { item: IntegrationItem; index: number
         visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
       }`}
       style={{
-        ...style,
         transitionDelay: `${index * 70}ms`,
         animation: `float-particle-kf ${6 + index * 0.35}s ease-in-out infinite`,
+        ["--glow-x" as string]: "120px",
+        ["--glow-y" as string]: "40px",
       }}
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
-          background: `radial-gradient(220px circle at ${glowPoint.x}px ${glowPoint.y}px, ${item.glow} 0%, transparent 72%)`,
+          background: `radial-gradient(220px circle at var(--glow-x, 120px) var(--glow-y, 40px), ${item.glow} 0%, transparent 72%)`,
         }}
       />
       <div className="relative z-10 flex items-center gap-3">
@@ -1655,7 +1687,6 @@ export function ChatArea({
   const rotatingType = useRotatingText(siteTypes)
   const headlineTilt = use3DTilt(10)
   const terminal = useTerminalTypewriter()
-  const [terminalMouse, setTerminalMouse] = useState({ x: 0, y: 0 })
   const terminalBoxRef = useRef<HTMLDivElement>(null)
   const preloadHowItWorksScene = useCallback(() => {
     void import("./how-it-works-scene")
@@ -1665,8 +1696,20 @@ export function ChatArea({
     const el = terminalBoxRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
-    setTerminalMouse({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+    el.style.setProperty("--term-glow-x", `${e.clientX - rect.left}px`)
+    el.style.setProperty("--term-glow-y", `${e.clientY - rect.top}px`)
   }, [])
+
+  const pickCategory = useCallback(
+    (id: string | null) => {
+      if (onSelectedCategoryChange) {
+        onSelectedCategoryChange(id)
+      } else {
+        setInternalCategory(id)
+      }
+    },
+    [onSelectedCategoryChange],
+  )
 
   const activeCategory = categories.find((c) => c.id === selectedCategory)
 
@@ -1821,7 +1864,7 @@ export function ChatArea({
             ref={headlineTilt.ref}
             onMouseMove={headlineTilt.handleMove}
             onMouseLeave={headlineTilt.handleLeave}
-            style={{ ...headlineTilt.style, transition: "transform 0.15s ease-out", willChange: "transform" }}
+            style={{ transition: "transform 0.15s ease-out", willChange: "transform" }}
             className="cursor-default"
           >
             <h1
@@ -1994,8 +2037,15 @@ export function ChatArea({
                           variant="ghost"
                           size="icon"
                           className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                          aria-label="Spela in video (tillgänglig i wizard)"
-                          title="Videoinspelning med analys av hållning och blickkontakt finns i Analyserad-wizarden"
+                          aria-label="Byt till Analyserad för videoinspelning i wizarden"
+                          title="Videoinspelning med analys finns i Analyserad-läget — klicka för att välja det"
+                          onClick={() => {
+                            pickCategory("analyserad")
+                            toast.message("Analyserad", {
+                              description:
+                                "Fortsätt i wizarden för videoinspelning med analys (t.ex. hållning och blick).",
+                            })
+                          }}
                         >
                           <Video className="w-4 h-4" />
                         </Button>
@@ -2268,6 +2318,10 @@ export function ChatArea({
               }}
               onMouseMove={handleTerminalMouse}
               className="group/term relative mt-12 overflow-hidden rounded-[28px] border border-border/20 bg-card/35 shadow-[0_28px_80px_rgba(5,10,20,0.35)]"
+              style={{
+                ["--term-glow-x" as string]: "50%",
+                ["--term-glow-y" as string]: "50%",
+              }}
             >
               <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-primary/35 to-transparent" />
 
@@ -2275,7 +2329,8 @@ export function ChatArea({
               <div
                 className="pointer-events-none absolute inset-0 z-10 opacity-0 group-hover/term:opacity-100 transition-opacity duration-300"
                 style={{
-                  background: `radial-gradient(320px circle at ${terminalMouse.x}px ${terminalMouse.y}px, rgba(45,212,191,0.08) 0%, transparent 70%)`,
+                  background:
+                    "radial-gradient(320px circle at var(--term-glow-x, 50%) var(--term-glow-y, 50%), rgba(45,212,191,0.08) 0%, transparent 70%)",
                 }}
               />
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_40%,rgba(45,212,191,0.04)_100%)]" />
@@ -2620,19 +2675,57 @@ export function ChatArea({
               <div>
                 <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">F&ouml;retag</h4>
                 <ul className="space-y-2">
-                  <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Om oss</a></li>
-                  <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Blogg</a></li>
-                  <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Karri&auml;r</a></li>
-                  <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Kontakt</a></li>
+                  <li>
+                    <a href="/faq" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      Om oss
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/faq" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      Blogg
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="mailto:support@sajtmaskin.se?subject=Karri%C3%A4r"
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Karri&auml;r
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="mailto:support@sajtmaskin.se"
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Kontakt
+                    </a>
+                  </li>
                 </ul>
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Juridiskt</h4>
                 <ul className="space-y-2">
-                  <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Integritetspolicy</a></li>
-                  <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Anv&auml;ndarvillkor</a></li>
-                  <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">GDPR</a></li>
-                  <li><a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Cookies</a></li>
+                  <li>
+                    <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      Integritetspolicy
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      Anv&auml;ndarvillkor
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      GDPR
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      Cookies
+                    </a>
+                  </li>
                 </ul>
               </div>
             </div>
@@ -2640,11 +2733,7 @@ export function ChatArea({
               <p className="text-xs text-muted-foreground/60">
                 &copy; {new Date().getFullYear()} SajtMaskin AB. Alla r&auml;ttigheter f&ouml;rbeh&aring;llna.
               </p>
-              <div className="flex items-center gap-4">
-                <a href="#" className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">LinkedIn</a>
-                <a href="#" className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">Twitter</a>
-                <a href="#" className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">Instagram</a>
-              </div>
+              <p className="text-xs text-muted-foreground/60">Sociala länkar publiceras här när de finns.</p>
             </div>
           </div>
         </footer>
