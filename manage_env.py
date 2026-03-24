@@ -889,6 +889,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
     path_local = Path(args.env_local)
     path_prod = Path(args.env_prod)
+    prod_label = path_prod.name if path_prod.name else ".env.production"
 
     print(f"\n{BOLD}Sajtmaskin Env Audit (read-only){RESET}")
     print(f"{DIM}Local:  {path_local}{RESET}")
@@ -911,23 +912,23 @@ def cmd_audit(args: argparse.Namespace) -> int:
         print(f"  {YELLOW}.env.local not found{RESET}")
 
     if entries_prod:
-        print(f"\n  {BOLD}.env.production ({len(entries_prod)} entries){RESET}")
+        print(f"\n  {BOLD}{prod_label} ({len(entries_prod)} entries){RESET}")
         total_issues += print_audit_issues(
-            audit_local_health(".env.production", entries_prod, known_empty_ok),
+            audit_local_health(prod_label, entries_prod, known_empty_ok),
             "    ",
         )
     else:
-        print(f"\n  {YELLOW}.env.production not found{RESET}")
+        print(f"\n  {YELLOW}{prod_label} not found{RESET}")
 
     if entries_local and entries_prod:
-        print_audit_section("2. Local vs Local (.env.local vs .env.production)")
+        print_audit_section(f"2. Local vs Local (.env.local vs {prod_label})")
         issues = audit_local_vs_local(
             policy,
             runtime_only,
             entries_local,
             entries_prod,
             ".env.local",
-            ".env.production",
+            prod_label,
             args.verbose,
         )
         total_issues += print_audit_issues(issues)

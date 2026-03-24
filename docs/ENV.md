@@ -141,7 +141,7 @@ builder-overlayn pa `?modelTrace=1`.
 
 | Tjänst                 | Dev (lokalt)                 | Prod (Vercel)                | Plan                                            |
 | ---------------------- | ---------------------------- | ---------------------------- | ----------------------------------------------- |
-| **Postgres**           | Supabase DEV-projekt         | Supabase PROD-projekt        | Gratis (500 MB per projekt)                     |
+| **Postgres**           | Supabase DEV-projekt         | Supabase PROD-projekt        | Betald plan rekommenderas i prod (t.ex. Supabase Pro ~25 USD/mån — exakt SKU i dashboard) |
 | **Redis (cache)**      | Upstash `sajtmaskin-dev`     | Upstash `sajtmaskin-prod`    | Dev: gratis (500K cmd/mån), Prod: pay-as-you-go |
 | **Redis (rate limit)** | Upstash REST (samma instans) | Upstash REST (samma instans) | Ingår i ovanstående                             |
 | **Blob storage**       | Vercel Blob eller lokal fallback for vissa upload-floden | Vercel Blob | Ingår i Vercel Pro                              |
@@ -163,7 +163,7 @@ Sajtmaskin-installationen:
 - databas och cache: `POSTGRES_URL`, `REDIS_URL`, `KV_URL`, `UPSTASH_*`
 - auth och sessioner: `JWT_SECRET`
 - AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (direktanrop efter Plan 17); `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` kan fortfarande krävas av **vissa** routes (t.ex. prompt-assist portvakt lokalt) — se `ARBETSANTECKNINGAR.txt` / kod; `V0_API_KEY` för kvarvarande v0-hantering och opt-in `V0_FALLBACK_BUILDER`
-- deploy och Vercel: `VERCEL_TOKEN`, valfritt `VERCEL_TEAM_ID`, `BLOB_READ_WRITE_TOKEN`
+- deploy och Vercel: `VERCEL_TOKEN`, valfritt `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID`, `BLOB_READ_WRITE_TOKEN`; full Next-preview i sandbox: se [architecture/vercel-sandbox-credentials.md](./architecture/vercel-sandbox-credentials.md) och [architecture/preview-and-sandbox-flow.md](./architecture/preview-and-sandbox-flow.md)
 - interna tjänster: `OPENCLAW_*`, `INSPECTOR_*`, `RESEND_API_KEY`
 
 De här ska hanteras som delad driftkonfiguration för plattformen, inte som
@@ -313,7 +313,14 @@ preview-URL:er, demo-URL:er och hemsidor. Lokal `npm run dev` räcker för utvec
 
 1. **Deploy** denna version (sajtmaskin-appen).
 2. Sätt env-variablerna i Vercel för rätt miljöer (production, preview, development).
-3. `manage_env.py audit` kan anvandas for att jamfora lokala vs Vercel-env read-only.
+3. `manage_env.py audit` kan användas för att jämföra lokala filer med Vercel (kräver `VERCEL_TOKEN` m.m. utan `--local-only`).
+4. **Jämför `.env.local` med en Vercel-pullad produktionsfil** (read-only, inga API-anrop):
+
+   ```bash
+   python manage_env.py audit --local-only --strict --env-prod ".env.vercel.production.pulled"
+   ```
+
+   Standard för “prod”-sidan av audit är `.env.production`; använd `--env-prod` när du i stället har `vercel env pull` till ett annat filnamn.
 
 ## Lokal utveckling (setup från scratch)
 
@@ -328,7 +335,7 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 1. Klona repot och kör `npm install`.
 2. Skapa `.env.local` med minst: `POSTGRES_URL`, `JWT_SECRET`, `OPENAI_API_KEY`.
 3. **Redis (dev):** Skapa en gratis Upstash Redis på [console.upstash.com](https://console.upstash.com), sätt `REDIS_URL`, `KV_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
-4. **Postgres (dev):** Skapa ett gratis Supabase-projekt, sätt `POSTGRES_URL`.
+4. **Postgres (dev):** Skapa ett Supabase-projekt (gratis tier går för lokal dev), sätt `POSTGRES_URL`. Produktion använder separat projekt; vid högre krav använd betald Supabase-plan (se infrastruktur-tabellen ovan).
 5. Kör `npm run db:init` för att skapa databasschemat.
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
 7. MCP-servrar i Cursor (`.cursor/mcp.json`): `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx tools/mcp/...`.
@@ -349,6 +356,16 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 
 - **`config/user_degraded_env.txt`** är en **dokumenterad lista** med placeholder-värden för tredjepartsnycklar när en **användares** genererade Next-projekt ska starta utan riktiga integrationer. Den laddas **inte** automatiskt av Sajtmaskin-appen; använd som referens för preview/sandbox eller framtida tooling.
 
+### Sajtmaskin-appen vs genererade användarsajter (tre lager)
+
+| Lager | Var | Syfte |
+|-------|-----|--------|
+| **`config/env-policy.json`** | Sajtmaskin (denna repo) | Klassificering och regler för **appens** miljövariabler; styr `manage_env.py` / `env-audit`. |
+| **`.env.local` / Vercel Dashboard** | Sajtmaskin | Riktiga hemligheter för **plattformen** (DB, OpenAI, Stripe för credits, osv.). |
+| **`config/user_degraded_env.txt`** | Dokumentation | **Inte** samma som env-policy: avser **kod som genereras till slutkunder**, så preview kan köra utan riktiga Resend/Redis/Blob-nycklar. **Auto-injicering** av dessa värden i preview/deploy-pipeline är **inte** implementerad här; det kräver separat produkt-/runtime-arbete. |
+
+Tomma **`VERCEL_*` / `VERCEL_GIT_*`** i en pullad `.env.vercel.production.pulled` är normalt (byggmetadata finns bara under deployment). De finns i `knownEmptyOk` i `env-policy.json` så audit inte flaggar dem.
+
 ## Extern template-spegel — versionsaudit
 
 - **`config/shadcn-mirror-audit-policy.json`** — målstack (Next / React / Tailwind / Node-major) jämfört med t.ex. `_template_refs/shadcn-io-mirror/repos`.
@@ -361,5 +378,5 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 
 - **Upstash gratis:** 500K commands/månad, 256 MB. Räcker för dev och låg trafik.
 - **Upstash pay-as-you-go:** $0.20 per 100K commands. Rekommenderas för prod.
-- **Supabase gratis:** 500 MB databas, 2 aktiva projekt, pausar efter 1 vecka utan aktivitet.
+- **Supabase (gratis tier, referens):** bl.a. 500 MB databas, begränsningar enligt aktuell prissida — lämpligt för dev/små test. **Produktion:** uppgraderat läge (t.ex. Pro ~25 USD/mån) ger mer utrymme, bättre SLA och inga hobby-pausregler; verifiera alltid mot [Supabase pricing](https://supabase.com/pricing).
 - Om appen skalar: uppgradera Upstash till fixed plan ($10/mån = 250 MB, obegränsade commands).

@@ -27,7 +27,19 @@
     "INSPECTOR_CAPTURE_WORKER_TOKEN",
     "SUPERADMIN_EMAIL",
     "INSPECTOR_CAPTURE_WORKER_URL",
-    "ENV_VAR_ENCRYPTION_KEY"
+    "ENV_VAR_ENCRYPTION_KEY",
+    "VERCEL_GIT_COMMIT_AUTHOR_LOGIN",
+    "VERCEL_GIT_COMMIT_AUTHOR_NAME",
+    "VERCEL_GIT_COMMIT_MESSAGE",
+    "VERCEL_GIT_COMMIT_REF",
+    "VERCEL_GIT_COMMIT_SHA",
+    "VERCEL_GIT_PREVIOUS_SHA",
+    "VERCEL_GIT_PROVIDER",
+    "VERCEL_GIT_PULL_REQUEST_ID",
+    "VERCEL_GIT_REPO_ID",
+    "VERCEL_GIT_REPO_OWNER",
+    "VERCEL_GIT_REPO_SLUG",
+    "VERCEL_URL"
   ],
   "runtimeOnlyKeys": [
     "NODE_ENV",
@@ -220,19 +232,25 @@
       "key": "VERCEL_TOKEN",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Used for Vercel API access and audits."
+      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). See docs/architecture/vercel-sandbox-credentials.md."
+    },
+    {
+      "key": "VERCEL_TOKEN_FULL",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": [],
+      "notes": "Optional local alias for VERCEL_TOKEN only (Sajtmaskin). Prefer VERCEL_TOKEN; never commit either."
     },
     {
       "key": "VERCEL_TEAM_ID",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Optional scope for Vercel API access. Leave unset when using a personal account; set it only when requests must target a specific team."
+      "notes": "Team / org scope (often team_…). Required together with VERCEL_TOKEN + VERCEL_PROJECT_ID for @vercel/sandbox from local dev. Find via linked project: run vercel link in the repo and read .vercel/project.json → orgId, or Team Settings → Team ID in the dashboard."
     },
     {
       "key": "VERCEL_PROJECT_ID",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Binds API access to the correct Vercel project."
+      "notes": "Project id (prj_…). Required with VERCEL_TOKEN + VERCEL_TEAM_ID for sandbox from local dev. From Project Settings → General, or .vercel/project.json after vercel link."
     },
     {
       "key": "VERCEL_WEBHOOK_SECRET",
@@ -244,7 +262,7 @@
       "key": "VERCEL_OIDC_TOKEN",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["development"],
-      "notes": "Local OIDC token refreshed via vercel env pull for local testing. Treat pulled values as local snapshots, not canonical deployed target values."
+      "notes": "Alternative to VERCEL_TOKEN+TEAM+PROJECT for @vercel/sandbox: pulled locally via vercel env pull (Vercel CLI). On Vercel-hosted runtimes the platform may inject OIDC; treat pulled .env values as local-only snapshots."
     },
     {
       "key": "NEXT_PUBLIC_APP_URL",
