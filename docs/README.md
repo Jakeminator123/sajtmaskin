@@ -98,5 +98,6 @@ Not runtime dependencies:
 | Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |
 | Env setup | `docs/ENV.md` |
 | Scripts inventory + scaffolds overview | `docs/architecture/scripts-scaffolds-inventory.md` |
+| Scrapade `scorefolds` → template-library + prompt | `docs/architecture/scraped-scorefolds-pipeline.md` |
 | Orchestrator protocol | `docs/architecture/orchestrator-run-protocol.md` |
 | Orchestrator runs | `.cursor/orchestrator/run/` (local, cursorignored) |

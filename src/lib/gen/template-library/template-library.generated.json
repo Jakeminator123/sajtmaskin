@@ -1,7 +1,596 @@
 {
-  "generatedAt": "2026-03-24T11:18:12.195Z",
+  "generatedAt": "2026-03-24T12:55:25.509Z",
   "sourceRoot": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\scraped-vercel-scorefolds",
   "totalTemplates": 69,
-  "curatedTemplates": 0,
-  "entries": []
+  "curatedTemplates": 6,
+  "entries": [
+    {
+      "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
+      "slug": "admin-dashboard-modernize-next-js-admin-dashboard-template",
+      "title": "Modernize Next.js Admin Dashboard Template",
+      "categorySlug": "admin-dashboard",
+      "categoryName": "Admin Dashboard",
+      "templateUrl": "https://vercel.com/templates/admin-dashboard/modernize-admin-dashboard",
+      "demoUrl": "#",
+      "description": "Download our modernized admin template for your upcoming web application powered by Next.js, free of charge.",
+      "frameworkReason": "Next.js, React",
+      "frameworkMatch": true,
+      "verdict": "valid",
+      "qualityScore": 94,
+      "repo": {
+        "url": "https://github.com/adminmart/Modernize-Nextjs-Free",
+        "normalizedUrl": "https://github.com/adminmart/Modernize-Nextjs-Free",
+        "subpath": null,
+        "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\adminmart-modernize-nextjs-free",
+        "packageManager": "npm",
+        "hasNext": true,
+        "hasReact": true,
+        "isMonorepo": false,
+        "hasAppDir": false,
+        "hasSrcAppDir": true
+      },
+      "stackTags": [
+        "Next.js",
+        "React",
+        "Material UI",
+        "Database",
+        "Vercel Blob",
+        "Auth",
+        "NextAuth.js"
+      ],
+      "usefulLines": [
+        "AI workflows in live environments",
+        "Deploy for every idea",
+        "Deploy",
+        "✨ Features",
+        "🔑 Authentication pages (Login, Signup)",
+        "🚀 Getting Started",
+        "3. Install dependencies",
+        "npm",
+        "install",
+        "Getting Started",
+        "Clone → npm install → npm run dev → npm run build",
+        "65+ pages, NextAuth/Firebase auth, Dark mode, Figma"
+      ],
+      "noiseLines": [
+        "Vercel Agent",
+        "Vercel documentation",
+        "Deploy at the speed of AI",
+        "Ship features, not infrastructure",
+        "SDKs by Vercel"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "auth flow reference",
+        "dashboard shell patterns"
+      ],
+      "weaknesses": [],
+      "recommendedScaffoldFamilies": [
+        "dashboard",
+        "app-shell",
+        "auth-pages"
+      ],
+      "signals": {
+        "auth": true,
+        "dashboard": true,
+        "pricing": false,
+        "blog": false,
+        "portfolio": false,
+        "ecommerce": false,
+        "docs": false,
+        "ai": true,
+        "multiTenant": false,
+        "cms": false
+      },
+      "summary": "Modernize Next.js Admin Dashboard Template is a Admin Dashboard reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "selectedFiles": [
+        {
+          "path": "package/README.md",
+          "reason": "Setup and architecture context",
+          "excerpt": "This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).\n\n## Getting Started\n\nFirst, run the development server:\n\n```bash\nnpm run dev\n# or\nyarn dev\n# or\npnpm dev\n```\n\nOpen [http://localhost:3000](http://localhost:3000) with your browser to see the result.\n\nYou can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.\n\nThis project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.\n\n## Learn More\n\nTo learn more about Next.js, take a look at the following resources:\n\n- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.\n- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.\n\nYou can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!\n\n## Deploy on Vercel\n\nThe easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.\n\nCheck out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details."
+        },
+        {
+          "path": "package/package.json",
+          "reason": "Dependency and script verification",
+          "excerpt": "{\n  \"name\": \"modernize-next-free\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@emotion/cache\": \"^11.14.0\",\n    \"@emotion/react\": \"^11.14.0\",\n    \"@emotion/server\": \"^11.11.0\",\n    \"@emotion/styled\": \"^11.14.1\",\n    \"@mui/icons-material\": \"^7.3.5\",\n    \"@mui/lab\": \"^7.0.1-beta.19\",\n    \"@mui/material\": \"^7.3.5\",\n    \"@tabler/icons-react\": \"^3.35.0\",\n    \"@types/node\": \"^24.10.1\",\n    \"apexcharts\": \"5.3.6\",\n    \"eslint\": \"9.39.1\",\n    \"eslint-config-next\": \"16.0.3\",\n    \"lodash\": \"^4.17.21\",\n    \"next\": \"^16.0.3\",\n    \"react\": \"^19.2.0\",\n    \"react-apexcharts\": \"1.8.0\",\n    \"react-dom\": \"^19.2.0\",\n    \"react-mui-sidebar\": \"^1.6.10\",\n    \"react-syntax-highlighter\": \"^16.1.0\",\n    \"typescript\": \"5.9.3\"\n  },\n  \"devDependencies\": {\n    \"@types/lodash\": \"4.17.20\",\n    \"@types/react\": \"^19.2.6\",\n    \"@types/react-dom\": \"^19.2.3\",\n    \"@types/react-syntax-highlighter\": \"^15.5.13\"\n  }\n}"
+        },
+        {
+          "path": "package/src/app/layout.tsx",
+          "reason": "Layout and navigation reference",
+          "excerpt": "\"use client\";\nimport { baselightTheme } from \"@/utils/theme/DefaultColors\";\nimport { ThemeProvider } from \"@mui/material/styles\";\nimport CssBaseline from \"@mui/material/CssBaseline\";\nimport './global.css'\n\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\">\n      <body>\n        <ThemeProvider theme={baselightTheme}>\n          {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}\n          <CssBaseline />\n          {children}\n        </ThemeProvider>\n      </body>\n    </html>\n  );\n}"
+        },
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context",
+          "excerpt": "<div align=\"center\">\n   <a href=\"https://adminmart.com/\" target=\"_blank\">\n      <img src=\"https://adminmart.github.io/template_api/images/brand-logo/adminmart-Logo.svg\" alt=\"modernize-image\" width=\"100px\" height=\"80px\">\n   </a>\n</div>\n\n# [Modernize Free Next Js Admin Template](https://modernize-nextjs-free.vercel.app/)\n\n<!-- Main image of Template -->\n[![Next Js](https://adminmart.com/wp-content/uploads/2023/03/modernize-free-next-js-admin-template.png)](#)\n\n\n# Modernize Free Next.js Admin Template\n\nA free, developer-friendly admin dashboard template built using **Next.js (v15)**, **Material UI (MUI v7)**, **React**, and **TypeScript**.\nIt provides a clean project structure, responsive design, and ready-made pages such as Dashboard, Login/Register, Typography, and Sample pages.\nDistributed under the **MIT license**, it’s free for both personal and commercial use.\n\n---\n\n## ✨ Features\n\n- ⚡ Built with **Next.js 15**, **React**, **TypeScript**, and **MUI 7**\n- 📱 Fully responsive design\n- 🗂️ Organized folder structure\n- 🔑 Authentication pages (Login, Signup)\n- 📊 Dashboard, Typography, Sample layout pages\n- 🆓 Free under **MIT license**\n- 🚀 Lightweight and production-ready\n\n---\n\n## 🚀 Getting Started\n\n### 1. Clone the repository\n```bash\ngit clone https://github.com/adminmart/Modernize-Nextjs-Free.git\n```\n\n### 2. Navigate to the project\n```bash\ncd Modernize-Nextjs-Free/package\n```\n\n### 3. Install dependencies\n```bash\nnpm install\n```\n\n### 4. Run in development mode\n```bash\nnpm run dev\n```\n\n### 5. Build for production\n```bash\nnpm run build\n```\n## 📂 Pages Included\n\n- Dashboard\n- Login & Signup\n- Typography\n- Sample Layout\n\n---\n\n\n## 📊 Summary Table\n\n| Aspect           | Details                                                 |\n|------------------|---------------------------------------------------------|\n| Framework        | Next.js (v15), React, TypeScript, Material UI (v7)      |\n| Pages Included   | Dashboard, Login/Register, Typography, Sample           |\n| Design           | Responsive, MUI-styled, clean and modern                |\n| License          | MIT – Free for personal and commercial use              |\n| Getting Started  | Clone → npm install → npm run dev → npm run build       |\n| Pro Version      | 65+ pages, NextAuth/Firebase auth, Dark mode, Figma     |\n\n// ... truncated"
+        },
+        {
+          "path": "package/src/app/(DashboardLayout)/layout/header/Header.tsx",
+          "reason": "Layout and navigation reference",
+          "excerpt": "import React from 'react';\nimport { Box, AppBar, Toolbar, styled, Stack, IconButton, Badge, Button } from '@mui/material';\nimport PropTypes from 'prop-types';\nimport Link from 'next/link';\n// components\nimport Profile from './Profile';\nimport { IconBellRinging, IconMenu } from '@tabler/icons-react';\n\ninterface ItemType {\n  toggleMobileSidebar:  (event: React.MouseEvent<HTMLElement>) => void;\n}\n\nconst Header = ({toggleMobileSidebar}: ItemType) => {\n\n  // const lgUp = useMediaQuery((theme) => theme.breakpoints.up('lg'));\n  // const lgDown = useMediaQuery((theme) => theme.breakpoints.down('lg'));\n\n\n  const AppBarStyled = styled(AppBar)(({ theme }) => ({\n    boxShadow: 'none',\n    background: theme.palette.background.paper,\n    justifyContent: 'center',\n    backdropFilter: 'blur(4px)',\n    [theme.breakpoints.up('lg')]: {\n      minHeight: '70px',\n    },\n  }));\n  const ToolbarStyled = styled(Toolbar)(({ theme }) => ({\n    width: '100%',\n    color: theme.palette.text.secondary,\n  }));\n\n  return (\n    <AppBarStyled position=\"sticky\" color=\"default\">\n      <ToolbarStyled>\n        <IconButton\n          color=\"inherit\"\n          aria-label=\"menu\"\n          onClick={toggleMobileSidebar}\n          sx={{\n            display: {\n              lg: \"none\",\n              xs: \"inline\",\n            },\n          }}\n        >\n          <IconMenu width=\"20\" height=\"20\" />\n        </IconButton>\n\n\n        <IconButton\n          size=\"large\"\n          aria-label=\"show 11 new notifications\"\n          color=\"inherit\"\n          aria-controls=\"msgs-menu\"\n          aria-haspopup=\"true\"\n        >\n          <Badge variant=\"dot\" color=\"primary\">\n            <IconBellRinging size=\"21\" stroke=\"1.5\" />\n          </Badge>\n\n        </IconButton>\n        <Box flexGrow={1} />\n        <Stack spacing={1} direction=\"row\" alignItems=\"center\">\n          <Button variant=\"contained\" component={Link} href=\"/authentication/login\"   disableElevation color=\"primary\" >\n            Login\n          </Button>\n          <Profile />\n        </Stack>\n      </ToolbarStyled>\n    </AppBarStyled>\n  );\n};\n\nHeader.propTypes = {\n  sx: PropTypes.object,\n};\n\nexport default Header;"
+        },
+        {
+          "path": "package/src/app/(DashboardLayout)/layout/sidebar/Sidebar.tsx",
+          "reason": "Layout and navigation reference",
+          "excerpt": "import { useMediaQuery, Box, Drawer } from \"@mui/material\";\nimport SidebarItems from \"./SidebarItems\";\n\n\n\ninterface ItemType {\n  isMobileSidebarOpen: boolean;\n  onSidebarClose: (event: React.MouseEvent<HTMLElement>) => void;\n  isSidebarOpen: boolean;\n}\n\nconst MSidebar = ({\n  isMobileSidebarOpen,\n  onSidebarClose,\n  isSidebarOpen,\n}: ItemType) => {\n  const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up(\"lg\"));\n\n  const sidebarWidth = \"270px\";\n\n  // Custom CSS for short scrollbar\n  const scrollbarStyles = {\n    '&::-webkit-scrollbar': {\n      width: '7px',\n\n    },\n    '&::-webkit-scrollbar-thumb': {\n      backgroundColor: '#eff2f7',\n      borderRadius: '15px',\n    },\n  };\n\n\n  if (lgUp) {\n    return (\n      <Box\n        sx={{\n          width: sidebarWidth,\n          flexShrink: 0,\n        }}\n      >\n        {/* ------------------------------------------- */}\n        {/* Sidebar for desktop */}\n        {/* ------------------------------------------- */}\n        <Drawer\n          anchor=\"left\"\n          open={isSidebarOpen}\n          variant=\"permanent\"\n          slotProps={{\n            paper: {\n              sx: {\n                boxSizing: \"border-box\",\n                ...scrollbarStyles,\n                width: sidebarWidth,\n              },\n            }\n          }}\n        >\n          {/* ------------------------------------------- */}\n          {/* Sidebar Box */}\n          {/* ------------------------------------------- */}\n          <Box\n            sx={{\n              height: \"100%\",\n            }}\n          >\n\n            <Box>\n              {/* ------------------------------------------- */}\n              {/* Sidebar Items */}\n              {/* ------------------------------------------- */}\n              <SidebarItems />\n            </Box>\n          </Box>\n        </Drawer>\n      </Box >\n    );\n  }\n\n  return (\n    <Drawer\n      anchor=\"left\"\n      open={isMobileSidebarOpen}\n      onClose={onSidebarClose}\n      variant=\"temporary\"\n\n      slotProps={{\n        paper: {\n          sx: {\n            boxShadow: (theme) => theme.shadows[8],\n            ...scrollbarStyles,\n          },\n        }\n      }}\n    >\n      {/* ------------------------------------------- */}\n      {/* Sidebar Box */}\n      {/* ------------------------------------------- */}\n\n// ... truncated"
+        }
+      ]
+    },
+    {
+      "id": "realtime-apps-anycable-real-time-starter-kit",
+      "slug": "realtime-apps-anycable-real-time-starter-kit",
+      "title": "AnyCable Real-time Starter Kit",
+      "categorySlug": "realtime-apps",
+      "categoryName": "Realtime Apps",
+      "templateUrl": "https://vercel.com/templates/realtime-apps/anycable",
+      "demoUrl": "#",
+      "description": "AnyCable/Next.js chat application demonstrating how to build real-time features, with all benefits of open-source. No PaaS bills.",
+      "frameworkReason": "Next.js",
+      "frameworkMatch": true,
+      "verdict": "valid",
+      "qualityScore": 86,
+      "repo": {
+        "url": "https://github.com/anycable/vercel-anycable-demo",
+        "normalizedUrl": "https://github.com/anycable/vercel-anycable-demo",
+        "subpath": null,
+        "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\anycable-vercel-anycable-demo",
+        "packageManager": "pnpm",
+        "hasNext": true,
+        "hasReact": true,
+        "isMonorepo": false,
+        "hasAppDir": true,
+        "hasSrcAppDir": false
+      },
+      "stackTags": [
+        "Next.js",
+        "Tailwind",
+        "Related Templates",
+        "Products",
+        "AI",
+        "Enterprise",
+        "Fluid Compute"
+      ],
+      "usefulLines": [
+        "AI workflows in live environments",
+        "Deploy for every idea",
+        "AnyCable/Next.js chat application demonstrating how to build real-time features, with all benefits of open-source. No PaaS bills.",
+        "Deploy",
+        "AnyCable Next.js/Vercel Example",
+        "Vercel",
+        "You will need to deploy an AnyCable-Go server to the platform of your choice. We recommend using",
+        "and provide an example configuration in",
+        "for seamless deployments. However, Anycable-Go server can be deployed on any platform.",
+        "fly CLI",
+        "--env",
+        "ANYCABLE_BROKER"
+      ],
+      "noiseLines": [
+        "Vercel Agent",
+        "Vercel documentation",
+        "Deploy at the speed of AI",
+        "Ship features, not infrastructure"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "signals": {
+        "auth": false,
+        "dashboard": false,
+        "pricing": false,
+        "blog": false,
+        "portfolio": false,
+        "ecommerce": false,
+        "docs": false,
+        "ai": true,
+        "multiTenant": false,
+        "cms": false
+      },
+      "summary": "AnyCable Real-time Starter Kit is a Realtime Apps reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "selectedFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context",
+          "excerpt": "# AnyCable Next.js/Vercel Example\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fanycable%2Fvercel-anycable-demo&env=CABLE_URL,ANYCABLE_HTTP_BROADCAST_URL,ANYCABLE_HTTP_BROADCAST_SECRET,ANYCABLE_JWT_ID_KEY&envDescription=Link%20Vercel%20application%20with%20AnyCable%20server&envLink=https%3A%2F%2Fgithub.com%2Fanycable%2Fvercel-anycable-demo&project-name=vercel-anycable-demo&repository-name=vercel-anycable-demo)\n\nThis is an example of how to use [AnyCable](https://anycable.io) with [Next.js](https://nextjs.org) and [Vercel](https://vercel.com) to build real-time applications.\n\nLearn more about AnyCable for serverless JavaScript apps in [the documentation](https://docs.anycable.io/guides/serverless).\n\n## Prerequisites\n\nYou will need to deploy an AnyCable-Go server to the platform of your choice. We recommend using [Fly.io](https://fly.io) and provide an example configuration in `fly.toml.example` for seamless deployments. However, Anycable-Go server can be deployed on any platform.\n\nUsing [fly CLI](https://fly.io/docs/hands-on/install-flyctl/), run the following command to create and launch a new AnyCable-Go application:\n\n```sh\n# Create a new Fly application\nfly launch --image anycable/anycable-go:1.4 --generate-name --ha=false --internal-port 8080 --env PORT=8080 --env ANYCABLE_BROKER=memory\n```\n\nAnswer \"No\" to all database-related questions and \"Yes\" to deployment. This will deploy your app and create a `fly.toml` file with the minimum configuration. See the `fly.toml.example` file to learn more about other available and recommended configuration options.\n\n## Deployment\n\n- Click the **Deploy** button\n\n- Fill in the required environment variables:\n\n  ```env\n  CABLE_URL=wss://<YOUR_ANYCABLE_GO_HOSTNAME>/cable\n  ANYCABLE_HTTP_BROADCAST_URL=https://<YOUR_ANYCABLE_GO_HOSTNAME>/_broadcast\n  ANYCABLE_HTTP_BROADCAST_SECRET=<YOUR_SECRET>\n  ANYCABLE_JWT_ID_KEY=<YOUR_JWT_SECRET>\n  ```\n\n  * The `ANYCABLE_HTTP_BROADCAST_SECRET` and `ANYCABLE_JWT_ID_KEY` can be any strings.\n  * You can create a secure value using this CLI command `openssl rand -hex 32`\n\n- Set the following environment variables on your AnyCable-Go server:\n\n  ```env\n  ANYCABLE_RPC_HOST=https://<YOUR_VERCEL_APP_HOSTNAME>/api/anycable\n  ANYCABLE_HTTP_BROADCAST_SECRET=<YOUR_SECRET>\n  ANYCABLE_\n\n// ... truncated"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification",
+          "excerpt": "{\n  \"name\": \"vercel-anycable-demo\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"anycable-go\": \"anycable-go --broadcast_adapter=http --presets=broker --rpc_impl=http --rpc_host=http://localhost:3000/api/anycable\"\n  },\n  \"dependencies\": {\n    \"@anycable/anycable-go\": \"^1.5.2\",\n    \"@anycable/core\": \"^0.7.8\",\n    \"@anycable/serverless-js\": \"^0.1.0\",\n    \"@anycable/web\": \"^0.7.3\",\n    \"@headlessui/react\": \"^1.7.17\",\n    \"@nanostores/react\": \"^0.7.1\",\n    \"@types/md5\": \"^2.3.2\",\n    \"@types/node\": \"20.6.0\",\n    \"@types/react\": \"18.2.21\",\n    \"@types/react-dom\": \"18.2.7\",\n    \"autoprefixer\": \"10.4.15\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"jose\": \"^4.14.6\",\n    \"md5\": \"^2.3.0\",\n    \"nanoid\": \"^5.0.1\",\n    \"nanostores\": \"^0.9.3\",\n    \"next\": \"13.5.1\",\n    \"postcss\": \"8.4.29\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\",\n    \"tailwindcss\": \"3.3.3\",\n    \"typescript\": \"5.2.2\"\n  },\n  \"devDependencies\": {\n    \"eslint\": \"8.45.0\",\n    \"eslint-config-next\": \"13.4.16\",\n    \"eslint-config-prettier\": \"^9.0.0\",\n    \"eslint-plugin-prettier\": \"^5.0.0\",\n    \"prettier\": \"^3.0.3\",\n    \"prettier-plugin-tailwindcss\": \"^0.5.4\"\n  }\n}"
+        },
+        {
+          "path": "app/layout.tsx",
+          "reason": "Layout and navigation reference",
+          "excerpt": "import \"./globals.css\";\nimport type { Metadata } from \"next\";\nimport { Inter } from \"next/font/google\";\nimport { MainLayout } from \"./components/main-layout\";\nimport { cx } from \"class-variance-authority\";\n\nconst inter = Inter({ subsets: [\"latin\"] });\n\nconst title = \"AnyCable Next.js Demo\",\n  description =\n    \"Next.js messaging application using AnyCable as a real-time server and deployed on Vercel\";\n\nexport const metadata: Metadata = {\n  title,\n  description,\n  openGraph: {\n    title,\n    description,\n    locale: \"en_US\",\n    type: \"website\",\n  },\n};\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\">\n      <head>\n        <meta name=\"viewport\" content=\"width=device-width\" />\n        <link\n          rel=\"icon\"\n          type=\"image/png\"\n          href=\"/favicon-32x32.png\"\n          sizes=\"32x32\"\n        />\n        <link\n          rel=\"icon\"\n          type=\"image/png\"\n          href=\"/favicon-16x16.png\"\n          sizes=\"16x16\"\n        />\n      </head>\n      <body className={cx(inter.className, \"bg-red-50\")}>\n        <MainLayout>{children}</MainLayout>\n      </body>\n    </html>\n  );\n}"
+        },
+        {
+          "path": "app/page.tsx",
+          "reason": "Useful structural reference",
+          "excerpt": "import { redirect } from \"next/navigation\";\nimport { Chat } from \"./components/chat\";\nimport { nanoid } from \"nanoid\";\nimport { getRoomLabel } from \"./utils/room-label\";\nimport { Header } from \"./components/header/header\";\nimport { cookies } from \"next/headers\";\nimport { Metadata } from \"next\";\nimport { Intro } from \"./components/intro\";\n\nexport async function generateMetadata({\n  searchParams: { roomId },\n}: {\n  searchParams: { [key: string]: string };\n}): Promise<Metadata> {\n  const roomLabel = getRoomLabel(roomId);\n\n  return {\n    title: `${roomLabel} | AnyCable Next.js Demo`,\n    openGraph: {\n      images: [\n        {\n          url: `/api/og/?roomLabel=${roomLabel}`,\n          width: 1200,\n          height: 630,\n        },\n      ],\n    },\n  };\n}\n\nexport default function Home({\n  searchParams,\n}: {\n  searchParams: { [key: string]: string };\n}) {\n  if (!searchParams.roomId) {\n    return redirect(`/?roomId=${nanoid()}`);\n  }\n  const showIntro = !cookies().get(\"introShown\")?.value;\n\n  async function introShownAction() {\n    \"use server\";\n\n    cookies().set(\"introShown\", \"1\");\n  }\n\n  return (\n    <>\n      <Chat\n        username={cookies().get(\"username\")!.value}\n        header={<Header roomLabel={getRoomLabel(searchParams.roomId)} />}\n      />\n      <Intro showIntro={showIntro} introShownAction={introShownAction} />\n    </>\n  );\n}"
+        },
+        {
+          "path": "middleware.ts",
+          "reason": "Useful structural reference",
+          "excerpt": "import { NextResponse, type NextRequest } from \"next/server\";\nimport { identifier } from \"./app/api/cable\";\n\nexport async function middleware(request: NextRequest) {\n  const token = request.cookies.get(\"token\")?.value;\n\n  if (token) {\n    try {\n      await identifier.verify(token);\n      return;\n    } catch (e) {\n      console.log(e);\n    }\n  }\n\n  const url = new URL(request.url);\n  url.pathname = \"/auth\";\n\n  return NextResponse.redirect(url);\n}\n\nexport const config = {\n  matcher: \"/\",\n};"
+        },
+        {
+          "path": "app/components/header/header.tsx",
+          "reason": "Useful structural reference",
+          "excerpt": "import { cookies } from \"next/headers\";\nimport { RoomActions } from \"./room-actions\";\nimport { redirect } from \"next/navigation\";\nimport { nanoid } from \"nanoid\";\nimport { AvatarActions } from \"./avatar-actions\";\n\nexport function Header({ roomLabel }: { roomLabel: string }) {\n  const username = cookies().get(\"username\")?.value!;\n\n  async function signOut() {\n    \"use server\";\n\n    cookies().delete(\"token\");\n    cookies().delete(\"username\");\n    return redirect(\"/auth\");\n  }\n\n  return (\n    <div className=\"rounded-b-lg border-gray-200 bg-white p-4 shadow-md\">\n      <div className=\"flex items-center justify-between\">\n        <div className=\"flex items-center gap-3\">\n          <RoomActions newRoomId={nanoid()} />\n          <div className=\"flex flex-col\">\n            <div className=\"text-2xs uppercase text-gray-500\">Room</div>\n            <div className=\"truncate font-semibold\">{roomLabel}</div>\n          </div>\n        </div>\n        <div>\n          <AvatarActions usernameOrEmail={username} signOutAction={signOut} />\n        </div>\n      </div>\n    </div>\n  );\n}"
+        }
+      ]
+    },
+    {
+      "id": "marketing-sites-basehub-marketing-website",
+      "slug": "marketing-sites-basehub-marketing-website",
+      "title": "BaseHub Marketing Website",
+      "categorySlug": "marketing-sites",
+      "categoryName": "Marketing Sites",
+      "templateUrl": "https://vercel.com/templates/cms/basehub-marketing-website",
+      "demoUrl": "#",
+      "description": "A sleek, modern, and fully customizable website template for your next marketing website.",
+      "frameworkReason": "Next.js",
+      "frameworkMatch": true,
+      "verdict": "valid",
+      "qualityScore": 86,
+      "repo": {
+        "url": "https://github.com/basehub-ai/marketing-website-template",
+        "normalizedUrl": "https://github.com/basehub-ai/marketing-website-template",
+        "subpath": null,
+        "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\basehub-ai-marketing-website-template",
+        "packageManager": "pnpm",
+        "hasNext": true,
+        "hasReact": true,
+        "isMonorepo": false,
+        "hasAppDir": false,
+        "hasSrcAppDir": true
+      },
+      "stackTags": [
+        "Next.js",
+        "BaseHub",
+        "Tailwind CSS",
+        "One Click Deployment",
+        "Local Development",
+        "Install dependencies"
+      ],
+      "usefulLines": [
+        "AI workflows in live environments",
+        "Deploy for every idea",
+        "Deploy",
+        "Fully featured marketing website.",
+        "🔸 Requires just a BaseHub account and a deployment platform—no other service",
+        "One Click Deployment",
+        "You can deploy this anywhere. Vercel works nicely and with one click.",
+        "Local Development",
+        "Install dependencies",
+        "pnpm",
+        ".env.local",
+        "# .env.local"
+      ],
+      "noiseLines": [
+        "Vercel Agent",
+        "Vercel documentation",
+        "Deploy at the speed of AI",
+        "Ship features, not infrastructure",
+        "SDKs by Vercel"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure"
+      ],
+      "weaknesses": [],
+      "recommendedScaffoldFamilies": [
+        "landing-page"
+      ],
+      "signals": {
+        "auth": false,
+        "dashboard": false,
+        "pricing": false,
+        "blog": false,
+        "portfolio": false,
+        "ecommerce": false,
+        "docs": false,
+        "ai": true,
+        "multiTenant": false,
+        "cms": false
+      },
+      "summary": "BaseHub Marketing Website is a Marketing Sites reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "selectedFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context",
+          "excerpt": "![Open Graph, Homepage (2) (1)](https://github.com/basehub-ai/marketing-website-template/assets/40034115/e8566293-9c58-4467-a4c7-7a700eea10c8)\n\n[BaseHub Templates](https://basehub.com/templates) are production-ready website templates, powered by BaseHub.\n\n# Marketing Website Template\n\n[![Use template](https://basehub.com/template-button.svg)](https://basehub.com/basehub/marketing-website)\n\nFully featured marketing website.\n\n- 🔸 Perfect for startups and indie hackers looking to showcase their SaaS\n- 🔸 Fully editable from BaseHub\n- 🔸 Comes with Search, Dark/Light Mode, Analytics, and more\n- 🔸 Requires just a BaseHub account and a deployment platform—no other service\n\n## Stack\n\n- Next.js\n- BaseHub\n- Tailwind CSS\n\n## One Click Deployment\n\n[![Deploy with Vercel](https://vercel.com/button)]([](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbasehub-ai%2Fmarketing-website-template&integration-ids=oac_xwgyJe0UwFLtsKIvIScYh0rY&env=&demo-url=https%3A%2F%2Fnextjs-marketing-website.basehub.com%2F&demo-description=Introducing%20the%20%E2%80%9CCMS%20Marketing%20Website%20Template%E2%80%9D%20by%20BaseHub%E2%80%94a%20sleek%2C%20modern%2C%20and%20fully%20responsive%20solution%20for%20your%20marketing%20needs.%20This%20template%20is%20designed%20to%20empower%20businesses%20with%20an%20intuitive%2C%20easy-to-navigate%20interface%20that%20seamlessly%20integrates%20with%20any%20CMS%20platform.%0A%0AKey%20Features%3A%0A%0A%09%E2%80%A2%09Responsive%20Design%3A%20Ensures%20optimal%20viewing%20experience%20across%20all%20devices%2C%20from%20desktops%20to%20smartphones.%0A%09%E2%80%A2%09Customizable%20Layouts%3A%20Offers%20flexible%20and%20dynamic%20layout%20options%20to%20suit%20various%20content%20needs%20and%20styles.%0A%09%E2%80%A2%09SEO%20Friendly%3A%20Built%20with%20SEO%20best%20practices%20in%20mind%20to%20improve%20your%20search%20engine%20rankings%20and%20drive%20organic%20traffic.%0A%09%E2%80%A2%09Blog%20and%20Changelog%3A%20Blog%20and%20changelog%20integrated%20to%20have%20a%20nice%20experience.%0A%09%E2%80%A2%09Integrated%20Analytics%3A%20Easy%20integration%20with%20popular%20analytics%20tools%20to%20track%20and%20analyze%20website%20performance.%0A%09%E2%80%A2%09Social%20Media%20Integration%3A%20Connect%20and%20engage%20with%20your%20audience%20through%20seamless%20social%20media%20integration.%0A%09%E2%80%A2%09Text%20bas\n\n// ... truncated"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification",
+          "excerpt": "{\n  \"name\": \"basehub-marketing-website-template\",\n  \"version\": \"0.1.0\",\n  \"scripts\": {\n    \"dev\": \"basehub dev & next dev --turbopack\",\n    \"build\": \"basehub && next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@radix-ui/react-accordion\": \"^1.2.1\",\n    \"@radix-ui/react-icons\": \"^1.3.0\",\n    \"@radix-ui/react-navigation-menu\": \"^1.2.1\",\n    \"@radix-ui/react-popover\": \"^1.1.2\",\n    \"@radix-ui/react-select\": \"^2.1.2\",\n    \"@radix-ui/react-slot\": \"^1.1.0\",\n    \"@radix-ui/react-tooltip\": \"^1.1.3\",\n    \"@tailwindcss/postcss\": \"^4.0.17\",\n    \"basehub\": \"^9.5.2\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.1.1\",\n    \"culori\": \"^4.0.1\",\n    \"embla-carousel\": \"^8.0.4\",\n    \"embla-carousel-react\": \"^8.0.4\",\n    \"embla-carousel-wheel-gestures\": \"^8.0.1\",\n    \"hast-util-to-jsx-runtime\": \"^2.3.0\",\n    \"next\": \"16.0.9\",\n    \"next-themes\": \"^0.4.6\",\n    \"postcss\": \"^8.4.38\",\n    \"react\": \"19.2.3\",\n    \"react-dom\": \"19.2.3\",\n    \"sass\": \"^1.83.0\",\n    \"tailwindcss\": \"^4.0.17\",\n    \"tailwindcss-radix\": \"^4.0.2\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/typography\": \"^0.5.13\",\n    \"@types/culori\": \"^2.1.1\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^8\",\n    \"eslint-config-next\": \"15.0.1\",\n    \"prettier\": \"^3.2.5\",\n    \"prettier-plugin-tailwindcss\": \"^0.6.11\",\n    \"typescript\": \"^5.4.5\"\n  }\n}"
+        },
+        {
+          "path": "src/app/layout.tsx",
+          "reason": "Layout and navigation reference",
+          "excerpt": "import type { Metadata, Viewport } from \"next\";\n\nimport \"./globals.css\";\nimport { Geist, Geist_Mono } from \"next/font/google\";\nimport { basehub } from \"basehub\";\n\nimport { Providers } from \"./providers\";\nimport { Header } from \"./_components/header\";\nimport { Footer } from \"./_components/footer\";\nimport { Newsletter } from \"./_sections/newsletter\";\nimport { draftMode } from \"next/headers\";\n\nconst geist = Geist({\n  subsets: [\"latin\"],\n  display: \"swap\",\n  variable: \"--font-sans\",\n  fallback: [\n    \"Inter\",\n    \"-apple-system\",\n    \"BlinkMacSystemFont\",\n    \"Segoe UI\",\n    \"Roboto\",\n    \"Oxygen\",\n    \"Ubuntu\",\n    \"Cantarell\",\n    \"Fira Sans\",\n    \"Droid Sans\",\n    \"Helvetica Neue\",\n    \"sans-serif\",\n  ],\n});\n\nconst geistMono = Geist_Mono({\n  subsets: [\"latin\"],\n  display: \"swap\",\n  variable: \"--font-mono\",\n  fallback: [\"monaco\", \"monospace\"],\n});\n\nexport const generateMetadata = async (): Promise<Metadata> => {\n  const data = await basehub({ cache: \"no-store\", draft: (await draftMode()).isEnabled }).query({\n    site: {\n      settings: {\n        metadata: {\n          sitename: true,\n          titleTemplate: true,\n          defaultTitle: true,\n          defaultDescription: true,\n          favicon: {\n            url: true,\n            mimeType: true,\n          },\n          ogImage: {\n            url: true,\n          },\n          xAccount: {\n            url: true,\n          },\n        },\n      },\n    },\n  });\n\n  const images = [{ url: data.site.settings.metadata.ogImage.url }];\n\n  let xAccount: string | undefined = undefined;\n\n  if (data.site.settings.metadata.xAccount) {\n    try {\n      const xUrl = new URL(data.site.settings.metadata.xAccount.url);\n      const split = xUrl.pathname.split(\"/\");\n\n      xAccount = split[split.length - 1];\n    } catch {\n      // invalid url noop\n    }\n  }\n\n  return {\n    title: {\n      default: data.site.settings.metadata.defaultTitle,\n      template: data.site.settings.metadata.titleTemplate,\n    },\n    applicationName: data.site.settings.metadata.sitename,\n    description: data.site.settings.metadata.defaultDescription,\n    icons: [\n      {\n        url: data.site.settings.metadata.favicon.url,\n        rel: \"icon\",\n        type: data.site.settings.metadata.favicon.mimeType,\n      },\n    ],\n    openGraph: { type: \"website\", images, siteName:\n\n// ... truncated"
+        },
+        {
+          "path": ".env.example",
+          "reason": "Useful structural reference",
+          "excerpt": "# BaseHub token retrieved here: https://basehub.com\nBASEHUB_TOKEN=\"\""
+        }
+      ]
+    },
+    {
+      "id": "ecommerce-builder-io-shopify-commerce",
+      "slug": "ecommerce-builder-io-shopify-commerce",
+      "title": "Builder.io Shopify Commerce",
+      "categorySlug": "ecommerce",
+      "categoryName": "Ecommerce",
+      "templateUrl": "https://vercel.com/templates/ecommerce/builderio-shopify-commerce-headless",
+      "demoUrl": "#",
+      "description": "Builder.io starter for Headless Shopify stores.",
+      "frameworkReason": "Next.js",
+      "frameworkMatch": true,
+      "verdict": "valid",
+      "qualityScore": 80,
+      "repo": {
+        "url": "https://github.com/BuilderIO/nextjs-shopify",
+        "normalizedUrl": "https://github.com/BuilderIO/nextjs-shopify",
+        "subpath": null,
+        "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\builderio-nextjs-shopify",
+        "packageManager": "yarn",
+        "hasNext": true,
+        "hasReact": true,
+        "isMonorepo": false,
+        "hasAppDir": false,
+        "hasSrcAppDir": false
+      },
+      "stackTags": [
+        "Next.js",
+        "Tailwind",
+        "CMS",
+        "Builder.io",
+        "Related Templates",
+        "Products",
+        "AI"
+      ],
+      "usefulLines": [
+        "AI workflows in live environments",
+        "Deploy for every idea",
+        "Deploy",
+        "Goals and Features",
+        "Getting Started",
+        "6. Configure the project to talk to Shopify",
+        "7. Up and Running!",
+        "This guide will assume that you have the following software installed:",
+        "npm",
+        "A Next.js app, ready to deploy to a hosting provider of your choice",
+        "Click \"Account\" from the left hand sidebar",
+        "Click the edit icon for the \"Private keys\" row"
+      ],
+      "noiseLines": [
+        "Vercel Agent",
+        "Vercel documentation",
+        "Deploy at the speed of AI",
+        "Ship features, not infrastructure"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "dashboard shell patterns",
+        "storefront or checkout patterns",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "recommendedScaffoldFamilies": [
+        "ecommerce",
+        "app-shell",
+        "dashboard"
+      ],
+      "signals": {
+        "auth": false,
+        "dashboard": true,
+        "pricing": false,
+        "blog": false,
+        "portfolio": false,
+        "ecommerce": true,
+        "docs": false,
+        "ai": true,
+        "multiTenant": false,
+        "cms": true
+      },
+      "summary": "Builder.io Shopify Commerce is a Ecommerce reference with verified Next.js codebase, dashboard shell patterns, storefront or checkout patterns. Verdict: valid.",
+      "selectedFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context",
+          "excerpt": "# Next.js + Shopify + Builder.io example\n\nDemo live at: [headless.builders](https://headless.builders/)\n\n## Goals and Features\n\n- Ultra high performance\n- SEO optimized\n- Themable\n- Personalizable (internationalization, a/b testing, etc)\n- Builder.io Visual CMS integrated\n\n## Video walkthrough\n\nLearn how to get started with this Builder + Next.js + Shopify example with this step by step video guide here:\n\n<a href=\"https://www.youtube.com/watch?v=uIHqPu2t1O0\">\n  <img width=\"400\" src=\"https://cdn.builder.io/api/v1/image/assets%2FYJIGb4i01jvw0SRdL5Bt%2Fc161ccb26f6446869cba865d014c7caf\" />\n</a>\n\n## Table of contents\n\n- [Getting Started](#getting-started)\n  - [1: Create an account for Builder.io](#1-create-an-account-for-builderio)\n  - [2: Your Builder.io private key](#2-your-builderio-private-key)\n  - [3: Clone this repository and initialize a Builder.io space](#3-clone-this-repository-and-initialize-a-builderio-space)\n  - [4. Shopify private app](#4-shopify-private-app)\n  - [5. Connecting Builder to Shopify](#5-connecting-builder-to-shopify)\n  - [6. Configure the project to talk to Shopify](#6-configure-the-project-to-talk-to-shopify)\n  - [7. Up and Running!](#7-up-and-running)\n- [Deploy](#deploy)\n\n<!-- markdown-toc end -->\n\n## Getting Started\n\n**Pre-requisites**\n\nThis guide will assume that you have the following software installed:\n\n- nodejs (>=12.0.0)\n- npm\n- git\n\nYou should already have a [Shopify](https://www.shopify.com/online-store) account and store created before starting as well.\n\n**Introduction**\n\nAfter following this guide you will have\n\n- A Next.js app, ready to deploy to a hosting provider of your choice\n- Pulling live collection and product information from Shopify\n- Powered by the Builder.io visual CMS\n\n### 1: Create an account for Builder.io\n\nBefore we start, head over to Builder.io and [create an account](https://builder.io/signup).\n\n### 2: Your Builder.io private key\n\nHead over to your [organization settings page](https://builder.io/account/organization?root=true) and create a\nprivate key, copy the key for the next step.\n\n- Visit the [organization settings page](https://builder.io/account/organization?root=true), or select\n  an organization from the list\n\n![organizations drop down list](./docs/images/builder-io-organizations.png)\n\n- Click \"Account\" from the left hand sideba\n\n// ... truncated"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification",
+          "excerpt": "{\n  \"name\": \"nextjs-shopify\",\n  \"version\": \"1.0.0\",\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"analyze\": \"BUNDLE_ANALYZE=both yarn build\",\n    \"find:unused\": \"next-unused\",\n    \"prettier\": \"prettier\"\n  },\n  \"prettier\": {\n    \"semi\": false,\n    \"singleQuote\": true\n  },\n  \"next-unused\": {\n    \"alias\": {\n      \"@lib/*\": [\n        \"lib/*\"\n      ],\n      \"@assets/*\": [\n        \"assets/*\"\n      ],\n      \"@config/*\": [\n        \"config/*\"\n      ],\n      \"@components/*\": [\n        \"components/*\"\n      ],\n      \"@utils/*\": [\n        \"utils/*\"\n      ]\n    },\n    \"debug\": true,\n    \"include\": [\n      \"components\",\n      \"lib\",\n      \"pages\",\n      \"sections\"\n    ],\n    \"exclude\": [],\n    \"entrypoints\": [\n      \"pages\"\n    ]\n  },\n  \"dependencies\": {\n    \"@builder.io/react\": \"^3.1.1\",\n    \"@builder.io/utils\": \"1.1.10\",\n    \"@builder.io/widgets\": \"1.2.24\",\n    \"@emotion/react\": \"^11.10.6\",\n    \"@netlify/plugin-nextjs\": \"4.30.4\",\n    \"@radix-ui/react-dialog\": \"^1.0.2\",\n    \"@reach/dialog\": \"^0.18.0\",\n    \"@reach/portal\": \"0.14.0\",\n    \"@theme-ui/components\": \"0.15.5\",\n    \"@theme-ui/match-media\": \"0.15.5\",\n    \"@theme-ui/preset-base\": \"0.15.5\",\n    \"@theme-ui/presets\": \"0.15.5\",\n    \"@types/shopify-buy\": \"2.10.3\",\n    \"@types/traverse\": \"0.6.32\",\n    \"cheerio\": \"1.0.0-rc.12\",\n    \"js-cookie\": \"3.0.1\",\n    \"next\": \"13.1.6\",\n    \"next-seo\": \"5.15.0\",\n    \"pure-react-carousel\": \"^1.30.1\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\",\n    \"react-spring\": \"^9.6.1\",\n    \"shopify-buy\": \"^2.16.1\",\n    \"theme-ui\": \"0.15.5\",\n    \"traverse\": \"0.6.7\"\n  },\n  \"devDependencies\": {\n    \"@next/bundle-analyzer\": \"13.1.6\",\n    \"@types/js-cookie\": \"3.0.3\",\n    \"@types/node\": \"18.14.0\",\n    \"@types/react\": \"18.0.28\",\n    \"jest\": \"29.4.3\",\n    \"next-unused\": \"0.0.6\",\n    \"postcss-flexbugs-fixes\": \"5.0.2\",\n    \"prettier\": \"2.8.4\",\n    \"typescript\": \"4.9.5\"\n  },\n  \"license\": \"MIT\"\n}"
+        },
+        {
+          "path": "components/common/Sidebar.tsx",
+          "reason": "Useful structural reference",
+          "excerpt": "/** @jsxRuntime classic */\n/** @jsx jsx */\nimport { jsx, Close, Box } from 'theme-ui'\nimport { useResponsiveValue } from '@theme-ui/match-media'\nimport { FC } from 'react'\nimport { BaseModal, ModalCloseTarget } from '@components/modals'\nimport NoSSR from './NoSSR'\n\ninterface Props {\n  open: boolean\n  onClose: () => void\n}\n\nconst Sidebar: FC<Props & { children: React.ReactNode }> = ({\n  children,\n  open = false,\n  onClose,\n}) => {\n  const width = useResponsiveValue(['100%', 500])\n  return (\n    <NoSSR>\n      <BaseModal\n        isOpen={open}\n        onDismiss={onClose}\n        contentProps={{\n          style: {\n            width,\n            position: 'absolute',\n            top: 0,\n            right: 0,\n            height: '100%',\n          },\n        }}\n        contentTransition={{\n          from: { transform: 'translateX(100%)' },\n          enter: { transform: 'translateX(0)' },\n          leave: { transform: 'translateX(100%)' },\n        }}\n      >\n        <ModalCloseTarget>\n          <Box\n            sx={{\n              display: 'flex',\n              justifyContent: 'space-between',\n              py: 1,\n              bg: 'text',\n              color: 'background',\n            }}\n          >\n            <Close />\n          </Box>\n        </ModalCloseTarget>\n        {children}\n      </BaseModal>\n    </NoSSR>\n  )\n}\n\nexport default Sidebar"
+        }
+      ]
+    },
+    {
+      "id": "cms-builder-io-shopify-commerce",
+      "slug": "cms-builder-io-shopify-commerce",
+      "title": "Builder.io Shopify Commerce",
+      "categorySlug": "cms",
+      "categoryName": "CMS",
+      "templateUrl": "https://vercel.com/templates/ecommerce/builderio-shopify-commerce-headless",
+      "demoUrl": "#",
+      "description": "Builder.io starter for Headless Shopify stores.",
+      "frameworkReason": "Next.js",
+      "frameworkMatch": true,
+      "verdict": "valid",
+      "qualityScore": 78,
+      "repo": {
+        "url": "https://github.com/BuilderIO/nextjs-shopify",
+        "normalizedUrl": "https://github.com/BuilderIO/nextjs-shopify",
+        "subpath": null,
+        "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\builderio-nextjs-shopify",
+        "packageManager": "yarn",
+        "hasNext": true,
+        "hasReact": true,
+        "isMonorepo": false,
+        "hasAppDir": false,
+        "hasSrcAppDir": false
+      },
+      "stackTags": [
+        "Next.js",
+        "Tailwind",
+        "CMS",
+        "Builder.io",
+        "Related Templates",
+        "Products",
+        "AI"
+      ],
+      "usefulLines": [
+        "AI workflows in live environments",
+        "Deploy for every idea",
+        "Deploy",
+        "Goals and Features",
+        "Getting Started",
+        "6. Configure the project to talk to Shopify",
+        "7. Up and Running!",
+        "This guide will assume that you have the following software installed:",
+        "npm",
+        "A Next.js app, ready to deploy to a hosting provider of your choice",
+        "Click \"Account\" from the left hand sidebar",
+        "Click the edit icon for the \"Private keys\" row"
+      ],
+      "noiseLines": [
+        "Vercel Agent",
+        "Vercel documentation",
+        "Deploy at the speed of AI",
+        "Ship features, not infrastructure"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "dashboard shell patterns",
+        "CMS integration hints"
+      ],
+      "weaknesses": [],
+      "recommendedScaffoldFamilies": [
+        "content-site",
+        "app-shell",
+        "dashboard"
+      ],
+      "signals": {
+        "auth": false,
+        "dashboard": true,
+        "pricing": false,
+        "blog": false,
+        "portfolio": false,
+        "ecommerce": false,
+        "docs": false,
+        "ai": true,
+        "multiTenant": false,
+        "cms": true
+      },
+      "summary": "Builder.io Shopify Commerce is a CMS reference with verified Next.js codebase, dashboard shell patterns, CMS integration hints. Verdict: valid.",
+      "selectedFiles": [
+        {
+          "path": "README.md",
+          "reason": "Setup and architecture context",
+          "excerpt": "# Next.js + Shopify + Builder.io example\n\nDemo live at: [headless.builders](https://headless.builders/)\n\n## Goals and Features\n\n- Ultra high performance\n- SEO optimized\n- Themable\n- Personalizable (internationalization, a/b testing, etc)\n- Builder.io Visual CMS integrated\n\n## Video walkthrough\n\nLearn how to get started with this Builder + Next.js + Shopify example with this step by step video guide here:\n\n<a href=\"https://www.youtube.com/watch?v=uIHqPu2t1O0\">\n  <img width=\"400\" src=\"https://cdn.builder.io/api/v1/image/assets%2FYJIGb4i01jvw0SRdL5Bt%2Fc161ccb26f6446869cba865d014c7caf\" />\n</a>\n\n## Table of contents\n\n- [Getting Started](#getting-started)\n  - [1: Create an account for Builder.io](#1-create-an-account-for-builderio)\n  - [2: Your Builder.io private key](#2-your-builderio-private-key)\n  - [3: Clone this repository and initialize a Builder.io space](#3-clone-this-repository-and-initialize-a-builderio-space)\n  - [4. Shopify private app](#4-shopify-private-app)\n  - [5. Connecting Builder to Shopify](#5-connecting-builder-to-shopify)\n  - [6. Configure the project to talk to Shopify](#6-configure-the-project-to-talk-to-shopify)\n  - [7. Up and Running!](#7-up-and-running)\n- [Deploy](#deploy)\n\n<!-- markdown-toc end -->\n\n## Getting Started\n\n**Pre-requisites**\n\nThis guide will assume that you have the following software installed:\n\n- nodejs (>=12.0.0)\n- npm\n- git\n\nYou should already have a [Shopify](https://www.shopify.com/online-store) account and store created before starting as well.\n\n**Introduction**\n\nAfter following this guide you will have\n\n- A Next.js app, ready to deploy to a hosting provider of your choice\n- Pulling live collection and product information from Shopify\n- Powered by the Builder.io visual CMS\n\n### 1: Create an account for Builder.io\n\nBefore we start, head over to Builder.io and [create an account](https://builder.io/signup).\n\n### 2: Your Builder.io private key\n\nHead over to your [organization settings page](https://builder.io/account/organization?root=true) and create a\nprivate key, copy the key for the next step.\n\n- Visit the [organization settings page](https://builder.io/account/organization?root=true), or select\n  an organization from the list\n\n![organizations drop down list](./docs/images/builder-io-organizations.png)\n\n- Click \"Account\" from the left hand sideba\n\n// ... truncated"
+        },
+        {
+          "path": "package.json",
+          "reason": "Dependency and script verification",
+          "excerpt": "{\n  \"name\": \"nextjs-shopify\",\n  \"version\": \"1.0.0\",\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"analyze\": \"BUNDLE_ANALYZE=both yarn build\",\n    \"find:unused\": \"next-unused\",\n    \"prettier\": \"prettier\"\n  },\n  \"prettier\": {\n    \"semi\": false,\n    \"singleQuote\": true\n  },\n  \"next-unused\": {\n    \"alias\": {\n      \"@lib/*\": [\n        \"lib/*\"\n      ],\n      \"@assets/*\": [\n        \"assets/*\"\n      ],\n      \"@config/*\": [\n        \"config/*\"\n      ],\n      \"@components/*\": [\n        \"components/*\"\n      ],\n      \"@utils/*\": [\n        \"utils/*\"\n      ]\n    },\n    \"debug\": true,\n    \"include\": [\n      \"components\",\n      \"lib\",\n      \"pages\",\n      \"sections\"\n    ],\n    \"exclude\": [],\n    \"entrypoints\": [\n      \"pages\"\n    ]\n  },\n  \"dependencies\": {\n    \"@builder.io/react\": \"^3.1.1\",\n    \"@builder.io/utils\": \"1.1.10\",\n    \"@builder.io/widgets\": \"1.2.24\",\n    \"@emotion/react\": \"^11.10.6\",\n    \"@netlify/plugin-nextjs\": \"4.30.4\",\n    \"@radix-ui/react-dialog\": \"^1.0.2\",\n    \"@reach/dialog\": \"^0.18.0\",\n    \"@reach/portal\": \"0.14.0\",\n    \"@theme-ui/components\": \"0.15.5\",\n    \"@theme-ui/match-media\": \"0.15.5\",\n    \"@theme-ui/preset-base\": \"0.15.5\",\n    \"@theme-ui/presets\": \"0.15.5\",\n    \"@types/shopify-buy\": \"2.10.3\",\n    \"@types/traverse\": \"0.6.32\",\n    \"cheerio\": \"1.0.0-rc.12\",\n    \"js-cookie\": \"3.0.1\",\n    \"next\": \"13.1.6\",\n    \"next-seo\": \"5.15.0\",\n    \"pure-react-carousel\": \"^1.30.1\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\",\n    \"react-spring\": \"^9.6.1\",\n    \"shopify-buy\": \"^2.16.1\",\n    \"theme-ui\": \"0.15.5\",\n    \"traverse\": \"0.6.7\"\n  },\n  \"devDependencies\": {\n    \"@next/bundle-analyzer\": \"13.1.6\",\n    \"@types/js-cookie\": \"3.0.3\",\n    \"@types/node\": \"18.14.0\",\n    \"@types/react\": \"18.0.28\",\n    \"jest\": \"29.4.3\",\n    \"next-unused\": \"0.0.6\",\n    \"postcss-flexbugs-fixes\": \"5.0.2\",\n    \"prettier\": \"2.8.4\",\n    \"typescript\": \"4.9.5\"\n  },\n  \"license\": \"MIT\"\n}"
+        },
+        {
+          "path": "components/common/Sidebar.tsx",
+          "reason": "Useful structural reference",
+          "excerpt": "/** @jsxRuntime classic */\n/** @jsx jsx */\nimport { jsx, Close, Box } from 'theme-ui'\nimport { useResponsiveValue } from '@theme-ui/match-media'\nimport { FC } from 'react'\nimport { BaseModal, ModalCloseTarget } from '@components/modals'\nimport NoSSR from './NoSSR'\n\ninterface Props {\n  open: boolean\n  onClose: () => void\n}\n\nconst Sidebar: FC<Props & { children: React.ReactNode }> = ({\n  children,\n  open = false,\n  onClose,\n}) => {\n  const width = useResponsiveValue(['100%', 500])\n  return (\n    <NoSSR>\n      <BaseModal\n        isOpen={open}\n        onDismiss={onClose}\n        contentProps={{\n          style: {\n            width,\n            position: 'absolute',\n            top: 0,\n            right: 0,\n            height: '100%',\n          },\n        }}\n        contentTransition={{\n          from: { transform: 'translateX(100%)' },\n          enter: { transform: 'translateX(0)' },\n          leave: { transform: 'translateX(100%)' },\n        }}\n      >\n        <ModalCloseTarget>\n          <Box\n            sx={{\n              display: 'flex',\n              justifyContent: 'space-between',\n              py: 1,\n              bg: 'text',\n              color: 'background',\n            }}\n          >\n            <Close />\n          </Box>\n        </ModalCloseTarget>\n        {children}\n      </BaseModal>\n    </NoSSR>\n  )\n}\n\nexport default Sidebar"
+        }
+      ]
+    },
+    {
+      "id": "marketing-sites-drupal-marketing-site",
+      "slug": "marketing-sites-drupal-marketing-site",
+      "title": "Drupal Marketing Site",
+      "categorySlug": "marketing-sites",
+      "categoryName": "Marketing Sites",
+      "templateUrl": "https://vercel.com/templates/marketing-sites/drupal-nextjs-marketing-site",
+      "demoUrl": "#",
+      "description": "Example landing page using Drupal for content.",
+      "frameworkReason": "Next.js, React",
+      "frameworkMatch": true,
+      "verdict": "huge_monorepo",
+      "qualityScore": 54,
+      "repo": {
+        "url": "https://github.com/chapter-three/next-drupal",
+        "normalizedUrl": "https://github.com/chapter-three/next-drupal",
+        "subpath": null,
+        "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\chapter-three-next-drupal",
+        "packageManager": "yarn",
+        "hasNext": true,
+        "hasReact": true,
+        "isMonorepo": true,
+        "hasAppDir": true,
+        "hasSrcAppDir": false
+      },
+      "stackTags": [
+        "Next.js",
+        "Tailwind",
+        "Related Templates",
+        "Products",
+        "AI",
+        "Enterprise",
+        "Fluid Compute"
+      ],
+      "usefulLines": [
+        "AI workflows in live environments",
+        "Deploy for every idea",
+        "Deploy",
+        "Features"
+      ],
+      "noiseLines": [
+        "Vercel Agent",
+        "Vercel documentation",
+        "Deploy at the speed of AI",
+        "Ship features, not infrastructure",
+        "SDKs by Vercel"
+      ],
+      "strengths": [
+        "verified Next.js codebase",
+        "App Router structure",
+        "CMS integration hints"
+      ],
+      "weaknesses": [
+        "large monorepo without a clear example path",
+        "monorepo subpath not found locally — file excerpts unavailable",
+        "page-derived hints are noisy"
+      ],
+      "recommendedScaffoldFamilies": [
+        "landing-page",
+        "content-site"
+      ],
+      "signals": {
+        "auth": false,
+        "dashboard": false,
+        "pricing": false,
+        "blog": false,
+        "portfolio": false,
+        "ecommerce": false,
+        "docs": false,
+        "ai": true,
+        "multiTenant": false,
+        "cms": true
+      },
+      "summary": "Drupal Marketing Site is a Marketing Sites reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: huge_monorepo.",
+      "selectedFiles": []
+    }
+  ]
 }

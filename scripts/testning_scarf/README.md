@@ -17,6 +17,10 @@ All genererad data hamnar under:
 | `output/first_llm/lab/` | `first_llm_promptlab.py` (underlag + ev. live) |
 | `output/codegen_snapshot/` | Du skapar undermapp; se nedan |
 
+## Exempelprompt (svensk hemsida)
+
+- **`restaurang_hemsida_prompt.txt`** — kort prompt för trace/snapshot (restaurang, meny, bokning). Använd med `trace-generation-context.ts` och `--write-codegen-snapshot` (se [docs/architecture/scraped-scorefolds-pipeline.md](../../docs/architecture/scraped-scorefolds-pipeline.md)).
+
 ## Skript (3 huvudingångar + 2 stöd)
 
 1. **`prompt_generation_trace.py`** — interaktiv/CLI-trace (`prepareGenerationContext` m.m.), sparar under `output/prompt_trace/`.

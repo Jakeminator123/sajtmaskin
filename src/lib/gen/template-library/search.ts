@@ -153,6 +153,12 @@ export async function searchTemplateLibrary(
   query: string,
   topK: number = DEFAULT_TOP_K,
 ): Promise<TemplateLibrarySearchResult[]> {
+  // Stale template-library-embeddings.json must not load, call OpenAI, or rank
+  // phantom IDs when curated entries[] is empty (common after catalog resets).
+  if (getTemplateLibraryEntries().length === 0) {
+    return [];
+  }
+
   const fallbackResults = keywordSearch(query, topK);
   const apiKey = SECRETS.openaiApiKey;
   if (!apiKey) return fallbackResults;

@@ -1,0 +1,96 @@
+{
+  "id": "cms-builder-io-shopify-commerce",
+  "slug": "cms-builder-io-shopify-commerce",
+  "title": "Builder.io Shopify Commerce",
+  "categorySlug": "cms",
+  "categoryName": "CMS",
+  "templateUrl": "https://vercel.com/templates/ecommerce/builderio-shopify-commerce-headless",
+  "demoUrl": "#",
+  "description": "Builder.io starter for Headless Shopify stores.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 78,
+  "repo": {
+    "url": "https://github.com/BuilderIO/nextjs-shopify",
+    "normalizedUrl": "https://github.com/BuilderIO/nextjs-shopify",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\builderio-nextjs-shopify",
+    "packageManager": "yarn",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": false,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "CMS",
+    "Builder.io",
+    "Related Templates",
+    "Products",
+    "AI"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "Goals and Features",
+    "Getting Started",
+    "6. Configure the project to talk to Shopify",
+    "7. Up and Running!",
+    "This guide will assume that you have the following software installed:",
+    "npm",
+    "A Next.js app, ready to deploy to a hosting provider of your choice",
+    "Click \"Account\" from the left hand sidebar",
+    "Click the edit icon for the \"Private keys\" row"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "dashboard shell patterns",
+    "CMS integration hints"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "content-site",
+    "app-shell",
+    "dashboard"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": true
+  },
+  "summary": "Builder.io Shopify Commerce is a CMS reference with verified Next.js codebase, dashboard shell patterns, CMS integration hints. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "# Next.js + Shopify + Builder.io example\n\nDemo live at: [headless.builders](https://headless.builders/)\n\n## Goals and Features\n\n- Ultra high performance\n- SEO optimized\n- Themable\n- Personalizable (internationalization, a/b testing, etc)\n- Builder.io Visual CMS integrated\n\n## Video walkthrough\n\nLearn how to get started with this Builder + Next.js + Shopify example with this step by step video guide here:\n\n<a href=\"https://www.youtube.com/watch?v=uIHqPu2t1O0\">\n  <img width=\"400\" src=\"https://cdn.builder.io/api/v1/image/assets%2FYJIGb4i01jvw0SRdL5Bt%2Fc161ccb26f6446869cba865d014c7caf\" />\n</a>\n\n## Table of contents\n\n- [Getting Started](#getting-started)\n  - [1: Create an account for Builder.io](#1-create-an-account-for-builderio)\n  - [2: Your Builder.io private key](#2-your-builderio-private-key)\n  - [3: Clone this repository and initialize a Builder.io space](#3-clone-this-repository-and-initialize-a-builderio-space)\n  - [4. Shopify private app](#4-shopify-private-app)\n  - [5. Connecting Builder to Shopify](#5-connecting-builder-to-shopify)\n  - [6. Configure the project to talk to Shopify](#6-configure-the-project-to-talk-to-shopify)\n  - [7. Up and Running!](#7-up-and-running)\n- [Deploy](#deploy)\n\n<!-- markdown-toc end -->\n\n## Getting Started\n\n**Pre-requisites**\n\nThis guide will assume that you have the following software installed:\n\n- nodejs (>=12.0.0)\n- npm\n- git\n\nYou should already have a [Shopify](https://www.shopify.com/online-store) account and store created before starting as well.\n\n**Introduction**\n\nAfter following this guide you will have\n\n- A Next.js app, ready to deploy to a hosting provider of your choice\n- Pulling live collection and product information from Shopify\n- Powered by the Builder.io visual CMS\n\n### 1: Create an account for Builder.io\n\nBefore we start, head over to Builder.io and [create an account](https://builder.io/signup).\n\n### 2: Your Builder.io private key\n\nHead over to your [organization settings page](https://builder.io/account/organization?root=true) and create a\nprivate key, copy the key for the next step.\n\n- Visit the [organization settings page](https://builder.io/account/organization?root=true), or select\n  an organization from the list\n\n![organizations drop down list](./docs/images/builder-io-organizations.png)\n\n- Click \"Account\" from the left hand sideba\n\n// ... truncated"
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nextjs-shopify\",\n  \"version\": \"1.0.0\",\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"analyze\": \"BUNDLE_ANALYZE=both yarn build\",\n    \"find:unused\": \"next-unused\",\n    \"prettier\": \"prettier\"\n  },\n  \"prettier\": {\n    \"semi\": false,\n    \"singleQuote\": true\n  },\n  \"next-unused\": {\n    \"alias\": {\n      \"@lib/*\": [\n        \"lib/*\"\n      ],\n      \"@assets/*\": [\n        \"assets/*\"\n      ],\n      \"@config/*\": [\n        \"config/*\"\n      ],\n      \"@components/*\": [\n        \"components/*\"\n      ],\n      \"@utils/*\": [\n        \"utils/*\"\n      ]\n    },\n    \"debug\": true,\n    \"include\": [\n      \"components\",\n      \"lib\",\n      \"pages\",\n      \"sections\"\n    ],\n    \"exclude\": [],\n    \"entrypoints\": [\n      \"pages\"\n    ]\n  },\n  \"dependencies\": {\n    \"@builder.io/react\": \"^3.1.1\",\n    \"@builder.io/utils\": \"1.1.10\",\n    \"@builder.io/widgets\": \"1.2.24\",\n    \"@emotion/react\": \"^11.10.6\",\n    \"@netlify/plugin-nextjs\": \"4.30.4\",\n    \"@radix-ui/react-dialog\": \"^1.0.2\",\n    \"@reach/dialog\": \"^0.18.0\",\n    \"@reach/portal\": \"0.14.0\",\n    \"@theme-ui/components\": \"0.15.5\",\n    \"@theme-ui/match-media\": \"0.15.5\",\n    \"@theme-ui/preset-base\": \"0.15.5\",\n    \"@theme-ui/presets\": \"0.15.5\",\n    \"@types/shopify-buy\": \"2.10.3\",\n    \"@types/traverse\": \"0.6.32\",\n    \"cheerio\": \"1.0.0-rc.12\",\n    \"js-cookie\": \"3.0.1\",\n    \"next\": \"13.1.6\",\n    \"next-seo\": \"5.15.0\",\n    \"pure-react-carousel\": \"^1.30.1\",\n    \"react\": \"18.2.0\",\n    \"react-dom\": \"18.2.0\",\n    \"react-spring\": \"^9.6.1\",\n    \"shopify-buy\": \"^2.16.1\",\n    \"theme-ui\": \"0.15.5\",\n    \"traverse\": \"0.6.7\"\n  },\n  \"devDependencies\": {\n    \"@next/bundle-analyzer\": \"13.1.6\",\n    \"@types/js-cookie\": \"3.0.3\",\n    \"@types/node\": \"18.14.0\",\n    \"@types/react\": \"18.0.28\",\n    \"jest\": \"29.4.3\",\n    \"next-unused\": \"0.0.6\",\n    \"postcss-flexbugs-fixes\": \"5.0.2\",\n    \"prettier\": \"2.8.4\",\n    \"typescript\": \"4.9.5\"\n  },\n  \"license\": \"MIT\"\n}"
+    },
+    {
+      "path": "components/common/Sidebar.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "/** @jsxRuntime classic */\n/** @jsx jsx */\nimport { jsx, Close, Box } from 'theme-ui'\nimport { useResponsiveValue } from '@theme-ui/match-media'\nimport { FC } from 'react'\nimport { BaseModal, ModalCloseTarget } from '@components/modals'\nimport NoSSR from './NoSSR'\n\ninterface Props {\n  open: boolean\n  onClose: () => void\n}\n\nconst Sidebar: FC<Props & { children: React.ReactNode }> = ({\n  children,\n  open = false,\n  onClose,\n}) => {\n  const width = useResponsiveValue(['100%', 500])\n  return (\n    <NoSSR>\n      <BaseModal\n        isOpen={open}\n        onDismiss={onClose}\n        contentProps={{\n          style: {\n            width,\n            position: 'absolute',\n            top: 0,\n            right: 0,\n            height: '100%',\n          },\n        }}\n        contentTransition={{\n          from: { transform: 'translateX(100%)' },\n          enter: { transform: 'translateX(0)' },\n          leave: { transform: 'translateX(100%)' },\n        }}\n      >\n        <ModalCloseTarget>\n          <Box\n            sx={{\n              display: 'flex',\n              justifyContent: 'space-between',\n              py: 1,\n              bg: 'text',\n              color: 'background',\n            }}\n          >\n            <Close />\n          </Box>\n        </ModalCloseTarget>\n        {children}\n      </BaseModal>\n    </NoSSR>\n  )\n}\n\nexport default Sidebar"
+    }
+  ]
+}

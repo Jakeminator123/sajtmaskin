@@ -1,0 +1,1 @@
+Bygg en modern hemsida för en italiensk restaurang i Stockholm: meny med priser, öppettider, bordsbokning via formulär och en tydlig hero med bild. Tonen ska vara varm och inbjudande. På svenska.

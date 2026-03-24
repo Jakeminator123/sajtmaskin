@@ -35,6 +35,7 @@
     "template-library:import-legacy": "npx tsx scripts/import-template-discovery.ts --label=legacy-external-dataset",
     "template-library:hydrate-cache": "npx tsx scripts/hydrate-template-library-cache.ts",
     "template-library:build": "npx tsx scripts/build-template-library.ts",
+    "template-library:verify-summary": "npx tsx scripts/verify-discovered-summary.ts",
     "template-library:embeddings": "npx tsx scripts/generate-template-library-embeddings.ts",
     "runtime-library:audit": "npx tsx scripts/audit-runtime-library.ts",
     "inspector:start": "node services/inspector-worker/server.mjs",

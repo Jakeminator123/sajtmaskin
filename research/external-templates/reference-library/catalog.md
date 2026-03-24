@@ -1,12 +1,21 @@
 # Template Library Catalog
 
-Generated: 2026-03-24T11:18:12.195Z
+Generated: 2026-03-24T12:55:25.509Z
 Source root: C:\Users\jakem\dev\projects\sajtmaskin\scraped-vercel-scorefolds
 Total templates audited: 69
-Curated templates: 0
+Curated templates: 6
 
 ## Verdict counts
 
-- research_only: 69
+- valid: 5
+- huge_monorepo: 1
+- non_next_template: 4
+- research_only: 59
 
 ## Curated entries
+
+- **Modernize Next.js Admin Dashboard Template** (valid, score 94) -> dashboard, app-shell, auth-pages
+- **AnyCable Real-time Starter Kit** (valid, score 86) -> landing-page
+- **BaseHub Marketing Website** (valid, score 86) -> landing-page
+- **Builder.io Shopify Commerce** (valid, score 80) -> ecommerce, app-shell, dashboard
+- **Builder.io Shopify Commerce** (valid, score 78) -> content-site, app-shell, dashboard

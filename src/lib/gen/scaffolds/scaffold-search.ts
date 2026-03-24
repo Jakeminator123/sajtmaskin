@@ -38,25 +38,43 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-const QUERY_HINTS: Array<{ match: RegExp; hint: string }> = [
-  { match: /\b(restaurang|restaurant|meny|menu)\b/i, hint: "restaurant food dining menu" },
-  { match: /\b(bokning|booking|boka|appointment)\b/i, hint: "booking reservation appointment" },
-  { match: /\b(event|konferens|bröllop|festival)\b/i, hint: "event conference wedding" },
-  { match: /\b(förening|ideell|nonprofit|välgörenhet)\b/i, hint: "nonprofit charity organization" },
-  { match: /\b(butik|shop|e-handel|webshop)\b/i, hint: "ecommerce shop store products" },
-  { match: /\b(blogg|blog|artikel|inlägg)\b/i, hint: "blog articles posts editorial" },
-  { match: /\b(portfolio|fotograf|designer|kreatör)\b/i, hint: "portfolio creative showcase" },
-  { match: /\b(saas|plattform|abonnemang|pricing)\b/i, hint: "saas platform subscription" },
-  { match: /\b(login|inloggning|registrering|auth)\b/i, hint: "authentication login signup" },
-  { match: /\b(dashboard|instrumentpanel|statistik)\b/i, hint: "dashboard analytics metrics" },
+/** Swedish / mixed prompts → English retrieval terms */
+const SWEDISH_TO_ENGLISH_HINTS: Array<{ match: RegExp; hint: string }> = [
+  { match: /\b(hemsida|webbplats|sajt|nätet)\b/i, hint: "website web landing homepage" },
+  { match: /\b(landningssida|startsida|företagssida)\b/i, hint: "landing page marketing company" },
+  { match: /\b(restaurang|meny)\b/i, hint: "restaurant food dining menu" },
+  { match: /\b(bokning|boka)\b/i, hint: "booking reservation appointment" },
+  { match: /\b(konferens|bröllop|festival)\b/i, hint: "event conference wedding" },
+  { match: /\b(förening|ideell|välgörenhet)\b/i, hint: "nonprofit charity organization" },
+  { match: /\b(butik|e-handel|webshop|handla)\b/i, hint: "ecommerce shop store products cart" },
+  { match: /\b(blogg|artikel|inlägg)\b/i, hint: "blog articles posts editorial" },
+  { match: /\b(fotograf|designer|kreatör|konsult)\b/i, hint: "portfolio creative showcase personal" },
+  { match: /\b(saas|abonnemang|prenumeration|prislista)\b/i, hint: "saas platform subscription pricing" },
+  { match: /\b(inloggning|registrering|konto|lösenord)\b/i, hint: "authentication login signup auth" },
+  { match: /\b(instrumentpanel|statistik|diagram)\b/i, hint: "dashboard analytics metrics admin" },
+  { match: /\b(app|applikation|adminpanel)\b/i, hint: "app application admin panel shell" },
+  { match: /\b(mall|mallar|template)\b/i, hint: "template starter scaffold" },
+];
+
+/** English prompts → Swedish retrieval terms (same bilingual index) */
+const ENGLISH_TO_SWEDISH_HINTS: Array<{ match: RegExp; hint: string }> = [
+  { match: /\b(website|web site|homepage|landing)\b/i, hint: "webbplats landningssida startsida hemsida" },
+  { match: /\b(shop|store|ecommerce|e-commerce|cart)\b/i, hint: "butik e-handel webshop varukorg" },
+  { match: /\b(blog|article|post|editorial)\b/i, hint: "blogg artikel inlägg redaktionell" },
+  { match: /\b(portfolio|showcase|creative)\b/i, hint: "portfolio fotograf designer kreatör" },
+  { match: /\b(saas|subscription|pricing|b2b)\b/i, hint: "saas prenumeration prissättning plattform" },
+  { match: /\b(login|signup|sign up|auth|password)\b/i, hint: "inloggning registrering konto lösenord" },
+  { match: /\b(dashboard|analytics|metrics|admin)\b/i, hint: "instrumentpanel statistik analys admin" },
+  { match: /\b(template|starter|scaffold)\b/i, hint: "mall startmall grund" },
 ];
 
 function expandQuery(query: string): string {
-  const hints = QUERY_HINTS
-    .filter(({ match }) => match.test(query))
-    .map(({ hint }) => hint);
+  const hints = [
+    ...SWEDISH_TO_ENGLISH_HINTS.filter(({ match }) => match.test(query)).map(({ hint }) => hint),
+    ...ENGLISH_TO_SWEDISH_HINTS.filter(({ match }) => match.test(query)).map(({ hint }) => hint),
+  ];
   if (hints.length === 0) return query;
-  return `${query}\n\nRelated: ${Array.from(new Set(hints)).join(", ")}`;
+  return `${query}\n\nRelated search terms: ${Array.from(new Set(hints)).join(", ")}`;
 }
 
 /**

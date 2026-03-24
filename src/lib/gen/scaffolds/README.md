@@ -17,7 +17,9 @@ Large generated JSON is cursorignored. Overview: [`../README.md`](../README.md) 
 | `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. |
 | `matcher.ts` | Keyword-based scaffold matching (fallback for embedding search). |
 | `serialize.ts` | `serializeScaffoldForPrompt()` — turns a scaffold into system prompt text. |
-| `scaffold-search.ts` | Embedding-based `matchScaffoldWithEmbeddings()`. |
+| `scaffold-search.ts` | Embedding-based `searchScaffolds()`; expands SV↔EN query hints. |
+| `scaffold-embedding-locale.ts` | Swedish mirrors (label, description, keywords) paired with English manifest text in embedding documents. |
+| `scaffold-embeddings-core.ts` | Builds bilingual text → OpenAI embeddings; run `npx tsx scripts/generate-scaffold-embeddings.ts` after locale/manifest changes. |
 | `scaffold-scoring.ts` | Telemetry-based boost/penalize for generic scaffolds. |
 | `scaffold-aware-retry.ts` | Picks alternative scaffold if generation fails. |
 | `scaffold-research.ts` | Loads `scaffold-research.generated.json` overrides. |

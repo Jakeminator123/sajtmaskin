@@ -8,10 +8,24 @@ import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events"
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
-const AUTOFIX_ENABLED =
-  typeof window !== "undefined" &&
-  (localStorage.getItem("sajtmaskin:autofix-enabled") === "true" ||
-    new URLSearchParams(window.location.search).has("autofix"));
+function isAutofixEnabledInBrowser(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const ls = window.localStorage;
+    if (ls && typeof ls.getItem === "function") {
+      if (ls.getItem("sajtmaskin:autofix-enabled") === "true") return true;
+    }
+  } catch {
+    /* private mode / incomplete test env */
+  }
+  try {
+    return new URLSearchParams(window.location.search).has("autofix");
+  } catch {
+    return false;
+  }
+}
+
+const AUTOFIX_ENABLED = isAutofixEnabledInBrowser();
 
 const MAX_ATTEMPTS_PER_REASON = 1;
 const MAX_AUTOFIX_PER_CHAT = 2;

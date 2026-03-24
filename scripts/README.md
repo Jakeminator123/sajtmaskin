@@ -45,6 +45,8 @@ npm run template-library:build
 npx tsx scripts/build-template-library.ts --source="research/external-templates/raw-discovery/current"
 ```
 
+För **lokal** `scraped-vercel-scorefolds/` (gitignorerad): verifiera först `summary.json` med `pnpm run template-library:verify-summary`, bygg sedan med explicit `--source="<repo>/scraped-vercel-scorefolds"`. Utan `repo-cache`-kloning ger många poster låg `qualityScore` → `curatedTemplates: 0`; kör `template-library:hydrate-cache` med samma `--source=` (se [docs/architecture/scraped-scorefolds-pipeline.md](../docs/architecture/scraped-scorefolds-pipeline.md)).
+
 Skriptet letar annars automatiskt efter råinput i denna ordning:
 
 1. `research/external-templates/raw-discovery/current`

@@ -175,7 +175,9 @@ vi.mock("@/lib/gen/plan-review", () => ({
 }));
 
 vi.mock("@/lib/gen/system-prompt", () => ({
-  getSystemPromptLengths: () => ({ prompt: 10 }),
+  // prompt-dump imports this; must match real separator for indexOf splits in tests.
+  SYSTEM_PROMPT_SEPARATOR: "\n\n---\n\n# Request-Specific Context\n\n",
+  getSystemPromptLengths: () => ({ total: 10, static: 5, dynamic: 5 }),
 }));
 
 vi.mock("@/lib/gen/request-metadata", () => ({

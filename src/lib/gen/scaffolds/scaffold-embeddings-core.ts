@@ -1,4 +1,8 @@
 import OpenAI from "openai";
+import {
+  buildIntentBilingual,
+  SCAFFOLD_EMBEDDING_LOCALE,
+} from "./scaffold-embedding-locale";
 import { getAllScaffolds } from "./registry";
 import type { ScaffoldManifest } from "./types";
 
@@ -21,14 +25,20 @@ export interface ScaffoldEmbeddingsFile {
 }
 
 function buildEmbeddingText(scaffold: ScaffoldManifest): string {
+  const locale = SCAFFOLD_EMBEDDING_LOCALE[scaffold.family];
+  const intents = buildIntentBilingual(scaffold.buildIntents);
   const filePaths = scaffold.files.map((f) => f.path).join(", ");
   return [
-    `Scaffold: ${scaffold.label}`,
-    `Family: ${scaffold.family}`,
-    `Description: ${scaffold.description}`,
-    `Tags: ${scaffold.tags.join(", ")}`,
-    `Build intents: ${scaffold.buildIntents.join(", ")}`,
-    `Prompt hints: ${scaffold.promptHints.join("; ")}`,
+    `Scaffold (en): ${scaffold.label}`,
+    `Scaffold (sv): ${locale.labelSv}`,
+    `Family / familj: ${scaffold.family}`,
+    `Description (en): ${scaffold.description}`,
+    `Beskrivning (sv): ${locale.descriptionSv}`,
+    `Tags (en): ${scaffold.tags.join(", ")}`,
+    `Sökord och synonymer (sv): ${locale.keywordsSv.join(", ")}`,
+    `Build intents (en): ${intents.en}`,
+    `Byggintentioner (sv): ${intents.sv}`,
+    `Prompt hints (en): ${scaffold.promptHints.join("; ")}`,
     `Quality checklist: ${scaffold.qualityChecklist?.join("; ") ?? ""}`,
     `Upgrade targets: ${scaffold.research?.upgradeTargets.join("; ") ?? ""}`,
     `Reference templates: ${
