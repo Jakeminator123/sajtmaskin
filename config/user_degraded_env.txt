@@ -1,0 +1,129 @@
+# User-site preview: degraded / placeholder environment variables
+#
+# Purpose
+# -------
+# Reference list for injecting *non-secret placeholders* into generated user
+# projects so a full Next.js preview (iframe, sandbox, or similar) can start
+# without real integrations. Values are intentionally fake; they must not
+# grant access to any service.
+#
+# Alignment with codegen (system prompt)
+# ----------------------------------------
+# - config/prompt-static/11-behavioral-rules.md §7–8: mock data by default;
+#   real backends only when the prompt clearly requires them; document required
+#   env vars (e.g. in a comment at the top of the file).
+# - Generated apps should treat missing or placeholder secrets as *degraded
+#   mode*: UI and static routes render; side effects (email, DB writes, payments)
+#   no-op or show a clear in-UI message — never crash the dev server on import.
+#
+# This file is *not* loaded automatically by the app. It is documentation +
+# a copy-paste / merge source for preview runners and future tooling.
+#
+# -----------------------------------------------------------------------------
+# SECTION A — Low-hanging fruit (usually safe as placeholders for preview)
+# -----------------------------------------------------------------------------
+# These are typical third-party keys from our pre-generation contract rules and
+# from scraped Vercel templates (scraped-vercel-scorefolds). Non-empty strings
+# often satisfy SDKs that validate "presence" only; they must not be sent to
+# production as-is.
+
+# Email (Resend) — outbound mail fails silently or shows banner; pages still load
+RESEND_API_KEY=re_placeholder_preview_not_a_real_key
+
+# Analytics / public IDs (safe dummies; trackers simply won't receive data)
+NEXT_PUBLIC_GA_ID=G-PLACEHOLDER000
+NEXT_PUBLIC_GTM_ID=GTM-PLACEHOLDER
+NEXT_PUBLIC_PLAUSIBLE_DOMAIN=preview.local
+NEXT_PUBLIC_POSTHOG_KEY=phc_placeholder_preview
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+
+# Stripe (publishable is already public; secret must still be non-prod)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_placeholder_000000000000000000000000
+STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real
+STRIPE_WEBHOOK_SECRET=whsec_placeholder_preview
+
+# Supabase-shaped URLs (invalid project → client fails gracefully if coded defensively)
+NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.preview_placeholder
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.preview_placeholder
+
+# Auth.js / NextAuth-style
+AUTH_SECRET=preview_auth_secret_min_32_chars_long_dummy_value
+NEXTAUTH_URL=http://localhost:3000
+
+# Clerk-shaped (app must not assume keys are valid until Clerk loads)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_placeholder
+CLERK_SECRET_KEY=sk_test_placeholder_preview
+
+# AI / gateway (many templates use Vercel AI Gateway or OpenAI)
+OPENAI_API_KEY=sk-placeholder-preview-not-real
+AI_GATEWAY_API_KEY=placeholder_ai_gateway_preview
+# If the generated app reads a generic key:
+AI_API_KEY=placeholder_ai_preview
+
+# Vercel Blob (token format matters for some checks; still useless without real token)
+BLOB_READ_WRITE_TOKEN=vercel_blob_rw_placeholder_preview
+
+# Upstash Redis REST (placeholders; see Section B for TCP Redis)
+UPSTASH_REDIS_REST_URL=https://placeholder.upstash.io
+UPSTASH_REDIS_REST_TOKEN=placeholder_upstash_token_preview
+
+# CMS / headless (templates often need *some* string)
+CONTENTFUL_SPACE_ID=placeholder_space
+CONTENTFUL_ACCESS_TOKEN=placeholder_cda_token
+BUILDER_PUBLIC_KEY=placeholder_builder_key
+
+# Slack / webhooks (agents; only needed if those routes run on first paint)
+SLACK_BOT_TOKEN=xoxb-placeholder-preview
+SLACK_SIGNING_SECRET=placeholder_signing_secret
+SLACK_CHANNEL_ID=C0000000000
+
+# Liveblocks (realtime templates)
+LIVEBLOCKS_SECRET_KEY=sk_placeholder_liveblocks_preview
+
+# Misc URLs used as base / webhooks
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+BASE_URL=http://localhost:3000
+
+# -----------------------------------------------------------------------------
+# SECTION B — Often needed for the process to stay healthy (higher risk if blank)
+# -----------------------------------------------------------------------------
+# If the generated code creates a Redis/DB client at module scope and connects
+# immediately, placeholders may still cause timeouts or boot failures. Prefer:
+# - lazy clients, or
+# - skip initialization when URL is missing or equals a known preview sentinel.
+#
+# Redis (ioredis / node-redis — TCP; many starters use Upstash REST instead)
+REDIS_URL=redis://127.0.0.1:6379
+# Alternative sentinel some teams use to mean "disable":
+# REDIS_URL=
+
+# SQL / Postgres (Drizzle/Prisma). Empty DATABASE_URL often breaks migrate/build.
+# For preview-only SQLite paths, generated code should use file:./dev.db or
+# similar without requiring cloud credentials.
+DATABASE_URL=postgresql://preview:preview@127.0.0.1:5432/preview?sslmode=disable
+POSTGRES_URL=postgresql://preview:preview@127.0.0.1:5432/preview?sslmode=disable
+
+# Auth0-shaped (full set often required together if middleware runs)
+AUTH0_SECRET=placeholder_auth0_secret_long_enough_for_preview
+AUTH0_BASE_URL=http://localhost:3000
+AUTH0_ISSUER_BASE_URL=https://placeholder.auth0.com
+AUTH0_CLIENT_ID=placeholder_client_id
+AUTH0_CLIENT_SECRET=placeholder_client_secret
+
+# -----------------------------------------------------------------------------
+# SECTION C — Secrets that are not “integrations” but still block previews
+# -----------------------------------------------------------------------------
+# Random HMAC / session secrets — long random strings are enough; no provider.
+HEADLESS_SECRET=preview_headless_secret_minimum_length_dummy
+INSERT_RANDOM_SECRET_KEY=preview_insert_random_secret_minimum_length_dummy
+PAYLOAD_SECRET=preview_payload_secret_minimum_length_dummy
+CRON_SECRET=preview_cron_secret_dummy
+
+# -----------------------------------------------------------------------------
+# Cross-reference
+# -----------------------------------------------------------------------------
+# - config/env-policy.json → knownEmptyOk / extraKnownKeys for *Sajtmaskin* app env
+# - src/lib/gen/pre-generation-contracts.ts → PROVIDER_RULES env var names
+# - scraped-vercel-scorefolds/**/metadata.json → template-specific README env lists

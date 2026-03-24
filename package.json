@@ -66,7 +66,11 @@
     "first-llm:lab": "python scripts/testning_scarf/first_llm_promptlab.py",
     "first-llm:live": "npx tsx scripts/testning_scarf/run_first_llm_live.ts",
     "testning:codegen-print": "python scripts/testning_scarf/print_codegen_context.py",
-    "codegen:split-static-prompt": "node scripts/split-codegen-static-prompt.mjs"
+    "codegen:split-static-prompt": "node scripts/split-codegen-static-prompt.mjs",
+    "mirror:audit": "node scripts/audit-shadcn-mirror-repos.mjs",
+    "mirror:audit:verbose": "node scripts/audit-shadcn-mirror-repos.mjs --verbose",
+    "mirror:audit:json": "node scripts/audit-shadcn-mirror-repos.mjs --json",
+    "mirror:audit:strict": "node scripts/audit-shadcn-mirror-repos.mjs --strict"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderArchive, Github, Loader2, Lock, Upload, X } from "lucide-react";
+import { FolderArchive, GithubIcon, Loader2, Lock, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-store";
@@ -177,7 +177,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            <Github className="h-4 w-4" />
+            <GithubIcon className="h-4 w-4" />
             GitHub
           </button>
           <button

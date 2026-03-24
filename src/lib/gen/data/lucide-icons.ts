@@ -338,7 +338,7 @@ export const LUCIDE_ICONS: Set<string> = new Set([
   "GitFork",
   "GitMerge",
   "GitPullRequest",
-  "Github",
+  "GithubIcon",
   "Globe",
   "Globe2",
   "GlobeLock",

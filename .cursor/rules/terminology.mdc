@@ -12,7 +12,7 @@ alwaysApply: true
 | **Vercel** | Hosting platform. Deploys, domains, env vars, CDN. | vercel.com |
 | **Sajtmaskin** | Our app. Own code-generation engine (default), manages projects, users, deploy flow. | sajtmaskin.se |
 | **v0** (soft-deprecated) | AI code generation platform used as opt-in fallback only when `V0_FALLBACK_BUILDER=y`. | v0.dev, *.vusercontent.net |
-| **Demo sites** | User-generated sites. Built by own engine, previewed in-app, deployed to Vercel. | *.vercel.app or custom domain |
+| **Demo sites** | User-generated sites. Built by own engine, previewed in-app (full Next.js stack in iframe when that path is active), deployed to Vercel. In conversation, **demo URL** often means this preview/deploy URL for the user site — not the legacy v0-hosted preview. | *.vercel.app, preview/sandbox URL, or custom domain |
 
 ## Pages in our app
 
@@ -201,8 +201,18 @@ A snapshot of generated code from one generation turn. Contains files
 
 ### Preview
 
-Own engine uses an app-internal preview route to render the generated code.
-v0 fallback uses `demoUrl` (temporary URL on `*.vusercontent.net`).
+**User-site preview** (own engine): generated Next.js project is shown in-app
+(iframe / dedicated preview surface). Product language may use **demo URL** for
+this URL even though it is not the old v0 preview host.
+
+**Legacy v0 preview** (v0 fallback only, `V0_FALLBACK_BUILDER=y`): hosted
+preview uses v0 `demoUrl` on `*.vusercontent.net` — keep this distinct from
+user-site preview above.
+
+**Degraded preview env:** placeholder values for third-party keys so preview
+can start without real integrations; documented in `config/user_degraded_env.txt`.
+Generated sites should degrade gracefully (mock / no-op) per
+`config/prompt-static/11-behavioral-rules.md`.
 
 The **Sandbox** (`@vercel/sandbox` via `SandboxModal`) is opt-in for testing
 server-side behavior before deploying.
@@ -232,7 +242,8 @@ The builder toolbar now centers on a unified picker flow:
 | Our project ID | `appProjectId` | `"proj_abc123"` |
 | v0 project ID | `v0ProjectId` | `"prj_xyz"` |
 | v0 chat ID | `v0ChatId` / `chatId` | `"chat_abc"` |
-| Preview URL | `demoUrl` / `currentDemoUrl` | `"https://v0-abc.vusercontent.net"` |
+| User-site preview URL | `previewUrl` / internal preview base (naming in code may vary) | In-app full-stack preview |
+| Legacy v0 preview URL | `demoUrl` / `currentDemoUrl` | `"https://v0-abc.vusercontent.net"` (v0 fallback only) |
 | Deployed URL | `url` (in deployment) | `"https://my-site.vercel.app"` |
 | Entry mode | `buildMethod` | `"wizard"` |
 | Build type | `buildIntent` | `"website"` |

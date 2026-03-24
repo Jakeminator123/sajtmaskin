@@ -1,0 +1,17 @@
+{
+  "description": "Compare external template repos (e.g. shadcn-io-mirror) against Sajtmaskin TCH: package.json engines, .node-version, config/prompt-static/01-tech-stack.md",
+  "sajtmaskinTarget": {
+    "nodeRuntime": "22.14.x",
+    "nodeMajorAllowed": [22],
+    "nextMajorGreen": 16,
+    "nextMajorAmberMin": 15,
+    "reactMajorGreen": 19,
+    "reactMajorAmberMin": 18,
+    "tailwindMajorGreen": 4,
+    "tailwindMajorAmber": 3
+  },
+  "paths": {
+    "defaultMirrorRepos": "../_template_refs/shadcn-io-mirror/repos",
+    "comment": "Default: folder sibling to sajtmaskin (not inside git). Override: --root or SHADCN_MIRROR_REPOS. _template_refs/ is gitignored if placed under repo — do not commit hundreds of clones."
+  }
+}

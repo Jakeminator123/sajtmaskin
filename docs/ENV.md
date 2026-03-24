@@ -339,6 +339,24 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
    - `npm run template-library:build` bygger den kuraterade referensytan i `research/external-templates/reference-library/`
    - runtime fortsätter läsa genererade artefakter i `src/lib/gen/template-library/`
 
+## Filer som aldrig committas
+
+- **`.env.local`**, **`.env.production`**, **`.env.*.local`**, **`.env.vercel.production.pulled`** m.fl. är **gitignorade**. De ska **inte** pushas till GitHub.
+- **Vercel:** använd **Vercel Dashboard → Environment Variables** eller `vercel env add` / `manage_env.py push` för att sätta värden per miljö (production / preview / development).
+- **Radbrytningar:** håll env-filer som **UTF-8 med LF** (Unix-radbrytning). Undvik `\r\n` i värden; PowerShell `Set-Content` utan rätt encoding kan ge **BOM** eller **CRLF** som saboterar hemligheter (se projektregeln om `WriteAllText` med UTF-8 utan BOM).
+
+## Genererade sajter — preview / degraded env (referens)
+
+- **`config/user_degraded_env.txt`** är en **dokumenterad lista** med placeholder-värden för tredjepartsnycklar när en **användares** genererade Next-projekt ska starta utan riktiga integrationer. Den laddas **inte** automatiskt av Sajtmaskin-appen; använd som referens för preview/sandbox eller framtida tooling.
+
+## Extern template-spegel — versionsaudit
+
+- **`config/shadcn-mirror-audit-policy.json`** — målstack (Next / React / Tailwind / Node-major) jämfört med t.ex. `_template_refs/shadcn-io-mirror/repos`.
+- **`npm run mirror:audit`** — kort sammanfattning.
+- **`npm run mirror:audit:verbose`** — full tabell per repo.
+- **`npm run mirror:audit:json`** — maskinläsbar rapport.
+- Standard sökväg: syskonmapp `../_template_refs/shadcn-io-mirror/repos` eller miljövariabel **`SHADCN_MIRROR_REPOS`**.
+
 ## Rate limits och budgetvarningar
 
 - **Upstash gratis:** 500K commands/månad, 256 MB. Räcker för dev och låg trafik.

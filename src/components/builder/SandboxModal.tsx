@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, FileCode, Github, Loader2, TerminalSquare, X } from "lucide-react";
+import { ExternalLink, FileCode, GithubIcon, Loader2, TerminalSquare, X } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -205,7 +205,7 @@ export function SandboxModal({
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            <Github className="h-4 w-4" />
+            <GithubIcon className="h-4 w-4" />
             Git URL
           </button>
         </div>
