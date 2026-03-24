@@ -52,11 +52,12 @@ export async function GET() {
     },
     {
       id: "postgres",
-      label: "Postgres (plattformens DB)",
+      label: "Postgres (Sajtmaskin-appens DB)",
       enabled: postgres.enabled,
       required: true,
       requiredEnv: [...DB_ENV_VARS],
-      affects: "Projekt, chat-loggar, versionshistorik",
+      affects:
+        "Chattar, versioner, projekt — själva Sajtmaskin-databasen. Supabase funkar om anslutningssträngen ligger i POSTGRES_URL (eller POSTGRES_PRISMA_URL). Det är inte samma sak som slutanvändarens Supabase i en genererad sajt.",
       notes: postgres.notes,
       layer: "platform",
     },
@@ -80,22 +81,26 @@ export async function GET() {
     },
     {
       id: "redis",
-      label: "Redis cache",
+      label: "Redis cache (redis:// / ioredis)",
       enabled: FEATURES.useRedisCache,
       required: false,
       requiredEnv: ["REDIS_URL", "KV_URL"],
-      affects: "Caching (valfri)",
-      notes: REDIS_CONFIG.enabled ? "redis cache on" : "redis cache off",
+      affects: "Valfri server-side cache via Redis-protokoll.",
+      notes: REDIS_CONFIG.enabled
+        ? "Cache aktiv (REDIS_URL eller KV_URL)."
+        : "Av — vanligt om du bara har Upstash REST nedan. Appen faller tillbaka till minnescache.",
       layer: "optional",
     },
     {
       id: "upstash",
-      label: "Upstash (rate limits)",
+      label: "Upstash REST (rate limits)",
       enabled: upstash.enabled,
       required: false,
       requiredEnv: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
-      affects: "Rate limits (multi-server)",
-      notes: upstash.notes,
+      affects: "Rate limiting m.m. via HTTPS REST — annan kodväg än Redis-raden ovan.",
+      notes: upstash.enabled
+        ? upstash.notes
+        : "Saknas — rate limits använder minne på en nod (OK för dev/låg trafik).",
       layer: "optional",
     },
     {
