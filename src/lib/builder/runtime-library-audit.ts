@@ -100,7 +100,7 @@ export const RUNTIME_LIBRARY_FAMILIES: RuntimeLibraryFamilyDefinition[] = [
     uiCollectionIds: [],
     aiElementIds: ["three-scene"],
     localUiNames: [],
-    dependencyNames: ["three", "@react-three/fiber", "@react-three/drei", "@react-three/rapier"],
+    dependencyNames: ["three", "@react-three/fiber", "@react-three/drei"],
   },
 ];
 
