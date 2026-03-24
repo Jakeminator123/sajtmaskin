@@ -4,6 +4,26 @@
 
 - **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.
 - **Vercel use-case-skrapning (Python):** scripts/hamta_sidor.py (kanonisk). Utökad variant i repo root: hamta_sidor_branch_emil.py — se inventeringsdokumentet innan du slår ihop dem.
+- **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
+
+## vercel_template_cli.py (repo root)
+
+Offline-verktyg som skrapar Vercels **template directory** (flera filterdimensioner: use case, framework, CSS, database, m.m.) och kan exportera GitHub-repo-länkar. **Körs inte i produktion**; det stödjer kurering av externa mallar innan de blir interna scaffolds.
+
+### Förutsättningar
+
+```bash
+pip install requests beautifulsoup4
+```
+
+### Exempel
+
+```bash
+python vercel_template_cli.py --groups use-case,framework --slugs ai,next.js --json templates.json
+python vercel_template_cli.py --candidates data/scaffold-candidates-vercel-cli.json
+```
+
+Fullständig pipeline och flaggor beskrivs i filens modul-docstring. Därefter: `npm run scaffolds:curate` (eller er interna rapportkedja), manuell granskning, `sync-scaffold-refs.mjs`, arbeta i `src/lib/gen/scaffolds/`.
 
 ## sync-scaffold-refs.mjs
 

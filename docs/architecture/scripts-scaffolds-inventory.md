@@ -16,6 +16,18 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 
 **Övriga referenser:** [`docs/old/2026-03-holding-area/next-sidan-skrapning.txt`](../old/2026-03-holding-area/next-sidan-skrapning.txt) nämner `hamta_sidor.py` — använd `scripts/hamta_sidor.py`.
 
+### `vercel_template_cli.py` (repo root)
+
+| Fil | Syfte |
+|-----|--------|
+| [`vercel_template_cli.py`](../../vercel_template_cli.py) | **Offline**-CLI som skrapar [Vercel Templates](https://vercel.com/templates) efter filtergrupper (use case, framework, CSS, DB, …), kan plocka GitHub-repo från detaljsidor och skriva **JSON** (`--json`) eller **scaffold-kandidatlista** (`--candidates`). |
+
+**Inte runtime:** används bara för research och kurering innan interna scaffolds uppdateras. Kedja enligt skriptets docstring: kandidater → `npm run scaffolds:curate` (eller motsvarande) → manuell granskning → `sync-scaffold-refs.mjs` → nya manifest under `src/lib/gen/scaffolds/`.
+
+**Beroenden:** Python 3 + `requests` + `beautifulsoup4` (t.ex. `pip install requests beautifulsoup4`). Vercel kan ändra HTML; vid tomma resultat, verifiera sidstruktur manuellt.
+
+**Återställd:** filen togs tillfälligt bort 2026-03-24 och återinfördes p.g.a. fortsatt behov av mallupptäckt.
+
 ---
 
 ## `scripts/` — koppling till `package.json` och interna imports
@@ -41,7 +53,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 
 | Fil | Anteckning |
 |-----|------------|
-| `sync-scaffold-refs.mjs` | [`scripts/README.md`](../../scripts/README.md) |
+| `sync-scaffold-refs.mjs` | [`scripts/README.md`](../../scripts/README.md), [`vercel_template_cli.py`](../../vercel_template_cli.py) (valfri katalogskrapning) |
 | `scaffold-pipeline.py` | [`scripts/README.md`](../../scripts/README.md) — interaktiv meny för template-library-kedjan |
 | `hamta_sidor.py` | Se avsnitt ovan |
 | `recovery/recreate-repo-branch-commit.ps1` | [`scripts/README.md`](../../scripts/README.md) |
@@ -55,7 +67,6 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 
 | Fil | Skäl |
 |-----|------|
-| `vercel_template_cli.py` (repo root) | Ingen aktiv kedja i repot; forsknings-/mall-referens ersatt av interna skript. |
 | `hamta_sidor.py` (repo root) | Dublett av `scripts/hamta_sidor.py`. |
 | `_verify_password.mjs` | Tom fil (0 byte), inga referenser. |
 | `verify-tables.ts` | Engångs-/lokal Postgres-listning, inga referenser i repot; återfinns i git-historik vid behov. |
