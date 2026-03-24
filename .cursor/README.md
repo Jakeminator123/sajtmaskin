@@ -2,7 +2,7 @@
 
 ## Workspace (en rot, samma verktygsinställningar)
 
-- Öppna projektet med **`sajtmaskin.code-workspace`** i repots rot (en mapp: `.`), eller öppna själva **`sajtmaskin`**-mappen. Lägg inte till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`, worktrees) som extra workspace-mappar om du vill undvika brus i Problems (markdownlint, sökning, m.m.).
+- Öppna projektet med **`sajtmaskin.code-workspace`** i repots rot (en mapp: `.`), eller öppna själva **`sajtmaskin`**-mappen. Filen är **gitignorerad** (lokala inställningar); efter klon: kopiera **`sajtmaskin.code-workspace.example`** → **`sajtmaskin.code-workspace`**. Lägg inte till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`, worktrees) som extra workspace-mappar om du vill undvika brus i Problems (markdownlint, sökning, m.m.).
 - **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`**. **`sajtmaskin.code-workspace`** innehåller samma `settings`-block så att beteendet matchar oavsett om du öppnar mappen eller workspace-filen.
 - **Endast Cursor**: **`.cursor/settings.json`** (t.ex. Vercel-plugin). Den ersätter inte `.vscode` för vanliga tillägg; håll verktygsignorer synkade mellan **`.vscode/settings.json`** och **`sajtmaskin.code-workspace`**.
 - Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer *utanför* repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
@@ -23,6 +23,12 @@ För **mappar, Vercel-mall/research och v0-templates vs scaffold** (inte hela pr
 `docs/architecture/structure-and-terminology.md` och `docs/README.md` § Terminology.
 
 ## MCP-servrar (`mcp.json`)
+
+**GitHub:** `.cursor/mcp.json` är **ignorerad** i git (kan få hemligheter vid URL-auth eller framtida fält). Kopiera mallen:
+
+```bash
+cp .cursor/mcp.json.example .cursor/mcp.json
+```
 
 | Server | Typ | Syfte |
 |--------|-----|--------|

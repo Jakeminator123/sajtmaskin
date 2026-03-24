@@ -349,7 +349,7 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 4. **Postgres (dev):** Skapa ett Supabase-projekt (gratis tier går för lokal dev), sätt `POSTGRES_URL`. Produktion använder separat projekt; vid högre krav använd betald Supabase-plan (se infrastruktur-tabellen ovan).
 5. Kör `npm run db:init` för att skapa databasschemat.
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
-7. MCP-servrar i Cursor (`.cursor/mcp.json`): `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx tools/mcp/...`.
+7. MCP-servrar i Cursor: kopiera **`.cursor/mcp.json.example` → `.cursor/mcp.json`** (själva `mcp.json` är gitignorerad så hemligheter inte pushas). `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx tools/mcp/...`.
 8. Extern template-research:
    - `npm run references:discover` skriver kanonisk rå discovery till `research/external-templates/raw-discovery/current/`
    - `npm run template-library:import-legacy` importerar legacy `_sidor`-summary till samma plats
@@ -360,6 +360,8 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 ## Filer som aldrig committas
 
 - **`.env.local`**, **`.env.production`**, **`.env.*.local`**, **`.env.vercel.production.pulled`** m.fl. är **gitignorade**. De ska **inte** pushas till GitHub.
+- **`.cursor/mcp.json`** — gitignorerad; använd **`.cursor/mcp.json.example`** som mall (se `.cursor/README.md`).
+- **`pot_buggs/`** — lokala anteckningar; ska inte finnas på GitHub (se `.gitignore`).
 - **Vercel:** använd **Vercel Dashboard → Environment Variables** eller `vercel env add` / `manage_env.py push` för att sätta värden per miljö (production / preview / development).
 - **Radbrytningar:** håll env-filer som **UTF-8 med LF** (Unix-radbrytning). Undvik `\r\n` i värden; PowerShell `Set-Content` utan rätt encoding kan ge **BOM** eller **CRLF** som saboterar hemligheter (se projektregeln om `WriteAllText` med UTF-8 utan BOM).
 

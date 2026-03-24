@@ -5,7 +5,7 @@ alwaysApply: true
 
 # MCP-servrar
 
-Konfigurerade i `.cursor/mcp.json`. Använd alltid relevant MCP-server
+Konfigureras lokalt i `.cursor/mcp.json` (mall: `.cursor/mcp.json.example`, committad). Använd alltid relevant MCP-server
 före web search eller träningsdata.
 
 ## Topologi

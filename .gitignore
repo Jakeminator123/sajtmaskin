@@ -68,6 +68,15 @@ Thumbs.db
 # Cursor-specific (plans are session-specific, mcp.json is shared)
 .cursor/plans/
 .cursor/documents/
+# Local MCP config (can hold tokens); committed template: .cursor/mcp.json.example
+.cursor/mcp.json
+
+# Personal bug notes / scratch — not for GitHub
+pot_buggs/
+
+# OAuth / mobile secret dumps (never commit real files)
+**/client_secret*.json
+google-services.json
 
 # Local Cursor orchestration artifacts
 .cursor/orchestrator/run/**
@@ -187,5 +196,4 @@ STOR_MIGRATION
 
 internt_jakob/
 
-.vercel
 .env*.local

@@ -1,4 +1,4 @@
-
+﻿
 # Build/cache
 node_modules
 .next
@@ -12,12 +12,18 @@ coverage
 tsconfig.tsbuildinfo
 package-lock.json
 
-# Local env / secrets / local status
-#.env
-#.env.*
-#.env.local
-#.env.production
-#.token-status.json
+# Local env / secrets / local status (keep out of AI context)
+.env
+.env.*
+.env.local
+.env.production
+.token-status.json
+
+# Local MCP (copy mcp.json.example → mcp.json)
+.cursor/mcp.json
+
+# Bug scratch — local only
+pot_buggs/
 
 # Local browser / automation config
 config.browser.txt
@@ -94,8 +100,8 @@ public/images/
 # ---------------------------------------------------------------------------
 
 # Local Cursor session state
-#.cursor/plans/
-#.cursor/documents/
+.cursor/plans/
+.cursor/documents/
 .cursor/automation/runs/
 .cursor/automation/archive/
 .cursor/automation/input/
