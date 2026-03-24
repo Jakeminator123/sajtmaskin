@@ -380,7 +380,14 @@ export async function POST(req: Request) {
       }
       const ownedProject = await getProjectByIdForRequest(req, engineProjectId);
       if (!ownedProject) {
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+        return NextResponse.json(
+          {
+            error:
+              "Project not found or access denied. Open the project again from the dashboard (session may have changed).",
+            code: "DEPLOY_PROJECT_ACCESS",
+          },
+          { status: 403 },
+        );
       }
       if (!codeFiles || codeFiles.length === 0) {
         return NextResponse.json(

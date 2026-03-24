@@ -90,6 +90,7 @@ export async function POST(req: Request) {
       const { messages, model, temperature, provider, maxTokens: requestedMaxTokens } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
+      const logProvider = resolvedProvider === "gateway" ? "openai" : resolvedProvider;
       const maxTokens = resolveMaxTokens(requestedMaxTokens);
 
       if (!isPromptAssistModelAllowed(normalizedModel)) {
@@ -113,7 +114,7 @@ export async function POST(req: Request) {
       }
 
       debugLog("AI", "AI chat request received", {
-        provider: resolvedProvider,
+        provider: logProvider,
         model: normalizedModel,
         messages: messages.length,
         temperature: typeof temperature === "number" ? temperature : null,
@@ -122,7 +123,7 @@ export async function POST(req: Request) {
       const lastUserMessage = [...messages].reverse().find((entry) => entry.role === "user")?.content;
       devLogAppend("latest", {
         type: "assist.chat.request",
-        provider: resolvedProvider,
+        provider: logProvider,
         model: normalizedModel,
         messages: messages.length,
         userPrompt: typeof lastUserMessage === "string" ? lastUserMessage : null,
@@ -132,7 +133,7 @@ export async function POST(req: Request) {
         if (!isGatewayAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
           return NextResponse.json(
             {
-              error: "Invalid model for gateway provider",
+              error: "Invalid model for OpenAI prompt assist",
               setup: "Set model to a supported OpenAI prompt-assist model.",
             },
             { status: 400 },
@@ -153,7 +154,6 @@ export async function POST(req: Request) {
         }
 
         debugLog("AI", "OpenAI prompt assist (direct API)", {
-          provider: resolvedProvider,
           model: normalizedModel,
         });
 
@@ -165,7 +165,7 @@ export async function POST(req: Request) {
           onFinish({ text }) {
             devLogAppend("latest", {
               type: "assist.chat.response",
-              provider: resolvedProvider,
+              provider: "openai",
               model: normalizedModel,
               text,
             });
@@ -175,7 +175,7 @@ export async function POST(req: Request) {
         return result.toTextStreamResponse({
           headers: {
             "Cache-Control": "no-store",
-            "X-Provider": resolvedProvider,
+            "X-Provider": "openai",
             "X-Key-Source": "OPENAI_API_KEY",
           },
         });

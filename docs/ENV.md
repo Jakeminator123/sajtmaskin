@@ -100,7 +100,7 @@ builder-flödena resolverar idag alltid till own engine, inte till legacy-v0-bui
 |---|---|---|
 | `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | `32768` | Max output-tokens för kodgenerering |
 | `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS` | `12288` | Max output-tokens för autofix/LLM-fixer |
-| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `16384` | Max output-tokens för brief/chat assist |
+| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `32768` | Max output-tokens för brief/chat assist (deep brief JSON kan vara långt; sänk om du vill spara kostnad) |
 
 ### Hur modellerna hänger ihop
 

@@ -117,7 +117,7 @@
     },
     "assistMaxOutputTokens": {
       "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
-      "default": 16384,
+      "default": 32768,
       "min": 4096,
       "max": 128000
     }
@@ -221,14 +221,14 @@
     {
       "id": "prompt_assist_chat",
       "title": "Prompt assist (Förbättra) chat stream",
-      "description": "Multi-provider streamText: openai/* and anthropic/* via createDirectModel; v0-* via v0 openai-compatible base URL.",
+      "description": "Multi-provider streamText: openai/* and anthropic/* via createDirectModel (direct OpenAI/Anthropic API).",
       "invocation": "streamText_ai_sdk",
-      "provider": "mixed_direct_and_v0_compat",
+      "provider": "openai_anthropic_direct",
       "codeEntry": ["src/app/api/ai/chat/route.ts", "src/lib/builder/gateway-policy.ts", "src/lib/builder/promptAssist.ts"],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "V0_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
-        "default": 16384,
+        "default": 32768,
         "min": 4096,
         "max": 128000
       }

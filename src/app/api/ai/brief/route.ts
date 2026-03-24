@@ -269,10 +269,6 @@ function inferSiteTypeHint(prompt: string): string | null {
   return null;
 }
 
-function isProbablyOnVercel(): boolean {
-  return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
-}
-
 function resolveAnthropicBriefModelId(model: string): string {
   const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
   return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
@@ -303,6 +299,8 @@ export async function POST(req: Request) {
       } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
+      /** UI/logging: internal id "gateway" means OpenAI direct API, not Vercel AI Gateway */
+      const logProvider = resolvedProvider === "gateway" ? "openai" : resolvedProvider;
       const maxTokens = resolveMaxTokens(requestedMaxTokens);
 
       if (provider && provider !== resolvedProvider) {
@@ -316,7 +314,7 @@ export async function POST(req: Request) {
       }
 
       debugLog("AI", "AI brief request received", {
-        provider: resolvedProvider,
+        provider: logProvider,
         model: normalizedModel,
         promptLength: prompt.length,
         temperature: typeof temperature === "number" ? temperature : null,
@@ -325,7 +323,7 @@ export async function POST(req: Request) {
       });
       devLogAppend("latest", {
         type: "assist.brief.request",
-        provider: resolvedProvider,
+        provider: logProvider,
         model: normalizedModel,
         prompt,
         imageGenerations,
@@ -479,32 +477,28 @@ export async function POST(req: Request) {
       if (!isGatewayAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
         return NextResponse.json(
           {
-            error: "Invalid model for gateway provider",
-            setup: 'Set model to a supported OpenAI prompt-assist model.',
+            error: "Invalid model for OpenAI brief",
+            setup: "Set model to a supported OpenAI prompt-assist model (e.g. openai/gpt-5.4).",
           },
           { status: 400 },
         );
       }
 
-      const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
-      const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
-      if (!hasGatewayApiKey && !hasOidcToken && !isProbablyOnVercel()) {
+      const hasOpenAI = Boolean(process.env.OPENAI_API_KEY?.trim());
+      if (!hasOpenAI) {
         return NextResponse.json(
           {
-            error: "Missing AI Gateway auth for gateway provider",
+            error: "Missing OpenAI API key",
             setup:
-              "Set AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN for local dev, or deploy on Vercel to use OIDC authentication.",
+              "Set OPENAI_API_KEY. Deep brief calls OpenAI directly (createDirectModel), not Vercel AI Gateway.",
           },
           { status: 401 },
         );
       }
 
-      const gatewayAuth = hasGatewayApiKey ? "api-key" : hasOidcToken ? "oidc" : "none";
-      debugLog("AI", "AI Gateway auth resolved (brief)", {
-        auth: gatewayAuth,
-        provider: "gateway",
+      debugLog("AI", "OpenAI brief (direct API)", {
         model: normalizedModel,
-        onVercel: isProbablyOnVercel(),
+        maxTokens,
       });
 
       const directModel = createDirectModel(normalizedModel);
@@ -570,7 +564,7 @@ export async function POST(req: Request) {
       const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
       devLogAppend("latest", {
         type: "assist.brief.response",
-        provider: "gateway",
+        provider: "openai",
         model: normalizedModel,
         schema: usedSimplified ? "simplified" : "full",
         projectTitle:
@@ -580,8 +574,8 @@ export async function POST(req: Request) {
       return NextResponse.json(result.object, {
         headers: {
           "Cache-Control": "no-store",
-          "X-Provider": "gateway",
-          "X-Key-Source": gatewayAuth,
+          "X-Provider": "openai",
+          "X-Key-Source": "OPENAI_API_KEY",
           ...(usedSimplified ? { "X-Schema": "simplified" } : {}),
         },
       });

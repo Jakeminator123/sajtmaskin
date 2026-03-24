@@ -40,7 +40,7 @@ const pa = manifest.promptAssist;
 //   # ── Token-gränser ────────────────────────────────────────────
 //   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=32768
 //   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=12288
-//   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=16384
+//   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=32768
 //
 // ============================================================================
 
