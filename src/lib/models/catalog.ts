@@ -3,7 +3,16 @@
  *
  * This is the neutral source of truth for internal model tiers used across the
  * own engine, pricing, validation, and the v0 fallback adapter.
+ *
+ * Default concrete model IDs per tier also live in `config/ai_models/manifest.json`
+ * (loaded via `@/lib/ai-models/load-manifest`); env vars still override.
  */
+import {
+  getBuildProfileDefaultOwnEngineModel,
+  getDefaultMaxTierOwnEngineModel,
+  getQualityToOwnEngineModels,
+} from "@/lib/ai-models/load-manifest";
+import { getBuildProfileEnvKey } from "@/lib/gen/defaults";
 
 /** Explicit v0 Platform API model IDs — only used on fallback paths. */
 export const V0_MODEL_IDS = [
@@ -44,7 +53,8 @@ export type OwnModelId = (typeof OWN_MODEL_IDS)[number];
 export function getDefaultOwnModelId(): OwnModelId {
   return canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
 }
-export const DEFAULT_OWN_MODEL_ID: OwnModelId = "gpt-5.4";
+/** Must match `buildProfiles.defaults.max` in config/ai_models/manifest.json */
+export const DEFAULT_OWN_MODEL_ID = getDefaultMaxTierOwnEngineModel() as OwnModelId;
 
 /**
  * Old model IDs that may exist in persisted data (localStorage, DB rows,
@@ -134,14 +144,11 @@ export const QUALITY_TO_MODEL: Record<QualityLevel, CanonicalModelId> = {
   max: "codex",
 };
 
-/** Maps quality level to OpenAI model ID for the default engine. */
-export const QUALITY_TO_OPENAI_MODEL: Record<QualityLevel, OwnModelId> = {
-  light: "gpt-4.1",
-  standard: "gpt-5.3-codex",
-  pro: "gpt-5.3-codex",
-  premium: "gpt-5.4",
-  max: "gpt-5.1-codex-max",
-};
+/** Maps quality level to own-engine model ID (defaults from ai_models manifest). */
+export const QUALITY_TO_OPENAI_MODEL = getQualityToOwnEngineModels() as Record<
+  QualityLevel,
+  OwnModelId
+>;
 
 /** Maps the canonical builder profile to the v0 Platform API model ID. */
 export function canonicalModelIdToV0ModelId(modelId: CanonicalModelId): V0ModelId {
@@ -159,13 +166,23 @@ export function canonicalModelIdToV0ModelId(modelId: CanonicalModelId): V0ModelI
 /** Maps the canonical builder profile to an own-engine model ID. */
 export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnModelId {
   const tierMap: Record<CanonicalModelId, string> = {
-    fast: process.env.SAJTMASKIN_MODEL_FAST?.trim() || "gpt-4.1",
-    pro: process.env.SAJTMASKIN_MODEL_PRO?.trim() || "gpt-5.3-codex",
-    max: process.env.SAJTMASKIN_MODEL_MAX?.trim() || "gpt-5.4",
-    codex: process.env.SAJTMASKIN_MODEL_CODEX?.trim() || "gpt-5.1-codex-max",
-    anthropic: process.env.SAJTMASKIN_MODEL_ANTHROPIC?.trim() || "claude-sonnet-4.6",
+    fast:
+      process.env[getBuildProfileEnvKey("fast")]?.trim() ||
+      getBuildProfileDefaultOwnEngineModel("fast"),
+    pro:
+      process.env[getBuildProfileEnvKey("pro")]?.trim() ||
+      getBuildProfileDefaultOwnEngineModel("pro"),
+    max:
+      process.env[getBuildProfileEnvKey("max")]?.trim() ||
+      getBuildProfileDefaultOwnEngineModel("max"),
+    codex:
+      process.env[getBuildProfileEnvKey("codex")]?.trim() ||
+      getBuildProfileDefaultOwnEngineModel("codex"),
+    anthropic:
+      process.env[getBuildProfileEnvKey("anthropic")]?.trim() ||
+      getBuildProfileDefaultOwnEngineModel("anthropic"),
   };
-  return (tierMap[modelId] ?? "gpt-5.3-codex") as OwnModelId;
+  return (tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro")) as OwnModelId;
 }
 
 /**

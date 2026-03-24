@@ -24,6 +24,7 @@
  */
 
 import { GATEWAY_ASSIST_MODELS, V0_ASSIST_MODELS } from "./promptAssist";
+import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
@@ -132,14 +133,13 @@ export interface PromptAssistDefaults {
 }
 
 /**
- * These import from the centralized defaults in src/lib/gen/defaults.ts.
+ * Resolved from src/lib/gen/defaults.ts (defaults originate in config/ai_models/manifest.json).
  * Override via SAJTMASKIN_POLISH_MODEL and SAJTMASKIN_ASSIST_MODEL in .env.local.
  */
-export const DEFAULT_PROMPT_POLISH_MODEL =
-  process.env.SAJTMASKIN_POLISH_MODEL?.trim() || "openai/gpt-5.3-codex";
+export const DEFAULT_PROMPT_POLISH_MODEL = POLISH_MODEL;
 
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
-  model: process.env.SAJTMASKIN_ASSIST_MODEL?.trim() || "openai/gpt-5.4",
+  model: ASSIST_MODEL,
   deep: true,
 };
 

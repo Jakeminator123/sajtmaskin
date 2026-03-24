@@ -1,3 +1,8 @@
+import {
+  getAiModelsManifest,
+  type BuildProfileId,
+} from "@/lib/ai-models/load-manifest";
+
 function readIntEnv(name: string, fallback: number, min: number, max: number): number {
   const raw = Number(process.env[name]);
   if (!Number.isFinite(raw)) return fallback;
@@ -11,6 +16,12 @@ function readStringEnv(name: string, fallback: string): string {
   return process.env[name]?.trim() || fallback;
 }
 
+const manifest = getAiModelsManifest();
+const bp = manifest.buildProfiles.defaults;
+const tb = manifest.tokenBudgets;
+const rt = manifest.routeTimeouts;
+const pa = manifest.promptAssist;
+
 // ============================================================================
 // MODEL CONFIGURATION
 //
@@ -22,7 +33,7 @@ function readStringEnv(name: string, fallback: string): string {
 //   SAJTMASKIN_MODEL_MAX=gpt-5.4
 //   SAJTMASKIN_MODEL_CODEX=gpt-5.1-codex-max
 //
-//   # ── Prompt Assist / Brief (via AI Gateway) ───────────────────
+//   # ── Prompt Assist / Brief (provider/model, se config/ai_models) ─
 //   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.4
 //   SAJTMASKIN_POLISH_MODEL=openai/gpt-5.3-codex
 //
@@ -33,41 +44,41 @@ function readStringEnv(name: string, fallback: string): string {
 //
 // ============================================================================
 
-/** Generation models — used directly against OpenAI API */
-export const MODEL_FAST = readStringEnv("SAJTMASKIN_MODEL_FAST", "gpt-4.1");
-export const MODEL_PRO = readStringEnv("SAJTMASKIN_MODEL_PRO", "gpt-5.3-codex");
-export const MODEL_MAX = readStringEnv("SAJTMASKIN_MODEL_MAX", "gpt-5.4");
-export const MODEL_CODEX = readStringEnv("SAJTMASKIN_MODEL_CODEX", "gpt-5.1-codex-max");
+/** Generation models — defaults from config/ai_models/manifest.json */
+export const MODEL_FAST = readStringEnv(manifest.buildProfiles.envKeys.fast, bp.fast);
+export const MODEL_PRO = readStringEnv(manifest.buildProfiles.envKeys.pro, bp.pro);
+export const MODEL_MAX = readStringEnv(manifest.buildProfiles.envKeys.max, bp.max);
+export const MODEL_CODEX = readStringEnv(manifest.buildProfiles.envKeys.codex, bp.codex);
 
-/** Prompt assist model — used via AI Gateway for brief/enhance */
-export const ASSIST_MODEL = readStringEnv("SAJTMASKIN_ASSIST_MODEL", "openai/gpt-5.4");
+/** Prompt assist default model string (provider/model) */
+export const ASSIST_MODEL = readStringEnv(pa.envKeys.assist, pa.defaults.assist);
 
-/** Prompt polish model — used via AI Gateway for "Skriv om" */
-export const POLISH_MODEL = readStringEnv("SAJTMASKIN_POLISH_MODEL", "openai/gpt-5.3-codex");
+/** Prompt polish model for "Skriv om" */
+export const POLISH_MODEL = readStringEnv(pa.envKeys.polish, pa.defaults.polish);
 
 // ============================================================================
 // TOKEN BUDGETS
 // ============================================================================
 
 export const ENGINE_MAX_OUTPUT_TOKENS = readIntEnv(
-  "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
-  32_768,
-  4_096,
-  262_144,
+  tb.engineMaxOutputTokens.envKey,
+  tb.engineMaxOutputTokens.default,
+  tb.engineMaxOutputTokens.min,
+  tb.engineMaxOutputTokens.max,
 );
 
 export const AUTOFIX_MAX_OUTPUT_TOKENS = readIntEnv(
-  "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
-  12_288,
-  2_048,
-  65_536,
+  tb.autofixMaxOutputTokens.envKey,
+  tb.autofixMaxOutputTokens.default,
+  tb.autofixMaxOutputTokens.min,
+  tb.autofixMaxOutputTokens.max,
 );
 
 export const ASSIST_MAX_OUTPUT_TOKENS = readIntEnv(
-  "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
-  16_384,
-  4_096,
-  128_000,
+  tb.assistMaxOutputTokens.envKey,
+  tb.assistMaxOutputTokens.default,
+  tb.assistMaxOutputTokens.min,
+  tb.assistMaxOutputTokens.max,
 );
 
 // ============================================================================
@@ -75,22 +86,27 @@ export const ASSIST_MAX_OUTPUT_TOKENS = readIntEnv(
 // ============================================================================
 
 export const ENGINE_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
-  "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
-  800,
-  60,
-  800,
+  rt.engineRouteMaxDurationSeconds.envKey,
+  rt.engineRouteMaxDurationSeconds.default,
+  rt.engineRouteMaxDurationSeconds.min,
+  rt.engineRouteMaxDurationSeconds.max,
 );
 
 export const ASSIST_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
-  "SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS",
-  600,
-  60,
-  800,
+  rt.assistRouteMaxDurationSeconds.envKey,
+  rt.assistRouteMaxDurationSeconds.default,
+  rt.assistRouteMaxDurationSeconds.min,
+  rt.assistRouteMaxDurationSeconds.max,
 );
 
 export const STREAM_SAFETY_TIMEOUT_DEFAULT_MS = readIntEnv(
-  "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
-  12 * 60 * 1000,
-  60_000,
-  15 * 60 * 1000,
+  rt.streamSafetyTimeoutMs.envKey,
+  rt.streamSafetyTimeoutMs.default,
+  rt.streamSafetyTimeoutMs.min,
+  rt.streamSafetyTimeoutMs.max,
 );
+
+/** Re-export for callers that resolve env keys dynamically (e.g. catalog). */
+export function getBuildProfileEnvKey(profile: BuildProfileId): string {
+  return manifest.buildProfiles.envKeys[profile];
+}

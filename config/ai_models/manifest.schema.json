@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/config/ai_models/manifest.schema.json",
+  "title": "Sajtmaskin AI models manifest",
+  "type": "object",
+  "required": ["schemaVersion", "buildProfiles", "promptAssist", "tokenBudgets", "routeTimeouts", "workloads"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "documentationDirectApiNote": {
+      "type": "string",
+      "description": "Explains that vendor docs marked direct_provider_api are not about Vercel AI Gateway."
+    },
+    "docLinks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["vendor", "title", "url"],
+        "properties": {
+          "vendor": { "type": "string" },
+          "title": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "appliesTo": {
+            "type": "string",
+            "enum": ["direct_provider_api", "vercel_ai_gateway", "sdk_or_tooling"]
+          }
+        }
+      }
+    },
+    "buildProfiles": {
+      "type": "object",
+      "required": ["defaults", "envKeys"],
+      "properties": {
+        "defaults": {
+          "type": "object",
+          "required": ["fast", "pro", "max", "codex", "anthropic"],
+          "additionalProperties": { "type": "string" }
+        },
+        "envKeys": {
+          "type": "object",
+          "required": ["fast", "pro", "max", "codex", "anthropic"],
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "qualityToOwnEngineModel": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "promptAssist": { "type": "object" },
+    "tokenBudgets": { "type": "object" },
+    "routeTimeouts": { "type": "object" },
+    "embeddingModels": { "type": "object" },
+    "generatedSiteIntegrationPlaceholders": {
+      "type": "object",
+      "description": "Plain-text env fragment for generated user-site preview builds (not Sajtmaskin app env).",
+      "required": ["envFragmentFile"],
+      "properties": {
+        "envFragmentFile": {
+          "type": "string",
+          "description": "Filename under config/ai_models/ (dotenv-style KEY=value)."
+        },
+        "policyDocRelativeToConfig": { "type": "string" },
+        "preGenerationContractsEntry": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "workloads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "description", "invocation", "provider", "codeEntry", "authEnv"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "invocation": { "type": "string" },
+          "provider": { "type": "string" },
+          "codeEntry": { "type": "array", "items": { "type": "string" } },
+          "authEnv": { "type": "array", "items": { "type": "string" } },
+          "defaultModel": { "type": "string" },
+          "envOverrides": { "type": "object", "additionalProperties": { "type": "string" } },
+          "tokenBudget": {
+            "type": "object",
+            "required": ["envKey", "default", "min", "max"],
+            "properties": {
+              "envKey": { "type": "string" },
+              "default": { "type": "number" },
+              "min": { "type": "number" },
+              "max": { "type": "number" }
+            }
+          },
+          "notes": { "type": "string" },
+          "anthropicModelIdNormalization": { "type": "string" },
+          "docLinks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["vendor", "title", "url"],
+              "properties": {
+                "vendor": { "type": "string" },
+                "title": { "type": "string" },
+                "url": { "type": "string" },
+                "appliesTo": {
+                  "type": "string",
+                  "enum": ["direct_provider_api", "vercel_ai_gateway", "sdk_or_tooling"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

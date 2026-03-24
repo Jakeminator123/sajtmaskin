@@ -33,6 +33,7 @@ Important code sources of truth include:
 - `src/lib/db/schema.ts`
 - `src/lib/validations/chatSchemas.ts`
 - `src/lib/models/catalog.ts` — build profiles and model IDs (own engine)
+- `config/ai_models/manifest.json` — committed defaults for own-engine models per profile, assist/polish defaults, token budgets, timeouts, workload metadata (`src/lib/ai-models/load-manifest.ts`; env overrides). Human guide: `config/ai_models/_READ_ME_FIRST.md`.
 - `src/lib/models/selection.ts` — model resolution for requests
 - `src/lib/v0/*` — legacy v0 helpers (SDK usage, errors, env); not the primary model catalog
 - `src/lib/gen/scaffolds/types.ts`
@@ -91,6 +92,8 @@ Not runtime dependencies:
 | Engine architecture | `docs/architecture/engine-status.md` |
 | Builder model routing | `docs/architecture/builder-model-routing-and-trace.md` |
 | Builder entry flow | `docs/architecture/builder-entry-flow.md` |
+| Preview / demoUrl / sandbox (own engine) | `docs/architecture/preview-and-sandbox-flow.md` |
+| Vercel Sandbox credentials | `docs/architecture/vercel-sandbox-credentials.md` |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |
 | Env setup | `docs/ENV.md` |

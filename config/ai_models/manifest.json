@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 1,
+  "title": "Sajtmaskin AI model registry",
+  "description": "Single source for default model IDs, token budgets, and env override keys. Environment variables always win over these defaults when set.",
+  "documentationDirectApiNote": "Länkar märkta appliesTo=direct_provider_api beskriver anrop direkt mot OpenAI (api.openai.com) respektive Anthropic (Claude API) — samma semantik som OpenAI SDK / Anthropic SDK mot standardbas-URL. De beskriver inte Vercel AI Gateway (egen bas-URL och gateway-specifik auth); för det, se appliesTo=vercel_ai_gateway.",
+  "docLinks": [
+    {
+      "vendor": "OpenAI",
+      "title": "Models (official guide, direct API)",
+      "url": "https://developers.openai.com/api/docs/models",
+      "appliesTo": "direct_provider_api"
+    },
+    {
+      "vendor": "OpenAI",
+      "title": "Prompt guidance for GPT-5.4 (direct API)",
+      "url": "https://developers.openai.com/api/docs/guides/prompt-guidance",
+      "appliesTo": "direct_provider_api"
+    },
+    {
+      "vendor": "OpenAI",
+      "title": "Responses API reference (direct API)",
+      "url": "https://platform.openai.com/docs/api-reference/responses",
+      "appliesTo": "direct_provider_api"
+    },
+    {
+      "vendor": "OpenAI",
+      "title": "Embeddings API reference (direct API)",
+      "url": "https://platform.openai.com/docs/api-reference/embeddings/create",
+      "appliesTo": "direct_provider_api"
+    },
+    {
+      "vendor": "Anthropic",
+      "title": "Models overview — Claude API IDs (direct API)",
+      "url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "appliesTo": "direct_provider_api"
+    },
+    {
+      "vendor": "Anthropic",
+      "title": "Messages API reference (direct API)",
+      "url": "https://docs.anthropic.com/en/api/messages",
+      "appliesTo": "direct_provider_api"
+    },
+    {
+      "vendor": "Vercel",
+      "title": "AI SDK streamText (library, not a hosted API)",
+      "url": "https://sdk.vercel.ai/docs/reference/ai-sdk-core/stream-text",
+      "appliesTo": "sdk_or_tooling"
+    },
+    {
+      "vendor": "Vercel",
+      "title": "AI Gateway (OpenAI-compatible proxy — not direct OpenAI)",
+      "url": "https://vercel.com/docs/ai-gateway",
+      "appliesTo": "vercel_ai_gateway"
+    }
+  ],
+  "buildProfiles": {
+    "defaults": {
+      "fast": "gpt-4.1",
+      "pro": "gpt-5.3-codex",
+      "max": "gpt-5.4",
+      "codex": "gpt-5.1-codex-max",
+      "anthropic": "claude-sonnet-4.6"
+    },
+    "envKeys": {
+      "fast": "SAJTMASKIN_MODEL_FAST",
+      "pro": "SAJTMASKIN_MODEL_PRO",
+      "max": "SAJTMASKIN_MODEL_MAX",
+      "codex": "SAJTMASKIN_MODEL_CODEX",
+      "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC"
+    }
+  },
+  "qualityToOwnEngineModel": {
+    "light": "gpt-4.1",
+    "standard": "gpt-5.3-codex",
+    "pro": "gpt-5.3-codex",
+    "premium": "gpt-5.4",
+    "max": "gpt-5.1-codex-max"
+  },
+  "promptAssist": {
+    "defaults": {
+      "assist": "openai/gpt-5.4",
+      "polish": "openai/gpt-5.3-codex"
+    },
+    "envKeys": {
+      "assist": "SAJTMASKIN_ASSIST_MODEL",
+      "polish": "SAJTMASKIN_POLISH_MODEL"
+    },
+    "allowed": {
+      "gatewayClassModels": [
+        "openai/gpt-5.4",
+        "openai/gpt-5.3-codex",
+        "openai/gpt-5.2",
+        "anthropic/claude-opus-4.6",
+        "anthropic/claude-sonnet-4.6"
+      ],
+      "anthropicDirectModels": [
+        "anthropic-direct/claude-haiku-4-5-20251001",
+        "anthropic-direct/claude-sonnet-4-6",
+        "anthropic-direct/claude-opus-4-6"
+      ],
+      "v0Models": ["v0-1.5-md", "v0-1.5-lg"]
+    },
+    "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*. The branch still checks AI_GATEWAY_API_KEY / VERCEL_OIDC for historical reasons — see config/ai_models/20-prompt-assist.md."
+  },
+  "tokenBudgets": {
+    "engineMaxOutputTokens": {
+      "envKey": "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
+      "default": 32768,
+      "min": 4096,
+      "max": 262144
+    },
+    "autofixMaxOutputTokens": {
+      "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
+      "default": 12288,
+      "min": 2048,
+      "max": 65536
+    },
+    "assistMaxOutputTokens": {
+      "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
+      "default": 16384,
+      "min": 4096,
+      "max": 128000
+    }
+  },
+  "routeTimeouts": {
+    "engineRouteMaxDurationSeconds": {
+      "envKey": "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
+      "default": 800,
+      "min": 60,
+      "max": 800
+    },
+    "assistRouteMaxDurationSeconds": {
+      "envKey": "SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS",
+      "default": 600,
+      "min": 60,
+      "max": 800
+    },
+    "streamSafetyTimeoutMs": {
+      "envKey": "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
+      "default": 720000,
+      "min": 60000,
+      "max": 900000
+    }
+  },
+  "embeddingModels": {
+    "docsSnippets": {
+      "model": "text-embedding-3-small",
+      "dimensions": 1536,
+      "codeEntry": ["src/lib/gen/data/docs-embeddings-core.ts"]
+    },
+    "scaffoldIndex": {
+      "model": "text-embedding-3-small",
+      "codeEntry": ["src/lib/gen/scaffolds/scaffold-embeddings-core.ts"]
+    },
+    "templateIndex": {
+      "model": "text-embedding-3-small",
+      "codeEntry": ["src/lib/templates/template-embeddings-core.ts"]
+    },
+    "templateLibrary": {
+      "model": "text-embedding-3-small",
+      "codeEntry": ["src/lib/gen/template-library/embeddings-core.ts"]
+    }
+  },
+  "generatedSiteIntegrationPlaceholders": {
+    "envFragmentFile": "40-generated-site-integration-placeholders.env.txt",
+    "policyDocRelativeToConfig": "user_degraded_env.txt",
+    "preGenerationContractsEntry": "src/lib/gen/pre-generation-contracts.ts",
+    "notes": "Targets generated user Next.js apps (preview/sandbox), not Sajtmaskin. Merge envFragmentFile into .env.local for optional integrations so build/dev often succeeds. Never use these values in production. Sajtmaskin does not auto-inject this file; use load-generated-site-placeholders.ts or external tooling."
+  },
+  "workloads": [
+    {
+      "id": "own_engine_codegen",
+      "title": "Builder own-engine code generation",
+      "description": "Streams code from the selected build profile model via Vercel AI SDK streamText + OpenAI or Anthropic provider.",
+      "invocation": "streamText_ai_sdk",
+      "provider": "openai_direct_or_anthropic_direct",
+      "codeEntry": ["src/lib/gen/engine.ts", "src/lib/gen/models.ts", "src/lib/models/catalog.ts", "src/lib/models/phase-routing.ts"],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "envOverrides": {
+        "fast": "SAJTMASKIN_MODEL_FAST",
+        "pro": "SAJTMASKIN_MODEL_PRO",
+        "max": "SAJTMASKIN_MODEL_MAX",
+        "codex": "SAJTMASKIN_MODEL_CODEX",
+        "anthropic": "SAJTMASKIN_MODEL_ANTHROPIC"
+      },
+      "tokenBudget": {
+        "envKey": "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
+        "default": 32768,
+        "min": 4096,
+        "max": 262144
+      },
+      "anthropicModelIdNormalization": "Trailing version segments like 4.6 in claude-sonnet-4.6 are sent to the API as 4-6 (regex in gen/models.ts and gateway-policy.ts).",
+      "docLinks": [
+        {
+          "vendor": "Vercel",
+          "title": "AI SDK streamText",
+          "url": "https://sdk.vercel.ai/docs/reference/ai-sdk-core/stream-text"
+        },
+        {
+          "vendor": "Anthropic",
+          "title": "Messages API",
+          "url": "https://docs.anthropic.com/en/api/messages"
+        }
+      ]
+    },
+    {
+      "id": "autofix_llm",
+      "title": "Post-generation autofix",
+      "description": "streamText-based fix passes using the pro-tier style model (see validate-and-fix).",
+      "invocation": "streamText_ai_sdk",
+      "provider": "openai_direct",
+      "codeEntry": ["src/lib/gen/autofix/llm-fixer.ts", "src/lib/gen/autofix/validate-and-fix.ts"],
+      "authEnv": ["OPENAI_API_KEY"],
+      "tokenBudget": {
+        "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
+        "default": 12288,
+        "min": 2048,
+        "max": 65536
+      }
+    },
+    {
+      "id": "prompt_assist_chat",
+      "title": "Prompt assist (Förbättra) chat stream",
+      "description": "Multi-provider streamText: openai/* and anthropic/* via createDirectModel; v0-* via v0 openai-compatible base URL.",
+      "invocation": "streamText_ai_sdk",
+      "provider": "mixed_direct_and_v0_compat",
+      "codeEntry": ["src/app/api/ai/chat/route.ts", "src/lib/builder/gateway-policy.ts", "src/lib/builder/promptAssist.ts"],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "V0_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
+      "tokenBudget": {
+        "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
+        "default": 16384,
+        "min": 4096,
+        "max": 128000
+      }
+    },
+    {
+      "id": "v0_platform_chats",
+      "title": "v0 Platform chat generation",
+      "description": "streamText against v0 when using the v0 adapter path.",
+      "invocation": "streamText_ai_sdk",
+      "provider": "v0_openai_compat",
+      "codeEntry": ["src/app/api/v0/chats/route.ts"],
+      "authEnv": ["V0_API_KEY"]
+    },
+    {
+      "id": "runtime_embeddings_query",
+      "title": "Runtime embedding queries (RAG-style search)",
+      "description": "OpenAI SDK embeddings.create for live query vectors vs precomputed JSON indexes.",
+      "invocation": "openai_embeddings_create",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "src/lib/gen/context/semantic-search.ts",
+        "src/lib/templates/template-search.ts",
+        "src/lib/gen/scaffolds/scaffold-search.ts",
+        "src/lib/gen/template-library/search.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY"]
+    },
+    {
+      "id": "project_analyze_ai_gateway",
+      "title": "Project file analysis",
+      "description": "OpenAI SDK responses.create against Vercel AI Gateway base URL; model id prefixed openai/ when needed.",
+      "invocation": "openai_responses_create",
+      "provider": "vercel_ai_gateway",
+      "codeEntry": ["src/app/api/projects/[id]/analyze/route.ts"],
+      "authEnv": ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
+      "defaultModel": "gpt-4o-mini"
+    },
+    {
+      "id": "text_analyze",
+      "title": "Text analysis",
+      "description": "responses.create — direct OpenAI when configured, else AI Gateway.",
+      "invocation": "openai_responses_create",
+      "provider": "openai_direct_or_vercel_ai_gateway",
+      "codeEntry": ["src/app/api/text/analyze/route.ts"],
+      "authEnv": ["OPENAI_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"]
+    },
+    {
+      "id": "wizard_enrich_competitors",
+      "title": "Wizard enrich & competitors",
+      "description": "responses.create with server OpenAI key.",
+      "invocation": "openai_responses_create",
+      "provider": "openai_direct",
+      "codeEntry": ["src/app/api/wizard/enrich/route.ts", "src/app/api/wizard/competitors/route.ts"],
+      "authEnv": ["OPENAI_API_KEY"]
+    },
+    {
+      "id": "audit_structured",
+      "title": "Website audit (structured JSON)",
+      "description": "Primary path: OpenAI Responses API with optional web_search tool; fallback uses generateText + createDirectModel.",
+      "invocation": "openai_responses_create_or_ai_sdk_generateText",
+      "provider": "openai_direct",
+      "codeEntry": ["src/app/api/audit/route.ts"],
+      "authEnv": ["OPENAI_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
+      "notes": "Responses path uses a fixed model string in code (gpt-5.2); see route for FEATURES flags."
+    },
+    {
+      "id": "analyze_presentation",
+      "title": "Presentation analysis",
+      "description": "Mixed OpenAI calls including createDirectModel for some steps.",
+      "invocation": "openai_mixed",
+      "provider": "openai_direct",
+      "codeEntry": ["src/app/api/analyze-presentation/route.ts"],
+      "authEnv": ["OPENAI_API_KEY"]
+    },
+    {
+      "id": "transcribe",
+      "title": "Audio transcription",
+      "description": "OpenAI client for speech-to-text.",
+      "invocation": "openai_audio_transcriptions",
+      "provider": "openai_direct",
+      "codeEntry": ["src/app/api/transcribe/route.ts"],
+      "authEnv": ["OPENAI_API_KEY"]
+    },
+    {
+      "id": "inspector_ai_match",
+      "title": "Inspector AI match",
+      "description": "OpenAI SDK with AI Gateway base URL or direct API key.",
+      "invocation": "openai_chat_or_responses",
+      "provider": "vercel_ai_gateway_or_openai_direct",
+      "codeEntry": ["src/app/api/inspector-ai-match/route.ts"],
+      "authEnv": ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN", "OPENAI_API_KEY"]
+    }
+  ]
+}

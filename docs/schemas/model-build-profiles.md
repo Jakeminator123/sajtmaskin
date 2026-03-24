@@ -10,6 +10,8 @@ This document describes the builder's active model surfaces and how they differ.
 
 Primary code sources:
 
+- **`config/ai_models/manifest.json`** — committed defaults for own-engine models per build profile, prompt-assist defaults, token budgets, timeouts, and workload metadata (loaded via `src/lib/ai-models/load-manifest.ts`; env vars override). Human-oriented notes: `config/ai_models/_READ_ME_FIRST.md` and `config/ai_models/*.md`.
+- `src/lib/gen/defaults.ts` — runtime env + manifest fallbacks for generation and assist.
 - `src/lib/models/catalog.ts`
 - `src/lib/models/selection.ts`
 - `src/lib/models/phase-routing.ts`
