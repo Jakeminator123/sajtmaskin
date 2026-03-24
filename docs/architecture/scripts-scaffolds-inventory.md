@@ -8,7 +8,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 |-----|----------------|-------|
 | [`scripts/hamta_sidor.py`](../../scripts/hamta_sidor.py) | ~19 KB | Use case-kategorier på vercel.com/templates → Next.js/React-filter → `summary.json`, `INDEX_SV.md`, valfri `git clone` per mall. |
 | ~~`hamta_sidor.py` (repo root)~~ | — | **Borttagen** 2026-03-24 (var identisk med `scripts/hamta_sidor.py`). |
-| [`hamta_sidor_branch_emil.py`](../../hamta_sidor_branch_emil.py) | ~43 KB | Utökad variant: bl.a. `--urls` (direktläge), `ingestion_report.json`, `FRAMEWORK_FILTER`, CSS-signaler (`CSS_TAGS_OF_INTEREST`), smalare `USE_CASES`, mer felrapportering vid parse/clone. |
+| [`hamta_sidor_branch_emil.py`](../../hamta_sidor_branch_emil.py) | (växer) | Utökad variant: `USE_CASES_CORE` (12 kärnkategorier, bl.a. `marketing-sites` + `starter`), valfritt `--extended-scrape` (documentation + monorepos), tierad utmappning `full-repo/` \| `tutorial-bootstrap/` \| `monorepo-examples/`, `--flat-layout` för gammalt läge, `--urls` → `direct-urls/`, `ingestion_report.json`, `SCRAPE_LAYOUT_SV.md`, `FRAMEWORK_FILTER`, CSS-signaler. |
 
 **Rekommendation:** Kanonisk plats är **`scripts/hamta_sidor.py`**. Välj antingen (a) behåll den enkla som default för förutsägbarhet, eller (b) **ersätt** innehållet i `scripts/hamta_sidor.py` med innehållet från `hamta_sidor_branch_emil.py` och arkivera/ta bort den enkla logiken från root — då bör `hamta_sidor_branch_emil.py` tas bort eller döpas om till t.ex. `scripts/hamta_sidor.py` endast (en fil). Inget av detta körs från `package.json`; det påverkar **research** / lokala dataset, inte produktion.
 

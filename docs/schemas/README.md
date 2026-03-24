@@ -27,6 +27,14 @@ still exploratory, partially true, or comparing alternatives, place it under
 `docs/old/analyses/` (or a new `docs/analyses/` if you reintroduce that bucket)
 or `docs/old/schemas/` when it becomes historical.
 
+## Related configuration (not schema definitions)
+
+The **own-engine static system prompt** is not a “schema” doc in this folder; it
+is configured as JSON + Markdown under the repo root: `config/codegen-static-prompt.json`
+and `config/prompt-static/*.md`. Full pipeline context (loader, checks, debug
+dumps, fallbacks) is documented in [`docs/architecture/prompt-tree.md`](../architecture/prompt-tree.md)
+(see *STATIC_CORE* and *Changelog — 2026-03-24*).
+
 ## Code sources of truth
 
 Runtime truth: same core files as [`docs/README.md`](../README.md) § Source of truth (models, `chatSchemas`, `db/schema`, scaffolds, template-library). Schema-specific extras: `src/lib/gen/plan-schema.ts`, `research/external-templates/reference-library/schema.template-manifest.json`.

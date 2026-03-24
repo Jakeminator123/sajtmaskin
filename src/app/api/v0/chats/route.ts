@@ -21,6 +21,7 @@ import {
   listChatsByProject,
 } from "@/lib/db/chat-repository-pg";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { streamText } from "ai";
 import { getOpenAIModel } from "@/lib/gen/models";
@@ -225,6 +226,10 @@ export async function POST(req: Request) {
             designReferences: summarizeDesignReferences(requestAttachments),
           });
           const ownSystemPrompt = ownOrchestration.engineSystemPrompt;
+          dumpOwnEngineCodegenFromFullSystem(ownSystemPrompt, {
+            route: "POST /api/v0/chats (sync create)",
+            planMode: false,
+          });
 
           const engineModel = resolveEngineModelId(resolvedModelTier, false);
           debugLog("engine", "Own engine model resolved", {

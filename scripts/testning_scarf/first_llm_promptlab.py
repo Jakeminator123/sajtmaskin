@@ -3,16 +3,13 @@
 Samlat flöde: skriv prompt → en undermapp med del 1 (underlag) och valfritt del 2 (live LLM).
 
 Del 1: samma filer som build_first_llm_underlag.py
-Del 2: npx tsx devtools/run_first_llm_live.ts (POST /api/ai/brief + /api/ai/chat)
+Del 2: npx tsx scripts/testning_scarf/run_first_llm_live.ts (POST /api/ai/brief + /api/ai/chat)
 
 Kräver för --live: npm run dev igång, AI_GATEWAY_API_KEY (eller motsv.) i .env.local.
 
   npm run first-llm:lab
-  python devtools/first_llm_promptlab.py
-  python scripts/testning_scarf/first_llm_promptlab.py
-  python devtools/first_llm_promptlab.py --live
-  python devtools/first_llm_promptlab.py -p "text" --no-trace --live
-  python devtools/first_llm_promptlab.py --no-image-generations
+  python scripts/testning_scarf/first_llm_promptlab.py --live
+  python scripts/testning_scarf/first_llm_promptlab.py -p "text" --no-trace --live
 """
 from __future__ import annotations
 
@@ -23,12 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if SCRIPT_DIR.name == "devtools":
-    REPO_ROOT = SCRIPT_DIR.parent
-    OUT_ROOT = REPO_ROOT / "scripts" / "testning_scarf" / "output_first_llm_underlag"
-else:
-    REPO_ROOT = SCRIPT_DIR.parent.parent
-    OUT_ROOT = SCRIPT_DIR / "output_first_llm_underlag"
+REPO_ROOT = SCRIPT_DIR.parent.parent
+OUT_ROOT = SCRIPT_DIR / "output" / "first_llm" / "lab"
 
 UNDERLAG = SCRIPT_DIR / "build_first_llm_underlag.py"
 LIVE_TS = SCRIPT_DIR / "run_first_llm_live.ts"
@@ -65,7 +58,7 @@ def main() -> None:
     ap.add_argument(
         "--live",
         action="store_true",
-        help="Kör del 2 mot localhost (devtools/run_first_llm_live.ts)",
+        help="Kör del 2 mot localhost (run_first_llm_live.ts)",
     )
     ap.add_argument(
         "--base-url",

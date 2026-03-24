@@ -5,6 +5,7 @@ import { inferCapabilities } from "@/lib/gen/capability-inference";
 import { createGenerationPipeline } from "@/lib/gen/fallback";
 import { inferPreGenerationContracts } from "@/lib/gen/pre-generation-contracts";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
+import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { buildSystemPrompt } from "@/lib/gen/system-prompt";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { buildRoutePlan } from "@/lib/gen/route-plan";
@@ -136,6 +137,7 @@ export async function generateSiteFromPrompt(
     preGenerationContracts,
     brief: null,
   });
+  dumpOwnEngineCodegenFromFullSystem(systemPrompt, { source: "mcp/generate-site" });
 
   let projectId = `mcp-${nanoid(10)}`;
   try {

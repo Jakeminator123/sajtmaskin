@@ -1,18 +1,18 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Scaffold-/prompt-spårning för Sajtmaskin.
 
 Standardflöde (interaktivt): ange bara din prompt, svara på om OpenAI/LLM ska
-användas för embedding-sökning, och få utdata under scripts/output_test_scaffold/.
+användas för embedding-sökning, och få utdata under scripts/testning_scarf/output/prompt_trace/.
 
 Alla sökvägar i skriptet är relativa till skriptets plats (inga hårdkodade diskar).
 
 Kräver: Node 22+, npm install (tsx), repo-root som cwd.
 
 Kör:
-  python scripts/prompt_generation_trace.py
-  python scripts/prompt_generation_trace.py -p "Min prompt"
-  python scripts/prompt_generation_trace.py --no-llm -p "..."   # utan interaktion
+  python scripts/testning_scarf/prompt_generation_trace.py
+  python scripts/testning_scarf/prompt_generation_trace.py -p "Min prompt"
+  python scripts/testning_scarf/prompt_generation_trace.py --no-llm -p "..."   # utan interaktion
 """
 from __future__ import annotations
 
@@ -28,8 +28,8 @@ from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
-TS_RUNNER = REPO_ROOT / "scripts" / "trace-generation-context.ts"
-OUTPUT_ROOT = SCRIPT_DIR / "output_test_scaffold"
+TS_RUNNER = SCRIPT_DIR / "trace-generation-context.ts"
+OUTPUT_ROOT = SCRIPT_DIR / "output" / "prompt_trace"
 
 
 def run_trace(
@@ -44,7 +44,7 @@ def run_trace(
     dynamic_preview_chars: int,
 ) -> dict[str, Any]:
     if not TS_RUNNER.is_file():
-        sys.stderr.write(f"Saknar {TS_RUNNER.name} i scripts/.\n")
+        sys.stderr.write(f"Saknar {TS_RUNNER.name} bredvid detta skript.\n")
         sys.exit(2)
     with tempfile.NamedTemporaryFile(
         "w",
@@ -258,7 +258,7 @@ def main() -> None:
     p.add_argument("--custom-instructions-file", type=Path, default=None)
     p.add_argument("--dynamic-preview-chars", type=int, default=6000)
     p.add_argument("--json", action="store_true", help="Skriv endast JSON till stdout (ingen fil)")
-    p.add_argument("--no-save", action="store_true", help="Skriv inte till output_test_scaffold/")
+    p.add_argument("--no-save", action="store_true", help="Skriv inte till output/prompt_trace/")
     args = p.parse_args()
 
     if args.use_llm and args.no_llm:

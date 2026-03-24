@@ -30,19 +30,28 @@ OLD.env*
 .env.production
 .token-status.json
 
+# Local prompt dumps (opt-in: SAJTMASKIN_PROMPT_DUMP=1)
+data/prompt-dumps/
+
 # Database files (local data, not for git)
 data/*.db
 data/*.db-shm
 data/*.db-wal
 data/uploads/
 
-# Local scaffold trace runs (python scripts/prompt_generation_trace.py)
-scripts/output_test_scaffold/
+# testning_scarf: trace, suite, first_llm, codegen snapshots
+scripts/testning_scarf/output/
+# Äldre körningar (före output/)
 scripts/testning_scarf/output_test_scaffold/
 scripts/testning_scarf/output_first_llm_underlag/
+# Legacy (före samlad output-mapp)
+scripts/output_test_scaffold/
 
 # Local generated reports (recreate from scripts when needed)
 data/scaffold-candidates-curated.json
+
+# Vercel template scrape (local research; hamta_sidor_branch_emil.py)
+scraped-vercel-scorefolds/
 
 # MCP scraped documentation (60+ MB, regenerate with doc.py)
 services/mpc/docs/docgrab__*/

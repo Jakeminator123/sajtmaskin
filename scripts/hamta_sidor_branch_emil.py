@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import json
 import os
 import re
@@ -19,21 +19,35 @@ from bs4 import BeautifulSoup
 BASE_URL = "https://vercel.com"
 TEMPLATES_URL = f"{BASE_URL}/templates"
 
-USE_CASES: List[Tuple[str, str]] = [
-    ("ai", "AI"),
-    ("ecommerce", "Ecommerce"),
+# Kärn-use-cases — anpassade för Sajtmaskin (Next/React-landningssajt, SaaS-ytor, handel, innehåll).
+# Dokumentation + monorepos är ofta brus / undantag — lägg till med --extended-scrape.
+USE_CASES_CORE: List[Tuple[str, str]] = [
+    ("marketing-sites", "Marketing Sites"),
+    ("starter", "Starter"),
     ("saas", "SaaS"),
+    ("ecommerce", "Ecommerce"),
     ("blog", "Blog"),
     ("portfolio", "Portfolio"),
     ("cms", "CMS"),
+    ("authentication", "Authentication"),
+    ("admin-dashboard", "Admin Dashboard"),
     ("multi-tenant-apps", "Multi-Tenant Apps"),
+    ("ai", "AI"),
     ("realtime-apps", "Realtime Apps"),
+]
+
+USE_CASES_EXTENDED: List[Tuple[str, str]] = [
     ("documentation", "Documentation"),
     ("monorepos", "Monorepos"),
-    ("authentication", "Authentication"),
-    ("marketing-sites", "Marketing Sites"),
-    ("admin-dashboard", "Admin Dashboard"),
 ]
+
+# Bakåtkompatibilitet: äldre namn i importer / externa skript.
+USE_CASES: List[Tuple[str, str]] = USE_CASES_CORE + USE_CASES_EXTENDED
+
+# Undermappar per malltyp (standard, ej --flat-layout).
+ARTIFACT_TIER_FULL_REPO = "full-repo"
+ARTIFACT_TIER_TUTORIAL = "tutorial-bootstrap"
+ARTIFACT_TIER_MONOREPO = "monorepo-examples"
 
 # Framework-filter: bara Next.js/React-mallar hämtas.
 FRAMEWORK_FILTER: List[str] = ["next.js", "react"]
@@ -49,7 +63,7 @@ CSS_TAGS_OF_INTEREST: List[str] = [
     "chakra",
 ]
 
-# Vanliga exempel från dokumentation / manuell körning (direkt-URL-läge → _direct/<slug>/)
+# Vanliga exempel från dokumentation / manuell körning (direkt-URL-läge → …/direct-urls/<slug>/)
 CANONICAL_TEMPLATE_URLS: List[str] = [
     "https://vercel.com/templates/next.js/nextjs-boilerplate",
     "https://vercel.com/templates/saas/platforms-starter-kit",
@@ -226,6 +240,38 @@ class TemplateInfo:
     is_monorepo_example: bool
     is_tutorial_template: bool
     important_lines: List[str]
+    # Sätts i run_scrape innan persist (full-repo | tutorial-bootstrap | monorepo-examples).
+    artifact_tier: str = ""
+
+
+def assign_artifact_tier(template: TemplateInfo) -> None:
+    if template.is_monorepo_example:
+        template.artifact_tier = ARTIFACT_TIER_MONOREPO
+    elif template.is_tutorial_template:
+        template.artifact_tier = ARTIFACT_TIER_TUTORIAL
+    else:
+        template.artifact_tier = ARTIFACT_TIER_FULL_REPO
+
+
+def template_output_dir(
+    root: Path,
+    template: TemplateInfo,
+    flat_layout: bool,
+    *,
+    direct_slug: Optional[str] = None,
+) -> Path:
+    """Katalog för en mall: antingen flat (gammalt läge) eller tier/kategori/titel."""
+    folder = safe_folder_name(direct_slug) if direct_slug else safe_folder_name(template.title)
+    cat = "direct-urls" if direct_slug is not None else template.category_slug
+    if flat_layout:
+        return root / cat / folder
+    return root / template.artifact_tier / cat / folder
+
+
+def active_use_cases(extended: bool) -> List[Tuple[str, str]]:
+    if extended:
+        return list(USE_CASES_CORE) + list(USE_CASES_EXTENDED)
+    return list(USE_CASES_CORE)
 
 
 def slugify(value: str) -> str:
@@ -279,6 +325,10 @@ class VercelTemplateScraper:
     def get_category_template_urls(self, category_slug: str) -> List[str]:
         """
         Hämtar alla template-URL:er från en use-case-sida, filtrerade på FRAMEWORK_FILTER.
+
+        Vercel listar starters med slug "starter" men mallens faktiska href pekar ofta
+        till /templates/next.js/… eller /templates/saas/…  — därför matchar vi alla
+        /templates/<segment>/<slug> på den sidan, inte bara samma segment som kategorin.
         """
         fw_params = "&".join(f"framework={fw}" for fw in FRAMEWORK_FILTER)
         url = f"{TEMPLATES_URL}/{category_slug}?{fw_params}"
@@ -286,17 +336,18 @@ class VercelTemplateScraper:
         if not soup:
             return []
 
-        href_pattern = re.compile(rf"^/templates/{re.escape(category_slug)}/[^/]+/?$")
+        href_pattern = re.compile(r"^/templates/[^/]+/[^/]+/?$")
         urls: List[str] = []
         seen = set()
 
         for a in soup.find_all("a", href=True):
             href = a["href"].strip()
-            if href_pattern.match(href):
-                full_url = urljoin(BASE_URL, href)
-                if full_url not in seen:
-                    seen.add(full_url)
-                    urls.append(full_url)
+            if not href_pattern.match(href):
+                continue
+            full_url = urljoin(BASE_URL, href)
+            if full_url not in seen:
+                seen.add(full_url)
+                urls.append(full_url)
 
         return urls
 
@@ -735,6 +786,8 @@ def write_info_file(template: TemplateInfo, folder: Path) -> None:
         f"> **Monorepo-example:** {'Ja' if template.is_monorepo_example else 'Nej'}",
         ">",
         f"> **Tutorial-template:** {'Ja' if template.is_tutorial_template else 'Nej'}",
+        ">",
+        f"> **Artefakt-nivå (mapp):** {template.artifact_tier or '(okänd)'}",
         "",
         "## Kort beskrivning",
         "",
@@ -814,7 +867,27 @@ def write_metadata_file(template: TemplateInfo, folder: Path) -> None:
     )
 
 
-def write_index_file(root: Path, collected: Dict[str, List[TemplateInfo]]) -> None:
+def _relative_info_path(
+    template: TemplateInfo,
+    flat_layout: bool,
+    *,
+    direct_slug: Optional[str] = None,
+) -> str:
+    p = template_output_dir(Path("."), template, flat_layout, direct_slug=direct_slug)
+    rel = (p / "INFO_SV.md").as_posix()
+    if rel.startswith("./"):
+        return rel
+    return f"./{rel}"
+
+
+def write_index_file(
+    root: Path,
+    collected: Dict[str, List[TemplateInfo]],
+    index_sections: List[Tuple[str, str]],
+    flat_layout: bool,
+    *,
+    direct_slug_by_url: Optional[Dict[str, str]] = None,
+) -> None:
     path = root / "INDEX_SV.md"
     lines = [
         "# Vercel templates – Next.js / React (filtrerat)",
@@ -823,15 +896,14 @@ def write_index_file(root: Path, collected: Dict[str, List[TemplateInfo]]) -> No
         "",
         "Bara mallar som passerar strikt Next.js/React-lane och Vercels framework-filter tas med.",
         "",
+        "Mappstruktur (standard): `full-repo/`, `tutorial-bootstrap/`, `monorepo-examples/` "
+        "→ use-case-slug → mallmapp. Se `SCRAPE_LAYOUT_SV.md`.",
+        "",
     ]
 
     total = 0
-    for _, category_name in USE_CASES:
-        category_slug = slugify(category_name).replace("edge-functions", "edge-functions")
-        # vi mappar via actual slug-listan nedan istället
-        pass
-
-    for category_slug, category_name in USE_CASES:
+    slug_map = direct_slug_by_url or {}
+    for category_slug, category_name in index_sections:
         templates = collected.get(category_slug, [])
         total += len(templates)
 
@@ -848,9 +920,9 @@ def write_index_file(root: Path, collected: Dict[str, List[TemplateInfo]]) -> No
             continue
 
         for template in templates:
-            folder_name = safe_folder_name(template.title)
-            rel_path = f"./{category_slug}/{folder_name}/INFO_SV.md"
-            lines.append(f"- **{template.title}**")
+            ds = slug_map.get(template.template_url)
+            rel_path = _relative_info_path(template, flat_layout, direct_slug=ds)
+            lines.append(f"- **{template.title}** (`{template.artifact_tier}`)")
             lines.append(f"  - Info: `{rel_path}`")
             lines.append(f"  - Repo: {template.repo_url or 'Hittades inte'}")
             lines.append(f"  - Demo: {template.demo_url or 'Hittades inte'}")
@@ -858,6 +930,32 @@ def write_index_file(root: Path, collected: Dict[str, List[TemplateInfo]]) -> No
 
     lines.insert(4, f"Totalt antal sparade templates: **{total}**")
     path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def write_scrape_layout_readme(root: Path, extended: bool, flat_layout: bool) -> None:
+    """Kort översikt vid scrape-root (påverkar inte Sajtmaskin-runtime)."""
+    core_n = len(USE_CASES_CORE)
+    ext_n = len(USE_CASES_EXTENDED)
+    lines = [
+        "# Vercel-scrape — mappstruktur",
+        "",
+        "## Use cases som körs",
+        f"- **Standard:** {core_n} kärnkategorier (marketing, starter, saas, ecommerce, …).",
+        f"- **Med `--extended-scrape`:** +{ext_n} (documentation, monorepos).",
+        "",
+        "## Undermappar per malltyp",
+        f"- **`{ARTIFACT_TIER_FULL_REPO}/`** — fristående repo; kloning sker om `--skip-download` inte är satt.",
+        f"- **`{ARTIFACT_TIER_TUTORIAL}/`** — innehåller ofta `create-next-app --example` / bootstrap; metadata viktigare än klon.",
+        f"- **`{ARTIFACT_TIER_MONOREPO}/`** — kända monorepo-exempel (t.ex. vercel/next.js); kloning hoppas över som standard.",
+        "",
+        "## Layout",
+        "- **Tierad (standard):** `<tier>/<use-case-slug>/<mallmapp>/` (direkt-URL: `…/direct-urls/<slug>/`).",
+        "- **Platt (`--flat-layout`):** `<use-case-slug>/<mallmapp>/` som tidigare.",
+        "",
+        f"Aktuell körning: extended={'ja' if extended else 'nej'}, flat_layout={'ja' if flat_layout else 'nej'}.",
+        "",
+    ]
+    (root / "SCRAPE_LAYOUT_SV.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -881,8 +979,8 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Fullständiga mallsidor, t.ex. https://vercel.com/templates/ecommerce/nextjs-commerce "
-            "(kör endast dessa; undermapp _direct/<mall-slug>/). "
-            "Täcker även /templates/next.js/... som inte ingår i USE_CASES-listan."
+            "(kör endast dessa; sparas under …/direct-urls/<mall-slug>/ i tierat läge). "
+            "Täcker även /templates/next.js/... som inte ingår i kärnlistan."
         ),
     )
     parser.add_argument(
@@ -918,6 +1016,21 @@ def parse_args() -> argparse.Namespace:
             "Standard är strikt lane-matchning."
         ),
     )
+    parser.add_argument(
+        "--extended-scrape",
+        action="store_true",
+        help=(
+            "Lägg till documentation + monorepos (mer brus; bra för research, sämre som kärndata)."
+        ),
+    )
+    parser.add_argument(
+        "--flat-layout",
+        action="store_true",
+        help=(
+            "Spara utan artefakt-tier: <kategori>/<mall>/ (gammalt läge). Standard är "
+            f"{ARTIFACT_TIER_FULL_REPO}|{ARTIFACT_TIER_TUTORIAL}|{ARTIFACT_TIER_MONOREPO}/<kategori>/…"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -925,7 +1038,9 @@ def default_output_root() -> Path:
     env = os.environ.get("SAJTMASKIN_VERCEL_SCRAPE_DIR", "").strip()
     if env:
         return Path(env).expanduser()
-    repo_root = Path(__file__).resolve().parents[1]
+    # Syskonmapp till git-repots rot (skript i repo-rot eller under t.ex. scripts/).
+    here = Path(__file__).resolve().parent
+    repo_root = here if (here / ".git").exists() else here.parent
     return repo_root.parent / "vercel-scrape"
 
 
@@ -968,11 +1083,14 @@ def interactive_args() -> argparse.Namespace:
     except ValueError:
         delay = 0.4
 
+    n_core = len(USE_CASES_CORE)
+    n_ext = len(USE_CASES_EXTENDED)
     print(
         "\nVälj läge:\n"
-        "  1) Alla use-case-kategorier (ca 25)\n"
+        f"  1) Kärn-use-cases ({n_core} kategorier; + documentation/monorepos med flaggan --extended-scrape)\n"
         "  2) Bara de tre kanoniska mall-URL:erna (snabb kontroll)\n"
         "  3) Egna URL:er (en per rad)\n"
+        f"     (Utökad inventering: +{n_ext} kategorier via CLI: --extended-scrape)\n"
     )
     choice = input("Val [1]: ").strip() or "1"
 
@@ -1010,6 +1128,8 @@ def interactive_args() -> argparse.Namespace:
         interactive=False,
         canonical_urls=canonical,
         loose_framework_match=False,
+        extended_scrape=False,
+        flat_layout=False,
     )
 
 
@@ -1018,7 +1138,6 @@ def write_ingestion_report(root: Path, mode: str, entries: List[Dict]) -> None:
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
-        "output_root": str(root.resolve()),
         "entry_count": len(entries),
         "entries": entries,
     }
@@ -1064,6 +1183,7 @@ def _persist_template(
             "template_url": template.template_url,
             "title": template.title,
             "category_slug": template.category_slug,
+            "artifact_tier": template.artifact_tier,
             "repo_url": template.repo_url,
             "framework_match": template.framework_match,
             "framework_reason": template.framework_reason,
@@ -1095,14 +1215,23 @@ def run_scrape(args: argparse.Namespace) -> int:
     )
     collected: Dict[str, List[TemplateInfo]] = {}
     report_entries: List[Dict] = []
+    extended = getattr(args, "extended_scrape", False)
+    flat_layout = getattr(args, "flat_layout", False)
+    use_cases = active_use_cases(extended)
+    direct_slug_by_url: Dict[str, str] = {}
 
     print(f"[INFO] Sparar till: {root}")
+    print(
+        f"[INFO] Use cases: {len(use_cases)} st "
+        f"({'kärna+utökad' if extended else 'endast kärna'}), "
+        f"layout: {'platt' if flat_layout else 'tierad'}"
+    )
 
     if args.urls:
         mode = "direct_urls"
         print("[INFO] Läge: angivna mallsidor (--urls)")
         print()
-        collected["_direct"] = []
+        collected["direct-urls"] = []
         for raw in args.urls:
             url = raw.strip()
             m = _VERCEL_TEMPLATE_PATH_RE.match(url)
@@ -1145,24 +1274,30 @@ def run_scrape(args: argparse.Namespace) -> int:
                 )
                 continue
 
-            print(f"  [OK] {template.title} ({template.framework_reason})")
-            collected["_direct"].append(template)
-            template_dir = root / "_direct" / safe_folder_name(tmpl_slug)
+            assign_artifact_tier(template)
+            direct_slug_by_url[url] = tmpl_slug
+            print(f"  [OK] {template.title} ({template.framework_reason}) [{template.artifact_tier}]")
+            collected["direct-urls"].append(template)
+            template_dir = template_output_dir(root, template, flat_layout, direct_slug=tmpl_slug)
             _persist_template(scraper, root, template, template_dir, args, report_entries)
             print()
 
+        index_sections: List[Tuple[str, str]] = [("direct-urls", "Direkt-URL:er")]
+
     else:
         mode = "use_cases"
-        print("[INFO] Hämtar alla Use Case-kategorier...")
+        print("[INFO] Hämtar use case-kategorier...")
         print()
 
-        for category_slug, category_name in USE_CASES:
+        for category_slug, category_name in use_cases:
+            collected[category_slug] = []
+
+        for category_slug, category_name in use_cases:
             print(f"[INFO] Kategori: {category_name} ({category_slug})")
             category_urls = scraper.get_category_template_urls(category_slug)
 
             if not category_urls:
                 print("  [WARN] Inga template-URL:er hittades.")
-                collected[category_slug] = []
                 print()
                 continue
 
@@ -1200,20 +1335,19 @@ def run_scrape(args: argparse.Namespace) -> int:
                     )
                     continue
 
+                assign_artifact_tier(template)
                 matched_templates.append(template)
-                print(f"  [OK] {template.title} ({template.framework_reason})")
+                print(f"  [OK] {template.title} ({template.framework_reason}) [{template.artifact_tier}]")
 
             collected[category_slug] = matched_templates
 
-            category_dir = root / category_slug
-            ensure_dir(category_dir)
-
             for template in matched_templates:
-                folder_name = safe_folder_name(template.title)
-                template_dir = category_dir / folder_name
+                template_dir = template_output_dir(root, template, flat_layout)
                 _persist_template(scraper, root, template, template_dir, args, report_entries)
 
             print()
+
+        index_sections = list(use_cases)
 
     summary = {
         slug: [asdict(t) for t in templates]
@@ -1224,11 +1358,19 @@ def run_scrape(args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
 
-    write_index_file(root, collected)
+    write_index_file(
+        root,
+        collected,
+        index_sections,
+        flat_layout,
+        direct_slug_by_url=direct_slug_by_url if args.urls else None,
+    )
+    write_scrape_layout_readme(root, extended, flat_layout)
     write_ingestion_report(root, mode, report_entries)
 
     print("[KLAR]")
     print(f"[INFO] INDEX: {root / 'INDEX_SV.md'}")
+    print(f"[INFO] LAYOUT: {root / 'SCRAPE_LAYOUT_SV.md'}")
     print(f"[INFO] SUMMARY: {root / 'summary.json'}")
     print(f"[INFO] INVENTERING (LLM): {root / 'ingestion_report.json'}")
     return 0

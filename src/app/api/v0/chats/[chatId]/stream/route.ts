@@ -31,6 +31,11 @@ import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
 } from "@/lib/gen/plan-review";
+import {
+  PROMPT_DUMP_CATEGORY,
+  dumpOwnEngineCodegenFromFullSystem,
+  writeLatestPromptDump,
+} from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import {
@@ -346,7 +351,17 @@ export async function handleMessageStreamRequest(
             }
           }
 
-          const planSystemPrompt = `${buildPlannerSystemPrompt()}\n\n---\n\n${planOrchestration.v0EnrichmentContext}`;
+          const planPreamble = buildPlannerSystemPrompt();
+          const planSystemPrompt = `${planPreamble}\n\n---\n\n${planOrchestration.v0EnrichmentContext}`;
+          writeLatestPromptDump(
+            PROMPT_DUMP_CATEGORY.planModePlanner,
+            {
+              "planner-preamble.md": planPreamble,
+              "dynamic-context.md": planOrchestration.v0EnrichmentContext,
+              "full-system.md": planSystemPrompt,
+            },
+            { route: "POST /api/v0/chats/[chatId]/stream", planMode: true },
+          );
           const planChatHistory = engineChat.messages
             .filter((m) => m.role === "user" || m.role === "assistant")
             .map((m) => ({
@@ -433,7 +448,12 @@ export async function handleMessageStreamRequest(
           contractAnswers: contractAnswerContext.confirmedAnswers,
           customInstructions: trimmedSystem || undefined,
         });
-        const { resolvedScaffold, routePlan, preGenerationContracts, engineSystemPrompt } = orchestration;
+        const { resolvedScaffold, routePlan, preGenerationContracts, engineSystemPrompt } =
+          orchestration;
+        dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
+          route: "POST /api/v0/chats/[chatId]/stream",
+          planMode: false,
+        });
         const contractClarification = buildContractClarificationQuestion({
           buildIntent: engineIntent,
           context: preGenerationContracts,

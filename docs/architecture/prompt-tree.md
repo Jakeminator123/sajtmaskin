@@ -1,6 +1,6 @@
 # Prompt Tree — Full Pipeline from Builder UI to Generation
 
-> Senast uppdaterad: 2026-03-18
+> Senast uppdaterad: 2026-03-24
 
 **Narrower scope:** `docs/architecture/builder-prompt-layer.md` covers only the
 `prompt-builder` / placement path for picker-driven inserts — not the whole tree
@@ -163,6 +163,32 @@ Single entry point: `prepareGenerationContext(input: OrchestrationInput)`
 
 Never changes between requests. Enables OpenAI prompt-prefix caching.
 
+**On disk (preferred):** `config/codegen-static-prompt.json` lists Markdown
+fragments under `config/prompt-static/*.md` (order + optional
+`fragmentSeparator`). See `config/prompt-static/_READ_ME_FIRST.md`.
+
+**Fallback monoliths (older checkouts / maintenance):** `config/systemprompt.md`,
+or legacy files at `src/config/systemprompt` or `scripts/systemprompt`. The
+extensionless path **`config/systemprompt` is not supported** — it was removed
+to avoid duplicate sources and Markdown tooling confusion.
+
+**Loader:** `src/lib/gen/static-core-loader.ts` (`getStaticCoreFromWorkspace()`).
+
+**CI / local gate:** `scripts/check-systemprompt.mjs` (via `predev` and
+`prebuild` in `package.json`).
+
+**Local prompt dumps (debug):** set `SAJTMASKIN_PROMPT_DUMP=1`. Writes under
+`data/prompt-dumps/` (gitignored), including subfolders such as
+`orchestration-dynamic/`, `own-engine-codegen/`, `plan-mode-planner/`. Implemented
+in `src/lib/gen/prompt-dump.ts`; wired from `prepareGenerationContext`, stream
+routes, sync `chats` route, `mcp/generate-site`, and `eval/runner`. The static /
+dynamic boundary for tooling uses `SYSTEM_PROMPT_SEPARATOR` from
+`system-prompt.ts`.
+
+**Split / extract maintenance:** `scripts/split-codegen-static-prompt.mjs`
+(npm `codegen:split-static-prompt`); `scripts/extract-static-core.mjs` targets
+`config/systemprompt.md` when needed.
+
 Contains: tech stack rules, output format (CodeProject), shadcn/ui component
 catalog, visual design quality guidelines, art direction, typography, layout
 patterns, charts, icons, images, existing files list, scaffold starter rules,
@@ -322,3 +348,29 @@ than syncing continuously.
 | Plan mode | Active | `src/lib/gen/plan-prompt.ts` | Keep |
 | Template library references | Active | `src/lib/gen/template-library/` | Keep |
 | Knowledge base search | Active | `src/lib/gen/context/knowledge-base.ts` | Keep |
+
+---
+
+## Changelog — 2026-03-24 (static prompt + debug)
+
+Sammanfattning av arbetet som hör ihop med den statiska codegen-prompten och
+verktyg runt den:
+
+- **Källlayout:** Statisk egen-motor-prompt lever i manifestet
+  `config/codegen-static-prompt.json` + fragment under `config/prompt-static/`.
+  Ingen aktiv användning av extensionlös `config/systemprompt`; laddaren och
+  `check-systemprompt` accepterar inte den sökvägen längre.
+- **Kod:** `static-core-loader.ts` (manifest först, sedan monolit-fallback enligt
+  tabellen ovan); `scripts/check-systemprompt.mjs` validerar manifest + filer
+  eller monolit.
+- **Markdown / lint:** `config/prompt-static/04-visual-design-quality.md`
+  justerad för markdownlint; `.markdownlintignore` behåller en rad så att en
+  eventuellt återinförd extensionlös fil inte trixar verktyg.
+- **Prompt-dump:** `SAJTMASKIN_PROMPT_DUMP=1`, `prompt-dump.ts`, undermappar
+  under `data/prompt-dumps/`; `.gitignore` ignorerar dump-mappen.
+- **Städ:** PNG-filer som råkat hamna under `config/image/systemprompt/` togs
+  bort (hörde inte till källan för textprompten).
+
+Schema-mappen (`docs/schemas/`) beskriver i huvudsak **API-/UI-kontrakt**, inte
+promptfragment; en kort pekare finns i `docs/schemas/README.md` under
+*Related configuration*.

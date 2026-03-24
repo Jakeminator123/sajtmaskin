@@ -1,0 +1,2 @@
+# Disallow resurrecting extensionless monolith (canonical: config/prompt-static/ + codegen-static-prompt.json)
+config/systemprompt

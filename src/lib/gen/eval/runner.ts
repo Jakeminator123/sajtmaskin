@@ -1,5 +1,6 @@
 import { generateCode } from "../engine";
 import { ENGINE_MAX_OUTPUT_TOKENS } from "../defaults";
+import { dumpOwnEngineCodegenFromFullSystem } from "../prompt-dump";
 import { buildSystemPrompt } from "../system-prompt";
 import { parseCodeProject } from "../parser";
 import { runAutoFix } from "../autofix/pipeline";
@@ -87,6 +88,7 @@ async function evaluatePrompt(
     intent: evalPrompt.intent,
     imageGenerations: false,
   });
+  dumpOwnEngineCodegenFromFullSystem(systemPrompt, { source: "eval/runner" });
 
   const stream = generateCode({
     prompt: evalPrompt.prompt,

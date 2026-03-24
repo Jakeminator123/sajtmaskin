@@ -1,11 +1,11 @@
-﻿/**
- * CLI: trace prepareGenerationContext() without running codegen.
+/**
+ * CLI: trace prepareGenerationContext() utan codegen.
+ * Ligger under scripts/testning_scarf/ — kör alltid från repo-root.
  *
- * Usage:
- *   npm exec -- tsx scripts/trace-generation-context.ts --prompt-file prompt.txt
+ *   npx tsx scripts/testning_scarf/trace-generation-context.ts --prompt-file prompt.txt
+ *   ... --write-codegen-snapshot scripts/testning_scarf/output/codegen_snapshot/demo --strip-suite-note
  *
- * Loads .env.local / .env from repo root for OPENAI_API_KEY (embedding search).
- * (Minimal parser — no dotenv package required.)
+ * Laddar .env.local / .env från repo-root (OPENAI_API_KEY för embedding).
  */
 import fs from "fs";
 import path from "path";
@@ -13,7 +13,8 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, "..");
+/** scripts/testning_scarf/ → repo-root */
+const REPO_ROOT = path.resolve(__dirname, "../..");
 
 function stripQuotes(value: string): string {
   const t = value.trim();
@@ -60,18 +61,94 @@ function hasFlag(flag: string, argv: string[]): boolean {
   return argv.includes(flag);
 }
 
+/** Ta bort testsvit-anteckning i sparade *_prompt.txt. */
+function stripSuitePromptNote(raw: string): string {
+  const marker = "\n## Anteckning (testfall)";
+  const idx = raw.indexOf(marker);
+  const base = idx === -1 ? raw : raw.slice(0, idx);
+  return base.trimEnd();
+}
+
 function readPrompt(argv: string[]): string {
   const file = readArg("--prompt-file", argv);
   if (file) {
-    return fs.readFileSync(path.resolve(file), "utf-8").trimEnd();
+    let t = fs.readFileSync(path.resolve(file), "utf-8").trimEnd();
+    if (hasFlag("--strip-suite-note", argv)) {
+      t = stripSuitePromptNote(t);
+    }
+    return t;
   }
   if (process.stdin.isTTY) {
-    console.error("Usage: npx tsx scripts/trace-generation-context.ts --prompt-file <path> [--json]");
-    console.error("Optional: --offline --portable-metadata --build-intent website|app|template --scaffold-mode auto|manual|off --scaffold-id <id>");
-    console.error("          --brief-file <json> --custom-instructions-file <path> --dynamic-preview-chars <n>");
+    console.error(
+      "Usage: npx tsx scripts/testning_scarf/trace-generation-context.ts --prompt-file <path> [--json]",
+    );
+    console.error(
+      "Optional: --offline --portable-metadata --build-intent website|app|template --scaffold-mode auto|manual|off --scaffold-id <id>",
+    );
+    console.error(
+      "          --brief-file <json> --custom-instructions-file <path> --dynamic-preview-chars <n>",
+    );
+    console.error(
+      "          --write-codegen-snapshot <dir>  (skriver 01–04 filer som codegen-LLM matas med)",
+    );
+    console.error("          --strip-suite-note  (vid --prompt-file: ta bort ## Anteckning (testfall))");
     process.exit(1);
   }
   return fs.readFileSync(0, "utf-8").trimEnd();
+}
+
+const CODEGEN_README_SV = `# Codegen snapshot (vad kod-LLM:en matas med)
+
+## Inte samma som trace.json
+
+\`*_trace.json\` är en logg. Här ligger **fulltext** av det som egna motorn / v0 bygger från.
+
+| Fil | Roll |
+|-----|------|
+| \`01_user_message.txt\` | User-meddelande (byggprompt). |
+| \`02_engine_system_prompt.txt\` | Hela systemprompten för **egen motor** (STATIC_CORE + dynamik inkl. scaffold). |
+| \`03_v0_enrichment_context.txt\` | Dynamisk kontext som i **v0-läget** blandas in i system (plus UI custom instructions). |
+| \`04_snapshot_meta.json\` | Längder, resolved scaffold, offline-flagga. |
+
+**~38k tecken:** det är ofta \`03_v0_enrichment_context.txt\` (dynamisk del). \`02_\` är ännu större (~59k) i typiskt landing-page-fall.
+
+Embedding-anrop för scaffold/mall är **separata** från kodgenererings-LLM.
+`;
+
+function writeCodegenSnapshot(
+  dir: string,
+  prompt: string,
+  orchestration: {
+    engineSystemPrompt: string;
+    v0EnrichmentContext: string;
+    resolvedScaffold: { id: string; label: string } | null;
+    scaffoldContext?: string;
+  },
+  opts: { offline: boolean; buildIntent: string; scaffoldMode: string; scaffoldId: string | null },
+): void {
+  const abs = path.isAbsolute(dir) ? dir : path.resolve(REPO_ROOT, dir);
+  fs.mkdirSync(abs, { recursive: true });
+  fs.writeFileSync(path.join(abs, "00_PIPELINE_README.md"), CODEGEN_README_SV, "utf-8");
+  fs.writeFileSync(path.join(abs, "01_user_message.txt"), prompt + "\n", "utf-8");
+  fs.writeFileSync(path.join(abs, "02_engine_system_prompt.txt"), orchestration.engineSystemPrompt + "\n", "utf-8");
+  fs.writeFileSync(path.join(abs, "03_v0_enrichment_context.txt"), orchestration.v0EnrichmentContext + "\n", "utf-8");
+  const meta = {
+    offline: opts.offline,
+    buildIntent: opts.buildIntent,
+    scaffoldMode: opts.scaffoldMode,
+    scaffoldIdArg: opts.scaffoldId,
+    resolvedScaffoldId: orchestration.resolvedScaffold?.id ?? null,
+    resolvedScaffoldLabel: orchestration.resolvedScaffold?.label ?? null,
+    charCounts: {
+      userMessage: prompt.length,
+      engineSystemPrompt: orchestration.engineSystemPrompt.length,
+      v0EnrichmentContext: orchestration.v0EnrichmentContext.length,
+      scaffoldContext: orchestration.scaffoldContext?.length ?? 0,
+    },
+    openaiConfigured: Boolean(process.env.OPENAI_API_KEY?.trim()),
+  };
+  fs.writeFileSync(path.join(abs, "04_snapshot_meta.json"), JSON.stringify(meta, null, 2) + "\n", "utf-8");
+  console.error(`[trace] Codegen snapshot → ${path.relative(REPO_ROOT, abs)}/`);
 }
 
 async function main(): Promise<void> {
@@ -94,15 +171,19 @@ async function main(): Promise<void> {
     120_000,
     Math.max(500, parseInt(readArg("--dynamic-preview-chars", argv) || "6000", 10) || 6000),
   );
+  const codegenSnapshotDir = readArg("--write-codegen-snapshot", argv);
 
   let brief: Record<string, unknown> | null = null;
   if (briefPath) {
-    brief = JSON.parse(fs.readFileSync(path.resolve(briefPath), "utf-8")) as Record<string, unknown>;
+    brief = JSON.parse(fs.readFileSync(path.resolve(REPO_ROOT, briefPath), "utf-8")) as Record<
+      string,
+      unknown
+    >;
   }
 
   let customInstructions: string | undefined;
   if (customPath) {
-    customInstructions = fs.readFileSync(path.resolve(customPath), "utf-8").trim();
+    customInstructions = fs.readFileSync(path.resolve(REPO_ROOT, customPath), "utf-8").trim();
     if (!customInstructions) customInstructions = undefined;
   }
 
@@ -111,13 +192,11 @@ async function main(): Promise<void> {
     steps.push({ name, ms: Math.round((nowMs() - start) * 100) / 100, detail });
   };
 
-  const { matchScaffold, matchScaffoldWithEmbeddings } = await import(
-    "@/lib/gen/scaffolds/matcher"
-  );
+  const { matchScaffold, matchScaffoldWithEmbeddings } = await import("@/lib/gen/scaffolds/matcher");
   const { searchScaffolds } = await import("@/lib/gen/scaffolds/scaffold-search");
   const { prepareGenerationContext } = await import("@/lib/gen/orchestrate");
   const { searchTemplateLibrary, searchTemplateLibraryKeywordsOnly } = await import(
-    "@/lib/gen/template-library/search"
+    "@/lib/gen/template-library/search",
   );
   const { getSystemPromptLengths } = await import("@/lib/gen/system-prompt");
   const { detectScaffoldMode } = await import("@/lib/gen/scaffolds/serialize");
@@ -180,6 +259,15 @@ async function main(): Promise<void> {
   pushStep("prepareGenerationContext", t, {
     resolvedId: orchestration.resolvedScaffold?.id ?? null,
   });
+
+  if (codegenSnapshotDir) {
+    writeCodegenSnapshot(codegenSnapshotDir, prompt, orchestration, {
+      offline,
+      buildIntent,
+      scaffoldMode,
+      scaffoldId: scaffoldId || null,
+    });
+  }
 
   t = nowMs();
   let templateMatches: Array<{
@@ -293,7 +381,7 @@ async function main(): Promise<void> {
     llm: {
       codegenExecuted: false,
       explanation:
-        "Detta skript kör inte streamText/generateCode. Det visar systempromptens längd och den dynamiska kontext som injiceras, samt vilka scaffold-filer som egna motorn utgår ifrån vid merge.",
+        "Ingen streamText/codegen körs. För fulltext som kod-LLM ser: kör med --write-codegen-snapshot <dir> (01–04 filer).",
       systemPromptLengths: lens,
       userMessagePreview: prompt.slice(0, 2000) + (prompt.length > 2000 ? "\n…" : ""),
       dynamicContextPreview: dynPreview + (dynTruncated ? "\n\n… [truncate]" : ""),

@@ -1,0 +1,3 @@
+Vi vill ha en applikationsliknande webbplats för en fiktiv Wall Street–inspirerad firma (institutionell finans, M&A, aktieanalys).
+Det ska kännas som en riktig produkt: mörkt premium-läge, täta nyckeltal, grafer, tabeller och översikter — som en handelsterminal eller ekonomidashboard, inte en kampanjlandningssida.
+Fokus: portfolioöversikt, marknadsdata, riskmått, orderflöden och CFO-vänliga dashboards med tydlig informationsdensitet.

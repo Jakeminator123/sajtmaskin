@@ -33,6 +33,11 @@ import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
 } from "@/lib/gen/plan-review";
+import {
+  PROMPT_DUMP_CATEGORY,
+  dumpOwnEngineCodegenFromFullSystem,
+  writeLatestPromptDump,
+} from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {
   extractAppProjectIdFromMeta,
@@ -329,6 +334,15 @@ export async function POST(req: Request) {
 
         const planPreamble = buildPlannerSystemPrompt();
         const planSystemPrompt = `${planPreamble}\n\n---\n\n${planOrchestration.v0EnrichmentContext}`;
+        writeLatestPromptDump(
+          PROMPT_DUMP_CATEGORY.planModePlanner,
+          {
+            "planner-preamble.md": planPreamble,
+            "dynamic-context.md": planOrchestration.v0EnrichmentContext,
+            "full-system.md": planSystemPrompt,
+          },
+          { route: "POST /api/v0/chats/stream", planMode: true },
+        );
         const planTools = getAgentTools();
 
         debugLog("plan", "Plan mode activated (unified orchestration)", {
@@ -468,8 +482,11 @@ export async function POST(req: Request) {
           preGenerationContracts,
           capabilities: engineCapabilities,
           engineSystemPrompt,
-        } =
-          orchestration;
+        } = orchestration;
+        dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
+          route: "POST /api/v0/chats/stream",
+          planMode: false,
+        });
         const contractClarification = buildContractClarificationQuestion({
           buildIntent: engineIntent,
           context: preGenerationContracts,

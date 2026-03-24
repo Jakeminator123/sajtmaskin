@@ -3,13 +3,12 @@
 Bygger underlag (JSON + README) för de *första* LLM-anropen i buildern
 (brief / polish) samt ett skelett för första kodgenererings-stream.
 
-Kör från repo-roten (samma fil under `scripts/testning_scarf/` efter synk).
+Kör från repo-roten:
 
-  python devtools/build_first_llm_underlag.py -p "Min prompt"
+  python scripts/testning_scarf/build_first_llm_underlag.py -p "Min prompt"
   python scripts/testning_scarf/build_first_llm_underlag.py --output-dir path/to/run_XXX
-  python devtools/build_first_llm_underlag.py   # interaktivt (tom rad = slut)
 
-Se: devtools/first_llm_promptlab.py (interaktivt + valfritt `--live`).
+Se: first_llm_promptlab.py (interaktivt + valfritt `--live`).
 """
 from __future__ import annotations
 
@@ -24,14 +23,9 @@ from pathlib import Path
 from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-# devtools/ eller scripts/testning_scarf/
-REPO_ROOT = SCRIPT_DIR.parent if SCRIPT_DIR.name == "devtools" else SCRIPT_DIR.parent.parent
-OUTPUT_ROOT = (
-    REPO_ROOT / "scripts" / "testning_scarf" / "output_first_llm_underlag"
-    if SCRIPT_DIR.name == "devtools"
-    else SCRIPT_DIR / "output_first_llm_underlag"
-)
-TS_TRACE = REPO_ROOT / "scripts" / "trace-generation-context.ts"
+REPO_ROOT = SCRIPT_DIR.parent.parent
+OUTPUT_ROOT = SCRIPT_DIR / "output" / "first_llm" / "underlag"
+TS_TRACE = SCRIPT_DIR / "trace-generation-context.ts"
 
 BRIEF_SERVER_NOTE = """# Brief: vad servern lägger till
 
@@ -139,7 +133,7 @@ I buildern är **inte** allt ett enda anrop. Ungefär i ordning:
 
 Kör `first_llm_promptlab.py --live` eller manuellt:
 
-`npx tsx devtools/run_first_llm_live.ts --output-dir <denna mapp>`
+`npx tsx scripts/testning_scarf/run_first_llm_live.ts --output-dir <denna mapp>`
 
 Då tillkommer `10_live_*` … `16_live_*` med faktiska HTTP-request/response.
 """
@@ -154,7 +148,7 @@ def main() -> None:
     ap.add_argument(
         "--output-dir",
         type=Path,
-        help="Skriv allt hit (annars output_first_llm_underlag/run_<UTC>/)",
+        help="Skriv allt hit (annars output/first_llm/underlag/run_<UTC>/)",
     )
     ap.add_argument(
         "--build-intent",
@@ -254,7 +248,7 @@ def main() -> None:
             )
         else:
             stream_meta["scaffold_preview_error"] = (
-                "Kunde inte köra trace (saknas scripts/trace-generation-context.ts eller tsx misslyckades)."
+                "Kunde inte köra trace (saknas trace-generation-context.ts bredvid skriptet eller tsx misslyckades)."
             )
 
     (out_dir / "03_first_codegen_stream_meta.json").write_text(

@@ -9,9 +9,10 @@
     "node": "22.14.0"
   },
   "scripts": {
-    "predev": "node scripts/refresh-token.mjs && node scripts/db-init.mjs",
+    "predev": "node scripts/check-systemprompt.mjs && node scripts/refresh-token.mjs && node scripts/db-init.mjs",
     "dev": "node scripts/next-runner.mjs dev",
     "refresh-token": "node scripts/refresh-token.mjs",
+    "prebuild": "node scripts/check-systemprompt.mjs",
     "build": "node scripts/next-runner.mjs build",
     "start": "node scripts/next-runner.mjs start",
     "lint": "eslint .",
@@ -60,10 +61,12 @@
     "db:migrate": "npx tsx scripts/run-migrations.ts",
     "db:push": "npx drizzle-kit push",
     "db:generate": "npx drizzle-kit generate",
-    "prompt:trace": "tsx scripts/trace-generation-context.ts",
-    "scaffold:suite": "python scripts/run_scaffold_suite.py",
-    "first-llm:lab": "python devtools/first_llm_promptlab.py",
-    "first-llm:live": "npx tsx devtools/run_first_llm_live.ts"
+    "prompt:trace": "npx tsx scripts/testning_scarf/trace-generation-context.ts",
+    "scaffold:suite": "python scripts/testning_scarf/run_scaffold_suite.py",
+    "first-llm:lab": "python scripts/testning_scarf/first_llm_promptlab.py",
+    "first-llm:live": "npx tsx scripts/testning_scarf/run_first_llm_live.ts",
+    "testning:codegen-print": "python scripts/testning_scarf/print_codegen_context.py",
+    "codegen:split-static-prompt": "node scripts/split-codegen-static-prompt.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

@@ -36,6 +36,7 @@ import {
   inferPreGenerationContracts,
   type PreGenerationContractContext,
 } from "./pre-generation-contracts";
+import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "./prompt-dump";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -190,6 +191,17 @@ export async function prepareGenerationContext(
   });
 
   const v0EnrichmentContext = await buildDynamicContext(dynamicOpts);
+
+  writeLatestPromptDump(
+    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
+    { "latest.md": v0EnrichmentContext },
+    {
+      buildIntent,
+      scaffoldId: resolvedScaffold?.id ?? null,
+      scaffoldFamily: resolvedScaffold?.family ?? null,
+      promptLength: prompt.length,
+    },
+  );
 
   return {
     resolvedScaffold,

@@ -6,6 +6,7 @@
   ],
   "settings": {
     "git.autofetch": true,
-    "json.schemaDownload.enable": true
+    "json.schemaDownload.enable": true,
+    "markdown.validate.enabled": true
   }
 }
