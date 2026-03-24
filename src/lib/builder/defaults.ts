@@ -6,8 +6,9 @@
  *
  * Build Models:
  *   - The first group represents build profiles, not prompt-assist models.
- *   - When V0_FALLBACK_BUILDER=y, these map to v0 Platform API models.
- *   - Otherwise, the same profiles map to the own engine's provider model IDs.
+ *   - Profiles map to the own engine's provider model IDs (codegen is own-engine only).
+ *   - `V0_FALLBACK_BUILDER` does not change build models; it only affects optional
+ *     preview URL preference when a v0-hosted demo exists.
  *   - Prompt Assist models are listed separately below and are only used to
  *     rewrite/brief the prompt before generation.
  *

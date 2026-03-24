@@ -1,31 +1,14 @@
 import { z } from "zod";
+import { isAffirmativeEnvValue, sanitizeEnvString } from "./env-affirmative";
 
-/**
- * Strip surrounding quotes and whitespace that some deploy platforms
- * (Render, CI) inject into env values, e.g. `"sk-..."`.
- */
-function sanitize(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  let t = value.trim();
-  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
-    t = t.slice(1, -1).trim();
-  }
-  return t || undefined;
-}
+export { isAffirmativeEnvValue } from "./env-affirmative";
 
 function sanitizeProcessEnv(): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(process.env)) {
-    out[key] = sanitize(value);
+    out[key] = sanitizeEnvString(value);
   }
   return out;
-}
-
-const AFFIRMATIVE_ENV_VALUES = new Set(["1", "true", "yes", "y", "on"]);
-
-export function isAffirmativeEnvValue(value: string | undefined): boolean {
-  const normalized = sanitize(value)?.toLowerCase();
-  return normalized ? AFFIRMATIVE_ENV_VALUES.has(normalized) : false;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,4 +208,14 @@ export function getServerEnv(): ServerEnv {
 
   _cached = result.data;
   return _cached;
+}
+
+/**
+ * Opt-in: prefer v0-hosted preview URLs in the builder when both sandbox and
+ * `*.vusercontent.net` demo URLs exist. Does not enable v0 Platform API for codegen
+ * (`createGenerationPipeline` is own-engine only). Off unless value is affirmative
+ * (`y`, `yes`, `true`, `1`, `on`); `n` / `no` / `false` / empty → off.
+ */
+export function isV0BuilderPreviewFallbackEnabled(): boolean {
+  return isAffirmativeEnvValue(getServerEnv().V0_FALLBACK_BUILDER);
 }

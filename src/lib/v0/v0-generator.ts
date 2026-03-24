@@ -2,8 +2,9 @@
  * v0 API Generator
  * =================
  *
- * FALLBACK-ONLY: Used when V0_FALLBACK_BUILDER=y. The default engine is the
- * gen/ pipeline (GPT 5.2 + AI SDK). See src/lib/gen/fallback.ts.
+ * Own-engine builder streams do not use this module. These helpers call the v0 Platform
+ * API for templates, registry init, zip download, and explicit generate/refine flows.
+ * Default builder codegen is `src/lib/gen/fallback.ts` → own-engine.
  *
  * Also used for: templates (generateFromTemplate), registry init (initFromRegistry),
  * and download (downloadVersionAsZip) — these flows still use v0 Platform API.

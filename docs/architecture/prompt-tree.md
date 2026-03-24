@@ -11,7 +11,7 @@ below.
 This document maps every prompt-related parameter, file, and transformation
 from user input in the builder UI to the final system prompt consumed by the
 generation engine. Use it to understand what controls what, where duplication
-exists, and where the own-engine and v0-fallback paths diverge.
+exists. Builder codegen is own-engine only; `V0_FALLBACK_BUILDER` affects preview URL preference, not this tree.
 
 ## High-level flow
 
@@ -26,7 +26,7 @@ API Route (/api/v0/chats/stream or /api/v0/chats/[chatId]/stream)
        │
        ├─► Request Metadata extraction (attachments, brief, theme, scaffold settings)
        │
-       ├─► Route Decision: own-engine vs v0-fallback (V0_FALLBACK_BUILDER flag)
+       ├─► Codegen path: own-engine only (`createGenerationPipeline` → `engine.ts`)
        │
        ▼
 Orchestrate Context (prepareGenerationContext)

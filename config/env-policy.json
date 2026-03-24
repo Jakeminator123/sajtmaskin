@@ -472,7 +472,7 @@
       "key": "V0_FALLBACK_BUILDER",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["development"],
-      "notes": "Fallback mode is usually enabled only for explicit local testing."
+      "notes": "Affirmative only (y/yes/true/1/on): prefer v0-hosted demoUrl in builder preview when sandbox also exists. Does not enable v0 API codegen. Inlined to NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK at build (next.config)."
     },
     {
       "key": "LOOPIA_API_USER",

@@ -1,11 +1,11 @@
 /**
- * v0 SDK client wrapper.
+ * v0 SDK client wrapper (`v0-sdk`).
  *
- * FALLBACK-ONLY for code generation: When V0_FALLBACK_BUILDER=y, the stream
- * route uses v0-generator. Otherwise the gen/ engine is used.
- *
- * This module is still required for: v0 API routes (chat ops, versions, init,
- * deploy, etc.). Do not remove — fallback and templates/registry still need it.
+ * Used for v0 Platform API operations the product still relies on (chat/version
+ * CRUD, templates, registry init, zip download, deploy-related calls). Builder
+ * **codegen** streams use the own-engine (`createGenerationPipeline` → `engine.ts`);
+ * this module does not switch that path. Optional `V0_FALLBACK_BUILDER` only affects
+ * builder **preview URL** preference when a v0-hosted demo exists — see ENV docs.
  */
 import { createClient } from "v0-sdk";
 import { errorLog } from "@/lib/utils/debug";

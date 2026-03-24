@@ -15,8 +15,8 @@ export interface PipelineOptions {
 }
 
 /**
- * Entry point for own-engine code generation.
- * Returns an SSE ReadableStream from the GPT engine.
+ * Entry point for own-engine code generation only.
+ * Returns an SSE ReadableStream from the GPT engine. Does not call v0 Platform API.
  */
 export function createGenerationPipeline(
   options: PipelineOptions,

@@ -12,7 +12,7 @@ and get a working site generated, previewed, and deployed.
 
 - **Framework**: Next.js 16 (App Router), React 19, TypeScript 5.9
 - **Styling**: Tailwind CSS 4, shadcn/ui (Radix primitives)
-- **AI/Generation**: Own engine (OpenAI via AI SDK) default; v0 Platform API fallback when V0_FALLBACK_BUILDER=y
+- **AI/Generation**: Own engine (OpenAI via AI SDK) for builder codegen; v0 Platform API via `v0-sdk` for templates/registry/zip and related routes — not as a stream codegen switch. Optional `V0_FALLBACK_BUILDER` only affects preview URL preference.
 - **Database**: PostgreSQL (Supabase) via Drizzle ORM
 - **Cache**: Redis (Upstash/ioredis)
 - **State**: Zustand (auth), React hooks (builder state)
@@ -27,7 +27,7 @@ User prompt -> Builder UI -> Own engine (default) -> Generated code -> Preview -
 ```
 
 - **Own engine** (default): `src/lib/gen/` — scaffold matching, system prompt, streamText, autofix, preview. Kräver OPENAI_API_KEY.
-- **v0 fallback** (soft-deprecated): När V0_FALLBACK_BUILDER=y skickas till v0 Platform API. Kräver V0_API_KEY.
+- **v0 SDK / API** (soft-deprecated for new features): Mallar, registry, nedladdning m.m. `V0_FALLBACK_BUILDER` styr inte codegen — vid `y`/`yes`/`true`/`1`/`on` kan preview föredra v0-hostad `demoUrl` framför sandbox när båda finns.
 - **Runtime scaffolds**: `src/lib/gen/scaffolds/` — 10 starter projects used as generation base (auto-matched, manually picked, or off).
 - **Custom instructions**: `src/lib/builder/defaults.ts` — CORE (always) + EXTENDED (without scaffold). Editable in builder header.
 - **v0-templates** vs **runtime scaffolds** vs **Vercel mall (research)**: see **`.cursor/rules/terminology.mdc`** (single source of truth for product wording).
@@ -38,7 +38,7 @@ User prompt -> Builder UI -> Own engine (default) -> Generated code -> Preview -
 |-----------|---------|
 | `src/app/builder/` | Main builder page (prompt -> generate -> preview -> deploy) |
 | `src/app/admin/` | Admin dashboard |
-| `src/app/api/v0/` | Chat/stream routes (own engine eller v0 proxy) |
+| `src/app/api/v0/` | Chat/stream routes (own-engine codegen; historiskt API-prefix), plus v0 SDK routes för CRUD/mall/registry |
 | `src/lib/gen/` | Own engine — runtime scaffolds, system prompt, autofix, preview |
 | `src/lib/templates/` | v0-templates product data and semantic search |
 | `research/external-templates/` | Raw discovery plus curated external reference dossiers |

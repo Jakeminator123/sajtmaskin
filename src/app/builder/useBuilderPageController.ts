@@ -16,6 +16,7 @@ import {
   writeChatGenerationSettings,
 } from "@/lib/builder/chat-generation-settings";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
+import { isV0BuilderPreviewFallbackEnabledInBrowser } from "@/lib/builder/v0-preview-priority";
 import { getProject, saveProjectData } from "@/lib/project-client";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -1160,8 +1161,14 @@ export function useBuilderPageController() {
     const chatObj = chat as ChatData;
     const canUseServerDemoUrl =
       !serverProjectChatId || !chatId || serverProjectChatId === chatId;
+    const preferV0HostedPreview = isV0BuilderPreviewFallbackEnabledInBrowser();
+    const v0HostedDemoUrl =
+      activeVersionMatch?.demoUrl?.includes("vusercontent.net") === true
+        ? activeVersionMatch.demoUrl
+        : null;
     const nextDemoUrl =
       persistedPreviewOverride ||
+      (preferV0HostedPreview && v0HostedDemoUrl ? v0HostedDemoUrl : null) ||
       activeVersionMatch?.sandboxUrl ||
       activeVersionMatch?.demoUrl ||
       chatObj?.demoUrl ||

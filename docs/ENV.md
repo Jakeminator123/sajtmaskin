@@ -162,7 +162,7 @@ Sajtmaskin-installationen:
 
 - databas och cache: `POSTGRES_URL`, `REDIS_URL`, `KV_URL`, `UPSTASH_*`
 - auth och sessioner: `JWT_SECRET`
-- AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (direktanrop efter Plan 17); `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` kan fortfarande krävas av **vissa** routes (t.ex. prompt-assist portvakt lokalt) — se `ARBETSANTECKNINGAR.txt` / kod; `V0_API_KEY` för kvarvarande v0-hantering och opt-in `V0_FALLBACK_BUILDER`
+- AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (direktanrop efter Plan 17); `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` kan fortfarande krävas av **vissa** routes (t.ex. prompt-assist portvakt lokalt) — se `ARBETSANTECKNINGAR.txt` / kod; `V0_API_KEY` för v0 SDK-anrop (mallar, registry, nedladdning, m.m.); valfri `V0_FALLBACK_BUILDER` styr **endast** om byggaren ska föredra v0-hostad preview (`*.vusercontent.net`) framför sandbox när båda finns — **inte** kodgenerering (egen motor alltid för stream-pipelinen)
 - deploy och Vercel: `VERCEL_TOKEN`, valfritt `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID`, `BLOB_READ_WRITE_TOKEN`; full Next-preview i sandbox: se [architecture/vercel-sandbox-credentials.md](./architecture/vercel-sandbox-credentials.md) och [architecture/preview-and-sandbox-flow.md](./architecture/preview-and-sandbox-flow.md)
 - interna tjänster: `OPENCLAW_*`, `INSPECTOR_*`, `RESEND_API_KEY`
 
@@ -214,8 +214,9 @@ källa.
 | --------------------- | ---------- | ------------------- | ----------------------------------------------------------------------- |
 | `POSTGRES_URL`        | .env.local | production, preview | Primär databas (Supabase)                                               |
 | `JWT_SECRET`          | .env.local | production, preview | Auth-tokens                                                             |
-| `OPENAI_API_KEY`      | .env.local | production, preview | Own engine (krävs när V0_FALLBACK_BUILDER inte är satt)                 |
-| `V0_API_KEY`          | .env.local | production, preview | v0 Platform API, v0-baserad prompt assist och vissa integrationer. Krävs för fallback-läge när `V0_FALLBACK_BUILDER=y` |
+| `OPENAI_API_KEY`      | .env.local | production, preview | Own engine (builder-codegen)                                              |
+| `V0_API_KEY`          | .env.local | production, preview | v0 SDK: mallar, registry, zip, m.m.; prompt assist som använder Model API. Inte kopplat till `V0_FALLBACK_BUILDER` |
+| `V0_FALLBACK_BUILDER` | .env.local | development (typiskt) | **Av** som standard. Sätt `y` / `yes` / `true` / `1` / `on` för att föredra v0-hostad `demoUrl` i preview när den finns. Värden som `n`, `no`, `false`, tomt → av. Påverkar inte codegen. Vid build kopieras värdet till `NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK` (se `next.config.ts`). |
 | `NEXT_PUBLIC_APP_URL` | .env.local | production, preview | Appens publika URL (t.ex. https://sajtmaskin.se)                        |
 
 ## D-ID avatar-test (`/avatar`)

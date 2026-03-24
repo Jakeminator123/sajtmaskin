@@ -163,7 +163,8 @@ Default selected profile: **Max** (`max`)
 | Kodgenerering | `OPENAI_API_KEY` (direkt mot OpenAI) |
 | Prompt Assist | `AI_GATEWAY_API_KEY` (Vercel AI Gateway) |
 | Deep Brief | `AI_GATEWAY_API_KEY` (gateway-only) |
-| V0-fallback | `V0_API_KEY` (bara om `V0_FALLBACK_BUILDER=y`) |
+| v0 SDK (mallar, registry, zip, m.m.) | `V0_API_KEY` när de flödena används |
+| Preview-prioritet v0-host | `V0_FALLBACK_BUILDER` (affirmative → föredra `*.vusercontent.net` i preview; codegen förblir own-engine) |
 
 ## Scaffold-system (10 scaffolds)
 

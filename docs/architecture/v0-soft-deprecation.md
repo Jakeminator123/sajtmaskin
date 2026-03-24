@@ -1,6 +1,6 @@
 # v0 Soft Deprecation — Stop/Go Gates
 
-> Senast uppdaterad: 2026-03-18
+> Senast uppdaterad: 2026-03-24
 
 This document defines measurable criteria for the phased removal of v0
 Platform API dependencies. The goal is to retire v0-fallback safely while
@@ -8,12 +8,19 @@ preserving all Vercel platform integrations (deploy, blob, domains).
 
 ## Current state
 
-- Own-engine is the default generation path.
-- v0-fallback is opt-in via `V0_FALLBACK_BUILDER=y`.
-- Many API routes under `src/app/api/v0/` still call the v0 Platform API
-  for chat CRUD, version management, file operations, and registry init.
-- Vercel integrations (deploy, blob, domains) are separate from v0 and must
-  be preserved.
+- Own-engine is the **only** builder codegen path (`createGenerationPipeline` in
+  `src/lib/gen/fallback.ts` → `engine.ts`). There is no v0 Platform API branch
+  on that stream.
+- `V0_FALLBACK_BUILDER` is an **opt-in preview preference**: when set to an
+  affirmative value (`y`, `yes`, `true`, `1`, `on`), the builder UI may prefer a
+  v0-hosted `demoUrl` (`*.vusercontent.net`) over a sandbox URL when both exist.
+  Values like `n`, `no`, `false`, or empty leave this off. Inlined for the client
+  as `NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK` via `next.config.ts`.
+- Many API routes under `src/app/api/v0/` still call the v0 Platform API for chat
+  CRUD, version management, file operations, and registry init — separate from
+  the own-engine stream.
+- Vercel integrations (deploy, blob, domains) are separate from v0 and must be
+  preserved.
 
 ## Three-phase deprecation
 
@@ -22,14 +29,15 @@ preserving all Vercel platform integrations (deploy, blob, domains).
 **Status:** In progress
 
 Actions completed:
-- Own-engine is default, v0-fallback is behind flag
+- Own-engine is default and sole path for builder codegen streams
+- Preview preference behind `V0_FALLBACK_BUILDER` (affirmative only)
 - `designSystemId` marked as deprecated in state (no UI)
 - `V0_STREAMING_ENABLED` documented as v0-only, removal candidate
 - Model override env vars added to Zod schema
-- Prompt tree documented with clear own-engine vs v0-fallback divergence
+- Prompt tree documents own-engine codegen (no v0 stream branch)
 
 Remaining actions:
-- Add telemetry logging when v0-fallback is used (count of fallback invocations)
+- Add telemetry when v0-hosted preview is chosen via the preview flag (optional)
 - Add telemetry logging when `init-registry` is called
 - Ensure own-engine has full feature parity for remaining shared paths
 
@@ -39,7 +47,7 @@ Remaining actions:
 
 | Criterion | How to measure | Target |
 |-----------|---------------|--------|
-| Fallback usage rate | Count `createV0FallbackStream` calls in runtime logs | < 5% of total generations |
+| v0-hosted preview preference | Count preview loads where v0 `demoUrl` wins over sandbox when flag on | Product decision |
 | init-registry usage | Count `/api/v0/chats/init-registry` calls | Understand frequency and migration path |
 | Version file resolution | `resolveVersionFiles` v0 branch usage | Own-engine branch handles all active chats |
 | Template init route | `/api/template` v0-generator calls | Replace with own-engine template init |
@@ -62,20 +70,20 @@ Remaining actions:
 
 | Criterion | How to measure | Target |
 |-----------|---------------|--------|
-| Zero fallback invocations for 30 days | Runtime logs | 0 calls |
-| All shared dependencies migrated | Code audit | No `shouldUseV0Fallback()` remaining |
+| Zero use of v0 preview preference (if retired) | Runtime logs | 0 sessions |
+| All shared dependencies migrated | Code audit | No dead v0-only codegen hooks |
 | init-registry replaced or removed | Feature decision | Documented decision |
 | V0_API_KEY not required for core flow | Health check | Own-engine works without V0_API_KEY |
 
-**Files to remove in Phase 3:**
+**Files / config to remove or simplify in Phase 3:**
 
-v0-fallback-only (safe to remove):
-- `src/lib/providers/v0-fallback/` (entire directory)
-- `src/lib/v0-fallback.ts`
-- v0-fallback branches in `src/app/api/v0/chats/stream/route.ts`
-- v0-fallback branches in `src/app/api/v0/chats/[chatId]/stream/route.ts`
+- `V0_FALLBACK_BUILDER` and client mirror `NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK`
+  wiring in `next.config.ts` if preview preference is no longer needed
 - `V0_STREAMING_ENABLED` from env schema and policy
 - `DESIGN_SYSTEM_ID` from env schema and policy
+
+Note: There is no `src/lib/providers/v0-fallback/` directory or `v0-fallback.ts`
+in the repo today; stream routes do not implement a v0 codegen branch.
 
 Always-v0-dependent (requires replacement or removal decision):
 - `src/app/api/v0/chats/init-registry/route.ts`

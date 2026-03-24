@@ -1,27 +1,27 @@
 # gen/ — Code Generation Module
 
-Sajtmaskin's own code generation engine. Uses OpenAI models (gpt-5.3-codex default, gpt-5.4 max) via AI SDK to generate Next.js/React sites from prompts. Replaces v0 Platform API as the default path.
+Sajtmaskin's own code generation engine. Uses OpenAI models (gpt-5.3-codex default, gpt-5.4 max) via AI SDK to generate Next.js/React sites from prompts. Builder **codegen** uses this own-engine path only; v0 Platform API is not used for `createGenerationPipeline`.
 
 ## Architecture
 
 ```
 createGenerationPipeline()  (fallback.ts)
     │
-    ├─ V0_FALLBACK_BUILDER=y  →  v0-generator (v0 Platform API)
-    │
-    └─ default                →  engine.ts (streamText + createCodeGenSSEStream)
-                                       │
-                                       ├─ system-prompt.ts (buildSystemPrompt)
-                                       ├─ url-compress.ts (compress before LLM, expand after)
-                                       ├─ stream-format.ts (SSE events)
-                                       └─ suspense/ (TransformStream post-processing)
+    └─ engine.ts (streamText + createCodeGenSSEStream)
+           │
+           ├─ system-prompt.ts (buildSystemPrompt)
+           ├─ url-compress.ts (compress before LLM, expand after)
+           ├─ stream-format.ts (SSE events)
+           └─ suspense/ (TransformStream post-processing)
 ```
+
+v0 Platform API remains in use elsewhere (templates, registry init, zip download, deploy helpers) via `@/lib/v0/v0-generator` and related API routes — not through this module's stream entrypoint.
 
 ## Key Files
 
 | File | Role |
 |------|------|
-| `fallback.ts` | Entry point. `createGenerationPipeline()` switches between gen engine and v0 fallback based on `V0_FALLBACK_BUILDER`. |
+| `fallback.ts` | Entry point. `createGenerationPipeline()` delegates to the own-engine (`engine.ts`) only. |
 | `engine.ts` | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
 | `system-prompt.ts` | Builds the system prompt (static core + dynamic context). |
 | `stream-format.ts` | Converts AI SDK stream to SSE events (`meta`, `thinking`, `content`, `done`, `error`). |
@@ -32,16 +32,9 @@ createGenerationPipeline()  (fallback.ts)
 | `preview/` | Preview runtime modules. `preview/index.ts` exposes `buildPreviewHtml()` and `buildPreviewUrl()`, while sibling files split resolution, CSS, transpilation, script assembly, and shims. |
 | `version-manager.ts` | Creates versions from content, parses files. |
 
-## Fallback
+## Preview flag `V0_FALLBACK_BUILDER` (optional)
 
-When `V0_FALLBACK_BUILDER=y`:
-
-1. `createGenerationPipeline()` returns `createV0FallbackStream()` instead of calling the engine.
-2. The fallback dynamically imports `@/lib/v0/v0-generator` and calls `generateCode()`.
-3. The result is wrapped in an SSE stream that matches the gen engine's event format.
-4. The client sees the same SSE shape either way.
-
-v0 is still used for: templates (`generateFromTemplate`), registry init (`initFromRegistry`), and download (`downloadVersionAsZip`), regardless of fallback.
+This env var does **not** switch codegen to v0. When set to an affirmative value (`y`, `yes`, `true`, `1`, `on`), the **builder UI** may prefer a v0-hosted `demoUrl` (`*.vusercontent.net`) over a sandbox URL when both exist. Values like `n`, `no`, `false`, or empty leave that behavior off. See `docs/ENV.md` and `src/lib/builder/v0-preview-priority.ts`.
 
 ## Generated Artifacts And Indexing
 
@@ -49,11 +42,11 @@ Large generated files under `src/lib/gen/` are part of the runtime surface, even
 when they are excluded from normal Cursor indexing.
 
 | Path | Role | Normal handling |
-|------|------|-----------------|
+|------|------|----------------|
 | `data/docs-embeddings.json` | Embeddings derived from documentation snippets used by generation support. | Generated, committed, rarely hand-edited, usually safe to keep in `.cursorignore`. |
 | `scaffolds/scaffold-research.generated.json` | Generated scaffold research metadata committed for runtime/build-time use. | Generated, committed, do not hand-edit unless you are deliberately repairing a bad artifact. |
 | `scaffolds/scaffold-embeddings.json` | Embeddings for the internal runtime scaffolds. | Generated, committed, direct-read only when debugging scaffold search/matching. |
-| `template-library/template-library.generated.json` | Curated template-library artifact used by runtime search and prompt support. | Generated, committed, large enough to keep out of default indexing. |
+| `template-library/template-library.generated.json` | Curated template-library artifact used for runtime search and prompt support. | Generated, committed, large enough to keep out of default indexing. |
 | `template-library/template-library-embeddings.json` | Embeddings for the curated template-library artifact. | Generated, committed, usually only needed for targeted debugging or rebuild validation. |
 
 Guidelines:

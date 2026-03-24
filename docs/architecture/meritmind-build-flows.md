@@ -13,10 +13,12 @@ arkitekturfiler och riskerade att drifta.
 | Loop: stream, felminne, autofix | `docs/architecture/generation-loop-and-error-memory.md` |
 | v0 endast som opt-in | `docs/architecture/v0-soft-deprecation.md` + `.cursor/rules/terminology.mdc` |
 
-## v0-fallback (kort)
+## v0 och preview-flagga (kort)
 
-Standardvägen är **own-engine**. v0 används bara när `V0_FALLBACK_BUILDER` är
-aktiverat och relevanta metadata/v0-projekt finns — se kod och `v0-soft-deprecation.md`.
+Standardvägen för **kodgenerering** är **own-engine**. v0 Platform API används i
+andra ytor (mall, registry, zip, m.m.) via `v0-sdk` när de anropas. `V0_FALLBACK_BUILDER`
+är **inte** codegen-växel: vid affirmative värden kan byggaren föredra v0-hostad
+`demoUrl` i iframe när både den och sandbox finns — se `docs/ENV.md` och `v0-soft-deprecation.md`.
 
 ## Historik
 

@@ -11,7 +11,7 @@ alwaysApply: true
 |-------|-----------|-------------|
 | **Vercel** | Hosting platform. Deploys, domains, env vars, CDN. | vercel.com |
 | **Sajtmaskin** | Our app. Own code-generation engine (default), manages projects, users, deploy flow. | sajtmaskin.se |
-| **v0** (soft-deprecated) | AI code generation platform used as opt-in fallback only when `V0_FALLBACK_BUILDER=y`. | v0.dev, *.vusercontent.net |
+| **v0** (soft-deprecated) | v0 Platform API + `v0-sdk` still used for templates, registry, zip, deploy-related calls — **not** for builder codegen streams. Optional `V0_FALLBACK_BUILDER` (affirmative only) prefers v0-hosted `demoUrl` in preview when both sandbox and v0 URLs exist. | v0.dev, *.vusercontent.net |
 | **Demo sites** | User-generated sites. Built by own engine, previewed in-app (full Next.js stack in iframe when that path is active), deployed to Vercel. In conversation, **demo URL** often means this preview/deploy URL for the user site — not the legacy v0-hosted preview. | *.vercel.app, preview/sandbox URL, or custom domain |
 
 ## Pages in our app
@@ -205,9 +205,9 @@ A snapshot of generated code from one generation turn. Contains files
 (iframe / dedicated preview surface). Product language may use **demo URL** for
 this URL even though it is not the old v0 preview host.
 
-**Legacy v0 preview** (v0 fallback only, `V0_FALLBACK_BUILDER=y`): hosted
-preview uses v0 `demoUrl` on `*.vusercontent.net` — keep this distinct from
-user-site preview above.
+**v0-hosted demo URL** (`*.vusercontent.net`): may appear as `demoUrl` on a version.
+When `V0_FALLBACK_BUILDER` is affirmative, the builder can **prefer** this URL
+over sandbox in the preview iframe; codegen remains own-engine.
 
 **Degraded preview env:** placeholder values for third-party keys so preview
 can start without real integrations; canonical KEY=value fragment

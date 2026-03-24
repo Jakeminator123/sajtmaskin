@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // Expose V0_FALLBACK_BUILDER to the client for preview URL ordering only (see v0-preview-priority.ts).
+  env: {
+    NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK: process.env.V0_FALLBACK_BUILDER ?? "",
+  },
   serverExternalPackages: ["esbuild", "pg"],
   outputFileTracingRoot: path.join(__dirname, "./"),
   experimental: {
