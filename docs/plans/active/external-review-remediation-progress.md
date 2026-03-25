@@ -4,6 +4,18 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 Last code touch: `useLandingController` + `landing-chat-data.ts` + `landing-hooks.ts`; `chat-area.tsx` återanvänder hooken (steg mot uppdelning i `1.txt`).
 
+**Siffror:** **~24%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~58%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet.
+
+## Commit- och push-rutin (pågående körning)
+
+Vid varje dokumenterad avstämning:
+
+1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
+2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~24pct — kort vad som ändrats`.
+4. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
+5. `git push` till `master` (eller din arbetsbranch).
+
 ## Overall fill (approximate)
 
 | Segment | Done | Remaining |
