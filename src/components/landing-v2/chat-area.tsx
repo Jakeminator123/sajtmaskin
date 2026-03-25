@@ -1,7 +1,6 @@
 "use client"
 
 import { Check, ArrowRight, CheckCircle2, Rocket } from "lucide-react"
-import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { type MutableRefObject } from "react"
 import { LanyardBadge } from "@/components/landing-v2/lanyard-badge"
@@ -22,17 +21,13 @@ import {
 } from "@/components/landing-v2/landing-chat-data"
 import { ComparisonRadarChart } from "@/components/landing-v2/landing-comparison-radar"
 import { FeatureCard, FeatureModal } from "@/components/landing-v2/landing-feature-blocks"
-import { HowItWorksFallback } from "@/components/landing-v2/landing-how-it-works-fallback"
+import { HowItWorksLazy } from "@/components/landing-v2/landing-how-it-works-lazy"
 import { LighthouseGauges } from "@/components/landing-v2/landing-lighthouse-gauges"
+import { usePrefersReducedMotion } from "@/components/landing-v2/landing-hooks"
 import { IntegrationCard, TechStackCard } from "@/components/landing-v2/landing-tech-integration-cards"
 import { useLandingController, type ChatAreaProps } from "@/components/landing-v2/use-landing-controller"
 
 export type { ChatAreaProps }
-
-const HowItWorksScene = dynamic(
-  () => import("./how-it-works-scene").then((mod) => mod.HowItWorksScene),
-  { ssr: false, loading: () => <HowItWorksFallback /> },
-)
 
 /* ──────────────────── MAIN COMPONENT ──────────────────── */
 
@@ -71,6 +66,11 @@ export function ChatArea(props: ChatAreaProps = {}) {
     startBuild,
     submitPrimaryInput,
   } = useLandingController(props)
+
+  const reduceMotion = usePrefersReducedMotion()
+  const terminalCursorClass = reduceMotion
+    ? "inline-block w-2 h-4 bg-primary/80 ml-1 align-text-bottom opacity-90"
+    : "inline-block w-2 h-4 bg-primary/80 ml-1 animate-pulse align-text-bottom"
 
   return (
     <main className="landing-v2-page relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -350,33 +350,33 @@ export function ChatArea(props: ChatAreaProps = {}) {
                 {/* Line 1 */}
                 <p className={`text-muted-foreground transition-all duration-500 ${terminal.visibleLines >= 1 ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"}`}>
                   <span className="text-primary">$</span> npx sajtmaskin generate --type=webbplats
-                  {terminal.cursorLine === 1 && <span className="inline-block w-2 h-4 bg-primary/80 ml-1 animate-pulse align-text-bottom" />}
+                  {terminal.cursorLine === 1 && <span className={terminalCursorClass} />}
                 </p>
                 {/* Line 2 */}
                 <p className={`text-muted-foreground mt-2 transition-all duration-500 ${terminal.visibleLines >= 2 ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"}`}>
                   <span className="text-primary/70">{">"}</span> Analyserar f&ouml;retagsbeskrivning...
-                  {terminal.cursorLine === 2 && <span className="inline-block w-2 h-4 bg-primary/80 ml-1 animate-pulse align-text-bottom" />}
+                  {terminal.cursorLine === 2 && <span className={terminalCursorClass} />}
                 </p>
                 {/* Line 3 */}
                 <p className={`text-muted-foreground transition-all duration-500 ${terminal.visibleLines >= 3 ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"}`}>
                   <span className="text-primary/70">{">"}</span> Genererar React-komponenter...
-                  {terminal.cursorLine === 3 && <span className="inline-block w-2 h-4 bg-primary/80 ml-1 animate-pulse align-text-bottom" />}
+                  {terminal.cursorLine === 3 && <span className={terminalCursorClass} />}
                 </p>
                 {/* Line 4 */}
                 <p className={`text-muted-foreground transition-all duration-500 ${terminal.visibleLines >= 4 ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"}`}>
                   <span className="text-primary/70">{">"}</span> Konfigurerar Next.js routing...
-                  {terminal.cursorLine === 4 && <span className="inline-block w-2 h-4 bg-primary/80 ml-1 animate-pulse align-text-bottom" />}
+                  {terminal.cursorLine === 4 && <span className={terminalCursorClass} />}
                 </p>
                 {/* Line 5 */}
                 <p className={`text-muted-foreground transition-all duration-500 ${terminal.visibleLines >= 5 ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"}`}>
                   <span className="text-primary/70">{">"}</span> Optimerar f&ouml;r Lighthouse 95+...
-                  {terminal.cursorLine === 5 && <span className="inline-block w-2 h-4 bg-primary/80 ml-1 animate-pulse align-text-bottom" />}
+                  {terminal.cursorLine === 5 && <span className={terminalCursorClass} />}
                 </p>
                 {/* Line 6 - success */}
                 <p className={`mt-2 transition-all duration-700 ${terminal.visibleLines >= 6 ? "opacity-100 translate-x-0 text-foreground" : "opacity-0 -translate-x-4 text-muted-foreground"}`}>
                   <span className="text-primary">{"✓"}</span> Klar! Publicerad till{" "}
                   <span className="text-primary underline">mittforetag.sajtmaskin.se</span>
-                  {terminal.cursorLine === 6 && <span className="inline-block w-2 h-4 bg-primary/80 ml-1 animate-pulse align-text-bottom" />}
+                  {terminal.cursorLine === 6 && <span className={terminalCursorClass} />}
                 </p>
               </div>
             </div>
@@ -415,7 +415,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
               </p>
             </div>
 
-            <HowItWorksScene steps={landingJourneySteps} />
+            <HowItWorksLazy steps={landingJourneySteps} />
           </div>
         </section>
 

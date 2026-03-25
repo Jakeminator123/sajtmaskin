@@ -3,7 +3,12 @@ import { URLS } from "@/lib/config";
 
 const BASE_URL = URLS.baseUrl;
 
-/** Relativa marknads-/juridik-vägar i sitemap (för regression — håll i linje med footer och sidor under `src/app`). */
+/**
+ * Relativa marknads-/juridik-vägar i sitemap (för regression).
+ * **Checklista när du lägger till en ny publik sida:** skapa `src/app/.../page.tsx`, lägg vägen här,
+ * uppdatera relevant footer (`landing-footer.tsx` / `components/layout/footer.tsx`) om sidan ska länkas,
+ * och kör `npx vitest run src/app/sitemap.test.ts`.
+ */
 export const STATIC_SITEMAP_REL_PATHS = [
   "",
   "/templates",

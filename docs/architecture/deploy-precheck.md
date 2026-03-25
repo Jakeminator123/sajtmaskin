@@ -58,6 +58,14 @@ Användbart för verktyg och felsökning utan att publicera.
 
 Full **HTTP/Playwright e2e** mot inloggad session och riktig DB är separat spår (se progress-doc § *Återstår*).
 
+## Framtida fördjupning (K-007 / produkt)
+
+Vitest-kontrakt ovan täcker **API-form** och auto-fix **opt-out**. För att stänga **K-007** i kritik-tabellen krävs i regel **produkt-/prioriteringsbeslut**, t.ex.:
+
+- Playwright (eller motsv.) mot **deploy** med riktig **auth-session** och stabil testdata.
+- Eventuell **tuffare valideringsfas** före debitering (utöver nuvarande `DEPLOY_MISSING_ENV` / preflight) — dokumentera beslut här och i `useBuilderDeployActions` om beteendet ändras.
+- Avstämning mot [`kritik-consolidated-open-items.md`](../plans/active/kritik-consolidated-open-items.md) så rad **K-007** inte stängs i förtid.
+
 ## Observability
 
 `devLogAppend` skriver `site.deploy.precheck` med `fixesApplied`, `warnings` och `deployReadiness` när en riktig deploy fortsätter efter godkänd preflight.
