@@ -32,7 +32,7 @@ import {
   type ShapeVariant,
   type TechStackItem,
 } from "@/components/landing-v2/landing-chat-data"
-import { use3DTilt, useInView } from "@/components/landing-v2/landing-hooks"
+import { use3DTilt, useInView, usePrefersReducedMotion } from "@/components/landing-v2/landing-hooks"
 import { useLandingController, type ChatAreaProps } from "@/components/landing-v2/use-landing-controller"
 
 export type { ChatAreaProps }
@@ -601,6 +601,7 @@ function HowItWorksFallback() {
 function IntegrationCard({ item, index }: { item: IntegrationItem; index: number }) {
   const { ref: tiltRef, handleMove, handleLeave } = use3DTilt(6)
   const { ref: viewRef, visible } = useInView(0.15)
+  const reducedMotion = usePrefersReducedMotion()
   const Icon = item.icon
 
   const setRefs = useCallback(
@@ -627,12 +628,14 @@ function IntegrationCard({ item, index }: { item: IntegrationItem; index: number
       ref={setRefs}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleLeave}
-      className={`group relative overflow-hidden rounded-2xl border border-border/20 bg-card/40 p-4 transition-all duration-700 ${
+      className={`group relative overflow-hidden rounded-2xl border border-border/20 bg-card/40 p-4 transition-all duration-700 motion-reduce:transition-none ${
         visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
       }`}
       style={{
-        transitionDelay: `${index * 70}ms`,
-        animation: `float-particle-kf ${6 + index * 0.35}s ease-in-out infinite`,
+        transitionDelay: reducedMotion ? "0ms" : `${index * 70}ms`,
+        ...(reducedMotion
+          ? {}
+          : { animation: `float-particle-kf ${6 + index * 0.35}s ease-in-out infinite` }),
         ["--glow-x" as string]: "120px",
         ["--glow-y" as string]: "40px",
       }}
@@ -735,6 +738,7 @@ function FeatureModal({
   feature: (typeof features)[number] | null
   onClose: () => void
 }) {
+  const reducedMotion = usePrefersReducedMotion()
   if (!feature) return null
 
   const Icon = feature.icon
@@ -772,8 +776,12 @@ function FeatureModal({
               style={{
                 left: `${p.x}%`,
                 top: `${p.y}%`,
-                animation: `float-particle-kf ${p.dur}s ease-in-out infinite`,
-                animationDelay: `${p.delay}s`,
+                ...(reducedMotion
+                  ? {}
+                  : {
+                      animation: `float-particle-kf ${p.dur}s ease-in-out infinite`,
+                      animationDelay: `${p.delay}s`,
+                    }),
               }}
             />
           ))}

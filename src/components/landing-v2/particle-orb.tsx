@@ -4,6 +4,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import { Object3D } from "three";
 import type * as THREE from "three";
+import { useInView, usePrefersReducedMotion } from "@/components/landing-v2/landing-hooks";
 
 function DottedSphere({ radius = 1.2, dotCount = 800, dotSize = 0.035 }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -99,9 +100,23 @@ function Scene() {
   );
 }
 
-export function ParticleOrb() {
+function StaticOrbFallback() {
   return (
-    <div className="w-48 h-48 relative">
+    <div
+      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      aria-hidden
+    >
+      <div className="h-[70%] w-[70%] rounded-full border border-primary/25 bg-primary/15 shadow-[0_0_60px_rgba(45,212,191,0.25)]" />
+    </div>
+  );
+}
+
+export function ParticleOrb() {
+  const { ref, visible } = useInView(0.12);
+  const reducedMotion = usePrefersReducedMotion();
+
+  return (
+    <div ref={ref} className="w-48 h-48 relative">
       <div
         className="absolute inset-[-30%] rounded-full blur-3xl"
         style={{
@@ -109,13 +124,19 @@ export function ParticleOrb() {
             "radial-gradient(circle, rgba(45,212,191,0.2) 0%, rgba(45,212,191,0.05) 40%, transparent 70%)",
         }}
       />
-      <Canvas
-        camera={{ position: [0, 0, 4], fov: 45 }}
-        style={{ background: "transparent" }}
-        gl={{ alpha: true, antialias: true }}
-      >
-        <Scene />
-      </Canvas>
+      {reducedMotion ? (
+        <StaticOrbFallback />
+      ) : visible ? (
+        <Canvas
+          camera={{ position: [0, 0, 4], fov: 45 }}
+          style={{ background: "transparent" }}
+          gl={{ alpha: true, antialias: true }}
+        >
+          <Scene />
+        </Canvas>
+      ) : (
+        <div className="absolute inset-0" aria-hidden />
+      )}
     </div>
   );
 }

@@ -6,7 +6,7 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Progress-avstämning ~78%:** own-engine-segment justerat mot **komplett W3-track**; scripts-segment **~95%**; helhets-% + “Återstår” pekar på W1/W2-rester; dokumenterat att **`EGEN_MOTOR_V2/`** kommer från **`npm run eval`** (lokal utdata). **W2 deploy-preflight (API):** 409 vid saknad env + `precheckOnly` + [`deploy-precheck.md`](../../architecture/deploy-precheck.md). **W4 exit (scripts):** `scripts/hamta_sidor.py` **borttagen** — kanon `hamta_sidor_branch_emil.py` + `--legacy-wide-use-cases` för bred lista; labb **`scripts/labs/testning_scarf/`** med uppdaterade npm-scripts, `.gitignore`, labb-skriptens `REPO_ROOT`, docs/inventory/research/track. **Tidigare W4 slice:** wrapper + `legacy-wide`; boundary-test `existsSync`. **Tidigare W3:** track exit (finalize orphan, v0-boundary, golden tests, transaktionell finalize). **Playwright / e2e:** kanon `e2e/vercel-templates/`.
+Last code touch: **W1 landning (del):** `ParticleOrb` lazy via in-view + statisk fallback vid `prefers-reduced-motion`; `IntegrationCard` + `FeatureModal`-partiklar utan float-animation vid reduce; `usePrefersReducedMotion` i `landing-hooks.ts`. **Progress-avstämning ~78%:** own-engine-segment justerat mot **komplett W3-track**; scripts-segment **~95%**; helhets-% + “Återstår” pekar på W1/W2-rester; dokumenterat att **`EGEN_MOTOR_V2/`** kommer från **`npm run eval`** (lokal utdata). **W2 deploy-preflight (API):** 409 vid saknad env + `precheckOnly` + [`deploy-precheck.md`](../../architecture/deploy-precheck.md). **W4 exit (scripts):** `scripts/hamta_sidor.py` **borttagen** — kanon `hamta_sidor_branch_emil.py` + `--legacy-wide-use-cases` för bred lista; labb **`scripts/labs/testning_scarf/`** med uppdaterade npm-scripts, `.gitignore`, labb-skriptens `REPO_ROOT`, docs/inventory/research/track. **Tidigare W4 slice:** wrapper + `legacy-wide`; boundary-test `existsSync`. **Tidigare W3:** track exit (finalize orphan, v0-boundary, golden tests, transaktionell finalize). **Playwright / e2e:** kanon `e2e/vercel-templates/`.
 
 **Siffror:** **~78%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~78%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** efter W2 (registry + manifest + deploy-readiness + **409 env-spärr** + `precheckOnly`). **Own-engine:** `track-w3-own-engine.md` är **komplett** (Fas A) — segment-% höjd till **~78%**; kvar kan finnas arbete utanför track (SSE-scenarier, produkt). **Scripts (W4)** spår **klart** (**~95%** segment, återstår mest drift/läsbarhet). **Whole vision** följer tabellen nedan.
 
@@ -16,7 +16,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~78pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~79pct — kort vad som ändrats`.
 4. **Batch:** under pågående orchestrator-remediation, **samla gärna ~4–5 enheter** på Whole vision mellan commits när flera säkra punkter ryms i samma gröna `typecheck`+`vitest` (färre mikrocommits). Se [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 5. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 6. `git push` till `master` (eller din arbetsbranch).
@@ -25,15 +25,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~78%** | **~22%** |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~78%** | **~22%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~79%** | **~21%** |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~80%** | **~20%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~62%** | **~38%** |
 | **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
 | **Scripts / naming hygiene** (`3.txt`, W4 exit) | **~95%** | **~5%** |
 
 ## Återstår (kort)
 
-Ungefär **~22%** av *whole vision* kvar: valfri **W2**-rest (deploy auto-fix opt-in); **W1**-landningspunkter i `track-w1-landing-followups.md` (in-view 3D, `IntegrationCard` reduced-motion, footer-sidor); ev. own-engine **utanför** W3-track. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~21%** av *whole vision* kvar: valfri **W2**-rest (deploy auto-fix opt-in); **W1**-rest: footer “Om oss”/“Blogg” (produkt); ev. own-engine **utanför** W3-track. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -74,6 +74,7 @@ Ungefär **~22%** av *whole vision* kvar: valfri **W2**-rest (deploy auto-fix op
 - **Vercel Templates Playwright:** kanon **`e2e/vercel-templates/`** (tracked). Legacy `vercel_templates_levels/` kan ligga **lokalt** (gitignore + cursorignore). Kör → `raw-discovery/current/`; **inte** v0-mallar (`templates:*`). Docs: `vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt`.
 - `scripts/README.md` + `scripts-scaffolds-inventory.md`: rättade sökvägar (`scripts/hamta_sidor*`), `npm run template-library:verify-summary`, svenska i scaffold-pipeline-tabellen; **recovery**-skript dokumenterat som **saknat** i repot.
 - **W4 (hamta + lab):** **`hamta_sidor_branch_emil.py`** kanon + **`--legacy-wide-use-cases`**; **`scripts/hamta_sidor.py` borttagen** (ersätts av flaggan). **`scripts/labs/testning_scarf/`** + `package.json` / ignore-filer. Uppdaterat: `scripts/README.md`, `scripts-scaffolds-inventory.md`, `research/external-templates/README.md`, `track-w4-scripts.md`, `scraped-scorefolds-pipeline.md`, `devtools/README.md`.
+- **W1 (landning, del):** `ParticleOrb` in-view innan WebGL; reduced-motion → statisk orb; `IntegrationCard` + feature-modal partiklar utan `float-particle-kf` vid reduce (`usePrefersReducedMotion`). Se `track-w1-landing-followups.md`.
 - **Terminologi / legacy:** `scripts/README.md` + `research/external-templates/README.md` — tydlig särskiljning: **15 = `EVAL_PROMPTS`**, **12+2 = skrap-kärna** (`USE_CASES_CORE`/`EXTENDED`), **5 = scorecard**; **icke-kanon** (`vercel_templates_levels/`, `--legacy-wide-use-cases`). *Lokal förtydligande även i `EGEN_MOTOR_V2/eval-report-2026-03-25.md` (gitignorerad).*
 
 ## Next (recommended order)
@@ -87,4 +88,4 @@ Ungefär **~22%** av *whole vision* kvar: valfri **W2**-rest (deploy auto-fix op
 
 - Footer “Om oss” / “Blogg” pekar på `/faq` tills dedikerade sidor finns.
 - Social copy ersätter länkar tills URL:er finns.
-- `IntegrationCard` har kvar CSS `float`-animationer (ej reduced-motion ännu).
+- `IntegrationCard` / feature-modal: float-animationer av vid `prefers-reduced-motion` (2026-03-25).

@@ -4,6 +4,21 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEv
 
 /* 3D tilt — DOM transform only, prefers-reduced-motion aware */
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
+
+/** SSR-safe; false until mounted, then syncs with system preference. */
+export function usePrefersReducedMotion(): boolean {
+  const [reduce, setReduce] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia(REDUCED_MOTION_QUERY)
+    const sync = () => setReduce(mq.matches)
+    sync()
+    mq.addEventListener("change", sync)
+    return () => mq.removeEventListener("change", sync)
+  }, [])
+
+  return reduce
+}
 const TILT_NEUTRAL = "perspective(800px) rotateX(0deg) rotateY(0deg) scale(1)"
 
 export function use3DTilt(intensity = 12) {

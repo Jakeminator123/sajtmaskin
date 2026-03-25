@@ -19,6 +19,7 @@
 - **Scope:** Bryt ut `LandingBackground` (shader / grid / noise) från `chat-area.tsx`; semantik per läge (fritext / template / audit / analyserad); `prefers-reduced-motion` och in-view för tunga 3D-delar där det saknas.
 - **Acceptance:** Färre överlappande lager i hero utan att sänka läsbarhet; typecheck grön; progress uppdaterad.
 - **Refs:** `.j_to_agent/1.txt` steg 3–4; Vercel React best practices (`rerender-*`, `rendering-*`) vid behov.
+- **Status (2026-03-25):** `track-w1-landing-followups.md` — **in-view + reduce** för hero `ParticleOrb`; **IntegrationCard** + feature-modal partiklar utan float vid `prefers-reduced-motion`. **Kvar (produkt):** footer-sidor / copy.
 
 ## W2 — Integrations + deploy (efter W1 eller separat agent, ej samma PR som W1 om risk för konflikt)
 

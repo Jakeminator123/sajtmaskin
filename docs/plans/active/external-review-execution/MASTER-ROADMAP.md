@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | typecheck + vitest (345) | ~79%: W1 — `ParticleOrb` in-view + reduced-motion fallback; `IntegrationCard`/modal float av vid reduce; whole ~79%, landing ~80% |
 | 2026-03-25 | master | typecheck + vitest (345) | ~78%: progress-tabell — own-engine ~78% (W3 track komplett), scripts ~95%, whole ~78%; `run-eval` → `EGEN_MOTOR_V2/` dokumenterat |
 | 2026-03-25 | master | typecheck + vitest (345) | ~76%: W2 deploy-preflight — `DEPLOY_MISSING_ENV` 409, `precheckOnly`, `deploy-precheck.md`; track W2 (auto-fix opt-in kvar) |
 | 2026-03-25 | master | typecheck + vitest (345) | ~75%: W4 — bort `scripts/hamta_sidor.py`; lab `scripts/labs/testning_scarf/`; npm + `.gitignore`; docs/inventory/research/track |

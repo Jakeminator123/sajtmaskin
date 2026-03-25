@@ -1,3 +1,5 @@
+2026-03-25 — W1 landing: ParticleOrb in-view + static fallback (reduce motion); IntegrationCard + FeatureModal particles respect reduce; track-w1 två `[x]`. Progress ~79%. Commit ~79pct.
+
 2026-03-25 — Progress ~78%: avstämd tabell (own-engine/W3 klar, scripts/W4 ~95%, whole ~78%); `run-eval` + `EGEN_MOTOR_V2` förklarat i `scripts/README` + `run-eval.ts` header. Commit ~78pct.
 
 2026-03-25 — W2 deploy: 409 `DEPLOY_MISSING_ENV` före deployment-rad; `precheckOnly` torrkörning; `docs/architecture/deploy-precheck.md`; track W2 delvis (opt-in auto-fix öppen). Progress ~76%. Commit ~76pct.
