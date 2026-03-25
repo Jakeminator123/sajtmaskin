@@ -18,7 +18,7 @@ import {
 } from "@/lib/chat-readiness";
 import {
   resolveProjectEnv,
-  resolveEnvRequirements,
+  resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
 import {
   getEngineChatByIdForRequest,
@@ -207,11 +207,10 @@ async function buildEngineReadiness(
   ]);
 
   const files = versionFiles ?? [];
-  const code = files
+  const versionRows = files
     .filter((file) => typeof file?.path === "string" && typeof file?.content === "string")
-    .map((file) => `// File: ${file.path}\n${file.content}`)
-    .join("\n\n");
-  const envRequirements = resolveEnvRequirements(code, projectEnv);
+    .map((file) => ({ path: file.path as string, content: file.content as string }));
+  const envRequirements = resolveEnvRequirementsFromVersionFiles(versionRows, projectEnv);
   const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys } = envRequirements;
 
   if (requiredEnvKeys.length > 0 && !chat.project_id) {

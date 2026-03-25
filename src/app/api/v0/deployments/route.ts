@@ -30,7 +30,11 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
-import { resolveProjectEnv } from "@/lib/project-env-resolver";
+import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
+import {
+  resolveProjectEnv,
+  resolveEnvRequirementsFromVersionFiles,
+} from "@/lib/project-env-resolver";
 
 export const runtime = "nodejs";
 
@@ -420,6 +424,14 @@ export async function POST(req: Request) {
         const envVarsForDeploy = projectEnv.configuredMap;
 
         const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
+        const envRequirements = resolveEnvRequirementsFromVersionFiles(
+          fixedFiles.map((f) => ({ path: f.name, content: f.content })),
+          projectEnv,
+        );
+        const deployReadiness = buildDeployReadiness({
+          missingEnvKeys: envRequirements.missingEnvKeys,
+          preDeployWarnings: warnings,
+        });
         if (fixesApplied.length > 0) {
           console.info("[deploy] applied fixes:", fixesApplied);
         }
@@ -435,6 +447,7 @@ export async function POST(req: Request) {
             fixesApplied,
             warnings,
           fileCount: fixedFiles.length,
+          deployReadiness,
         });
 
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
@@ -507,6 +520,7 @@ export async function POST(req: Request) {
             envVarCount: Object.keys(envVarsForDeploy).length,
             fixesApplied,
             preDeployWarnings: warnings,
+            deployReadiness,
             imageStrategyRequested: imageStrategy ?? null,
             imageStrategyUsed: imageAssets.strategyUsed,
           imageAssetsSummary: imageAssets.summary,

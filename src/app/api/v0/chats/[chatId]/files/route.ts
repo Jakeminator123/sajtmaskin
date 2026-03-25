@@ -14,7 +14,10 @@ import {
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
-import { resolveProjectEnv, resolveEnvRequirements } from "@/lib/project-env-resolver";
+import {
+  resolveProjectEnv,
+  resolveEnvRequirementsFromVersionFiles,
+} from "@/lib/project-env-resolver";
 import { deriveSetupContract, buildEnvExampleContent } from "@/lib/gen/setup-contract";
 
 function v0ErrorResponse(err: unknown, fallbackMessage: string) {
@@ -146,14 +149,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
         language: f.language,
       }));
 
-      const code = files
+      const versionRows = files
         .filter((f) => typeof f?.path === "string" && typeof f?.content === "string")
-        .map((f) => `// File: ${f.path}\n${f.content}`)
-        .join("\n\n");
+        .map((f) => ({ path: f.path as string, content: f.content as string }));
       const projectEnv = await resolveProjectEnv(
         engineChat?.project_id ?? null,
       );
-      const envReqs = resolveEnvRequirements(code, projectEnv);
+      const envReqs = resolveEnvRequirementsFromVersionFiles(versionRows, projectEnv);
       if (envReqs.requiredEnvKeys.length > 0) {
         const setupContract = deriveSetupContract(undefined, projectEnv.configuredKeys);
         const envExampleContent = buildEnvExampleContent({

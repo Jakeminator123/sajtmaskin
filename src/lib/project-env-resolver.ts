@@ -9,7 +9,11 @@
  */
 
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
-import { detectIntegrations, type DetectedIntegration } from "@/lib/gen/detect-integrations";
+import {
+  detectIntegrations,
+  detectIntegrationsFromVersionFiles,
+  type DetectedIntegration,
+} from "@/lib/gen/detect-integrations";
 
 export type ResolvedProjectEnv = {
   source: "app-project" | "none";
@@ -63,6 +67,13 @@ export function resolveEnvRequirements(
   env: ResolvedProjectEnv,
 ): ResolvedProjectEnvRequirements {
   const detectedIntegrations = detectIntegrations(code);
+  return resolveEnvRequirementsFromDetected(detectedIntegrations, env);
+}
+
+function resolveEnvRequirementsFromDetected(
+  detectedIntegrations: DetectedIntegration[],
+  env: ResolvedProjectEnv,
+): ResolvedProjectEnvRequirements {
   const requiredEnvKeys = dedupeStrings(
     detectedIntegrations.flatMap((integration) => integration.envVars ?? []),
   );
@@ -77,4 +88,14 @@ export function resolveEnvRequirements(
     configuredEnvKeys,
     missingEnvKeys,
   };
+}
+
+export function resolveEnvRequirementsFromVersionFiles(
+  files: Array<{ path: string; content: string }>,
+  env: ResolvedProjectEnv,
+): ResolvedProjectEnvRequirements {
+  const detectedIntegrations = detectIntegrationsFromVersionFiles(
+    files.map((f) => ({ name: f.path, content: f.content })),
+  );
+  return resolveEnvRequirementsFromDetected(detectedIntegrations, env);
 }

@@ -19,7 +19,10 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { IntegrationSetupWizard } from "@/components/builder/IntegrationSetupWizard";
 import { detectBusinessWorkflowPacks, type BusinessWorkflowPack } from "@/lib/gen/business-packs";
-import { detectIntegrations, type DetectedIntegration } from "@/lib/gen/detect-integrations";
+import {
+  detectIntegrationsFromVersionFiles,
+  type DetectedIntegration,
+} from "@/lib/gen/detect-integrations";
 import { buildAnalyticsReview, type AnalyticsReview } from "@/lib/hooks/chat/post-checks-analysis";
 import type { FileEntry } from "@/lib/hooks/chat/types";
 import { cn } from "@/lib/utils";
@@ -367,7 +370,9 @@ export function ProjectEnvVarsPanel({
         .filter((file) => typeof file?.name === "string" && typeof file?.content === "string")
         .map((file) => `// File: ${file.name}\n${file.content}`)
         .join("\n\n");
-      setDetectedIntegrations(combinedSource ? detectIntegrations(combinedSource) : []);
+      setDetectedIntegrations(
+        fileEntries.length > 0 ? detectIntegrationsFromVersionFiles(fileEntries) : [],
+      );
       setBusinessPacks(combinedSource ? detectBusinessWorkflowPacks(combinedSource) : []);
       setAnalyticsReview(fileEntries.length > 0 ? buildAnalyticsReview(fileEntries) : null);
     } catch (loadError) {

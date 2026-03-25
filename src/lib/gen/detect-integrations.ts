@@ -1,9 +1,9 @@
 /**
  * Detect integration requirements from generated code.
  *
- * Scans generated source for env var references, known SDK imports,
- * and common integration patterns.  Returns signals that the client
- * renders as integration cards and env-var prompts.
+ * When `sajtmaskin.integration-manifest.json` is present and valid,
+ * `detectIntegrationsFromVersionFiles` uses it as the primary catalog and
+ * only runs regex heuristics for extra `process.env.*` keys (custom-env bucket).
  *
  * Display metadata for registry-backed providers comes from
  * `integrationRegistry` (`src/lib/integrations/registry.ts`); this file
@@ -11,6 +11,11 @@
  */
 
 import { integrationRegistry } from "@/lib/integrations/registry";
+import {
+  detectedIntegrationsFromManifest,
+  isIntegrationManifestPath,
+  tryParseIntegrationManifest,
+} from "@/lib/integrations/integration-manifest";
 
 export type DetectedIntegration = {
   key: string;
@@ -150,7 +155,7 @@ const WELL_KNOWN_PUBLIC_VARS = new Set([
   "PORT",
 ]);
 
-export function detectIntegrations(code: string): DetectedIntegration[] {
+function runDetectionPipeline(code: string): DetectedIntegration[] {
   const results: DetectedIntegration[] = [];
   const seenProviders = new Set<string>();
 
@@ -192,6 +197,13 @@ export function detectIntegrations(code: string): DetectedIntegration[] {
     });
   }
 
+  return results;
+}
+
+function appendCustomEnvIntegrations(
+  code: string,
+  results: DetectedIntegration[],
+): DetectedIntegration[] {
   const envMatches = new Set<string>();
   let match: RegExpExecArray | null;
   ENV_VAR_PATTERN.lastIndex = 0;
@@ -205,15 +217,51 @@ export function detectIntegrations(code: string): DetectedIntegration[] {
   const coveredVars = new Set(results.flatMap((r) => r.envVars));
   const uncovered = [...envMatches].filter((v) => !coveredVars.has(v));
 
-  if (uncovered.length > 0) {
-    results.push({
+  if (uncovered.length === 0) {
+    return results;
+  }
+
+  return [
+    ...results,
+    {
       key: "custom-env",
       name: "Miljövariabler",
       intent: "env_vars",
       envVars: uncovered,
       status: "Kräver konfiguration",
-    });
+    },
+  ];
+}
+
+export function detectIntegrations(code: string): DetectedIntegration[] {
+  return appendCustomEnvIntegrations(code, runDetectionPipeline(code));
+}
+
+/**
+ * Prefer `sajtmaskin.integration-manifest.json` when valid; otherwise full heuristic scan.
+ * @param files — use `path` as `name` when wiring from version rows.
+ */
+export function detectIntegrationsFromVersionFiles(
+  files: Array<{ name: string; content: string }>,
+): DetectedIntegration[] {
+  const manifestEntry = files.find((f) => isIntegrationManifestPath(f.name));
+  const manifestParsed = manifestEntry
+    ? tryParseIntegrationManifest(manifestEntry.content)
+    : null;
+
+  const withoutManifest = manifestEntry
+    ? files.filter((f) => f.name !== manifestEntry.name)
+    : files;
+
+  const codeForScan = withoutManifest
+    .map((f) => `// File: ${f.name}\n${f.content}`)
+    .join("\n\n");
+
+  if (manifestParsed) {
+    const fromManifest = detectedIntegrationsFromManifest(manifestParsed);
+    return appendCustomEnvIntegrations(codeForScan, fromManifest);
   }
 
-  return results;
+  const combined = files.map((f) => `// File: ${f.name}\n${f.content}`).join("\n\n");
+  return detectIntegrations(combined);
 }

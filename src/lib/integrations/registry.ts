@@ -185,3 +185,8 @@ export const integrationRegistry: IntegrationDefinition[] = [
     provider: "vercel-blob",
   },
 ];
+
+/** Lookup by `IntegrationDefinition.key` (matches manifest `key` and detection `key`). */
+export const integrationRegistryByKey = new Map(
+  integrationRegistry.map((d) => [d.key, d] as const),
+);

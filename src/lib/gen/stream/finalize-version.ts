@@ -28,6 +28,7 @@ import {
   runFinalizePreflight,
 } from "./finalize-preflight";
 import { mergeGeneratedProjectFiles } from "./finalize-merge";
+import { injectIntegrationManifestIntoFilesJson } from "@/lib/integrations/inject-integration-manifest";
 
 let _lastMaterializedUrls: Set<string> = new Set();
 
@@ -235,6 +236,7 @@ export async function finalizeAndSaveVersion(
     routePlan,
   });
   filesJson = preflightResult.filesJson;
+  filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
   finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
   preflightFileCount = preflightResult.preflightFileCount;
   preflightIssues = preflightResult.preflightIssues;
