@@ -15,7 +15,7 @@ Det här dokumentet styr **hur** remediation får löpa i etapper så att du int
 
 - **Orchestrator eller worker** läser `MASTER-ROADMAP.md` + relevant `track-w*.md`, implementerar **nästa öppna punkt(er)** tills en halt inträffar eller en batch enligt punkt 3 är rimlig.
 - När en session tar slut: nästa gång du vill fortsätta räcker en kort prompt, t.ex.  
-  `Fortsätt external-review enligt docs/plans/active/external-review-execution/ — nästa öppna kryss, samma commit-rutin.`
+  `Fortsätt external-review enligt docs/plans/archived/external-review-execution/ — nästa öppna kryss, samma commit-rutin.`
 - **Parallellt:** endast enligt tabellen i `MASTER-ROADMAP.md` (t.ex. W3 + W4 när filträd skiljer).
 
 ## Verifiering före commit

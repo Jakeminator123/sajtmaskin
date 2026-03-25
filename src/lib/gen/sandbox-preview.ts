@@ -21,8 +21,12 @@ export interface SandboxPreviewError {
  * Start a full Next.js sandbox from generated files.
  *
  * Flow: repair files -> build complete project (add package.json etc.)
- *       -> write to @vercel/sandbox -> npm install -> npm run dev
+ *       -> write to @vercel/sandbox -> npm install -> npm run dev (detached)
  *       -> return sandbox URL for iframe embedding.
+ *
+ * Note: **`npm run build` is not run here** — the preview is a dev server (`next dev`),
+ * not a production build. Parity with `next build` + `next start` is a separate concern
+ * (e.g. deploy or local validation).
  */
 export async function startSandboxPreview(
   generatedFiles: CodeFile[],

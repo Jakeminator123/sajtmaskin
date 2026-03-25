@@ -5,7 +5,7 @@
 
 ## Vad som räknas som klart (remediation)
 
-- **W1 (landning):** track `track-w1-landing-followups.md` — kryssade tekniska punkter (in-view 3D-mönster, reduced motion, sidor `/om` / `/blogg`, m.m.). **K-008** i [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) förblir `[ ]` tills produkt uttryckligen godkänner “landningspolish klar”.
+- **W1 (landning):** track `track-w1-landing-followups.md` — kryssade tekniska punkter (in-view 3D-mönster, reduced motion, sidor `/om` / `/blogg`, m.m.). **K-008** i [`kritik-consolidated-open-items.md`](../../active/kritik-consolidated-open-items.md) förblir `[ ]` tills produkt uttryckligen godkänner “landningspolish klar”.
 - **W2 (deploy / integrationer i appen):** manifest, deployReadiness, 409 UX, Vitest för `deployments`-routen och `deploy-precheck.md`. **K-007** förblir `[ ]` för valfri **hårdare valideringsfas** / auto-fix-policy — produktbeslut.
 - **W3 (own-engine enligt track):** avslutat enligt `track-w3-own-engine.md`. **K-009** förblir `[ ]` för scope **utanför** den tracken (SSE/produkt).
 - **W4 (scripts / `3.txt`):** avslutat; buglista del 3 komplett.
@@ -13,7 +13,7 @@
 
 ## Procentsiffror efter exit
 
-- Tabellen **Overall fill** i [`external-review-remediation-progress.md`](../external-review-remediation-progress.md) använder **100%** för **whole vision** i betydelsen *remediation execution complete*. **Segment-rader** (landning ~96%, integrationer ~83%, own-engine ~81%) beskriver fortfarande **kvarvarande produkt/scope**, inte att teknikspår skulle vara trasiga.
+- Tabellen **Overall fill** i [`external-review-remediation-progress.md`](../../active/external-review-remediation-progress.md) använder **100%** för **whole vision** i betydelsen *remediation execution complete*. **Segment-rader** (landning ~96%, integrationer ~83%, own-engine ~81%) beskriver fortfarande **kvarvarande produkt/scope**, inte att teknikspår skulle vara trasiga.
 - Öppna **K-007 / K-008 / K-009 / K-014** ska inte stängas här utan separat produkt-/copy-beslut.
 
 ## Valfri HTTP-smoke (deploy API)
@@ -25,7 +25,7 @@
 
 ## Nästa steg (utanför remediation-exit)
 
-**Översikt:** [`../REMAINING-WORK.md`](../REMAINING-WORK.md) (samlar pekare utan att duplicera K-tabellen).
+**Översikt:** [`REMAINING-WORK.md`](../../active/REMAINING-WORK.md) (samlar pekare utan att duplicera K-tabellen).
 
 1. Produkt: stäng eller omformulera K-rader i `kritik-consolidated-open-items.md`.
 2. Drift: kör deploy-smoke mot staging när session + fixtures finns.

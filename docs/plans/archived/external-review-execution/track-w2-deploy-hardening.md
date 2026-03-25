@@ -16,8 +16,8 @@
 
 ## Checklista
 
-- [x] Kartlägg var **pre-deploy auto-fix** sker; dokumentera i kort kommentar eller `docs/architecture/` → [`docs/architecture/deploy-precheck.md`](../../architecture/deploy-precheck.md)
-- [x] **Opt-out för auto-fix:** miljö `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1` / `DEPLOY_DISABLE_AUTO_FIX=1` eller body `skipAutoFix: true` — default förblir att fixar körs; dokumenterat i [`deploy-precheck.md`](../../architecture/deploy-precheck.md)
+- [x] Kartlägg var **pre-deploy auto-fix** sker; dokumentera i kort kommentar eller `docs/architecture/` → [`docs/architecture/deploy-precheck.md`](../../../architecture/deploy-precheck.md)
+- [x] **Opt-out för auto-fix:** miljö `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1` / `DEPLOY_DISABLE_AUTO_FIX=1` eller body `skipAutoFix: true` — default förblir att fixar körs; dokumenterat i [`deploy-precheck.md`](../../../architecture/deploy-precheck.md)
 - [x] **Hård valideringsfas** före deploy: **409 `DEPLOY_MISSING_ENV`** på `POST /api/v0/deployments` om projektet saknar krävda nycklar (efter samma preflight som tidigare), innan deployment-rad / Vercel
 - [x] API/deploy-svar: **`precheckOnly: true`** i body → **200** med `deployReadiness`, `fixesApplied`, `preDeployWarnings`, `fileCount` (ingen debitering); befintlig success-payload behåller `deployReadiness` + fix-listor
 - [x] **Builder:** vid **409** + `DEPLOY_MISSING_ENV` — toast/error-text inkluderar **saknade nycklar** + kort pekare mot **Projektets miljövariabler**; `error-log` får `meta.missingEnv`

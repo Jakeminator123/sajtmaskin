@@ -1,7 +1,7 @@
 # MASTER ROADMAP — External review execution
 
-**Sanning (% , Done-lista, commit):** [external-review-remediation-progress.md](../external-review-remediation-progress.md)  
-**W1–W5 översikt:** [orchestrator-workloads-external-review.md](../orchestrator-workloads-external-review.md)
+**Sanning (% , Done-lista, commit):** [external-review-remediation-progress.md](../../active/external-review-remediation-progress.md)  
+**W1–W5 översikt:** [orchestrator-workloads-external-review.md](../../active/orchestrator-workloads-external-review.md)
 
 ---
 
@@ -35,7 +35,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 - [x] **W2** — Deploy/auto-fix enligt [track-w2-deploy-hardening.md](./track-w2-deploy-hardening.md) (checklista komplett; återstår ev. e2e/polish i progress § *Återstår*)
 - [x] **W1** — Små UX-followups enligt [track-w1-landing-followups.md](./track-w1-landing-followups.md) (checklista komplett; produkt-placeholder `/blogg` kvar i progress *Uncertainties*)
-- [x] **W5** — Kritik regressionspass / hygien (2026-03-26): färdigställda `NNpct-*.md` arkiverade under `.j_to_agent/archive/kritik-addressed/`; levande öppna punkter i [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md); `42pct-v.md` **arkiverad**; `KRITIK-OVERVIEW.md` aktiv
+- [x] **W5** — Kritik regressionspass / hygien (2026-03-26): färdigställda `NNpct-*.md` arkiverade under `.j_to_agent/archive/kritik-addressed/`; levande öppna punkter i [`kritik-consolidated-open-items.md`](../../active/kritik-consolidated-open-items.md); `42pct-v.md` **arkiverad**; `KRITIK-OVERVIEW.md` aktiv
 
 ---
 
@@ -120,8 +120,8 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 Kopiera minimalt:
 
 ```
-Läs docs/plans/active/external-review-execution/README.md, CONTINUATION.md och MASTER-ROADMAP.md.
-Arbeta enligt docs/plans/active/external-review-execution/<track-fil>.md — bocka av [x] för det du levererar; fortsätt utan ny ping per ruta tills halt i CONTINUATION.md.
+Läs docs/plans/archived/external-review-execution/README.md, CONTINUATION.md och MASTER-ROADMAP.md.
+Arbeta enligt docs/plans/archived/external-review-execution/<track-fil>.md — bocka av [x] för det du levererar; fortsätt utan ny ping per ruta tills halt i CONTINUATION.md.
 Kör npm run typecheck && npx vitest run. Uppdatera external-review-remediation-progress.md om % ändras; sikta ~4–5 Whole vision per commit när det går. Commit + push enligt rutinen där.
 ```
 

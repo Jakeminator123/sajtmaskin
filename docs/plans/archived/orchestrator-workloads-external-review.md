@@ -1,7 +1,7 @@
-﻿# Orchestrator workloads — external review remediation
+# Orchestrator workloads — external review remediation
 
 
-**Arkiverad snapshot** `2026-03-28` — W1-W5-texten nedan är **historisk** (läget under remediation). **Execution avslutad:** [`../active/external-review-execution/REMEDIATION-EXIT.md`](../active/external-review-execution/REMEDIATION-EXIT.md). **Aktuell backlog-översikt:** [`../active/REMAINING-WORK.md`](../active/REMAINING-WORK.md). **Kort pekare i active:** [`../active/orchestrator-workloads-external-review.md`](../active/orchestrator-workloads-external-review.md).
+**Arkiverad snapshot** `2026-03-28` — W1-W5-texten nedan är **historisk** (läget under remediation). **Execution avslutad:** [`./external-review-execution/REMEDIATION-EXIT.md`](./external-review-execution/REMEDIATION-EXIT.md). **Aktuell backlog-översikt:** [`../active/REMAINING-WORK.md`](../active/REMAINING-WORK.md). **Kort pekare i active:** [`../active/orchestrator-workloads-external-review.md`](../active/orchestrator-workloads-external-review.md).
 
 ---
 **Deep brief vs orchestrator-run:** Byggarens *Djup brief* är **produktflöde**; detta dokument och `.cursor/orchestrator/` handlar om **Cursor-orchestrator-run** (`/orchestrator` = `/automation`). Kort sammandrag: [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md).
@@ -12,7 +12,7 @@
 
 **Git-gren:** remediation pushas till **`origin/master`**. Grenen **`main`** kan ligga efter — nya agenter ska `git fetch` + `checkout master` + `pull` (eller ändra GitHub default branch). Detaljer i progress-dokumentet § *Gren: `master` och `main`*.
 
-**Checkbox-roadmap + spår (nytt):** `docs/plans/active/external-review-execution/` — [README.md](../active/external-review-execution/README.md), [CONTINUATION.md](../active/external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](../active/external-review-execution/MASTER-ROADMAP.md). Workers bockar av i `track-w*.md` enligt instruktion där.
+**Checkbox-roadmap + spår (nytt):** `docs/plans/archived/external-review-execution/` — [README.md](./external-review-execution/README.md), [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md). Workers bockar av i `track-w*.md` enligt instruktion där.
 
 **Källplaner (städade kopior):** `.j_to_agent/1.txt` (landning + integrationer), `.j_to_agent/2.txt` (own-engine pack), `.j_to_agent/3.txt` (scaffolds, scripts, orchestrator-frågor).
 
@@ -59,8 +59,8 @@
 ## Kort brief till ny agent (copy-paste)
 
 ```
-Läs docs/plans/active/external-review-execution/README.md, CONTINUATION.md och MASTER-ROADMAP.md.
-Arbeta i docs/plans/active/external-review-execution/track-w<N>-<namn>.md — bocka av [x]; fortsätt nästa öppna punkt utan ny ping tills halt i CONTINUATION.md.
+Läs docs/plans/archived/external-review-execution/README.md, CONTINUATION.md och MASTER-ROADMAP.md.
+Arbeta i docs/plans/archived/external-review-execution/track-w<N>-<namn>.md — bocka av [x]; fortsätt nästa öppna punkt utan ny ping tills halt i CONTINUATION.md.
 Läsgärna external-review-remediation-progress.md för % och commit-rutin (~4–5 Whole vision per commit när det går).
 Kör npm run typecheck && npx vitest run, uppdatera progress-md, commit + push med helhets-% i subject.
 ```

@@ -1,3 +1,5 @@
+2026-03-25 — **Plans:** `docs/plans/active/external-review-execution/*` (utom stub README) → `docs/plans/archived/external-review-execution/`; länkar (progress, REMAINING-WORK, hubs, `e2e/README`, `KRITIK-OVERVIEW`, regler, arkiverad workload-banner); `preview-and-sandbox-flow.md` + `sandbox-preview.ts` — tydliggör dev-sandbox vs `npm run build`; push `origin/master`.
+
 2026-03-28 — **Doc dedup sweep:** `orchestrator-workloads-external-review` fulltext → `docs/plans/archived/` + stub i `active/`; progress § Återstår/Next → `REMAINING-WORK.md`; REMEDIATION-EXIT, execution README, handoff, plans hub, `docs/README`, `agent-workflows`; push `origin/master`.
 
 2026-03-28 — **Plan clarity:** `orchestrator-followup-from-39fef25e.md` → `docs/plans/archived/`; `active/README.md` — 100% vs Plan 17 vs execution-mapp kvar i `active/`; Plan 17 rubrik — varför ej arkiverad (WS-5/6); push `origin/master`.

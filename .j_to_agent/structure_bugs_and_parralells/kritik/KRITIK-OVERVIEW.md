@@ -33,7 +33,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 
 ## Arbetsflöde för kontrollagent
 
-1. `git fetch origin` → `git log origin/master -10 --oneline` (inom samma session, **direkt före `git push`:** kör `git fetch` + `git pull origin master` igen så inget nytt från andra agenten missas — se även [CONTINUATION.md](../../../docs/plans/active/external-review-execution/CONTINUATION.md) § *Principer*).
+1. `git fetch origin` → `git log origin/master -10 --oneline` (inom samma session, **direkt före `git push`:** kör `git fetch` + `git pull origin master` igen så inget nytt från andra agenten missas — se även [CONTINUATION.md](../../../docs/plans/archived/external-review-execution/CONTINUATION.md) § *Principer*).
 2. Läs **`external-review-remediation-progress.md`** (tabell + *Next* + *Uncertainties*)
 3. Läs **`kritik-consolidated-open-items.md`** för öppna buggrader
 4. Vid större steg: lägg **`NNpct-<bokstav>.md`** med verifiering mot diff / tester

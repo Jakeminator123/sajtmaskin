@@ -1,6 +1,6 @@
 # Preview och sandbox — demo-URL-flöde (own engine)
 
-**Senast uppdaterad:** 2026-03-25
+**Senast uppdaterad:** 2026-03-25 (fidelity / build vs dev, sandbox-felsökning)
 
 Det här dokumentet beskriver hur **demo-URL** och **förhandsvisning** fungerar när användaren promptar i buildern med **egen motor** (inte v0-fallback). För Vercel Sandbox-autentisering, se [vercel-sandbox-credentials.md](./vercel-sandbox-credentials.md).
 
@@ -14,12 +14,25 @@ När en version har både **shim-URL** (`/api/preview-render`) och **`sandbox_ur
 
 Efter att en version sparats får klienten nästan alltid en **`demoUrl` direkt i SSE `done`**-eventet. Den pekar på **`/api/preview-render`** (byggd av `buildPreviewUrl` i [`src/lib/gen/preview/index.ts`](../../src/lib/gen/preview/index.ts)). Den routen renderar en **självständig HTML-sida** med CDN Tailwind + React UMD — en **snabb visuell approximation**, inte en full Next.js-server.
 
-Om sandbox är konfigurerad (`isSandboxConfigured()` i [`src/lib/mcp/runtime-url.ts`](../../src/lib/mcp/runtime-url.ts)) startar servern efter `done` en riktig miljö via [`startSandboxPreview`](../../src/lib/gen/sandbox-preview.ts) (`npm install`, `npm run dev` i `@vercel/sandbox`). **SSE-strömmen väntar** på att sandbox-steget slutförts (eller fel rapporterats) innan anslutningen stängs, så att `sandbox-ready` / `build-error` hinner levereras till klienten. Resultatet skickas som:
+Om sandbox är konfigurerad (`isSandboxConfigured()` i [`src/lib/mcp/runtime-url.ts`](../../src/lib/mcp/runtime-url.ts)) startar servern efter `done` en riktig miljö via [`startSandboxPreview`](../../src/lib/gen/sandbox-preview.ts) (**`npm install`** sedan **`npm run dev`** i `@vercel/sandbox`, se [`createSandboxRuntimeFromFiles`](../../src/lib/mcp/runtime-url.ts)). **`npm run build` körs inte** i det här flödet — du får en **Next.js dev-server** på sandlådans URL, inte en statisk export och inte `next start` efter production build. **SSE-strömmen väntar** på att sandbox-steget slutförts (eller fel rapporterats) innan anslutningen stängs, så att `sandbox-ready` / `build-error` hinner levereras till klienten. Resultatet skickas som:
 
 - **`sandbox-ready`** — `sandboxUrl` ersätter `demoUrl` i klienten ([`stream-handlers.ts`](../../src/lib/hooks/chat/stream-handlers.ts)).
 - **`build-error`** — fel från t.ex. `npm install` (toast + progress).
 
 Därför kan användaren **först** se shim-URL:en i några sekunder, sedan bytas till sandbox-domänen när den är klar.
+
+### «Hög fidelity» vs shim (praktisk tolkning)
+
+| Läge | Vad som körs | Ungefär som |
+|------|----------------|---------------|
+| **Shim** (`/api/preview-render?…`) | En **servergenererad HTML-sida** (CDN Tailwind, React UMD) | Snabb **statisk approximation** av utseendet — **inte** hela Next-runtime. |
+| **Sandbox** (`*.vercel.run` / sandbox-host) | **`npm install`** + **`npm run dev`** i isolerad miljö | Riktig **Next dev**-app; närmare lokal `npm run dev` än shim. **Inte** samma som `npm run build && npm run start`. |
+
+### Vanliga symtom
+
+- **`502` / `SANDBOX_NOT_LISTENING`:** proxyn når inte processen på förväntad port (t.ex. `next dev` har inte hunnit lyssna, kraschat, eller timeout). Inte samma fel som «trasig statisk fil».
+- **`WebSocket` till `/_next/webpack-hmr` som failar** mot en sandbox-/preview-host: HMR är **dev-server**-artefakt; i blandade miljöer (inbäddad preview, fel bas-URL) kan det bli **brus i konsolen** utan att det förklarar hela appbeteendet.
+- **Två «Agentlogg»-block** (olika promptlängd / metadata): ofta **två SSE-körningar** — t.ex. första stannar på **kontraktsfråga** (metadata visar infererat `persisted` m.m.), andra kör **efter ditt svar** med kort användartext; **data mode** i UI kan ändras när svaret tolkas som «ingen vald DB än» (produktlogik), inte för att preview plötsligt blev statisk.
 
 ```mermaid
 sequenceDiagram

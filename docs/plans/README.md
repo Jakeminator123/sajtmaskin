@@ -6,7 +6,7 @@ Subfolders (`active/`, `review-needed/`, `archived/`) keep a one-line `README.md
 
 ## Current status map
 
-Last tightened `2026-03-28` (workload snapshot archived; `REMAINING-WORK` hub; hub links; commit followup; `active/README`; `.gitignore` dedup).
+Last tightened `2026-03-25` (`external-review-execution/` → `archived/` + stub; preview/sandbox fidelity-dokumentation).
 
 `active`
 
@@ -14,7 +14,7 @@ Last tightened `2026-03-28` (workload snapshot archived; `REMAINING-WORK` hub; h
 - `active/REMAINING-WORK.md` — **samlad backlog** efter remediation-exit (pekare till K-rader, plan 17, smoke).
 - `active/orchestrator-workloads-external-review.md` — **stub**; full W1–W5-snapshot: `archived/orchestrator-workloads-external-review.md`.
 - `active/orchestrator-handoff-sequential-stramning.md` — kopieringsmall för `/orchestrator`-körning; **läs progress-filen ovan** för aktuella siffror (mallen innehåller inte färska %).
-- `active/external-review-execution/` — genomförande: `README.md`, `CONTINUATION.md`, `MASTER-ROADMAP.md`, track-filer (W1–W4), orchestrator-loggrutor.
+- `active/external-review-execution/README.md` — **stub** → `archived/external-review-execution/` (execution-spår arkiverat).
 - `active/17-repo-separation-and-independence.md` — repo separation / independence:
   **WS-1–WS-4 largely delivered** (v0 fallback removed from builder paths, Blob
   `StorageProvider`, direct OpenAI/Anthropic for former gateway routes). **Still
@@ -49,6 +49,7 @@ Last tightened `2026-03-28` (workload snapshot archived; `REMAINING-WORK` hub; h
 - `archived/orchestrator-run-2026-03-26-external-review.md` — avslutad orchestrator-körning (extern review); sammanfattning
 - `archived/orchestrator-followup-from-39fef25e.md` — commit-uppföljning second opinion (arkiverad 2026-03-28); punkt-i-tid
 - `archived/orchestrator-workloads-external-review.md` — W1–W5 workload-text (snapshot 2026-03-28); remediation execution sedan avslutad
+- `archived/external-review-execution/` — external-review execution (README, REMEDIATION-EXIT, MASTER-ROADMAP, CONTINUATION, tracks W1–W4, buglista del 3); flyttat från `active/` 2026-03-25
 - `archived/own-engine-ai-stack-audit-2026-03-18.md` — audit artifact (moved from review-needed)
 - `archived/world-class-commit-selection-report.md` — recovery artifact
 - `archived/world-class-branch-map-2026-03-13-to-now.md` — recovery artifact

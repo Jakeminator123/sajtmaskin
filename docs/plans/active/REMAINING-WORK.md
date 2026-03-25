@@ -1,6 +1,6 @@
 # Återstående arbete (efter external-review remediation exit)
 
-**Remediation enligt `1.txt` / `2.txt` / `3.txt` + W1–W5:** avslutad — se [`external-review-execution/REMEDIATION-EXIT.md`](./external-review-execution/REMEDIATION-EXIT.md). Den här filen är **inte** en andra sanning om samma spår; den **samlar pekare** till det som fortfarande är medvetet öppet (produkt, arkitektur, valfri drift).
+**Remediation enligt `1.txt` / `2.txt` / `3.txt` + W1–W5:** avslutad — se [`archived/external-review-execution/REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md). Den här filen är **inte** en andra sanning om samma spår; den **samlar pekare** till det som fortfarande är medvetet öppet (produkt, arkitektur, valfri drift).
 
 ## Snabb checklista för agenter
 
@@ -20,4 +20,4 @@
 
 När en rad stängs: uppdatera **källfilen** (kritik-tabellen eller plan 17), inte bara denna lista. Denna fil får kort **“Senast synkad”**-rad i [`../README.md`](../README.md) vid behov — undvik att duplicera långa tabeller här.
 
-**Senast innehållsmässigt stämd:** 2026-03-28 (workload-snapshot flyttad till `archived/`; progress § Återstår förkortad till pekare hit).
+**Senast innehållsmässigt stämd:** 2026-03-25 (`external-review-execution/` flyttad till `docs/plans/archived/`; stub kvar under `active/`).
