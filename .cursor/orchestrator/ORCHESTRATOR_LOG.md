@@ -1,3 +1,5 @@
+2026-03-27 — **~97% whole (route-plan /om + Cursor push-regel):** `route-plan.ts` **om oss** → `/om`; `route-plan.test.ts`; `.cursor/rules/parallel-agent-collision-safety.mdc` — fetch/pull före push; progress 88 filer / 387 tester; push `origin/master`.
+
 2026-03-27 — **~97% whole (ecommerce scaffold + push-rutin):** `ecommerce/manifest.ts` — **Om oss** `/om`, ny `app/om/page.tsx`; `CONTINUATION.md` + progress § Snabb ingång + `KRITIK-OVERVIEW` — **fetch/pull före push**; typecheck + vitest (385); push `origin/master`.
 
 2026-03-27 — **~97% whole (K-014 layout-footer):** `components/layout/footer.tsx` — `/om` (fix fel `/about`), GDPR/Cookies → `/privacy#…`; `footer.test.tsx`; landning **~91%**; typecheck + vitest (385); **K-014** fortfarande `[ ]`; push `origin/master`.

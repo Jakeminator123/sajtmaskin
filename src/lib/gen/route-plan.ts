@@ -34,7 +34,18 @@ const WEBSITE_ROUTE_PATTERNS: Array<{
   name: string;
   intent: string;
 }> = [
-  { match: /\b(about|om oss|company|story)\b/i, path: "/about", name: "About", intent: "Build trust and explain the company or creator." },
+  {
+    match: /\bom\s+oss\b/i,
+    path: "/om",
+    name: "Om oss",
+    intent: "Build trust and explain the company or creator (Swedish sites: use /om).",
+  },
+  {
+    match: /\b(about|company|story)\b/i,
+    path: "/about",
+    name: "About",
+    intent: "Build trust and explain the company or creator.",
+  },
   { match: /\b(service|services|tjänst|tjänster)\b/i, path: "/services", name: "Services", intent: "Explain offers, packages, or capabilities." },
   { match: /\b(pricing|price|pris|priser|billing)\b/i, path: "/pricing", name: "Pricing", intent: "Show pricing, plans, or billing details." },
   { match: /\b(contact|kontakta|kontakt|book|booking|boka)\b/i, path: "/contact", name: "Contact", intent: "Capture leads or contact requests." },

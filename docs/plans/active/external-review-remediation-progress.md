@@ -10,13 +10,13 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Commit-uppföljning (second opinion):** [reviews/README.md](./reviews/README.md) — t.ex. systematisk genomgång av orchestrator-commits efter brytpunkt `39fef25e` ([detaljer](./reviews/orchestrator-followup-from-39fef25e.md)).
 
-Last code touch: **E-handelsscaffold + push-rutin** — `ecommerce/manifest.ts`: **Om oss** → **`/om`** + ny **`app/om/page.tsx`** (så nav/footer inte pekar på saknad ruta); [CONTINUATION.md](./external-review-execution/CONTINUATION.md) § *Principer* — **fetch + pull före push** (flera agenter på `master`). **Whole ~97%** oförändrat.
+Last code touch: **Route-plan svensk /om + Cursor-regel** — `route-plan.ts`: fras **om oss** → planerad route **`/om`** (engelska **about** / **company** / **story** kvar **`/about`**); `route-plan.test.ts`. **`.cursor/rules/parallel-agent-collision-safety.mdc`:** **fetch + pull före `git push`** (pekar på CONTINUATION). **Whole ~97%** oförändrat.
 
-**Tidigare batch:** K-014 layout-footer (`footer.tsx` + `footer.test.tsx`); landning ~91%.
+**Tidigare batch:** e-handelsscaffold `/om` + push-rutin i docs; K-014 layout-footer; landning ~91%.
 
 **Tidigare (längre bak):** sitemap-regressionstest; K-008 blogg + `e2e/README`; orchestrator-hygien; K-014/K-007 delmoment; K-016 stängd.
 
-**Final sweep / handoff (2026-03-27):** `npm run typecheck` och `npx vitest run` (87 filer, **385** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**3 %** whole kvar).
+**Final sweep / handoff (2026-03-27):** `npm run typecheck` och `npx vitest run` (88 filer, **387** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**3 %** whole kvar).
 
 **Siffror (snabb):** **~97%** *whole vision* — bl.a. **B3-05** / hel **buglista del 3** stängd; se tabell § *Overall fill* och § *Kartläggning* nedan.
 
@@ -101,6 +101,7 @@ Ungefär **~3%** av *whole vision* kvar: **integrationer + deploy** (**~82%** do
 
 ## Done (in repo)
 
+- **Gen / route-plan (2026-03-27):** `route-plan.ts` — promptmönster **om oss** → **`/om`** (`Om oss`); engelska **about** / **company** / **story** → **`/about`**; `route-plan.test.ts`. **Cursor-regel:** [`.cursor/rules/parallel-agent-collision-safety.mdc`](../../../.cursor/rules/parallel-agent-collision-safety.mdc) § *Before git push*.
 - **Scaffold / route-konsekvens (2026-03-27):** `ecommerce/manifest.ts` — **Om oss** länkar **`/om`**; tillagd **`app/om/page.tsx`** i e-handelsstartern. **Agent-rutin:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md) — *fetch + pull före push*.
 - **W1 / K-014 delmoment (2026-03-27, layout):** `src/components/layout/footer.tsx` — **Om oss** → **`/om`** (ersätter fel **`/about`**); **Juridiskt**: **Integritetspolicy**, **Användarvillkor**, **GDPR**, **Cookies** (samma ankare som `landing-footer.tsx`); `src/components/layout/footer.test.tsx`.
 - **B3-05 / W4 (2026-03-27):** `scripts/extract-static-core.mjs` borttaget — monolitisk `STATIC_CORE` i `system-prompt.ts` finns inte; statisk kärna via `static-core-loader` + `config/prompt-static/`. Uppdaterat: `scripts/README.md`, `docs/architecture/prompt-tree.md`, `buglista-del-3.md`, `track-w4-scripts.md`.

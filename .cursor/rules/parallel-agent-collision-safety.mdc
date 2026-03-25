@@ -23,3 +23,7 @@ When unexpected edits or files appear, assume parallel work may be happening.
   confirmation.
 - If parallel work is intentional, register your intent on the board and think
   through a collision-avoidance plan before continuing mechanically.
+
+## Before `git push` (shared `master`)
+
+Remediation pushas till **`origin/master`**. **Direkt före `git push`:** kör `git fetch origin` och `git pull origin master` (vid behov `git pull --rebase origin master`) så commits från andra agenter integreras först. Se även `docs/plans/active/external-review-execution/CONTINUATION.md` § *Principer*.
