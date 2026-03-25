@@ -42,6 +42,9 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `83pct-i.md` | `0eaee012` — svensk copy header, `MODEL_TIER_OPTIONS`, `terminology.mdc` + routing-doc. |
 | `83pct-y.md` | `8bde15b7` — språkpolicy + arbetsyta/workspace-hygiene; **batch-verifiering** typecheck + vitest (348). |
 | `84pct-c.md` | `b29f9def` — Sanity, Contentful, Storyblok (`cms`), MongoDB; env-policy; Vitest; progress ~84% / integration ~74%. |
+| `84pct-u.md` | `d36d90d4` — `webscraper-url.test.ts`, normalisering + canonical key (utan nätverk). |
+| `84pct-a.md` | `0dac23c4` — Algolia sök i registry + detection + env-policy. |
+| `84pct-e.md` | `52de032d` — Meilisearch i registry + detection + env-policy; batch typecheck + vitest (357). |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
 
