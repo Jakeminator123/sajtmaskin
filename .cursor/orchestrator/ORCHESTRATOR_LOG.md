@@ -1,3 +1,5 @@
+2026-03-25 — **Orchestrator run B3-02:** protokoll enligt `PROTOCOL.md` (run + FINAL_SWEEP/REPORT + `archive-completed-runs.ps1 -RunName 2026-03-25-b3-02-phase-routing`). Arkiv: `.cursor/orchestrator/archive/2026-03-25-b3-02-phase-routing-150601/`; post i `run-summaries.md`. Kod: `phase-routing.ts` (aux OpenAI-faser → `gpt-4.1-mini`), Vitest 371, progress ~89%, buglista B3-02 stängd; push `origin/master`.
+
 2026-03-25 — **W2 deploy tests:** `deploy-readiness.test.ts`, `deployments/route.test.ts` (`precheckOnly`, Stripe missingEnv); mock `@/lib/db/client` + dynamic route import; vitest 370; progress last-touch + MASTER-rad; push `origin/master`.
 
 2026-03-25 — **B3-06:** `scaffold-pipeline.py` → `scripts/manual/` + README; `REPO_ROOT` fix; `scripts/README` + inventory + track-w4; B3-05 notis vid extract-static-core; progress ~88% whole; typecheck+vitest; push `origin/master`.

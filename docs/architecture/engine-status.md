@@ -343,7 +343,7 @@ implementationsfasen.
 - `VersionHistory.tsx`: indikatorer (amber dot, grön check, kommentarsbricka)
 
 #### Fasmedveten modellrouting
-- `phase-routing.ts`: alla faser (planner, verifier, generator, fixer, deploy-assistant) använder vald tier:s fulla modell
+- `phase-routing.ts`: för **fast** och **anthropic** används en modell per tier över alla faser; för **pro / max / codex** använder **planner** och **generator** profilens primärmodell medan **fixer**, **verifier** och **deploy-assistant** routas till **`gpt-4.1-mini`** (kostnad/latens)
 - Plan-mode och fixer integrerade med phase routing
 - Telemetri registrerar routingsammanfattning
 

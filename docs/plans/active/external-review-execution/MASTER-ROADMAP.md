@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | typecheck + vitest (371) | ~89%: B3-02 — `phase-routing.ts` aux OpenAI-faser → `gpt-4.1-mini`; docs + buglista |
 | 2026-03-25 | master | typecheck + vitest (370) | ~88%: W2 — `deploy-readiness.test.ts` + `deployments/route.test.ts` (`precheckOnly`, db client mock) |
 | 2026-03-25 | master | typecheck + vitest (365) | ~88%: B3-06 — `scripts/manual/scaffold-pipeline.py`; B3-05 doc vid extract-static-core |
 | 2026-03-25 | master | (docs) | ~87%: B3-04 — `preview-and-sandbox-flow.md` ephemeral vs stödtjänster + `agent-workflows` länk |

@@ -21,45 +21,53 @@ describe("resolvePhaseModel", () => {
     expect(planner.reason).toBe("fast-tier-no-downgrade");
   });
 
-  it("uses full tier model for all phases when pro tier", () => {
-    const planner = resolvePhaseModel("pro", "planner");
-    const verifier = resolvePhaseModel("pro", "verifier");
-    const generator = resolvePhaseModel("pro", "generator");
-    const fixer = resolvePhaseModel("pro", "fixer");
-
-    expect(planner.modelId).toBe("gpt-5.3-codex");
-    expect(verifier.modelId).toBe("gpt-5.3-codex");
-    expect(generator.modelId).toBe("gpt-5.3-codex");
-    expect(fixer.modelId).toBe("gpt-5.3-codex");
+  it("uses full tier for planner and generator on pro; auxiliary phases on mini", () => {
+    expect(resolvePhaseModel("pro", "planner").modelId).toBe("gpt-5.3-codex");
+    expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.3-codex");
+    expect(resolvePhaseModel("pro", "fixer").modelId).toBe("gpt-4.1-mini");
+    expect(resolvePhaseModel("pro", "verifier").modelId).toBe("gpt-4.1-mini");
+    expect(resolvePhaseModel("pro", "deploy-assistant").modelId).toBe(
+      "gpt-4.1-mini",
+    );
+    expect(resolvePhaseModel("pro", "verifier").reason).toBe("aux-openai-efficient");
   });
 
-  it("uses full tier model for all phases when max tier", () => {
-    const planner = resolvePhaseModel("max", "planner");
-    const verifier = resolvePhaseModel("max", "verifier");
-    const generator = resolvePhaseModel("max", "generator");
-
-    expect(planner.modelId).toBe("gpt-5.4");
-    expect(verifier.modelId).toBe("gpt-5.4");
-    expect(generator.modelId).toBe("gpt-5.4");
+  it("uses full tier for planner and generator on max; auxiliary phases on mini", () => {
+    expect(resolvePhaseModel("max", "planner").modelId).toBe("gpt-5.4");
+    expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
+    expect(resolvePhaseModel("max", "verifier").modelId).toBe("gpt-4.1-mini");
   });
 
-  it("uses full tier model for all phases when codex tier", () => {
-    const planner = resolvePhaseModel("codex", "planner");
-    const verifier = resolvePhaseModel("codex", "verifier");
-    const generator = resolvePhaseModel("codex", "generator");
-
-    expect(planner.modelId).toBe("gpt-5.1-codex-max");
-    expect(verifier.modelId).toBe("gpt-5.1-codex-max");
-    expect(generator.modelId).toBe("gpt-5.1-codex-max");
+  it("uses full tier for planner and generator on codex; auxiliary phases on mini", () => {
+    expect(resolvePhaseModel("codex", "planner").modelId).toBe("gpt-5.1-codex-max");
+    expect(resolvePhaseModel("codex", "generator").modelId).toBe(
+      "gpt-5.1-codex-max",
+    );
+    expect(resolvePhaseModel("codex", "verifier").modelId).toBe("gpt-4.1-mini");
   });
 
-  it("generator always uses full tier", () => {
+  it("uses Claude Sonnet across all phases in anthropic tier", () => {
+    const planner = resolvePhaseModel("anthropic", "planner");
+    const verifier = resolvePhaseModel("anthropic", "verifier");
+    const generator = resolvePhaseModel("anthropic", "generator");
+    const fixer = resolvePhaseModel("anthropic", "fixer");
+
+    expect(planner.modelId).toBe("claude-sonnet-4.6");
+    expect(verifier.modelId).toBe("claude-sonnet-4.6");
+    expect(generator.modelId).toBe("claude-sonnet-4.6");
+    expect(fixer.modelId).toBe("claude-sonnet-4.6");
+    expect(verifier.reason).toBe("anthropic-tier-unified");
+  });
+
+  it("generator always uses full tier for OpenAI profiles", () => {
     expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
     expect(resolvePhaseModel("codex", "generator").modelId).toBe(
       "gpt-5.1-codex-max",
     );
-    expect(resolvePhaseModel("anthropic", "generator").modelId).toBe("claude-sonnet-4.6");
+    expect(resolvePhaseModel("anthropic", "generator").modelId).toBe(
+      "claude-sonnet-4.6",
+    );
   });
 });
 
@@ -81,13 +89,13 @@ describe("getPhaseRoutingSummary", () => {
     expect(summary.generator).toBe("gpt-4.1");
   });
 
-  it("uses same model for all phases in pro tier", () => {
+  it("splits pro tier: planner/generator vs auxiliary phases", () => {
     const summary = getPhaseRoutingSummary("pro");
     expect(summary.planner).toBe("gpt-5.3-codex");
     expect(summary.generator).toBe("gpt-5.3-codex");
-    expect(summary.fixer).toBe("gpt-5.3-codex");
-    expect(summary.verifier).toBe("gpt-5.3-codex");
-    expect(summary["deploy-assistant"]).toBe("gpt-5.3-codex");
+    expect(summary.fixer).toBe("gpt-4.1-mini");
+    expect(summary.verifier).toBe("gpt-4.1-mini");
+    expect(summary["deploy-assistant"]).toBe("gpt-4.1-mini");
   });
 
   it("uses Claude across all phases in anthropic tier", () => {

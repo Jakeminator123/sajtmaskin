@@ -110,7 +110,7 @@ the bullet list below as the live product checklist.
 - Model system:
   - `src/lib/models/catalog.ts` -- 4 canonical tiers
   - `src/lib/models/selection.ts` -- tier resolution
-  - `src/lib/models/phase-routing.ts` -- planner/generator/fixer downgrades
+  - `src/lib/models/phase-routing.ts` -- per-phase routing (OpenAI pro/max/codex: planner+generator = tier model; fixer/verifier/deploy-assistant = gpt-4.1-mini; fast + anthropic unified per tier)
 - Generation telemetry:
   - `src/lib/db/schema.ts` -- `generation_telemetry` table
   - `src/lib/db/services/generation-telemetry.ts` -- CRUD + query

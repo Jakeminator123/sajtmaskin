@@ -13,7 +13,7 @@
 | ID | Typ | Kort beskrivning |
 |----|-----|------------------|
 | B3-01 | dokumentation | Enhetlig vardagsordlista: **scaffold** / **dossier** / **artifact** i terminologi + länkade arkitekturstycken |
-| B3-02 | kod (modellval) | Frivillig **fas→modell**-differentiering (t.ex. billigare fas för verifier) — idag samma `OwnModelId` per tier för alla faser utom `fast`-specialfallet |
+| B3-02 | kod (modellval) | **Levererat:** **fas→modell** för pro/max/codex — planner+generator på profilmodell; fixer/verifier/deploy-assistant → `gpt-4.1-mini`. Fast och anthropic oförändrade (en modell per tier). |
 | B3-03 | dokumentation | En kort sida: **deep brief** (builder/prompt) vs **orchestrator-run** (`.cursor/orchestrator`, Cursor-arbetsflöde) |
 | B3-04 | dokumentation (arkitektur) | Sandbox/preview: **ephemeral** som norm, separat host för långlivade tjänster — sammanfoga med befintlig preview-/sandbox-doc |
 | B3-05 | hygien (scripts) | När monolit-/fallback-prompten fasas ut: **arkivera eller ta bort** `scripts/extract-static-core.mjs` |
@@ -32,9 +32,9 @@
 
 ### B3-02 — Fas-routing (kod)
 
-- **Läge idag:** `src/lib/models/phase-routing.ts` returnerar samma `baseModel` för alla `GenerationPhase` inom en tier (undantag: `fast` + `reason: fast-tier-no-downgrade`). Tester i `phase-routing.test.ts` låser det beteendet.
-- [ ] Om produkt vill **sänka kostnad/latens**: inför verklig karta per fas (t.ex. mindre modell till `verifier`), uppdatera tester + eventuell SSE-meta/copy så användaren förstår skillnaden.
-- **Risk:** beteendeförändring i builder — gör i egen PR, inte ihop med kritik-only commits.
+- **Läge (2026-03-25):** `src/lib/models/phase-routing.ts` — för **pro / max / codex** använder **planner** och **generator** `canonicalModelIdToOwnModelId(tier)`; **fixer**, **verifier**, **deploy-assistant** → **`gpt-4.1-mini`** (`reason: aux-openai-efficient`). **fast** oförändrad (`fast-tier-no-downgrade`). **anthropic** en modell (`anthropic-tier-unified`).
+- [x] Kostnad/latens-justering för hjälpfaserna; tester + `engine-status.md` + `model-build-profiles.md` uppdaterade.
+- **Risk:** beteendeförändring i builder — levererad som egen batch; SSE-meta visar redan per-fas modell via befintlig routing.
 
 ### B3-03 — Deep brief vs orchestrator (dokumentation)
 
@@ -74,6 +74,7 @@ Uppdatera datum nedan när ni stänger ID:n i en merge.
 
 | Datum | Stängda ID | Not |
 |-------|------------|-----|
+| 2026-03-25 | B3-02 | `phase-routing.ts` — pro/max/codex: aux-faser → `gpt-4.1-mini`; docs + Vitest |
 | 2026-03-25 | B3-06 | `scaffold-pipeline.py` → `scripts/manual/` + README; inventory + track-w4 |
 | 2026-03-25 | B3-04 | `preview-and-sandbox-flow.md` ephemeral vs stödtjänster; länk från `agent-workflows.md` |
 | 2026-03-25 | B3-01, B3-03, B3-07, B3-08 | `agent-workflows.md`, `terminology.mdc` cheat sheet, `react-node-skill-routing.mdc`, länkar i README/workloads/structure-doc |

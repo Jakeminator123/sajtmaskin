@@ -182,11 +182,15 @@ pipeline.
 
 ## Phase routing
 
-`src/lib/models/phase-routing.ts` exists for planner / generator / fixer /
-verifier / deploy-assistant separation, but today it returns the same base model
-as the selected build profile.
+`src/lib/models/phase-routing.ts` maps each `GenerationPhase` to an `OwnModelId`:
 
-Treat this as structural preparation, not as active per-phase rerouting.
+- **fast** and **anthropic**: one model per tier for every phase (no downgrade).
+- **pro**, **max**, **codex**: **planner** and **generator** use the profile’s
+  primary model; **fixer**, **verifier**, and **deploy-assistant** use
+  **`gpt-4.1-mini`** for efficiency.
+
+Env overrides on the build profile still apply to the resolved **base** model;
+auxiliary OpenAI phases stay on `gpt-4.1-mini` unless the implementation changes.
 
 ## Archived docs
 

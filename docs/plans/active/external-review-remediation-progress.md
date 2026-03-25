@@ -6,11 +6,11 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **W2 deploy tests** — [`src/lib/deploy/deploy-readiness.test.ts`](../../src/lib/deploy/deploy-readiness.test.ts) (`buildDeployReadiness`); [`src/app/api/v0/deployments/route.test.ts`](../../src/app/api/v0/deployments/route.test.ts) (`precheckOnly`, Stripe → `missingEnv`); `vi.mock("@/lib/db/client")` + dynamisk `import("./route")` så routen laddas utan Postgres. **Tidigare:** **B3-06** (`scripts/manual/scaffold-pipeline.py` …). **Progress ~88% whole:** tabell nedan.
+Last code touch: **B3-02 fas→modell** — [`src/lib/models/phase-routing.ts`](../../src/lib/models/phase-routing.ts): för **pro / max / codex** använder **fixer**, **verifier** och **deploy-assistant** **`gpt-4.1-mini`**; **planner** + **generator** behåller profilmodellen. **fast** och **anthropic** oförändrade (en modell per tier). Vitest + `engine-status.md` + `model-build-profiles.md`. **Tidigare:** W2 deploy tests, B3-06. **Progress ~89% whole:** tabell nedan.
 
-**Final sweep / handoff (2026-03-25):** `npm run typecheck` och `npx vitest run` (84 filer, **370** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` / hygien i § Commit nedan). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md) och § *Återstår* (~**12 %** whole kvar).
+**Final sweep / handoff (2026-03-25):** `npm run typecheck` och `npx vitest run` (84 filer, **371** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` / hygien i § Commit nedan). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md) och § *Återstår* (~**11 %** whole kvar).
 
-**Siffror:** **~88%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** / **Elasticsearch** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~96%**.
+**Siffror:** **~89%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** / **Elasticsearch** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~96%**.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -55,7 +55,7 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~88%** | **~12%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~89%** | **~11%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~82%** | **~18%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~76%** | **~24%** |
 | **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
@@ -63,11 +63,11 @@ Vid varje dokumenterad avstämning:
 
 ## Återstår (kort)
 
-Ungefär **~12%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, **e2e kring deploy**, produktpolish; ev. own-engine utanför W3-track; **buglista del 3** endast **B3-02** (produkt/kod) och **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta). **W5** kritikpass / [kritik-derived-backlog](./kritik-derived-backlog.md). **Produkt/UI:** förenkling av byggaren där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~11%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, **e2e kring deploy**, produktpolish; ev. own-engine utanför W3-track; **buglista del 3** endast **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta). **W5** kritikpass / [kritik-derived-backlog](./kritik-derived-backlog.md). **Produkt/UI:** förenkling av byggaren där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
-- **Buglista del 3 (2026-03-25):** **B3-01, B3-03, B3-04, B3-06, B3-07, B3-08** — `agent-workflows.md`, terminology cheat sheet, sandbox ephemeral-doc, `scripts/manual/scaffold-pipeline.py` + B3-05-notis vid `extract-static-core`, Vercel-skill routing, länkar i README/workloads/structure-doc/inventory/track-w4.
+- **Buglista del 3 (2026-03-25):** **B3-01, B3-02, B3-03, B3-04, B3-06, B3-07, B3-08** — `agent-workflows.md`, terminology cheat sheet, sandbox ephemeral-doc, `scripts/manual/scaffold-pipeline.py` + B3-05-notis vid `extract-static-core`, Vercel-skill routing, länkar i README/workloads/structure-doc/inventory/track-w4; **B3-02** `phase-routing.ts` (pro/max/codex: aux-faser → `gpt-4.1-mini`) + Vitest + `engine-status.md` + `model-build-profiles.md`.
 - **W3 (slice, `2.txt`):** Döda konstanter `STREAM_RESOLVE_MAX_ATTEMPTS` / `STREAM_RESOLVE_DELAY_MS` borttagna från `POST /api/v0/chats/stream` och follow-up-stream-routen (användes inte). `createOwnEnginePlanModeResponse` tar inte längre `modelId` i params — planner-modell kommer enbart från `resolvePhaseModel(modelTier, "planner")` i SSE-meta (undviker vilseledande dubbel källa).
 - **W3 (namngivning):** `createGenerationPipeline` flyttad till **`src/lib/gen/generation-pipeline.ts`**; `src/lib/gen/fallback.ts` re-exporterar för äldre importvägar. Stream-routes, MCP `generate-site`, Vitest-mocks och `run-eval` needles uppdaterade; `docs/architecture/v0-soft-deprecation.md` justerad.
 - **W3 (contract gate):** `createPreGenerationContractGateReadableStream` i **`src/lib/providers/own-engine/pre-generation-contract-gate.ts`** — en SSE-sekvens för pre-generation contract clarification delas av nya chatten och follow-up (ny-chat lägger `chatPrivacy` / `scaffoldLabel` / `capabilities` i meta via explicita nycklar; follow-up utelämnar dem som tidigare).
@@ -126,7 +126,7 @@ Ungefär **~12%** av *whole vision* kvar: **integrationer + deploy** (~76% done)
 2. ~~Utöka `integrationRegistry` + manifest + deploy-readiness~~ **Klart** (uppföljning: tunnare auto-fix / valideringsfas före deploy om behov).
 3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** ev. SSE/own-engine utanför track; integrationer+deploy-segment om ni prioriterar det.
 4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
-5. **`3.txt` — övriga spår:** [buglista-del-3.md](./external-review-execution/buglista-del-3.md) — kvar: **B3-02** (kod/produkt), **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta).
+5. **`3.txt` — övriga spår:** [buglista-del-3.md](./external-review-execution/buglista-del-3.md) — kvar: **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta).
 6. **Kritik-backlog (parallell granskning):** [kritik-derived-backlog.md](./kritik-derived-backlog.md) — samlade öppna punkter från `NNpct-*.md` + konfliktrisk mot sista integration/deploy-spåret.
 
 ## Uncertainties / product follow-ups

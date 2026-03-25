@@ -131,3 +131,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-25-external-review-handoff-143249/`
 
+## 2026-03-25-b3-02-phase-routing (archived 2026-03-25 15:06)
+- **Scope:** B3-02 delivered: OpenAI pro/max/codex use gpt-4.1-mini for fixer, verifier, deploy-assistant; planner+generator keep tier model.
+- **Workloads:** 1 completed, 1 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-25-b3-02-phase-routing-150601/`
+
