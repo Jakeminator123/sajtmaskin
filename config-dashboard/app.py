@@ -131,6 +131,19 @@ def render_where_panel(page: str, dm: dict[str, Any]) -> None:
                 st.markdown(f"- `{line}`")
 
 
+# Cursor-agentfiler (relativa sökvägar från repo-root, label i UI)
+CURSOR_AGENT_DOCUMENTS: tuple[tuple[str, str], ...] = (
+    (
+        ".cursor/rules/terminology.mdc",
+        "terminology.mdc — produkt, builder, lanes (Cursor-regel)",
+    ),
+    (
+        "docs/architecture/structure-and-terminology.md",
+        "structure-and-terminology.md — mappar, pipeline, artifacts",
+    ),
+)
+
+
 # --- Streamlit -----------------------------------------------------------------
 
 st.set_page_config(
@@ -164,12 +177,15 @@ NAV_PAGES = (
     "env-policy",
     "shadcn-audit",
     "user_degraded_env",
+    "Cursor-agenter",
 )
 
 with st.sidebar:
     st.subheader("Navigation")
     page = st.radio("Vy", NAV_PAGES, label_visibility="collapsed")
-    st.caption("Källfiler → `config/` · Förklaringar → `docs/` · Verktyget → `config-dashboard/`")
+    st.caption(
+        "`config/` · `docs/` · `config-dashboard/` · sist: **Cursor-agenter** → `.cursor/` + docs"
+    )
     st.divider()
     st.subheader("Repo")
     st.text_area(
@@ -191,7 +207,7 @@ st.caption(
 # -- Översikt -------------------------------------------------------------------
 
 if page == "Översikt":
-    with st.expander("Tre syskonmappar på repo-roten", expanded=False):
+    with st.expander("Repo-roten: config · docs · config-dashboard · .cursor", expanded=False):
         for name, blurb in (domain_map.get("repoSiblings") or {}).items():
             st.markdown(f"**`{name}/`** — {blurb}")
 
@@ -472,3 +488,45 @@ elif page == "user_degraded_env":
     if st.button("Spara user_degraded_env.txt", type="primary"):
         write_text(up, new_txt)
         st.success("Sparat.")
+
+
+# -- Cursor-agenter (terminologi, separat från config/) -------------------------
+
+elif page == "Cursor-agenter":
+    st.header("Cursor-agenter — terminologi")
+    st.markdown(
+        "Här redigerar du **samma filer** som Cursor använder som ordlista och kontext för agenter "
+        "(`terminology.mdc` som projektregel, `structure-and-terminology.md` för mappar/pipeline). "
+        "Spara skriver direkt till disk (UTF-8)."
+    )
+    render_where_panel("Cursor-agenter", domain_map)
+
+    labels = [pair[1] for pair in CURSOR_AGENT_DOCUMENTS]
+    picked = st.radio("Välj dokument", labels, horizontal=True, key="cursor_agent_doc")
+    label_to_rel = {lab: r for r, lab in CURSOR_AGENT_DOCUMENTS}
+    rel = label_to_rel[picked]
+    cursor_fp = repo / rel
+    _key_safe = rel.replace("/", "_").replace("\\", "_")
+
+    st.caption(f"Aktuell fil: `{rel}`")
+
+    if rel.endswith(".mdc"):
+        st.warning(
+            "Behåll YAML-blocket överst (`---` … `description` / `alwaysApply`) "
+            "så att Cursor fortfarande tolkar filen som projektregel."
+        )
+
+    if not cursor_fp.is_file():
+        st.error(f"Filen finns inte: `{cursor_fp}`")
+    else:
+        body = read_text(cursor_fp)
+        edited = st.text_area(
+            "Innehåll (samma fil som Cursor/agenter använder)",
+            value=body,
+            height=620,
+            key=f"cursor_body_{_key_safe}",
+        )
+        if st.button("Spara till fil", type="primary"):
+            write_text(cursor_fp, edited)
+            st.success(f"Sparat: `{rel}` — nya chattar laddar uppdaterad text.")
+            st.rerun()

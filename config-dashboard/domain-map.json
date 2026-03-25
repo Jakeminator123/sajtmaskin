@@ -4,7 +4,8 @@
   "repoSiblings": {
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Det mesta som dashboarden redigerar ligger här.",
     "config-dashboard": "Endast Streamlit-verktyget (python app.py). Importeras inte av Next.js.",
-    "docs": "Förklaringar, arkitektur och runbooks. Ligger som syskon till config/ — ändras inte från denna dashboard."
+    "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara structure-and-terminology.md.",
+    ".cursor": "Cursor-projektregler och skills. terminology.mdc (alwaysApply) redigeras från vyn Cursor-agenter."
   },
   "pages": {
     "Översikt": {
@@ -109,6 +110,18 @@
         "src/lib/gen/pre-generation-contracts.ts",
         "src/lib/ai-models/load-generated-site-placeholders.ts"
       ]
+    },
+    "Cursor-agenter": {
+      "summary": "Ordlista och strukturterminologi som Cursor laddar som projektregel respektive arkitekturdoc — samma filer du redigerar här.",
+      "canonicalPaths": [
+        ".cursor/rules/terminology.mdc",
+        "docs/architecture/structure-and-terminology.md"
+      ],
+      "docsPaths": [
+        ".cursor/README.md",
+        "docs/README.md"
+      ],
+      "codeReaders": []
     }
   }
 }

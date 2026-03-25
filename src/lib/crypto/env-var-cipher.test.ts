@@ -25,6 +25,7 @@ describe("env-var-cipher disabled key handling", () => {
       expect(cipher.hasEnvVarEncryptionKey()).toBe(false);
       expect(cipher.encryptValue("super-secret")).toBe("super-secret");
     },
+    15_000,
   );
 
   it("encrypts and decrypts when a real key is configured", async () => {

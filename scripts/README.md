@@ -270,7 +270,7 @@ sist för att ge mer verifieringssignal även när repot redan har kända lintfe
 
 ## Eval (`npm run eval`)
 
-Kör eval-suite + scorecard via `scripts/run-eval.ts`. **Utdata:** katalogen `EGEN_MOTOR_V2/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
+Kör eval-suite + scorecard via `scripts/run-eval.ts`. **Utdata:** katalogen `eval-output/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. *(Äldre körningar kan ligga i `EGEN_MOTOR_V2/` — byt till `eval-output/` eller flytta filer.)* Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
 
 ## references:discover / scaffolds:discover
 

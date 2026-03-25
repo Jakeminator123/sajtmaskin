@@ -1,7 +1,7 @@
 /**
  * Own-engine eval harness (`npm run eval`).
  *
- * Skriver markdown **lokalt** under `./EGEN_MOTOR_V2/` (gitignored sedan 2026-03-25):
+ * Skriver markdown **lokalt** under `./eval-output/` (gitignored):
  * `eval-report-YYYY-MM-DD.md`, `scorecard-YYYY-MM-DD.md` — datum = körningsdag.
  * Inget här committas; bortsett från att du själv kopierar ut filer.
  */
@@ -17,7 +17,7 @@ import {
   type EvalReport,
 } from "../src/lib/gen/eval";
 
-const OUTPUT_DIR = path.join(process.cwd(), "EGEN_MOTOR_V2");
+const OUTPUT_DIR = path.join(process.cwd(), "eval-output");
 const TARGET_SCORE = 0.7;
 
 const REPO_FILES = {

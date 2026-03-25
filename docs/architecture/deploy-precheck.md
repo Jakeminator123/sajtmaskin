@@ -6,7 +6,7 @@ Kod: `src/app/api/v0/deployments/route.ts` — funktionen **`applyPreDeployFixes
 
 Innan filer skickas till Vercel normaliseras snapshoten så att typiska generatorfel inte saboterar `next build` i molnet: t.ex. saknad `package.json`, felaktiga CSS-`@utility`-block, saknat `"use client"` i App Router-filer som använder hooks, samt borttag av `pnpm`/`yarn`-lockfiler så att **`npm install`** används konsekvent.
 
-## Auto-fixar (för närvarande alltid på)
+## Auto-fixar (standard på, kan stängas av för felsökning)
 
 | Åtgärd | Kommentar |
 |--------|-----------|
@@ -18,9 +18,16 @@ Innan filer skickas till Vercel normaliseras snapshoten så att typiska generato
 
 Varningar som inte stoppar deploy (t.ex. saknade versionsnycklar i intern karta) hamnar i `preDeployWarnings` och i `deployReadiness.warnings`.
 
+### Stäng av auto-fix (opt-out)
+
+- **Miljö:** `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1` eller `DEPLOY_DISABLE_AUTO_FIX=1`.
+- **Body:** `"skipAutoFix": true` i samma JSON som `chatId` / `versionId` (gäller både riktig deploy och `precheckOnly`).
+
+Då körs **ingen** `applyPreDeployFixes`; `fixesApplied` innehåller en rad som förklarar att fixar hoppats över, och miljökrav beräknas på **ofixade** filer. Avsett för debugging — i produktion ska auto-fix normalt vara på så att Vercel-build inte misslyckas på triviala generatorfel.
+
 ## Miljökrav (hård spärr)
 
-Efter auto-fix beräknas obligatoriska miljövariabler via `resolveEnvRequirementsFromVersionFiles` + projektets konfigurerade env (`resolveProjectEnv`).
+Efter auto-fix (eller efter hopphopp om auto-fix är av) beräknas obligatoriska miljövariabler via `resolveEnvRequirementsFromVersionFiles` + projektets konfigurerade env (`resolveProjectEnv`).
 
 - **`POST /api/v0/deployments`** returnerar **409** med `code: "DEPLOY_MISSING_ENV"` om någon nyckel saknas — **innan** deployment-rad skapas eller Vercel anropas. Det speglar publiceringskollen i `GET .../readiness` (klienten bör redan vara blockerad; detta är **försvar på API-nivå**).
 
@@ -28,7 +35,7 @@ Efter auto-fix beräknas obligatoriska miljövariabler via `resolveEnvRequiremen
 
 I JSON-body: `"precheckOnly": true` (tillsammans med `chatId`, `versionId`, ev. `projectId`).
 
-- Kör samma auth-/ägarskap-/fil-flöde och samma `applyPreDeployFixes` + env-beräkning.
+- Kör samma auth-/ägarskap-/fil-flöde och samma pre-deploy-pipeline (`applyPreDeployFixes` om auto-fix inte är avstängd) + env-beräkning.
 - **Ingen** credit-debitering, **ingen** `deployments`-rad, **inget** Vercel-anrop.
 - Svar **200** med `deployReadiness`, `fixesApplied`, `preDeployWarnings`, `fileCount`.
 

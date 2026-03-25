@@ -54,6 +54,8 @@ scripts/output_test_scaffold/
 data/scaffold-candidates-curated.json
 
 # run-eval / codegen harness markdown output (scripts/run-eval.ts)
+eval-output/
+# Legacy output dir (rename → eval-output/); safe to delete locally
 EGEN_MOTOR_V2/
 
 # Vercel template scrape (local research; hamta_sidor_branch_emil.py)

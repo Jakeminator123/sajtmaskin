@@ -44,6 +44,30 @@ type PreDeployDiagnostics = {
   warnings: string[];
 };
 
+function shouldSkipPreDeployAutoFix(bodySkipAutoFix?: boolean): boolean {
+  if (bodySkipAutoFix === true) return true;
+  return (
+    process.env.SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX === "1" ||
+    process.env.DEPLOY_DISABLE_AUTO_FIX === "1"
+  );
+}
+
+function runPreDeployFixPipeline(
+  files: Array<{ name: string; content: string }>,
+  skipAutoFix: boolean,
+): PreDeployDiagnostics {
+  if (skipAutoFix) {
+    return {
+      files: files.map((f) => ({ ...f })),
+      fixesApplied: [
+        "Pre-deploy auto-fix skipped (skipAutoFix in body or SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1 / DEPLOY_DISABLE_AUTO_FIX=1)",
+      ],
+      warnings: [],
+    };
+  }
+  return applyPreDeployFixes(files);
+}
+
 function applyPreDeployFixes(
   files: Array<{ name: string; content: string }>,
 ): PreDeployDiagnostics {
@@ -324,6 +348,8 @@ const createDeploymentSchema = z.object({
   projectId: z.string().optional(),
   /** Kör samma preflight som deploy (fixar + env-krav) utan Vercel-anrop, credits eller deployment-rad. */
   precheckOnly: z.boolean().optional(),
+  /** Felsökning: hoppa över applyPreDeployFixes; env-krav beräknas på rå snapshot. */
+  skipAutoFix: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -341,8 +367,17 @@ export async function POST(req: Request) {
         );
       }
 
-      const { chatId, versionId, projectName, target, imageStrategy, projectId, precheckOnly } =
-        validationResult.data;
+      const {
+        chatId,
+        versionId,
+        projectName,
+        target,
+        imageStrategy,
+        projectId,
+        precheckOnly,
+        skipAutoFix,
+      } = validationResult.data;
+      const skipPreDeployAutoFix = shouldSkipPreDeployAutoFix(skipAutoFix);
       const resolvedImageStrategy: ImageAssetStrategy =
         imageStrategy ?? (process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "external");
       const deployTarget = target === "preview" ? "preview" : "production";
@@ -409,7 +444,10 @@ export async function POST(req: Request) {
       const textFiles = codeFiles.map((f) => ({ name: f.path, content: f.content }));
 
       const projectEnv = await resolveProjectEnv(engineProjectId ?? null);
-      const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
+      const { files: fixedFiles, fixesApplied, warnings } = runPreDeployFixPipeline(
+        textFiles,
+        skipPreDeployAutoFix,
+      );
       const envRequirements = resolveEnvRequirementsFromVersionFiles(
         fixedFiles.map((f) => ({ path: f.name, content: f.content })),
         projectEnv,
