@@ -8,13 +8,13 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Orchestrator-run — K-008 delmoment + deploy-doc** — `/blogg`: tydligare metadata, sektioner *Planerade teman* och *Mer att läsa* (länkar till `/om`, `/templates`, `/faq`, `/privacy`); `e2e/README.md`: ny § om **Vitest**-kontrakt för deploy + varför HTTP-e2e kräver auth. Run `2026-03-27-external-review-k008-blogg-e2e-doc` arkiverad. **K-008** förblir öppen (in-view 3D m.m.).
+Last code touch: **Whole vision ~96% + sitemap-regression** — `STATIC_SITEMAP_REL_PATHS` exporterad från `sitemap.ts` + `sitemap.test.ts` (384 Vitest); **whole** höjd från ~95% till **~96%** (kvar ~4%); **3.txt**-segment **~99%** (enbart **B3-05** kvar).
 
-**Tidigare:** orchestrator-hygien + dokumenthierarki; K-014 delmoment; K-007 delmoment; K-016 stängd i kritiklistan.
+**Tidigare:** K-008 blogg + `e2e/README` deploy-notis; orchestrator-hygien + dokumenthierarki; K-014/K-007 delmoment; K-016 stängd.
 
-**Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (85 filer, **382** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**5 %** whole kvar).
+**Final sweep / handoff (2026-03-27):** `npm run typecheck` och `npx vitest run` (86 filer, **384** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**4 %** whole kvar).
 
-**Siffror (snabb):** **~95%** *whole vision* — se tabell § *Overall fill* och § *Kartläggning mot 1.txt / 2.txt / 3.txt* nedan för hur delarna hänger ihop.
+**Siffror (snabb):** **~96%** *whole vision* — höjd från ~95% efter ackumulerade segment-leveranser + sitemap-regressionstest; se tabell § *Overall fill* och § *Kartläggning* nedan.
 
 ## Kartläggning mot källfiler (1.txt, 2.txt, 3.txt)
 
@@ -25,9 +25,9 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 | **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~90%** | Mer in-view 3D (`K-008`); riktiga blogginlägg / CMS senare; ev. polish; K-016 stängd; K-014 delmoment (footer → #cookies/#gdpr) |
 | **`1.txt`** — del B | **Integrationer + runtime-flöde** (registry, detektion, manifest, env, lansering, deploy-API) | **~82%** | HTTP-e2e runt deploy (auth), valfri tuffare validering (`K-007`); `e2e/README` pekar på Vitest-kontrakt; fler providers vid produktnytta |
 | **`2.txt`** | **Own-engine** (stream-routes tunna, session, finalize, golden tests, v0-gräns, **fas→modell** `B3-02`) | **~81%** | SSE/own-engine **utanför** avslutad W3-track (`K-009`), produktbeslut |
-| **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~98%** | **`B3-05`**: arkivera/ta bort `extract-static-core.mjs` när monolit-/fallback-prompten är borta |
+| **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~99%** | **`B3-05`**: arkivera/ta bort `extract-static-core.mjs` när monolit-/fallback-prompten är borta |
 
-**Whole vision (~95%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har e2e kvar.
+**Whole vision (~96%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har HTTP-e2e kvar.
 
 *Jämförelse mot gamla antaganden:* `3.txt` nämnde att `phase-routing.ts` bara var “förberedelse” — **det stämmer inte längre**; **B3-02** ger riktig fasmodell för OpenAI-profiler (`pro`/`max`/`codex`). Uppdatera mentalt modellen där.
 
@@ -85,18 +85,19 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining | Koppling `1.txt`–`3.txt` |
 |--------|------|-----------|---------------------------|
-| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~95%** | **~5%** | Se § *Kartläggning* ovan |
+| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~96%** | **~4%** | Se § *Kartläggning* ovan |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~90%** | **~10%** | **`1.txt` del A**; W1-track kryssat i MASTER |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~82%** | **~18%** | **`1.txt` del B**; manifest + 409 + precheckOnly + skipAutoFix-tester; `e2e/README` deploy-notis |
 | **Own-engine** (`2.txt`, W3 + `B3-02`) | **~81%** | **~19%** | **`2.txt`**; kärnspår klart, marginaler i kritik-tabellen |
-| **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~98%** | **~2%** | **`3.txt`**; endast **B3-05** väntar på monolit-slut |
+| **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~99%** | **~1%** | **`3.txt`**; endast **B3-05** väntar på monolit-slut |
 
 ## Återstår (kort)
 
-Ungefär **~5%** av *whole vision* kvar: **integrationer + deploy** (**~82%** done enligt tabellen ovan — *inte* ~76%; följ § *Overall fill*) — **HTTP-e2e kring deploy** (auth), valfri hårdare validering (`K-007`; delmoment: Vitest + `deploy-precheck` + `e2e/README`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`); **buglista del 3** endast **B3-05**. **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008` — delmoment: `/blogg` utökad placeholder + länkar; in-view 3D m.m. kvar), copy (`K-014` — delmoment: footer → `/privacy#…`; övrig copy kvar). **K-016** (landnings-refaktor) **stängd** 2026-03-26 — landnings-UI utbrutet i moduler; valfritt kvar: dela stora sektioner i `chat-area` vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~4%** av *whole vision* kvar: **integrationer + deploy** (**~82%** done enligt tabellen ovan — *inte* ~76%; följ § *Overall fill*) — **HTTP-e2e kring deploy** (auth), valfri hårdare validering (`K-007`; delmoment: Vitest + `deploy-precheck` + `e2e/README`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`); **buglista del 3** endast **B3-05**. **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008` — delmoment: `/blogg` utökad placeholder + länkar; in-view 3D m.m. kvar), copy (`K-014` — delmoment: footer → `/privacy#…`; övrig copy kvar). **K-016** (landnings-refaktor) **stängd** 2026-03-26 — landnings-UI utbrutet i moduler; valfritt kvar: dela stora sektioner i `chat-area` vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
+- **SEO / marknads-rutter (2026-03-27):** `src/app/sitemap.ts` — `STATIC_SITEMAP_REL_PATHS` + `src/app/sitemap.test.ts` (blogg/om/juridik m.m. får inte tyst falla bort).
 - **W1 + W2 / doc (2026-03-27):** `src/app/blogg/page.tsx` — planerade teman + *Mer att läsa*; `e2e/README.md` — § *Builder & deploy API* (Vitest `deployments/route.test.ts`, `deploy-precheck.md`, auth-krav för HTTP-e2e).
 - **Orchestrator / doc (2026-03-26):** Arkiverade hängande `run/`-mappar (scaffold-sandbox-migration, tier2-continue) med explicit deferral i FINAL-rapporter; execution README § *Dokumenthierarki*; tydligare roll för `1.txt`–`3.txt` vs operativ styrning i denna fil.
 - **W1 / K-014 delmoment (2026-03-26):** `landing-footer.tsx` — länkar **Cookies** och **GDPR** till `/privacy#cookies` respektive `/privacy#gdpr`; `src/app/privacy/page.tsx` — `id` på avsnitt 5–6 och `scroll-mt-24` för ankring.

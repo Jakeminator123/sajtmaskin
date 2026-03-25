@@ -3,6 +3,18 @@ import { URLS } from "@/lib/config";
 
 const BASE_URL = URLS.baseUrl;
 
+/** Relativa marknads-/juridik-vägar i sitemap (för regression — håll i linje med footer och sidor under `src/app`). */
+export const STATIC_SITEMAP_REL_PATHS = [
+  "",
+  "/templates",
+  "/buy-credits",
+  "/faq",
+  "/om",
+  "/blogg",
+  "/terms",
+  "/privacy",
+] as const;
+
 const CATEGORIES = [
   "ai",
   "animations",
@@ -18,16 +30,34 @@ const CATEGORIES = [
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
-  const staticPages: MetadataRoute.Sitemap = [
-    { url: BASE_URL, lastModified: now, changeFrequency: "weekly", priority: 1.0 },
-    { url: `${BASE_URL}/templates`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
-    { url: `${BASE_URL}/buy-credits`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${BASE_URL}/faq`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${BASE_URL}/om`, lastModified: now, changeFrequency: "monthly", priority: 0.45 },
-    { url: `${BASE_URL}/blogg`, lastModified: now, changeFrequency: "weekly", priority: 0.45 },
-    { url: `${BASE_URL}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${BASE_URL}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
-  ];
+  const staticPriorities: Record<string, number> = {
+    "": 1.0,
+    "/templates": 0.9,
+    "/buy-credits": 0.7,
+    "/faq": 0.5,
+    "/om": 0.45,
+    "/blogg": 0.45,
+    "/terms": 0.3,
+    "/privacy": 0.3,
+  };
+
+  const staticFrequencies: Record<string, "weekly" | "monthly" | "yearly"> = {
+    "": "weekly",
+    "/templates": "weekly",
+    "/buy-credits": "monthly",
+    "/faq": "monthly",
+    "/om": "monthly",
+    "/blogg": "weekly",
+    "/terms": "yearly",
+    "/privacy": "yearly",
+  };
+
+  const staticPages: MetadataRoute.Sitemap = STATIC_SITEMAP_REL_PATHS.map((path) => ({
+    url: path === "" ? BASE_URL : `${BASE_URL}${path}`,
+    lastModified: now,
+    changeFrequency: staticFrequencies[path] ?? "monthly",
+    priority: staticPriorities[path] ?? 0.5,
+  }));
 
   const categoryPages: MetadataRoute.Sitemap = CATEGORIES.map((category) => ({
     url: `${BASE_URL}/category/${category}`,

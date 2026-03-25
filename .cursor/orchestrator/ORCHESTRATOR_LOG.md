@@ -1,3 +1,5 @@
+2026-03-27 — **~96% whole (sitemap + procentsynth):** `STATIC_SITEMAP_REL_PATHS` + `sitemap.test.ts`; progress whole **~96%** / kvar **~4%**, `3.txt`-segment **~99%**; typecheck + vitest (384); push `origin/master`.
+
 2026-03-27 — **Orchestrator → ~95% (K-008 + e2e README):** `/blogg` utökad placeholder; `e2e/README.md` § deploy/Vitest vs HTTP-e2e; progress landning ~90%, integration ~82%; **K-008** `[ ]`. Run `2026-03-27-external-review-k008-blogg-e2e-doc` arkiverad. typecheck + vitest (382); push `origin/master`.
 
 2026-03-26 — **Orchestrator → ~95% (hygien + dokumenthierarki):** Stängda stale runs `2026-03-24-scaffold-sandbox-migration`, `2026-03-26-tier2-continue` (FINAL deferral/superseded) → arkiv; `external-review-execution/README.md` § **Dokumenthierarki**; progress justerad. Run `2026-03-26-external-review-doc-hierarchy-sweep` arkiverad. typecheck + vitest (382); push `origin/master`.
