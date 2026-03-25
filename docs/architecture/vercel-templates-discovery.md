@@ -1,5 +1,26 @@
 # Vercel Templates discovery (`vercel_templates_levels/`)
 
+## Viktigt: `package.json` vs git (läs detta först)
+
+Följande npm-script finns **kvar i repot** och pekar på en **lokal sökväg i repo-roten**:
+
+- `references:discover`, `references:discover:second-pass`, `references:discover:full`
+- alias: `scaffolds:discover`, `scaffolds:discover:full`
+
+**Målfil:** `vercel_templates_levels/tests/scrape-catalog.spec.ts`
+
+**Men:** hela katalogen `vercel_templates_levels/` är **`gitignore` + `cursorignore`** (från 2026-03-27). Det betyder:
+
+| Situation | Resultat |
+|-----------|----------|
+| **Din maskin** — mappen finns kvar efter tidigare checkout / manuell kopia | `npm run references:discover` **kan** fungera (Playwright + nät). |
+| **Ny `git clone`** | Mappen **finns inte** → scripten **failar** tills du återställer filerna lokalt (t.ex. från äldre commit, zip, eller flyttar specen till en **spårad** sökväg i en framtida PR). |
+| **CI** | Kör **inte** dessa script som standard — de förväntar sig lokal tooling + ofta interaktiv browser. |
+
+Detta är **medvetet tills vidare**: du granskar mappen lokalt utan att den pushas. **Nästa tydliga förbättring** är att flytta `scrape-catalog.spec.ts` under t.ex. `e2e/` eller `tests/` (spårad) och uppdatera `package.json` — eller ta bort scripten och enbart dokumentera Python-flöden (`hamta_sidor_branch_emil.py`, `vercel_template_cli.py`).
+
+---
+
 ## Vad hände med mappen?
 
 Den **raderades medvetet** i commit `c1a0ef96` (2026-03-18, Plan 17 WS-1 *dead code removal*), med motiveringen *legacy, excluded from tsconfig*. Däremot lämnades **`package.json`-scripts** (`references:discover*`, `scaffolds:discover*`) kvar — de pekade då mot en **saknad** sökväg.

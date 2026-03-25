@@ -269,6 +269,8 @@ npm run scaffolds:discover
 npm run scaffolds:discover:full
 ```
 
+**OBS:** Playwright-specen ligger under `vercel_templates_levels/` i **repo-roten**. Den katalogen är **gitignorerad** (2026-03-27) — efter en ren `git clone` finns den inte och dessa kommandon **misslyckas** tills du lagt till mappen lokalt. Se [`docs/architecture/vercel-templates-discovery.md`](../docs/architecture/vercel-templates-discovery.md).
+
 ## scaffold-pipeline.py
 
 Interaktivt Python-menyskript som samlar alla steg i template-library-kedjan.

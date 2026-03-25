@@ -2,7 +2,7 @@
 
 Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator). **Agent-uppdelning:** `docs/plans/active/orchestrator-workloads-external-review.md`.
 
-Last code touch: orchestrator **final sweep** — `scripts/README.md` + inventory (paths, npm, recovery saknas); run `2026-03-26-external-review` arkiverad.
+Last code touch: **`vercel_templates_levels/`** dokumenterad som **lokal + gitignore/cursorignore**; tydlig varning att `references:discover*` kräver lokal mapp (`vercel-templates-discovery.md`, `ENV.md`, inventory).
 
 **Siffror:** **~37%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Scripts-spåret** ~32% efter README/inventory-sweep; höj till **~43%** helhet när du kört din återstående script/README-runda.
 
