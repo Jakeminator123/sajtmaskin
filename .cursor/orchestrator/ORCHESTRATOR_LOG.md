@@ -1,3 +1,5 @@
+2026-03-28 — **Plan clarity:** `orchestrator-followup-from-39fef25e.md` → `docs/plans/archived/`; `active/README.md` — 100% vs Plan 17 vs execution-mapp kvar i `active/`; Plan 17 rubrik — varför ej arkiverad (WS-5/6); push `origin/master`.
+
 2026-03-28 — **Repo hygiene (100% remediation closeout):** `.gitignore` dedup (automation/cursor-gpt-block, en `node_modules/`, bort `.env*.local` längst ned); `docs/plans/README.md` + `archived/orchestrator-run-2026-03-26-external-review.md` (BOM bort, arkiveringsnotis); `.cursorignore` — `kritik-addressed/` med kommentar; progress § Done; push `origin/master`.
 
 2026-03-28 — **Orchestrator-run → remediation exit (100% execution-scope):** `REMEDIATION-EXIT.md`; `e2e/deploy/deploy-api-precheck.smoke.spec.ts` + `playwright.deploy-smoke.config.ts` + `npm run test:deploy-smoke:e2e` (skip utan env); progress § Overall fill / Återstår; **K-007/K-008/K-009/K-014** fortfarande `[ ]`; run `2026-03-28-external-review-remediation-exit` arkiverad; typecheck + vitest (387); push `origin/master`.

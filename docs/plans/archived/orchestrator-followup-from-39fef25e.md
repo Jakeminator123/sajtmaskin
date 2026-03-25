@@ -1,10 +1,13 @@
-# Orchestrator / remediation — commit-uppföljning (efter `39fef25e`)
+﻿# Orchestrator / remediation — commit-uppföljning (efter `39fef25e`)
+
+
+**Arkiverad** `2026-03-28` — punkt-i-tid-granskning av commits (tabellen nedan går inte automatiskt till `nu`); för nyare historik kör `git log` på `origin/master`. Levande sanning om vad som återstår: [`../active/kritik-consolidated-open-items.md`](../active/kritik-consolidated-open-items.md) + [`../active/external-review-remediation-progress.md`](../active/external-review-remediation-progress.md).
 
 **Baslinje:** Senast denna tråd uttryckligen följde upp kritik/manifest låg HEAD kring `39fef25e` / `7f2c86a8`-linjen. Här granskas commits på `origin/master` **efter** `39fef25e` (äldst → nyast): **tre batchar à fyra** + **en avslutande commit** som landade efter sitemap-steget.
 
 **Källkommando:** `git log 39fef25e..origin/master --oneline` (verifiera mot din clone med `git fetch`). Senast granskad HEAD i denna fil: **`357f0882`** (`origin/master` vid uppföljning 2026-03-27).
 
-**Relaterat:** [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md), [`external-review-remediation-progress.md`](../external-review-remediation-progress.md).
+**Relaterat:** [`kritik-consolidated-open-items.md`](../active/kritik-consolidated-open-items.md), [`external-review-remediation-progress.md`](../active/external-review-remediation-progress.md).
 
 ---
 
@@ -114,7 +117,7 @@
 | 5 | Rensa **dubbel variabel** i `extract-landing-chat-data.mjs` | kosmetik | **Inget kvar:** endast `outPath` används (ingen separat `dataPath`). |
 
 **Instruktion till agent (låg–medel risk):** *Implementera punkterna under “Rekommenderade nästa steg” som fortfarande saknar **Redan åtgärdat** / **OK**; rör inte registry/deploy/own-engine utan separat uppdrag. Kör `npm run typecheck` och `npx vitest run`.*  
-För **K-007 / K-009** lägg till [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) och vid behov [`deploy-precheck.md`](../../architecture/deploy-precheck.md) — detta followup-dokument täcker främst landnings-/granskningsdetaljer.
+För **K-007 / K-009** lägg till [`kritik-consolidated-open-items.md`](../active/kritik-consolidated-open-items.md) och vid behov [`deploy-precheck.md`](../../architecture/deploy-precheck.md) — detta followup-dokument täcker främst landnings-/granskningsdetaljer.
 
 **Implementerat i kod (efter review):** punkt 2–5 ovan + landningsfooter (Pretty Good AB + länk som i layout-footer), se commit som refererar till denna fil.
 

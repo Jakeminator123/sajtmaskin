@@ -8,7 +8,7 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-**Commit-uppföljning (second opinion):** [reviews/README.md](./reviews/README.md) — t.ex. systematisk genomgång av orchestrator-commits efter brytpunkt `39fef25e` ([detaljer](./reviews/orchestrator-followup-from-39fef25e.md)).
+**Commit-uppföljning (second opinion):** [reviews/README.md](./reviews/README.md) — t.ex. arkiverad genomgång av orchestrator-commits efter brytpunkt `39fef25e` ([detaljer](../archived/orchestrator-followup-from-39fef25e.md)).
 
 Last code touch: **Orchestrator-run — remediation exit (100% execution-scope)** — [`REMEDIATION-EXIT.md`](./external-review-execution/REMEDIATION-EXIT.md) fryser W1–W5-leverans; **valfri** deploy-smoke: `e2e/deploy/deploy-api-precheck.smoke.spec.ts` + `npm run test:deploy-smoke:e2e` (skippas utan `SAJTMASKIN_E2E_*`). **Whole vision = 100%** i betydelsen *remediation execution complete*; **K-007 / K-008 / K-009 / K-014** förblir `[ ]` tills produkt/copy beslutar.
 
@@ -103,6 +103,7 @@ Vid varje dokumenterad avstämning:
 
 ## Done (in repo)
 
+- **Plan-docs (2026-03-28):** `orchestrator-followup-from-39fef25e.md` → `docs/plans/archived/` (punkt-i-tid second opinion; länkar uppdaterade); `docs/plans/active/README.md` — kartläggning *100%* vs Plan 17 vs varför `external-review-execution/` ligger kvar i `active/`; Plan **17** — tydliggörande att WS-5/6/deferred kvar → **inte** arkiverad.
 - **Repo hygiene closeout (2026-03-28):** `.gitignore` — ett sammanslaget automation/cursor-gpt-block, bort med dubblett-`node_modules/` och redundant `.env*.local`; `docs/plans/README.md` pekar på arkiverad `orchestrator-run-2026-03-26-external-review.md`; `orchestrator-run-…-external-review.md` — arkiveringsnotis + BOM bort; `.cursorignore` — valfri exkludering av `.j_to_agent/archive/kritik-addressed/` (kommenterad).
 - **Remediation exit (2026-03-28, orchestrator-run):** [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md); valfri Playwright-smoke `e2e/deploy/deploy-api-precheck.smoke.spec.ts`; `playwright.deploy-smoke.config.ts`; `npm run test:deploy-smoke:e2e`; `e2e/README.md` + progress/MASTER/ORCHESTRATOR_LOG/kritik-batch. *Run arkiverad lokalt:* `2026-03-28-external-review-remediation-exit`.
 - **W1 + audit / Tailwind v4 (2026-03-27, orchestrator-run):** `lanyard-badge.tsx` — `bg-linear-to-br`; `BudgetEstimate.tsx` — `bg-linear-to-r`. **`track-w1-landing-followups.md`** (Lanyard-rad). *Run arkiverad lokalt:* `2026-03-27-tailwind-v4-gradient-hygiene` (se `run-summaries.md`).
