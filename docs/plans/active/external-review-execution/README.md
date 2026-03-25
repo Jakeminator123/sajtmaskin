@@ -1,13 +1,15 @@
 # External review — execution system
 
-Det här är **det genomförbara lagret** ovanpå `external-review-remediation-progress.md` (sanning, %, commit-rutin) och `orchestrator-workloads-external-review.md` (W1–W5-översikt).
+**Status:** W1–W5 **execution** enligt denna mapp + track-filer är **avslutad** — se [REMEDIATION-EXIT.md](./REMEDIATION-EXIT.md). **Vad som återstår** efter exit: [../REMAINING-WORK.md](../REMAINING-WORK.md). **Historisk W1–W5-text:** [../archived/orchestrator-workloads-external-review.md](../archived/orchestrator-workloads-external-review.md) (kort pekare i [../orchestrator-workloads-external-review.md](../orchestrator-workloads-external-review.md)).
+
+Det här är **det genomförbara lagret** ovanpå `external-review-remediation-progress.md` (sanning, %, commit-rutin) och — historiskt — workload-snapshoten ovan.
 
 ## Dokumenthierarki (grund vs operativ styrning)
 
 | Roll | Var | Vad det betyder |
 |------|-----|------------------|
 | **Grundmaterial (extern granskning)** | `.j_to_agent/1.txt`, `2.txt`, `3.txt` | Ursprunglig export: *vad* som granskats och vilka teman som finns (landning, own-engine, scripts m.m.). Det är **sanningen om ingången** till remediation. |
-| **Operativ styrning (hur vi kör)** | `external-review-remediation-progress.md` + denna mapp + `orchestrator-workloads-external-review.md` | *Hur* batchar prioriteras, verifieras (`typecheck`/`vitest`), committas och spåras. Kryss i track-filer och % är **arbetskontrakt**, inte en kopia rad-för-rad av `1.txt`–`3.txt`. |
+| **Operativ styrning (hur vi kör)** | `external-review-remediation-progress.md` + denna mapp + stubben `orchestrator-workloads-external-review.md` (full W1–W5-text arkiverad) | *Hur* batchar prioriterades under remediation; **nu:** se REMEDIATION-EXIT + `REMAINING-WORK.md`. |
 
 Om något skiljer sig: låt **grundmaterialet** förklara *tema/scope*, och **progress + execution** förklara *vad som faktiskt är levererat på `master`*.
 

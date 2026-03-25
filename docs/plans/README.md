@@ -6,12 +6,13 @@ Subfolders (`active/`, `review-needed/`, `archived/`) keep a one-line `README.md
 
 ## Current status map
 
-Last tightened `2026-03-28` (hub links, archived orchestrator summary + commit followup, `active/README` inventory, `.gitignore` dedup).
+Last tightened `2026-03-28` (workload snapshot archived; `REMAINING-WORK` hub; hub links; commit followup; `active/README`; `.gitignore` dedup).
 
 `active`
 
 - `active/external-review-remediation-progress.md` — **sanning** för externreview-remediation: helhets-% per segment, “Last code touch”, commit-/push-rutin, Done / Next.
-- `active/orchestrator-workloads-external-review.md` — W1–W5 workload-översikt (landning, integrationer, own-engine, scripts, kritik).
+- `active/REMAINING-WORK.md` — **samlad backlog** efter remediation-exit (pekare till K-rader, plan 17, smoke).
+- `active/orchestrator-workloads-external-review.md` — **stub**; full W1–W5-snapshot: `archived/orchestrator-workloads-external-review.md`.
 - `active/orchestrator-handoff-sequential-stramning.md` — kopieringsmall för `/orchestrator`-körning; **läs progress-filen ovan** för aktuella siffror (mallen innehåller inte färska %).
 - `active/external-review-execution/` — genomförande: `README.md`, `CONTINUATION.md`, `MASTER-ROADMAP.md`, track-filer (W1–W4), orchestrator-loggrutor.
 - `active/17-repo-separation-and-independence.md` — repo separation / independence:
@@ -47,6 +48,7 @@ Last tightened `2026-03-28` (hub links, archived orchestrator summary + commit f
 - `archived/2026-03-openclaw-rollout-roadmap.md` — completed
 - `archived/orchestrator-run-2026-03-26-external-review.md` — avslutad orchestrator-körning (extern review); sammanfattning
 - `archived/orchestrator-followup-from-39fef25e.md` — commit-uppföljning second opinion (arkiverad 2026-03-28); punkt-i-tid
+- `archived/orchestrator-workloads-external-review.md` — W1–W5 workload-text (snapshot 2026-03-28); remediation execution sedan avslutad
 - `archived/own-engine-ai-stack-audit-2026-03-18.md` — audit artifact (moved from review-needed)
 - `archived/world-class-commit-selection-report.md` — recovery artifact
 - `archived/world-class-branch-map-2026-03-13-to-now.md` — recovery artifact

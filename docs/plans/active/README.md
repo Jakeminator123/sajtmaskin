@@ -20,7 +20,7 @@ Mappen är **logiskt färdig** som kör-spår men ligger kvar här av **länksta
 
 ## Innehåll i `active/` (kort)
 
-- **Styrning remediation:** `external-review-remediation-progress.md`, `orchestrator-workloads-external-review.md`, `orchestrator-handoff-sequential-stramning.md` (mall).
+- **Styrning remediation:** `external-review-remediation-progress.md`, `orchestrator-workloads-external-review.md` (**stub** → arkiverad W1–W5-text), `orchestrator-handoff-sequential-stramning.md` (mall).
 - **Genomfört spår + audit trail:** `external-review-execution/*` (README, CONTINUATION, MASTER-ROADMAP, track-filer, REMEDIATION-EXIT, buglista del 3).
 - **Parallell kritik:** `kritik-consolidated-open-items.md`, `kritik-derived-backlog.md`.
 - **Second opinion / reviews:** `reviews/README.md` — färdiga granskningar flyttas till [`../archived/`](../archived/) (se t.ex. `orchestrator-followup-from-39fef25e.md`).

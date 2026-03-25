@@ -25,6 +25,8 @@
 
 ## Nästa steg (utanför remediation-exit)
 
+**Översikt:** [`../REMAINING-WORK.md`](../REMAINING-WORK.md) (samlar pekare utan att duplicera K-tabellen).
+
 1. Produkt: stäng eller omformulera K-rader i `kritik-consolidated-open-items.md`.
 2. Drift: kör deploy-smoke mot staging när session + fixtures finns.
 3. Vid ny extern granskning av `1.txt`–`3.txt`: uppdatera progress + ev. nya track-filer — denna exit är inte ett löfte om att inga nya krav kan tillkomma.

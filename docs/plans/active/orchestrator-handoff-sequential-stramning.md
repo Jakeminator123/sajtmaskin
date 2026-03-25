@@ -1,5 +1,7 @@
 # Handoff-prompt: orchestrerad sekventiell stramning (kopiera till nästa agent)
 
+**Efter remediation-exit:** backlog-översikt = [`REMAINING-WORK.md`](./REMAINING-WORK.md). Full W1–W5-beskrivning (snapshot) = [`../archived/orchestrator-workloads-external-review.md`](../archived/orchestrator-workloads-external-review.md). Kort pekare = [`orchestrator-workloads-external-review.md`](./orchestrator-workloads-external-review.md).
+
 Klistra in blocket nedan som **hela användarprompten** (gärna med prefix `/orchestrator` eller `/automation`).
 
 ---
@@ -12,7 +14,7 @@ Du kör en **orchestrated run** som **standardflöde** — inte ad hoc parallell
 ## Bakgrund — var vi befinner oss
 
 - **Remediation-spår:** Läs **`docs/plans/active/external-review-remediation-progress.md`** för aktuella procentsiffror, “Last code touch”, Done och Next. **Kopiera inte gamla % hit** — denna fil är en mall.
-- **Sekventiella workloads:** `docs/plans/active/orchestrator-workloads-external-review.md` (W1–W5) — öppna den för vad som gäller *nu* (status ändras löpande på `master`).
+- **Sekventiella workloads (historik):** `docs/plans/archived/orchestrator-workloads-external-review.md` — W1–W5 under remediation; *nu:* `REMAINING-WORK.md`.
 - **Genomförande / tracks:** `docs/plans/active/external-review-execution/README.md` + `MASTER-ROADMAP.md`.
 - **Källtexter (kontext, ofta ej för commit):** `.j_to_agent/1.txt`, `2.txt`, `3.txt`.
 - **Playwright / mall-research:** Kanonisk spec under `e2e/vercel-templates/`; `vercel_templates_levels/` valfri lokal spillra. Detaljer: `docs/architecture/vercel-templates-playwright-scaffold-integration.txt`.
@@ -25,7 +27,7 @@ Du kör en **orchestrated run** som **standardflöde** — inte ad hoc parallell
 4. Skriv **`ROADMAP.md`** först: tydliga faser, ägare per workload, acceptanskriterier, ordning (**sekventiellt** — en tung workload i taget där merge-risk finns).
 5. **Starta agenter** (delegation) en i tagen enligt roadmap: för varje steg `workloads/…`, `agent-logs/…`, `verification/…` när steget är klart.
 6. **Filtyper och ytor** du förväntas röra vid fortsatt stramning (beroende på workload):
-   - **Plan/progress:** `docs/plans/active/external-review-remediation-progress.md`, `orchestrator-workloads-external-review.md`, denna handoff-fil vid behov.
+   - **Plan/progress:** `external-review-remediation-progress.md`, `REMAINING-WORK.md`, denna handoff-fil vid behov (workload-snapshot arkiverad).
    - **App:** `src/` (landing, `integrationRegistry`, `detect-integrations`, layout, builder-relaterat för W2/W3).
    - **Skript & kontrakt:** `scripts/` (inkl. `hamta_sidor*.py`), rot-`package.json`, `vitest.config.ts`, `tsconfig.json`, `vercel_template_cli.py` (**repo root**, inte under `scripts/`).
    - **Research (offline):** `research/external-templates/` (rå discovery, template-library — dokumentera om du ändrar hur intag beskrivs).

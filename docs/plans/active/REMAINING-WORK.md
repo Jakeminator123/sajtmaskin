@@ -10,6 +10,7 @@
 | Repo separation / städ | [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) | WS-5 (research/`docs/old`), WS-6 (D-ID / OpenClaw / … beslut), deferred (`AI_GATEWAY_*`, `ENV.md`, v0 SDK där det fortfarande behövs) |
 | Valfri HTTP-smoke deploy | [`e2e/README.md`](../../e2e/README.md) § *Deploy API* | kräver `SAJTMASKIN_E2E_*` |
 | Segment-% (integration / own-engine) | [`external-review-remediation-progress.md`](./external-review-remediation-progress.md) § *Overall fill* | scope-indikator, inte “trasigt spår” |
+| W1–W5 under remediation (historik) | [`../archived/orchestrator-workloads-external-review.md`](../archived/orchestrator-workloads-external-review.md) | läs inte som aktiv backlog; använd tabellen ovan |
 
 ## Är plan 17 gammal / obsolet?
 
@@ -19,4 +20,4 @@
 
 När en rad stängs: uppdatera **källfilen** (kritik-tabellen eller plan 17), inte bara denna lista. Denna fil får kort **“Senast synkad”**-rad i [`../README.md`](../README.md) vid behov — undvik att duplicera långa tabeller här.
 
-**Senast innehållsmässigt stämd:** 2026-03-28.
+**Senast innehållsmässigt stämd:** 2026-03-28 (workload-snapshot flyttad till `archived/`; progress § Återstår förkortad till pekare hit).

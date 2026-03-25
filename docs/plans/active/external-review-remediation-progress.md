@@ -1,6 +1,6 @@
 # External review remediation — progress
 
-Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator). **Agent-uppdelning:** `docs/plans/active/orchestrator-workloads-external-review.md`.
+Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator). **Agent-uppdelning (W1–W5, historik):** [stub](./orchestrator-workloads-external-review.md) → [full snapshot](../archived/orchestrator-workloads-external-review.md).
 
 **Genomförande (checkbox-roadmap, parallella spår, agent-kontrakt):** `docs/plans/active/external-review-execution/README.md` → [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + [CONTINUATION.md](./external-review-execution/CONTINUATION.md) (autonoma anhalter, ~4–5 % batch-commits) + track-filer.
 
@@ -39,10 +39,10 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 
 ## Snabb ingång för nya agenter (remediation)
 
-1. **Kanonsanning för % och kvar:** denna fil — § *Overall fill*, § *Kartläggning*, § *Återstår*, *Last code touch*, *Done*, commit-rutin; efter exit även [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md).
+1. **Kanonsanning för % och kvar:** denna fil — § *Overall fill*, § *Kartläggning*, § *Återstår*, *Last code touch*, *Done*, commit-rutin; efter exit [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md) + samlad backlog **[REMAINING-WORK.md](./REMAINING-WORK.md)**.
 2. **Hur batchar körs:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md) (halt, verifiering före commit).
 3. **Spår och parallellisering:** [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + tabell *Orchestrator / verifiering*.
-4. **W1–W5 i mänskliga termer:** [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md).
+4. **W1–W5 (historisk snapshot):** [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md) → arkiv; **vad som gäller nu:** [REMAINING-WORK.md](./REMAINING-WORK.md).
 5. **Öppna K-/C-rader (kompletterar %):** [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) → [kritik-derived-backlog.md](./kritik-derived-backlog.md).
 6. **Gren:** `master`; `git pull origin master` ( `main` kan ligga efter). Efter arbete: `npm run typecheck` && `npx vitest run` → commit med helhets-% i subject → **direkt före push:** `git fetch origin` && `git pull origin master` (se [CONTINUATION.md](./external-review-execution/CONTINUATION.md) § *Principer*) → `git push origin master`. Uppdatera vid behov **MASTER-ROADMAP**-rad + [`.cursor/orchestrator/ORCHESTRATOR_LOG.md`](../../../.cursor/orchestrator/ORCHESTRATOR_LOG.md). **Större spår:** orchestrator-protokoll — [`.cursor/orchestrator/PROTOCOL.md`](../../../.cursor/orchestrator/PROTOCOL.md); färdiga körningar arkiveras med `archive-completed-runs.ps1` (lokal `archive/`, post i `run-summaries.md`).
 
@@ -99,10 +99,11 @@ Vid varje dokumenterad avstämning:
 
 ## Återstår (kort)
 
-**Remediation execution (W1–W5) är avslutad** — se [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md). Det som följer är **produkt- och driftsbacklog**, inte “sista procenten” av samma orchestrator-spår: **K-007** (valfri hårdare deploy-validering / auto-fix-policy), **K-008** (produktgodkännande landningspolish), **K-009** (own-engine utanför W3-track), **K-014** (copy/sidor), samt **HTTP-e2e** mot deploy-API när auth-fixturer finns (`npm run test:deploy-smoke:e2e` + `SAJTMASKIN_E2E_*`). **Segment-tabellen** (integration ~83%, own-engine ~81%, landning ~96%) beskriver fortfarande **andel av större produktscope**, inte obrutna tekniska checklistor. **Buglista del 3** — **komplett**. **Kritik:** [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md). **K-016** **stängd**. **Autonoma anhalter** för *ny* arbetsvåg: [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+**Remediation execution (W1–W5) är avslutad** — [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md). **Lista över allt som medvetet återstår** (K-rader, plan 17, smoke, segment-förklaring): **[`REMAINING-WORK.md`](./REMAINING-WORK.md)** — undvik att duplicera den texten här. **Autonoma anhalter** för *ny* arbetsvåg: [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
+- **Doc sweep (2026-03-28):** `orchestrator-workloads-external-review.md` — fulltext → `docs/plans/archived/`; **stub** i `active/` (samma filnamn, inga brutna länkar); `REMAINING-WORK.md` utökad; progress § *Återstår* / *Next* / *Uncertainties* förkortade till pekare; `REMEDIATION-EXIT`, execution `README`, handoff-mall, `docs/plans/README`, `docs/README`, `agent-workflows` uppdaterade.
 - **Plan-docs (2026-03-28):** `orchestrator-followup-from-39fef25e.md` → `docs/plans/archived/` (punkt-i-tid second opinion; länkar uppdaterade); `docs/plans/active/README.md` — kartläggning *100%* vs Plan 17 vs varför `external-review-execution/` ligger kvar i `active/`; Plan **17** — tydliggörande att WS-5/6/deferred kvar → **inte** arkiverad.
 - **Repo hygiene closeout (2026-03-28):** `.gitignore` — ett sammanslaget automation/cursor-gpt-block, bort med dubblett-`node_modules/` och redundant `.env*.local`; `docs/plans/README.md` pekar på arkiverad `orchestrator-run-2026-03-26-external-review.md`; `orchestrator-run-…-external-review.md` — arkiveringsnotis + BOM bort; `.cursorignore` — valfri exkludering av `.j_to_agent/archive/kritik-addressed/` (kommenterad).
 - **Remediation exit (2026-03-28, orchestrator-run):** [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md); valfri Playwright-smoke `e2e/deploy/deploy-api-precheck.smoke.spec.ts`; `playwright.deploy-smoke.config.ts`; `npm run test:deploy-smoke:e2e`; `e2e/README.md` + progress/MASTER/ORCHESTRATOR_LOG/kritik-batch. *Run arkiverad lokalt:* `2026-03-28-external-review-remediation-exit`.
@@ -180,14 +181,8 @@ Vid varje dokumenterad avstämning:
 
 ## Next (recommended order)
 
-1. ~~`LandingBackground` (shader/grid/noise) till egen komponent; semantiskt per läge; reduced-motion / in-view för 3D.~~ **Klart** (in-view för övrig 3D kvar vid behov).
-2. ~~Utöka `integrationRegistry` + manifest + deploy-readiness~~ **Klart** (uppföljning: tunnare auto-fix / valideringsfas före deploy om behov).
-3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** ev. SSE/own-engine utanför track; integrationer+deploy-segment om ni prioriterar det.
-4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
-5. ~~**`3.txt` — buglista del 3**~~ **Klart** (2026-03-27) — [buglista-del-3.md](./external-review-execution/buglista-del-3.md); alla **B3-** punkter levererade.
-6. **Efter remediation-exit:** [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md) + [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (K-007/K-008/K-009/K-014); valfri [kritik-derived-backlog.md](./kritik-derived-backlog.md).
+**W1–W5 enligt `1.txt`–`3.txt`:** **klart** — se [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md). **Nästa arbete:** [REMAINING-WORK.md](./REMAINING-WORK.md) (K-rader, plan 17, valfri smoke). Historisk ordningslista fanns i [arkiverad workload-snapshot](../archived/orchestrator-workloads-external-review.md).
 
 ## Uncertainties / product follow-ups
 
-- **Blogg:** sidan `/blogg` är en ärlig placeholder tills riktiga artiklar finns.
-- Social copy ersätter länkar tills URL:er finns.
+Ingår i **produktbacklog** / [REMAINING-WORK.md](./REMAINING-WORK.md) (t.ex. `/blogg`-placeholder, social-copy utan URL:er).
