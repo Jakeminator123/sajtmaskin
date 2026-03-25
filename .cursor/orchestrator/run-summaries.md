@@ -161,3 +161,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-26-external-review-k016-feature-modal-162425/`
 
+## 2026-03-26-external-review-k007-precheck-skip (archived 2026-03-26 16:29)
+- **Scope:** Planerat: efter K-016 ta nästa säkra remediation-fokus mot deploy-spåret — täcka `skipAutoFix` i `precheckOnly`-flödet utan att ändra produktbeteende utöver vad som redan finns i `route.ts`.
+- **Workloads:** 0 completed, 0 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-26-external-review-k007-precheck-skip-162925/`
+

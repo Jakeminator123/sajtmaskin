@@ -47,6 +47,17 @@ I JSON-body: `"precheckOnly": true` (tillsammans med `chatId`, `versionId`, ev. 
 
 Användbart för verktyg och felsökning utan att publicera.
 
+## Kontraktstester (Vitest)
+
+`src/app/api/v0/deployments/route.test.ts` mockar DB/version och kör `POST` mot routen utan riktiga Vercel-anrop. Täcker bland annat:
+
+- `precheckOnly: true` — 200, `deployReadiness`, ingen credits-debitering
+- Saknad Stripe-env när versionen signalerar Stripe
+- **`skipAutoFix: true`** — auto-fix-pipelinen körs inte (t.ex. `pnpm-lock.yaml` finns kvar i `fileCount`), `fixesApplied` innehåller meddelandet om att auto-fix hoppats över
+- Ogiltig `package.json` — `deployReadiness.invalidFiles` innehåller `package.json`
+
+Full **HTTP/Playwright e2e** mot inloggad session och riktig DB är separat spår (se progress-doc § *Återstår*).
+
 ## Observability
 
 `devLogAppend` skriver `site.deploy.precheck` med `fixesApplied`, `warnings` och `deployReadiness` när en riktig deploy fortsätter efter godkänd preflight.

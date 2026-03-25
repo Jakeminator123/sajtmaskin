@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-26 | master | typecheck + vitest (382) | ~95%: K-007 delmoment — `precheckOnly`+`skipAutoFix` Vitest (`deployments/route.test.ts`); `deploy-precheck.md` § kontraktstester; run `2026-03-26-external-review-k007-precheck-skip` arkiverad |
 | 2026-03-26 | master | typecheck + vitest (381) | ~95%: orchestrator K-016 del 4 — `landing-feature-blocks.tsx`; kritik K-016 `[x]`; run `2026-03-26-external-review-k016-feature-modal` arkiverad |
 | 2026-03-26 | master | typecheck + vitest (381) | ~94%: orchestrator K-016 del 3 — `landing-tech-integration-cards.tsx`, `landing-how-it-works-fallback.tsx`; run `2026-03-26-external-review-k016-tech-cards` arkiverad; progress ~94% |
 | 2026-03-26 | master | typecheck + vitest (381) | ~93%: orchestrator K-016 del 2 — `landing-comparison-radar.tsx` (useId gradients), `landing-lighthouse-gauges.tsx`; run `2026-03-26-external-review-k016-radar-lh` arkiverad; progress ~93% + § staging |
