@@ -6,11 +6,26 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **W5 kritik-hygien + konsoliderad backlog** — massarkivering av färdigställda `NNpct-*.md` → [`.j_to_agent/archive/kritik-addressed/`](../../.j_to_agent/archive/kritik-addressed/README.md); levande öppna punkter i [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md); uppdaterad [`KRITIK-OVERVIEW.md`](../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) + [`external-review-execution/README.md`](./external-review-execution/README.md). **Tidigare:** **B3-02** `phase-routing.ts` (aux-faser → `gpt-4.1-mini`). **Progress ~90% whole:** tabell nedan.
+Last code touch: **Progress-% synkad mot `1.txt` / `2.txt` / `3.txt`** — ny § *Kartläggning mot källfiler* + uppdaterad *Overall fill* (landning **~83%**, integration/deploy **~79%**, own-engine **~81%**, `3.txt`-spår **~97%**; whole **~90%**). **Tidigare:** **W5** kritik-hygien + [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md); **B3-02** `phase-routing.ts`. Tabell nedan.
 
 **Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (84 filer, **371** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) och § *Återstår* (~**10 %** whole kvar).
 
-**Siffror:** **~90%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** / **Elasticsearch** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~96%**.
+**Siffror (snabb):** **~90%** *whole vision* — se tabell § *Overall fill* och § *Kartläggning mot 1.txt / 2.txt / 3.txt* nedan för hur delarna hänger ihop.
+
+## Kartläggning mot källfiler (1.txt, 2.txt, 3.txt)
+
+Extern granskning och remediation spårades ursprungligen mot tre exportfiler under `.j_to_agent/`. Procentsiffrorna är **bedömningar** (inte matematik): de ska hjälpa prioritering, inte ersätta `git log` eller faktisk scope-lista.
+
+| Källa | Vad den i praktiken driver | Ungefärlig *done* | Kvar (typiskt) |
+|--------|----------------------------|-------------------|----------------|
+| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~83%** | Mer in-view 3D vid behov (`K-008`), `/blogg`-placeholder, ev. visuell förfining |
+| **`1.txt`** — del B | **Integrationer + runtime-flöde** (registry, detektion, manifest, env, lansering, deploy-API) | **~79%** | E2E runt deploy, valfri tuffare validering före deploy (`K-007`), fler providers bara vid produktnytta |
+| **`2.txt`** | **Own-engine** (stream-routes tunna, session, finalize, golden tests, v0-gräns, **fas→modell** `B3-02`) | **~81%** | SSE/own-engine **utanför** avslutad W3-track (`K-009`), produktbeslut |
+| **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~97%** | **`B3-05`**: arkivera/ta bort `extract-static-core.mjs` när monolit-/fallback-prompten är borta |
+
+**Whole vision (~90%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har e2e kvar.
+
+*Jämförelse mot gamla antaganden:* `3.txt` nämnde att `phase-routing.ts` bara var “förberedelse” — **det stämmer inte längre**; **B3-02** ger riktig fasmodell för OpenAI-profiler (`pro`/`max`/`codex`). Uppdatera mentalt modellen där.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -53,13 +68,13 @@ Vid varje dokumenterad avstämning:
 
 ## Overall fill (approximate)
 
-| Segment | Done | Remaining |
-|--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~90%** | **~10%** |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~82%** | **~18%** |
-| **Integrationer + deploy** (`1.txt` steg 5–7) | **~76%** | **~24%** |
-| **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
-| **Scripts / naming hygiene** (`3.txt`, W4 exit) | **~96%** | **~4%** |
+| Segment | Done | Remaining | Koppling `1.txt`–`3.txt` |
+|--------|------|-----------|---------------------------|
+| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~90%** | **~10%** | Se § *Kartläggning* ovan |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~83%** | **~17%** | **`1.txt` del A**; W1-track kryssat i MASTER |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~79%** | **~21%** | **`1.txt` del B**; manifest + 409 + precheckOnly-tester m.m. |
+| **Own-engine** (`2.txt`, W3 + `B3-02`) | **~81%** | **~19%** | **`2.txt`**; kärnspår klart, marginaler i kritik-tabellen |
+| **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~97%** | **~3%** | **`3.txt`**; endast **B3-05** väntar på monolit-slut |
 
 ## Återstår (kort)
 
