@@ -869,7 +869,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
   } = useLandingController(props)
 
   return (
-    <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+    <main className="landing-v2-page relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <LandingBackground
         selectedCategory={selectedCategory}
         isAuditMode={isAuditMode}

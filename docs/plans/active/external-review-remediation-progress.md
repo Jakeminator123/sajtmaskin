@@ -126,6 +126,7 @@ Ungefär **~14%** av *whole vision* kvar: **integrationer + deploy** (~76% done)
 3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** ev. SSE/own-engine utanför track; integrationer+deploy-segment om ni prioriterar det.
 4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
 5. **`3.txt` — övriga spår:** [buglista-del-3.md](./external-review-execution/buglista-del-3.md) — **B3-01, B3-03, B3-07, B3-08** stängda (2026-03-25); kvar: B3-02 (kod/produkt), B3-04–B3-06 (doc/hygien).
+6. **Kritik-backlog (parallell granskning):** [kritik-derived-backlog.md](./kritik-derived-backlog.md) — samlade öppna punkter från `NNpct-*.md` + konfliktrisk mot sista integration/deploy-spåret.
 
 ## Uncertainties / product follow-ups
 

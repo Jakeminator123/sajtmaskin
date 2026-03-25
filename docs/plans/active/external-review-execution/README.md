@@ -13,6 +13,7 @@ Det här är **det genomförbara lagret** ovanpå `external-review-remediation-p
 | [track-w2-deploy-hardening.md](./track-w2-deploy-hardening.md) | Valfritt: deploy-gate, färre auto-fix |
 | [track-w1-landing-followups.md](./track-w1-landing-followups.md) | Valfritt: små landnings-uppföljningar |
 | [buglista-del-3.md](./buglista-del-3.md) | **Del 3:** typade åtgärder från `3.txt` som inte täcks av W4 (terminologi, fas-modeller, sandbox-doc, Cursor-skills) |
+| [kritik-derived-backlog.md](../kritik-derived-backlog.md) | **Kritik:** samlade punkter från `NNpct-*.md` + konfliktrisk mot integration/deploy-spåret |
 
 ## Autonoma anhalter (kort)
 

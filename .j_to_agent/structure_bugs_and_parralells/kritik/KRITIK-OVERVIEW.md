@@ -67,6 +67,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 
 ## Relation till andra verktyg
 
+- **Samlad backlog (öppna punkter + “låst” filträd för slutspurt):** [`docs/plans/active/kritik-derived-backlog.md`](../../../docs/plans/active/kritik-derived-backlog.md)
 - **`/control-agent`** (Cursor) → `workstream-sentry`: snabb **diff-baserad** second opinion (se `.cursor/skills/control-agent/SKILL.md`).
 - **Orchestrator `verifier` / `PROTOCOL.md`**: formell körning; kritikmappen är **informell** men **persistent** i git.
 
