@@ -30,6 +30,25 @@ Vid varje dokumenterad avstämning:
   samt `git log -1 --oneline origin/master` — ska matcha senaste kända remediation-/chore-commit.
 - **Organisation:** överväg att sätta **default branch** till `master` i GitHub om all aktiv utveckling ska ligga där, eller merga `master` → `main` i en avsiktlig release-rutin (produktbeslut).
 
+### Språkpolicy: svenska i UI, engelska kvar där det är medvetet
+
+- **Prioriterat på svenska:** synlig copy i **byggaren** (header, inställningar, lansering, tips där vi rört ytan), **byggprofilbeskrivningar** i `MODEL_TIER_OPTIONS`, och **agentterminologi** i `.cursor/rules/terminology.mdc` där den speglar användartext.
+- **Medvetet kvar på engelska (eller blandat):** kodkommentarer och utvecklardokumentation på engelska där de redan är det; **AI-elementkatalog** (`ai-elements-catalog.ts`) och liknande **prompt-hints** till modellen; interna **API-/felsträngar** som konsumeras av kod eller loggar; **tekniska namn** (OpenAI, Anthropic, Vercel, Blob, ZIP); **mallen för egna instruktioner** i `defaults.ts` (kan vara engelska för att styra genererad kod). Ny svensk översättning där ska göras medvetet (risk att rubba modellbeteende).
+
+### Arbetsyta: samma innehåll som Git sparar
+
+- **Repots rot** (checkout av `sajtmaskin`) är den katalog där `git commit` skriver ändringar. Öppna **den mappen** i editorn, eller en **workspace-fil med endast den mappen** som root (JSON: `"path": "."` relativt workspace-filen).
+- **`sajtmaskin.code-workspace`** finns som spårbar mall: **`sajtmaskin.code-workspace.example`** (kopiera till `sajtmaskin.code-workspace` lokalt). Själva `sajtmaskin.code-workspace` är **gitignorerad** — den checkas alltså inte in, men ska peka på **`.`** (en root). Se `.cursor/README.md` och `.cursor/rules/workspace-hygiene.mdc`.
+- **Cursor-projektmappar** under t.ex. `%USERPROFILE%\.cursor\projects\…` är **redaktörens metadata** (historik, terminals), inte en separat klon. Filer du sparar ska ligga under **repots filträd** ovan — annars “finns” inte ändringen i Git.
+- **Verifiera att du är rätt:** `git rev-parse --show-toplevel` ska visa repots rot; `git branch --show-current` ska vara **`master`** för remediation-spåret; `git status -sb` ska visa `## master...origin/master` (efter `git fetch`).
+
+### Ska du synka mot `origin/master`?
+
+- **Ja — regelbundet `pull` (hämta + integrera)** om du vill ha exakt samma commithistorik som fjärr:  
+  `git fetch origin && git checkout master && git pull origin master`  
+  Efter det ska `git rev-parse HEAD` och `git rev-parse origin/master` vara **identiska** tills någon pushar igen.
+- **`push`** behöver du bara när **du** har egna commits som ska upp till GitHub. “Pusha en pull” är inte en Git-operation — men **Pull** / **Sync** i Cursor/VS Code motsvarar `git pull` när du står på `master` och remote är `origin`.
+
 ## Overall fill (approximate)
 
 | Segment | Done | Remaining |

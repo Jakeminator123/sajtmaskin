@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | (docs) | ~83%: språkpolicy + arbetsyta/Git (`progress.md`); `workspace-hygiene.mdc` — repo root vs Cursor project path; pull vs push |
 | 2026-03-25 | master | typecheck + vitest (348) | ~83%: svensk copy — `BuilderHeader` hjälp/inställningar, `MODEL_TIER_OPTIONS` i defaults, terminology + builder-model-routing-doc |
 | 2026-03-25 | master | typecheck + vitest (348) | ~83%: **Mer**-meny (import, sandbox, ZIP); **Ny chat**; svenska modell-etiketter; OpenClaw Mer-yta |
 | 2026-03-25 | master | (docs) | ~83%: dokumenterat **`origin/master`** som kanon för remediation; **`main`** kan vara efter — agenter ska `checkout master` + `pull` |

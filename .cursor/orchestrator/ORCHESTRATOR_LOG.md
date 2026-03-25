@@ -1,3 +1,5 @@
+2026-03-25 — **Docs:** språkpolicy (SV UI / medveten EN), arbetsyta vs Cursor project path, `pull origin master` vs push; `workspace-hygiene.mdc` + progress-doc.
+
 2026-03-25 — **Builder SV copy:** `BuilderHeader` tooltips/etiketter (bl.a. Inmatning, Delad förhandsvisning, Felsökningsvy); `defaults.ts` tier-beskrivningar (för/ä/jämför); `terminology.mdc` + builder-model-routing. Vitest 348.
 
 2026-03-25 — **Builder header:** **Mer**-dropdown (import, sandbox, ZIP); **Ny chat**; Thinking→Resonemang, Deep Brief→Djup brief, Custom→Anpassad; OpenClaw tips-lista + `mentionsKnownSurface` för Mer-menyn. Vitest 348.
