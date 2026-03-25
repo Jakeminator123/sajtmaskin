@@ -44,6 +44,7 @@ import {
   Link2,
   LogOut,
   MessageSquare,
+  MoreHorizontal,
   Plus,
   Lightbulb,
   Globe,
@@ -353,7 +354,7 @@ export function BuilderHeader(props: {
               })}
               {hasCustomAssistModel && (
                 <DropdownMenuRadioItem value={promptAssistModel}>
-                  Custom: {promptAssistModel}
+                  Anpassad: {promptAssistModel}
                 </DropdownMenuRadioItem>
               )}
             </DropdownMenuRadioGroup>
@@ -367,7 +368,7 @@ export function BuilderHeader(props: {
                       disabled={isDeepBriefDisabled}
                     >
                       <Wand2 className="mr-2 h-4 w-4" />
-                      Deep Brief Mode
+                      Djup brief
                       {!canUseDeepBrief && (
                         <span className="text-muted-foreground ml-2 text-xs">(endast ny chat)</span>
                       )}
@@ -474,7 +475,7 @@ export function BuilderHeader(props: {
                       disabled={isBusy || !isThinkingSupported}
                     >
                       <Wand2 className="mr-2 h-4 w-4" />
-                      Thinking
+                      Resonemang
                       {!isThinkingSupported && (
                         <span className="text-muted-foreground ml-2 text-xs">(ej tillgängligt)</span>
                       )}
@@ -649,41 +650,82 @@ export function BuilderHeader(props: {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => runDeferredAction(onOpenImport)}
-          disabled={isBusy}
-          title="Import from GitHub or ZIP"
-        >
-          <FolderGit2 className="h-4 w-4" />
-          <span className="hidden sm:inline">Import</span>
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => runDeferredAction(onOpenSandbox)}
-          disabled={isBusy}
-          title="Run in Vercel Sandbox"
-        >
-          <TerminalSquare className="h-4 w-4" />
-          <span className="hidden sm:inline">Sandbox</span>
-        </Button>
+        <DropdownMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isBusy}
+                    aria-label="Fler åtgärder: import, sandbox, nedladdning"
+                    title="Importera, sandbox eller ladda ner ZIP"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="hidden sm:inline">Mer</span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                <p>Import från GitHub/ZIP, Vercel Sandbox, projekt som ZIP</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuLabel>Importera och exportera</DropdownMenuLabel>
+            <DropdownMenuItem
+              disabled={isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                runDeferredAction(onOpenImport);
+              }}
+            >
+              <FolderGit2 className="mr-2 h-4 w-4" />
+              Importera (GitHub eller ZIP)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                runDeferredAction(onOpenSandbox);
+              }}
+            >
+              <TerminalSquare className="mr-2 h-4 w-4" />
+              Öppna Vercel Sandbox
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!chatId || !activeVersionId || isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                if (chatId && activeVersionId) {
+                  window.open(
+                    `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
+                    "_blank",
+                  );
+                }
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Ladda ner som ZIP
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Button
           variant="outline"
           size="sm"
           onClick={() => runDeferredAction(onNewChat)}
           disabled={isBusy}
-          title="Start a new chat"
+          title="Starta en ny chat (nuvarande finns kvar i historiken)"
         >
           {isCreatingChat ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Plus className="h-4 w-4" />
           )}
-          <span className="hidden sm:inline">New</span>
+          <span className="hidden sm:inline">Ny chat</span>
         </Button>
 
         <Button
@@ -703,24 +745,6 @@ export function BuilderHeader(props: {
             <Save className="h-4 w-4" />
           )}
           <span className="hidden sm:inline">Spara</span>
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            if (chatId && activeVersionId) {
-              window.open(
-                `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
-                "_blank",
-              );
-            }
-          }}
-          disabled={!chatId || !activeVersionId || isBusy}
-          title="Ladda ner projekt som ZIP"
-        >
-          <Download className="h-4 w-4" />
-          <span className="hidden sm:inline">Ladda ner</span>
         </Button>
 
         <Button

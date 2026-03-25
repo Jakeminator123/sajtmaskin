@@ -14,6 +14,7 @@ interface TipsRequestBody {
 
 const DEFAULT_UI_SURFACES = [
   "vänster chatpanel",
+  "Mer-menyn (import, sandbox, ZIP)",
   "Lanseringskortet",
   "previewpanelen",
   "sidchipsen under Preview",
@@ -143,6 +144,8 @@ const GENERIC_UNKNOWN_UI_RE =
 function mentionsKnownSurface(text: string): boolean {
   const known = [
     "launch readiness",
+    "mer-meny",
+    "mer-menyn",
     "lansering",
     "lanseringskortet",
     "preview",

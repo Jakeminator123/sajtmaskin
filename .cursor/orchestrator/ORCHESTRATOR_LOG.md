@@ -1,3 +1,5 @@
+2026-03-25 — **Builder header:** **Mer**-dropdown (import, sandbox, ZIP); **Ny chat**; Thinking→Resonemang, Deep Brief→Djup brief, Custom→Anpassad; OpenClaw tips-lista + `mentionsKnownSurface` för Mer-menyn. Vitest 348.
+
 2026-03-25 — **Docs:** tydliggjort att remediation pushas till **`origin/master`**; **`main`** kan ligga många commits efter — andra agenter måste `git checkout master && git pull`. Uppdaterat progress + CONTINUATION + execution README.
 
 2026-03-25 — **Builder UI (tips):** TipCard utan gul UI-disclaimer; tips-toggle in i Inställningar-dropdown; svenska menyetiketter (Generering, Chattvy, Egna instruktioner); OpenClaw `mentionsKnownSurface` + lansering. Vitest 348.
