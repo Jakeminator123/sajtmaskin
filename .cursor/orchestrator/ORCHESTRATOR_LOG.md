@@ -1,3 +1,5 @@
+2026-03-26 — **Typesense:** integrationRegistry + detect-integrations + env-policy; Vitest 358.
+
 2026-03-26 — **Meilisearch:** integrationRegistry + detect-integrations + env-policy; Vitest 357.
 
 2026-03-26 — **Algolia:** integrationRegistry + detect-integrations + env-policy; Vitest 356.

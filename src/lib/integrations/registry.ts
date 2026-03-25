@@ -230,6 +230,17 @@ export const integrationRegistry: IntegrationDefinition[] = [
     provider: "meilisearch",
   },
   {
+    key: "typesense",
+    name: "Typesense",
+    category: "other",
+    envVars: ["NEXT_PUBLIC_TYPESENSE_HOST", "NEXT_PUBLIC_TYPESENSE_SEARCH_ONLY_API_KEY"],
+    setupGuide:
+      "Skapa kluster i Typesense Cloud (eller kör egen server). Använd **search-only**-nyckel i klienten: sätt NEXT_PUBLIC_TYPESENSE_HOST (t.ex. https://xxx.a1.typesense.net) och NEXT_PUBLIC_TYPESENSE_SEARCH_ONLY_API_KEY. Admin-nyckel för indexering hålls server-side (TYPESENSE_API_KEY) och ska inte ligga i NEXT_PUBLIC.",
+    runtime: "browser",
+    optional: false,
+    provider: "typesense",
+  },
+  {
     key: "sentry",
     name: "Sentry",
     category: "other",

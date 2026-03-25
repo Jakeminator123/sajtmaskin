@@ -117,6 +117,12 @@ export const DETECTION_PIPELINE: DetectionRule[] = [
   },
   {
     source: "registry",
+    pattern:
+      /(?:typesense(?:-instantsearch-adapter|-js)?|from\s+["']typesense["']|@typesense\/|NEXT_PUBLIC_TYPESENSE_HOST\b|NEXT_PUBLIC_TYPESENSE_SEARCH_ONLY_API_KEY\b)/i,
+    registryProvider: "typesense",
+  },
+  {
+    source: "registry",
     pattern: /(?:@sentry\/|SENTRY_DSN\b)/i,
     registryProvider: "sentry",
   },

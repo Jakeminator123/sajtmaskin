@@ -36,6 +36,19 @@ describe("integration manifest", () => {
     expect(row?.envVars).toContain("NEXT_PUBLIC_MEILISEARCH_HOST");
   });
 
+  it("detects Typesense from generated code", () => {
+    const files = [
+      {
+        name: "lib/search.ts",
+        content: 'import Typesense from "typesense";\n',
+      },
+    ];
+    const detected = detectIntegrationsFromVersionFiles(files);
+    const row = detected.find((d) => d.key === "typesense");
+    expect(row?.name).toBe("Typesense");
+    expect(row?.envVars).toContain("NEXT_PUBLIC_TYPESENSE_HOST");
+  });
+
   it("detects Algolia from generated code", () => {
     const files = [
       {
