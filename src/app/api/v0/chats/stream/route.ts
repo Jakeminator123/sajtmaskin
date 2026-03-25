@@ -60,8 +60,6 @@ import { createOwnEngineGenerationStream } from "@/lib/providers/own-engine/gene
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
-const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
-const STREAM_RESOLVE_DELAY_MS = 1200;
 
 export async function POST(req: Request) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
@@ -399,7 +397,6 @@ export async function POST(req: Request) {
         return attachSessionCookie(createOwnEnginePlanModeResponse({
           pipelineStream,
           chatId: plannerChat.id,
-          modelId: planModel,
           modelTier: resolvedModelTier,
           buildProfileId,
           buildProfileLabel: MODEL_LABELS[resolvedModelTier],

@@ -67,8 +67,6 @@ import {
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
-const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
-const STREAM_RESOLVE_DELAY_MS = 1200;
 
 export async function handleMessageStreamRequest(
   req: Request,
@@ -388,7 +386,6 @@ export async function handleMessageStreamRequest(
           return attachSessionCookie(createOwnEnginePlanModeResponse({
             pipelineStream: planPipelineStream,
             chatId,
-            modelId: planModel,
             modelTier: resolvedModelTier,
             buildProfileId,
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],

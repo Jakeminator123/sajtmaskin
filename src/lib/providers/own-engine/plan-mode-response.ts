@@ -22,7 +22,6 @@ type PromptStrategyMetaLike = {
 export function createOwnEnginePlanModeResponse(params: {
   pipelineStream: ReadableStream<Uint8Array>;
   chatId?: string;
-  modelId: string;
   modelTier: CanonicalModelId;
   buildProfileId: BuildProfileId;
   buildProfileLabel: string;
@@ -44,7 +43,6 @@ export function createOwnEnginePlanModeResponse(params: {
   const {
     pipelineStream,
     chatId,
-    modelId,
     modelTier,
     buildProfileId,
     buildProfileLabel,
