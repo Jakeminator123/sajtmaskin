@@ -4,7 +4,8 @@ import { Footer } from "@/components/layout";
 
 export const metadata: Metadata = {
   title: "Blogg",
-  description: "Nyheter och tips från Sajtmaskin — kommer snart.",
+  description:
+    "Artiklar om Sajtmaskin, webb bästa praxis och produktnyheter — första inlägg publiceras när redaktionen är igång.",
 };
 
 export default function BloggPage() {
@@ -28,7 +29,7 @@ export default function BloggPage() {
           </p>
 
           <div className="rounded-2xl border border-border/25 bg-card/30 p-8 text-sm leading-relaxed text-muted-foreground">
-            <p className="mb-4 text-foreground font-medium">Inga inlägg ännu</p>
+            <p className="mb-4 font-medium text-foreground">Inga inlägg ännu</p>
             <p className="mb-6">
               Vill du komma igång med en sajt under tiden? Öppna byggaren och beskriv ditt
               företag — första utkastet tar bara några sekunder.
@@ -47,6 +48,42 @@ export default function BloggPage() {
                 Vanliga frågor
               </Link>
             </div>
+          </div>
+
+          <div className="prose-sm mt-12 space-y-8 text-muted-foreground">
+            <section className="space-y-3 text-sm leading-relaxed">
+              <h2 className="text-lg font-medium text-foreground">Planerade teman</h2>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>Produktnyheter och releaseanteckningar</li>
+                <li>Guider för snabbare sajtlansering och innehåll</li>
+                <li>Exempel och lärdomar från svenska företag (när vi kan dela dem)</li>
+              </ul>
+            </section>
+            <section className="space-y-3 text-sm leading-relaxed">
+              <h2 className="text-lg font-medium text-foreground">Mer att läsa</h2>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>
+                  <Link href="/om" className="text-primary underline-offset-4 hover:underline">
+                    Om Sajtmaskin
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/templates" className="text-primary underline-offset-4 hover:underline">
+                    Mallar
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/faq" className="text-primary underline-offset-4 hover:underline">
+                    Vanliga frågor
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy" className="text-primary underline-offset-4 hover:underline">
+                    Integritetspolicy
+                  </Link>
+                </li>
+              </ul>
+            </section>
           </div>
         </div>
       </main>

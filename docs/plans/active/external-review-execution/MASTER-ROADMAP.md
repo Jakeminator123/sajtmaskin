@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-27 | master | typecheck + vitest (382) | ~95%: K-008 delmoment — `/blogg` (planerade teman + mer att läsa); `e2e/README` § Builder & deploy API; landning ~90%, integration ~82%; run `2026-03-27-external-review-k008-blogg-e2e-doc` arkiverad |
 | 2026-03-26 | master | typecheck + vitest (382) | ~95%: orchestrator-hygien — arkiverade `2026-03-24-scaffold-sandbox-migration`, `2026-03-26-tier2-continue`; execution README § dokumenthierarki (1/2/3 vs operativ styrning); run `2026-03-26-external-review-doc-hierarchy-sweep` arkiverad |
 | 2026-03-26 | master | typecheck + vitest (382) | ~95%: K-014 delmoment — landningsfooter `/privacy#cookies` + `/privacy#gdpr`; `privacy/page.tsx` ankar-id; run `2026-03-26-external-review-k014-privacy-anchors` arkiverad |
 | 2026-03-26 | master | typecheck + vitest (382) | ~95%: K-007 delmoment — `precheckOnly`+`skipAutoFix` Vitest (`deployments/route.test.ts`); `deploy-precheck.md` § kontraktstester; run `2026-03-26-external-review-k007-precheck-skip` arkiverad |

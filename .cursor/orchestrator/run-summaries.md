@@ -194,3 +194,10 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Execution README § Dokumenthierarki + progress § praktik.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-26-external-review-doc-hierarchy-sweep-164141/`
 
+## 2026-03-27-external-review-k008-blogg-e2e-doc (archived 2026-03-27 16:50)
+- **Scope:** Planerat: K-008 delmoment på blogg-sidan och tydligare deploy-testdokumentation i e2e README.
+- **Workloads:** 2 completed, 1 verified.
+- **Outcome:** `/blogg` utökad med teman + länkar.
+- **Outcome:** `e2e/README.md` beskriver Vitest deploy-kontrakt och auth-krav för HTTP-e2e.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-27-external-review-k008-blogg-e2e-doc-165017/`
+
