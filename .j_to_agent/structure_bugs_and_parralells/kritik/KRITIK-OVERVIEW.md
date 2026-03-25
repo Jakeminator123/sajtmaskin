@@ -36,6 +36,11 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `82pct-u.md` | `304bf6d5` — W2 409 UX i `useBuilderDeployActions` + docs sync (~82%). |
 | `83pct-s.md` | `fe22c9ee` — Sentry i registry + detektion; builder lansering-copy (~83%). |
 | `83pct-b.md` | `4f3fd5f5` — en lanseringsyta (Lansering-kort), `deploy-readiness-copy` + Vitest, kortare hints (~83% oförändrat). |
+| `83pct-t.md` | `d9fbee6c` — tips i Inställningar, slankare TipCard, OpenClaw lansering-ytor. |
+| `83pct-g.md` | `4d7c96a6` — docs: `origin/master` vs `main` för agenter. |
+| `83pct-m.md` | `4dd94273` — Mer-meny, svenska header-etiketter, OpenClaw surfaces. |
+| `83pct-i.md` | `0eaee012` — svensk copy header, `MODEL_TIER_OPTIONS`, `terminology.mdc` + routing-doc. |
+| `83pct-y.md` | `8bde15b7` — språkpolicy + arbetsyta/workspace-hygiene; **batch-verifiering** typecheck + vitest (348). |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
 
