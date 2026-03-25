@@ -67,7 +67,7 @@ export function TipCard({
             <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-2 py-1.5 text-xs text-yellow-100">
               Om tipset pekar på en UI-yta ska den finnas synligt i buildern. Annars: gör ändringen i
               <span className="font-medium"> den genererade sidan/koden</span> eller i en synlig vy som
-              Preview, Kodvy, Elementregister eller Launch readiness.
+              Preview, Kodvy, Elementregister eller Lanseringskortet.
             </div>
           )}
 

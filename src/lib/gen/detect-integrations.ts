@@ -105,6 +105,11 @@ export const DETECTION_PIPELINE: DetectionRule[] = [
   },
   {
     source: "registry",
+    pattern: /(?:@sentry\/|SENTRY_DSN\b)/i,
+    registryProvider: "sentry",
+  },
+  {
+    source: "registry",
     pattern: /(?:@vercel\/blob|BLOB_)/i,
     registryProvider: "vercel-blob",
   },

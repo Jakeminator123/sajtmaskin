@@ -15,6 +15,14 @@ describe("integration manifest", () => {
     expect(parsed?.integrations[0]?.key).toBe("stripe");
   });
 
+  it("detects Sentry from version files via registry pipeline", () => {
+    const files = [{ name: "instrumentation.ts", content: 'import * as Sentry from "@sentry/nextjs";\n' }];
+    const detected = detectIntegrationsFromVersionFiles(files);
+    const sentry = detected.find((d) => d.key === "sentry");
+    expect(sentry?.name).toBe("Sentry");
+    expect(sentry?.envVars).toContain("SENTRY_DSN");
+  });
+
   it("prefers manifest over code when manifest is valid", () => {
     const manifest = JSON.stringify({
       schemaVersion: 1,

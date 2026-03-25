@@ -129,7 +129,7 @@ describe("OpenClaw tips route", () => {
       success: true,
       cost: 2,
     });
-    expect(data.tip).toContain("Launch readiness-kortet");
+    expect(data.tip).toContain("Lanseringskortet");
     expect(commitCredits).toHaveBeenCalledTimes(1);
     expect(resolveFileContext).toHaveBeenCalledWith("chat_123", "ver_123");
 

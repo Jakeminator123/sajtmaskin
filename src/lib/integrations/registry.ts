@@ -163,6 +163,17 @@ export const integrationRegistry: IntegrationDefinition[] = [
     provider: "openai",
   },
   {
+    key: "sentry",
+    name: "Sentry",
+    category: "other",
+    envVars: ["SENTRY_DSN"],
+    setupGuide:
+      "Skapa projekt på sentry.io (Next.js). Kopiera DSN under Settings > Projects > [projekt] > Client Keys och sätt SENTRY_DSN i Vercel.",
+    runtime: "server",
+    optional: false,
+    provider: "sentry",
+  },
+  {
     key: "upstash",
     name: "Upstash",
     category: "data",

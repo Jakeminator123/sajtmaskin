@@ -214,7 +214,7 @@ export function useBuilderDeployActions({
             ]);
           }
           const hint = missing
-            ? ` Saknas: ${missing.join(", ")}. Lägg till nycklarna under projektets miljövariabler (Launch readiness).`
+            ? ` Saknas: ${missing.join(", ")}. Lägg till nycklarna under projektets miljövariabler (Lanseringskortet / sidopanelen).`
             : "";
           throw new Error(`${base}${hint}`);
         }

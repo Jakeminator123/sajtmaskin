@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-26 | master | typecheck + vitest (346) | ~83%: **Sentry** registry + detection; lansering-UI (spärrar, env-hint på Publicera); tips/OpenClaw copy; integration ~68% |
 | 2026-03-26 | master | typecheck + vitest (345) | ~82%: W2 builder — **409 `DEPLOY_MISSING_ENV`** visar saknade nycklar + error-log; `deploy-precheck`, track-w2, workloads; integration-segment ~65% |
 | 2026-03-26 | master | typecheck + vitest (345) | ~81%: W1 **`/om`** + **`/blogg`**, landnings-footer + sitemap; progress/tabell + track-w1 produkt `[x]`; docs-hub passus `743565d9` + log `5985898e` |
 | 2026-03-25 | master | typecheck + vitest (345) | ~80%: config-dashboard **Cursor-agenter**; `eval-output/` för `run-eval`; W2 auto-fix **opt-out** (`skipAutoFix` / env); cipher-test timeout; progress/tabell |

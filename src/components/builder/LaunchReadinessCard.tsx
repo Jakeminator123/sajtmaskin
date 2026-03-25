@@ -19,8 +19,9 @@ function openProjectEnvVarsPanel(envKeys?: string[]) {
 
 function statusBadge(readiness: ChatReadiness) {
   if (readiness.status === "blocked") {
+    const n = readiness.blockers.length;
     return {
-      label: `${readiness.blockers.length} blocker${readiness.blockers.length === 1 ? "" : "are"}`,
+      label: n === 1 ? "1 spärr" : `${n} spärrar`,
       className: "border-red-500/30 bg-red-500/10 text-red-200",
     };
   }
@@ -78,7 +79,7 @@ export function LaunchReadinessCard({ readiness, isLoading = false }: Props) {
           ) : (
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
           )}
-          <span className="font-medium text-gray-200">Launch readiness</span>
+          <span className="font-medium text-gray-200">Lansering</span>
         </div>
         {badge ? (
           <Badge variant="outline" className={cn("text-[10px]", badge.className)}>

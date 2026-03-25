@@ -229,7 +229,9 @@ export function BuilderHeader(props: {
   const { isAuthenticated, logout } = useAuth();
   const readinessLabel =
     deployReadiness?.status === "blocked"
-      ? `${deployReadiness.blockers.length} blocker${deployReadiness.blockers.length === 1 ? "" : "are"}`
+      ? deployReadiness.blockers.length === 1
+        ? "1 spärr"
+        : `${deployReadiness.blockers.length} spärrar`
       : deployReadiness?.status === "warning"
         ? `${deployReadiness.warnings.length} varning${deployReadiness.warnings.length === 1 ? "" : "ar"}`
         : deployReadiness

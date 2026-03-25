@@ -14,7 +14,7 @@ interface TipsRequestBody {
 
 const DEFAULT_UI_SURFACES = [
   "vänster chatpanel",
-  "Launch readiness-kortet",
+  "Lanseringskortet",
   "previewpanelen",
   "sidchipsen under Preview",
   "Kodvy",
@@ -133,8 +133,8 @@ function extractAssistantText(payload: unknown): string {
 }
 
 const UI_LOCATION_REWRITES: Array<[RegExp, string]> = [
-  [/\bSEO-panelen\b/giu, "Launch readiness-kortet"],
-  [/\bSEO-sidan\b/giu, "Launch readiness-kortet"],
+  [/\bSEO-panelen\b/giu, "Lanseringskortet"],
+  [/\bSEO-sidan\b/giu, "Lanseringskortet"],
 ];
 
 const GENERIC_UNKNOWN_UI_RE =

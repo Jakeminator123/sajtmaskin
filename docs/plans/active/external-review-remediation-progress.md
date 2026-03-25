@@ -6,9 +6,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **W2 / builder:** vid **409 `DEPLOY_MISSING_ENV`** visar **`useBuilderDeployActions`** saknade env-nycklar i feltext + skriver **`deploy`**-rad i versions-**error-log** (`meta.missingEnv`, m.m.); `deploy-precheck.md` + `track-w2` + **workloads** uppdaterade (bort med inaktuell “auto-fix opt-in”-formulering). **Tidigare:** W1 **`/om`**, **`/blogg`**, footer, sitemap; docs-hub passus. **Progress ~82% whole:** tabell nedan.
+Last code touch: **W2 integration + builder-copy:** **`sentry`** i **`integrationRegistry`** + **`DETECTION_PIPELINE`** (`@sentry/` / `SENTRY_DSN`); Vitest för detektion. **Lansering:** rubrik **Lansering** (f.d. “Launch readiness”), badge **spärr/spärrar**, **Publicera**-inaktiverad med vägledning till miljö-panel när blocker `action === "env"`, **Projektets miljövariabler**-etikett **saknar miljövariabler**, tips/OpenClaw-strängar uppdaterade. **Tidigare:** 409 deploy-UX, W1 `/om`+`/blogg`, docs-hub. **Progress ~83% whole:** tabell nedan.
 
-**Siffror:** **~82%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry + manifest + readiness + **409** + tydlig **klient-feedback** vid saknad env + `precheckOnly` + auto-fix **opt-out**. **Own-engine ~78%**, **scripts ~95%**. **Whole vision** enligt tabellen nedan.
+**Siffror:** **~83%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -16,7 +16,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~82pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~83pct — kort vad som ändrats`.
 4. **Batch:** under pågående orchestrator-remediation, **samla gärna ~4–5 enheter** på Whole vision mellan commits när flera säkra punkter ryms i samma gröna `typecheck`+`vitest` (färre mikrocommits). Se [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 5. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 6. `git push` till `master` (eller din arbetsbranch).
@@ -25,15 +25,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~82%** | **~18%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~83%** | **~17%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~82%** | **~18%** |
-| **Integrationer + deploy** (`1.txt` steg 5–7) | **~65%** | **~35%** |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~68%** | **~32%** |
 | **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
 | **Scripts / naming hygiene** (`3.txt`, W4 exit) | **~95%** | **~5%** |
 
 ## Återstår (kort)
 
-Ungefär **~18%** av *whole vision* kvar: **integrationer + deploy** (~65% done) — fler providers, publicerings-UX, e2e kring deploy; ev. own-engine utanför W3-track; produktpolish (blogg-innehåll, sociala URL:er). **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~17%** av *whole vision* kvar: **integrationer + deploy** (~68% done) — fler providers/CMS, e2e kring deploy, produktpolish; ev. own-engine utanför W3-track. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -60,7 +60,7 @@ Ungefär **~18%** av *whole vision* kvar: **integrationer + deploy** (~65% done)
 - Footer (landning v2): `/om`, `/blogg`, `/privacy`, `/terms`, `/faq`, `mailto:`; inga falska social-URL:er.
 - Video-knapp: väljer Analyserad + toast.
 - `integrationRegistry` + typer; `detectIntegrations()` läser namn/envVars/setupGuide därifrån via `DETECTION_PIPELINE` (regex kvar i `detect-integrations.ts`).
-- W2 (2026-03-25): Clerk, NextAuth/Auth.js, Google OAuth, GA4, GTM, Vercel Analytics, Plausible, PostHog och Vercel KV ligger i **`integrationRegistry`** med registry-styrda rader i `DETECTION_PIPELINE` (Prisma/SQLite förblir inline med särskild copy).
+- W2 (2026-03-25): Clerk, NextAuth/Auth.js, Google OAuth, GA4, GTM, Vercel Analytics, Plausible, PostHog, Vercel KV och **Sentry** ligger i **`integrationRegistry`** med registry-styrda rader i `DETECTION_PIPELINE` (Prisma/SQLite förblir inline med särskild copy).
 - W2 manifest + deploy (forts.): **`sajtmaskin.integration-manifest.json`** läggs in vid `finalizeAndSaveVersion` (efter preflight); `detectIntegrationsFromVersionFiles` + `resolveEnvRequirementsFromVersionFiles` använder manifest när `schemaVersion: 1` är giltig, annars heuristisk scan. **`deployReadiness`** (`buildDeployReadiness`) loggas på deploy-precheck och returneras i deploy-API-svaret.
 - **W2 builder-UX (409):** `useBuilderDeployActions` — vid **`DEPLOY_MISSING_ENV`** visas saknade nycklar i användarfel + versions-`error-log` (`deploy`); `deploy-precheck.md` § Builder.
 - W2 deploy-hårdning (2026-03-25): **`docs/architecture/deploy-precheck.md`** beskriver auto-fixar + **opt-out** (`skipAutoFix` / `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1`); **`POST /api/v0/deployments`** ger **409** (`DEPLOY_MISSING_ENV`) om obligatoriska env saknas efter preflight; valfri body **`precheckOnly`** för torrkörning utan credits.

@@ -146,7 +146,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       !isDeployActionBusy &&
       (vm.deployReadiness?.canDeploy ?? true),
   );
-  const deployDisabledReason = !vm.chatId
+  const baseDeployDisabledReason = !vm.chatId
     ? "Skapa eller öppna en chat först."
     : !vm.activeVersionId
       ? "Välj eller generera en version först."
@@ -157,6 +157,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           : vm.isDeploying
             ? "Publicering pågår redan."
             : deployReadinessBlocker?.detail || deployReadinessBlocker?.title || null;
+  const deployDisabledReason =
+    deployReadinessBlocker?.action === "env" && baseDeployDisabledReason
+      ? `${baseDeployDisabledReason} Använd sidopanelen Projektets miljövariabler eller knappen Öppna miljövariabler i lanseringskortet.`
+      : baseDeployDisabledReason;
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
   const [enableAutofix, setEnableAutofix] = useState(true);
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
@@ -211,7 +215,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               demoUrl: vm.currentDemoUrl,
               uiSurfaces: [
                 "vänster chatpanel",
-                "Launch readiness-kortet",
+                "Lanseringskortet",
                 "previewpanelen",
                 "sidchipsen under Preview",
                 "Kodvy",

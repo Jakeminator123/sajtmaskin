@@ -1127,7 +1127,7 @@ export function ProjectEnvVarsPanel({
                                 : "text-amber-300",
                             )}
                           >
-                            {item.readiness === "ready" ? "redo" : "kräver env"}
+                            {item.readiness === "ready" ? "redo" : "saknar miljövariabler"}
                           </span>
                         </div>
                         {item.missingEnv && item.missingEnv.length > 0 && (
