@@ -16,10 +16,10 @@
 
 ## Checklista
 
-- [ ] Kartlägg var **pre-deploy auto-fix** sker; dokumentera i kort kommentar eller `docs/architecture/`
-- [ ] Minska eller gör auto-fix **opt-in** där det är säkert (inga regressions i builder-deploy)
-- [ ] (Valfritt) **Hård valideringsfas** före deploy: separat steg som stoppar deploy vid failed readiness utan att tyst fixa
-- [ ] API/deploy-svar: tydlig `deployReadiness`-payload till klient om ni utökar kontraktet (bakåtkompatibelt)
+- [x] Kartlägg var **pre-deploy auto-fix** sker; dokumentera i kort kommentar eller `docs/architecture/` → [`docs/architecture/deploy-precheck.md`](../../architecture/deploy-precheck.md)
+- [ ] Minska eller gör auto-fix **opt-in** där det är säkert (inga regressions i builder-deploy) — *lämnad öppen; auto-fixar förblir default tills separat produktbeslut*
+- [x] **Hård valideringsfas** före deploy: **409 `DEPLOY_MISSING_ENV`** på `POST /api/v0/deployments` om projektet saknar krävda nycklar (efter samma preflight som tidigare), innan deployment-rad / Vercel
+- [x] API/deploy-svar: **`precheckOnly: true`** i body → **200** med `deployReadiness`, `fixesApplied`, `preDeployWarnings`, `fileCount` (ingen debitering); befintlig success-payload behåller `deployReadiness` + fix-listor
 
 ---
 

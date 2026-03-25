@@ -1,6 +1,7 @@
 /**
  * Thin deploy contract: surface env + preflight warnings without changing Vercel behavior.
  * Readiness route remains the primary user-facing gate; deploy logs this for observability.
+ * Se `docs/architecture/deploy-precheck.md` för hela preflight-kedjan (auto-fixar, 409, precheckOnly).
  */
 export type DeployReadiness = {
   ready: boolean;

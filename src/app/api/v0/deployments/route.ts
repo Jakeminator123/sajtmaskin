@@ -322,6 +322,8 @@ const createDeploymentSchema = z.object({
   target: z.enum(["production", "preview"]).optional(),
   imageStrategy: z.enum(["external", "blob"]).optional(),
   projectId: z.string().optional(),
+  /** Kör samma preflight som deploy (fixar + env-krav) utan Vercel-anrop, credits eller deployment-rad. */
+  precheckOnly: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -339,19 +341,23 @@ export async function POST(req: Request) {
         );
       }
 
-      const { chatId, versionId, projectName, target, imageStrategy, projectId } =
+      const { chatId, versionId, projectName, target, imageStrategy, projectId, precheckOnly } =
         validationResult.data;
       const resolvedImageStrategy: ImageAssetStrategy =
         imageStrategy ?? (process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "external");
       const deployTarget = target === "preview" ? "preview" : "production";
 
-      const creditCheck = await prepareCredits(
-        req,
-        deployTarget === "preview" ? "deploy.preview" : "deploy.production",
-        { target: deployTarget },
-      );
-      if (!creditCheck.ok) {
-        return creditCheck.response;
+      let creditCheck: Awaited<ReturnType<typeof prepareCredits>> | null = null;
+      if (!precheckOnly) {
+        const prepared = await prepareCredits(
+          req,
+          deployTarget === "preview" ? "deploy.preview" : "deploy.production",
+          { target: deployTarget },
+        );
+        if (!prepared.ok) {
+          return prepared.response;
+        }
+        creditCheck = prepared;
       }
 
       const engineVersion = await getVersionById(versionId);
@@ -402,6 +408,44 @@ export async function POST(req: Request) {
 
       const textFiles = codeFiles.map((f) => ({ name: f.path, content: f.content }));
 
+      const projectEnv = await resolveProjectEnv(engineProjectId ?? null);
+      const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
+      const envRequirements = resolveEnvRequirementsFromVersionFiles(
+        fixedFiles.map((f) => ({ path: f.name, content: f.content })),
+        projectEnv,
+      );
+      const deployReadiness = buildDeployReadiness({
+        missingEnvKeys: envRequirements.missingEnvKeys,
+        preDeployWarnings: warnings,
+      });
+
+      if (precheckOnly) {
+        return NextResponse.json({
+          precheckOnly: true,
+          chatId,
+          versionId,
+          projectId: engineProjectId,
+          deployReadiness,
+          fixesApplied,
+          preDeployWarnings: warnings,
+          fileCount: fixedFiles.length,
+        });
+      }
+
+      if (envRequirements.missingEnvKeys.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Saknade miljövariabler måste konfigureras på projektet innan deploy (samma krav som i publiceringskollen).",
+            code: "DEPLOY_MISSING_ENV",
+            deployReadiness,
+            fixesApplied,
+            preDeployWarnings: warnings,
+          },
+          { status: 409 },
+        );
+      }
+
       devLogAppend("latest", {
         type: "site.deploy.start",
         requestedChatId: chatId,
@@ -420,18 +464,7 @@ export async function POST(req: Request) {
         const vercelProjectName = sanitizeVercelProjectName(
           projectName || `sajtmaskin-${chatId}`,
         );
-        const projectEnv = await resolveProjectEnv(engineProjectId ?? null);
         const envVarsForDeploy = projectEnv.configuredMap;
-
-        const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
-        const envRequirements = resolveEnvRequirementsFromVersionFiles(
-          fixedFiles.map((f) => ({ path: f.name, content: f.content })),
-          projectEnv,
-        );
-        const deployReadiness = buildDeployReadiness({
-          missingEnvKeys: envRequirements.missingEnvKeys,
-          preDeployWarnings: warnings,
-        });
         if (fixesApplied.length > 0) {
           console.info("[deploy] applied fixes:", fixesApplied);
         }
@@ -501,7 +534,9 @@ export async function POST(req: Request) {
         });
 
         try {
-          await creditCheck.commit();
+          if (creditCheck) {
+            await creditCheck.commit();
+          }
         } catch (error) {
           console.error("[credits] Failed to charge deploy:", error);
         }

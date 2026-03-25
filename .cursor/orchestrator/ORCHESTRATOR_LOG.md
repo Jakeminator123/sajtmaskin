@@ -1,3 +1,5 @@
+2026-03-25 — W2 deploy: 409 `DEPLOY_MISSING_ENV` före deployment-rad; `precheckOnly` torrkörning; `docs/architecture/deploy-precheck.md`; track W2 delvis (opt-in auto-fix öppen). Progress ~76%. Commit ~76pct.
+
 2026-03-25 — W4 close: bort `scripts/hamta_sidor.py`; `testning_scarf` → `scripts/labs/testning_scarf/`; `package.json` + `.gitignore` + lab `REPO_ROOT`-fixar; docs/track. Progress ~75%. Commit ~75pct.
 
 2026-03-25 — W4 slice + städ: `hamta_sidor.py` wrapper, `legacy-wide` flag i `hamta_sidor_branch_emil.py`, README/inventory/research/track; boundary-test `existsSync`. Progress ~72%. Commit ~72pct.
