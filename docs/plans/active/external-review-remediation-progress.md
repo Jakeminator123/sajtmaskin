@@ -4,9 +4,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Genomförande (checkbox-roadmap, parallella spår, agent-kontrakt):** `docs/plans/active/external-review-execution/README.md` → [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + track-filer (`track-w3-*.md`, `track-w4-*.md`, …).
 
-Last code touch: **W3** — **`OwnEngineBuildSession`-grund:** `src/lib/own-engine/session/own-engine-build-session.ts` med `buildOwnEngineGenerationStreamMeta` (gemensam SSE-`meta` för `createOwnEngineGenerationStream`); båda stream-routes använder den; Vitest för new-chat vs follow-up-fält. Tidigare: golden tests för contract-gate SSE, finalize + rollback, m.m. **Playwright / e2e:** kanon `e2e/vercel-templates/` — se `vercel-templates-playwright-scaffold-integration.txt`.
+Last code touch: **W3 + W4** — **W3:** `buildPreGenerationContractGateParams` i `own-engine-build-session.ts` (routes använder den mot `createPreGenerationContractGateReadableStream`); Vitest för new-chat vs follow-up-nycklar. **W4:** kanon `scripts/hamta_sidor_branch_emil.py` + doc-path-städ (`scripts/README`, inventory, discovery, handoff). **Playwright / e2e:** kanon `e2e/vercel-templates/` — se `vercel-templates-playwright-scaffold-integration.txt`.
 
-**Siffror:** **~49%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Scripts-spåret** ~32% efter README/inventory-sweep; höj till **~43%** helhet när du kört din återstående script/README-runda.
+**Siffror:** **~51%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Scripts-spåret** ~34% efter kanonisk `hamta_sidor_branch_emil` + doc-path-städ; höj till **~43%** helhet när lab-mappar/package.json-runda m.m. är klara.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -22,15 +22,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~49%** | **~51%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~51%** | **~49%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~72%** | **~28%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~52%** | **~48%** |
-| **Own-engine** (`2.txt`) | **~22%** | **~78%** |
-| **Scripts / naming hygiene** (`3.txt`) | **~32%** | **~68%** |
+| **Own-engine** (`2.txt`) | **~24%** | **~76%** |
+| **Scripts / naming hygiene** (`3.txt`) | **~34%** | **~66%** |
 
 ## Återstår (kort)
 
-Ungefär **~51%** av *whole vision* kvar: egen motor (största gapet, **~78%** kvar av `2.txt`-spåret — utöka `OwnEngineBuildSession` med plan-mode/contract-gate/pipeline, full DB-transaktion om ni vill, **fler** SSE/stream-golden tests, fel **efter** lyckad version utan rollback av hela versionen), scripts/README-runda (**~68%** kvar), valfri hård deploy-gate / färre auto-fix. Landning + integrations/deploy är närmare klara i jämförelse.
+Ungefär **~49%** av *whole vision* kvar: egen motor (största gapet, **~76%** kvar av `2.txt`-spåret — plan-mode + pipeline i session, transaktionell finalize, **fler** generation-SSE-golden tests, fel **efter** lyckad version), scripts/lab/package.json-runda (**~66%** kvar enligt W4), valfri hård deploy-gate / färre auto-fix. Landning + integrations/deploy är närmare klara i jämförelse.
 
 ## Done (in repo)
 
@@ -40,6 +40,7 @@ Ungefär **~51%** av *whole vision* kvar: egen motor (största gapet, **~78%** k
 - **W3 (finalize / orphans):** `finalizeAndSaveVersion` skriver assistant-rad **efter** merge + preflight; **`deleteEngineMessage`** i `chat-repository-pg` vid misslyckad `createDraftVersion`. Vitest: rollback-case + rätt mock för `createGenerationTelemetryRecord` via `@/lib/db/services`.
 - **W3 (SSE golden):** `pre-generation-contract-gate.golden.test.ts` — avkodar SSE från `createPreGenerationContractGateReadableStream`, låser eventordning och skillnad follow-up vs new-chat-meta.
 - **W3 (session slice):** `own-engine-build-session.ts` — `buildOwnEngineGenerationStreamMeta` delas av `POST .../chats/stream` och `POST .../[chatId]/stream`; `own-engine-build-session.test.ts` låser att follow-up inte får `chatPrivacy`/`scaffoldLabel` i meta.
+- **W3 (contract-gate params):** `buildPreGenerationContractGateParams` samlar parametrar till `createPreGenerationContractGateReadableStream`; samma två routes; tester för new-chat vs follow-up (`chatPrivacy` / `scaffoldLabel` / `capabilities` endast new-chat).
 - **Repo-städ / dokumentation (final sweep-uppföljning):** `config-dashboard/` + `docs/architecture/config-dashboard-sources.md` spårade; `docs/README.md` länkar dit. Uppdaterade `.cursor/rules/*`, `.cursor/settings.json`, `.cursorignore`. Borttagna duplicerade `.j_to_agent/.../deep-research-report (1|2).md`; kritik-filer under samma mapp trimmade/uppdaterade (inkl. nya anteckningar där de lades till lokalt).
 - Landning: statisk copy/data i `landing-chat-data.ts`; delade hooks i `landing-hooks.ts`; state/build-flöde i `useLandingController` (`use-landing-controller.ts`).
 - 3D tilt + tech/integration card glow + terminal glow: DOM / CSS-variabler, inte `setState` per rörelse.
@@ -62,12 +63,13 @@ Ungefär **~51%** av *whole vision* kvar: egen motor (största gapet, **~78%** k
 - `landing-background.tsx`: shader-orbs + grid + noise flyttade från `ChatArea`; `data-landing-bg` per kategori (`fritext`, `template`, `audit`, `analyserad`); `prefers-reduced-motion` via scoped CSS under `.landing-chat-bg` (lägre opacitet, inga orb-/grid-animationer).
 - **Vercel Templates Playwright:** kanon **`e2e/vercel-templates/`** (tracked). Legacy `vercel_templates_levels/` kan ligga **lokalt** (gitignore + cursorignore). Kör → `raw-discovery/current/`; **inte** v0-mallar (`templates:*`). Docs: `vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt`.
 - `scripts/README.md` + `scripts-scaffolds-inventory.md`: rättade sökvägar (`scripts/hamta_sidor*`), `npm run template-library:verify-summary`, svenska i scaffold-pipeline-tabellen; **recovery**-skript dokumenterat som **saknat** i repot.
+- **W4 (slice):** Kanonisk Python-entry för use-case-skrapning dokumenterad som **`scripts/hamta_sidor_branch_emil.py`** (`hamta_sidor.py` som alternativ); `vercel-templates-discovery.md` + orchestrator-handoff pekar ut `scripts/hamta_sidor*.py` vs `vercel_template_cli.py` (repo root).
 
 ## Next (recommended order)
 
 1. ~~`LandingBackground` (shader/grid/noise) till egen komponent; semantiskt per läge; reduced-motion / in-view för 3D.~~ **Klart** (in-view för övrig 3D kvar vid behov).
 2. ~~Utöka `integrationRegistry` + manifest + deploy-readiness~~ **Klart** (uppföljning: tunnare auto-fix / valideringsfas före deploy om behov).
-3. Own-engine remediation (`2.txt`) — **pågår**; **kvar:** utöka `OwnEngineBuildSession` (plan-mode + contract-gate + pipeline), djupare DB-transaktion / fler stream-golden tests / fel efter sparad version, m.m. enligt `2.txt` (finalize + rollback **levererat**; generation-meta i session-modul **levererat**).
+3. Own-engine remediation (`2.txt`) — **pågår**; **kvar:** plan-mode + generation-start i session, transaktionell finalize / fler generation-SSE-golden tests / fel efter sparad version (contract-gate **param**-hjälp + generation-meta **levererat**).
 4. Scripts-städ (`hamta_sidor*`, lab-mappar, README-drift) (`3.txt`).
 
 ## Uncertainties / product follow-ups

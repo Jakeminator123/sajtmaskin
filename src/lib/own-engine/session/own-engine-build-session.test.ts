@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
-import { buildOwnEngineGenerationStreamMeta } from "./own-engine-build-session";
+import {
+  buildOwnEngineGenerationStreamMeta,
+  buildPreGenerationContractGateParams,
+} from "./own-engine-build-session";
 
 const strategyMeta: PromptStrategyMeta = {
   strategy: "direct",
@@ -62,6 +65,68 @@ const common = {
   scaffoldId: "sc1",
   scaffoldFamily: "fam",
 };
+
+const minimalClarification = {
+  kind: "scope" as const,
+  question: "Test?",
+  options: [] as string[],
+  blocking: true,
+  reason: "test",
+};
+
+describe("buildPreGenerationContractGateParams", () => {
+  it("includes new-chat-only SSE keys", () => {
+    const orch = minimalOrchestrationBase();
+    const p = buildPreGenerationContractGateParams({
+      routeVariant: "new-chat",
+      sseChatId: "c1",
+      assistantMessageId: "m1",
+      contractClarification: minimalClarification,
+      preGenerationContracts: orch.preGenerationContracts,
+      engineModel: "test-model",
+      resolvedModelTier: "max",
+      buildProfileId: "bp",
+      buildProfileLabel: "Max",
+      resolvedThinking: true,
+      resolvedImageGenerations: true,
+      resolvedScaffold: null,
+      strategyMeta,
+      metaBriefApplied: false,
+      customInstructionsLength: 0,
+      chatPrivacy: "private",
+      scaffoldLabel: null,
+      capabilities: orch.capabilities,
+    });
+    expect(p.chatPrivacy).toBe("private");
+    expect(p.scaffoldLabel).toBeNull();
+    expect(p.capabilities).toEqual(orch.capabilities);
+    expect(p.sseChatId).toBe("c1");
+  });
+
+  it("omits new-chat-only keys for follow-up", () => {
+    const orch = minimalOrchestrationBase();
+    const p = buildPreGenerationContractGateParams({
+      routeVariant: "follow-up",
+      sseChatId: "c2",
+      assistantMessageId: null,
+      contractClarification: minimalClarification,
+      preGenerationContracts: orch.preGenerationContracts,
+      engineModel: "test-model",
+      resolvedModelTier: "max",
+      buildProfileId: "bp",
+      buildProfileLabel: "Max",
+      resolvedThinking: true,
+      resolvedImageGenerations: true,
+      resolvedScaffold: null,
+      strategyMeta,
+      metaBriefApplied: false,
+      customInstructionsLength: 0,
+    });
+    expect("chatPrivacy" in p).toBe(false);
+    expect("scaffoldLabel" in p).toBe(false);
+    expect("capabilities" in p).toBe(false);
+  });
+});
 
 describe("buildOwnEngineGenerationStreamMeta", () => {
   it("adds chatPrivacy and scaffoldLabel for new-chat", () => {

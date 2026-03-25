@@ -56,7 +56,10 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context";
 import type { CodeFile } from "@/lib/gen/parser";
-import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own-engine-build-session";
+import {
+  buildOwnEngineGenerationStreamMeta,
+  buildPreGenerationContractGateParams,
+} from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import { createOwnEngineGenerationStream } from "@/lib/providers/own-engine/generation-stream";
@@ -516,22 +519,25 @@ export async function handleMessageStreamRequest(
             kind: contractClarification.kind,
             reason: contractClarification.reason,
           });
-          const contractGateStream = createPreGenerationContractGateReadableStream({
-            sseChatId: chatId,
-            assistantMessageId: assistantQuestion?.id ?? null,
-            contractClarification,
-            preGenerationContracts,
-            engineModel,
-            resolvedModelTier,
-            buildProfileId,
-            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            resolvedThinking,
-            resolvedImageGenerations,
-            resolvedScaffold,
-            strategyMeta: promptOrchestration.strategyMeta,
-            metaBriefApplied: Boolean(metaBrief),
-            customInstructionsLength: trimmedSystem?.length ?? 0,
-          });
+          const contractGateStream = createPreGenerationContractGateReadableStream(
+            buildPreGenerationContractGateParams({
+              routeVariant: "follow-up",
+              sseChatId: chatId,
+              assistantMessageId: assistantQuestion?.id ?? null,
+              contractClarification,
+              preGenerationContracts,
+              engineModel,
+              resolvedModelTier,
+              buildProfileId,
+              buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+              resolvedThinking,
+              resolvedImageGenerations,
+              resolvedScaffold,
+              strategyMeta: promptOrchestration.strategyMeta,
+              metaBriefApplied: Boolean(metaBrief),
+              customInstructionsLength: trimmedSystem?.length ?? 0,
+            }),
+          );
           return attachSessionCookie(new Response(contractGateStream, {
             headers: createSSEHeaders(),
           }));

@@ -53,6 +53,8 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | typecheck + vitest (341 tests) | Orchestrator: W3 `buildPreGenerationContractGateParams` + routes; W4 hamta-kanon + doc-path (parallell våg A1) |
+| 2026-03-25 | master | typecheck + vitest | W4: kanon `hamta_sidor_branch_emil.py` + doc-path-städ (`scripts/README`, inventory, discovery, handoff) |
 | 2026-03-25 | master | typecheck + vitest | W3: `buildOwnEngineGenerationStreamMeta` (se progress-doc) |
 
 *Nya rader läggs överst av orchestrator eller avslutande worker efter `npm run typecheck && npx vitest run`.*

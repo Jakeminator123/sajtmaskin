@@ -55,7 +55,10 @@ import {
 } from "@/lib/gen/request-metadata";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own-engine-build-session";
+import {
+  buildOwnEngineGenerationStreamMeta,
+  buildPreGenerationContractGateParams,
+} from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import { createOwnEngineGenerationStream } from "@/lib/providers/own-engine/generation-stream";
@@ -546,25 +549,28 @@ export async function POST(req: Request) {
             kind: contractClarification.kind,
             reason: contractClarification.reason,
           });
-          const contractGateStream = createPreGenerationContractGateReadableStream({
-            sseChatId: engineChat.id,
-            assistantMessageId: assistantQuestion?.id ?? null,
-            contractClarification,
-            preGenerationContracts,
-            engineModel,
-            resolvedModelTier,
-            buildProfileId,
-            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            resolvedThinking,
-            resolvedImageGenerations,
-            resolvedScaffold,
-            strategyMeta,
-            metaBriefApplied: Boolean(metaBrief),
-            customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
-            chatPrivacy: resolvedChatPrivacy,
-            scaffoldLabel: resolvedScaffold?.label ?? null,
-            capabilities: engineCapabilities,
-          });
+          const contractGateStream = createPreGenerationContractGateReadableStream(
+            buildPreGenerationContractGateParams({
+              routeVariant: "new-chat",
+              sseChatId: engineChat.id,
+              assistantMessageId: assistantQuestion?.id ?? null,
+              contractClarification,
+              preGenerationContracts,
+              engineModel,
+              resolvedModelTier,
+              buildProfileId,
+              buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+              resolvedThinking,
+              resolvedImageGenerations,
+              resolvedScaffold,
+              strategyMeta,
+              metaBriefApplied: Boolean(metaBrief),
+              customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
+              chatPrivacy: resolvedChatPrivacy,
+              scaffoldLabel: resolvedScaffold?.label ?? null,
+              capabilities: engineCapabilities,
+            }),
+          );
           return attachSessionCookie(new Response(contractGateStream, {
             headers: createSSEHeaders(),
           }));

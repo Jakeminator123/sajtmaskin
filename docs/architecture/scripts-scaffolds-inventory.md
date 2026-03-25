@@ -10,7 +10,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 | ~~`hamta_sidor.py` (repo root)~~ | — | **Borttagen** 2026-03-24 (var identisk med `scripts/hamta_sidor.py`). |
 | [`scripts/hamta_sidor_branch_emil.py`](../../scripts/hamta_sidor_branch_emil.py) | (växer) | **Sajtmaskin-spår:** `USE_CASES_CORE`, valfritt `--extended-scrape`, tierad utdata `full-repo/` \| `tutorial-bootstrap/` \| `monorepo-examples/`, `--flat-layout`, `--urls` → `direct-urls/`, `ingestion_report.json`, `SCRAPE_LAYOUT_SV.md`, `FRAMEWORK_FILTER`, CSS-metadata. **Vanligt val för manuell inhämtning** av research-material. |
 
-**Rekommendation:** Båda ligger under `scripts/`. För **daglig / planerad inhämtning** är `hamta_sidor_branch_emil.py` ofta rätt (mindre brus, tydligare artefakter). För **jämförelse eller enkla körningar** kan `hamta_sidor.py` användas. På sikt: **slå ihop till en fil** (behåll `branch_emil`-beteendet som default, ev. flagga för “bred lista”) — tills dess är två filer **medvetet** och **inte** dubbletter av samma innehåll. Inget körs från `package.json`; det påverkar **research** / lokala dataset, inte produktion.
+**Rekommendation / kanon:** Båda ligger under `scripts/`. **`hamta_sidor_branch_emil.py` är den kanoniska entrypointen** (feature-rich Sajtmaskin-spår); `hamta_sidor.py` är **alternativet** med bredare use-case-lista. På sikt: **slå ihop till en fil** (behåll `branch_emil`-beteendet som default, ev. flagga för “bred lista”) — tills dess är två filer **medvetet** och **inte** dubbletter av samma innehåll. Detaljer: [`scripts/README.md`](../../scripts/README.md). Inget körs från `package.json`; det påverkar **research** / lokala dataset, inte produktion.
 
 **Risk:** Vercel kan ändra HTML → tysta fel eller tomma listor. Verifiera manuellt efter större sajtändringar.
 
@@ -55,7 +55,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 |-----|------------|
 | `sync-scaffold-refs.mjs` | [`scripts/README.md`](../../scripts/README.md), [`vercel_template_cli.py`](../../vercel_template_cli.py) (valfri katalogskrapning) |
 | `scaffold-pipeline.py` | [`scripts/README.md`](../../scripts/README.md) — interaktiv meny för template-library-kedjan |
-| `hamta_sidor.py` | Se avsnitt ovan |
+| `scripts/hamta_sidor*.py` | Se avsnitt ovan (`branch_emil` kanonisk; `hamta_sidor.py` alternativ) |
 | `recovery/recreate-repo-branch-commit.ps1` | **Saknas** i repot; beskrivs som borttaget/odeployat i [`scripts/README.md`](../../scripts/README.md). |
 
 ### Interna moduler (importeras av andra skript)

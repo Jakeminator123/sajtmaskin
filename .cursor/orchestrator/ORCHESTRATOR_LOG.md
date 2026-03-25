@@ -13,3 +13,5 @@
 2026-03-25 (W3 slice) — External-review fortsättning på `master`: `buildOwnEngineGenerationStreamMeta` i `src/lib/own-engine/session/own-engine-build-session.ts`; båda v0 chat-stream-routes; Vitest `own-engine-build-session.test.ts`. Progress uppdaterad (~49% whole). Sandbox-run `2026-03-24-scaffold-sandbox-migration` oförändrad (fas 1b fortfarande defferad).
 
 2026-03-25 — Nytt genomförandesystem: `docs/plans/active/external-review-execution/` (README, MASTER-ROADMAP, track W3/W4/W2/W1). Länkat från progress + orchestrator-workloads. Syfte: checkbox-roadmap, parallella spår där filträd skiljer, agent ska bocka av i track-fil + notera verifiering i MASTER-ROADMAP.
+
+2026-03-25 — Parallell våg A1: subagent W4 (hamta-kanon + doc-drift) + orchestrator W3 (`buildPreGenerationContractGateParams`, båda stream-routes). Verifierat: typecheck + vitest 341. Commit ~51pct push master.

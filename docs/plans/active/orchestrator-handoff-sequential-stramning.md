@@ -26,7 +26,7 @@ Du kör en **orchestrated run** som **standardflöde** — inte ad hoc parallell
 6. **Filtyper och ytor** du förväntas röra vid fortsatt stramning (beroende på workload):
    - **Plan/progress:** `docs/plans/active/external-review-remediation-progress.md`, `orchestrator-workloads-external-review.md`, denna handoff-fil vid behov.
    - **App:** `src/` (landing, `integrationRegistry`, `detect-integrations`, layout, builder-relaterat för W2/W3).
-   - **Skript & kontrakt:** `scripts/`, rot-`package.json`, `vitest.config.ts`, `tsconfig.json`, `vercel_template_cli.py`, `hamta_sidor*.py`.
+   - **Skript & kontrakt:** `scripts/` (inkl. `hamta_sidor*.py`), rot-`package.json`, `vitest.config.ts`, `tsconfig.json`, `vercel_template_cli.py` (**repo root**, inte under `scripts/`).
    - **Research (offline):** `research/external-templates/` (rå discovery, template-library — dokumentera om du ändrar hur intag beskrivs).
    - **E2E / Playwright (om aktuellt):** `e2e/` (lokalt påbörjad kopia av Vercel-templates-spec — synka med `package.json` och docs om ni väljer spårad kanonisk sökväg).
    - **Orchestrator-artefakter:** endast under `.cursor/orchestrator/run/…` (run-mappen är gitignorerad utom `run/README.md`; **varaktiga** slutsatser lyfts till `docs/`).

@@ -29,7 +29,7 @@ Playwright-wrapper för **vercel.com/templates** → skriver kanonisk discovery 
 | Begrepp | Spår |
 |--------|------|
 | **v0 gallery** | `templates:*`, Mall-fliken |
-| **Vercel Templates (katalog)** | `references:discover*`, Python `hamta_sidor*`, `vercel_template_cli.py` → template-library / research |
+| **Vercel Templates (katalog)** | `references:discover*`, Python `scripts/hamta_sidor*.py`, `vercel_template_cli.py` (repo root) → template-library / research |
 
 ## Underhåll
 
