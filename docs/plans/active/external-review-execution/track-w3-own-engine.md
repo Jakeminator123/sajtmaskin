@@ -44,7 +44,7 @@
 
 ### Tester
 
-- [ ] **Fler golden / integrationstester** för **generation**-SSE (inte bara contract-gate): minst ett scenario med fake timers eller inspelad payload enligt befintlig `generation-stream`-struktur
+- [x] **Fler golden / integrationstester** för **generation**-SSE (inte bara contract-gate): `generation-stream.golden.test.ts` — inspelad pipeline-SSE (`content` + `done`), mockad `finalizeAndSaveVersion` + `db`/sandbox av, låser `chatId` → `meta` → `content*` → `done` och finalize-anrop
 - [ ] **Regression:** inga orphan assistant-meddelanden i nya flöden (behåll/utöka tester vid finalize-ändringar)
 
 ### Legacy / gränser

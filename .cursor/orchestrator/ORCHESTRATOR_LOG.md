@@ -1,3 +1,5 @@
+2026-03-25 — W3 `generation-stream.golden.test.ts` (mock finalize + db, SSE shape). Vitest 343. Progress ~66% whole; parallell kritik-agent noterad i progress-doc. Commit ~66pct.
+
 2026-03-25 — W3 transactional finalize: `addAssistantMessageAndCreateDraftVersion` i `chat-repository-pg.ts`, `finalizeAndSaveVersion` + JSDoc. Vitest 342. Progress ~64% whole. Commit ~64pct.
 
 2026-03-25 — W3 plan-mode session: `src/lib/own-engine/session/own-engine-plan-mode.ts` + routes + `own-engine-plan-mode.test.ts`. Verifierat: typecheck + vitest 342. Progress ~61% whole; track-w3 plan-mode `[x]`. Commit ~61pct.
