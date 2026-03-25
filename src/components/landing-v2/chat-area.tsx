@@ -23,13 +23,13 @@ import {
   techStack,
   trustLogos,
   creditPackages,
-  type IntegrationItem,
-  type TechStackItem,
 } from "@/components/landing-v2/landing-chat-data"
 import { ComparisonRadarChart } from "@/components/landing-v2/landing-comparison-radar"
+import { HowItWorksFallback } from "@/components/landing-v2/landing-how-it-works-fallback"
 import { LighthouseGauges } from "@/components/landing-v2/landing-lighthouse-gauges"
+import { IntegrationCard, TechStackCard } from "@/components/landing-v2/landing-tech-integration-cards"
 import { modalParticles, renderMiniShape, WireframeShape } from "@/components/landing-v2/landing-wireframe-shapes"
-import { use3DTilt, useInView, usePrefersReducedMotion } from "@/components/landing-v2/landing-hooks"
+import { useInView, usePrefersReducedMotion } from "@/components/landing-v2/landing-hooks"
 import { useLandingController, type ChatAreaProps } from "@/components/landing-v2/use-landing-controller"
 
 export type { ChatAreaProps }
@@ -38,170 +38,6 @@ const HowItWorksScene = dynamic(
   () => import("./how-it-works-scene").then((mod) => mod.HowItWorksScene),
   { ssr: false, loading: () => <HowItWorksFallback /> },
 )
-
-/* ──────────────────── TECH STACK CARD ──────────────────── */
-
-function TechStackCard({ tech, index }: { tech: TechStackItem; index: number }) {
-  const { ref: tiltRef, handleMove, handleLeave } = use3DTilt(8)
-  const { ref: viewRef, visible } = useInView(0.15)
-  const Icon = tech.icon
-
-  const setRefs = useCallback(
-    (node: HTMLDivElement | null) => {
-      tiltRef.current = node
-      viewRef.current = node
-    },
-    [tiltRef, viewRef],
-  )
-
-  const handleMouseMove = useCallback(
-    (e: ReactMouseEvent<HTMLDivElement>) => {
-      const el = e.currentTarget
-      const rect = el.getBoundingClientRect()
-      el.style.setProperty("--glow-x", `${e.clientX - rect.left}px`)
-      el.style.setProperty("--glow-y", `${e.clientY - rect.top}px`)
-      handleMove(e)
-    },
-    [handleMove],
-  )
-
-  return (
-    <div
-      ref={setRefs}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleLeave}
-      className={`group relative overflow-hidden rounded-2xl border border-border/20 bg-card/45 px-4 py-4 transition-all duration-700 ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
-      }`}
-      style={{
-        transitionDelay: `${index * 60}ms`,
-        boxShadow: visible ? "0 20px 60px rgba(8, 15, 30, 0.22)" : "none",
-        ["--glow-x" as string]: "120px",
-        ["--glow-y" as string]: "60px",
-      }}
-    >
-      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.04),transparent_40%,rgba(45,212,191,0.05)_100%)]" />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          background: `radial-gradient(220px circle at var(--glow-x, 120px) var(--glow-y, 60px), ${tech.glow} 0%, transparent 72%)`,
-        }}
-      />
-      <div className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-linear-to-r from-transparent via-primary/30 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-
-      <div className="relative z-10 flex items-start justify-between gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/15 bg-primary/8 text-primary shadow-lg shadow-primary/5 transition-all duration-300 group-hover:scale-105 group-hover:border-primary/30 group-hover:bg-primary/12">
-          <Icon className="h-5 w-5" />
-        </div>
-        <span className="rounded-full border border-border/20 bg-background/45 px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80">
-          {tech.category}
-        </span>
-      </div>
-
-      <div className="relative z-10 mt-5 space-y-1.5">
-        <h3 className="text-sm font-(--font-heading) text-foreground transition-colors duration-300 group-hover:text-primary">
-          {tech.name}
-        </h3>
-        <p className="text-xs leading-relaxed text-muted-foreground">{tech.detail}</p>
-      </div>
-    </div>
-  )
-}
-
-function HowItWorksFallback() {
-  return (
-    <div className="rounded-[32px] border border-border/20 bg-card/30 p-5 md:p-6 shadow-[0_24px_80px_rgba(6,10,20,0.28)]">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,420px)]">
-        <div className="relative overflow-hidden rounded-[28px] border border-border/20 bg-secondary/20 min-h-[420px]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(45,212,191,0.12),transparent_55%)]" />
-          <div className="absolute inset-x-10 bottom-16 h-px bg-linear-to-r from-transparent via-primary/35 to-transparent" />
-          <div className="absolute left-[14%] top-[26%] h-28 w-28 rounded-4xl border border-primary/20 bg-primary/5 animate-pulse" />
-          <div className="absolute left-[34%] top-[18%] h-20 w-24 rounded-3xl border border-border/20 bg-background/30 animate-pulse" />
-          <div className="absolute left-[52%] top-[24%] h-24 w-24 rounded-full border border-primary/15 bg-primary/5 animate-pulse" />
-          <div className="absolute right-[14%] top-[20%] h-24 w-20 rounded-3xl border border-border/20 bg-background/30 animate-pulse" />
-          <div className="absolute right-[8%] bottom-[22%] h-24 w-28 rounded-[1.75rem] border border-emerald-400/20 bg-emerald-400/5 animate-pulse" />
-        </div>
-
-        <div className="space-y-3">
-          {landingJourneySteps.map((step) => (
-            <div key={step.number} className="rounded-2xl border border-border/15 bg-secondary/20 p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-sm font-(--font-heading) text-primary">
-                  {step.number}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-(--font-heading) text-foreground">{step.title}</p>
-                  <p className="text-xs text-muted-foreground">{step.description}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function IntegrationCard({ item, index }: { item: IntegrationItem; index: number }) {
-  const { ref: tiltRef, handleMove, handleLeave } = use3DTilt(6)
-  const { ref: viewRef, visible } = useInView(0.15)
-  const reducedMotion = usePrefersReducedMotion()
-  const Icon = item.icon
-
-  const setRefs = useCallback(
-    (node: HTMLDivElement | null) => {
-      tiltRef.current = node
-      viewRef.current = node
-    },
-    [tiltRef, viewRef],
-  )
-
-  const handleMouseMove = useCallback(
-    (e: ReactMouseEvent<HTMLDivElement>) => {
-      const el = e.currentTarget
-      const rect = el.getBoundingClientRect()
-      el.style.setProperty("--glow-x", `${e.clientX - rect.left}px`)
-      el.style.setProperty("--glow-y", `${e.clientY - rect.top}px`)
-      handleMove(e)
-    },
-    [handleMove],
-  )
-
-  return (
-    <div
-      ref={setRefs}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleLeave}
-      className={`group relative overflow-hidden rounded-2xl border border-border/20 bg-card/40 p-4 transition-all duration-700 motion-reduce:transition-none ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
-      }`}
-      style={{
-        transitionDelay: reducedMotion ? "0ms" : `${index * 70}ms`,
-        ...(reducedMotion
-          ? {}
-          : { animation: `float-particle-kf ${6 + index * 0.35}s ease-in-out infinite` }),
-        ["--glow-x" as string]: "120px",
-        ["--glow-y" as string]: "40px",
-      }}
-    >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          background: `radial-gradient(220px circle at var(--glow-x, 120px) var(--glow-y, 40px), ${item.glow} 0%, transparent 72%)`,
-        }}
-      />
-      <div className="relative z-10 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/15 bg-primary/8 text-primary">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-sm font-(--font-heading) text-foreground">{item.name}</p>
-          <p className="text-xs text-muted-foreground">{item.detail}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 /* ──────────────────── FEATURE CARD ──────────────────── */
 

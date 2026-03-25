@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-26 | master | typecheck + vitest (381) | ~94%: orchestrator K-016 del 3 — `landing-tech-integration-cards.tsx`, `landing-how-it-works-fallback.tsx`; run `2026-03-26-external-review-k016-tech-cards` arkiverad; progress ~94% |
 | 2026-03-26 | master | typecheck + vitest (381) | ~93%: orchestrator K-016 del 2 — `landing-comparison-radar.tsx` (useId gradients), `landing-lighthouse-gauges.tsx`; run `2026-03-26-external-review-k016-radar-lh` arkiverad; progress ~93% + § staging |
 | 2026-03-26 | master | typecheck + vitest (381) | ~92%: orchestrator-run workload 01-01 — K-016 del 1 `landing-wireframe-shapes.tsx`; run arkiverad (`archive-completed-runs.ps1`); progress ~92% whole |
 | 2026-03-26 | master | typecheck + vitest (381) | ~91%: K-015 extract-script (markör/no-op); K-017 `registry-parity.test.ts`; progress § Snabb ingång + § Återstår (~80% integration); MASTER W5 textfix (`42pct-v` arkiverad) |

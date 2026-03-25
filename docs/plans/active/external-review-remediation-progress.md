@@ -8,11 +8,11 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Orchestrator-run + K-016 (del 2)** — jämförelse-radar + Lighthouse-mätare → **`landing-comparison-radar.tsx`** (gradient-`id` via `useId` för unika SVG-referenser) och **`landing-lighthouse-gauges.tsx`**; `chat-area.tsx` ytterligare ~205 rader kortare. Självgreview: typecheck + vitest + eslint-diagnostics utan anmärkning. Run `2026-03-26-external-review-k016-radar-lh` arkiverad (se `run-summaries.md`). **Tidigare:** K-016 del 1 (wireframe-modul). Tabell nedan.
+Last code touch: **Orchestrator-run + K-016 (del 3)** — `TechStackCard` + `IntegrationCard` → **`landing-tech-integration-cards.tsx`**; **`landing-how-it-works-fallback.tsx`** (HowItWorks dynamic loading); `chat-area.tsx` ~163 rader kortare; oanvänd `use3DTilt` bort från `chat-area`. Verifierat: typecheck + vitest (381). Run `2026-03-26-external-review-k016-tech-cards` arkiverad. **Tidigare:** K-016 del 1–2. Tabell nedan.
 
-**Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (85 filer, **381** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**7 %** whole kvar).
+**Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (85 filer, **381** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**6 %** whole kvar).
 
-**Siffror (snabb):** **~93%** *whole vision* — se tabell § *Overall fill* och § *Kartläggning mot 1.txt / 2.txt / 3.txt* nedan för hur delarna hänger ihop.
+**Siffror (snabb):** **~94%** *whole vision* — se tabell § *Overall fill* och § *Kartläggning mot 1.txt / 2.txt / 3.txt* nedan för hur delarna hänger ihop.
 
 ## Kartläggning mot källfiler (1.txt, 2.txt, 3.txt)
 
@@ -20,12 +20,12 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 
 | Källa | Vad den i praktiken driver | Ungefärlig *done* | Kvar (typiskt) |
 |--------|----------------------------|-------------------|----------------|
-| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~86%** | Mer in-view 3D (`K-008`), `/blogg`, ev. polish; K-016 del 1–2 (wireframe + radar + lighthouse utbrutna) |
+| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~87%** | Mer in-view 3D (`K-008`), `/blogg`, ev. polish; K-016 del 1–3 (wireframe, radar/LH, tech+integration+fallback utbrutna) |
 | **`1.txt`** — del B | **Integrationer + runtime-flöde** (registry, detektion, manifest, env, lansering, deploy-API) | **~80%** | E2E runt deploy, valfri tuffare validering före deploy (`K-007`), fler providers bara vid produktnytta |
 | **`2.txt`** | **Own-engine** (stream-routes tunna, session, finalize, golden tests, v0-gräns, **fas→modell** `B3-02`) | **~81%** | SSE/own-engine **utanför** avslutad W3-track (`K-009`), produktbeslut |
 | **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~98%** | **`B3-05`**: arkivera/ta bort `extract-static-core.mjs` när monolit-/fallback-prompten är borta |
 
-**Whole vision (~93%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har e2e kvar.
+**Whole vision (~94%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har e2e kvar.
 
 *Jämförelse mot gamla antaganden:* `3.txt` nämnde att `phase-routing.ts` bara var “förberedelse” — **det stämmer inte längre**; **B3-02** ger riktig fasmodell för OpenAI-profiler (`pro`/`max`/`codex`). Uppdatera mentalt modellen där.
 
@@ -83,15 +83,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining | Koppling `1.txt`–`3.txt` |
 |--------|------|-----------|---------------------------|
-| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~93%** | **~7%** | Se § *Kartläggning* ovan |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~86%** | **~14%** | **`1.txt` del A**; W1-track kryssat i MASTER |
+| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~94%** | **~6%** | Se § *Kartläggning* ovan |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~87%** | **~13%** | **`1.txt` del A**; W1-track kryssat i MASTER |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~80%** | **~20%** | **`1.txt` del B**; manifest + 409 + precheckOnly-tester m.m. |
 | **Own-engine** (`2.txt`, W3 + `B3-02`) | **~81%** | **~19%** | **`2.txt`**; kärnspår klart, marginaler i kritik-tabellen |
 | **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~98%** | **~2%** | **`3.txt`**; endast **B3-05** väntar på monolit-slut |
 
 ## Återstår (kort)
 
-Ungefär **~7%** av *whole vision* kvar: **integrationer + deploy** (**~80%** done enligt tabellen ovan — *inte* ~76%; följ § *Overall fill*) — **e2e kring deploy**, valfri hårdare validering (`K-007`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`); **buglista del 3** endast **B3-05**. **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008`, `/blogg`), copy (`K-014`), refaktor (`K-016`) utan att kräva nya produktbeslut i samma batch. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~6%** av *whole vision* kvar: **integrationer + deploy** (**~80%** done enligt tabellen ovan — *inte* ~76%; följ § *Overall fill*) — **e2e kring deploy**, valfri hårdare validering (`K-007`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`); **buglista del 3** endast **B3-05**. **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008`, `/blogg`), copy (`K-014`), refaktor (`K-016`) utan att kräva nya produktbeslut i samma batch. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -142,6 +142,7 @@ Ungefär **~7%** av *whole vision* kvar: **integrationer + deploy** (**~80%** do
 - `extract-landing-chat-data.mjs`: markörblock `SAJTMASKIN_LANDING_DATA_EXTRACT_*`, legacy-radslice om tillämpligt, annars **no-op exit 0** när `landing-chat-data.ts` redan bär `export const categories` (K-015).
 - `registry-parity.test.ts`: unika `integrationRegistry`-nycklar och `provider ?? key` (K-017 / detektionskarta).
 - `write-tier2-run.mjs`: valfritt run-id som CLI-arg (`node scripts/write-tier2-run.mjs <id>`).
+- **K-016 (del 3, 2026-03-26):** `landing-tech-integration-cards.tsx` (`TechStackCard`, `IntegrationCard`); `landing-how-it-works-fallback.tsx` — dynamic loading för HowItWorks.
 - **K-016 (del 2, 2026-03-26):** `landing-comparison-radar.tsx`, `landing-lighthouse-gauges.tsx` — utdragna från `chat-area.tsx`; radar använder `useId` för unika SVG-gradientreferenser.
 - **K-016 (del 1, 2026-03-26):** `landing-wireframe-shapes.tsx` — wireframe-meshes, `modalParticles`, `renderMiniShape`, `WireframeShape`; `chat-area.tsx` kortare.
 - `chat-area.tsx`: borttagna oanvända Lucide-/data-imports; oanvända värden från `useLandingController` plockas inte längre ut; terminal ref-merge med tydlig eslint-avsiktskommentar.
