@@ -27,8 +27,10 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `42pct-v.md` | W2 manifest + deploy readiness (`11f443db`). |
 | `43pct-r.md` | Final sweep ~43pct (config-dashboard, cursor hygiene). |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
+| `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
+| `56pct-h.md` | Granskning av index-commit + remediation `51a8298f` (~56pct: pipeline-modul, lab-docs, execution/CONTINUATION). |
 
-*(Om du lägger till `46pct-*`, `48pct-*`, `56pct-*` etc., följ samma mönster och uppdatera tabellen nedan.)*
+*(Lägg till fler `NNpct-*` i tabellen när de skapas.)*
 
 ---
 
