@@ -5,7 +5,6 @@ import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import {
   useCallback,
-  useMemo,
   type MouseEvent as ReactMouseEvent,
   type MutableRefObject,
 } from "react"
@@ -24,12 +23,11 @@ import {
   techStack,
   trustLogos,
   creditPackages,
-  type ComparisonMethod,
-  type ComparisonParameter,
-  type ComparisonScenario,
   type IntegrationItem,
   type TechStackItem,
 } from "@/components/landing-v2/landing-chat-data"
+import { ComparisonRadarChart } from "@/components/landing-v2/landing-comparison-radar"
+import { LighthouseGauges } from "@/components/landing-v2/landing-lighthouse-gauges"
 import { modalParticles, renderMiniShape, WireframeShape } from "@/components/landing-v2/landing-wireframe-shapes"
 import { use3DTilt, useInView, usePrefersReducedMotion } from "@/components/landing-v2/landing-hooks"
 import { useLandingController, type ChatAreaProps } from "@/components/landing-v2/use-landing-controller"
@@ -40,212 +38,6 @@ const HowItWorksScene = dynamic(
   () => import("./how-it-works-scene").then((mod) => mod.HowItWorksScene),
   { ssr: false, loading: () => <HowItWorksFallback /> },
 )
-
-/* ──────────────────── COMPARISON RADAR CHART ──────────────────── */
-
-const RADAR_CX = 150
-const RADAR_CY = 150
-const RADAR_MAX_R = 105
-const RADAR_RINGS = [25, 50, 75, 100]
-
-function radarPoint(index: number, score: number, n: number) {
-  const angle = (2 * Math.PI * index) / n - Math.PI / 2
-  const r = (score / 100) * RADAR_MAX_R
-  return {
-    x: Math.round((RADAR_CX + r * Math.cos(angle)) * 10) / 10,
-    y: Math.round((RADAR_CY + r * Math.sin(angle)) * 10) / 10,
-  }
-}
-
-function buildRadarPath(m: ComparisonMethod, params: ComparisonParameter[], n: number) {
-  return (
-    params
-      .map((p, i) => {
-        const pt = radarPoint(i, m.scores[p.key], n)
-        return `${i === 0 ? "M" : "L"}${pt.x},${pt.y}`
-      })
-      .join("") + "Z"
-  )
-}
-
-const radarCenterPath = Array.from({ length: 10 })
-  .map((_, i) => `${i === 0 ? "M" : "L"}${RADAR_CX},${RADAR_CY}`)
-  .join("") + "Z"
-
-function ComparisonRadarChart({
-  method,
-  wpMethod,
-  parameters,
-  scenario,
-}: {
-  method: ComparisonMethod
-  wpMethod: ComparisonMethod
-  parameters: ComparisonParameter[]
-  scenario: ComparisonScenario
-}) {
-  const { ref, visible } = useInView(0.15)
-  const n = parameters.length
-
-  const methodPath = useMemo(() => buildRadarPath(method, parameters, n), [method, parameters, n])
-  const wpPath = useMemo(() => buildRadarPath(wpMethod, parameters, n), [wpMethod, parameters, n])
-
-  const labelPositions = useMemo(
-    () =>
-      parameters.map((_, i) => {
-        const angle = (2 * Math.PI * i) / n - Math.PI / 2
-        const labelR = RADAR_MAX_R + 22
-        const x = Math.round((RADAR_CX + labelR * Math.cos(angle)) * 10) / 10
-        const y = Math.round((RADAR_CY + labelR * Math.sin(angle)) * 10) / 10
-        const cos = Math.cos(angle)
-        const anchor: "start" | "middle" | "end" =
-          Math.abs(cos) < 0.15 ? "middle" : cos > 0 ? "start" : "end"
-        return { x, y, anchor }
-      }),
-    [parameters, n],
-  )
-
-  const transition = "0.8s cubic-bezier(0.4,0,0.2,1)"
-
-  return (
-    <div ref={ref} className="relative">
-      <div
-        className="transition-all duration-700"
-        style={{ opacity: visible ? 1 : 0, transform: visible ? "scale(1)" : "scale(0.85)" }}
-      >
-        <svg viewBox="0 0 300 300" className="w-full max-w-[380px] mx-auto" overflow="visible">
-          <defs>
-            <radialGradient id="radar-method-fill" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="oklch(0.72 0.15 192 / 0.22)" />
-              <stop offset="100%" stopColor="oklch(0.72 0.15 192 / 0.06)" />
-            </radialGradient>
-            <radialGradient id="radar-wp-fill" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="oklch(0.5 0 0 / 0.1)" />
-              <stop offset="100%" stopColor="oklch(0.5 0 0 / 0.03)" />
-            </radialGradient>
-          </defs>
-
-          {RADAR_RINGS.map((pct) => (
-            <circle
-              key={pct}
-              cx={RADAR_CX}
-              cy={RADAR_CY}
-              r={Math.round((pct / 100) * RADAR_MAX_R * 10) / 10}
-              fill="none"
-              stroke="oklch(0.25 0 0)"
-              strokeWidth={pct === 100 ? "0.7" : "0.35"}
-              strokeDasharray={pct < 100 ? "2 4" : undefined}
-            />
-          ))}
-
-          {parameters.map((_, i) => {
-            const pt = radarPoint(i, 100, n)
-            return <line key={i} x1={RADAR_CX} y1={RADAR_CY} x2={pt.x} y2={pt.y} stroke="oklch(0.25 0 0)" strokeWidth="0.35" />
-          })}
-
-          <path
-            d={visible ? wpPath : radarCenterPath}
-            fill="url(#radar-wp-fill)"
-            stroke="oklch(0.5 0 0 / 0.3)"
-            strokeWidth="1"
-            style={{ transition: `d ${transition}` }}
-          />
-          <path
-            d={visible ? methodPath : radarCenterPath}
-            fill="url(#radar-method-fill)"
-            stroke="oklch(0.72 0.15 192 / 0.7)"
-            strokeWidth="1.5"
-            style={{ transition: `d ${transition}` }}
-          />
-
-          {parameters.map((p, i) => {
-            const pt = visible ? radarPoint(i, method.scores[p.key], n) : { x: RADAR_CX, y: RADAR_CY }
-            return (
-              <circle
-                key={p.key}
-                cx={pt.x}
-                cy={pt.y}
-                r="2.5"
-                fill="oklch(0.72 0.15 192)"
-                stroke="oklch(0.08 0 0)"
-                strokeWidth="1.2"
-                style={{ transition: `cx ${transition}, cy ${transition}` }}
-              />
-            )
-          })}
-
-          {parameters.map((p, i) => {
-            const pos = labelPositions[i]
-            const weight = scenario.weights[p.key]
-            return (
-              <text key={p.key} x={pos.x} y={pos.y} textAnchor={pos.anchor} dominantBaseline="middle" style={{ fontSize: "7.5px" }}>
-                <tspan className="fill-muted-foreground/70">{p.label}</tspan>
-                <tspan className="fill-muted-foreground/35" dx="3" style={{ fontSize: "6px" }}>
-                  ×{weight}
-                </tspan>
-              </text>
-            )
-          })}
-
-        </svg>
-      </div>
-    </div>
-  )
-}
-
-/* ──────────────────── LIGHTHOUSE GAUGES ──────────────────── */
-
-const lighthouseScores = [
-  { label: "Performance", score: 96 },
-  { label: "Tillg\u00e4nglighet", score: 98 },
-  { label: "Best Practices", score: 100 },
-  { label: "SEO", score: 98 },
-]
-
-function LighthouseGauges() {
-  const { ref, visible } = useInView(0.25)
-  return (
-    <div ref={ref} className="flex flex-wrap justify-center gap-8 md:gap-14 mt-14">
-      {lighthouseScores.map((item, i) => {
-        const r = 40
-        const c = 2 * Math.PI * r
-        const offset = c - (item.score / 100) * c
-        return (
-          <div key={item.label} className="flex flex-col items-center gap-3">
-            <div className="relative w-24 h-24">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle
-                  cx="50" cy="50" r={r}
-                  fill="none" stroke="oklch(0.15 0 0)" strokeWidth="3.5"
-                />
-                <circle
-                  cx="50" cy="50" r={r}
-                  fill="none"
-                  stroke="oklch(0.72 0.15 192)"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  strokeDasharray={c}
-                  strokeDashoffset={visible ? offset : c}
-                  style={{
-                    transition: `stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1) ${i * 0.2}s`,
-                  }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span
-                  className={`text-xl font-(--font-heading) transition-all duration-700 ${visible ? "text-foreground opacity-100" : "text-muted-foreground opacity-0"}`}
-                  style={{ transitionDelay: `${i * 0.2 + 0.6}s` }}
-                >
-                  {item.score}
-                </span>
-              </div>
-            </div>
-            <span className="text-xs text-muted-foreground">{item.label}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
 
 /* ──────────────────── TECH STACK CARD ──────────────────── */
 

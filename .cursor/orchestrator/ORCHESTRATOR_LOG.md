@@ -1,3 +1,5 @@
+2026-03-26 — **Orchestrator → ~93% (K-016 del 2):** `landing-comparison-radar.tsx` + `landing-lighthouse-gauges.tsx`; radar SVG gradients unika via `useId`; run `2026-03-26-external-review-k016-radar-lh` arkiverad; progress ~93%, § Commit förklarar **staging** (`git add`). typecheck + vitest (381); push `origin/master`.
+
 2026-03-26 — **Orchestrator-run → ~92%:** `PROTOCOL.md` + run `2026-03-26-external-review-to-100` (workload 01-01 K-016 del 1) — `landing-wireframe-shapes.tsx`, kortad `chat-area.tsx`; `archive-completed-runs.ps1 -RunName …`; progress ~92% whole; MASTER-rad; kritik K-016 text uppdaterad. typecheck + vitest (381); push `origin/master`.
 
 2026-03-26 — **~91% remediation:** `extract-landing-chat-data.mjs` (SAJTMASKIN-markörer + no-op när data redan i `landing-chat-data.ts`); `registry-parity.test.ts` (K-017); progress — § Snabb ingång, tabell ~91% whole, § Återstår synkad (~80% integration, bort ~76%); kritik K-015/K-017 `[x]`; MASTER verifieringsrad + W5 textfix. `npm run typecheck` + `npx vitest run` (381); push `origin/master`.
