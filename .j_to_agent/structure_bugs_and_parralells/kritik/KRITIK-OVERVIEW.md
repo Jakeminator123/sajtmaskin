@@ -9,6 +9,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | Typ | Namnmönster | Innehåll |
 |-----|-------------|----------|
 | **Milstolpe / helhets-%** | `NNpct-<bokstav>.md` (t.ex. `18pct-k`, `42pct-v`, `43pct-r`) | Snapshot när *whole vision* ungefär **NN%** enligt `external-review-remediation-progress.md`: vad som levererats, risker, “missat”, rekommenderad nästa ordning. |
+| **Commit-kedja (→ ~100%)** | `NNpct-<bokstav>.md` **en fil per** relevant `master`-commit i remediation-kedjan | Kort leverans enligt commit + `SHA` + pekare till **nästa** commit i kedjan; valfri verifieringsnotis. *Saknar du en commit mellan två filer — backfilla.* |
 | **Avgränsat spår** | fritt namn, t.ex. `vercel-templates-path-verification-note.md` | En **tråd** som inte ska blandas med hela remediation (t.ex. gitignore vs `main`/`master`, script-sökvägar). |
 | **Index / meta** | `KRITIK-OVERVIEW.md` (denna fil) | **Vad filerna betyder** + tabell över befintliga filer — minskar att nya agenter uppfinner om namngivning. |
 
@@ -27,6 +28,12 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `42pct-v.md` | W2 manifest + deploy readiness (`11f443db`). |
 | `64pct-s.md` | Snapshot ~64% whole vision: plan-mode + transaktionell finalize + kritikarkiv (`16acd282`‑linjen). |
 | `78pct-r.md` | ~78% whole: reconcile segment-% (W3 track komplett, scripts ~95%), eval vs scrape docs, `EGEN_MOTOR_V2` (`8b61cc49`). |
+| `79pct-l.md` | `78d657d1` — ParticleOrb in-view + reduced-motion (landning ~79%). |
+| `80pct-c.md` | `bfd7cc8e` — config-dashboard, `eval-output/`, deploy skipAutoFix, cipher-timeout (~80%). |
+| `80pct-d.md` | `743565d9` — docs hub, plans index, handoff/lifecycle-drift. |
+| `80pct-o.md` | `5985898e` — orchestrator log passus (docs sweep + lifecycle). |
+| `81pct-p.md` | `7696f1f8` — `/om`, `/blogg`, footer, sitemap (~81%). |
+| `82pct-u.md` | `304bf6d5` — W2 409 UX i `useBuilderDeployActions` + docs sync (~82%). |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
 
