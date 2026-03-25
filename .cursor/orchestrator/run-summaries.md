@@ -173,3 +173,24 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-26-external-review-k014-privacy-anchors-163427/`
 
+## 2026-03-24-scaffold-sandbox-migration (archived 2026-03-26 16:39)
+- **Scope:** Roadmap: scaffold/sandbox-migration (mallar, prompts, sandbox-preview). Arbetet fortsatte på annat håll på master; denna run-mapp användes inte till avslutad leverans.
+- **Workloads:** 0 completed, 0 verified.
+- **Outcome:** Run markerad **deferred/superseded**; ROADMAP kvar som historisk kontext.
+- **Outcome:** Ingen kodändring bunden till denna mapp.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-24-scaffold-sandbox-migration-163916/`
+
+## 2026-03-26-tier2-continue (archived 2026-03-26 16:39)
+- **Scope:** Tier2-plan: UTF-8 i landningsdata + registry-utökning. Motsvarande spår har i praktiken drivits via ordinarie remediation på master; denna run avslutas utan att workloads i mappen slutförts här.
+- **Workloads:** 2 completed, 2 verified.
+- **Outcome:** Run **superseded** av pågående master-arbete / andra batchar.
+- **Outcome:** workloads/ och verification/ kvar som spårbar kontext om någon behöver dem.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-26-tier2-continue-163916/`
+
+## 2026-03-26-external-review-doc-hierarchy-sweep (archived 2026-03-26 16:41)
+- **Scope:** Planerat: sopning av hängande orchestrator-runs och tydlig dokumenthierarki mellan `1.txt`–`3.txt` och execution-lagret.
+- **Workloads:** 1 completed, 1 verified.
+- **Outcome:** Två stale runs arkiverade med deferral/superseded-notis.
+- **Outcome:** Execution README § Dokumenthierarki + progress § praktik.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-26-external-review-doc-hierarchy-sweep-164141/`
+

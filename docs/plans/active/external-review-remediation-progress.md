@@ -4,13 +4,13 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Genomförande (checkbox-roadmap, parallella spår, agent-kontrakt):** `docs/plans/active/external-review-execution/README.md` → [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + [CONTINUATION.md](./external-review-execution/CONTINUATION.md) (autonoma anhalter, ~4–5 % batch-commits) + track-filer.
 
-**Vad du ska följa i praktiken:** execution-lagret ovan + denna fil (%, Done, commit-rutin) och vid behov [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md). **`1.txt`–`3.txt`** är **ursprungsgranskning / orientering** och underlag för § *Kartläggning* — **inte** en parallell “todo-lista” att köra slaviskt rad för rad.
+**Vad du ska följa i praktiken:** execution-lagret ovan + denna fil (%, Done, commit-rutin) och vid behov [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md). **`1.txt`–`3.txt`** under `.j_to_agent/` är **grundmaterialet för granskningen** (vad som en gång granskats och vilka spår det skapat). De är **inte** en automatisk backlog-radlista — operativ prioritering och “vad som är klart” styrs av denna fil + [execution README](./external-review-execution/README.md) § *Dokumenthierarki*. § *Kartläggning* nedan kopplar teman till `1.txt`/`2.txt`/`3.txt`.
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Orchestrator-run + K-014 delmoment (footer → integritet)** — landningsfooter länkar **GDPR** → `/privacy#gdpr`, **Cookies** → `/privacy#cookies`; motsvarande `id` + `scroll-mt-24` på integritetssidan. Run `2026-03-26-external-review-k014-privacy-anchors` arkiverad. **K-014** (övrig copy/sidor) förblir öppen.
+Last code touch: **Orchestrator-hygien + dokumenthierarki** — stale runs `2026-03-24-scaffold-sandbox-migration` och `2026-03-26-tier2-continue` fick `FINAL_SWEEP`/`FINAL_REPORT` (deferred/superseded) och arkiverades; `external-review-execution/README.md` fick § **Dokumenthierarki** (`.j_to_agent/1.txt`–`3.txt` = grundmaterial, execution + denna progress = operativ styrning); progress § *Vad du ska följa* justerad. Run `2026-03-26-external-review-doc-hierarchy-sweep` arkiverad.
 
-**Tidigare:** K-007 delmoment (`precheckOnly`+`skipAutoFix` Vitest); K-016 (del 1–4, avslut) — **K-016** stängd i kritiklistan.
+**Tidigare:** K-014 delmoment (footer → `#cookies`/`#gdpr`); K-007 delmoment; K-016 stängd i kritiklistan.
 
 **Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (85 filer, **382** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**5 %** whole kvar).
 
@@ -97,6 +97,7 @@ Ungefär **~5%** av *whole vision* kvar: **integrationer + deploy** (**~81%** do
 
 ## Done (in repo)
 
+- **Orchestrator / doc (2026-03-26):** Arkiverade hängande `run/`-mappar (scaffold-sandbox-migration, tier2-continue) med explicit deferral i FINAL-rapporter; execution README § *Dokumenthierarki*; tydligare roll för `1.txt`–`3.txt` vs operativ styrning i denna fil.
 - **W1 / K-014 delmoment (2026-03-26):** `landing-footer.tsx` — länkar **Cookies** och **GDPR** till `/privacy#cookies` respektive `/privacy#gdpr`; `src/app/privacy/page.tsx` — `id` på avsnitt 5–6 och `scroll-mt-24` för ankring.
 - **W2 / deploy-kontrakt (2026-03-26, K-007 delmoment):** Vitest för **`precheckOnly` + `skipAutoFix`** i `src/app/api/v0/deployments/route.test.ts`; `docs/architecture/deploy-precheck.md` § **Kontraktstester** (lista över mockade scenarier + notis om att Playwright-e2e är separat).
 - **W5 / kritik-hygien (2026-03-26):** Arkiverade handoff- och milstolpsfiler (`18–84pct-*`, m.fl.) under `.j_to_agent/archive/kritik-addressed/`; masterlista [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md); [`kritik-derived-backlog.md`](./kritik-derived-backlog.md) som pekare; [`KRITIK-OVERVIEW.md`](../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) + execution README; [`repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor* (ingen `.gitignore`-ändring krävd för orchestrator).

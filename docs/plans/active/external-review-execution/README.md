@@ -2,6 +2,15 @@
 
 Det här är **det genomförbara lagret** ovanpå `external-review-remediation-progress.md` (sanning, %, commit-rutin) och `orchestrator-workloads-external-review.md` (W1–W5-översikt).
 
+## Dokumenthierarki (grund vs operativ styrning)
+
+| Roll | Var | Vad det betyder |
+|------|-----|------------------|
+| **Grundmaterial (extern granskning)** | `.j_to_agent/1.txt`, `2.txt`, `3.txt` | Ursprunglig export: *vad* som granskats och vilka teman som finns (landning, own-engine, scripts m.m.). Det är **sanningen om ingången** till remediation. |
+| **Operativ styrning (hur vi kör)** | `external-review-remediation-progress.md` + denna mapp + `orchestrator-workloads-external-review.md` | *Hur* batchar prioriteras, verifieras (`typecheck`/`vitest`), committas och spåras. Kryss i track-filer och % är **arbetskontrakt**, inte en kopia rad-för-rad av `1.txt`–`3.txt`. |
+
+Om något skiljer sig: låt **grundmaterialet** förklara *tema/scope*, och **progress + execution** förklara *vad som faktiskt är levererat på `master`*.
+
 ## Filer
 
 | Fil | Syfte |
