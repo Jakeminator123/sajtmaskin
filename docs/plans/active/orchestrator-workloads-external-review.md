@@ -4,6 +4,8 @@
 
 **Sanning i repo:** `docs/plans/active/external-review-remediation-progress.md` (procentsiffror, commit-rutin, Next-steg).
 
+**Git-gren:** remediation pushas till **`origin/master`**. Grenen **`main`** kan ligga efter — nya agenter ska `git fetch` + `checkout master` + `pull` (eller ändra GitHub default branch). Detaljer i progress-dokumentet § *Gren: `master` och `main`*.
+
 **Checkbox-roadmap + spår (nytt):** `docs/plans/active/external-review-execution/` — [README.md](./external-review-execution/README.md), [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md). Workers bockar av i `track-w*.md` enligt instruktion där.
 
 **Källplaner (städade kopior):** `.j_to_agent/1.txt` (landning + integrationer), `.j_to_agent/2.txt` (own-engine pack), `.j_to_agent/3.txt` (scaffolds, scripts, orchestrator-frågor).

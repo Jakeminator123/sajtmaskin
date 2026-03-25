@@ -21,6 +21,15 @@ Vid varje dokumenterad avstämning:
 5. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 6. `git push` till `master` (eller din arbetsbranch).
 
+### Gren: `master` och `main` (för agenter som “inte ser” ändringar)
+
+- **Remediation i den här körningen pushas till `origin/master`.** Efter push ska `master` och `origin/master` peka på samma commit (`git status -sb` visar `## master...origin/master` utan `[ahead …]` / `[behind …]`).
+- Repot har också grenen **`main`** på GitHub. Den kan vara **långt efter** `master` (olika historik). Om du klonar och råkar arbeta på **`main`**, eller om GitHub **default branch** är `main`, syns inte builder-/remediation-commits förrän du byter gren.
+- **Rätt koll:**  
+  `git fetch origin && git checkout master && git pull origin master`  
+  samt `git log -1 --oneline origin/master` — ska matcha senaste kända remediation-/chore-commit.
+- **Organisation:** överväg att sätta **default branch** till `master` i GitHub om all aktiv utveckling ska ligga där, eller merga `master` → `main` i en avsiktlig release-rutin (produktbeslut).
+
 ## Overall fill (approximate)
 
 | Segment | Done | Remaining |

@@ -9,6 +9,8 @@ Det här dokumentet styr **hur** remediation får löpa i etapper så att du int
 3. **Commit-cadence:** sikta på **~4–5 enheter** på **Whole vision** mellan commits när volymen räcker (se `external-review-remediation-progress.md`). Undvik mikrocommits på 1–2 % om flera säkra punkter kan levereras i samma gröna testkörning.
 4. **Push:** efter varje sådan commit till avtalad branch (`master` om inget annat sägs).
 
+5. **Branch i det här repot:** remediation pushas till **`origin/master`**. Grenen **`main`** kan vara efter — andra agenter ska inte anta att `main` är sanning. Verifiera med `git branch -vv` och `git log -1 origin/master` efter `git fetch`.
+
 ## Praktiskt i Cursor / agenter
 
 - **Orchestrator eller worker** läser `MASTER-ROADMAP.md` + relevant `track-w*.md`, implementerar **nästa öppna punkt(er)** tills en halt inträffar eller en batch enligt punkt 3 är rimlig.

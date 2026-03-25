@@ -25,7 +25,8 @@ Läs **[CONTINUATION.md](./CONTINUATION.md)**. Du behöver **inte** vänta på a
 4. Kör: `npm run typecheck && npx vitest run`.
 5. Uppdatera procentsiffror i `docs/plans/active/external-review-remediation-progress.md` om **Whole vision** eller segment-% ändras märkbart.
 6. Commit enligt samma fil (ämnesrad med helhets-%).
-7. Lämna en kort rad i **MASTER-ROADMAP.md** → tabellen *Orchestrator / verifiering* (datum, branch, vad som verifierats).
+7. **`git push origin master`** — kanonisk fjärrgren för den här remediation-körningen är **`master`**; **`main`** kan ligga efter. Se `external-review-remediation-progress.md` § *Gren: `master` och `main`*.
+8. Lämna en kort rad i **MASTER-ROADMAP.md** → tabellen *Orchestrator / verifiering* (datum, branch, vad som verifierats).
 
 ## Parallellisering (kort)
 
