@@ -44,7 +44,7 @@ Vid varje dokumenterad avstämning:
 - `chat-area.tsx`: borttagna oanvända Lucide-/data-imports; oanvända värden från `useLandingController` plockas inte längre ut; terminal ref-merge med tydlig eslint-avsiktskommentar.
 - `landing-hero.tsx`: `headlineTilt` destruktureras så `eslint-plugin-react-hooks` ref-regler inte falskt larmar.
 - `landing-background.tsx`: shader-orbs + grid + noise flyttade från `ChatArea`; `data-landing-bg` per kategori (`fritext`, `template`, `audit`, `analyserad`); `prefers-reduced-motion` via scoped CSS under `.landing-chat-bg` (lägre opacitet, inga orb-/grid-animationer).
-- `vercel_templates_levels/`: **återställd** från git (före `c1a0ef96`); Playwright-spec skriver till `research/external-templates/raw-discovery/current/`. **Inte** samma som **v0**-mallar (`templates:*` / `sync-v0-templates.mjs`). Se `docs/architecture/vercel-templates-discovery.md`.
+- `vercel_templates_levels/` (repo root): kan ligga **lokalt** för granskning; **gitignore + cursorignore** (2026-03-27). Playwright-spec skriver till `raw-discovery/current/` när du kör den. **Inte** v0-mallar (`templates:*`). Se `docs/architecture/vercel-templates-discovery.md`.
 - `scripts/README.md` + `scripts-scaffolds-inventory.md`: rättade sökvägar (`scripts/hamta_sidor*`), `npm run template-library:verify-summary`, svenska i scaffold-pipeline-tabellen; **recovery**-skript dokumenterat som **saknat** i repot.
 
 ## Next (recommended order)

@@ -40,4 +40,12 @@ Det är **offline/research-verktyg**, inte runtime för byggaren.
 
 - Vercel kan ändra DOM på `vercel.com/templates` → specen kan behöva justeras.
 - `tsconfig.json` **exkluderar** fortfarande `vercel_templates_levels` (snabbare `tsc`); det är avsiktligt.
-- För att Cursor ska indexera mappen togs `vercel_templates_levels/` bort från `.cursorignore` (2026-03-26).
+- **2026-03-27:** Mappen ligger i **repo-roten** men är **tillfälligt** i både **`.gitignore`** och **`.cursorignore`** — du kan granska lokalt utan att den indexeras eller pushas. `npm run references:discover*` fungerar bara om mappen finns lokalt.
+
+## Builder UI: **Mall**-fliken är inte Vercel Templates
+
+I buildern betyder fliken **Mall** / **Mallar** (`UnifiedElementPicker`, `mall`) **v0-templates**: förhandsvisning och start från v0-communitymallar (`src/lib/templates/` → v0 `chats.init` med `type: "template"`).
+
+**Vercel Templates** (den här mappens Playwright-/research-kedja) är ett **separat** spår: insamling från `vercel.com/templates` för att mata **raw discovery → referensbibliotek → genererade artefakter → scaffold-forskning**. Användare väljer inte de mallarna i Mall-fliken.
+
+Se även `docs/architecture/structure-and-terminology.md` och `.cursor/rules/terminology.mdc` (avsnittet om Mall vs Vercel-mall).

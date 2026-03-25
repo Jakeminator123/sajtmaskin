@@ -22,6 +22,8 @@ next-env.d.ts
 # Environment files (NEVER commit secrets!)
 .env
 .env.*
+!.env.example
+!.env.*.example
 .env.local
 # Renamed snapshots used for diffing against Vercel — often contain real secrets
 OLD.env*
@@ -31,7 +33,8 @@ OLD.env*
 .token-status.json
 
 # Local prompt dumps (opt-in: SAJTMASKIN_PROMPT_DUMP=1)
-data/prompt-dumps/
+data/prompt-dumps/*
+!data/prompt-dumps/README.md
 
 # Database files (local data, not for git)
 data/*.db
@@ -52,6 +55,9 @@ data/scaffold-candidates-curated.json
 
 # Vercel template scrape (local research; hamta_sidor_branch_emil.py)
 scraped-vercel-scorefolds/
+
+# Playwright Vercel catalog tooling — lokal granskning; tillfälligt utanför git (finns i roten om du återställt den)
+vercel_templates_levels/
 
 # MCP scraped documentation (60+ MB, regenerate with doc.py)
 services/mpc/docs/docgrab__*/
@@ -82,7 +88,8 @@ google-services.json
 .cursor/orchestrator/run/**
 !.cursor/orchestrator/run/
 !.cursor/orchestrator/run/README.md
-.cursor/orchestrator/archive/
+.cursor/orchestrator/archive/*
+!.cursor/orchestrator/archive/README.md
 .cursor/control-agent/run/**
 !.cursor/control-agent/run/
 !.cursor/control-agent/run/README.md
@@ -98,7 +105,8 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 mcp-monitoring-report.txt
-logs/
+logs/*
+!logs/README.md
 manual_log/
 input_files_for_cursor/logg_*.txt
 DOM_dev_tols.txt

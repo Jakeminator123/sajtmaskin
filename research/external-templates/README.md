@@ -19,10 +19,9 @@ This folder is the canonical external-template research lane.
 
 - `C:\Users\jakem\Desktop\_sidor\vercel_usecase_next_react_templates` remains a
   legacy external dataset. Keep it outside the repo.
-- `vercel_templates_levels/` is tooling around discovery, not a parallel data
-  silo. Its Playwright scraper should write into `raw-discovery/current/`.
-  The folder was removed in 2026-03-18 (Plan 17 WS-1) but **restored 2026-03-26**
-  because `package.json` still referenced it; see
+- `vercel_templates_levels/` (repo root) is optional **local** Playwright tooling;
+  it is **gitignored and cursorignored** (2026-03-27) while you review it.
+  When present, the scraper should write into `raw-discovery/current/`. See
   `docs/architecture/vercel-templates-discovery.md`.
 - This lane is for public Vercel Templates research, not for product-facing v0
   gallery templates.
