@@ -1,3 +1,5 @@
+2026-03-25 — **W2 deploy tests:** `deploy-readiness.test.ts`, `deployments/route.test.ts` (`precheckOnly`, Stripe missingEnv); mock `@/lib/db/client` + dynamic route import; vitest 370; progress last-touch + MASTER-rad; push `origin/master`.
+
 2026-03-25 — **B3-06:** `scaffold-pipeline.py` → `scripts/manual/` + README; `REPO_ROOT` fix; `scripts/README` + inventory + track-w4; B3-05 notis vid extract-static-core; progress ~88% whole; typecheck+vitest; push `origin/master`.
 
 2026-03-25 — **B3-04 sandbox doc:** `preview-and-sandbox-flow.md` § ephemeral vs långlivade stödtjänster; `agent-workflows.md` länk; progress ~87% whole; push `origin/master`.
