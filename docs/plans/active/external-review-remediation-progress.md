@@ -2,9 +2,9 @@
 
 Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator). **Agent-uppdelning:** `docs/plans/active/orchestrator-workloads-external-review.md`.
 
-Last code touch: ESLint-/import-städ i `chat-area.tsx` + `LandingHero` (headlineTilt destrukturering för ref-regler); dokumenterad ref-merge för terminal-blocket.
+Last code touch: `LandingBackground` utbruten från `chat-area.tsx` (semantisk `data-landing-bg` + reduced-motion i `landing-v2.css`).
 
-**Siffror:** **~32%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~69%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet.
+**Siffror:** **~34%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -12,7 +12,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~32pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~34pct — kort vad som ändrats`.
 4. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 5. `git push` till `master` (eller din arbetsbranch).
 
@@ -20,8 +20,8 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~32%** | **~68%** |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~69%** | **~31%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~34%** | **~66%** |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~72%** | **~28%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~22%** | **~78%** |
 | **Own-engine** (`2.txt`) | **~0%** | **~100%** |
 | **Scripts / naming hygiene** (`3.txt`) | **~0%** | **~100%** |
@@ -43,10 +43,11 @@ Vid varje dokumenterad avstämning:
 - `write-tier2-run.mjs`: valfritt run-id som CLI-arg (`node scripts/write-tier2-run.mjs <id>`).
 - `chat-area.tsx`: borttagna oanvända Lucide-/data-imports; oanvända värden från `useLandingController` plockas inte längre ut; terminal ref-merge med tydlig eslint-avsiktskommentar.
 - `landing-hero.tsx`: `headlineTilt` destruktureras så `eslint-plugin-react-hooks` ref-regler inte falskt larmar.
+- `landing-background.tsx`: shader-orbs + grid + noise flyttade från `ChatArea`; `data-landing-bg` per kategori (`fritext`, `template`, `audit`, `analyserad`); `prefers-reduced-motion` via scoped CSS under `.landing-chat-bg` (lägre opacitet, inga orb-/grid-animationer).
 
 ## Next (recommended order)
 
-1. `LandingBackground` (shader/grid/noise) till egen komponent; semantiskt per läge; reduced-motion / in-view för 3D.
+1. ~~`LandingBackground` (shader/grid/noise) till egen komponent; semantiskt per läge; reduced-motion / in-view för 3D.~~ **Klart** (in-view för övrig 3D kvar vid behov).
 2. Utöka `integrationRegistry` med fler providers (Clerk, GA, …) eller manifest vid generering; tunnare deploy (`1.txt`).
 3. Own-engine remediation (`2.txt`).
 4. Scripts-städ (`hamta_sidor*`, lab-mappar, README-drift) (`3.txt`).

@@ -28,4 +28,5 @@ Orkestratorn i huvudsessionen kan använda Cursor **Task**-agenter mot samma wor
 
 ## Status
 
-- **2026-03-26:** Run-mapp scaffoldad på disk (`2026-03-26-external-review`); workload-filer `01-01-w1` och `02-01-w4` skapade; tier-3-agenter kan köras mot dessa.
+- **2026-03-26:** Run-mapp scaffoldad; workload `01-01-w1` **verifierad** (LandingBackground landad, typecheck OK, progress ~34% / landing ~72%). Workload `02-01-w4` körd som **readonly**-agent; logg sparad lokalt i `agent-logs/02-01-w4-scripts-hygiene.md` (bl.a. saknad `vercel_templates_levels/`, README-paths).
+- **Obs:** Filer under `.cursor/orchestrator/run/` är gitignorerade; denna fil är sanning för git-historik.

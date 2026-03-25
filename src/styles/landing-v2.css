@@ -46,6 +46,54 @@
   animation: landing-v2-grid-move 20s linear infinite;
 }
 
+/* Landing page chat backdrop — semantic tint per category (see landing-background.tsx) */
+.landing-chat-bg [data-landing-bg="template"] .shader-orb-1 {
+  background: radial-gradient(circle, rgba(160, 110, 220, 0.34) 0%, transparent 70%);
+}
+.landing-chat-bg [data-landing-bg="template"] .shader-orb-2 {
+  background: radial-gradient(circle, rgba(130, 90, 200, 0.28) 0%, transparent 70%);
+}
+.landing-chat-bg [data-landing-bg="template"] .shader-orb-3 {
+  background: radial-gradient(circle, rgba(190, 140, 230, 0.26) 0%, transparent 70%);
+}
+
+.landing-chat-bg [data-landing-bg="audit"] .shader-orb-1 {
+  background: radial-gradient(circle, rgba(220, 150, 70, 0.34) 0%, transparent 70%);
+}
+.landing-chat-bg [data-landing-bg="audit"] .shader-orb-2 {
+  background: radial-gradient(circle, rgba(200, 120, 50, 0.3) 0%, transparent 70%);
+}
+.landing-chat-bg [data-landing-bg="audit"] .shader-orb-3 {
+  background: radial-gradient(circle, rgba(240, 180, 90, 0.26) 0%, transparent 70%);
+}
+
+.landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-1 {
+  background: radial-gradient(circle, rgba(100, 140, 230, 0.34) 0%, transparent 70%);
+}
+.landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-2 {
+  background: radial-gradient(circle, rgba(80, 120, 210, 0.3) 0%, transparent 70%);
+}
+.landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-3 {
+  background: radial-gradient(circle, rgba(120, 160, 240, 0.26) 0%, transparent 70%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-chat-bg .shader-orb {
+    animation: none !important;
+    opacity: 0.14;
+  }
+  .landing-chat-bg .shader-orb-3 {
+    transform: translate(-50%, -50%);
+  }
+  .landing-chat-bg .landing-chat-bg-grid.grid-background {
+    animation: none !important;
+    opacity: 0.028;
+  }
+  .landing-chat-bg .landing-chat-bg-noise {
+    opacity: 0.015;
+  }
+}
+
 .btn-3d {
   position: relative;
   transform-style: preserve-3d;
