@@ -208,6 +208,17 @@ export const integrationRegistry: IntegrationDefinition[] = [
     provider: "openai",
   },
   {
+    key: "algolia",
+    name: "Algolia",
+    category: "other",
+    envVars: ["NEXT_PUBLIC_ALGOLIA_APPLICATION_ID", "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY"],
+    setupGuide:
+      "Skapa applikation i Algolia Dashboard. Under API Keys: kopiera Application ID och Search-Only API Key till NEXT_PUBLIC_ALGOLIA_APPLICATION_ID respektive NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY. Admin API Key (indexering) hålls server-side och ska inte exponeras som NEXT_PUBLIC.",
+    runtime: "browser",
+    optional: false,
+    provider: "algolia",
+  },
+  {
     key: "sentry",
     name: "Sentry",
     category: "other",

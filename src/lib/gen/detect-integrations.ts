@@ -105,6 +105,12 @@ export const DETECTION_PIPELINE: DetectionRule[] = [
   },
   {
     source: "registry",
+    pattern:
+      /(?:algoliasearch|@algolia\/|instantsearch\.js|react-instantsearch|NEXT_PUBLIC_ALGOLIA_APPLICATION_ID\b|NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY\b)/i,
+    registryProvider: "algolia",
+  },
+  {
+    source: "registry",
     pattern: /(?:@sentry\/|SENTRY_DSN\b)/i,
     registryProvider: "sentry",
   },

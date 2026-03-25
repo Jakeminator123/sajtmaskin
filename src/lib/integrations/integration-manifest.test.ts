@@ -23,6 +23,20 @@ describe("integration manifest", () => {
     expect(sentry?.envVars).toContain("SENTRY_DSN");
   });
 
+  it("detects Algolia from generated code", () => {
+    const files = [
+      {
+        name: "components/Search.tsx",
+        content: 'import { liteClient as algoliasearch } from "algoliasearch/lite";\n',
+      },
+    ];
+    const detected = detectIntegrationsFromVersionFiles(files);
+    const row = detected.find((d) => d.key === "algolia");
+    expect(row?.name).toBe("Algolia");
+    expect(row?.envVars).toContain("NEXT_PUBLIC_ALGOLIA_APPLICATION_ID");
+    expect(row?.envVars).toContain("NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY");
+  });
+
   it("detects Sanity and MongoDB from generated code", () => {
     const files = [
       {

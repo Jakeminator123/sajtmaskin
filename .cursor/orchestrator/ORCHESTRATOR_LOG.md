@@ -1,3 +1,5 @@
+2026-03-26 — **Algolia:** integrationRegistry + detect-integrations + env-policy; Vitest 356.
+
 2026-03-26 — **Webscraper:** Vitest för validateAndNormalizeUrl + getCanonicalUrlKey (audit/wizard). Vitest 355.
 
 2026-03-26 — **W2 integrations:** Sanity, Contentful, Storyblok (category cms), MongoDB i registry + detect-integrations; env-policy keys; Vitest 349. Progress ~84% whole.
