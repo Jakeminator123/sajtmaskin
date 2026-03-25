@@ -4,7 +4,7 @@
  *
  * Own-engine builder streams do not use this module. These helpers call the v0 Platform
  * API for templates, registry init, zip download, and explicit generate/refine flows.
- * Default builder codegen is `src/lib/gen/fallback.ts` → own-engine.
+ * Default builder codegen is `src/lib/gen/generation-pipeline.ts` (legacy import: `fallback.ts`).
  *
  * Also used for: templates (generateFromTemplate), registry init (initFromRegistry),
  * and download (downloadVersionAsZip) — these flows still use v0 Platform API.

@@ -11,7 +11,7 @@ const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const assertV0Key = vi.hoisted(() => vi.fn());
 const v0ChatsGetById = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/gen/fallback", () => ({
+vi.mock("@/lib/gen/generation-pipeline", () => ({
   shouldUseV0Fallback,
 }));
 

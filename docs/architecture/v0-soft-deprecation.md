@@ -9,7 +9,7 @@ preserving all Vercel platform integrations (deploy, blob, domains).
 ## Current state
 
 - Own-engine is the **only** builder codegen path (`createGenerationPipeline` in
-  `src/lib/gen/fallback.ts` → `engine.ts`). There is no v0 Platform API branch
+  `src/lib/gen/generation-pipeline.ts` → `engine.ts`; `fallback.ts` re-exports for compat). There is no v0 Platform API branch
   on that stream.
 - `V0_FALLBACK_BUILDER` is an **opt-in preview preference**: when set to an
   affirmative value (`y`, `yes`, `true`, `1`, `on`), the builder UI may prefer a

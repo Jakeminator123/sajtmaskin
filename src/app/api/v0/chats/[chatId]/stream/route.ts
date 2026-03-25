@@ -18,7 +18,7 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { createGenerationPipeline } from "@/lib/gen/fallback";
+import { createGenerationPipeline } from "@/lib/gen/generation-pipeline";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,

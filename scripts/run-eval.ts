@@ -25,6 +25,7 @@ const REPO_FILES = {
   validateAndFix: "src/lib/gen/autofix/validate-and-fix.ts",
   orchestrate: "src/lib/gen/orchestrate.ts",
   generateSite: "src/lib/mcp/generate-site.ts",
+  generationPipeline: "src/lib/gen/generation-pipeline.ts",
   fallback: "src/lib/gen/fallback.ts",
   packageJson: "package.json",
 } as const;
@@ -185,7 +186,8 @@ function buildBuildStackChecks(repoTexts: Record<RepoFileKey, string>): CheckRes
       { file: "generateSite", needle: 'scaffoldMode === "auto"', label: "MCP scaffold auto mode" },
     ]),
     buildRepoCheck(repoTexts, "own-build-default", "Own-engine builds are the primary path", [
-      { file: "fallback", needle: "createGenerationPipeline", label: "own-engine pipeline" },
+      { file: "generationPipeline", needle: "export function createGenerationPipeline", label: "generation pipeline module" },
+      { file: "fallback", needle: "./generation-pipeline", label: "legacy fallback re-export" },
       { file: "generateSite", needle: "createGenerationPipeline", label: "MCP own-engine generation" },
       { file: "createRoute", needle: "prepareGenerationContext", label: "create-route own-engine path" },
     ]),
