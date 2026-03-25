@@ -10,9 +10,11 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Commit-uppföljning (second opinion):** [reviews/README.md](./reviews/README.md) — t.ex. systematisk genomgång av orchestrator-commits efter brytpunkt `39fef25e` ([detaljer](./reviews/orchestrator-followup-from-39fef25e.md)).
 
-Last code touch: **K-014 delmoment (layout-footer)** — `src/components/layout/footer.tsx`: **Om oss** → kanon **`/om`** (tidigare fel **`/about`**); juridiska länkar i linje med landningsfootern (**GDPR** / **Cookies** → `/privacy#…`); **`footer.test.tsx`**. **Whole ~97%** oförändrat (kvar ~3%); **landning ~91%** (layout-sidor som använder `Footer`).
+Last code touch: **E-handelsscaffold + push-rutin** — `ecommerce/manifest.ts`: **Om oss** → **`/om`** + ny **`app/om/page.tsx`** (så nav/footer inte pekar på saknad ruta); [CONTINUATION.md](./external-review-execution/CONTINUATION.md) § *Principer* — **fetch + pull före push** (flera agenter på `master`). **Whole ~97%** oförändrat.
 
-**Tidigare:** sitemap-regressionstest; K-008 blogg + `e2e/README`; orchestrator-hygien; K-014/K-007 delmoment; K-016 stängd.
+**Tidigare batch:** K-014 layout-footer (`footer.tsx` + `footer.test.tsx`); landning ~91%.
+
+**Tidigare (längre bak):** sitemap-regressionstest; K-008 blogg + `e2e/README`; orchestrator-hygien; K-014/K-007 delmoment; K-016 stängd.
 
 **Final sweep / handoff (2026-03-27):** `npm run typecheck` och `npx vitest run` (87 filer, **385** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**3 %** whole kvar).
 
@@ -40,7 +42,7 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 3. **Spår och parallellisering:** [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + tabell *Orchestrator / verifiering*.
 4. **W1–W5 i mänskliga termer:** [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md).
 5. **Öppna K-/C-rader (kompletterar %):** [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) → [kritik-derived-backlog.md](./kritik-derived-backlog.md).
-6. **Gren:** `master`; `git pull origin master` ( `main` kan ligga efter). Efter arbete: `npm run typecheck` && `npx vitest run` → commit med helhets-% i subject → `git push origin master`. Uppdatera vid behov **MASTER-ROADMAP**-rad + [`.cursor/orchestrator/ORCHESTRATOR_LOG.md`](../../../.cursor/orchestrator/ORCHESTRATOR_LOG.md). **Större spår:** orchestrator-protokoll — [`.cursor/orchestrator/PROTOCOL.md`](../../../.cursor/orchestrator/PROTOCOL.md); färdiga körningar arkiveras med `archive-completed-runs.ps1` (lokal `archive/`, post i `run-summaries.md`).
+6. **Gren:** `master`; `git pull origin master` ( `main` kan ligga efter). Efter arbete: `npm run typecheck` && `npx vitest run` → commit med helhets-% i subject → **direkt före push:** `git fetch origin` && `git pull origin master` (se [CONTINUATION.md](./external-review-execution/CONTINUATION.md) § *Principer*) → `git push origin master`. Uppdatera vid behov **MASTER-ROADMAP**-rad + [`.cursor/orchestrator/ORCHESTRATOR_LOG.md`](../../../.cursor/orchestrator/ORCHESTRATOR_LOG.md). **Större spår:** orchestrator-protokoll — [`.cursor/orchestrator/PROTOCOL.md`](../../../.cursor/orchestrator/PROTOCOL.md); färdiga körningar arkiveras med `archive-completed-runs.ps1` (lokal `archive/`, post i `run-summaries.md`).
 
 *Om löptext och tabell skiljer sig: låt § **Overall fill** och § **Kartläggning** gå före — rätta sedan § **Återstår**.*
 
@@ -99,6 +101,7 @@ Ungefär **~3%** av *whole vision* kvar: **integrationer + deploy** (**~82%** do
 
 ## Done (in repo)
 
+- **Scaffold / route-konsekvens (2026-03-27):** `ecommerce/manifest.ts` — **Om oss** länkar **`/om`**; tillagd **`app/om/page.tsx`** i e-handelsstartern. **Agent-rutin:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md) — *fetch + pull före push*.
 - **W1 / K-014 delmoment (2026-03-27, layout):** `src/components/layout/footer.tsx` — **Om oss** → **`/om`** (ersätter fel **`/about`**); **Juridiskt**: **Integritetspolicy**, **Användarvillkor**, **GDPR**, **Cookies** (samma ankare som `landing-footer.tsx`); `src/components/layout/footer.test.tsx`.
 - **B3-05 / W4 (2026-03-27):** `scripts/extract-static-core.mjs` borttaget — monolitisk `STATIC_CORE` i `system-prompt.ts` finns inte; statisk kärna via `static-core-loader` + `config/prompt-static/`. Uppdaterat: `scripts/README.md`, `docs/architecture/prompt-tree.md`, `buglista-del-3.md`, `track-w4-scripts.md`.
 - **SEO / marknads-rutter (2026-03-27):** `src/app/sitemap.ts` — `STATIC_SITEMAP_REL_PATHS` + `src/app/sitemap.test.ts` (blogg/om/juridik m.m. får inte tyst falla bort).

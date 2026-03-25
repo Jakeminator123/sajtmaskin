@@ -93,6 +93,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 `,
     },
     {
+      path: "app/om/page.tsx",
+      content: `export default function OmPage() {
+  return (
+    <div className="mx-auto max-w-3xl px-6 py-16">
+      <h1 className="text-3xl font-semibold tracking-tight">Om oss</h1>
+      <p className="mt-4 leading-relaxed text-muted-foreground">
+        [Kort butikspresentation — ersätt med er historia, värderingar och kontaktuppgifter.]
+      </p>
+    </div>
+  );
+}
+`,
+    },
+    {
       path: "app/page.tsx",
       content: `import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -210,7 +224,7 @@ const navItems = [
   { label: "Hem", href: "/" },
   { label: "Produkter", href: "/products" },
   { label: "Kategorier", href: "/categories" },
-  { label: "Om oss", href: "/about" },
+  { label: "Om oss", href: "/om" },
 ];
 
 export function SiteHeader() {
@@ -276,7 +290,7 @@ const footerLinks = {
     { label: "Rea", href: "/sale" },
   ],
   Info: [
-    { label: "Om oss", href: "/about" },
+    { label: "Om oss", href: "/om" },
     { label: "Leverans", href: "/shipping" },
     { label: "Returer", href: "/returns" },
     { label: "Kontakt", href: "/contact" },

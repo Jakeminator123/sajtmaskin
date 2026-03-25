@@ -7,7 +7,7 @@ Det här dokumentet styr **hur** remediation får löpa i etapper så att du int
 1. **En halt = ett stopp** som kräver mänsklig eller ny session: röd `npm run typecheck`, röd `npx vitest run`, merge-konflikt, säkerhets-/hemlighetsläcka, eller uttryckligt **produktbeslut** (copy, beteende som inte står i track-filen).
 2. **Ingen halt** för: varje checkbox i `track-w*.md`, normal refaktor inom tilldelat filträd, dokumentationsjusteringar som följer samma beslut.
 3. **Commit-cadence:** sikta på **~4–5 enheter** på **Whole vision** mellan commits när volymen räcker (se `external-review-remediation-progress.md`). Undvik mikrocommits på 1–2 % om flera säkra punkter kan levereras i samma gröna testkörning.
-4. **Push:** efter varje sådan commit till avtalad branch (`master` om inget annat sägs).
+4. **Push:** efter varje sådan commit till avtalad branch (`master` om inget annat sägs). **Direkt före `git push`:** kör `git fetch origin` och `git pull origin master` (vid behov `git pull --rebase origin master`) så du ser om en annan agent pushat nytt — annars riskerar du att push avvisas eller att historiken divergerar.
 
 5. **Branch i det här repot:** remediation pushas till **`origin/master`**. Grenen **`main`** kan vara efter — andra agenter ska inte anta att `main` är sanning. Verifiera med `git branch -vv` och `git log -1 origin/master` efter `git fetch`.
 

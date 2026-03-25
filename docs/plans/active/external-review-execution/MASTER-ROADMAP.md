@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-27 | master | typecheck + vitest (385) | ~97%: e-handelsscaffold **Om oss** → `/om` + `app/om/page.tsx`; CONTINUATION § fetch/pull före push |
 | 2026-03-27 | master | typecheck + vitest (385) | ~97%: **K-014** layout `Footer` — `/om`, `/privacy#gdpr`/`#cookies`; `footer.test.tsx`; landning ~91%; **K-014** `[ ]` |
 | 2026-03-27 | master | typecheck + vitest (384) | ~97%: **B3-05** — bort `scripts/extract-static-core.mjs`; buglista del 3 komplett; `3.txt`-segment ~100%; whole ~97% (kvar ~3%) |
 | 2026-03-27 | master | typecheck + vitest (384) | ~96%: `sitemap.ts` `STATIC_SITEMAP_REL_PATHS` + `sitemap.test.ts`; whole ~96% (kvar ~4%), scripts/B3-segment ~99%; ingen orchestrator-run-mapp |
