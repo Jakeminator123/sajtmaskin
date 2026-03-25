@@ -6,7 +6,7 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **W2 integration + builder-copy:** **`sentry`** i **`integrationRegistry`** + **`DETECTION_PIPELINE`** (`@sentry/` / `SENTRY_DSN`); Vitest för detektion. **Lansering:** rubrik **Lansering** (f.d. “Launch readiness”), badge **spärr/spärrar**, **Publicera**-inaktiverad med vägledning till miljö-panel när blocker `action === "env"`, **Projektets miljövariabler**-etikett **saknar miljövariabler**, tips/OpenClaw-strängar uppdaterade. **Tidigare:** 409 deploy-UX, W1 `/om`+`/blogg`, docs-hub. **Progress ~83% whole:** tabell nedan.
+Last code touch: **Builder UI — mindre plotter:** duplicerad **lanserings-badge** i **header** bort (status visas i **Lansering**-kortet i chatkolumnen). Delad copy i **`deploy-readiness-copy`**. **Redo-läge** utan extra grön informationsruta. Kortare deploy-/409-hintar till miljövariabler. **Tidigare:** Sentry i registry + detection; svensk lansering-copy; 409-UX; W1 landning; docs-hub. **Progress ~83% whole:** tabell nedan.
 
 **Siffror:** **~83%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
 
@@ -33,7 +33,7 @@ Vid varje dokumenterad avstämning:
 
 ## Återstår (kort)
 
-Ungefär **~17%** av *whole vision* kvar: **integrationer + deploy** (~68% done) — fler providers/CMS, e2e kring deploy, produktpolish; ev. own-engine utanför W3-track. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~17%** av *whole vision* kvar: **integrationer + deploy** (~68% done) — fler providers/CMS, e2e kring deploy, produktpolish; ev. own-engine utanför W3-track. **Produkt/UI:** fortsatt förenkling av byggaren (färre parallella “statusytor”, tydligare primär väg för publicering och env) där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -60,6 +60,7 @@ Ungefär **~17%** av *whole vision* kvar: **integrationer + deploy** (~68% done)
 - Footer (landning v2): `/om`, `/blogg`, `/privacy`, `/terms`, `/faq`, `mailto:`; inga falska social-URL:er.
 - Video-knapp: väljer Analyserad + toast.
 - `integrationRegistry` + typer; `detectIntegrations()` läser namn/envVars/setupGuide därifrån via `DETECTION_PIPELINE` (regex kvar i `detect-integrations.ts`).
+- **Builder UX (plotter, 2026-03-25):** ingen separat lanserings-**badge** i **BuilderHeader**; **`formatDeployReadinessStatusLabel`** / **`deployReadinessBadgeClassName`** i `src/lib/builder/deploy-readiness-copy.ts` + Vitest; **Lansering**-kort utan extra informationsruta när status är redo; kortare **Publicera**-tooltip (env) och **409**-hint i `useBuilderDeployActions`.
 - W2 (2026-03-25): Clerk, NextAuth/Auth.js, Google OAuth, GA4, GTM, Vercel Analytics, Plausible, PostHog, Vercel KV och **Sentry** ligger i **`integrationRegistry`** med registry-styrda rader i `DETECTION_PIPELINE` (Prisma/SQLite förblir inline med särskild copy).
 - W2 manifest + deploy (forts.): **`sajtmaskin.integration-manifest.json`** läggs in vid `finalizeAndSaveVersion` (efter preflight); `detectIntegrationsFromVersionFiles` + `resolveEnvRequirementsFromVersionFiles` använder manifest när `schemaVersion: 1` är giltig, annars heuristisk scan. **`deployReadiness`** (`buildDeployReadiness`) loggas på deploy-precheck och returneras i deploy-API-svaret.
 - **W2 builder-UX (409):** `useBuilderDeployActions` — vid **`DEPLOY_MISSING_ENV`** visas saknade nycklar i användarfel + versions-`error-log` (`deploy`); `deploy-precheck.md` § Builder.

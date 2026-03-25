@@ -47,4 +47,4 @@ Användbart för verktyg och felsökning utan att publicera.
 
 ## Builder (klient)
 
-Om användaren ändå triggar deploy när servern svarar **409** `DEPLOY_MISSING_ENV`, visar byggaren ett fel som **listar saknade nycklar** (från `deployReadiness.missingEnv`) och påminner om projektets miljövariabler / **Lanseringskortet**. Samma händelse kan loggas på versionen under kategori `deploy`.
+Om användaren ändå triggar deploy när servern svarar **409** `DEPLOY_MISSING_ENV`, visar byggaren ett fel som **listar saknade nycklar** (från `deployReadiness.missingEnv`) och pekar kort mot **Projektets miljövariabler** (samma kolumn som **Lansering** överst). Samma händelse kan loggas på versionen under kategori `deploy`.

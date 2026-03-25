@@ -11,9 +11,7 @@ import {
   isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth/auth-store";
-import type { ChatReadiness } from "@/lib/chat-readiness";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { getAllScaffolds } from "@/lib/gen/scaffolds";
 import {
@@ -124,7 +122,6 @@ export function BuilderHeader(props: {
   canSaveProject: boolean;
   deploymentStatus?: "pending" | "building" | "ready" | "error" | "cancelled" | null;
   deploymentUrl?: string | null;
-  deployReadiness?: ChatReadiness | null;
   deployDisabledReason?: string | null;
 }) {
   const {
@@ -181,7 +178,6 @@ export function BuilderHeader(props: {
     canSaveProject,
     deploymentStatus,
     deploymentUrl,
-    deployReadiness,
     deployDisabledReason,
   } = props;
 
@@ -227,28 +223,6 @@ export function BuilderHeader(props: {
     window.requestAnimationFrame(action);
   }, []);
   const { isAuthenticated, logout } = useAuth();
-  const readinessLabel =
-    deployReadiness?.status === "blocked"
-      ? deployReadiness.blockers.length === 1
-        ? "1 spärr"
-        : `${deployReadiness.blockers.length} spärrar`
-      : deployReadiness?.status === "warning"
-        ? `${deployReadiness.warnings.length} varning${deployReadiness.warnings.length === 1 ? "" : "ar"}`
-        : deployReadiness
-          ? "Redo"
-          : null;
-  const readinessBadgeClassName =
-    deployReadiness?.status === "blocked"
-      ? "border-red-500/30 bg-red-500/10 text-red-200"
-      : deployReadiness?.status === "warning"
-        ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
-        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
-  const readinessDetails = deployReadiness
-    ? [
-        ...deployReadiness.blockers.map((item) => item.detail || item.title),
-        ...deployReadiness.warnings.map((item) => item.detail || item.title),
-      ]
-    : [];
   useEffect(() => {
     setHasMounted(true);
   }, []);
@@ -745,29 +719,6 @@ export function BuilderHeader(props: {
           <Download className="h-4 w-4" />
           <span className="hidden sm:inline">Ladda ner</span>
         </Button>
-
-        {readinessLabel ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="outline" className={readinessBadgeClassName}>
-                  {readinessLabel}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-sm text-xs">
-                {readinessDetails.length > 0 ? (
-                  <div className="space-y-1">
-                    {readinessDetails.slice(0, 4).map((detail, index) => (
-                      <p key={`${index}-${detail}`}>{detail}</p>
-                    ))}
-                  </div>
-                ) : (
-                  <p>Aktiv version ser redo ut att publicera.</p>
-                )}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
 
         <Button
           size="sm"

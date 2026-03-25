@@ -4,6 +4,10 @@ import { AlertCircle, CheckCircle2, Loader2, TriangleAlert } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ChatReadiness, ChatReadinessItem } from "@/lib/chat-readiness";
+import {
+  deployReadinessBadgeClassName,
+  formatDeployReadinessStatusLabel,
+} from "@/lib/builder/deploy-readiness-copy";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -15,28 +19,6 @@ function openProjectEnvVarsPanel(envKeys?: string[]) {
   if (typeof window === "undefined") return;
   const payload = envKeys?.length ? { envKeys } : {};
   window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail: payload }));
-}
-
-function statusBadge(readiness: ChatReadiness) {
-  if (readiness.status === "blocked") {
-    const n = readiness.blockers.length;
-    return {
-      label: n === 1 ? "1 spärr" : `${n} spärrar`,
-      className: "border-red-500/30 bg-red-500/10 text-red-200",
-    };
-  }
-
-  if (readiness.status === "warning") {
-    return {
-      label: `${readiness.warnings.length} varning${readiness.warnings.length === 1 ? "" : "ar"}`,
-      className: "border-amber-500/30 bg-amber-500/10 text-amber-200",
-    };
-  }
-
-  return {
-    label: "Redo att publicera",
-    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-  };
 }
 
 function renderItem(item: ChatReadinessItem, missingEnvKeys: string[]) {
@@ -64,7 +46,13 @@ export function LaunchReadinessCard({ readiness, isLoading = false }: Props) {
     return null;
   }
 
-  const badge = readiness ? statusBadge(readiness) : null;
+  const badge =
+    readiness != null
+      ? {
+          label: formatDeployReadinessStatusLabel(readiness),
+          className: deployReadinessBadgeClassName(readiness),
+        }
+      : null;
 
   return (
     <div className="border-border/70 bg-muted/10 border-b px-3 py-2 text-xs">
@@ -92,12 +80,6 @@ export function LaunchReadinessCard({ readiness, isLoading = false }: Props) {
         <div className="mt-2 text-[11px] text-muted-foreground">Kontrollerar publiceringsstatus...</div>
       ) : readiness ? (
         <div className="mt-2 space-y-2">
-          {readiness.status === "ready" ? (
-            <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2 text-[11px] text-emerald-100">
-              Aktiv version ser redo ut att publicera. Fortsätt gärna med en sista preview-koll.
-            </div>
-          ) : null}
-
           {readiness.blockers.map((item) => renderItem(item, readiness.info.missingEnvKeys))}
           {readiness.warnings.map((item) => renderItem(item, readiness.info.missingEnvKeys))}
 

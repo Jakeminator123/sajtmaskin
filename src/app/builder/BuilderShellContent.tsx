@@ -159,7 +159,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             : deployReadinessBlocker?.detail || deployReadinessBlocker?.title || null;
   const deployDisabledReason =
     deployReadinessBlocker?.action === "env" && baseDeployDisabledReason
-      ? `${baseDeployDisabledReason} Använd sidopanelen Projektets miljövariabler eller knappen Öppna miljövariabler i lanseringskortet.`
+      ? `${baseDeployDisabledReason} Lägg till nycklarna under Projektets miljövariabler (Lansering överst i chatpanelen).`
       : baseDeployDisabledReason;
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
   const [enableAutofix, setEnableAutofix] = useState(true);
@@ -714,7 +714,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         canSaveProject={Boolean(vm.chatId)}
         deploymentStatus={vm.deploymentStatus}
         deploymentUrl={vm.deploymentUrl}
-        deployReadiness={vm.deployReadiness}
         deployDisabledReason={deployDisabledReason}
       />
       <ModelTraceOverlay
