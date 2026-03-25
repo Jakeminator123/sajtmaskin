@@ -148,6 +148,28 @@ export const DETECTION_PIPELINE: DetectionRule[] = [
     pattern: /(?:posthog|NEXT_PUBLIC_POSTHOG_KEY|NEXT_PUBLIC_POSTHOG_HOST)/i,
     registryProvider: "posthog",
   },
+  {
+    source: "registry",
+    pattern:
+      /(?:from\s+["']mongoose["']|require\(\s*["']mongoose["']\s*\)|\bmongoose\.connect\b|mongodb\+srv:|MONGODB_URI\b)/i,
+    registryProvider: "mongodb",
+  },
+  {
+    source: "registry",
+    pattern: /(?:@sanity\/|next-sanity|NEXT_PUBLIC_SANITY_PROJECT_ID\b|NEXT_PUBLIC_SANITY_DATASET\b)/i,
+    registryProvider: "sanity",
+  },
+  {
+    source: "registry",
+    pattern: /(?:@contentful\/|contentful\.createClient|CONTENTFUL_SPACE_ID\b|CONTENTFUL_ACCESS_TOKEN\b)/i,
+    registryProvider: "contentful",
+  },
+  {
+    source: "registry",
+    pattern:
+      /(?:@storyblok\/(?:react)?|storyblok-js|NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN\b|STORYBLOK_ACCESS_TOKEN\b)/i,
+    registryProvider: "storyblok",
+  },
 ];
 
 const WELL_KNOWN_PUBLIC_VARS = new Set([

@@ -5,6 +5,7 @@ export type IntegrationCategory =
   | "payments"
   | "auth"
   | "data"
+  | "cms"
   | "email"
   | "storage"
   | "other";
@@ -140,6 +141,50 @@ export const integrationRegistry: IntegrationDefinition[] = [
     runtime: "edge",
     optional: false,
     provider: "vercel-kv",
+  },
+  {
+    key: "mongodb",
+    name: "MongoDB",
+    category: "data",
+    envVars: ["MONGODB_URI"],
+    setupGuide:
+      "Skapa ett MongoDB Atlas-kluster (eller annan host). Kopiera anslutningssträngen och sätt MONGODB_URI i Vercel. Använd nätverksåtkomst (IP allowlist eller VPC) enligt leverantörens rekommendation.",
+    runtime: "server",
+    optional: false,
+    provider: "mongodb",
+  },
+  {
+    key: "sanity",
+    name: "Sanity",
+    category: "cms",
+    envVars: ["NEXT_PUBLIC_SANITY_PROJECT_ID", "NEXT_PUBLIC_SANITY_DATASET", "SANITY_API_TOKEN"],
+    setupGuide:
+      "Skapa projekt på sanity.io. Under Project settings: kopiera Project ID och dataset (t.ex. production). Skapa token med läsbehörighet under API > Tokens och sätt SANITY_API_TOKEN för server/preview.",
+    runtime: "server",
+    optional: false,
+    provider: "sanity",
+  },
+  {
+    key: "contentful",
+    name: "Contentful",
+    category: "cms",
+    envVars: ["CONTENTFUL_SPACE_ID", "CONTENTFUL_ACCESS_TOKEN"],
+    setupGuide:
+      "Skapa space i Contentful. Under Settings > API keys: skapa Content Delivery API-nyckel. Sätt CONTENTFUL_SPACE_ID och CONTENTFUL_ACCESS_TOKEN (lösenordet för CDA-nyckeln).",
+    runtime: "server",
+    optional: false,
+    provider: "contentful",
+  },
+  {
+    key: "storyblok",
+    name: "Storyblok",
+    category: "cms",
+    envVars: ["NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN"],
+    setupGuide:
+      "Skapa space i Storyblok. Under Settings > Access: kopiera Preview eller Public token till NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN (använd public token för publicerat innehåll i frontend).",
+    runtime: "browser",
+    optional: false,
+    provider: "storyblok",
   },
   {
     key: "resend",

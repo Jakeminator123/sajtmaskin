@@ -6,9 +6,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Svenska byggar-UI (djup pass):** `BuilderHeader` — hjälptexter och inställningsetiketter (t.ex. **Inmatning**, **Bilder från AI**, **Kopiera bilder till Blob**, **Åtgärda fel automatiskt**, **Delad förhandsvisning**, **Felsökningsvy**); rättad svenska i byggmodell-/Förbättra-rutor; **Anthropic-jämförelse**. **`MODEL_TIER_OPTIONS`** i `defaults.ts`: korrekt **för**/diakritik, **Jämförelseläge**, hint **jämför**. Uppdaterat `terminology.mdc` + `builder-model-routing-and-trace.md`. **Tidigare:** Mer-meny, tips i Inställningar. **Progress ~83% whole:** tabell nedan.
+Last code touch: **W2 integration — CMS + data:** **`integrationRegistry`**: **Sanity**, **Contentful**, **Storyblok** (ny kategori **`cms`**), **MongoDB**; **`DETECTION_PIPELINE`**-rader; Vitest för Sanity + Mongo; **`config/env-policy.json`** `extraKnownKeys` för nya env-namn. **Tidigare:** svensk byggar-UI, Mer-meny, språkpolicy/arbetsyta i progress. **Progress ~84% whole:** tabell nedan.
 
-**Siffror:** **~83%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
+**Siffror:** **~84%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -16,7 +16,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~83pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~84pct — kort vad som ändrats`.
 4. **Batch:** under pågående orchestrator-remediation, **samla gärna ~4–5 enheter** på Whole vision mellan commits när flera säkra punkter ryms i samma gröna `typecheck`+`vitest` (färre mikrocommits). Se [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 5. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 6. `git push` till `master` (eller din arbetsbranch).
@@ -53,15 +53,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~83%** | **~17%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~84%** | **~16%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~82%** | **~18%** |
-| **Integrationer + deploy** (`1.txt` steg 5–7) | **~68%** | **~32%** |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~74%** | **~26%** |
 | **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
 | **Scripts / naming hygiene** (`3.txt`, W4 exit) | **~95%** | **~5%** |
 
 ## Återstår (kort)
 
-Ungefär **~17%** av *whole vision* kvar: **integrationer + deploy** (~68% done) — fler providers/CMS, e2e kring deploy, produktpolish; ev. own-engine utanför W3-track. **Produkt/UI:** fortsatt förenkling av byggaren (färre parallella “statusytor”, tydligare primär väg för publicering och env) där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~16%** av *whole vision* kvar: **integrationer + deploy** (~74% done) — fler providers, e2e kring deploy, produktpolish; ev. own-engine utanför W3-track. **Produkt/UI:** fortsatt förenkling av byggaren (färre parallella “statusytor”, tydligare primär väg för publicering och env) där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -92,6 +92,7 @@ Ungefär **~17%** av *whole vision* kvar: **integrationer + deploy** (~68% done)
 - **Builder UX (header Mer, 2026-03-25):** **Mer**-meny: import, sandbox, ZIP; **Ny chat**; svenska etiketter (**Djup brief**, **Resonemang**, **Anpassad** modell); OpenClaw **Mer-meny** / **mer-menyn** i tips-kontext.
 - **Builder UX (tips/header, 2026-03-25):** **TipCard** utan duplicerad “var finns UI”-ruta; **tips-toggle** under **Inställningar**; header **Inställningar** + svenska menysektioner; instruktionsdialog **Klar**; OpenClaw-ytor inkl. **lansering**.
 - **Builder UX (plotter, 2026-03-25):** ingen separat lanserings-**badge** i **BuilderHeader**; **`formatDeployReadinessStatusLabel`** / **`deployReadinessBadgeClassName`** i `src/lib/builder/deploy-readiness-copy.ts` + Vitest; **Lansering**-kort utan extra informationsruta när status är redo; kortare **Publicera**-tooltip (env) och **409**-hint i `useBuilderDeployActions`.
+- **W2 (2026-03-26):** **Sanity**, **Contentful**, **Storyblok**, **MongoDB** i **`integrationRegistry`** + **`DETECTION_PIPELINE`**; kategori **`cms`**; `env-policy` uppdaterad; Vitest.
 - W2 (2026-03-25): Clerk, NextAuth/Auth.js, Google OAuth, GA4, GTM, Vercel Analytics, Plausible, PostHog, Vercel KV och **Sentry** ligger i **`integrationRegistry`** med registry-styrda rader i `DETECTION_PIPELINE` (Prisma/SQLite förblir inline med särskild copy).
 - W2 manifest + deploy (forts.): **`sajtmaskin.integration-manifest.json`** läggs in vid `finalizeAndSaveVersion` (efter preflight); `detectIntegrationsFromVersionFiles` + `resolveEnvRequirementsFromVersionFiles` använder manifest när `schemaVersion: 1` är giltig, annars heuristisk scan. **`deployReadiness`** (`buildDeployReadiness`) loggas på deploy-precheck och returneras i deploy-API-svaret.
 - **W2 builder-UX (409):** `useBuilderDeployActions` — vid **`DEPLOY_MISSING_ENV`** visas saknade nycklar i användarfel + versions-`error-log` (`deploy`); `deploy-precheck.md` § Builder.

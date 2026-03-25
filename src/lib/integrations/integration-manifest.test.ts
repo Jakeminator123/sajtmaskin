@@ -23,6 +23,21 @@ describe("integration manifest", () => {
     expect(sentry?.envVars).toContain("SENTRY_DSN");
   });
 
+  it("detects Sanity and MongoDB from generated code", () => {
+    const files = [
+      {
+        name: "lib/sanity.ts",
+        content: 'import { createClient } from "next-sanity";\nexport const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!;\n',
+      },
+      { name: "lib/db.ts", content: "import mongoose from \"mongoose\";\nawait mongoose.connect(process.env.MONGODB_URI!);\n" },
+    ];
+    const detected = detectIntegrationsFromVersionFiles(files);
+    expect(detected.some((d) => d.key === "sanity")).toBe(true);
+    expect(detected.find((d) => d.key === "sanity")?.envVars).toContain("SANITY_API_TOKEN");
+    expect(detected.some((d) => d.key === "mongodb")).toBe(true);
+    expect(detected.find((d) => d.key === "mongodb")?.envVars).toContain("MONGODB_URI");
+  });
+
   it("prefers manifest over code when manifest is valid", () => {
     const manifest = JSON.stringify({
       schemaVersion: 1,
