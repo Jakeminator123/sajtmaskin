@@ -176,6 +176,7 @@ export type TechStackItem = {
   glow: string
 }
 
+/** Marketing-rad på landningen — håll versionsnamn ungefärligt i linje med `package.json` (React/Next/TS/Tailwind/Drizzle m.fl.). */
 export const techStack: TechStackItem[] = [
   { name: "React 19", category: "Frontend", detail: "Server Components", icon: Code2, glow: "rgba(56, 189, 248, 0.16)" },
   { name: "Next.js 16", category: "Framework", detail: "App Router", icon: Layers, glow: "rgba(148, 163, 184, 0.14)" },
