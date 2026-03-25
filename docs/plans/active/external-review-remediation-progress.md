@@ -6,18 +6,18 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **B3-02 fas→modell** — [`src/lib/models/phase-routing.ts`](../../src/lib/models/phase-routing.ts): för **pro / max / codex** använder **fixer**, **verifier** och **deploy-assistant** **`gpt-4.1-mini`**; **planner** + **generator** behåller profilmodellen. **fast** och **anthropic** oförändrade (en modell per tier). Vitest + `engine-status.md` + `model-build-profiles.md`. **Tidigare:** W2 deploy tests, B3-06. **Progress ~89% whole:** tabell nedan.
+Last code touch: **W5 kritik-hygien + konsoliderad backlog** — massarkivering av färdigställda `NNpct-*.md` → [`.j_to_agent/archive/kritik-addressed/`](../../.j_to_agent/archive/kritik-addressed/README.md); levande öppna punkter i [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md); uppdaterad [`KRITIK-OVERVIEW.md`](../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) + [`external-review-execution/README.md`](./external-review-execution/README.md). **Tidigare:** **B3-02** `phase-routing.ts` (aux-faser → `gpt-4.1-mini`). **Progress ~90% whole:** tabell nedan.
 
-**Final sweep / handoff (2026-03-25):** `npm run typecheck` och `npx vitest run` (84 filer, **371** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` / hygien i § Commit nedan). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md) och § *Återstår* (~**11 %** whole kvar).
+**Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (84 filer, **371** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) och § *Återstår* (~**10 %** whole kvar).
 
-**Siffror:** **~89%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** / **Elasticsearch** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~96%**.
+**Siffror:** **~90%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** / **Elasticsearch** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~96%**.
 
 ## Commit- och push-rutin (pågående körning)
 
 Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
-2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
+2. `git add` endast reporelevanta filer (inte lokala `data/`, `logs/`, `.cursor/orchestrator/archive/`). **Undantag:** avsiktlig **kritik-/arkiv-hygien** under `.j_to_agent/archive/` och flytt av färdigställda `kritik/*.md` ska med när batchen är dokumenterad (se § *Done* + `KRITIK-OVERVIEW.md`).
 3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~84pct — kort vad som ändrats`.
 4. **Batch:** under pågående orchestrator-remediation, **samla gärna ~4–5 enheter** på Whole vision mellan commits när flera säkra punkter ryms i samma gröna `typecheck`+`vitest` (färre mikrocommits). Se [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 5. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
@@ -55,7 +55,7 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~89%** | **~11%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~90%** | **~10%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~82%** | **~18%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~76%** | **~24%** |
 | **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
@@ -63,10 +63,11 @@ Vid varje dokumenterad avstämning:
 
 ## Återstår (kort)
 
-Ungefär **~11%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, **e2e kring deploy**, produktpolish; ev. own-engine utanför W3-track; **buglista del 3** endast **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta). **W5** kritikpass / [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (kort pekare: [kritik-derived-backlog](./kritik-derived-backlog.md)). **Produkt/UI:** förenkling av byggaren där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~10%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, **e2e kring deploy**, produktpolish; ev. own-engine utanför W3-track; **buglista del 3** endast **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta). **Kritik:** öppna rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (t.ex. K-007–K-017, C-101–C-104) + aktiv [`42pct-v.md`](../../.j_to_agent/structure_bugs_and_parralells/kritik/42pct-v.md); pekare [kritik-derived-backlog.md](./kritik-derived-backlog.md). **Produkt/UI:** förenkling av byggaren där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
+- **W5 / kritik-hygien (2026-03-26):** Arkiverade handoff- och milstolpsfiler (`18–84pct-*`, m.fl.) under `.j_to_agent/archive/kritik-addressed/`; masterlista [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md); [`kritik-derived-backlog.md`](./kritik-derived-backlog.md) som pekare; [`KRITIK-OVERVIEW.md`](../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) + execution README; [`repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor* (ingen `.gitignore`-ändring krävd för orchestrator).
 - **Buglista del 3 (2026-03-25):** **B3-01, B3-02, B3-03, B3-04, B3-06, B3-07, B3-08** — `agent-workflows.md`, terminology cheat sheet, sandbox ephemeral-doc, `scripts/manual/scaffold-pipeline.py` + B3-05-notis vid `extract-static-core`, Vercel-skill routing, länkar i README/workloads/structure-doc/inventory/track-w4; **B3-02** `phase-routing.ts` (pro/max/codex: aux-faser → `gpt-4.1-mini`) + Vitest + `engine-status.md` + `model-build-profiles.md`.
 - **W3 (slice, `2.txt`):** Döda konstanter `STREAM_RESOLVE_MAX_ATTEMPTS` / `STREAM_RESOLVE_DELAY_MS` borttagna från `POST /api/v0/chats/stream` och follow-up-stream-routen (användes inte). `createOwnEnginePlanModeResponse` tar inte längre `modelId` i params — planner-modell kommer enbart från `resolvePhaseModel(modelTier, "planner")` i SSE-meta (undviker vilseledande dubbel källa).
 - **W3 (namngivning):** `createGenerationPipeline` flyttad till **`src/lib/gen/generation-pipeline.ts`**; `src/lib/gen/fallback.ts` re-exporterar för äldre importvägar. Stream-routes, MCP `generate-site`, Vitest-mocks och `run-eval` needles uppdaterade; `docs/architecture/v0-soft-deprecation.md` justerad.

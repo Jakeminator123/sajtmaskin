@@ -51,6 +51,17 @@ stops reading those files.
 Adding a path to `.gitignore` does not remove an already tracked file. Use a
 separate cleanup change if you later decide to untrack an existing artifact.
 
+### Git versus Cursor versus workspace
+
+- **Git** decides what travels with `git clone`, pull requests, and CI. Ignored paths (for example `.cursor/orchestrator/run/**`, `logs/*`, local `data/`) are excluded so secrets and machine-local bulk do not become team history. That is **repository hygiene**, not a claim those files are useless on disk.
+- **`.cursorignore`** only affects **Cursor indexing** (search, default AI context). A path can be **tracked in Git** and still be Cursor-ignored (common for large generated JSON under `src/lib/gen/`).
+- The **workspace root** is whichever folder the editor opened; it does not replace `.gitignore` or `.cursorignore`.
+
+### When to uncomment something
+
+- **In `.gitignore`:** you usually **do not** need to uncomment lines to “fix” orchestrator output. The orchestrator lines are already **active** (not commented): `.cursor/orchestrator/run/**` and `.cursor/orchestrator/archive/*` stay out of Git on purpose. You would only **remove** an ignore rule if the team **intentionally** wants to version local run traces (rare; noisy, token-heavy, possible secret leakage).
+- **In `.cursorignore`:** there is a **commented** pattern `#.cursor/orchestrator/run/*/`. **Uncomment it** (remove the leading `#`) if you want Cursor to **stop indexing** subfolders under `.cursor/orchestrator/run/` — less noise when you never need AI search there. **Uncommenting affects only Cursor**, not Git.
+
 ### Cursor ignore
 
 `cursorignore` should be more aggressive than `.gitignore`.

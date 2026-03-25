@@ -43,10 +43,12 @@
 - **Acceptance:** Package.json-referenser konsistenta; README-paths korrekta; inget borttaget utan referensgrep.
 - **Status (2026-03-25 ff.):** Kanon `hamta_sidor_branch_emil.py` + `--legacy-wide-use-cases`; wrapper `hamta_sidor.py` borttagen; labb flyttat till `scripts/labs/testning_scarf/` med uppdaterade npm-scripts. Se `track-w4-scripts.md` för W4-exit.
 
-## W5 — Kritik-mapp (valfritt, worktree-rapporter)
+## W5 — Kritik-mapp (hygien + regressionspass)
 
-- **Path:** `.j_to_agent/structure_bugs_and_parralells/kritik/`
-- **Användning:** Läs som **regressions- och copy-checklista**; SQLite-setup i `detect-integrations.ts` är **verifierad korrekt svenska** på `master` (tidigare rapport kan vara inaktuell).
+- **Aktiva filer:** `.j_to_agent/structure_bugs_and_parralells/kritik/` (`KRITIK-OVERVIEW.md`, `42pct-v.md` m.fl.)
+- **Arkiv:** `.j_to_agent/archive/kritik-addressed/` — färdigställda `NNpct-*.md` (2026-03-26 batch)
+- **Levande backlog:** [`docs/plans/active/kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) (master-tabell; [kritik-derived-backlog.md](./kritik-derived-backlog.md) = pekare)
+- **Användning:** Regressions- och copy-checklista; SQLite-setup i `detect-integrations.ts` är **verifierad korrekt svenska** på `master` (äldre kritikrader kan vara inaktuella).
 
 ---
 

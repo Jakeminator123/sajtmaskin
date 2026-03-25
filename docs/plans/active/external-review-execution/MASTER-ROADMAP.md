@@ -35,7 +35,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 - [x] **W2** — Deploy/auto-fix enligt [track-w2-deploy-hardening.md](./track-w2-deploy-hardening.md) (checklista komplett; återstår ev. e2e/polish i progress § *Återstår*)
 - [x] **W1** — Små UX-followups enligt [track-w1-landing-followups.md](./track-w1-landing-followups.md) (checklista komplett; produkt-placeholder `/blogg` kvar i progress *Uncertainties*)
-- [ ] **W5** — Kör kritik-lista som regressionspass (ingen kodändring nödvändig): `.j_to_agent/structure_bugs_and_parralells/kritik/`
+- [x] **W5** — Kritik regressionspass / hygien (2026-03-26): färdigställda `NNpct-*.md` arkiverade under `.j_to_agent/archive/kritik-addressed/`; levande öppna punkter i [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md); aktiv kritikfil `42pct-v.md` + `KRITIK-OVERVIEW.md`
 
 ---
 
@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-26 | master | typecheck + vitest (371) | ~90%: W5 — kritik arkiv + `kritik-consolidated-open-items.md`; `repo-hygiene` Git vs Cursor; MASTER W5 `[x]` |
 | 2026-03-25 | master | typecheck + vitest (371) | ~89%: B3-02 — `phase-routing.ts` aux OpenAI-faser → `gpt-4.1-mini`; docs + buglista |
 | 2026-03-25 | master | typecheck + vitest (370) | ~88%: W2 — `deploy-readiness.test.ts` + `deployments/route.test.ts` (`precheckOnly`, db client mock) |
 | 2026-03-25 | master | typecheck + vitest (365) | ~88%: B3-06 — `scripts/manual/scaffold-pipeline.py`; B3-05 doc vid extract-static-core |
