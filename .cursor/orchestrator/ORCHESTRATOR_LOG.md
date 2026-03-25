@@ -1,3 +1,5 @@
+2026-03-26 — **Handoff / final sweep:** `typecheck` + `vitest` (358) gröna; `master` ren mot `origin/master`; progress-doc + MASTER handoff-rad. Nästa agent: CONTINUATION, workloads, ~16 % whole kvar.
+
 2026-03-26 — **Typesense:** integrationRegistry + detect-integrations + env-policy; Vitest 358.
 
 2026-03-26 — **Meilisearch:** integrationRegistry + detect-integrations + env-policy; Vitest 357.

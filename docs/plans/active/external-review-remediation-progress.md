@@ -8,6 +8,8 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 Last code touch: **Typesense** i **`integrationRegistry`** + **`DETECTION_PIPELINE`**; **`env-policy`** (`NEXT_PUBLIC_TYPESENSE_*`, valfri **TYPESENSE_HOST** / **TYPESENSE_API_KEY**); Vitest-detektion. **Tidigare:** Meilisearch, Algolia; `webscraper-url.test.ts`; W2 CMS + Mongo. **Progress ~84% whole:** tabell nedan.
 
+**Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (81 filer, **358** tester) gröna; arbetskopia utan staged/unstaged ändringar mot `origin/master`. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` / hygien i § Commit nedan). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md) och § *Återstår* (~**16 %** whole kvar).
+
 **Siffror:** **~84%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
 
 ## Commit- och push-rutin (pågående körning)
