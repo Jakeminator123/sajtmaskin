@@ -25,7 +25,7 @@
 
 - **Scope:** Utöka `integrationRegistry` + ev. manifest-modell; tunna deploy-steg enligt `1.txt` steg 6–7.
 - **Acceptance:** En källa för provider-metadata som UI/detektion/deploy kan dela; dokumenterat i progress.
-- **Status (2026-03-25 ff.):** Registry + detektion (ovan) + **`sajtmaskin.integration-manifest.json`** i sparad version + `deployReadiness` i deploy-flödet + **409 `DEPLOY_MISSING_ENV`** på deploy-API om env saknas + valfri **`precheckOnly`** (se `docs/architecture/deploy-precheck.md`, `track-w2-deploy-hardening.md`). **Kvar (valfritt):** auto-fix opt-in.
+- **Status (2026-03-25 ff.):** Registry + detektion (ovan) + **`sajtmaskin.integration-manifest.json`** i sparad version + `deployReadiness` i deploy-flödet + **409 `DEPLOY_MISSING_ENV`** på deploy-API om env saknas + valfri **`precheckOnly`** + **auto-fix opt-out** (`skipAutoFix` / env, se `deploy-precheck.md`). **Builder** listar saknade nycklar i deploy-fel om API svarar 409. **Kvar (valfritt):** djupare integration-UX, fler providers i registry, m.m.
 
 ## W3 — Own-engine remediation
 

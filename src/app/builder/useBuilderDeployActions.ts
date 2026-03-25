@@ -178,11 +178,45 @@ export function useBuilderDeployActions({
           }),
         });
 
-        const data = await response.json().catch(() => ({}));
+        const data = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+          code?: string;
+          url?: string;
+          vercelProjectId?: string;
+          id?: string;
+          deployReadiness?: { missingEnv?: string[]; warnings?: string[] };
+          fixesApplied?: string[];
+          preDeployWarnings?: string[];
+        };
         if (!response.ok) {
-          throw new Error(
-            data?.error || data?.message || `Deploy failed (HTTP ${response.status})`,
-          );
+          const base =
+            data?.error || data?.message || `Deploy failed (HTTP ${response.status})`;
+          const missing =
+            data?.code === "DEPLOY_MISSING_ENV" &&
+            Array.isArray(data.deployReadiness?.missingEnv) &&
+            data.deployReadiness.missingEnv.length > 0
+              ? data.deployReadiness.missingEnv
+              : null;
+          if (chatId && activeVersionId && response.status === 409 && data?.code === "DEPLOY_MISSING_ENV") {
+            void persistVersionErrorLogs(chatId, activeVersionId, [
+              {
+                level: "error",
+                category: "deploy",
+                message: base,
+                meta: {
+                  code: data.code,
+                  missingEnv: data.deployReadiness?.missingEnv ?? [],
+                  preDeployWarnings: data.preDeployWarnings ?? [],
+                  fixesApplied: data.fixesApplied ?? [],
+                },
+              },
+            ]);
+          }
+          const hint = missing
+            ? ` Saknas: ${missing.join(", ")}. Lägg till nycklarna under projektets miljövariabler (Launch readiness).`
+            : "";
+          throw new Error(`${base}${hint}`);
         }
 
         const rawUrl = typeof data?.url === "string" ? data.url : null;

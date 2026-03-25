@@ -44,3 +44,7 @@ Användbart för verktyg och felsökning utan att publicera.
 ## Observability
 
 `devLogAppend` skriver `site.deploy.precheck` med `fixesApplied`, `warnings` och `deployReadiness` när en riktig deploy fortsätter efter godkänd preflight.
+
+## Builder (klient)
+
+Om användaren ändå triggar deploy när servern svarar **409** `DEPLOY_MISSING_ENV`, visar byggaren ett fel som **listar saknade nycklar** (från `deployReadiness.missingEnv`) och påminner om projektets miljövariabler / Launch readiness. Samma händelse kan loggas på versionen under kategori `deploy`.

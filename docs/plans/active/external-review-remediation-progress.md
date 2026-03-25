@@ -6,9 +6,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **W1 produkt:** dedikerade sidor **`/om`** och **`/blogg`** (metadata, `Footer`, länkar till FAQ/builder); landnings-**footer** pekar dit istället för `/faq`; **`sitemap.ts`** inkluderar `/faq`, `/om`, `/blogg`. **Docs-hub/handoff** (separat commit): `docs/README.md`, `plans/README`, `agent-roadmap-and-handoff`, `documentation-lifecycle`, orchestrator-handoff-mall utan frysta %. **Tidigare batch:** config-dashboard **Cursor-agenter**, `eval-output/`, W2 deploy **opt-out** auto-fix, Vitest cipher-timeout. **Progress ~81% whole:** tabell nedan.
+Last code touch: **W2 / builder:** vid **409 `DEPLOY_MISSING_ENV`** visar **`useBuilderDeployActions`** saknade env-nycklar i feltext + skriver **`deploy`**-rad i versions-**error-log** (`meta.missingEnv`, m.m.); `deploy-precheck.md` + `track-w2` + **workloads** uppdaterade (bort med inaktuell “auto-fix opt-in”-formulering). **Tidigare:** W1 **`/om`**, **`/blogg`**, footer, sitemap; docs-hub passus. **Progress ~82% whole:** tabell nedan.
 
-**Siffror:** **~81%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret* (del av `1.txt`). **Integrationer + deploy:** registry + manifest + deploy-readiness + **409 env-spärr** + `precheckOnly` + **auto-fix opt-out**. **Own-engine:** `track-w3-own-engine.md` **komplett** (Fas A) — segment **~78%**. **Scripts (W4)** **~95%**. **Whole vision** enligt tabellen nedan.
+**Siffror:** **~82%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry + manifest + readiness + **409** + tydlig **klient-feedback** vid saknad env + `precheckOnly` + auto-fix **opt-out**. **Own-engine ~78%**, **scripts ~95%**. **Whole vision** enligt tabellen nedan.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -16,7 +16,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~81pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~82pct — kort vad som ändrats`.
 4. **Batch:** under pågående orchestrator-remediation, **samla gärna ~4–5 enheter** på Whole vision mellan commits när flera säkra punkter ryms i samma gröna `typecheck`+`vitest` (färre mikrocommits). Se [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 5. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 6. `git push` till `master` (eller din arbetsbranch).
@@ -25,15 +25,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~81%** | **~19%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~82%** | **~18%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~82%** | **~18%** |
-| **Integrationer + deploy** (`1.txt` steg 5–7) | **~62%** | **~38%** |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~65%** | **~35%** |
 | **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
 | **Scripts / naming hygiene** (`3.txt`, W4 exit) | **~95%** | **~5%** |
 
 ## Återstår (kort)
 
-Ungefär **~19%** av *whole vision* kvar: **integrationer + deploy**-segment (~62% done) om ni vill lyfta det; ev. own-engine **utanför** W3-track; produktpolish (t.ex. riktiga blogginlägg, sociala URL:er). **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~18%** av *whole vision* kvar: **integrationer + deploy** (~65% done) — fler providers, publicerings-UX, e2e kring deploy; ev. own-engine utanför W3-track; produktpolish (blogg-innehåll, sociala URL:er). **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -62,6 +62,7 @@ Ungefär **~19%** av *whole vision* kvar: **integrationer + deploy**-segment (~6
 - `integrationRegistry` + typer; `detectIntegrations()` läser namn/envVars/setupGuide därifrån via `DETECTION_PIPELINE` (regex kvar i `detect-integrations.ts`).
 - W2 (2026-03-25): Clerk, NextAuth/Auth.js, Google OAuth, GA4, GTM, Vercel Analytics, Plausible, PostHog och Vercel KV ligger i **`integrationRegistry`** med registry-styrda rader i `DETECTION_PIPELINE` (Prisma/SQLite förblir inline med särskild copy).
 - W2 manifest + deploy (forts.): **`sajtmaskin.integration-manifest.json`** läggs in vid `finalizeAndSaveVersion` (efter preflight); `detectIntegrationsFromVersionFiles` + `resolveEnvRequirementsFromVersionFiles` använder manifest när `schemaVersion: 1` är giltig, annars heuristisk scan. **`deployReadiness`** (`buildDeployReadiness`) loggas på deploy-precheck och returneras i deploy-API-svaret.
+- **W2 builder-UX (409):** `useBuilderDeployActions` — vid **`DEPLOY_MISSING_ENV`** visas saknade nycklar i användarfel + versions-`error-log` (`deploy`); `deploy-precheck.md` § Builder.
 - W2 deploy-hårdning (2026-03-25): **`docs/architecture/deploy-precheck.md`** beskriver auto-fixar + **opt-out** (`skipAutoFix` / `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1`); **`POST /api/v0/deployments`** ger **409** (`DEPLOY_MISSING_ENV`) om obligatoriska env saknas efter preflight; valfri body **`precheckOnly`** för torrkörning utan credits.
 - `vitest.config.ts`: **`e2e/**` exkluderad** så Playwright-specar under `e2e/` inte körs av Vitest (samma idé som befintlig `vercel_templates_levels/**`-exkludering).
 - `scripts/run-eval.ts` needle-checks uppdaterade (registry + pipeline).
