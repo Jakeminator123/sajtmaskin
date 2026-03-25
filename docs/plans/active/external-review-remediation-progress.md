@@ -63,7 +63,7 @@ Vid varje dokumenterad avstämning:
 
 ## Återstår (kort)
 
-Ungefär **~11%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, **e2e kring deploy**, produktpolish; ev. own-engine utanför W3-track; **buglista del 3** endast **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta). **W5** kritikpass / [kritik-derived-backlog](./kritik-derived-backlog.md). **Produkt/UI:** förenkling av byggaren där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~11%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, **e2e kring deploy**, produktpolish; ev. own-engine utanför W3-track; **buglista del 3** endast **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta). **W5** kritikpass / [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (kort pekare: [kritik-derived-backlog](./kritik-derived-backlog.md)). **Produkt/UI:** förenkling av byggaren där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -127,7 +127,7 @@ Ungefär **~11%** av *whole vision* kvar: **integrationer + deploy** (~76% done)
 3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** ev. SSE/own-engine utanför track; integrationer+deploy-segment om ni prioriterar det.
 4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
 5. **`3.txt` — övriga spår:** [buglista-del-3.md](./external-review-execution/buglista-del-3.md) — kvar: **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta).
-6. **Kritik-backlog (parallell granskning):** [kritik-derived-backlog.md](./kritik-derived-backlog.md) — samlade öppna punkter från `NNpct-*.md` + konfliktrisk mot sista integration/deploy-spåret.
+6. **Kritik-backlog (parallell granskning):** [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) — samlade öppna punkter (kort pekare: [kritik-derived-backlog.md](./kritik-derived-backlog.md)); konfliktrisk mot sista integration/deploy-spåret.
 
 ## Uncertainties / product follow-ups
 
