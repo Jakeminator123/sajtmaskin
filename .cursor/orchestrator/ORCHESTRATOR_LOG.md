@@ -1,3 +1,5 @@
+2026-03-25 — **Builder UI (tips):** TipCard utan gul UI-disclaimer; tips-toggle in i Inställningar-dropdown; svenska menyetiketter (Generering, Chattvy, Egna instruktioner); OpenClaw `mentionsKnownSurface` + lansering. Vitest 348.
+
 2026-03-25 — **Builder UI (mindre plotter):** bort duplicerad lanserings-badge + tooltip i `BuilderHeader`; `deploy-readiness-copy.ts` + Vitest; Lansering-kort utan extra “redo”-ruta; kortare env/409-hintar. Progress oförändrad ~83% whole.
 
 2026-03-26 — **Passus (docs):** docs-svep enligt lifecycle + hub (`docs/README.md`, `documentation-lifecycle.md`) som kanon; tidigare sekundäringång `.j_to_agent/RENSNING_DOCS.txt` = research-export (ej sanning mot repo). Hub/handoff uppdaterat i commit `743565d9`; åter till execution/remediation efter align. Koordinera med parallella W1/W2-kodändringar.

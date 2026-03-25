@@ -458,12 +458,12 @@ export function BuilderHeader(props: {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" disabled={isBusy}>
               <Settings2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Settings</span>
+              <span className="hidden sm:inline">Inställningar</span>
               <ChevronDown className="h-3 w-3 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Generation Options</DropdownMenuLabel>
+            <DropdownMenuLabel>Generering</DropdownMenuLabel>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -608,7 +608,7 @@ export function BuilderHeader(props: {
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Instructions</DropdownMenuLabel>
+            <DropdownMenuLabel>Instruktioner</DropdownMenuLabel>
             <DropdownMenuItem
               disabled={isBusy}
               onSelect={(event) => {
@@ -617,14 +617,14 @@ export function BuilderHeader(props: {
               }}
             >
               <MessageSquare className="mr-2 h-4 w-4" />
-              Custom Instructions
+              Egna instruktioner
               {hasCustomInstructions && (
                 <span className="text-muted-foreground ml-2 text-xs">Aktiv</span>
               )}
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Chat View</DropdownMenuLabel>
+            <DropdownMenuLabel>Chattvy</DropdownMenuLabel>
             <DropdownMenuCheckboxItem
               checked={showStructuredChat}
               onCheckedChange={onShowStructuredChatChange}
@@ -633,18 +633,21 @@ export function BuilderHeader(props: {
               <MessageSquare className="mr-2 h-4 w-4" />
               Debug-läge (verktygsblock)
             </DropdownMenuCheckboxItem>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+              Tips · 2 credits
+            </DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={tipsEnabled}
+              onCheckedChange={(checked) => onTipsEnabledChange(Boolean(checked))}
+              disabled={isBusy}
+            >
+              <Lightbulb className="mr-2 h-4 w-4" />
+              Visa tips efter AI-svar
+            </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Button
-          variant={tipsEnabled ? "default" : "outline"}
-          size="sm"
-          onClick={() => onTipsEnabledChange(!tipsEnabled)}
-          title={`AI-tips ${tipsEnabled ? "på" : "av"} (2 credits per tips)`}
-        >
-          <Lightbulb className="h-4 w-4" />
-          <span className="hidden sm:inline">{tipsEnabled ? "Tips: På" : "Tips: Av"}</span>
-        </Button>
 
         <Button
           variant="outline"
@@ -782,7 +785,7 @@ export function BuilderHeader(props: {
       <Dialog open={isInstructionsOpen} onOpenChange={setIsInstructionsOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Custom Instructions</DialogTitle>
+            <DialogTitle>Egna instruktioner</DialogTitle>
             <DialogDescription>
               Instruktioner används när en ny chat startas. Du kan välja att rensa dem efter nästa
               generation.
@@ -829,7 +832,7 @@ export function BuilderHeader(props: {
               >
                 Rensa
               </Button>
-              <Button onClick={() => setIsInstructionsOpen(false)}>Done</Button>
+              <Button onClick={() => setIsInstructionsOpen(false)}>Klar</Button>
             </div>
           </div>
         </DialogContent>

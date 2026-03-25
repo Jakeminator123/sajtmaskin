@@ -143,6 +143,8 @@ const GENERIC_UNKNOWN_UI_RE =
 function mentionsKnownSurface(text: string): boolean {
   const known = [
     "launch readiness",
+    "lansering",
+    "lanseringskortet",
     "preview",
     "kodvy",
     "elementregister",

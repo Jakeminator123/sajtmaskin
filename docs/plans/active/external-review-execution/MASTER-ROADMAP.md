@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | typecheck + vitest (348) | ~83%: builder — tips under Inställningar; TipCard slankare; Inställningar-menyn på svenska; OpenClaw `lansering` i surface-match |
 | 2026-03-25 | master | typecheck + vitest (348) | ~83%: builder — bort duplicerad lanserings-badge i header; `deploy-readiness-copy`; kortare deploy/409-hintar; Lansering-kort utan extra “redo”-ruta |
 | 2026-03-26 | master | typecheck + vitest (346) | ~83%: **Sentry** registry + detection; lansering-UI (spärrar, env-hint på Publicera); tips/OpenClaw copy; integration ~68% |
 | 2026-03-26 | master | typecheck + vitest (345) | ~82%: W2 builder — **409 `DEPLOY_MISSING_ENV`** visar saknade nycklar + error-log; `deploy-precheck`, track-w2, workloads; integration-segment ~65% |
