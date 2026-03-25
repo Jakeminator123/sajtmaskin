@@ -43,7 +43,8 @@
 
 ### B3-04 — Sandbox-strategi (dokumentation)
 
-- [ ] Sammanfoga rekommendationen från granskningen (ephemeral preview, separat VM/container för inspector/crawler/cache) med befintlig preview-/sandbox-dokumentation under `docs/architecture/` — inga kodkrav i denna punkt.
+- [x] Sammanfoga rekommendationen från granskningen (ephemeral preview, separat VM/container för inspector/crawler/cache) med befintlig preview-/sandbox-dokumentation under `docs/architecture/` — inga kodkrav i denna punkt.
+- **Levererat:** `preview-and-sandbox-flow.md` § *Ephemeral preview vs långlivade stödtjänster* + länk från `agent-workflows.md`.
 
 ### B3-05 — `extract-static-core.mjs` (hygien)
 
@@ -72,4 +73,5 @@ Uppdatera datum nedan när ni stänger ID:n i en merge.
 
 | Datum | Stängda ID | Not |
 |-------|------------|-----|
+| 2026-03-25 | B3-04 | `preview-and-sandbox-flow.md` ephemeral vs stödtjänster; länk från `agent-workflows.md` |
 | 2026-03-25 | B3-01, B3-03, B3-07, B3-08 | `agent-workflows.md`, `terminology.mdc` cheat sheet, `react-node-skill-routing.mdc`, länkar i README/workloads/structure-doc |

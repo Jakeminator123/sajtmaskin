@@ -1,8 +1,10 @@
 # Preview och sandbox — demo-URL-flöde (own engine)
 
-**Senast uppdaterad:** 2026-03-24
+**Senast uppdaterad:** 2026-03-25
 
 Det här dokumentet beskriver hur **demo-URL** och **förhandsvisning** fungerar när användaren promptar i buildern med **egen motor** (inte v0-fallback). För Vercel Sandbox-autentisering, se [vercel-sandbox-credentials.md](./vercel-sandbox-credentials.md).
+
+**Driftnorm (ephemeral):** se avsnitt [Ephemeral preview vs långlivade stödtjänster](#ephemeral-preview-vs-långlivade-stödtjänster) — kort sagt: **ingen** “alltid varm sandbox per projekt” som standard; shim + **on-demand** sandbox för aktiv iteration.
 
 ## Demo-URL-prioritet i UI
 
@@ -73,6 +75,30 @@ Det är **inte** samma SSE-kedja som builder-stream; dokumentera skillnaden om d
 ## Env-placeholders för genererade sajter (medvetet inte auto-injicerade)
 
 För **slutanvändarens** genererade Next-projekt finns ett repo-kontrakt under [`config/ai_models/`](../../config/ai_models/) (`generatedSiteIntegrationPlaceholders` + `40-generated-site-integration-placeholders.env.txt`) och Node-hjälparen `readGeneratedSitePlaceholdersEnvText()` i [`load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts). **Sajtmaskin kopplar ännu inte in** den filen automatiskt i preview eller sandbox; nästa steg är att vid behov anropa läsaren när sandbox eller MCP skriver miljö till den genererade appen. Se [`config/ai_models/_READ_ME_FIRST.md`](../../config/ai_models/_READ_ME_FIRST.md) (avsnitt Handoff).
+
+## Ephemeral preview vs långlivade stödtjänster
+
+**Produktspåret (användare / builder)** ska bete sig **ephemeral**:
+
+| Steg | Kostnad / livslängd | Kommentar |
+|------|---------------------|-----------|
+| **HTML-shim** (`/api/preview-render`) | Låg, per laddning | Alltid tillgänglig approximation direkt efter `done`. |
+| **Vercel Sandbox** (`startSandboxPreview`) | Högre, **startas vid behov** | Körs när sandbox är konfigurerad och flödet ska validera riktig Next/npm — inte tänkt som permanent värd för alla gamla versioner. |
+| **Deploy till Vercel** | Produktions-URL | Långlivad yta för slutkund; separat från dev-preview. |
+
+**Undvik** som standardarkitektur: en dedikerad, ständigt igång full Next-runtime **per** inaktivt kundprojekt — det skalar dåligt mot kostnad och komplexitet.
+
+**Långlivade eller tunga stödtjänster** (repo-/dev-läge, inte samma sak som slutanvändarens preview):
+
+| Tjänst | Var | Syfte |
+|--------|-----|--------|
+| **Inspector / capture worker** | `services/inspector-worker/`, `infra/inspector-worker/docker-compose.yml` | Playwright-liknande fångst; kan köras lokalt eller i **en** delad container/VM. |
+| **Vercel-templates discovery** | `e2e/vercel-templates/` (Playwright), `research/external-templates/` | Offline research → dossiers/artifacts; **inte** builder-preview. |
+| **Repo-cache / rå discovery** | `research/external-templates/repo-cache/`, `raw-discovery/` (gitignored) | Kuratering och skrap; ska inte blandas ihop med runtime-preview. |
+
+**Praktisk vägledning:** håll **en** stabil Linux-VM eller container-värd för inspector och liknande batch-jobb om de ska ligga uppe kontinuerligt; låt **sandbox** vara **on-demand** kopplad till aktiv generering eller explicit användaråtgärd. För skillnad mellan **app-runtime**, **MCP** och **Cursor-orchestrator**, se [`docs/contributing/agent-workflows.md`](../contributing/agent-workflows.md).
+
+*Sektionen ovan motsvarar även rekommendationen i `.j_to_agent/3.txt` (extern granskning): ephemeral preview/sandbox som norm, separat värd för långlivade stödtjänster.*
 
 ## Relaterad dokumentation
 
