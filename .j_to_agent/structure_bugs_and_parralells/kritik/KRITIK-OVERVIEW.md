@@ -25,12 +25,12 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `31pct-t.md` | Wire registry, hero/footer, extract-vakt (~31pct). |
 | `34pct-n.md` | `LandingBackground` + reduced-motion scoped (~34pct). |
 | `42pct-v.md` | W2 manifest + deploy readiness (`11f443db`). |
-| `43pct-r.md` | Final sweep ~43pct (config-dashboard, cursor hygiene). |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
-| `56pct-h.md` | Granskning av index-commit + remediation `51a8298f` (~56pct: pipeline-modul, lab-docs, execution/CONTINUATION). |
 
-*(Lägg till fler `NNpct-*` i tabellen när de skapas.)*
+**Arkiv (åtgärdade snapshots):** [`../../archive/kritik-addressed/`](../../archive/kritik-addressed/README.md) — bl.a. `43pct-r.md`, `56pct-h.md` (se README där).
+
+*(Lägg till fler aktiva `NNpct-*` i tabellen när de skapas; flytta hit när handoff är klar.)*
 
 ---
 
@@ -41,6 +41,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 3. Vid större steg: lägg **`NNpct-<bokstav>.md`** med verifiering mot diff / tester
 4. Vid smal tråd: eget beskrivande namn eller undersektion i milstolps-fil
 5. Uppdatera **denna översikt** om du inför **ny filtyp** eller byter konvention
+6. När en snapshot är **helt åtgärdad**: flytta filen till **`../../archive/kritik-addressed/`** och uppdatera arkiv-README + tabellen ovan
 
 ---
 

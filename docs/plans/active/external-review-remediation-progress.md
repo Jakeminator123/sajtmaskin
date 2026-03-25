@@ -4,9 +4,11 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Genomförande (checkbox-roadmap, parallella spår, agent-kontrakt):** `docs/plans/active/external-review-execution/README.md` → [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + [CONTINUATION.md](./external-review-execution/CONTINUATION.md) (autonoma anhalter, ~4–5 % batch-commits) + track-filer.
 
+**Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md).
+
 Last code touch: **W3** — **Transaktionell finalize:** `addAssistantMessageAndCreateDraftVersion` (`chat-repository-pg.ts`) + `finalizeAndSaveVersion` använder den; JSDoc för beteende efter lyckad persist (telemetri/loggar best-effort). **Tidigare:** `own-engine-plan-mode.ts`, pipeline-generation-session, W4 lab README, `CONTINUATION.md`. **Playwright / e2e:** kanon `e2e/vercel-templates/` — se `vercel-templates-playwright-scaffold-integration.txt`.
 
-**Siffror:** **~64%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Own-engine-spåret** **~37%** efter plan-mode + transaktionell finalize. **Scripts-spåret** ~40% efter hamta-kanon + lab-dokumentation + inventory; höj till **~43%** helhet när ev. flytt av `testning_scarf` + övrig W4 är klar.
+**Siffror:** **~64%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Own-engine-spåret** **~37%** efter plan-mode + transaktionell finalize. **Scripts-spåret** ~40% efter hamta-kanon + lab-dokumentation + inventory; fullför W4 (ev. flytt av `testning_scarf` + README-/script-konsistens) för att höja scripts-spåret — **Whole vision**-procent följer alltid tabellen nedan, inte en äldre målsiffra i samma mening.
 
 ## Commit- och push-rutin (pågående körning)
 
