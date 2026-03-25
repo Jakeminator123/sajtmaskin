@@ -92,6 +92,7 @@ Not runtime dependencies:
 | External review — progress, %, commit-rutin | `docs/plans/active/external-review-remediation-progress.md` |
 | External review — W1–W5 workloads | `docs/plans/active/orchestrator-workloads-external-review.md` |
 | External review — execution (tracks, MASTER-ROADMAP) | `docs/plans/active/external-review-execution/README.md` |
+| Agent workflows (deep brief vs orchestrator, runtime vs MCP) | `docs/contributing/agent-workflows.md` |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Terminology (folders + research flow) | `docs/architecture/structure-and-terminology.md` |
 | Vercel Templates discovery + Playwright + scaffolds (full narrativ) | `docs/architecture/vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt` |

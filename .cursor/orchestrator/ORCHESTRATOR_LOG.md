@@ -1,3 +1,5 @@
+2026-03-25 — **Docs B3 batch:** `docs/contributing/agent-workflows.md`; `terminology.mdc` three-word cheat sheet; `react-node-skill-routing.mdc` (Vercel skill path); buglista B3-01/03/07/08; progress ~86% whole; push `origin/master`.
+
 2026-03-25 — **W2 Elasticsearch:** `integrationRegistry` + `DETECTION_PIPELINE` + `config/env-policy.json`; Vitest 359; progress ~85% whole; MASTER verifieringsrad; push `origin/master`.
 
 2026-03-25 — **Orchestrator handoff-run:** Kartläggning + `MASTER-ROADMAP` rollup synkad (W4, W2 hardening, W1 followups = `[x]` per track-filer; W5 öppen). Run skapad och **arkiverad** → `.cursor/orchestrator/archive/2026-03-25-external-review-handoff-143249/` (ROADMAP, workloads 02-01/02-02, FINAL_REPORT). Se `run-summaries.md`. Nästa: integration/deploy-batch eller W5 enligt arkiverade workloads.

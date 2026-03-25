@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | (docs) | ~86%: B3-01/B3-03/B3-07/B3-08 — `agent-workflows.md`, terminology cheat sheet, Vercel skill routing |
 | 2026-03-25 | master | typecheck + vitest (359) | ~85%: **Elasticsearch** registry + detection + env-policy + Vitest |
 | 2026-03-26 | master | typecheck + vitest (358) | Handoff / sweep: grönt träd; ingen pending diff; nästa → CONTINUATION + workloads + progress § Återstår |
 | 2026-03-26 | master | typecheck + vitest (358) | ~84%: **Typesense** registry + detection + env-policy + Vitest |

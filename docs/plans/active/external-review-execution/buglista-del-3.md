@@ -27,7 +27,7 @@
 
 ### B3-01 — Terminologi (dokumentation)
 
-- [ ] Uppdatera `.cursor/rules/terminology.mdc` (och vid behov `docs/architecture/*` som nämner v0-template / dossier / scaffold) så **tre ord** bär huvuddelen av meningen: runtime-start (**scaffold**), research om extern mall (**dossier**), genererad data för kod (**artifact**).
+- [x] Uppdatera `.cursor/rules/terminology.mdc` (och vid behov `docs/architecture/*` som nämner v0-template / dossier / scaffold) så **tre ord** bär huvuddelen av meningen: runtime-start (**scaffold**), research om extern mall (**dossier**), genererad data för kod (**artifact**).
 - **Verifiering:** ingen kodändring nödvändig; länk från README eller architecture index om det finns.
 
 ### B3-02 — Fas-routing (kod)
@@ -38,8 +38,8 @@
 
 ### B3-03 — Deep brief vs orchestrator (dokumentation)
 
-- [ ] Kort avsnitt (1 sida) som säger: deep brief = **produktflöde** före generering; orchestrator = **multi-agent-protokoll** under `.cursor/orchestrator/`; `/orchestrator` och `/automation` behandlas som **alias** i repot.
-- **Förslag till placering:** `docs/plans/active/orchestrator-workloads-external-review.md` (befintlig) utökas med länk hit, eller ny `docs/contributing/agent-workflows.md`.
+- [x] Kort avsnitt (1 sida) som säger: deep brief = **produktflöde** före generering; orchestrator = **multi-agent-protokoll** under `.cursor/orchestrator/`; `/orchestrator` och `/automation` behandlas som **alias** i repot.
+- **Levererat:** `docs/contributing/agent-workflows.md` + länk i `orchestrator-workloads-external-review.md`, `.cursor/README.md`, `docs/README.md`.
 
 ### B3-04 — Sandbox-strategi (dokumentation)
 
@@ -56,11 +56,13 @@
 
 ### B3-07 — vercel-react-best-practices (Cursor)
 
-- [ ] Bekräfta var skillen laddas (Cursor plugin path vs `.cursor/skills/`). Uppdatera `react-node-skill-routing.mdc` om instruktionen och verkligheten divergerar.
+- [x] Bekräfta var skillen laddas (Cursor plugin path vs `.cursor/skills/`). Uppdatera `react-node-skill-routing.mdc` om instruktionen och verkligheten divergerar.
+- **Levererat:** Regeln säger nu att **projektlokal** `.cursor/skills/` är bra om den finns, men **Vercel-plugin / bundlad path** också räcker — kravet är att följa skill-innehållet.
 
 ### B3-08 — Runtime vs agents vs MCP (dokumentation)
 
-- [ ] En tabell eller bullet-karta: appens runtime, lokala MCP (`sajtmaskin-engine`, `sajtmaskin-scaffolds`, externa docs-MCP), samt orchestrator-only filer. Minskar förvirring för nya agenter.
+- [x] En tabell eller bullet-karta: appens runtime, lokala MCP (`sajtmaskin-engine`, `sajtmaskin-scaffolds`, externa docs-MCP), samt orchestrator-only filer. Minskar förvirring för nya agenter.
+- **Levererat:** `docs/contributing/agent-workflows.md` § Runtime vs MCP vs Cursor-only.
 
 ---
 
@@ -70,4 +72,4 @@ Uppdatera datum nedan när ni stänger ID:n i en merge.
 
 | Datum | Stängda ID | Not |
 |-------|------------|-----|
-| — | — | Initial lista skapad |
+| 2026-03-25 | B3-01, B3-03, B3-07, B3-08 | `agent-workflows.md`, `terminology.mdc` cheat sheet, `react-node-skill-routing.mdc`, länkar i README/workloads/structure-doc |

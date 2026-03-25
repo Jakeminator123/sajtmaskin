@@ -46,6 +46,18 @@ Internal dashboard with tabs: Database, Environment, Analytics, Prompts.
 
 ## Key concepts
 
+### Three-word cheat sheet (scaffold / dossier / artifact)
+
+Use these **one meaning per word** in docs and agent answers (details below still apply):
+
+| Word | Means | Typical location |
+|------|--------|------------------|
+| **Scaffold** | Runtime **starting point** the generator can use (internal starters). | `src/lib/gen/scaffolds/` |
+| **Dossier** | Curated **research package** about an external template (not the live codegen base). | `research/external-templates/.../dossiers/` |
+| **Artifact** | **Generated data** consumed by code (JSON, embeddings, ranked lists). | `src/lib/gen/template-library/`, `scaffold-research.generated.json`, etc. |
+
+Folder-level narrative: [`docs/architecture/structure-and-terminology.md`](../../docs/architecture/structure-and-terminology.md). Cursor vs product workflows: [`docs/contributing/agent-workflows.md`](../../docs/contributing/agent-workflows.md).
+
 ### v0-templates, scaffolds, and Vercel mall (research)
 
 Do **not** use the old “operational lanes” triad. One mental model:

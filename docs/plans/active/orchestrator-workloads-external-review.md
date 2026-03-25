@@ -1,5 +1,7 @@
 # Orchestrator workloads — external review remediation
 
+**Deep brief vs orchestrator-run:** Byggarens *Djup brief* är **produktflöde**; detta dokument och `.cursor/orchestrator/` handlar om **Cursor-orchestrator-run** (`/orchestrator` = `/automation`). Kort sammandrag: [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md).
+
 **Syfte:** Dela ut arbete till nya agenter utan att dela samma konversationskontext. Varje workload är tänkt som **en agent i taget** per fil-yta där merge-konflikter annars uppstår.
 
 **Sanning i repo:** `docs/plans/active/external-review-remediation-progress.md` (procentsiffror, commit-rutin, Next-steg).

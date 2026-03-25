@@ -22,6 +22,8 @@ Agentregel (always-on): [rules/workspace-hygiene.mdc](rules/workspace-hygiene.md
 För **mappar, Vercel-mall/research och v0-templates vs scaffold** (inte hela produktordlistan), se
 `docs/architecture/structure-and-terminology.md` och `docs/README.md` § Terminology.
 
+För **Djup brief vs orchestrator-run**, **runtime vs MCP** och **scaffold/dossier/artifact** i en sida: `docs/contributing/agent-workflows.md`.
+
 ## MCP-servrar (`mcp.json`)
 
 **GitHub:** `.cursor/mcp.json` är **ignorerad** i git (kan få hemligheter vid URL-auth eller framtida fält). Kopiera mallen:

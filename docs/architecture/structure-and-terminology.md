@@ -6,7 +6,7 @@
 |---------------|-------------------|
 | **Filesystem layout**, renames, research pipeline, gallery vs scaffold vs dossier vs generated JSON, **builder Mall tab vs Vercel-mall research** | **Product layers**, builder entry modes (`freeform` / Fritext), **model lanes** vs **scaffold / v0-templates / Vercel-mall research**, Swedish UI vs code identifiers |
 
-Do **not** copy the full builder glossary here — link to the Cursor rule instead.
+Do **not** copy the full builder glossary here — link to the Cursor rule instead. **Three-word summary (scaffold / dossier / artifact)** and **deep brief vs orchestrator-run**: [`docs/contributing/agent-workflows.md`](../contributing/agent-workflows.md).
 
 ---
 

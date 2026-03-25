@@ -6,11 +6,11 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Elasticsearch** i **`integrationRegistry`** + **`DETECTION_PIPELINE`**; **`env-policy`** (`NEXT_PUBLIC_ELASTICSEARCH_*`, server **ELASTICSEARCH_NODE_URL** / **ELASTICSEARCH_API_KEY**); Vitest-detektion. **Tidigare:** Typesense, Meilisearch, Algolia; W2 CMS + Mongo. **Progress ~85% whole:** tabell nedan.
+Last code touch: **Dokumentation B3** — [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md) (deep brief vs orchestrator, runtime vs MCP); **tre ord** scaffold/dossier/artifact i [`.cursor/rules/terminology.mdc`](../../../.cursor/rules/terminology.mdc); **`react-node-skill-routing.mdc`** (vercel-react-best-practices via plugin eller repo); buglista [B3-01/B3-03/B3-07/B3-08](./external-review-execution/buglista-del-3.md) stängda. **Tidigare:** Elasticsearch i registry. **Progress ~86% whole:** tabell nedan.
 
 **Final sweep / handoff (2026-03-25):** `npm run typecheck` och `npx vitest run` (81 filer, **359** tester) gröna efter Elasticsearch-integrationen. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` / hygien i § Commit nedan). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md) och § *Återstår* (~**15 %** whole kvar).
 
-**Siffror:** **~85%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** / **Elasticsearch** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
+**Siffror:** **~86%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** / **Elasticsearch** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -55,7 +55,7 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~85%** | **~15%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~86%** | **~14%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~82%** | **~18%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~76%** | **~24%** |
 | **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
@@ -63,10 +63,11 @@ Vid varje dokumenterad avstämning:
 
 ## Återstår (kort)
 
-Ungefär **~15%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, e2e kring deploy, produktpolish; ev. own-engine utanför W3-track. **Produkt/UI:** fortsatt förenkling av byggaren (färre parallella “statusytor”, tydligare primär väg för publicering och env) där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~14%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, e2e kring deploy, produktpolish; ev. own-engine utanför W3-track; **buglista del 3** (B3-04–B3-06 kvar). **Produkt/UI:** fortsatt förenkling av byggaren (färre parallella “statusytor”, tydligare primär väg för publicering och env) där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
+- **Buglista del 3 (2026-03-25):** **B3-01** (terminologi cheat sheet), **B3-03** + **B3-08** (`docs/contributing/agent-workflows.md`), **B3-07** (`react-node-skill-routing.mdc` — Vercel-plugin vs projektlokal skill); länkar i `docs/README.md`, `orchestrator-workloads-external-review.md`, `.cursor/README.md`, `structure-and-terminology.md`.
 - **W3 (slice, `2.txt`):** Döda konstanter `STREAM_RESOLVE_MAX_ATTEMPTS` / `STREAM_RESOLVE_DELAY_MS` borttagna från `POST /api/v0/chats/stream` och follow-up-stream-routen (användes inte). `createOwnEnginePlanModeResponse` tar inte längre `modelId` i params — planner-modell kommer enbart från `resolvePhaseModel(modelTier, "planner")` i SSE-meta (undviker vilseledande dubbel källa).
 - **W3 (namngivning):** `createGenerationPipeline` flyttad till **`src/lib/gen/generation-pipeline.ts`**; `src/lib/gen/fallback.ts` re-exporterar för äldre importvägar. Stream-routes, MCP `generate-site`, Vitest-mocks och `run-eval` needles uppdaterade; `docs/architecture/v0-soft-deprecation.md` justerad.
 - **W3 (contract gate):** `createPreGenerationContractGateReadableStream` i **`src/lib/providers/own-engine/pre-generation-contract-gate.ts`** — en SSE-sekvens för pre-generation contract clarification delas av nya chatten och follow-up (ny-chat lägger `chatPrivacy` / `scaffoldLabel` / `capabilities` i meta via explicita nycklar; follow-up utelämnar dem som tidigare).
@@ -124,7 +125,7 @@ Ungefär **~15%** av *whole vision* kvar: **integrationer + deploy** (~76% done)
 2. ~~Utöka `integrationRegistry` + manifest + deploy-readiness~~ **Klart** (uppföljning: tunnare auto-fix / valideringsfas före deploy om behov).
 3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** ev. SSE/own-engine utanför track; integrationer+deploy-segment om ni prioriterar det.
 4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
-5. **`3.txt` — övriga spår:** typade uppföljningspunkter (terminologi, valfri fas-modellrouting, sandbox-/agent-doc, legacy-skript, Cursor-skill) i [buglista-del-3.md](./external-review-execution/buglista-del-3.md).
+5. **`3.txt` — övriga spår:** [buglista-del-3.md](./external-review-execution/buglista-del-3.md) — **B3-01, B3-03, B3-07, B3-08** stängda (2026-03-25); kvar: B3-02 (kod/produkt), B3-04–B3-06 (doc/hygien).
 
 ## Uncertainties / product follow-ups
 
