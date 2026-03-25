@@ -130,6 +130,7 @@ export function ParticleOrb() {
         <Canvas
           camera={{ position: [0, 0, 4], fov: 45 }}
           style={{ background: "transparent" }}
+          dpr={[1, 1.65]}
           gl={{ alpha: true, antialias: true }}
         >
           <Scene />

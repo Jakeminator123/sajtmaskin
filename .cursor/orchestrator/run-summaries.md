@@ -208,3 +208,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Progress ~98% whole (bedömning)
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-27-external-review-final-pct-172801/`
 
+## 2026-03-27-landing-3d-balance (archived 2026-03-25 17:37)
+- **Scope:** Mer 3D (dpr) + bredare in-view/reduce (Lanyard).
+- **Workloads:** 1 completed, 1 verified.
+- **Outcome:** lanyard-badge.tsx, particle-orb.tsx, track-w1, progress
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-27-landing-3d-balance-173732/`
+

@@ -10,15 +10,15 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Commit-uppföljning (second opinion):** [reviews/README.md](./reviews/README.md) — t.ex. systematisk genomgång av orchestrator-commits efter brytpunkt `39fef25e` ([detaljer](./reviews/orchestrator-followup-from-39fef25e.md)).
 
-Last code touch: **Orchestrator-run ~98% — K-008 in-view How it works** — `landing-how-it-works-lazy.tsx`: WebGL-scen monteras först när sektionen närmar viewport (`IntersectionObserver` + `rootMargin`); **`prefers-reduced-motion`** → alltid `HowItWorksFallback`. `chat-area.tsx`: terminalmarkör utan **`animate-pulse`** vid reduce. **`deploy-precheck.md`:** § *Framtida fördjupning (K-007 / produkt)*. **`sitemap.ts`:** JSDoc-checklista för nya marknadssidor. **Whole ~98%** (kvar ~**2%**); **K-008** fortfarande `[ ]` (blogg/övrig Motion kan återstå).
+Last code touch: **Orchestrator-run ~99% — K-008 mer 3D + parallell a11y** — `lanyard-badge.tsx`: **in-view** (`useInView`) innan drop/pendel **RAF**; **`prefers-reduced-motion`** → statiskt kort, ingen **`animate-ping`**, ingen drag. `particle-orb.tsx`: **`dpr={[1, 1.65]}`** när WebGL är aktiv (skarpare sfär, tak för retina). **track-w1** uppdaterad. **Whole ~99%** (kvar ~**1%**); **K-008** `[ ]` tills produkt säger landningspolish klar.
 
-**Tidigare batch:** route-plan `/om` + Cursor push-regel; e-handelsscaffold; K-014 layout-footer; landning ~91% → **~94%**.
+**Tidigare batch:** How it works lazy WebGL + terminal reduce + deploy/sitemap-doc; landning ~94%.
 
 **Tidigare (längre bak):** sitemap-regressionstest; K-008 blogg + `e2e/README`; orchestrator-hygien; K-014/K-007 delmoment; K-016 stängd.
 
-**Final sweep / handoff (2026-03-27):** `npm run typecheck` och `npx vitest run` (88 filer, **387** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**2 %** whole kvar).
+**Final sweep / handoff (2026-03-27):** `npm run typecheck` och `npx vitest run` (88 filer, **387** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**1 %** whole kvar).
 
-**Siffror (snabb):** **~98%** *whole vision* — K-008 delmoment (How it works in-view + reduce); K-007/K-009/K-014 fortfarande öppna i kritik; se tabell § *Overall fill*.
+**Siffror (snabb):** **~99%** *whole vision* — K-008 (How it works + Lanyard + ParticleOrb mönster); K-007/K-009/K-014 fortfarande öppna i kritik; se tabell § *Overall fill*.
 
 ## Kartläggning mot källfiler (1.txt, 2.txt, 3.txt)
 
@@ -26,12 +26,12 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 
 | Källa | Vad den i praktiken driver | Ungefärlig *done* | Kvar (typiskt) |
 |--------|----------------------------|-------------------|----------------|
-| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~94%** | Ev. mer Motion/3D (`K-008` delvis: How it works in-view + reduce); blogg/CMS; K-016 stängd; K-014 delmoment |
+| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~96%** | Sista Motion-polishen (`K-008`); blogg/CMS; K-016 stängd; K-014 delmoment |
 | **`1.txt`** — del B | **Integrationer + runtime-flöde** (registry, detektion, manifest, env, lansering, deploy-API) | **~83%** | HTTP-e2e runt deploy (auth); K-007 produkt (`deploy-precheck.md` § framtida); `e2e/README` + Vitest-kontrakt; fler providers vid nytta |
 | **`2.txt`** | **Own-engine** (stream-routes tunna, session, finalize, golden tests, v0-gräns, **fas→modell** `B3-02`) | **~81%** | SSE/own-engine **utanför** avslutad W3-track (`K-009`), produktbeslut |
 | **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~100%** | Underhåll vid **ny** extern granskning av `3.txt`; inga öppna B3-punkter |
 
-**Whole vision (~98%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har HTTP-e2e kvar.
+**Whole vision (~99%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har HTTP-e2e kvar.
 
 *Jämförelse mot gamla antaganden:* `3.txt` nämnde att `phase-routing.ts` bara var “förberedelse” — **det stämmer inte längre**; **B3-02** ger riktig fasmodell för OpenAI-profiler (`pro`/`max`/`codex`). Uppdatera mentalt modellen där.
 
@@ -89,19 +89,20 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining | Koppling `1.txt`–`3.txt` |
 |--------|------|-----------|---------------------------|
-| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~98%** | **~2%** | Se § *Kartläggning* ovan |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~94%** | **~6%** | **`1.txt` del A**; W1-track kryssat i MASTER |
+| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~99%** | **~1%** | Se § *Kartläggning* ovan |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~96%** | **~4%** | **`1.txt` del A**; W1-track kryssat i MASTER |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~83%** | **~17%** | **`1.txt` del B**; manifest + 409 + Vitest; `deploy-precheck` inkl. K-007-framtid |
 | **Own-engine** (`2.txt`, W3 + `B3-02`) | **~81%** | **~19%** | **`2.txt`**; kärnspår klart, marginaler i kritik-tabellen |
 | **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~100%** | **~0%** | **`3.txt`**; buglista del 3 komplett (B3-05 skript borttaget 2026-03-27) |
 
 ## Återstår (kort)
 
-Ungefär **~2%** av *whole vision* kvar: **integrationer + deploy** (**~83%** done enligt tabellen ovan; följ § *Overall fill*) — **HTTP-e2e kring deploy** (auth), valfri hårdare validering (`K-007`; delmoment: Vitest + `deploy-precheck` + `e2e/README`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`). **Buglista del 3** — **komplett** (B3-05 levererad). **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008` — delmoment: `/blogg`; **How it works** in-view WebGL + reduce; ev. mer Motion), copy (`K-014` — delmoment: footrar + `/om`; övrig copy kvar). **K-016** (landnings-refaktor) **stängd** 2026-03-26 — landnings-UI utbrutet i moduler; valfritt kvar: dela stora sektioner i `chat-area` vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~1%** av *whole vision* kvar: **integrationer + deploy** (**~83%** done enligt tabellen ovan; följ § *Overall fill*) — **HTTP-e2e kring deploy** (auth), valfri hårdare validering (`K-007`; delmoment: Vitest + `deploy-precheck` + `e2e/README`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`). **Buglista del 3** — **komplett** (B3-05 levererad). **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008` — delmoment: `/blogg`, How it works + Lanyard + ParticleOrb; ev. sista copy/Motion-beslut), copy (`K-014` — delmoment: footrar + `/om`; övrig copy kvar). **K-016** (landnings-refaktor) **stängd** 2026-03-26 — landnings-UI utbrutet i moduler; valfritt kvar: dela stora sektioner i `chat-area` vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
-- **W1 / K-008 delmoment (2026-03-27, orchestrator-run):** `landing-how-it-works-lazy.tsx` — WebGL först vid in-view; reduced-motion → statisk fallback; `chat-area.tsx` terminalmarkör respekterar reduce. **`deploy-precheck.md`** § *Framtida fördjupning (K-007 / produkt)*. **`sitemap.ts`** — JSDoc-checklista vid nya marknadssidor. *Lokal run:* `.cursor/orchestrator/run/2026-03-27-external-review-final-pct/` → arkiveras (gitignorerad).
+- **W1 / K-008 delmoment (2026-03-27, orchestrator-run 2):** `lanyard-badge.tsx` — in-view innan fysik; reduced-motion → statiskt kort; `particle-orb.tsx` — `dpr` tak. **`track-w1-landing-followups.md`** uppdaterad. *Run arkiverad lokalt:* `2026-03-27-landing-3d-balance` (se `run-summaries.md`).
+- **W1 / K-008 delmoment (2026-03-27, orchestrator-run):** `landing-how-it-works-lazy.tsx` — WebGL först vid in-view; reduced-motion → statisk fallback; `chat-area.tsx` terminalmarkör respekterar reduce. **`deploy-precheck.md`** § *Framtida fördjupning (K-007 / produkt)*. **`sitemap.ts`** — JSDoc-checklista vid nya marknadssidor. *Lokal run:* `2026-03-27-external-review-final-pct` → arkiverad.
 - **Gen / route-plan (2026-03-27):** `route-plan.ts` — promptmönster **om oss** → **`/om`** (`Om oss`); engelska **about** / **company** / **story** → **`/about`**; `route-plan.test.ts`. **Cursor-regel:** [`.cursor/rules/parallel-agent-collision-safety.mdc`](../../../.cursor/rules/parallel-agent-collision-safety.mdc) § *Before git push*.
 - **Scaffold / route-konsekvens (2026-03-27):** `ecommerce/manifest.ts` — **Om oss** länkar **`/om`**; tillagd **`app/om/page.tsx`** i e-handelsstartern. **Agent-rutin:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md) — *fetch + pull före push*.
 - **W1 / K-014 delmoment (2026-03-27, layout):** `src/components/layout/footer.tsx` — **Om oss** → **`/om`** (ersätter fel **`/about`**); **Juridiskt**: **Integritetspolicy**, **Användarvillkor**, **GDPR**, **Cookies** (samma ankare som `landing-footer.tsx`); `src/components/layout/footer.test.tsx`.

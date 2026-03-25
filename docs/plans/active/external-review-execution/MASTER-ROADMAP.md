@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-27 | master | typecheck + vitest (387) | ~99%: Lanyard in-view + reduce; ParticleOrb `dpr`; track-w1; run `2026-03-27-landing-3d-balance` arkiverad; **K-008** `[ ]` |
 | 2026-03-27 | master | typecheck + vitest (387) | ~98%: orchestrator-run — `HowItWorksLazy` in-view WebGL + reduce; terminal cursor; `deploy-precheck` § K-007-framtid; sitemap JSDoc; **K-008** `[ ]` |
 | 2026-03-27 | master | typecheck + vitest (387) | ~97%: `route-plan` **om oss** → `/om`; `route-plan.test.ts`; `parallel-agent-collision-safety.mdc` § push |
 | 2026-03-27 | master | typecheck + vitest (385) | ~97%: e-handelsscaffold **Om oss** → `/om` + `app/om/page.tsx`; CONTINUATION § fetch/pull före push |
