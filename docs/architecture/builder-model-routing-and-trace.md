@@ -38,7 +38,7 @@ The builder controls belong to three model lanes plus one flag:
 
 There is also one convenience preset in the dropdown:
 
-- `Anthropic-jamforelse`
+- `Anthropic-jämförelse` (UI; preset i buildern)
   Aligns model lane + product lane to Anthropic for side-by-side comparison.
 
 ## Flowchart

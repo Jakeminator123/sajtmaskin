@@ -214,8 +214,8 @@ export function BuilderHeader(props: {
     ? "Av"
     : `${assistProviderName}: ${assistModelLabel}`;
   const assistStatusSummary = isAssistOff
-    ? "Förbättra: Av"
-    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isGatewayProvider ? " (deep)" : ""}`;
+    ? "Förbättra: av"
+    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isGatewayProvider ? " (djup brief)" : ""}`;
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -288,10 +288,9 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Detta är builderns byggprofiler: `Snabb`, `Lagom`, `Tanker`, `Kod Max` och
-                      `Anthropic`. Varje profil mappar vidare till en konkret modell i egen motor.
-                      `Forbattra` nedan ar separat och används bara för promptforbattrande, scaffold-val
-                      och designbrief innan build.
+                      Byggprofiler: Snabb, Lagom, Tanker, Kod Max och Anthropic. Varje profil väljer en
+                      konkret modell i den egna motorn. Förbättra nedan är separat och används till
+                      promptförbättring, mallval och designbrief innan första bygget.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -324,12 +323,11 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Den här modellen styr den tyngre förbättringen: deep brief, scaffold-hjälp,
-                      designbrief och dynamiska instruktioner före första bygget. Den snabba knappen
-                      `Skriv om prompt` använder normalt den lättare polish-modellen bara för texten i
-                      inmatningsrutan, men följer Anthropic-spåret när Claude är vald för jämförelse. For
-                      en ren Anthropic-jamforelse: valj Anthropic under byggmodell och Claude under
-                      Forbattra, eller anvand snabbknappen nedan.
+                      Styr den tyngre förbättringen: djup brief, mallhjälp, designbrief och dynamiska
+                      instruktioner före första bygget. Snabbknappen «Skriv om prompt» använder oftast en
+                      lättare modell bara för texten i inmatningsrutan, men följer Anthropic-spåret när
+                      Claude är vald för jämförelse. För ren Anthropic-jämförelse: välj Anthropic som
+                      byggprofil och Claude under Förbättra, eller använd snabbknappen nedan.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -378,10 +376,9 @@ export function BuilderHeader(props: {
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
                   <p className="text-xs">
-                    AI skapar först en detaljerad brief (specifikation) som sedan används för att
-                    bygga en bättre prompt. Tar längre tid men ger mer genomtänkta resultat. Används
-                    bara vid första prompten i en ny chat. Stöds för de gateway-class modeller som visas
-                    här, inklusive Claude-alternativen.
+                    AI skapar först en detaljerad brief som sedan används för en bättre prompt. Tar
+                    längre tid men ger mer genomtänkta resultat. Gäller bara första prompten i en ny
+                    chat. Stöds för de gateway-modeller som listas här, inklusive Claude-alternativ.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -395,7 +392,7 @@ export function BuilderHeader(props: {
               }}
             >
               <Bot className="mr-2 h-4 w-4" />
-              Anthropic-jamforelse
+              Anthropic-jämförelse
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -514,7 +511,7 @@ export function BuilderHeader(props: {
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
                   <p className="text-xs">
-                    Slå på för att be AI om bilder. Om Blob saknas kan bilder utebli i preview.
+                    Slå på för att be AI om bilder. Om Blob saknas kan bilder saknas i förhandsvisningen.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -539,8 +536,8 @@ export function BuilderHeader(props: {
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
                   <p className="text-xs">
-                    Kopierar externa bild-URL:er till Vercel Blob vid deploy. Stäng av om du vill
-                    köra med externa länkar.
+                    Kopierar externa bildadresser till Vercel Blob vid publicering. Stäng av om du vill
+                    behålla externa länkar som de är.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -556,15 +553,15 @@ export function BuilderHeader(props: {
                       disabled={isBusy}
                     >
                       <Wrench className="mr-2 h-4 w-4" />
-                      Autofix vid fel
+                      Åtgärda fel automatiskt
                     </DropdownMenuCheckboxItem>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
                   <p className="text-xs">
-                    När quality gate eller preview misslyckas skickas automatiskt en reparationsprompt.
-                    Stäng av om du vill styra allt manuellt. URL-parametrarna ?autofix och ?noautofix
-                    åsidosätter tillfälligt.
+                    När kvalitetskontrollen eller förhandsvisningen misslyckas skickas automatiskt en
+                    reparationsprompt. Stäng av om du vill styra allt manuellt. Parametrarna ?autofix och
+                    ?noautofix i URL:en åsidosätter tillfälligt.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -588,15 +585,15 @@ export function BuilderHeader(props: {
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
                   <p className="text-xs">
-                    Gör demo-sidan tillgänglig via URL (unlisted). Krävs för att inspektionsläget ska
-                    fungera eftersom inspector-rutterna måste kunna läsa previewn server-side.
+                    Gör demosidan nåbar via länk (olistad). Krävs för inspektionsläget eftersom
+                    servern måste kunna läsa förhandsvisningen.
                   </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Prompt Input</DropdownMenuLabel>
+            <DropdownMenuLabel>Inmatning</DropdownMenuLabel>
             <DropdownMenuItem
               disabled={isBusy}
               onSelect={(event) => {
@@ -632,12 +629,12 @@ export function BuilderHeader(props: {
               disabled={isBusy}
             >
               <MessageSquare className="mr-2 h-4 w-4" />
-              Debug-läge (verktygsblock)
+              Felsökningsvy (verktygsblock)
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-              Tips · 2 credits
+              Tips · 2 credits per hämtning
             </DropdownMenuLabel>
             <DropdownMenuCheckboxItem
               checked={tipsEnabled}
@@ -669,7 +666,7 @@ export function BuilderHeader(props: {
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Import från GitHub/ZIP, Vercel Sandbox, projekt som ZIP</p>
+                <p>Importera från GitHub eller ZIP, öppna Vercel Sandbox, ladda ner projekt som ZIP</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -812,7 +809,7 @@ export function BuilderHeader(props: {
             <DialogTitle>Egna instruktioner</DialogTitle>
             <DialogDescription>
               Instruktioner används när en ny chat startas. Du kan välja att rensa dem efter nästa
-              generation.
+              generering.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

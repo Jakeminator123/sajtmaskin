@@ -6,7 +6,7 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Builder header — Mer + språk:** **Import**, **Sandbox** och **ZIP-nedladdning** samlade i **Mer**-dropdown (färre primärknappar). **Ny chat** (f.d. New), **Djup brief**, **Anpassad:** modellrad, **Resonemang** (f.d. Thinking). OpenClaw default-ytor + `mentionsKnownSurface` inkl. **Mer-menyn**. **Tidigare:** tips i Inställningar, en lanseringsyta, deploy-hintar. **Progress ~83% whole:** tabell nedan.
+Last code touch: **Svenska byggar-UI (djup pass):** `BuilderHeader` — hjälptexter och inställningsetiketter (t.ex. **Inmatning**, **Bilder från AI**, **Kopiera bilder till Blob**, **Åtgärda fel automatiskt**, **Delad förhandsvisning**, **Felsökningsvy**); rättad svenska i byggmodell-/Förbättra-rutor; **Anthropic-jämförelse**. **`MODEL_TIER_OPTIONS`** i `defaults.ts`: korrekt **för**/diakritik, **Jämförelseläge**, hint **jämför**. Uppdaterat `terminology.mdc` + `builder-model-routing-and-trace.md`. **Tidigare:** Mer-meny, tips i Inställningar. **Progress ~83% whole:** tabell nedan.
 
 **Siffror:** **~83%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
 
@@ -69,6 +69,7 @@ Ungefär **~17%** av *whole vision* kvar: **integrationer + deploy** (~68% done)
 - Footer (landning v2): `/om`, `/blogg`, `/privacy`, `/terms`, `/faq`, `mailto:`; inga falska social-URL:er.
 - Video-knapp: väljer Analyserad + toast.
 - `integrationRegistry` + typer; `detectIntegrations()` läser namn/envVars/setupGuide därifrån via `DETECTION_PIPELINE` (regex kvar i `detect-integrations.ts`).
+- **Builder UX (svenska copy, 2026-03-25):** `BuilderHeader` inställningar + modell-dropdowns; `defaults.ts` byggprofilbeskrivningar; agentterminologi (`terminology.mdc`) och routing-doc följer UI-strängar.
 - **Builder UX (header Mer, 2026-03-25):** **Mer**-meny: import, sandbox, ZIP; **Ny chat**; svenska etiketter (**Djup brief**, **Resonemang**, **Anpassad** modell); OpenClaw **Mer-meny** / **mer-menyn** i tips-kontext.
 - **Builder UX (tips/header, 2026-03-25):** **TipCard** utan duplicerad “var finns UI”-ruta; **tips-toggle** under **Inställningar**; header **Inställningar** + svenska menysektioner; instruktionsdialog **Klar**; OpenClaw-ytor inkl. **lansering**.
 - **Builder UX (plotter, 2026-03-25):** ingen separat lanserings-**badge** i **BuilderHeader**; **`formatDeployReadinessStatusLabel`** / **`deployReadinessBadgeClassName`** i `src/lib/builder/deploy-readiness-copy.ts` + Vitest; **Lansering**-kort utan extra informationsruta när status är redo; kortare **Publicera**-tooltip (env) och **409**-hint i `useBuilderDeployActions`.

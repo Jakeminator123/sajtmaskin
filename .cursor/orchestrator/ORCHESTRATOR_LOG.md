@@ -1,3 +1,5 @@
+2026-03-25 — **Builder SV copy:** `BuilderHeader` tooltips/etiketter (bl.a. Inmatning, Delad förhandsvisning, Felsökningsvy); `defaults.ts` tier-beskrivningar (för/ä/jämför); `terminology.mdc` + builder-model-routing. Vitest 348.
+
 2026-03-25 — **Builder header:** **Mer**-dropdown (import, sandbox, ZIP); **Ny chat**; Thinking→Resonemang, Deep Brief→Djup brief, Custom→Anpassad; OpenClaw tips-lista + `mentionsKnownSurface` för Mer-menyn. Vitest 348.
 
 2026-03-25 — **Docs:** tydliggjort att remediation pushas till **`origin/master`**; **`main`** kan ligga många commits efter — andra agenter måste `git checkout master && git pull`. Uppdaterat progress + CONTINUATION + execution README.

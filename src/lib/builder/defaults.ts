@@ -45,31 +45,31 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "fast",
     label: "Snabb",
-    description: "Liten/billig profil. GPT-4.1 for enklare sidor och snabba andringar.",
+    description: "Liten/billig profil. GPT-4.1 för enklare sidor och snabba ändringar.",
     hint: "billig",
   },
   {
     value: "pro",
     label: "Lagom",
-    description: "Mellanprofil. GPT-5.3 Codex for bra balans mellan kvalitet och hastighet.",
+    description: "Mellanprofil. GPT-5.3 Codex för bra balans mellan kvalitet och hastighet.",
     hint: "rekommenderad",
   },
   {
     value: "max",
     label: "Tanker",
-    description: "Stor/dyrare profil. GPT-5.4 for komplexare jobb och mer resonemang.",
+    description: "Stor/dyrare profil. GPT-5.4 för komplexare jobb och mer resonemang.",
     hint: "dyr",
   },
   {
     value: "codex",
     label: "Kod Max",
-    description: "Specialiserad kodprofil. GPT-5.1 Codex Max for langre och tyngre kodarbete.",
+    description: "Specialiserad kodprofil. GPT-5.1 Codex Max för längre och tyngre kodarbete.",
   },
   {
     value: "anthropic",
     label: "Anthropic",
-    description: "Jamforelselage. Claude Sonnet 4.6 via Anthropic API for hela build-lanen.",
-    hint: "compare",
+    description: "Jämförelseläge. Claude Sonnet 4.6 via Anthropic API för hela byggflödet.",
+    hint: "jämför",
   },
 ];
 
