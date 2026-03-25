@@ -8,6 +8,8 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
+**Commit-uppföljning (second opinion):** [reviews/README.md](./reviews/README.md) — t.ex. systematisk genomgång av orchestrator-commits efter brytpunkt `39fef25e` ([detaljer](./reviews/orchestrator-followup-from-39fef25e.md)).
+
 Last code touch: **Whole ~97% + B3-05 stängd** — `scripts/extract-static-core.mjs` **borttaget** (`STATIC_CORE`-monolit finns inte i `system-prompt.ts`); `scripts/README.md`, `prompt-tree.md`, `buglista-del-3.md`, `track-w4-scripts.md` uppdaterade. **Buglista del 3** (`B3-*`) **komplett**. **3.txt**-segment **~100%**; **whole ~97%** (kvar ~3%).
 
 **Tidigare:** sitemap-regressionstest; K-008 blogg + `e2e/README`; orchestrator-hygien; K-014/K-007 delmoment; K-016 stängd.
