@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-26 | master | typecheck + vitest (381) | ~92%: orchestrator-run workload 01-01 — K-016 del 1 `landing-wireframe-shapes.tsx`; run arkiverad (`archive-completed-runs.ps1`); progress ~92% whole |
 | 2026-03-26 | master | typecheck + vitest (381) | ~91%: K-015 extract-script (markör/no-op); K-017 `registry-parity.test.ts`; progress § Snabb ingång + § Återstår (~80% integration); MASTER W5 textfix (`42pct-v` arkiverad) |
 | 2026-03-26 | master | typecheck + vitest (371) | ~90%: W5 — kritik arkiv + `kritik-consolidated-open-items.md`; `repo-hygiene` Git vs Cursor; MASTER W5 `[x]` |
 | 2026-03-25 | master | typecheck + vitest (371) | ~89%: B3-02 — `phase-routing.ts` aux OpenAI-faser → `gpt-4.1-mini`; docs + buglista |

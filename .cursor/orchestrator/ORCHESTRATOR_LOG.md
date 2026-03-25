@@ -1,3 +1,5 @@
+2026-03-26 — **Orchestrator-run → ~92%:** `PROTOCOL.md` + run `2026-03-26-external-review-to-100` (workload 01-01 K-016 del 1) — `landing-wireframe-shapes.tsx`, kortad `chat-area.tsx`; `archive-completed-runs.ps1 -RunName …`; progress ~92% whole; MASTER-rad; kritik K-016 text uppdaterad. typecheck + vitest (381); push `origin/master`.
+
 2026-03-26 — **~91% remediation:** `extract-landing-chat-data.mjs` (SAJTMASKIN-markörer + no-op när data redan i `landing-chat-data.ts`); `registry-parity.test.ts` (K-017); progress — § Snabb ingång, tabell ~91% whole, § Återstår synkad (~80% integration, bort ~76%); kritik K-015/K-017 `[x]`; MASTER verifieringsrad + W5 textfix. `npm run typecheck` + `npx vitest run` (381); push `origin/master`.
 
 2026-03-26 — **Doc:** progress.md — tydliggjort att `1.txt`–`3.txt` är orientering, inte körbar backlog; execution = `external-review-execution/` + konsoliderad kritik. Arkiv-README: “aktiva filer” = `kritik/` inte arkivmappen.
