@@ -123,6 +123,7 @@ Ungefär **~16%** av *whole vision* kvar: **integrationer + deploy** (~75% done)
 2. ~~Utöka `integrationRegistry` + manifest + deploy-readiness~~ **Klart** (uppföljning: tunnare auto-fix / valideringsfas före deploy om behov).
 3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** ev. SSE/own-engine utanför track; integrationer+deploy-segment om ni prioriterar det.
 4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
+5. **`3.txt` — övriga spår:** typade uppföljningspunkter (terminologi, valfri fas-modellrouting, sandbox-/agent-doc, legacy-skript, Cursor-skill) i [buglista-del-3.md](./external-review-execution/buglista-del-3.md).
 
 ## Uncertainties / product follow-ups
 

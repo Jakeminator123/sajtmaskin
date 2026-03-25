@@ -12,6 +12,7 @@ Det här är **det genomförbara lagret** ovanpå `external-review-remediation-p
 | [track-w4-scripts.md](./track-w4-scripts.md) | Detaljerade kryss för scripts / naming (`3.txt`) |
 | [track-w2-deploy-hardening.md](./track-w2-deploy-hardening.md) | Valfritt: deploy-gate, färre auto-fix |
 | [track-w1-landing-followups.md](./track-w1-landing-followups.md) | Valfritt: små landnings-uppföljningar |
+| [buglista-del-3.md](./buglista-del-3.md) | **Del 3:** typade åtgärder från `3.txt` som inte täcks av W4 (terminologi, fas-modeller, sandbox-doc, Cursor-skills) |
 
 ## Autonoma anhalter (kort)
 
