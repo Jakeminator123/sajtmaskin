@@ -4,7 +4,7 @@
  *
  * Kräver: `npm run dev` och API-nycklar i .env.local (servern använder dem).
  *
- *   npx tsx scripts/testning_scarf/run_first_llm_live.ts --output-dir <lab- eller underlag-mapp>
+ *   npx tsx scripts/labs/testning_scarf/run_first_llm_live.ts --output-dir <lab- eller underlag-mapp>
  */
 import { config as loadEnv } from "dotenv";
 import { mkdir, readFile, writeFile } from "node:fs/promises";

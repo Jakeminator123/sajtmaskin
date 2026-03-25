@@ -1,13 +1,13 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Kör tio separata scaffold-trace-tester (en per intern runtime-scaffold) och sparar
-utfiler under scripts/testning_scarf/output/scaffold_suite/suite_<UTC>/
+utfiler under scripts/labs/testning_scarf/output/scaffold_suite/suite_<UTC>/
 
 Använder prompt_generation_trace.py i samma mapp (offline som standard).
 
 Kör från repo-roten:
-  python scripts/testning_scarf/run_scaffold_suite.py
-  python scripts/testning_scarf/run_scaffold_suite.py --use-llm
+  python scripts/labs/testning_scarf/run_scaffold_suite.py
+  python scripts/labs/testning_scarf/run_scaffold_suite.py --use-llm
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent.parent
 OUTPUT_ROOT = SCRIPT_DIR / "output" / "scaffold_suite"
 
 
@@ -171,12 +171,12 @@ för prompt/kontext — inte samma sak som val av runtime-scaffold.
 
 ## Körning
 
-`python scripts/testning_scarf/run_scaffold_suite.py` (standard offline). LLM: `--use-llm`.
+`python scripts/labs/testning_scarf/run_scaffold_suite.py` (standard offline). LLM: `--use-llm`.
 """
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Kör 10 scaffold-tracer och sparar under scripts/testning_scarf/output/scaffold_suite/.")
+    p = argparse.ArgumentParser(description="Kör 10 scaffold-tracer och sparar under scripts/labs/testning_scarf/output/scaffold_suite/.")
     p.add_argument("--use-llm", action="store_true", help="Använd OpenAI embeddings (annars offline)")
     p.add_argument("--dynamic-preview-chars", type=int, default=5000)
     args = p.parse_args()

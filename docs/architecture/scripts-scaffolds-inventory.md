@@ -1,20 +1,20 @@
 # Skript, `hamta_sidor` och runtime scaffolds
 
-Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25 (hamta-wrapper + flagga `legacy-wide`).
+Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25 (kanon `hamta_sidor_branch_emil.py` + lab under `scripts/labs/testning_scarf/`).
 
 ## `hamta_sidor` (Vercel Templates-skrapning)
 
 | Fil | Storlek (ca) | Syfte |
 |-----|----------------|-------|
-| [`scripts/hamta_sidor.py`](../../scripts/hamta_sidor.py) | liten wrapper | Delegerar till `hamta_sidor_branch_emil.py`; injicerar `--legacy-wide-use-cases` om saknas (samma breda kategori-lista som gamla monolitiska skriptet). **Ingen duplicerad skrap-logik.** |
-| ~~`hamta_sidor.py` (repo root)~~ | — | **Borttagen** 2026-03-24 (var identisk med `scripts/hamta_sidor.py`). |
-| [`scripts/hamta_sidor_branch_emil.py`](../../scripts/hamta_sidor_branch_emil.py) | (växer) | **Kanon:** `USE_CASES_CORE`, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (ex-`hamta_sidor.py` lista), tierad utdata, rapporter, `--flat-layout`, `--urls` → `direct-urls/`, m.m. **Vanligt val för manuell inhämtning** av research-material. |
+| ~~`hamta_sidor.py` (repo root)~~ | — | **Borttagen** 2026-03-24 (var dublett av dåvarande `scripts/hamta_sidor.py`). |
+| ~~`scripts/hamta_sidor.py`~~ | — | **Borttagen** 2026-03-25; använd `hamta_sidor_branch_emil.py` med `--legacy-wide-use-cases` för samma breda kategori-lista. |
+| [`scripts/hamta_sidor_branch_emil.py`](../../scripts/hamta_sidor_branch_emil.py) | (växer) | **Kanon:** `USE_CASES_CORE`, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (historisk bred lista), tierad utdata, rapporter, `--flat-layout`, `--urls` → `direct-urls/`, m.m. **Vanligt val för manuell inhämtning** av research-material. |
 
-**Rekommendation / kanon:** **`hamta_sidor_branch_emil.py`** bär all skrap-logik. **`hamta_sidor.py`** finns kvar som **kompatibilitets-wrapper** för äldre kommandon. Detaljer: [`scripts/README.md`](../../scripts/README.md). Inget körs från `package.json`; det påverkar **research** / lokala dataset, inte produktion.
+**Rekommendation / kanon:** endast **`hamta_sidor_branch_emil.py`**. Detaljer: [`scripts/README.md`](../../scripts/README.md). Inget körs från `package.json`; det påverkar **research** / lokala dataset, inte produktion.
 
 **Risk:** Vercel kan ändra HTML → tysta fel eller tomma listor. Verifiera manuellt efter större sajtändringar.
 
-**Övriga referenser:** [`docs/old/2026-03-holding-area/next-sidan-skrapning.txt`](../old/2026-03-holding-area/next-sidan-skrapning.txt) nämner `hamta_sidor.py` — använd `scripts/hamta_sidor.py`.
+**Övriga referenser:** [`docs/old/2026-03-holding-area/next-sidan-skrapning.txt`](../old/2026-03-holding-area/next-sidan-skrapning.txt) nämner historiskt `hamta_sidor.py` — använd `scripts/hamta_sidor_branch_emil.py` (valfritt `--legacy-wide-use-cases`).
 
 ### `vercel_template_cli.py` (repo root)
 
@@ -46,7 +46,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25 (h
 | `run-eval.ts` | eval |
 | `run-migrations.ts` | db:migrate |
 | `test-api-usage.mjs` | test:api |
-| `testning_scarf/*` (via `prompt:trace`, `scaffold:suite`, `first-llm:lab`, `first-llm:live`, `testning:codegen-print`) | **Lab/debug** — se [`scripts/README.md`](../../scripts/README.md) § Lab / debug |
+| `labs/testning_scarf/*` (via `prompt:trace`, `scaffold:suite`, `first-llm:lab`, `first-llm:live`, `testning:codegen-print`) | **Lab/debug** — se [`scripts/README.md`](../../scripts/README.md) § Lab / debug |
 
 `references:discover*` kör **Playwright** på `e2e/vercel-templates/scrape-catalog.spec.ts` (**spårad**). Legacy-mappen `vercel_templates_levels/` kan finnas lokalt (gitignore) men är inte npm-kanon. Full förklaring + scaffold-gränser: [`vercel-templates-discovery.md`](vercel-templates-discovery.md), [`vercel-templates-playwright-scaffold-integration.txt`](vercel-templates-playwright-scaffold-integration.txt).
 
@@ -56,7 +56,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25 (h
 |-----|------------|
 | `sync-scaffold-refs.mjs` | [`scripts/README.md`](../../scripts/README.md), [`vercel_template_cli.py`](../../vercel_template_cli.py) (valfri katalogskrapning) |
 | `scaffold-pipeline.py` | [`scripts/README.md`](../../scripts/README.md) — interaktiv meny för template-library-kedjan |
-| `scripts/hamta_sidor*.py` | Se avsnitt ovan (`branch_emil` kanonisk; `hamta_sidor.py` wrapper) |
+| `scripts/hamta_sidor_branch_emil.py` | Se avsnitt ovan (enda Python-entry för denna skrapare) |
 | `recovery/recreate-repo-branch-commit.ps1` | **Saknas** i repot; beskrivs som borttaget/odeployat i [`scripts/README.md`](../../scripts/README.md). |
 
 ### Interna moduler (importeras av andra skript)
@@ -68,7 +68,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25 (h
 
 | Fil | Skäl |
 |-----|------|
-| `hamta_sidor.py` (repo root) | Dublett av `scripts/hamta_sidor.py`. |
+| `hamta_sidor.py` (repo root) | Dublett av borttaget `scripts/hamta_sidor.py` (båda borta; kanon = `scripts/hamta_sidor_branch_emil.py`). |
 | `_verify_password.mjs` | Tom fil (0 byte), inga referenser. |
 | `verify-tables.ts` | Engångs-/lokal Postgres-listning, inga referenser i repot; återfinns i git-historik vid behov. |
 

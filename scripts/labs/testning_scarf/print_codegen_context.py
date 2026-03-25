@@ -1,11 +1,11 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Skriver ut de två codegen-texterna (egen motor + v0-dynamik) via trace-CLI.
 
-  python scripts/testning_scarf/print_codegen_context.py
-  python scripts/testning_scarf/print_codegen_context.py --build-intent website --offline
+  python scripts/labs/testning_scarf/print_codegen_context.py
+  python scripts/labs/testning_scarf/print_codegen_context.py --build-intent website --offline
 
-Utdata: scripts/testning_scarf/output/codegen_snapshot/dashboard_app_<UTC>/
+Utdata: scripts/labs/testning_scarf/output/codegen_snapshot/dashboard_app_<UTC>/
   - 02_engine_system_prompt.txt  (STATIC_CORE + all dynamik)
   - 03_v0_enrichment_context.txt (endast dynamik)
 
@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent.parent
 
 DEFAULT_PROMPT = """Bygg en webbaserad ekonomisk dashboard för småföretag.
 Det ska kännas som en riktig app: sidomeny, tydliga ytor för nyckeltal och grafer, inte en klassisk landningssida.

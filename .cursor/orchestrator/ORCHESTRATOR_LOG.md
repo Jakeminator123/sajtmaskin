@@ -1,3 +1,5 @@
+2026-03-25 — W4 close: bort `scripts/hamta_sidor.py`; `testning_scarf` → `scripts/labs/testning_scarf/`; `package.json` + `.gitignore` + lab `REPO_ROOT`-fixar; docs/track. Progress ~75%. Commit ~75pct.
+
 2026-03-25 — W4 slice + städ: `hamta_sidor.py` wrapper, `legacy-wide` flag i `hamta_sidor_branch_emil.py`, README/inventory/research/track; boundary-test `existsSync`. Progress ~72%. Commit ~72pct.
 
 2026-03-25 — W3 **exit**: orphan-regression (`finalize-version.test.ts`), `own-engine-v0-boundary.test.ts`, Fas A W3 `[x]` i MASTER-ROADMAP. Vitest 345. Progress ~69% whole. Commit ~69pct.

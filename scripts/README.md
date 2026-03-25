@@ -4,25 +4,25 @@
 
 - **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.
 - **Vercel use-case-skrapning (Python):** under `scripts/` (ingen kopia i repo-roten).
-  - **Kanonisk entrypoint:** [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (samma ~25 kategorier som gamla monolitiska `hamta_sidor.py`), tierad utdata, rapporter. **Standard** för manuell inhämtning.
-  - **Bakåtkompabilitet:** [`scripts/hamta_sidor.py`](hamta_sidor.py) är en **tunn wrapper** som delegerar till `hamta_sidor_branch_emil.py` och **sätter `--legacy-wide-use-cases`** om du inte redan angivit flaggan (så gamla kommandon behåller bred kategori-lista). Föredra kanonisk fil för nya arbetsflöden.
+  - **Kanonisk entrypoint:** [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (historisk bred lista, ~25 use cases), tierad utdata, rapporter. **Standard** för manuell inhämtning.
+  - **Tidigare:** `scripts/hamta_sidor.py` (borttagen) motsvaras av `python scripts/hamta_sidor_branch_emil.py --legacy-wide-use-cases` om du vill återskapa det gamla beteendet.
   - Se [`docs/architecture/scripts-scaffolds-inventory.md`](../docs/architecture/scripts-scaffolds-inventory.md).
   - Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
 - **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
 
-## Lab / debug (`scripts/testning_scarf/`)
+## Lab / debug (`scripts/labs/testning_scarf/`)
 
 **Inte produktion.** Python/TS-verktyg för spårning, scaffold-suite, första-LLM-lab och utskrift av codegen-kontext. Anropas från `package.json`:
 
 | npm-script | Entry |
 |------------|--------|
-| `npm run prompt:trace` | `scripts/testning_scarf/trace-generation-context.ts` |
-| `npm run scaffold:suite` | `scripts/testning_scarf/run_scaffold_suite.py` |
-| `npm run first-llm:lab` | `scripts/testning_scarf/first_llm_promptlab.py` |
-| `npm run first-llm:live` | `scripts/testning_scarf/run_first_llm_live.ts` |
-| `npm run testning:codegen-print` | `scripts/testning_scarf/print_codegen_context.py` |
+| `npm run prompt:trace` | `scripts/labs/testning_scarf/trace-generation-context.ts` |
+| `npm run scaffold:suite` | `scripts/labs/testning_scarf/run_scaffold_suite.py` |
+| `npm run first-llm:lab` | `scripts/labs/testning_scarf/first_llm_promptlab.py` |
+| `npm run first-llm:live` | `scripts/labs/testning_scarf/run_first_llm_live.ts` |
+| `npm run testning:codegen-print` | `scripts/labs/testning_scarf/print_codegen_context.py` |
 
-Mappen kan på sikt flyttas (t.ex. `scripts/labs/…`); om du flyttar filer **måste** dessa npm-rader uppdateras. Inventering: [`docs/architecture/scripts-scaffolds-inventory.md`](../docs/architecture/scripts-scaffolds-inventory.md).
+Om du flyttar labbfiler **måste** dessa npm-rader uppdateras. Inventering: [`docs/architecture/scripts-scaffolds-inventory.md`](../docs/architecture/scripts-scaffolds-inventory.md).
 
 ## vercel_template_cli.py (repo root)
 

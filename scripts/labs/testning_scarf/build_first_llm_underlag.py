@@ -5,8 +5,8 @@ Bygger underlag (JSON + README) för de *första* LLM-anropen i buildern
 
 Kör från repo-roten:
 
-  python scripts/testning_scarf/build_first_llm_underlag.py -p "Min prompt"
-  python scripts/testning_scarf/build_first_llm_underlag.py --output-dir path/to/run_XXX
+  python scripts/labs/testning_scarf/build_first_llm_underlag.py -p "Min prompt"
+  python scripts/labs/testning_scarf/build_first_llm_underlag.py --output-dir path/to/run_XXX
 
 Se: first_llm_promptlab.py (interaktivt + valfritt `--live`).
 """
@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent.parent
 OUTPUT_ROOT = SCRIPT_DIR / "output" / "first_llm" / "underlag"
 TS_TRACE = SCRIPT_DIR / "trace-generation-context.ts"
 
@@ -133,7 +133,7 @@ I buildern är **inte** allt ett enda anrop. Ungefär i ordning:
 
 Kör `first_llm_promptlab.py --live` eller manuellt:
 
-`npx tsx scripts/testning_scarf/run_first_llm_live.ts --output-dir <denna mapp>`
+`npx tsx scripts/labs/testning_scarf/run_first_llm_live.ts --output-dir <denna mapp>`
 
 Då tillkommer `10_live_*` … `16_live_*` med faktiska HTTP-request/response.
 """

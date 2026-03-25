@@ -26,14 +26,14 @@
 
 ### hamta_sidor
 
-- [x] **Beslut:** en kanonisk fil (`hamta_sidor.py` *eller* sammanslagning med `hamta_sidor_branch_emil.py`) — dokumentera valet i `scripts/README.md` (**kanon:** `scripts/hamta_sidor_branch_emil.py`; alternativ: `scripts/hamta_sidor.py`)
-- [x] **Implementation:** `hamta_sidor.py` = tunn wrapper + `hamta_sidor_branch_emil.py` har `--legacy-wide-use-cases` (samma lista som gamla monolitiska skriptet); bakåtkompatibelt `python scripts/hamta_sidor.py …`
+- [x] **Beslut:** en kanonisk fil — dokumentera valet i `scripts/README.md` (**kanon:** `scripts/hamta_sidor_branch_emil.py`)
+- [x] **Implementation:** `hamta_sidor_branch_emil.py` har `--legacy-wide-use-cases` (samma lista som gamla monolitiska skriptet); tidigare wrapper `scripts/hamta_sidor.py` **borttagen** — använd `python scripts/hamta_sidor_branch_emil.py --legacy-wide-use-cases …` vid behov
 - [x] **Dokumentation:** alla paths i README/ kommentarer pekar på faktisk plats under `scripts/`
 
 ### Lab / debug-träd
 
-- [x] **Struktur:** flytta eller byt namn på `scripts/testning_scarf/*` till tydligare mapp (`scripts/labs/`, `devtools/prompt-lab/`, eller liknande) *eller* dokumentera tydligt i README att det är lab-only
-- [ ] **package.json:** uppdatera script-paths om filer flyttas (`prompt:trace`, `scaffold:suite`, `first-llm:*`, `testning:codegen-print`, etc.)
+- [x] **Struktur:** `scripts/testning_scarf/` → `scripts/labs/testning_scarf/`
+- [x] **package.json:** script-paths uppdaterade (`prompt:trace`, `scaffold:suite`, `first-llm:*`, `testning:codegen-print`, `.gitignore` / `.cursorignore`)
 
 ### Övrig städning
 

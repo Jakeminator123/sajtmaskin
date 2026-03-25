@@ -1,9 +1,9 @@
 /**
  * CLI: trace prepareGenerationContext() utan codegen.
- * Ligger under scripts/testning_scarf/ — kör alltid från repo-root.
+ * Ligger under scripts/labs/testning_scarf/ — kör alltid från repo-root.
  *
- *   npx tsx scripts/testning_scarf/trace-generation-context.ts --prompt-file prompt.txt
- *   ... --write-codegen-snapshot scripts/testning_scarf/output/codegen_snapshot/demo --strip-suite-note
+ *   npx tsx scripts/labs/testning_scarf/trace-generation-context.ts --prompt-file prompt.txt
+ *   ... --write-codegen-snapshot scripts/labs/testning_scarf/output/codegen_snapshot/demo --strip-suite-note
  *
  * Laddar .env.local / .env från repo-root (OPENAI_API_KEY för embedding).
  */
@@ -13,8 +13,8 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-/** scripts/testning_scarf/ → repo-root */
-const REPO_ROOT = path.resolve(__dirname, "../..");
+/** scripts/labs/testning_scarf/ → repo-root */
+const REPO_ROOT = path.resolve(__dirname, "../../..");
 
 function stripQuotes(value: string): string {
   const t = value.trim();
@@ -80,7 +80,7 @@ function readPrompt(argv: string[]): string {
   }
   if (process.stdin.isTTY) {
     console.error(
-      "Usage: npx tsx scripts/testning_scarf/trace-generation-context.ts --prompt-file <path> [--json]",
+      "Usage: npx tsx scripts/labs/testning_scarf/trace-generation-context.ts --prompt-file <path> [--json]",
     );
     console.error(
       "Optional: --offline --portable-metadata --build-intent website|app|template --scaffold-mode auto|manual|off --scaffold-id <id>",

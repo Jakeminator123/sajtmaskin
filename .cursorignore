@@ -37,9 +37,9 @@ data/prompt-dumps/*
 scraped-vercel-scorefolds
 
 # testning_scarf / legacy scaffold lab output (stora, ofta återgenererbara)
-scripts/testning_scarf/output/
-scripts/testning_scarf/output_test_scaffold/
-scripts/testning_scarf/output_first_llm_underlag/
+scripts/labs/testning_scarf/output/
+scripts/labs/testning_scarf/output_test_scaffold/
+scripts/labs/testning_scarf/output_first_llm_underlag/
 scripts/output_test_scaffold/
 
 # Local MCP (copy mcp.json.example → mcp.json)

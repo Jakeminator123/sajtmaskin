@@ -56,17 +56,17 @@ Scrape-mappen skapar **inte** automatiskt nya registry-scaffolds; se [research/e
 | **Dynamisk** | `buildDynamicContext()` i `system-prompt.ts` | Build intent, **serialized scaffold** (+ ev. research priorities), KB, **template-library-träffar**, route plan, contracts, m.m. |
 | **Helhet** | `buildSystemPrompt()` | `getStaticCoreFromWorkspace()` + separator + dynamisk kontext (statisk först, dynamisk efter). |
 
-v0-läget: `prepareGenerationContext` i `orchestrate.ts` särskiljer `engineSystemPrompt` och `v0EnrichmentContext`; trace-snapshot skriver båda under `scripts/testning_scarf/output/codegen_snapshot/*/`.
+v0-läget: `prepareGenerationContext` i `orchestrate.ts` särskiljer `engineSystemPrompt` och `v0EnrichmentContext`; trace-snapshot skriver båda under `scripts/labs/testning_scarf/output/codegen_snapshot/*/`.
 
 ## 6. Test: svensk hemsida-prompt
 
-Exempelfil: [scripts/testning_scarf/restaurang_hemsida_prompt.txt](../../scripts/testning_scarf/restaurang_hemsida_prompt.txt).
+Exempelfil: [scripts/labs/testning_scarf/restaurang_hemsida_prompt.txt](../../scripts/labs/testning_scarf/restaurang_hemsida_prompt.txt).
 
 ```bash
-npx tsx scripts/testning_scarf/trace-generation-context.ts ^
-  --prompt-file scripts/testning_scarf/restaurang_hemsida_prompt.txt ^
+npx tsx scripts/labs/testning_scarf/trace-generation-context.ts ^
+  --prompt-file scripts/labs/testning_scarf/restaurang_hemsida_prompt.txt ^
   --build-intent website --scaffold-mode auto ^
-  --write-codegen-snapshot scripts/testning_scarf/output/codegen_snapshot/restaurang_sv_demo
+  --write-codegen-snapshot scripts/labs/testning_scarf/output/codegen_snapshot/restaurang_sv_demo
 ```
 
 Granska `02_engine_system_prompt.txt` (statisk + dynamisk sammanslaget), `04_snapshot_meta.json` (`resolvedScaffoldId`), och `trace`-JSON för embedding-topplista.

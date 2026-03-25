@@ -42,11 +42,11 @@ data/*.db-shm
 data/*.db-wal
 data/uploads/
 
-# testning_scarf: trace, suite, first_llm, codegen snapshots
-scripts/testning_scarf/output/
+# testning_scarf (under scripts/labs): trace, suite, first_llm, codegen snapshots
+scripts/labs/testning_scarf/output/
 # Äldre körningar (före output/)
-scripts/testning_scarf/output_test_scaffold/
-scripts/testning_scarf/output_first_llm_underlag/
+scripts/labs/testning_scarf/output_test_scaffold/
+scripts/labs/testning_scarf/output_first_llm_underlag/
 # Legacy (före samlad output-mapp)
 scripts/output_test_scaffold/
 

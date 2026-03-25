@@ -36,7 +36,7 @@
 
 - **Scope:** `.j_to_agent/3.txt` avsnitt 5 + `Next` i progress (hamta_sidor*, lab-mappar, README-drift).
 - **Acceptance:** Package.json-referenser konsistenta; README-paths korrekta; inget borttaget utan referensgrep.
-- **Status (2026-03-25 ff.):** `hamta_sidor.py` → wrapper + `--legacy-wide-use-cases` i kanon; README/inventory/research uppdaterade; manuella skript märkta. **Kvar för W4-exit:** ev. flytt `testning_scarf` → uppdatera `package.json` (`prompt:trace`, `scaffold:suite`, …). Se `track-w4-scripts.md`.
+- **Status (2026-03-25 ff.):** Kanon `hamta_sidor_branch_emil.py` + `--legacy-wide-use-cases`; wrapper `hamta_sidor.py` borttagen; labb flyttat till `scripts/labs/testning_scarf/` med uppdaterade npm-scripts. Se `track-w4-scripts.md` för W4-exit.
 
 ## W5 — Kritik-mapp (valfritt, worktree-rapporter)
 

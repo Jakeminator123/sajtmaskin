@@ -3,16 +3,16 @@
 Scaffold-/prompt-spårning för Sajtmaskin.
 
 Standardflöde (interaktivt): ange bara din prompt, svara på om OpenAI/LLM ska
-användas för embedding-sökning, och få utdata under scripts/testning_scarf/output/prompt_trace/.
+användas för embedding-sökning, och få utdata under scripts/labs/testning_scarf/output/prompt_trace/.
 
 Alla sökvägar i skriptet är relativa till skriptets plats (inga hårdkodade diskar).
 
 Kräver: Node 22+, npm install (tsx), repo-root som cwd.
 
 Kör:
-  python scripts/testning_scarf/prompt_generation_trace.py
-  python scripts/testning_scarf/prompt_generation_trace.py -p "Min prompt"
-  python scripts/testning_scarf/prompt_generation_trace.py --no-llm -p "..."   # utan interaktion
+  python scripts/labs/testning_scarf/prompt_generation_trace.py
+  python scripts/labs/testning_scarf/prompt_generation_trace.py -p "Min prompt"
+  python scripts/labs/testning_scarf/prompt_generation_trace.py --no-llm -p "..."   # utan interaktion
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent.parent
 TS_RUNNER = SCRIPT_DIR / "trace-generation-context.ts"
 OUTPUT_ROOT = SCRIPT_DIR / "output" / "prompt_trace"
 

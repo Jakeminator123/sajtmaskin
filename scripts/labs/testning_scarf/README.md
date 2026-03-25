@@ -1,12 +1,12 @@
 # testning_scarf — scaffold-trace, första LLM, codegen-snapshot
 
-Allt under `scripts/testning_scarf/`. Kör från **repo-root**.
+Allt under `scripts/labs/testning_scarf/`. Kör från **repo-root**.
 
 ## Output (gemensamt)
 
 All genererad data hamnar under:
 
-`scripts/testning_scarf/output/<kategori>/…`  
+`scripts/labs/testning_scarf/output/<kategori>/…`  
 (gitignorerad)
 
 | Mapp | Innehåll |
@@ -19,7 +19,7 @@ All genererad data hamnar under:
 
 ## Exempelprompt (svensk hemsida)
 
-- **`restaurang_hemsida_prompt.txt`** — kort prompt för trace/snapshot (restaurang, meny, bokning). Använd med `trace-generation-context.ts` och `--write-codegen-snapshot` (se [docs/architecture/scraped-scorefolds-pipeline.md](../../docs/architecture/scraped-scorefolds-pipeline.md)).
+- **`restaurang_hemsida_prompt.txt`** — kort prompt för trace/snapshot (restaurang, meny, bokning). Använd med `trace-generation-context.ts` och `--write-codegen-snapshot` (se [docs/architecture/scraped-scorefolds-pipeline.md](../../../docs/architecture/scraped-scorefolds-pipeline.md)).
 
 ## Skript (3 huvudingångar + 2 stöd)
 
@@ -39,10 +39,10 @@ Det är **inte** `trace.json` i sin helhet — där är bara **förhandsvisning*
 Kör trace med snapshot (från repo-root):
 
 ```bash
-npx tsx scripts/testning_scarf/trace-generation-context.ts ^
-  --prompt-file scripts/testning_scarf/output/scaffold_suite/suite_XXX/02_landing-page_prompt.txt ^
+npx tsx scripts/labs/testning_scarf/trace-generation-context.ts ^
+  --prompt-file scripts/labs/testning_scarf/output/scaffold_suite/suite_XXX/02_landing-page_prompt.txt ^
   --strip-suite-note ^
-  --write-codegen-snapshot scripts/testning_scarf/output/codegen_snapshot/landing_demo
+  --write-codegen-snapshot scripts/labs/testning_scarf/output/codegen_snapshot/landing_demo
 ```
 
 Öppna sedan:
@@ -56,7 +56,7 @@ npx tsx scripts/testning_scarf/trace-generation-context.ts ^
 
 Tre raders standardprompt (ekonomisk dashboard, app-känsla) → skriver snapshot:
 
-`python scripts/testning_scarf/print_codegen_context.py`  
+`python scripts/labs/testning_scarf/print_codegen_context.py`  
 `npm run testning:codegen-print`  
 Flaggor: `--offline`, `--build-intent website|app|template`, `--prompt-file path.txt`
 

@@ -56,7 +56,7 @@ USE_CASES_EXTENDED: List[Tuple[str, str]] = [
     ("monorepos", "Monorepos"),
 ]
 
-# Full lista som tidigare fanns i `scripts/hamta_sidor.py` (före wrapper) — research / jämförelse.
+# Bred kategori-lista (historisk monolit; aktiveras med --legacy-wide-use-cases) — research / jämförelse.
 USE_CASES_LEGACY_WIDE: List[Tuple[str, str]] = [
     ("ai", "AI"),
     ("starter", "Starter"),
@@ -1073,7 +1073,7 @@ def parse_args() -> argparse.Namespace:
         "--legacy-wide-use-cases",
         action="store_true",
         help=(
-            "Använd den breda kategorilistan från gamla scripts/hamta_sidor.py (~25 use cases). "
+            "Använd den breda kategorilistan (~25 use cases) som tidigare motsvarade det gamla monolitiska skriptet. "
             "Överstiger --extended-scrape när båda anges. Kanonisk Sajtmaskin-standard är kärnlistan."
         ),
     )
@@ -1278,7 +1278,7 @@ def run_scrape(args: argparse.Namespace) -> int:
 
     print(f"[INFO] Sparar till: {root}")
     if legacy_wide:
-        uc_label = "legacy wide (ex hamta_sidor.py)"
+        uc_label = "legacy wide (~25 use cases)"
     elif extended:
         uc_label = "kärna+utökad"
     else:
