@@ -41,6 +41,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `83pct-m.md` | `4dd94273` — Mer-meny, svenska header-etiketter, OpenClaw surfaces. |
 | `83pct-i.md` | `0eaee012` — svensk copy header, `MODEL_TIER_OPTIONS`, `terminology.mdc` + routing-doc. |
 | `83pct-y.md` | `8bde15b7` — språkpolicy + arbetsyta/workspace-hygiene; **batch-verifiering** typecheck + vitest (348). |
+| `84pct-c.md` | `b29f9def` — Sanity, Contentful, Storyblok (`cms`), MongoDB; env-policy; Vitest; progress ~84% / integration ~74%. |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
 
