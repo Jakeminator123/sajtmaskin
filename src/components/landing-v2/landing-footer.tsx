@@ -88,12 +88,18 @@ export function LandingFooter() {
                 </a>
               </li>
               <li>
-                <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a
+                  href="/privacy#gdpr"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
                   GDPR
                 </a>
               </li>
               <li>
-                <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a
+                  href="/privacy#cookies"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
                   Cookies
                 </a>
               </li>

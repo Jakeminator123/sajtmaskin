@@ -1,3 +1,5 @@
+2026-03-26 — **Orchestrator → ~95% (K-014 delmoment):** `landing-footer.tsx` → `/privacy#cookies`, `/privacy#gdpr`; `privacy/page.tsx` `id` + `scroll-mt-24`; progress landning ~89%; **K-014** fortfarande `[ ]`. Run `2026-03-26-external-review-k014-privacy-anchors` arkiverad. typecheck + vitest (382); push `origin/master`.
+
 2026-03-26 — **Orchestrator → ~95% (K-007 delmoment):** Vitest `precheckOnly` + `skipAutoFix` i `deployments/route.test.ts`; `deploy-precheck.md` § kontraktstester; progress integration ~81%; **K-007** fortfarande `[ ]` (e2e/hård validering kvar). Run `2026-03-26-external-review-k007-precheck-skip` arkiverad. typecheck + vitest (382); push `origin/master`.
 
 2026-03-26 — **Orchestrator → ~95% (K-016 avslut):** `landing-feature-blocks.tsx` (`FeatureCard`, `FeatureModal`, `LandingFeatureItem`); modal stäng `type="button"`; kritik **K-016** `[x]`; run `2026-03-26-external-review-k016-feature-modal` arkiverad. typecheck + vitest (381); push `origin/master`.

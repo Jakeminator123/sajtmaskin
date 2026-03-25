@@ -167,3 +167,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-26-external-review-k007-precheck-skip-162925/`
 
+## 2026-03-26-external-review-k014-privacy-anchors (archived 2026-03-25 16:34)
+- **Scope:** Planerat: K-014 delmoment — footerlänkar till specifika integritetsavsnitt.
+- **Workloads:** 0 completed, 0 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-26-external-review-k014-privacy-anchors-163427/`
+

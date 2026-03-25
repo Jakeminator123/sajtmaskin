@@ -8,9 +8,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Orchestrator-run + K-007 delmoment (deploy-kontrakt)** — Vitest för **`precheckOnly` + `skipAutoFix`** (`deployments/route.test.ts`); `deploy-precheck.md` § **Kontraktstester**. Run `2026-03-26-external-review-k007-precheck-skip` arkiverad. **K-007** (hårdare validering / produkt) förblir öppen; detta låser bara opt-out-beteendet i torrkörning.
+Last code touch: **Orchestrator-run + K-014 delmoment (footer → integritet)** — landningsfooter länkar **GDPR** → `/privacy#gdpr`, **Cookies** → `/privacy#cookies`; motsvarande `id` + `scroll-mt-24` på integritetssidan. Run `2026-03-26-external-review-k014-privacy-anchors` arkiverad. **K-014** (övrig copy/sidor) förblir öppen.
 
-**Tidigare:** K-016 (del 1–4, avslut) — `landing-feature-blocks.tsx` m.m.; **K-016** stängd i kritiklistan.
+**Tidigare:** K-007 delmoment (`precheckOnly`+`skipAutoFix` Vitest); K-016 (del 1–4, avslut) — **K-016** stängd i kritiklistan.
 
 **Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (85 filer, **382** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**5 %** whole kvar).
 
@@ -22,7 +22,7 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 
 | Källa | Vad den i praktiken driver | Ungefärlig *done* | Kvar (typiskt) |
 |--------|----------------------------|-------------------|----------------|
-| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~88%** | Mer in-view 3D (`K-008`), `/blogg`, ev. polish; K-016 stängd (landnings-UI utbrutet i moduler) |
+| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~89%** | Mer in-view 3D (`K-008`), `/blogg`, ev. polish; K-016 stängd; K-014 delmoment (footer → #cookies/#gdpr) |
 | **`1.txt`** — del B | **Integrationer + runtime-flöde** (registry, detektion, manifest, env, lansering, deploy-API) | **~81%** | E2E runt deploy, valfri tuffare validering före deploy (`K-007`), fler providers bara vid produktnytta |
 | **`2.txt`** | **Own-engine** (stream-routes tunna, session, finalize, golden tests, v0-gräns, **fas→modell** `B3-02`) | **~81%** | SSE/own-engine **utanför** avslutad W3-track (`K-009`), produktbeslut |
 | **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~98%** | **`B3-05`**: arkivera/ta bort `extract-static-core.mjs` när monolit-/fallback-prompten är borta |
@@ -86,17 +86,18 @@ Vid varje dokumenterad avstämning:
 | Segment | Done | Remaining | Koppling `1.txt`–`3.txt` |
 |--------|------|-----------|---------------------------|
 | **Whole vision** (syntes av tre dokument + tvärgrepp) | **~95%** | **~5%** | Se § *Kartläggning* ovan |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~88%** | **~12%** | **`1.txt` del A**; W1-track kryssat i MASTER |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~89%** | **~11%** | **`1.txt` del A**; W1-track kryssat i MASTER |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~81%** | **~19%** | **`1.txt` del B**; manifest + 409 + precheckOnly + skipAutoFix-tester m.m. |
 | **Own-engine** (`2.txt`, W3 + `B3-02`) | **~81%** | **~19%** | **`2.txt`**; kärnspår klart, marginaler i kritik-tabellen |
 | **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~98%** | **~2%** | **`3.txt`**; endast **B3-05** väntar på monolit-slut |
 
 ## Återstår (kort)
 
-Ungefär **~5%** av *whole vision* kvar: **integrationer + deploy** (**~81%** done enligt tabellen ovan — *inte* ~76%; följ § *Overall fill*) — **e2e kring deploy**, valfri hårdare validering (`K-007`, delmoment: `skipAutoFix`+`precheckOnly` Vitest + doc), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`); **buglista del 3** endast **B3-05**. **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008`, `/blogg`), copy (`K-014`). **K-016** (landnings-refaktor) **stängd** 2026-03-26 — landnings-UI utbrutet i moduler; valfritt kvar: dela stora sektioner i `chat-area` vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~5%** av *whole vision* kvar: **integrationer + deploy** (**~81%** done enligt tabellen ovan — *inte* ~76%; följ § *Overall fill*) — **e2e kring deploy**, valfri hårdare validering (`K-007`, delmoment: `skipAutoFix`+`precheckOnly` Vitest + doc), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`); **buglista del 3** endast **B3-05**. **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008`, `/blogg`), copy (`K-014` — delmoment: footer ankarlänkar till cookies/GDPR på `/privacy`; övrig copy kvar). **K-016** (landnings-refaktor) **stängd** 2026-03-26 — landnings-UI utbrutet i moduler; valfritt kvar: dela stora sektioner i `chat-area` vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
+- **W1 / K-014 delmoment (2026-03-26):** `landing-footer.tsx` — länkar **Cookies** och **GDPR** till `/privacy#cookies` respektive `/privacy#gdpr`; `src/app/privacy/page.tsx` — `id` på avsnitt 5–6 och `scroll-mt-24` för ankring.
 - **W2 / deploy-kontrakt (2026-03-26, K-007 delmoment):** Vitest för **`precheckOnly` + `skipAutoFix`** i `src/app/api/v0/deployments/route.test.ts`; `docs/architecture/deploy-precheck.md` § **Kontraktstester** (lista över mockade scenarier + notis om att Playwright-e2e är separat).
 - **W5 / kritik-hygien (2026-03-26):** Arkiverade handoff- och milstolpsfiler (`18–84pct-*`, m.fl.) under `.j_to_agent/archive/kritik-addressed/`; masterlista [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md); [`kritik-derived-backlog.md`](./kritik-derived-backlog.md) som pekare; [`KRITIK-OVERVIEW.md`](../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) + execution README; [`repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor* (ingen `.gitignore`-ändring krävd för orchestrator).
 - **Buglista del 3 (2026-03-25):** **B3-01, B3-02, B3-03, B3-04, B3-06, B3-07, B3-08** — `agent-workflows.md`, terminology cheat sheet, sandbox ephemeral-doc, `scripts/manual/scaffold-pipeline.py` + B3-05-notis vid `extract-static-core`, Vercel-skill routing, länkar i README/workloads/structure-doc/inventory/track-w4; **B3-02** `phase-routing.ts` (pro/max/codex: aux-faser → `gpt-4.1-mini`) + Vitest + `engine-status.md` + `model-build-profiles.md`.

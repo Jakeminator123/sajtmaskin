@@ -96,7 +96,7 @@ export default function PrivacyPage() {
             </ul>
           </Section>
 
-          <Section title="5. Cookies">
+          <Section title="5. Cookies" id="cookies">
             <p>Vi använder cookies för:</p>
             <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
               <li>
@@ -111,7 +111,7 @@ export default function PrivacyPage() {
             <p>Du kan hantera dina cookieinställningar via vår cookie-banner.</p>
           </Section>
 
-          <Section title="6. Dina rättigheter (GDPR)">
+          <Section title="6. Dina rättigheter (GDPR)" id="gdpr">
             <p>Du har rätt att:</p>
             <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
               <li>Begära tillgång till dina personuppgifter</li>
@@ -158,9 +158,17 @@ export default function PrivacyPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  id,
+  children,
+}: {
+  title: string;
+  id?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section>
+    <section id={id} className={id ? "scroll-mt-24" : undefined}>
       <h2 className="text-foreground mb-3 text-lg font-medium tracking-tight">{title}</h2>
       <div className="text-muted-foreground space-y-3 text-sm leading-relaxed">{children}</div>
     </section>
