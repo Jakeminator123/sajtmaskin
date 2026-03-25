@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Detect integration requirements from generated code.
  *
  * Scans generated source for env var references, known SDK imports,
@@ -99,7 +99,7 @@ export const DETECTION_PIPELINE: DetectionRule[] = [
     provider: "other",
     envVars: ["DATABASE_URL"],
     setupGuide:
-      "SQLite passar lokalt eller i enklare demos. Anvand t.ex. DATABASE_URL=file:./dev.db. For Vercel-deployad datahantering ar en hostad databas ofta battre.",
+      "SQLite passar lokalt eller i enklare demos. Använd t.ex. DATABASE_URL=file:./dev.db. För Vercel-deployad datahantering är en hostad databas ofta bättre.",
   },
   {
     source: "registry",
