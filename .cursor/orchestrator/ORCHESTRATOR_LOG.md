@@ -1,3 +1,5 @@
+2026-03-26 (pm) — Run `2026-03-26-external-review`: W1 **klar** (commit `62cdcd2b`, ~34pct); W4 readonly logg skriven under `agent-logs/`. Nästa: W2 integrationer/deploy eller W4 implementation efter scope.
+
 2026-03-26 (pm) — Orchestrator run `2026-03-26-external-review`: workloads `01-01-w1`, `02-01-w4` skrivna under `.cursor/orchestrator/run/` (lokal). Git-spårbar sammanfattning: `docs/plans/active/orchestrator-run-2026-03-26.md`. Tier-3 Task-agenter startade mot W1 + W4.
 
 2026-03-26 — Tier2 parallel wave complete (UTF-8 data + registry scaffold). Typecheck OK. Next: wire detect-integrations to registry; LandingHero/Footer split.
