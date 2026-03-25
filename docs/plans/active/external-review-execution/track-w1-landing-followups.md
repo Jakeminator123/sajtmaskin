@@ -18,6 +18,7 @@
 
 - [x] **3D / in-view:** `ParticleOrb` (R3F) mountas först efter `useInView`; tom yta tills dess — minskar WebGL-kostnad ovanför fold; `dpr={[1, 1.65]}` när Canvas är aktiv
 - [x] **LanyardBadge:** `useInView` — drop + pendel-RAF startar först i viewport; `usePrefersReducedMotion` — statiskt kort, ingen `animate-ping`, ingen drag
+- [x] **Tailwind v4 (Lanyard):** gradient-remsa — `bg-linear-to-br` (ersätter `bg-gradient-to-br` per projekt-ESLint)
 - [x] **IntegrationCard:** `usePrefersReducedMotion` — ingen `float-particle-kf` vid reduce; `FeatureModal`-partiklar samma
 - [x] **Produkt:** dedikerade sidor **`/om`** och **`/blogg`** + landnings-footer uppdaterad; sitemap inkluderar `/faq`, `/om`, `/blogg`
 

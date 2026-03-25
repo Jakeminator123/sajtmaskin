@@ -214,3 +214,11 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** lanyard-badge.tsx, particle-orb.tsx, track-w1, progress
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-27-landing-3d-balance-173732/`
 
+## 2026-03-27-tailwind-v4-gradient-hygiene (archived 2026-03-25 17:43)
+- **Scope:** Align landing Lanyard and audit budget visuals with Tailwind v4 linear gradient utilities; keep K-008 open for product signoff.
+- **Workloads:** 1 completed, 1 verified.
+- **Outcome:** `lanyard-badge.tsx` — `bg-linear-to-br`
+- **Outcome:** `BudgetEstimate.tsx` — `bg-linear-to-r`
+- **Outcome:** Progress, MASTER, track-w1, ORCHESTRATOR_LOG, kritik batch note
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-27-tailwind-v4-gradient-hygiene-174338/`
+

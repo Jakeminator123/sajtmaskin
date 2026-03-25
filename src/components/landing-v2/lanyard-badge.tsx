@@ -230,7 +230,7 @@ export function LanyardBadge() {
               style={{ backfaceVisibility: "hidden" }}
             >
               <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-7 h-2.5 rounded-full bg-background/80 border border-border/20 z-10" />
-              <div className="h-11 bg-gradient-to-br from-primary/10 via-primary/3 to-transparent" />
+              <div className="h-11 bg-linear-to-br from-primary/10 via-primary/3 to-transparent" />
 
               <div className="px-4 pb-4 -mt-1">
                 <div className="w-9 h-9 rounded-lg bg-primary/8 border border-primary/15 flex items-center justify-center mb-2 shadow-md shadow-primary/5">

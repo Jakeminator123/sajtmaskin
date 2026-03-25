@@ -10,9 +10,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Commit-uppföljning (second opinion):** [reviews/README.md](./reviews/README.md) — t.ex. systematisk genomgång av orchestrator-commits efter brytpunkt `39fef25e` ([detaljer](./reviews/orchestrator-followup-from-39fef25e.md)).
 
-Last code touch: **Orchestrator-run ~99% — K-008 mer 3D + parallell a11y** — `lanyard-badge.tsx`: **in-view** (`useInView`) innan drop/pendel **RAF**; **`prefers-reduced-motion`** → statiskt kort, ingen **`animate-ping`**, ingen drag. `particle-orb.tsx`: **`dpr={[1, 1.65]}`** när WebGL är aktiv (skarpare sfär, tak för retina). **track-w1** uppdaterad. **Whole ~99%** (kvar ~**1%**); **K-008** `[ ]` tills produkt säger landningspolish klar.
+Last code touch: **Orchestrator-run ~99% — Tailwind v4 gradient-hygien** — `lanyard-badge.tsx`: **`bg-linear-to-br`** (ersätter `bg-gradient-to-br`, ESLint/Tailwind v4). `BudgetEstimate.tsx`: **`bg-linear-to-r`** på budgetstapel (samma konvention). **track-w1** + kryss för Lanyard-stripen. **Whole ~99%**; **K-008** `[ ]` tills produkt säger landningspolish klar.
 
-**Tidigare batch:** How it works lazy WebGL + terminal reduce + deploy/sitemap-doc; landning ~94%.
+**Tidigare batch:** Lanyard in-view + reduce; ParticleOrb `dpr`; How it works lazy WebGL + terminal reduce + deploy/sitemap-doc.
 
 **Tidigare (längre bak):** sitemap-regressionstest; K-008 blogg + `e2e/README`; orchestrator-hygien; K-014/K-007 delmoment; K-016 stängd.
 
@@ -101,6 +101,7 @@ Ungefär **~1%** av *whole vision* kvar: **integrationer + deploy** (**~83%** do
 
 ## Done (in repo)
 
+- **W1 + audit / Tailwind v4 (2026-03-27, orchestrator-run):** `lanyard-badge.tsx` — `bg-linear-to-br`; `BudgetEstimate.tsx` — `bg-linear-to-r`. **`track-w1-landing-followups.md`** (Lanyard-rad). *Run arkiverad lokalt:* `2026-03-27-tailwind-v4-gradient-hygiene` (se `run-summaries.md`).
 - **W1 / K-008 delmoment (2026-03-27, orchestrator-run 2):** `lanyard-badge.tsx` — in-view innan fysik; reduced-motion → statiskt kort; `particle-orb.tsx` — `dpr` tak. **`track-w1-landing-followups.md`** uppdaterad. *Run arkiverad lokalt:* `2026-03-27-landing-3d-balance` (se `run-summaries.md`).
 - **W1 / K-008 delmoment (2026-03-27, orchestrator-run):** `landing-how-it-works-lazy.tsx` — WebGL först vid in-view; reduced-motion → statisk fallback; `chat-area.tsx` terminalmarkör respekterar reduce. **`deploy-precheck.md`** § *Framtida fördjupning (K-007 / produkt)*. **`sitemap.ts`** — JSDoc-checklista vid nya marknadssidor. *Lokal run:* `2026-03-27-external-review-final-pct` → arkiverad.
 - **Gen / route-plan (2026-03-27):** `route-plan.ts` — promptmönster **om oss** → **`/om`** (`Om oss`); engelska **about** / **company** / **story** → **`/about`**; `route-plan.test.ts`. **Cursor-regel:** [`.cursor/rules/parallel-agent-collision-safety.mdc`](../../../.cursor/rules/parallel-agent-collision-safety.mdc) § *Before git push*.

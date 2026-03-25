@@ -1,3 +1,5 @@
+2026-03-27 — **Orchestrator-run → ~99% (Tailwind v4 gradients):** `lanyard-badge.tsx` `bg-linear-to-br`; `BudgetEstimate.tsx` `bg-linear-to-r`; `track-w1-landing-followups.md`; run `2026-03-27-tailwind-v4-gradient-hygiene` arkiverad; typecheck + vitest (387); **K-008** `[ ]`; push `origin/master`.
+
 2026-03-27 — **Orchestrator-run → ~99% (K-008 3D + balance):** `lanyard-badge.tsx` in-view före RAF/drop + reduced-motion statiskt; `particle-orb.tsx` `dpr={[1,1.65]}`; `track-w1-landing-followups.md`; run `2026-03-27-landing-3d-balance` arkiverad; whole **~99%**; **K-008** `[ ]`; push `origin/master`.
 
 2026-03-27 — **Orchestrator-run → ~98% whole (K-008 in-view):** `landing-how-it-works-lazy.tsx` + `chat-area` terminal reduce; `deploy-precheck.md` § K-007-framtid; `sitemap.ts` checklist; run `2026-03-27-external-review-final-pct` arkiverad lokalt; typecheck + vitest (387); **K-008** fortfarande `[ ]`; push `origin/master`.

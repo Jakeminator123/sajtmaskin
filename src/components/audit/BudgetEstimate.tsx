@@ -118,7 +118,7 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
                     initial={{ width: 0 }}
                     animate={{ width: "100%" }}
                     transition={{ duration: 1, delay: 0.5 + index * 0.1 }}
-                    className={`h-full bg-gradient-to-r ${
+                    className={`h-full bg-linear-to-r ${
                       rangeColorClasses[range.color]?.gradient || rangeColorClasses.teal.gradient
                     }`}
                   />
