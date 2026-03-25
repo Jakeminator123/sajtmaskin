@@ -8,13 +8,13 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Whole vision ~96% + sitemap-regression** — `STATIC_SITEMAP_REL_PATHS` exporterad från `sitemap.ts` + `sitemap.test.ts` (384 Vitest); **whole** höjd från ~95% till **~96%** (kvar ~4%); **3.txt**-segment **~99%** (enbart **B3-05** kvar).
+Last code touch: **Whole ~97% + B3-05 stängd** — `scripts/extract-static-core.mjs` **borttaget** (`STATIC_CORE`-monolit finns inte i `system-prompt.ts`); `scripts/README.md`, `prompt-tree.md`, `buglista-del-3.md`, `track-w4-scripts.md` uppdaterade. **Buglista del 3** (`B3-*`) **komplett**. **3.txt**-segment **~100%**; **whole ~97%** (kvar ~3%).
 
-**Tidigare:** K-008 blogg + `e2e/README` deploy-notis; orchestrator-hygien + dokumenthierarki; K-014/K-007 delmoment; K-016 stängd.
+**Tidigare:** sitemap-regressionstest; K-008 blogg + `e2e/README`; orchestrator-hygien; K-014/K-007 delmoment; K-016 stängd.
 
-**Final sweep / handoff (2026-03-27):** `npm run typecheck` och `npx vitest run` (86 filer, **384** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**4 %** whole kvar).
+**Final sweep / handoff (2026-03-27):** `npm run typecheck` och `npx vitest run` (86 filer, **384** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**3 %** whole kvar).
 
-**Siffror (snabb):** **~96%** *whole vision* — höjd från ~95% efter ackumulerade segment-leveranser + sitemap-regressionstest; se tabell § *Overall fill* och § *Kartläggning* nedan.
+**Siffror (snabb):** **~97%** *whole vision* — bl.a. **B3-05** / hel **buglista del 3** stängd; se tabell § *Overall fill* och § *Kartläggning* nedan.
 
 ## Kartläggning mot källfiler (1.txt, 2.txt, 3.txt)
 
@@ -25,9 +25,9 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 | **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~90%** | Mer in-view 3D (`K-008`); riktiga blogginlägg / CMS senare; ev. polish; K-016 stängd; K-014 delmoment (footer → #cookies/#gdpr) |
 | **`1.txt`** — del B | **Integrationer + runtime-flöde** (registry, detektion, manifest, env, lansering, deploy-API) | **~82%** | HTTP-e2e runt deploy (auth), valfri tuffare validering (`K-007`); `e2e/README` pekar på Vitest-kontrakt; fler providers vid produktnytta |
 | **`2.txt`** | **Own-engine** (stream-routes tunna, session, finalize, golden tests, v0-gräns, **fas→modell** `B3-02`) | **~81%** | SSE/own-engine **utanför** avslutad W3-track (`K-009`), produktbeslut |
-| **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~99%** | **`B3-05`**: arkivera/ta bort `extract-static-core.mjs` när monolit-/fallback-prompten är borta |
+| **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~100%** | Underhåll vid **ny** extern granskning av `3.txt`; inga öppna B3-punkter |
 
-**Whole vision (~96%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har HTTP-e2e kvar.
+**Whole vision (~97%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har HTTP-e2e kvar.
 
 *Jämförelse mot gamla antaganden:* `3.txt` nämnde att `phase-routing.ts` bara var “förberedelse” — **det stämmer inte längre**; **B3-02** ger riktig fasmodell för OpenAI-profiler (`pro`/`max`/`codex`). Uppdatera mentalt modellen där.
 
@@ -85,25 +85,26 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining | Koppling `1.txt`–`3.txt` |
 |--------|------|-----------|---------------------------|
-| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~96%** | **~4%** | Se § *Kartläggning* ovan |
+| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~97%** | **~3%** | Se § *Kartläggning* ovan |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~90%** | **~10%** | **`1.txt` del A**; W1-track kryssat i MASTER |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~82%** | **~18%** | **`1.txt` del B**; manifest + 409 + precheckOnly + skipAutoFix-tester; `e2e/README` deploy-notis |
 | **Own-engine** (`2.txt`, W3 + `B3-02`) | **~81%** | **~19%** | **`2.txt`**; kärnspår klart, marginaler i kritik-tabellen |
-| **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~99%** | **~1%** | **`3.txt`**; endast **B3-05** väntar på monolit-slut |
+| **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~100%** | **~0%** | **`3.txt`**; buglista del 3 komplett (B3-05 skript borttaget 2026-03-27) |
 
 ## Återstår (kort)
 
-Ungefär **~4%** av *whole vision* kvar: **integrationer + deploy** (**~82%** done enligt tabellen ovan — *inte* ~76%; följ § *Overall fill*) — **HTTP-e2e kring deploy** (auth), valfri hårdare validering (`K-007`; delmoment: Vitest + `deploy-precheck` + `e2e/README`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`); **buglista del 3** endast **B3-05**. **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008` — delmoment: `/blogg` utökad placeholder + länkar; in-view 3D m.m. kvar), copy (`K-014` — delmoment: footer → `/privacy#…`; övrig copy kvar). **K-016** (landnings-refaktor) **stängd** 2026-03-26 — landnings-UI utbrutet i moduler; valfritt kvar: dela stora sektioner i `chat-area` vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~3%** av *whole vision* kvar: **integrationer + deploy** (**~82%** done enligt tabellen ovan — *inte* ~76%; följ § *Overall fill*) — **HTTP-e2e kring deploy** (auth), valfri hårdare validering (`K-007`; delmoment: Vitest + `deploy-precheck` + `e2e/README`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`). **Buglista del 3** — **komplett** (B3-05 levererad). **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008` — delmoment: `/blogg` utökad placeholder + länkar; in-view 3D m.m. kvar), copy (`K-014` — delmoment: footer → `/privacy#…`; övrig copy kvar). **K-016** (landnings-refaktor) **stängd** 2026-03-26 — landnings-UI utbrutet i moduler; valfritt kvar: dela stora sektioner i `chat-area` vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
+- **B3-05 / W4 (2026-03-27):** `scripts/extract-static-core.mjs` borttaget — monolitisk `STATIC_CORE` i `system-prompt.ts` finns inte; statisk kärna via `static-core-loader` + `config/prompt-static/`. Uppdaterat: `scripts/README.md`, `docs/architecture/prompt-tree.md`, `buglista-del-3.md`, `track-w4-scripts.md`.
 - **SEO / marknads-rutter (2026-03-27):** `src/app/sitemap.ts` — `STATIC_SITEMAP_REL_PATHS` + `src/app/sitemap.test.ts` (blogg/om/juridik m.m. får inte tyst falla bort).
 - **W1 + W2 / doc (2026-03-27):** `src/app/blogg/page.tsx` — planerade teman + *Mer att läsa*; `e2e/README.md` — § *Builder & deploy API* (Vitest `deployments/route.test.ts`, `deploy-precheck.md`, auth-krav för HTTP-e2e).
 - **Orchestrator / doc (2026-03-26):** Arkiverade hängande `run/`-mappar (scaffold-sandbox-migration, tier2-continue) med explicit deferral i FINAL-rapporter; execution README § *Dokumenthierarki*; tydligare roll för `1.txt`–`3.txt` vs operativ styrning i denna fil.
 - **W1 / K-014 delmoment (2026-03-26):** `landing-footer.tsx` — länkar **Cookies** och **GDPR** till `/privacy#cookies` respektive `/privacy#gdpr`; `src/app/privacy/page.tsx` — `id` på avsnitt 5–6 och `scroll-mt-24` för ankring.
 - **W2 / deploy-kontrakt (2026-03-26, K-007 delmoment):** Vitest för **`precheckOnly` + `skipAutoFix`** i `src/app/api/v0/deployments/route.test.ts`; `docs/architecture/deploy-precheck.md` § **Kontraktstester** (lista över mockade scenarier + notis om att Playwright-e2e är separat).
 - **W5 / kritik-hygien (2026-03-26):** Arkiverade handoff- och milstolpsfiler (`18–84pct-*`, m.fl.) under `.j_to_agent/archive/kritik-addressed/`; masterlista [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md); [`kritik-derived-backlog.md`](./kritik-derived-backlog.md) som pekare; [`KRITIK-OVERVIEW.md`](../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) + execution README; [`repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor* (ingen `.gitignore`-ändring krävd för orchestrator).
-- **Buglista del 3 (2026-03-25):** **B3-01, B3-02, B3-03, B3-04, B3-06, B3-07, B3-08** — `agent-workflows.md`, terminology cheat sheet, sandbox ephemeral-doc, `scripts/manual/scaffold-pipeline.py` + B3-05-notis vid `extract-static-core`, Vercel-skill routing, länkar i README/workloads/structure-doc/inventory/track-w4; **B3-02** `phase-routing.ts` (pro/max/codex: aux-faser → `gpt-4.1-mini`) + Vitest + `engine-status.md` + `model-build-profiles.md`.
+- **Buglista del 3 (2026-03-25 ff., komplett 2026-03-27):** **B3-01 … B3-08** inkl. **B3-05** (borttaget `extract-static-core.mjs`) — se `buglista-del-3.md`; historik: `agent-workflows.md`, terminology, sandbox-doc, `scaffold-pipeline.py` manuell path, Vercel-skill routing; **B3-02** `phase-routing.ts` + Vitest + `engine-status.md` + `model-build-profiles.md`.
 - **W3 (slice, `2.txt`):** Döda konstanter `STREAM_RESOLVE_MAX_ATTEMPTS` / `STREAM_RESOLVE_DELAY_MS` borttagna från `POST /api/v0/chats/stream` och follow-up-stream-routen (användes inte). `createOwnEnginePlanModeResponse` tar inte längre `modelId` i params — planner-modell kommer enbart från `resolvePhaseModel(modelTier, "planner")` i SSE-meta (undviker vilseledande dubbel källa).
 - **W3 (namngivning):** `createGenerationPipeline` flyttad till **`src/lib/gen/generation-pipeline.ts`**; `src/lib/gen/fallback.ts` re-exporterar för äldre importvägar. Stream-routes, MCP `generate-site`, Vitest-mocks och `run-eval` needles uppdaterade; `docs/architecture/v0-soft-deprecation.md` justerad.
 - **W3 (contract gate):** `createPreGenerationContractGateReadableStream` i **`src/lib/providers/own-engine/pre-generation-contract-gate.ts`** — en SSE-sekvens för pre-generation contract clarification delas av nya chatten och follow-up (ny-chat lägger `chatPrivacy` / `scaffoldLabel` / `capabilities` i meta via explicita nycklar; follow-up utelämnar dem som tidigare).
@@ -168,7 +169,7 @@ Ungefär **~4%** av *whole vision* kvar: **integrationer + deploy** (**~82%** do
 2. ~~Utöka `integrationRegistry` + manifest + deploy-readiness~~ **Klart** (uppföljning: tunnare auto-fix / valideringsfas före deploy om behov).
 3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** ev. SSE/own-engine utanför track; integrationer+deploy-segment om ni prioriterar det.
 4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
-5. **`3.txt` — övriga spår:** [buglista-del-3.md](./external-review-execution/buglista-del-3.md) — kvar: **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta).
+5. ~~**`3.txt` — buglista del 3**~~ **Klart** (2026-03-27) — [buglista-del-3.md](./external-review-execution/buglista-del-3.md); alla **B3-** punkter levererade.
 6. **Kritik-backlog (parallell granskning):** [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) — samlade öppna punkter (kort pekare: [kritik-derived-backlog.md](./kritik-derived-backlog.md)); konfliktrisk mot sista integration/deploy-spåret.
 
 ## Uncertainties / product follow-ups

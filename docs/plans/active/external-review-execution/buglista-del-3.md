@@ -16,7 +16,7 @@
 | B3-02 | kod (modellval) | **Levererat:** **fas→modell** för pro/max/codex — planner+generator på profilmodell; fixer/verifier/deploy-assistant → `gpt-4.1-mini`. Fast och anthropic oförändrade (en modell per tier). |
 | B3-03 | dokumentation | En kort sida: **deep brief** (builder/prompt) vs **orchestrator-run** (`.cursor/orchestrator`, Cursor-arbetsflöde) |
 | B3-04 | dokumentation (arkitektur) | Sandbox/preview: **ephemeral** som norm, separat host för långlivade tjänster — sammanfoga med befintlig preview-/sandbox-doc |
-| B3-05 | hygien (scripts) | När monolit-/fallback-prompten fasas ut: **arkivera eller ta bort** `scripts/extract-static-core.mjs` |
+| B3-05 | hygien (scripts) | **Levererat (2026-03-27):** `extract-static-core.mjs` borttaget — `STATIC_CORE`-monolit finns inte i `system-prompt.ts` |
 | B3-06 | hygien (repo-struktur) | Överväg flytt av `scripts/scaffold-pipeline.py` till t.ex. `devtools/` eller `scripts/manual/` om den stör upptäckbarhet (idag dokumenterad som avancerad, ej `package.json`) |
 | B3-07 | Cursor / IDE | Verifiera att **vercel-react-best-practices** finns där `.cursor/rules/react-node-skill-routing.mdc` förväntar (plugin vs projektlokal skill); justera regeltext om path saknas |
 | B3-08 | dokumentation | Översikt: **runtime** vs **Cursor-agenter** vs **MCP** (repo-lokala servrar) — kan ligga i `docs/architecture/` eller utöka `.cursor/README.md` |
@@ -48,8 +48,7 @@
 
 ### B3-05 — `extract-static-core.mjs` (hygien)
 
-- [ ] När `config/codegen-static-prompt.json` + fragment är **enda** sanning och monolit-fallback tagits bort: flytta skriptet till `docs/old/scripts/` eller ta bort + grep efter referenser.
-- **Idag:** **legacy** i `scripts/README.md` (W4) + kort **B3-05**-förhandskrav i samma avsnitt (2026-03-25).
+- [x] **2026-03-27:** `STATIC_CORE`-export finns inte längre i `system-prompt.ts` (loader + `config/prompt-static/`). Skriptet **borttaget**; `scripts/README.md`, `prompt-tree.md`, progress uppdaterade.
 
 ### B3-06 — `scaffold-pipeline.py` (struktur)
 

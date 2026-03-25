@@ -295,11 +295,9 @@ npm run scaffolds:discover:full
 
 **OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`docs/architecture/vercel-templates-playwright-scaffold-integration.txt`](../docs/architecture/vercel-templates-playwright-scaffold-integration.txt). Översikt: [`docs/architecture/vercel-templates-discovery.md`](../docs/architecture/vercel-templates-discovery.md), [`e2e/README.md`](../e2e/README.md).
 
-## extract-static-core.mjs (avancerat, ej i package.json)
+## ~~extract-static-core.mjs~~ (borttagen, 2026-03-27)
 
-Underhåll: plockar ut `STATIC_CORE` från `src/lib/gen/system-prompt.ts` till `config/systemprompt.md` om mönstret finns. Kör `node scripts/extract-static-core.mjs` när du medvetet synkar statisk prompt till fil.
-
-**B3-05 / framtida städ:** när `config/codegen-static-prompt.json` + fragment är **enda** sanning och monolit-fallback i `system-prompt.ts` är borta — arkivera eller ta bort detta skript och uppdatera referenser (se [`buglista-del-3.md`](../docs/plans/active/external-review-execution/buglista-del-3.md)).
+Tidigare: extraherade `STATIC_CORE`-template från `system-prompt.ts` till `config/systemprompt.md`. **Monoliten är borta** — statisk kärna laddas via `getStaticCoreFromWorkspace` / `config/prompt-static/` (se `src/lib/gen/static-core-loader.ts`). Skriptet togs bort som **B3-05**.
 
 ## scaffold-pipeline.py (avancerat, ej i package.json)
 

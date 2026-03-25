@@ -192,8 +192,9 @@ dynamic boundary for tooling uses `SYSTEM_PROMPT_SEPARATOR` from
 `system-prompt.ts`.
 
 **Split / extract maintenance:** `scripts/split-codegen-static-prompt.mjs`
-(npm `codegen:split-static-prompt`); `scripts/extract-static-core.mjs` targets
-`config/systemprompt.md` when needed.
+(npm `codegen:split-static-prompt`). ~~`extract-static-core.mjs`~~ fanns för monolitisk
+`STATIC_CORE` i `system-prompt.ts` (borttaget 2026-03-27); statisk kärna kommer från
+`config/prompt-static/` via `static-core-loader`.
 
 Contains: tech stack rules, output format (CodeProject), shadcn/ui component
 catalog, visual design quality guidelines, art direction, typography, layout
