@@ -1,6 +1,10 @@
-# Arkiverade kritik-snapshots (åtgärdade)
+# Arkiverade kritik-snapshots
 
-Här ligger **parallella granskningsfiler** (`NNpct-*.md` m.fl.) som har **slutits i kod/docs**, **ersatts av konsoliderad backlog**, eller flyttats hit som **historik** efter batch 2026-03-26.
+Här ligger **parallella granskningsfiler** (`NNpct-*.md` m.fl.) som flyttats ut ur `kritik/` — för **städning och historik**, inte som bevis att varje rad i dem är fixad i produkten.
+
+- **Öppna buggar / uppföljning** ska spåras i [`docs/plans/active/kritik-consolidated-open-items.md`](../../../docs/plans/active/kritik-consolidated-open-items.md) (rader med `[ ]`).
+- Många filer kom hit i **batch 2026-03-26** därför att innehållet **slogs ihop** i den konsoliderade tabellen eller räknades som levererat tidigare; det är **inte** samma sak som “inga risker kvar”.
+- **`42pct-v.md`** är ett undantag: punkterna C-101–C-104 stängdes uttryckligen i kod/docs innan arkivering.
 
 **Levande öppna punkter:** [`docs/plans/active/kritik-consolidated-open-items.md`](../../../docs/plans/active/kritik-consolidated-open-items.md).
 

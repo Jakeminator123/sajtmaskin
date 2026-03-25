@@ -2,6 +2,8 @@
 
 **Syfte:** En **enda** levande lista över buggar / förbättringar som återstår efter att `.j_to_agent/structure_bugs_and_parralells/kritik/*.md` (utom nedan) **arkiverats** under [`../../../.j_to_agent/archive/kritik-addressed/`](../../../.j_to_agent/archive/kritik-addressed/README.md). Dubbletter mellan filer är sammanslagna till **en rad per tema**.
 
+**Viktigt:** Att en `NNpct-*.md` ligger i **arkiv** betyder bara att **själva filen** inte längre ska vara “aktiv handoff” i `kritik/`. Det betyder **inte** automatiskt att varje påstående i den filen är fixat i kod. Öppet arbete ska synas här (`[ ]` i tabellen nedan) eller under *Stängda / införlivade* om vi medvetet behandlar det som klart. Arkiverade filer finns kvar i git för kontext.
+
 **Sanning om framsteg:** [`external-review-remediation-progress.md`](./external-review-remediation-progress.md) + `git log origin/master`.
 
 **Relaterat:** [`external-review-execution/buglista-del-3.md`](./external-review-execution/buglista-del-3.md) (`.j_to_agent/3.txt`), [`kritik-derived-backlog.md`](./kritik-derived-backlog.md) (kort pekare hit).
