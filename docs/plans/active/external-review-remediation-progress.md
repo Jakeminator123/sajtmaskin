@@ -2,9 +2,9 @@
 
 Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator).
 
-Last code touch: Tier-2 våg — UTF-8-literaler i `landing-chat-data.ts`; ny `src/lib/integrations/registry.ts` (scaffold, ej kopplad till `detect-integrations` än).
+Last code touch: `detect-integrations.ts` använder `DETECTION_PIPELINE` + metadata från `integrationRegistry` för de sex första klass-integrationerna; övriga kvar som inline-regler.
 
-**Siffror:** **~24%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~58%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet.
+**Siffror:** **~29%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~62%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -20,9 +20,9 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~27%** | **~73%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~29%** | **~71%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~62%** | **~38%** |
-| **Integrationer + deploy** (`1.txt` steg 5–7) | **~8%** | **~92%** |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~22%** | **~78%** |
 | **Own-engine** (`2.txt`) | **~0%** | **~100%** |
 | **Scripts / naming hygiene** (`3.txt`) | **~0%** | **~100%** |
 
@@ -36,13 +36,14 @@ Vid varje dokumenterad avstämning:
 - Zod-feature copy: Drizzle / server actions / API.
 - Footer: `/privacy`, `/terms`, `/faq`, `mailto:`; inga falska social-URL:er.
 - Video-knapp: väljer Analyserad + toast.
-- `integrationRegistry` + typer i `src/lib/integrations/registry.ts` (nästa: koppla `detect-integrations` / UI hit).
+- `integrationRegistry` + typer; `detectIntegrations()` läser namn/envVars/setupGuide därifrån via `DETECTION_PIPELINE` (regex kvar i `detect-integrations.ts`).
+- `scripts/run-eval.ts` needle-checks uppdaterade (registry + pipeline).
 
 ## Next (recommended order)
 
 1. Bryt ut JSX-sektioner från `chat-area.tsx` till `LandingHero`, `LandingFooter`, m.m. (`1.txt` — kvar efter controller).
 2. `LandingBackground` semantiskt per läge; färre samtidiga effekter; mer reduced-motion / in-view för 3D.
-3. Växla `detect-integrations` + ev. wizard/panel till att läsa från `integrationRegistry`; manifest + tunnare deploy (`1.txt`).
+3. Utöka `integrationRegistry` med fler providers (Clerk, GA, …) eller manifest vid generering; tunnare deploy (`1.txt`).
 4. Own-engine remediation (`2.txt`).
 5. Scripts-städ (`hamta_sidor*`, lab-mappar, README-drift) (`3.txt`).
 

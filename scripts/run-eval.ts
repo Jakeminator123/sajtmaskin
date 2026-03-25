@@ -1,4 +1,4 @@
-﻿import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -19,6 +19,7 @@ const REPO_FILES = {
   streamHandlers: "src/lib/hooks/chat/stream-handlers.ts",
   agentTools: "src/lib/gen/agent-tools.ts",
   detectIntegrations: "src/lib/gen/detect-integrations.ts",
+  integrationRegistry: "src/lib/integrations/registry.ts",
   planPrompt: "src/lib/gen/plan-prompt.ts",
   planExecution: "src/lib/gen/plan-execution.ts",
   validateAndFix: "src/lib/gen/autofix/validate-and-fix.ts",
@@ -108,7 +109,8 @@ function buildRepoCheck(
 function buildRepoCapabilityChecks(repoTexts: Record<RepoFileKey, string>): CheckResult[] {
   return [
     buildRepoCheck(repoTexts, "integration-detection", "Integration registry and signaling are wired", [
-      { file: "detectIntegrations", needle: "const KNOWN_INTEGRATIONS", label: "integration registry" },
+      { file: "integrationRegistry", needle: "export const integrationRegistry", label: "integration registry" },
+      { file: "detectIntegrations", needle: "DETECTION_PIPELINE", label: "integration detection pipeline" },
       { file: "detectIntegrations", needle: "export function detectIntegrations", label: "integration detector" },
       { file: "agentTools", needle: "suggestIntegration", label: "integration tool" },
     ]),
@@ -119,8 +121,8 @@ function buildRepoCapabilityChecks(repoTexts: Record<RepoFileKey, string>): Chec
     ]),
     buildRepoCheck(repoTexts, "provider-guide", "Detected integrations include setup guides", [
       { file: "detectIntegrations", needle: "setupGuide", label: "setup guide metadata" },
-      { file: "detectIntegrations", needle: "Skapa ett projekt på supabase.com", label: "provider-specific guide content" },
-      { file: "detectIntegrations", needle: "results.push({", label: "detection result emission" },
+      { file: "integrationRegistry", needle: "Skapa ett projekt på supabase.com", label: "provider-specific guide content" },
+      { file: "detectIntegrations", needle: "results.push", label: "detection result emission" },
     ]),
     buildRepoCheck(repoTexts, "plan-structure", "Plan prompt and emitted artifacts are implemented", [
       { file: "planPrompt", needle: "PLAN_SYSTEM_PROMPT", label: "planner system prompt" },

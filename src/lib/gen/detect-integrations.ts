@@ -4,7 +4,13 @@
  * Scans generated source for env var references, known SDK imports,
  * and common integration patterns.  Returns signals that the client
  * renders as integration cards and env-var prompts.
+ *
+ * Display metadata for registry-backed providers comes from
+ * `integrationRegistry` (`src/lib/integrations/registry.ts`); this file
+ * only supplies detection patterns and inline-only integrations.
  */
+
+import { integrationRegistry } from "@/lib/integrations/registry";
 
 export type DetectedIntegration = {
   key: string;
@@ -18,111 +24,122 @@ export type DetectedIntegration = {
 
 const ENV_VAR_PATTERN = /process\.env\.([A-Z][A-Z0-9_]{2,})/g;
 
-type KnownIntegration = {
-  pattern: RegExp;
-  name: string;
-  provider: string;
-  envVars: string[];
-  setupGuide: string;
-};
+const REGISTRY_BY_PROVIDER = new Map(
+  integrationRegistry.map((d) => [d.provider ?? d.key, d] as const),
+);
 
-const KNOWN_INTEGRATIONS: KnownIntegration[] = [
+type DetectionRule =
+  | { source: "registry"; pattern: RegExp; registryProvider: string }
+  | {
+      source: "inline";
+      pattern: RegExp;
+      name: string;
+      provider: string;
+      envVars: string[];
+      setupGuide: string;
+    };
+
+/**
+ * Ordered detection rules: registry-backed rows pull name/envVars/setupGuide
+ * from `integrationRegistry`; inline rows keep local metadata (patterns only
+ * in this module).
+ */
+export const DETECTION_PIPELINE: DetectionRule[] = [
   {
+    source: "registry",
     pattern: /(?:@supabase\/|createClient.*supabase|SUPABASE_)/i,
-    name: "Supabase",
-    provider: "supabase",
-    envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
-    setupGuide: "Skapa ett projekt pa supabase.com. Kopiera Project URL och anon/public key fran Settings > API.",
+    registryProvider: "supabase",
   },
   {
+    source: "registry",
     pattern: /(?:stripe|STRIPE_)/i,
-    name: "Stripe",
-    provider: "stripe",
-    envVars: ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY"],
-    setupGuide: "Logga in på dashboard.stripe.com. Kopiera nycklar från Developers > API keys. Använd test-nycklar under utveckling.",
+    registryProvider: "stripe",
   },
   {
+    source: "inline",
     pattern: /(?:@clerk\/|CLERK_)/i,
     name: "Clerk",
     provider: "clerk",
     envVars: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
-    setupGuide: "Skapa en applikation på clerk.com. Kopiera Secret key och Publishable key från API Keys.",
+    setupGuide:
+      "Skapa en applikation på clerk.com. Kopiera Secret key och Publishable key från API Keys.",
   },
   {
+    source: "inline",
     pattern: /(?:@auth\/|AUTH_SECRET|NEXTAUTH_)/i,
     name: "NextAuth / Auth.js",
     provider: "next-auth",
     envVars: ["AUTH_SECRET", "NEXTAUTH_URL"],
-    setupGuide: "Generera AUTH_SECRET med: npx auth secret. Sätt NEXTAUTH_URL till din site-URL (t.ex. http://localhost:3000).",
+    setupGuide:
+      "Generera AUTH_SECRET med: npx auth secret. Sätt NEXTAUTH_URL till din site-URL (t.ex. http://localhost:3000).",
   },
   {
+    source: "registry",
     pattern: /(?:resend|RESEND_)/i,
-    name: "Resend",
-    provider: "resend",
-    envVars: ["RESEND_API_KEY"],
-    setupGuide: "Skapa konto på resend.com. Skapa en API-nyckel under API Keys. Verifiera din domän för produktion.",
+    registryProvider: "resend",
   },
   {
+    source: "registry",
     pattern: /(?:@upstash\/|UPSTASH_)/i,
-    name: "Upstash",
-    provider: "upstash",
-    envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
-    setupGuide: "Skapa en Redis-databas på console.upstash.com. Kopiera REST URL och REST Token.",
+    registryProvider: "upstash",
   },
   {
+    source: "inline",
     pattern: /(?:@prisma\/|prisma\.)/i,
     name: "Prisma",
     provider: "prisma",
-    /** Intentionally no envVars: Prisma is an ORM in the generated app, not a connectable "integration".
-     *  Requiring DATABASE_URL here made the builder panel show red for almost every Prisma scaffold
-     *  even when preview works with sqlite/file or mock data. DATABASE_URL belongs in setupGuide/deploy. */
     envVars: [],
     setupGuide:
       "Prisma är ett ORM-lager i den genererade koden — inte en separat Sajtmaskin-integration. Sätt DATABASE_URL i ditt Vercel-projekt när du kopplar en riktig databas (t.ex. Postgres). För lokal preview räcker ofta SQLite (file:./…) utan att denna panel ska lysa rött.",
   },
   {
+    source: "inline",
     pattern: /(?:better-sqlite3|sqlite|drizzle-orm\/sqlite|file:\.\/.*\.db)/i,
     name: "SQLite",
     provider: "other",
     envVars: ["DATABASE_URL"],
-    setupGuide: "SQLite passar lokalt eller i enklare demos. Anvand t.ex. DATABASE_URL=file:./dev.db. For Vercel-deployad datahantering ar en hostad databas ofta battre.",
+    setupGuide:
+      "SQLite passar lokalt eller i enklare demos. Anvand t.ex. DATABASE_URL=file:./dev.db. For Vercel-deployad datahantering ar en hostad databas ofta battre.",
   },
   {
+    source: "registry",
     pattern: /(?:openai|OPENAI_API_KEY)/i,
-    name: "OpenAI",
-    provider: "openai",
-    envVars: ["OPENAI_API_KEY"],
-    setupGuide: "Hämta din API-nyckel från platform.openai.com/api-keys.",
+    registryProvider: "openai",
   },
   {
+    source: "registry",
     pattern: /(?:@vercel\/blob|BLOB_)/i,
-    name: "Vercel Blob",
-    provider: "vercel-blob",
-    envVars: ["BLOB_READ_WRITE_TOKEN"],
-    setupGuide: "Lägg till Blob Store i ditt Vercel-projekt via Storage-fliken. Token skapas automatiskt.",
+    registryProvider: "vercel-blob",
   },
   {
+    source: "inline",
     pattern: /(?:@vercel\/kv|KV_REST_API_)/i,
     name: "Vercel KV",
     provider: "vercel-kv",
     envVars: ["KV_REST_API_URL", "KV_REST_API_TOKEN"],
-    setupGuide: "Lägg till KV Store i ditt Vercel-projekt via Storage-fliken. Variabler skapas automatiskt.",
+    setupGuide:
+      "Lägg till KV Store i ditt Vercel-projekt via Storage-fliken. Variabler skapas automatiskt.",
   },
   {
+    source: "inline",
     pattern: /(?:googleapis|GOOGLE_)/i,
     name: "Google APIs",
     provider: "google",
     envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
-    setupGuide: "Skapa OAuth-klient i Google Cloud Console > APIs & Services > Credentials.",
+    setupGuide:
+      "Skapa OAuth-klient i Google Cloud Console > APIs & Services > Credentials.",
   },
   {
+    source: "inline",
     pattern: /(?:gtag\(|google-analytics|GA_MEASUREMENT_ID|NEXT_PUBLIC_GA_ID)/i,
     name: "Google Analytics 4",
     provider: "google-analytics",
     envVars: ["NEXT_PUBLIC_GA_ID"],
-    setupGuide: "Skapa en GA4 property i Google Analytics och sätt measurement ID som NEXT_PUBLIC_GA_ID.",
+    setupGuide:
+      "Skapa en GA4 property i Google Analytics och sätt measurement ID som NEXT_PUBLIC_GA_ID.",
   },
   {
+    source: "inline",
     pattern: /(?:googletagmanager|dataLayer|NEXT_PUBLIC_GTM_ID|GTM-[A-Z0-9]+)/i,
     name: "Google Tag Manager",
     provider: "gtm",
@@ -130,25 +147,31 @@ const KNOWN_INTEGRATIONS: KnownIntegration[] = [
     setupGuide: "Skapa en GTM-container och sätt container-ID som NEXT_PUBLIC_GTM_ID.",
   },
   {
+    source: "inline",
     pattern: /(?:@vercel\/analytics|<Analytics\b|from\s+["']@vercel\/analytics)/i,
     name: "Vercel Analytics",
     provider: "vercel-analytics",
     envVars: [],
-    setupGuide: "Aktivera Vercel Analytics i projektet och behåll Analytics-komponenten i layouten.",
+    setupGuide:
+      "Aktivera Vercel Analytics i projektet och behåll Analytics-komponenten i layouten.",
   },
   {
+    source: "inline",
     pattern: /(?:plausible|NEXT_PUBLIC_PLAUSIBLE_DOMAIN)/i,
     name: "Plausible",
     provider: "plausible",
     envVars: ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
-    setupGuide: "Skapa sajt i Plausible och sätt domänen som NEXT_PUBLIC_PLAUSIBLE_DOMAIN.",
+    setupGuide:
+      "Skapa sajt i Plausible och sätt domänen som NEXT_PUBLIC_PLAUSIBLE_DOMAIN.",
   },
   {
+    source: "inline",
     pattern: /(?:posthog|NEXT_PUBLIC_POSTHOG_KEY|NEXT_PUBLIC_POSTHOG_HOST)/i,
     name: "PostHog",
     provider: "posthog",
     envVars: ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST"],
-    setupGuide: "Skapa project i PostHog och sätt API key + host i NEXT_PUBLIC_POSTHOG_KEY och NEXT_PUBLIC_POSTHOG_HOST.",
+    setupGuide:
+      "Skapa project i PostHog och sätt API key + host i NEXT_PUBLIC_POSTHOG_KEY och NEXT_PUBLIC_POSTHOG_HOST.",
   },
 ];
 
@@ -164,21 +187,44 @@ const WELL_KNOWN_PUBLIC_VARS = new Set([
 
 export function detectIntegrations(code: string): DetectedIntegration[] {
   const results: DetectedIntegration[] = [];
-  const seenKeys = new Set<string>();
+  const seenProviders = new Set<string>();
 
-  for (const integration of KNOWN_INTEGRATIONS) {
-    if (integration.pattern.test(code) && !seenKeys.has(integration.provider)) {
-      seenKeys.add(integration.provider);
+  for (const rule of DETECTION_PIPELINE) {
+    if (!rule.pattern.test(code)) continue;
+
+    if (rule.source === "registry") {
+      const def = REGISTRY_BY_PROVIDER.get(rule.registryProvider);
+      if (!def) {
+        throw new Error(
+          `detect-integrations: missing integrationRegistry entry for "${rule.registryProvider}"`,
+        );
+      }
+      const providerId = def.provider ?? def.key;
+      if (seenProviders.has(providerId)) continue;
+      seenProviders.add(providerId);
       results.push({
-        key: integration.provider,
-        name: integration.name,
-        provider: integration.provider,
+        key: def.key,
+        name: def.name,
+        provider: providerId,
         intent: "env_vars",
-        envVars: integration.envVars,
+        envVars: def.envVars,
         status: "Kräver konfiguration",
-        setupGuide: integration.setupGuide,
+        setupGuide: def.setupGuide,
       });
+      continue;
     }
+
+    if (seenProviders.has(rule.provider)) continue;
+    seenProviders.add(rule.provider);
+    results.push({
+      key: rule.provider,
+      name: rule.name,
+      provider: rule.provider,
+      intent: "env_vars",
+      envVars: rule.envVars,
+      status: "Kräver konfiguration",
+      setupGuide: rule.setupGuide,
+    });
   }
 
   const envMatches = new Set<string>();
