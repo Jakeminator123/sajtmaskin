@@ -2,9 +2,9 @@
 
 Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator). **Agent-uppdelning:** `docs/plans/active/orchestrator-workloads-external-review.md`.
 
-Last code touch: **W3** — `finalizeAndSaveVersion`: assistant-meddelande sparas **efter** parse/merge/preflight; vid misslyckad `createDraftVersion` rensas raden via `deleteEngineMessage`. Tidigare samma pass: delad contract-gate SSE, `generation-pipeline.ts` kanon, m.m. **Playwright / e2e:** kanon `e2e/vercel-templates/` — se `vercel-templates-playwright-scaffold-integration.txt`.
+Last code touch: **W3** — **golden tests** för pre-generation contract-gate SSE (`pre-generation-contract-gate.golden.test.ts`: eventordning, stabil `toolCallId` under fake timers, follow-up vs new-chat meta). Tidigare: finalize assistant efter preflight + `deleteEngineMessage`, delad contract-gate SSE, m.m. **Playwright / e2e:** kanon `e2e/vercel-templates/` — se `vercel-templates-playwright-scaffold-integration.txt`.
 
-**Siffror:** **~47%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Scripts-spåret** ~32% efter README/inventory-sweep; höj till **~43%** helhet när du kört din återstående script/README-runda.
+**Siffror:** **~48%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Scripts-spåret** ~32% efter README/inventory-sweep; höj till **~43%** helhet när du kört din återstående script/README-runda.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -20,15 +20,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~47%** | **~53%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~48%** | **~52%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~72%** | **~28%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~52%** | **~48%** |
-| **Own-engine** (`2.txt`) | **~18%** | **~82%** |
+| **Own-engine** (`2.txt`) | **~19%** | **~81%** |
 | **Scripts / naming hygiene** (`3.txt`) | **~32%** | **~68%** |
 
 ## Återstår (kort)
 
-Ungefär **~53%** av *whole vision* kvar: egen motor (största gapet, **~82%** kvar av `2.txt`-spåret — session-abstraktion, full DB-transaktion om ni vill, SSE-golden tests, fel **efter** lyckad version (telemetri m.m.) utan rollback av hela versionen), scripts/README-runda (**~68%** kvar), valfri hård deploy-gate / färre auto-fix. Landning + integrations/deploy är närmare klara i jämförelse.
+Ungefär **~52%** av *whole vision* kvar: egen motor (största gapet, **~81%** kvar av `2.txt`-spåret — session-abstraktion, full DB-transaktion om ni vill, **fler** SSE/stream-golden tests, fel **efter** lyckad version utan rollback av hela versionen), scripts/README-runda (**~68%** kvar), valfri hård deploy-gate / färre auto-fix. Landning + integrations/deploy är närmare klara i jämförelse.
 
 ## Done (in repo)
 
@@ -36,6 +36,7 @@ Ungefär **~53%** av *whole vision* kvar: egen motor (största gapet, **~82%** k
 - **W3 (namngivning):** `createGenerationPipeline` flyttad till **`src/lib/gen/generation-pipeline.ts`**; `src/lib/gen/fallback.ts` re-exporterar för äldre importvägar. Stream-routes, MCP `generate-site`, Vitest-mocks och `run-eval` needles uppdaterade; `docs/architecture/v0-soft-deprecation.md` justerad.
 - **W3 (contract gate):** `createPreGenerationContractGateReadableStream` i **`src/lib/providers/own-engine/pre-generation-contract-gate.ts`** — en SSE-sekvens för pre-generation contract clarification delas av nya chatten och follow-up (ny-chat lägger `chatPrivacy` / `scaffoldLabel` / `capabilities` i meta via explicita nycklar; follow-up utelämnar dem som tidigare).
 - **W3 (finalize / orphans):** `finalizeAndSaveVersion` skriver assistant-rad **efter** merge + preflight; **`deleteEngineMessage`** i `chat-repository-pg` vid misslyckad `createDraftVersion`. Vitest: rollback-case + rätt mock för `createGenerationTelemetryRecord` via `@/lib/db/services`.
+- **W3 (SSE golden):** `pre-generation-contract-gate.golden.test.ts` — avkodar SSE från `createPreGenerationContractGateReadableStream`, låser eventordning och skillnad follow-up vs new-chat-meta.
 - **Repo-städ / dokumentation (final sweep-uppföljning):** `config-dashboard/` + `docs/architecture/config-dashboard-sources.md` spårade; `docs/README.md` länkar dit. Uppdaterade `.cursor/rules/*`, `.cursor/settings.json`, `.cursorignore`. Borttagna duplicerade `.j_to_agent/.../deep-research-report (1|2).md`; kritik-filer under samma mapp trimmade/uppdaterade (inkl. nya anteckningar där de lades till lokalt).
 - Landning: statisk copy/data i `landing-chat-data.ts`; delade hooks i `landing-hooks.ts`; state/build-flöde i `useLandingController` (`use-landing-controller.ts`).
 - 3D tilt + tech/integration card glow + terminal glow: DOM / CSS-variabler, inte `setState` per rörelse.
