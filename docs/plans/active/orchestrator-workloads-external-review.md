@@ -22,6 +22,7 @@
 
 - **Scope:** Utöka `integrationRegistry` + ev. manifest-modell; tunna deploy-steg enligt `1.txt` steg 6–7.
 - **Acceptance:** En källa för provider-metadata som UI/detektion/deploy kan dela; dokumenterat i progress.
+- **Status (2026-03-25):** Registry + detektion delat för Clerk, Auth.js, Google OAuth, GA4, GTM, Vercel Analytics, Plausible, PostHog, Vercel KV. **Kvar:** generator-manifest + deploy-tunning.
 
 ## W3 — Own-engine remediation
 

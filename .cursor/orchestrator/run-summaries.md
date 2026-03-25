@@ -118,3 +118,10 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-26-external-review-030151/`
 
+## 2026-03-25-external-review-w2 (archived 2026-03-25 03:54)
+- **Scope:** W2: registry canonical for Clerk, next-auth, Google OAuth, GA4, GTM, Vercel Analytics, Plausible, PostHog, Vercel KV; detection uses registry rules. Vitest excludes e2e. Manifest/deploy thinning deferred.
+- **Workloads:** 1 completed, 1 verified.
+- **Outcome:** Registry + pipeline alignment
+- **Outcome:** vitest.config e2e exclude
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-25-external-review-w2-035404/`
+

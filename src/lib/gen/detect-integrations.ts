@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Detect integration requirements from generated code.
  *
  * Scans generated source for env var references, known SDK imports,
@@ -56,22 +56,14 @@ export const DETECTION_PIPELINE: DetectionRule[] = [
     registryProvider: "stripe",
   },
   {
-    source: "inline",
+    source: "registry",
     pattern: /(?:@clerk\/|CLERK_)/i,
-    name: "Clerk",
-    provider: "clerk",
-    envVars: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
-    setupGuide:
-      "Skapa en applikation på clerk.com. Kopiera Secret key och Publishable key från API Keys.",
+    registryProvider: "clerk",
   },
   {
-    source: "inline",
+    source: "registry",
     pattern: /(?:@auth\/|AUTH_SECRET|NEXTAUTH_)/i,
-    name: "NextAuth / Auth.js",
-    provider: "next-auth",
-    envVars: ["AUTH_SECRET", "NEXTAUTH_URL"],
-    setupGuide:
-      "Generera AUTH_SECRET med: npx auth secret. Sätt NEXTAUTH_URL till din site-URL (t.ex. http://localhost:3000).",
+    registryProvider: "next-auth",
   },
   {
     source: "registry",
@@ -112,66 +104,39 @@ export const DETECTION_PIPELINE: DetectionRule[] = [
     registryProvider: "vercel-blob",
   },
   {
-    source: "inline",
+    source: "registry",
     pattern: /(?:@vercel\/kv|KV_REST_API_)/i,
-    name: "Vercel KV",
-    provider: "vercel-kv",
-    envVars: ["KV_REST_API_URL", "KV_REST_API_TOKEN"],
-    setupGuide:
-      "Lägg till KV Store i ditt Vercel-projekt via Storage-fliken. Variabler skapas automatiskt.",
+    registryProvider: "vercel-kv",
   },
   {
-    source: "inline",
+    source: "registry",
     pattern: /(?:googleapis|GOOGLE_)/i,
-    name: "Google APIs",
-    provider: "google",
-    envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
-    setupGuide:
-      "Skapa OAuth-klient i Google Cloud Console > APIs & Services > Credentials.",
+    registryProvider: "google",
   },
   {
-    source: "inline",
+    source: "registry",
     pattern: /(?:gtag\(|google-analytics|GA_MEASUREMENT_ID|NEXT_PUBLIC_GA_ID)/i,
-    name: "Google Analytics 4",
-    provider: "google-analytics",
-    envVars: ["NEXT_PUBLIC_GA_ID"],
-    setupGuide:
-      "Skapa en GA4 property i Google Analytics och sätt measurement ID som NEXT_PUBLIC_GA_ID.",
+    registryProvider: "google-analytics",
   },
   {
-    source: "inline",
+    source: "registry",
     pattern: /(?:googletagmanager|dataLayer|NEXT_PUBLIC_GTM_ID|GTM-[A-Z0-9]+)/i,
-    name: "Google Tag Manager",
-    provider: "gtm",
-    envVars: ["NEXT_PUBLIC_GTM_ID"],
-    setupGuide: "Skapa en GTM-container och sätt container-ID som NEXT_PUBLIC_GTM_ID.",
+    registryProvider: "gtm",
   },
   {
-    source: "inline",
+    source: "registry",
     pattern: /(?:@vercel\/analytics|<Analytics\b|from\s+["']@vercel\/analytics)/i,
-    name: "Vercel Analytics",
-    provider: "vercel-analytics",
-    envVars: [],
-    setupGuide:
-      "Aktivera Vercel Analytics i projektet och behåll Analytics-komponenten i layouten.",
+    registryProvider: "vercel-analytics",
   },
   {
-    source: "inline",
+    source: "registry",
     pattern: /(?:plausible|NEXT_PUBLIC_PLAUSIBLE_DOMAIN)/i,
-    name: "Plausible",
-    provider: "plausible",
-    envVars: ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
-    setupGuide:
-      "Skapa sajt i Plausible och sätt domänen som NEXT_PUBLIC_PLAUSIBLE_DOMAIN.",
+    registryProvider: "plausible",
   },
   {
-    source: "inline",
+    source: "registry",
     pattern: /(?:posthog|NEXT_PUBLIC_POSTHOG_KEY|NEXT_PUBLIC_POSTHOG_HOST)/i,
-    name: "PostHog",
-    provider: "posthog",
-    envVars: ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST"],
-    setupGuide:
-      "Skapa project i PostHog och sätt API key + host i NEXT_PUBLIC_POSTHOG_KEY och NEXT_PUBLIC_POSTHOG_HOST.",
+    registryProvider: "posthog",
   },
 ];
 
