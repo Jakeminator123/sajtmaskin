@@ -11,10 +11,11 @@ Du kör en **orchestrated run** som **standardflöde** — inte ad hoc parallell
 
 ## Bakgrund — var vi befinner oss
 
-- **Remediation-spår:** Extern review + uppföljning enligt `docs/plans/active/external-review-remediation-progress.md` (ungefärlig **whole vision ~39%**; landning ~72%; integrationer+deploy ~38% efter registry-del av W2; own-engine ~0%; scripts ~32%).
-- **Sekventiella workloads:** `docs/plans/active/orchestrator-workloads-external-review.md` (W1–W5). **W1** och **W2 (registry + detektion)** är delvis levererade på `master`; **kvar inom W2:** manifest + tunnare deploy. Därefter **W3** (own-engine), **W4** (scripts/naming hygiene). W5 = valfri läsning av `.j_to_agent/structure_bugs_and_parralells/kritik/`.
+- **Remediation-spår:** Läs **`docs/plans/active/external-review-remediation-progress.md`** för aktuella procentsiffror, “Last code touch”, Done och Next. **Kopiera inte gamla % hit** — denna fil är en mall.
+- **Sekventiella workloads:** `docs/plans/active/orchestrator-workloads-external-review.md` (W1–W5) — öppna den för vad som gäller *nu* (status ändras löpande på `master`).
+- **Genomförande / tracks:** `docs/plans/active/external-review-execution/README.md` + `MASTER-ROADMAP.md`.
 - **Källtexter (kontext, ofta ej för commit):** `.j_to_agent/1.txt`, `2.txt`, `3.txt`.
-- **Playwright / “spökmapp”:** **Löst** — kanonisk spec under `e2e/vercel-templates/` (spårad); `vercel_templates_levels/` valfri lokal spillra. Detaljer: `docs/architecture/vercel-templates-playwright-scaffold-integration.txt`.
+- **Playwright / mall-research:** Kanonisk spec under `e2e/vercel-templates/`; `vercel_templates_levels/` valfri lokal spillra. Detaljer: `docs/architecture/vercel-templates-playwright-scaffold-integration.txt`.
 
 ## Instruktion
 

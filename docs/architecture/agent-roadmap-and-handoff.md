@@ -4,7 +4,12 @@ This file is the operational handoff index for plan artifacts. Use it when a new
 agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
-Status re-verified `2026-03-24` (docs tightening). Earlier verification
+**Maintenance:** The **authoritative list** of archived vs active plan *files* is
+[`docs/plans/README.md`](../plans/README.md). Do not duplicate that inventory as a
+wide table here — it goes stale. This document keeps **read order**, **working
+rules**, and **narrative** that `plans/README` does not carry.
+
+Status re-verified `2026-03-26` (hub + plan index + handoff drift). Earlier verification
 `2026-03-18` after orchestrator runs `2026-03-18-plan9-10-completion`,
 `2026-03-18-wl11-migrations-qa`, and `2026-03-18-plan-finalization-and-cleanup`.
 
@@ -20,23 +25,9 @@ Status re-verified `2026-03-24` (docs tightening). Earlier verification
 
 | Plan file | Status | Notes |
 |------|--------|-------|
-| `01-design-system-registry.md` | `archived` | Legacy v0 registry-design-system plan; remaining ideas are optional follow-up, not current roadmap work |
-| `02-custom-domain-self-service.md` | `archived` | Domain flow is largely implemented; any remaining domain readiness belongs under Phase 1 launch readiness |
-| `03-v0-env-vars-proper-sdk.md` | `archived` | Env-var plan is implemented and overtaken; remaining work is maintenance plus Phase 1-3 hardening |
-| `04-deploy-sse-webhooks.md` | `archived` | SSE/webhook architecture is implemented; remaining deployment-event access hardening is carried into Phase 1 |
-| `05-template-search-ui.md` | `archived` | Template search UI is implemented; any future context-aware recommendations belong under Phase 2 planning/onboarding |
-| `06-world-class-builder-roadmap.md` | `archived` | Strategic top-level roadmap — all 4 phases complete |
-| `07-world-class-builder-phase-1-trust-launch.md` | `archived` | Completed trust/launch phase: version lifecycle, readiness, diagnostics, preview labeling, deploy gating |
-| `08-world-class-builder-phase-2-site-planning.md` | `archived` | Completed planning-layer phase for the own-engine path; remaining future parity/orchestration work should be treated as new roadmap scope |
-| `09-world-class-builder-phase-3-smb-growth.md` | `archived` | **COMPLETED** -- Team editor, SEO guarantees, integration setup wizard, version diff/rollback UX |
-| `10-world-class-builder-phase-4-learning-moat.md` | `archived` | **LEVERERAT** -- All 6 workstreams delivered. DB tables live. Remaining: production validation only. |
 | `17-repo-separation-and-independence.md` | `active` | **WS-1–WS-4 delivered** (v0 fallback off main builder path, Blob `StorageProvider`, direct provider calls). Remaining: WS-5/6 + env/docs cleanup — see plan file. |
-| `11-next-vercel-build-plan-core-config.md` | `archived` | Completed phased optimization plan (core Next.js config) |
-| `12-next-vercel-build-plan-server-routes.md` | `archived` | Completed phased optimization plan (server/API improvements) |
-| `13-next-vercel-build-plan-ui-performance.md` | `archived` | Completed phased optimization plan (UI rendering improvements) |
-| `14-critical-runtime-fixes.md` | `archived` | **COMPLETED** -- Token budgets, credit commit, config drift, Vercel cancellation |
-| `15-builder-robustness.md` | `archived` | **COMPLETED** -- Builder entry edge case, clarification persistence |
-| `16-provider-adapter-architecture.md` | `archived` | **COMPLETED** -- Model extraction, stream contract, plan-mode isolation, generation stream extraction |
+
+**Archived numbered plans (`01`–`16`)** plus dated archives: filenames, completion labels, and provenance live in [`docs/plans/README.md`](../plans/README.md) under **`archived`**. For per-plan narrative that used to live only here, open the archived `.md` file in `docs/plans/archived/`.
 
 ## Current active-phase notes
 
@@ -93,35 +84,20 @@ Status re-verified `2026-03-24` (docs tightening). Earlier verification
 - Archived plans `11` through `13` provide useful performance groundwork, but
   do not change the `07` -> `08` -> `09` -> `10` execution order
 
-## Latest session: 2026-03-18 Plan 9+10 completion and finalization
+## Historical closure (March 2026)
 
-Five orchestrator runs completed and archived (3 from 2026-03-17, 2 from 2026-03-18):
-
-1. **2026-03-17-architecture-cleanup**: Plans 14-16 baseline. Deploy SSE fix,
-   abort signal threading, schema guards, plan-mode extraction, follow-up
-   clarification extraction, import normalization.
-2. **2026-03-17-stream-extraction**: v0 model compat shims removed, model
-   selection test moved to neutral home.
-3. **2026-03-17 continued**: Own-engine generation stream loop extracted to
-   `src/lib/providers/own-engine/generation-stream.ts`. Plan 16 marked complete.
-4. **2026-03-18-plan9-10-completion**: Plan 9 closed out (team editor, SEO
-   guarantees, setup wizard, version diffs). All 6 Plan 10 workstreams
-   delivered (telemetry, feedback, scaffold learning, collaboration, model
-   routing, eval suite). 47 files, +3529 lines. Commit `e3ba515`.
-5. **2026-03-18-wl11-migrations-qa**: V0 fallback stream extracted to provider
-   module (-928 lines from routes). DB migrations applied to Supabase. React
-   best practices QA. 11 files, +920/-960 lines. Commit `8aef51a`.
-
-Key commits on `main`: `033e5a9` through `564821c`.
-
-6. **2026-03-18 fix**: Critical client-bundle fix — scaffold-scoring.ts
-   imported `pg` (Node.js-only) which broke the builder client bundle. Fixed
-   by moving scoring integration from `matcher.ts` to `orchestrate.ts`
-   (server-only). First eval baseline saved: 14/15 PASS, 95% avg score.
+Plans **14–16** (runtime/builder hardening), **9–10** (SMB growth + learning moat
+workstreams), and v0-fallback stream extraction landed via orchestrator runs
+**2026-03-17**–**2026-03-18** (e.g. commits `e3ba515`, `8aef51a` on `main` at the
+time). Forensics: `docs/plans/archived/`, `git log`, and closure notes such as
+`docs/old/analyses/phase-08-plan-persistence-and-orchestration.md` — do not treat
+the bullet list below as the live product checklist.
 
 ## Handoff notes for next agent
 
 ### What is done
+
+*Snapshot from 2026-03-18; validate against `docs/architecture/engine-status.md` and code before assuming nothing moved.*
 
 - **Plans 01-09, 11-16**: all **COMPLETED** and archived
 - **Plan 10** (learning moat): all 6 workstreams have code, DB tables live

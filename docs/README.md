@@ -18,6 +18,8 @@
 3. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 4. `docs/ENV.md` — env topology when debugging deploy/local.
 
+**Orchestrator / remediation:** Färska procentsiffror och “Done / Next” finns bara i [`docs/plans/active/external-review-remediation-progress.md`](plans/active/external-review-remediation-progress.md). Kopieringsmallar (t.ex. `orchestrator-handoff-sequential-stramning.md`) ska **inte** duplicera % — uppdatera alltid källfilen vid leverans.
+
 Everything else is deep reference, history, or plans.
 
 **Folder map:** `architecture/` (system docs) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `old/` (history; analyses under `old/analyses/`). Routing policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
@@ -87,6 +89,9 @@ Not runtime dependencies:
 | Plans (all buckets) | `docs/plans/README.md` |
 | Doc lifecycle / where to put drafts | `docs/architecture/documentation-lifecycle.md` |
 | Plan / agent handoff index | `docs/architecture/agent-roadmap-and-handoff.md` |
+| External review — progress, %, commit-rutin | `docs/plans/active/external-review-remediation-progress.md` |
+| External review — W1–W5 workloads | `docs/plans/active/orchestrator-workloads-external-review.md` |
+| External review — execution (tracks, MASTER-ROADMAP) | `docs/plans/active/external-review-execution/README.md` |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Terminology (folders + research flow) | `docs/architecture/structure-and-terminology.md` |
 | Vercel Templates discovery + Playwright + scaffolds (full narrativ) | `docs/architecture/vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt` |

@@ -6,10 +6,14 @@ Subfolders (`active/`, `review-needed/`, `archived/`) keep a one-line `README.md
 
 ## Current status map
 
-Last tightened `2026-03-24` (docs hub + terminology cross-links).
+Last tightened `2026-03-26` (hub links, plan index, handoff drift).
 
 `active`
 
+- `active/external-review-remediation-progress.md` — **sanning** för externreview-remediation: helhets-% per segment, “Last code touch”, commit-/push-rutin, Done / Next.
+- `active/orchestrator-workloads-external-review.md` — W1–W5 workload-översikt (landning, integrationer, own-engine, scripts, kritik).
+- `active/orchestrator-handoff-sequential-stramning.md` — kopieringsmall för `/orchestrator`-körning; **läs progress-filen ovan** för aktuella siffror (mallen innehåller inte färska %).
+- `active/external-review-execution/` — genomförande: `README.md`, `CONTINUATION.md`, `MASTER-ROADMAP.md`, track-filer (W1–W4), orchestrator-loggrutor.
 - `active/17-repo-separation-and-independence.md` — repo separation / independence:
   **WS-1–WS-4 largely delivered** (v0 fallback removed from builder paths, Blob
   `StorageProvider`, direct OpenAI/Anthropic for former gateway routes). **Still

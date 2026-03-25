@@ -41,8 +41,8 @@ Use these three states consistently:
 
 Do **not** duplicate the plan inventory here — it goes stale quickly. Use:
 
-- `docs/plans/README.md` — bucket list and short status map
-- `docs/architecture/agent-roadmap-and-handoff.md` — handoff narrative
+- `docs/plans/README.md` — bucket list and short status map (authoritative file list)
+- `docs/architecture/agent-roadmap-and-handoff.md` — read order, working rules, and narrative (not a duplicate plan table)
 
 ## Schema rule
 
@@ -50,10 +50,8 @@ Do **not** duplicate the plan inventory here — it goes stale quickly. Use:
 
 If a schema note is exploratory, partially true, or comparing alternatives:
 
-- put it under `docs/old/analyses/` while it is active thinking (there is no
-  top-level `docs/analyses/` folder at the moment), or create `docs/analyses/`
-  again if you want that bucket back — then update `docs/README.md`
-- put it in `docs/old/schemas/` if it is historical or superseded
+- put it under **`docs/old/analyses/`** while it is active thinking (standard bucket; update [`docs/README.md`](../README.md) if you add a new index there)
+- put it in **`docs/old/schemas/`** if it is historical or superseded schema material
 
 ## Update checklist
 
