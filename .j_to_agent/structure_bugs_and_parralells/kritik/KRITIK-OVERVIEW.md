@@ -35,6 +35,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `81pct-p.md` | `7696f1f8` — `/om`, `/blogg`, footer, sitemap (~81%). |
 | `82pct-u.md` | `304bf6d5` — W2 409 UX i `useBuilderDeployActions` + docs sync (~82%). |
 | `83pct-s.md` | `fe22c9ee` — Sentry i registry + detektion; builder lansering-copy (~83%). |
+| `83pct-b.md` | `4f3fd5f5` — en lanseringsyta (Lansering-kort), `deploy-readiness-copy` + Vitest, kortare hints (~83% oförändrat). |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
 
