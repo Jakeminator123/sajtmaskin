@@ -12,6 +12,7 @@ const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
+const addMessage = vi.hoisted(() => vi.fn());
 const deleteEngineMessage = vi.hoisted(() => vi.fn());
 const logGeneration = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
@@ -63,6 +64,7 @@ vi.mock("@/lib/gen/project-scaffold", () => ({
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
+  addMessage,
   deleteEngineMessage,
   logGeneration,
   failVersionVerification,
@@ -120,6 +122,7 @@ describe("finalizeAndSaveVersion", () => {
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
     addAssistantMessageAndCreateDraftVersion.mockReset();
+    addMessage.mockReset();
     deleteEngineMessage.mockReset();
     logGeneration.mockReset();
     failVersionVerification.mockReset();
@@ -187,11 +190,27 @@ describe("finalizeAndSaveVersion", () => {
       message: { id: "msg_1" },
       version: { id: "ver_1" },
     });
+    addMessage.mockResolvedValue({ id: "orphan_msg" });
     deleteEngineMessage.mockResolvedValue(true);
     logGeneration.mockResolvedValue({});
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
     buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
+  });
+
+  it("does not call addMessage for assistant rows (avoids orphan assistant without version)", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(addMessage).not.toHaveBeenCalled();
+    expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalledTimes(1);
   });
 
   it("propagates when transactional assistant+draft persist fails (no manual message delete)", async () => {

@@ -28,7 +28,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 ### Fas A — Pågående huvudfokus (hög hastighet)
 
-- [ ] **W3** — Own-engine session + transaktioner/golden enligt [track-w3-own-engine.md](./track-w3-own-engine.md) (alla `[ ]` under *Återstår* bockade)
+- [x] **W3** — Own-engine session + transaktioner/golden enligt [track-w3-own-engine.md](./track-w3-own-engine.md) (alla `[ ]` under *Återstår* bockade, 2026-03-25)
 - [ ] **W4** — Scripts/README/lab enligt [track-w4-scripts.md](./track-w4-scripts.md) (alla `[ ]` under *Återstår* bockade)
 
 ### Fas B — Valfri hårdning
@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | typecheck + vitest (345) | ~69%: W3 **exit** — `finalize-version` orphan-regression, `own-engine-v0-boundary.test.ts`, Fas A W3 `[x]`; `v0-soft-deprecation.md` boundary-notis |
 | 2026-03-25 | master | typecheck + vitest (343) | ~66%: `generation-stream.golden.test.ts`; track W3 generation-SSE golden `[x]`; progress noterar parallell kritik-agent |
 | 2026-03-25 | master | typecheck + vitest (342) | ~64%: `addAssistantMessageAndCreateDraftVersion`, `finalizeAndSaveVersion`, `finalize-version.test.ts`; track W3 transactional finalize + post-persist doc |
 | 2026-03-25 | master | typecheck + vitest + eslint (plan-mode + routes) | ~61%: `own-engine-plan-mode.ts`, båda chat-stream-routes, `own-engine-plan-mode.test.ts`; progress/track uppdaterade |

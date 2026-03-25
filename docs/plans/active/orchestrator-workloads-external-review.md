@@ -30,7 +30,7 @@
 
 - **Scope:** Följ discovery + ev. `scripts/own-engine-remediation.mjs` i `.j_to_agent/2.txt`; isolera legacy v0-provider; transactional finalize / SSE-golden tests när kodbasen matchar.
 - **Acceptance:** Inga orphan assistant messages i nya flöden; typecheck + relevanta tester gröna.
-- **Status (forts.):** Borttagna oanvända `STREAM_RESOLVE_*`; `createOwnEnginePlanModeResponse` utan redundant `modelId`; **`generation-pipeline.ts`** kanon + `fallback.ts` re-export; delad contract-gate SSE; **`addAssistantMessageAndCreateDraftVersion`** (transaktionell assistant + draft); finalize JSDoc (best-effort steg efter persist); Vitest golden contract-gate + **`generation-stream.golden.test.ts`**; **`own-engine-build-session.ts`:** `buildOwnEngineGenerationStreamMeta`, **`buildPreGenerationContractGateParams`**; **`own-engine-pipeline-generation.ts`:** **`createOwnEnginePipelineAndGenerationStream`**; **`own-engine-plan-mode.ts`**. **Kvar:** orphan-regression / v0-adapter-gräns / valfritt fler generation-stream-scenarier.
+- **Status (2026-03-25):** **Track komplett** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). Levererat: pipeline/plan-mode/session-hjälpare, transaktionell finalize, contract-gate + generation golden tests, orphan-regression i `finalize-version.test.ts`, **`own-engine-v0-boundary.test.ts`**, notis i `v0-soft-deprecation.md`. **Nästa huvudfokus i Fas A:** **W4** scripts.
 
 ## W4 — Scripts / naming hygiene
 

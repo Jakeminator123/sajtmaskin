@@ -45,11 +45,11 @@
 ### Tester
 
 - [x] **Fler golden / integrationstester** för **generation**-SSE (inte bara contract-gate): `generation-stream.golden.test.ts` — inspelad pipeline-SSE (`content` + `done`), mockad `finalizeAndSaveVersion` + `db`/sandbox av, låser `chatId` → `meta` → `content*` → `done` och finalize-anrop
-- [ ] **Regression:** inga orphan assistant-meddelanden i nya flöden (behåll/utöka tester vid finalize-ändringar)
+- [x] **Regression:** `finalize-version.test.ts` — mockad `addMessage` anropas inte vid lyckad finalize; endast `addAssistantMessageAndCreateDraftVersion`
 
 ### Legacy / gränser
 
-- [ ] **v0-provider path:** tydlig adapter bakom provider-resolver; own-engine session anropar inte v0-internals direkt (verifiera med grep + ev. liten refaktor)
+- [x] **v0-provider path:** `own-engine-v0-boundary.test.ts` — inga imports av `@/lib/v0/*` eller `v0-sdk` under `own-engine` / `providers/own-engine` (träden var redan rena; testet låser invarianten)
 
 ---
 
