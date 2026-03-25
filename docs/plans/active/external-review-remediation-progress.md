@@ -12,7 +12,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~24pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~31pct — kort vad som ändrats`.
 4. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 5. `git push` till `master` (eller din arbetsbranch).
 
@@ -39,6 +39,8 @@ Vid varje dokumenterad avstämning:
 - `integrationRegistry` + typer; `detectIntegrations()` läser namn/envVars/setupGuide därifrån via `DETECTION_PIPELINE` (regex kvar i `detect-integrations.ts`).
 - `scripts/run-eval.ts` needle-checks uppdaterade (registry + pipeline).
 - `landing-hero.tsx` / `landing-footer.tsx`: hero + footer JSX bort från monolitiska `chat-area.tsx`.
+- `extract-landing-chat-data.mjs`: avbryter om monolit-block saknas (förhindrar att gamla radnummer skriver sönder `landing-chat-data.ts`).
+- `write-tier2-run.mjs`: valfritt run-id som CLI-arg (`node scripts/write-tier2-run.mjs <id>`).
 
 ## Next (recommended order)
 

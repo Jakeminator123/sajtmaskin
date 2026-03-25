@@ -2,7 +2,8 @@ import fs from "node:fs"
 import path from "node:path"
 
 const root = process.cwd()
-const r = path.join(root, ".cursor/orchestrator/run/2026-03-26-tier2-continue")
+const runId = process.argv[2] || `2026-03-26-tier2-continue`
+const r = path.join(root, ".cursor/orchestrator/run", runId)
 
 function write(rel, s) {
   const p = path.join(r, rel)
@@ -12,7 +13,7 @@ function write(rel, s) {
 
 write(
   "ROADMAP.md",
-  `# ROADMAP — 2026-03-26-tier2-continue
+  `# ROADMAP — ${runId}
 
 ## Tier
 **Tier 2** — \`track-plans/\`; parallella tier-3 workloads när filer inte överlappar.
@@ -49,3 +50,4 @@ write("workloads/03-01-utf8-landing-data.md", "# 03-01\n\nUtför UTF-8-normalise
 write("workloads/03-02-integration-registry.md", "# 03-02\n\nSkapa registry scaffold.\n")
 
 console.log("written", r)
+console.log("usage: node scripts/write-tier2-run.mjs [run-id]")

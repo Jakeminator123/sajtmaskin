@@ -34,6 +34,9 @@ export interface ChatAreaProps {
   onAuditSubmit?: () => void
 }
 
+/** Return shape of `useLandingController` — for prop typing in split components (type-only imports). */
+export type LandingController = ReturnType<typeof useLandingController>
+
 export function useLandingController({
   selectedCategory: controlledCategory,
   onSelectedCategoryChange,

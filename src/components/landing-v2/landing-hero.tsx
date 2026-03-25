@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
 import { ParticleOrb } from "@/components/landing-v2/particle-orb"
 import { categories, stats } from "@/components/landing-v2/landing-chat-data"
-import type { ChatAreaProps } from "@/components/landing-v2/use-landing-controller"
-import { useLandingController } from "@/components/landing-v2/use-landing-controller"
+import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
 
 export type LandingHeroProps = Pick<
-  ReturnType<typeof useLandingController>,
+  LandingController,
   | "selectedCategory"
   | "pickCategory"
   | "showVoiceRecorder"
