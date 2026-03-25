@@ -1,4 +1,4 @@
-import { createSSEHeaders, formatSSEEvent } from "@/lib/streaming";
+import { createSSEHeaders } from "@/lib/streaming";
 import { createChatSchema } from "@/lib/validations/chatSchemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
@@ -56,6 +56,7 @@ import {
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
+import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import { createOwnEngineGenerationStream } from "@/lib/providers/own-engine/generation-stream";
 
 export const runtime = "nodejs";
@@ -544,71 +545,24 @@ export async function POST(req: Request) {
             kind: contractClarification.kind,
             reason: contractClarification.reason,
           });
-          const contractGateStream = new ReadableStream({
-            start(controller) {
-              const enc = new TextEncoder();
-              controller.enqueue(enc.encode(formatSSEEvent("chatId", { id: engineChat.id })));
-              controller.enqueue(
-                enc.encode(
-                  formatSSEEvent("meta", {
-                    modelId: engineModel,
-                    modelTier: resolvedModelTier,
-                    buildProfileId,
-                    buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-                    enginePath: "own-engine",
-                    thinking: resolvedThinking,
-                    imageGenerations: resolvedImageGenerations,
-                    chatPrivacy: resolvedChatPrivacy,
-                    scaffoldId: resolvedScaffold?.id ?? null,
-                    scaffoldFamily: resolvedScaffold?.family ?? null,
-                    scaffoldLabel: resolvedScaffold?.label ?? null,
-                    capabilities: engineCapabilities,
-                    contractDataMode: preGenerationContracts.contracts.dataMode,
-                    contractDatabaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
-                    contractAuthProvider: preGenerationContracts.contracts.authProvider ?? null,
-                    contractPaymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
-                    contractIntegrations: preGenerationContracts.contracts.integrations,
-                    contractEnvVars: preGenerationContracts.contracts.envVars,
-                    unresolvedContractDecisions: preGenerationContracts.unresolvedDecisions,
-                    promptStrategy: strategyMeta.strategy,
-                    promptType: strategyMeta.promptType,
-                    promptBudgetTarget: strategyMeta.budgetTarget,
-                    promptOriginalLength: strategyMeta.originalLength,
-                    promptOptimizedLength: strategyMeta.optimizedLength,
-                    promptReductionRatio: strategyMeta.reductionRatio,
-                    promptStrategyReason: strategyMeta.reason,
-                    promptComplexityScore: strategyMeta.complexityScore,
-                    systemPromptLength: 0,
-                    briefApplied: Boolean(metaBrief),
-                    customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
-                  }),
-                ),
-              );
-              controller.enqueue(
-                enc.encode(
-                  formatSSEEvent("tool-call", {
-                    toolName: "askClarifyingQuestion",
-                    toolCallId: `contracts-${Date.now()}`,
-                    args: contractClarification,
-                  }),
-                ),
-              );
-              controller.enqueue(enc.encode(formatSSEEvent("content", contractClarification.question)));
-              controller.enqueue(
-                enc.encode(
-                  formatSSEEvent("done", {
-                    chatId: engineChat.id,
-                    versionId: null,
-                    messageId: assistantQuestion?.id ?? null,
-                    demoUrl: null,
-                    awaitingInput: true,
-                    awaitingInputPrompt: contractClarification.question,
-                    reason: "pre_generation_contracts",
-                  }),
-                ),
-              );
-              controller.close();
-            },
+          const contractGateStream = createPreGenerationContractGateReadableStream({
+            sseChatId: engineChat.id,
+            assistantMessageId: assistantQuestion?.id ?? null,
+            contractClarification,
+            preGenerationContracts,
+            engineModel,
+            resolvedModelTier,
+            buildProfileId,
+            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+            resolvedThinking,
+            resolvedImageGenerations,
+            resolvedScaffold,
+            strategyMeta,
+            metaBriefApplied: Boolean(metaBrief),
+            customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
+            chatPrivacy: resolvedChatPrivacy,
+            scaffoldLabel: resolvedScaffold?.label ?? null,
+            capabilities: engineCapabilities,
           });
           return attachSessionCookie(new Response(contractGateStream, {
             headers: createSSEHeaders(),

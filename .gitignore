@@ -53,6 +53,9 @@ scripts/output_test_scaffold/
 # Local generated reports (recreate from scripts when needed)
 data/scaffold-candidates-curated.json
 
+# run-eval / codegen harness markdown output (scripts/run-eval.ts)
+EGEN_MOTOR_V2/
+
 # Vercel template scrape (local research; hamta_sidor_branch_emil.py)
 scraped-vercel-scorefolds/
 

@@ -28,7 +28,7 @@
 
 - **Scope:** Följ discovery + ev. `scripts/own-engine-remediation.mjs` i `.j_to_agent/2.txt`; isolera legacy v0-provider; transactional finalize / SSE-golden tests när kodbasen matchar.
 - **Acceptance:** Inga orphan assistant messages i nya flöden; typecheck + relevanta tester gröna.
-- **Status (forts.):** Borttagna oanvända `STREAM_RESOLVE_*` i båda stream-routes; `createOwnEnginePlanModeResponse` utan redundant `modelId`-param; **`generation-pipeline.ts`** kanon + `fallback.ts` re-export. **Kvar:** OwnEngineBuildSession, transaktionell finalize, golden tests m.m.
+- **Status (forts.):** Borttagna oanvända `STREAM_RESOLVE_*` i båda stream-routes; `createOwnEnginePlanModeResponse` utan redundant `modelId`-param; **`generation-pipeline.ts`** kanon + `fallback.ts` re-export; **delad pre-generation contract-gate SSE** (`pre-generation-contract-gate.ts`). **Kvar:** OwnEngineBuildSession, transaktionell finalize, golden tests m.m.
 
 ## W4 — Scripts / naming hygiene
 
