@@ -1,8 +1,8 @@
 # Orchestrator run — 2026-03-26 (`external-review`)
 
-Denna fil är **git-spårbar** sammanfattning. Själva körningsartefakter (workloads, agent logs, verification) ligger under:
+Denna fil är **git-spårbar** sammanfattning.
 
-`.cursor/orchestrator/run/2026-03-26-external-review/` _(gitignored; lokal Cursor-körning)._
+**Avslutad körning:** Run-mappen är **arkiverad** enligt protokoll. Se `.cursor/orchestrator/run-summaries.md` för exakt `archive/…`-sökväg (tidsstämpel i mappnamnet).
 
 ## Syfte
 
@@ -30,4 +30,5 @@ Orkestratorn i huvudsessionen kan använda Cursor **Task**-agenter mot samma wor
 
 - **2026-03-26:** Run-mapp scaffoldad; workload `01-01-w1` **verifierad** (LandingBackground landad, typecheck OK, progress ~34% / landing ~72%). Workload `02-01-w4` körd som **readonly**-agent; logg sparad lokalt i `agent-logs/02-01-w4-scripts-hygiene.md` (bl.a. saknad `vercel_templates_levels/`, README-paths).
 - **2026-03-26 (senare):** `vercel_templates_levels/` **återställd** + `docs/architecture/vercel-templates-discovery.md` (förklarar borttagning `c1a0ef96` vs kvarvarande npm-scripts; v0 vs Vercel Templates).
+- **Closeout:** `FINAL_SWEEP.md` + `FINAL_REPORT.md`; körning arkiverad till `.cursor/orchestrator/archive/2026-03-26-external-review-030151/` (se `run-summaries.md` för exakt tidstämpel om flera arkiv).
 - **Obs:** Filer under `.cursor/orchestrator/run/` är gitignorerade; denna fil är sanning för git-historik.

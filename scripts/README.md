@@ -3,7 +3,7 @@
 ## Översikt och inventering
 
 - **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.
-- **Vercel use-case-skrapning (Python):** scripts/hamta_sidor.py (kanonisk). Utökad variant i repo root: hamta_sidor_branch_emil.py — se inventeringsdokumentet innan du slår ihop dem.
+- **Vercel use-case-skrapning (Python):** [`scripts/hamta_sidor.py`](hamta_sidor.py) (kanonisk). Utökad variant: [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — se inventeringsdokumentet innan du slår ihop dem.
 - **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
 
 ## vercel_template_cli.py (repo root)
@@ -65,7 +65,7 @@ npm run template-library:build
 npx tsx scripts/build-template-library.ts --source="research/external-templates/raw-discovery/current"
 ```
 
-För **lokal** `scraped-vercel-scorefolds/` (gitignorerad): verifiera först `summary.json` med `pnpm run template-library:verify-summary`, bygg sedan med explicit `--source="<repo>/scraped-vercel-scorefolds"`. Utan `repo-cache`-kloning ger många poster låg `qualityScore` → `curatedTemplates: 0`; kör `template-library:hydrate-cache` med samma `--source=` (se [docs/architecture/scraped-scorefolds-pipeline.md](../docs/architecture/scraped-scorefolds-pipeline.md)).
+För **lokal** `scraped-vercel-scorefolds/` (gitignorerad): verifiera först `summary.json` med `npm run template-library:verify-summary`, bygg sedan med explicit `--source="<repo>/scraped-vercel-scorefolds"`. Utan `repo-cache`-kloning ger många poster låg `qualityScore` → `curatedTemplates: 0`; kör `template-library:hydrate-cache` med samma `--source=` (se [docs/architecture/scraped-scorefolds-pipeline.md](../docs/architecture/scraped-scorefolds-pipeline.md)).
 
 Skriptet letar annars automatiskt efter råinput i denna ordning:
 
@@ -105,7 +105,7 @@ eller råa lokala datasetmappar.
 
 ## import-template-discovery.ts
 
-Normaliserar discovery-data till den kanoniska research-lanen under
+Normaliserar discovery-data till den kanoniska research-lagret under
 `research/external-templates/raw-discovery/current/`.
 
 ### Användning
@@ -118,7 +118,7 @@ npx tsx scripts/import-template-discovery.ts --from="research/external-templates
 
 ## hydrate-template-library-cache.ts
 
-Gor shallow clones av GitHub-repon som refereras i den kanoniska raw-discoveryn.
+Gör shallow clones av GitHub-repon som refereras i den kanoniska raw-discoveryn.
 
 ### Användning
 
@@ -131,7 +131,7 @@ npx tsx scripts/hydrate-template-library-cache.ts --max=20
 
 - shallow clone only
 - ingen `install` eller `build`
-- output hamnar i `research/external-templates/repo-cache/` som ar git-ignorerad
+- output hamnar i `research/external-templates/repo-cache/` som är gitignorerad
 - `repo-cache` betyder lokal repo-spegel, inte runtime-cache
 ### Begrepp
 
@@ -185,9 +185,9 @@ npx tsx scripts/curate-scaffold-candidates.ts --input="src/lib/gen/template-libr
 Behandla `npm run scaffolds:curate` och TypeScript-skriptet ovan som det
 kanoniska gränssnittet för curation.
 
-Rapporten i `data/scaffold-candidates-curated.json` ar en reproducerbar
-arbetsartefakt for scaffold-triage, inte en runtime-kalla. Behandla den som en
-kandidat for lokal-only output och regenerera den vid behov.
+Rapporten i `data/scaffold-candidates-curated.json` är en reproducerbar
+arbetsartefakt för scaffold-triage, inte en runtime-källa. Behandla den som en
+kandidat för lokal-only output och regenerera den vid behov.
 
 ## promote-to-scaffold.ts / scaffolds:promote
 
@@ -275,7 +275,7 @@ Interaktivt Python-menyskript som samlar alla steg i template-library-kedjan.
 Visar aktuell status (antal dossiers, embeddings, kuraterade entries) och lat
 dig valja enskilda steg eller kora hela kedjan.
 
-### Anvandning
+### Användning
 
 ```bash
 python scripts/scaffold-pipeline.py
@@ -283,62 +283,26 @@ python scripts/scaffold-pipeline.py
 
 ### Menyval
 
-| Val | Vad det gor |
+| Val | Vad det gör |
 |-----|-------------|
-| 1 | Skrapa nya templates fran vercel.com/templates (Playwright) |
-| 2 | Importera legacy-dataset fran Desktop/_sidor |
+| 1 | Skrapa nya templates från vercel.com/templates (Playwright) |
+| 2 | Importera legacy-dataset från Desktop/_sidor |
 | 3 | Ladda ner repos (shallow clones till repo-cache) |
 | 4 | Bygg template-library + dossiers |
 | 5 | Generera template-library embeddings (OpenAI API) |
 | 6 | Generera scaffold embeddings (OpenAI API) |
-| 7 | Kor allt fran befintlig discovery (2+3+4+5+6) |
-| 8 | Kor allt fran scratch (1+3+4+5+6) |
+| 7 | Kör allt från befintlig discovery (2+3+4+5+6) |
+| 8 | Kör allt från scratch (1+3+4+5+6) |
 | 9 | Visa status |
 | 0 | Avsluta |
 
 ### Monorepo-skydd
 
-`build-template-library.ts` skippar filval for monorepo-entries dar subpath
-saknas lokalt, for att undvika att filer fran fel del av repot (t.ex.
+`build-template-library.ts` skippar filval för monorepo-entries där subpath
+saknas lokalt, för att undvika att filer från fel del av repot (t.ex.
 `apps/bundle-analyzer/` i `vercel/next.js`) hamnar i dossiers. Metadata
-(summary, signals, styrkor) behalles.
+(summary, signals, styrkor) behålls.
 
-## recovery/recreate-repo-branch-commit.ps1
+## recovery/recreate-repo-branch-commit.ps1 (saknas i repot)
 
-Interaktivt recovery-skript som kan koras fran valfri arbetsmapp for att skapa
-en ny lokal kopia av ett visst `repo`, `branch` och `commit`.
-
-### Vad skriptet gor
-
-1. Fragar efter repo-URL eller lokal path
-2. Fragar efter branchnamn
-3. Fragar efter commit-SHA
-4. Klonar branchen i den mapp dar skriptet kors
-5. Checkar ut den exakta committen i detached HEAD
-6. Skriver `RECOVERY_INFO.json` i den skapade recovery-mappen
-
-### Anvandning
-
-```powershell
-powershell -File "scripts/recovery/recreate-repo-branch-commit.ps1"
-```
-
-Du kan ocksa skicka in varden direkt:
-
-```powershell
-powershell -File "scripts/recovery/recreate-repo-branch-commit.ps1" `
-  -Repo "https://github.com/example/repo.git" `
-  -Branch "main" `
-  -Commit "abc1234"
-```
-
-### Output
-
-Skriptet skapar en ny undermapp i aktuell kor-mapp med ett namn i stil med:
-
-```text
-repo__branch__abc1234
-```
-
-Om mappen redan finns lagger skriptet till en tidsstampel for att undvika
-kollisioner.
+Tidigare dokumentation pekade på `scripts/recovery/recreate-repo-branch-commit.ps1`, men **filen finns inte** i denna checkout. För motsvarande arbetsflöde: klona repot manuellt, `git fetch`, `git checkout <commit>` (detached HEAD) i en ny katalog, eller återskapa skriptet från git-historik om du hade en lokal variant.

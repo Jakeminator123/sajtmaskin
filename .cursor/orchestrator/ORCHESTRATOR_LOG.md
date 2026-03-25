@@ -1,3 +1,5 @@
+2026-03-26 (closeout) — Final sweep: `scripts/README.md` + inventory; run `2026-03-26-external-review` arkiverad (`archive/…-030151`). Progress ~37% whole / ~32% scripts.
+
 2026-03-26 (eve) — `vercel_templates_levels/` **återställd** från git (anledning: borttagen i `c1a0ef96` men `references:discover*` kvar); ny arkitekturdoc `docs/architecture/vercel-templates-discovery.md`; `.cursorignore` slutar dölja mappen.
 
 2026-03-26 (pm) — Run `2026-03-26-external-review`: W1 **klar** (commit `62cdcd2b`, ~34pct); W4 readonly logg skriven under `agent-logs/`. Nästa: W2 integrationer/deploy eller W4 implementation efter scope.

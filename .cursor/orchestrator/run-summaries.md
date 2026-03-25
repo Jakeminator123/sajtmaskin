@@ -106,3 +106,15 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Archived run details preserved in FINAL_REPORT.md.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-24-builder-backlog-153503/`
 
+## 2026-03-25-vercel-react-landing (archived 2026-03-25 00:27)
+- **Scope:** See archived FINAL_REPORT.md for details.
+- **Workloads:** 0 completed, 0 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-25-vercel-react-landing-002707/`
+
+## 2026-03-26-external-review (archived 2026-03-26 03:01)
+- **Scope:** **Planerat:** Remediation-spår med orchestrator (W1, W4-fynd, trasiga discovery-paths).
+- **Workloads:** 2 completed, 2 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-26-external-review-030151/`
+
