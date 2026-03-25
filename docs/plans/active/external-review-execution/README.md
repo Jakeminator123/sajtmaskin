@@ -15,6 +15,7 @@ Om något skiljer sig: låt **grundmaterialet** förklara *tema/scope*, och **pr
 
 | Fil | Syfte |
 |-----|--------|
+| [REMEDIATION-EXIT.md](./REMEDIATION-EXIT.md) | **Remediation avslutad (execution-scope):** vad som är klart, vad K-raderna betyder, valfri deploy-smoke |
 | [MASTER-ROADMAP.md](./MASTER-ROADMAP.md) | Faser, parallellisering, rollup-checklistor, kort orchestrator-logg |
 | [CONTINUATION.md](./CONTINUATION.md) | **Autonoma anhalter:** fortsätt utan godkännande per checkbox; commit-batch ~4–5 % Whole vision; när man stoppar |
 | [track-w3-own-engine.md](./track-w3-own-engine.md) | Detaljerade kryss för own-engine (`2.txt`) |

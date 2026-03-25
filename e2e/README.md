@@ -19,3 +19,10 @@ Kontraktstester (mockad DB/version, inga riktiga Vercel-anrop): `src/app/api/v0/
 En full **HTTP- eller Playwright-`request`-smoke mot `POST /api/v0/deployments`** kräver autentiserad session och ägarskap till chat/version — det är ett separat spår om produkten vill lägga e2e här (progress § *Återstår*).
 
 Den här `e2e/`-mappen är i praktiken **mall-/research-lanet** ovan; byggaren/deploy täcks primärt av **Vitest** tills vidare.
+
+### Deploy API — valfri Playwright-smoke
+
+- **Kommando:** `npm run test:deploy-smoke:e2e` (config `playwright.deploy-smoke.config.ts`).
+- **Spec:** [`deploy/deploy-api-precheck.smoke.spec.ts`](deploy/deploy-api-precheck.smoke.spec.ts) — `precheckOnly: true`, inga Vercel-anrop, inga credits.
+- **Utan `SAJTMASKIN_E2E_*`:** testet **skippas** (lämpligt för CI utan auth-fixtures).
+- **Handoff / procentsiffra “100% remediation”:** [`REMEDIATION-EXIT.md`](../docs/plans/active/external-review-execution/REMEDIATION-EXIT.md).

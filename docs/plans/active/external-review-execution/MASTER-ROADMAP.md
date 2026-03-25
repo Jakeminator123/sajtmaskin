@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-28 | master | typecheck + vitest (387); deploy-smoke (skipped utan env) | **100% remediation-exit:** `REMEDIATION-EXIT.md`; Playwright opt-in `test:deploy-smoke:e2e`; `e2e/README`; K-rader **oförändrat** `[ ]`; run `2026-03-28-external-review-remediation-exit` arkiverad |
 | 2026-03-27 | master | typecheck + vitest (387) | ~99%: Tailwind v4 `bg-linear-to-*` — Lanyard + `BudgetEstimate`; track-w1; run `2026-03-27-tailwind-v4-gradient-hygiene` arkiverad; **K-008** `[ ]` |
 | 2026-03-27 | master | typecheck + vitest (387) | ~99%: Lanyard in-view + reduce; ParticleOrb `dpr`; track-w1; run `2026-03-27-landing-3d-balance` arkiverad; **K-008** `[ ]` |
 | 2026-03-27 | master | typecheck + vitest (387) | ~98%: orchestrator-run — `HowItWorksLazy` in-view WebGL + reduce; terminal cursor; `deploy-precheck` § K-007-framtid; sitemap JSDoc; **K-008** `[ ]` |

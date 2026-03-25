@@ -222,3 +222,11 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Progress, MASTER, track-w1, ORCHESTRATOR_LOG, kritik batch note
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-27-tailwind-v4-gradient-hygiene-174338/`
 
+## 2026-03-28-external-review-remediation-exit (archived 2026-03-25 17:49)
+- **Scope:** User asked to finish the last ~1% if reasonable. True HTTP deploy e2e requires auth; we declare remediation execution complete and add opt-in smoke.
+- **Workloads:** 1 completed, 1 verified.
+- **Outcome:** `docs/plans/active/external-review-execution/REMEDIATION-EXIT.md`
+- **Outcome:** `e2e/deploy/deploy-api-precheck.smoke.spec.ts` + `playwright.deploy-smoke.config.ts` + `npm run test:deploy-smoke:e2e`
+- **Outcome:** Progress / MASTER / ORCHESTRATOR_LOG / kritik / execution README / e2e README
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-28-external-review-remediation-exit-174925/`
+

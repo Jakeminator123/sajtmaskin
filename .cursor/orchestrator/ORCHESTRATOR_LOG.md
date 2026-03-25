@@ -1,3 +1,5 @@
+2026-03-28 — **Orchestrator-run → remediation exit (100% execution-scope):** `REMEDIATION-EXIT.md`; `e2e/deploy/deploy-api-precheck.smoke.spec.ts` + `playwright.deploy-smoke.config.ts` + `npm run test:deploy-smoke:e2e` (skip utan env); progress § Overall fill / Återstår; **K-007/K-008/K-009/K-014** fortfarande `[ ]`; run `2026-03-28-external-review-remediation-exit` arkiverad; typecheck + vitest (387); push `origin/master`.
+
 2026-03-27 — **Orchestrator-run → ~99% (Tailwind v4 gradients):** `lanyard-badge.tsx` `bg-linear-to-br`; `BudgetEstimate.tsx` `bg-linear-to-r`; `track-w1-landing-followups.md`; run `2026-03-27-tailwind-v4-gradient-hygiene` arkiverad; typecheck + vitest (387); **K-008** `[ ]`; push `origin/master`.
 
 2026-03-27 — **Orchestrator-run → ~99% (K-008 3D + balance):** `lanyard-badge.tsx` in-view före RAF/drop + reduced-motion statiskt; `particle-orb.tsx` `dpr={[1,1.65]}`; `track-w1-landing-followups.md`; run `2026-03-27-landing-3d-balance` arkiverad; whole **~99%**; **K-008** `[ ]`; push `origin/master`.
@@ -102,7 +104,7 @@
 
 2026-03-26 (pm) — Run `2026-03-26-external-review`: W1 **klar** (commit `62cdcd2b`, ~34pct); W4 readonly logg skriven under `agent-logs/`. Nästa: W2 integrationer/deploy eller W4 implementation efter scope.
 
-2026-03-26 (pm) — Orchestrator run `2026-03-26-external-review`: workloads `01-01-w1`, `02-01-w4` skrivna under `.cursor/orchestrator/run/` (lokal). Git-spårbar sammanfattning: `docs/plans/active/orchestrator-run-2026-03-26.md`. Tier-3 Task-agenter startade mot W1 + W4.
+2026-03-26 (pm) — Orchestrator run `2026-03-26-external-review`: workloads `01-01-w1`, `02-01-w4` skrivna under `.cursor/orchestrator/run/` (lokal). Git-spårbar sammanfattning: `docs/plans/archived/orchestrator-run-2026-03-26-external-review.md` (arkiverad från `active/`). Tier-3 Task-agenter startade mot W1 + W4.
 
 2026-03-26 — Tier2 parallel wave complete (UTF-8 data + registry scaffold). Typecheck OK. Next: wire detect-integrations to registry; LandingHero/Footer split.
 

@@ -10,15 +10,15 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Commit-uppföljning (second opinion):** [reviews/README.md](./reviews/README.md) — t.ex. systematisk genomgång av orchestrator-commits efter brytpunkt `39fef25e` ([detaljer](./reviews/orchestrator-followup-from-39fef25e.md)).
 
-Last code touch: **Orchestrator-run ~99% — Tailwind v4 gradient-hygien** — `lanyard-badge.tsx`: **`bg-linear-to-br`** (ersätter `bg-gradient-to-br`, ESLint/Tailwind v4). `BudgetEstimate.tsx`: **`bg-linear-to-r`** på budgetstapel (samma konvention). **track-w1** + kryss för Lanyard-stripen. **Whole ~99%**; **K-008** `[ ]` tills produkt säger landningspolish klar.
+Last code touch: **Orchestrator-run — remediation exit (100% execution-scope)** — [`REMEDIATION-EXIT.md`](./external-review-execution/REMEDIATION-EXIT.md) fryser W1–W5-leverans; **valfri** deploy-smoke: `e2e/deploy/deploy-api-precheck.smoke.spec.ts` + `npm run test:deploy-smoke:e2e` (skippas utan `SAJTMASKIN_E2E_*`). **Whole vision = 100%** i betydelsen *remediation execution complete*; **K-007 / K-008 / K-009 / K-014** förblir `[ ]` tills produkt/copy beslutar.
 
-**Tidigare batch:** Lanyard in-view + reduce; ParticleOrb `dpr`; How it works lazy WebGL + terminal reduce + deploy/sitemap-doc.
+**Tidigare batch:** Tailwind v4 `bg-linear-to-*` (Lanyard + BudgetEstimate); tidigare Lanyard/ParticleOrb/HowItWorks.
 
 **Tidigare (längre bak):** sitemap-regressionstest; K-008 blogg + `e2e/README`; orchestrator-hygien; K-014/K-007 delmoment; K-016 stängd.
 
-**Final sweep / handoff (2026-03-27):** `npm run typecheck` och `npx vitest run` (88 filer, **387** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång* och § *Återstår* (~**1 %** whole kvar).
+**Final sweep / handoff (2026-03-28):** `npm run typecheck` och `npx vitest run` (88 filer, **387** tester) ska vara gröna efter varje kodbatch. Valfritt: `npm run test:deploy-smoke:e2e` (skippas utan env). Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Handoff efter remediation-exit:** [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md) + [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) för produktbacklog.
 
-**Siffror (snabb):** **~99%** *whole vision* — K-008 (How it works + Lanyard + ParticleOrb mönster); K-007/K-009/K-014 fortfarande öppna i kritik; se tabell § *Overall fill*.
+**Siffror (snabb):** **100%** *whole vision* = **remediation execution complete** (se [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md)). Segment-% (integration ~83%, own-engine ~81%, landning ~96%) beskriver **kvarvarande produkt/scope**, inte ofärdiga W-spår.
 
 ## Kartläggning mot källfiler (1.txt, 2.txt, 3.txt)
 
@@ -31,13 +31,15 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 | **`2.txt`** | **Own-engine** (stream-routes tunna, session, finalize, golden tests, v0-gräns, **fas→modell** `B3-02`) | **~81%** | SSE/own-engine **utanför** avslutad W3-track (`K-009`), produktbeslut |
 | **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~100%** | Underhåll vid **ny** extern granskning av `3.txt`; inga öppna B3-punkter |
 
-**Whole vision (~99%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har HTTP-e2e kvar.
+**Whole vision (100% remediation-exit)** markerar att **W1–W5 execution** är levererad (se [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md)). Segment-raderna är **inte** medelvärde av samma sak — integration/own-engine kan ligga lägre i % medan remediation-spåret ändå är **stängt** tills ny extern våg.
 
 *Jämförelse mot gamla antaganden:* `3.txt` nämnde att `phase-routing.ts` bara var “förberedelse” — **det stämmer inte längre**; **B3-02** ger riktig fasmodell för OpenAI-profiler (`pro`/`max`/`codex`). Uppdatera mentalt modellen där.
 
+*Whole vision 100% (efter 2026-03-28):* avser **remediation-exit** enligt [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md), inte att alla framtida produktönskemål är levererade.
+
 ## Snabb ingång för nya agenter (remediation)
 
-1. **Kanonsanning för % och kvar:** denna fil — § *Overall fill*, § *Kartläggning*, § *Återstår*, *Last code touch*, *Done*, commit-rutin.
+1. **Kanonsanning för % och kvar:** denna fil — § *Overall fill*, § *Kartläggning*, § *Återstår*, *Last code touch*, *Done*, commit-rutin; efter exit även [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md).
 2. **Hur batchar körs:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md) (halt, verifiering före commit).
 3. **Spår och parallellisering:** [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + tabell *Orchestrator / verifiering*.
 4. **W1–W5 i mänskliga termer:** [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md).
@@ -89,7 +91,7 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining | Koppling `1.txt`–`3.txt` |
 |--------|------|-----------|---------------------------|
-| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~99%** | **~1%** | Se § *Kartläggning* ovan |
+| **Whole vision** (syntes av tre dokument + tvärgrepp) | **100%** *remediation-exit* | **produktbacklog** (K-007/K-008/K-009/K-014 + valfri deploy-e2e) | Se [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md) |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~96%** | **~4%** | **`1.txt` del A**; W1-track kryssat i MASTER |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~83%** | **~17%** | **`1.txt` del B**; manifest + 409 + Vitest; `deploy-precheck` inkl. K-007-framtid |
 | **Own-engine** (`2.txt`, W3 + `B3-02`) | **~81%** | **~19%** | **`2.txt`**; kärnspår klart, marginaler i kritik-tabellen |
@@ -97,10 +99,11 @@ Vid varje dokumenterad avstämning:
 
 ## Återstår (kort)
 
-Ungefär **~1%** av *whole vision* kvar: **integrationer + deploy** (**~83%** done enligt tabellen ovan; följ § *Overall fill*) — **HTTP-e2e kring deploy** (auth), valfri hårdare validering (`K-007`; delmoment: Vitest + `deploy-precheck` + `e2e/README`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`). **Buglista del 3** — **komplett** (B3-05 levererad). **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008` — delmoment: `/blogg`, How it works + Lanyard + ParticleOrb; ev. sista copy/Motion-beslut), copy (`K-014` — delmoment: footrar + `/om`; övrig copy kvar). **K-016** (landnings-refaktor) **stängd** 2026-03-26 — landnings-UI utbrutet i moduler; valfritt kvar: dela stora sektioner i `chat-area` vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+**Remediation execution (W1–W5) är avslutad** — se [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md). Det som följer är **produkt- och driftsbacklog**, inte “sista procenten” av samma orchestrator-spår: **K-007** (valfri hårdare deploy-validering / auto-fix-policy), **K-008** (produktgodkännande landningspolish), **K-009** (own-engine utanför W3-track), **K-014** (copy/sidor), samt **HTTP-e2e** mot deploy-API när auth-fixturer finns (`npm run test:deploy-smoke:e2e` + `SAJTMASKIN_E2E_*`). **Segment-tabellen** (integration ~83%, own-engine ~81%, landning ~96%) beskriver fortfarande **andel av större produktscope**, inte obrutna tekniska checklistor. **Buglista del 3** — **komplett**. **Kritik:** [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md). **K-016** **stängd**. **Autonoma anhalter** för *ny* arbetsvåg: [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
+- **Remediation exit (2026-03-28, orchestrator-run):** [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md); valfri Playwright-smoke `e2e/deploy/deploy-api-precheck.smoke.spec.ts`; `playwright.deploy-smoke.config.ts`; `npm run test:deploy-smoke:e2e`; `e2e/README.md` + progress/MASTER/ORCHESTRATOR_LOG/kritik-batch. *Run arkiverad lokalt:* `2026-03-28-external-review-remediation-exit`.
 - **W1 + audit / Tailwind v4 (2026-03-27, orchestrator-run):** `lanyard-badge.tsx` — `bg-linear-to-br`; `BudgetEstimate.tsx` — `bg-linear-to-r`. **`track-w1-landing-followups.md`** (Lanyard-rad). *Run arkiverad lokalt:* `2026-03-27-tailwind-v4-gradient-hygiene` (se `run-summaries.md`).
 - **W1 / K-008 delmoment (2026-03-27, orchestrator-run 2):** `lanyard-badge.tsx` — in-view innan fysik; reduced-motion → statiskt kort; `particle-orb.tsx` — `dpr` tak. **`track-w1-landing-followups.md`** uppdaterad. *Run arkiverad lokalt:* `2026-03-27-landing-3d-balance` (se `run-summaries.md`).
 - **W1 / K-008 delmoment (2026-03-27, orchestrator-run):** `landing-how-it-works-lazy.tsx` — WebGL först vid in-view; reduced-motion → statisk fallback; `chat-area.tsx` terminalmarkör respekterar reduce. **`deploy-precheck.md`** § *Framtida fördjupning (K-007 / produkt)*. **`sitemap.ts`** — JSDoc-checklista vid nya marknadssidor. *Lokal run:* `2026-03-27-external-review-final-pct` → arkiverad.
@@ -180,7 +183,7 @@ Ungefär **~1%** av *whole vision* kvar: **integrationer + deploy** (**~83%** do
 3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** ev. SSE/own-engine utanför track; integrationer+deploy-segment om ni prioriterar det.
 4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
 5. ~~**`3.txt` — buglista del 3**~~ **Klart** (2026-03-27) — [buglista-del-3.md](./external-review-execution/buglista-del-3.md); alla **B3-** punkter levererade.
-6. **Kritik-backlog (parallell granskning):** [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) — samlade öppna punkter (kort pekare: [kritik-derived-backlog.md](./kritik-derived-backlog.md)); konfliktrisk mot sista integration/deploy-spåret.
+6. **Efter remediation-exit:** [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md) + [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (K-007/K-008/K-009/K-014); valfri [kritik-derived-backlog.md](./kritik-derived-backlog.md).
 
 ## Uncertainties / product follow-ups
 
