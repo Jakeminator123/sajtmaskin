@@ -15,3 +15,5 @@
 2026-03-25 — Nytt genomförandesystem: `docs/plans/active/external-review-execution/` (README, MASTER-ROADMAP, track W3/W4/W2/W1). Länkat från progress + orchestrator-workloads. Syfte: checkbox-roadmap, parallella spår där filträd skiljer, agent ska bocka av i track-fil + notera verifiering i MASTER-ROADMAP.
 
 2026-03-25 — Parallell våg A1: subagent W4 (hamta-kanon + doc-drift) + orchestrator W3 (`buildPreGenerationContractGateParams`, båda stream-routes). Verifierat: typecheck + vitest 341. Commit ~51pct push master.
+
+2026-03-25 — Batch ~56pct: `createOwnEnginePipelineAndGenerationStream`, `scripts/README` lab (`testning_scarf`), inventory-rad, `external-review-execution/CONTINUATION.md` (autonoma anhalter + ~4–5 % commit-cadence). eslint på ändrade filer. Push master.

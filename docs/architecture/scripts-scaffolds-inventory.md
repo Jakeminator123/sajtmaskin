@@ -1,6 +1,6 @@
 # Skript, `hamta_sidor` och runtime scaffolds
 
-Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
+Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25.
 
 ## `hamta_sidor` (Vercel Templates-skrapning)
 
@@ -46,6 +46,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 | `run-eval.ts` | eval |
 | `run-migrations.ts` | db:migrate |
 | `test-api-usage.mjs` | test:api |
+| `testning_scarf/*` (via `prompt:trace`, `scaffold:suite`, `first-llm:lab`, `first-llm:live`, `testning:codegen-print`) | **Lab/debug** — se [`scripts/README.md`](../../scripts/README.md) § Lab / debug |
 
 `references:discover*` kör **Playwright** på `e2e/vercel-templates/scrape-catalog.spec.ts` (**spårad**). Legacy-mappen `vercel_templates_levels/` kan finnas lokalt (gitignore) men är inte npm-kanon. Full förklaring + scaffold-gränser: [`vercel-templates-discovery.md`](vercel-templates-discovery.md), [`vercel-templates-playwright-scaffold-integration.txt`](vercel-templates-playwright-scaffold-integration.txt).
 

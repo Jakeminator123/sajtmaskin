@@ -32,7 +32,7 @@
 
 ### Lab / debug-träd
 
-- [ ] **Struktur:** flytta eller byt namn på `scripts/testning_scarf/*` till tydligare mapp (`scripts/labs/`, `devtools/prompt-lab/`, eller liknande) *eller* dokumentera tydligt i README att det är lab-only
+- [x] **Struktur:** flytta eller byt namn på `scripts/testning_scarf/*` till tydligare mapp (`scripts/labs/`, `devtools/prompt-lab/`, eller liknande) *eller* dokumentera tydligt i README att det är lab-only
 - [ ] **package.json:** uppdatera script-paths om filer flyttas (`prompt:trace`, `scaffold:suite`, `first-llm:*`, `testning:codegen-print`, etc.)
 
 ### Övrig städning

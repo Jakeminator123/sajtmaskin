@@ -10,6 +10,20 @@
   - Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
 - **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
 
+## Lab / debug (`scripts/testning_scarf/`)
+
+**Inte produktion.** Python/TS-verktyg för spårning, scaffold-suite, första-LLM-lab och utskrift av codegen-kontext. Anropas från `package.json`:
+
+| npm-script | Entry |
+|------------|--------|
+| `npm run prompt:trace` | `scripts/testning_scarf/trace-generation-context.ts` |
+| `npm run scaffold:suite` | `scripts/testning_scarf/run_scaffold_suite.py` |
+| `npm run first-llm:lab` | `scripts/testning_scarf/first_llm_promptlab.py` |
+| `npm run first-llm:live` | `scripts/testning_scarf/run_first_llm_live.ts` |
+| `npm run testning:codegen-print` | `scripts/testning_scarf/print_codegen_context.py` |
+
+Mappen kan på sikt flyttas (t.ex. `scripts/labs/…`); om du flyttar filer **måste** dessa npm-rader uppdateras. Inventering: [`docs/architecture/scripts-scaffolds-inventory.md`](../docs/architecture/scripts-scaffolds-inventory.md).
+
 ## vercel_template_cli.py (repo root)
 
 Offline-verktyg som skrapar Vercels **template directory** (flera filterdimensioner: use case, framework, CSS, database, m.m.) och kan exportera GitHub-repo-länkar. **Körs inte i produktion**; det stödjer kurering av externa mallar innan de blir interna scaffolds.

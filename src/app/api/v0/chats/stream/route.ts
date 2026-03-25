@@ -59,9 +59,9 @@ import {
   buildOwnEngineGenerationStreamMeta,
   buildPreGenerationContractGateParams,
 } from "@/lib/own-engine/session/own-engine-build-session";
+import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
-import { createOwnEngineGenerationStream } from "@/lib/providers/own-engine/generation-stream";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -605,22 +605,17 @@ export async function POST(req: Request) {
           unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
         });
         const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
-        const agentTools = getAgentTools();
-        const pipelineStream = createGenerationPipeline({
-          prompt: enginePrompt,
-          systemPrompt: engineSystemPrompt,
-          model: engineModel,
-          thinking: resolvedThinking,
-          abortSignal: req.signal,
-          tools: agentTools,
-          maxSteps: 2,
-          referenceAttachments: requestAttachments,
-        });
-
-        const engineStream = createOwnEngineGenerationStream({
+        const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId: engineChat.id,
-          pipelineStream,
-          abortSignal: req.signal,
+          pipeline: {
+            prompt: enginePrompt,
+            systemPrompt: engineSystemPrompt,
+            model: engineModel,
+            thinking: resolvedThinking,
+            abortSignal: req.signal,
+            maxSteps: 2,
+            referenceAttachments: requestAttachments,
+          },
           meta: buildOwnEngineGenerationStreamMeta({
             routeVariant: "new-chat",
             chatPrivacy: resolvedChatPrivacy,

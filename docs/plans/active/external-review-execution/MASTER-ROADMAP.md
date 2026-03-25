@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | typecheck + vitest + eslint (ändrade filer) | ~56% batch: `createOwnEnginePipelineAndGenerationStream`, lab README + inventory, `CONTINUATION.md` |
 | 2026-03-25 | master | typecheck + vitest (341 tests) | Orchestrator: W3 `buildPreGenerationContractGateParams` + routes; W4 hamta-kanon + doc-path (parallell våg A1) |
 | 2026-03-25 | master | typecheck + vitest | W4: kanon `hamta_sidor_branch_emil.py` + doc-path-städ (`scripts/README`, inventory, discovery, handoff) |
 | 2026-03-25 | master | typecheck + vitest | W3: `buildOwnEngineGenerationStreamMeta` (se progress-doc) |
@@ -66,9 +67,9 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 Kopiera minimalt:
 
 ```
-Läs docs/plans/active/external-review-execution/README.md och docs/plans/active/external-review-execution/MASTER-ROADMAP.md.
-Arbeta enligt docs/plans/active/external-review-execution/<track-fil>.md — bocka av [x] för det du levererar i den filen.
-Kör npm run typecheck && npx vitest run. Uppdatera external-review-remediation-progress.md om % ändras. Commit enligt rutinen där.
+Läs docs/plans/active/external-review-execution/README.md, CONTINUATION.md och MASTER-ROADMAP.md.
+Arbeta enligt docs/plans/active/external-review-execution/<track-fil>.md — bocka av [x] för det du levererar; fortsätt utan ny ping per ruta tills halt i CONTINUATION.md.
+Kör npm run typecheck && npx vitest run. Uppdatera external-review-remediation-progress.md om % ändras; sikta ~4–5 Whole vision per commit när det går. Commit + push enligt rutinen där.
 ```
 
 Byt ut `<track-fil>` mot t.ex. `track-w3-own-engine.md` eller `track-w4-scripts.md`.

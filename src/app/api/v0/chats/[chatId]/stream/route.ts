@@ -8,7 +8,6 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { normalizeV0Error } from "@/lib/v0/errors";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
-import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
@@ -60,9 +59,9 @@ import {
   buildOwnEngineGenerationStreamMeta,
   buildPreGenerationContractGateParams,
 } from "@/lib/own-engine/session/own-engine-build-session";
+import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
-import { createOwnEngineGenerationStream } from "@/lib/providers/own-engine/generation-stream";
 import {
   buildAwaitingClarificationStream,
   classifyFollowUpIntent,
@@ -554,23 +553,18 @@ export async function handleMessageStreamRequest(
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
         const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
-        const agentTools = getAgentTools();
-        const pipelineStream = createGenerationPipeline({
-          prompt: enginePrompt,
-          systemPrompt: engineSystemPrompt,
-          model: engineModel,
-          chatHistory,
-          thinking: resolvedThinking,
-          abortSignal: req.signal,
-          tools: agentTools,
-          maxSteps: 2,
-          referenceAttachments: requestAttachments,
-        });
-
-        const engineStream = createOwnEngineGenerationStream({
+        const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId,
-          pipelineStream,
-          abortSignal: req.signal,
+          pipeline: {
+            prompt: enginePrompt,
+            systemPrompt: engineSystemPrompt,
+            model: engineModel,
+            chatHistory,
+            thinking: resolvedThinking,
+            abortSignal: req.signal,
+            maxSteps: 2,
+            referenceAttachments: requestAttachments,
+          },
           meta: buildOwnEngineGenerationStreamMeta({
             routeVariant: "follow-up",
             engineModel,

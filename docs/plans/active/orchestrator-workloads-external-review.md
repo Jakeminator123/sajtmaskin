@@ -4,7 +4,7 @@
 
 **Sanning i repo:** `docs/plans/active/external-review-remediation-progress.md` (procentsiffror, commit-rutin, Next-steg).
 
-**Checkbox-roadmap + spår (nytt):** `docs/plans/active/external-review-execution/` — börja med [README.md](./external-review-execution/README.md) och [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md). Workers bockar av i `track-w*.md` enligt instruktion där.
+**Checkbox-roadmap + spår (nytt):** `docs/plans/active/external-review-execution/` — [README.md](./external-review-execution/README.md), [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md). Workers bockar av i `track-w*.md` enligt instruktion där.
 
 **Källplaner (städade kopior):** `.j_to_agent/1.txt` (landning + integrationer), `.j_to_agent/2.txt` (own-engine pack), `.j_to_agent/3.txt` (scaffolds, scripts, orchestrator-frågor).
 
@@ -30,12 +30,13 @@
 
 - **Scope:** Följ discovery + ev. `scripts/own-engine-remediation.mjs` i `.j_to_agent/2.txt`; isolera legacy v0-provider; transactional finalize / SSE-golden tests när kodbasen matchar.
 - **Acceptance:** Inga orphan assistant messages i nya flöden; typecheck + relevanta tester gröna.
-- **Status (forts.):** Borttagna oanvända `STREAM_RESOLVE_*` i båda stream-routes; `createOwnEnginePlanModeResponse` utan redundant `modelId`-param; **`generation-pipeline.ts`** kanon + `fallback.ts` re-export; **delad pre-generation contract-gate SSE** (`pre-generation-contract-gate.ts`); **finalize:** assistant-rad efter preflight + `deleteEngineMessage` om draft-version misslyckas; **Vitest golden** för contract-gate-SSE; **`own-engine-build-session.ts`:** `buildOwnEngineGenerationStreamMeta` + **`buildPreGenerationContractGateParams`**. **Kvar:** plan-mode + generation-start i session-lager, DB-transaktion / fler generation-stream-golden tests / felhantering efter lyckad version om ni vill gå längre.
+- **Status (forts.):** Borttagna oanvända `STREAM_RESOLVE_*`; `createOwnEnginePlanModeResponse` utan redundant `modelId`; **`generation-pipeline.ts`** kanon + `fallback.ts` re-export; delad contract-gate SSE; finalize + rollback; Vitest golden contract-gate; **`own-engine-build-session.ts`:** `buildOwnEngineGenerationStreamMeta`, **`buildPreGenerationContractGateParams`**; **`own-engine-pipeline-generation.ts`:** **`createOwnEnginePipelineAndGenerationStream`**. **Kvar:** plan-mode-gren i session-lager, DB-transaktion / fler generation-stream-golden tests / felhantering efter lyckad version om ni vill gå längre.
 
 ## W4 — Scripts / naming hygiene
 
 - **Scope:** `.j_to_agent/3.txt` avsnitt 5 + `Next` i progress (hamta_sidor*, lab-mappar, README-drift).
 - **Acceptance:** Package.json-referenser konsistenta; README-paths korrekta; inget borttaget utan referensgrep.
+- **Status (forts.):** Kanon `hamta_sidor_branch_emil` + path-drift; **lab:** `scripts/README` § `testning_scarf` + inventory-rad (flytt av mapp = uppdatera `package.json`-scripts).
 
 ## W5 — Kritik-mapp (valfritt, worktree-rapporter)
 
@@ -47,8 +48,8 @@
 ## Kort brief till ny agent (copy-paste)
 
 ```
-Läs docs/plans/active/external-review-execution/README.md och MASTER-ROADMAP.md.
-Arbeta i docs/plans/active/external-review-execution/track-w<N>-<namn>.md — bocka av [x] för det du levererar där.
-Läsgärna external-review-remediation-progress.md för % och commit-rutin.
-Kör npm run typecheck && npx vitest run, uppdatera progress-md om helhets-% ändras, commit med helhets-% i subject.
+Läs docs/plans/active/external-review-execution/README.md, CONTINUATION.md och MASTER-ROADMAP.md.
+Arbeta i docs/plans/active/external-review-execution/track-w<N>-<namn>.md — bocka av [x]; fortsätt nästa öppna punkt utan ny ping tills halt i CONTINUATION.md.
+Läsgärna external-review-remediation-progress.md för % och commit-rutin (~4–5 Whole vision per commit när det går).
+Kör npm run typecheck && npx vitest run, uppdatera progress-md, commit + push med helhets-% i subject.
 ```

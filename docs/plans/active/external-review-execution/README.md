@@ -7,14 +7,19 @@ Det här är **det genomförbara lagret** ovanpå `external-review-remediation-p
 | Fil | Syfte |
 |-----|--------|
 | [MASTER-ROADMAP.md](./MASTER-ROADMAP.md) | Faser, parallellisering, rollup-checklistor, kort orchestrator-logg |
+| [CONTINUATION.md](./CONTINUATION.md) | **Autonoma anhalter:** fortsätt utan godkännande per checkbox; commit-batch ~4–5 % Whole vision; när man stoppar |
 | [track-w3-own-engine.md](./track-w3-own-engine.md) | Detaljerade kryss för own-engine (`2.txt`) |
 | [track-w4-scripts.md](./track-w4-scripts.md) | Detaljerade kryss för scripts / naming (`3.txt`) |
 | [track-w2-deploy-hardening.md](./track-w2-deploy-hardening.md) | Valfritt: deploy-gate, färre auto-fix |
 | [track-w1-landing-followups.md](./track-w1-landing-followups.md) | Valfritt: små landnings-uppföljningar |
 
+## Autonoma anhalter (kort)
+
+Läs **[CONTINUATION.md](./CONTINUATION.md)**. Du behöver **inte** vänta på användarens “okej” mellan varje kryss — fortsätt tills rött test, konflikt, eller batch ~4–5 % Whole vision är levererad och grön.
+
 ## Arbetskontrakt (varje agent som kör ett spår)
 
-1. Läs **MASTER-ROADMAP.md** (parallellregler) + **ditt track-dokument**.
+1. Läs **MASTER-ROADMAP.md** (parallellregler) + **CONTINUATION.md** + **ditt track-dokument**.
 2. Implementera endast det du fått i uppdrag (exakt radintervall eller kryss-sektion om orchestratorn specificerat).
 3. **Efter leverans:** bocka av `- [x]` för slutförda punkter i **track-filen**. Uppdatera **MASTER-ROADMAP.md** endast om en hel fas/spår-port är klar (eller om orchestratorn bett om det).
 4. Kör: `npm run typecheck && npx vitest run`.
