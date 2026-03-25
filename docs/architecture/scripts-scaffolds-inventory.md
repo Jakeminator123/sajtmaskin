@@ -1,16 +1,16 @@
 # Skript, `hamta_sidor` och runtime scaffolds
 
-Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25.
+Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25 (hamta-wrapper + flagga `legacy-wide`).
 
 ## `hamta_sidor` (Vercel Templates-skrapning)
 
 | Fil | Storlek (ca) | Syfte |
 |-----|----------------|-------|
-| [`scripts/hamta_sidor.py`](../../scripts/hamta_sidor.py) | ~19 KB | Bredare standardlista av use cases på vercel.com/templates → Next.js/React → `summary.json`, `INDEX_SV.md`, valfri `git clone`. **Inte samma kod** som `branch_emil`. |
+| [`scripts/hamta_sidor.py`](../../scripts/hamta_sidor.py) | liten wrapper | Delegerar till `hamta_sidor_branch_emil.py`; injicerar `--legacy-wide-use-cases` om saknas (samma breda kategori-lista som gamla monolitiska skriptet). **Ingen duplicerad skrap-logik.** |
 | ~~`hamta_sidor.py` (repo root)~~ | — | **Borttagen** 2026-03-24 (var identisk med `scripts/hamta_sidor.py`). |
-| [`scripts/hamta_sidor_branch_emil.py`](../../scripts/hamta_sidor_branch_emil.py) | (växer) | **Sajtmaskin-spår:** `USE_CASES_CORE`, valfritt `--extended-scrape`, tierad utdata `full-repo/` \| `tutorial-bootstrap/` \| `monorepo-examples/`, `--flat-layout`, `--urls` → `direct-urls/`, `ingestion_report.json`, `SCRAPE_LAYOUT_SV.md`, `FRAMEWORK_FILTER`, CSS-metadata. **Vanligt val för manuell inhämtning** av research-material. |
+| [`scripts/hamta_sidor_branch_emil.py`](../../scripts/hamta_sidor_branch_emil.py) | (växer) | **Kanon:** `USE_CASES_CORE`, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (ex-`hamta_sidor.py` lista), tierad utdata, rapporter, `--flat-layout`, `--urls` → `direct-urls/`, m.m. **Vanligt val för manuell inhämtning** av research-material. |
 
-**Rekommendation / kanon:** Båda ligger under `scripts/`. **`hamta_sidor_branch_emil.py` är den kanoniska entrypointen** (feature-rich Sajtmaskin-spår); `hamta_sidor.py` är **alternativet** med bredare use-case-lista. På sikt: **slå ihop till en fil** (behåll `branch_emil`-beteendet som default, ev. flagga för “bred lista”) — tills dess är två filer **medvetet** och **inte** dubbletter av samma innehåll. Detaljer: [`scripts/README.md`](../../scripts/README.md). Inget körs från `package.json`; det påverkar **research** / lokala dataset, inte produktion.
+**Rekommendation / kanon:** **`hamta_sidor_branch_emil.py`** bär all skrap-logik. **`hamta_sidor.py`** finns kvar som **kompatibilitets-wrapper** för äldre kommandon. Detaljer: [`scripts/README.md`](../../scripts/README.md). Inget körs från `package.json`; det påverkar **research** / lokala dataset, inte produktion.
 
 **Risk:** Vercel kan ändra HTML → tysta fel eller tomma listor. Verifiera manuellt efter större sajtändringar.
 
@@ -56,7 +56,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25.
 |-----|------------|
 | `sync-scaffold-refs.mjs` | [`scripts/README.md`](../../scripts/README.md), [`vercel_template_cli.py`](../../vercel_template_cli.py) (valfri katalogskrapning) |
 | `scaffold-pipeline.py` | [`scripts/README.md`](../../scripts/README.md) — interaktiv meny för template-library-kedjan |
-| `scripts/hamta_sidor*.py` | Se avsnitt ovan (`branch_emil` kanonisk; `hamta_sidor.py` alternativ) |
+| `scripts/hamta_sidor*.py` | Se avsnitt ovan (`branch_emil` kanonisk; `hamta_sidor.py` wrapper) |
 | `recovery/recreate-repo-branch-commit.ps1` | **Saknas** i repot; beskrivs som borttaget/odeployat i [`scripts/README.md`](../../scripts/README.md). |
 
 ### Interna moduler (importeras av andra skript)

@@ -1,3 +1,5 @@
+2026-03-25 — W4 slice + städ: `hamta_sidor.py` wrapper, `legacy-wide` flag i `hamta_sidor_branch_emil.py`, README/inventory/research/track; boundary-test `existsSync`. Progress ~72%. Commit ~72pct.
+
 2026-03-25 — W3 **exit**: orphan-regression (`finalize-version.test.ts`), `own-engine-v0-boundary.test.ts`, Fas A W3 `[x]` i MASTER-ROADMAP. Vitest 345. Progress ~69% whole. Commit ~69pct.
 
 2026-03-25 — W3 `generation-stream.golden.test.ts` (mock finalize + db, SSE shape). Vitest 343. Progress ~66% whole; parallell kritik-agent noterad i progress-doc. Commit ~66pct.

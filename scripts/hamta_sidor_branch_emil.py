@@ -56,6 +56,35 @@ USE_CASES_EXTENDED: List[Tuple[str, str]] = [
     ("monorepos", "Monorepos"),
 ]
 
+# Full lista som tidigare fanns i `scripts/hamta_sidor.py` (före wrapper) — research / jämförelse.
+USE_CASES_LEGACY_WIDE: List[Tuple[str, str]] = [
+    ("ai", "AI"),
+    ("starter", "Starter"),
+    ("ecommerce", "Ecommerce"),
+    ("saas", "SaaS"),
+    ("blog", "Blog"),
+    ("portfolio", "Portfolio"),
+    ("cms", "CMS"),
+    ("backend", "Backend"),
+    ("edge-functions", "Edge Functions"),
+    ("edge-middleware", "Edge Middleware"),
+    ("edge-config", "Edge Config"),
+    ("cron", "Cron"),
+    ("multi-tenant-apps", "Multi-Tenant Apps"),
+    ("realtime-apps", "Realtime Apps"),
+    ("documentation", "Documentation"),
+    ("virtual-event", "Virtual Event"),
+    ("monorepos", "Monorepos"),
+    ("web3", "Web3"),
+    ("vercel-firewall", "Vercel Firewall"),
+    ("microfrontends", "Microfrontends"),
+    ("authentication", "Authentication"),
+    ("marketing-sites", "Marketing Sites"),
+    ("cdn", "CDN"),
+    ("admin-dashboard", "Admin Dashboard"),
+    ("security", "Security"),
+]
+
 # Bakåtkompatibilitet: äldre namn i importer / externa skript.
 USE_CASES: List[Tuple[str, str]] = USE_CASES_CORE + USE_CASES_EXTENDED
 
@@ -283,7 +312,9 @@ def template_output_dir(
     return root / template.artifact_tier / cat / folder
 
 
-def active_use_cases(extended: bool) -> List[Tuple[str, str]]:
+def active_use_cases(extended: bool, legacy_wide: bool = False) -> List[Tuple[str, str]]:
+    if legacy_wide:
+        return list(USE_CASES_LEGACY_WIDE)
     if extended:
         return list(USE_CASES_CORE) + list(USE_CASES_EXTENDED)
     return list(USE_CASES_CORE)
@@ -1039,6 +1070,14 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--legacy-wide-use-cases",
+        action="store_true",
+        help=(
+            "Använd den breda kategorilistan från gamla scripts/hamta_sidor.py (~25 use cases). "
+            "Överstiger --extended-scrape när båda anges. Kanonisk Sajtmaskin-standard är kärnlistan."
+        ),
+    )
+    parser.add_argument(
         "--flat-layout",
         action="store_true",
         help=(
@@ -1144,6 +1183,7 @@ def interactive_args() -> argparse.Namespace:
         canonical_urls=canonical,
         loose_framework_match=False,
         extended_scrape=False,
+        legacy_wide_use_cases=False,
         flat_layout=False,
     )
 
@@ -1231,14 +1271,20 @@ def run_scrape(args: argparse.Namespace) -> int:
     collected: Dict[str, List[TemplateInfo]] = {}
     report_entries: List[Dict] = []
     extended = getattr(args, "extended_scrape", False)
+    legacy_wide = getattr(args, "legacy_wide_use_cases", False)
     flat_layout = getattr(args, "flat_layout", False)
-    use_cases = active_use_cases(extended)
+    use_cases = active_use_cases(extended, legacy_wide)
     direct_slug_by_url: Dict[str, str] = {}
 
     print(f"[INFO] Sparar till: {root}")
+    if legacy_wide:
+        uc_label = "legacy wide (ex hamta_sidor.py)"
+    elif extended:
+        uc_label = "kärna+utökad"
+    else:
+        uc_label = "endast kärna"
     print(
-        f"[INFO] Use cases: {len(use_cases)} st "
-        f"({'kärna+utökad' if extended else 'endast kärna'}), "
+        f"[INFO] Use cases: {len(use_cases)} st ({uc_label}), "
         f"layout: {'platt' if flat_layout else 'tierad'}"
     )
 

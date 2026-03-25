@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | typecheck + vitest (345) | ~72%: W4 slice — `hamta_sidor` wrapper, `--legacy-wide-use-cases`, docs; boundary-test cwd-guard; track W4 hamta + manuella `[x]` |
 | 2026-03-25 | master | typecheck + vitest (345) | ~69%: W3 **exit** — `finalize-version` orphan-regression, `own-engine-v0-boundary.test.ts`, Fas A W3 `[x]`; `v0-soft-deprecation.md` boundary-notis |
 | 2026-03-25 | master | typecheck + vitest (343) | ~66%: `generation-stream.golden.test.ts`; track W3 generation-SSE golden `[x]`; progress noterar parallell kritik-agent |
 | 2026-03-25 | master | typecheck + vitest (342) | ~64%: `addAssistantMessageAndCreateDraftVersion`, `finalizeAndSaveVersion`, `finalize-version.test.ts`; track W3 transactional finalize + post-persist doc |

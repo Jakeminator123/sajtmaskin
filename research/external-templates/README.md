@@ -24,7 +24,7 @@ builder **Mall** / v0 gallery templates (see `.cursor/rules/terminology.mdc`).
 |------|-----------|----------------|--------------------------------------------------|
 | **`e2e/vercel-templates/`** | Playwright spec + `npm run references:discover*` (tracked) | Writes under `raw-discovery/current/` when run | See `e2e/README.md`; legacy `vercel_templates_levels/` optional local |
 | **`scripts/hamta_sidor_branch_emil.py`** | Python (`requests` + BeautifulSoup), richer per-template folders + `summary.json` | **Outside repo:** sibling dir `../vercel-scrape`, or `SAJTMASKIN_VERCEL_SCRAPE_DIR` | Run `scripts/import-template-discovery.ts --from=<path/to/summary.json>` (legacy-summary → canonical dataset) |
-| **`scripts/hamta_sidor.py`** | Older Python variant; broader use-case list | Same family as above (check `--output` / env in that file) | Same import bridge if `summary.json` shape matches |
+| **`scripts/hamta_sidor.py`** | Thin wrapper → `hamta_sidor_branch_emil.py` (injects `--legacy-wide-use-cases` unless already set) | Same as canonical | Same import bridge if `summary.json` shape matches |
 
 **Kanonisk Playwright-spec** = `e2e/vercel-templates/scrape-catalog.spec.ts` (tracked). **Legacy** `vercel_templates_levels/` i roten kan finnas **lokalt** (gitignored); ta bort om du inte behöver gamla anteckningar.
 

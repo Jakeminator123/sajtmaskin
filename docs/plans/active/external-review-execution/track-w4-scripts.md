@@ -27,7 +27,7 @@
 ### hamta_sidor
 
 - [x] **Beslut:** en kanonisk fil (`hamta_sidor.py` *eller* sammanslagning med `hamta_sidor_branch_emil.py`) — dokumentera valet i `scripts/README.md` (**kanon:** `scripts/hamta_sidor_branch_emil.py`; alternativ: `scripts/hamta_sidor.py`)
-- [ ] **Implementation:** slå ihop eller depreka den duplicerade varianten utan att bryta befintliga workflows (ev. tunn wrapper som delegerar)
+- [x] **Implementation:** `hamta_sidor.py` = tunn wrapper + `hamta_sidor_branch_emil.py` har `--legacy-wide-use-cases` (samma lista som gamla monolitiska skriptet); bakåtkompatibelt `python scripts/hamta_sidor.py …`
 - [x] **Dokumentation:** alla paths i README/ kommentarer pekar på faktisk plats under `scripts/`
 
 ### Lab / debug-träd
@@ -38,7 +38,7 @@
 ### Övrig städning
 
 - [x] **Drift:** grep efter fel sökvägar till scripts i `docs/`, `.cursor/`, root-README
-- [ ] **Ev. manuella skript:** `scaffold-pipeline.py`, `extract-static-core.mjs` — antingen flytta till `manual/` / `labs/` eller tydlig “unsupported / advanced”-märkning i README (välj ett spår och bocka)
+- [x] **Ev. manuella skript:** `scaffold-pipeline.py`, `extract-static-core.mjs` — märkta **avancerat, ej i package.json** i `scripts/README.md` (ingen flytt)
 
 ---
 

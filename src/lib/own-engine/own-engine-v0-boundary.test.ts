@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { join, relative } from "path";
 import { describe, expect, it } from "vitest";
 
@@ -29,17 +29,25 @@ function walkTsFiles(dir: string, acc: string[] = []): string[] {
 
 describe("own-engine ↔ v0 import boundary", () => {
   it("src/lib/own-engine and src/lib/providers/own-engine do not import v0 Platform internals", () => {
-    const violations: string[] = [];
+    for (const root of SCAN_ROOTS) {
+      if (!existsSync(root)) {
+        throw new Error(
+          `Expected ${root} to exist (cwd=${repoRoot}). Run Vitest from the repository root.`,
+        );
+      }
+    }
+
+    const violations = new Set<string>();
     for (const root of SCAN_ROOTS) {
       for (const file of walkTsFiles(root)) {
         const src = readFileSync(file, "utf8");
         for (const re of FORBIDDEN) {
           if (re.test(src)) {
-            violations.push(`${relative(join(repoRoot, "src"), file)} matches ${re}`);
+            violations.add(`${relative(join(repoRoot, "src"), file)} matches /${re.source}/`);
           }
         }
       }
     }
-    expect(violations, violations.join("\n")).toEqual([]);
+    expect([...violations].sort(), [...violations].join("\n")).toEqual([]);
   });
 });

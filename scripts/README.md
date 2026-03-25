@@ -3,10 +3,10 @@
 ## Översikt och inventering
 
 - **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.
-- **Vercel use-case-skrapning (Python):** båda filerna ligger **endast** under `scripts/` (ingen kopia i repo-roten).
-  - **Kanonisk entrypoint:** [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — Sajtmaskin-spåret med kärnkategorier, `--extended-scrape`, tierad utdata (`full-repo/` / `tutorial-bootstrap/` / `monorepo-examples/`), rapporter m.m. **Använd denna som standard** för manuell inhämtning och dokumentation som säger “kör hamta-skriptet”.
-  - **Alternativ:** [`scripts/hamta_sidor.py`](hamta_sidor.py) — kortare skript, **bredare** use-case-lista; samma sajt men annat omfång. Lämplig om du medvetet vill jämföra mot den längre listan eller köra en enklare sweep.
-  - På sikt kan de slås ihop till ett skript (t.ex. `branch_emil` som default + flagga för “bred lista”); tills dess är **två filer medvetet**. Se även [`docs/architecture/scripts-scaffolds-inventory.md`](../docs/architecture/scripts-scaffolds-inventory.md).
+- **Vercel use-case-skrapning (Python):** under `scripts/` (ingen kopia i repo-roten).
+  - **Kanonisk entrypoint:** [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (samma ~25 kategorier som gamla monolitiska `hamta_sidor.py`), tierad utdata, rapporter. **Standard** för manuell inhämtning.
+  - **Bakåtkompabilitet:** [`scripts/hamta_sidor.py`](hamta_sidor.py) är en **tunn wrapper** som delegerar till `hamta_sidor_branch_emil.py` och **sätter `--legacy-wide-use-cases`** om du inte redan angivit flaggan (så gamla kommandon behåller bred kategori-lista). Föredra kanonisk fil för nya arbetsflöden.
+  - Se [`docs/architecture/scripts-scaffolds-inventory.md`](../docs/architecture/scripts-scaffolds-inventory.md).
   - Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
 - **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
 
@@ -289,7 +289,11 @@ npm run scaffolds:discover:full
 
 **OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`docs/architecture/vercel-templates-playwright-scaffold-integration.txt`](../docs/architecture/vercel-templates-playwright-scaffold-integration.txt). Översikt: [`docs/architecture/vercel-templates-discovery.md`](../docs/architecture/vercel-templates-discovery.md), [`e2e/README.md`](../e2e/README.md).
 
-## scaffold-pipeline.py
+## extract-static-core.mjs (avancerat, ej i package.json)
+
+Underhåll: plockar ut `STATIC_CORE` från `src/lib/gen/system-prompt.ts` till `config/systemprompt.md` om mönstret finns. Kör `node scripts/extract-static-core.mjs` när du medvetet synkar statisk prompt till fil.
+
+## scaffold-pipeline.py (avancerat, ej i package.json)
 
 Interaktivt Python-menyskript som samlar alla steg i template-library-kedjan.
 Visar aktuell status (antal dossiers, embeddings, kuraterade entries) och lat
