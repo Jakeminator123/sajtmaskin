@@ -268,6 +268,10 @@ Detta inkluderar inte `next build` som standard, så att kommandot förblir ett
 snabbare utvecklingstest snarare än en tyngre release-validering. `lint` körs
 sist för att ge mer verifieringssignal även när repot redan har kända lintfel.
 
+## Eval (`npm run eval`)
+
+Kör eval-suite + scorecard via `scripts/run-eval.ts`. **Utdata:** katalogen `EGEN_MOTOR_V2/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
+
 ## references:discover / scaffolds:discover
 
 Historiskt hette discovery-flödet `scaffolds:discover`, men det producerar inte

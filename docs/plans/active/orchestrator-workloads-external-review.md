@@ -30,7 +30,7 @@
 
 - **Scope:** Följ discovery + ev. `scripts/own-engine-remediation.mjs` i `.j_to_agent/2.txt`; isolera legacy v0-provider; transactional finalize / SSE-golden tests när kodbasen matchar.
 - **Acceptance:** Inga orphan assistant messages i nya flöden; typecheck + relevanta tester gröna.
-- **Status (2026-03-25):** **Track komplett** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). Levererat: pipeline/plan-mode/session-hjälpare, transaktionell finalize, contract-gate + generation golden tests, orphan-regression i `finalize-version.test.ts`, **`own-engine-v0-boundary.test.ts`**, notis i `v0-soft-deprecation.md`. **Nästa huvudfokus i Fas A:** **W4** scripts.
+- **Status (2026-03-25):** **Track komplett** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). Levererat: pipeline/plan-mode/session-hjälpare, transaktionell finalize, contract-gate + generation golden tests, orphan-regression i `finalize-version.test.ts`, **`own-engine-v0-boundary.test.ts`**, notis i `v0-soft-deprecation.md`. **Progress-doc:** own-engine-segment **~78%** (track klar; kvar = ev. arbete utanför track). **W4** scripts-spår **klart**.
 
 ## W4 — Scripts / naming hygiene
 

@@ -6,9 +6,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **W2 deploy-preflight (API):** 409 vid saknad env + `precheckOnly` + [`deploy-precheck.md`](../../architecture/deploy-precheck.md). **W4 exit (scripts):** `scripts/hamta_sidor.py` **borttagen** — kanon `hamta_sidor_branch_emil.py` + `--legacy-wide-use-cases` för bred lista; labb **`scripts/labs/testning_scarf/`** med uppdaterade npm-scripts, `.gitignore`, labb-skriptens `REPO_ROOT`, docs/inventory/research/track. **Tidigare W4 slice:** wrapper + `legacy-wide`; boundary-test `existsSync`. **Tidigare W3:** track exit (finalize orphan, v0-boundary, golden tests, transaktionell finalize). **Playwright / e2e:** kanon `e2e/vercel-templates/`.
+Last code touch: **Progress-avstämning ~78%:** own-engine-segment justerat mot **komplett W3-track**; scripts-segment **~95%**; helhets-% + “Återstår” pekar på W1/W2-rester; dokumenterat att **`EGEN_MOTOR_V2/`** kommer från **`npm run eval`** (lokal utdata). **W2 deploy-preflight (API):** 409 vid saknad env + `precheckOnly` + [`deploy-precheck.md`](../../architecture/deploy-precheck.md). **W4 exit (scripts):** `scripts/hamta_sidor.py` **borttagen** — kanon `hamta_sidor_branch_emil.py` + `--legacy-wide-use-cases` för bred lista; labb **`scripts/labs/testning_scarf/`** med uppdaterade npm-scripts, `.gitignore`, labb-skriptens `REPO_ROOT`, docs/inventory/research/track. **Tidigare W4 slice:** wrapper + `legacy-wide`; boundary-test `existsSync`. **Tidigare W3:** track exit (finalize orphan, v0-boundary, golden tests, transaktionell finalize). **Playwright / e2e:** kanon `e2e/vercel-templates/`.
 
-**Siffror:** **~76%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~76%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness + server env-spärr). **Own-engine (W3 track exit)** **~48%**. **Scripts-spåret (W4)** **~75%** — **Whole vision** följer tabellen nedan.
+**Siffror:** **~78%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~78%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** efter W2 (registry + manifest + deploy-readiness + **409 env-spärr** + `precheckOnly`). **Own-engine:** `track-w3-own-engine.md` är **komplett** (Fas A) — segment-% höjd till **~78%**; kvar kan finnas arbete utanför track (SSE-scenarier, produkt). **Scripts (W4)** spår **klart** (**~95%** segment, återstår mest drift/läsbarhet). **Whole vision** följer tabellen nedan.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -16,7 +16,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~76pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~78pct — kort vad som ändrats`.
 4. **Batch:** under pågående orchestrator-remediation, **samla gärna ~4–5 enheter** på Whole vision mellan commits när flera säkra punkter ryms i samma gröna `typecheck`+`vitest` (färre mikrocommits). Se [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 5. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 6. `git push` till `master` (eller din arbetsbranch).
@@ -25,15 +25,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~76%** | **~24%** |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~76%** | **~24%** |
-| **Integrationer + deploy** (`1.txt` steg 5–7) | **~58%** | **~42%** |
-| **Own-engine** (`2.txt`) | **~48%** | **~52%** |
-| **Scripts / naming hygiene** (`3.txt`) | **~75%** | **~25%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~78%** | **~22%** |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~78%** | **~22%** |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~62%** | **~38%** |
+| **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
+| **Scripts / naming hygiene** (`3.txt`, W4 exit) | **~95%** | **~5%** |
 
 ## Återstår (kort)
 
-Ungefär **~24%** av *whole vision* kvar: valfri **W2**-rest (auto-fix opt-in); lösare uppföljning utanför track (W4 scripts **klar**). **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~22%** av *whole vision* kvar: valfri **W2**-rest (deploy auto-fix opt-in); **W1**-landningspunkter i `track-w1-landing-followups.md` (in-view 3D, `IntegrationCard` reduced-motion, footer-sidor); ev. own-engine **utanför** W3-track. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -80,7 +80,7 @@ Ungefär **~24%** av *whole vision* kvar: valfri **W2**-rest (auto-fix opt-in); 
 
 1. ~~`LandingBackground` (shader/grid/noise) till egen komponent; semantiskt per läge; reduced-motion / in-view för 3D.~~ **Klart** (in-view för övrig 3D kvar vid behov).
 2. ~~Utöka `integrationRegistry` + manifest + deploy-readiness~~ **Klart** (uppföljning: tunnare auto-fix / valideringsfas före deploy om behov).
-3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** W4 scripts, valfri W2-hårdning, ev. fler SSE-scenarier utanför track.
+3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** valfri W2 auto-fix opt-in, W1 landnings-followups, ev. SSE/own-engine utanför track.
 4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
 
 ## Uncertainties / product follow-ups

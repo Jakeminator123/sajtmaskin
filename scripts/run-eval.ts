@@ -1,3 +1,10 @@
+/**
+ * Own-engine eval harness (`npm run eval`).
+ *
+ * Skriver markdown **lokalt** under `./EGEN_MOTOR_V2/` (gitignored sedan 2026-03-25):
+ * `eval-report-YYYY-MM-DD.md`, `scorecard-YYYY-MM-DD.md` — datum = körningsdag.
+ * Inget här committas; bortsett från att du själv kopierar ut filer.
+ */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 

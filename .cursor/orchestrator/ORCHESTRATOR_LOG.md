@@ -1,3 +1,5 @@
+2026-03-25 — Progress ~78%: avstämd tabell (own-engine/W3 klar, scripts/W4 ~95%, whole ~78%); `run-eval` + `EGEN_MOTOR_V2` förklarat i `scripts/README` + `run-eval.ts` header. Commit ~78pct.
+
 2026-03-25 — W2 deploy: 409 `DEPLOY_MISSING_ENV` före deployment-rad; `precheckOnly` torrkörning; `docs/architecture/deploy-precheck.md`; track W2 delvis (opt-in auto-fix öppen). Progress ~76%. Commit ~76pct.
 
 2026-03-25 — W4 close: bort `scripts/hamta_sidor.py`; `testning_scarf` → `scripts/labs/testning_scarf/`; `package.json` + `.gitignore` + lab `REPO_ROOT`-fixar; docs/track. Progress ~75%. Commit ~75pct.
