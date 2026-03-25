@@ -17,6 +17,18 @@ export function LandingFooter() {
             <p className="text-xs text-muted-foreground leading-relaxed max-w-[200px]">
               Professionella hemsidor f&ouml;r svenska f&ouml;retag &mdash; snabbt, enkelt och med riktig teknik bakom.
             </p>
+            <p className="mt-3 max-w-[200px] text-[10px] leading-relaxed text-muted-foreground/70">
+              En tj&auml;nst fr&aring;n{" "}
+              <a
+                href="https://sajtstudio.se"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Pretty Good AB
+              </a>
+              .
+            </p>
           </div>
           <div>
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Produkt</h4>
@@ -108,7 +120,7 @@ export function LandingFooter() {
         </div>
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-6 border-t border-border/15">
           <p className="text-xs text-muted-foreground/60">
-            &copy; {new Date().getFullYear()} SajtMaskin AB. Alla r&auml;ttigheter f&ouml;rbeh&aring;llna.
+            &copy; {new Date().getFullYear()} Pretty Good AB. Alla r&auml;ttigheter f&ouml;rbeh&aring;llna.
           </p>
           <p className="text-xs text-muted-foreground/60">Sociala länkar publiceras här när de finns.</p>
         </div>

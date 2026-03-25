@@ -104,6 +104,8 @@
 | 4 | Överväg **disclaimer** vid demostatistik i Lighthouse-kort | copy/transparens |
 | 5 | Rensa **dubbel variabel** i `extract-landing-chat-data.mjs` | kosmetik |
 
+**Implementerat i kod (efter review):** punkt 2–5 ovan + landningsfooter (Pretty Good AB + länk som i layout-footer), se commit som refererar till denna fil.
+
 ---
 
 ## Slutsats

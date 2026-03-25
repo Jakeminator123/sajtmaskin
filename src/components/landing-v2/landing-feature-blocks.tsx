@@ -40,7 +40,14 @@ export function FeatureCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onClick()
+        if (e.key === "Enter") {
+          onClick()
+          return
+        }
+        if (e.key === " ") {
+          e.preventDefault()
+          onClick()
+        }
       }}
     >
       <div

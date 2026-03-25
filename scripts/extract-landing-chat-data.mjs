@@ -15,7 +15,6 @@ const MARKER_END = "SAJTMASKIN_LANDING_DATA_EXTRACT_END"
 const root = process.cwd()
 const chatAreaPath = path.join(root, "src/components/landing-v2/chat-area.tsx")
 const outPath = path.join(root, "src/components/landing-v2/landing-chat-data.ts")
-const dataPath = path.join(root, "src/components/landing-v2/landing-chat-data.ts")
 
 function readUtf8(p) {
   return fs.readFileSync(p, "utf8")
@@ -26,7 +25,7 @@ function hasCategoriesExport(src) {
 }
 
 const chatSrc = readUtf8(chatAreaPath)
-const dataSrc = fs.existsSync(dataPath) ? readUtf8(dataPath) : ""
+const dataSrc = fs.existsSync(outPath) ? readUtf8(outPath) : ""
 
 const markerRe = new RegExp(
   `\\/\\*\\s*${MARKER_START}\\s*\\*\\/([\\s\\S]*?)\\/\\*\\s*${MARKER_END}\\s*\\*\\/`,

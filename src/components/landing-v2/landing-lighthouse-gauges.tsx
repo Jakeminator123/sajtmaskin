@@ -12,7 +12,8 @@ const lighthouseScores = [
 export function LighthouseGauges() {
   const { ref, visible } = useInView(0.25)
   return (
-    <div ref={ref} className="flex flex-wrap justify-center gap-8 md:gap-14 mt-14">
+    <div ref={ref} className="mt-14 flex flex-col items-center gap-6">
+      <div className="flex flex-wrap justify-center gap-8 md:gap-14">
       {lighthouseScores.map((item, i) => {
         const r = 40
         const c = 2 * Math.PI * r
@@ -51,6 +52,10 @@ export function LighthouseGauges() {
           </div>
         )
       })}
+      </div>
+      <p className="max-w-md px-4 text-center text-[10px] leading-snug text-muted-foreground/85">
+        Siffrorna &auml;r illustrativa exempel f&ouml;r j&auml;mf&ouml;relsen &mdash; inte resultat fr&aring;n en faktisk Lighthouse-k&ouml;rning av denna sida.
+      </p>
     </div>
   )
 }
