@@ -165,7 +165,8 @@ package.json, tsconfig, vitest, uppdaterade arkitektur- och plan-docs,
 research README + raw-discovery README, scripts README, ENV, terminology,
 hamta_sidor_branch_emil.py docstring, m.m.
 
-Efter push: hitta exakt commit med `git log -1 --oneline` på din branch.
+Leverans-commit på master: d2ff542d (meddelande: track Playwright Vercel discovery
+in e2e/ and document scaffold boundary).
 
 ================================================================================
 SLUT
