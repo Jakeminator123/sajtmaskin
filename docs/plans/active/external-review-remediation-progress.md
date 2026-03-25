@@ -2,7 +2,7 @@
 
 Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator). **Agent-uppdelning:** `docs/plans/active/orchestrator-workloads-external-review.md`.
 
-Last code touch: **Playwright-spec** flyttad till **spårad** `e2e/vercel-templates/scrape-catalog.spec.ts`; `package.json` `references:discover*` uppdaterad; `vercel_templates_levels/` kvar som valfri **lokal** ignorerad spillra. Se `vercel-templates-playwright-scaffold-integration.txt`.
+Last code touch: **W2** manifest + `deployReadiness` (`11f443db`); därefter **final sweep** med spårad **`config-dashboard/`** + `docs/architecture/config-dashboard-sources.md`. **Playwright / e2e:** kanon `e2e/vercel-templates/`; `vercel_templates_levels/` valfri lokal spillra — se `vercel-templates-playwright-scaffold-integration.txt`.
 
 **Siffror:** **~43%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Scripts-spåret** ~32% efter README/inventory-sweep; höj till **~43%** helhet när du kört din återstående script/README-runda.
 
