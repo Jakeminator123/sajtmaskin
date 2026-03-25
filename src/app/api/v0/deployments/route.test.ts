@@ -114,4 +114,28 @@ describe("POST /api/v0/deployments", () => {
     expect(json.deployReadiness?.ready).toBe(false);
     expect(json.deployReadiness?.missingEnv).toContain("STRIPE_SECRET_KEY");
   });
+
+  it("precheckOnly lists package.json in deployReadiness.invalidFiles when JSON is invalid", async () => {
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: "{ not valid package json" },
+    ]);
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        precheckOnly: true,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      deployReadiness?: { ready: boolean; invalidFiles?: string[]; warnings?: string[] };
+    };
+    expect(json.deployReadiness?.invalidFiles).toEqual(["package.json"]);
+    expect(json.deployReadiness?.warnings?.some((w) => w.includes("package.json"))).toBe(true);
+  });
 });

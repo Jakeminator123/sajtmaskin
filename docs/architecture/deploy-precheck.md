@@ -18,6 +18,12 @@ Innan filer skickas till Vercel normaliseras snapshoten så att typiska generato
 
 Varningar som inte stoppar deploy (t.ex. saknade versionsnycklar i intern karta) hamnar i `preDeployWarnings` och i `deployReadiness.warnings`.
 
+Om `package.json` inte går att parsa under dependency-patchning läggs **`package.json`** i `deployReadiness.invalidFiles` (samma svar som `precheckOnly` / 409-svaret). Fältet är **observabilitet**: `deployReadiness.ready` styrs fortfarande bara av saknade obligatoriska env-nycklar — men klienter kan visa att filen behöver manuell rättning.
+
+### Canonical path: sparad version vs andra anrop
+
+**`resolveEnvRequirementsFromVersionFiles`** / **`detectIntegrationsFromVersionFiles`** (manifest + heuristik på versionfiler) är källan för **readiness**, **files-GET** och **deploy-POST** efter preflight. Andra anrop (t.ex. live-kod i paneler) som använder `detectIntegrations(code)` direkt är avsiktliga shortcuts; de ska inte ersätta sanningen för en **sparad** version.
+
 ### Stäng av auto-fix (opt-out)
 
 - **Miljö:** `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1` eller `DEPLOY_DISABLE_AUTO_FIX=1`.

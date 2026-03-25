@@ -10,7 +10,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 
 | Typ | Namnmönster | Innehåll |
 |-----|-------------|----------|
-| **Milstolpe / helhets-%** | `NNpct-<bokstav>.md` (t.ex. `42pct-v`) | Snapshot när *whole vision* ungefär **NN%** enligt `external-review-remediation-progress.md`: vad som levererats, risker, “missat”, rekommenderad nästa ordning. |
+| **Milstolpe / helhets-%** | `NNpct-<bokstav>.md` | Snapshot när *whole vision* ungefär **NN%** enligt `external-review-remediation-progress.md`: vad som levererats, risker, “missat”, rekommenderad nästa ordning. |
 | **Commit-kedja (→ ~100%)** | `NNpct-<bokstav>.md` **en fil per** relevant `master`-commit i remediation-kedjan | Kort leverans enligt commit + `SHA` + pekare till **nästa** commit i kedjan; valfri verifieringsnotis. *Saknar du en commit mellan två filer — backfilla.* |
 | **Avgränsat spår** | fritt namn, t.ex. `vercel-templates-path-verification-note.md` | En **tråd** som inte ska blandas med hela remediation (t.ex. gitignore vs `main`/`master`, script-sökvägar). |
 | **Index / meta** | `KRITIK-OVERVIEW.md` (denna fil) | **Vad filerna betyder** + tabell över **aktiva** filer — minskar att nya agenter uppfinner om namngivning. |
@@ -23,10 +23,11 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 
 | Fil | Roll |
 |-----|------|
-| `42pct-v.md` | W2 manifest + deploy readiness; öppna test-/kontraktsrader även i [`kritik-consolidated-open-items.md`](../../../docs/plans/active/kritik-consolidated-open-items.md) (C-101–C-104). |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index. |
 
-**Arkiv (handoff-/historik efter konsolidering 2026-03-26):** [`../../archive/kritik-addressed/`](../../archive/kritik-addressed/README.md) — där ligger tidigare `18–84pct-*`, `27pct-w`, `31pct-t`, `34pct-n`, `vercel-templates-path-verification-note.md` m.fl. (se README-tabellen).
+*Inga milstolpsfiler just nu; lägg till `NNpct-*.md` vid nästa handoff.*
+
+**Arkiv:** [`../../archive/kritik-addressed/`](../../archive/kritik-addressed/README.md) — där ligger tidigare `18–84pct-*`, `42pct-v`, `vercel-templates-path-verification-note.md` m.fl.
 
 ---
 

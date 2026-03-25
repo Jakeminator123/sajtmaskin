@@ -42,6 +42,8 @@ type PreDeployDiagnostics = {
   files: Array<{ name: string; content: string }>;
   fixesApplied: string[];
   warnings: string[];
+  /** Filvägar som preflight flaggade som ogiltiga / ej kunde patchas (tunn kontrakt mot UI). */
+  invalidFiles: string[];
 };
 
 function shouldSkipPreDeployAutoFix(bodySkipAutoFix?: boolean): boolean {
@@ -63,6 +65,7 @@ function runPreDeployFixPipeline(
         "Pre-deploy auto-fix skipped (skipAutoFix in body or SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1 / DEPLOY_DISABLE_AUTO_FIX=1)",
       ],
       warnings: [],
+      invalidFiles: [],
     };
   }
   return applyPreDeployFixes(files);
@@ -73,6 +76,7 @@ function applyPreDeployFixes(
 ): PreDeployDiagnostics {
   const fixesApplied: string[] = [];
   const warnings: string[] = [];
+  const invalidFiles: string[] = [];
   const lockfileNames = new Set(["pnpm-lock.yaml", "pnpm-lock.yml", "yarn.lock"]);
   const removedLockfiles = new Set<string>();
   const nextFiles = files
@@ -303,11 +307,12 @@ function applyPreDeployFixes(
       }
     } catch (error) {
       warnings.push("Failed to update package.json dependencies (invalid JSON)");
+      invalidFiles.push("package.json");
       console.warn("[deploy] Failed to patch package.json:", error);
     }
   }
 
-  return { files: nextFiles, fixesApplied, warnings };
+  return { files: nextFiles, fixesApplied, warnings, invalidFiles };
 }
 
 type DeployErrorSource = "internal" | "upstream" | "unknown";
@@ -444,7 +449,7 @@ export async function POST(req: Request) {
       const textFiles = codeFiles.map((f) => ({ name: f.path, content: f.content }));
 
       const projectEnv = await resolveProjectEnv(engineProjectId ?? null);
-      const { files: fixedFiles, fixesApplied, warnings } = runPreDeployFixPipeline(
+      const { files: fixedFiles, fixesApplied, warnings, invalidFiles } = runPreDeployFixPipeline(
         textFiles,
         skipPreDeployAutoFix,
       );
@@ -455,6 +460,7 @@ export async function POST(req: Request) {
       const deployReadiness = buildDeployReadiness({
         missingEnvKeys: envRequirements.missingEnvKeys,
         preDeployWarnings: warnings,
+        invalidFilePaths: invalidFiles,
       });
 
       if (precheckOnly) {

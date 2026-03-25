@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
+import { injectIntegrationManifestIntoFilesJson } from "@/lib/integrations/inject-integration-manifest";
 import {
   SAJTMASKIN_INTEGRATION_MANIFEST_FILENAME,
   tryParseIntegrationManifest,
@@ -107,5 +108,65 @@ describe("integration manifest", () => {
     const detected = detectIntegrationsFromVersionFiles(files);
     expect(detected.some((d) => d.key === "openai")).toBe(true);
     expect(detected.some((d) => d.key === "stripe")).toBe(false);
+  });
+
+  it("returns no integrations for empty file list", () => {
+    expect(detectIntegrationsFromVersionFiles([])).toEqual([]);
+  });
+
+  it("falls back to heuristics when manifest JSON is invalid", () => {
+    const files = [
+      {
+        name: SAJTMASKIN_INTEGRATION_MANIFEST_FILENAME,
+        content: "{not valid json",
+      },
+      { name: "lib/pay.ts", content: 'import Stripe from "stripe";\n' },
+    ];
+    const detected = detectIntegrationsFromVersionFiles(files);
+    expect(detected.some((d) => d.key === "stripe")).toBe(true);
+  });
+
+  it("falls back to heuristics when manifest schema is not v1", () => {
+    const files = [
+      {
+        name: SAJTMASKIN_INTEGRATION_MANIFEST_FILENAME,
+        content: JSON.stringify({ schemaVersion: 2, integrations: [] }),
+      },
+      { name: "lib/pay.ts", content: 'import Stripe from "stripe";\n' },
+    ];
+    const detected = detectIntegrationsFromVersionFiles(files);
+    expect(detected.some((d) => d.key === "stripe")).toBe(true);
+  });
+
+  it("merges manifest integrations with custom env vars from remaining files", () => {
+    const manifest = JSON.stringify({
+      schemaVersion: 1,
+      integrations: [{ key: "openai", required: true }],
+    });
+    const files = [
+      { name: SAJTMASKIN_INTEGRATION_MANIFEST_FILENAME, content: manifest },
+      {
+        name: "lib/extra.ts",
+        content: "export const x = process.env.MY_CUSTOM_SECRET;\n",
+      },
+    ];
+    const detected = detectIntegrationsFromVersionFiles(files);
+    expect(detected.some((d) => d.key === "openai")).toBe(true);
+    const custom = detected.find((d) => d.key === "custom-env");
+    expect(custom?.envVars).toContain("MY_CUSTOM_SECRET");
+  });
+
+  it("injectIntegrationManifestIntoFilesJson returns input when files JSON is invalid", () => {
+    const bad = "not-json";
+    expect(injectIntegrationManifestIntoFilesJson(bad)).toBe(bad);
+  });
+
+  it("injectIntegrationManifestIntoFilesJson is idempotent for stable detection", () => {
+    const base = JSON.stringify([
+      { path: "lib/pay.ts", content: 'import Stripe from "stripe";\n', language: "ts" },
+    ]);
+    const once = injectIntegrationManifestIntoFilesJson(base);
+    const twice = injectIntegrationManifestIntoFilesJson(once);
+    expect(twice).toBe(once);
   });
 });

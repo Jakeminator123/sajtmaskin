@@ -6,7 +6,7 @@
 
 **Relaterat:** [`external-review-execution/buglista-del-3.md`](./external-review-execution/buglista-del-3.md) (`.j_to_agent/3.txt`), [`kritik-derived-backlog.md`](./kritik-derived-backlog.md) (kort pekare hit).
 
-**Aktiv kritikfil kvar i mappen (tills vidare):** [`42pct-v.md`](../../../.j_to_agent/structure_bugs_and_parralells/kritik/42pct-v.md) — manifest/deploy-readiness; unika **test-** och **kontrakts**punkter nedan (C-101ff).
+**Aktiva kritikfiler:** inga milstolpsfiler just nu — se [`KRITIK-OVERVIEW.md`](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md). `42pct-v.md` (C-101–C-104) är **arkiverad** under [`kritik-addressed/`](../../../.j_to_agent/archive/kritik-addressed/README.md) efter fix 2026-03-26.
 
 ---
 
@@ -14,7 +14,6 @@
 
 - `src/lib/integrations/registry.ts`, `src/lib/gen/detect-integrations.ts`, `config/env-policy.json`
 - Deploy-API, `useBuilderDeployActions`, builder copy kopplad till env/409
-- Större utökning av `integration-manifest.test.ts` utan ägarskap
 
 ---
 
@@ -29,10 +28,10 @@
 | K-015 | `31pct-t`, `27pct-w`, `34pct-n` | `extract-landing-chat-data.mjs`: robust parse (minimera radbundna markörer); vakt finns | scripts | medel | [ ] |
 | K-016 | `27pct-w`, `31pct-t` | `chat-area.tsx` fortfarande **stor** fil — fortsatt modulär uppdelning vid behov | refaktor | låg–medel | [ ] |
 | K-017 | `31pct-t` | `REGISTRY_BY_PROVIDER`: flera rader med samma `provider` skulle kollidera — inget akut | data | låg | [ ] |
-| C-101 | `42pct-v` §2.1 | Progress **Last code touch** kan drifta vs senaste stora ändring — håll intro i sync med tabell | doc | låg | [ ] |
-| C-102 | `42pct-v` §2.2 | Fler **Vitest** för manifest: ogiltig manifest → fallback, tomma filer, idempotens `injectIntegrationManifestIntoFilesJson`, merge + custom-env | test | medel | [ ] |
-| C-103 | `42pct-v` §2.3 | `buildDeployReadiness.invalidFiles` alltid `[]` — ev. framtida utfyllnad | kod | låg | [ ] |
-| C-104 | `42pct-v` §2.4–2.5 | Övriga kodvägar `detectIntegrations`/`resolveEnvRequirements` vs “sparad version” som sanning — dubbelkolla över tid | arkitektur | medel | [ ] |
+| C-101 | `42pct-v` §2.1 | Progress **Last code touch** i sync med tabell / senaste batch | doc | låg | [x] 2026-03-26 |
+| C-102 | `42pct-v` §2.2 | Vitest: ogiltig manifest → fallback, tomma filer, inject-idempotens, merge + custom-env | test | medel | [x] 2026-03-26 |
+| C-103 | `42pct-v` §2.3 | `deployReadiness.invalidFiles` fylls när `package.json` inte kan patchas i preflight | kod | låg | [x] 2026-03-26 |
+| C-104 | `42pct-v` §2.4–2.5 | Canonical path dokumenterad i `deploy-precheck.md` | arkitektur | medel | [x] 2026-03-26 |
 
 ---
 
@@ -56,7 +55,6 @@ Följande teman behandlas som **stängda** mot nuvarande `master` (implementatio
 ## Underhåll
 
 - När en rad stängs: uppdatera denna fil + ev. `integration-manifest.test.ts` / progress-intro.
-- När `42pct-v` är helt uttömd: flytta den till `kritik-addressed` och ta bort C-101–C-104 här (eller markera [x]).
 - Nya milstolpar: antingen kort notis här **eller** ny fil i `kritik/` + en rad i [`KRITIK-OVERVIEW.md`](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md).
 
-**Batch:** 2026-03-26 — konsolidering + massarkivering av handoff-/historikfiler.
+**Batch:** 2026-03-26 — konsolidering + massarkivering av handoff-/historikfiler. **2026-03-26 (senare):** C-101–C-104 stängda i kod/docs; `42pct-v.md` arkiverad.

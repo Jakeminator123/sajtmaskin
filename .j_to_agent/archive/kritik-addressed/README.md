@@ -4,7 +4,7 @@ Här ligger **parallella granskningsfiler** (`NNpct-*.md` m.fl.) som har **sluti
 
 **Levande öppna punkter:** [`docs/plans/active/kritik-consolidated-open-items.md`](../../../docs/plans/active/kritik-consolidated-open-items.md).
 
-**Aktiva** kritikfiler kvar i mappen: [KRITIK-OVERVIEW.md](../../structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) + `42pct-v.md` (tills vidare).
+**Aktiva** kritikfiler kvar i mappen: endast [KRITIK-OVERVIEW.md](../../structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md).
 
 ---
 
@@ -40,5 +40,6 @@ Här ligger **parallella granskningsfiler** (`NNpct-*.md` m.fl.) som har **sluti
 | `84pct-a.md` | Algolia; historik. |
 | `84pct-e.md` | Meilisearch; historik. |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg; stängt / verifierat i repo. |
+| `42pct-v.md` | W2 manifest + deploy; C-101–C-104 stängda 2026-03-26 (Vitest, `invalidFiles`, `deploy-precheck.md`, progress-intro). |
 
 När en ny snapshot är helt åtgärdad: flytta filen hit och uppdatera tabellen + [`KRITIK-OVERVIEW.md`](../../structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md).

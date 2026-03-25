@@ -27,4 +27,14 @@ describe("buildDeployReadiness", () => {
     expect(r.ready).toBe(true);
     expect(r.warnings).toEqual(["note: foo"]);
   });
+
+  it("passes invalidFilePaths for observability without toggling ready alone", () => {
+    const r = buildDeployReadiness({
+      missingEnvKeys: [],
+      preDeployWarnings: [],
+      invalidFilePaths: ["package.json"],
+    });
+    expect(r.ready).toBe(true);
+    expect(r.invalidFiles).toEqual(["package.json"]);
+  });
 });
