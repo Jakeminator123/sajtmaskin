@@ -6,11 +6,11 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 
 | Fil | Storlek (ca) | Syfte |
 |-----|----------------|-------|
-| [`scripts/hamta_sidor.py`](../../scripts/hamta_sidor.py) | ~19 KB | Use case-kategorier på vercel.com/templates → Next.js/React-filter → `summary.json`, `INDEX_SV.md`, valfri `git clone` per mall. |
+| [`scripts/hamta_sidor.py`](../../scripts/hamta_sidor.py) | ~19 KB | Bredare standardlista av use cases på vercel.com/templates → Next.js/React → `summary.json`, `INDEX_SV.md`, valfri `git clone`. **Inte samma kod** som `branch_emil`. |
 | ~~`hamta_sidor.py` (repo root)~~ | — | **Borttagen** 2026-03-24 (var identisk med `scripts/hamta_sidor.py`). |
-| [`scripts/hamta_sidor_branch_emil.py`](../../scripts/hamta_sidor_branch_emil.py) | (växer) | Utökad variant: `USE_CASES_CORE` (12 kärnkategorier, bl.a. `marketing-sites` + `starter`), valfritt `--extended-scrape` (documentation + monorepos), tierad utmappning `full-repo/` \| `tutorial-bootstrap/` \| `monorepo-examples/`, `--flat-layout` för gammalt läge, `--urls` → `direct-urls/`, `ingestion_report.json`, `SCRAPE_LAYOUT_SV.md`, `FRAMEWORK_FILTER`, CSS-signaler. |
+| [`scripts/hamta_sidor_branch_emil.py`](../../scripts/hamta_sidor_branch_emil.py) | (växer) | **Sajtmaskin-spår:** `USE_CASES_CORE`, valfritt `--extended-scrape`, tierad utdata `full-repo/` \| `tutorial-bootstrap/` \| `monorepo-examples/`, `--flat-layout`, `--urls` → `direct-urls/`, `ingestion_report.json`, `SCRAPE_LAYOUT_SV.md`, `FRAMEWORK_FILTER`, CSS-metadata. **Vanligt val för manuell inhämtning** av research-material. |
 
-**Rekommendation:** Kanonisk plats är **`scripts/hamta_sidor.py`**. Välj antingen (a) behåll den enkla som default för förutsägbarhet, eller (b) **ersätt** innehållet i `scripts/hamta_sidor.py` med innehållet från `hamta_sidor_branch_emil.py` och arkivera/ta bort den enkla logiken från root — då bör `hamta_sidor_branch_emil.py` tas bort eller döpas om till t.ex. `scripts/hamta_sidor.py` endast (en fil). Inget av detta körs från `package.json`; det påverkar **research** / lokala dataset, inte produktion.
+**Rekommendation:** Båda ligger under `scripts/`. För **daglig / planerad inhämtning** är `hamta_sidor_branch_emil.py` ofta rätt (mindre brus, tydligare artefakter). För **jämförelse eller enkla körningar** kan `hamta_sidor.py` användas. På sikt: **slå ihop till en fil** (behåll `branch_emil`-beteendet som default, ev. flagga för “bred lista”) — tills dess är två filer **medvetet** och **inte** dubbletter av samma innehåll. Inget körs från `package.json`; det påverkar **research** / lokala dataset, inte produktion.
 
 **Risk:** Vercel kan ändra HTML → tysta fel eller tomma listor. Verifiera manuellt efter större sajtändringar.
 

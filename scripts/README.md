@@ -3,7 +3,7 @@
 ## Översikt och inventering
 
 - **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.
-- **Vercel use-case-skrapning (Python):** [`scripts/hamta_sidor.py`](hamta_sidor.py) (kanonisk). Utökad variant: [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — se inventeringsdokumentet innan du slår ihop dem.
+- **Vercel use-case-skrapning (Python):** två varianter — **samma sajt, olika omfång:** [`scripts/hamta_sidor.py`](hamta_sidor.py) (kortare, bred use case-lista) och [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) (**Sajtmaskin-justerad**: kärnkategorier, `--extended-scrape`, tierade utdata `full-repo/` / `tutorial-bootstrap/` / `monorepo-examples/`, rapporter). För manuell “hemhämtning” av material används i praktiken ofta **den längre** (`branch_emil`); se inventeringsdokumentet innan ni slår ihop dem till en fil.
 - **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
 
 ## vercel_template_cli.py (repo root)
