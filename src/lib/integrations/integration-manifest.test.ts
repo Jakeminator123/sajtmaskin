@@ -49,6 +49,20 @@ describe("integration manifest", () => {
     expect(row?.envVars).toContain("NEXT_PUBLIC_TYPESENSE_HOST");
   });
 
+  it("detects Elasticsearch from generated code", () => {
+    const files = [
+      {
+        name: "lib/search.ts",
+        content: 'import { Client } from "@elastic/elasticsearch";\n',
+      },
+    ];
+    const detected = detectIntegrationsFromVersionFiles(files);
+    const row = detected.find((d) => d.key === "elasticsearch");
+    expect(row?.name).toBe("Elasticsearch");
+    expect(row?.envVars).toContain("NEXT_PUBLIC_ELASTICSEARCH_NODE_URL");
+    expect(row?.envVars).toContain("NEXT_PUBLIC_ELASTICSEARCH_SEARCH_API_KEY");
+  });
+
   it("detects Algolia from generated code", () => {
     const files = [
       {

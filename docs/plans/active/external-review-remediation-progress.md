@@ -6,11 +6,11 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Typesense** i **`integrationRegistry`** + **`DETECTION_PIPELINE`**; **`env-policy`** (`NEXT_PUBLIC_TYPESENSE_*`, valfri **TYPESENSE_HOST** / **TYPESENSE_API_KEY**); Vitest-detektion. **Tidigare:** Meilisearch, Algolia; `webscraper-url.test.ts`; W2 CMS + Mongo. **Progress ~84% whole:** tabell nedan.
+Last code touch: **Elasticsearch** i **`integrationRegistry`** + **`DETECTION_PIPELINE`**; **`env-policy`** (`NEXT_PUBLIC_ELASTICSEARCH_*`, server **ELASTICSEARCH_NODE_URL** / **ELASTICSEARCH_API_KEY**); Vitest-detektion. **Tidigare:** Typesense, Meilisearch, Algolia; W2 CMS + Mongo. **Progress ~85% whole:** tabell nedan.
 
-**Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (81 filer, **358** tester) gröna; arbetskopia utan staged/unstaged ändringar mot `origin/master`. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` / hygien i § Commit nedan). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md) och § *Återstår* (~**16 %** whole kvar).
+**Final sweep / handoff (2026-03-25):** `npm run typecheck` och `npx vitest run` (81 filer, **359** tester) gröna efter Elasticsearch-integrationen. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` / hygien i § Commit nedan). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md) och § *Återstår* (~**15 %** whole kvar).
 
-**Siffror:** **~84%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
+**Siffror:** **~85%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** / **Typesense** / **Elasticsearch** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -55,15 +55,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~84%** | **~16%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~85%** | **~15%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~82%** | **~18%** |
-| **Integrationer + deploy** (`1.txt` steg 5–7) | **~75%** | **~25%** |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~76%** | **~24%** |
 | **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
 | **Scripts / naming hygiene** (`3.txt`, W4 exit) | **~95%** | **~5%** |
 
 ## Återstår (kort)
 
-Ungefär **~16%** av *whole vision* kvar: **integrationer + deploy** (~75% done) — fler providers, e2e kring deploy, produktpolish; ev. own-engine utanför W3-track. **Produkt/UI:** fortsatt förenkling av byggaren (färre parallella “statusytor”, tydligare primär väg för publicering och env) där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~15%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, e2e kring deploy, produktpolish; ev. own-engine utanför W3-track. **Produkt/UI:** fortsatt förenkling av byggaren (färre parallella “statusytor”, tydligare primär väg för publicering och env) där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -94,6 +94,7 @@ Ungefär **~16%** av *whole vision* kvar: **integrationer + deploy** (~75% done)
 - **Builder UX (header Mer, 2026-03-25):** **Mer**-meny: import, sandbox, ZIP; **Ny chat**; svenska etiketter (**Djup brief**, **Resonemang**, **Anpassad** modell); OpenClaw **Mer-meny** / **mer-menyn** i tips-kontext.
 - **Builder UX (tips/header, 2026-03-25):** **TipCard** utan duplicerad “var finns UI”-ruta; **tips-toggle** under **Inställningar**; header **Inställningar** + svenska menysektioner; instruktionsdialog **Klar**; OpenClaw-ytor inkl. **lansering**.
 - **Builder UX (plotter, 2026-03-25):** ingen separat lanserings-**badge** i **BuilderHeader**; **`formatDeployReadinessStatusLabel`** / **`deployReadinessBadgeClassName`** i `src/lib/builder/deploy-readiness-copy.ts` + Vitest; **Lansering**-kort utan extra informationsruta när status är redo; kortare **Publicera**-tooltip (env) och **409**-hint i `useBuilderDeployActions`.
+- **W2 (2026-03-25):** **Elasticsearch** i **`integrationRegistry`** + **`DETECTION_PIPELINE`**; `env-policy`; Vitest (`integration-manifest.test.ts`).
 - **W2 (2026-03-26):** **Typesense** i registry + detektion + env-policy + Vitest.
 - **W2 (2026-03-26):** **Meilisearch** i registry + detektion + env-policy + Vitest.
 - **W2 (2026-03-26):** **Algolia** i registry + detektion + env-policy + Vitest.

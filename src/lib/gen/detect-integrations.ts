@@ -123,6 +123,12 @@ export const DETECTION_PIPELINE: DetectionRule[] = [
   },
   {
     source: "registry",
+    pattern:
+      /(?:@elastic\/elasticsearch|from\s+["']@elastic\/elasticsearch["']|NEXT_PUBLIC_ELASTICSEARCH_NODE_URL\b|NEXT_PUBLIC_ELASTICSEARCH_SEARCH_API_KEY\b|ELASTICSEARCH_NODE_URL\b)/i,
+    registryProvider: "elasticsearch",
+  },
+  {
+    source: "registry",
     pattern: /(?:@sentry\/|SENTRY_DSN\b)/i,
     registryProvider: "sentry",
   },

@@ -241,6 +241,17 @@ export const integrationRegistry: IntegrationDefinition[] = [
     provider: "typesense",
   },
   {
+    key: "elasticsearch",
+    name: "Elasticsearch",
+    category: "other",
+    envVars: ["NEXT_PUBLIC_ELASTICSEARCH_NODE_URL", "NEXT_PUBLIC_ELASTICSEARCH_SEARCH_API_KEY"],
+    setupGuide:
+      "Använd Elastic Cloud eller egen Elasticsearch/OpenSearch-nod. För klient-sök: sätt NEXT_PUBLIC_ELASTICSEARCH_NODE_URL (t.ex. https://my-deployment.es.region.cloud.es.io) och en **begränsad** API-nyckel med endast läs/sök till NEXT_PUBLIC_ELASTICSEARCH_SEARCH_API_KEY. Full admin-nyckel och indexering hör hemma server-side (ELASTICSEARCH_API_KEY / ELASTICSEARCH_NODE_URL) och ska inte exponeras som NEXT_PUBLIC.",
+    runtime: "browser",
+    optional: false,
+    provider: "elasticsearch",
+  },
+  {
     key: "sentry",
     name: "Sentry",
     category: "other",
