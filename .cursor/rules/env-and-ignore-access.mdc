@@ -5,10 +5,17 @@ alwaysApply: true
 
 # Env and ignore file access
 
+- **Env variable catalog (names, targets, workflow):** prefer `docs/ENV.md`,
+  `src/lib/env.ts`, and `config/env-policy.json`. They stay indexed; use them
+  before relying on chat memory.
+- **Secret values** live in `.env.local` / `.env.production` and stay
+  **cursorignored** by design. Open them only when debugging setup with a
+  concrete reason; never commit them. Committed templates `.env.example` /
+  `.env.*.example` are not ignored.
 - You may read local env files and ignore files when there is a concrete reason.
-- Treat this repository as allowing conservative full access to `.env*`,
-  `.gitignore`, `.cursorignore`, and similar config files when they are relevant
-  to the task.
+- Treat this repository as allowing conservative full access to `.env*` (when
+  readable), `.gitignore`, `.cursorignore`, and similar config files when they
+  are relevant to the task.
 - Valid reasons include debugging setup, deployment issues, env mismatches,
   integration failures, archive visibility, documentation cleanup, and repo
   structure work.

@@ -4,7 +4,7 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 Last code touch: **Playwright-spec** flyttad till **spårad** `e2e/vercel-templates/scrape-catalog.spec.ts`; `package.json` `references:discover*` uppdaterad; `vercel_templates_levels/` kvar som valfri **lokal** ignorerad spillra. Se `vercel-templates-playwright-scaffold-integration.txt`.
 
-**Siffror:** **~42%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Scripts-spåret** ~32% efter README/inventory-sweep; höj till **~43%** helhet när du kört din återstående script/README-runda.
+**Siffror:** **~43%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Scripts-spåret** ~32% efter README/inventory-sweep; höj till **~43%** helhet när du kört din återstående script/README-runda.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -20,7 +20,7 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~42%** | **~58%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~43%** | **~57%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~72%** | **~28%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~52%** | **~48%** |
 | **Own-engine** (`2.txt`) | **~0%** | **~100%** |
@@ -28,6 +28,7 @@ Vid varje dokumenterad avstämning:
 
 ## Done (in repo)
 
+- **Repo-städ / dokumentation (final sweep-uppföljning):** `config-dashboard/` + `docs/architecture/config-dashboard-sources.md` spårade; `docs/README.md` länkar dit. Uppdaterade `.cursor/rules/*`, `.cursor/settings.json`, `.cursorignore`. Borttagna duplicerade `.j_to_agent/.../deep-research-report (1|2).md`; kritik-filer under samma mapp trimmade/uppdaterade (inkl. nya anteckningar där de lades till lokalt).
 - Landning: statisk copy/data i `landing-chat-data.ts`; delade hooks i `landing-hooks.ts`; state/build-flöde i `useLandingController` (`use-landing-controller.ts`).
 - 3D tilt + tech/integration card glow + terminal glow: DOM / CSS-variabler, inte `setState` per rörelse.
 - `prefers-reduced-motion` stoppar tilt-uppdateringar.

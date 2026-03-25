@@ -1,40 +1,40 @@
 ---
-description: Route /finals-weep into a closeout, archive, sanity-check, commit, and push routine
+description: Route /sluta, /final-sweep, /finals-weep into session closeout — review, clean, document, commit, push
 alwaysApply: true
 ---
 
-# Finals Sweep Routing
+# Session closeout routing (`/sluta`, `/final-sweep`, `/finals-weep`)
 
-Apply this rule when the user message starts with `/finals-weep` or `/final-sweep`.
+Apply this rule when the user message starts with **`/sluta`**, **`/final-sweep`**, or **`/finals-weep`**.
 
-## What It Means
+`/sluta` and `/final-sweep` are the same closeout intent; use `/sluta` when you want the numbered checklist below to run explicitly.
 
-Treat this as an explicit request to close out the **current session's** workstream:
-- classify and relocate docs/plans to the correct lifecycle folders
-- archive completed `orchestrator run` artifacts
-- perform a short final sweep for stale files, tiny obvious fixes, and sanity checks
-- save, commit, and push the completed session work
+## Not the same as orchestrator `FINAL_SWEEP.md`
 
-## Required Behavior
+- **Orchestrator** `FINAL_SWEEP.md` lives under `.cursor/orchestrator/run/<date>-<slug>/` and closes **one documented multi-step run** (roadmap, workloads, archive). It does **not** by itself mean “commit everything in the repo”.
+- **`/sluta` / `/final-sweep`** closes the **current agent session’s** work: review diff, hygiene, docs for *this* change set, then commit and push that scope. If this session was an orchestrator run, do **both**: finish the run’s `FINAL_SWEEP.md` + `FINAL_REPORT.md` and archive **and** perform the session checklist below for the resulting code/docs.
 
-1. Read `.cursor/agent-intents/BOARD.md` first and identify fresh overlapping `active` entries.
-2. Scope the sweep to the current session's work only. Never commit another fresh agent's files.
-3. Apply lifecycle routing:
-   - plans -> `docs/plans/active/`, `review-needed/`, or `archived/`
-   - canonical docs -> `docs/architecture/` or `docs/schemas/`
-   - temporary analyses -> `docs/analyses/`
-   - historical/superseded docs -> `docs/old/`
-4. If the session used an `orchestrator run`, finish `FINAL_SWEEP.md` + `FINAL_REPORT.md` and archive the run.
-5. Delete files that are confirmed stale, superseded, or intentionally removed by the current session.
-6. Run a short sanity check:
-   - targeted lint/diagnostics for touched files
-   - `npx tsc --noEmit` when code changes span more than 3 files
-   - at least one focused test when a suitable existing test target is obvious
-7. Apply only small, obvious follow-up fixes found in the sweep. Do not open a new broad refactor.
-8. Stage only the completed session files, commit them, and push them.
+## `/sluta` — required sequence (must not skip)
+
+Execute in order unless a step is impossible (then say why in the reply).
+
+1. **Review changes** — `git status`, `git diff` (and `git diff --staged` if anything is staged). Summarize what changed; fix obvious mistakes, wrong logic, or dead code **only** inside the touched scope (no drive-by refactors).
+2. **Clean** — remove dead code, stale imports, debug leftovers, and temporary files **introduced or owned by this session**. Run targeted diagnostics/lint on touched files; run `npx tsc --noEmit` if more than three files or cross-cutting types changed; run a focused existing test when clearly relevant.
+3. **Document** — update `docs/` or inline comments **only** where this session’s behavior or public surface changed; apply plan/doc lifecycle routing (plans → `docs/plans/...`, architecture → `docs/architecture/`, etc.) per `.cursor/rules/documentation-lifecycle.mdc` and `.cursor/rules/plan-lifecycle.mdc`.
+4. **Save** — ensure all edits are written to disk (no unsaved buffers reliance).
+5. **Commit** — stage **only** this session’s completed work; write a clear message (PowerShell: use `.cursor/rules/powershell-git-commit.mdc`).
+6. **Push** — `git push` to the tracked upstream (resolve auth failures explicitly; do not pretend push succeeded).
+
+## Shared required behavior (all aliases)
+
+1. Collision check: if `.cursor/agent-intents/BOARD.md` exists, read it and resolve overlapping `active` intents; if it does not exist, rely on `git status` / diff and avoid staging unrelated paths.
+2. Scope the sweep to the **current session’s** work only. Never commit another agent’s in-progress files.
+3. If the session used an **orchestrator run**, finish `FINAL_SWEEP.md` + `FINAL_REPORT.md`, run the archive script per `.cursor/orchestrator/PROTOCOL.md`, then commit/push **repository** changes (code + promoted docs), not the gitignored run-only artifacts unless your git policy explicitly tracks them.
+4. Delete files only when confirmed stale, superseded, or intentionally removed by **this** session.
+5. Apply only **small, obvious** follow-up fixes found during review. Do not start a new large refactor as part of closeout.
 
 ## Safety Rules
 
-- If another fresh `active` intent overlaps the same files, stop and ask before sweeping.
-- Do not pull unrelated docs/code from a parallel workstream into the commit just to "clean up".
-- Treat `/finals-weep` as explicit permission to commit and push, but only for the current session's scoped work.
+- If another fresh `active` intent overlaps the same files, stop and ask before committing.
+- Do not pull unrelated docs/code from a parallel workstream into the commit to “clean up”.
+- **`/sluta` and `/final-sweep` are explicit permission to commit and push** for the scoped session work only.

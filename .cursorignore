@@ -149,7 +149,7 @@ chat_till_vanster.txt
 
 # Misc legacy folders
 #.j_to_agent/
-vercel_templates_levels/
+#vercel_templates_levels/
 
 # Orchestrator run folders
 #.cursor/orchestrator/run/*/
