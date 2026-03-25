@@ -2,7 +2,7 @@
 
 **Baslinje:** Senast denna tråd uttryckligen följde upp kritik/manifest låg HEAD kring `39fef25e` / `7f2c86a8`-linjen. Här granskas commits på `origin/master` **efter** `39fef25e` (äldst → nyast): **tre batchar à fyra** + **en avslutande commit** som landade efter sitemap-steget.
 
-**Källkommando:** `git log 39fef25e..origin/master --oneline` (verifiera mot din clone med `git fetch`). Senast granskad HEAD: **`3b468935`**.
+**Källkommando:** `git log 39fef25e..origin/master --oneline` (verifiera mot din clone med `git fetch`). Senast granskad HEAD i denna fil: **`357f0882`** (`origin/master` vid uppföljning 2026-03-27).
 
 **Relaterat:** [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md), [`external-review-remediation-progress.md`](../external-review-remediation-progress.md).
 
@@ -24,6 +24,15 @@
 | `28295bbd` | K-008 `/blogg` + e2e README | K-008 `[ ]` |
 | `da83ae15` | ~96pct `STATIC_SITEMAP_REL_PATHS` + Vitest | SEO/regression |
 | `3b468935` | ~97pct B3-05 ta bort `extract-static-core.mjs` | `3.txt`-spår / buglista del 3 komplett |
+
+### Commits efter `3b468935` (nyare än tabellen ovan)
+
+| SHA (kort) | Ämnesrad (kärna) | Knytning |
+|------------|------------------|----------|
+| `4f21d9fe` | docs: orchestrator commit-uppföljning (`reviews/`) | skapade/uppdaterade denna fil |
+| `3fbc3032` | ~97pct K-014 layout `Footer` — `/om`, `/privacy#…`, `footer.test.tsx` | K-014 delmoment |
+| `d2db9da2` | ~97pct e-handelsscaffold `/om` + `app/om/page.tsx`; fetch/pull före push i docs | scaffold + agent-rutin |
+| `357f0882` | ~97pct `route-plan` **om oss** → `/om`; push-regel i `parallel-agent-collision-safety.mdc` | gen + Cursor-regel |
 
 **Bedömning av spårbarhet:** Konsoliderad kritik och progress verkar uppdaterade i takt med dessa steg (inkl. orchestrator-loggar). Inga uppenbara “öppna K-rader utan commit” i denna kedja.
 
@@ -96,13 +105,16 @@
 
 ## Rekommenderade nästa steg (prioriterade)
 
-| Prio | Åtgärd | Typ |
-|------|--------|-----|
-| 1 | Enhetlig **bolagsbenämning** (footer vs integritetssida / metadata) | Produkt/juridik |
-| 2 | `HowItWorksFallback` + ev. **reduced-motion** för `animate-pulse` | a11y |
-| 3 | `FeatureCard`: **Space** → `preventDefault` + `onClick()` | a11y |
-| 4 | Överväg **disclaimer** vid demostatistik i Lighthouse-kort | copy/transparens |
-| 5 | Rensa **dubbel variabel** i `extract-landing-chat-data.mjs` | kosmetik |
+| Prio | Åtgärd | Typ | Status (verifierat mot `master` 2026-03-27) |
+|------|--------|-----|-----------------------------------------------|
+| 1 | Enhetlig **bolagsbenämning** (footer vs integritetssida / metadata) | Produkt/juridik | **OK:** `landing-footer.tsx` copyright + länktext **Pretty Good AB**; integritetssidan **Pretty Good AB (DG97)**. **SajtMaskin** = varumärke/produktnamn, inte juridisk enhet i footern. |
+| 2 | `HowItWorksFallback` + **reduced-motion** för `animate-pulse` | a11y | **Redan åtgärdat:** `usePrefersReducedMotion()` → tom `pulse`-klass vid reduce (`landing-how-it-works-fallback.tsx`). |
+| 3 | `FeatureCard`: **Space** → `preventDefault` + `onClick()` | a11y | **Redan åtgärdat:** `e.preventDefault()` för `" "` före `onClick()` (`landing-feature-blocks.tsx`). |
+| 4 | **Disclaimer** vid demostatistik i Lighthouse-kort | copy/transparens | **Redan åtgärdat:** fotnot under gauges (`landing-lighthouse-gauges.tsx`). |
+| 5 | Rensa **dubbel variabel** i `extract-landing-chat-data.mjs` | kosmetik | **Inget kvar:** endast `outPath` används (ingen separat `dataPath`). |
+
+**Instruktion till agent (låg–medel risk):** *Implementera punkterna under “Rekommenderade nästa steg” som fortfarande saknar **Redan åtgärdat** / **OK**; rör inte registry/deploy/own-engine utan separat uppdrag. Kör `npm run typecheck` och `npx vitest run`.*  
+För **K-007 / K-009** lägg till [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) och vid behov [`deploy-precheck.md`](../../architecture/deploy-precheck.md) — detta followup-dokument täcker främst landnings-/granskningsdetaljer.
 
 **Implementerat i kod (efter review):** punkt 2–5 ovan + landningsfooter (Pretty Good AB + länk som i layout-footer), se commit som refererar till denna fil.
 
@@ -113,3 +125,7 @@
 Orchestrator-spåret efter `39fef25e` är **genomfört konsekvent** mot dokumenterade K-punkter: K-015/K-016/K-017 är rimligt stängda i kod/test; K-007/K-014/K-008 har **avsiktliga delmoment** och ska fortfarande visas som `[ ]` där helheten inte är beslutad. De största **nya** findingsen här är **a11y** (pulse + Space), **copy/transparens** (Lighthouse-siffror), och **juridisk enhet** (bolagsnamn) — inte att commits skulle vara trasiga.
 
 *Granskning skapad som fristående dokumentation; inga kodändringar i denna commit utifrån denna fil.*
+
+---
+
+**Uppföljning 2026-03-27:** Tabellen **Commits efter `3b468935`**, kolumn **Status** under *Rekommenderade nästa steg*, och **Senast granskad HEAD** uppdaterades så review-listan speglar `357f0882` och faktisk kod — inga nya kodändringar krävdes för prio 1–5.
