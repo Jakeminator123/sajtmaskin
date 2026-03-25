@@ -13,14 +13,12 @@ import { devLogAppend, devLogStartNewSite } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
-import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import {
   canonicalModelIdToOwnModelId,
   DEFAULT_MODEL_ID,
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { createGenerationPipeline } from "@/lib/gen/generation-pipeline";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -30,18 +28,12 @@ import {
   prepareGenerationContext,
   resolveOrchestrationBase,
 } from "@/lib/gen/orchestrate";
-import { buildPlannerSystemPrompt } from "@/lib/gen/plan-prompt";
-import { getAgentTools } from "@/lib/gen/agent-tools";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
 } from "@/lib/gen/plan-review";
-import {
-  PROMPT_DUMP_CATEGORY,
-  dumpOwnEngineCodegenFromFullSystem,
-  writeLatestPromptDump,
-} from "@/lib/gen/prompt-dump";
+import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {
   extractAppProjectIdFromMeta,
@@ -60,6 +52,13 @@ import {
   buildPreGenerationContractGateParams,
 } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
+import {
+  computePlanModePlannerPrompts,
+  createPlanModePipelineStream,
+  dumpPlanModePlannerPrompts,
+  logPlanModeGenerationStart,
+  resolvePlanModePlannerModelId,
+} from "@/lib/own-engine/session/own-engine-plan-mode";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 
@@ -307,7 +306,7 @@ export async function POST(req: Request) {
 
       // ── Plan Mode Path ────────────────────────────────────────────────
       if (metaPlanMode) {
-        const planModel = resolvePhaseModel(resolvedModelTier, "planner").modelId;
+        const planModel = resolvePlanModePlannerModelId(resolvedModelTier);
         const engineIntent: BuildIntent =
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
@@ -339,40 +338,26 @@ export async function POST(req: Request) {
           })(),
         });
 
-        const planPreamble = buildPlannerSystemPrompt();
-        const planSystemPrompt = `${planPreamble}\n\n---\n\n${planOrchestration.v0EnrichmentContext}`;
-        writeLatestPromptDump(
-          PROMPT_DUMP_CATEGORY.planModePlanner,
-          {
-            "planner-preamble.md": planPreamble,
-            "dynamic-context.md": planOrchestration.v0EnrichmentContext,
-            "full-system.md": planSystemPrompt,
-          },
-          { route: "POST /api/v0/chats/stream", planMode: true },
+        const { planPreamble, planSystemPrompt } = computePlanModePlannerPrompts(planOrchestration);
+        dumpPlanModePlannerPrompts(
+          planPreamble,
+          planOrchestration,
+          planSystemPrompt,
+          "POST /api/v0/chats/stream",
         );
-        const planTools = getAgentTools();
-
-        debugLog("plan", "Plan mode activated (unified orchestration)", {
-          model: planModel,
+        logPlanModeGenerationStart({
+          planModel,
           promptLength: optimizedMessage.length,
-          thinking: resolvedThinking,
-          scaffold: planOrchestration.resolvedScaffold?.id ?? null,
-        });
-        devLogAppend("in-progress", {
-          type: "plan.generation.start",
-          model: planModel,
-          promptLength: optimizedMessage.length,
-          scaffold: planOrchestration.resolvedScaffold?.id ?? null,
+          scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
+          resolvedThinking,
         });
 
-        const pipelineStream = createGenerationPipeline({
-          prompt: optimizedMessage,
-          systemPrompt: planSystemPrompt,
-          model: planModel,
-          thinking: resolvedThinking,
+        const pipelineStream = createPlanModePipelineStream({
+          optimizedMessage,
+          planSystemPrompt,
+          planModel,
+          resolvedThinking,
           abortSignal: req.signal,
-          tools: planTools,
-          maxSteps: 2,
         });
 
         const projectIdForChat = await resolveAppProjectIdForRequest(

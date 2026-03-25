@@ -10,14 +10,12 @@ import { normalizeV0Error } from "@/lib/v0/errors";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
-import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import {
   canonicalModelIdToOwnModelId,
   DEFAULT_MODEL_ID,
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
-import { createGenerationPipeline } from "@/lib/gen/generation-pipeline";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -29,18 +27,12 @@ import {
   prepareGenerationContext,
   resolveOrchestrationBase,
 } from "@/lib/gen/orchestrate";
-import { buildPlannerSystemPrompt } from "@/lib/gen/plan-prompt";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
 } from "@/lib/gen/plan-review";
-import {
-  PROMPT_DUMP_CATEGORY,
-  dumpOwnEngineCodegenFromFullSystem,
-  writeLatestPromptDump,
-} from "@/lib/gen/prompt-dump";
+import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
-import { getAgentTools } from "@/lib/gen/agent-tools";
 import {
   extractAppProjectIdFromMeta,
   extractBriefFromMeta,
@@ -60,6 +52,13 @@ import {
   buildPreGenerationContractGateParams,
 } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
+import {
+  computePlanModePlannerPrompts,
+  createPlanModePipelineStream,
+  dumpPlanModePlannerPrompts,
+  logPlanModeGenerationStart,
+  resolvePlanModePlannerModelId,
+} from "@/lib/own-engine/session/own-engine-plan-mode";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import {
@@ -357,16 +356,12 @@ export async function handleMessageStreamRequest(
             }
           }
 
-          const planPreamble = buildPlannerSystemPrompt();
-          const planSystemPrompt = `${planPreamble}\n\n---\n\n${planOrchestration.v0EnrichmentContext}`;
-          writeLatestPromptDump(
-            PROMPT_DUMP_CATEGORY.planModePlanner,
-            {
-              "planner-preamble.md": planPreamble,
-              "dynamic-context.md": planOrchestration.v0EnrichmentContext,
-              "full-system.md": planSystemPrompt,
-            },
-            { route: "POST /api/v0/chats/[chatId]/stream", planMode: true },
+          const { planPreamble, planSystemPrompt } = computePlanModePlannerPrompts(planOrchestration);
+          dumpPlanModePlannerPrompts(
+            planPreamble,
+            planOrchestration,
+            planSystemPrompt,
+            "POST /api/v0/chats/[chatId]/stream",
           );
           const planChatHistory = engineChat.messages
             .filter((m) => m.role === "user" || m.role === "assistant")
@@ -374,16 +369,20 @@ export async function handleMessageStreamRequest(
               role: m.role as "user" | "assistant",
               content: m.content,
             }));
-          const planModel = resolvePhaseModel(resolvedModelTier, "planner").modelId;
-          const planPipelineStream = createGenerationPipeline({
-            prompt: optimizedMessage,
-            systemPrompt: planSystemPrompt,
-            model: planModel,
-            chatHistory: planChatHistory,
-            thinking: resolvedThinking,
+          const planModel = resolvePlanModePlannerModelId(resolvedModelTier);
+          logPlanModeGenerationStart({
+            planModel,
+            promptLength: optimizedMessage.length,
+            scaffoldId: planResolvedScaffold?.id ?? null,
+            resolvedThinking,
+          });
+          const planPipelineStream = createPlanModePipelineStream({
+            optimizedMessage,
+            planSystemPrompt,
+            planModel,
+            resolvedThinking,
             abortSignal: req.signal,
-            tools: getAgentTools(),
-            maxSteps: 2,
+            chatHistory: planChatHistory,
             referenceAttachments: requestAttachments,
           });
 

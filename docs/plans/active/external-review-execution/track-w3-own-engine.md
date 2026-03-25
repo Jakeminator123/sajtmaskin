@@ -34,7 +34,7 @@
 ### Session / tunna routes
 
 - [x] **Contract-gate params:** hjälpfunktion i `src/lib/own-engine/session/` som bygger `PreGenerationContractGateReadableStream`-anrop från gemensamma fält (minska upprepning i `stream/route.ts` och `[chatId]/stream/route.ts`)
-- [ ] **Plan-mode gren:** flytta gemensam plan-mode-kedja (förbered context → planner prompt → `createOwnEnginePlanModeResponse`) till session/hjälp så routes blir tunnare — *en ägare*, ev. två PR-steg om stor diff
+- [x] **Plan-mode gren:** `own-engine-plan-mode.ts` — `computePlanModePlannerPrompts`, `createPlanModePipelineStream`, `resolvePlanModePlannerModelId`, `logPlanModeGenerationStart`; båda `stream`-routes; `own-engine-plan-mode.test.ts`
 - [x] **Generation start:** `createOwnEnginePipelineAndGenerationStream` i `own-engine-pipeline-generation.ts` — samlar `createGenerationPipeline` (med `getAgentTools`) + `createOwnEngineGenerationStream`; meta byggs med `buildOwnEngineGenerationStreamMeta` i routes; session-build-filen utan tung `generation-stream`-import för enhetstester
 
 ### Robusthet / data
