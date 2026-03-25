@@ -34,6 +34,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `80pct-o.md` | `5985898e` — orchestrator log passus (docs sweep + lifecycle). |
 | `81pct-p.md` | `7696f1f8` — `/om`, `/blogg`, footer, sitemap (~81%). |
 | `82pct-u.md` | `304bf6d5` — W2 409 UX i `useBuilderDeployActions` + docs sync (~82%). |
+| `83pct-s.md` | `fe22c9ee` — Sentry i registry + detektion; builder lansering-copy (~83%). |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
 
