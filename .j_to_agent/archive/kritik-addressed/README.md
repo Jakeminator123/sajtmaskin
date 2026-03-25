@@ -4,7 +4,7 @@ Här ligger **parallella granskningsfiler** (`NNpct-*.md` m.fl.) som har **sluti
 
 **Levande öppna punkter:** [`docs/plans/active/kritik-consolidated-open-items.md`](../../../docs/plans/active/kritik-consolidated-open-items.md).
 
-**Aktiva** kritikfiler kvar i mappen: endast [KRITIK-OVERVIEW.md](../../structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md).
+**Aktiva** filer i [`kritik/`](../../structure_bugs_and_parralells/kritik/) (ej detta arkiv): för närvarande endast [KRITIK-OVERVIEW.md](../../structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md).
 
 ---
 

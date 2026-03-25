@@ -4,6 +4,8 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Genomförande (checkbox-roadmap, parallella spår, agent-kontrakt):** `docs/plans/active/external-review-execution/README.md` → [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + [CONTINUATION.md](./external-review-execution/CONTINUATION.md) (autonoma anhalter, ~4–5 % batch-commits) + track-filer.
 
+**Vad du ska följa i praktiken:** execution-lagret ovan + denna fil (%, Done, commit-rutin) och vid behov [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md). **`1.txt`–`3.txt`** är **ursprungsgranskning / orientering** och underlag för § *Kartläggning* — **inte** en parallell “todo-lista” att köra slaviskt rad för rad.
+
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
 Last code touch: **42pct manifest/deploy-uppföljning** — fler Vitest i `integration-manifest.test.ts` (ogiltig manifest → fallback, inject-idempotens, merge + custom-env); `deployReadiness.invalidFiles` när `package.json` inte kan patchas i preflight; `deploy-precheck.md` § canonical path; **`42pct-v.md`** arkiverad. **Tidigare:** progress-% synkad mot `1.txt`/`2.txt`/`3.txt` + W5 kritik-konsolidering. Tabell nedan.
