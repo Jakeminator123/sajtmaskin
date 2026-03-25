@@ -5,7 +5,9 @@
 - **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.
 - **Vercel use-case-skrapning (Python):** under `scripts/` (ingen kopia i repo-roten).
   - **Kanonisk entrypoint:** [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (historisk bred lista, ~25 use cases), tierad utdata, rapporter. **Standard** för manuell inhämtning.
-  - **Tidigare:** `scripts/hamta_sidor.py` (borttagen) motsvaras av `python scripts/hamta_sidor_branch_emil.py --legacy-wide-use-cases` om du vill återskapa det gamla beteendet.
+  - **Tidigare:** `scripts/hamta_sidor.py` (borttagen) motsvaras av `python scripts/hamta_sidor_branch_emil.py --legacy-wide-use-cases` om du **medvetet** behöver jämföra mot historisk bred lista — **inte** som standard i produktions- eller kanon-researchflöden.
+  - **Kärnlistan** i skriptet = **`USE_CASES_CORE` (12 Vercel-sluggar)** + valfritt **`USE_CASES_EXTENDED` (2)** med `--extended-scrape`. Det är **osammanhängande** med t.ex. **`EVAL_PROMPTS` (15 eval-promptar)** i `src/lib/gen/eval/prompts.ts` — olika domäner, räkna dem inte ihop.
+  - **Icke-kanon:** lokal **`vercel_templates_levels/`** (gitignored); använd **inte** som källa för “hur många kategorier” produkten har. Spårat alternativ: **`e2e/vercel-templates/`**.
   - Se [`docs/architecture/scripts-scaffolds-inventory.md`](../docs/architecture/scripts-scaffolds-inventory.md).
   - Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
 - **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).

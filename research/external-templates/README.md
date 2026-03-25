@@ -27,6 +27,16 @@ builder **Mall** / v0 gallery templates (see `.cursor/rules/terminology.mdc`).
 
 **Kanonisk Playwright-spec** = `e2e/vercel-templates/scrape-catalog.spec.ts` (tracked). **Legacy** `vercel_templates_levels/` i roten kan finnas **lokalt** (gitignored); ta bort om du inte behöver gamla anteckningar.
 
+## Non-canon — do not use as product truth
+
+These must **not** drive builder/runtime behavior, embedding curation, or “how many categories Sajtmaskin has”:
+
+- **`vercel_templates_levels/`** — optional local legacy folder; **not** tracked; ignore for canonical pipelines.
+- **`--legacy-wide-use-cases`** on `scripts/hamta_sidor_branch_emil.py` — historical wide Vercel slug list (~25) for comparison/research only.
+- **Removed** `scripts/hamta_sidor.py` — do not re-add a wrapper entrypoint.
+
+**Separate concepts (easy to confuse):** (1) Vercel Templates **scrape slugs** (`USE_CASES_CORE` = 12 + 2 extended), (2) **eval regression prompts** (`EVAL_PROMPTS` = 15 in `src/lib/gen/eval/prompts.ts`), (3) **scorecard dimensions** (5 in `src/lib/gen/eval/scorecard.ts`), (4) **internal runtime scaffolds** (`src/lib/gen/scaffolds/registry.ts` — `BASE_SCAFFOLDS`, unrelated to scrape slug count). Removing the old Python wrapper or ignoring `vercel_templates_levels/` does **not** change eval prompts or embeddings code paths.
+
 ## Input policy
 
 - `C:\Users\jakem\Desktop\_sidor\vercel_usecase_next_react_templates` remains a

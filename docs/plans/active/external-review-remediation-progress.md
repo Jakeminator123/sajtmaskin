@@ -74,6 +74,7 @@ Ungefär **~24%** av *whole vision* kvar: valfri **W2**-rest (auto-fix opt-in); 
 - **Vercel Templates Playwright:** kanon **`e2e/vercel-templates/`** (tracked). Legacy `vercel_templates_levels/` kan ligga **lokalt** (gitignore + cursorignore). Kör → `raw-discovery/current/`; **inte** v0-mallar (`templates:*`). Docs: `vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt`.
 - `scripts/README.md` + `scripts-scaffolds-inventory.md`: rättade sökvägar (`scripts/hamta_sidor*`), `npm run template-library:verify-summary`, svenska i scaffold-pipeline-tabellen; **recovery**-skript dokumenterat som **saknat** i repot.
 - **W4 (hamta + lab):** **`hamta_sidor_branch_emil.py`** kanon + **`--legacy-wide-use-cases`**; **`scripts/hamta_sidor.py` borttagen** (ersätts av flaggan). **`scripts/labs/testning_scarf/`** + `package.json` / ignore-filer. Uppdaterat: `scripts/README.md`, `scripts-scaffolds-inventory.md`, `research/external-templates/README.md`, `track-w4-scripts.md`, `scraped-scorefolds-pipeline.md`, `devtools/README.md`.
+- **Terminologi / legacy:** `scripts/README.md` + `research/external-templates/README.md` — tydlig särskiljning: **15 = `EVAL_PROMPTS`**, **12+2 = skrap-kärna** (`USE_CASES_CORE`/`EXTENDED`), **5 = scorecard**; **icke-kanon** (`vercel_templates_levels/`, `--legacy-wide-use-cases`). *Lokal förtydligande även i `EGEN_MOTOR_V2/eval-report-2026-03-25.md` (gitignorerad).*
 
 ## Next (recommended order)
 
