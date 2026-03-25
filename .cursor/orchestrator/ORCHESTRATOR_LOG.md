@@ -1,3 +1,5 @@
+2026-03-26 — **Passus (docs):** docs-svep enligt lifecycle + hub (`docs/README.md`, `documentation-lifecycle.md`) som kanon; tidigare sekundäringång `.j_to_agent/RENSNING_DOCS.txt` = research-export (ej sanning mot repo). Hub/handoff uppdaterat i commit `743565d9`; åter till execution/remediation efter align. Koordinera med parallella W1/W2-kodändringar.
+
 2026-03-25 — W1 landing: ParticleOrb in-view + static fallback (reduce motion); IntegrationCard + FeatureModal particles respect reduce; track-w1 två `[x]`. Progress ~79%. Commit ~79pct.
 
 2026-03-25 — Progress ~78%: avstämd tabell (own-engine/W3 klar, scripts/W4 ~95%, whole ~78%); `run-eval` + `EGEN_MOTOR_V2` förklarat i `scripts/README` + `run-eval.ts` header. Commit ~78pct.
