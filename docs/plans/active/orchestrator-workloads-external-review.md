@@ -4,6 +4,8 @@
 
 **Sanning i repo:** `docs/plans/active/external-review-remediation-progress.md` (procentsiffror, commit-rutin, Next-steg).
 
+**Checkbox-roadmap + spår (nytt):** `docs/plans/active/external-review-execution/` — börja med [README.md](./external-review-execution/README.md) och [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md). Workers bockar av i `track-w*.md` enligt instruktion där.
+
 **Källplaner (städade kopior):** `.j_to_agent/1.txt` (landning + integrationer), `.j_to_agent/2.txt` (own-engine pack), `.j_to_agent/3.txt` (scaffolds, scripts, orchestrator-frågor).
 
 **Parallellisering:** OK när **olika filträd** (t.ex. `scripts/` + `src/lib/integrations/`). **Ej** parallellt: flera agenter i `chat-area.tsx` / samma landing-fil — en ägare tills `LandingBackground` (och ev. följande slice) är klar.
@@ -45,6 +47,8 @@
 ## Kort brief till ny agent (copy-paste)
 
 ```
-Läs docs/plans/active/external-review-remediation-progress.md och docs/plans/active/orchestrator-workloads-external-review.md.
-Implementera workload W1 (eller det nummer du fått). Kör npm run typecheck, uppdatera progress-md, commit med helhets-% i subject (t.ex. chore: remediation ~32pct — …).
+Läs docs/plans/active/external-review-execution/README.md och MASTER-ROADMAP.md.
+Arbeta i docs/plans/active/external-review-execution/track-w<N>-<namn>.md — bocka av [x] för det du levererar där.
+Läsgärna external-review-remediation-progress.md för % och commit-rutin.
+Kör npm run typecheck && npx vitest run, uppdatera progress-md om helhets-% ändras, commit med helhets-% i subject.
 ```

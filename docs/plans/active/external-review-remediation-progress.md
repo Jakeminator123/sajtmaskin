@@ -2,6 +2,8 @@
 
 Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator). **Agent-uppdelning:** `docs/plans/active/orchestrator-workloads-external-review.md`.
 
+**Genomförande (checkbox-roadmap, parallella spår, agent-kontrakt):** `docs/plans/active/external-review-execution/README.md` → [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + track-filer (`track-w3-*.md`, `track-w4-*.md`, …).
+
 Last code touch: **W3** — **`OwnEngineBuildSession`-grund:** `src/lib/own-engine/session/own-engine-build-session.ts` med `buildOwnEngineGenerationStreamMeta` (gemensam SSE-`meta` för `createOwnEngineGenerationStream`); båda stream-routes använder den; Vitest för new-chat vs follow-up-fält. Tidigare: golden tests för contract-gate SSE, finalize + rollback, m.m. **Playwright / e2e:** kanon `e2e/vercel-templates/` — se `vercel-templates-playwright-scaffold-integration.txt`.
 
 **Siffror:** **~49%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Scripts-spåret** ~32% efter README/inventory-sweep; höj till **~43%** helhet när du kört din återstående script/README-runda.
