@@ -201,3 +201,10 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** `e2e/README.md` beskriver Vitest deploy-kontrakt och auth-krav för HTTP-e2e.
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-27-external-review-k008-blogg-e2e-doc-165017/`
 
+## 2026-03-27-external-review-final-pct (archived 2026-03-25 17:28)
+- **Scope:** K-008 in-view How it works + doc; K-007/K-009 orörda.
+- **Workloads:** 1 completed, 1 verified.
+- **Outcome:** landing-how-it-works-lazy.tsx, chat-area, sitemap JSDoc, deploy-precheck K-007-framtid
+- **Outcome:** Progress ~98% whole (bedömning)
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-27-external-review-final-pct-172801/`
+
