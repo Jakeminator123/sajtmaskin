@@ -7,13 +7,15 @@ const productLinks = [
 ];
 
 const companyLinks = [
-  { label: "Om oss", href: "/about" },
+  { label: "Om oss", href: "/om" },
   { label: "Sajtstudio.se", href: "https://sajtstudio.se", external: true },
 ];
 
 const legalLinks = [
-  { label: "Användarvillkor", href: "/terms" },
   { label: "Integritetspolicy", href: "/privacy" },
+  { label: "Användarvillkor", href: "/terms" },
+  { label: "GDPR", href: "/privacy#gdpr" },
+  { label: "Cookies", href: "/privacy#cookies" },
 ];
 
 export function Footer() {
