@@ -1,0 +1,502 @@
+FRÅGA:
+
+Kan du gå till repot 1) "sajtmaskin" på github. (Branchen `master` i detta repo — vissa svar nedan säger `main`; samma avsikt.) Se om du kan förstå varför typiska tex rutnät väljs som bakgrund för en sida som promotas med 3D-animation och/eller andra standardiserade mönster som kanske kan förfinas. 2) Ser du uppenbara buggar? 3) många sajter som skapas behöver integrationer. Hur får man allt detta att flyta på för att användarna ska kunna få en bättre runtime?  
+
+
+
+----
+
+> **Handoff:** Levererad kod följer `docs/plans/active/external-review-remediation-progress.md` (landning + integrationer delvis klart). Nästa steg i samma fil under **Next**.
+
+SVAR:
+
+
+
+
+
+
+Ja. Jag gick igenom Jakeminator123/sajtmaskin på `main`/`master`.
+
+1) Varför rutnät/”tech-bakgrund” väljs här
+
+Det här är inte byggt som en full 3D-bakgrund. På startsidan ligger bakgrunden som tre billiga, stabila lager: shader-orbs, ett animerat grid och en noise-textur i ChatArea, medan den faktiska 3D:n ligger i separata komponenter som ParticleOrb och HowItWorksScene 
+
+ 
+
+ 
+
+ 
+
+
+Det förklarar varför det blir “typiskt”:
+
+grid + blur-orbs + noise är ett standardrecept för att signalera “AI / modern SaaS / tech”
+
+det är mycket billigare i runtime än en stor interaktiv 3D-scen bakom all text
+
+det stör inte läsbarheten lika mycket som en mer aggressiv 3D-bakgrund
+
+Problemet är att sidan samtidigt säljer in 3D och “state of the art”, men det visuella språket i hero känns mer som en generisk AI-landing än som en tydlig produktidentitet. Jag ser också många standardmönster staplade ovanpå varandra i samma komponent: rotating headline, trust-logo-marquee, feature cards, radar-jämförelse, terminal-demo, honest counter, pricing ladder, CTA/footer 
+
+
+Det jag hade förfinat:
+
+Låt en huvudvisual bära hero, i stället för grid + orb + particle orb + många microeffekter.
+
+Knyt 3D:n till produkten. Exempel: samma visuella språk som i HowItWorksScene redan från hero, så att “3D” känns motiverat.
+
+Byt ut generellt rutnät mot något som reagerar på valt läge (fritext, audit, template, analyserad), så bakgrunden blir semantisk och inte bara dekorativ.
+
+Minska antalet samtidiga effekter. När allt rör sig samtidigt känns inget exklusivt.
+
+2) Uppenbara buggar / glapp
+
+> **Eftersläpning:** Flera punkter nedan är **åtgärdade** i repo enligt `docs/plans/active/external-review-remediation-progress.md` (tech stack, footer-länkar, videoknapp, mousemove-prestanda m.m.). Listan behålls som **historisk granskning**.
+
+Det finns några tydliga saker:
+
+Content drift mellan marknadsföring och faktisk stack. I landingssidan listas bland annat Prisma och Sentry i tech stacken, men package.json visar drizzle-orm och jag ser inte Prisma/Sentry bland beroendena. Det ser ut som copy har glidit ifrån implementationen 
+
+ 
+
+
+Döda footer-länkar. Footern har flera href="#"-länkar, samtidigt som riktiga sidor för t.ex. privacy och terms finns i appen 
+
+ 
+
+ 
+
+
+Videoknappen i hero ser aktiv ut men gör inget. Den har ikon, tooltip och aria-label men ingen faktisk action i hero-flödet, vilket lätt upplevs som trasigt UX 
+
+
+Prestanda-risk på klienten. use3DTilt uppdaterar React-state på varje musrörelse, och flera kort gör samma sak med glow-positioner. Samtidigt kör sidan många oändliga CSS-animationer plus två React Three Fiber-scener. Det är inte en “bugg” i strikt mening, men det är en tydlig källa till jank på svagare maskiner/mobiler 
+
+ 
+
+ 
+
+ 
+
+
+3) Hur få integrationer och runtime att flyta bättre
+
+Det positiva är att repo:t redan har ganska bra byggstenar:
+
+central config och feature flags i src/lib/config.ts 
+
+
+heuristisk integrationsdetektion i src/lib/gen/detect-integrations.ts 
+
+
+projektpanel för env-vars/integrationer i ProjectEnvVarsPanel 
+
+
+deploy-rutin som synkar env-vars till Vercel-projektet 
+
+
+status-endpoint för plattformsintegrationer 
+
+
+Det som saknas är främst ett enda kontrakt för integrationer.
+
+Mitt förslag, repo-specifikt:
+
+Skapa en gemensam integrationskatalog
+Ha en enda integration-registry.ts som beskriver:
+
+provider-id
+
+env-vars
+
+setup-guide
+
+om den är browser / server / deploy-time
+
+healthcheck
+
+om den ska visas i buildern
+
+hur den ska deployas
+
+Just nu ligger kunskap om integrationer utspridd i detect-integrations.ts, /api/integrations/status, UI-panelen och deployflödet. Det ökar risken för drift 
+
+ 
+
+ 
+
+ 
+
+
+Sluta förlita dig så mycket på regex-heuristik
+detectIntegrations() är bra som fallback, men bättre vore att generatorn själv skriver ut ett manifest, t.ex. sajtmaskin.integration-manifest.json, när en app genereras. Då vet buildern exakt:
+
+vilka providers som krävs
+
+vilka env-vars som behövs
+
+vad som är optional
+
+vad som måste verifieras efter deploy
+
+Flytta “pre-deploy fixes” uppströms
+I deploy-routen görs en del auto-fixar av filer före deploy. Det räddar en deploy, men skapar också risk att preview och prod inte blir identiska. Bättre att försöka få generatorn att producera rätt direkt och låta deploy-steget vara tunt och förutsägbart 
+
+
+Dela upp runtime tydligare
+
+Browser: bara UI och lätta interaktioner
+
+Edge: cache, redirects, rate limit, enklare auth-grejer
+
+Node: OpenAI, Stripe, Vercel deploy, tyngre SDK:er
+
+Ni är redan inne på det spåret med Node-runtime i deploy-routen och Redis/Upstash-konfig i configen 
+
+ 
+
+
+Minska klientarbete på landningen
+För runtime-vinst direkt:
+
+byt mousemove-state till CSS-variabler eller requestAnimationFrame
+
+stäng av vissa effekter på mobil
+
+lägg till reduced-motion-stöd
+
+kör 3D-sektioner bara när de är i view
+
+välj färre oändliga animationer samtidigt
+
+Den korta kärnan är:
+
+Sidan känns “rutnäts-typisk” därför att den faktiskt är byggd som en mörk SaaS-landing med billiga, stabila bakgrundslager och lokal 3D, inte som en helhetsdriven 3D-identitet. De tydligaste problemen är content drift, döda länkar, en knapp som ser aktiv ut utan riktig handling, och onödigt mycket klientarbete. För integrationerna är rätt nästa steg inte fler specialfall, utan en gemensam integrationsmodell som driver generator, UI, env-vars och deploy från samma källa.
+
+Jag kan göra en konkret refaktor-plan för just chat-area.tsx och integrationslagret i 5–8 steg.
+
+
+Gör gärna det
+
+
+
+Ja. Här är en konkret refaktorplan i 7 steg för chat-area.tsx och integrationslagret.
+
+1. Dela upp chat-area.tsx i tydliga sektioner
+src/components/landing-v2/chat-area.tsx är för stor och bär både data, interaktion, layout, copy och animationer i samma fil 
+
+
+Bryt ut minst dessa:
+
+LandingHero
+
+LandingCategoryPicker
+
+LandingPrimaryInput
+
+LandingStats
+
+LandingTrustMarquee
+
+LandingTechSection
+
+LandingComparisonSection
+
+LandingIntegrationsSection
+
+LandingPricingSection
+
+LandingFooter
+
+Målet är att ChatArea bara ska:
+
+hålla ihop state
+
+välja vad som visas
+
+koppla callbacks
+
+Bra slutläge:
+
+export function ChatArea(props: ChatAreaProps = {}) {
+  const state = useLandingController(props)
+
+  return (
+    <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <LandingBackground />
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <LandingHero {...state.hero} />
+        <LandingTrustMarquee />
+        <LandingTechSection {...state.tech} />
+        <LandingComparisonSection {...state.comparison} />
+        <LandingHowItWorks />
+        <LandingIntegrationsSection />
+        <LandingPricingSection {...state.pricing} />
+        <LandingFooter />
+      </div>
+      <FeatureModal feature={state.activeFeature} onClose={state.closeFeature} />
+    </main>
+  )
+}
+2. Flytta all hero-logik till en useLandingController-hook
+I dag ligger state för kategori, input, submit, comparison, voice recorder, feature modal och audit i samma komponent 
+
+
+Skapa exempelvis:
+
+src/components/landing-v2/use-landing-controller.ts
+
+src/components/landing-v2/use-landing-animations.ts
+
+useLandingController bör äga:
+
+selectedCategory
+
+inputValue
+
+showVoiceRecorder
+
+isSubmitting
+
+activeFeature
+
+comparison state
+
+startBuild()
+
+submitPrimaryInput()
+
+Det ger två vinster:
+
+lättare att testa
+
+lättare att återanvända hero-flödet i annan entrypoint senare
+
+3. Gör bakgrunden mindre generisk och mer produktkopplad
+Nuvarande bakgrund är grid + shader-orbs + noise, medan 3D lever separat i ParticleOrb och HowItWorksScene 
+
+ 
+
+ 
+
+
+Refaktor:
+
+skapa LandingBackground.tsx
+
+låt bakgrunden reagera på valt läge:
+
+fritext = lugn neutral
+
+template = struktur/grid
+
+audit = mer analytisk
+
+analyserad = mer organisk/3D-känsla
+
+Ta bort minst en av dessa samtidigt:
+
+noise-overlay
+
+grid-animation
+
+en av shader-orbs
+
+Poängen är att hero ska få en tydlig visuell idé, inte fyra halvt överlappande.
+
+4. Ta bort onödiga React-re-renders i hover/mousemove
+Det här är den viktigaste runtime-vinsten på landningen.
+
+I filen används state i mousemove för tilt/glow på flera kort, plus många ständiga animationer 
+
+
+Byt från React-state per musrörelse till:
+
+CSS custom properties
+
+requestAnimationFrame
+
+direkt DOM style update via ref
+
+Exempel:
+
+const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const el = e.currentTarget
+  const rect = el.getBoundingClientRect()
+  el.style.setProperty("--glow-x", `${e.clientX - rect.left}px`)
+  el.style.setProperty("--glow-y", `${e.clientY - rect.top}px`)
+}
+Och för tilt:
+
+använd transform via ref
+
+undvik setState på varje musrörelse
+
+Lägg också till:
+
+prefers-reduced-motion
+
+enklare läge på mobil
+
+paus på vissa animationer utanför viewport
+
+5. Inför ett enda integrationsregister
+Just nu ligger integrationskunskap utspridd mellan:
+
+detect-integrations.ts
+
+/api/integrations/status
+
+ProjectEnvVarsPanel
+
+IntegrationSetupWizard
+
+deployflödet 
+
+ 
+
+ 
+
+ 
+
+ 
+
+
+Skapa t.ex.:
+
+src/lib/integrations/registry.ts
+
+Varje integration ska definieras en gång:
+
+export type IntegrationDefinition = {
+  key: string
+  name: string
+  category: "analytics" | "payments" | "auth" | "data" | "email" | "storage"
+  envVars: string[]
+  setupGuide: string
+  runtime: "browser" | "server" | "edge" | "deploy"
+  optional: boolean
+  detectionPatterns?: RegExp[]
+}
+Sedan ska följande läsa från samma källa:
+
+koddetektion
+
+setup wizard
+
+env-panel
+
+status-endpoint
+
+deploy-sync
+
+Det här är den största arkitekturförbättringen i hela integrationsdelen.
+
+6. Gå från heuristik till manifest i genererad kod
+detectIntegrations() med regex är bra som fallback, men inte som primär sanning 
+
+
+Bättre modell:
+
+generatorn skriver en manifestfil i varje genererat projekt
+
+buildern läser manifestet först
+
+regex används bara när manifest saknas
+
+Exempel:
+
+{
+  "integrations": [
+    {
+      "key": "stripe",
+      "required": true,
+      "envVars": ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY"],
+      "runtime": "server"
+    },
+    {
+      "key": "resend",
+      "required": false,
+      "envVars": ["RESEND_API_KEY"],
+      "runtime": "server"
+    }
+  ]
+}
+Då slipper du:
+
+falska positiva träffar
+
+drift mellan UI och faktisk app
+
+specialfall i ProjectEnvVarsPanel
+
+7. Tunnare deploy-steg, mer ansvar tidigare i pipelinen
+Deploy-routen gör redan mycket bra, men den gör också “pre-deploy fixes” och smarta korrigeringar på vägen 
+
+
+Refaktorprincip:
+
+generatorn producerar korrekt projekt
+
+validatorn stoppar fel innan deploy
+
+deploy ska mest:
+
+läsa filer
+
+synca env
+
+deploya
+
+rapportera status
+
+Inför gärna tre faser:
+
+generate
+
+validate
+
+deploy
+
+Och se till att validate returnerar ett tydligt kontrakt:
+
+type DeployReadiness = {
+  ready: boolean
+  missingEnv: string[]
+  invalidFiles: string[]
+  warnings: string[]
+}
+Då blir deploy mer förutsägbar och lättare att felsöka.
+
+Rekommenderad körordning
+Jag hade gjort detta i exakt den här ordningen:
+
+Bryt upp chat-area.tsx
+
+Flytta state till useLandingController
+
+Optimera mousemove/hover/render
+
+Skapa LandingBackground
+
+Inför integration-registry.ts
+
+Koppla detect-integrations, panel och wizard mot registret
+
+Lägg till integrationsmanifest i genererade projekt och gör deploy tunnare
+
+Minsta version som ger snabb effekt
+Om du vill börja med det som ger mest effekt direkt:
+
+bryt ut LandingHero
+
+optimera bort setState på musrörelser
+
+skapa integration-registry.ts
+
+låt detect-integrations.ts och IntegrationSetupWizard.tsx läsa från den
+
+Det är den bästa kombinationen av låg risk och hög nytta.
+
+Jag kan skriva en konkret fil-för-fil plan nästa, med exakt vilka filer du bör skapa, byta namn på och ändra först.
+

@@ -1,6 +1,6 @@
 # External review remediation — progress
 
-Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator).
+Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator). **Agent-uppdelning:** `docs/plans/active/orchestrator-workloads-external-review.md`.
 
 Last code touch: ESLint-/import-städ i `chat-area.tsx` + `LandingHero` (headlineTilt destrukturering för ref-regler); dokumenterad ref-merge för terminal-blocket.
 

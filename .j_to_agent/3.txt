@@ -1,0 +1,272 @@
+Jag har "sajtmaskin" som är repot för min github (branch: `master` i detta repo). Jag undrar om du kan kolla på ett par saker. 1) kan du kolla på hur **scaffolds**, **dossiers** och andra sätt som används för att skapa **underlag** för LLM:er. Är detta bra som jag gör? Jag har några MCP-servrar. Vad används de för? 2) kan man låta små modeller typ **parallellt** göra olika delar av det som **orchestrator** / **deep brief** (är detta samma agent?) eller annan modell som gör många relativt systematiska saker parallellt. På så sätt skulle ju i så fall en/den **orchestrerande** modellen "bara pussla ihop" allt på snabbare tid, och kanske ha möjlighet att få en **överblick** innan implementation? 4) om man vill ha en sandbox **körande** typ hela tiden, är det rätt väg att gå för alla **projekt** som körs. Eller ska man ha en typ VM som hyrs? Vad kostar allt? Vad borde man göra? 5) kolla mappen **scripts**. Vilka saker där kan man ta bort eller bör fixas då jag upplever att mycket där är lite gamla skript (men kan ha fel).
+
+> **Handoff:** Arbetsordning för remediation (landning, integrationer, own-engine, scripts) finns i `docs/plans/active/external-review-remediation-progress.md` och `docs/plans/active/orchestrator-workloads-external-review.md`.
+
+Jag kollade på Jakeminator123/sajtmaskin på `main`/`master`.
+
+1) Scaffolds, dossiers, “underlag” för LLM:er, och MCP-servrarna
+
+Det du gör är i grunden bra. Den starkaste delen är att du redan har en tydlig uppdelning mellan:
+
+runtime scaffolds för själva genereringen
+external reference templates / dossiers för research
+generated artifacts för sökning, embeddings och promptberikning
+
+Det syns tydligt i terminologidokumentet: src/lib/gen/scaffolds/ är den riktiga runtime-registryt, medan reference dossier ligger i research-lagret och används för att berika prompts snarare än att bli runtime-bas direkt. Promptträdet visar också att systemprompten byggs av en statisk kärna plus dynamisk kontext där scaffold, scaffold research, template references och snippets injiceras separat .
+
+Det här är en sund arkitektur, eftersom du undviker att blanda ihop:
+
+“vad modellen ska starta från”
+“vad modellen får som inspiration”
+“vad som bara är research-material”
+
+Om du med felstavade “scarfords” menade scraped-vercel-scorefolds, så är även det ganska rätt placerat: de är dokumenterade som offline/research-input, inte som runtime-scaffolds, och de måste gå via template-library innan de påverkar prompten .
+
+Det jag hade förbättrat är främst namngivningen, inte grundidén. Just nu finns flera närliggande begrepp: v0-template, runtime scaffold, external reference template, dossier, generated artifact. Arkitekturen är genomtänkt, men den blir mentalt dyr för både dig och agentverktyg. Jag hade hållit hårt på tre ord i vardagen:
+
+scaffold = det som faktiskt kan bli startpunkt i runtime
+dossier = kuraterad research om extern mall
+artifact = genererad JSON/embeddings som används av kod
+
+MCP-servrarna används inte för produkten i sig, utan för lokala agentarbetsflöden. README:n säger uttryckligen att de är repo-lokala MCP-servrar för Cursor och andra lokala agentflöden, separerade från produktens runtime-tjänster .
+I din konfiguration finns fem servrar: v0, openaiDeveloperDocs, Vercel, samt de två lokala sajtmaskin-engine och sajtmaskin-scaffolds .
+
+De två lokala gör i praktiken detta:
+
+sajtmaskin-engine kan generera site lokalt, läsa filer/manifest och skapa preview/sandbox-runtime för genererade versioner
+sajtmaskin-scaffolds kan lista, läsa, söka och jämföra de interna runtime-scaffolds som finns i src/lib/gen/scaffolds/
+
+Min bedömning: mönstret är bra, men namnrummet behöver stramas upp.
+
+2) Kan små modeller jobba parallellt och en orchestrator bara pussla ihop?
+
+Ja, det är en vettig väg. Och repo-dokumentationen pekar redan åt det hållet.
+
+I orchestrator-run-protocol finns ett uttalat tvånivå- och trenivåupplägg:
+
+liten körning: orchestrator -> workloads
+större körning: orchestrator -> track plan owners -> micro-workers
+
+Dokumentet säger också uttryckligen att det här är bra när topplagret håller ihop arkitekturen medan billigare agenter gör smalare deljobb .
+
+Så ja: den modell du beskriver är rimlig:
+
+en starkare modell gör scope, plan, kvalitetssäkring och sammanfogning
+mindre modeller gör uppdelade, systematiska deluppgifter parallellt
+toppmodellen pusslar ihop och gör slutlig bedömning
+
+Men två viktiga nyanser i just ditt repo:
+
+För det första: deep brief är inte samma sak som orchestrator.
+Deep brief ligger i product lane / prompt-assist, och används för att strukturera första användarprompten innan generering. Orchestrator-protokollet handlar däremot om multi-agent-exekvering med roadmap, workloads, verifiering och final sweep .
+
+För det andra: din kodbas verkar vara förberedd för fasuppdelning, men inte fullt ut aktiv där ännu. phase-routing.ts beskrivs som strukturell förberedelse, men “today it returns the same base model as the selected build profile” . Så idén är rätt, men i builder-flödet verkar du inte ännu få riktig modellseparation per fas automatiskt.
+
+Min rekommendation här:
+
+använd en större modell för planering, kontrakt, sammanslagning, final sweep
+använd små modeller för klassificering, kandidaturval, jämförelser, snippet-plock, verifieringschecklistor
+låt inte små modeller skriva stora sammanhängande implementationer utan tydligt kontrakt
+
+Det är särskilt bra när deluppgifterna är:
+
+tydligt avgränsade
+billiga att verifiera
+text- eller metadata-tunga snarare än djup arkitektur
+4) Alltid-klar sandbox, eller VM? Vad borde man göra?
+
+Utifrån din nuvarande repo-arkitektur skulle jag inte köra “alltid varm sandbox för alla projekt”.
+
+I preview/sandbox-dokumentet är modellen i stället:
+
+snabb HTML-shim
+sedan valfri riktig sandbox när den är konfigurerad
+
+Det är alltså redan beskrivet som ett tvåstegsflöde där sandbox är en tyngre, senare fas, inte grundläget för allt .
+
+Det talar för att rätt väg för dig är:
+
+ephemeral sandbox för aktiv generering, preview och verifiering
+en separat, stabil worker/VM för sådant som ska vara igång ofta
+
+Det finns redan samma tänk för inspector-delen: där har du en separat Playwright micro-service som kan köras lokalt eller i Docker, i stället för att allt bakas in i huvudappen .
+
+Så min praktiska rekommendation blir:
+
+Bra standardupplägg
+
+behåll snabb shim-preview
+starta riktig sandbox on demand för aktiv chat/version/projekt
+ha en enda delad Linux-VM eller container-host för långlivade stödtjänster som inspector, crawler/discovery, repo-cache och liknande
+
+Inte bra standardupplägg
+
+en separat “alltid på” sandbox per projekt
+full Next-runtime ständigt igång för gamla eller inaktiva versioner
+
+För din Win 11-maskin:
+
+lokalt: WSL2 + Docker Desktop är bra för dev
+för något som ska stå igång kontinuerligt: hyr hellre en liten Linux-VM
+
+Exakt kostnad kan jag inte ge med säkerhet här, eftersom jag inte kan slå upp aktuella priser live. Det jag kan säga är att kostnaderna typiskt kommer från fyra håll:
+
+LLM-tokenkostnad
+sandbox/bygg-runtime
+VM/container per månad
+lagring/nätverk
+
+Rent arkitekturellt hade jag valt:
+
+1 liten VM för ständiga hjälptjänster
+ephemeral sandboxes bara när en genererad app verkligen behöver köras
+5) scripts/ — vad kan tas bort eller bör fixas?
+
+Det mesta i scripts/ ser inte “dött” ut. Tvärtom är ganska mycket aktivt kopplat till package.json: prompt-check, dev/build, template-library, scaffold-embeddings, docs-embeddings, migrations, eval, testning-scarf osv.
+
+Så min bedömning är:
+
+Bör behållas
+
+Allt som är direkt kopplat i package.json, särskilt:
+
+predev/prebuild/dev/build/start
+templates:*
+template-library:*
+scaffolds:*
+docs:embeddings
+eval*
+db:migrate
+prompt:trace
+scaffold:suite
+first-llm:*
+mirror:audit*
+
+Tydligaste cleanup-kandidaten
+
+scripts/hamta_sidor.py och scripts/hamta_sidor_branch_emil.py
+
+Inventory-dokumentet rekommenderar själv att du väljer en kanonisk version: antingen behåll den enkla som standard, eller ersätt den med Emil-varianten och ta bort den andra .
+När man tittar på filerna syns också att de överlappar kraftigt, medan hamta_sidor_branch_emil.py är den mer utvecklade varianten med tiering, --extended-scrape, bättre URL-hantering, rapporter osv.
+
+Det här är min starkaste rekommendation:
+
+behåll en hamta_sidor
+gör den avancerade varianten till den enda
+rensa bort den andra
+Bör fixas
+
+Det finns också dokumentationsdrift kring hamta_sidor_branch_emil.py.
+scripts/README.md beskriver den som “i repo root”, men kodsökningen och filinnehållet visar den under scripts/ . Det borde rättas, annars blir det förvirrande för både dig och agenter.
+
+Trolig legacy-kandidat
+
+scripts/extract-static-core.mjs
+
+Den filen är tydligt kopplad till ett äldre flöde där STATIC_CORE extraheras från system-prompt.ts till config/systemprompt.md . Samtidigt säger promptträdet att nuvarande prefererade källa är config/codegen-static-prompt.json + fragment i config/prompt-static/*.md, medan monoliten är fallback för äldre checkouts .
+
+Det betyder:
+
+inte akut att ta bort
+men den är en bra kandidat att arkivera när monolit-fallbacken försvinner
+Kandidat att flytta, inte nödvändigtvis radera
+
+scripts/scaffold-pipeline.py
+
+Det dokumenteras som ett interaktivt menyskript för hela template-library-kedjan, men det är inte ett vanligt package.json-entrypoint utan mer ett manuellt verktyg .
+Jag hade antingen:
+
+behållit det om du faktiskt använder det
+eller flyttat det till devtools/ eller scripts/manual/
+Inte dött, men borde kanske byta plats
+
+scripts/testning_scarf/*
+
+De här ser inte gamla ut i betydelsen oanvända. De har README, tydlig outputstruktur och flera är kopplade i package.json (prompt:trace, scaffold:suite, first-llm:lab, first-llm:live, testning:codegen-print) .
+
+Men de är tydligt lab/debug/trace-verktyg, inte vanliga byggskript. Om du upplever scripts/ som stökigt skulle jag inte ta bort dem först, utan flytta dem till något som:
+
+devtools/prompt-lab/
+research/prompt-debug/
+eller scripts/labs/
+
+Det skulle göra mappen mycket renare.
+
+Min sammanfattning
+
+Det som är bra:
+
+din arkitektur skiljer vettigt på scaffold, dossier och generated artifacts
+du har redan ett tänk för multi-agent/orchestrator med billigare mikroarbetare under en starkare toppmodell
+sandbox verkar redan vara tänkt som on-demand, inte permanent grundläge
+
+Det jag skulle göra först:
+
+slå ihop hamta_sidor.py + hamta_sidor_branch_emil.py till en fil
+rätta dokumentationen kring script-paths
+flytta lab/debug-skript från scripts/testning_scarf/ till en mer tydlig verktygsmapp
+markera extract-static-core.mjs som legacy och ta bort den när monolit-fallbacken dör
+behåll sandbox ephemeralt, och använd en separat VM/container för sådant som ska stå igång hela tiden
+
+Jag kan också göra en mer konkret “ta bort / behåll / flytta / döp om”-lista fil för fil för scripts/ om du vill.
+
+“Liten körning: orchestrator → workloads; större körning: orchestrator → track plan owners → micro-workers” — detta trodde jag bara var internt när jag kör `/orchestrator-run` (eller `/orchestrator` / `/automation`) i Cursor för arbetsflöden? Ser du ngt om detta eller hur skildnaden mellan kommandona är? Ser du ngt om "/vercel-react-best-practices"?
+
+Ja — det där verkar vara internt för Cursor/agent-arbetsflödet, inte något jag ser som del av själva appens runtime.
+
+Det tydligaste stödet för det är att hela upplägget ligger under .cursor/orchestrator/ och beskrivs som repository-local multi-agent execution. Protokollet definierar orchestrator run, orchestrator agent, track plan, agent log och final sweep, och säger uttryckligen att nya körningar ska leva under .cursor/orchestrator/run/<datum>-<slug>/ .
+Även routingregeln säger att detta ska användas när användaren ber om multi-agent automation eller använder startup-triggers, alltså som ett särskilt arbetsflöde i Cursor snarare än som produktfunktion .
+
+Om skillnaden mellan kommandona
+
+I repot ser jag ingen verklig skillnad mellan /orchestrator och /automation.
+Tvärtom står det på flera ställen att de ska behandlas som alias för samma flow:
+
+run-automation-orchestrator.mdc listar /orchestrator och /automation som startup triggers för samma orchestrator-run-system
+orchestrator-run-skillen säger att /orchestrator och /automation är “valid compact aliases for the same flow”
+.cursor/orchestrator/PROTOCOL.md säger också att /orchestrator och /automation är de giltiga startup-aliasen för att börja en orchestrator run
+
+Så min läsning är:
+
+/orchestrator = starta orchestrator-run-flödet
+/automation = samma sak, äldre/alternativ ingång
+jag ser inte någon repo-dokumenterad skillnad i beteende mellan dem
+
+Om du skriver `/orchestrator-run` i Cursor är det i praktiken samma **orchestrator run**-workflow som i `.cursor/skills/orchestrator-run/SKILL.md`; repots **slash-triggers** i protokollet är `/orchestrator` och `/automation` (samma flöde).
+
+Om tvånivå vs trenivå
+
+Det du citerade:
+
+liten körning: orchestrator -> workloads
+större körning: orchestrator -> track plan owners -> micro-workers
+
+är också beskrivet som en del av just det här .cursor/orchestrator-protokollet, alltså ett internt agent-exekveringsmönster. Protokollet säger att man för små körningar kan skippa tier 2, men att stora körningar kan använda tre nivåer för att spara kontext och tokens .
+
+Så där hade du rätt: det verkar vara tänkt för Cursor/orchestrator-arbetsflöden, inte som allmän modellarkitektur i appen.
+
+Om /vercel-react-best-practices
+
+Jag ser tydliga referenser till vercel-react-best-practices, men jag ser det mer som en skill/regel, inte som ett eget separat repo-lokalt slash-kommando.
+
+Det står i .cursor/rules/react-node-skill-routing.mdc att för React/Next/Node-arbete ska agenten proaktivt använda vercel-react-best-practices, och att man vid manuell trigger ska använda just skill-namnet vercel-react-best-practices i stället för att hitta på en annan alias som /vercel .
+sajtmaskin-context-skillen säger samma sak: för React/Next/Node/performance tasks ska vercel-react-best-practices appliceras .
+
+Det intressanta är att regeln också säger att man ska föredra en projektlokal vercel-react-best-practices-skill i .cursor/skills/, men i den GitHub-sökning jag gjorde ser jag bara referenser till namnet, inte själva lokala skill-filen. Det kan betyda två saker:
+
+den finns via Cursor/plugin/externt och inte i repot
+eller så är repot förberett för den men själva skill-filen saknas just nu
+
+Dessutom pekar regeln direkt på Vercels externa agent-skills-guide på GitHub för full rules guide eller enskilda rule-filer .
+
+Kort slutsats
+
+Min läsning av repot är:
+
+ja, orchestrator-run-grejen är intern till Cursor-arbetsflödet
+/orchestrator och /automation verkar vara samma kommando-familj, inte olika system
+jag ser inte en repo-dokumenterad skillnad mellan dem
+vercel-react-best-practices verkar vara en skill/routingregel, inte en separat produktfunktion
+jag ser referenser till den, men inte tydligt den lokala skill-filen i repot
+
+Jag kan också gå ett steg längre och ge dig en exakt karta över .cursor/-grejerna: “det här är runtime”, “det här är bara Cursor-agents”, “det här är legacy”.
