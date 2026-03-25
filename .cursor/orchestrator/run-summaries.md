@@ -125,3 +125,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** vitest.config e2e exclude
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-25-external-review-w2-035404/`
 
+## 2026-03-25-external-review-handoff (archived 2026-03-25 14:32)
+- **Scope:** See archived FINAL_REPORT.md for details.
+- **Workloads:** 2 completed, 1 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-25-external-review-handoff-143249/`
+

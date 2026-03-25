@@ -29,12 +29,12 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 ### Fas A — Pågående huvudfokus (hög hastighet)
 
 - [x] **W3** — Own-engine session + transaktioner/golden enligt [track-w3-own-engine.md](./track-w3-own-engine.md) (alla `[ ]` under *Återstår* bockade, 2026-03-25)
-- [ ] **W4** — Scripts/README/lab enligt [track-w4-scripts.md](./track-w4-scripts.md) (alla `[ ]` under *Återstår* bockade)
+- [x] **W4** — Scripts/README/lab enligt [track-w4-scripts.md](./track-w4-scripts.md) (exit 2026-03-25 ff.; alla *Återstår* `[x]`)
 
 ### Fas B — Valfri hårdning
 
-- [ ] **W2** — Deploy/auto-fix enligt [track-w2-deploy-hardening.md](./track-w2-deploy-hardening.md)
-- [ ] **W1** — Små UX-followups enligt [track-w1-landing-followups.md](./track-w1-landing-followups.md)
+- [x] **W2** — Deploy/auto-fix enligt [track-w2-deploy-hardening.md](./track-w2-deploy-hardening.md) (checklista komplett; återstår ev. e2e/polish i progress § *Återstår*)
+- [x] **W1** — Små UX-followups enligt [track-w1-landing-followups.md](./track-w1-landing-followups.md) (checklista komplett; produkt-placeholder `/blogg` kvar i progress *Uncertainties*)
 - [ ] **W5** — Kör kritik-lista som regressionspass (ingen kodändring nödvändig): `.j_to_agent/structure_bugs_and_parralells/kritik/`
 
 ---
