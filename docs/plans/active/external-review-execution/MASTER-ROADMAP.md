@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-26 | master | typecheck + vitest (357) | ~84%: **Meilisearch** registry + detection + env-policy + Vitest |
 | 2026-03-26 | master | typecheck + vitest (356) | ~84%: **Algolia** registry + detection + env-policy + Vitest |
 | 2026-03-26 | master | typecheck + vitest (355) | ~84%: `webscraper-url.test.ts` — validateAndNormalizeUrl, getCanonicalUrlKey |
 | 2026-03-26 | master | typecheck + vitest (349) | ~84%: registry — Sanity, Contentful, Storyblok (`cms`), MongoDB + detection + env-policy + Vitest |

@@ -111,6 +111,12 @@ export const DETECTION_PIPELINE: DetectionRule[] = [
   },
   {
     source: "registry",
+    pattern:
+      /(?:meilisearch|@meilisearch\/|NEXT_PUBLIC_MEILISEARCH_HOST\b|NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY\b)/i,
+    registryProvider: "meilisearch",
+  },
+  {
+    source: "registry",
     pattern: /(?:@sentry\/|SENTRY_DSN\b)/i,
     registryProvider: "sentry",
   },

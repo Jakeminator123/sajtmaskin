@@ -23,6 +23,19 @@ describe("integration manifest", () => {
     expect(sentry?.envVars).toContain("SENTRY_DSN");
   });
 
+  it("detects Meilisearch from generated code", () => {
+    const files = [
+      {
+        name: "lib/search.ts",
+        content: 'import { instantMeiliSearch } from "@meilisearch/instant-meilisearch";\n',
+      },
+    ];
+    const detected = detectIntegrationsFromVersionFiles(files);
+    const row = detected.find((d) => d.key === "meilisearch");
+    expect(row?.name).toBe("Meilisearch");
+    expect(row?.envVars).toContain("NEXT_PUBLIC_MEILISEARCH_HOST");
+  });
+
   it("detects Algolia from generated code", () => {
     const files = [
       {

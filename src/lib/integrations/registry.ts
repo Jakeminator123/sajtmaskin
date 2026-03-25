@@ -219,6 +219,17 @@ export const integrationRegistry: IntegrationDefinition[] = [
     provider: "algolia",
   },
   {
+    key: "meilisearch",
+    name: "Meilisearch",
+    category: "other",
+    envVars: ["NEXT_PUBLIC_MEILISEARCH_HOST", "NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY"],
+    setupGuide:
+      "Kör Meilisearch (cloud eller egen instans). Kopiera API-URL och en **search-only** API-nyckel till NEXT_PUBLIC_MEILISEARCH_HOST respektive NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY. Master-nyckel ska inte ligga i NEXT_PUBLIC.",
+    runtime: "browser",
+    optional: false,
+    provider: "meilisearch",
+  },
+  {
     key: "sentry",
     name: "Sentry",
     category: "other",

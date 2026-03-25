@@ -1,3 +1,5 @@
+2026-03-26 — **Meilisearch:** integrationRegistry + detect-integrations + env-policy; Vitest 357.
+
 2026-03-26 — **Algolia:** integrationRegistry + detect-integrations + env-policy; Vitest 356.
 
 2026-03-26 — **Webscraper:** Vitest för validateAndNormalizeUrl + getCanonicalUrlKey (audit/wizard). Vitest 355.

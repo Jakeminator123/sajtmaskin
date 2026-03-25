@@ -6,9 +6,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Algolia** i **`integrationRegistry`** + **`DETECTION_PIPELINE`**; **`env-policy`** (`NEXT_PUBLIC_ALGOLIA_*`, valfri **ALGOLIA_ADMIN_API_KEY**); Vitest-detektion. **Tidigare:** `webscraper-url.test.ts`; W2 CMS + Mongo. **Progress ~84% whole:** tabell nedan.
+Last code touch: **Meilisearch** i **`integrationRegistry`** + **`DETECTION_PIPELINE`**; **`env-policy`** (`NEXT_PUBLIC_MEILISEARCH_*`, valfri **MEILISEARCH_HOST** / **MEILISEARCH_API_KEY**); Vitest-detektion. **Tidigare:** Algolia; `webscraper-url.test.ts`; W2 CMS + Mongo. **Progress ~84% whole:** tabell nedan.
 
-**Siffror:** **~84%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
+**Siffror:** **~84%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret*. **Integrationer + deploy:** registry (CMS + Mongo + sök **Algolia** / **Meilisearch** + befintliga inkl. **Sentry**) + manifest + readiness + deploy-409-UX + svensk **lansering**-copy. **Own-engine ~78%**, **scripts ~95%**.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -92,6 +92,7 @@ Ungefär **~16%** av *whole vision* kvar: **integrationer + deploy** (~75% done)
 - **Builder UX (header Mer, 2026-03-25):** **Mer**-meny: import, sandbox, ZIP; **Ny chat**; svenska etiketter (**Djup brief**, **Resonemang**, **Anpassad** modell); OpenClaw **Mer-meny** / **mer-menyn** i tips-kontext.
 - **Builder UX (tips/header, 2026-03-25):** **TipCard** utan duplicerad “var finns UI”-ruta; **tips-toggle** under **Inställningar**; header **Inställningar** + svenska menysektioner; instruktionsdialog **Klar**; OpenClaw-ytor inkl. **lansering**.
 - **Builder UX (plotter, 2026-03-25):** ingen separat lanserings-**badge** i **BuilderHeader**; **`formatDeployReadinessStatusLabel`** / **`deployReadinessBadgeClassName`** i `src/lib/builder/deploy-readiness-copy.ts` + Vitest; **Lansering**-kort utan extra informationsruta när status är redo; kortare **Publicera**-tooltip (env) och **409**-hint i `useBuilderDeployActions`.
+- **W2 (2026-03-26):** **Meilisearch** i registry + detektion + env-policy + Vitest.
 - **W2 (2026-03-26):** **Algolia** i registry + detektion + env-policy + Vitest.
 - **Webscraper (2026-03-26):** enhets tester för **`validateAndNormalizeUrl`** / **`getCanonicalUrlKey`** (`src/lib/webscraper-url.test.ts`).
 - **W2 (2026-03-26):** **Sanity**, **Contentful**, **Storyblok**, **MongoDB** i **`integrationRegistry`** + **`DETECTION_PIPELINE`**; kategori **`cms`**; `env-policy` uppdaterad; Vitest.
