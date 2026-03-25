@@ -55,7 +55,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25 (k
 | Fil | Anteckning |
 |-----|------------|
 | `sync-scaffold-refs.mjs` | [`scripts/README.md`](../../scripts/README.md), [`vercel_template_cli.py`](../../vercel_template_cli.py) (valfri katalogskrapning) |
-| `scaffold-pipeline.py` | [`scripts/README.md`](../../scripts/README.md) — interaktiv meny för template-library-kedjan |
+| `manual/scaffold-pipeline.py` | [`scripts/manual/README.md`](../../scripts/manual/README.md), [`scripts/README.md`](../../scripts/README.md) — interaktiv meny för template-library-kedjan |
 | `scripts/hamta_sidor_branch_emil.py` | Se avsnitt ovan (enda Python-entry för denna skrapare) |
 | `recovery/recreate-repo-branch-commit.ps1` | **Saknas** i repot; beskrivs som borttaget/odeployat i [`scripts/README.md`](../../scripts/README.md). |
 

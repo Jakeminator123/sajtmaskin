@@ -49,11 +49,12 @@
 ### B3-05 — `extract-static-core.mjs` (hygien)
 
 - [ ] När `config/codegen-static-prompt.json` + fragment är **enda** sanning och monolit-fallback tagits bort: flytta skriptet till `docs/old/scripts/` eller ta bort + grep efter referenser.
-- **Idag:** behandla som **legacy** i `scripts/README.md` (redan markerat där enligt W4).
+- **Idag:** **legacy** i `scripts/README.md` (W4) + kort **B3-05**-förhandskrav i samma avsnitt (2026-03-25).
 
 ### B3-06 — `scaffold-pipeline.py` (struktur)
 
-- [ ] Endast om stök i `scripts/` kvarstår: flytt + uppdatera `scripts/README.md`, `scripts-scaffolds-inventory.md`, ev. `package.json` om någon npm-wrapper tillkommer.
+- [x] Endast om stök i `scripts/` kvarstår: flytt + uppdatera `scripts/README.md`, `scripts-scaffolds-inventory.md`, ev. `package.json` om någon npm-wrapper tillkommer.
+- **Levererat:** `scripts/manual/scaffold-pipeline.py` + `scripts/manual/README.md`; `REPO_ROOT` = tre nivåer upp från filen; bort `scripts/scaffold-pipeline.py`.
 
 ### B3-07 — vercel-react-best-practices (Cursor)
 
@@ -73,5 +74,6 @@ Uppdatera datum nedan när ni stänger ID:n i en merge.
 
 | Datum | Stängda ID | Not |
 |-------|------------|-----|
+| 2026-03-25 | B3-06 | `scaffold-pipeline.py` → `scripts/manual/` + README; inventory + track-w4 |
 | 2026-03-25 | B3-04 | `preview-and-sandbox-flow.md` ephemeral vs stödtjänster; länk från `agent-workflows.md` |
 | 2026-03-25 | B3-01, B3-03, B3-07, B3-08 | `agent-workflows.md`, `terminology.mdc` cheat sheet, `react-node-skill-routing.mdc`, länkar i README/workloads/structure-doc |

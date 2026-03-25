@@ -38,7 +38,7 @@
 ### Övrig städning
 
 - [x] **Drift:** grep efter fel sökvägar till scripts i `docs/`, `.cursor/`, root-README
-- [x] **Ev. manuella skript:** `scaffold-pipeline.py`, `extract-static-core.mjs` — märkta **avancerat, ej i package.json** i `scripts/README.md` (ingen flytt)
+- [x] **Ev. manuella skript:** `extract-static-core.mjs` — **avancerat, ej i package.json** i `scripts/README.md`. **`scaffold-pipeline.py`** flyttad till **`scripts/manual/scaffold-pipeline.py`** (B3-06); `scripts/README.md` + inventory uppdaterade.
 
 ---
 

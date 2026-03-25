@@ -1,3 +1,5 @@
+2026-03-25 — **B3-06:** `scaffold-pipeline.py` → `scripts/manual/` + README; `REPO_ROOT` fix; `scripts/README` + inventory + track-w4; B3-05 notis vid extract-static-core; progress ~88% whole; typecheck+vitest; push `origin/master`.
+
 2026-03-25 — **B3-04 sandbox doc:** `preview-and-sandbox-flow.md` § ephemeral vs långlivade stödtjänster; `agent-workflows.md` länk; progress ~87% whole; push `origin/master`.
 
 2026-03-25 — **Docs B3 batch:** `docs/contributing/agent-workflows.md`; `terminology.mdc` three-word cheat sheet; `react-node-skill-routing.mdc` (Vercel skill path); buglista B3-01/03/07/08; progress ~86% whole; push `origin/master`.

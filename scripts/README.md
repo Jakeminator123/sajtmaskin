@@ -299,16 +299,20 @@ npm run scaffolds:discover:full
 
 Underhåll: plockar ut `STATIC_CORE` från `src/lib/gen/system-prompt.ts` till `config/systemprompt.md` om mönstret finns. Kör `node scripts/extract-static-core.mjs` när du medvetet synkar statisk prompt till fil.
 
+**B3-05 / framtida städ:** när `config/codegen-static-prompt.json` + fragment är **enda** sanning och monolit-fallback i `system-prompt.ts` är borta — arkivera eller ta bort detta skript och uppdatera referenser (se [`buglista-del-3.md`](../docs/plans/active/external-review-execution/buglista-del-3.md)).
+
 ## scaffold-pipeline.py (avancerat, ej i package.json)
 
 Interaktivt Python-menyskript som samlar alla steg i template-library-kedjan.
 Visar aktuell status (antal dossiers, embeddings, kuraterade entries) och lat
 dig valja enskilda steg eller kora hela kedjan.
 
+**Placering:** [`scripts/manual/scaffold-pipeline.py`](manual/scaffold-pipeline.py) (översikt: [`scripts/manual/README.md`](manual/README.md)). Gamla sökvägen `scripts/scaffold-pipeline.py` finns inte längre.
+
 ### Användning
 
 ```bash
-python scripts/scaffold-pipeline.py
+python scripts/manual/scaffold-pipeline.py
 ```
 
 ### Menyval

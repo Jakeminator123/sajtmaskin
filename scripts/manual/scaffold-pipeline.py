@@ -3,14 +3,15 @@
 Scaffold Pipeline — interaktivt menyskript för att hantera hela
 template-library-kedjan.
 
-Kör:  python scripts/scaffold-pipeline.py
+Kör från repo-rot:
+  python scripts/manual/scaffold-pipeline.py
 """
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 RAW_DISCOVERY_CURRENT = REPO_ROOT / "research" / "external-templates" / "raw-discovery" / "current"
 GENERATED_JSON = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library.generated.json"
 EMBEDDINGS_JSON = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library-embeddings.json"

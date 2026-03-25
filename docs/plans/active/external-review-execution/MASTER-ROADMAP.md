@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | typecheck + vitest (365) | ~88%: B3-06 — `scripts/manual/scaffold-pipeline.py`; B3-05 doc vid extract-static-core |
 | 2026-03-25 | master | (docs) | ~87%: B3-04 — `preview-and-sandbox-flow.md` ephemeral vs stödtjänster + `agent-workflows` länk |
 | 2026-03-25 | master | (docs) | ~86%: B3-01/B3-03/B3-07/B3-08 — `agent-workflows.md`, terminology cheat sheet, Vercel skill routing |
 | 2026-03-25 | master | typecheck + vitest (359) | ~85%: **Elasticsearch** registry + detection + env-policy + Vitest |
