@@ -1,5 +1,7 @@
 # Orchestrator run — 2026-03-26 (`external-review`)
 
+**Arkiverad** — flyttad från `docs/plans/active/orchestrator-run-2026-03-26.md` (spårbarhet; körningen är avslutad). Aktuell styrning: `docs/plans/active/external-review-remediation-progress.md`.
+
 Denna fil är **git-spårbar** sammanfattning.
 
 **Avslutad körning:** Run-mappen är **arkiverad** enligt protokoll. Se `.cursor/orchestrator/run-summaries.md` för exakt `archive/…`-sökväg (tidsstämpel i mappnamnet).

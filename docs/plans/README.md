@@ -6,7 +6,7 @@ Subfolders (`active/`, `review-needed/`, `archived/`) keep a one-line `README.md
 
 ## Current status map
 
-Last tightened `2026-03-26` (hub links, plan index, handoff drift).
+Last tightened `2026-03-28` (hub links, archived orchestrator summary, `.gitignore` dedup).
 
 `active`
 
@@ -45,6 +45,7 @@ Last tightened `2026-03-26` (hub links, plan index, handoff drift).
 - `archived/16-provider-adapter-architecture.md` — **COMPLETED 2026-03-17**
 - `archived/2026-03-bug-recheck-sweep.md` — completed
 - `archived/2026-03-openclaw-rollout-roadmap.md` — completed
+- `archived/orchestrator-run-2026-03-26-external-review.md` — avslutad orchestrator-körning (extern review); sammanfattning
 - `archived/own-engine-ai-stack-audit-2026-03-18.md` — audit artifact (moved from review-needed)
 - `archived/world-class-commit-selection-report.md` — recovery artifact
 - `archived/world-class-branch-map-2026-03-13-to-now.md` — recovery artifact

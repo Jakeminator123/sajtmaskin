@@ -1,4 +1,4 @@
-
+﻿
 # Build/cache
 node_modules
 .next
@@ -160,3 +160,5 @@ tests/openclaw/
 
 internt_jakob/
 
+# Addressed kritik snapshots (large; open with @ path when needed)
+.j_to_agent/archive/kritik-addressed/

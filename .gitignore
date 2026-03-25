@@ -20,11 +20,11 @@ tsconfig.tsbuildinfo
 next-env.d.ts
 
 # Environment files (NEVER commit secrets!)
+# .env.* covers .env.local, .env.production.local, etc.
 .env
 .env.*
 !.env.example
 !.env.*.example
-.env.local
 # Renamed snapshots used for diffing against Vercel — often contain real secrets
 OLD.env*
 *.pem
@@ -150,34 +150,22 @@ docs/old/**/*.env.production
 docs/old/**/*.env
 docs/old/**/*env*.txt
 
-# Automation kit (local-only)
-automation/
-.automation/
-.cursor-gpt-kit/
-config.txt
-config.browser.txt
-config.example.txt
-INSTALERA.py
-INSTALLERA.py
-
 # Vercel
 .vercel
 
-
-
-# >>> cursor-gpt automation local artifacts >>>
+# Automation kit + cursor-gpt local artifacts (local-only)
 !.cursor/agents/
 .cursor/agents/**
 !.cursor/agents/workstream-sentry.md
 .cursor/rules/automation-safety.mdc
 automation/
-config.txt
-config.example.txt
-config.browser.txt
-INSTALLERA.py
-INSTALERA.py
-.cursor-gpt-kit/
 .automation/
+.cursor-gpt-kit/
+config.txt
+config.browser.txt
+config.example.txt
+INSTALERA.py
+INSTALLERA.py
 automation/state/run-state.json
 automation/state/ui-dashboard/
 automation/inbox/deep-research-report*.md
@@ -190,7 +178,6 @@ automation/reports/final-summary.md
 automation/reports/final-summary.json
 playwright-report/
 test-results/
-node_modules/
 _scaffold_discovery/
 research/external-templates/raw-discovery/**
 !research/external-templates/raw-discovery/README.md
@@ -204,9 +191,5 @@ research/_sidor/
 _input_for_cursor/
 STOR_MIGRATION
 .cursor/migration-archive/
-# <<< cursor-gpt automation local artifacts <<<
-
 
 internt_jakob/
-
-.env*.local

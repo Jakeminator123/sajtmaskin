@@ -103,6 +103,7 @@ Vid varje dokumenterad avstämning:
 
 ## Done (in repo)
 
+- **Repo hygiene closeout (2026-03-28):** `.gitignore` — ett sammanslaget automation/cursor-gpt-block, bort med dubblett-`node_modules/` och redundant `.env*.local`; `docs/plans/README.md` pekar på arkiverad `orchestrator-run-2026-03-26-external-review.md`; `orchestrator-run-…-external-review.md` — arkiveringsnotis + BOM bort; `.cursorignore` — valfri exkludering av `.j_to_agent/archive/kritik-addressed/` (kommenterad).
 - **Remediation exit (2026-03-28, orchestrator-run):** [REMEDIATION-EXIT.md](./external-review-execution/REMEDIATION-EXIT.md); valfri Playwright-smoke `e2e/deploy/deploy-api-precheck.smoke.spec.ts`; `playwright.deploy-smoke.config.ts`; `npm run test:deploy-smoke:e2e`; `e2e/README.md` + progress/MASTER/ORCHESTRATOR_LOG/kritik-batch. *Run arkiverad lokalt:* `2026-03-28-external-review-remediation-exit`.
 - **W1 + audit / Tailwind v4 (2026-03-27, orchestrator-run):** `lanyard-badge.tsx` — `bg-linear-to-br`; `BudgetEstimate.tsx` — `bg-linear-to-r`. **`track-w1-landing-followups.md`** (Lanyard-rad). *Run arkiverad lokalt:* `2026-03-27-tailwind-v4-gradient-hygiene` (se `run-summaries.md`).
 - **W1 / K-008 delmoment (2026-03-27, orchestrator-run 2):** `lanyard-badge.tsx` — in-view innan fysik; reduced-motion → statiskt kort; `particle-orb.tsx` — `dpr` tak. **`track-w1-landing-followups.md`** uppdaterad. *Run arkiverad lokalt:* `2026-03-27-landing-3d-balance` (se `run-summaries.md`).
