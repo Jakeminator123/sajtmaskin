@@ -7,6 +7,7 @@ Här ligger **parallella granskningsfiler** (`NNpct-*.md` m.fl.) som har **sluti
 | `43pct-r.md` | Progress-formulering (helhet vs scripts-spår) tydliggjord i `external-review-remediation-progress.md`. |
 | `56pct-h.md` | Typecheck + Vitest + ESLint på stream-routes körda grönt; länk till kritikindex tillagd i progress-dokumentet. |
 | `72pct-w.md` | Öppen punkt (flytt `testning_scarf` + `package.json`) levererad i `59e488ae` (~75pct); ersatt av `75pct-e.md`. |
+| `75pct-e.md` | W4-exit `59e488ae` verifierad; segment-% och eval-dokumentation uppdaterade i `8b61cc49` (~78pct); ersatt av `78pct-r.md`. |
 
 **Aktiva** kritikfiler och typregister: [KRITIK-OVERVIEW.md](../../structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md).
 

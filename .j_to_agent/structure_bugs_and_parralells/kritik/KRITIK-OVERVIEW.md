@@ -26,11 +26,11 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `34pct-n.md` | `LandingBackground` + reduced-motion scoped (~34pct). |
 | `42pct-v.md` | W2 manifest + deploy readiness (`11f443db`). |
 | `64pct-s.md` | Snapshot ~64% whole vision: plan-mode + transaktionell finalize + kritikarkiv (`16acd282`‑linjen). |
-| `75pct-e.md` | ~75% whole, W4 exit: borttagen `hamta_sidor.py`, lab `scripts/labs/testning_scarf`, npm-scripts (`59e488ae`). |
+| `78pct-r.md` | ~78% whole: reconcile segment-% (W3 track komplett, scripts ~95%), eval vs scrape docs, `EGEN_MOTOR_V2` (`8b61cc49`). |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
 
-**Arkiv (åtgärdade snapshots):** [`../../archive/kritik-addressed/`](../../archive/kritik-addressed/README.md) — bl.a. `43pct-r.md`, `56pct-h.md`, `72pct-w.md` (se README där).
+**Arkiv (åtgärdade snapshots):** [`../../archive/kritik-addressed/`](../../archive/kritik-addressed/README.md) — bl.a. `43pct-r.md`, `56pct-h.md`, `72pct-w.md`, `75pct-e.md` (se README där).
 
 *(Lägg till fler aktiva `NNpct-*` i tabellen när de skapas; flytta hit när handoff är klar.)*
 
