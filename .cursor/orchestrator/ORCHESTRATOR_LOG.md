@@ -1,3 +1,5 @@
+2026-03-26 (eve) — `vercel_templates_levels/` **återställd** från git (anledning: borttagen i `c1a0ef96` men `references:discover*` kvar); ny arkitekturdoc `docs/architecture/vercel-templates-discovery.md`; `.cursorignore` slutar dölja mappen.
+
 2026-03-26 (pm) — Run `2026-03-26-external-review`: W1 **klar** (commit `62cdcd2b`, ~34pct); W4 readonly logg skriven under `agent-logs/`. Nästa: W2 integrationer/deploy eller W4 implementation efter scope.
 
 2026-03-26 (pm) — Orchestrator run `2026-03-26-external-review`: workloads `01-01-w1`, `02-01-w4` skrivna under `.cursor/orchestrator/run/` (lokal). Git-spårbar sammanfattning: `docs/plans/active/orchestrator-run-2026-03-26.md`. Tier-3 Task-agenter startade mot W1 + W4.

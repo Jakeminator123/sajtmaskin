@@ -2,22 +2,39 @@
 # Build/cache
 node_modules
 .next
+out
 .cache
 dist
 build
 coverage
+playwright-report
+test-results
+__pycache__
+*.log
 
 # Git metadata / generated lockfiles
 .git
 tsconfig.tsbuildinfo
 package-lock.json
 
-# Local env / secrets / local status (keep out of AI context)
+# Local env / secrets: keep real values off-index. For NAMES + workflow see
+# docs/ENV.md, src/lib/env.ts, config/env-policy.json (not ignored).
 .env
-.env.*
 .env.local
 .env.production
+.env.development
+.env.test
+.env.*
+!.env.example
+!.env.*.example
 .token-status.json
+
+# Opt-in prompt dumps (can be huge; see data/prompt-dumps/README.md)
+data/prompt-dumps/*
+!data/prompt-dumps/README.md
+
+# Local Vercel template scrape (gitignored research tree)
+scraped-vercel-scorefolds
 
 # Local MCP (copy mcp.json.example → mcp.json)
 .cursor/mcp.json
@@ -120,7 +137,8 @@ skrapning/
 ovrigt/
 .preprompt_history.json
 .vercel/
-logs/
+logs/*
+!logs/README.md
 manual_log/
 input_files_for_cursor/
 DOM_dev_tols.txt
@@ -128,12 +146,14 @@ chat_till_vanster.txt
 
 # Misc legacy folders
 #.j_to_agent/
-vercel_templates_levels/
+# vercel_templates_levels/ — allow Cursor index (Playwright discovery)
 
 # Orchestrator run folders
 .cursor/orchestrator/run/*/
-.cursor/orchestrator/archive/
+.cursor/orchestrator/archive/*
+!.cursor/orchestrator/archive/README.md
 
 tests/openclaw/
 
 internt_jakob/
+

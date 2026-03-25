@@ -21,6 +21,9 @@ This folder is the canonical external-template research lane.
   legacy external dataset. Keep it outside the repo.
 - `vercel_templates_levels/` is tooling around discovery, not a parallel data
   silo. Its Playwright scraper should write into `raw-discovery/current/`.
+  The folder was removed in 2026-03-18 (Plan 17 WS-1) but **restored 2026-03-26**
+  because `package.json` still referenced it; see
+  `docs/architecture/vercel-templates-discovery.md`.
 - This lane is for public Vercel Templates research, not for product-facing v0
   gallery templates.
 - `scripts/import-template-discovery.ts` is the migration bridge from legacy

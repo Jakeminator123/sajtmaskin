@@ -47,7 +47,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 | `run-migrations.ts` | db:migrate |
 | `test-api-usage.mjs` | test:api |
 
-`references:discover*` kör **Playwright** under `vercel_templates_levels/` (inte en fil under `scripts/`).
+`references:discover*` kör **Playwright** på `vercel_templates_levels/tests/scrape-catalog.spec.ts` (återställd 2026-03-26 efter att mappen tagits bort i Plan 17 WS-1 utan att npm-script rensades). Översikt: [`vercel-templates-discovery.md`](vercel-templates-discovery.md).
 
 ### Dokumenterade manuellt (ej i `package.json`)
 
