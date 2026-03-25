@@ -2,20 +2,21 @@
 
 Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator).
 
-Last code touch: landing `chat-area.tsx` (mousemove utan React state, reduced motion för tilt, tech stack vs `package.json`, footer, videoknapp).
+Last code touch: `useLandingController` + `landing-chat-data.ts` + `landing-hooks.ts`; `chat-area.tsx` återanvänder hooken (steg mot uppdelning i `1.txt`).
 
 ## Overall fill (approximate)
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~18%** | **~82%** |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~45%** | **~55%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~24%** | **~76%** |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~58%** | **~42%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~0%** | **~100%** |
 | **Own-engine** (`2.txt`) | **~0%** | **~100%** |
 | **Scripts / naming hygiene** (`3.txt`) | **~0%** | **~100%** |
 
 ## Done (in repo)
 
+- Landning: statisk copy/data i `landing-chat-data.ts`; delade hooks i `landing-hooks.ts`; state/build-flöde i `useLandingController` (`use-landing-controller.ts`).
 - 3D tilt + tech/integration card glow + terminal glow: DOM / CSS-variabler, inte `setState` per rörelse.
 - `prefers-reduced-motion` stoppar tilt-uppdateringar.
 - Tech stack: Drizzle ORM, Vercel Analytics (stämmer med `@vercel/analytics` + Speed Insights i `src/app/layout.tsx`).
@@ -26,7 +27,7 @@ Last code touch: landing `chat-area.tsx` (mousemove utan React state, reduced mo
 
 ## Next (recommended order)
 
-1. Bryt ut `ChatArea` + `useLandingController` (`1.txt`).
+1. Bryt ut JSX-sektioner från `chat-area.tsx` till `LandingHero`, `LandingFooter`, m.m. (`1.txt` — kvar efter controller).
 2. `LandingBackground` semantiskt per läge; färre samtidiga effekter; mer reduced-motion / in-view för 3D.
 3. `integration-registry` + manifest + tunnare deploy (`1.txt`).
 4. Own-engine remediation (`2.txt`).
