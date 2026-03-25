@@ -149,6 +149,12 @@ export async function addMessage(
   return toRow(rows[0]) as unknown as Message;
 }
 
+/** Removes a single engine message row (e.g. rollback after failed version create). */
+export async function deleteEngineMessage(messageId: string): Promise<boolean> {
+  const result = await db.delete(engineMessages).where(eq(engineMessages.id, messageId));
+  return (result.rowCount ?? 0) > 0;
+}
+
 async function getStoredVersion(versionId: string): Promise<Version> {
   const rows = await db.select().from(engineVersions).where(eq(engineVersions.id, versionId)).limit(1);
   return toRow(rows[0]) as unknown as Version;

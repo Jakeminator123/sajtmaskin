@@ -12,6 +12,7 @@ const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
+const deleteEngineMessage = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
 const logGeneration = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
@@ -63,6 +64,7 @@ vi.mock("@/lib/gen/project-scaffold", () => ({
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addMessage,
+  deleteEngineMessage,
   createDraftVersion,
   logGeneration,
   failVersionVerification,
@@ -70,6 +72,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 
 vi.mock("@/lib/db/services", () => ({
   createEngineVersionErrorLogs,
+  createGenerationTelemetryRecord: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
@@ -103,10 +106,6 @@ vi.mock("@/lib/gen/validation/seo-preflight", () => ({
   runSeoPreflightChecks: vi.fn().mockReturnValue([]),
 }));
 
-vi.mock("@/lib/db/services/generation-telemetry", () => ({
-  createGenerationTelemetryRecord: vi.fn().mockResolvedValue({}),
-}));
-
 import { finalizeAndSaveVersion } from "./finalize-version";
 
 describe("finalizeAndSaveVersion", () => {
@@ -123,6 +122,7 @@ describe("finalizeAndSaveVersion", () => {
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
     addMessage.mockReset();
+    deleteEngineMessage.mockReset();
     createDraftVersion.mockReset();
     logGeneration.mockReset();
     failVersionVerification.mockReset();
@@ -187,11 +187,35 @@ describe("finalizeAndSaveVersion", () => {
       issues: [],
     });
     addMessage.mockResolvedValue({ id: "msg_1" });
+    deleteEngineMessage.mockResolvedValue(true);
     createDraftVersion.mockResolvedValue({ id: "ver_1" });
     logGeneration.mockResolvedValue({});
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
     buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
+  });
+
+  it("deletes the assistant message when draft version creation fails", async () => {
+    createDraftVersion.mockRejectedValueOnce(new Error("draft insert failed"));
+
+    await expect(
+      finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      }),
+    ).rejects.toThrow("draft insert failed");
+
+    expect(addMessage).toHaveBeenCalledWith(
+      "chat_1",
+      "assistant",
+      expect.stringContaining("export default function Page()"),
+    );
+    expect(deleteEngineMessage).toHaveBeenCalledWith("msg_1");
   });
 
   it("emits a terminal autofix progress event even when autofix makes no changes", async () => {

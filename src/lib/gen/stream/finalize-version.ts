@@ -88,9 +88,10 @@ export class EmptyGenerationError extends Error {
 
 /**
  * Shared post-generation pipeline: autofix -> syntax -> URL expansion ->
- * file parsing -> scaffold merge -> version save.
+ * file parsing -> scaffold merge -> preflight -> assistant message -> version save.
  *
- * Replaces 3 near-identical blocks in the engine stream handler.
+ * Assistant rows are written only after merge/preflight so earlier failures do not
+ * leave orphan messages; if draft version insert fails, the assistant row is removed.
  */
 export async function finalizeAndSaveVersion(
   params: FinalizeParams,
@@ -207,10 +208,7 @@ export async function finalizeAndSaveVersion(
 
   onProgress?.("finalizing", { phase: "start" });
 
-  // 4. Save assistant message
-  const assistantMsg = await chatRepo.addMessage(chatId, "assistant", contentForVersion);
-
-  // 5. Parse files + merge (scaffold-based for first gen, previousFiles-based for follow-up)
+  // 4. Parse files + merge (scaffold-based for first gen, previousFiles-based for follow-up)
   let filesJson = parseFilesFromContent(contentForVersion);
 
   const generatedFiles = (
@@ -264,8 +262,19 @@ export async function finalizeAndSaveVersion(
     }
   }
 
-  // 6. Create version
-  let version = await chatRepo.createDraftVersion(chatId, assistantMsg.id, filesJson);
+  // 5. Persist assistant only after content is parsed/merged/preflighted (avoids orphan rows on earlier failures).
+  const assistantMsg = await chatRepo.addMessage(chatId, "assistant", contentForVersion);
+
+  // 6. Create version (rollback assistant row if draft insert fails)
+  let version: Awaited<ReturnType<typeof chatRepo.createDraftVersion>>;
+  try {
+    version = await chatRepo.createDraftVersion(chatId, assistantMsg.id, filesJson);
+  } catch (draftErr) {
+    await chatRepo.deleteEngineMessage(assistantMsg.id).catch(() => {
+      /* best-effort cleanup */
+    });
+    throw draftErr;
+  }
   devLogAppend("in-progress", {
     type: "version.created",
     chatId,
