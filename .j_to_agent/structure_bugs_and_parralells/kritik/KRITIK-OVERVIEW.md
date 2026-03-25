@@ -26,6 +26,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `34pct-n.md` | `LandingBackground` + reduced-motion scoped (~34pct). |
 | `42pct-v.md` | W2 manifest + deploy readiness (`11f443db`). |
 | `64pct-s.md` | Snapshot ~64% whole vision: plan-mode + transaktionell finalize + kritikarkiv (`16acd282`‑linjen). |
+| `72pct-w.md` | ~72% whole, W4 hamta-wrapper + `--legacy-wide-use-cases` + docs (`d27c54b1`); öppen: `testning_scarf`-flytt. |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
 
