@@ -6,8 +6,8 @@
 
 | Audience / topic | Canonical location | What it covers |
 |------------------|-------------------|----------------|
-| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | Sajtmaskin vs Vercel vs v0, builder modes (`freeform` vs “Fritext”), **model lanes** vs **scaffold / v0-templates / Vercel-mall research**, naming in code. **Hur du öppnar filen i Cursor:** se `.cursor/README.md`. |
-| **Repo layout & research pipeline** | `docs/architecture/structure-and-terminology.md` | Paths (`src/lib/templates/` vs scaffolds vs dossiers), renames, generated artifacts, mermaid data flow. |
+| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | Sajtmaskin vs Vercel vs v0, builder modes (`freeform` vs “Fritext”), **model lanes** vs **scaffold / v0-templates / Vercel-mall research**, **builder Mall tab (v0) vs Vercel-mall research**, naming in code. **Hur du öppnar filen i Cursor:** se `.cursor/README.md`. |
+| **Repo layout & research pipeline** | `docs/architecture/structure-and-terminology.md` | Paths (`src/lib/templates/` vs scaffolds vs dossiers), renames, generated artifacts, mermaid data flow, **Mall-fliken vs vercel.com/templates**. |
 
 **Rule:** Add new **UI/product** terms to `terminology.mdc`. Add new **folder / artifact** terms to `structure-and-terminology.md`. Link between them; avoid pasting the full glossary into random plans.
 
@@ -89,6 +89,7 @@ Not runtime dependencies:
 | Plan / agent handoff index | `docs/architecture/agent-roadmap-and-handoff.md` |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Terminology (folders + research flow) | `docs/architecture/structure-and-terminology.md` |
+| Vercel Templates discovery + Playwright + scaffolds (full narrativ) | `docs/architecture/vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt` |
 | Engine architecture | `docs/architecture/engine-status.md` |
 | Builder model routing | `docs/architecture/builder-model-routing-and-trace.md` |
 | Builder entry flow | `docs/architecture/builder-entry-flow.md` |

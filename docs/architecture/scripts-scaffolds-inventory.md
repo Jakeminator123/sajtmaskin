@@ -47,7 +47,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-24.
 | `run-migrations.ts` | db:migrate |
 | `test-api-usage.mjs` | test:api |
 
-`references:discover*` kör **Playwright** på `vercel_templates_levels/tests/scrape-catalog.spec.ts`. **`vercel_templates_levels/` är gitignorerad** (2026-03-27): scripten fungerar bara om mappen finns **lokalt** i repo-roten (ny clone har den inte). Full förklaring: [`vercel-templates-discovery.md`](vercel-templates-discovery.md) (avsnitt *package.json vs git*).
+`references:discover*` kör **Playwright** på `e2e/vercel-templates/scrape-catalog.spec.ts` (**spårad**). Legacy-mappen `vercel_templates_levels/` kan finnas lokalt (gitignore) men är inte npm-kanon. Full förklaring + scaffold-gränser: [`vercel-templates-discovery.md`](vercel-templates-discovery.md), [`vercel-templates-playwright-scaffold-integration.txt`](vercel-templates-playwright-scaffold-integration.txt).
 
 ### Dokumenterade manuellt (ej i `package.json`)
 

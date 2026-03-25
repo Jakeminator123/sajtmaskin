@@ -56,6 +56,21 @@ Do **not** use the old “operational lanes” triad. One mental model:
 | **v0-templates** | `src/lib/templates/`, `TemplateGallery` | Product browse/search; `buildMethod=category`; landing **Template** tab. |
 | **Vercel mall** (research) | `research/external-templates/`, dossiers, `src/lib/gen/template-library/`, scaffold research JSON | Curated reference + artifacts that **inform scaffolds** and ranking — not the landing Template label. |
 
+#### Builder picker **Mall** / **Mallar** vs **Vercel-mall** (research)
+
+These sound alike in Swedish but are **different products**:
+
+| Surface | Code / location | What the user sees | Runtime / source |
+|--------|------------------|--------------------|------------------|
+| **Mall** tab in the builder | `UnifiedElementPicker` → `activeTab === "mall"` → `TemplateGallery` | Previews and starts from **v0 community templates** (gallery IDs in `src/lib/templates/`). | **v0 Platform** — `v0.chats.init({ type: "template", templateId })` and v0-hosted previews where applicable. |
+| **Vercel Template** / **Vercel-mall** (research lane) | `vercel.com/templates` intake, `e2e/vercel-templates/` (tracked Playwright spec), `research/external-templates/`; legacy `vercel_templates_levels/` may exist locally (ignored) | **Not** exposed as this gallery. Feeds **raw discovery → dossiers → generated artifacts → scaffold research**. | **Offline research** and curation scripts — **not** the builder Mall tab. |
+
+Rules of thumb:
+
+- If the user opened **Mall / Mallar** inside the builder, they are interacting with **v0-templates** only.
+- **Vercel mallar** (public catalog) are how we **learn and rank** external starters to improve **runtime scaffolds** and enrichment — users do **not** pick those rows from the Mall tab today.
+- Do not describe the Mall tab as “Vercel templates” or imply it lists `vercel.com/templates`.
+
 | Term | Swedish / UI | Meaning |
 |------|--------------|---------|
 | **v0-templates** | **Template** / **Templates** (nav) | Gallery entries from `src/lib/templates/`; not the runtime codegen base. |
@@ -68,7 +83,7 @@ Do **not** use the old “operational lanes” triad. One mental model:
 | **Multi-tenant** | `delad plattform` | One app serving many tenants. |
 | **Multi-project** | `separata kundprojekt` | One Vercel project per customer site. |
 
-Rules: **scaffold** vs **v0-template** — never call runtime scaffolds plain “templates”. **Mall** / **Vercel mall** → research and scaffolds, not the primary **Template** gallery UI. Dossiers are research input, not a second scaffold registry; only **generated artifacts** matter at runtime. Do not mix this block with **builder model lanes** (below).
+Rules: **scaffold** vs **v0-template** — never call runtime scaffolds plain “templates”. **Mall** in the **builder picker** = **v0-templates** (v0 runtime), **not** Vercel.com catalog rows. **Vercel mall** (research) → dossiers and scaffolds, not the Mall tab inventory. Dossiers are research input, not a second scaffold registry; only **generated artifacts** matter at runtime. Do not mix this block with **builder model lanes** (below).
 
 ### Builder model lanes (user-facing)
 

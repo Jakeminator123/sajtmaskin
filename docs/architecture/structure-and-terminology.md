@@ -4,7 +4,7 @@
 
 | This document | `terminology.mdc` |
 |---------------|-------------------|
-| **Filesystem layout**, renames, research pipeline, gallery vs scaffold vs dossier vs generated JSON | **Product layers**, builder entry modes (`freeform` / Fritext), **model lanes** vs **scaffold / v0-templates / Vercel-mall research**, Swedish UI vs code identifiers |
+| **Filesystem layout**, renames, research pipeline, gallery vs scaffold vs dossier vs generated JSON, **builder Mall tab vs Vercel-mall research** | **Product layers**, builder entry modes (`freeform` / Fritext), **model lanes** vs **scaffold / v0-templates / Vercel-mall research**, Swedish UI vs code identifiers |
 
 Do **not** copy the full builder glossary here — link to the Cursor rule instead.
 
@@ -92,3 +92,16 @@ They are used to:
 
 Prompt-based own-engine generation remains scaffold-driven unless a separate,
 explicit repo-import flow is introduced in the future.
+
+## Builder **Mall** / **Mallar** vs **Vercel-mall** (do not conflate)
+
+In Swedish copy, “mall” appears in two unrelated places:
+
+| User-facing “mall” | Technical meaning |
+|--------------------|-------------------|
+| **Mall** / **Mallar** in the builder (`UnifiedElementPicker` tab `mall`) | **v0-templates** only: gallery from `src/lib/templates/`, previews and start via **v0 Platform** (`type: "template"` init). |
+| **Vercel Template** / **Vercel-mall** in docs and research | Public starters on **vercel.com/templates**, ingested under `research/external-templates/` (Playwright spec: `e2e/vercel-templates/`; see `vercel-templates-discovery.md` and `vercel-templates-playwright-scaffold-integration.txt`). Used to improve **scaffolds** and ranking — **not** listed in the builder Mall tab. |
+
+The Mall tab shows a **v0 Template** preview; it does **not** browse the Vercel Templates catalog.
+
+For Playwright discovery path and legacy `vercel_templates_levels/`, see `docs/architecture/vercel-templates-discovery.md`.

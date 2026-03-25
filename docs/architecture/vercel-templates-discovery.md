@@ -1,72 +1,42 @@
-# Vercel Templates discovery (`vercel_templates_levels/`)
+# Vercel Templates discovery (Playwright)
 
-## Viktigt: `package.json` vs git (läs detta först)
+## Kanonisk sökväg (git)
 
-Följande npm-script finns **kvar i repot** och pekar på en **lokal sökväg i repo-roten**:
+- **Spec:** `e2e/vercel-templates/scrape-catalog.spec.ts` (spårad).
+- **Npm:** `references:discover*`, `scaffolds:discover*` → kör Playwright mot den filen.
+- **Ny clone:** efter `npm install` ska `npx playwright test e2e/vercel-templates/scrape-catalog.spec.ts --list` fungera (kräver Playwright + browsers + nät för körning).
 
-- `references:discover`, `references:discover:second-pass`, `references:discover:full`
-- alias: `scaffolds:discover`, `scaffolds:discover:full`
+Kort översikt: [`e2e/README.md`](../../e2e/README.md).
 
-**Målfil:** `vercel_templates_levels/tests/scrape-catalog.spec.ts`
+Utförlig narrativ + scaffold-gränser: [`vercel-templates-playwright-scaffold-integration.txt`](vercel-templates-playwright-scaffold-integration.txt).
 
-**Men:** hela katalogen `vercel_templates_levels/` är **`gitignore` + `cursorignore`** (från 2026-03-27). Det betyder:
+## Legacy: `vercel_templates_levels/` (“spökmappen”)
 
-| Situation | Resultat |
-|-----------|----------|
-| **Din maskin** — mappen finns kvar efter tidigare checkout / manuell kopia | `npm run references:discover` **kan** fungera (Playwright + nät). |
-| **Ny `git clone`** | Mappen **finns inte** → scripten **failar** tills du återställer filerna lokalt (t.ex. från äldre commit, zip, eller flyttar specen till en **spårad** sökväg i en framtida PR). |
-| **CI** | Kör **inte** dessa script som standard — de förväntar sig lokal tooling + ofta interaktiv browser. |
+Katalogen i **repo-roten** kan finnas **lokalt** som gammal kopia (markdown, policy, ev. duplicerad spec). Den är **gitignore + cursorignore** så den inte committas av misstag. Den är **inte** längre den officiella adressen för `package.json`. Ta bort mappen lokalt om du inte behöver den — källan i git är `e2e/vercel-templates/`.
 
-Detta är **medvetet tills vidare**: du granskar mappen lokalt utan att den pushas. **Nästa tydliga förbättring** är att flytta `scrape-catalog.spec.ts` under t.ex. `e2e/` eller `tests/` (spårad) och uppdatera `package.json` — eller ta bort scripten och enbart dokumentera Python-flöden (`hamta_sidor_branch_emil.py`, `vercel_template_cli.py`).
+## Historik (kort)
 
----
+- `c1a0ef96`: mappen togs bort medan npm-scripts pekade kvar → trasiga sökvägar.
+- Senare: mappen återställdes tillfälligt / dokumenterades som lokal + ignore.
+- **2026-03-25 (ca):** spec **duplicerad** till `e2e/vercel-templates/`, `package.json` pekar hit; `vercel_templates_levels/` kvar som valfri ignorerad spillra.
 
-## Vad hände med mappen?
+## Vad specen gör
 
-Den **raderades medvetet** i commit `c1a0ef96` (2026-03-18, Plan 17 WS-1 *dead code removal*), med motiveringen *legacy, excluded from tsconfig*. Däremot lämnades **`package.json`-scripts** (`references:discover*`, `scaffolds:discover*`) kvar — de pekade då mot en **saknad** sökväg.
+Playwright-wrapper för **vercel.com/templates** → skriver kanonisk discovery under `research/external-templates/raw-discovery/current/` via `scripts/template-library-discovery.ts`. **Offline/research**, inte builder-runtime.
 
-Det var alltså **inte** en “okänd flytt” av en annan agent i den meningen att mappen bara försvann: den togs bort i en dokumenterad städ-commit, men **referenserna i npm** och delar av **docs** uppdaterades inte fullt ut.
+## v0 vs Vercel Templates
 
-**2026-03-26:** Mappen är **återställd** från git (`git checkout c1a0ef96^ -- vercel_templates_levels/`) så att:
-
-- `npm run references:discover` (och varianter) åter har en målfil.
-- Playwright-specen kan listas/köras igen (`npx playwright test … --list` verifierad).
-
-## Vilken uppgift fyller den?
-
-`vercel_templates_levels/tests/scrape-catalog.spec.ts` är en **Playwright-wrapper** för *external-template research lane*: den hämtar **Vercel.com Templates** (publik katalog) med fördefinierade filter (Next.js, Tailwind, use cases, …) och skriver kanonisk output under:
-
-`research/external-templates/raw-discovery/current/`
-
-(se kommentaren i toppen av spec-filen för exakta filnamn).
-
-Det är **offline/research-verktyg**, inte runtime för byggaren.
-
-## v0-mallar vs Vercel Templates (terminologi)
-
-| Begrepp | Var det lever | Typiskt kommando / spår |
-|--------|----------------|-------------------------|
-| **v0 gallery templates** (produkt) | Synkas in som byggarens v0-startmallar | `npm run templates:sync` → `scripts/sync-v0-templates.mjs`, `templates:validate`, embeddings under `templates:*` |
-| **Vercel Templates** (publik katalog) | Research → `raw-discovery` / template-library | `npm run references:discover*`, `vercel_template_cli.py`, `hamta_sidor*.py` |
-
-**v0-mallar påverkades inte** av borttagningen av `vercel_templates_levels/`; de lever i egna skript under `templates:*`.
-
-## Ska vi behålla mappen?
-
-**Ja, om** du vill att npm-scripten och Playwright-kedjan ska fungera utan att skriva om hela discovery-flödet.
-
-**Nej / alternativ:** Ta bort mappen igen och **ersätt** `references:discover*` med t.ex. ren Python/CLI-kedja (`vercel_template_cli.py`, `import-template-discovery.ts`) — men då måste scripts + docs uppdateras konsekvent i samma PR.
+| Begrepp | Spår |
+|--------|------|
+| **v0 gallery** | `templates:*`, Mall-fliken |
+| **Vercel Templates (katalog)** | `references:discover*`, Python `hamta_sidor*`, `vercel_template_cli.py` → template-library / research |
 
 ## Underhåll
 
-- Vercel kan ändra DOM på `vercel.com/templates` → specen kan behöva justeras.
-- `tsconfig.json` **exkluderar** fortfarande `vercel_templates_levels` (snabbare `tsc`); det är avsiktligt.
-- **2026-03-27:** Mappen ligger i **repo-roten** men är **tillfälligt** i både **`.gitignore`** och **`.cursorignore`** — du kan granska lokalt utan att den indexeras eller pushas. `npm run references:discover*` fungerar bara om mappen finns lokalt.
+- DOM på vercel.com kan ändras → spec kan behöva uppdateras.
+- `tsconfig.json` exkluderar `e2e` och `vercel_templates_levels` (ingen `tsc` på Playwright-filer).
+- `vitest.config.ts` exkluderar `e2e/**`.
 
-## Builder UI: **Mall**-fliken är inte Vercel Templates
+## Builder: Mall-fliken
 
-I buildern betyder fliken **Mall** / **Mallar** (`UnifiedElementPicker`, `mall`) **v0-templates**: förhandsvisning och start från v0-communitymallar (`src/lib/templates/` → v0 `chats.init` med `type: "template"`).
-
-**Vercel Templates** (den här mappens Playwright-/research-kedja) är ett **separat** spår: insamling från `vercel.com/templates` för att mata **raw discovery → referensbibliotek → genererade artefakter → scaffold-forskning**. Användare väljer inte de mallarna i Mall-fliken.
-
-Se även `docs/architecture/structure-and-terminology.md` och `.cursor/rules/terminology.mdc` (avsnittet om Mall vs Vercel-mall).
+**Mall** = v0-templates. **Vercel Templates**-kedjan matar research / template-library / scaffold-forskning — inte samma UI-yta.

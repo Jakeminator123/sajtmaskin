@@ -47,7 +47,7 @@ Remove verified dead code and unused dependencies:
 - [x] `extractV0StatusCode` from `src/lib/v0/errors.ts`
 - [x] `initTemplatePreview` from `src/lib/v0/v0-generator.ts`
 - [x] `sanitizeCode` from `src/lib/v0/v0-generator.ts`
-- [x] `vercel_templates_levels/` folder _(removed 2026-03-18; **restored 2026-03-26** — `package.json` discovery scripts still pointed at it; see `docs/architecture/vercel-templates-discovery.md`)_
+- [x] `vercel_templates_levels/` folder _(legacy optional local; **canonical Playwright spec** now `e2e/vercel-templates/` — see `vercel-templates-discovery.md` + `vercel-templates-playwright-scaffold-integration.txt`)_
 - [x] `ModelSelector` — verified: defined + catalog-registered but never rendered. Keep for now (AI element demo). Remove with WS-2 if unneeded.
 
 ### WS-2: v0 fallback phase-out — COMPLETED

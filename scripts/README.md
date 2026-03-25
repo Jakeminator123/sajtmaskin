@@ -3,7 +3,7 @@
 ## Översikt och inventering
 
 - **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.
-- **Vercel use-case-skrapning (Python):** två varianter — **samma sajt, olika omfång:** [`scripts/hamta_sidor.py`](hamta_sidor.py) (kortare, bred use case-lista) och [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) (**Sajtmaskin-justerad**: kärnkategorier, `--extended-scrape`, tierade utdata `full-repo/` / `tutorial-bootstrap/` / `monorepo-examples/`, rapporter). För manuell “hemhämtning” av material används i praktiken ofta **den längre** (`branch_emil`); se inventeringsdokumentet innan ni slår ihop dem till en fil.
+- **Vercel use-case-skrapning (Python):** två varianter — **samma sajt, olika omfång:** [`scripts/hamta_sidor.py`](hamta_sidor.py) (kortare, bred use case-lista) och [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) (**Sajtmaskin-justerad**: kärnkategorier, `--extended-scrape`, tierade utdata `full-repo/` / `tutorial-bootstrap/` / `monorepo-examples/`, rapporter). För manuell “hemhämtning” av material används i praktiken ofta **den längre** (`branch_emil`); se inventeringsdokumentet innan ni slår ihop dem till en fil. Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
 - **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
 
 ## vercel_template_cli.py (repo root)
@@ -269,7 +269,7 @@ npm run scaffolds:discover
 npm run scaffolds:discover:full
 ```
 
-**OBS:** Playwright-specen ligger under `vercel_templates_levels/` i **repo-roten**. Den katalogen är **gitignorerad** (2026-03-27) — efter en ren `git clone` finns den inte och dessa kommandon **misslyckas** tills du lagt till mappen lokalt. Se [`docs/architecture/vercel-templates-discovery.md`](../docs/architecture/vercel-templates-discovery.md).
+**OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`docs/architecture/vercel-templates-playwright-scaffold-integration.txt`](../docs/architecture/vercel-templates-playwright-scaffold-integration.txt). Översikt: [`docs/architecture/vercel-templates-discovery.md`](../docs/architecture/vercel-templates-discovery.md), [`e2e/README.md`](../e2e/README.md).
 
 ## scaffold-pipeline.py
 

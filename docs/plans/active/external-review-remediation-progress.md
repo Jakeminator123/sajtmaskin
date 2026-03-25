@@ -2,7 +2,7 @@
 
 Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator). **Agent-uppdelning:** `docs/plans/active/orchestrator-workloads-external-review.md`.
 
-Last code touch: **`vercel_templates_levels/`** dokumenterad som **lokal + gitignore/cursorignore**; tydlig varning att `references:discover*` kräver lokal mapp (`vercel-templates-discovery.md`, `ENV.md`, inventory).
+Last code touch: **Playwright-spec** flyttad till **spårad** `e2e/vercel-templates/scrape-catalog.spec.ts`; `package.json` `references:discover*` uppdaterad; `vercel_templates_levels/` kvar som valfri **lokal** ignorerad spillra. Se `vercel-templates-playwright-scaffold-integration.txt`.
 
 **Siffror:** **~39%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2-registry (manifest/deploy-tunning kvar). **Scripts-spåret** ~32% efter README/inventory-sweep; höj till **~43%** helhet när du kört din återstående script/README-runda.
 
@@ -46,7 +46,7 @@ Vid varje dokumenterad avstämning:
 - `chat-area.tsx`: borttagna oanvända Lucide-/data-imports; oanvända värden från `useLandingController` plockas inte längre ut; terminal ref-merge med tydlig eslint-avsiktskommentar.
 - `landing-hero.tsx`: `headlineTilt` destruktureras så `eslint-plugin-react-hooks` ref-regler inte falskt larmar.
 - `landing-background.tsx`: shader-orbs + grid + noise flyttade från `ChatArea`; `data-landing-bg` per kategori (`fritext`, `template`, `audit`, `analyserad`); `prefers-reduced-motion` via scoped CSS under `.landing-chat-bg` (lägre opacitet, inga orb-/grid-animationer).
-- `vercel_templates_levels/` (repo root): kan ligga **lokalt** för granskning; **gitignore + cursorignore** (2026-03-27). Playwright-spec skriver till `raw-discovery/current/` när du kör den. **Inte** v0-mallar (`templates:*`). Se `docs/architecture/vercel-templates-discovery.md`.
+- **Vercel Templates Playwright:** kanon **`e2e/vercel-templates/`** (tracked). Legacy `vercel_templates_levels/` kan ligga **lokalt** (gitignore + cursorignore). Kör → `raw-discovery/current/`; **inte** v0-mallar (`templates:*`). Docs: `vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt`.
 - `scripts/README.md` + `scripts-scaffolds-inventory.md`: rättade sökvägar (`scripts/hamta_sidor*`), `npm run template-library:verify-summary`, svenska i scaffold-pipeline-tabellen; **recovery**-skript dokumenterat som **saknat** i repot.
 
 ## Next (recommended order)

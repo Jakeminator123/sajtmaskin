@@ -19,7 +19,6 @@ export default defineConfig({
       "old/**",
       "docs/old/**",
       "e2e/**",
-      "e2e/**",
       "vercel_templates_levels/**",
       "research/**",
       "_template_refs/**",

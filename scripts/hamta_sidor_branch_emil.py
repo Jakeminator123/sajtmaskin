@@ -1,3 +1,18 @@
+"""
+Vercel Templates catalog scraper (Python / HTTP + BeautifulSoup).
+
+Output lane: same *research* purpose as `research/external-templates/` and the
+Playwright flow under `e2e/vercel-templates/` (Level 1 discovery; legacy `vercel_templates_levels/` optional). Default
+write root is **outside** the repo (`../vercel-scrape` or `SAJTMASKIN_VERCEL_SCRAPE_DIR`).
+
+To normalize into canonical raw discovery JSON under
+`research/external-templates/raw-discovery/current/`, pass the generated
+`summary.json` through `scripts/import-template-discovery.ts` (see
+`research/external-templates/README.md` → Intake tools).
+
+Not related to product v0 gallery / builder Mall tab.
+"""
+
 import argparse
 import json
 import os

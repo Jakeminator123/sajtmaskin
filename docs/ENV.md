@@ -351,7 +351,7 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
 7. MCP-servrar i Cursor: kopiera **`.cursor/mcp.json.example` → `.cursor/mcp.json`** (själva `mcp.json` är gitignorerad så hemligheter inte pushas). `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx tools/mcp/...`.
 8. Extern template-research:
-   - `npm run references:discover` skriver kanonisk rå discovery till `research/external-templates/raw-discovery/current/` — **kräver** att `vercel_templates_levels/` finns **lokalt** i repo-roten (mappen är **gitignorerad**; ny clone har den inte). Se [`docs/architecture/vercel-templates-discovery.md`](architecture/vercel-templates-discovery.md).
+   - `npm run references:discover` skriver kanonisk rå discovery till `research/external-templates/raw-discovery/current/` — Playwright-specen är **`e2e/vercel-templates/scrape-catalog.spec.ts`** (spårad). Kräver Playwright + nät. Se [`docs/architecture/vercel-templates-discovery.md`](architecture/vercel-templates-discovery.md) och [`vercel-templates-playwright-scaffold-integration.txt`](architecture/vercel-templates-playwright-scaffold-integration.txt).
    - `npm run template-library:import-legacy` importerar legacy `_sidor`-summary till samma plats
    - `npm run template-library:hydrate-cache` bygger lokal shallow-clone cache i `research/external-templates/repo-cache/`
    - `npm run template-library:build` bygger den kuraterade referensytan i `research/external-templates/reference-library/`

@@ -1,4 +1,4 @@
-# Raw Discovery
+﻿# Raw Discovery
 
 This folder contains the canonical local raw-discovery intake for
 external-template scrape and import workflows.
@@ -28,5 +28,4 @@ Do not treat it as:
 
 ## Sources
 
-- Playwright discovery from `vercel_templates_levels/tests/scrape-catalog.spec.ts`
-- legacy `_sidor` summary imports via `scripts/import-template-discovery.ts`
+- Playwright discovery from `e2e/vercel-templates/scrape-catalog.spec.ts` (`npm run references:discover*`)

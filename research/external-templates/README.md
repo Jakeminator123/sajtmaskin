@@ -15,18 +15,32 @@ This folder is the canonical external-template research lane.
   Curated external reference dossiers used to improve prompts, embeddings, and
   internal scaffold evolution.
 
+## Intake tools (three paths, one lane)
+
+All of these scrape or normalize **vercel.com/templates** for **research** — not
+builder **Mall** / v0 gallery templates (see `.cursor/rules/terminology.mdc`).
+
+| Tool | Mechanism | Default output | Canonical merge into `raw-discovery/current/` |
+|------|-----------|----------------|--------------------------------------------------|
+| **`e2e/vercel-templates/`** | Playwright spec + `npm run references:discover*` (tracked) | Writes under `raw-discovery/current/` when run | See `e2e/README.md`; legacy `vercel_templates_levels/` optional local |
+| **`scripts/hamta_sidor_branch_emil.py`** | Python (`requests` + BeautifulSoup), richer per-template folders + `summary.json` | **Outside repo:** sibling dir `../vercel-scrape`, or `SAJTMASKIN_VERCEL_SCRAPE_DIR` | Run `scripts/import-template-discovery.ts --from=<path/to/summary.json>` (legacy-summary → canonical dataset) |
+| **`scripts/hamta_sidor.py`** | Older Python variant; broader use-case list | Same family as above (check `--output` / env in that file) | Same import bridge if `summary.json` shape matches |
+
+**Kanonisk Playwright-spec** = `e2e/vercel-templates/scrape-catalog.spec.ts` (tracked). **Legacy** `vercel_templates_levels/` i roten kan finnas **lokalt** (gitignored); ta bort om du inte behöver gamla anteckningar.
+
 ## Input policy
 
 - `C:\Users\jakem\Desktop\_sidor\vercel_usecase_next_react_templates` remains a
   legacy external dataset. Keep it outside the repo.
-- `vercel_templates_levels/` (repo root) is optional **local** Playwright tooling;
-  it is **gitignored and cursorignored** (2026-03-27) while you review it.
-  When present, the scraper should write into `raw-discovery/current/`. See
-  `docs/architecture/vercel-templates-discovery.md`.
+- `e2e/vercel-templates/` is the **tracked** Playwright tooling; `vercel_templates_levels/` is optional **local** legacy;
+  it is **gitignored** and listed in **`.cursorignore`** (indexing noise control).
+  When present, discovery output should land under `raw-discovery/current/`. See
+  `docs/architecture/vercel-templates-discovery.md`, `docs/architecture/vercel-templates-playwright-scaffold-integration.txt`, and `e2e/README.md`.
 - This lane is for public Vercel Templates research, not for product-facing v0
   gallery templates.
 - `scripts/import-template-discovery.ts` is the migration bridge from legacy
-  summary files into the canonical raw-discovery location.
+  summary files (including Python `summary.json` runs) into the canonical
+  raw-discovery location.
 
 ## Important boundary
 
