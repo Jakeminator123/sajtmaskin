@@ -25,6 +25,7 @@ Den här mappen samlar **mänskligt och agent-stött** granskning **vid sidan av
 | `31pct-t.md` | Wire registry, hero/footer, extract-vakt (~31pct). |
 | `34pct-n.md` | `LandingBackground` + reduced-motion scoped (~34pct). |
 | `42pct-v.md` | W2 manifest + deploy readiness (`11f443db`). |
+| `64pct-s.md` | Snapshot ~64% whole vision: plan-mode + transaktionell finalize + kritikarkiv (`16acd282`‑linjen). |
 | `vercel-templates-path-verification-note.md` | Vercel scrape-sökväg, `main` vs `master`, agentpåståenden. |
 | `KRITIK-OVERVIEW.md` | Denna fil — typregister + index över övriga kritikfiler. |
 
