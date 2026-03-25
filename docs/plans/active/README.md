@@ -14,6 +14,10 @@ Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscyke
 
 Mappen är **logiskt färdig** som kör-spår men ligger kvar här av **länkstabilitet** (progress, `docs/README.md`, Cursor-regler, `KRITIK-OVERVIEW`, m.fl. pekar hit). Flytt till `archived/` skulle kräva massuppdatering av sökvägar utan stor vinst. **Orchestrator-körningar** själva ligger i `.cursor/orchestrator/archive/` (gitignorerad) + poster i `run-summaries.md`.
 
+## En sida för «vad är kvar?»
+
+[`REMAINING-WORK.md`](./REMAINING-WORK.md) — pekare till K-rader, plan 17 (WS-5/6), valfri deploy-smoke (ingen dubblerad master-tabell).
+
 ## Innehåll i `active/` (kort)
 
 - **Styrning remediation:** `external-review-remediation-progress.md`, `orchestrator-workloads-external-review.md`, `orchestrator-handoff-sequential-stramning.md` (mall).
