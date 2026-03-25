@@ -6,9 +6,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **Config-dashboard:** vy **Cursor-agenter** (redigera `terminology.mdc` + `structure-and-terminology.md`), `domain-map` + [`config-dashboard-sources.md`](../../architecture/config-dashboard-sources.md). **Eval-utdata:** `npm run eval` skriver till **`eval-output/`** (ersätter namnet `EGEN_MOTOR_V2/`). **W2:** pre-deploy auto-fix **opt-out** (`skipAutoFix` / `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1`) dokumenterat i [`deploy-precheck.md`](../../architecture/deploy-precheck.md). **Vitest:** längre timeout på `env-var-cipher` `it.each` (flaky under load). **Tidigare W1:** `ParticleOrb` in-view + reduced-motion; `IntegrationCard` / `FeatureModal`. **Progress ~79% whole:** tabell nedan; own-engine **~78%**, scripts **~95%**. **W2 deploy-preflight:** 409 `DEPLOY_MISSING_ENV` + `precheckOnly`. **W4:** `hamta_sidor_branch_emil.py` + labb `scripts/labs/testning_scarf/`. **Playwright:** `e2e/vercel-templates/`.
+Last code touch: **W1 produkt:** dedikerade sidor **`/om`** och **`/blogg`** (metadata, `Footer`, länkar till FAQ/builder); landnings-**footer** pekar dit istället för `/faq`; **`sitemap.ts`** inkluderar `/faq`, `/om`, `/blogg`. **Docs-hub/handoff** (separat commit): `docs/README.md`, `plans/README`, `agent-roadmap-and-handoff`, `documentation-lifecycle`, orchestrator-handoff-mall utan frysta %. **Tidigare batch:** config-dashboard **Cursor-agenter**, `eval-output/`, W2 deploy **opt-out** auto-fix, Vitest cipher-timeout. **Progress ~81% whole:** tabell nedan.
 
-**Siffror:** **~79%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~80%** = *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy:** registry + manifest + deploy-readiness + **409 env-spärr** + `precheckOnly` + **valfri auto-fix opt-out**. **Own-engine:** `track-w3-own-engine.md` **komplett** (Fas A) — segment **~78%**. **Scripts (W4)** **~95%**. **Whole vision** enligt tabellen nedan.
+**Siffror:** **~81%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~82%** = *landnings-spåret* (del av `1.txt`). **Integrationer + deploy:** registry + manifest + deploy-readiness + **409 env-spärr** + `precheckOnly` + **auto-fix opt-out**. **Own-engine:** `track-w3-own-engine.md` **komplett** (Fas A) — segment **~78%**. **Scripts (W4)** **~95%**. **Whole vision** enligt tabellen nedan.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -16,7 +16,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~80pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~81pct — kort vad som ändrats`.
 4. **Batch:** under pågående orchestrator-remediation, **samla gärna ~4–5 enheter** på Whole vision mellan commits när flera säkra punkter ryms i samma gröna `typecheck`+`vitest` (färre mikrocommits). Se [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 5. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 6. `git push` till `master` (eller din arbetsbranch).
@@ -25,15 +25,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~80%** | **~20%** |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~80%** | **~20%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~81%** | **~19%** |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~82%** | **~18%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~62%** | **~38%** |
 | **Own-engine** (`2.txt`, track W3 Fas A) | **~78%** | **~22%** |
 | **Scripts / naming hygiene** (`3.txt`, W4 exit) | **~95%** | **~5%** |
 
 ## Återstår (kort)
 
-Ungefär **~20%** av *whole vision* kvar: **W1**-rest (footer “Om oss”/“Blogg”, produkt); ev. own-engine **utanför** W3-track; deploy-/integration-uppföljning vid behov. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~19%** av *whole vision* kvar: **integrationer + deploy**-segment (~62% done) om ni vill lyfta det; ev. own-engine **utanför** W3-track; produktpolish (t.ex. riktiga blogginlägg, sociala URL:er). **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -57,12 +57,12 @@ Ungefär **~20%** av *whole vision* kvar: **W1**-rest (footer “Om oss”/“Bl
 - Tech stack: Drizzle ORM, Vercel Analytics (stämmer med `@vercel/analytics` + Speed Insights i `src/app/layout.tsx`).
 - Integrationer-rad: OpenAI; Sentry bort från listan.
 - Zod-feature copy: Drizzle / server actions / API.
-- Footer: `/privacy`, `/terms`, `/faq`, `mailto:`; inga falska social-URL:er.
+- Footer (landning v2): `/om`, `/blogg`, `/privacy`, `/terms`, `/faq`, `mailto:`; inga falska social-URL:er.
 - Video-knapp: väljer Analyserad + toast.
 - `integrationRegistry` + typer; `detectIntegrations()` läser namn/envVars/setupGuide därifrån via `DETECTION_PIPELINE` (regex kvar i `detect-integrations.ts`).
 - W2 (2026-03-25): Clerk, NextAuth/Auth.js, Google OAuth, GA4, GTM, Vercel Analytics, Plausible, PostHog och Vercel KV ligger i **`integrationRegistry`** med registry-styrda rader i `DETECTION_PIPELINE` (Prisma/SQLite förblir inline med särskild copy).
 - W2 manifest + deploy (forts.): **`sajtmaskin.integration-manifest.json`** läggs in vid `finalizeAndSaveVersion` (efter preflight); `detectIntegrationsFromVersionFiles` + `resolveEnvRequirementsFromVersionFiles` använder manifest när `schemaVersion: 1` är giltig, annars heuristisk scan. **`deployReadiness`** (`buildDeployReadiness`) loggas på deploy-precheck och returneras i deploy-API-svaret.
-- W2 deploy-hårdning (2026-03-25): **`docs/architecture/deploy-precheck.md`** beskriver auto-fixar; **`POST /api/v0/deployments`** ger **409** (`DEPLOY_MISSING_ENV`) om obligatoriska env saknas efter preflight (innan DB-deployment + Vercel); valfri body **`precheckOnly`** för torrkörning utan credits. **Kvar (valfritt):** göra auto-fixar opt-in per flagga/env.
+- W2 deploy-hårdning (2026-03-25): **`docs/architecture/deploy-precheck.md`** beskriver auto-fixar + **opt-out** (`skipAutoFix` / `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1`); **`POST /api/v0/deployments`** ger **409** (`DEPLOY_MISSING_ENV`) om obligatoriska env saknas efter preflight; valfri body **`precheckOnly`** för torrkörning utan credits.
 - `vitest.config.ts`: **`e2e/**` exkluderad** så Playwright-specar under `e2e/` inte körs av Vitest (samma idé som befintlig `vercel_templates_levels/**`-exkludering).
 - `scripts/run-eval.ts` needle-checks uppdaterade (registry + pipeline).
 - `landing-hero.tsx` / `landing-footer.tsx`: hero + footer JSX bort från monolitiska `chat-area.tsx`.
@@ -74,18 +74,17 @@ Ungefär **~20%** av *whole vision* kvar: **W1**-rest (footer “Om oss”/“Bl
 - **Vercel Templates Playwright:** kanon **`e2e/vercel-templates/`** (tracked). Legacy `vercel_templates_levels/` kan ligga **lokalt** (gitignore + cursorignore). Kör → `raw-discovery/current/`; **inte** v0-mallar (`templates:*`). Docs: `vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt`.
 - `scripts/README.md` + `scripts-scaffolds-inventory.md`: rättade sökvägar (`scripts/hamta_sidor*`), `npm run template-library:verify-summary`, svenska i scaffold-pipeline-tabellen; **recovery**-skript dokumenterat som **saknat** i repot.
 - **W4 (hamta + lab):** **`hamta_sidor_branch_emil.py`** kanon + **`--legacy-wide-use-cases`**; **`scripts/hamta_sidor.py` borttagen** (ersätts av flaggan). **`scripts/labs/testning_scarf/`** + `package.json` / ignore-filer. Uppdaterat: `scripts/README.md`, `scripts-scaffolds-inventory.md`, `research/external-templates/README.md`, `track-w4-scripts.md`, `scraped-scorefolds-pipeline.md`, `devtools/README.md`.
-- **W1 (landning, del):** `ParticleOrb` in-view innan WebGL; reduced-motion → statisk orb; `IntegrationCard` + feature-modal partiklar utan `float-particle-kf` vid reduce (`usePrefersReducedMotion`). Se `track-w1-landing-followups.md`.
+- **W1 (landning, del):** `ParticleOrb` in-view innan WebGL; reduced-motion → statisk orb; `IntegrationCard` + feature-modal partiklar utan `float-particle-kf` vid reduce (`usePrefersReducedMotion`). **W1 (footer/produkt):** sidor **`/om`**, **`/blogg`** + footer-länkar + sitemap. Se `track-w1-landing-followups.md`.
 - **Terminologi / legacy:** `scripts/README.md` + `research/external-templates/README.md` — tydlig särskiljning: **15 = `EVAL_PROMPTS`**, **12+2 = skrap-kärna** (`USE_CASES_CORE`/`EXTENDED`), **5 = scorecard**; **icke-kanon** (`vercel_templates_levels/`, `--legacy-wide-use-cases`). *Lokala eval-rapporter under `eval-output/` (gitignorerad).*
 
 ## Next (recommended order)
 
 1. ~~`LandingBackground` (shader/grid/noise) till egen komponent; semantiskt per läge; reduced-motion / in-view för 3D.~~ **Klart** (in-view för övrig 3D kvar vid behov).
 2. ~~Utöka `integrationRegistry` + manifest + deploy-readiness~~ **Klart** (uppföljning: tunnare auto-fix / valideringsfas före deploy om behov).
-3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** W1 landnings-followups, ev. SSE/own-engine utanför track.
+3. ~~Own-engine remediation (`2.txt`) enligt **track W3**~~ **Klart** (se `track-w3-own-engine.md`, Fas A W3 i MASTER-ROADMAP). **Kvar i helhetsbilden:** ev. SSE/own-engine utanför track; integrationer+deploy-segment om ni prioriterar det.
 4. ~~Scripts-städ (`3.txt`) — lab-flytt + `package.json`~~ **Klart** (W4 exit; se `track-w4-scripts.md`).
 
 ## Uncertainties / product follow-ups
 
-- Footer “Om oss” / “Blogg” pekar på `/faq` tills dedikerade sidor finns.
+- **Blogg:** sidan `/blogg` är en ärlig placeholder tills riktiga artiklar finns.
 - Social copy ersätter länkar tills URL:er finns.
-- `IntegrationCard` / feature-modal: float-animationer av vid `prefers-reduced-motion` (2026-03-25).

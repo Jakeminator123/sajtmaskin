@@ -102,6 +102,7 @@ Not runtime dependencies:
 | Vercel Sandbox credentials | `docs/architecture/vercel-sandbox-credentials.md` |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Known issues & autofix | `docs/architecture/known-issues-and-fixes.md` |
+| Marketing sidor (landning footer) | `/om`, `/blogg`, `/faq` (App Router under `src/app/`) |
 | Env setup | `docs/ENV.md` |
 | Config GUI (Streamlit) och var `config/` vs `docs/` bor | `config-dashboard/` (`run.ps1`), `docs/architecture/config-dashboard-sources.md` |
 | Scripts inventory + scaffolds overview | `docs/architecture/scripts-scaffolds-inventory.md` |

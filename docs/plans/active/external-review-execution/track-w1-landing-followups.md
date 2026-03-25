@@ -18,7 +18,7 @@
 
 - [x] **3D / in-view:** `ParticleOrb` (R3F) mountas först efter `useInView`; tom yta tills dess — minskar WebGL-kostnad ovanför fold
 - [x] **IntegrationCard:** `usePrefersReducedMotion` — ingen `float-particle-kf` vid reduce; `FeatureModal`-partiklar samma
-- [ ] **Produkt:** dedikerade sidor för footer-länkar “Om oss” / “Blogg” *eller* medveten copy om de medvetet pekar på `/faq` (endast om produktbeslut finns)
+- [x] **Produkt:** dedikerade sidor **`/om`** och **`/blogg`** + landnings-footer uppdaterad; sitemap inkluderar `/faq`, `/om`, `/blogg`
 
 ---
 

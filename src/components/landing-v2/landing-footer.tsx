@@ -47,12 +47,12 @@ export function LandingFooter() {
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">F&ouml;retag</h4>
             <ul className="space-y-2">
               <li>
-                <a href="/faq" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a href="/om" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Om oss
                 </a>
               </li>
               <li>
-                <a href="/faq" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a href="/blogg" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Blogg
                 </a>
               </li>
