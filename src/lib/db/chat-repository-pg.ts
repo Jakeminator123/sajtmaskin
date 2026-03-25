@@ -155,9 +155,97 @@ export async function deleteEngineMessage(messageId: string): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
-async function getStoredVersion(versionId: string): Promise<Version> {
-  const rows = await db.select().from(engineVersions).where(eq(engineVersions.id, versionId)).limit(1);
+async function loadVersionById(
+  executor: Pick<typeof db, "select">,
+  versionId: string,
+): Promise<Version> {
+  const rows = await executor
+    .select()
+    .from(engineVersions)
+    .where(eq(engineVersions.id, versionId))
+    .limit(1);
   return toRow(rows[0]) as unknown as Version;
+}
+
+async function getStoredVersion(versionId: string): Promise<Version> {
+  return loadVersionById(db, versionId);
+}
+
+async function insertDraftVersionRow(
+  executor: typeof db,
+  params: {
+    chatId: string;
+    messageId: string | null;
+    filesJson: string;
+    sandboxUrl?: string;
+  },
+): Promise<Version> {
+  const id = uuid();
+  const latest = await executor
+    .select({ maxVer: sql<number>`COALESCE(MAX(${engineVersions.versionNumber}), 0)` })
+    .from(engineVersions)
+    .where(eq(engineVersions.chatId, params.chatId));
+  const versionNumber = (latest[0]?.maxVer ?? 0) + 1;
+
+  await executor.insert(engineVersions).values({
+    id,
+    chatId: params.chatId,
+    messageId: params.messageId,
+    versionNumber,
+    filesJson: params.filesJson,
+    sandboxUrl: params.sandboxUrl ?? null,
+    releaseState: "draft",
+    verificationState: "pending",
+    verificationSummary: null,
+    promotedAt: null,
+  });
+  return loadVersionById(executor, id);
+}
+
+/**
+ * Inserts the assistant row and draft version in a single DB transaction.
+ * If the version insert fails, the message row is rolled back (no orphan assistant).
+ */
+export async function addAssistantMessageAndCreateDraftVersion(
+  chatId: string,
+  content: string,
+  filesJson: string,
+  options: {
+    tokenCount?: number;
+    uiParts?: Record<string, unknown>[] | null;
+    sandboxUrl?: string;
+  } = {},
+): Promise<{ message: Message; version: Version }> {
+  const { tokenCount, uiParts, sandboxUrl } = options;
+  return db.transaction(async (tx) => {
+    const messageId = uuid();
+    await tx.insert(engineMessages).values({
+      id: messageId,
+      chatId,
+      role: "assistant",
+      content,
+      uiParts: Array.isArray(uiParts) ? uiParts : null,
+      tokenCount: tokenCount ?? null,
+    });
+    await tx
+      .update(engineChats)
+      .set({ updatedAt: new Date() })
+      .where(eq(engineChats.id, chatId));
+
+    // Drizzle `tx` is a transaction-scoped client with the same insert/select surface as `db`.
+    const version = await insertDraftVersionRow(tx as unknown as typeof db, {
+      chatId,
+      messageId,
+      filesJson,
+      sandboxUrl,
+    });
+
+    const msgRows = await tx.select().from(engineMessages).where(eq(engineMessages.id, messageId)).limit(1);
+    return {
+      message: toRow(msgRows[0]) as unknown as Message,
+      version,
+    };
+  });
 }
 
 export async function createDraftVersion(
@@ -166,26 +254,7 @@ export async function createDraftVersion(
   filesJson: string,
   sandboxUrl?: string,
 ): Promise<Version> {
-  const id = uuid();
-  const latest = await db
-    .select({ maxVer: sql<number>`COALESCE(MAX(${engineVersions.versionNumber}), 0)` })
-    .from(engineVersions)
-    .where(eq(engineVersions.chatId, chatId));
-  const versionNumber = (latest[0]?.maxVer ?? 0) + 1;
-
-  await db.insert(engineVersions).values({
-    id,
-    chatId,
-    messageId,
-    versionNumber,
-    filesJson,
-    sandboxUrl: sandboxUrl ?? null,
-    releaseState: "draft",
-    verificationState: "pending",
-    verificationSummary: null,
-    promotedAt: null,
-  });
-  return getStoredVersion(id);
+  return insertDraftVersionRow(db, { chatId, messageId, filesJson, sandboxUrl });
 }
 
 export async function createVersion(

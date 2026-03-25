@@ -4,9 +4,9 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Genomförande (checkbox-roadmap, parallella spår, agent-kontrakt):** `docs/plans/active/external-review-execution/README.md` → [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + [CONTINUATION.md](./external-review-execution/CONTINUATION.md) (autonoma anhalter, ~4–5 % batch-commits) + track-filer.
 
-Last code touch: **W3** — **`own-engine-plan-mode.ts`:** gemensam plan-mode-kedja (planner prompts, modell, pipeline-stream, prompt-dump/logg) för `POST .../chats/stream` och `POST .../[chatId]/stream`; Vitest `own-engine-plan-mode.test.ts`. **Tidigare batch:** pipeline-generation-session, W4 lab README, `CONTINUATION.md`. **Playwright / e2e:** kanon `e2e/vercel-templates/` — se `vercel-templates-playwright-scaffold-integration.txt`.
+Last code touch: **W3** — **Transaktionell finalize:** `addAssistantMessageAndCreateDraftVersion` (`chat-repository-pg.ts`) + `finalizeAndSaveVersion` använder den; JSDoc för beteende efter lyckad persist (telemetri/loggar best-effort). **Tidigare:** `own-engine-plan-mode.ts`, pipeline-generation-session, W4 lab README, `CONTINUATION.md`. **Playwright / e2e:** kanon `e2e/vercel-templates/` — se `vercel-templates-playwright-scaffold-integration.txt`.
 
-**Siffror:** **~61%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Own-engine-spåret** **~33%** efter plan-mode i session-lager. **Scripts-spåret** ~40% efter hamta-kanon + lab-dokumentation + inventory; höj till **~43%** helhet när ev. flytt av `testning_scarf` + övrig W4 är klar.
+**Siffror:** **~64%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~72%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet. **Integrationer + deploy** höjd efter W2 (registry + manifest + deploy-readiness). **Own-engine-spåret** **~37%** efter plan-mode + transaktionell finalize. **Scripts-spåret** ~40% efter hamta-kanon + lab-dokumentation + inventory; höj till **~43%** helhet när ev. flytt av `testning_scarf` + övrig W4 är klar.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -14,7 +14,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~61pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~64pct — kort vad som ändrats`.
 4. **Batch:** under pågående orchestrator-remediation, **samla gärna ~4–5 enheter** på Whole vision mellan commits när flera säkra punkter ryms i samma gröna `typecheck`+`vitest` (färre mikrocommits). Se [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 5. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 6. `git push` till `master` (eller din arbetsbranch).
@@ -23,22 +23,22 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~61%** | **~39%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~64%** | **~36%** |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~72%** | **~28%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~52%** | **~48%** |
-| **Own-engine** (`2.txt`) | **~33%** | **~67%** |
+| **Own-engine** (`2.txt`) | **~37%** | **~63%** |
 | **Scripts / naming hygiene** (`3.txt`) | **~40%** | **~60%** |
 
 ## Återstår (kort)
 
-Ungefär **~39%** av *whole vision* kvar: egen motor (största gapet, **~67%** kvar av `2.txt`-spåret — transaktionell finalize, **fler** generation-SSE-golden tests, fel **efter** lyckad version, v0-adapter-gräns), scripts (hamta-merge / manuella skript / ev. flytt av lab-mapp — **~60%** kvar enligt W4), valfri hård deploy-gate / färre auto-fix. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md). Landning + integrations/deploy är närmare klara i jämförelse.
+Ungefär **~36%** av *whole vision* kvar: egen motor (största gapet, **~63%** kvar av `2.txt`-spåret — **fler** generation-SSE-golden tests, regression orphan-meddelanden, v0-adapter-gräns), scripts (hamta-merge / manuella skript / ev. flytt av lab-mapp — **~60%** kvar enligt W4), valfri hård deploy-gate / färre auto-fix. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md). Landning + integrations/deploy är närmare klara i jämförelse.
 
 ## Done (in repo)
 
 - **W3 (slice, `2.txt`):** Döda konstanter `STREAM_RESOLVE_MAX_ATTEMPTS` / `STREAM_RESOLVE_DELAY_MS` borttagna från `POST /api/v0/chats/stream` och follow-up-stream-routen (användes inte). `createOwnEnginePlanModeResponse` tar inte längre `modelId` i params — planner-modell kommer enbart från `resolvePhaseModel(modelTier, "planner")` i SSE-meta (undviker vilseledande dubbel källa).
 - **W3 (namngivning):** `createGenerationPipeline` flyttad till **`src/lib/gen/generation-pipeline.ts`**; `src/lib/gen/fallback.ts` re-exporterar för äldre importvägar. Stream-routes, MCP `generate-site`, Vitest-mocks och `run-eval` needles uppdaterade; `docs/architecture/v0-soft-deprecation.md` justerad.
 - **W3 (contract gate):** `createPreGenerationContractGateReadableStream` i **`src/lib/providers/own-engine/pre-generation-contract-gate.ts`** — en SSE-sekvens för pre-generation contract clarification delas av nya chatten och follow-up (ny-chat lägger `chatPrivacy` / `scaffoldLabel` / `capabilities` i meta via explicita nycklar; follow-up utelämnar dem som tidigare).
-- **W3 (finalize / orphans):** `finalizeAndSaveVersion` skriver assistant-rad **efter** merge + preflight; **`deleteEngineMessage`** i `chat-repository-pg` vid misslyckad `createDraftVersion`. Vitest: rollback-case + rätt mock för `createGenerationTelemetryRecord` via `@/lib/db/services`.
+- **W3 (finalize / orphans):** `finalizeAndSaveVersion` skriver assistant + draft-version **i en DB-transaktion** (`addAssistantMessageAndCreateDraftVersion`); vid tidigare två-stegs-flöde användes `deleteEngineMessage` om draft misslyckades — nu rollback via transaktion. Vitest: misslyckad persist + mocks via `@/lib/db/services`.
 - **W3 (SSE golden):** `pre-generation-contract-gate.golden.test.ts` — avkodar SSE från `createPreGenerationContractGateReadableStream`, låser eventordning och skillnad follow-up vs new-chat-meta.
 - **W3 (session slice):** `own-engine-build-session.ts` — `buildOwnEngineGenerationStreamMeta` delas av `POST .../chats/stream` och `POST .../[chatId]/stream`; `own-engine-build-session.test.ts` låser att follow-up inte får `chatPrivacy`/`scaffoldLabel` i meta.
 - **W3 (contract-gate params):** `buildPreGenerationContractGateParams` samlar parametrar till `createPreGenerationContractGateReadableStream`; samma två routes; tester för new-chat vs follow-up (`chatPrivacy` / `scaffoldLabel` / `capabilities` endast new-chat).
@@ -73,7 +73,7 @@ Ungefär **~39%** av *whole vision* kvar: egen motor (största gapet, **~67%** k
 
 1. ~~`LandingBackground` (shader/grid/noise) till egen komponent; semantiskt per läge; reduced-motion / in-view för 3D.~~ **Klart** (in-view för övrig 3D kvar vid behov).
 2. ~~Utöka `integrationRegistry` + manifest + deploy-readiness~~ **Klart** (uppföljning: tunnare auto-fix / valideringsfas före deploy om behov).
-3. Own-engine remediation (`2.txt`) — **pågår**; **kvar:** transaktionell finalize / fler generation-SSE-golden tests / fel efter sparad version / v0-adapter-gräns (contract-gate params + generation-meta + pipeline + **plan-mode** **levererat**).
+3. Own-engine remediation (`2.txt`) — **pågår**; **kvar:** fler generation-SSE-golden tests / regression orphan-meddelanden / v0-adapter-gräns (contract-gate + generation-meta + pipeline + plan-mode + **transaktionell finalize + JSDoc efter persist** **levererat**).
 4. Scripts-städ (`hamta_sidor*`, lab-mappar, README-drift) (`3.txt`).
 
 ## Uncertainties / product follow-ups

@@ -39,8 +39,8 @@
 
 ### Robusthet / data
 
-- [ ] **Transaktionell finalize:** förbered i minnet → persistera assistant + version atomiskt (eller tydlig pending-flagga) enligt `2.txt`; enhetstest som täcker happy path + misslyckad persist
-- [ ] **Fel efter lyckad version:** definiera beteende när version sparats men efterföljande steg failar (ingen “halv” user-upplevelse); dokumentera i kodkommentar eller kort arkitekturstycke
+- [x] **Transaktionell finalize:** `addAssistantMessageAndCreateDraftVersion` i `chat-repository-pg.ts` (en transaktion: assistant-rad + `engine_versions`); `finalizeAndSaveVersion` anropar den; `finalize-version.test.ts` (lyckad persist + avvisad transaktion utan `deleteEngineMessage`)
+- [x] **Fel efter lyckad version:** dokumenterat i JSDoc på `finalizeAndSaveVersion` — efter lyckad transaktion är telemetri / generation-log / preflight-loggar best-effort; version + meddelande rullas inte tillbaka om dessa steg misslyckas
 
 ### Tester
 

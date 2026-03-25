@@ -11,9 +11,8 @@ const buildPreviewHtml = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
-const addMessage = vi.hoisted(() => vi.fn());
+const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
 const deleteEngineMessage = vi.hoisted(() => vi.fn());
-const createDraftVersion = vi.hoisted(() => vi.fn());
 const logGeneration = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
@@ -63,9 +62,8 @@ vi.mock("@/lib/gen/project-scaffold", () => ({
 }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
-  addMessage,
+  addAssistantMessageAndCreateDraftVersion,
   deleteEngineMessage,
-  createDraftVersion,
   logGeneration,
   failVersionVerification,
 }));
@@ -121,9 +119,8 @@ describe("finalizeAndSaveVersion", () => {
     buildPreviewUrl.mockReset();
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
-    addMessage.mockReset();
+    addAssistantMessageAndCreateDraftVersion.mockReset();
     deleteEngineMessage.mockReset();
-    createDraftVersion.mockReset();
     logGeneration.mockReset();
     failVersionVerification.mockReset();
     createEngineVersionErrorLogs.mockReset();
@@ -186,17 +183,19 @@ describe("finalizeAndSaveVersion", () => {
       valid: true,
       issues: [],
     });
-    addMessage.mockResolvedValue({ id: "msg_1" });
+    addAssistantMessageAndCreateDraftVersion.mockResolvedValue({
+      message: { id: "msg_1" },
+      version: { id: "ver_1" },
+    });
     deleteEngineMessage.mockResolvedValue(true);
-    createDraftVersion.mockResolvedValue({ id: "ver_1" });
     logGeneration.mockResolvedValue({});
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
     buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
   });
 
-  it("deletes the assistant message when draft version creation fails", async () => {
-    createDraftVersion.mockRejectedValueOnce(new Error("draft insert failed"));
+  it("propagates when transactional assistant+draft persist fails (no manual message delete)", async () => {
+    addAssistantMessageAndCreateDraftVersion.mockRejectedValueOnce(new Error("draft insert failed"));
 
     await expect(
       finalizeAndSaveVersion({
@@ -210,12 +209,12 @@ describe("finalizeAndSaveVersion", () => {
       }),
     ).rejects.toThrow("draft insert failed");
 
-    expect(addMessage).toHaveBeenCalledWith(
+    expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalledWith(
       "chat_1",
-      "assistant",
       expect.stringContaining("export default function Page()"),
+      expect.any(String),
     );
-    expect(deleteEngineMessage).toHaveBeenCalledWith("msg_1");
+    expect(deleteEngineMessage).not.toHaveBeenCalled();
   });
 
   it("emits a terminal autofix progress event even when autofix makes no changes", async () => {

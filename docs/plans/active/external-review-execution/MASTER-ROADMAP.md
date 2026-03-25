@@ -53,6 +53,7 @@ Bocka här när **hela spåret** uppfyller exit-kriteriet i respektive track-fil
 
 | Datum | Branch | Verifierat | Anteckning |
 |-------|--------|------------|--------------|
+| 2026-03-25 | master | typecheck + vitest (342) | ~64%: `addAssistantMessageAndCreateDraftVersion`, `finalizeAndSaveVersion`, `finalize-version.test.ts`; track W3 transactional finalize + post-persist doc |
 | 2026-03-25 | master | typecheck + vitest + eslint (plan-mode + routes) | ~61%: `own-engine-plan-mode.ts`, båda chat-stream-routes, `own-engine-plan-mode.test.ts`; progress/track uppdaterade |
 | 2026-03-25 | master | typecheck + vitest + eslint (ändrade filer) | ~56% batch: `createOwnEnginePipelineAndGenerationStream`, lab README + inventory, `CONTINUATION.md` |
 | 2026-03-25 | master | typecheck + vitest (341 tests) | Orchestrator: W3 `buildPreGenerationContractGateParams` + routes; W4 hamta-kanon + doc-path (parallell våg A1) |
