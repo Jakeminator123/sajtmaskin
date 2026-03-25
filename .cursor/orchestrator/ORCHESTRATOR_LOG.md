@@ -1,3 +1,5 @@
+2026-03-26 — **~91% remediation:** `extract-landing-chat-data.mjs` (SAJTMASKIN-markörer + no-op när data redan i `landing-chat-data.ts`); `registry-parity.test.ts` (K-017); progress — § Snabb ingång, tabell ~91% whole, § Återstår synkad (~80% integration, bort ~76%); kritik K-015/K-017 `[x]`; MASTER verifieringsrad + W5 textfix. `npm run typecheck` + `npx vitest run` (381); push `origin/master`.
+
 2026-03-26 — **Doc:** progress.md — tydliggjort att `1.txt`–`3.txt` är orientering, inte körbar backlog; execution = `external-review-execution/` + konsoliderad kritik. Arkiv-README: “aktiva filer” = `kritik/` inte arkivmappen.
 
 2026-03-26 — **Progress-% vs 1/2/3.txt:** `external-review-remediation-progress.md` § Kartläggning + Overall fill (83/79/81/97 segment; whole ~90%); notis att `phase-routing` inte längre bara är förberedelse.

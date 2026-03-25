@@ -27,9 +27,9 @@
 | K-008 | `78pct-r`, `34pct-n` §5 (historisk) | Landningspolish / W1-rester: ev. mer in-view 3D; delar redan levererat (`79pct-l` m.fl. — nu arkiverat) | mixed | medel | [ ] |
 | K-009 | `78pct-r`, `64pct-s` | Own-engine **utanför** avslutad W3-track (SSE, produkt) | kod | hög | [ ] |
 | K-014 | `18pct-k` (arkiverad sammanfattning) | Footer / juridik / cookies — produktcopy och eventuella sidor | copy | medel | [ ] |
-| K-015 | `31pct-t`, `27pct-w`, `34pct-n` | `extract-landing-chat-data.mjs`: robust parse (minimera radbundna markörer); vakt finns | scripts | medel | [ ] |
+| K-015 | `31pct-t`, `27pct-w`, `34pct-n` | `extract-landing-chat-data.mjs`: markörblock + legacy-slice + **no-op** när `landing-chat-data.ts` redan bär `categories` | scripts | medel | [x] 2026-03-26 |
 | K-016 | `27pct-w`, `31pct-t` | `chat-area.tsx` fortfarande **stor** fil — fortsatt modulär uppdelning vid behov | refaktor | låg–medel | [ ] |
-| K-017 | `31pct-t` | `REGISTRY_BY_PROVIDER`: flera rader med samma `provider` skulle kollidera — inget akut | data | låg | [ ] |
+| K-017 | `31pct-t` | `REGISTRY_BY_PROVIDER`: unika `key` + `provider ?? key` — `registry-parity.test.ts` | data | låg | [x] 2026-03-26 |
 | C-101 | `42pct-v` §2.1 | Progress **Last code touch** i sync med tabell / senaste batch | doc | låg | [x] 2026-03-26 |
 | C-102 | `42pct-v` §2.2 | Vitest: ogiltig manifest → fallback, tomma filer, inject-idempotens, merge + custom-env | test | medel | [x] 2026-03-26 |
 | C-103 | `42pct-v` §2.3 | `deployReadiness.invalidFiles` fylls när `package.json` inte kan patchas i preflight | kod | låg | [x] 2026-03-26 |
@@ -59,4 +59,4 @@ Följande teman behandlas som **stängda** mot nuvarande `master` (implementatio
 - När en rad stängs: uppdatera denna fil + ev. `integration-manifest.test.ts` / progress-intro.
 - Nya milstolpar: antingen kort notis här **eller** ny fil i `kritik/` + en rad i [`KRITIK-OVERVIEW.md`](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md).
 
-**Batch:** 2026-03-26 — konsolidering + massarkivering av handoff-/historikfiler. **2026-03-26 (senare):** C-101–C-104 stängda i kod/docs; `42pct-v.md` arkiverad.
+**Batch:** 2026-03-26 — konsolidering + massarkivering av handoff-/historikfiler. **2026-03-26 (senare):** C-101–C-104 stängda i kod/docs; `42pct-v.md` arkiverad. **2026-03-26 (K-015/K-017):** extract-script + registry-parity Vitest; progress § Återstår / Snabb ingång synkade.

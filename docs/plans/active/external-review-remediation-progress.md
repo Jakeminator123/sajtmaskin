@@ -8,11 +8,11 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Kritikindex (parallell granskning):** [KRITIK-OVERVIEW.md](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) · åtgärdade kritik-snapshots: [kritik-addressed/](../../../.j_to_agent/archive/kritik-addressed/README.md). *Separat agent kan samtidigt åtgärda kritikfiler och arkivera till `.j_to_agent/archive/` — undvik att samma session ändrar både `src/`‑remediation och kritikmappen utan koordinering.*
 
-Last code touch: **42pct manifest/deploy-uppföljning** — fler Vitest i `integration-manifest.test.ts` (ogiltig manifest → fallback, inject-idempotens, merge + custom-env); `deployReadiness.invalidFiles` när `package.json` inte kan patchas i preflight; `deploy-precheck.md` § canonical path; **`42pct-v.md`** arkiverad. **Tidigare:** progress-% synkad mot `1.txt`/`2.txt`/`3.txt` + W5 kritik-konsolidering. Tabell nedan.
+Last code touch: **K-015 + K-017 + progress-handoff** — `extract-landing-chat-data.mjs`: markörblock `SAJTMASKIN_LANDING_DATA_EXTRACT_*` + **no-op exit 0** när sanning redan ligger i `landing-chat-data.ts`; `registry-parity.test.ts` (unika `key` + `provider ?? key`). § *Återstår* och *Snabb ingång* synkade med tabellerna; borttagen felaktig **~76%**-referens för integrationsspåret. **Tidigare:** 42pct manifest/deploy-uppföljning + arkiverad `42pct-v.md`. Tabell nedan.
 
-**Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (84 filer, **379** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) och § *Återstår* (~**10 %** whole kvar).
+**Final sweep / handoff (2026-03-26):** `npm run typecheck` och `npx vitest run` (85 filer, **381** tester) ska vara gröna efter varje kodbatch. Otrackade kataloger som `data/`, `logs/`, `.cursor/orchestrator/archive/` lämnas utanför commit (se `.gitignore` + [`docs/architecture/repo-hygiene.md`](../architecture/repo-hygiene.md) § *Git versus Cursor*). **Nästa agent:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md), [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md), § *Snabb ingång för nya agenter* och § *Återstår* (~**9 %** whole kvar).
 
-**Siffror (snabb):** **~90%** *whole vision* — se tabell § *Overall fill* och § *Kartläggning mot 1.txt / 2.txt / 3.txt* nedan för hur delarna hänger ihop.
+**Siffror (snabb):** **~91%** *whole vision* — se tabell § *Overall fill* och § *Kartläggning mot 1.txt / 2.txt / 3.txt* nedan för hur delarna hänger ihop.
 
 ## Kartläggning mot källfiler (1.txt, 2.txt, 3.txt)
 
@@ -20,14 +20,25 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 
 | Källa | Vad den i praktiken driver | Ungefärlig *done* | Kvar (typiskt) |
 |--------|----------------------------|-------------------|----------------|
-| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~83%** | Mer in-view 3D vid behov (`K-008`), `/blogg`-placeholder, ev. visuell förfining |
-| **`1.txt`** — del B | **Integrationer + runtime-flöde** (registry, detektion, manifest, env, lansering, deploy-API) | **~79%** | E2E runt deploy, valfri tuffare validering före deploy (`K-007`), fler providers bara vid produktnytta |
+| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~84%** | Mer in-view 3D vid behov (`K-008`), `/blogg`-placeholder, ev. visuell förfining |
+| **`1.txt`** — del B | **Integrationer + runtime-flöde** (registry, detektion, manifest, env, lansering, deploy-API) | **~80%** | E2E runt deploy, valfri tuffare validering före deploy (`K-007`), fler providers bara vid produktnytta |
 | **`2.txt`** | **Own-engine** (stream-routes tunna, session, finalize, golden tests, v0-gräns, **fas→modell** `B3-02`) | **~81%** | SSE/own-engine **utanför** avslutad W3-track (`K-009`), produktbeslut |
-| **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~97%** | **`B3-05`**: arkivera/ta bort `extract-static-core.mjs` när monolit-/fallback-prompten är borta |
+| **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~98%** | **`B3-05`**: arkivera/ta bort `extract-static-core.mjs` när monolit-/fallback-prompten är borta |
 
-**Whole vision (~90%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har e2e kvar.
+**Whole vision (~91%)** är **syntes** av ovan + tvärskärande arbete (Vitest, `deploy-precheck`, kritik-konsolidering, `repo-hygiene`) och är **inte** ett enkelt medelvärde — därför kan helheten ligga högre än ett tungt segment (t.ex. integration/deploy) som fortfarande har e2e kvar.
 
 *Jämförelse mot gamla antaganden:* `3.txt` nämnde att `phase-routing.ts` bara var “förberedelse” — **det stämmer inte längre**; **B3-02** ger riktig fasmodell för OpenAI-profiler (`pro`/`max`/`codex`). Uppdatera mentalt modellen där.
+
+## Snabb ingång för nya agenter (remediation)
+
+1. **Kanonsanning för % och kvar:** denna fil — § *Overall fill*, § *Kartläggning*, § *Återstår*, *Last code touch*, *Done*, commit-rutin.
+2. **Hur batchar körs:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md) (halt, verifiering före commit).
+3. **Spår och parallellisering:** [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md) + tabell *Orchestrator / verifiering*.
+4. **W1–W5 i mänskliga termer:** [orchestrator-workloads-external-review.md](./orchestrator-workloads-external-review.md).
+5. **Öppna K-/C-rader (kompletterar %):** [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) → [kritik-derived-backlog.md](./kritik-derived-backlog.md).
+6. **Gren:** `master`; `git pull origin master` ( `main` kan ligga efter). Efter arbete: `npm run typecheck` && `npx vitest run` → commit med helhets-% i subject → `git push origin master`. Uppdatera vid behov **MASTER-ROADMAP**-rad + [`.cursor/orchestrator/ORCHESTRATOR_LOG.md`](../../../.cursor/orchestrator/ORCHESTRATOR_LOG.md).
+
+*Om löptext och tabell skiljer sig: låt § **Overall fill** och § **Kartläggning** gå före — rätta sedan § **Återstår**.*
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -72,15 +83,15 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining | Koppling `1.txt`–`3.txt` |
 |--------|------|-----------|---------------------------|
-| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~90%** | **~10%** | Se § *Kartläggning* ovan |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~83%** | **~17%** | **`1.txt` del A**; W1-track kryssat i MASTER |
-| **Integrationer + deploy** (`1.txt` steg 5–7) | **~79%** | **~21%** | **`1.txt` del B**; manifest + 409 + precheckOnly-tester m.m. |
+| **Whole vision** (syntes av tre dokument + tvärgrepp) | **~91%** | **~9%** | Se § *Kartläggning* ovan |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~84%** | **~16%** | **`1.txt` del A**; W1-track kryssat i MASTER |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~80%** | **~20%** | **`1.txt` del B**; manifest + 409 + precheckOnly-tester m.m. |
 | **Own-engine** (`2.txt`, W3 + `B3-02`) | **~81%** | **~19%** | **`2.txt`**; kärnspår klart, marginaler i kritik-tabellen |
-| **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~97%** | **~3%** | **`3.txt`**; endast **B3-05** väntar på monolit-slut |
+| **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~98%** | **~2%** | **`3.txt`**; endast **B3-05** väntar på monolit-slut |
 
 ## Återstår (kort)
 
-Ungefär **~10%** av *whole vision* kvar: **integrationer + deploy** (~76% done) — fler providers vid nytta, **e2e kring deploy**, produktpolish; ev. own-engine utanför W3-track; **buglista del 3** endast **B3-05** (arkivera `extract-static-core.mjs` när monolit är borta). **Kritik:** öppna rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (t.ex. K-007–K-017, C-101–C-104) + aktiv [`42pct-v.md`](../../.j_to_agent/structure_bugs_and_parralells/kritik/42pct-v.md); pekare [kritik-derived-backlog.md](./kritik-derived-backlog.md). **Produkt/UI:** förenkling av byggaren där det inte kräver produktbeslut. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
+Ungefär **~9%** av *whole vision* kvar: **integrationer + deploy** (**~80%** done enligt tabellen ovan — *inte* ~76%; följ § *Overall fill*) — **e2e kring deploy**, valfri hårdare validering (`K-007`), fler providers vid produktnytta; ev. own-engine utanför W3-track (`K-009`); **buglista del 3** endast **B3-05**. **Kritik:** öppna **K-**-rader i [kritik-consolidated-open-items.md](./kritik-consolidated-open-items.md) (C-101–C-104 **stängda**); historik `42pct-v` i [arkivet](../../.j_to_agent/archive/kritik-addressed/42pct-v.md). **Produkt/UI:** landning (`K-008`, `/blogg`), copy (`K-014`), refaktor (`K-016`) utan att kräva nya produktbeslut i samma batch. **Autonoma anhalter:** [CONTINUATION.md](./external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
@@ -128,7 +139,8 @@ Ungefär **~10%** av *whole vision* kvar: **integrationer + deploy** (~76% done)
 - `vitest.config.ts`: **`e2e/**` exkluderad** så Playwright-specar under `e2e/` inte körs av Vitest (samma idé som befintlig `vercel_templates_levels/**`-exkludering).
 - `scripts/run-eval.ts` needle-checks uppdaterade (registry + pipeline).
 - `landing-hero.tsx` / `landing-footer.tsx`: hero + footer JSX bort från monolitiska `chat-area.tsx`.
-- `extract-landing-chat-data.mjs`: avbryter om monolit-block saknas (förhindrar att gamla radnummer skriver sönder `landing-chat-data.ts`).
+- `extract-landing-chat-data.mjs`: markörblock `SAJTMASKIN_LANDING_DATA_EXTRACT_*`, legacy-radslice om tillämpligt, annars **no-op exit 0** när `landing-chat-data.ts` redan bär `export const categories` (K-015).
+- `registry-parity.test.ts`: unika `integrationRegistry`-nycklar och `provider ?? key` (K-017 / detektionskarta).
 - `write-tier2-run.mjs`: valfritt run-id som CLI-arg (`node scripts/write-tier2-run.mjs <id>`).
 - `chat-area.tsx`: borttagna oanvända Lucide-/data-imports; oanvända värden från `useLandingController` plockas inte längre ut; terminal ref-merge med tydlig eslint-avsiktskommentar.
 - `landing-hero.tsx`: `headlineTilt` destruktureras så `eslint-plugin-react-hooks` ref-regler inte falskt larmar.
