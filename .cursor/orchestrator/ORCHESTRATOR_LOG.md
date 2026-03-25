@@ -9,3 +9,5 @@
 2026-03-26 — Tier2 parallel wave complete (UTF-8 data + registry scaffold). Typecheck OK. Next: wire detect-integrations to registry; LandingHero/Footer split.
 
 2026-03-25 — Handoff: `.j_to_agent/1.txt`–`3.txt` städade (brus bort, branch `master`, cite-artefakter bort från `2.txt`, kodblock-fix). Tillagt `docs/plans/active/orchestrator-workloads-external-review.md`. Nästa implementation: W1 `LandingBackground` (en agent äger `chat-area.tsx` tills klart).
+
+2026-03-25 (W3 slice) — External-review fortsättning på `master`: `buildOwnEngineGenerationStreamMeta` i `src/lib/own-engine/session/own-engine-build-session.ts`; båda v0 chat-stream-routes; Vitest `own-engine-build-session.test.ts`. Progress uppdaterad (~49% whole). Sandbox-run `2026-03-24-scaffold-sandbox-migration` oförändrad (fas 1b fortfarande defferad).
