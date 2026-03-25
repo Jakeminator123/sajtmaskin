@@ -2,9 +2,9 @@
 
 Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-engine pack), `3.txt` (scaffolds, scripts, orchestrator).
 
-Last code touch: `LandingHero` + `LandingFooter` utbrutna från `chat-area.tsx` (`landing-hero.tsx`, `landing-footer.tsx`).
+Last code touch: ESLint-/import-städ i `chat-area.tsx` + `LandingHero` (headlineTilt destrukturering för ref-regler); dokumenterad ref-merge för terminal-blocket.
 
-**Siffror:** **~31%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~68%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet.
+**Siffror:** **~32%** = ungefärlig andel av *hela* externreview + migrationer (tre dokument). **~69%** = bara *landnings-spåret* (del av `1.txt`), inte hela projektet.
 
 ## Commit- och push-rutin (pågående körning)
 
@@ -12,7 +12,7 @@ Vid varje dokumenterad avstämning:
 
 1. Uppdatera tabellen **Overall fill** / **Done** om något nytt levererats.
 2. `git add` endast reporelevanta filer (inte lokala `.cursor/run`, `data/`, `logs/`, `.j_to_agent/` om de inte ska in).
-3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~31pct — kort vad som ändrats`.
+3. **Commit-rad:** använd **helhets-%** (Whole vision), t.ex. `chore: remediation ~32pct — kort vad som ändrats`.
 4. Valfritt i **commit body:** landnings-% eller spår (integrationer, own-engine) om det hjälper historiken.
 5. `git push` till `master` (eller din arbetsbranch).
 
@@ -20,8 +20,8 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining |
 |--------|------|-----------|
-| **Whole vision** (alla tre dokument + stora migrationer) | **~31%** | **~69%** |
-| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~68%** | **~32%** |
+| **Whole vision** (alla tre dokument + stora migrationer) | **~32%** | **~68%** |
+| **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~69%** | **~31%** |
 | **Integrationer + deploy** (`1.txt` steg 5–7) | **~22%** | **~78%** |
 | **Own-engine** (`2.txt`) | **~0%** | **~100%** |
 | **Scripts / naming hygiene** (`3.txt`) | **~0%** | **~100%** |
@@ -41,6 +41,8 @@ Vid varje dokumenterad avstämning:
 - `landing-hero.tsx` / `landing-footer.tsx`: hero + footer JSX bort från monolitiska `chat-area.tsx`.
 - `extract-landing-chat-data.mjs`: avbryter om monolit-block saknas (förhindrar att gamla radnummer skriver sönder `landing-chat-data.ts`).
 - `write-tier2-run.mjs`: valfritt run-id som CLI-arg (`node scripts/write-tier2-run.mjs <id>`).
+- `chat-area.tsx`: borttagna oanvända Lucide-/data-imports; oanvända värden från `useLandingController` plockas inte längre ut; terminal ref-merge med tydlig eslint-avsiktskommentar.
+- `landing-hero.tsx`: `headlineTilt` destruktureras så `eslint-plugin-react-hooks` ref-regler inte falskt larmar.
 
 ## Next (recommended order)
 

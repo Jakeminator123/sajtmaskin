@@ -1,31 +1,6 @@
 "use client"
 
-import {
-  MessageSquare,
-  Rocket,
-  X,
-  Check,
-  MessageCircleQuestion,
-  ArrowRight,
-  Activity,
-  Braces,
-  CheckCircle2,
-  CreditCard,
-  Database,
-  FileSearch,
-  GitBranch,
-  Palette,
-  Code2,
-  Send,
-  Smartphone,
-  ShieldCheck,
-  Gauge,
-  Layers,
-  Server,
-  Sparkles,
-  Wind,
-  type LucideIcon,
-} from "lucide-react"
+import { Check, ArrowRight, CheckCircle2, Rocket, X } from "lucide-react"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import {
@@ -39,7 +14,6 @@ import { LanyardBadge } from "@/components/landing-v2/lanyard-badge"
 import { LandingFooter } from "@/components/landing-v2/landing-footer"
 import { LandingHero } from "@/components/landing-v2/landing-hero"
 import {
-  comparisonMethods,
   comparisonParameters,
   comparisonScenarios,
   features,
@@ -50,7 +24,6 @@ import {
   techStack,
   trustLogos,
   creditPackages,
-  getComparisonScore,
   type ComparisonMethod,
   type ComparisonParameter,
   type ComparisonScenario,
@@ -863,15 +836,12 @@ export function ChatArea(props: ChatAreaProps = {}) {
     isSubmitting,
     activeFeature,
     setActiveFeature,
-    activeComparisonScenarioId,
     setActiveComparisonScenarioId,
-    selectedComparisonMethodKey,
     setSelectedComparisonMethodKey,
     activeComparisonScenario,
     rankedComparisonMethods,
     selectedComparisonMethod,
     wordpressComparisonMethod,
-    wordpressScenarioScore,
     selectedVsWordpressDelta,
     websitesCounter,
     usersCounter,
@@ -1138,9 +1108,11 @@ export function ChatArea(props: ChatAreaProps = {}) {
             {/* Terminal-style code snippet with typewriter + cursor glow */}
             <div
               ref={(node) => {
-                // Merge refs
-                (terminal.containerRef as MutableRefObject<HTMLDivElement | null>).current = node
+                /* Terminal typewriter + mus-glow delar samma DOM-nod; avsedd ref-merge. */
+                /* eslint-disable react-hooks/immutability -- .current på ref-objekt från hook + useRef */
+                ;(terminal.containerRef as MutableRefObject<HTMLDivElement | null>).current = node
                 ;(terminalBoxRef as MutableRefObject<HTMLDivElement | null>).current = node
+                /* eslint-enable react-hooks/immutability */
               }}
               onMouseMove={handleTerminalMouse}
               className="group/term relative mt-12 overflow-hidden rounded-[28px] border border-border/20 bg-card/35 shadow-[0_28px_80px_rgba(5,10,20,0.35)]"

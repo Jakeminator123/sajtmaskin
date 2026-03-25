@@ -45,6 +45,8 @@ export function LandingHero({
   handleAuditUrlChange,
   submitPrimaryInput,
 }: LandingHeroProps) {
+  const { ref: headlineRef, handleMove: onHeadlineMove, handleLeave: onHeadlineLeave } = headlineTilt
+
   return (
     <section className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-6 pt-10 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-16 md:pb-12">
       {heroPrefix}
@@ -64,9 +66,9 @@ export function LandingHero({
       </div>
 
       <div
-        ref={headlineTilt.ref}
-        onMouseMove={headlineTilt.handleMove}
-        onMouseLeave={headlineTilt.handleLeave}
+        ref={headlineRef}
+        onMouseMove={onHeadlineMove}
+        onMouseLeave={onHeadlineLeave}
         style={{ transition: "transform 0.15s ease-out", willChange: "transform" }}
         className="cursor-default"
       >
