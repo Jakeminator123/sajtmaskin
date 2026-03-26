@@ -1,5 +1,20 @@
 # Queue — endast öppet arbete (post exit)
 
+## Varför massarkiveras inte «alla» filer hit trots MASTER + handoff?
+
+**[`AGENT-HANDOFF-RESTERANDE.md`](../AGENT-HANDOFF-RESTERANDE.md)** och **[`MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md)** samlar **prioritering, tabeller och startinstruktioner**. De ersätter **inte** automatiskt:
+
+- långa implementationsdetaljer (t.ex. **K-018** i [`PLAN-PREVIEW-SANDBOX.md`](./PLAN-PREVIEW-SANDBOX.md)),
+- **FAQ** och begrepp ([`FRAGOR-SVAR-FAQ.md`](./FRAGOR-SVAR-FAQ.md)),
+- **beslutsunderlag** ([`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md)),
+- **tidslinje / faser** ([`COMPLETION-ROADMAP.md`](./COMPLETION-ROADMAP.md)).
+
+**Antal filer:** Under `queue/` finns **omkring elva** `.md`-filer (tabellen nedan + några till) — inte tjugo. Mappen **[`reviews/`](../reviews/)** innehåller i praktiken bara en **README** som pekar till redan **arkiverad** uppföljning i [`../../avklarat/orchestrator-followup-from-39fef25e.md`](../../avklarat/orchestrator-followup-from-39fef25e.md).
+
+**Massflytt till `avklarat/`** utan annat skulle **bryta** många länkar i repot (MASTER § 8, kritik, `docs/README`, `e2e`, m.m.). Det som krävs är antingen **stubbar** i `active/queue/` (samma idé som `active/external-review-execution/`) **eller** en **medveten länk-uppdatering** i hela PR:et — se [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md) § *Arkivering, `reviews/`, `queue/`*.
+
+---
+
 **Start här (allt i ett):** [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md)
 
 **Äldre ingång:** [`KORFIL.md`](./KORFIL.md) pekar bara till MASTER.

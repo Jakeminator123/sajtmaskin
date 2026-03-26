@@ -1,5 +1,7 @@
 # Granskningar (plan / orchestrator)
 
+**Obs:** Det finns **inga separata granskningsfiler kvar här** — bara denna README. Uppföljningstexten ligger i **`docs/plans/avklarat/`** (länk nedan). *Varför `queue/` inte massarkiverats trots nya hubbar:* se [`../queue/README.md`](../queue/README.md) § «Varför massarkiveras inte».
+
 Fristående uppföljningar när en agent kör remediation i procentspår och en annan går igenom commits + dokumentation i efterhand.
 
 **Arkiverad uppföljning:** [orchestrator-followup-from-39fef25e.md](../avklarat/orchestrator-followup-from-39fef25e.md) — commits `39fef25e` → dokumentets HEAD vid arkivering (K-015–K-017, K-016, K-007/K-014-delmoment, K-008, sitemap, B3-05 m.m.). Nyare commits: `git log` på `master`, inte denna fil.
