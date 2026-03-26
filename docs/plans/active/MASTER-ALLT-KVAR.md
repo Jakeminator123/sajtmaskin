@@ -21,7 +21,7 @@
 
 - **`MASTER-ALLT-KVAR.md` ligger i `docs/plans/active/`** (samma nivå som `kritik-consolidated-open-items.md`) — **inte** i `active/reviews/`. Mappen **`reviews/`** ska bara innehålla second-opinion-saker (`reviews/README.md`). Om editorn ser ut att visa MASTER under `reviews` är det oftast **fel sortering** i trädet — kontrollera sökvägen i fliken.
 - **`active/queue/`** ska **inte** massarkiveras än: tiotals länkar i repot pekar på `queue/PLAN-*.md`, `COMPLETION-ROADMAP.md`, `FRAGOR-SVAR-FAQ.md`. MASTER är **läs först**; kö-filerna är fortfarande **levande detalj + kanoniska kompletteringar**. Att flytta allt till arkiv kräver en **medveten länk-svep** (stor PR).
-- **Post-exit-kö (historik):** Dublettmappar (`docs/plans/post-exit-queue-2026-03/`, m.fl.) var **identiska** med `active/queue/*` och ska **inte** återinföras med full filuppsättning. **Arkivnotis** (pekar till MASTER + `active/queue/`): [`../archived/post-exit-queue-2026-03/README.md`](../archived/post-exit-queue-2026-03/README.md).
+- **Post-exit-kö (historik):** Dublettmappar (`docs/plans/post-exit-queue-2026-03/`, m.fl.) var **identiska** med `active/queue/*` och ska **inte** återinföras med full filuppsättning. **Arkivnotis** (pekar till MASTER + `active/queue/`): [`../avklarat/post-exit-queue-2026-03/README.md`](../avklarat/post-exit-queue-2026-03/README.md).
 - **Beslut som blockerar nästa större fas:** [`queue/BESLUT-INNAN-VI-GAR-VIDARE.md`](./queue/BESLUT-INNAN-VI-GAR-VIDARE.md) (K-007, K-009, K-018, K-019, Plan 17 WS-4/5).
 
 ---
@@ -202,7 +202,7 @@ Uppdatera **både** denna lista och [`17-repo-separation-and-independence.md`](.
 ## 6. Beslut och kontext (kort)
 
 - **Vercel-templates** → **scaffolds** för OwnEngine; **V0-templates** → separat plattformsspår (FAQ [`queue/FRAGOR-SVAR-FAQ.md`](./queue/FRAGOR-SVAR-FAQ.md) § I1).
-- **Remediation W1–W5:** klart per [`../archived/external-review-execution/REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md).
+- **Remediation W1–W5:** klart per [`../avklarat/external-review-execution/REMEDIATION-EXIT.md`](../avklarat/external-review-execution/REMEDIATION-EXIT.md).
 - **Tidslinje fler beslut:** [`queue/COMPLETION-ROADMAP.md`](./queue/COMPLETION-ROADMAP.md).
 
 ---
@@ -226,7 +226,7 @@ Orchestrator är **inte** magiskt snabbare; det är **tydligare spårbarhet** oc
 | [`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt) | Full **engelsk** byggagent-instruktion; speglas i § 0 |
 | [`queue/PLAN-PREVIEW-SANDBOX.md`](./queue/PLAN-PREVIEW-SANDBOX.md) | K-018-detalj (samma innehåll som § 2 i korthet) |
 | [`queue/PLAN-KRITIK-OPEN.md`](./queue/PLAN-KRITIK-OPEN.md) | K-007 / K-009 acceptansrader |
-| [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md) | Plan 17 öppet (WS-2/4/5 + deferred); **WS-6** arkiverad: [`../archived/2026-03-plan17-ws6-product-decisions.md`](../archived/2026-03-plan17-ws6-product-decisions.md) |
+| [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md) | Plan 17 öppet (WS-2/4/5 + deferred); **WS-6** arkiverad: [`../avklarat/2026-03-plan17-ws6-product-decisions.md`](../avklarat/2026-03-plan17-ws6-product-decisions.md) |
 | [`queue/PLAN-DRIFT-VERIFICATION.md`](./queue/PLAN-DRIFT-VERIFICATION.md) | Smoke/progress-rutin |
 | [`queue/PLAN-MULTIAGENT-PREVIEW-TRACKS.md`](./queue/PLAN-MULTIAGENT-PREVIEW-TRACKS.md) | Metaplan: flera tier-2-agenter → egna planfiler (K-018 / K-019 / integrationer / K-007·K-009) |
 
@@ -240,4 +240,4 @@ Orchestrator är **inte** magiskt snabbare; det är **tydligare spårbarhet** oc
 | 2026-03-25 | § 0 fylld från `.j_to_agent/fidelity.txt`; sandbox-före-shim; tre lager; standard-UX vs debug; **K-019** (promptkedja); fråga «räcker MASTER?» besvarad i inledningen. |
 | 2026-03-26 | **K-018 delmoment:** `.env.local` i sandbox-upload (merge); pekare **§ 8** → `PLAN-MULTIAGENT-PREVIEW-TRACKS.md`. |
 | 2026-03-26 | **K-018 delmoment:** separat `npm run build` i sandbox + SSE/UI (`verifyBuild`, previewpanel). |
-| 2026-03-26 | **Plan 17 WS-6:** produktbeslut arkiverade (`docs/plans/archived/2026-03-plan17-ws6-product-decisions.md`); `PLAN-REPO-SEPARATION-OPEN` slimmas till öppna WS. |
+| 2026-03-26 | **Plan 17 WS-6:** produktbeslut arkiverade (`docs/plans/avklarat/2026-03-plan17-ws6-product-decisions.md`); `PLAN-REPO-SEPARATION-OPEN` slimmas till öppna WS. |

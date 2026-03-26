@@ -2,7 +2,7 @@
 
 **Allt kvar (en fil):** [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) — start, K-018, kritik, Plan 17-öppet, drift, orchestrator vs agent, mall för tillägg från annan AI. [`queue/KORFIL.md`](./queue/KORFIL.md) pekar hit. **Slutföringsgrad & faser:** [`queue/COMPLETION-ROADMAP.md`](./queue/COMPLETION-ROADMAP.md).
 
-**Remediation enligt `1.txt` / `2.txt` / `3.txt` + W1–W5:** avslutad — [`archived/external-review-execution/REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md).
+**Remediation enligt `1.txt` / `2.txt` / `3.txt` + W1–W5:** avslutad — [`avklarat/external-review-execution/REMEDIATION-EXIT.md`](../avklarat/external-review-execution/REMEDIATION-EXIT.md).
 
 ## Snabb översikt (källor)
 

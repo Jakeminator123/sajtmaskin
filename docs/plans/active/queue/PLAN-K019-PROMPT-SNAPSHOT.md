@@ -1,6 +1,6 @@
 # PLAN — K-019: Orchestration snapshot (promptkedja)
 
-**Status:** **K-019** är fortfarande **[ ]** i [`../kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) — **fas 1** (DB + persistens + follow-up prepend) är **levererad** och **arkiverad** här: [`../../archived/2026-03-k019-orchestration-snapshot-phase1.md`](../../archived/2026-03-k019-orchestration-snapshot-phase1.md).
+**Status:** **K-019** är fortfarande **[ ]** i [`../kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) — **fas 1** (DB + persistens + follow-up prepend) är **levererad** och **arkiverad** här: [`avklarat/2026-03-k019-orchestration-snapshot-phase1.md`](../../avklarat/2026-03-k019-orchestration-snapshot-phase1.md).
 
 **Kvar:** finare merge-policy, ev. UI, ev. sync create-path; verifiera manuellt i builder (första prompt → follow-up).
 

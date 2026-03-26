@@ -20,11 +20,11 @@
 
 2026-03-25 — **Post-exit queue:** `docs/plans/active/queue/KORFIL.md` (3 punkter) + `PLAN-KRITIK-OPEN` / `PLAN-REPO-SEPARATION-OPEN` / `PLAN-DRIFT-VERIFICATION`; `REMAINING-WORK` + hubs; orchestrator-run `2026-03-25-post-exit-backlog-queue` arkiverad lokalt.
 
-2026-03-25 — **Plans:** `docs/plans/active/external-review-execution/*` (utom stub README) → `docs/plans/archived/external-review-execution/`; länkar (progress, REMAINING-WORK, hubs, `e2e/README`, `KRITIK-OVERVIEW`, regler, arkiverad workload-banner); `preview-and-sandbox-flow.md` + `sandbox-preview.ts` — tydliggör dev-sandbox vs `npm run build`; push `origin/master`.
+2026-03-25 — **Plans:** `docs/plans/active/external-review-execution/*` (utom stub README) → `docs/plans/avklarat/external-review-execution/`; länkar (progress, REMAINING-WORK, hubs, `e2e/README`, `KRITIK-OVERVIEW`, regler, arkiverad workload-banner); `preview-and-sandbox-flow.md` + `sandbox-preview.ts` — tydliggör dev-sandbox vs `npm run build`; push `origin/master`.
 
-2026-03-28 — **Doc dedup sweep:** `orchestrator-workloads-external-review` fulltext → `docs/plans/archived/` + stub i `active/`; progress § Återstår/Next → `REMAINING-WORK.md`; REMEDIATION-EXIT, execution README, handoff, plans hub, `docs/README`, `agent-workflows`; push `origin/master`.
+2026-03-28 — **Doc dedup sweep:** `orchestrator-workloads-external-review` fulltext → `docs/plans/avklarat/` + stub i `active/`; progress § Återstår/Next → `REMAINING-WORK.md`; REMEDIATION-EXIT, execution README, handoff, plans hub, `docs/README`, `agent-workflows`; push `origin/master`.
 
-2026-03-28 — **Plan clarity:** `orchestrator-followup-from-39fef25e.md` → `docs/plans/archived/`; `active/README.md` — 100% vs Plan 17 vs execution-mapp kvar i `active/`; Plan 17 rubrik — varför ej arkiverad (WS-5/6); push `origin/master`.
+2026-03-28 — **Plan clarity:** `orchestrator-followup-from-39fef25e.md` → `docs/plans/avklarat/`; `active/README.md` — 100% vs Plan 17 vs execution-mapp kvar i `active/`; Plan 17 rubrik — varför ej arkiverad (WS-5/6); push `origin/master`.
 
 2026-03-28 — **Repo hygiene (100% remediation closeout):** `.gitignore` dedup (automation/cursor-gpt-block, en `node_modules/`, bort `.env*.local` längst ned); `docs/plans/README.md` + `archived/orchestrator-run-2026-03-26-external-review.md` (BOM bort, arkiveringsnotis); `.cursorignore` — `kritik-addressed/` med kommentar; progress § Done; push `origin/master`.
 
@@ -134,7 +134,7 @@
 
 2026-03-26 (pm) — Run `2026-03-26-external-review`: W1 **klar** (commit `62cdcd2b`, ~34pct); W4 readonly logg skriven under `agent-logs/`. Nästa: W2 integrationer/deploy eller W4 implementation efter scope.
 
-2026-03-26 (pm) — Orchestrator run `2026-03-26-external-review`: workloads `01-01-w1`, `02-01-w4` skrivna under `.cursor/orchestrator/run/` (lokal). Git-spårbar sammanfattning: `docs/plans/archived/orchestrator-run-2026-03-26-external-review.md` (arkiverad från `active/`). Tier-3 Task-agenter startade mot W1 + W4.
+2026-03-26 (pm) — Orchestrator run `2026-03-26-external-review`: workloads `01-01-w1`, `02-01-w4` skrivna under `.cursor/orchestrator/run/` (lokal). Git-spårbar sammanfattning: `docs/plans/avklarat/orchestrator-run-2026-03-26-external-review.md` (arkiverad från `active/`). Tier-3 Task-agenter startade mot W1 + W4.
 
 2026-03-26 — Tier2 parallel wave complete (UTF-8 data + registry scaffold). Typecheck OK. Next: wire detect-integrations to registry; LandingHero/Footer split.
 

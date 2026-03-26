@@ -312,7 +312,7 @@ Related execution plan:
 ### Verdict
 
 - The sweep itself is complete.
-- The physical plan file was moved out of `active/` and parked in `review-needed/` as a tooling fallback because the `docs/plans/archived/` bucket was not writable in the active editor environment.
+- The physical plan file was moved out of `active/` and parked in `review-needed/` as a tooling fallback because the `docs/plans/avklarat/` bucket was not writable in the active editor environment.
 - All canonical indexes now reflect that the sweep is no longer active work.
 
 ### Tests run
@@ -327,7 +327,7 @@ Related execution plan:
 
 ### Follow-up risks
 
-- If the archive bucket becomes writable later, the closed plan file should be moved from `review-needed/` to `archived/` for perfect lifecycle hygiene.
+- If the archive bucket becomes writable later, the closed plan file should be moved from `review-needed/` to `avklarat/` for perfect lifecycle hygiene.
 
 ## 2026-03-13 - Regression pass completed
 

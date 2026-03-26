@@ -1,6 +1,5 @@
-# Archived plans
+# Flyttat: `archived` → `avklarat`
 
-Completed or superseded plans live as *.md in this folder.
+Avklarade planer ligger nu under **[`../avklarat/`](../avklarat/README.md)** (`docs/plans/avklarat/`).
 
-**Full index + completion notes:** [../README.md](../README.md) (archived section).  
-**When archiving:** update that README and [../../architecture/agent-roadmap-and-handoff.md](../../architecture/agent-roadmap-and-handoff.md) in the same turn.
+Denna mapp finns kvar så gamla bokmärken och länkar till `docs/plans/archived/` kan uppdateras stegvis.

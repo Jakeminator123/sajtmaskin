@@ -46,10 +46,10 @@ the core Phase `1` to `4` work. The roadmap sequence remains:
 
 | Phase | Plan | Status |
 |---|---|---|
-| 1 — Trust & Launch | `archived/07-world-class-builder-phase-1-trust-launch.md` | **COMPLETED** |
-| 2 — Site Planning | `archived/08-world-class-builder-phase-2-site-planning.md` | **COMPLETED** |
-| 3 — SMB Growth | `archived/09-world-class-builder-phase-3-smb-growth.md` | **COMPLETED** |
-| 4 — Learning & Moat | `archived/10-world-class-builder-phase-4-learning-moat.md` | **LEVERERAT** (production validation remaining) |
+| 1 — Trust & Launch | `avklarat/07-world-class-builder-phase-1-trust-launch.md` | **COMPLETED** |
+| 2 — Site Planning | `avklarat/08-world-class-builder-phase-2-site-planning.md` | **COMPLETED** |
+| 3 — SMB Growth | `avklarat/09-world-class-builder-phase-3-smb-growth.md` | **COMPLETED** |
+| 4 — Learning & Moat | `avklarat/10-world-class-builder-phase-4-learning-moat.md` | **LEVERERAT** (production validation remaining) |
 
 All four phases were executed in order 07 -> 08 -> 09 -> 10 across multiple
 orchestrator runs between 2026-03-13 and 2026-03-18.

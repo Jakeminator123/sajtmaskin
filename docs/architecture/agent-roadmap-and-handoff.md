@@ -4,7 +4,7 @@ This file is the operational handoff index for plan artifacts. Use it when a new
 agent needs to understand which plans are active, which ones need review, and
 which ones are old references.
 
-**Maintenance:** The **authoritative list** of archived vs active plan *files* is
+**Maintenance:** The **authoritative list** of avklarat vs active plan *files* is
 [`docs/plans/README.md`](../plans/README.md). Do not duplicate that inventory as a
 wide table here — it goes stale. This document keeps **read order**, **working
 rules**, and **narrative** that `plans/README` does not carry.
@@ -19,7 +19,7 @@ Status re-verified `2026-03-26` (hub + plan index + handoff drift). Earlier veri
 |------|---------|
 | `active` | Current roadmap material that should still steer implementation |
 | `review-needed` | Older or partial plan that may still contain value, but must be checked against current code first |
-| `archived` | Completed or superseded plan kept only for traceability |
+| `avklarat` (*archived*) | Completed or superseded plan kept only for traceability |
 
 ## Current numbered plan map
 
@@ -27,7 +27,7 @@ Status re-verified `2026-03-26` (hub + plan index + handoff drift). Earlier veri
 |------|--------|-------|
 | `17-repo-separation-and-independence.md` | `active` | **WS-1–WS-4 delivered** (v0 fallback off main builder path, Blob `StorageProvider`, direct provider calls). Remaining: WS-5/6 + env/docs cleanup — see plan file. |
 
-**Archived numbered plans (`01`–`16`)** plus dated archives: filenames, completion labels, and provenance live in [`docs/plans/README.md`](../plans/README.md) under **`archived`**. For per-plan narrative that used to live only here, open the archived `.md` file in `docs/plans/archived/`.
+**Archived numbered plans (`01`–`16`)** plus dated archives: filenames, completion labels, and provenance live in [`docs/plans/README.md`](../plans/README.md) under **`avklarat`**. For per-plan narrative that used to live only here, open the `.md` file in `docs/plans/avklarat/`.
 
 ## Current active-phase notes
 
@@ -35,7 +35,7 @@ Status re-verified `2026-03-26` (hub + plan index + handoff drift). Earlier veri
   under `.cursor/orchestrator/run/` rather than `docs/plans/`. Treat those dated
   run folders as operational ledgers, not as canonical roadmap docs.
 - Completed operational sweep:
-  `docs/plans/archived/2026-03-bug-recheck-sweep.md` records the March 2026
+  `docs/plans/avklarat/2026-03-bug-recheck-sweep.md` records the March 2026
   `jakob` bug recheck implementation pass. The implementation is complete and the
   file is now physically archived.
 - Phase `7` is archived: lifecycle-aware readiness, diagnostics, preview
@@ -51,7 +51,7 @@ Status re-verified `2026-03-26` (hub + plan index + handoff drift). Earlier veri
   orchestrator run `2026-03-18-plan9-10-completion`: team Kodvy editor,
   server-side SEO preflight with critical SEO as publish blockers, integration
   setup wizard, and content-level version diffs + rollback confirmation. The
-  plan file has been moved to `docs/plans/archived/`.
+  plan file has been moved to `docs/plans/avklarat/`.
 - Phase `10` is now **LEVERERAT**. All six workstreams have code and DB tables
   are live. Remaining: production validation only. Plan archived.
 - **Plan 17** (repo separation and independence) is the new active plan,
@@ -89,7 +89,7 @@ Status re-verified `2026-03-26` (hub + plan index + handoff drift). Earlier veri
 Plans **14–16** (runtime/builder hardening), **9–10** (SMB growth + learning moat
 workstreams), and v0-fallback stream extraction landed via orchestrator runs
 **2026-03-17**–**2026-03-18** (e.g. commits `e3ba515`, `8aef51a` on `main` at the
-time). Forensics: `docs/plans/archived/`, `git log`, and closure notes such as
+time). Forensics: `docs/plans/avklarat/`, `git log`, and closure notes such as
 `docs/old/analyses/phase-08-plan-persistence-and-orchestration.md` — do not treat
 the bullet list below as the live product checklist.
 
@@ -182,5 +182,5 @@ When picking up old roadmap work:
 - treat `review-needed` plans as historical hints, not instructions
 - treat `.cursor/orchestrator/run/` artifacts as execution history unless the
   conclusions have been promoted into `docs/`
-- move fully completed or clearly superseded material to `docs/plans/archived/`
+- move fully completed or clearly superseded material to `docs/plans/avklarat/`
 - update this file whenever a numbered plan changes status

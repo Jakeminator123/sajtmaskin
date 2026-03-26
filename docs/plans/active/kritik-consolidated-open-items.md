@@ -8,7 +8,7 @@
 
 **Sanning om framsteg:** [`external-review-remediation-progress.md`](./external-review-remediation-progress.md) + `git log origin/master`.
 
-**Relaterat:** [`archived/external-review-execution/buglista-del-3.md`](../archived/external-review-execution/buglista-del-3.md) (`.j_to_agent/3.txt`), [`kritik-derived-backlog.md`](./kritik-derived-backlog.md) (kort pekare hit).
+**Relaterat:** [`avklarat/external-review-execution/buglista-del-3.md`](../avklarat/external-review-execution/buglista-del-3.md) (`.j_to_agent/3.txt`), [`kritik-derived-backlog.md`](./kritik-derived-backlog.md) (kort pekare hit).
 
 **Aktiva kritikfiler:** inga milstolpsfiler just nu — se [`KRITIK-OVERVIEW.md`](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md). `42pct-v.md` (C-101–C-104) är **arkiverad** under [`kritik-addressed/`](../../../.j_to_agent/archive/kritik-addressed/README.md) efter fix 2026-03-26.
 

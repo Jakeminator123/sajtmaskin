@@ -202,4 +202,4 @@ closed all remaining gaps:
 - Content-level version diffs with line-by-line hunks
 - Rollback confirmation dialog
 
-The plan file has been moved to `docs/plans/archived/`.
+The plan file has been moved to `docs/plans/avklarat/`.

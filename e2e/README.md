@@ -44,4 +44,4 @@ Den här `e2e/`-mappen är i praktiken **mall-/research-lanet** ovan; byggaren/d
 - **Kommando:** `npm run test:deploy-smoke:e2e` (config `playwright.deploy-smoke.config.ts`).
 - **Spec:** [`deploy/deploy-api-precheck.smoke.spec.ts`](deploy/deploy-api-precheck.smoke.spec.ts) — `precheckOnly: true`, inga Vercel-anrop, inga credits.
 - **Utan `SAJTMASKIN_E2E_*`:** testet **skippas** (lämpligt för CI utan auth-fixtures).
-- **Handoff / procentsiffra “100% remediation”:** [`REMEDIATION-EXIT.md`](../docs/plans/archived/external-review-execution/REMEDIATION-EXIT.md).
+- **Handoff / procentsiffra “100% remediation”:** [`REMEDIATION-EXIT.md`](../docs/plans/avklarat/external-review-execution/REMEDIATION-EXIT.md).

@@ -62,7 +62,7 @@
 ## Definition av «helt klart»
 
 - **K-007, K-018, K-009:** alla `[x]` med datum eller **nedprioriterade** med motivering (**K-014**, **K-008** redan **[x]**).  
-- **Plan 17:** alla `[ ]` antingen bockade eller **N/A** med kort motivering; filen kan då flyttas till `archived/`.  
+- **Plan 17:** alla `[ ]` antingen bockade eller **N/A** med kort motivering; filen kan då flyttas till `avklarat/`.  
 - **`queue/PLAN-*.md`:** avsnitt markerade klara eller borttagna.
 
 ---

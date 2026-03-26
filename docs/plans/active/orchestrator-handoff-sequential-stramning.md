@@ -1,6 +1,6 @@
 # Handoff-prompt: orchestrerad sekventiell stramning (kopiera till nästa agent)
 
-**Efter remediation-exit:** backlog-översikt = [`REMAINING-WORK.md`](./REMAINING-WORK.md). Full W1–W5-beskrivning (snapshot) = [`../archived/orchestrator-workloads-external-review.md`](../archived/orchestrator-workloads-external-review.md). Kort pekare = [`orchestrator-workloads-external-review.md`](./orchestrator-workloads-external-review.md).
+**Efter remediation-exit:** backlog-översikt = [`REMAINING-WORK.md`](./REMAINING-WORK.md). Full W1–W5-beskrivning (snapshot) = [`../avklarat/orchestrator-workloads-external-review.md`](../avklarat/orchestrator-workloads-external-review.md). Kort pekare = [`orchestrator-workloads-external-review.md`](./orchestrator-workloads-external-review.md).
 
 Klistra in blocket nedan som **hela användarprompten** (gärna med prefix `/orchestrator` eller `/automation`).
 
@@ -14,8 +14,8 @@ Du kör en **orchestrated run** som **standardflöde** — inte ad hoc parallell
 ## Bakgrund — var vi befinner oss
 
 - **Remediation-spår:** Läs **`docs/plans/active/external-review-remediation-progress.md`** för aktuella procentsiffror, “Last code touch”, Done och Next. **Kopiera inte gamla % hit** — denna fil är en mall.
-- **Sekventiella workloads (historik):** `docs/plans/archived/orchestrator-workloads-external-review.md` — W1–W5 under remediation; *nu:* `REMAINING-WORK.md`.
-- **Genomförande / tracks:** `docs/plans/archived/external-review-execution/README.md` + `MASTER-ROADMAP.md`.
+- **Sekventiella workloads (historik):** `docs/plans/avklarat/orchestrator-workloads-external-review.md` — W1–W5 under remediation; *nu:* `REMAINING-WORK.md`.
+- **Genomförande / tracks:** `docs/plans/avklarat/external-review-execution/README.md` + `MASTER-ROADMAP.md`.
 - **Källtexter (kontext, ofta ej för commit):** `.j_to_agent/1.txt`, `2.txt`, `3.txt`.
 - **Playwright / mall-research:** Kanonisk spec under `e2e/vercel-templates/`; `vercel_templates_levels/` valfri lokal spillra. Detaljer: `docs/architecture/vercel-templates-playwright-scaffold-integration.txt`.
 

@@ -37,8 +37,8 @@ Kör **`npm run typecheck`** och **`npx vitest run`** (plus `npm run lint` vid b
 
 ## Relaterade planfiler
 
-- [External review — workloads](../plans/active/orchestrator-workloads-external-review.md) (stub → [full snapshot](../plans/archived/orchestrator-workloads-external-review.md); aktiv backlog: [REMAINING-WORK](../plans/active/REMAINING-WORK.md))
+- [External review — workloads](../plans/active/orchestrator-workloads-external-review.md) (stub → [full snapshot](../plans/avklarat/orchestrator-workloads-external-review.md); aktiv backlog: [REMAINING-WORK](../plans/active/REMAINING-WORK.md))
 - [External review — progress %](../plans/active/external-review-remediation-progress.md)
-- [Execution — MASTER-ROADMAP (arkiv)](../plans/archived/external-review-execution/MASTER-ROADMAP.md) · [stub](../plans/active/external-review-execution/README.md)
+- [Execution — MASTER-ROADMAP (arkiv)](../plans/avklarat/external-review-execution/MASTER-ROADMAP.md) · [stub](../plans/active/external-review-execution/README.md)
 - [Allt kvar — MASTER](../plans/active/MASTER-ALLT-KVAR.md) · [KORFIL (pekare)](../plans/active/queue/KORFIL.md) · valfria `queue/PLAN-*.md`
 - [Kritik-derived backlog](../plans/active/kritik-derived-backlog.md) — öppna punkter från parallell granskning

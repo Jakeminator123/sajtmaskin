@@ -13,7 +13,7 @@ Use these three states consistently:
 |------|---------|--------------------|
 | `active` | Current, execution-ready material that should guide work now | `docs/plans/active/` |
 | `review-needed` | Older, partial, uncertain, or stale material that must be truth-checked before reuse | `docs/plans/review-needed/` |
-| `archived` | Completed, superseded, or purely historical material | `docs/plans/archived/` |
+| `avklarat` (även kallat *archived*) | Avklarade, ersatta eller rent historiska planer | `docs/plans/avklarat/` |
 
 ## Directory rules
 
@@ -32,7 +32,7 @@ Use these three states consistently:
 2. If implementation drifts, gets blocked, or becomes uncertain, move the plan to
    `docs/plans/review-needed/`.
 3. When the work is completed or the plan is superseded, move it to
-   `docs/plans/archived/`.
+   `docs/plans/avklarat/`.
 4. Update `docs/plans/README.md` and
    `docs/architecture/agent-roadmap-and-handoff.md` whenever a plan changes
    state.

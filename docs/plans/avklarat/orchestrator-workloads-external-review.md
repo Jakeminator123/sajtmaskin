@@ -12,7 +12,7 @@
 
 **Git-gren:** remediation pushas till **`origin/master`**. Grenen **`main`** kan ligga efter — nya agenter ska `git fetch` + `checkout master` + `pull` (eller ändra GitHub default branch). Detaljer i progress-dokumentet § *Gren: `master` och `main`*.
 
-**Checkbox-roadmap + spår (nytt):** `docs/plans/archived/external-review-execution/` — [README.md](./external-review-execution/README.md), [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md). Workers bockar av i `track-w*.md` enligt instruktion där.
+**Checkbox-roadmap + spår (nytt):** `docs/plans/avklarat/external-review-execution/` — [README.md](./external-review-execution/README.md), [CONTINUATION.md](./external-review-execution/CONTINUATION.md), [MASTER-ROADMAP.md](./external-review-execution/MASTER-ROADMAP.md). Workers bockar av i `track-w*.md` enligt instruktion där.
 
 **Källplaner (städade kopior):** `.j_to_agent/1.txt` (landning + integrationer), `.j_to_agent/2.txt` (own-engine pack), `.j_to_agent/3.txt` (scaffolds, scripts, orchestrator-frågor).
 
@@ -59,8 +59,8 @@
 ## Kort brief till ny agent (copy-paste)
 
 ```
-Läs docs/plans/archived/external-review-execution/README.md, CONTINUATION.md och MASTER-ROADMAP.md.
-Arbeta i docs/plans/archived/external-review-execution/track-w<N>-<namn>.md — bocka av [x]; fortsätt nästa öppna punkt utan ny ping tills halt i CONTINUATION.md.
+Läs docs/plans/avklarat/external-review-execution/README.md, CONTINUATION.md och MASTER-ROADMAP.md.
+Arbeta i docs/plans/avklarat/external-review-execution/track-w<N>-<namn>.md — bocka av [x]; fortsätt nästa öppna punkt utan ny ping tills halt i CONTINUATION.md.
 Läsgärna external-review-remediation-progress.md för % och commit-rutin (~4–5 Whole vision per commit när det går).
 Kör npm run typecheck && npx vitest run, uppdatera progress-md, commit + push med helhets-% i subject.
 ```

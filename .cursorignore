@@ -136,7 +136,7 @@ services/mpc/logs/
 
 # Archived or low-signal docs
 docs/old/
-docs/plans/archived/
+docs/plans/avklarat/
 #docs/analyses/
 
 # Migration archive (moved from STOR_MIGRATION/ to .cursor/migration-archive/)
@@ -170,4 +170,5 @@ internt_jakob/
 
 # Addressed kritik snapshots (large; open with @ path when needed)
 .j_to_agent/archive/kritik-addressed/
+
 

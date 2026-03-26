@@ -10,7 +10,7 @@ owner: cursor
 Implementation is complete and the execution ledger closed out on `2026-03-13`.
 
 This plan is physically parked in `review-needed/` as a tooling fallback because
-the `docs/plans/archived/` bucket was not writable in the active editor
+the `docs/plans/avklarat/` bucket was not writable in the active editor
 environment during closeout.
 
 ## Inputs
@@ -58,5 +58,5 @@ environment during closeout.
 ## Closeout note
 
 If the archive bucket becomes writable later, this file can be moved from
-`docs/plans/review-needed/` to `docs/plans/archived/` without changing its
+`docs/plans/review-needed/` to `docs/plans/avklarat/` without changing its
 substance.

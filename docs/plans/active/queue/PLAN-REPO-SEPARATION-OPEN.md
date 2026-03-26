@@ -25,8 +25,8 @@
 
 ## WS-6 — **klar** (beslut 2026-03-26)
 
-Produktbeslut och spårning: [`17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md) § WS-6 · arkiverad punkt-i-tid: [`../../archived/2026-03-plan17-ws6-product-decisions.md`](../../archived/2026-03-plan17-ws6-product-decisions.md).
+Produktbeslut och spårning: [`17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md) § WS-6 · arkiverad punkt-i-tid: [`avklarat/2026-03-plan17-ws6-product-decisions.md`](../../avklarat/2026-03-plan17-ws6-product-decisions.md).
 
 ## Acceptans (för att arkivera hela plan 17)
 
-När **WS-5** och **deferred** (WS-2/WS-4) är **gjorda eller medvetet nedprioriterade med motivering** i planfilen: flytta `17-repo-separation-and-independence.md` till `docs/plans/archived/` enligt [documentation-lifecycle.md](../../../architecture/documentation-lifecycle.md).
+När **WS-5** och **deferred** (WS-2/WS-4) är **gjorda eller medvetet nedprioriterade med motivering** i planfilen: flytta `17-repo-separation-and-independence.md` till `docs/plans/avklarat/` enligt [documentation-lifecycle.md](../../../architecture/documentation-lifecycle.md).
