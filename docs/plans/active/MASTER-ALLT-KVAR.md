@@ -15,7 +15,7 @@
 
 - **`MASTER-ALLT-KVAR.md` ligger i `docs/plans/active/`** (samma nivå som `kritik-consolidated-open-items.md`) — **inte** i `active/reviews/`. Mappen **`reviews/`** ska bara innehålla second-opinion-saker (`reviews/README.md`). Om editorn ser ut att visa MASTER under `reviews` är det oftast **fel sortering** i trädet — kontrollera sökvägen i fliken.
 - **`active/queue/`** ska **inte** massarkiveras än: tiotals länkar i repot pekar på `queue/PLAN-*.md`, `COMPLETION-ROADMAP.md`, `FRAGOR-SVAR-FAQ.md`. MASTER är **läs först**; kö-filerna är fortfarande **levande detalj + kanoniska kompletteringar**. Att flytta allt till arkiv kräver en **medveten länk-svep** (stor PR).
-- **Verifierat 2026-03-25:** `docs/plans/post-exit-queue-2026-03/` och `docs/plans/archived/post-exit-queue-2026-03/` var **SHA256-identiska** med `active/queue/*` (förutom en inaktuell `README` i kopian). **Inget unikt** behövde in i MASTER; dublettmappar kan **raderas** om de återskapas lokalt.
+- **Post-exit-kö (historik):** Dublettmappar (`docs/plans/post-exit-queue-2026-03/`, m.fl.) var **identiska** med `active/queue/*` och ska **inte** återinföras med full filuppsättning. **Arkivnotis** (pekar till MASTER + `active/queue/`): [`../archived/post-exit-queue-2026-03/README.md`](../archived/post-exit-queue-2026-03/README.md).
 
 ---
 
