@@ -27,6 +27,10 @@ next-env.d.ts
 !.env.*.example
 # Renamed snapshots used for diffing against Vercel — often contain real secrets
 OLD.env*
+# Same policy: manual exports / zip restores sometimes omit the leading dot (`env.*` not `.env.*`)
+env.vercel*.local
+*.env.backup
+*.env.bak
 *.pem
 *key
 .env.production
