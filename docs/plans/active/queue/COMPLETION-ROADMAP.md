@@ -2,6 +2,8 @@
 
 **Syfte:** Svara på «hur mycket återstår?» och ge en **realistisk väg till «allt klart»** utan att låtsas att produktbeslut redan är tagna.
 
+**Beslut innan nästa större kodfas:** [`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md) — samma frågor som under **Fas A → Kvar** nedan, med plats att fylla i svar.
+
 ## Ungefärlig kvarvarande andel (grovt)
 
 | Spår | Status | Kommentar |

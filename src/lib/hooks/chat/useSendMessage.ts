@@ -54,6 +54,7 @@ export function useSendMessage(
     mutateVersions,
     setCurrentDemoUrl,
     setSandboxBuildError,
+    setSandboxProdBuild,
     onPreviewRefresh,
     onGenerationComplete,
     setMessages,
@@ -95,6 +96,7 @@ export function useSendMessage(
       });
 
       setSandboxBuildError?.(null);
+      setSandboxProdBuild?.(null);
       setMessages((prev) => [
         ...prev,
         { id: userMessageId, role: "user", content: messageText },
@@ -291,6 +293,7 @@ export function useSendMessage(
             touchStreamSafetyTimer,
             setCurrentDemoUrl,
             setSandboxBuildError,
+            setSandboxProdBuild,
             onPreviewRefresh,
             onGenerationComplete,
             mutateVersions,
@@ -373,6 +376,7 @@ export function useSendMessage(
       setMessages,
       setCurrentDemoUrl,
       setSandboxBuildError,
+      setSandboxProdBuild,
       onPreviewRefresh,
       onGenerationComplete,
       selectedModelTier,

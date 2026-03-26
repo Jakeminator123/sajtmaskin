@@ -11,7 +11,13 @@ import {
 } from "@/components/ai-elements/tool";
 import { hasToolData, type AIElementsMessage, type MessagePart } from "@/lib/builder/messageAdapter";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { useState } from "react";
 import type { ToolUIPart } from "ai";
 
 type ToolPart = Extract<MessagePart, { type: "tool" }>;
@@ -165,20 +171,33 @@ type QualityGateSummary = {
 };
 
 export function AgentLogCard({ items }: { items: AgentLogItem[] }) {
+  const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
 
   return (
-    <div className="border-border bg-muted/30 mb-3 rounded-md border p-3">
-      <div className="text-muted-foreground text-xs font-medium">Agentlogg</div>
-      <ul className="text-muted-foreground mt-2 space-y-1 text-xs">
-        {items.map((item, index) => (
-          <li key={`agent-${index}`} className="flex gap-2">
-            <span className="bg-muted-foreground/70 mt-1 h-1.5 w-1.5 rounded-full" />
-            <span>{item.label}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="border-border bg-muted/30 mb-3 rounded-md border"
+    >
+      <CollapsibleTrigger className="text-muted-foreground hover:bg-muted/50 flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs font-medium transition-colors">
+        <span>Agentlogg ({items.length}) — felsökning</span>
+        <ChevronDown
+          className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-180")}
+          aria-hidden
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="text-muted-foreground space-y-1 px-3 pb-3 text-xs">
+          {items.map((item, index) => (
+            <li key={`agent-${index}`} className="flex gap-2">
+              <span className="bg-muted-foreground/70 mt-1 h-1.5 w-1.5 rounded-full" />
+              <span>{item.label}</span>
+            </li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

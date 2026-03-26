@@ -8,7 +8,7 @@
 
 | Område | Kanonisk källa |
 |--------|----------------|
-| Kritik (K-007, K-018, K-009 öppna; K-008/K-014 stängda) | [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) · FAQ [`queue/FRAGOR-SVAR-FAQ.md`](./queue/FRAGOR-SVAR-FAQ.md) |
+| Kritik (K-007, K-018, K-009, **K-019** öppna; K-008/K-014 stängda) | [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) · FAQ [`queue/FRAGOR-SVAR-FAQ.md`](./queue/FRAGOR-SVAR-FAQ.md) |
 | Plan 17 (WS-5/6, deferred) | [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) |
 | Preview / K-018 | [`queue/PLAN-PREVIEW-SANDBOX.md`](./queue/PLAN-PREVIEW-SANDBOX.md) · handoff [`INPUT_GPT.txt`](../../../INPUT_GPT.txt) |
 | En ingång (rekommenderat) | [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) |

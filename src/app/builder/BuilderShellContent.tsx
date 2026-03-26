@@ -897,6 +897,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               versionId={vm.activeVersionId}
               demoUrl={vm.currentDemoUrl}
               sandboxBuildError={vm.sandboxBuildError}
+              sandboxProdBuild={vm.sandboxProdBuild}
               onNavigatePreviewUrl={(url) => vm.setCurrentDemoUrl(url)}
               isLoading={vm.isAnyStreaming || vm.isCreatingChat}
               imageGenerationsEnabled={vm.enableImageGenerations}

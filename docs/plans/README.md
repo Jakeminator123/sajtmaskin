@@ -12,8 +12,9 @@ Last tightened `2026-03-25` (`active/MASTER-ALLT-KVAR.md` — all post-exit back
 
 - `active/external-review-remediation-progress.md` — **sanning** för externreview-remediation: helhets-% per segment, “Last code touch”, commit-/push-rutin, Done / Next.
 - `active/REMAINING-WORK.md` — hubb efter remediation-exit.
-- `active/MASTER-ALLT-KVAR.md` — **operativ kö (allt-i-ett)**: K-018, kritik, Plan 17-öppet, drift, orchestrator-råd, mall för tillägg.
+- `active/MASTER-ALLT-KVAR.md` — **operativ kö (allt-i-ett)**: K-018, K-019 (fidelity / promptkedja), kritik, Plan 17-öppet, drift, orchestrator-råd; § 0 = produktintent från `.j_to_agent/fidelity.txt`.
 - `active/queue/KORFIL.md` — **pekare** till `MASTER-ALLT-KVAR.md`; valfria `queue/PLAN-*.md` som detalj.
+- `active/queue/BESLUT-INNAN-VI-GAR-VIDARE.md` — **produkt-/arkitekturfrågor** som bör besvaras (eller deferred med motivering) innan nästa större fas; kopplad till `COMPLETION-ROADMAP.md` Fas A.
 - `active/orchestrator-workloads-external-review.md` — **stub**; full W1–W5-snapshot: `archived/orchestrator-workloads-external-review.md`.
 - `active/orchestrator-handoff-sequential-stramning.md` — kopieringsmall för `/orchestrator`-körning; **läs progress-filen ovan** för aktuella siffror (mallen innehåller inte färska %).
 - `active/external-review-execution/README.md` — **stub** → `archived/external-review-execution/` (execution-spår arkiverat).

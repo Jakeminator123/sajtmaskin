@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   BrainCircuit,
+  CircleCheck,
   Code2,
   ExternalLink,
   FileText,
@@ -331,6 +332,8 @@ interface PreviewPanelProps {
   awaitingInputOptions?: string[];
   /** Last SSE sandbox/build failure for this session (cleared on sandbox-ready or version change). */
   sandboxBuildError?: { stage: string; message: string } | null;
+  /** `npm run build` result in Vercel sandbox after dev (own-engine); separate from dev-preview. */
+  sandboxProdBuild?: { verified: boolean; logSnippet?: string } | null;
   placementMode?: boolean;
   pendingPlacementItem?: {
     title: string;
@@ -380,6 +383,7 @@ export function PreviewPanel({
   awaitingInputQuestion = null,
   awaitingInputOptions = [],
   sandboxBuildError = null,
+  sandboxProdBuild = null,
   placementMode = false,
   pendingPlacementItem = null,
   onPlacementComplete,
@@ -2291,9 +2295,11 @@ export function PreviewPanel({
   const isSandboxPreview = useMemo(() => {
     if (!demoUrl) return false;
     try {
-      return /sandbox/i.test(new URL(demoUrl).hostname);
+      const host = new URL(demoUrl).hostname.toLowerCase();
+      return host.includes("sandbox") || host.endsWith(".vercel.run");
     } catch {
-      return demoUrl.toLowerCase().includes("sandbox");
+      const d = demoUrl.toLowerCase();
+      return d.includes("sandbox") || d.includes("vercel.run");
     }
   }, [demoUrl]);
   const isV0Preview = Boolean(
@@ -2318,18 +2324,18 @@ export function PreviewPanel({
     }
     if (isOwnEnginePreview) {
       return {
-        label: "Runtime preview",
+        label: "Statisk preview (shim)",
         detail:
-          "Primär sanningsyta under iteration. Renderas från den genererade koden i builderns egen runtime och fångar previewfel direkt.",
+          "Tier 1: snabb approximation via /api/preview-render (inte full Next-server). Primär live-preview är sandbox (tier 2) när den lyckas.",
         className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
         badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
       };
     }
     if (isSandboxPreview) {
       return {
-        label: "Sandbox preview",
+        label: "Live preview (sandbox)",
         detail:
-          "Närmare riktig Next.js-runtime än fallback-preview, men kan fortfarande ha separat miljö och token-setup.",
+          "Tier 2: genererad sajt körs med npm install + npm run dev i isolerad miljö — närmare riktig Next dev än shim.",
         className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
         badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
       };
@@ -2456,18 +2462,18 @@ export function PreviewPanel({
             <Badge
               variant="outline"
               className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
-              title="Förhandsvisningen kör i builderns runtime med modul-shims (t.ex. 3D-paket). Det är inte samma isolerade miljö som en extern sandbox."
+              title="Tier 1: statisk/snabb förhandsvisning. Om sandbox misslyckades kan du se denna tillsammans med ett felmeddelande."
             >
-              Shim-preview
+              Tier 1 · Shim
             </Badge>
           ) : null}
           {demoUrl && isSandboxPreview && !isOwnEnginePreview ? (
             <Badge
               variant="outline"
               className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
-              title="Preview körs mot en separat sandbox-runtime. Beteende och miljö kan skilja sig från shim-preview och lokal build."
+              title="Tier 2: riktig Next dev-server i Vercel Sandbox (npm run dev). Närmare din app än shim."
             >
-              Sandbox-runtime
+              Tier 2 · Sandbox
             </Badge>
           ) : null}
         </div>
@@ -2578,6 +2584,33 @@ export function PreviewPanel({
             {sandboxBuildError.message}
           </AlertDescription>
         </Alert>
+      ) : null}
+      {sandboxProdBuild && !sandboxBuildError ? (
+        sandboxProdBuild.verified ? (
+          <Alert className="mx-4 mt-2 border-emerald-900/50 bg-emerald-950/35 text-emerald-50">
+            <CircleCheck className="h-4 w-4 text-emerald-400" />
+            <AlertTitle className="text-sm text-emerald-100">Production build OK</AlertTitle>
+            <AlertDescription className="text-[11px] text-emerald-200/90">
+              <code className="font-mono">npm run build</code> lyckades i sandbox — separat signal från
+              dev-preview (<code className="font-mono">npm run dev</code>).
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Alert className="mx-4 mt-2 border-amber-900/50 bg-amber-950/40 text-amber-50">
+            <AlertCircle className="h-4 w-4 text-amber-400" />
+            <AlertTitle className="text-sm text-amber-100">Production build misslyckades</AlertTitle>
+            <AlertDescription className="space-y-1 text-[11px] text-amber-200/90">
+              <p>
+                Dev-preview kan ändå fungera. Åtgärda build-fel innan deploy — se loggutdrag nedan.
+              </p>
+              {sandboxProdBuild.logSnippet ? (
+                <pre className="max-h-36 overflow-y-auto rounded border border-amber-900/40 bg-black/30 p-2 font-mono text-[10px] whitespace-pre-wrap text-amber-100/95">
+                  {sandboxProdBuild.logSnippet}
+                </pre>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        )
       ) : null}
       {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0) && (
         <div className="border-b border-gray-800 bg-black/30 px-4 py-2">

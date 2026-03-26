@@ -57,6 +57,30 @@ export type RuntimeFile = {
   content: string;
 };
 
+export type SandboxBuildVerification = {
+  ok: boolean;
+  exitCode: number | null;
+  logSnippet: string;
+};
+
+/** How the sandbox combines Next dev server and `npm run build`. See `docs/architecture/preview-fidelity-tiers.md`. */
+export type SandboxPreviewMode = "dev_only" | "build_only" | "dev_then_build";
+
+const SANDBOX_PREVIEW_MODE_VALUES = new Set<SandboxPreviewMode>([
+  "dev_only",
+  "build_only",
+  "dev_then_build",
+]);
+
+/** Server env `SAJTMASKIN_SANDBOX_PREVIEW_MODE` — default `dev_only` (tier 2: install + dev, no sandbox `npm run build`). */
+export function resolveSandboxPreviewModeFromEnv(): SandboxPreviewMode {
+  const raw = process.env.SAJTMASKIN_SANDBOX_PREVIEW_MODE?.trim().toLowerCase().replace(/-/g, "_");
+  if (raw && SANDBOX_PREVIEW_MODE_VALUES.has(raw as SandboxPreviewMode)) {
+    return raw as SandboxPreviewMode;
+  }
+  return "dev_only";
+}
+
 export type SandboxRuntimeOptions = {
   runtime?: "node24" | "node22" | "python3.13";
   vcpus?: number;
@@ -64,6 +88,20 @@ export type SandboxRuntimeOptions = {
   installCommand?: string;
   startCommand?: string;
   ports?: number[];
+  /**
+   * After `startCommand` (detached), run `npm run build` in the same sandbox.
+   * Ignored when `sandboxPreviewMode` is `dev_only` or `build_only`.
+   */
+  verifyBuild?: boolean;
+  /** Wall-clock cap for the build step only (Linux `timeout` in sandbox). Default 420s. */
+  buildVerifyTimeoutSec?: number;
+  /**
+   * `build_only`: install + `npm run build` only (no dev server; `primaryUrl` is null).
+   * `dev_only`: install + detached dev; no build.
+   * `dev_then_build`: install + detached dev + optional `verifyBuild` (default true from builder).
+   * Default: `SAJTMASKIN_SANDBOX_PREVIEW_MODE` or `dev_then_build`.
+   */
+  sandboxPreviewMode?: SandboxPreviewMode;
 };
 
 const MAX_FILES = 250;
@@ -132,10 +170,23 @@ export async function createSandboxRuntimeFromFiles(
 
   const runtime = options.runtime ?? "node24";
   const vcpus = options.vcpus ?? 2;
-  const timeoutMs = options.timeoutMs ?? 5 * 60_000;
+  const previewMode =
+    options.sandboxPreviewMode ?? resolveSandboxPreviewModeFromEnv();
+  /** Only `dev_then_build` runs this step; default remains opt-in (`verifyBuild === true`) for API compatibility. */
+  const verifyBuild =
+    previewMode === "dev_then_build" && options.verifyBuild === true;
+  const runsProdBuild =
+    previewMode === "build_only" ||
+    (previewMode === "dev_then_build" && verifyBuild);
+  const timeoutMs =
+    options.timeoutMs ?? (runsProdBuild ? 12 * 60_000 : 5 * 60_000);
   const installCommand = options.installCommand ?? "npm install";
   const startCommand = options.startCommand ?? "npm run dev";
   const ports = options.ports ?? [3000];
+  const buildVerifyTimeoutSec = Math.min(
+    Math.max(60, options.buildVerifyTimeoutSec ?? 420),
+    900,
+  );
 
   const sandbox = await Sandbox.create({
     ...(access ?? {}),
@@ -169,24 +220,69 @@ export async function createSandboxRuntimeFromFiles(
       throw new Error(`npm install failed (exit ${installExit}). ${snippet}`);
     }
 
-    await sandbox.runCommand({
-      cmd: "bash",
-      args: ["-c", startCommand],
-      detached: true,
-    });
+    let buildVerification: SandboxBuildVerification | undefined;
+
+    if (previewMode === "build_only") {
+      const buildResult = await sandbox.runCommand({
+        cmd: "bash",
+        args: ["-c", `timeout ${buildVerifyTimeoutSec}s npm run build`],
+      });
+      const buildStdout =
+        typeof buildResult.stdout === "string" ? buildResult.stdout : "";
+      const buildStderr =
+        typeof buildResult.stderr === "string" ? buildResult.stderr : "";
+      const buildOut = `${buildStdout}\n${buildStderr}`.trim();
+      const exitCode =
+        typeof buildResult.exitCode === "number" ? buildResult.exitCode : null;
+      buildVerification = {
+        ok: exitCode === 0,
+        exitCode,
+        logSnippet: buildOut.slice(-6000) || "(no build output)",
+      };
+    } else {
+      await sandbox.runCommand({
+        cmd: "bash",
+        args: ["-c", startCommand],
+        detached: true,
+      });
+
+      if (previewMode === "dev_then_build" && verifyBuild) {
+        const buildResult = await sandbox.runCommand({
+          cmd: "bash",
+          args: ["-c", `timeout ${buildVerifyTimeoutSec}s npm run build`],
+        });
+        const buildStdout =
+          typeof buildResult.stdout === "string" ? buildResult.stdout : "";
+        const buildStderr =
+          typeof buildResult.stderr === "string" ? buildResult.stderr : "";
+        const buildOut = `${buildStdout}\n${buildStderr}`.trim();
+        const exitCode =
+          typeof buildResult.exitCode === "number" ? buildResult.exitCode : null;
+        buildVerification = {
+          ok: exitCode === 0,
+          exitCode,
+          logSnippet: buildOut.slice(-6000) || "(no build output)",
+        };
+      }
+    }
 
     const urls: Record<number, string> = {};
     for (const port of ports) {
       urls[port] = sandbox.domain(port);
     }
 
+    const primaryUrl =
+      previewMode === "build_only" ? null : urls[ports[0]] || null;
+
     return {
       mode: "sandbox" as const,
       sandboxId: sandbox.sandboxId,
       urls,
-      primaryUrl: urls[ports[0]] || null,
+      primaryUrl,
       runtime,
       ports,
+      buildVerification,
+      sandboxPreviewMode: previewMode,
     };
   } catch (error) {
     await sandbox.stop().catch(() => {});

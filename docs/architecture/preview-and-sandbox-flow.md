@@ -1,22 +1,26 @@
 # Preview och sandbox — demo-URL-flöde (own engine)
 
-**Senast uppdaterad:** 2026-03-25 (fidelity / build vs dev, sandbox-felsökning)
+**Senast uppdaterad:** 2026-03-26 (sandbox `npm run build`-verifiering efter dev)
 
-Det här dokumentet beskriver hur **demo-URL** och **förhandsvisning** fungerar när användaren promptar i buildern med **egen motor** (inte v0-fallback). För Vercel Sandbox-autentisering, se [vercel-sandbox-credentials.md](./vercel-sandbox-credentials.md).
+Det här dokumentet beskriver hur **demo-URL** och **förhandsvisning** fungerar när användaren promptar i buildern med **egen motor** (inte v0-fallback). För **Preview fidelity tier 1–3** (shim vs sandbox dev vs build-check) och begreppskillnad mot K-018 *Fas*, se **[preview-fidelity-tiers.md](./preview-fidelity-tiers.md)**. För Vercel Sandbox-autentisering, se [vercel-sandbox-credentials.md](./vercel-sandbox-credentials.md).
 
 **Driftnorm (ephemeral):** se avsnitt [Ephemeral preview vs långlivade stödtjänster](#ephemeral-preview-vs-långlivade-stödtjänster) — kort sagt: **ingen** “alltid varm sandbox per projekt” som standard; shim + **on-demand** sandbox för aktiv iteration.
 
+**Env-översikt (Sajtmaskin vs genererad sandbox):** [`docs/ENV.md`](../ENV.md) § «Två världar».
+
 ## Demo-URL-prioritet i UI
 
-När en version har både **shim-URL** (`/api/preview-render`) och **`sandbox_url`** i databasen prioriteras **sandbox** före extern v0-hostad preview och före shim, så att du ser full Next-runtime när den finns.
+**Produktintent:** **Sandbox (tier 2)** är den **avsedd primära** previewn i iframen när den lyckas. **Shim (tier 1)** är **fallback** — inte «den riktiga» upplevelsen. När en version har både shim-URL och **`sandbox_url`** prioriteras **sandbox** före extern v0-hostad preview och före shim.
 
-## Två faser: snabb HTML-shim, sedan riktig Next.js (valfritt)
+**När sandbox misslyckas** ska användaren **inte** bara tyst se shim: det ska finnas **tydlig loggning** (strukturerad **serverlogg** + **toast** via befintlig `build-error`/`toast.error`-väg) att **sandbox-preview inte gick igenom**. *Implementation:* se kritik/K-018 och [`stream-handlers.ts`](../../src/lib/hooks/chat/stream-handlers.ts) — krav utdraget i [`preview-fidelity-tiers.md`](./preview-fidelity-tiers.md).
 
-Efter att en version sparats får klienten nästan alltid en **`demoUrl` direkt i SSE `done`**-eventet. Den pekar på **`/api/preview-render`** (byggd av `buildPreviewUrl` i [`src/lib/gen/preview/index.ts`](../../src/lib/gen/preview/index.ts)). Den routen renderar en **självständig HTML-sida** med CDN Tailwind + React UMD — en **snabb visuell approximation**, inte en full Next.js-server.
+## Två faser: tillfällig shim under start, sedan sandbox (primär)
 
-Om sandbox är konfigurerad (`isSandboxConfigured()` i [`src/lib/mcp/runtime-url.ts`](../../src/lib/mcp/runtime-url.ts)) startar servern efter `done` en riktig miljö via [`startSandboxPreview`](../../src/lib/gen/sandbox-preview.ts) (**`npm install`** sedan **`npm run dev`** i `@vercel/sandbox`, se [`createSandboxRuntimeFromFiles`](../../src/lib/mcp/runtime-url.ts)). **`npm run build` körs inte** i det här flödet — du får en **Next.js dev-server** på sandlådans URL, inte en statisk export och inte `next start` efter production build. **SSE-strömmen väntar** på att sandbox-steget slutförts (eller fel rapporterats) innan anslutningen stängs, så att `sandbox-ready` / `build-error` hinner levereras till klienten. Resultatet skickas som:
+Efter att en version sparats får klienten ofta en **`demoUrl` direkt i SSE `done`** som pekar på **`/api/preview-render`** (byggd av `buildPreviewUrl` i [`src/lib/gen/preview/index.ts`](../../src/lib/gen/preview/index.ts)) — **tillfälligt** medan sandbox jobbar. Den routen är **tier 1**: snabb approximation, **inte** full Next.js-server. **Målet** är att **`sandbox-ready`** byter iframen till **sandbox-URL** (tier 2). Om sandbox **aldrig** lyckas förblir man på shim **med** explicit fallback-meddelande (se ovan).
 
-- **`sandbox-ready`** — `sandboxUrl` ersätter `demoUrl` i klienten ([`stream-handlers.ts`](../../src/lib/hooks/chat/stream-handlers.ts)).
+Om sandbox är konfigurerad (`isSandboxConfigured()` i [`src/lib/mcp/runtime-url.ts`](../../src/lib/mcp/runtime-url.ts)) startar servern efter `done` en riktig miljö via [`startSandboxPreview`](../../src/lib/gen/sandbox-preview.ts). **Standardläge** (**`dev_only`** om `SAJTMASKIN_SANDBOX_PREVIEW_MODE` saknas): **`npm install`** → **`npm run dev`** (detached), **utan** `npm run build` i sandbox (tier 2). Med **`dev_then_build`** körs dessutom **`npm run build`** efter dev som separat signal. I **`build_only`** körs install + build **utan** dev; **`sandbox-ready.sandboxUrl`** kan då vara tom så att **shim** behålls i iframen medan `prodBuildVerified` uppdateras. Se [preview-fidelity-tiers.md](./preview-fidelity-tiers.md). **SSE-strömmen väntar** tills sandbox-steget slutförts eller fel rapporterats (`sandbox-ready` / `build-error`). Resultatet skickas som:
+
+- **`sandbox-ready`** — `sandboxUrl` ersätter `demoUrl` i klienten; inkl. **`prodBuildVerified`** när own-engine kör verifieringen ([`stream-handlers.ts`](../../src/lib/hooks/chat/stream-handlers.ts), [`PreviewPanel`](../../src/components/builder/PreviewPanel.tsx)).
 - **`build-error`** — fel från t.ex. `npm install` (toast + progress).
 
 Därför kan användaren **först** se shim-URL:en i några sekunder, sedan bytas till sandbox-domänen när den är klar.
@@ -85,9 +89,11 @@ Det är **inte** samma SSE-kedja som builder-stream; dokumentera skillnaden om d
 - **Modellen instrueras** (bl.a. [`08-scaffold-starters.md`](../../config/prompt-static/08-scaffold-starters.md)) att målet är **`next build`** och full npm-upplösning — i linje med sandbox, inte med shim-begränsningar.
 - **Shim** är ett **komplement** för snabb feedback; arkitektoniskt är **sandbox** (eller deploy) den som validerar full Next/React.
 
-## Env-placeholders för genererade sajter (medvetet inte auto-injicerade)
+## Env-placeholders för genererade sajter (sandbox / MCP)
 
-För **slutanvändarens** genererade Next-projekt finns ett repo-kontrakt under [`config/ai_models/`](../../config/ai_models/) (`generatedSiteIntegrationPlaceholders` + `40-generated-site-integration-placeholders.env.txt`) och Node-hjälparen `readGeneratedSitePlaceholdersEnvText()` i [`load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts). **Sajtmaskin kopplar ännu inte in** den filen automatiskt i preview eller sandbox; nästa steg är att vid behov anropa läsaren när sandbox eller MCP skriver miljö till den genererade appen. Se [`config/ai_models/_READ_ME_FIRST.md`](../../config/ai_models/_READ_ME_FIRST.md) (avsnitt Handoff).
+För **slutanvändarens** genererade Next-projekt finns ett repo-kontrakt under [`config/ai_models/`](../../config/ai_models/) (`generatedSiteIntegrationPlaceholders` + `40-generated-site-integration-placeholders.env.txt`) och Node-hjälparen `readGeneratedSitePlaceholdersEnvText()` i [`load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts).
+
+**Sandbox-uploads** (own-engine stream, MCP `generate-site` i sandbox-läge, `createLocalGeneratedRuntime` i sandbox-läge) skriver en sammanslagen **`.env.local`** via [`build-generated-site-env.ts`](../../src/lib/gen/build-generated-site-env.ts): placeholders → `project_data.meta.projectEnvVars` → valfria session-override (framtida) → preview-sentinels (`SAJTMASKIN_PREVIEW_MODE`, m.fl.). HTML-shim (`/api/preview-render`) använder fortfarande inte denna fil. Se [`config/ai_models/_READ_ME_FIRST.md`](../../config/ai_models/_READ_ME_FIRST.md) (avsnitt Handoff).
 
 ## Ephemeral preview vs långlivade stödtjänster
 

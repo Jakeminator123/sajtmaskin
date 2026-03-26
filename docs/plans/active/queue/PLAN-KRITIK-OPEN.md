@@ -4,6 +4,7 @@
 
 **Kanonisk tabell:** [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md)  
 **K-018 (preview/sandbox/integrationer i *genererad* sajt):** implementationsplan + UI-princip → [`PLAN-PREVIEW-SANDBOX.md`](./PLAN-PREVIEW-SANDBOX.md) + [`INPUT_GPT.txt`](../../../../INPUT_GPT.txt).  
+**K-019 (standard-UX + promptkedja):** [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md) § 0–3 + [`.j_to_agent/fidelity.txt`](../../../../.j_to_agent/fidelity.txt).  
 **Konfliktzon (läs före större ändringar):** `registry.ts`, `detect-integrations.ts`, `config/env-policy.json`, deploy-API, `useBuilderDeployActions`, builder-copy kopplat till env/409.
 
 ## Stängda rader (referens)
@@ -19,6 +20,7 @@
 |----|------------------|----------------------------------|
 | **K-007** | Deploy auto-fix / hårdare valideringsfas före deploy — **produktbeslut** | Policy dokumenterad + implementation eller medvetet `[x]` med motivering i tabellen; `deploy-precheck.md` / Vitest i linje med beslut |
 | **K-018** | **Användarnas** genererade sidor: **React**-preview i **samma klass som `npm run dev`**, inkl. **fidelity i `iframe`** | Rimliga acceptanstester / visuell parity dokumenterad; `[x]` med datum eller uppdelade delmoment i tabellen |
+| **K-019** | **Standard-UX + promptkedja:** diagnostik sekundär som default; kanonisk promptkontext över stream-steg (ingen tappad/dubblerad kontext mellan närliggande pass) | Beteende verifierat i builder; `[x]` med datum i master-tabellen |
 | **K-009** | Own-engine **utanför** avslutad W3-track (SSE) — **inte** prioriterat: FAQ/innehåll på Sajtmaskins marknadssajt | Scope avgrensat, levererat eller `[x]` med motivering; inga motsägelser mot stream-kontrakt |
 
 ## Arbetssteg (för agent)

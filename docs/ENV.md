@@ -54,6 +54,15 @@ python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga e
 - **«Nix»** som ibland syns i Vercel-sammanhang (t.ex. Nixpacks) är en **byggcontainer** på Vercels plattform — inte en separat integration i Sajtmaskin. Din sajt byggs fortfarande som **Node + Next**.
 - **Chattar, versioner och `files_json`** lagras i **Postgres** (t.ex. via Supabase om `POSTGRES_URL` pekar dit). Det finns ingen parallell «projektkatalog på disken» för samma data i appen; lokalt finns bara cache (`.next`, osv.).
 
+## Två världar: Sajtmaskin-appen vs genererad sajt i sandbox
+
+| Område | Vad det är | Typiska variabler |
+|--------|------------|-------------------|
+| **Sajtmaskin (monorepot)** | Buildern, API-routes, Postgres, egna integrationer | `POSTGRES_URL`, `OPENAI_API_KEY`, `VERCEL_*` för **denna** deploy, m.fl. — se tabellerna nedan i denna fil och `src/lib/env.ts`. |
+| **Genererad användarsajt i Vercel Sandbox** | Tillfällig Next-app som **builder** startar med användarens kod; **inte** samma process som Sajtmaskin | Autentisering mot Vercel för **Sandbox API**: `VERCEL_OIDC_TOKEN` (rekommenderat efter `vercel link` + `vercel env pull`) **eller** `VERCEL_TOKEN` + `VERCEL_TEAM_ID` / `VERCEL_ORG_ID` + `VERCEL_PROJECT_ID`. **Preview-läge i sandbox:** `SAJTMASKIN_SANDBOX_PREVIEW_MODE` (`dev_only` default, `dev_then_build`, `build_only`) — styr om `npm run build` körs i sandlådan efter dev. **Innehåll i den genererade appen:** sammanslagen `.env.local` från placeholders + `project_data.meta.projectEnvVars` (se `src/lib/gen/build-generated-site-env.ts`); det är **inte** samma som att lägga nycklar bara i Sajtmaskins `.env.local`. |
+
+Mer om demoUrl, shim och sandbox: [`docs/architecture/preview-and-sandbox-flow.md`](./architecture/preview-and-sandbox-flow.md) och [`docs/architecture/preview-fidelity-tiers.md`](./architecture/preview-fidelity-tiers.md).
+
 ## Klient-autofix (builder)
 
 - **Autofix vid fel** (quality gate / preview) är **på som standard**. Stäng av under **Settings** (kugghjul) i buildern, eller sätt `localStorage`-nyckeln `sajtmaskin:autofix-enabled` till `"false"`. URL-parametrarna `?noautofix` och `?autofix` kan användas för tillfällig override.
