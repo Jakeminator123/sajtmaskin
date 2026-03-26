@@ -55,6 +55,7 @@ Implementationsspår: [`PLAN-K019-PROMPT-SNAPSHOT.md`](./PLAN-K019-PROMPT-SNAPSH
 
 ## 5. Plan 17 — WS-4 (ENV/policy) och WS-5 (städ)
 
+- **WS-6:** **Klart 2026-03-26** — arkiverad snapshot: [`../../archived/2026-03-plan17-ws6-product-decisions.md`](../../archived/2026-03-plan17-ws6-product-decisions.md); kanon i `17-repo-separation-and-independence.md` § WS-6.
 - **WS-4:** När ska `ENV.md` / `config/env-policy.json` (eller motsvarande) **bindas hårdare** till kod — nu, eller efter K-018/K-019?
 - **WS-5:** Vilken **ordning** för `.gitignore`-scan, `research/`, `docs/old/`-städ — och vem **äger** inventeringen?
 
@@ -72,6 +73,7 @@ Implementationsspår: [`PLAN-K019-PROMPT-SNAPSHOT.md`](./PLAN-K019-PROMPT-SNAPSH
 | K-009 | [ ] | | samma |
 | K-018 | [ ] | | samma + `PLAN-PREVIEW-SANDBOX` vid behov |
 | K-019 | [ ] | | samma + `PLAN-K019-PROMPT-SNAPSHOT` |
+| Plan 17 WS-6 | [x] | 2026-03-26 | `17-repo-separation-and-independence.md`, [`archived/2026-03-plan17-ws6-product-decisions.md`](../../archived/2026-03-plan17-ws6-product-decisions.md) |
 | Plan 17 WS-4/5 | [ ] | | `17-repo-separation-and-independence.md` |
 
 När en rad är **nedprioriterad** i stället för besvarad: skriv **motivering** i denna fil och bocka «taget» med datum = *deferred*.

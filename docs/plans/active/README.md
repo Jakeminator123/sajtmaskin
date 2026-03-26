@@ -8,7 +8,7 @@ Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscyke
 |------|-----------------|---------------------|
 | **External review remediation** | W1–W5 execution enligt `1.txt`–`3.txt` är levererad; **100%** = *remediation exit*, inte att alla produktönskemål är borta | [`external-review-remediation-progress.md`](./external-review-remediation-progress.md) + [`archived/external-review-execution/REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md) |
 | **Kritik / K-rader** | Öppna punkter tills produkt stänger dem | [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) |
-| **Plan 17 (repo separation)** | **Endast** WS-1–WS-4 i kärnan; WS-5, WS-6 och deferred-städ är **inte** klara → filen ska **inte** arkiveras som «färdig» än | [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) |
+| **Plan 17 (repo separation)** | **WS-6 klar** (2026-03-26). **Kvar:** WS-5 + deferred (WS-2/WS-4) — huvudfilen arkiveras inte som «färdig» förrän de är gjorda eller N/A med motivering | [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) |
 
 ## `external-review-execution/` i `active/` (stub)
 

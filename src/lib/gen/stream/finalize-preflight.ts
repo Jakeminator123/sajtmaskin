@@ -1,7 +1,6 @@
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { buildPreviewHtml } from "@/lib/gen/preview";
 import type { CodeFile } from "@/lib/gen/parser";
-import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type RoutePlan } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";

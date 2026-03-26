@@ -226,7 +226,7 @@ Orchestrator är **inte** magiskt snabbare; det är **tydligare spårbarhet** oc
 | [`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt) | Full **engelsk** byggagent-instruktion; speglas i § 0 |
 | [`queue/PLAN-PREVIEW-SANDBOX.md`](./queue/PLAN-PREVIEW-SANDBOX.md) | K-018-detalj (samma innehåll som § 2 i korthet) |
 | [`queue/PLAN-KRITIK-OPEN.md`](./queue/PLAN-KRITIK-OPEN.md) | K-007 / K-009 acceptansrader |
-| [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md) | Plan 17 öppet (spegel av § 4) |
+| [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md) | Plan 17 öppet (WS-2/4/5 + deferred); **WS-6** arkiverad: [`../archived/2026-03-plan17-ws6-product-decisions.md`](../archived/2026-03-plan17-ws6-product-decisions.md) |
 | [`queue/PLAN-DRIFT-VERIFICATION.md`](./queue/PLAN-DRIFT-VERIFICATION.md) | Smoke/progress-rutin |
 | [`queue/PLAN-MULTIAGENT-PREVIEW-TRACKS.md`](./queue/PLAN-MULTIAGENT-PREVIEW-TRACKS.md) | Metaplan: flera tier-2-agenter → egna planfiler (K-018 / K-019 / integrationer / K-007·K-009) |
 
@@ -240,3 +240,4 @@ Orchestrator är **inte** magiskt snabbare; det är **tydligare spårbarhet** oc
 | 2026-03-25 | § 0 fylld från `.j_to_agent/fidelity.txt`; sandbox-före-shim; tre lager; standard-UX vs debug; **K-019** (promptkedja); fråga «räcker MASTER?» besvarad i inledningen. |
 | 2026-03-26 | **K-018 delmoment:** `.env.local` i sandbox-upload (merge); pekare **§ 8** → `PLAN-MULTIAGENT-PREVIEW-TRACKS.md`. |
 | 2026-03-26 | **K-018 delmoment:** separat `npm run build` i sandbox + SSE/UI (`verifyBuild`, previewpanel). |
+| 2026-03-26 | **Plan 17 WS-6:** produktbeslut arkiverade (`docs/plans/archived/2026-03-plan17-ws6-product-decisions.md`); `PLAN-REPO-SEPARATION-OPEN` slimmas till öppna WS. |

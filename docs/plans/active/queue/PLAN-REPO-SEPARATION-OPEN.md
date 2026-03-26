@@ -23,15 +23,10 @@
 - [ ] Utvärdera `research/` — separat repo/submodule eller följ **policy i huvudplanen** § WS-5 (H1c).
 - [ ] Städa `docs/old/` — **H2c:** aggressivt i **separata PR** med **inventering före radering**.
 
-## WS-6: Optional services — **beslut 2026-03-26**
+## WS-6 — **klar** (beslut 2026-03-26)
 
-- [x] **D-ID** (`/avatar`) — **behåll** (produkt).
-- [x] **OpenClaw** — **behåll** (produkt).
-- [x] **Brave Search** — **behåll som optional**.
-- [x] **Loopia** — **behåll som optional**.
-
-Se [`17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md) § WS-6.
+Produktbeslut och spårning: [`17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md) § WS-6 · arkiverad punkt-i-tid: [`../../archived/2026-03-plan17-ws6-product-decisions.md`](../../archived/2026-03-plan17-ws6-product-decisions.md).
 
 ## Acceptans (för att arkivera hela plan 17)
 
-När WS-5/WS-6/deferred är **gjorda eller medvetet nedprioriterade med motivering** i planfilen: flytta `17-repo-separation-and-independence.md` till `docs/plans/archived/` enligt [documentation-lifecycle.md](../../../architecture/documentation-lifecycle.md).
+När **WS-5** och **deferred** (WS-2/WS-4) är **gjorda eller medvetet nedprioriterade med motivering** i planfilen: flytta `17-repo-separation-and-independence.md` till `docs/plans/archived/` enligt [documentation-lifecycle.md](../../../architecture/documentation-lifecycle.md).
