@@ -2,7 +2,7 @@
  * Thin deploy contract: surface env + preflight warnings without changing Vercel behavior.
  * Readiness route remains the primary user-facing gate; deploy logs this for observability.
  * `invalidFiles` fylls när preflight inte kan normalisera en path (t.ex. ogiltig `package.json`); påverkar inte `ready` (env-nycklar styr det).
- * Samma ogiltiga `package.json` på den **sparade versionen** ger **readiness-blocker** via `findInvalidJsonConfigPaths` i `version-file-integrity.ts` (tidigare varning i UI).
+ * Samma ogiltiga strikta JSON-filer (`package.json`, `components.json`, `jsconfig.json`) på den **sparade versionen** ger **readiness-blocker** via `findInvalidJsonConfigPaths` i `version-file-integrity.ts` (tidigare varning i UI).
  * Se `docs/architecture/deploy-precheck.md` för hela preflight-kedjan (auto-fixar, 409, precheckOnly).
  */
 export type DeployReadiness = {

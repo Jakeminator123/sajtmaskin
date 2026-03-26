@@ -20,7 +20,7 @@ Varningar som inte stoppar deploy (t.ex. saknade versionsnycklar i intern karta)
 
 Om `package.json` inte går att parsa under dependency-patchning läggs **`package.json`** i `deployReadiness.invalidFiles` (samma svar som `precheckOnly` / 409-svaret). Fältet är **observabilitet**: `deployReadiness.ready` styrs fortfarande bara av saknade obligatoriska env-nycklar — men klienter kan visa att filen behöver manuell rättning.
 
-**`GET /api/v0/chats/:chatId/readiness`** speglar samma klass av fel tidigare i flödet: om den **sparade versionens** `package.json` inte är giltig JSON läggs en **blocker** (publiceringskortet) — implementation: `src/lib/deploy/version-file-integrity.ts` (`findInvalidJsonConfigPaths`). Då ser användaren spärren i UI även om deploy-POST inte körts.
+**`GET /api/v0/chats/:chatId/readiness`** speglar samma klass av fel tidigare i flödet: om den **sparade versionens** strikta JSON-filer (`package.json`, `components.json`, `jsconfig.json`; inte `tsconfig.json` som ofta är JSONC) inte går att parsa läggs en **blocker** (publiceringskortet) — implementation: `src/lib/deploy/version-file-integrity.ts` (`findInvalidJsonConfigPaths`). Då ser användaren spärren i UI även om deploy-POST inte körts.
 
 ### Canonical path: sparad version vs andra anrop
 

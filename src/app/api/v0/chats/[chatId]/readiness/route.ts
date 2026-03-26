@@ -217,7 +217,7 @@ async function buildEngineReadiness(
     blockers.push({
       id: "invalid-project-json",
       title: "Projektfil(er) går inte att tolka.",
-      detail: `Ogiltig JSON: ${invalidJsonPaths.join(", ")}. Rätta package.json innan du publicerar.`,
+      detail: `Ogiltig JSON: ${invalidJsonPaths.join(", ")}. Rätta filerna (t.ex. package.json / components.json) innan du publicerar.`,
       severity: "blocker",
       action: "deploy",
     });

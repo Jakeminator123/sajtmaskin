@@ -14,6 +14,26 @@ describe("findInvalidJsonConfigPaths", () => {
     ).toEqual(["package.json"]);
   });
 
+  it("flags invalid components.json", () => {
+    expect(
+      findInvalidJsonConfigPaths([{ path: "components.json", content: "{bad" }]),
+    ).toEqual(["components.json"]);
+  });
+
+  it("flags invalid nested jsconfig.json", () => {
+    expect(
+      findInvalidJsonConfigPaths([{ path: "packages/web/jsconfig.json", content: "[" }]),
+    ).toEqual(["packages/web/jsconfig.json"]);
+  });
+
+  it("ignores tsconfig.json (JSONC — avoid false positives)", () => {
+    expect(
+      findInvalidJsonConfigPaths([
+        { path: "tsconfig.json", content: '{ "compilerOptions": { } } // comment' },
+      ]),
+    ).toEqual([]);
+  });
+
   it("ignores non-package paths", () => {
     expect(
       findInvalidJsonConfigPaths([{ path: "app/page.tsx", content: "{not json" }]),
