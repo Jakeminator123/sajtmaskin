@@ -6,7 +6,7 @@
 
 **Skapad:** 2026-03-25 (`orchestrator-run` — konsolidering av kvarvarande backlog).
 
-**Hur mycket återstår?** Remediation **W1–W5 ≈ 100 %**. Efter det: **4 K-rader** + **12 öppna plan-17-kryss** — få punkter men **hög vikt** (produkt + arkitektur). Det går inte att «köra allt» utan dina beslut i [`COMPLETION-ROADMAP.md`](./COMPLETION-ROADMAP.md) § *Fas A*.
+**Hur mycket återstår?** Remediation **W1–W5 ≈ 100 %**. Efter det: **4 K-rader** + **8 öppna plan-17-kryss** (WS-6 **klar 2026-03-26:** behåll D-ID, OpenClaw; Brave + Loopia optional). Övriga beslut: [`COMPLETION-ROADMAP.md`](./COMPLETION-ROADMAP.md) § *Fas A* (K-007–K-014).
 
 ---
 

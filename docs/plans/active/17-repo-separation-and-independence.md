@@ -1,6 +1,6 @@
 # Plan 17: Repo Separation and Independence
 
-**Status:** **Active** — kärnan **WS-1–WS-4** är levererad (2026-03-18/19). Filen är **inte** arkiverad därför att **WS-5** (stora filer / research-hygien), **WS-6** (valfria tjänster) och **deferred** städ (`AI_GATEWAY_*` / OIDC, `ENV.md` + `config/env-policy.json`) fortfarande har öppna kryss. När de är gjorda eller medvetet nedprioriterade: flytta till `docs/plans/archived/` enligt [documentation-lifecycle.md](../../architecture/documentation-lifecycle.md).
+**Status:** **Active** — kärnan **WS-1–WS-4** är levererad (2026-03-18/19). **WS-6** är **avklarad** med produktbeslut **2026-03-26:** behåll **D-ID** (`/avatar`), behåll **OpenClaw**, **Brave Search** och **Loopia** förblir **optional** (som idag). Filen är **inte** arkiverad därför att **WS-5** (stora filer / research-hygien) och **deferred** städ (`AI_GATEWAY_*` / OIDC, `ENV.md` + `config/env-policy.json`, v0 SDK/`V0_API_KEY`) fortfarande har öppna kryss. När de är gjorda eller medvetet nedprioriterade: flytta till `docs/plans/archived/` enligt [documentation-lifecycle.md](../../architecture/documentation-lifecycle.md).
 
 **Skilj från external-review 100%:** Plan 17 är ett **separat** arkitektur-/dependency-spår, inte samma sak som *remediation exit* i [`archived/external-review-execution/REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md).
 
@@ -98,14 +98,14 @@ Create a `StorageProvider` interface so blob storage can be swapped:
 Audit note:
 - `2026-03-19`: requested PowerShell scan of `src/**/*.json` over `1 MB` returned no matches, so this repo slice currently needs neither `.gitignore` additions nor `git rm --cached`.
 
-### WS-6: Optional service scope decisions
+### WS-6: Optional service scope decisions — **KLAR 2026-03-26**
 
-Decide keep/remove for low-coupling optional services:
+Produktbeslut (ägare): **behåll** D-ID och OpenClaw; Brave Search och Loopia **behålls som optional** (oförändrad riktning).
 
-- [ ] **D-ID avatar** (`/avatar` route) — coupling 5/5, isolated. Keep or remove?
-- [ ] **OpenClaw** (agent feature) — coupling 5/5, isolated. Keep or remove?
-- [ ] **Brave Search** (wizard context) — coupling 2/5. Keep as optional.
-- [ ] **Loopia** (.se domains) — coupling 3/5. Keep as optional.
+- [x] **D-ID avatar** (`/avatar` route) — **behåll** (isolerad, coupling 5/5).
+- [x] **OpenClaw** (agent feature) — **behåll** (isolerad, coupling 5/5).
+- [x] **Brave Search** (wizard context) — **behåll som optional** (coupling 2/5).
+- [x] **Loopia** (.se domains) — **behåll som optional** (coupling 3/5).
 
 ## Recommended execution order
 
@@ -114,7 +114,7 @@ Decide keep/remove for low-coupling optional services:
 3. WS-4 (gateway replacement) — removes Vercel runtime dependency
 4. WS-3 (blob abstraction) — enables future hosting flexibility
 5. WS-5 (large files) — reduces git/indexing overhead
-6. WS-6 (service decisions) — user decision, no rush
+6. WS-6 (service decisions) — **klar 2026-03-26** (behåll D-ID, OpenClaw; Brave + Loopia optional)
 
 ## Success criteria
 

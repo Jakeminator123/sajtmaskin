@@ -19,12 +19,14 @@
 - [ ] Utvärdera `research/` — separat repo/submodule eller tydlig “research-only” policy.
 - [ ] Städa `docs/old/` — ta bort eller arkivera det som saknar referensvärde.
 
-## WS-6: Optional services (beslut)
+## WS-6: Optional services — **beslut 2026-03-26**
 
-- [ ] **D-ID** (`/avatar`) — keep eller remove?
-- [ ] **OpenClaw** — keep eller remove?
-- [ ] **Brave Search** — keep som optional (redan låg coupling).
-- [ ] **Loopia** — keep som optional.
+- [x] **D-ID** (`/avatar`) — **behåll** (produkt).
+- [x] **OpenClaw** — **behåll** (produkt).
+- [x] **Brave Search** — **behåll som optional**.
+- [x] **Loopia** — **behåll som optional**.
+
+Se [`17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md) § WS-6.
 
 ## Acceptans (för att arkivera hela plan 17)
 

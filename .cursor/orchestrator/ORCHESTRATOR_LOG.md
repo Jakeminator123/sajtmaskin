@@ -1,3 +1,5 @@
+2026-03-26 — **Plan 17 WS-6:** Produktbeslut — behåll D-ID (`/avatar`) och OpenClaw; Brave Search + Loopia fortsätter optional. Uppdaterat: plan 17, `PLAN-REPO-SEPARATION-OPEN`, `COMPLETION-ROADMAP`, `KORFIL`, `REMAINING-WORK`; push `origin/master`.
+
 2026-03-25 — **Post-exit queue:** `docs/plans/active/queue/KORFIL.md` (3 punkter) + `PLAN-KRITIK-OPEN` / `PLAN-REPO-SEPARATION-OPEN` / `PLAN-DRIFT-VERIFICATION`; `REMAINING-WORK` + hubs; orchestrator-run `2026-03-25-post-exit-backlog-queue` arkiverad lokalt.
 
 2026-03-25 — **Plans:** `docs/plans/active/external-review-execution/*` (utom stub README) → `docs/plans/archived/external-review-execution/`; länkar (progress, REMAINING-WORK, hubs, `e2e/README`, `KRITIK-OVERVIEW`, regler, arkiverad workload-banner); `preview-and-sandbox-flow.md` + `sandbox-preview.ts` — tydliggör dev-sandbox vs `npm run build`; push `origin/master`.

@@ -14,7 +14,7 @@
 
 ## Är plan 17 gammal?
 
-**Nej** — WS-1–WS-4 levererade; WS-5/WS-6/deferred är öppna tills gjorda eller nedprioriterade. Se plan 17 + [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md).
+**Nej** — WS-1–WS-4 levererade; **WS-6 beslutad 2026-03-26** (behåll D-ID, OpenClaw; Brave + Loopia optional). **WS-5** + **deferred** kvar. Se plan 17 + [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md).
 
 ## Uppdatering
 

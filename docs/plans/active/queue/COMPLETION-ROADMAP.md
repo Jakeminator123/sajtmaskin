@@ -8,25 +8,26 @@
 |------|--------|-----------|
 | **External-review remediation (1.txt–3.txt, W1–W5)** | **~100 %** | Avslutat per `REMEDIATION-EXIT` — inget mer i *det* spåret. |
 | **Kritik-tabellen (K-rader)** | **4 öppna / ~11 teman** | Ungefär **⅓ av raderna** fortfarande `[ ]`, men de fyra är de **tyngsta** (deploy-policy, landningssignoff, SSE/own-engine utanför track, juridik/copy). |
-| **Plan 17** | **12 öppna kryss** | Deferred v0/gateway + WS-5 (städ/filstorlek/docs/old) + WS-6 (**4 produktbeslut**). |
+| **Plan 17** | **8 öppna kryss** | Deferred v0/gateway + WS-5. **WS-6 klar 2026-03-26** (behåll D-ID, OpenClaw; Brave + Loopia optional). |
 
 **Samlad bedömning:** Av *allt som historiskt körts* fram till remediation-exit är **execution-spåret i princip färdigt**. Det som återstår är **medvetet efterkvar** — ofta **dagar–veckor** per större punkt om man ska göra det ordentligt, inte «en eftermiddag».
 
-Det går **inte** att på ett ansvarsfullt sätt «köra allt» i en agent-session utan att du först svarar på **keep/remove** (D-ID, OpenClaw) och policy för **deploy auto-fix** (K-007), **landning klar** (K-008), **SSE-scope** (K-009), **juridisk copy** (K-014).
+Det går **inte** att på ett ansvarsfullt sätt «köra allt» i en agent-session utan att du först svarar på policy för **deploy auto-fix** (K-007), **landning klar** (K-008), **SSE-scope** (K-009), **juridisk copy** (K-014). **WS-6 är besvarad** (2026-03-26).
 
 ---
 
 ## Fas A — Beslut du måste ta (blockerar kod)
 
-Skriv gärna svar direkt i Plan 17 / i en issue så agenter kan implementera.
+### Beslut tagna
 
-1. **WS-6:** D-ID (`/avatar`) — **behåll eller ta bort?**  
-2. **WS-6:** OpenClaw — **behåll eller ta bort?**  
-3. **WS-6:** Brave Search / Loopia — oftast **behåll optional**; bekräfta om annat.  
-4. **K-007:** Ska auto-fix före deploy vara **strammare**, **oförändrat**, eller **tydligare opt-in/opt-out**?  
-5. **K-008:** Är landningen **produktklar** eller ska raden omformuleras till tydliga återstående UI-punkter?  
-6. **K-009:** Vilken **produkt-scope** gäller för own-engine SSE *utanför* avslutad W3-track?  
-7. **K-014:** Godkänn footer/juridik-copy och ev. sidor — **text/länkar klara?**
+- **WS-6 (2026-03-26):** **Behåll** D-ID (`/avatar`) och **OpenClaw**. **Brave Search** och **Loopia** **behålls som optional** — se Plan 17 § WS-6.
+
+### Kvar
+
+1. **K-007:** Ska auto-fix före deploy vara **strammare**, **oförändrat**, eller **tydligare opt-in/opt-out**?  
+2. **K-008:** Är landningen **produktklar** eller ska raden omformuleras till tydliga återstående UI-punkter?  
+3. **K-009:** Vilken **produkt-scope** gäller för own-engine SSE *utanför* avslutad W3-track?  
+4. **K-014:** Godkänn footer/juridik-copy och ev. sidor — **text/länkar klara?**
 
 ---
 
