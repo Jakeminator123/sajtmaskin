@@ -1,5 +1,20 @@
 # Plan 17: Repo Separation and Independence
 
+### Hur du ska läsa den här filen (viktigt)
+
+Den här planen kommer från **STOR_MIGRATION**-analysen (2026-03-18) och har **mycket** som fortfarande är användbart: dependency map, levererade workstreams, deferred-kryss med **ägarbeslut** (t.ex. v0 separat, ENV låg prio).  
+**Den är inte alltid den nyaste sanningen om prioritering eller implementation.** Nyare eller mer specifik styrning finns i:
+
+- **[`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md)** — operativ kö, K-018/K-019, fidelity § 0  
+- **[`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md)** — K-tabell med `[ ]` / `[x]`  
+- **[`AGENT-HANDOFF-RESTERANDE.md`](./AGENT-HANDOFF-RESTERANDE.md)** — kort «vad är öppet»  
+- **[`docs/architecture/engine-status.md`](../../architecture/engine-status.md)** — hur own engine / builder faktiskt fungerar **nu**  
+- **[`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt)** — produktintent som kan **override:a** äldre formuleringar här  
+
+**Regel vid konflikt:** Om **nuvarande kod** eller **nyare plan-/kritik-dokument** säger något annat än denna fil — **följ kod + MASTER/kritik/fidelity** och uppdatera **medvetet** denna plan (eller markera punkter **N/A** med datum) så historiken inte luras.
+
+---
+
 **Status:** **Active** — kärnan **WS-1–WS-4** är levererad (2026-03-18/19). **WS-6** är **avklarad** med produktbeslut **2026-03-26:** behåll **D-ID** (`/avatar`), behåll **OpenClaw**, **Brave Search** och **Loopia** förblir **optional** (som idag). **Ägarbeslut samma dag (B–I):** **v0 SDK / `V0_API_KEY`** förblir **avsiktligt separerat** (ingen nära fas-ut); **`ENV.md` / `env-policy`** = **låg prio**, dokumentera nuvarande sanning före hård städ; **`research/`** = kort policy i § WS-5; **`docs/old/`** = aggressiv städ **i separata PR** med inventering före radering. Filen är **inte** arkiverad förrän WS-5/deferred är gjorda eller uttryckligen nedprioriterade i planen. När kryssen är bockade eller N/A: flytta till `docs/plans/avklarat/` enligt [documentation-lifecycle.md](../../architecture/documentation-lifecycle.md).
 
 **Skilj från external-review 100%:** Plan 17 är ett **separat** arkitektur-/dependency-spår, inte samma sak som *remediation exit* i [`avklarat/external-review-execution/REMEDIATION-EXIT.md`](../avklarat/external-review-execution/REMEDIATION-EXIT.md).

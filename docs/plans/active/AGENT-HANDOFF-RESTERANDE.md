@@ -86,3 +86,5 @@ Orchestrator (`/orchestrator`) är valfritt — använd när arbetet är många 
 ## 6. Underhåll av denna fil
 
 När en K-rad stängs eller Plan 17-kryss bockas: uppdatera **källfilerna** först, sedan **§ 1–3** här så nästa agent inte får intrycket att något fortfarande är öppet. Vid större omstrukturering kan denna fil ersättas av en ny sammanfattning med nytt datum i § 0.
+
+**Ändringshistorik (ungefär, plan/doc-tema):** [`DOKUMENTATION-ANDRINGAR-SAMMANFATTNING.md`](./DOKUMENTATION-ANDRINGAR-SAMMANFATTNING.md)
