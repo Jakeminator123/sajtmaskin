@@ -131,6 +131,14 @@ export type DesignTokenSummary = {
 export type SandboxBuildErrorPayload = {
   stage: string;
   message: string;
+  /** Own-engine shim `/api/preview-render` when sandbox failed after `done` omitted it. */
+  fallbackDemoUrl?: string | null;
+};
+
+/** `npm run build` in Vercel sandbox after dev — separate from shim / dev preview. */
+export type SandboxProdBuildPayload = {
+  verified: boolean;
+  logSnippet?: string;
 };
 
 export type VersionErrorLogPayload = {
@@ -173,6 +181,7 @@ export type ChatMessagingParams = {
   setCurrentDemoUrl: (url: string | null) => void;
   /** Cleared on sandbox-ready; set on SSE build-error for inline preview UI. */
   setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
+  setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
   onPreviewRefresh?: () => void;
   onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
   onV0ProjectId?: (projectId: string) => void;

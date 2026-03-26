@@ -208,4 +208,150 @@ describe("handleSseStream", () => {
     expect(triggerImageMaterialization).not.toHaveBeenCalled();
     expect(toast.warning).not.toHaveBeenCalled();
   });
+
+  it("sets sandbox prod-build state on sandbox-ready with prodBuildVerified", async () => {
+    const setSandboxProdBuild = vi.fn();
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            demoUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+        onEvent(
+          "sandbox-ready",
+          {
+            sandboxUrl: "https://sandbox.example",
+            sandboxId: "sb_1",
+            prodBuildVerified: false,
+            prodBuildLogSnippet: "Error: failed",
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+    const ctxWithProd = { ...ctx, setSandboxProdBuild };
+
+    await handleSseStream(new Response(null), ctxWithProd, new AbortController().signal);
+
+    expect(setSandboxProdBuild).toHaveBeenCalledWith({
+      verified: false,
+      logSnippet: "Error: failed",
+    });
+    expect(spies.setCurrentDemoUrl).toHaveBeenCalledWith("https://sandbox.example");
+  });
+
+  it("does not replace demoUrl on empty sandbox-ready (build_only) but records prod build", async () => {
+    const setSandboxProdBuild = vi.fn();
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            demoUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+        onEvent(
+          "sandbox-ready",
+          {
+            sandboxUrl: "",
+            sandboxId: "sb_1",
+            sandboxPreviewMode: "build_only",
+            fidelityTier: 3,
+            prodBuildVerified: true,
+            fallbackDemoUrl: "https://shim.example",
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(
+      new Response(null),
+      { ...ctx, setSandboxProdBuild },
+      new AbortController().signal,
+    );
+
+    expect(setSandboxProdBuild).toHaveBeenCalledWith({
+      verified: true,
+      logSnippet: undefined,
+    });
+    expect(spies.setCurrentDemoUrl).toHaveBeenCalledTimes(1);
+    expect(spies.setCurrentDemoUrl).toHaveBeenCalledWith("https://shim.example");
+  });
+
+  it("applies fallbackDemoUrl from build-error when sandbox fails after deferred shim", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            demoUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+        onEvent(
+          "build-error",
+          {
+            stage: "install",
+            message: "npm failed",
+            fallbackDemoUrl: "https://shim.example/fallback",
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(spies.setCurrentDemoUrl).toHaveBeenCalledWith("https://shim.example/fallback");
+  });
 });

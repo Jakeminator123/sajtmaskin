@@ -3,6 +3,7 @@ import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/pr
 import type {
   AutoFixPayload,
   SandboxBuildErrorPayload,
+  SandboxProdBuildPayload,
   SetMessages,
   StreamQualitySignal,
 } from "./types";
@@ -44,6 +45,7 @@ export type StreamContext = {
 
   setCurrentDemoUrl: (url: string | null) => void;
   setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
+  setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
   onPreviewRefresh?: () => void;
   onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
   mutateVersions: () => void;
@@ -93,6 +95,7 @@ export async function handleSseStream(
     onV0ProjectId,
     setCurrentDemoUrl,
     setSandboxBuildError,
+    setSandboxProdBuild,
     onPreviewRefresh,
     onGenerationComplete,
     mutateVersions,
@@ -107,6 +110,7 @@ export async function handleSseStream(
     if (step === "autofix") return "Autofix";
     if (step === "validation") return "Validering";
     if (step === "finalizing") return "Finalisering";
+    if (step === "sandbox") return "Sandbox";
     return step;
   };
 
@@ -170,6 +174,16 @@ export async function handleSseStream(
         if (fileCount !== null) details.push(`Filer i versionen: ${fileCount}.`);
         if (versionId) details.push(`Version: ${versionId}.`);
         return details;
+      }
+    }
+    if (step === "sandbox") {
+      if (phase === "build-verified") {
+        return ["Production build (npm run build) lyckades i sandbox — separat från dev-preview."];
+      }
+      if (phase === "build-failed") {
+        return [
+          "Production build misslyckades i sandbox. Dev-server-preview kan ändå vara användbar.",
+        ];
       }
     }
     return [`${getProgressToolName(step)}: ${phase}`];
@@ -526,16 +540,69 @@ export async function handleSseStream(
           }
           case "sandbox-ready": {
             const sandboxData = data as Record<string, unknown>;
-            if (sandboxData.sandboxUrl) {
-              const sandboxUrl = sandboxData.sandboxUrl as string;
-              setSandboxBuildError?.(null);
+            const sandboxUrl =
+              typeof sandboxData.sandboxUrl === "string"
+                ? sandboxData.sandboxUrl.trim()
+                : "";
+
+            setSandboxBuildError?.(null);
+
+            if (sandboxUrl) {
               setCurrentDemoUrl(sandboxUrl);
               onPreviewRefresh?.();
-              // Post-check is queued at `done` with shim URL; upgrade when sandbox arrives in the same stream.
               const pendingPost = postCheckQueue[postCheckQueue.length - 1];
               if (pendingPost) {
                 pendingPost.demoUrl = sandboxUrl;
               }
+            } else {
+              const fb =
+                typeof sandboxData.fallbackDemoUrl === "string"
+                  ? sandboxData.fallbackDemoUrl.trim()
+                  : "";
+              if (fb) {
+                setCurrentDemoUrl(fb);
+                onPreviewRefresh?.();
+                const pendingPost = postCheckQueue[postCheckQueue.length - 1];
+                if (pendingPost) {
+                  pendingPost.demoUrl = fb;
+                }
+              }
+            }
+
+            const tierMeta =
+              typeof sandboxData.fidelityTier === "number"
+                ? {
+                    fidelityTier: sandboxData.fidelityTier,
+                    ...(typeof sandboxData.sandboxPreviewMode === "string"
+                      ? { sandboxPreviewMode: sandboxData.sandboxPreviewMode }
+                      : {}),
+                  }
+                : {};
+
+            const pb =
+              typeof sandboxData.prodBuildVerified === "boolean"
+                ? sandboxData.prodBuildVerified
+                : undefined;
+            if (pb !== undefined) {
+              const logSnippet =
+                typeof sandboxData.prodBuildLogSnippet === "string"
+                  ? sandboxData.prodBuildLogSnippet
+                  : undefined;
+              setSandboxProdBuild?.({
+                verified: pb,
+                logSnippet: !pb ? logSnippet : undefined,
+              });
+              appendProgressPart(
+                "sandbox",
+                pb ? "build-verified" : "build-failed",
+                { prodBuildVerified: pb, ...tierMeta },
+              );
+            } else if (sandboxUrl) {
+              setSandboxProdBuild?.(null);
+            }
+
+            if (sandboxUrl && Object.keys(tierMeta).length > 0 && pb === undefined) {
+              appendProgressPart("sandbox", "ready", tierMeta);
             }
             break;
           }
@@ -543,9 +610,26 @@ export async function handleSseStream(
             const buildErrorData = data as Record<string, unknown>;
             const stage = String(buildErrorData.stage ?? "build");
             const message = String(buildErrorData.message ?? "Build failed");
-            setSandboxBuildError?.({ stage, message });
+            const fallbackRaw = buildErrorData.fallbackDemoUrl;
+            const fallbackDemoUrl =
+              typeof fallbackRaw === "string" && fallbackRaw.trim() ? fallbackRaw.trim() : "";
+            setSandboxBuildError?.({
+              stage,
+              message,
+              ...(fallbackDemoUrl ? { fallbackDemoUrl } : {}),
+            });
             appendProgressPart("build-error", "error", { stage, message });
-            toast.error(`Sandbox / build: [${stage}] ${message.slice(0, 500)}`);
+            if (fallbackDemoUrl) {
+              setCurrentDemoUrl(fallbackDemoUrl);
+              onPreviewRefresh?.();
+              const pendingPost = postCheckQueue[postCheckQueue.length - 1];
+              if (pendingPost) {
+                pendingPost.demoUrl = fallbackDemoUrl;
+              }
+            }
+            toast.error(
+              `Sandbox-preview gick inte [${stage}]: ${message.slice(0, 400)}. Statisk förhandsvisning används.`,
+            );
             break;
           }
           case "done": {

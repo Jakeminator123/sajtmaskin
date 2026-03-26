@@ -46,9 +46,23 @@ export type BuilderTextPayload =
       reasoning?: string;
     };
 
+export type BuilderSandboxPreviewMode = "dev_only" | "build_only" | "dev_then_build";
+
 export type BuilderSandboxReadyPayload = {
+  /**
+   * Empty when `sandboxPreviewMode` is `build_only` without a dev URL — client may use
+   * `fallbackDemoUrl` (shim) so iframe is not blank while tier-3 build metadata still applies.
+   */
   sandboxUrl: string;
   sandboxId: string;
+  sandboxPreviewMode?: BuilderSandboxPreviewMode;
+  /** 2 = dev preview path without prod build step; 3 = build step ran in sandbox. */
+  fidelityTier?: 2 | 3;
+  /** Present when sandbox ran `npm run build` (after dev or `build_only`). */
+  prodBuildVerified?: boolean;
+  prodBuildLogSnippet?: string;
+  /** Own-engine `/api/preview-render` when `sandboxUrl` is empty but shim exists. */
+  fallbackDemoUrl?: string;
 };
 
 export type BuilderBuildErrorPayload = {

@@ -23,6 +23,7 @@ import { useCssValidation } from "@/lib/hooks/useCssValidation";
 import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
 import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
 import { useChatMessaging } from "@/lib/hooks/chat";
+import type { SandboxProdBuildPayload } from "@/lib/hooks/chat/types";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { useChatReadiness } from "@/lib/hooks/useChatReadiness";
 import { useAuth } from "@/lib/auth/auth-store";
@@ -240,15 +241,18 @@ export function useBuilderPageController() {
     stage: string;
     message: string;
   } | null>(null);
+  const [sandboxProdBuild, setSandboxProdBuild] = useState<SandboxProdBuildPayload | null>(null);
 
   const clearSandboxBuildError = useCallback(() => {
     setSandboxBuildError(null);
+    setSandboxProdBuild(null);
   }, []);
 
   const resetBeforeCreateChat = useCallback(() => {
     setCurrentDemoUrl(null);
     setPreviewRefreshToken(0);
     setSandboxBuildError(null);
+    setSandboxProdBuild(null);
   }, [setCurrentDemoUrl, setPreviewRefreshToken]);
 
   const bumpPreviewRefreshToken = useCallback(() => {
@@ -283,6 +287,7 @@ export function useBuilderPageController() {
       mutateVersions,
       setCurrentDemoUrl: state.setCurrentDemoUrl,
       setSandboxBuildError,
+      setSandboxProdBuild,
       onPreviewRefresh: bumpPreviewRefreshToken,
       onGenerationComplete: deployActions.handleGenerationComplete,
       onV0ProjectId: (nextId) => state.setV0ProjectId(nextId),
@@ -1173,19 +1178,38 @@ export function useBuilderPageController() {
     const canUseServerDemoUrl =
       !serverProjectChatId || !chatId || serverProjectChatId === chatId;
     const preferV0HostedPreview = isV0BuilderPreviewFallbackEnabledInBrowser();
-    const v0HostedDemoUrl =
-      activeVersionMatch?.demoUrl?.includes("vusercontent.net") === true
-        ? activeVersionMatch.demoUrl
-        : null;
+    const pickVersionPreviewUrl = (
+      v: (typeof derived.effectiveVersionsList)[number] | undefined,
+    ): string | null => {
+      if (!v) return null;
+      const sand = v.sandboxUrl;
+      if (typeof sand === "string" && sand.trim()) return sand.trim();
+      const du = v.demoUrl;
+      if (preferV0HostedPreview && typeof du === "string" && du.includes("vusercontent.net")) {
+        return du;
+      }
+      return typeof du === "string" && du.trim() ? du.trim() : null;
+    };
+    const firstListed = derived.effectiveVersionsList[0];
+    const chatLatest = chatObj?.latestVersion;
+    const chatLevelPreview =
+      (typeof chatLatest?.sandboxUrl === "string" && chatLatest.sandboxUrl.trim()
+        ? chatLatest.sandboxUrl.trim()
+        : null) ||
+      (typeof chatObj?.demoUrl === "string" && chatObj.demoUrl.trim() ? chatObj.demoUrl.trim() : null) ||
+      (typeof chatLatest?.demoUrl === "string" && chatLatest.demoUrl.trim()
+        ? chatLatest.demoUrl.trim()
+        : null) ||
+      null;
+
     const nextDemoUrl =
       persistedPreviewOverride ||
-      activeVersionMatch?.sandboxUrl ||
-      (preferV0HostedPreview && v0HostedDemoUrl ? v0HostedDemoUrl : null) ||
-      activeVersionMatch?.demoUrl ||
-      chatObj?.demoUrl ||
-      chatObj?.latestVersion?.demoUrl ||
-      derived.effectiveVersionsList[0]?.demoUrl ||
-      (canUseServerDemoUrl ? serverProjectDemoUrl : null) ||
+      pickVersionPreviewUrl(activeVersionMatch) ||
+      chatLevelPreview ||
+      pickVersionPreviewUrl(firstListed) ||
+      (canUseServerDemoUrl && typeof serverProjectDemoUrl === "string" && serverProjectDemoUrl.trim()
+        ? serverProjectDemoUrl.trim()
+        : null) ||
       null;
 
     if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
@@ -1371,6 +1395,7 @@ export function useBuilderPageController() {
     paletteState: state.paletteState,
     currentDemoUrl: state.currentDemoUrl,
     sandboxBuildError,
+    sandboxProdBuild,
     clearSandboxBuildError,
     serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,

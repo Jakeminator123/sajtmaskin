@@ -234,13 +234,32 @@ export function createOwnEngineGenerationStream(
           });
         }
 
+        let parsedForSandbox: CodeFile[] = [];
+        let sandboxParseError: unknown = null;
+        if (isSandboxConfigured() && finalized.contentForVersion) {
+          try {
+            parsedForSandbox = parseCodeProject(finalized.contentForVersion).files;
+          } catch (e) {
+            sandboxParseError = e;
+          }
+        }
+        const sandboxWillRun =
+          isSandboxConfigured() &&
+          Boolean(finalized.contentForVersion) &&
+          parsedForSandbox.length > 0;
+        const doneDemoUrl = sandboxWillRun ? null : finalized.previewUrl;
+        const shimFallback =
+          finalized.previewUrl && finalized.previewUrl.trim()
+            ? { fallbackDemoUrl: finalized.previewUrl.trim() }
+            : {};
+
         safeEnqueue(
           enc.encode(
             formatSSEEvent("done", {
               chatId,
               versionId: finalized.version.id,
               messageId: finalized.messageId,
-              demoUrl: finalized.previewUrl,
+              demoUrl: doneDemoUrl,
               preflight: finalized.preflight,
               previewBlocked: finalized.preflight.previewBlocked,
               verificationBlocked: finalized.preflight.verificationBlocked,
@@ -253,50 +272,112 @@ export function createOwnEngineGenerationStream(
           type: "site.done",
           chatId,
           versionId: finalized.version.id,
-          demoUrl: finalized.previewUrl,
+          demoUrl: doneDemoUrl ?? finalized.previewUrl,
+          sandboxPreviewDeferred: sandboxWillRun,
           durationMs: Date.now() - engineStartedAt,
         });
         devLogFinalizeSite();
         await commitCredits();
 
         if (isSandboxConfigured() && finalized.contentForVersion) {
-          let parsedFiles: CodeFile[] = [];
-          try {
-            parsedFiles = parseCodeProject(finalized.contentForVersion).files;
-          } catch {
-            /* best-effort */
-          }
-
-          if (parsedFiles.length > 0) {
-            safeEnqueue(enc.encode(formatSSEEvent("progress", { stage: "sandbox-starting" })));
+          if (parsedForSandbox.length > 0) {
+            safeEnqueue(
+              enc.encode(
+                formatSSEEvent("progress", { step: "sandbox", phase: "starting" }),
+              ),
+            );
 
             try {
-              const sandboxResult = await startSandboxPreview(parsedFiles);
+              const chatRow = await chatRepo.getChat(chatId);
+              const appProjectId =
+                typeof chatRow?.project_id === "string" && chatRow.project_id.trim()
+                  ? chatRow.project_id.trim()
+                  : null;
+              const sandboxResult = await startSandboxPreview(parsedForSandbox, {
+                appProjectId,
+                chatId,
+              });
               if (sandboxResult.ok) {
+                const sr = sandboxResult.result;
+                const sandboxUrlTrimmed = sr.sandboxUrl.trim();
+                const sandboxFallback =
+                  !sandboxUrlTrimmed &&
+                  finalized.previewUrl &&
+                  finalized.previewUrl.trim()
+                    ? { fallbackDemoUrl: finalized.previewUrl.trim() }
+                    : {};
                 safeEnqueue(
                   enc.encode(
                     formatSSEEvent("sandbox-ready", {
-                      sandboxUrl: sandboxResult.result.sandboxUrl,
-                      sandboxId: sandboxResult.result.sandboxId,
+                      sandboxUrl: sr.sandboxUrl,
+                      sandboxId: sr.sandboxId,
+                      sandboxPreviewMode: sr.sandboxPreviewMode,
+                      fidelityTier: sr.fidelityTier,
+                      prodBuildVerified: sr.prodBuildVerified,
+                      ...(sr.prodBuildLogSnippet
+                        ? { prodBuildLogSnippet: sr.prodBuildLogSnippet }
+                        : {}),
+                      ...sandboxFallback,
                     }),
                   ),
                 );
-                chatRepo
-                  .updateVersionSandboxUrl(finalized.version.id, sandboxResult.result.sandboxUrl)
-                  .catch(() => {});
+                if (sr.sandboxUrl.trim()) {
+                  chatRepo
+                    .updateVersionSandboxUrl(finalized.version.id, sr.sandboxUrl)
+                    .catch(() => {});
+                }
               } else {
-                safeEnqueue(enc.encode(formatSSEEvent("build-error", sandboxResult.error)));
+                warnLog("engine", "sandbox_preview_failed_shim_fallback", {
+                  chatId,
+                  versionId: finalized.version.id,
+                  stage: sandboxResult.error.stage,
+                  message: sandboxResult.error.message,
+                });
+                safeEnqueue(
+                  enc.encode(
+                    formatSSEEvent("build-error", { ...sandboxResult.error, ...shimFallback }),
+                  ),
+                );
               }
             } catch (err) {
+              const message = err instanceof Error ? err.message : "Sandbox failed";
+              warnLog("engine", "sandbox_preview_failed_shim_fallback", {
+                chatId,
+                versionId: finalized.version.id,
+                stage: "sandbox-create",
+                message,
+              });
               safeEnqueue(
                 enc.encode(
                   formatSSEEvent("build-error", {
                     stage: "sandbox-create" as const,
-                    message: err instanceof Error ? err.message : "Sandbox failed",
+                    message,
+                    ...shimFallback,
                   }),
                 ),
               );
             }
+          } else {
+            const message =
+              sandboxParseError instanceof Error
+                ? `Kunde inte tolka genererade filer för sandbox: ${sandboxParseError.message}`
+                : "Inga filer att köra i sandbox — projektstruktur saknas.";
+            warnLog("engine", "sandbox_preview_failed_shim_fallback", {
+              chatId,
+              versionId: finalized.version.id,
+              stage: "sandbox-create",
+              message,
+              parseFailed: Boolean(sandboxParseError),
+            });
+            safeEnqueue(
+              enc.encode(
+                formatSSEEvent("build-error", {
+                  stage: "sandbox-create" as const,
+                  message,
+                  ...shimFallback,
+                }),
+              ),
+            );
           }
         }
       };
