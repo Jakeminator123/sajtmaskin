@@ -1,15 +1,9 @@
-# Historical Docs
+# `docs/old/` — pekare (innehåll flyttat)
 
-This folder is reserved for superseded or uncertain documentation that should
-stay in the repo only for reference and change-tracing.
+Historiska dokument, analyser och loggar som tidigare låg här finns nu i:
 
-Rules:
+**[`docs/plans/avklarat/2026-03-docs-old-archive/`](../plans/avklarat/2026-03-docs-old-archive/)**
 
-- do not treat files here as current source of truth
-- prefer moving stale canonical docs here instead of keeping overlapping copies
-- keep new stable docs under `docs/architecture/`, `docs/schemas/`, or
-  `docs/old/analyses/` as appropriate
-- keep raw chat logs, terminal captures, and other low-signal transcripts under
-  `docs/old/transcripts/` when they are worth preserving for traceability
+- Där: `analyses/`, `transcripts/`, `schemas/`, `2026-03-holding-area/`, samt `INVENTORY-2026-03-26.md`.
 
-See also: [Documentation lifecycle](../architecture/documentation-lifecycle.md) and [docs hub](../README.md).
+**Nytt arbetsmaterial** ska inte läggas i denna mapp — använd `docs/plans/active/`, `docs/architecture/`, eller vid behov lägg utkast i `docs/plans/review-needed/` enligt [documentation lifecycle](../architecture/documentation-lifecycle.md).

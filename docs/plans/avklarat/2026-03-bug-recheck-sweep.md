@@ -23,7 +23,7 @@ environment during closeout.
 - Confirmed bugs were validated and fixed sequentially.
 - Adjacent confirmed issues discovered during implementation were folded into the
   relevant pass when they were directly connected.
-- Full execution trace lives in `docs/old/analyses/bug-recheck-sweep-ledger.md`.
+- Full execution trace lives in `docs/plans/avklarat/2026-03-docs-old-archive/analyses/bug-recheck-sweep-ledger.md`.
 
 ## Completed sweep order
 
@@ -60,3 +60,4 @@ environment during closeout.
 If the archive bucket becomes writable later, this file can be moved from
 `docs/plans/review-needed/` to `docs/plans/avklarat/` without changing its
 substance.
+

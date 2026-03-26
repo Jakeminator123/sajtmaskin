@@ -4,7 +4,7 @@
 
 ## Goal
 Fix the highest-risk runtime bugs and configuration drift identified in the
-March 2026 deep-research audit (`docs/old/analyses/2026-03-deep-research-buggar-overlapp.md`).
+March 2026 deep-research audit (`docs/plans/avklarat/2026-03-docs-old-archive/analyses/2026-03-deep-research-buggar-overlapp.md`).
 
 These are production-safety issues that can cause economic leaks, false alarms,
 or undefined abort behavior.
@@ -89,3 +89,4 @@ Primary code:
 2. Harmonize token defaults (config + code + docs)
 3. Condition DATA_DIR warning
 4. Add supportsCancellation
+

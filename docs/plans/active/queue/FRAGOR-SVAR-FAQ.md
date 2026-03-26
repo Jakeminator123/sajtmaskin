@@ -66,7 +66,7 @@ Om **vercel-templates**-specen failar: troligen **ändrad webb**, **cookies**, e
 | **F1** | **v0** (SDK + `V0_API_KEY`) **avsiktligt separerat** — ingen fas-ut i närtid; deferred kvar tills egen plan. |
 | **G1** | **b)** Låg prio — **dokumentera nuvarande sanning** i `ENV.md` / `env-policy` före hård schemarensning. |
 | **H1** | **c)** Kort **policy** för `research/` (se Plan 17 § WS-5). |
-| **H2** | **c)** **Aggressiv** städ av `docs/old/` — **kör i separata PR** med filinventering före radering. |
+| **H2** | **c)** **`docs/old`:** innehåll **flyttat** till `docs/plans/avklarat/2026-03-docs-old-archive/` (2026-03-26); rot = pekare. |
 | **B1 (preview)** | Användarsidor: **React-kvalitet som `npm run dev`**, samma i **`iframe`** → **K-018** (öppen). |
 | **C1** | Landning: **ingen utökning av material nu**; fokus användarsidor → **K-008 [x]**. |
 | **D1** | FAQ/innehåll på **Sajtmaskins** sajt **sekundärt**; **K-009** = SSE/own-engine-scope. |

@@ -110,4 +110,5 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 
 ## Archived docs
 
-Older scaffold schema notes were archived under `docs/old/schemas/`.
+Older scaffold schema notes were archived under `docs/plans/avklarat/2026-03-docs-old-archive/schemas/`.
+

@@ -185,7 +185,7 @@ Uppdatera **både** denna lista och [`17-repo-separation-and-independence.md`](.
 - [ ] Stora JSON: `.gitignore` (inte bara `.cursorignore`) om nya filer tillkommer
 - [ ] Ev. git-lfs / build-time generation > 1 MB
 - [ ] `research/` — policy enligt plan 17 (extern rådata, inte hårdkrav för `npm run dev`)
-- [ ] `docs/old/` — aggressiv städ i **separata PR** med **inventering före radering**
+- [x] `docs/old/` — flyttad till **`docs/plans/avklarat/2026-03-docs-old-archive/`** (2026-03-26); `docs/old/` = pekare
 
 **WS-6:** klar 2026-03-26 (D-ID, OpenClaw; Brave + Loopia optional).
 

@@ -17,7 +17,7 @@ export default defineConfig({
       "node_modules/**",
       ".next/**",
       "old/**",
-      "docs/old/**",
+      "docs/plans/avklarat/2026-03-docs-old-archive/**",
       "e2e/**",
       "vercel_templates_levels/**",
       "research/**",

@@ -15,7 +15,7 @@
 | **K-019** | Promptkedja: orchestration-kontext (delar levererade: snapshot-kolumn, follow-up prepend); **kvar:** merge-policy, ev. UI, ev. sync create | **Hög**; se [`queue/PLAN-K019-PROMPT-SNAPSHOT.md`](./queue/PLAN-K019-PROMPT-SNAPSHOT.md) |
 | **K-007** | Deploy: policy för auto-fix / stramare validering före deploy (delmoment: strikta JSON-filer i version) | **Hög**; produktbeslut |
 | **K-009** | Own-engine SSE / scope **utanför** stängd W3 — **inte** marknads-FAQ | **Hög**; spika scope eller stäng med motivering |
-| **Plan 17** | WS-5 (stor fil / `research/` / `docs/old/`) + **deferred** WS-2 (v0 SDK/env) + WS-4 (gateway-env i schema / `ENV.md`) | Mest **städ + dokumentation**; v0 **medvetet separat** (F1) |
+| **Plan 17** | WS-5 (stor fil / `research/`; **`docs/old` innehåll → `avklarat/2026-03-docs-old-archive/`**) + **deferred** WS-2 (v0 SDK/env) + WS-4 (gateway-env i schema / `ENV.md`) | Mest **städ + dokumentation**; v0 **medvetet separat** (F1) |
 
 **Stängda i kritik (referens):** K-008, K-014, K-015–K-017, C-101–C-104 — behöver normalt **inga** nya åtgärder om inget regresserat.
 
@@ -49,7 +49,7 @@
 
 - Stora JSON: `.gitignore` om nya > relevant storlek tillkommer; ev. git-lfs / build-time gen
 - `research/` — policy (extern rådata, inte hårdkrav för `npm run dev`)
-- `docs/old/` — aggressiv städ i **separata PR** med **inventering före radering**
+- `docs/old/` — **klar 2026-03-26:** material i [`docs/plans/avklarat/2026-03-docs-old-archive/`](../avklarat/2026-03-docs-old-archive/); rot = pekare
 
 **WS-6:** klar (produktbeslut 2026-03-26).
 

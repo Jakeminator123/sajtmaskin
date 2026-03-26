@@ -10,7 +10,7 @@ iteration over versions.
 
 ## Why this phase matters
 
-`docs/old/analyses/sajtmaskin-matris.md` makes the product position clear:
+`docs/plans/avklarat/2026-03-docs-old-archive/analyses/2026-03-deep-research-buggar-overlapp.md` (produktposition / gap; ingen separat `sajtmaskin-matris.md` i arkivet) makes the product position clear:
 
 - Next.js-based sites win on performance, SEO, integration depth, and future
   extensibility
@@ -50,7 +50,7 @@ real implementation in this phase:
   reliably, including smoke/save-flow QA around `PreviewPanel` and `MessageList`
 
 For a fuller implementation trace and honest remaining gaps, see
-`docs/old/analyses/phase-09-smb-growth-implementation-status.md`.
+`docs/plans/avklarat/2026-03-docs-old-archive/analyses/phase-09-smb-growth-implementation-status.md`.
 
 ## Workstreams
 
@@ -184,3 +184,5 @@ Primary code areas:
 3. Analytics/conversion configuration.
 4. Forms/integration packs.
 5. Version compare and rollback.
+
+

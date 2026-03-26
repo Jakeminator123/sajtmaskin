@@ -6,7 +6,7 @@
 This note captures the last meaningful Phase 8 uncertainty after the March 2026
 planning pass.
 
-It is intentionally placed in `docs/old/analyses/` rather than `docs/schemas/`
+It is intentionally placed in this archive folder (`analyses/`) rather than `docs/schemas/`
 because the runtime contract is not fully settled yet.
 
 ## Original gap
@@ -120,3 +120,4 @@ This analysis is now historical context rather than an open blocker.
 
 Plan 8 can be archived because the persistence/orchestration decision has been
 implemented and reflected back into the canonical docs.
+

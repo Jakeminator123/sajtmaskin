@@ -13,7 +13,7 @@ decisions, even though they are not indexed for performance reasons.
 - **`research/external-templates/reference-library/`** — curated dossiers
   that inform scaffold quality. Read when scaffold work or template library
   regeneration is discussed.
-- **`docs/old/`** and **`docs/plans/avklarat/`** — completed plans and
+- **`docs/plans/avklarat/`** — completed plans and
   historical analyses. Read when context about past decisions is needed.
 - **`.cursor/migration-archive/`** — STOR_MIGRATION analysis and agent
   transcripts. Read when discussing repo separation strategy.

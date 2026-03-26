@@ -21,7 +21,7 @@
 - [ ] Stora JSON: verifiera `.gitignore` (inte bara `.cursorignore`) om nya genererade filer tillkommer.
 - [ ] Överväg git-lfs eller build-time generation för filer > 1 MB om de börjar dyka upp i repo.
 - [ ] Utvärdera `research/` — separat repo/submodule eller följ **policy i huvudplanen** § WS-5 (H1c).
-- [ ] Städa `docs/old/` — **H2c:** aggressivt i **separata PR** med **inventering före radering**.
+- [x] Städa `docs/old/` — **H2c:** innehåll flyttat till `docs/plans/avklarat/2026-03-docs-old-archive/` (2026-03-26); inventering i arkivmappen.
 
 ## WS-6 — **klar** (beslut 2026-03-26)
 

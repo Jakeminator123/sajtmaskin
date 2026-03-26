@@ -30,7 +30,7 @@ export default defineConfig([
     "sajtmaskin/**/*",
     "base/**/*",
     "old/**/*",
-    "docs/old/**/*",
+    "docs/plans/avklarat/2026-03-docs-old-archive/**/*",
   ]),
 
   // Global rules

@@ -45,7 +45,7 @@ Status re-verified `2026-03-26` (hub + plan index + handoff drift). Earlier veri
   archived roadmap work. Planner `uiParts` now round-trip through engine chat
   storage, raw chat reload restores the review card, and the stale
   `usePlanExecution.ts` path has been removed. See
-  `docs/old/analyses/phase-08-plan-persistence-and-orchestration.md` for the
+  `docs/plans/avklarat/2026-03-docs-old-archive/analyses/phase-08-plan-persistence-and-orchestration.md` for the
   closure trace.
 - Phase `9` is now **archived / complete**. All remaining items delivered in
   orchestrator run `2026-03-18-plan9-10-completion`: team Kodvy editor,
@@ -90,7 +90,7 @@ Plans **14–16** (runtime/builder hardening), **9–10** (SMB growth + learning
 workstreams), and v0-fallback stream extraction landed via orchestrator runs
 **2026-03-17**–**2026-03-18** (e.g. commits `e3ba515`, `8aef51a` on `main` at the
 time). Forensics: `docs/plans/avklarat/`, `git log`, and closure notes such as
-`docs/old/analyses/phase-08-plan-persistence-and-orchestration.md` — do not treat
+`docs/plans/avklarat/2026-03-docs-old-archive/analyses/phase-08-plan-persistence-and-orchestration.md` — do not treat
 the bullet list below as the live product checklist.
 
 ## Handoff notes for next agent
@@ -184,3 +184,4 @@ When picking up old roadmap work:
   conclusions have been promoted into `docs/`
 - move fully completed or clearly superseded material to `docs/plans/avklarat/`
 - update this file whenever a numbered plan changes status
+

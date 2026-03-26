@@ -134,8 +134,7 @@ services/mpc/logs/
 .cursor/automation/archive/
 .cursor/automation/input/
 
-# Archived or low-signal docs
-docs/old/
+# Archived or low-signal docs (stub at docs/old/README.md stays indexable)
 docs/plans/avklarat/
 #docs/analyses/
 
@@ -169,6 +168,6 @@ tests/openclaw/
 internt_jakob/
 
 # Addressed kritik snapshots (large; open with @ path when needed)
-.j_to_agent/archive/kritik-addressed/
+#.j_to_agent/archive/kritik-addressed/
 
 

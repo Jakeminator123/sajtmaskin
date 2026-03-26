@@ -14,7 +14,7 @@ Kort översikt för underhåll och agentarbete. Senast genomgång: 2026-03-25 (k
 
 **Risk:** Vercel kan ändra HTML → tysta fel eller tomma listor. Verifiera manuellt efter större sajtändringar.
 
-**Övriga referenser:** [`docs/old/2026-03-holding-area/next-sidan-skrapning.txt`](../old/2026-03-holding-area/next-sidan-skrapning.txt) nämner historiskt `hamta_sidor.py` — använd `scripts/hamta_sidor_branch_emil.py` (valfritt `--legacy-wide-use-cases`).
+**Övriga referenser:** [`docs/plans/avklarat/2026-03-docs-old-archive/2026-03-holding-area/next-sidan-skrapning.txt`](../plans/avklarat/2026-03-docs-old-archive/2026-03-holding-area/next-sidan-skrapning.txt) nämner historiskt `hamta_sidor.py` — använd `scripts/hamta_sidor_branch_emil.py` (valfritt `--legacy-wide-use-cases`).
 
 ### `vercel_template_cli.py` (repo root)
 
@@ -132,3 +132,4 @@ scripts/
 
 - [`scripts/README.md`](../../scripts/README.md) — detaljerade kommandon för sync, template library, recovery.
 - [`docs/README.md`](../README.md) — nav-hubb.
+

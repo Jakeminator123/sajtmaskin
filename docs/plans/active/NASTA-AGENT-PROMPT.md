@@ -19,7 +19,7 @@ LEVERANSREGLER
    - K-018 (preview/sandbox/iframe) — störst användarimpact ELLER
    - K-019 (orchestration merge/UI) ELLER
    - K-007 (deploy-policy) ELLER
-   - K-009 (SSE-scope) ELLER Plan 17 WS-5 (städ: docs/old, research-policy) — lägre risk
+   - K-009 (SSE-scope) ELLER Plan 17 WS-5 (research-policy / JSON-scan; `docs/old` redan i arkiv) — lägre risk
 3) Hög konfliktrisk — koordinera eller undvik samma PR som andra:
    src/lib/integrations/registry.ts, src/lib/gen/detect-integrations.ts,
    config/env-policy.json, deploy-API, useBuilderDeployActions, builder-copy kring env/409.
@@ -50,7 +50,7 @@ Siffrorna är **person-dagar** av fokuserat arbete, **inte** kalender om ni kör
 | **K-019** | Liten–medel | **~2–8 pd** | Fas 1 kod finns; **kvar:** merge-policy, ev. UI, sync create-path — mer avrundning än grönt fält. |
 | **K-007** | Liten–medel | **~2–10 pd** | Strikt JSON-delmoment finns. **Kvar:** produktbeslut om auto-fix / validering före deploy + ev. mer kod. |
 | **K-009** | Medel | **~3–15 pd** | Först **spika scope** (1–2 pd), sedan ev. SSE/own-engine-arbete beroende på beslut. |
-| **Plan 17 WS-5** | Medel (uppdelat) | **~5–20 pd** | `docs/old/` städ = **många små PR** om ni följer «inventering före radering». `research/`-policy = doc. Stora JSON: ofta låg löpande kostnad tills nya filer tillkommer. |
+| **Plan 17 WS-5** | Medel (uppdelat) | **~5–20 pd** | `docs/old` **flyttad** till `avklarat/2026-03-docs-old-archive/`. Kvar: `research/`-policy, JSON-scan, ev. git-lfs. |
 | **Plan 17 deferred WS-2/WS-4** | Valfri / låg prio | **~1–5 pd** doc, **veckor** om v0/env ska kodas om | Ägarbeslut: v0 **medvetet separat**; ENV **dokumentera sanning först**. |
 
 **Grovt totalspann om allt ska «ner till botten» i serie:** ungefär **~4–12 veckors** fokuserad utveckling för en person, där **K-018** tar lejonparten. Med **parallella agenter** på separata spår (K-019 + WS-5 doc, eller K-007 policy) kan **kalendertiden** kortas, men **inte** utan merge-risk i delade filer.

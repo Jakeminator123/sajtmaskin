@@ -24,8 +24,8 @@ folder documents **contracts and field shapes** only — not the full product gl
 
 Only stable, canonical schema docs belong in this folder. If a schema note is
 still exploratory, partially true, or comparing alternatives, place it under
-`docs/old/analyses/` (or a new `docs/analyses/` if you reintroduce that bucket)
-or `docs/old/schemas/` when it becomes historical.
+`docs/plans/avklarat/2026-03-docs-old-archive/analyses/` (or a new `docs/analyses/` if you reintroduce that bucket)
+or `docs/plans/avklarat/2026-03-docs-old-archive/schemas/` when it becomes historical.
 
 ## Related configuration (not schema definitions)
 
@@ -41,6 +41,7 @@ Runtime truth: same core files as [`docs/README.md`](../README.md) § Source of 
 
 ## Archive note
 
-Older overlapping schema notes were moved to `docs/old/schemas/`. Keep them
+Older overlapping schema notes were moved to `docs/plans/avklarat/2026-03-docs-old-archive/schemas/`. Keep them
 only for historical reference or change-tracing, not as the current source of
 truth.
+

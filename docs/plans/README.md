@@ -64,7 +64,8 @@ Last tightened `2026-03-26` (`active/MASTER-ALLT-KVAR.md` — all post-exit back
 - `avklarat/2026-03-k019-orchestration-snapshot-phase1.md` — K-019 **fas 1** (DB `orchestration_snapshot`, sanering, follow-up prepend); **K-019** fortfarande öppen i kritik tills merge/UI stängt
 
 Plans 14-16 originated from the external deep-research audit
-(`docs/old/analyses/2026-03-deep-research-buggar-overlapp.md`).
+(`docs/plans/avklarat/2026-03-docs-old-archive/analyses/2026-03-deep-research-buggar-overlapp.md`).
 
 These are planning artifacts, not runtime documentation. New plan files should
 be created in `docs/plans/active/`, not in this root folder.
+

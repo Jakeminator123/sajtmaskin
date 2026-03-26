@@ -24,7 +24,7 @@ Use these three states consistently:
 | `docs/architecture/engine-status.md` | Own engine status, model tiers, scaffold system, generation capabilities | Temporary scratch notes or stale plans |
 | `docs/plans/active/` | Plans that are still supposed to drive implementation | Completed or doubtful plans |
 | `docs/plans/review-needed/` | Older plans that need a reality check | Canonical architecture docs |
-| `docs/old/` | Archived historical material outside the plan lifecycle buckets | Active guidance |
+| `docs/old/` | **Stub only** — pekar till arkiv; historiskt material ligger i `docs/plans/avklarat/2026-03-docs-old-archive/` | Nytt arbetsmaterial |
 
 ## Plan workflow
 
@@ -50,8 +50,8 @@ Do **not** duplicate the plan inventory here — it goes stale quickly. Use:
 
 If a schema note is exploratory, partially true, or comparing alternatives:
 
-- put it under **`docs/old/analyses/`** while it is active thinking (standard bucket; update [`docs/README.md`](../README.md) if you add a new index there)
-- put it in **`docs/old/schemas/`** if it is historical or superseded schema material
+- put exploratory notes under **`docs/plans/review-needed/`** or a short-lived branch folder; when superseded, move to **`docs/plans/avklarat/`** (or the historical bundle [`2026-03-docs-old-archive/`](../plans/avklarat/2026-03-docs-old-archive/) for the same role the old `docs/old/` tree served)
+- put historical or superseded schema material next to other avklarat notes, or under **`docs/plans/avklarat/2026-03-docs-old-archive/schemas/`** if it matches that archive’s purpose
 
 ## Update checklist
 

@@ -10,7 +10,7 @@
 |------|--------|-----------|
 | **External-review remediation (1.txt–3.txt, W1–W5)** | **~100 %** | Avslutat per `REMEDIATION-EXIT` — inget mer i *det* spåret. |
 | **Kritik-tabellen (K-rader)** | **4 öppna** (K-007, K-009, K-018, K-019) | **K-014**, **K-008** m.fl. stängda — se [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md). |
-| **Plan 17** | **WS-5 + deferred** (WS-2/WS-4) | **WS-6 klar 2026-03-26** (behåll D-ID, OpenClaw; Brave + Loopia optional). Städ/research/`docs/old/` m.m. |
+| **Plan 17** | **WS-5 + deferred** (WS-2/WS-4) | **WS-6 klar 2026-03-26**. **`docs/old` → `avklarat/2026-03-docs-old-archive/`** (2026-03-26). Kvar: JSON/research/ENV m.m. |
 
 **Samlad bedömning:** Av *allt som historiskt körts* fram till remediation-exit är **execution-spåret i princip färdigt**. Det som återstår är **medvetet efterkvar** — ofta **dagar–veckor** per större punkt om man ska göra det ordentligt, inte «en eftermiddag».
 
@@ -24,7 +24,7 @@
 
 - **WS-6 (2026-03-26):** **Behåll** D-ID (`/avatar`) och **OpenClaw**. **Brave Search** och **Loopia** **behålls som optional** — se Plan 17 § WS-6.
 - **K-014 / E1 (2026-03-26):** Sidor och copy kring **cookies, om oss, juridik** är **OK oförändrat tills vidare** — raden **[x]** i [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md).
-- **Plan 17 (2026-03-26):** **F1** v0 medvetet separerat · **G1b** ENV låg prio (dokumentera sanning) · **H1c** research-policy · **H2c** aggressiv `docs/old/` med inventering — se [`17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md).
+- **Plan 17 (2026-03-26):** **F1** v0 medvetet separerat · **G1b** ENV låg prio (dokumentera sanning) · **H1c** research-policy · **H2c** `docs/old` flyttad till arkiv **2026-03-26** — se [`17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md).
 - **K-008 / C1 (2026-03-25):** Landning — **ingen utökning av material** nu; fokus användarsidor (**K-018**).
 - **B1 → K-018 (2026-03-25):** Användarsidor ska preview:as som **bra standard React** (som `npm run dev`), **samma i `iframe`**.
 - **D1 (2026-03-25):** FAQ/innehåll på **Sajtmaskins** sajt **sekundärt**; **K-009** = SSE/own-engine, inte marknads-FAQ.
@@ -45,7 +45,7 @@
 | B1 | `ENV.md` + `config/env-policy.json` — **låg prio**; **dokumentera sanning först** (G1b) | Plan 17 WS-4 |
 | B2 | Rensa / dokumentera `AI_GATEWAY_*` + OIDC-referenser när policy är klar | Plan 17 WS-4 |
 | B3 | v0 SDK / `V0_API_KEY` — **avsiktligt separerat** tills vidare (F1); inget migreringskrav nu | Plan 17 WS-2 |
-| B4 | WS-5: `.gitignore`-scan, **`research/`** enligt policy (H1c), **`docs/old/`** aggressiv städ **med inventering** (H2c) | Plan 17 WS-5 |
+| B4 | WS-5: `.gitignore`-scan, **`research/`** enligt policy (H1c), ~~`docs/old`~~ **flyttad** till `avklarat/2026-03-docs-old-archive/` (H2c) | Plan 17 WS-5 |
 
 ---
 

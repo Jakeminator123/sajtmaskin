@@ -57,7 +57,7 @@ Implementationsspår: [`PLAN-K019-PROMPT-SNAPSHOT.md`](./PLAN-K019-PROMPT-SNAPSH
 
 - **WS-6:** **Klart 2026-03-26** — arkiverad snapshot: [`avklarat/2026-03-plan17-ws6-product-decisions.md`](../../avklarat/2026-03-plan17-ws6-product-decisions.md); kanon i `17-repo-separation-and-independence.md` § WS-6.
 - **WS-4:** När ska `ENV.md` / `config/env-policy.json` (eller motsvarande) **bindas hårdare** till kod — nu, eller efter K-018/K-019?
-- **WS-5:** Vilken **ordning** för `.gitignore`-scan, `research/`, `docs/old/`-städ — och vem **äger** inventeringen?
+- **WS-5:** Ordning för `.gitignore`-scan och `research/`-policy; **`docs/old` städad genom flytt** till `avklarat/2026-03-docs-old-archive/` (2026-03-26).
 
 **Beslut / motivering (fyll i):**
 
