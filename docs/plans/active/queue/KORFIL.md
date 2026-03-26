@@ -6,6 +6,8 @@
 
 **Skapad:** 2026-03-25 (`orchestrator-run` — konsolidering av kvarvarande backlog).
 
+**Hur mycket återstår?** Remediation **W1–W5 ≈ 100 %**. Efter det: **4 K-rader** + **12 öppna plan-17-kryss** — få punkter men **hög vikt** (produkt + arkitektur). Det går inte att «köra allt» utan dina beslut i [`COMPLETION-ROADMAP.md`](./COMPLETION-ROADMAP.md) § *Fas A*.
+
 ---
 
 ## Körordning (3 planer = 3 punkter)

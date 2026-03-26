@@ -1,6 +1,6 @@
 # Återstående arbete (efter external-review remediation exit)
 
-**Operativ kö (3 planer):** [`queue/KORFIL.md`](./queue/KORFIL.md) — där finns **exakt tre punkter** som motsvarar tre körbara planfiler (`PLAN-KRITIK-OPEN`, `PLAN-REPO-SEPARATION-OPEN`, `PLAN-DRIFT-VERIFICATION`).
+**Operativ kö (3 planer):** [`queue/KORFIL.md`](./queue/KORFIL.md) — **exakt tre punkter** → tre `PLAN-*.md`. **Slutföringsgrad & faser (beslut → kod → drift):** [`queue/COMPLETION-ROADMAP.md`](./queue/COMPLETION-ROADMAP.md).
 
 **Remediation enligt `1.txt` / `2.txt` / `3.txt` + W1–W5:** avslutad — [`archived/external-review-execution/REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md).
 
