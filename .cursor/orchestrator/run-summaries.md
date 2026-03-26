@@ -230,3 +230,9 @@ Short summaries of completed orchestrator runs. Agents can read this file for co
 - **Outcome:** Progress / MASTER / ORCHESTRATOR_LOG / kritik / execution README / e2e README
 - **Archive path:** `.cursor/orchestrator/archive/2026-03-28-external-review-remediation-exit-174925/`
 
+## 2026-03-25-post-exit-backlog-queue (archived 2026-03-26 11:45)
+- **Scope:** **Planned:** Consolidate all post-remediation open work into a driver file with one bullet per executable plan; update hubs; avoid destructive mass-archive of historical docs.
+- **Workloads:** 1 completed, 1 verified.
+- **Outcome:** Archived run details preserved in FINAL_REPORT.md.
+- **Archive path:** `.cursor/orchestrator/archive/2026-03-25-post-exit-backlog-queue-114526/`
+

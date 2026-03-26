@@ -40,4 +40,5 @@ Kör **`npm run typecheck`** och **`npx vitest run`** (plus `npm run lint` vid b
 - [External review — workloads](../plans/active/orchestrator-workloads-external-review.md) (stub → [full snapshot](../plans/archived/orchestrator-workloads-external-review.md); aktiv backlog: [REMAINING-WORK](../plans/active/REMAINING-WORK.md))
 - [External review — progress %](../plans/active/external-review-remediation-progress.md)
 - [Execution — MASTER-ROADMAP (arkiv)](../plans/archived/external-review-execution/MASTER-ROADMAP.md) · [stub](../plans/active/external-review-execution/README.md)
+- [Post-exit kö — KORFIL](../plans/active/queue/KORFIL.md) (3 planer: kritik, plan 17, drift/e2e)
 - [Kritik-derived backlog](../plans/active/kritik-derived-backlog.md) — öppna punkter från parallell granskning

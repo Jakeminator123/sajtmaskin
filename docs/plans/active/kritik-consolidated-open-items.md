@@ -4,6 +4,8 @@
 
 **Viktigt:** Att en `NNpct-*.md` ligger i **arkiv** betyder bara att **själva filen** inte längre ska vara “aktiv handoff” i `kritik/`. Det betyder **inte** automatiskt att varje påstående i den filen är fixat i kod. Öppet arbete ska synas här (`[ ]` i tabellen nedan) eller under *Stängda / införlivade* om vi medvetet behandlar det som klart. Arkiverade filer finns kvar i git för kontext.
 
+**Operativ kö:** [`queue/KORFIL.md`](./queue/KORFIL.md) (3 punkter → 3 `PLAN-*.md`).
+
 **Sanning om framsteg:** [`external-review-remediation-progress.md`](./external-review-remediation-progress.md) + `git log origin/master`.
 
 **Relaterat:** [`archived/external-review-execution/buglista-del-3.md`](../archived/external-review-execution/buglista-del-3.md) (`.j_to_agent/3.txt`), [`kritik-derived-backlog.md`](./kritik-derived-backlog.md) (kort pekare hit).

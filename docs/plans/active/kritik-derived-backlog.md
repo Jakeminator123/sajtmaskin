@@ -4,7 +4,9 @@ All **deduplicerad** backlog och status för öppna punkter ligger i:
 
 **[`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md)**
 
-Samlad **översikt** (K + plan 17 + smoke) utan nya tabeller: [`REMAINING-WORK.md`](./REMAINING-WORK.md).
+**Operativ kö (3 planer):** [`queue/KORFIL.md`](./queue/KORFIL.md)
+
+Samlad **hubb** utan duplicerade tabeller: [`REMAINING-WORK.md`](./REMAINING-WORK.md).
 
 Den här filen finns kvar som **kort länk** så äldre dokument (`KRITIK-OVERVIEW`, progress, execution README) inte behöver massuppdateras.
 

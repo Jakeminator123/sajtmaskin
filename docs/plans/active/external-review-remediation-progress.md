@@ -99,7 +99,7 @@ Vid varje dokumenterad avstämning:
 
 ## Återstår (kort)
 
-**Remediation execution (W1–W5) är avslutad** — [REMEDIATION-EXIT.md](../archived/external-review-execution/REMEDIATION-EXIT.md). **Lista över allt som medvetet återstår** (K-rader, plan 17, smoke, segment-förklaring): **[`REMAINING-WORK.md`](./REMAINING-WORK.md)** — undvik att duplicera den texten här. **Autonoma anhalter** för *ny* arbetsvåg: [CONTINUATION.md](../archived/external-review-execution/CONTINUATION.md).
+**Remediation execution (W1–W5) är avslutad** — [REMEDIATION-EXIT.md](../archived/external-review-execution/REMEDIATION-EXIT.md). **Lista över allt som medvetet återstår** (K-rader, plan 17, smoke, segment-förklaring): **[`REMAINING-WORK.md`](./REMAINING-WORK.md)** + operativ kö **[`queue/KORFIL.md`](./queue/KORFIL.md)** — undvik att duplicera långa tabeller här. **Autonoma anhalter** för *ny* arbetsvåg: [CONTINUATION.md](../archived/external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 

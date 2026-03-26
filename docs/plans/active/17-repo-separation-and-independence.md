@@ -2,7 +2,9 @@
 
 **Status:** **Active** — kärnan **WS-1–WS-4** är levererad (2026-03-18/19). Filen är **inte** arkiverad därför att **WS-5** (stora filer / research-hygien), **WS-6** (valfria tjänster) och **deferred** städ (`AI_GATEWAY_*` / OIDC, `ENV.md` + `config/env-policy.json`) fortfarande har öppna kryss. När de är gjorda eller medvetet nedprioriterade: flytta till `docs/plans/archived/` enligt [documentation-lifecycle.md](../../architecture/documentation-lifecycle.md).
 
-**Skilj från external-review 100%:** Plan 17 är ett **separat** arkitektur-/dependency-spår, inte samma sak som *remediation exit* i [`external-review-execution/REMEDIATION-EXIT.md`](./external-review-execution/REMEDIATION-EXIT.md).
+**Skilj från external-review 100%:** Plan 17 är ett **separat** arkitektur-/dependency-spår, inte samma sak som *remediation exit* i [`archived/external-review-execution/REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md).
+
+**Öppet arbete (köbar plan):** [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md) · [`queue/KORFIL.md`](./queue/KORFIL.md)
 
 ## Goal
 

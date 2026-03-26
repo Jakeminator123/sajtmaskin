@@ -16,7 +16,7 @@ Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscyke
 
 ## En sida för «vad är kvar?»
 
-[`REMAINING-WORK.md`](./REMAINING-WORK.md) — pekare till K-rader, plan 17 (WS-5/6), valfri deploy-smoke (ingen dubblerad master-tabell).
+[`REMAINING-WORK.md`](./REMAINING-WORK.md) + [`queue/KORFIL.md`](./queue/KORFIL.md) — **tre körpunkter** (kritik, plan 17, drift/e2e).
 
 ## Innehåll i `active/` (kort)
 
