@@ -12,7 +12,7 @@ Du tar över utvecklingen av Sajtmaskin efter en dokumenterad handoff. Din uppgi
 
 LEVERANSREGLER
 1) Läs först (i denna ordning):
-   - docs/plans/active/AGENT-HANDOFF-RESTERANDE.md — kort översikt över öppet arbete
+   - docs/plans/avklarat/2026-03-handoff-doc-bundle/AGENT-HANDOFF-RESTERANDE.md — kort översikt över öppet arbete
    - docs/plans/active/kritik-consolidated-open-items.md — kanonisk K-tabell [ ] / [x]
    - docs/plans/active/MASTER-ALLT-KVAR.md — detalj, § 0 fidelity, K-018 § 2
 2) Välj ETT huvudspår per batch/PR om möjligt (minska konflikt i registry/deploy/preview):
@@ -62,3 +62,4 @@ Siffrorna är **person-dagar** av fokuserat arbete, **inte** kalender om ni kör
 ## Underhåll
 
 Uppdatera **datum** i denna fil när prioritering eller omfattning ändras tydligt. Pekare till samma innehåll: [`AGENT-HANDOFF-RESTERANDE.md`](./AGENT-HANDOFF-RESTERANDE.md).
+

@@ -53,7 +53,7 @@
 
 1. **Separat PR:** välj en delmängd efter manuell läsning; inga **candidate delete** i denna runda (allt *keep* tills duplicering mot `docs/plans/active/` är bedömd).
 2. Uppdatera Plan 17 WS-5-kryss först när städ-PR är mergad och kryss sätts i `docs/plans/active/17-repo-separation-and-independence.md`.
-3. `docs/plans/active/queue/BACKLOG-PROGRESS-DASHBOARD.md` — historikrad för inventering 2026-03-26.
+3. `docs/plans/avklarat/2026-03-handoff-doc-bundle/BACKLOG-PROGRESS-DASHBOARD.md` — historikrad för inventering 2026-03-26.
 
 ---
 

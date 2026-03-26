@@ -2,7 +2,7 @@
 
 **Syfte:** Produkt- och arkitekturfrågor som bör vara **besvarade** (eller medvetet **nedprioriterade med motivering**) innan nästa större kodfas eller orchestrator-körning planeras som «klar».
 
-**Relaterat:** [`COMPLETION-ROADMAP.md`](./COMPLETION-ROADMAP.md) (Fas A) · [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md) · [`FRAGOR-SVAR-FAQ.md`](./FRAGOR-SVAR-FAQ.md)
+**Relaterat:** [`COMPLETION-ROADMAP.md`](./COMPLETION-ROADMAP.md) (Fas A) · [`../../active/MASTER-ALLT-KVAR.md`](../../active/MASTER-ALLT-KVAR.md) · [`../../active/queue/FRAGOR-SVAR-FAQ.md`](../../active/queue/FRAGOR-SVAR-FAQ.md)
 
 **Senast beslut inkörda:** 2026-03-26 (ägarens marginalanteckningar: oförändrat / bästa rimliga / självständig prioritering / rimliga antaganden / status quo för Plan 17).
 
@@ -95,3 +95,4 @@ Implementationsspår: [`PLAN-K019-PROMPT-SNAPSHOT.md`](./PLAN-K019-PROMPT-SNAPSH
 
 
 När en rad är **nedprioriterad** i stället för besvarad: skriv **motivering** i denna fil och bocka «taget» med datum = *deferred*.
+

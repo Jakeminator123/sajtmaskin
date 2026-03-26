@@ -72,4 +72,4 @@ Om **vercel-templates**-specen failar: troligen **ändrad webb**, **cookies**, e
 | **D1** | FAQ/innehåll på **Sajtmaskins** sajt **sekundärt**; **K-009** = SSE/own-engine-scope. |
 | **I1** | **Vercel-templates** = **scaffolds** för OwnEngine; **V0-templates** = separat plattformsspår. |
 
-Länk: [`COMPLETION-ROADMAP.md`](./COMPLETION-ROADMAP.md)
+Länk (arkiv): [`../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md`](../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md)

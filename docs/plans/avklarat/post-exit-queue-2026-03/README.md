@@ -7,9 +7,10 @@
 **Var du ska läsa nu:**
 
 - [`../../active/MASTER-ALLT-KVAR.md`](../../active/MASTER-ALLT-KVAR.md) — allt kvar, startordning, orchestrator-råd  
-- [`../../active/queue/`](../../active/queue/) — `PLAN-*.md`, `KORFIL.md` (pekare), `COMPLETION-ROADMAP.md`, `FRAGOR-SVAR-FAQ.md`  
+- [`../../active/queue/`](../../active/queue/) — `PLAN-*.md`, `KORFIL.md` (pekare), `FRAGOR-SVAR-FAQ.md` — tidslinje/faser i [`../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md`](../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md) (arkiv)  
 - Handoff i repots rot: [`../../../INPUT_GPT.txt`](../../../INPUT_GPT.txt)
 
 **Referens-commit (exempel):** konsolidering pushad som `ac3c829d` på `master` (docs: MASTER backlog, …).
 
 Den här mappen finns bara så **arkivstrukturen** pekar tydligt: «post-exit-kön» är **införlivad** i MASTER + `active/queue/`, inte en fryst filkopia här.
+

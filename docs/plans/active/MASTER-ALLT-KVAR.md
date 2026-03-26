@@ -1,7 +1,7 @@
 # MASTER — allt kvarvarande arbete (Sajtmaskin)
 
-**Det här är den enda fil du behöver öppna** för att se *vad som ska göras*, i vilken ordning, och hur du kör arbetet (agent vs orchestrator).  
-Äldre uppdelning i `queue/KORFIL.md` + flera `PLAN-*.md` finns kvar som **detaljreferens** men är **inte** längre den primära ingången.
+**Primär körplan (kort backlog + ordning):** [`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md). **Den här filen** är **djup referens**: *acceptans, berättelse, produktintent* och hur du kör arbetet (agent vs orchestrator).  
+Äldre uppdelning i `queue/KORFIL.md` + flera `PLAN-*.md` finns kvar som **detaljreferens** men är **inte** längre den enda ingången.
 
 ### Innehåller MASTER allt en nästa agent behöver?
 
@@ -20,9 +20,9 @@
 ### Arkivering, `reviews/`, `queue/`, och dubbletter
 
 - **`MASTER-ALLT-KVAR.md` ligger i `docs/plans/active/`** (samma nivå som `kritik-consolidated-open-items.md`) — **inte** i `active/reviews/`. Mappen **`reviews/`** ska bara innehålla second-opinion-saker (`reviews/README.md`). Om editorn ser ut att visa MASTER under `reviews` är det oftast **fel sortering** i trädet — kontrollera sökvägen i fliken.
-- **`active/queue/`** ska **inte** massarkiveras än: tiotals länkar i repot pekar på `queue/PLAN-*.md`, `COMPLETION-ROADMAP.md`, `FRAGOR-SVAR-FAQ.md`. MASTER är **läs först**; kö-filerna är fortfarande **levande detalj + kanoniska kompletteringar**. Att flytta allt till arkiv kräver en **medveten länk-svep** (stor PR).
+- **`active/queue/`** innehåller **levande** `PLAN-*.md`, FAQ, m.m. **Handoff-/beslutsbundle** (`COMPLETION-ROADMAP`, `BESLUT`, progress-dashboard, orchestrator-mall) ligger arkiverad: [`../avklarat/2026-03-handoff-doc-bundle/`](../avklarat/2026-03-handoff-doc-bundle/) — uppdatera **inte** arkivet som sanning; uppdatera execution plan + kritik-tabell.
 - **Post-exit-kö (historik):** Dublettmappar (`docs/plans/post-exit-queue-2026-03/`, m.fl.) var **identiska** med `active/queue/*` och ska **inte** återinföras med full filuppsättning. **Arkivnotis** (pekar till MASTER + `active/queue/`): [`../avklarat/post-exit-queue-2026-03/README.md`](../avklarat/post-exit-queue-2026-03/README.md).
-- **Beslut som blockerar nästa större fas:** [`queue/BESLUT-INNAN-VI-GAR-VIDARE.md`](./queue/BESLUT-INNAN-VI-GAR-VIDARE.md) (K-007, K-009, K-018, K-019, Plan 17 WS-4/5).
+- **Beslut Fas A (historik, besvarad 2026-03-26):** [`../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md) (K-007, K-009, K-018, K-019, Plan 17 WS-4/5) — öppet arbete = raderna **`[ ]`** i kritik-tabellen tills kod levereras.
 
 ---
 
@@ -203,8 +203,8 @@ Uppdatera **både** denna lista och [`17-repo-separation-and-independence.md`](.
 
 - **Vercel-templates** → **scaffolds** för OwnEngine; **V0-templates** → separat plattformsspår (FAQ [`queue/FRAGOR-SVAR-FAQ.md`](./queue/FRAGOR-SVAR-FAQ.md) § I1).
 - **Remediation W1–W5:** klart per [`../avklarat/external-review-execution/REMEDIATION-EXIT.md`](../avklarat/external-review-execution/REMEDIATION-EXIT.md).
-- **Tidslinje fler beslut:** [`queue/COMPLETION-ROADMAP.md`](./queue/COMPLETION-ROADMAP.md).
-- **Fas A (K-007/009/018/019 + Plan 17 WS-4/5-rester) besvarad 2026-03-26:** [`queue/BESLUT-INNAN-VI-GAR-VIDARE.md`](./queue/BESLUT-INNAN-VI-GAR-VIDARE.md) — kritik **`[ ]`** kvar tills kod levereras.
+- **Tidslinje / faser (arkiv):** [`../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md`](../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md).
+- **Fas A (K-007/009/018/019 + Plan 17 WS-4/5-rester) besvarad 2026-03-26:** [`../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md) — kritik **`[ ]`** kvar tills kod levereras.
 
 ---
 

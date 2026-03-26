@@ -1,6 +1,6 @@
 # Active plans
 
-Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscykel:** [`../README.md`](../README.md) · [`../../architecture/documentation-lifecycle.md`](../../architecture/documentation-lifecycle.md). **Snabb handoff:** [`AGENT-HANDOFF-RESTERANDE.md`](./AGENT-HANDOFF-RESTERANDE.md) · [`NASTA-AGENT-PROMPT.md`](./NASTA-AGENT-PROMPT.md).
+Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscykel:** [`../README.md`](../README.md) · [`../../architecture/documentation-lifecycle.md`](../../architecture/documentation-lifecycle.md). **Primär körplan:** [`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md). **Arkiverad handoff-historik:** [`../avklarat/2026-03-handoff-doc-bundle/`](../avklarat/2026-03-handoff-doc-bundle/).
 
 ## Vad betyder «100% klart» här?
 
@@ -16,11 +16,11 @@ Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscyke
 
 ## En sida för «vad är kvar?»
 
-[`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) — **allt kvar i en fil**; hubb [`REMAINING-WORK.md`](./REMAINING-WORK.md); handoff [`INPUT_GPT.txt`](../../../INPUT_GPT.txt); `queue/KORFIL.md` = pekare till MASTER.
+[`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md) + [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) — körplan respektive djup referens; hubb [`REMAINING-WORK.md`](./REMAINING-WORK.md); [`INPUT_GPT.txt`](../../../INPUT_GPT.txt); `queue/KORFIL.md` = pekare till MASTER.
 
 ## Innehåll i `active/` (kort)
 
-- **Styrning remediation:** `external-review-remediation-progress.md`, `orchestrator-workloads-external-review.md` (**stub** → arkiverad W1–W5-text), `orchestrator-handoff-sequential-stramning.md` (mall).
+- **Styrning remediation:** `external-review-remediation-progress.md`, `orchestrator-workloads-external-review.md` (**stub** → arkiverad W1–W5-text); orchestrator-handoff-mall i [`../avklarat/2026-03-handoff-doc-bundle/`](../avklarat/2026-03-handoff-doc-bundle/).
 - **Genomfört spår + audit trail:** `avklarat/external-review-execution/*` + stub `external-review-execution/README.md`.
 - **Parallell kritik:** `kritik-consolidated-open-items.md`, `kritik-derived-backlog.md`.
 - **Second opinion / reviews:** `reviews/README.md` — färdiga granskningar flyttas till [`../avklarat/`](../avklarat/) (se t.ex. `orchestrator-followup-from-39fef25e.md`).

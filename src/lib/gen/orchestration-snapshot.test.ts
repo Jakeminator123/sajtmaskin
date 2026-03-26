@@ -15,6 +15,14 @@ describe("sanitizeOrchestrationSnapshotForStorage", () => {
     expect(out.api_secret).toBeUndefined();
     expect((out.nested as Record<string, unknown>)?.refreshToken).toBeUndefined();
   });
+
+  it("truncates oversized string values", () => {
+    const long = "a".repeat(13_000);
+    const out = sanitizeOrchestrationSnapshotForStorage({ note: long });
+    const note = out.note as string;
+    expect(note.endsWith("…")).toBe(true);
+    expect(note.length).toBe(12_001);
+  });
 });
 
 describe("prependOrchestrationContinuityToFollowUp", () => {

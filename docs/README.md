@@ -18,7 +18,7 @@
 3. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 4. `docs/ENV.md` — env topology when debugging deploy/local.
 
-**Orchestrator / remediation:** Färska procentsiffror och “Done / Next” finns bara i [`docs/plans/active/external-review-remediation-progress.md`](plans/active/external-review-remediation-progress.md). Kopieringsmallar (t.ex. `orchestrator-handoff-sequential-stramning.md`) ska **inte** duplicera % — uppdatera alltid källfilen vid leverans.
+**Orchestrator / remediation:** Färska procentsiffror och “Done / Next” finns bara i [`docs/plans/active/external-review-remediation-progress.md`](plans/active/external-review-remediation-progress.md). Kopieringsmallar (t.ex. [`docs/plans/avklarat/2026-03-handoff-doc-bundle/orchestrator-handoff-sequential-stramning.md`](plans/avklarat/2026-03-handoff-doc-bundle/orchestrator-handoff-sequential-stramning.md), arkiverad) ska **inte** duplicera % — uppdatera alltid källfilen vid leverans.
 
 Everything else is deep reference, history, or plans.
 
@@ -92,7 +92,7 @@ Not runtime dependencies:
 | External review — progress, %, commit-rutin | `docs/plans/active/external-review-remediation-progress.md` |
 | External review — W1–W5 workloads (stub → arkiv) | `docs/plans/active/orchestrator-workloads-external-review.md` |
 | External review — execution (arkiv; stub i active) | `docs/plans/avklarat/external-review-execution/README.md` · stub: `docs/plans/active/external-review-execution/README.md` |
-| Allt kvar (en MASTER) | `docs/plans/active/MASTER-ALLT-KVAR.md` · `queue/KORFIL.md` pekar hit · `INPUT_GPT.txt` (rot) |
+| Allt kvar | `docs/plans/active/SAJTMASKIN-EXECUTION-PLAN.md` (körplan) · `docs/plans/active/MASTER-ALLT-KVAR.md` (djup) · `queue/KORFIL.md` pekar till MASTER · `INPUT_GPT.txt` (rot) |
 | Agent workflows (deep brief vs orchestrator, runtime vs MCP) | `docs/contributing/agent-workflows.md` |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Terminology (folders + research flow) | `docs/architecture/structure-and-terminology.md` |

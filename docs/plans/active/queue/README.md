@@ -2,12 +2,12 @@
 
 ## Varför massarkiveras inte «alla» filer hit trots MASTER + handoff?
 
-**[`AGENT-HANDOFF-RESTERANDE.md`](../AGENT-HANDOFF-RESTERANDE.md)** och **[`MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md)** samlar **prioritering, tabeller och startinstruktioner**. De ersätter **inte** automatiskt:
+**[`SAJTMASKIN-EXECUTION-PLAN.md`](../SAJTMASKIN-EXECUTION-PLAN.md)**, **[`MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md)** och (historik) **[`../../avklarat/2026-03-handoff-doc-bundle/`](../../avklarat/2026-03-handoff-doc-bundle/)** samlar **prioritering, tabeller och startinstruktioner**. De ersätter **inte** automatiskt:
 
 - långa implementationsdetaljer (t.ex. **K-018** i [`PLAN-PREVIEW-SANDBOX.md`](./PLAN-PREVIEW-SANDBOX.md)),
 - **FAQ** och begrepp ([`FRAGOR-SVAR-FAQ.md`](./FRAGOR-SVAR-FAQ.md)),
-- **beslutsunderlag** ([`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md)),
-- **tidslinje / faser** ([`COMPLETION-ROADMAP.md`](./COMPLETION-ROADMAP.md)).
+- **beslutsunderlag (arkiv):** [`../../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md),
+- **tidslinje / faser (arkiv):** [`../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md`](../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md).
 
 **Antal filer:** Under `queue/` finns **omkring elva** `.md`-filer (tabellen nedan + några till) — inte tjugo. Mappen **[`reviews/`](../reviews/)** innehåller i praktiken bara en **README** som pekar till redan **arkiverad** uppföljning i [`../../avklarat/orchestrator-followup-from-39fef25e.md`](../../avklarat/orchestrator-followup-from-39fef25e.md).
 
@@ -15,7 +15,7 @@
 
 ---
 
-**Start här (allt i ett):** [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md)
+**Start här:** [`../SAJTMASKIN-EXECUTION-PLAN.md`](../SAJTMASKIN-EXECUTION-PLAN.md) · djup referens [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md)
 
 **Äldre ingång:** [`KORFIL.md`](./KORFIL.md) pekar bara till MASTER.
 
@@ -31,4 +31,4 @@
 
 Handoff: [`INPUT_GPT.txt`](../../../../INPUT_GPT.txt)
 
-**Tidslinje / faser:** [`COMPLETION-ROADMAP.md`](./COMPLETION-ROADMAP.md) · **FAQ:** [`FRAGOR-SVAR-FAQ.md`](./FRAGOR-SVAR-FAQ.md)
+**Tidslinje / faser (arkiv):** [`../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md`](../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md) · **FAQ:** [`FRAGOR-SVAR-FAQ.md`](./FRAGOR-SVAR-FAQ.md)

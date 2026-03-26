@@ -7,7 +7,7 @@ Den här planen kommer från **STOR_MIGRATION**-analysen (2026-03-18) och har **
 
 - **[`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md)** — operativ kö, K-018/K-019, fidelity § 0  
 - **[`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md)** — K-tabell med `[ ]` / `[x]`  
-- **[`AGENT-HANDOFF-RESTERANDE.md`](./AGENT-HANDOFF-RESTERANDE.md)** — kort «vad är öppet»  
+- **[`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md)** — primär körplan · handoff-historik: [`../avklarat/2026-03-handoff-doc-bundle/AGENT-HANDOFF-RESTERANDE.md`](../avklarat/2026-03-handoff-doc-bundle/AGENT-HANDOFF-RESTERANDE.md)  
 - **[`docs/architecture/engine-status.md`](../../architecture/engine-status.md)** — hur own engine / builder faktiskt fungerar **nu**  
 - **[`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt)** — produktintent som kan **override:a** äldre formuleringar här  
 
@@ -107,7 +107,7 @@ Create a `StorageProvider` interface so blob storage can be swapped:
 
 **Ägarbeslut 2026-03-26 (G1b):** **`ENV.md` / `env-policy`** har **låg prio** — första steget är **dokumentera nuvarande sanning** (vilka routes/nycklar som faktiskt används), inte aggressiv schemarensning.
 
-**Produkt-/prioriteringsbeslut 2026-03-26 (WS-4 + WS-5-rester):** [`queue/BESLUT-INNAN-VI-GAR-VIDARE.md`](./queue/BESLUT-INNAN-VI-GAR-VIDARE.md) §5 — hårdare ENV-bindning **efter** K-018/K-019-stabilitet; övrigt WS-5 enligt samma stycke.
+**Produkt-/prioriteringsbeslut 2026-03-26 (WS-4 + WS-5-rester):** [`../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md) §5 — hårdare ENV-bindning **efter** K-018/K-019-stabilitet; övrigt WS-5 enligt samma stycke.
 
 ### WS-5: Large file and research cleanup
 

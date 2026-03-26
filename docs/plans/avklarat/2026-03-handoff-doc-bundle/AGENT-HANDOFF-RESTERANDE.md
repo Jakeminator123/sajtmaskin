@@ -3,7 +3,7 @@
 **Syfte:** En **kort** lista för en agent som ska köra «det sista» utan att läsa hela [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) först.  
 **Sanning med `[ ]` / `[x]`:** [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) (K-ID) och kryss i [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) (Plan 17). Uppdatera alltid de filerna när något stängs.
 
-**Senast sammanställd / städad:** 2026-03-26. **Färdig prompt till nästa agent:** [`NASTA-AGENT-PROMPT.md`](./NASTA-AGENT-PROMPT.md). **Beslut Fas A (K-007/009/018/019 + Plan 17 WS-4/5-rester):** [`queue/BESLUT-INNAN-VI-GAR-VIDARE.md`](./queue/BESLUT-INNAN-VI-GAR-VIDARE.md) **2026-03-26** — kritik-rader fortfarande **`[ ]`** tills implementation.
+**Senast sammanställd / städad:** 2026-03-26. **Färdig prompt till nästa agent:** [`NASTA-AGENT-PROMPT.md`](./NASTA-AGENT-PROMPT.md). **Beslut Fas A (K-007/009/018/019 + Plan 17 WS-4/5-rester):** [`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md) **2026-03-26** — kritik-rader fortfarande **`[ ]`** tills implementation.
 
 ---
 
@@ -68,7 +68,7 @@
 | [`queue/PLAN-PREVIEW-SANDBOX.md`](./queue/PLAN-PREVIEW-SANDBOX.md) | K-018-detalj |
 | [`queue/PLAN-KRITIK-OPEN.md`](./queue/PLAN-KRITIK-OPEN.md) | K-007 / K-009 (om fylld) |
 | [`queue/PLAN-DRIFT-VERIFICATION.md`](./queue/PLAN-DRIFT-VERIFICATION.md) | Smoke / verifieringsrutin |
-| [`queue/BESLUT-INNAN-VI-GAR-VIDARE.md`](./queue/BESLUT-INNAN-VI-GAR-VIDARE.md) | Öppna produkt-/arkitekturfrågor |
+| [`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md) | Öppna produkt-/arkitekturfrågor |
 | [`INPUT_GPT.txt`](../../../INPUT_GPT.txt) | Pseudokod, env-merge, faser (§ 7–14) |
 
 ---
@@ -88,3 +88,4 @@ Orchestrator (`/orchestrator`) är valfritt — använd när arbetet är många 
 När en K-rad stängs eller Plan 17-kryss bockas: uppdatera **källfilerna** först, sedan **§ 1–3** här så nästa agent inte får intrycket att något fortfarande är öppet. Vid större omstrukturering kan denna fil ersättas av en ny sammanfattning med nytt datum i § 0.
 
 **Ändringshistorik (ungefär, plan/doc-tema):** [`DOKUMENTATION-ANDRINGAR-SAMMANFATTNING.md`](./DOKUMENTATION-ANDRINGAR-SAMMANFATTNING.md)
+
