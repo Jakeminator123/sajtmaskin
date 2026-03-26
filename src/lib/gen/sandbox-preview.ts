@@ -1,14 +1,24 @@
 import type { CodeFile } from "./parser";
 import { buildCompleteProject } from "./project-scaffold";
 import { repairGeneratedFiles } from "./repair-generated-files";
+import { touchSandboxSession } from "@/lib/gen/sandbox-session-store";
 import {
   createSandboxRuntimeFromFiles,
+  resolveSandboxPreviewModeFromEnv,
   type RuntimeFile,
+  type SandboxPreviewMode,
 } from "@/lib/mcp/runtime-url";
+
+export type { SandboxPreviewMode };
 
 export interface SandboxPreviewResult {
   sandboxUrl: string;
   sandboxId: string;
+  sandboxPreviewMode: SandboxPreviewMode;
+  /** Tier 3 when a production build step ran in sandbox. */
+  fidelityTier: 2 | 3;
+  prodBuildVerified: boolean;
+  prodBuildLogSnippet?: string;
 }
 
 export interface SandboxPreviewError {
@@ -17,19 +27,21 @@ export interface SandboxPreviewError {
   raw?: string;
 }
 
+export type StartSandboxPreviewOptions = {
+  /** Reserved for project-bound `.env.local` merge when implemented. */
+  appProjectId?: string | null;
+  chatId?: string | null;
+  previewMode?: SandboxPreviewMode;
+};
+
 /**
  * Start a full Next.js sandbox from generated files.
  *
- * Flow: repair files -> build complete project (add package.json etc.)
- *       -> write to @vercel/sandbox -> npm install -> npm run dev (detached)
- *       -> return sandbox URL for iframe embedding.
- *
- * Note: **`npm run build` is not run here** — the preview is a dev server (`next dev`),
- * not a production build. Parity with `next build` + `next start` is a separate concern
- * (e.g. deploy or local validation).
+ * Flow: repair -> buildCompleteProject -> @vercel/sandbox -> install -> dev (and optional build verify).
  */
 export async function startSandboxPreview(
   generatedFiles: CodeFile[],
+  options?: StartSandboxPreviewOptions,
 ): Promise<
   | { ok: true; result: SandboxPreviewResult }
   | { ok: false; error: SandboxPreviewError }
@@ -54,19 +66,36 @@ export async function startSandboxPreview(
     content: f.content,
   }));
 
+  const resolvedMode = options?.previewMode ?? resolveSandboxPreviewModeFromEnv();
+  const verifyBuild = resolvedMode === "dev_then_build";
+
   try {
     const runtime = await createSandboxRuntimeFromFiles(runtimeFiles, {
       installCommand: "npm install --prefer-offline",
       startCommand: "npm run dev",
       ports: [3000],
-      timeoutMs: 3 * 60_000,
+      sandboxPreviewMode: resolvedMode,
+      verifyBuild,
     });
+
+    const bv = runtime.buildVerification;
+    const fidelityTier: 2 | 3 = bv !== undefined ? 3 : 2;
+    const sandboxUrl = runtime.primaryUrl ?? runtime.urls[3000] ?? "";
+    const cid =
+      typeof options?.chatId === "string" && options.chatId.trim() ? options.chatId.trim() : null;
+    if (cid && sandboxUrl.trim()) {
+      touchSandboxSession({ chatId: cid, sandboxId: runtime.sandboxId, sandboxUrl });
+    }
 
     return {
       ok: true,
       result: {
-        sandboxUrl: runtime.primaryUrl ?? runtime.urls[3000] ?? "",
+        sandboxUrl,
         sandboxId: runtime.sandboxId,
+        sandboxPreviewMode: resolvedMode,
+        fidelityTier,
+        prodBuildVerified: bv ? bv.ok : false,
+        prodBuildLogSnippet: bv && !bv.ok ? bv.logSnippet : undefined,
       },
     };
   } catch (err) {
