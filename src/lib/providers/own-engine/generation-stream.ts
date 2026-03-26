@@ -196,6 +196,7 @@ export function createOwnEngineGenerationStream(
         resolvedScaffold,
         urlMap,
         startedAt: engineStartedAt,
+        orchestrationStreamMeta: meta as Record<string, unknown>,
         tokenUsage: {
           prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
           completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,

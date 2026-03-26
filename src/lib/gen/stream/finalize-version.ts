@@ -29,6 +29,7 @@ import {
 } from "./finalize-preflight";
 import { mergeGeneratedProjectFiles } from "./finalize-merge";
 import { injectIntegrationManifestIntoFilesJson } from "@/lib/integrations/inject-integration-manifest";
+import { buildPersistedOrchestrationSnapshot } from "@/lib/gen/orchestration-snapshot";
 
 let _lastMaterializedUrls: Set<string> = new Set();
 
@@ -61,6 +62,8 @@ export interface FinalizeParams {
   previousFiles?: CodeFile[];
   /** Optional callback for emitting progress SSE events during finalization */
   onProgress?: FinalizeProgressCallback;
+  /** SSE `meta` from own-engine stream — persisted on chat after save (K-019). */
+  orchestrationStreamMeta?: Record<string, unknown> | null;
 }
 
 export interface FinalizeResult {
@@ -114,6 +117,7 @@ export async function finalizeAndSaveVersion(
     logNote,
     previousFiles,
     onProgress,
+    orchestrationStreamMeta,
   } = params;
 
   let contentForVersion = accumulatedContent;
@@ -273,6 +277,20 @@ export async function finalizeAndSaveVersion(
     chatId,
     versionId: version.id,
   });
+
+  if (orchestrationStreamMeta && typeof orchestrationStreamMeta === "object") {
+    try {
+      const snap = buildPersistedOrchestrationSnapshot({
+        streamMeta: orchestrationStreamMeta,
+        versionId: version.id,
+        chatId,
+        buildIntent: buildIntent ?? null,
+      });
+      await chatRepo.updateChatOrchestrationSnapshot(chatId, snap);
+    } catch (e) {
+      console.warn("[orchestration-snapshot] Failed to persist:", e);
+    }
+  }
   const {
     preflightErrors,
     preflightWarnings,

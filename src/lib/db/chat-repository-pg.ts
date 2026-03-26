@@ -26,6 +26,7 @@ export interface Chat {
   model: string;
   system_prompt: string | null;
   scaffold_id: string | null;
+  orchestration_snapshot?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -302,6 +303,17 @@ export async function updateChatScaffoldId(chatId: string, scaffoldId: string | 
   const result = await db
     .update(engineChats)
     .set({ scaffoldId, updatedAt: new Date() })
+    .where(eq(engineChats.id, chatId));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateChatOrchestrationSnapshot(
+  chatId: string,
+  snapshot: Record<string, unknown> | null,
+): Promise<boolean> {
+  const result = await db
+    .update(engineChats)
+    .set({ orchestrationSnapshot: snapshot, updatedAt: new Date() })
     .where(eq(engineChats.id, chatId));
   return (result.rowCount ?? 0) > 0;
 }

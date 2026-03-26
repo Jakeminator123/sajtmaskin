@@ -67,6 +67,7 @@ import {
   persistFollowUpClarification,
   resolveFollowUpClarification,
 } from "@/lib/providers/own-engine/follow-up-clarification";
+import { prependOrchestrationContinuityToFollowUp } from "@/lib/gen/orchestration-snapshot";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -186,6 +187,10 @@ export async function handleMessageStreamRequest(
           promptSourcePreservePayload: metaPromptSourcePreservePayload,
         });
         let optimizedMessage = promptOrchestration.finalMessage;
+        optimizedMessage = prependOrchestrationContinuityToFollowUp(
+          optimizedMessage,
+          engineChat.orchestration_snapshot ?? null,
+        );
 
         const latestEngineVersion = await chatRepo.getLatestVersion(chatId);
         let previousFiles: CodeFile[] = [];

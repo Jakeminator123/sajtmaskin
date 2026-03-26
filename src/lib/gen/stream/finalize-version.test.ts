@@ -12,6 +12,7 @@ const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
+const updateChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const deleteEngineMessage = vi.hoisted(() => vi.fn());
 const logGeneration = vi.hoisted(() => vi.fn());
@@ -64,6 +65,7 @@ vi.mock("@/lib/gen/project-scaffold", () => ({
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
+  updateChatOrchestrationSnapshot,
   addMessage,
   deleteEngineMessage,
   logGeneration,
@@ -122,6 +124,7 @@ describe("finalizeAndSaveVersion", () => {
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
     addAssistantMessageAndCreateDraftVersion.mockReset();
+    updateChatOrchestrationSnapshot.mockReset();
     addMessage.mockReset();
     deleteEngineMessage.mockReset();
     logGeneration.mockReset();
@@ -190,6 +193,7 @@ describe("finalizeAndSaveVersion", () => {
       message: { id: "msg_1" },
       version: { id: "ver_1" },
     });
+    updateChatOrchestrationSnapshot.mockResolvedValue(true);
     addMessage.mockResolvedValue({ id: "orphan_msg" });
     deleteEngineMessage.mockResolvedValue(true);
     logGeneration.mockResolvedValue({});
@@ -211,6 +215,25 @@ describe("finalizeAndSaveVersion", () => {
 
     expect(addMessage).not.toHaveBeenCalled();
     expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalledTimes(1);
+    expect(updateChatOrchestrationSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("persists orchestration snapshot when orchestrationStreamMeta is provided", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      buildIntent: "website",
+      orchestrationStreamMeta: { modelTier: "max", promptStrategy: "compress" },
+    });
+    expect(updateChatOrchestrationSnapshot).toHaveBeenCalledTimes(1);
+    const arg = updateChatOrchestrationSnapshot.mock.calls[0];
+    expect(arg?.[0]).toBe("chat_1");
+    expect((arg?.[1] as Record<string, unknown>)?.lastVersionId).toBe("ver_1");
   });
 
   it("propagates when transactional assistant+draft persist fails (no manual message delete)", async () => {

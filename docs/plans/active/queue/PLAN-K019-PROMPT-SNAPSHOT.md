@@ -1,6 +1,6 @@
 # PLAN — K-019: Orchestration snapshot (promptkedja)
 
-**Status:** öppen — delmoment **Agentlogg hopfälld som standard** levererat; **snapshot över stream-steg** kvar.
+**Status:** öppen — delmoment **Agentlogg hopfälld** + **server-persistens** (`orchestration_snapshot` på `engine_chats`, follow-up prepend) levererat; **finare merge/UI** kan återstå.
 
 **Kanonisk bakgrund:** [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md) § 0 (*Promptkedja*), § 3 · [`../kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) (rad **K-019**) · [`.j_to_agent/fidelity.txt`](../../../../.j_to_agent/fidelity.txt)
 

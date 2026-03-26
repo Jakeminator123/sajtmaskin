@@ -410,6 +410,8 @@ export const engineChats = pgTable("engine_chats", {
   model: text("model").notNull().default("gpt-5.4"),
   systemPrompt: text("system_prompt"),
   scaffoldId: text("scaffold_id"),
+  /** Last successful generation: sanitized SSE meta + version id for follow-up continuity (K-019). */
+  orchestrationSnapshot: jsonb("orchestration_snapshot").$type<Record<string, unknown> | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
