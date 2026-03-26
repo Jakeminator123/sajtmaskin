@@ -3,7 +3,7 @@
 **Syfte:** En **kort** lista för en agent som ska köra «det sista» utan att läsa hela [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) först.  
 **Sanning med `[ ]` / `[x]`:** [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) (K-ID) och kryss i [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) (Plan 17). Uppdatera alltid de filerna när något stängs.
 
-**Senast sammanställd / städad:** 2026-03-26. **Färdig prompt till nästa agent:** [`NASTA-AGENT-PROMPT.md`](./NASTA-AGENT-PROMPT.md).
+**Senast sammanställd / städad:** 2026-03-26. **Färdig prompt till nästa agent:** [`NASTA-AGENT-PROMPT.md`](./NASTA-AGENT-PROMPT.md). **Beslut Fas A (K-007/009/018/019 + Plan 17 WS-4/5-rester):** [`queue/BESLUT-INNAN-VI-GAR-VIDARE.md`](./queue/BESLUT-INNAN-VI-GAR-VIDARE.md) **2026-03-26** — kritik-rader fortfarande **`[ ]`** tills implementation.
 
 ---
 

@@ -204,6 +204,7 @@ Uppdatera **både** denna lista och [`17-repo-separation-and-independence.md`](.
 - **Vercel-templates** → **scaffolds** för OwnEngine; **V0-templates** → separat plattformsspår (FAQ [`queue/FRAGOR-SVAR-FAQ.md`](./queue/FRAGOR-SVAR-FAQ.md) § I1).
 - **Remediation W1–W5:** klart per [`../avklarat/external-review-execution/REMEDIATION-EXIT.md`](../avklarat/external-review-execution/REMEDIATION-EXIT.md).
 - **Tidslinje fler beslut:** [`queue/COMPLETION-ROADMAP.md`](./queue/COMPLETION-ROADMAP.md).
+- **Fas A (K-007/009/018/019 + Plan 17 WS-4/5-rester) besvarad 2026-03-26:** [`queue/BESLUT-INNAN-VI-GAR-VIDARE.md`](./queue/BESLUT-INNAN-VI-GAR-VIDARE.md) — kritik **`[ ]`** kvar tills kod levereras.
 
 ---
 

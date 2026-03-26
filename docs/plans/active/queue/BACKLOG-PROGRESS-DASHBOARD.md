@@ -2,7 +2,7 @@
 
 **Syfte:** En **spårbar** (git-committad) siffra/översikt som kompletterar [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) och [`MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md). Uppdatera **datum** och tabellerna när en K-rad stängs, Plan 17-kryss bockas eller K-018-acceptans ändras.
 
-**Senast uppdaterad:** 2026-03-26 — push + förtydligande om filroller.
+**Senast uppdaterad:** 2026-03-26 — [`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md) Fas A **besvarad** (K-007/009/018/019 + Plan 17 WS-4/5-rester).
 
 ---
 
@@ -66,3 +66,4 @@ Aktiv körning (lokal, cursorignored): `.cursor/orchestrator/run/2026-03-26-back
 | 2026-03-26 | Första version: räknare + målbild + koppling orchestrator. |
 | 2026-03-26 | Orchestrator workload **02-01:** inventering skapad; senare samma dag **flytt** till `docs/plans/avklarat/2026-03-docs-old-archive/`. |
 | 2026-03-26 | **Push** `33631266e`; tillagt avsnitt *Varför vi inte massarkiverar active-hubbar*; Plan 17-räknare **7** öppna kryss. |
+| 2026-03-26 | **BESLUT-INNAN-VI-GAR-VIDARE** fylld + checklista **[x]**; kritik-tabellen får **beslut 2026-03-26**-pekare (K-rader fortfarande `[ ]`). |

@@ -29,12 +29,11 @@
 - **B1 → K-018 (2026-03-25):** Användarsidor ska preview:as som **bra standard React** (som `npm run dev`), **samma i `iframe`**.
 - **D1 (2026-03-25):** FAQ/innehåll på **Sajtmaskins** sajt **sekundärt**; **K-009** = SSE/own-engine, inte marknads-FAQ.
 - **I1 (2026-03-25):** **Vercel-templates** → **scaffolds** för OwnEngine; **V0-templates** → separat plattformsspår (se FAQ § *I1*).
+- **Fas A — K-007, K-009, K-018, K-019 + Plan 17 WS-4/5-rester (2026-03-26):** skriftliga produkt-/prioriteringsbeslut i [`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md) (checklista **[x]**); kritik-rader förblir **`[ ]`** tills kod levererats eller rad stängs med **[N/A]**.
 
 ### Kvar
 
-1. **K-007:** Ska auto-fix före deploy vara **strammare**, **oförändrat**, eller **tydligare opt-in/opt-out**?  
-2. **K-018:** Hur mäter vi **preview/`iframe`-paritet** mot `npm run dev`, och vilka delmoment levereras först?  
-3. **K-009:** Vilken **produkt-scope** gäller för own-engine SSE *utanför* avslutad W3-track? *(Marknads-FAQ = sekundärt.)*
+- **Implementation** enligt [`MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md) och öppna **K-**rader — inte fler «tomma» beslut i Fas A förrän backlog ändras.
 
 ---
 
