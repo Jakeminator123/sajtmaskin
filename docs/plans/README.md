@@ -57,6 +57,7 @@ Last tightened `2026-03-25` (`active/MASTER-ALLT-KVAR.md` — all post-exit back
 - `archived/world-class-commit-selection-report.md` — recovery artifact
 - `archived/world-class-branch-map-2026-03-13-to-now.md` — recovery artifact
 - `archived/2026-03-plan17-ws6-product-decisions.md` — Plan 17 WS-6 (D-ID, OpenClaw, Brave, Loopia); beslut **klara 2026-03-26**; kanon i `active/17-repo-separation-and-independence.md` § WS-6
+- `archived/2026-03-k019-orchestration-snapshot-phase1.md` — K-019 **fas 1** (DB `orchestration_snapshot`, sanering, follow-up prepend); **K-019** fortfarande öppen i kritik tills merge/UI stängt
 
 Plans 14-16 originated from the external deep-research audit
 (`docs/old/analyses/2026-03-deep-research-buggar-overlapp.md`).

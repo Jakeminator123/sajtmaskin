@@ -1,20 +1,15 @@
 # PLAN — K-019: Orchestration snapshot (promptkedja)
 
-**Status:** öppen — delmoment **Agentlogg hopfälld** + **server-persistens** (`orchestration_snapshot` på `engine_chats`, follow-up prepend) levererat; **finare merge/UI** kan återstå.
+**Status:** **K-019** är fortfarande **[ ]** i [`../kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) — **fas 1** (DB + persistens + follow-up prepend) är **levererad** och **arkiverad** här: [`../../archived/2026-03-k019-orchestration-snapshot-phase1.md`](../../archived/2026-03-k019-orchestration-snapshot-phase1.md).
 
-**Kanonisk bakgrund:** [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md) § 0 (*Promptkedja*), § 3 · [`../kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) (rad **K-019**) · [`.j_to_agent/fidelity.txt`](../../../../.j_to_agent/fidelity.txt)
+**Kvar:** finare merge-policy, ev. UI, ev. sync create-path; verifiera manuellt i builder (första prompt → follow-up).
 
-## Beslut som måste ligga fast först
+**Kanonisk bakgrund:** [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md) § 0–3 · [`.j_to_agent/fidelity.txt`](../../../../.j_to_agent/fidelity.txt)
 
-Se **[`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md) § 4** (lagring, merge vs ersätt, gränser).
+## Beslut (om oklart)
 
-## Teknisk riktning (efter beslut)
+[`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md) § 4 (lagring, merge vs ersätt).
 
-1. Identifiera var **förberedd orchestration-kontext** skapas idag (stream-steg, follow-up).
-2. Definiera **serialiserat snapshot-format** och **versionsnyckel** (t.ex. per `chatId` + steg-index).
-3. **Infoga** läsning/skrivning i befintlig meddelande-/stream-kedja utan att duplicera hela prompten i UI.
-4. Verifiera: `npm run typecheck`, `npx vitest run`, manuell builder-smoke (första prompt → follow-up → kontext oförändrad intention).
+## När denna plan kan arkiveras helt
 
-## När denna plan kan arkiveras
-
-När **K-019** är **[x]** i `kritik-consolidated-open-items.md` med datum och snapshot-beteendet är verifierat.
+När **K-019** är **[x]** med datum i kritik-tabellen och återstående arbete är **N/A** med kort motivering.

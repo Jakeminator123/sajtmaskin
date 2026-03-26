@@ -11,6 +11,7 @@
 | Preview / sandbox / K-018 | [`PLAN-PREVIEW-SANDBOX.md`](./PLAN-PREVIEW-SANDBOX.md) |
 | Kritik | [`PLAN-KRITIK-OPEN.md`](./PLAN-KRITIK-OPEN.md) |
 | Plan 17 öppet | [`PLAN-REPO-SEPARATION-OPEN.md`](./PLAN-REPO-SEPARATION-OPEN.md) |
+| K-019 (stub + arkiv) | [`PLAN-K019-PROMPT-SNAPSHOT.md`](./PLAN-K019-PROMPT-SNAPSHOT.md) |
 | Drift | [`PLAN-DRIFT-VERIFICATION.md`](./PLAN-DRIFT-VERIFICATION.md) |
 
 Handoff: [`INPUT_GPT.txt`](../../../../INPUT_GPT.txt)
