@@ -36,11 +36,30 @@ import { toast } from "sonner";
 
 import { useBuilderCallbacks } from "./useBuilderCallbacks";
 import { useBuilderDeployActions } from "./useBuilderDeployActions";
-import { useBuilderDerivedState, type ChatData } from "./useBuilderDerivedState";
+import {
+  useBuilderDerivedState,
+  type ChatData,
+  type VersionSummary,
+} from "./useBuilderDerivedState";
 import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
+
+/** Prefer sandbox URL over shim / v0-hosted when resolving iframe preview (K-018). */
+function pickVersionPreviewUrl(
+  v: VersionSummary | undefined,
+  preferV0HostedPreview: boolean,
+): string | null {
+  if (!v) return null;
+  const sand = v.sandboxUrl;
+  if (typeof sand === "string" && sand.trim()) return sand.trim();
+  const du = v.demoUrl;
+  if (preferV0HostedPreview && typeof du === "string" && du.includes("vusercontent.net")) {
+    return du;
+  }
+  return typeof du === "string" && du.trim() ? du.trim() : null;
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -1178,18 +1197,6 @@ export function useBuilderPageController() {
     const canUseServerDemoUrl =
       !serverProjectChatId || !chatId || serverProjectChatId === chatId;
     const preferV0HostedPreview = isV0BuilderPreviewFallbackEnabledInBrowser();
-    const pickVersionPreviewUrl = (
-      v: (typeof derived.effectiveVersionsList)[number] | undefined,
-    ): string | null => {
-      if (!v) return null;
-      const sand = v.sandboxUrl;
-      if (typeof sand === "string" && sand.trim()) return sand.trim();
-      const du = v.demoUrl;
-      if (preferV0HostedPreview && typeof du === "string" && du.includes("vusercontent.net")) {
-        return du;
-      }
-      return typeof du === "string" && du.trim() ? du.trim() : null;
-    };
     const firstListed = derived.effectiveVersionsList[0];
     const chatLatest = chatObj?.latestVersion;
     const chatLevelPreview =
@@ -1204,9 +1211,9 @@ export function useBuilderPageController() {
 
     const nextDemoUrl =
       persistedPreviewOverride ||
-      pickVersionPreviewUrl(activeVersionMatch) ||
+      pickVersionPreviewUrl(activeVersionMatch, preferV0HostedPreview) ||
       chatLevelPreview ||
-      pickVersionPreviewUrl(firstListed) ||
+      pickVersionPreviewUrl(firstListed, preferV0HostedPreview) ||
       (canUseServerDemoUrl && typeof serverProjectDemoUrl === "string" && serverProjectDemoUrl.trim()
         ? serverProjectDemoUrl.trim()
         : null) ||
