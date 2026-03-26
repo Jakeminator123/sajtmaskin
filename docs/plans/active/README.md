@@ -1,6 +1,6 @@
 # Active plans
 
-Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscykel:** [`../README.md`](../README.md) · [`../../architecture/documentation-lifecycle.md`](../../architecture/documentation-lifecycle.md).
+Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscykel:** [`../README.md`](../README.md) · [`../../architecture/documentation-lifecycle.md`](../../architecture/documentation-lifecycle.md). **Snabb handoff:** [`AGENT-HANDOFF-RESTERANDE.md`](./AGENT-HANDOFF-RESTERANDE.md) · [`NASTA-AGENT-PROMPT.md`](./NASTA-AGENT-PROMPT.md).
 
 ## Vad betyder «100% klart» här?
 

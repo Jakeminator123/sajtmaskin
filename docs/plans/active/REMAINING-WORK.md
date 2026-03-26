@@ -11,7 +11,7 @@
 | Område | Kanonisk källa |
 |--------|----------------|
 | Kritik (K-007, K-018, K-009, **K-019** öppna; K-008/K-014 stängda) | [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) · FAQ [`queue/FRAGOR-SVAR-FAQ.md`](./queue/FRAGOR-SVAR-FAQ.md) |
-| Plan 17 (WS-5/6, deferred) | [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) |
+| Plan 17 (WS-5 + deferred; WS-6 klar) | [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) |
 | Preview / K-018 | [`queue/PLAN-PREVIEW-SANDBOX.md`](./queue/PLAN-PREVIEW-SANDBOX.md) · handoff [`INPUT_GPT.txt`](../../../INPUT_GPT.txt) |
 | En ingång (rekommenderat) | [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) |
 | Körordning (legacy-länk) | [`queue/KORFIL.md`](./queue/KORFIL.md) → MASTER |
@@ -24,4 +24,4 @@
 
 När en rad stängs: uppdatera **källfilen** (kritik-tabell eller plan 17), sedan ev. avsnitt i `queue/PLAN-*.md`.
 
-**Senast synkad:** 2026-03-25 — [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) (allt-i-ett); `KORFIL` = pekare.
+**Senast synkad:** 2026-03-26 — hubbar + handoff-filer; kanon [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md); `KORFIL` = pekare till MASTER.

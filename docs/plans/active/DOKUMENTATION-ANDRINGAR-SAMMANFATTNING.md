@@ -14,8 +14,8 @@
 | **Deploy readiness** | Strikt JSON-validering av `package.json` / `components.json` / `jsconfig.json` i versioner; block vid ogiltighet (K-007-delmoment) |
 | **Plan 17 WS-6** | Produktbeslut arkiverat; hubbar uppdaterade |
 | **`archived` → `avklarat`** | Mapp `docs/plans/archived/` bytt till `docs/plans/avklarat/`; länkar svepta i repo; `docs/plans/archived/README.md` som pekare; `.cursorignore` uppdaterad |
-| **Handoff** | `AGENT-HANDOFF-RESTERANDE.md` (samlad «vad är öppet»); `REMAINING-WORK.md` länkar dit |
-| **Övrigt** | `MASTER-ALLT-KVAR`, kö-README, kritik, progress, livscykel-dokument, `docs/README`, regler — i takt med ovan |
+| **Handoff** | `AGENT-HANDOFF-RESTERANDE.md`, `NASTA-AGENT-PROMPT.md` (prompt + tidsuppskattning); `REMAINING-WORK.md` länkar |
+| **Övrigt** | `docs/plans/README.md` (active-lista), `COMPLETION-ROADMAP` (K-räkning 4 öppna), kö-/reviews-README, `MASTER-ALLT-KVAR`, kritik, progress — i takt med ovan |
 
 ---
 

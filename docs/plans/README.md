@@ -6,12 +6,15 @@ Undermappar (`active/`, `review-needed/`, `avklarat/`) har en kort `README.md` s
 
 ## Current status map
 
-Last tightened `2026-03-25` (`active/MASTER-ALLT-KVAR.md` — all post-exit backlog i en fil; `queue/KORFIL.md` pekar hit).
+Last tightened `2026-03-26` (`active/MASTER-ALLT-KVAR.md` — all post-exit backlog; `REMAINING-WORK.md` + `AGENT-HANDOFF-RESTERANDE.md` + `NASTA-AGENT-PROMPT.md` för handoff).
 
 `active`
 
 - `active/external-review-remediation-progress.md` — **sanning** för externreview-remediation: helhets-% per segment, “Last code touch”, commit-/push-rutin, Done / Next.
-- `active/REMAINING-WORK.md` — hubb efter remediation-exit.
+- `active/REMAINING-WORK.md` — hubb efter remediation-exit (länkar till handoff + prompt).
+- `active/AGENT-HANDOFF-RESTERANDE.md` — kort «vad är öppet» för nästa agent.
+- `active/NASTA-AGENT-PROMPT.md` — kopieringsbar prompt + tidsuppskattning.
+- `active/DOKUMENTATION-ANDRINGAR-SAMMANFATTNING.md` — ungefärlig doc-/plan-historik (git är sanning).
 - `active/MASTER-ALLT-KVAR.md` — **operativ kö (allt-i-ett)**: K-018, K-019 (fidelity / promptkedja), kritik, Plan 17-öppet, drift, orchestrator-råd; § 0 = produktintent från `.j_to_agent/fidelity.txt`.
 - `active/queue/KORFIL.md` — **pekare** till `MASTER-ALLT-KVAR.md`; valfria `queue/PLAN-*.md` som detalj.
 - `active/queue/BESLUT-INNAN-VI-GAR-VIDARE.md` — **produkt-/arkitekturfrågor** som bör besvaras (eller deferred med motivering) innan nästa större fas; kopplad till `COMPLETION-ROADMAP.md` Fas A.
@@ -20,10 +23,11 @@ Last tightened `2026-03-25` (`active/MASTER-ALLT-KVAR.md` — all post-exit back
 - `active/external-review-execution/README.md` — **stub** → `avklarat/external-review-execution/` (execution-spår arkiverat).
 - `active/17-repo-separation-and-independence.md` — repo separation / independence:
   **WS-1–WS-4 largely delivered** (v0 fallback removed from builder paths, Blob
-  `StorageProvider`, direct OpenAI/Anthropic for former gateway routes). **Still
-  open:** WS-5/WS-6, deferred env/docs cleanup (`AI_GATEWAY_*` references, `ENV.md`).
+  `StorageProvider`, direct OpenAI/Anthropic for former gateway routes). **WS-6
+  closed 2026-03-26** (product decisions). **Still open:** WS-5, deferred WS-2/WS-4
+  (v0, gateway env / `ENV.md`).
   Treat this file as **roadmap + audit trail**, not day-to-day architecture (use
-  `docs/architecture/engine-status.md` for “how it works now”).
+  `docs/architecture/engine-status.md` for “how it works now”; see plan file § «Hur du ska läsa»).
 
 `review-needed`
 

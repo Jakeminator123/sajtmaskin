@@ -9,12 +9,12 @@
 | Spår | Status | Kommentar |
 |------|--------|-----------|
 | **External-review remediation (1.txt–3.txt, W1–W5)** | **~100 %** | Avslutat per `REMEDIATION-EXIT` — inget mer i *det* spåret. |
-| **Kritik-tabellen (K-rader)** | **3 öppna / ~11 teman** | **K-014**, **K-008** stängda. Kvar: **K-007** (deploy auto-fix), **K-018** (preview/`iframe` för användarsidor), **K-009** (SSE-scope; marknads-FAQ sekundärt). |
-| **Plan 17** | **8 öppna kryss** | Deferred v0/gateway + WS-5. **WS-6 klar 2026-03-26** (behåll D-ID, OpenClaw; Brave + Loopia optional). |
+| **Kritik-tabellen (K-rader)** | **4 öppna** (K-007, K-009, K-018, K-019) | **K-014**, **K-008** m.fl. stängda — se [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md). |
+| **Plan 17** | **WS-5 + deferred** (WS-2/WS-4) | **WS-6 klar 2026-03-26** (behåll D-ID, OpenClaw; Brave + Loopia optional). Städ/research/`docs/old/` m.m. |
 
 **Samlad bedömning:** Av *allt som historiskt körts* fram till remediation-exit är **execution-spåret i princip färdigt**. Det som återstår är **medvetet efterkvar** — ofta **dagar–veckor** per större punkt om man ska göra det ordentligt, inte «en eftermiddag».
 
-**Landning (K-008)** är **stängd** tills vidare (2026-03-25): inget fokus på mer landningsmaterial; **primärfokus = K-018** (användarsidor i `iframe`). **K-014** stängd (2026-03-26). Kvar för «allt klart» i kritik-lagret: **K-007** (deploy auto-fix), **K-018** (preview-parity), **K-009** (SSE — FAQ på Sajtmaskin **sekundärt**). **WS-6** besvarad (2026-03-26). Begrepp: [`FRAGOR-SVAR-FAQ.md`](./FRAGOR-SVAR-FAQ.md).
+**Landning (K-008)** är **stängd** tills vidare (2026-03-25): inget fokus på mer landningsmaterial; **primärfokus = K-018** (användarsidor i `iframe`). **K-014** stängd (2026-03-26). Kvar för «allt klart» i kritik-lagret: **K-007**, **K-018**, **K-009**, **K-019** — se master-tabellen. **WS-6** besvarad (2026-03-26). Begrepp: [`FRAGOR-SVAR-FAQ.md`](./FRAGOR-SVAR-FAQ.md).
 
 ---
 
