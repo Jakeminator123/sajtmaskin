@@ -2,7 +2,15 @@
 
 **Syfte:** En **spårbar** (git-committad) siffra/översikt som kompletterar [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) och [`MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md). Uppdatera **datum** och tabellerna när en K-rad stängs, Plan 17-kryss bockas eller K-018-acceptans ändras.
 
-**Senast uppdaterad:** 2026-03-26 — `docs/old` flyttad till `avklarat/2026-03-docs-old-archive/`.
+**Senast uppdaterad:** 2026-03-26 — push + förtydligande om filroller.
+
+---
+
+## Varför vi **inte** massarkiverar `active/`-hubbar
+
+En annan agent sammanfattade det rätt: filer som [`../17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md), [`../AGENT-HANDOFF-RESTERANDE.md`](../AGENT-HANDOFF-RESTERANDE.md), [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md), [`../kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md), [`../REMAINING-WORK.md`](../REMAINING-WORK.md), [`../external-review-remediation-progress.md`](../external-review-remediation-progress.md), [`README.md`](../README.md) m.fl. är **kanoniska pekare / sanning** så länge backlog finns — inte «skräp att städa bort». **100% remediation** i progress-filen betyder **W1–W5 execution**, inte att alla **K-**rader eller Plan 17 är tomma.
+
+**Gör i stället:** leverera kod/policy mot **K-007, K-009, K-018, K-019** och återstående Plan 17-kryss; uppdatera samma hubbar när något stängs. Historiklistor (`DOKUMENTATION-ANDRINGAR-SAMMANFATTNING.md`, stubbar) får ligga kvar som tidslinje.
 
 ---
 
@@ -21,7 +29,7 @@
 | Yta | Kvar (nu) | Kommentar |
 |-----|-----------|-----------|
 | **K-rader helt öppna** | **4** | K-007, K-009, K-018, K-019 — alla `[ ]` i kritik-tabellen |
-| **Plan 17 öppna kryss (WS-2 deferred + WS-4 + WS-5)** | **8** | Räknat från [`../17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md) |
+| **Plan 17 öppna kryss (WS-2 deferred + WS-4 + WS-5-rester)** | **7** | [`../17-repo-separation-and-independence.md`](../17-repo-separation-and-independence.md) — `docs/old` H2c **[x]** 2026-03-26; deferred-kryss är **medvetna** (ägarbeslut), inte glömda |
 | **K-018 §2 acceptans (efter Fas 1-listan)** | **3** tydligt `[ ]` + 1 delvis | Se [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md) §2 *Acceptans efter Fas 1* (UI-shim/runtime m.m.) |
 
 ---
@@ -57,3 +65,4 @@ Aktiv körning (lokal, cursorignored): `.cursor/orchestrator/run/2026-03-26-back
 |-------|-----|
 | 2026-03-26 | Första version: räknare + målbild + koppling orchestrator. |
 | 2026-03-26 | Orchestrator workload **02-01:** inventering skapad; senare samma dag **flytt** till `docs/plans/avklarat/2026-03-docs-old-archive/`. |
+| 2026-03-26 | **Push** `33631266e`; tillagt avsnitt *Varför vi inte massarkiverar active-hubbar*; Plan 17-räknare **7** öppna kryss. |
