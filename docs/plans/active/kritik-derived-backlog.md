@@ -4,7 +4,7 @@ All **deduplicerad** backlog och status för öppna punkter ligger i:
 
 **[`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md)**
 
-**Operativ kö (3 planer):** [`queue/KORFIL.md`](./queue/KORFIL.md)
+**Operativ kö:** [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) · [`INPUT_GPT.txt`](../../../INPUT_GPT.txt) · [`queue/KORFIL.md`](./queue/KORFIL.md) (pekare)
 
 Samlad **hubb** utan duplicerade tabeller: [`REMAINING-WORK.md`](./REMAINING-WORK.md).
 

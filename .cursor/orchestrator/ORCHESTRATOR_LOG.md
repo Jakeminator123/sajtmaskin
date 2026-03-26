@@ -1,3 +1,11 @@
+2026-03-25 — **MASTER allt-i-ett:** `docs/plans/active/MASTER-ALLT-KVAR.md` — samlar K-018, K-007/K-009, Plan 17-öppet, drift, orchestrator vs agent, **§ 0 mall** för annan-AI-tillägg (fidelity + integrationer). `queue/KORFIL.md` = pekare till MASTER; `queue/README`, `REMAINING-WORK`, `active/README`, `docs/README`, `kritik-consolidated`, `17-repo`, `progress`, `COMPLETION-ROADMAP` uppdaterade.
+
+2026-03-25 — **Körfil + PLAN 4:** `queue/PLAN-PREVIEW-SANDBOX.md` (K-018, `INPUT_GPT.txt`, acceptans, **UI-princip**: bara användarens integrations-/preview-signaler — inte Sajtmaskins interna brus). `KORFIL` omskriven — fyra `PLAN-*`, rekommenderad **start** för preview-fokus; `queue/README`, `REMAINING-WORK`, `COMPLETION-ROADMAP`, `PLAN-KRITIK-OPEN` pekare.
+
+2026-03-25 — **Preview + mall-distinktion:** **K-018** ny — användarsidor: React-kvalitet som `npm run dev`, samma i **`iframe`**. **K-008 [x]** — landning fryst (ingen utökning av material); fokus K-018. **K-009** — marknads-FAQ sekundärt. FAQ + `e2e/README`: **Vercel-templates → scaffolds** (OwnEngine), **V0-templates** separat plattformsspår. Synk: `kritik-consolidated`, `PLAN-KRITIK-OPEN`, `KORFIL`, `COMPLETION-ROADMAP`, `REMAINING-WORK`, progress.
+
+2026-03-26 — **Ägarbeslut B–I (doc):** **K-014 [x]** — cookies/om oss/juridik OK oförändrat. Ny `docs/plans/active/queue/FRAGOR-SVAR-FAQ.md` (B1/C1/D1/I1, `e2e/` vs v0). Plan 17: **F1** v0 medvetet separerat, **G1b** ENV låg prio, **H1c** research-policy, **H2c** aggressiv `docs/old/` med inventering. `e2e/README.md` § *TL;DR* (`SAJTMASKIN_E2E_*` = deploy-smoke, inte mallgalleri). Synk: kritik-tabell, `PLAN-KRITIK-OPEN`, `KORFIL`, `COMPLETION-ROADMAP`, `PLAN-REPO-SEPARATION-OPEN`, progress, `REMAINING-WORK`, `queue/README`.
+
 2026-03-26 — **Plan 17 WS-6:** Produktbeslut — behåll D-ID (`/avatar`) och OpenClaw; Brave Search + Loopia fortsätter optional. Uppdaterat: plan 17, `PLAN-REPO-SEPARATION-OPEN`, `COMPLETION-ROADMAP`, `KORFIL`, `REMAINING-WORK`; push `origin/master`.
 
 2026-03-25 — **Post-exit queue:** `docs/plans/active/queue/KORFIL.md` (3 punkter) + `PLAN-KRITIK-OPEN` / `PLAN-REPO-SEPARATION-OPEN` / `PLAN-DRIFT-VERIFICATION`; `REMAINING-WORK` + hubs; orchestrator-run `2026-03-25-post-exit-backlog-queue` arkiverad lokalt.

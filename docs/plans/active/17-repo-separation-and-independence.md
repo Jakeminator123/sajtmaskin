@@ -1,10 +1,10 @@
 # Plan 17: Repo Separation and Independence
 
-**Status:** **Active** — kärnan **WS-1–WS-4** är levererad (2026-03-18/19). **WS-6** är **avklarad** med produktbeslut **2026-03-26:** behåll **D-ID** (`/avatar`), behåll **OpenClaw**, **Brave Search** och **Loopia** förblir **optional** (som idag). Filen är **inte** arkiverad därför att **WS-5** (stora filer / research-hygien) och **deferred** städ (`AI_GATEWAY_*` / OIDC, `ENV.md` + `config/env-policy.json`, v0 SDK/`V0_API_KEY`) fortfarande har öppna kryss. När de är gjorda eller medvetet nedprioriterade: flytta till `docs/plans/archived/` enligt [documentation-lifecycle.md](../../architecture/documentation-lifecycle.md).
+**Status:** **Active** — kärnan **WS-1–WS-4** är levererad (2026-03-18/19). **WS-6** är **avklarad** med produktbeslut **2026-03-26:** behåll **D-ID** (`/avatar`), behåll **OpenClaw**, **Brave Search** och **Loopia** förblir **optional** (som idag). **Ägarbeslut samma dag (B–I):** **v0 SDK / `V0_API_KEY`** förblir **avsiktligt separerat** (ingen nära fas-ut); **`ENV.md` / `env-policy`** = **låg prio**, dokumentera nuvarande sanning före hård städ; **`research/`** = kort policy i § WS-5; **`docs/old/`** = aggressiv städ **i separata PR** med inventering före radering. Filen är **inte** arkiverad förrän WS-5/deferred är gjorda eller uttryckligen nedprioriterade i planen. När kryssen är bockade eller N/A: flytta till `docs/plans/archived/` enligt [documentation-lifecycle.md](../../architecture/documentation-lifecycle.md).
 
 **Skilj från external-review 100%:** Plan 17 är ett **separat** arkitektur-/dependency-spår, inte samma sak som *remediation exit* i [`archived/external-review-execution/REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md).
 
-**Öppet arbete (köbar plan):** [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md) · [`queue/KORFIL.md`](./queue/KORFIL.md)
+**Öppet arbete (samlad ingång):** [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) · detalj: [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md)
 
 ## Goal
 
@@ -35,7 +35,7 @@ This means:
 | **Vercel Blob Storage** | 3/5 | No (for images) | Abstract behind StorageProvider |
 | **Vercel AI SDK** | Open source | Yes (MIT) | Keep — no Vercel lock-in |
 | **Vercel AI Gateway + OIDC** | 2/5 | Yes | Replace with direct OpenAI calls |
-| **v0 Platform API** | 3/5 | Yes | Phase out — own engine is default |
+| **v0 Platform API** | 3/5 | Yes | Fallback borttagen (WS-2); **SDK + nyckel** kvar — **ägarbeslut 2026-03-26:** medvetet **separat** spår, ingen nära fas-ut |
 | **Vercel Sandbox** | 1/5 | Yes | Low priority — niche use |
 
 ## Workstreams
@@ -64,6 +64,8 @@ Remove verified dead code and unused dependencies:
 - [ ] Remove v0 SDK client (`src/lib/v0.ts`) — deferred: still needed for legacy v0 projects, templates
 - [ ] Remove `V0_API_KEY` from required env vars — deferred: still used by v0 project management routes
 
+**Ägarbeslut 2026-03-26 (F1):** v0-plattformen (**SDK + nyckel**) ska **medvetet ligga kvar** som separat spår — deferred-kryssen är **inte** “nästa automatiska fas-ut”; egen arkitekturplan före ändring.
+
 ### WS-3: Vercel Blob abstraction — COMPLETED
 
 **Delivered 2026-03-19.**
@@ -88,12 +90,14 @@ Create a `StorageProvider` interface so blob storage can be swapped:
 - [ ] Remove `AI_GATEWAY_API_KEY` and `VERCEL_OIDC_TOKEN` from env schema — deferred: still referenced in health/admin routes
 - [ ] Update `ENV.md` and `config/env-policy.json` — next cleanup pass
 
+**Ägarbeslut 2026-03-26 (G1b):** **`ENV.md` / `env-policy`** har **låg prio** — första steget är **dokumentera nuvarande sanning** (vilka routes/nycklar som faktiskt används), inte aggressiv schemarensning.
+
 ### WS-5: Large file and research cleanup
 
 - [ ] Verify large JSON files are in `.gitignore` (not just `.cursorignore`)
 - [ ] Consider git-lfs or build-time generation for files > 1 MB
-- [ ] Evaluate whether `research/` can be moved to a separate repo or submodule
-- [ ] Clean up `docs/old/` — remove anything with zero reference value
+- [ ] Evaluate whether `research/` can be moved to a separate repo or submodule — **policy tills vidare (H1c, 2026-03-26):** `research/` är för **extern rådata**, mall-discovery-output och liknande som **inte** ska vara hårdkrav för `npm run dev`; håll det **separerat från `src/`** och dokumentera vad som är gitignored/byggs lokalt.
+- [ ] Clean up `docs/old/` — **H2c (2026-03-26):** ägare accepterar **aggressiv** städ; kör i **separata PR** med **filinventering före radering** (ingen blind massradering).
 
 Audit note:
 - `2026-03-19`: requested PowerShell scan of `src/**/*.json` over `1 MB` returned no matches, so this repo slice currently needs neither `.gitignore` additions nor `git rm --cached`.
@@ -120,7 +124,7 @@ Produktbeslut (ägare): **behåll** D-ID och OpenClaw; Brave Search och Loopia *
 
 - Running `npm run dev` requires only: `OPENAI_API_KEY`, `POSTGRES_URL`,
   `JWT_SECRET` (and optionally `REDIS_URL`)
-- No code paths reference v0 SDK or v0 Platform API
+- **v0 SDK / Platform API:** inga *nya* okontrollerade beroenden; befintliga vägar **dokumenterade** (WS-2 deferred + **F1 2026-03-26:** medvetet separat tills vidare)
 - Blob storage has a provider interface with at least 2 implementations
 - No `gateway()` calls remain in API routes
 - Dead code and unused dependencies are removed

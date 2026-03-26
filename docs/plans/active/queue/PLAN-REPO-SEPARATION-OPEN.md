@@ -7,17 +7,21 @@
 - [ ] **v0 SDK** (`src/lib/v0.ts`) — *deferred:* behövs för legacy v0-projekt / mallar; stäng när ersatt eller dokumenterat att behållas permanent.
 - [ ] **`V0_API_KEY` i required env** — *deferred:* används av v0 project management routes; stäng i linje med beslut om v0-livscykel.
 
+**Ägarbeslut 2026-03-26 (F1):** v0-spåret är **avsiktligt separat** — inget krav på nära migrering; följ huvudplanen § WS-2.
+
 ## WS-4 deferred
 
 - [ ] **`AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN`** bort från env-schema — *deferred:* refereras i health/admin; stäng när referenser rensats eller env dokumenterat.
 - [ ] **`ENV.md` + `config/env-policy.json`** — “next cleanup pass”; synka med verkliga routes och policy.
 
+**Ägarbeslut 2026-03-26 (G1b):** **låg prio** — dokumentera **nuvarande sanning** först.
+
 ## WS-5: Large file and research cleanup
 
 - [ ] Stora JSON: verifiera `.gitignore` (inte bara `.cursorignore`) om nya genererade filer tillkommer.
 - [ ] Överväg git-lfs eller build-time generation för filer > 1 MB om de börjar dyka upp i repo.
-- [ ] Utvärdera `research/` — separat repo/submodule eller tydlig “research-only” policy.
-- [ ] Städa `docs/old/` — ta bort eller arkivera det som saknar referensvärde.
+- [ ] Utvärdera `research/` — separat repo/submodule eller följ **policy i huvudplanen** § WS-5 (H1c).
+- [ ] Städa `docs/old/` — **H2c:** aggressivt i **separata PR** med **inventering före radering**.
 
 ## WS-6: Optional services — **beslut 2026-03-26**
 

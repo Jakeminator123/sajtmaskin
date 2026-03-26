@@ -1,0 +1,431 @@
+Sajtmaskin — sandbox-strategi, fidelity, integrationer och agent-handoff för Cursor
+Det här dokumentet är avsett som en enda handoff-fil till en AI-agent i Cursor. Målet är att ge en praktisk, kodnära plan för hur Sajtmaskin bör utvecklas så att genererade sajter kan få högre preview-fidelity via sandbox, hantera integrationer på ett förutsägbart sätt, och undvika onödig komplexitet kring lagring och GitHub för tidigt.
+
+SCOPE — `.env.local`, `npm run dev`, `npm run build`, sandbox-filsystem: avser alltid den genererade användarsajtens Next-projekt i preview/sandbox (Vercel Sandbox eller motsvarande), inte Sajtmaskin-monorepots egna `.env*` eller `npm run dev` i repots rot.
+---
+1. Kort beslutsrekommendation
+Rekommenderad riktning
+Bygg återanvändbar sandbox per aktiv användarsession / chat-session, inte en permanent sandbox per projekt.
+Rekommenderad livscykel
+Idle timeout: 20 till 30 minuter
+Hard cap: 2 timmar
+Tydlig cleanup: stoppa sandbox när användaren lämnar buildern, när sessionen blir inaktiv länge, eller när ny sandbox måste ersätta gammal
+Varför just detta
+Det ger nästan all nytta av "varm sandbox" under aktivt arbete, men undviker kostnaden och driftskomplexiteten i att hålla varje gammalt projekt levande hela tiden.
+Repo-dokumentationen säger uttryckligen att standardnormen idag är ephemeral preview med shim först och sandbox on-demand, och att en ständigt igång full runtime per inaktivt projekt bör undvikas av kostnads- och komplexitetsskäl. Se `docs/architecture/preview-and-sandbox-flow.md`. fileciteturn3file0L1-L1 fileciteturn13file5L1-L1
+---
+2. Svar på frågan om `npm run dev` vs `npm run build`
+Det viktiga svaret
+Det är inte samma sak att köra:
+`npm install && npm run dev`
+`npm install && npm run build && npm run dev`
+`npm install && npm run build && npm run start`
+Dessa ger olika egenskaper.
+A. `npm install && npm run dev`
+Detta ger en riktig Next.js dev-server. Det är redan mycket högre fidelity än HTML-shim, eftersom appen faktiskt körs i en riktig Next-runtime med npm-upplösta moduler, routes, server components, client components och så vidare.
+Det är också det som repo:t använder idag i sandbox-previewn. `startSandboxPreview()` bygger en komplett projektstruktur och startar sandboxen med `npm install --prefer-offline` och `npm run dev`. `npm run build` körs inte i detta flöde. Se `src/lib/gen/sandbox-preview.ts` och dokumentationen i `preview-and-sandbox-flow.md`. fileciteturn2file0L1-L1 fileciteturn13file1L1-L1
+B. `npm install && npm run build && npm run dev`
+Detta ökar inte fidelityn i själva visningen om du ändå till sist kör `npm run dev`.
+Vad `npm run build` gör här är främst:
+verifierar att appen kan byggas
+fångar typfel, importfel, fel i build-tid, SSR-problem, statiska analysfel, vissa env-problem
+fungerar som kvalitetskontroll
+Men när du sedan kör `npm run dev` igen så visas appen fortfarande i dev-läge, inte i produktionsläge.
+Alltså:
+`build` före `dev` = extra verifiering
+inte = production-like serving
+C. `npm install && npm run build && npm run start`
+Detta är närmast produktionsfidelity för själva serving-läget.
+Om målet är att se det som slutanvändaren får i en deployad app, är detta det mest relevanta läget. Men det är ofta långsammare och mindre smidigt för snabb iteration än dev-server.
+Slutsats
+För Sajtmaskin bör preview-flödet skilja mellan två saker:
+Preview runtime: kör `npm run dev` för snabb interaktiv preview
+Verify/build gate: kör `npm run build` som separat kontroll
+Det ger bättre UX än att ersätta previewn med `build && start` varje gång.
+Repo-dokumentationen säger uttryckligen att sandbox-läget idag motsvarar en Next dev-app, och att det inte är samma sak som `npm run build && npm run start`. fileciteturn13file1L1-L1
+Praktisk rekommendation
+Använd denna sekvens i framtida sandbox-flöde:
+Skriv filer till sandbox
+Skriv `.env.local`
+Kör `npm install`
+Starta `npm run dev`
+När dev-servern är uppe: ge URL till iframe
+Kör `npm run build` i bakgrunden eller som sekundär verifiering
+Visa status i UI:
+`preview-ready`
+`build-verified`
+eller `build-failed-but-dev-runs`
+---
+3. Varför previewn inte redan fungerar så idag
+Detta är i huvudsak ett arkitekturval, inte bara ett tekniskt fel.
+Dagens läge i repo:t
+Efter generering får klienten först en snabb HTML-shim via `demoUrl`, byggd av `/api/preview-render`. Först därefter startas sandbox, om sandbox är konfigurerad. När sandboxen blir klar skickas `sandbox-ready`, och då kan klienten byta från shim-URL till sandbox-URL. Se `generation-stream.ts` och `preview-and-sandbox-flow.md`. fileciteturn9file0L1-L1 fileciteturn13file3L1-L1
+Viktiga begränsningar idag
+Shim först, riktig runtime sen
+Sandbox är on-demand, inte session-varm
+Sandbox kör `npm run dev`, inte `npm run build`
+Repo:t har placeholder-kontrakt för integrationer, men de injiceras ännu inte automatiskt i preview/sandbox
+Sandbox och shim har inte identiskt `postMessage`-beteende
+Punkt 4 är särskilt viktig: repo:t har redan en kanonisk placeholder-fil för genererade användarsajter och en Node-loader, men dokumentationen säger uttryckligen att Sajtmaskin inte auto-injicerar den i preview eller sandbox ännu. Det är alltså en tydlig nästa implementation, inte något som saknas helt på konceptnivå. fileciteturn14file0turn3file0L1-L1
+---
+4. Rekommenderad sandbox-modell för sessioner
+Rekommenderad modell
+En sandbox per aktiv builder-session, återanvänd så länge sessionen lever.
+Föreslagna timers
+Idle TTL: 30 minuter
+Hard cap: 2 timmar
+Heartbeats: var 30-60 sekund när användaren är aktiv i buildern
+Explicit release: när användaren stänger previewpanelen eller lämnar buildern
+Motiv
+5-10 minuter är för kort för realistiska byggsessioner
+2 timmar idle är för dyrt som standard
+30 minuter idle + 2 timmar hard cap brukar vara en rimlig balans
+Rekommenderad state-modell
+Skapa en server-side session mapping ungefär så här:
+`chatId` eller `builderSessionId`
+`sandboxId`
+`sandboxUrl`
+`status`
+`lastActiveAt`
+`startedAt`
+`lastInstalledHash`
+`lastFilesHash`
+`runtimeMode`
+Återanvändning
+Återanvänd samma sandbox om:
+samma chat/session
+sandbox inte har gått ut
+samma runtime-familj
+inga fatala fel
+Skapa ny sandbox om:
+timeout har passerat
+användaren explicit begär fresh start
+versionsändringar kräver clean environment
+föregående sandbox är i trasigt tillstånd
+---
+5. Integrationsstrategi — rekommenderad modell
+Rekommendation
+Använd tre nivåer i implementation och docs, även om UI kan visa det enklare.
+Nivå 1 — Placeholder-safe
+Integrationer där falska eller förberedda värden räcker för att preview ska kunna starta och rendera utan att appen kraschar.
+Exempel:
+Resend
+GA / GTM / Plausible / PostHog
+Stripe test-liknande placeholders
+Supabase-liknande URL + fake keys
+NextAuth/Auth.js placeholder-hemligheter
+Clerk placeholder keys
+OpenAI placeholder key
+Blob token placeholder
+Upstash REST placeholder
+Auth0 placeholder-set
+Detta motsvarar redan tanken i `config/ai_models/40-generated-site-integration-placeholders.env.txt`. Repo:t beskriver filen som den kanoniska källan för genererade användarsajters preview-placeholders. fileciteturn11file0L1-L1 fileciteturn14file0L1-L1
+Nivå 2 — Project-bound real values
+Integrationer där previewn helst använder projektspecifika riktiga värden om de finns, men där systemet ändå kan falla tillbaka till degraded mode om värden saknas.
+Exempel:
+verkliga env-vars i `project_data.meta.projectEnvVars`
+kundens Supabase-projekt
+kundens Stripe-nycklar
+kundens Resend-nyckel
+`ENV.md` beskriver att projektspecifika env-vars för genererade sajter redan lagras projektspecifikt i Sajtmaskin när det inte finns ett riktigt v0-projekt. fileciteturn12file0L1-L1
+Nivå 3 — Requires adapter or provisioned runtime
+Saker som inte blir stabila bara av att ge en env-sträng. Dessa kräver antingen riktig tjänst eller en tydlig preview-adapter.
+Exempel:
+Redis-klienter som ansluter direkt vid import
+Postgres/Prisma/Drizzle-flöden som kräver verklig tillgång eller migrationssteg
+OAuth-flöden som kräver redirect URIs och riktig provider-setup
+auth-middleware som annars blockerar hela sidan
+Repo-policyn säger explicit att placeholders inte alltid räcker om kod initierar Redis/DB-klienter på module scope och ansluter direkt; då behövs lazy init eller skip init i degraded mode. fileciteturn5file0L1-L1
+Viktig designprincip
+Allt ska inte lösas med placeholder-env.
+För nivå 3 behövs adapters eller fallback-beteende.
+---
+6. Bättre än bara placeholders: adapters för preview
+Följande adapters rekommenderas.
+Databas
+Om prompten inte kräver specifik cloud-databas:
+välj SQLite som default preview-backend
+eller file-baserad lokal store i sandbox
+Det här ligger också i linje med repo-reglerna som nu lutar mot "reasonable defaults" för odefinierade databaser, till exempel Drizzle + SQLite för lokal dev. fileciteturn14file0L1-L1
+Redis
+Använd inte riktig Redis som hårt krav i preview om det kan undvikas.
+Skapa i stället:
+in-memory cache adapter
+no-op queue adapter
+optional redis init
+Auth
+Erbjud preview-läge med:
+credentials-login med hårdkodat demo-lösenord
+eller guest/session stub
+eller bypass middleware i preview-mode
+Mail
+Skicka inte verkliga mail i preview.
+Använd:
+no-op provider
+log-only provider
+preview banner: "Mail skickas inte i preview-läge"
+Payments
+Använd preview checkout stub:
+fake success
+fake subscription state
+fake products
+---
+7. Hur env-hanteringen bör fungera
+Rekommenderad merge-ordning
+När sandboxen byggs ska `.env.local` skapas i denna ordning:
+Bas-placeholderfragment från `40-generated-site-integration-placeholders.env.txt`
+Projektspecifika env-vars från `project_data.meta.projectEnvVars`
+Eventuell explicit session override från UI
+Preview-mode sentinels, till exempel:
+`SAJTMASKIN_PREVIEW_MODE=1`
+`NEXT_PUBLIC_PREVIEW_MODE=1`
+`NEXT_PUBLIC_APP_URL=http://localhost:3000`
+Precedens
+Senare lager vinner över tidigare.
+Viktig princip
+Placeholders ska aldrig vinna över riktiga projektvärden
+Placeholders ska aldrig skickas till riktig produktion
+Previewn ska kunna köras även när bara nivå 1 finns
+Befintliga byggstenar i repo:t
+`config/ai_models/manifest.json` beskriver placeholder-fragmentet för genererade sajter fileciteturn6file0L1-L1
+`src/lib/ai-models/load-generated-site-placeholders.ts` läser filen från Node-sidan fileciteturn4file0L1-L1
+dokumentationen säger uttryckligen att detta ännu inte auto-injiceras i preview/sandbox, men att det är nästa naturliga steg fileciteturn14file0L1-L1
+---
+8. Rekommenderad preview-arkitektur framåt
+Två preview-lägen
+Fast preview
+Nuvarande beteende ungefär:
+generera kod
+ge snabb shim direkt
+försök starta sandbox efteråt om tillgängligt
+Bra för låg kostnad och snabb första visning.
+Runtime preview
+Nytt högfidelity-läge:
+skapa eller återuppta session-sandbox
+skriv filer
+skriv `.env.local`
+kör `npm install`
+starta `npm run dev`
+ge sandbox-URL till iframe
+kör `npm run build` separat som verifiering
+Bra för mer realistisk rendering och integrationsstöd.
+Rekommenderad produktpolicy
+Default: `fast` för enkla sidor
+Auto-uppgradera till `runtime` när integrationer, routes eller serverlogik upptäcks
+Låt användaren manuellt välja "High fidelity preview"
+---
+9. Ska projekten sparas automatiskt på GitHub?
+Kort svar
+Inte som primär lagring ännu.
+Rekommendation
+Behåll Sajtmaskins nuvarande lagring som source of truth för genererad kod, och gör GitHub till valbar export/sync, inte obligatorisk grundarkitektur i första skedet.
+Repo-dokumentationen säger att sanningskällan för genererad kod idag är `engine_versions.files_json` plus eventuell `sandbox_url`. fileciteturn14file0L1-L1
+Varför inte GitHub som primär lagring direkt
+Det skulle skapa extra problem tidigt:
+repo-provisionering per projekt eller per användare
+auth och GitHub-app-hantering
+branch-strategi
+commit-brus
+race conditions mellan generationer
+rollback/sync-frågor
+privat/offentlig repo-policy
+kostnader och rate limits
+mer komplex onboarding
+När GitHub blir vettigt
+GitHub är mycket vettigt som senare steg för:
+export av projekt
+versionshistorik för användaren
+samarbete i team
+pull request-baserade arbetsflöden
+deploy från repo
+Rekommenderad modell
+Steg 1 — nu
+Behåll intern lagring:
+`engine_versions.files_json`
+`project_data.meta.projectEnvVars`
+`engine_versions.sandbox_url`
+Steg 2 — senare
+Lägg till:
+"Export to GitHub"
+"Connect repository"
+"Sync latest version to branch"
+Steg 3 — ännu senare
+Stöd för:
+auto-commit till användarens repo
+branch per version eller branch per session
+PR-flöde
+Slutsats
+GitHub bör vara integration, inte fundament, i detta skede.
+---
+10. Konkreta förändringar som Cursor-agenten bör göra
+Huvudmål
+Implementera session-varm sandbox med env-merge och separat build-verifiering, utan att bryta nuvarande shim-first-flöde.
+Delmål A — Lägg till sandbox-sessionlager
+Inför ett lager som mappar `chatId` eller `builderSessionId` till aktiv sandbox.
+Skapa ungefär följande funktioner:
+`getActiveSandboxSession(chatId)`
+`createSandboxSession(chatId)`
+`touchSandboxSession(chatId)`
+`disposeSandboxSession(chatId)`
+`cleanupExpiredSandboxSessions()`
+Delmål B — Lägg till env-materialisering
+Skapa en ny helper, exempelvis:
+`src/lib/gen/build-generated-site-env.ts`
+Ansvar:
+läs placeholderfragment via `readGeneratedSitePlaceholdersEnvText()`
+parse KEY=value
+merge med projektspecifika env-vars
+skriv ut färdig `.env.local` text
+lägg till preview-sentinels
+Delmål C — Utöka sandbox-previewn
+Utöka `src/lib/gen/sandbox-preview.ts` så att den kan:
+återanvända befintlig session-sandbox
+skriva `.env.local`
+köra `npm install` endast när dependencies eller lock-liknande hash ändrats
+starta eller restarta `npm run dev`
+returnera extra status om build-verifiering
+Delmål D — Lägg till verify-fas
+Inför separat build-verifiering:
+`npm run build`
+fånga fel och returnera tydligt statusobjekt
+Ny statusmodell ungefär:
+`sandbox-ready`
+`sandbox-build-verified`
+`sandbox-build-failed`
+`sandbox-runtime-failed`
+Delmål E — UI och stream-kontrakt
+Uppdatera SSE-kontraktet så att klienten kan skilja mellan:
+snabb shim
+dev-preview kör
+build verifierad
+build failade men dev kör
+Delmål F — Preview adapters / degraded mode
+Inför enkel preview-runtime-policy:
+`PREVIEW_RUNTIME_MODE=degraded`
+`PREVIEW_RUNTIME_MODE=full`
+Och börja med adapters för:
+auth placeholder
+sqlite fallback
+mail no-op
+redis optional
+---
+11. Rekommenderade filer att ändra först
+Primära filer
+`src/lib/gen/sandbox-preview.ts`
+`src/lib/mcp/runtime-url.ts`
+`src/lib/providers/own-engine/generation-stream.ts`
+`src/lib/ai-models/load-generated-site-placeholders.ts`
+`src/lib/gen/pre-generation-contracts.ts`
+Nya filer som bör skapas
+`src/lib/gen/build-generated-site-env.ts`
+`src/lib/gen/sandbox-session-store.ts`
+`src/lib/gen/preview-runtime-mode.ts`
+Dokumentation som bör uppdateras
+`docs/architecture/preview-and-sandbox-flow.md`
+`docs/ENV.md`
+eventuellt `docs/architecture/agent-roadmap-and-handoff.md`
+---
+12. Exakt rekommenderad implementation i första iterationen
+Fas 1 — Minsta vettiga förbättring
+Gör bara detta först:
+Läs placeholderfilen
+Mergea med projektets riktiga env-vars
+Skriv `.env.local` i sandboxen
+Kör `npm install`
+Kör `npm run dev`
+Kör `npm run build` som verifiering efteråt
+Detta ger omedelbart stor förbättring.
+Fas 2 — Session-varm sandbox
+Lägg därefter till:
+sandbox per chat/session
+idle TTL 30 min
+hard cap 2h
+heartbeat/touch
+återanvändning mellan meddelanden
+Fas 3 — Adapters
+Lägg sedan till:
+sqlite default för genererade databassajter
+auth preview-mode
+no-op mail
+optional redis
+Fas 4 — GitHub export, inte primär lagring
+Lägg senare till:
+export till GitHub
+connect repo
+push version till branch
+---
+13. Pseudokod för agenten
+```ts
+async function prepareRuntimePreview(chatId: string, versionId: string) {
+  const version = await loadVersion(versionId);
+  const projectEnvVars = await loadProjectEnvVars(version.projectId);
+  const placeholderText = readGeneratedSitePlaceholdersEnvText();
+  const envText = buildGeneratedSiteEnv({
+    placeholderText,
+    projectEnvVars,
+    previewMode: "runtime",
+  });
+
+  let sandbox = await getActiveSandboxSession(chatId);
+  if (!sandbox || sandboxExpired(sandbox)) {
+    sandbox = await createSandboxSession(chatId);
+  }
+
+  await sandbox.writeFiles(version.projectFiles);
+  await sandbox.writeFile(".env.local", envText);
+
+  if (dependenciesChanged(version)) {
+    await sandbox.run("npm install --prefer-offline");
+  }
+
+  await sandbox.ensureDevServer("npm run dev");
+  const previewUrl = sandbox.urlForPort(3000);
+
+  queueBackgroundBuildVerify(chatId, sandbox, "npm run build");
+
+  return {
+    previewUrl,
+    sandboxId: sandbox.id,
+    mode: "runtime",
+  };
+}
+```
+---
+14. Acceptance criteria
+Agenten ska betrakta arbetet som klart när följande stämmer.
+Funktionellt
+Genererade sajter kan få `.env.local` automatiskt i sandbox
+Previewn startar oftare för sajter med integrationer
+`npm run dev` preview fungerar utan att varje projekt kräver ny sandbox varje gång
+`npm run build` verifiering rapporteras separat
+UX
+UI visar tydligt skillnad på shim, runtime preview och build verification
+användaren får färre falska preview-fel på grund av saknade env-vars
+användaren behöver inte manuellt konfigurera allt för att få en första högfidelity-preview
+Drift
+sandboxar återanvänds under aktiv session
+sandboxar rensas upp vid inaktivitet
+ingen permanent varm sandbox hålls för alla gamla projekt
+Arkitektur
+intern lagring är fortfarande source of truth
+GitHub är valbar export/sync, inte primär persistence
+placeholder-kontraktet i `config/ai_models` återanvänds, inte dupliceras
+---
+15. Slutlig rekommendation till beslutsfattaren
+Om målet är hög fidelity i preview utan att systemet blir tungt och dyrt för tidigt, är den bästa vägen:
+session-varm sandbox
+automatisk env-merge
+`npm run dev` för preview
+`npm run build` som separat verifiering
+adapters för DB/auth/mail/redis
+GitHub senare som export/sync, inte som kärnlagring nu
+Detta ligger nära repo:ts nuvarande riktning, eftersom repot redan:
+använder sandbox för riktig Next-runtime-preview fileciteturn2file0L1-L1
+dokumenterar att shim bara är en approximation och att sandbox är högre fidelity fileciteturn13file1L1-L1
+har ett färdigt placeholder-kontrakt för genererade sajter, men ännu utan automatisk inkoppling i preview/sandbox fileciteturn14file0L1-L1
+lagrar genererad kod internt som sanningskälla idag fileciteturn14file0L1-L1
+Det mest värdefulla första steget är därför inte GitHub, utan att koppla ihop:
+`generatedSiteIntegrationPlaceholders`
+projektspecifika env-vars
+sandbox-starten
+separat build-verifiering

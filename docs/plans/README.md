@@ -6,13 +6,14 @@ Subfolders (`active/`, `review-needed/`, `archived/`) keep a one-line `README.md
 
 ## Current status map
 
-Last tightened `2026-03-25` (`active/queue/` — `KORFIL.md` + 3 `PLAN-*.md` för post-exit backlog).
+Last tightened `2026-03-25` (`active/MASTER-ALLT-KVAR.md` — all post-exit backlog i en fil; `queue/KORFIL.md` pekar hit).
 
 `active`
 
 - `active/external-review-remediation-progress.md` — **sanning** för externreview-remediation: helhets-% per segment, “Last code touch”, commit-/push-rutin, Done / Next.
 - `active/REMAINING-WORK.md` — hubb efter remediation-exit.
-- `active/queue/KORFIL.md` — **operativ kö**: 3 punkter → `PLAN-KRITIK-OPEN`, `PLAN-REPO-SEPARATION-OPEN`, `PLAN-DRIFT-VERIFICATION`.
+- `active/MASTER-ALLT-KVAR.md` — **operativ kö (allt-i-ett)**: K-018, kritik, Plan 17-öppet, drift, orchestrator-råd, mall för tillägg.
+- `active/queue/KORFIL.md` — **pekare** till `MASTER-ALLT-KVAR.md`; valfria `queue/PLAN-*.md` som detalj.
 - `active/orchestrator-workloads-external-review.md` — **stub**; full W1–W5-snapshot: `archived/orchestrator-workloads-external-review.md`.
 - `active/orchestrator-handoff-sequential-stramning.md` — kopieringsmall för `/orchestrator`-körning; **läs progress-filen ovan** för aktuella siffror (mallen innehåller inte färska %).
 - `active/external-review-execution/README.md` — **stub** → `archived/external-review-execution/` (execution-spår arkiverat).

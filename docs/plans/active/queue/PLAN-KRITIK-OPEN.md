@@ -1,16 +1,25 @@
 # PLAN 1 — Kritik (öppna K-rader)
 
+**Allt kvar:** [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md) § 3.
+
 **Kanonisk tabell:** [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md)  
+**K-018 (preview/sandbox/integrationer i *genererad* sajt):** implementationsplan + UI-princip → [`PLAN-PREVIEW-SANDBOX.md`](./PLAN-PREVIEW-SANDBOX.md) + [`INPUT_GPT.txt`](../../../../INPUT_GPT.txt).  
 **Konfliktzon (läs före större ändringar):** `registry.ts`, `detect-integrations.ts`, `config/env-policy.json`, deploy-API, `useBuilderDeployActions`, builder-copy kopplat till env/409.
+
+## Stängda rader (referens)
+
+| ID | Status |
+|----|--------|
+| **K-014** | **[x] 2026-03-26** — produkt: sidor/copy kring cookies, om oss, juridik **OK oförändrat** (se [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md)). |
+| **K-008** | **[x] 2026-03-25** — ingen utökning av landningsmaterial tills vidare; fokus **K-018** (användarsidor / `iframe`). |
 
 ## Öppna rader (`[ ]`)
 
 | ID | Kort beskrivning | Acceptans (för att stänga raden) |
 |----|------------------|----------------------------------|
 | **K-007** | Deploy auto-fix / hårdare valideringsfas före deploy — **produktbeslut** | Policy dokumenterad + implementation eller medvetet `[x]` med motivering i tabellen; `deploy-precheck.md` / Vitest i linje med beslut |
-| **K-008** | Landningspolish / W1-rester (t.ex. mer in-view 3D) — **produktsignoff** | Produkt godkänner “landningspolish klar” eller rad omformuleras/nedprioriteras med datum i tabellen |
-| **K-009** | Own-engine **utanför** avslutad W3-track (SSE, produkt) | Scope avgrensat, levererat eller `[x]` med motivering; inga motsägelser mot stream-kontrakt |
-| **K-014** | Footer / juridik / cookies — copy + eventuella sidor | Copy/sidor kompletta enligt produkt; `[x]` i tabellen |
+| **K-018** | **Användarnas** genererade sidor: **React**-preview i **samma klass som `npm run dev`**, inkl. **fidelity i `iframe`** | Rimliga acceptanstester / visuell parity dokumenterad; `[x]` med datum eller uppdelade delmoment i tabellen |
+| **K-009** | Own-engine **utanför** avslutad W3-track (SSE) — **inte** prioriterat: FAQ/innehåll på Sajtmaskins marknadssajt | Scope avgrensat, levererat eller `[x]` med motivering; inga motsägelser mot stream-kontrakt |
 
 ## Arbetssteg (för agent)
 

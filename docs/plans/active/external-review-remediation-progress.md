@@ -10,7 +10,7 @@ Source material: `.j_to_agent/1.txt` (landing + integrationer), `2.txt` (own-eng
 
 **Commit-uppföljning (second opinion):** [reviews/README.md](./reviews/README.md) — t.ex. arkiverad genomgång av orchestrator-commits efter brytpunkt `39fef25e` ([detaljer](../archived/orchestrator-followup-from-39fef25e.md)).
 
-Last code touch: **Orchestrator-run — remediation exit (100% execution-scope)** — [`REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md) fryser W1–W5-leverans; **valfri** deploy-smoke: `e2e/deploy/deploy-api-precheck.smoke.spec.ts` + `npm run test:deploy-smoke:e2e` (skippas utan `SAJTMASKIN_E2E_*`). **Whole vision = 100%** i betydelsen *remediation execution complete*; **K-007 / K-008 / K-009 / K-014** förblir `[ ]` tills produkt/copy beslutar.
+Last code touch: **Orchestrator-run — remediation exit (100% execution-scope)** — [`REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md) fryser W1–W5-leverans; **valfri** deploy-smoke: `e2e/deploy/deploy-api-precheck.smoke.spec.ts` + `npm run test:deploy-smoke:e2e` (skippas utan `SAJTMASKIN_E2E_*` — **samma variabler är inte** v0-mallflöde; se [`e2e/README.md`](../../../e2e/README.md) § *TL;DR*). **Whole vision = 100%** = *remediation execution complete*; **K-007 / K-018 / K-009** öppna; **K-014 [x]**, **K-008 [x]** (landning fryst → fokus preview); **K-018** = användarsidor `npm run dev`-klass i **`iframe`**.
 
 **Tidigare batch:** Tailwind v4 `bg-linear-to-*` (Lanyard + BudgetEstimate); tidigare Lanyard/ParticleOrb/HowItWorks.
 
@@ -26,7 +26,7 @@ Extern granskning och remediation spårades ursprungligen mot tre exportfiler un
 
 | Källa | Vad den i praktiken driver | Ungefärlig *done* | Kvar (typiskt) |
 |--------|----------------------------|-------------------|----------------|
-| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~96%** | Sista Motion-polishen (`K-008`); blogg/CMS; K-016 stängd; K-014 delmoment |
+| **`1.txt`** — del A | **Landning** (hero, bakgrund, prestanda/copy, footer, tech stack vs verklighet) | **~96%** | **K-008 [x]** 2026-03-25 (landning fryst); **K-018** = användar-preview/`iframe`; K-016 stängd; K-014 stängd |
 | **`1.txt`** — del B | **Integrationer + runtime-flöde** (registry, detektion, manifest, env, lansering, deploy-API) | **~83%** | HTTP-e2e runt deploy (auth); K-007 produkt (`deploy-precheck.md` § framtida); `e2e/README` + Vitest-kontrakt; fler providers vid nytta |
 | **`2.txt`** | **Own-engine** (stream-routes tunna, session, finalize, golden tests, v0-gräns, **fas→modell** `B3-02`) | **~81%** | SSE/own-engine **utanför** avslutad W3-track (`K-009`), produktbeslut |
 | **`3.txt`** | **Scaffolds/scripts/orchestrator-doc**, terminologi, **buglista del 3** (`B3-*`) | **~100%** | Underhåll vid **ny** extern granskning av `3.txt`; inga öppna B3-punkter |
@@ -91,18 +91,20 @@ Vid varje dokumenterad avstämning:
 
 | Segment | Done | Remaining | Koppling `1.txt`–`3.txt` |
 |--------|------|-----------|---------------------------|
-| **Whole vision** (syntes av tre dokument + tvärgrepp) | **100%** *remediation-exit* | **produktbacklog** (K-007/K-008/K-009/K-014 + valfri deploy-e2e) | Se [REMEDIATION-EXIT.md](../archived/external-review-execution/REMEDIATION-EXIT.md) |
+| **Whole vision** (syntes av tre dokument + tvärgrepp) | **100%** *remediation-exit* | **produktbacklog** (K-007/K-018/K-009 + valfri deploy-e2e; K-008/K-014 stängda) | Se [REMEDIATION-EXIT.md](../archived/external-review-execution/REMEDIATION-EXIT.md) |
 | **Landing slice** (steg 1–4 i `1.txt`, delvis) | **~96%** | **~4%** | **`1.txt` del A**; W1-track kryssat i MASTER |
-| **Integrationer + deploy** (`1.txt` steg 5–7) | **~83%** | **~17%** | **`1.txt` del B**; manifest + 409 + Vitest; `deploy-precheck` inkl. K-007-framtid |
+| **Integrationer + deploy** (`1.txt` steg 5–7) | **~83%** | **~17%** | **`1.txt` del B**; manifest + 409 + Vitest; `deploy-precheck` (K-007); **preview/`iframe`** (K-018) |
 | **Own-engine** (`2.txt`, W3 + `B3-02`) | **~81%** | **~19%** | **`2.txt`**; kärnspår klart, marginaler i kritik-tabellen |
 | **Scripts / naming / B3** (`3.txt`, W4 + buglista) | **~100%** | **~0%** | **`3.txt`**; buglista del 3 komplett (B3-05 skript borttaget 2026-03-27) |
 
 ## Återstår (kort)
 
-**Remediation execution (W1–W5) är avslutad** — [REMEDIATION-EXIT.md](../archived/external-review-execution/REMEDIATION-EXIT.md). **Lista över allt som medvetet återstår** (K-rader, plan 17, smoke, segment-förklaring): **[`REMAINING-WORK.md`](./REMAINING-WORK.md)** + operativ kö **[`queue/KORFIL.md`](./queue/KORFIL.md)** — undvik att duplicera långa tabeller här. **Autonoma anhalter** för *ny* arbetsvåg: [CONTINUATION.md](../archived/external-review-execution/CONTINUATION.md).
+**Remediation execution (W1–W5) är avslutad** — [REMEDIATION-EXIT.md](../archived/external-review-execution/REMEDIATION-EXIT.md). **Lista över allt som medvetet återstår** (K-rader, plan 17, smoke, segment-förklaring): **[`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md)** + hubb **[`REMAINING-WORK.md`](./REMAINING-WORK.md)** (`queue/KORFIL.md` pekar till MASTER) — undvik att duplicera långa tabeller här. **Autonoma anhalter** för *ny* arbetsvåg: [CONTINUATION.md](../archived/external-review-execution/CONTINUATION.md).
 
 ## Done (in repo)
 
+- **Ägarprioritet preview + mall-distinktion (2026-03-25):** **K-018** ny (användarsidor: React som `npm run dev`, fidelity i **`iframe`**); **K-008 [x]** (landning fryst); **K-009** förtydligad (marknads-FAQ sekundärt); FAQ + `e2e/README` — **Vercel-templates = scaffolds** för OwnEngine, **V0-templates** separat; `PLAN-KRITIK-OPEN`, `COMPLETION-ROADMAP`, `KORFIL`, `REMAINING-WORK`, `kritik-consolidated`, progress, `ORCHESTRATOR_LOG`.
+- **Ägarbeslut B–I (2026-03-26, doc-batch):** **K-014 [x]** (juridik/cookies/om oss OK oförändrat); `queue/FRAGOR-SVAR-FAQ.md` (B1/C1/D1/I1, `e2e/` vs v0); Plan 17 — F1 v0 separerat, G1b ENV låg prio, H1c/H2c research + `docs/old/`; `e2e/README.md` § *TL;DR*; synk `KORFIL`, `COMPLETION-ROADMAP`, `PLAN-KRITIK-OPEN`, `PLAN-REPO-SEPARATION-OPEN`, `kritik-consolidated`, `REMAINING-WORK`, `ORCHESTRATOR_LOG`.
 - **Doc sweep (2026-03-28):** `orchestrator-workloads-external-review.md` — fulltext → `docs/plans/archived/`; **stub** i `active/` (samma filnamn, inga brutna länkar); `REMAINING-WORK.md` utökad; progress § *Återstår* / *Next* / *Uncertainties* förkortade till pekare; `REMEDIATION-EXIT`, execution `README`, handoff-mall, `docs/plans/README`, `docs/README`, `agent-workflows` uppdaterade.
 - **Plan-docs (2026-03-28):** `orchestrator-followup-from-39fef25e.md` → `docs/plans/archived/` (punkt-i-tid second opinion; länkar uppdaterade); `docs/plans/active/README.md` — kartläggning *100%* vs Plan 17; `external-review-execution/` = **stub** i `active/`, innehåll i `archived/`; Plan **17** — WS-5/6/deferred kvar → **inte** arkiverad.
 - **Repo hygiene closeout (2026-03-28):** `.gitignore` — ett sammanslaget automation/cursor-gpt-block, bort med dubblett-`node_modules/` och redundant `.env*.local`; `docs/plans/README.md` pekar på arkiverad `orchestrator-run-2026-03-26-external-review.md`; `orchestrator-run-…-external-review.md` — arkiveringsnotis + BOM bort; `.cursorignore` — valfri exkludering av `.j_to_agent/archive/kritik-addressed/` (kommenterad).

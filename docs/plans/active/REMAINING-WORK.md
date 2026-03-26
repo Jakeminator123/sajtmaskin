@@ -1,6 +1,6 @@
 # Återstående arbete (efter external-review remediation exit)
 
-**Operativ kö (3 planer):** [`queue/KORFIL.md`](./queue/KORFIL.md) — **exakt tre punkter** → tre `PLAN-*.md`. **Slutföringsgrad & faser (beslut → kod → drift):** [`queue/COMPLETION-ROADMAP.md`](./queue/COMPLETION-ROADMAP.md).
+**Allt kvar (en fil):** [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) — start, K-018, kritik, Plan 17-öppet, drift, orchestrator vs agent, mall för tillägg från annan AI. [`queue/KORFIL.md`](./queue/KORFIL.md) pekar hit. **Slutföringsgrad & faser:** [`queue/COMPLETION-ROADMAP.md`](./queue/COMPLETION-ROADMAP.md).
 
 **Remediation enligt `1.txt` / `2.txt` / `3.txt` + W1–W5:** avslutad — [`archived/external-review-execution/REMEDIATION-EXIT.md`](../archived/external-review-execution/REMEDIATION-EXIT.md).
 
@@ -8,9 +8,11 @@
 
 | Område | Kanonisk källa |
 |--------|----------------|
-| Kritik (K-007–K-014) | [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) |
+| Kritik (K-007, K-018, K-009 öppna; K-008/K-014 stängda) | [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) · FAQ [`queue/FRAGOR-SVAR-FAQ.md`](./queue/FRAGOR-SVAR-FAQ.md) |
 | Plan 17 (WS-5/6, deferred) | [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) |
-| Körordning + acceptans | [`queue/KORFIL.md`](./queue/KORFIL.md) + respektive `queue/PLAN-*.md` |
+| Preview / K-018 | [`queue/PLAN-PREVIEW-SANDBOX.md`](./queue/PLAN-PREVIEW-SANDBOX.md) · handoff [`INPUT_GPT.txt`](../../../INPUT_GPT.txt) |
+| En ingång (rekommenderat) | [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) |
+| Körordning (legacy-länk) | [`queue/KORFIL.md`](./queue/KORFIL.md) → MASTER |
 
 ## Är plan 17 gammal?
 
@@ -20,4 +22,4 @@
 
 När en rad stängs: uppdatera **källfilen** (kritik-tabell eller plan 17), sedan ev. avsnitt i `queue/PLAN-*.md`.
 
-**Senast synkad:** 2026-03-25 — kö-mapp `queue/` + `KORFIL` (orchestrator-run).
+**Senast synkad:** 2026-03-25 — [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) (allt-i-ett); `KORFIL` = pekare.

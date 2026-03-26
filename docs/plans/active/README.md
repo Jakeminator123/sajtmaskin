@@ -16,7 +16,7 @@ Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscyke
 
 ## En sida för «vad är kvar?»
 
-[`REMAINING-WORK.md`](./REMAINING-WORK.md) + [`queue/KORFIL.md`](./queue/KORFIL.md) — **tre körpunkter** (kritik, plan 17, drift/e2e).
+[`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) — **allt kvar i en fil**; hubb [`REMAINING-WORK.md`](./REMAINING-WORK.md); handoff [`INPUT_GPT.txt`](../../../INPUT_GPT.txt); `queue/KORFIL.md` = pekare till MASTER.
 
 ## Innehåll i `active/` (kort)
 

@@ -92,7 +92,7 @@ Not runtime dependencies:
 | External review — progress, %, commit-rutin | `docs/plans/active/external-review-remediation-progress.md` |
 | External review — W1–W5 workloads (stub → arkiv) | `docs/plans/active/orchestrator-workloads-external-review.md` |
 | External review — execution (arkiv; stub i active) | `docs/plans/archived/external-review-execution/README.md` · stub: `docs/plans/active/external-review-execution/README.md` |
-| Post-exit kö (3 planer) | `docs/plans/active/queue/KORFIL.md` |
+| Allt kvar (en MASTER) | `docs/plans/active/MASTER-ALLT-KVAR.md` · `queue/KORFIL.md` pekar hit · `INPUT_GPT.txt` (rot) |
 | Agent workflows (deep brief vs orchestrator, runtime vs MCP) | `docs/contributing/agent-workflows.md` |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Terminology (folders + research flow) | `docs/architecture/structure-and-terminology.md` |

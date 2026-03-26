@@ -1,5 +1,24 @@
 # Playwright (repo-root)
 
+## TL;DR — `SAJTMASKIN_E2E_*` är **inte** v0-mallar
+
+| Miljövariabler | Vad de gör |
+|----------------|------------|
+| **`SAJTMASKIN_E2E_BASE_URL`**, `…_SESSION_COOKIE`, `…_DEPLOY_CHAT_ID`, `…_DEPLOY_VERSION_ID` | Endast för **`e2e/deploy/deploy-api-precheck.smoke.spec.ts`**: Playwright anropar **din körda Sajtmaskin** (`POST /api/v0/deployments`, `precheckOnly`). **Ingen** koppling till v0:s mall-API eller en «mallmapp». |
+
+**v0 / builder-scaffolds:** synkas och versioneras via **`npm run templates:*`**, `src/lib/gen/scaffolds/`, template-library-pipelinen — se `docs/architecture/`-dokument om templates.
+
+**Den här `e2e/`-mappen** har två spår: (1) **Vercel.com**-katalog-skapning → `research/external-templates/`, (2) **valfri deploy-API-smoke** ovan. Förtydligande: [`docs/plans/active/queue/FRAGOR-SVAR-FAQ.md`](../docs/plans/active/queue/FRAGOR-SVAR-FAQ.md) § *I1*.
+
+### V0-templates vs Vercel-templates (produkt)
+
+| Spår | Syfte i Sajtmaskin |
+|------|-------------------|
+| **V0 / v0-templates** | Plattforms-API, SDK, legacy-projekt — **separat** arkitekturspår (Plan 17 F1). **Inte** samma data som Vercel-katalogen. |
+| **Vercel-templates** | Upptäcks här (`vercel-templates/scrape-catalog.spec.ts`) → `research/external-templates/` → **template-library** → **`src/lib/gen/scaffolds/`**. **Primär källa för scaffolds** som **OwnEngine** / LLM ska använda. |
+
+---
+
 ## Vercel.com Templates discovery
 
 **Spec (tracked):** [`vercel-templates/scrape-catalog.spec.ts`](vercel-templates/scrape-catalog.spec.ts)
