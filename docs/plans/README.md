@@ -1,7 +1,7 @@
 # Plans
 
 Lifecycle buckets: **`active/`** (steer now) · **`review-needed/`** (verify before reuse) · **`avklarat/`** (avklarade planer; motsvarar tidigare *archived*).  
-Workflow and routing rules: **`docs/architecture/documentation-lifecycle.md`**.  
+Workflow and routing rules: **`docs/architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md`** (hub: `docs/architecture/README.md`).  
 Undermappar (`active/`, `review-needed/`, `avklarat/`) har en kort `README.md` som pekar tillbaka hit.
 
 ## Current status map
@@ -27,7 +27,7 @@ Last tightened `2026-03-26` (`active/SAJTMASKIN-EXECUTION-PLAN.md` — primär k
   closed 2026-03-26** (product decisions). **Still open:** WS-5, deferred WS-2/WS-4
   (v0, gateway env / `ENV.md`).
   Treat this file as **roadmap + audit trail**, not day-to-day architecture (use
-  `docs/architecture/engine-status.md` for “how it works now”; see plan file § «Hur du ska läsa»).
+  `docs/architecture/system-overview.md` (detalj: arkiv `engine-status.md`) for “how it works now”; see plan file § «Hur du ska läsa»).
 
 `review-needed`
 

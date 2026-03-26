@@ -79,7 +79,7 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   {
     key: "VERCEL_TOKEN",
     required: false,
-    notes: "Vercel API + @vercel/sandbox (see docs/architecture/vercel-sandbox-credentials.md)",
+    notes: "Vercel API + @vercel/sandbox (see docs/architecture/archive/pre-2026-03-consolidation/vercel-sandbox-credentials.md)",
   },
   {
     key: "VERCEL_TEAM_ID",

@@ -19,7 +19,7 @@ All genererad data hamnar under:
 
 ## Exempelprompt (svensk hemsida)
 
-- **`restaurang_hemsida_prompt.txt`** — kort prompt för trace/snapshot (restaurang, meny, bokning). Använd med `trace-generation-context.ts` och `--write-codegen-snapshot` (se [docs/architecture/scraped-scorefolds-pipeline.md](../../../docs/architecture/scraped-scorefolds-pipeline.md)).
+- **`restaurang_hemsida_prompt.txt`** — kort prompt för trace/snapshot (restaurang, meny, bokning). Använd med `trace-generation-context.ts` och `--write-codegen-snapshot` (se [docs/architecture/archive/pre-2026-03-consolidation/scraped-scorefolds-pipeline.md](../../../docs/architecture/archive/pre-2026-03-consolidation/scraped-scorefolds-pipeline.md)).
 
 ## Skript (3 huvudingångar + 2 stöd)
 

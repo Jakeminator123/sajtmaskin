@@ -160,11 +160,6 @@ chat_till_vanster.txt
 #.j_to_agent/
 #vercel_templates_levels/
 
-# Orchestrator run folders
-#.cursor/orchestrator/run/*/
-.cursor/orchestrator/archive/*
-!.cursor/orchestrator/archive/README.md
-
 tests/openclaw/
 
 internt_jakob/

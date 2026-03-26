@@ -1,18 +1,12 @@
 ---
-description: Route docs and schemas by lifecycle state
+description: Where docs/plans live and when to update canonical docs
 alwaysApply: true
 ---
 
-# Documentation lifecycle
+# Docs & plans
 
-- Use `docs/architecture/` for canonical system overviews, lifecycle docs, engine status, and agent handoff notes.
-- Use `docs/schemas/` only for stable human-readable schema docs whose runtime truth lives in code.
-- Use `docs/analyses/` for investigations, comparisons, and temporary analysis artifacts.
-- Historical bundle: `docs/plans/avklarat/2026-03-docs-old-archive/` (tidigare `docs/old/`). `docs/old/` är endast pekare — nytt material till `active` / `review-needed` / `avklarat`.
-- Use `.cursor/orchestrator/run/` for dated execution traces, workload logs, and verification artifacts from orchestrator-led automation.
-- Before adding a new document, classify it as `active`, `review-needed`, or `archived`.
-- If a document is partial, stale, or waiting for truth-check, do not present it as canonical.
-- Prefer replacing or relocating overlapping documentation instead of leaving
-  multiple near-duplicate docs alive.
-- After larger documentation reorganizations, update `docs/README.md` and the relevant local README or index file in the same turn.
-- Consult `docs/architecture/documentation-lifecycle.md` for the canonical routing policy.
+**Locations:** `docs/architecture/` (system, handoff), `docs/schemas/` (stable human schema; truth in code), `docs/analyses/` (temporary). History: `docs/plans/avklarat/`; `docs/old/` is pointer only. Full policy: `docs/architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md` (kanoniska översikter: `docs/architecture/README.md`).
+
+**Plans:** `docs/plans/active/` → `review-needed/` → `avklarat/`. One canonical copy; archive when done. On status change: `docs/plans/README.md`, `docs/architecture/README.md` (handoff-historik: arkiv `agent-roadmap-and-handoff.md`), folder README.
+
+**Structural / terminology / flow changes:** Update canonical files in the same turn; replace stale docs instead of duplicating; new file only for genuinely new scope. Renames: also `terminology.mdc`, `docs/`, `docs/ENV.md` if paths matter, `scripts/README.md` if scripts/artifacts change. Larger write-ups → `docs/architecture/` + link from `docs/README.md`.

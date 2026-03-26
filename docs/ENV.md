@@ -62,7 +62,7 @@ python manage_env.py reconcile --apply # utför cleanup (raderar överflödiga e
 | **Sajtmaskin (monorepot)** | Buildern, API-routes, Postgres, egna integrationer | `POSTGRES_URL`, `OPENAI_API_KEY`, `VERCEL_*` för **denna** deploy, m.fl. — se tabellerna nedan i denna fil och `src/lib/env.ts`. |
 | **Genererad användarsajt i Vercel Sandbox** | Tillfällig Next-app som **builder** startar med användarens kod; **inte** samma process som Sajtmaskin | Autentisering mot Vercel för **Sandbox API**: `VERCEL_OIDC_TOKEN` (rekommenderat efter `vercel link` + `vercel env pull`) **eller** `VERCEL_TOKEN` + `VERCEL_TEAM_ID` / `VERCEL_ORG_ID` + `VERCEL_PROJECT_ID`. **Preview-läge i sandbox:** `SAJTMASKIN_SANDBOX_PREVIEW_MODE` (`dev_only` default, `dev_then_build`, `build_only`) — styr om `npm run build` körs i sandlådan efter dev. **Innehåll i den genererade appen:** sammanslagen `.env.local` från placeholders + `project_data.meta.projectEnvVars` (se `src/lib/gen/build-generated-site-env.ts`); det är **inte** samma som att lägga nycklar bara i Sajtmaskins `.env.local`. |
 
-Mer om demoUrl, shim och sandbox: [`docs/architecture/preview-and-sandbox-flow.md`](./architecture/preview-and-sandbox-flow.md) och [`docs/architecture/preview-fidelity-tiers.md`](./architecture/preview-fidelity-tiers.md).
+Mer om demoUrl, shim och sandbox: [`preview-deploy.md`](./architecture/preview-deploy.md) · detalj: arkiv [`preview-and-sandbox-flow.md`](./architecture/archive/pre-2026-03-consolidation/preview-and-sandbox-flow.md), [`preview-fidelity-tiers.md`](./architecture/archive/pre-2026-03-consolidation/preview-fidelity-tiers.md).
 
 ## Klient-autofix (builder)
 
@@ -359,9 +359,9 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 4. **Postgres (dev):** Skapa ett Supabase-projekt (gratis tier går för lokal dev), sätt `POSTGRES_URL`. Produktion använder separat projekt; vid högre krav använd betald Supabase-plan (se infrastruktur-tabellen ovan).
 5. Kör `npm run db:init` för att skapa databasschemat.
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
-7. MCP-servrar i Cursor: kopiera **`.cursor/mcp.json.example` → `.cursor/mcp.json`** (själva `mcp.json` är gitignorerad så hemligheter inte pushas). `sajtmaskin-engine` och `sajtmaskin-scaffolds` körs lokalt via `npx tsx tools/mcp/...`.
+7. **Valfritt — Cursor MCP:** kopiera **`.cursor/mcp.json.example` → `.cursor/mcp.json`** om du vill ha plattforms-MCP och lokala `sajtmaskin-engine` / `sajtmaskin-scaffolds` i editorn (`npx tsx tools/mcp/...`). Detta är **inte** nödvändigt för att läsa eller arbeta med projektets dokumentation — den ligger i `docs/` och repot.
 8. Extern template-research:
-   - `npm run references:discover` skriver kanonisk rå discovery till `research/external-templates/raw-discovery/current/` — Playwright-specen är **`e2e/vercel-templates/scrape-catalog.spec.ts`** (spårad). Kräver Playwright + nät. Se [`docs/architecture/vercel-templates-discovery.md`](architecture/vercel-templates-discovery.md) och [`vercel-templates-playwright-scaffold-integration.txt`](architecture/vercel-templates-playwright-scaffold-integration.txt).
+   - `npm run references:discover` skriver kanonisk rå discovery till `research/external-templates/raw-discovery/current/` — Playwright-specen är **`e2e/vercel-templates/scrape-catalog.spec.ts`** (spårad). Kräver Playwright + nät. Se arkiv [`vercel-templates-discovery.md`](architecture/archive/pre-2026-03-consolidation/vercel-templates-discovery.md) och [`vercel-templates-playwright-scaffold-integration.txt`](architecture/archive/pre-2026-03-consolidation/vercel-templates-playwright-scaffold-integration.txt).
    - `npm run template-library:import-legacy` importerar legacy `_sidor`-summary till samma plats
    - `npm run template-library:hydrate-cache` bygger lokal shallow-clone cache i `research/external-templates/repo-cache/`
    - `npm run template-library:build` bygger den kuraterade referensytan i `research/external-templates/reference-library/`

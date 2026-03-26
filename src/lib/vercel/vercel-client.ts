@@ -8,7 +8,7 @@
  * - Endpoints used here are stable (deployments + projects)
  */
 
-import { getVercelToken } from "@/lib/vercel";
+import { getVercelToken, hasVercelRestToken } from "@/lib/vercel";
 
 const VERCEL_API_BASE = "https://api.vercel.com";
 
@@ -39,7 +39,7 @@ async function vercelFetch<T>(path: string, init?: RequestInit): Promise<T> {
  * Check if Vercel integration is configured
  */
 export function isVercelConfigured(): boolean {
-  return Boolean(process.env.VERCEL_TOKEN);
+  return hasVercelRestToken();
 }
 
 /**

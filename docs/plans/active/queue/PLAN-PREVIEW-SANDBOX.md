@@ -4,7 +4,7 @@
 
 **Kanonisk kritik-rad:** [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md) **K-018**  
 **Handoff (detaljer, faser, pseudokod, fillista):** [`INPUT_GPT.txt`](../../../../INPUT_GPT.txt) i repots **rot**  
-**Arkitektur-bakgrund:** [`docs/architecture/preview-and-sandbox-flow.md`](../../../architecture/preview-and-sandbox-flow.md)
+**Arkitektur-bakgrund:** [`preview-deploy.md`](../../../architecture/preview-deploy.md) · arkiv [`preview-and-sandbox-flow.md`](../../../architecture/archive/pre-2026-03-consolidation/preview-and-sandbox-flow.md)
 
 ---
 
@@ -53,7 +53,7 @@ Funktionellt (jmf. `INPUT_GPT.txt` § 14):
 UX:
 
 - [ ] Användaren ser **tydlig** skillnad: snabb shim ↔ runtime preview ↔ build OK / build fail (dev kan ändå köra) — **utan** att blanda in Sajtmaskins fulla interna integrationslista. *(Build-fail vs OK: ja i previewpanel; **tier 2:** samlad remsa utan env-namnsdump 2026-03-26; **shim ↔ tier 2:** dedikerad remsa + knapp när båda URL:er finns, 2026-03-26.)*
-- [ ] **Sandbox = avsedd iframe-default (tier 2); shim = fallback:** om sandbox **inte** går igenom ska **tydlig logg + användar-synlig signal** finnas (inte tyst shim). Se [`docs/architecture/preview-fidelity-tiers.md`](../../../architecture/preview-fidelity-tiers.md) § «Produktprioritet».
+- [ ] **Sandbox = avsedd iframe-default (tier 2); shim = fallback:** om sandbox **inte** går igenom ska **tydlig logg + användar-synlig signal** finnas (inte tyst shim). Se [`preview-fidelity-tiers.md`](../../../architecture/archive/pre-2026-03-consolidation/preview-fidelity-tiers.md) § «Produktprioritet».
 - [ ] Färre falska fel p.g.a. saknade env i sandbox.
 
 ---

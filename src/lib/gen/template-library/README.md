@@ -1,6 +1,6 @@
 # Template Library (cursorignored generated data)
 
-Large JSON is cursorignored. Context: [`../README.md`](../README.md), [`../../../../docs/architecture/structure-and-terminology.md`](../../../../docs/architecture/structure-and-terminology.md) (Vercel mall / generated artifacts).
+Large JSON is cursorignored. Context: [`../README.md`](../README.md), [`../../../../docs/architecture/repository-and-platform.md`](../../../../docs/architecture/repository-and-platform.md) (Vercel mall / generated artifacts).
 
 ## Files
 

@@ -1,6 +1,6 @@
 # Active plans
 
-Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscykel:** [`../README.md`](../README.md) · [`../../architecture/documentation-lifecycle.md`](../../architecture/documentation-lifecycle.md). **Primär körplan:** [`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md). **Arkiverad handoff-historik:** [`../avklarat/2026-03-handoff-doc-bundle/`](../avklarat/2026-03-handoff-doc-bundle/).
+Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscykel:** [`../README.md`](../README.md) · [`../../architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md`](../../architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md) (hub: [`../../architecture/README.md`](../../architecture/README.md)). **Primär körplan:** [`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md). **Arkiverad handoff-historik:** [`../avklarat/2026-03-handoff-doc-bundle/`](../avklarat/2026-03-handoff-doc-bundle/).
 
 ## Vad betyder «100% klart» här?
 
@@ -12,7 +12,7 @@ Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscyke
 
 ## `external-review-execution/` i `active/` (stub)
 
-**Innehåll** (README, REMEDIATION-EXIT, MASTER-ROADMAP, CONTINUATION, tracks) ligger i [`../avklarat/external-review-execution/`](../avklarat/external-review-execution/). Under `active/external-review-execution/` finns bara en [**stub**](./external-review-execution/README.md) så gamla länkar till den sökvägen inte går sönder. **Orchestrator-körningar** själva ligger i `.cursor/orchestrator/archive/` (gitignorerad) + poster i `run-summaries.md`.
+**Innehåll** (README, REMEDIATION-EXIT, MASTER-ROADMAP, CONTINUATION, tracks) ligger i [`../avklarat/external-review-execution/`](../avklarat/external-review-execution/). Under `active/external-review-execution/` finns bara en [**stub**](./external-review-execution/README.md) så gamla länkar till den sökvägen inte går sönder. **Historik:** äldre körningar kan nämnas i `docs/plans/avklarat/`; repot har inte längre en `.cursor/orchestrator/`-mapp (se [`orchestrator-run-protocol.md`](../../architecture/archive/pre-2026-03-consolidation/orchestrator-run-protocol.md)).
 
 ## En sida för «vad är kvar?»
 

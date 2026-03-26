@@ -1,6 +1,6 @@
 # Research Area
 
-Non-runtime inputs: primarily **`external-templates/`** (raw discovery + curated dossiers → prompt enrichment, inbäddningar, scaffolds). Product vocabulary: [`docs/architecture/structure-and-terminology.md`](../docs/architecture/structure-and-terminology.md).
+Non-runtime inputs: primarily **`external-templates/`** (raw discovery + curated dossiers → prompt enrichment, inbäddningar, scaffolds). Product vocabulary: [`docs/architecture/repository-and-platform.md`](../docs/architecture/repository-and-platform.md) · djup: [arkiv `structure-and-terminology.md`](../docs/architecture/archive/pre-2026-03-consolidation/structure-and-terminology.md).
 
 Runtime code should not depend directly on this tree. Committed artifacts under `src/lib/gen/` bridge research into runtime behavior.
 

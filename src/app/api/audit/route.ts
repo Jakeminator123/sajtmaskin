@@ -17,6 +17,7 @@ import { buildAuditPrompt, extractFirstJsonObject, parseJsonWithRepair } from "@
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
+import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 // Extend timeout for long-running AI calls
 export const maxDuration = 300; // 5 minutes
@@ -618,12 +619,12 @@ if (schemaErrors.length > 0) {
 const USD_TO_SEK = 11.0;
 
 function getGatewayAuth(): { enabled: boolean; source: "api-key" | "oidc" | "vercel" | "none" } {
-  const hasApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
-  const hasOidc = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
-  const onVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
-  if (hasApiKey) return { enabled: true, source: "api-key" };
-  if (hasOidc) return { enabled: true, source: "oidc" };
-  if (onVercel) return { enabled: true, source: "vercel" };
+  const key = pickAiGatewayKeyFromEnv();
+  if (key) {
+    const source = process.env.AI_GATEWAY_API_KEY?.trim() ? ("api-key" as const) : ("oidc" as const);
+    return { enabled: true, source };
+  }
+  if (isVercelHostedRuntime()) return { enabled: true, source: "vercel" };
   return { enabled: false, source: "none" };
 }
 

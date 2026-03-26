@@ -11,6 +11,7 @@ import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rateLimit";
+import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 export const maxDuration = 60;
 
@@ -80,10 +81,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid URL format" }, { status: 400 });
     }
 
-    const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
-    const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
-    const onVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
-    if (!hasGatewayApiKey && !hasOidcToken && !onVercel) {
+    const hasGateway = Boolean(pickAiGatewayKeyFromEnv()) || isVercelHostedRuntime();
+    if (!hasGateway) {
       console.error("[API/analyze-website] AI Gateway auth not configured");
       return NextResponse.json(
         { success: false, error: "AI Gateway is not configured" },

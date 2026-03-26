@@ -1,48 +1,23 @@
 ---
-description: Route doc questions to MCP servers
+description: MCP servers for platform APIs & local tooling — not a substitute for repo docs
 alwaysApply: true
 ---
 
-# MCP Docs Routing
+# MCP & docs routing
 
-When answering questions about external APIs, SDKs or platforms, prefer the
-relevant MCP server over web searches or training data. The servers provide
-up-to-date documentation and capabilities.
+**Sajtmaskin project docs:** architecture, plans, and conventions live under **`docs/`** and in-repo sources — read those directly. MCP does **not** expose a dedicated «full project documentation» feed; use the filesystem / `@` references.
 
-## Available MCP servers
+**Config:** `.cursor/mcp.json` (example: `.cursor/mcp.json.example`).
 
-| Server               | Scope                                          | Type       |
-|----------------------|------------------------------------------------|------------|
-| `v0`                 | v0 Platform API, code generation, chat mgmt    | Tools      |
-| `Vercel`             | Vercel projects, deployments, logs, docs search | Tools      |
-| `openaiDeveloperDocs`| OpenAI API and model documentation             | Resources  |
-| `sajtmaskin-engine`  | Local own-engine generation, manifests, files, runtime URLs | Tools |
-| `sajtmaskin-scaffolds` | Internal scaffold manifests, files, tags, comparison | Tools |
-| `openclaw-docs`      | OpenClaw documentation lookup                  | Tools      |
+| Server | Scope |
+|--------|--------|
+| `sajtmaskin-engine` | Local own-engine: manifests, files, runtime (`tools/mcp/engine-server.ts` → `src/lib/mcp/*`) |
+| `sajtmaskin-scaffolds` | Runtime scaffolds only (`src/lib/gen/scaffolds/`), not gallery (`tools/mcp/scaffold-server.ts`) |
+| `v0` | v0 Platform API, chats, generation |
+| `Vercel` | Deploys, projects, env, platform docs (incl. AI SDK docs) |
+| `openaiDeveloperDocs` | OpenAI API / models (resources) |
+| `openclaw-docs` | OpenClaw install, gateway, channels, CLI (often user-level; not always in `mcp.json`) |
 
-## Routing rules
+**Route:** v0 API/SDK → `v0`. Vercel platform → `Vercel`. OpenAI → `openaiDeveloperDocs`. Own-engine site output → `sajtmaskin-engine`. Internal scaffolds → `sajtmaskin-scaffolds`. OpenClaw topics → **`openclaw-docs` tools** (`openclaw_docs_search` → `section` / `index`; training data is often wrong).
 
-1. **v0 API, code generation, v0 SDK** -> `v0` MCP server.
-2. **Vercel deployments, projects, env vars, platform docs** -> `Vercel` MCP server.
-3. **OpenAI API, models, embeddings** -> `openaiDeveloperDocs`.
-4. **AI SDK (Vercel)** -> `Vercel` MCP docs/tools first, web search only as fallback.
-5. **Own-engine generation, generated site code, version files, runtime URLs** -> `sajtmaskin-engine` MCP server.
-6. **Internal scaffolds, scaffold files, scaffold comparison** -> `sajtmaskin-scaffolds` MCP server.
-7. **OpenClaw install/config/gateway/channels/CLI** -> `openclaw-docs`.
-
-## Local browser doc helpers
-
-For short, open-ended documentation or product-behavior questions about v0 or
-Vercel, local browser helpers may be used when the user is already logged in:
-
-- `tools/doc-browser/talk_to_v0_doc/ask_v0.py`
-- `tools/doc-browser/talk_to_vercel_doc/ask_vercel.py`
-
-Use them only as a local research fallback:
-
-- Prefer MCP docs/tools first when they can answer the question directly.
-- Prefer the Python helpers for quick exploratory questions where the site-level
-  "Ask AI" answer is likely useful.
-- Before relying on them, confirm the user is logged in or ask them to reopen
-  the relevant session/tab if needed.
-- Do NOT treat these helpers as runtime dependencies or production integrations.
+**Fallback:** Logged-in site questions: `tools/doc-browser/talk_to_v0_doc/ask_v0.py`, `tools/doc-browser/talk_to_vercel_doc/ask_vercel.py` — not production deps.

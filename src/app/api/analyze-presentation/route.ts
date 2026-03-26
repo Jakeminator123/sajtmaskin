@@ -15,6 +15,7 @@ import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
+import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
@@ -236,9 +237,7 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
 /** Text-only analysis via AI Gateway */
 async function analyzeTextOnly(userText: string): Promise<string> {
   const hasGatewayAuth =
-    Boolean(process.env.AI_GATEWAY_API_KEY?.trim()) ||
-    Boolean(process.env.VERCEL_OIDC_TOKEN?.trim()) ||
-    process.env.VERCEL === "1";
+    Boolean(pickAiGatewayKeyFromEnv()) || isVercelHostedRuntime();
 
   if (hasGatewayAuth) {
     try {

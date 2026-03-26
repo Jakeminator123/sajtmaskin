@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getProjectData, getProjectByIdForOwner } from "@/lib/db/services";
+import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import OpenAI from "openai";
 
 /**
@@ -25,8 +26,7 @@ interface RouteParams {
 }
 
 function getGatewayApiKey(): string | null {
-  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
-  return apiKey && apiKey.trim() ? apiKey : null;
+  return pickAiGatewayKeyFromEnv();
 }
 
 function toGatewayModelId(model: string): string {
@@ -37,7 +37,7 @@ function toGatewayModelId(model: string): string {
 function getOpenAIClient(): OpenAI {
   const apiKey = getGatewayApiKey();
   if (!apiKey) {
-    throw new Error("AI_GATEWAY_API_KEY (or VERCEL_OIDC_TOKEN) is required");
+    throw new Error("AI_GATEWAY_API_KEY or a non-expired VERCEL_OIDC_TOKEN is required");
   }
   return new OpenAI({ apiKey, baseURL: "https://ai-gateway.vercel.sh/v1" });
 }

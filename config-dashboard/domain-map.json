@@ -4,7 +4,7 @@
   "repoSiblings": {
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Det mesta som dashboarden redigerar ligger här.",
     "config-dashboard": "Endast Streamlit-verktyget (python app.py). Importeras inte av Next.js.",
-    "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara structure-and-terminology.md.",
+    "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md (tidigare structure-and-terminology.md, nu arkiv).",
     ".cursor": "Cursor-projektregler och skills. terminology.mdc (alwaysApply) redigeras från vyn Cursor-agenter."
   },
   "pages": {
@@ -19,7 +19,7 @@
         "config/user_degraded_env.txt"
       ],
       "docsPaths": [
-        "docs/architecture/config-dashboard-sources.md",
+        "docs/architecture/archive/pre-2026-03-consolidation/config-dashboard-sources.md",
         "config-dashboard/domain-map.json"
       ],
       "codeReaders": []
@@ -31,8 +31,9 @@
         "config/prompt-static/*.md (via fragments i JSON)"
       ],
       "docsPaths": [
-        "docs/architecture/builder-prompt-layer.md",
-        "docs/architecture/prompt-tree.md"
+        "docs/architecture/builder-generation.md",
+        "docs/architecture/archive/pre-2026-03-consolidation/builder-prompt-layer.md",
+        "docs/architecture/archive/pre-2026-03-consolidation/prompt-tree.md"
       ],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts",
@@ -46,8 +47,9 @@
         "config/prompt-static/_READ_ME_FIRST.md"
       ],
       "docsPaths": [
-        "docs/architecture/builder-prompt-layer.md",
-        "docs/architecture/prompt-tree.md"
+        "docs/architecture/builder-generation.md",
+        "docs/architecture/archive/pre-2026-03-consolidation/builder-prompt-layer.md",
+        "docs/architecture/archive/pre-2026-03-consolidation/prompt-tree.md"
       ],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts"
@@ -64,7 +66,8 @@
       ],
       "docsPaths": [
         "docs/schemas/model-build-profiles.md",
-        "docs/architecture/builder-model-routing-and-trace.md"
+        "docs/architecture/builder-generation.md",
+        "docs/architecture/archive/pre-2026-03-consolidation/builder-model-routing-and-trace.md"
       ],
       "codeReaders": [
         "src/lib/ai-models/load-manifest.ts",
@@ -115,7 +118,7 @@
       "summary": "Ordlista och strukturterminologi som Cursor laddar som projektregel respektive arkitekturdoc — samma filer du redigerar här.",
       "canonicalPaths": [
         ".cursor/rules/terminology.mdc",
-        "docs/architecture/structure-and-terminology.md"
+        "docs/architecture/repository-and-platform.md"
       ],
       "docsPaths": [
         ".cursor/README.md",

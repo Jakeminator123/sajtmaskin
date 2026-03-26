@@ -257,7 +257,7 @@
       "key": "VERCEL_TOKEN",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). See docs/architecture/vercel-sandbox-credentials.md."
+      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). See docs/architecture/archive/pre-2026-03-consolidation/vercel-sandbox-credentials.md."
     },
     {
       "key": "VERCEL_TOKEN_FULL",

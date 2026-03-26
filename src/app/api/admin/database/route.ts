@@ -27,6 +27,7 @@ import {
 import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services";
 import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
 import { PATHS } from "@/lib/config";
+import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 
 async function countTable(table: unknown): Promise<number> {
   const rows = await db.select({ count: sql<number>`count(*)` }).from(table as never);
@@ -406,7 +407,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const vercelToken = process.env.VERCEL_TOKEN;
+      const vercelToken = pickVercelAccessTokenFromEnv();
       if (vercelToken) {
         try {
           const projectsRes = await fetch("https://api.vercel.com/v9/projects", {
@@ -530,11 +531,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "cleanup-vercel-projects") {
-      const vercelToken = process.env.VERCEL_TOKEN;
+      const vercelToken = pickVercelAccessTokenFromEnv();
       if (!vercelToken) {
         return NextResponse.json({
           success: false,
-          error: "VERCEL_TOKEN not configured",
+          error: "VERCEL_TOKEN (or VERCEL_TOKEN_FULL) not configured",
         });
       }
 

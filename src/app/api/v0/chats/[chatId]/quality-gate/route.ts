@@ -103,10 +103,10 @@ async function runSandboxChecks(
   sandboxFiles: Array<{ name: string; content: string }>,
   checks: string[],
 ): Promise<{ results: CheckResult[]; sandboxDurationMs: number }> {
-  const access = resolveSandboxAccessCredentials();
-  if (!process.env.VERCEL_OIDC_TOKEN?.trim() && !access) {
+  if (!isSandboxAuthConfigured()) {
     throw new SandboxNotConfiguredError();
   }
+  const access = resolveSandboxAccessCredentials();
 
   const startMs = Date.now();
   const sandbox = await Sandbox.create({

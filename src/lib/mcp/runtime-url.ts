@@ -1,5 +1,9 @@
 import { Sandbox } from "@vercel/sandbox";
 import { buildPreviewUrl } from "@/lib/gen/preview";
+import {
+  isUsableVercelOidcToken,
+  pickVercelAccessTokenFromEnv,
+} from "@/lib/vercel";
 
 export type RuntimeMode = "preview" | "sandbox";
 
@@ -14,22 +18,6 @@ export type SandboxAccessCredentials = {
   teamId: string;
   projectId: string;
 };
-
-/**
- * Pick which env var holds the Vercel access token when both VERCEL_TOKEN and
- * VERCEL_TOKEN_FULL are set. Prefer the value that looks like a current access
- * token (e.g. vcp_…) so an old short VERCEL_TOKEN does not shadow VERCEL_TOKEN_FULL.
- */
-function pickVercelAccessTokenFromEnv(): string {
-  const primary = process.env.VERCEL_TOKEN?.trim() ?? "";
-  const secondary = process.env.VERCEL_TOKEN_FULL?.trim() ?? "";
-  const looksLikeModernAccess = (t: string) =>
-    t.startsWith("vcp_") || t.startsWith("vercel_");
-  if (secondary && looksLikeModernAccess(secondary) && !looksLikeModernAccess(primary)) {
-    return secondary;
-  }
-  return primary || secondary;
-}
 
 /**
  * Resolve access-token auth for Sandbox.create(). Supports VERCEL_ORG_ID (CLI)
@@ -47,17 +35,15 @@ export function resolveSandboxAccessCredentials(): SandboxAccessCredentials | nu
 }
 
 export function isSandboxConfigured(): boolean {
-  return Boolean(
-    process.env.VERCEL_OIDC_TOKEN?.trim() || resolveSandboxAccessCredentials(),
-  );
+  return Boolean(isUsableVercelOidcToken() || resolveSandboxAccessCredentials());
 }
 
 /**
  * Returned in API responses when sandbox auth is missing so local `npm run dev` and
- * operators know how to enable tier-2 preview. See `docs/architecture/vercel-sandbox-credentials.md`.
+ * operators know how to enable tier-2 preview. See `docs/architecture/archive/pre-2026-03-consolidation/vercel-sandbox-credentials.md`.
  */
 export const SANDBOX_SETUP_HINT =
-  "Lokal dev: kör `vercel link` och `vercel env pull` (VERCEL_OIDC_TOKEN), eller sätt VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID i .env.local. Se docs/architecture/vercel-sandbox-credentials.md.";
+  "Lokal dev: kör `vercel link` och `vercel env pull` (VERCEL_OIDC_TOKEN), eller sätt VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID i .env.local. Se docs/architecture/archive/pre-2026-03-consolidation/vercel-sandbox-credentials.md.";
 
 export type RuntimeFile = {
   name: string;
@@ -70,7 +56,7 @@ export type SandboxBuildVerification = {
   logSnippet: string;
 };
 
-/** How the sandbox combines Next dev server and `npm run build`. See `docs/architecture/preview-fidelity-tiers.md`. */
+/** How the sandbox combines Next dev server and `npm run build`. See `docs/architecture/preview-deploy.md` (detalj: arkiv `preview-fidelity-tiers.md`). */
 export type SandboxPreviewMode = "dev_only" | "build_only" | "dev_then_build";
 
 const SANDBOX_PREVIEW_MODE_VALUES = new Set<SandboxPreviewMode>([
@@ -206,7 +192,7 @@ export async function createSandboxRuntimeFromFiles(
   }
 
   const access = resolveSandboxAccessCredentials();
-  if (!process.env.VERCEL_OIDC_TOKEN?.trim() && !access) {
+  if (!isUsableVercelOidcToken() && !access) {
     throw new Error(
       "Sandbox requires authentication. Either set VERCEL_OIDC_TOKEN (vercel link && vercel env pull), or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID (team id = .vercel/project.json orgId). Optional: VERCEL_ORG_ID instead of VERCEL_TEAM_ID; VERCEL_TOKEN_FULL instead of VERCEL_TOKEN.",
     );

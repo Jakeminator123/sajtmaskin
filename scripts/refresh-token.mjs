@@ -8,6 +8,7 @@
 
 import { execSync } from "child_process";
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from "fs";
+import path from "node:path";
 
 const ENV_FILE = ".env.local";
 const STATUS_FILE = ".token-status.json";
@@ -97,7 +98,17 @@ async function main() {
     log("Token expires soon - refreshing...", "warn");
   }
 
-  // Refresh token
+  // Refresh token (requires `vercel link` — CLI does not use VERCEL_* from .env.local for project id)
+  const vercelLinked = existsSync(path.join(process.cwd(), ".vercel", "project.json"));
+  if (!vercelLinked) {
+    log(
+      "Skipping OIDC refresh: not linked to a Vercel project (.vercel/project.json missing). Run `npx vercel link` or use VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID for Sandbox.",
+      "warn",
+    );
+    updateStatus("refresh_skipped", expiry, "not_linked");
+    return;
+  }
+
   log("Pulling fresh environment from Vercel...");
 
   const tempFile = ".env.vercel-temp";

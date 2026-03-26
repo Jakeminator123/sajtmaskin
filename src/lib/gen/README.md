@@ -58,7 +58,7 @@ Guidelines:
   forbidding access. Read them directly when a task actually depends on their
   structure or contents.
 - When you only need orientation, prefer this README plus
-  `docs/architecture/repo-hygiene.md` over opening the full JSON artifacts.
+  `docs/architecture/archive/pre-2026-03-consolidation/repo-hygiene.md` over opening the full JSON artifacts.
 
 Common regeneration entry points:
 

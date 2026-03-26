@@ -28,4 +28,4 @@
 1. Läs master-tabellen + *Låst / hög konfliktrisk* i `kritik-consolidated-open-items.md`.
 2. Ta **en K-id åt gången** om risk är hög; kör `npm run typecheck` && `npx vitest run` före push.
 3. Uppdatera tabellen (`[ ]` → `[x]` + datum), ev. `external-review-remediation-progress.md` om segment-% ändras tydligt.
-4. `git push origin master` enligt [`.cursor/rules/parallel-agent-collision-safety.mdc`](../../../../.cursor/rules/parallel-agent-collision-safety.mdc).
+4. `git push origin master` enligt [`.cursor/rules/agent-intent-board.mdc`](../../../../.cursor/rules/agent-intent-board.mdc) § *Push*.

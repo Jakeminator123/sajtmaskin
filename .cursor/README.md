@@ -7,7 +7,23 @@
 - **Endast Cursor**: **`.cursor/settings.json`** (t.ex. Vercel-plugin). Den ersätter inte `.vscode` för vanliga tillägg; håll verktygsignorer synkade mellan **`.vscode/settings.json`** och **`sajtmaskin.code-workspace`**.
 - Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer *utanför* repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
 
-Agentregel (always-on): [rules/workspace-hygiene.mdc](rules/workspace-hygiene.mdc).
+## Always-on projektregler (`.cursor/rules/*.mdc`)
+
+Alla nedan har `alwaysApply: true` och laddas i **Cursor → Settings → Rules / Project rules**. I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
+
+| Regel | Syfte (kort) |
+|--------|----------------|
+| [agent-intent-board.mdc](rules/agent-intent-board.mdc) | Intent board, parallellt arbete, push-flöde |
+| [cursorignored-context-search.mdc](rules/cursorignored-context-search.mdc) | Sök/grep missar vissa mappar — läs explicit vid behov |
+| [documentation-lifecycle.mdc](rules/documentation-lifecycle.mdc) | Var `docs/` och planer lever; när canonical uppdateras |
+| [env-and-ignore-access.mdc](rules/env-and-ignore-access.mdc) | `.env*`, ignore-filer — inga hemligheter i git/chat |
+| [mcp-docs-routing.mdc](rules/mcp-docs-routing.mdc) | Vilken MCP för v0/Vercel/OpenAI/OpenClaw m.m. |
+| [platform-quirks.mdc](rules/platform-quirks.mdc) | PowerShell, Sandbox, Playwright, streams, git-commit |
+| [project-overview.mdc](rules/project-overview.mdc) | Stack, arkitektur, huvudvägar |
+| [session-closeout.mdc](rules/session-closeout.mdc) | `/sluta`, final sweep — status, commit, push |
+| [skills-routing.mdc](rules/skills-routing.mdc) | När sajtmaskin-context / react-best-practices |
+| [terminology.mdc](rules/terminology.mdc) | Produktordlista (kort); detaljer i `docs/` |
+| [workspace-hygiene.mdc](rules/workspace-hygiene.mdc) | En repo-rot, `.vscode` vs workspace |
 
 ## Terminologidokument (produkt- och kodnamn)
 
@@ -20,11 +36,13 @@ Agentregel (always-on): [rules/workspace-hygiene.mdc](rules/workspace-hygiene.md
 3. I chat kan du skriva **`@terminology`** eller **`@.cursor/rules/terminology.mdc`** för att bifoga filen.
 
 För **mappar, Vercel-mall/research och v0-templates vs scaffold** (inte hela produktordlistan), se
-`docs/architecture/structure-and-terminology.md` och `docs/README.md` § Terminology.
+`docs/architecture/repository-and-platform.md` (och vid behov arkiv `docs/architecture/archive/pre-2026-03-consolidation/structure-and-terminology.md`) samt `docs/README.md` § Terminology.
 
-För **Djup brief vs orchestrator-run**, **runtime vs MCP** och **scaffold/dossier/artifact** i en sida: `docs/contributing/agent-workflows.md`.
+För **Djup brief vs större arbets­paket**, **runtime vs MCP** och **scaffold/dossier/artifact** i en sida: `docs/contributing/agent-workflows.md`.
 
 ## MCP-servrar (`mcp.json`)
+
+**Vad det inte är:** Ingen MCP här ersätter **Sajtmaskins mänskliga dokumentation** — den finns i **`docs/`**, rot-`README` och **`.cursor/rules/`** (läs från filträdet / indexering). MCP-servrarna nedan är **valfria** hjälp för agenter (API-anrop, egen motor/scaffold), inte en samlad «allt om projektet»-server.
 
 **GitHub:** `.cursor/mcp.json` är **ignorerad** i git (kan få hemligheter vid URL-auth eller framtida fält). Kopiera mallen:
 
@@ -38,6 +56,6 @@ cp .cursor/mcp.json.example .cursor/mcp.json
 | **`sajtmaskin-engine`** | Lokal stdio | Own engine **utan** att gå via Next.js HTTP: generera sajt, läsa manifest/filer, skapa preview/sandbox-runtime. Start: `npx tsx tools/mcp/engine-server.ts`. |
 | **`sajtmaskin-scaffolds`** | Lokal stdio | De **interna runtime-scaffolds** (~10 st): lista, detaljer, filinnehåll, sök taggar, jämför två scaffolds. Start: `npx tsx tools/mcp/scaffold-server.ts`. |
 
-Mer routingregler för agenter: `rules/MCP-Servers.mdc` och `rules/mcp-docs-routing.mdc`.
+Mer routingregler för agenter: `rules/mcp-docs-routing.mdc` (servrar + OpenClaw + routing).
 
 **OBS:** **v0-templates** (`src/lib/templates/`) är *inte* samma sak som **runtime scaffolds** — se terminologidokumentet (inkl. särskiljning *inbäddningar* vs *semantik*).

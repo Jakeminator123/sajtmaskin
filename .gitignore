@@ -97,16 +97,7 @@ pot_buggs/
 **/client_secret*.json
 google-services.json
 
-# Local Cursor orchestration artifacts
-.cursor/orchestrator/run/**
-!.cursor/orchestrator/run/
-!.cursor/orchestrator/run/README.md
-.cursor/orchestrator/archive/*
-!.cursor/orchestrator/archive/README.md
-.cursor/control-agent/run/**
-!.cursor/control-agent/run/
-!.cursor/control-agent/run/README.md
-.cursor/control-agent/archive/
+# Local Cursor session state
 .cursor/agent-intents/BOARD.md
 .cursor/automation/runs/**
 .cursor/automation/archive/**
@@ -166,9 +157,7 @@ docs/plans/avklarat/2026-03-docs-old-archive/**/*env*.txt
 .vercel
 
 # Automation kit + cursor-gpt local artifacts (local-only)
-!.cursor/agents/
-.cursor/agents/**
-!.cursor/agents/workstream-sentry.md
+.cursor/agents/
 .cursor/rules/automation-safety.mdc
 automation/
 .automation/
@@ -205,3 +194,6 @@ STOR_MIGRATION
 .cursor/migration-archive/
 
 internt_jakob/
+
+.vercel
+.env*.local

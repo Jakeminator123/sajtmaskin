@@ -1,14 +1,8 @@
 ---
-description: Single-root workspace and where editor tooling config lives
+description: Single repo root; where editor settings live
 alwaysApply: true
 ---
 
-# Workspace hygiene (Cursor / VS Code)
+# Workspace
 
-- Treat **this repository** as a **single-root** workspace: the checkout root of `sajtmaskin` only. Tracked work must live under that tree; a Cursor “project” path under `%USERPROFILE%\.cursor\projects\…` is editor state, not a second repo root.
-- Prefer opening **`sajtmaskin.code-workspace`** at the repo root (one folder entry: `.`). The file is **gitignored**; copy from **`sajtmaskin.code-workspace.example`** after clone. Avoid adding extra workspace roots such as `%USERPROFILE%\.cursor\plans`, global `.cursor\worktrees\…`, or unrelated sibling folders unless you are explicitly debugging those trees.
-- **Shared editor / extension settings** (ESLint flat config, Prettier toggle, markdownlint ignores, Tailwind regex, etc.) live in **`.vscode/settings.json`**. The workspace file **`sajtmaskin.code-workspace`** mirrors the same `settings` block so behaviour stays aligned whether you open the folder or the `.code-workspace` file.
-- **Cursor-only** project toggles (for example the Vercel plugin) live in **`.cursor/settings.json`**. That file is **not** a substitute for `.vscode` or the workspace file for standard extensions.
-- **Markdownlint** project rules: **`.markdownlint.json`** and **`.markdownlintignore`**. If Problems still show noise for Markdown files **outside** this repo (e.g. Cursor Plans on disk under `%USERPROFILE%\.cursor\`), add `markdownlint.ignore` globs in **Cursor User Settings** or remove those paths from the workspace.
-
-When changing ignores for ESLint, Prettier, or markdownlint, update **`.vscode/settings.json`**, **`sajtmaskin.code-workspace`** (the `settings` object), and the relevant ignore files together so they do not drift.
+Single root = repo checkout. Tracked work only under `sajtmaskin/`. Prefer `sajtmaskin.code-workspace` (gitignored; copy from `sajtmaskin.code-workspace.example`). Shared tooling: `.vscode/settings.json` + same `settings` in workspace file. Cursor-only: `.cursor/settings.json`. Changing ESLint/Prettier/markdownlint ignores → update `.vscode/settings.json`, workspace file, and ignore files together.

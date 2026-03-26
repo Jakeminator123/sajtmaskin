@@ -23,6 +23,7 @@ import {
   getBuildProfileId,
   type CanonicalModelId,
 } from "@/lib/models/catalog";
+import { isUsableVercelOidcToken } from "@/lib/vercel";
 
 export type ModelProviderFamily = "openai" | "anthropic" | "v0" | "off" | "unknown";
 
@@ -219,7 +220,7 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     anthropic: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
     v0: Boolean(process.env.V0_API_KEY?.trim()),
     aiGatewayApiKey: Boolean(process.env.AI_GATEWAY_API_KEY?.trim()),
-    vercelOidcToken: Boolean(process.env.VERCEL_OIDC_TOKEN?.trim()),
+    vercelOidcToken: isUsableVercelOidcToken(),
     onVercel: isProbablyOnVercel(),
   };
 

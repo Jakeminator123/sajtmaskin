@@ -138,8 +138,8 @@ CURSOR_AGENT_DOCUMENTS: tuple[tuple[str, str], ...] = (
         "terminology.mdc — produkt, builder, lanes (Cursor-regel)",
     ),
     (
-        "docs/architecture/structure-and-terminology.md",
-        "structure-and-terminology.md — mappar, pipeline, artifacts",
+        "docs/architecture/repository-and-platform.md",
+        "repository-and-platform.md — mappar, integrationer, repo (översikt)",
     ),
 )
 
@@ -496,7 +496,7 @@ elif page == "Cursor-agenter":
     st.header("Cursor-agenter — terminologi")
     st.markdown(
         "Här redigerar du **samma filer** som Cursor använder som ordlista och kontext för agenter "
-        "(`terminology.mdc` som projektregel, `structure-and-terminology.md` för mappar/pipeline). "
+        "(`terminology.mdc` som projektregel, `repository-and-platform.md` för mappar/repo-översikt). "
         "Spara skriver direkt till disk (UTF-8)."
     )
     render_where_panel("Cursor-agenter", domain_map)

@@ -44,7 +44,7 @@ These must **not** drive builder/runtime behavior, embedding curation, or “how
 - `e2e/vercel-templates/` is the **tracked** Playwright tooling; `vercel_templates_levels/` is optional **local** legacy;
   it is **gitignored** and listed in **`.cursorignore`** (indexing noise control).
   When present, discovery output should land under `raw-discovery/current/`. See
-  `docs/architecture/vercel-templates-discovery.md`, `docs/architecture/vercel-templates-playwright-scaffold-integration.txt`, and `e2e/README.md`.
+  `docs/architecture/archive/pre-2026-03-consolidation/vercel-templates-discovery.md`, `docs/architecture/archive/pre-2026-03-consolidation/vercel-templates-playwright-scaffold-integration.txt`, and `e2e/README.md`.
 - This lane is for public Vercel Templates research, not for product-facing v0
   gallery templates.
 - `scripts/import-template-discovery.ts` is the migration bridge from legacy
@@ -66,6 +66,6 @@ Runtime generation still depends on:
 The heaviest local folder in this lane is usually `repo-cache/`.
 
 That folder, along with `raw-discovery/current/`, can be removed locally and
-rebuilt from scripts when needed. See `docs/architecture/repo-hygiene.md` for
+rebuilt from scripts when needed. See `docs/architecture/archive/pre-2026-03-consolidation/repo-hygiene.md` for
 the current cleanup routine, keep/archive guidance, and the decision criteria
 for whether `reference-library/` should remain in this repo.

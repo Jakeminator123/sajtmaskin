@@ -8,7 +8,7 @@ Den här planen kommer från **STOR_MIGRATION**-analysen (2026-03-18) och har **
 - **[`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md)** — operativ kö, K-018/K-019, fidelity § 0  
 - **[`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md)** — K-tabell med `[ ]` / `[x]`  
 - **[`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md)** — primär körplan (**§1 = alla öppna brister**) · handoff-historik: [`../avklarat/2026-03-handoff-doc-bundle/AGENT-HANDOFF-RESTERANDE.md`](../avklarat/2026-03-handoff-doc-bundle/AGENT-HANDOFF-RESTERANDE.md)  
-- **[`docs/architecture/engine-status.md`](../../architecture/engine-status.md)** — hur own engine / builder faktiskt fungerar **nu**  
+- **[`docs/architecture/system-overview.md`](../../architecture/system-overview.md)** — hur own engine / builder faktiskt fungerar **nu** (djup: arkiv [`engine-status.md`](../../architecture/archive/pre-2026-03-consolidation/engine-status.md))  
 - **[`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt)** — produktintent som kan **override:a** äldre formuleringar här  
 
 **Regel vid konflikt:** Om **nuvarande kod** eller **nyare plan-/kritik-dokument** säger något annat än denna fil — **följ kod + MASTER/kritik/fidelity** och uppdatera **medvetet** denna plan (eller markera punkter **N/A** med datum) så historiken inte luras.

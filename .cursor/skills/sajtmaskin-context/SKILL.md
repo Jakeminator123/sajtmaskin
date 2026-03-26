@@ -12,9 +12,10 @@ Use this skill to align decisions and wording with this repository's domain mode
 1. Read these project rules first:
    - `.cursor/rules/terminology.mdc`
    - `.cursor/rules/mcp-docs-routing.mdc`
-   - `.cursor/rules/react-node-skill-routing.mdc`
+   - `.cursor/rules/skills-routing.mdc`
 2. Keep canonical product terminology in all reasoning and responses.
-3. Route external platform/documentation questions to the correct MCP server before generic web search.
+3. **Project documentation** (architecture, plans, how Sajtmaskin works): read **`docs/`** and repo files — there is no MCP that replaces that.
+4. For **external platform** APIs (v0, Vercel, OpenAI, OpenClaw product docs), route to the matching MCP server before generic web search when the server is configured.
 
 ## Terminology guardrails
 
@@ -33,7 +34,7 @@ Route by domain:
 - Internal scaffolds/manifests/comparison -> `sajtmaskin-scaffolds`
 - OpenClaw install/config/channels/CLI -> `openclaw-docs`
 
-Prefer MCP docs/tools first. Use web search as fallback.
+Prefer MCP for **those** platforms when available. Use web search as fallback. (Local `sajtmaskin-engine` / `sajtmaskin-scaffolds` are optional dev helpers — not a full project wiki.)
 
 ## React/Next tasks
 

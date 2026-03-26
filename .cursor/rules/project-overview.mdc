@@ -1,86 +1,18 @@
 ---
-description: Project overview for all agents
+description: Stack, architecture sketch, main paths — expand via terminology + docs
 alwaysApply: true
 ---
 
-# Sajtmaskin - Project Overview
+# Sajtmaskin overview
 
-AI-powered website builder where users describe a website in natural language
-and get a working site generated, previewed, and deployed.
+AI site builder: prompt → own-engine codegen (default) → preview → deploy (Vercel).
 
-## Tech Stack
+**Stack:** Next.js 16 App Router, React 19, TS 5.9, Tailwind 4, shadcn/ui; OpenAI via AI SDK (own engine); Drizzle + Postgres (Supabase); Redis; Stripe; Vercel Blob. Env: `src/lib/config.ts`, `docs/ENV.md`.
 
-- **Framework**: Next.js 16 (App Router), React 19, TypeScript 5.9
-- **Styling**: Tailwind CSS 4, shadcn/ui (Radix primitives)
-- **AI/Generation**: Own engine (OpenAI via AI SDK) for builder codegen; v0 Platform API via `v0-sdk` for templates/registry/zip and related routes — not as a stream codegen switch. Optional `V0_FALLBACK_BUILDER` only affects preview URL preference.
-- **Database**: PostgreSQL (Supabase) via Drizzle ORM
-- **Cache**: Redis (Upstash/ioredis)
-- **State**: Zustand (auth), React hooks (builder state)
-- **Payments**: Stripe
-- **Deploy target**: Vercel (user sites deployed via Vercel API)
-- **Storage**: Vercel Blob (AI-generated images)
+**Architecture:** `User → Builder UI → src/lib/gen (own engine) → files → Preview → Deploy`. v0 SDK: templates/registry/zip — not the main codegen stream. Scaffolds: `src/lib/gen/scaffolds/`. Product vocabulary: **`terminology.mdc`**.
 
-## Architecture
+**Key paths:** `src/app/builder/`, `src/app/api/v0/` (routes + legacy v0 API), `src/lib/gen/`, `src/lib/templates/` (v0-templates), `src/components/builder/`, `src/lib/builder/`, `src/lib/hooks/`, `src/lib/db/`, `src/lib/auth/`, `src/proxy.ts` (auth/CORS/headers). Arkitektur: `docs/architecture/README.md` (detalj: arkiv `engine-status.md`).
 
-```
-User prompt -> Builder UI -> Own engine (default) -> Generated code -> Preview -> Deploy to Vercel
-```
+**Builder flow:** `ChatInterface` → optional `/api/ai/chat` → orchestration → scaffold → `prepareGenerationContext` → SSE stream → autofix/parse → `PreviewPanel`.
 
-- **Own engine** (default): `src/lib/gen/` — scaffold matching, system prompt, streamText, autofix, preview. Kräver OPENAI_API_KEY.
-- **v0 SDK / API** (soft-deprecated for new features): Mallar, registry, nedladdning m.m. `V0_FALLBACK_BUILDER` styr inte codegen — vid `y`/`yes`/`true`/`1`/`on` kan preview föredra v0-hostad `demoUrl` framför sandbox när båda finns.
-- **Runtime scaffolds**: `src/lib/gen/scaffolds/` — 10 starter projects used as generation base (auto-matched, manually picked, or off).
-- **Custom instructions**: `src/lib/builder/defaults.ts` — CORE (always) + EXTENDED (without scaffold). Editable in builder header.
-- **v0-templates** vs **runtime scaffolds** vs **Vercel mall (research)**: see **`.cursor/rules/terminology.mdc`** (single source of truth for product wording).
-
-### Key directories
-
-| Directory | Purpose |
-|-----------|---------|
-| `src/app/builder/` | Main builder page (prompt -> generate -> preview -> deploy) |
-| `src/app/admin/` | Admin dashboard |
-| `src/app/api/v0/` | Chat/stream routes (own-engine codegen; historiskt API-prefix), plus v0 SDK routes för CRUD/mall/registry |
-| `src/lib/gen/` | Own engine — runtime scaffolds, system prompt, autofix, preview |
-| `src/lib/templates/` | v0-templates product data and semantic search |
-| `research/external-templates/` | Raw discovery plus curated external reference dossiers |
-| `src/app/api/auth/` | Authentication (email, Google, GitHub OAuth) |
-| `src/app/api/ai/` | AI Gateway routes (prompt assist, brief, spec) |
-| `src/components/builder/` | Builder UI components (ChatInterface, MessageList, PreviewPanel) |
-| `src/components/ai-elements/` | AI Elements components (prompt input, reasoning, code blocks) |
-| `src/components/ui/` | shadcn/ui base components |
-| `src/lib/v0/` | v0 SDK wrapper, streaming, file parsing |
-| `src/lib/builder/` | Builder business logic (prompt assist, orchestration, types) |
-| `src/lib/hooks/` | React hooks (useChatMessaging, useChat, useVersions) |
-| `src/lib/db/` | Drizzle schema + service layer |
-| `src/lib/auth/` | Auth logic + Zustand store + edge-auth.ts for middleware |
-| `src/lib/brave-search.ts` | Brave Web Search API wrapper |
-| `src/proxy.ts` | Centralized auth redirects, CORS, security headers (Node.js runtime) |
-| `docs/architecture/engine-status.md` | Own engine status, model tiers, scaffold system |
-
-### Core flow (builder)
-
-1. User enters prompt in `ChatInterface.tsx`
-2. Prompt optionally enhanced via `/api/ai/chat` (prompt assist)
-3. Prompt orchestration shapes message (budget/strategy)
-4. Scaffold auto-matched (or manual/off per user choice)
-5. `prepareGenerationContext()` builds full system prompt with scaffold, brief, theme, custom instructions
-6. Own engine generates code via OpenAI, streamed via SSE
-7. Post-generation: autofix, validation, scaffold merge, file parsing
-8. Preview rendered in `PreviewPanel.tsx`
-9. User can refine, deploy, or start new
-
-### Database tables (Drizzle)
-
-**Supabase (main):** projects, chats, versions, deployments, users, transactions, user_integrations  
-**Own engine (PostgreSQL eller SQLite):** engine_chats, engine_messages, engine_versions, engine_generation_logs
-
-### Config
-
-All env vars accessed through `src/lib/config.ts` (SECRETS, FEATURES, PATHS, URLS).
-Feature flags auto-detect available services. Se `docs/ENV.md` för env-översikt.
-
-## Conventions
-
-- Language: Swedish for user-facing copy, English for code/comments/logs
-- Path alias: `@/*` maps to `src/*`
-- Barrel exports: `index.ts` in component directories
-- API routes handle auth via session cookies (see `src/proxy.ts`)
+**DB:** Main app tables + own-engine tables (`engine_*`). **Conventions:** Swedish UI copy, English code; `@/*` → `src/*`.

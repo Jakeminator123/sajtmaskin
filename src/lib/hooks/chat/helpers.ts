@@ -896,7 +896,15 @@ export function buildApiErrorMessage(params: {
     const suffix = retryAfter ? ` Prova igen om ${retryAfter}s.` : "";
     return `Rate limit: för många förfrågningar.${suffix}`;
   }
-  if (status === 402 || code === "quota_exceeded") {
+  if (status === 402) {
+    const serverError =
+      (typeof errorData?.error === "string" && errorData.error) ||
+      (typeof errorData?.message === "string" && errorData.message) ||
+      "";
+    if (serverError) return serverError;
+    return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
+  }
+  if (code === "quota_exceeded") {
     return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
   }
   if (status === 401 || code === "unauthorized") {

@@ -6,7 +6,7 @@
 ### Innehåller MASTER allt en nästa agent behöver?
 
 - **Ja** för *prioritering, acceptans, produktintent och filpekare* — det ska räcka att planera och spåra K-rader här.
-- **Nej** för *exakt kodmekanik* — det är **avsiktligt**. Du ska ändå läsa **[`INPUT_GPT.txt`](../../../INPUT_GPT.txt)** § 7–14 (env-merge, pseudokod, faser), **[`docs/architecture/preview-and-sandbox-flow.md`](../../architecture/preview-and-sandbox-flow.md)** där flödet utvecklas, och **faktiska källfiler** som listas i § 2. Utan dessa kan ingen agent «gissa» hela implementationen bara från MASTER.
+- **Nej** för *exakt kodmekanik* — det är **avsiktligt**. Du ska ändå läsa **[`INPUT_GPT.txt`](../../../INPUT_GPT.txt)** § 7–14 (env-merge, pseudokod, faser), **[`preview-deploy.md`](../../architecture/preview-deploy.md)** / arkiv **[`preview-and-sandbox-flow.md`](../../architecture/archive/pre-2026-03-consolidation/preview-and-sandbox-flow.md)** där flödet utvecklas, och **faktiska källfiler** som listas i § 2. Utan dessa kan ingen agent «gissa» hela implementationen bara från MASTER.
 - **Bilaga (canonical intent, engelska):** [`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt) — samma innehåll som § 0 här i kondenserad svensk form.
 
 ---
@@ -49,7 +49,7 @@ Nedan: **kanonisk svensk sammanfattning** som styr § 1–2 och K-018 / K-019. U
 2. **Sandbox-preview** — i praktiken **`npm install` → `npm run dev`** för genererad sajt i sandbox: det är **huvudfidelity** för iteration och app-lik interaktion.
 3. **`npm run build`** — **separat verifiering** (byggbarhet, senare deploy-paritet), **inte** den motor som ska definiera «preview funkar» för användaren.
 
-**Produkt-/UX-nivåer:** Se **[`docs/architecture/preview-fidelity-tiers.md`](../../architecture/preview-fidelity-tiers.md)** för **Preview fidelity tier 1–3** — **tier 2 (sandbox `install`+`dev`)** är avsedd **primär iframe**; **tier 1 (shim)** är **fallback** med tydlig logg/toast om sandbox misslyckas; **tier 3** (deploy/build-check) kan komma senare. Inte samma numrering som **K-018 Fas 1–4** nedan.
+**Produkt-/UX-nivåer:** Se **[`preview-fidelity-tiers.md`](../../architecture/archive/pre-2026-03-consolidation/preview-fidelity-tiers.md)** för **Preview fidelity tier 1–3** — **tier 2 (sandbox `install`+`dev`)** är avsedd **primär iframe**; **tier 1 (shim)** är **fallback** med tydlig logg/toast om sandbox misslyckas; **tier 3** (deploy/build-check) kan komma senare. Inte samma numrering som **K-018 Fas 1–4** nedan.
 
 ### Integrationer i preview (policy i korthet)
 
@@ -78,7 +78,7 @@ Nedan: **kanonisk svensk sammanfattning** som styr § 1–2 och K-018 / K-019. U
 1. Läs **§ 0** (fidelity) + **§ 2** (K-018) + **[`INPUT_GPT.txt`](../../../INPUT_GPT.txt)** § 7, 10–14 (env-merge, faser, pseudokod). Vid behov: [`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt) (full engelsk version).
 2. Implementera **Fas 1**: placeholder-env + `projectEnvVars` → **`.env.local` i den genererade sajtens sandbox** → `npm install` → `npm run dev`; **`npm run build`** som **separat** status (inte samma som «preview funkar»). **Behåll preflight** som separat lager (§ 0).
 3. Följ **UI-principen i § 2** + **§ 0**: användaren ser bara **sitt projekts** preview/integration; **intern** diagnostik (Agentlogg, råtext, klarifieringar) **sekundär** i standardläge — **K-019** för promptkedja + ev. stream-UX.
-4. Kör **`npm run typecheck`** && **`npx vitest run`**. Uppdatera [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) (K-018, K-019), [`external-review-remediation-progress.md`](./external-review-remediation-progress.md), [`.cursor/orchestrator/ORCHESTRATOR_LOG.md`](../../../.cursor/orchestrator/ORCHESTRATOR_LOG.md).
+4. Kör **`npm run typecheck`** && **`npx vitest run`**. Uppdatera [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) (K-018, K-019), [`external-review-remediation-progress.md`](./external-review-remediation-progress.md).
 
 **Parallellt med låg risk:** Plan 17 **endast dokumentation** (t.ex. sanning i `ENV.md`) — **inte** samma PR som tung `generation-stream.ts`-refaktor om du vill undvika konflikter.
 
@@ -148,7 +148,7 @@ Allt som handlar om `.env.local` / `dev` / `build` här avser **den genererade s
 
 `src/lib/gen/sandbox-preview.ts`, `src/lib/providers/own-engine/generation-stream.ts`, `src/lib/ai-models/load-generated-site-placeholders.ts`, ev. `src/lib/mcp/runtime-url.ts`, `src/lib/gen/pre-generation-contracts.ts`. **Nya:** t.ex. `src/lib/gen/build-generated-site-env.ts`, `src/lib/gen/sandbox-session-store.ts`.
 
-**Djup handoff:** [`INPUT_GPT.txt`](../../../INPUT_GPT.txt) · arkitektur: [`docs/architecture/preview-and-sandbox-flow.md`](../../architecture/preview-and-sandbox-flow.md) · intent-bilaga: [`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt).
+**Djup handoff:** [`INPUT_GPT.txt`](../../../INPUT_GPT.txt) · arkitektur: [`preview-deploy.md`](../../architecture/preview-deploy.md) · arkiv [`preview-and-sandbox-flow.md`](../../architecture/archive/pre-2026-03-consolidation/preview-and-sandbox-flow.md) · intent-bilaga: [`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt).
 
 ---
 
@@ -156,8 +156,8 @@ Allt som handlar om `.env.local` / `dev` / `build` här avser **den genererade s
 
 | ID | Vad | Status / nästa steg |
 |----|-----|---------------------|
-| **K-007** | Deploy: auto-fix / validering före deploy | `[x]` **2026-03-26** — auto-fix **oförändrad standard**; [`deploy-precheck.md`](../../architecture/deploy-precheck.md); Vitest; se kritik-tabell |
-| **K-009** | Own-engine **utanför** avslutad W3 (SSE) | `[x]` / **`[N/A]`** **2026-03-26** — ingen planerad extra SSE; [`own-engine-sse-scope.md`](../../architecture/own-engine-sse-scope.md) |
+| **K-007** | Deploy: auto-fix / validering före deploy | `[x]` **2026-03-26** — auto-fix **oförändrad standard**; [`deploy-precheck.md`](../../architecture/archive/pre-2026-03-consolidation/deploy-precheck.md); Vitest; se kritik-tabell |
+| **K-009** | Own-engine **utanför** avslutad W3 (SSE) | `[x]` / **`[N/A]`** **2026-03-26** — ingen planerad extra SSE; [`own-engine-sse-scope.md`](../../architecture/archive/pre-2026-03-consolidation/own-engine-sse-scope.md) |
 | **K-019** | **Builder standard-UX + promptkedja** (§ 0): intern telemetri/klarifieringar **sekundära** i standardläge; **kanonisk förberedd prompt/orchestration-kontext** persisteras och återanvänds över follow-up och närliggande stream-steg så kontext inte tappas eller dupliceras | `[ ]` — **delmoment:** Agentlogg hopfälld som standard; **kvar:** snapshot över stream-steg — [`queue/PLAN-K019-PROMPT-SNAPSHOT.md`](./queue/PLAN-K019-PROMPT-SNAPSHOT.md); se `.j_to_agent/fidelity.txt` |
 | **K-008** | Landning | `[x]` — material fryst; fokus K-018 |
 | **K-014** | Juridik/cookies/om oss | `[x]` — OK oförändrat |
@@ -208,15 +208,15 @@ Uppdatera **både** denna lista och [`17-repo-separation-and-independence.md`](.
 
 ---
 
-## 7. Ska du använda Orchestrator Run, en vanlig agent, eller «annan AI»?
+## 7. En agent, flera steg, eller «annan AI»?
 
 | Situation | Rekommendation |
 |-----------|----------------|
 | **En fokuserad leverans** (t.ex. bara K-018 Fas 1) | **En Cursor-agent** (eller du) med denna MASTER + `INPUT_GPT.txt` — minst overhead. |
-| **Stor inkommen rapport** från annan AI som ska brytas i många steg, med logg och verifiering mellan steg | **`/orchestrator` / orchestrator-run** enligt [`.cursor/skills/orchestrator-run/SKILL.md`](../../../.cursor/skills/orchestrator-run/SKILL.md) och `.cursor/orchestrator/PROTOCOL.md` — sekventiella workloads, `FINAL_REPORT`. |
+| **Stor inkommen rapport** från annan AI som ska brytas i många steg | Dela upp i **egna planfiler / issues** under `docs/plans/active/` (eller backlog), kör stegen i ordning — repot har **inget** separat multi-agent-orchestrator under `.cursor/` längre. |
 | **Second opinion / arkitekturgranskning** | Annan modell/agent **läser** repo + skriver utkast → du **infogar i § 0** här → implementation i Cursor som ovan. |
 
-Orchestrator är **inte** magiskt snabbare; det är **tydligare spårbarhet** och **tvingad ordning** när arbetet är stort. För K-018 Fas 1 räcker ofta **en** agent och **en** PR.
+För stora spår: **tydliga planfiler och commits** ersätter den gamla orchestrator-mekanismen. För K-018 Fas 1 räcker ofta **en** agent och **en** PR.
 
 ---
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
@@ -12,8 +13,7 @@ const INPUT_COST_PER_M = 0.15;
 const OUTPUT_COST_PER_M = 0.6;
 
 function getGatewayApiKey(): string | null {
-  const key = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
-  return key?.trim() || null;
+  return pickAiGatewayKeyFromEnv();
 }
 
 function getDirectApiKey(): string | null {
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const systemPrompt = `Du är en expert på React/Next.js-layouter. 
+  const systemPrompt = `Du är en expert på React/Next.js-layouter.
 Användaren klickade på en punkt i en preview-vy. Utifrån koordinaterna och källkoden, identifiera EXAKT vilken JSX-komponent/element som troligast ligger vid den punkten.
 
 Svara ALLTID med ett JSON-objekt (inga markdown-backticks):

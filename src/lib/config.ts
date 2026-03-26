@@ -4,6 +4,7 @@
  */
 
 import path from "path";
+import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 import { getAppBaseUrl } from "./app-url";
 import { getServerEnv, isAffirmativeEnvValue } from "./env";
 
@@ -171,7 +172,7 @@ export const SECRETS = {
   },
 
   get vercelApiToken() {
-    return env.VERCEL_TOKEN ?? "";
+    return pickVercelAccessTokenFromEnv();
   },
 
   get stripeSecretKey() {

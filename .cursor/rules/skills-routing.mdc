@@ -1,0 +1,12 @@
+---
+description: When to load sajtmaskin-context and vercel-react-best-practices skills
+alwaysApply: true
+---
+
+# Skills routing
+
+**Domain (builder, scaffolds, v0 vs Vercel mall, preview/deploy, v0/Vercel/OpenAI/OpenClaw docs):** read `.cursor/skills/sajtmaskin-context/SKILL.md` first; terminology → `terminology.mdc`; MCP → `mcp-docs-routing.mdc`. Skip for generic non-domain tasks.
+
+**React / Next / Node / perf:** apply `vercel-react-best-practices` (project `.cursor/skills/` or Vercel plugin — rules matter, not path). Deep refactors: `https://raw.githubusercontent.com/vercel-labs/agent-skills/main/skills/react-best-practices/AGENTS.md`; focused: `.../rules/{rule-name}.md`.
+
+**Aliases:** Varicell/Vericell → Vercel; Veenol/Venol → v0.
