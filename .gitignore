@@ -36,6 +36,10 @@ env.vercel*.local
 .env.production
 .token-status.json
 
+# Local notes / chat dumps (keep secrets and noise out of git)
+ENV_JAMFORRELSE.txt
+di-d.txt
+
 # Local prompt dumps (opt-in: SAJTMASKIN_PROMPT_DUMP=1)
 data/prompt-dumps/*
 !data/prompt-dumps/README.md

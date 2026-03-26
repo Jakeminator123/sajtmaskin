@@ -16,6 +16,7 @@ import {
   type ChatReadiness,
   type ChatReadinessItem,
 } from "@/lib/chat-readiness";
+import { findInvalidJsonConfigPaths } from "@/lib/deploy/version-file-integrity";
 import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
@@ -210,6 +211,18 @@ async function buildEngineReadiness(
   const versionRows = files
     .filter((file) => typeof file?.path === "string" && typeof file?.content === "string")
     .map((file) => ({ path: file.path as string, content: file.content as string }));
+
+  const invalidJsonPaths = findInvalidJsonConfigPaths(versionRows);
+  if (invalidJsonPaths.length > 0) {
+    blockers.push({
+      id: "invalid-project-json",
+      title: "Projektfil(er) går inte att tolka.",
+      detail: `Ogiltig JSON: ${invalidJsonPaths.join(", ")}. Rätta package.json innan du publicerar.`,
+      severity: "blocker",
+      action: "deploy",
+    });
+  }
+
   const envRequirements = resolveEnvRequirementsFromVersionFiles(versionRows, projectEnv);
   const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys } = envRequirements;
 

@@ -19,6 +19,7 @@ Vercel Environment Variables      (web UI / CLI, de riktiga prod/preview/dev-vä
 
 Obs:
 
+- **Historisk jämförelse (nyckelnamn, inga hemligheter):** [`development/env-comparison-notes.md`](./development/env-comparison-notes.md).
 - `.vercel/.env.*.local` ska behandlas som lokala pull/export-snapshots, inte som canonical source of truth.
 - De kan innehålla temporära eller development-scope:ade värden, t.ex. `VERCEL_OIDC_TOKEN`, även när filnamnet råkar säga `production`.
 

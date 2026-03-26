@@ -42,6 +42,11 @@ scripts/labs/testning_scarf/output_test_scaffold/
 scripts/labs/testning_scarf/output_first_llm_underlag/
 scripts/output_test_scaffold/
 
+# Local env dumps (often contain secrets)
+OLD.env.local
+OLD.env.production
+ENV_JAMFORRELSE.txt
+
 # Local MCP (copy mcp.json.example → mcp.json)
 .cursor/mcp.json
 
