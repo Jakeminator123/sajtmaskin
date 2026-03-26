@@ -1,4 +1,4 @@
-﻿
+
 # Build/cache
 node_modules
 .next
@@ -46,6 +46,9 @@ scripts/output_test_scaffold/
 OLD.env.local
 OLD.env.production
 ENV_JAMFORRELSE.txt
+# Local chat / scratch (gitignored; keep off AI index)
+di-d.txt
+
 
 # Local MCP (copy mcp.json.example → mcp.json)
 .cursor/mcp.json
@@ -167,3 +170,4 @@ internt_jakob/
 
 # Addressed kritik snapshots (large; open with @ path when needed)
 .j_to_agent/archive/kritik-addressed/
+
