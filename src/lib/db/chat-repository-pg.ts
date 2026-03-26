@@ -307,6 +307,19 @@ export async function updateChatScaffoldId(chatId: string, scaffoldId: string | 
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function getChatOrchestrationSnapshot(
+  chatId: string,
+): Promise<Record<string, unknown> | null> {
+  const rows = await db
+    .select({ orchestrationSnapshot: engineChats.orchestrationSnapshot })
+    .from(engineChats)
+    .where(eq(engineChats.id, chatId))
+    .limit(1);
+  if (rows.length === 0) return null;
+  const v = rows[0].orchestrationSnapshot;
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
 export async function updateChatOrchestrationSnapshot(
   chatId: string,
   snapshot: Record<string, unknown> | null,

@@ -1,6 +1,9 @@
 import { formatSSEEvent } from "@/lib/streaming";
 import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/route-helpers";
-import { EmptyGenerationError } from "@/lib/gen/stream/finalize-version";
+import {
+  EmptyGenerationError,
+  type FinalizeResult,
+} from "@/lib/gen/stream/finalize-version";
 import {
   finalizeOrHandleEmptyGeneration,
   getUnsignaledDetectedIntegrations,
@@ -10,6 +13,7 @@ import { debugLog, warnLog } from "@/lib/utils/debug";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -206,17 +210,7 @@ export function createOwnEngineGenerationStream(
         ...extra,
       });
 
-      const emitDoneWithVersion = async (finalized: {
-        version: { id: string };
-        messageId: string | null;
-        previewUrl: string | null;
-        preflight: {
-          previewBlocked: boolean;
-          verificationBlocked: boolean;
-          previewBlockingReason: string | null;
-        };
-        contentForVersion?: string;
-      }) => {
+      const emitDoneWithVersion = async (finalized: FinalizeResult) => {
         didSendDone = true;
 
         const newDetected = getUnsignaledDetectedIntegrations(
@@ -242,6 +236,13 @@ export function createOwnEngineGenerationStream(
             parsedForSandbox = parseCodeProject(finalized.contentForVersion).files;
           } catch (e) {
             sandboxParseError = e;
+          }
+        }
+        if (parsedForSandbox.length === 0 && finalized.filesJson?.trim()) {
+          const fromSaved = parseCodeFilesFromFilesJson(finalized.filesJson);
+          if (fromSaved && fromSaved.length > 0) {
+            parsedForSandbox = fromSaved;
+            sandboxParseError = null;
           }
         }
         const sandboxWillRun =
@@ -297,6 +298,7 @@ export function createOwnEngineGenerationStream(
               const sandboxResult = await startSandboxPreview(parsedForSandbox, {
                 appProjectId,
                 chatId,
+                versionIdForSession: finalized.version.id,
               });
               if (sandboxResult.ok) {
                 const sr = sandboxResult.result;

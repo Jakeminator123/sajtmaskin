@@ -33,7 +33,7 @@ Höja **preview-fidelity** för **användarnas genererade** sajter: `npm run dev
 
 | Fas | Innehåll | Mål |
 |-----|----------|-----|
-| **1** | Placeholder-env + `projectEnvVars` → **`.env.local` i sandbox** (genererad sajt), `npm install`, `npm run dev`; **`npm run build`** som separat verifieringsstatus | **2026-03-26:** merge + `.env.local`; **`npm run build`** efter dev i own-engine sandbox + SSE `prodBuildVerified` + previewpanel + progress. **Kvar:** shim↔runtime produktprioritet, tydligare shim vs runtime i samma banderoll. |
+| **1** | Placeholder-env + `projectEnvVars` → **`.env.local` i sandbox** (genererad sajt), `npm install`, `npm run dev`; **`npm run build`** som separat verifieringsstatus | **2026-03-26:** merge + `.env.local`; **`npm run build`** efter dev i own-engine sandbox + SSE `prodBuildVerified` + previewpanel + progress. **2026-03-26:** shim↔runtime växling i previewpanel när båda finns. **Kvar:** produktmätning / ev. fler edge cases. |
 | **2** | Session-varm sandbox (`chatId`↔sandbox), idle ~30 min, hard cap ~2 h, heartbeat, cleanup | Mindre kallstart, kontrollerad kostnad |
 | **3** | Adapters / degraded preview (SQLite/no-op mail/optional Redis/auth preview-läge) | Nivå 3-integrationer från `INPUT_GPT.txt` § 5–6 |
 | **4** | GitHub som **export**, inte primär persistence | Senare; se `INPUT_GPT.txt` § 9 |
@@ -52,7 +52,7 @@ Funktionellt (jmf. `INPUT_GPT.txt` § 14):
 
 UX:
 
-- [ ] Användaren ser **tydlig** skillnad: snabb shim ↔ runtime preview ↔ build OK / build fail (dev kan ändå köra) — **utan** att blanda in Sajtmaskins fulla interna integrationslista. *(Build-fail vs OK: ja i previewpanel; shim vs runtime: oförändrat.)*
+- [ ] Användaren ser **tydlig** skillnad: snabb shim ↔ runtime preview ↔ build OK / build fail (dev kan ändå köra) — **utan** att blanda in Sajtmaskins fulla interna integrationslista. *(Build-fail vs OK: ja i previewpanel; **tier 2:** samlad remsa utan env-namnsdump 2026-03-26; **shim ↔ tier 2:** dedikerad remsa + knapp när båda URL:er finns, 2026-03-26.)*
 - [ ] **Sandbox = avsedd iframe-default (tier 2); shim = fallback:** om sandbox **inte** går igenom ska **tydlig logg + användar-synlig signal** finnas (inte tyst shim). Se [`docs/architecture/preview-fidelity-tiers.md`](../../../architecture/preview-fidelity-tiers.md) § «Produktprioritet».
 - [ ] Färre falska fel p.g.a. saknade env i sandbox.
 
@@ -68,6 +68,6 @@ UX:
 
 | Plan | Skillnad |
 |------|----------|
-| **PLAN-KRITIK-OPEN** | K-007 (deploy), K-009 (SSE-scope), **K-019** (standard-UX + promptkedja) — **inte** samma som sandbox-env; K-018 **implementeras här**. |
+| **PLAN-KRITIK-OPEN** | **K-019** (standard-UX + promptkedja); K-007/K-009 **stängda** 2026-03-26 — **inte** samma som sandbox-env; K-018 **implementeras här**. |
 | **PLAN-DRIFT-VERIFICATION** | Smoke mot **Sajtmaskins** deploy-API, progress-hygien — **inte** genererad sajts sandbox. |
 | **PLAN-REPO-SEPARATION-OPEN** | Dependency/städ — kan köras **parallellt** med doc-låg risk, undvik samma PR som tung `generation-stream`-refaktor. |

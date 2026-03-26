@@ -52,6 +52,13 @@ export function isSandboxConfigured(): boolean {
   );
 }
 
+/**
+ * Returned in API responses when sandbox auth is missing so local `npm run dev` and
+ * operators know how to enable tier-2 preview. See `docs/architecture/vercel-sandbox-credentials.md`.
+ */
+export const SANDBOX_SETUP_HINT =
+  "Lokal dev: kör `vercel link` och `vercel env pull` (VERCEL_OIDC_TOKEN), eller sätt VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID i .env.local. Se docs/architecture/vercel-sandbox-credentials.md.";
+
 export type RuntimeFile = {
   name: string;
   content: string;
@@ -97,15 +104,52 @@ export type SandboxRuntimeOptions = {
   buildVerifyTimeoutSec?: number;
   /**
    * `build_only`: install + `npm run build` only (no dev server; `primaryUrl` is null).
-   * `dev_only`: install + detached dev; no build.
-   * `dev_then_build`: install + detached dev + optional `verifyBuild` (default true from builder).
-   * Default: `SAJTMASKIN_SANDBOX_PREVIEW_MODE` or `dev_then_build`.
+   * `dev_only`: install + detached `npm run dev` — **tier 2** preview (default when env unset).
+   * `dev_then_build`: install + detached dev + `npm run build` verification (tier 2 + tier-3 signal).
+   * Default from env: `resolveSandboxPreviewModeFromEnv()` → **`dev_only`** unless `SAJTMASKIN_SANDBOX_PREVIEW_MODE` is set.
    */
   sandboxPreviewMode?: SandboxPreviewMode;
 };
 
 const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
+
+/** Status values that mean the dev server is not usable — skip resume and create fresh. */
+const SANDBOX_NON_RUNNING_STATUS = new Set([
+  "stopped",
+  "terminated",
+  "exited",
+  "error",
+  "failed",
+  "cancelled",
+  "canceled",
+]);
+
+/**
+ * Reattach to an existing Vercel Sandbox by id (same credentials as `Sandbox.create`).
+ * Returns a preview URL when the VM still exists and is not in a known terminal state.
+ */
+export async function tryResumeSandboxById(sandboxId: string): Promise<{
+  sandboxId: string;
+  primaryUrl: string;
+} | null> {
+  const id = sandboxId.trim();
+  if (!id || !isSandboxConfigured()) return null;
+  try {
+    const sandbox = await Sandbox.get({ sandboxId: id });
+    const statusRaw = sandbox.status;
+    const status =
+      typeof statusRaw === "string" ? statusRaw.trim().toLowerCase() : "";
+    if (status && SANDBOX_NON_RUNNING_STATUS.has(status)) {
+      return null;
+    }
+    const primaryUrl = sandbox.domain(3000)?.trim() ?? "";
+    if (!primaryUrl) return null;
+    return { sandboxId: sandbox.sandboxId, primaryUrl };
+  } catch {
+    return null;
+  }
+}
 
 export function isSafeRelativePath(filePath: string): boolean {
   if (!filePath || filePath.includes("\0")) return false;

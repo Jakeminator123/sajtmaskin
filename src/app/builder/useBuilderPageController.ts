@@ -45,6 +45,11 @@ import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
+import { buildPreviewUrl } from "@/lib/gen/preview";
+
+/** Own-engine chat + version rows use UUID ids; safe for `buildPreviewUrl(chatId, versionId)`. */
+const ENGINE_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Prefer sandbox URL over shim / v0-hosted when resolving iframe preview (K-018). */
 function pickVersionPreviewUrl(
@@ -78,6 +83,21 @@ function parsePreviewOverride(
       ? record.versionId.trim()
       : null;
   return { url, versionId };
+}
+
+function isV0StyleChatRecord(chat: unknown): boolean {
+  const c = chat as { v0ChatId?: string } | null | undefined;
+  return Boolean(c?.v0ChatId);
+}
+
+/** Tier-1 static preview (shim) or not yet resolved — prefer upgrading to sandbox when possible. */
+function isTier1ShimOrUnsetPreviewUrl(url: string | null | undefined): boolean {
+  if (url == null || !String(url).trim()) return true;
+  return String(url).includes("/api/preview-render");
+}
+
+function versionSummaryHasSandbox(v: VersionSummary | undefined): boolean {
+  return typeof v?.sandboxUrl === "string" && v.sandboxUrl.trim().length > 0;
 }
 
 export function useBuilderPageController() {
@@ -120,13 +140,15 @@ export function useBuilderPageController() {
     applyingGenerationSettingsRef, autoProjectInitRef, featureWarnedRef,
     hasLoadedInstructions, hasLoadedInstructionsOnce, lastActiveVersionIdRef,
     lastPaletteSavedRef, lastProjectIdRef, lastSyncedInstructionsRef,
-    loadedGenerationSettingsChatRef, paletteLoadedRef, pendingInstructionsOnceRef,
-    pendingInstructionsRef, promptAssistContextKeyRef, promptFetchDoneRef,
+    loadedGenerationSettingsChatRef, paletteLoadedRef, pendingBriefRef,
+    pendingInstructionsOnceRef, pendingInstructionsRef, pendingSpecRef,
+    promptAssistContextKeyRef, promptFetchDoneRef,
     promptFetchInFlightRef,
   } = state;
 
   // ── External data hooks ──────────────────────────────────────────────
-  const { chat, mutate: mutateChat, isError: isChatError } = useChat(state.chatId);
+  const { chat, mutate: mutateChat, isError: isChatError, isLoading: isChatLoading } =
+    useChat(state.chatId);
 
   const isAnyStreamingEarly = useMemo(
     () => state.messages.some((m) => Boolean(m.isStreaming)),
@@ -151,6 +173,24 @@ export function useBuilderPageController() {
     isMediaEnabled: state.isMediaEnabled,
     enableBlobMedia: state.enableBlobMedia,
   });
+
+  /** Tier 1 shim URL + tier 2 sandbox URL for the active version (K-018 / K18-2). */
+  const activeVersionAlternatePreview = useMemo(() => {
+    const vid = derived.activeVersionId;
+    if (!vid) return { shimUrl: null as string | null, sandboxUrl: null as string | null };
+    const v = derived.effectiveVersionsList.find((x) => (x.versionId || x.id) === vid);
+    if (!v) return { shimUrl: null, sandboxUrl: null };
+    const du = typeof v.demoUrl === "string" && v.demoUrl.trim() ? v.demoUrl.trim() : null;
+    const sand = typeof v.sandboxUrl === "string" && v.sandboxUrl.trim() ? v.sandboxUrl.trim() : null;
+    let shimUrl = du && du.includes("/api/preview-render") ? du : null;
+    if (!shimUrl && sand && state.chatId && ENGINE_UUID_RE.test(state.chatId)) {
+      const versionKey = String(vid);
+      if (ENGINE_UUID_RE.test(versionKey)) {
+        shimUrl = buildPreviewUrl(state.chatId, versionKey);
+      }
+    }
+    return { shimUrl, sandboxUrl: sand };
+  }, [derived.activeVersionId, derived.effectiveVersionsList, state.chatId]);
 
   const { readiness: deployReadiness, isLoading: isDeployReadinessLoading } = useChatReadiness(
     state.chatId,
@@ -182,6 +222,8 @@ export function useBuilderPageController() {
     paletteState: state.paletteState,
     pendingInstructionsRef: state.pendingInstructionsRef,
     pendingInstructionsOnceRef: state.pendingInstructionsOnceRef,
+    pendingBriefRef: state.pendingBriefRef,
+    pendingSpecRef: state.pendingSpecRef,
     hasLoadedInstructions: state.hasLoadedInstructions,
     hasLoadedInstructionsOnce: state.hasLoadedInstructionsOnce,
     router,
@@ -1120,11 +1162,13 @@ export function useBuilderPageController() {
     } catch {
       /* ignore */
     }
+    pendingBriefRef.current = null;
+    pendingSpecRef.current = null;
     setChatId(null);
     setCurrentDemoUrl(null);
     setMessages([]);
     router.replace("/builder");
-  }, [chatId, isChatError, router, setChatId, setCurrentDemoUrl, setMessages]);
+  }, [chatId, isChatError, router, setChatId, setCurrentDemoUrl, setMessages, pendingBriefRef, pendingSpecRef]);
 
   // V0 project id sync
   useEffect(() => {
@@ -1224,6 +1268,146 @@ export function useBuilderPageController() {
       setPreviewRefreshToken(Date.now());
     }
   }, [derived.activeVersionId, chat, currentDemoUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentDemoUrl, setPreviewRefreshToken]);
+
+  const streamWasActiveRef = useRef(false);
+  const postStreamCooldownUntilRef = useRef(0);
+  const sandboxBootstrapGenRef = useRef(0);
+  const sandboxBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    sandboxBootstrapDoneKeysRef.current.clear();
+  }, [chatId]);
+
+  useEffect(() => {
+    if (isAnyStreamingEarly) {
+      streamWasActiveRef.current = true;
+      return;
+    }
+    if (streamWasActiveRef.current) {
+      streamWasActiveRef.current = false;
+      // Server already starts sandbox after generation; wait so we do not spawn a duplicate VM.
+      postStreamCooldownUntilRef.current = Date.now() + 12_000;
+    }
+  }, [isAnyStreamingEarly]);
+
+  // Own-engine: auto-start sandbox when opening a chat/version that only has tier-1 (shim) preview.
+  useEffect(() => {
+    const gen = ++sandboxBootstrapGenRef.current;
+
+    if (!isAuthenticated || !chatId || !derived.activeVersionId) return;
+    if (isChatLoading || !chat) return;
+    if (isAnyStreamingEarly) return;
+    if (Date.now() < postStreamCooldownUntilRef.current) return;
+    if (isV0StyleChatRecord(chat)) return;
+
+    const key = `${chatId}:${derived.activeVersionId}`;
+    if (sandboxBootstrapDoneKeysRef.current.has(key)) return;
+
+    const activeMatch = derived.effectiveVersionsList.find(
+      (v) => (v.versionId || v.id) === derived.activeVersionId,
+    );
+    if (versionSummaryHasSandbox(activeMatch)) return;
+
+    if (!isTier1ShimOrUnsetPreviewUrl(currentDemoUrl)) {
+      sandboxBootstrapDoneKeysRef.current.add(key);
+      return;
+    }
+
+    let cancelled = false;
+    const ac = new AbortController();
+    const tid = window.setTimeout(() => {
+      void (async () => {
+        if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
+        try {
+          const res = await fetch(
+            `/api/v0/chats/${encodeURIComponent(chatId)}/sandbox-preview`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ versionId: derived.activeVersionId }),
+              signal: ac.signal,
+            },
+          );
+          const data = (await res.json().catch(() => null)) as {
+            ok?: boolean;
+            code?: string;
+            hint?: string;
+            sandboxUrl?: string;
+            fidelityTier?: number;
+            prodBuildVerified?: boolean;
+            prodBuildLogSnippet?: string;
+          } | null;
+          if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
+
+          if (res.status === 503) {
+            if (
+              process.env.NODE_ENV === "development" &&
+              data?.code === "sandbox_disabled" &&
+              typeof data.hint === "string" &&
+              data.hint.trim()
+            ) {
+              toast.message("Sandbox ej konfigurerad", {
+                description: data.hint.trim(),
+                duration: 14_000,
+              });
+            }
+            // Do not mark done when only credentials are missing — retry after refresh / env pull.
+            if (data?.code !== "sandbox_disabled") {
+              sandboxBootstrapDoneKeysRef.current.add(key);
+            }
+            return;
+          }
+
+          sandboxBootstrapDoneKeysRef.current.add(key);
+          if (!data?.ok || typeof data.sandboxUrl !== "string" || !data.sandboxUrl.trim()) {
+            return;
+          }
+
+          setSandboxBuildError(null);
+          setCurrentDemoUrl(data.sandboxUrl.trim());
+          bumpPreviewRefreshToken();
+          if (typeof data.prodBuildVerified === "boolean") {
+            setSandboxProdBuild({
+              verified: data.prodBuildVerified,
+              logSnippet:
+                !data.prodBuildVerified && typeof data.prodBuildLogSnippet === "string"
+                  ? data.prodBuildLogSnippet
+                  : undefined,
+            });
+          } else {
+            setSandboxProdBuild(null);
+          }
+          void mutateChat();
+          void mutateVersions();
+        } catch (err) {
+          if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
+          if (err instanceof Error && err.name === "AbortError") return;
+          sandboxBootstrapDoneKeysRef.current.add(key);
+        }
+      })();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+      clearTimeout(tid);
+    };
+  }, [
+    isAuthenticated,
+    chatId,
+    derived.activeVersionId,
+    derived.effectiveVersionsList,
+    chat,
+    isAnyStreamingEarly,
+    isChatLoading,
+    currentDemoUrl,
+    setCurrentDemoUrl,
+    bumpPreviewRefreshToken,
+    mutateChat,
+    mutateVersions,
+    setSandboxBuildError,
+    setSandboxProdBuild,
+  ]);
 
   // Prompt assist context fetch
   useEffect(() => {
@@ -1406,6 +1590,7 @@ export function useBuilderPageController() {
     clearSandboxBuildError,
     serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,
+    bumpPreviewRefreshToken,
     isVersionPanelCollapsed: state.isVersionPanelCollapsed,
     currentPageCode: state.currentPageCode,
     existingUiComponents: state.existingUiComponents,
@@ -1451,6 +1636,7 @@ export function useBuilderPageController() {
     // External data
     versions,
     effectiveVersionsList: derived.effectiveVersionsList,
+    activeVersionAlternatePreview,
     mutateVersions,
 
     // Messaging

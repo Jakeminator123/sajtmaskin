@@ -78,6 +78,7 @@ type Args = {
     message: string,
     options?: {
       forceShallow?: boolean;
+      forceDeepBrief?: boolean;
       onBrief?: (brief: Record<string, unknown>) => void;
     },
   ) => Promise<string>;
@@ -93,7 +94,7 @@ export function useBuilderPromptActions({
   customInstructions,
   applyInstructionsOnce,
   promptAssistModel,
-  promptAssistDeep,
+  promptAssistDeep: _promptAssistDeep,
   specMode,
   themeColors,
   paletteState,
@@ -135,6 +136,8 @@ export function useBuilderPromptActions({
   const applyTemplateSwitch = useCallback(
     (templateId: string) => {
       setTemplateSwitchDialog(null);
+      pendingBriefRef.current = null;
+      pendingSpecRef.current = null;
       setChatId(null);
       setMessages([]);
       setCurrentDemoUrl(null);
@@ -158,6 +161,8 @@ export function useBuilderPromptActions({
       setMessages,
       setSelectedVersionId,
       templateInitAttemptKeyRef,
+      pendingBriefRef,
+      pendingSpecRef,
     ],
   );
 
@@ -215,8 +220,11 @@ export function useBuilderPromptActions({
       if (!trimmed) return null;
       setIsPreparingPrompt(true);
       try {
+        pendingBriefRef.current = null;
+        pendingSpecRef.current = null;
         const addendum = await generateDynamicInstructions(trimmed, {
-          forceShallow: !promptAssistDeep,
+          forceShallow: false,
+          forceDeepBrief: true,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
             if (specMode) {
@@ -251,7 +259,6 @@ export function useBuilderPromptActions({
       customInstructions,
       generateDynamicInstructions,
       paletteState,
-      promptAssistDeep,
       specMode,
       themeColors,
       pendingSpecRef,

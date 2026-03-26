@@ -62,6 +62,8 @@ export type StreamDebugStats = {
   didReceiveDone: boolean;
   chatId?: string | null;
   versionId?: string | null;
+  /** True when the fetch/stream was aborted (user cancel or navigation). */
+  abortedByClient?: boolean;
 };
 
 export type StreamQualitySignal = {

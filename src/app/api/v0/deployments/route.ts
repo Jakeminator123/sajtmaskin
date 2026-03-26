@@ -46,6 +46,10 @@ type PreDeployDiagnostics = {
   invalidFiles: string[];
 };
 
+/**
+ * K-007 (2026-03-26): pre-deploy auto-fix stays **enabled by default**; only skip when
+ * body `skipAutoFix` or deploy-disable env vars are set. See `docs/architecture/deploy-precheck.md`.
+ */
 function shouldSkipPreDeployAutoFix(bodySkipAutoFix?: boolean): boolean {
   if (bodySkipAutoFix === true) return true;
   return (

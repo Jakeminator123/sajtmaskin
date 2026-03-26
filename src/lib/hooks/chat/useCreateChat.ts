@@ -357,7 +357,7 @@ export function useCreateChat(
         }
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
-          pendingBriefRef.current = null;
+          promptMeta.promptAssistDeep = true;
         }
         promptMeta.modelId = engineModel;
         promptMeta.modelTier = selectedModelTier;

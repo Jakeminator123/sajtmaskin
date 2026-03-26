@@ -33,4 +33,18 @@ describe("finalizeStreamStats", () => {
     expect(signal.hasCriticalAnomaly).toBe(true);
     expect(signal.reasons).toEqual(["done_event_missing", "error_event_received"]);
   });
+
+  it("does not mark critical anomaly when client aborted and only done is missing", () => {
+    const stats = initStreamStats("create", "assistant_1");
+    stats.abortedByClient = true;
+    stats.contentEvents = 3;
+    stats.contentChars = 120;
+    stats.finalContentLength = 120;
+
+    const signal = finalizeStreamStats(stats);
+
+    expect(signal.hasCriticalAnomaly).toBe(false);
+    expect(signal.reasons).toContain("done_event_missing");
+    expect(signal.reasons).toContain("client_abort_expected");
+  });
 });

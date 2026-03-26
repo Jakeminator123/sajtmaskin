@@ -32,6 +32,16 @@ export async function createVersionFromContent(
   return createVersion(chatId, messageId, filesJson, sandboxUrl);
 }
 
+/** Parse `versions.files_json` into code files (e.g. sandbox bootstrap when markdown parse yields nothing). */
+export function parseCodeFilesFromFilesJson(filesJson: string): CodeFile[] | null {
+  try {
+    const parsed = JSON.parse(filesJson);
+    return Array.isArray(parsed) ? (parsed as CodeFile[]) : null;
+  } catch {
+    return null;
+  }
+}
+
 function parseStoredVersionFiles(
   filesJson: string,
   context: { versionId?: string; chatId?: string },

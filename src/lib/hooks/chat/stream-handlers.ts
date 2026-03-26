@@ -850,6 +850,7 @@ export async function handleSseStream(
   } finally {
     streamStats.chatId = streamStats.chatId ?? chatIdFromStream ?? effectiveChatId ?? null;
     streamStats.didReceiveDone = streamStats.didReceiveDone || didReceiveDone;
+    streamStats.abortedByClient = signal.aborted;
     streamQuality = finalizeStreamStats(streamStats);
   }
 

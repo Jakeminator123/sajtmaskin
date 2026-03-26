@@ -238,6 +238,7 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
     versionId: stats.versionId ?? null,
     durationMs,
     didReceiveDone: stats.didReceiveDone,
+    abortedByClient: Boolean(stats.abortedByClient),
     contentEvents: stats.contentEvents,
     contentChars: stats.contentChars,
     contentNoopEvents: stats.contentNoopEvents,
@@ -277,9 +278,31 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
     criticalReasons.push("thinking_empty_after_events");
   }
 
+  const onlyDoneMissingOnAbort =
+    stats.abortedByClient &&
+    criticalReasons.length === 1 &&
+    criticalReasons[0] === "done_event_missing" &&
+    stats.errorEvents === 0;
+
+  if (onlyDoneMissingOnAbort) {
+    reasons.push("client_abort_expected");
+    debugLog(
+      "build",
+      `Stream ended before done (client abort): reasons=[${reasons.join(", ")}]`,
+      summary,
+    );
+    return { hasCriticalAnomaly: false, reasons };
+  }
+
   const hasCriticalAnomaly = criticalReasons.length > 0;
+  const inlineCritical = criticalReasons.join(", ");
+  const inlineReasons = reasons.join(", ");
   if (hasCriticalAnomaly) {
-    warnLog("build", "Stream anomaly detected", { ...summary, reasons, criticalReasons });
+    warnLog(
+      "build",
+      `Stream anomaly detected — critical=[${inlineCritical}] reasons=[${inlineReasons}]`,
+      { ...summary, reasons, criticalReasons },
+    );
   } else if (stats.errorEvents > 0) {
     debugLog("build", "Stream recovered after error", { ...summary, reasons });
   }
@@ -322,6 +345,32 @@ export function coerceUiParts(data: unknown): UiMessagePart[] {
   return [];
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+/** Merge engine progress `output` so repeated SSE updates dedupe consecutive `steps` lines. */
+function mergeEngineProgressOutput(
+  prev: Record<string, unknown>,
+  next: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...prev, ...next };
+  const ps = prev.steps;
+  const ns = next.steps;
+  if (Array.isArray(ps) && Array.isArray(ns)) {
+    const flat: string[] = [];
+    for (const x of [...ps, ...ns]) {
+      if (typeof x === "string") flat.push(x);
+    }
+    const deduped: string[] = [];
+    for (const s of flat) {
+      if (deduped.length === 0 || deduped[deduped.length - 1] !== s) deduped.push(s);
+    }
+    out.steps = deduped;
+  }
+  return out;
+}
+
 function getUiPartKey(part: UiMessagePart): string | null {
   const type = typeof part.type === "string" ? part.type : "";
   if (type.startsWith("tool")) {
@@ -360,6 +409,20 @@ function mergeUiPart(current: UiMessagePart, next: UiMessagePart): UiMessagePart
   ]);
   Object.entries(next).forEach(([key, value]) => {
     if (value !== undefined) {
+      if (
+        key === "output" &&
+        isPlainRecord(value) &&
+        isPlainRecord((merged as Record<string, unknown>)[key])
+      ) {
+        const partType = typeof merged.type === "string" ? merged.type : "";
+        if (partType.startsWith("tool:") && partType.includes("engine-")) {
+          (merged as Record<string, unknown>)[key] = mergeEngineProgressOutput(
+            (merged as Record<string, unknown>)[key] as Record<string, unknown>,
+            value,
+          );
+          return;
+        }
+      }
       if (
         typeof value === "string" &&
         streamKeys.has(key) &&
@@ -765,7 +828,8 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
 
   const steps = [`Prompt optimerad: ${strategyLabel}`, `Typ: ${meta.promptType}`, lengthLine];
   if (meta.reason) steps.push(`Orsak: ${meta.reason}`);
-  steps.push("Genererar innehåll och filer från prompten.");
+  // Do not duplicate "Genererar innehåll och filer…" here — the engine progress tool
+  // (generation / streaming) already emits the same line when output starts.
   return steps;
 }
 

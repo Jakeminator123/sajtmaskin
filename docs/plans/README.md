@@ -14,7 +14,7 @@ Last tightened `2026-03-26` (`active/SAJTMASKIN-EXECUTION-PLAN.md` — primär k
 - `active/REMAINING-WORK.md` — hubb efter remediation-exit (länkar till execution plan + arkiverad handoff-bundle).
 - `active/SAJTMASKIN-EXECUTION-PLAN.md` — **primär** översikt: K-spår, ordning, länkar till detaljplaner.
 - `avklarat/2026-03-handoff-doc-bundle/` — arkiverade handoff-/kö-dokument (AGENT-HANDOFF, NASTA-AGENT-PROMPT, BESLUT, COMPLETION-ROADMAP, BACKLOG-dashboard, orchestrator-mall); uppdatera inte som sanning.
-- `active/DOKUMENTATION-ANDRINGAR-SAMMANFATTNING.md` — ungefärlig doc-/plan-historik (git är sanning).
+- `active/DOKUMENTATION-ANDRINGAR-SAMMANFATTNING.md` — **stub** → [`avklarat/2026-03-doc-change-summary.md`](./avklarat/2026-03-doc-change-summary.md) (doc-/plan-historik; git är sanning i detalj).
 - `active/MASTER-ALLT-KVAR.md` — **operativ kö (allt-i-ett)**: K-018, K-019 (fidelity / promptkedja), kritik, Plan 17-öppet, drift, orchestrator-råd; § 0 = produktintent från `.j_to_agent/fidelity.txt`.
 - `active/queue/KORFIL.md` — **pekare** till `MASTER-ALLT-KVAR.md`; valfria `queue/PLAN-*.md` som detalj.
 - `avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md` — **historik:** produkt-/arkitekturfrågor Fas A (besvarad 2026-03-26); sanning om öppet arbete = kritik-tabell + execution plan.

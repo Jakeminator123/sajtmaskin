@@ -120,6 +120,8 @@ export const serverSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
+  /** Vercel Sandbox: `dev_only` (default, tier 2), `dev_then_build`, `build_only`. See `resolveSandboxPreviewModeFromEnv`. */
+  SAJTMASKIN_SANDBOX_PREVIEW_MODE: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),

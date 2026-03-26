@@ -11,6 +11,8 @@
 
 | ID | Status |
 |----|--------|
+| **K-007** | **[x] 2026-03-26** — auto-fix **oförändrad standard**; [`deploy-precheck.md`](../../architecture/deploy-precheck.md) + Vitest + deploy-route; se [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md). |
+| **K-009** | **`[x]` / [N/A] 2026-03-26** — ingen planerad extra SSE utanför W3; [`own-engine-sse-scope.md`](../../architecture/own-engine-sse-scope.md); nytt behov → ny K/plan. |
 | **K-014** | **[x] 2026-03-26** — produkt: sidor/copy kring cookies, om oss, juridik **OK oförändrat** (se [`kritik-consolidated-open-items.md`](../kritik-consolidated-open-items.md)). |
 | **K-008** | **[x] 2026-03-25** — ingen utökning av landningsmaterial tills vidare; fokus **K-018** (användarsidor / `iframe`). |
 
@@ -18,10 +20,8 @@
 
 | ID | Kort beskrivning | Acceptans (för att stänga raden) |
 |----|------------------|----------------------------------|
-| **K-007** | Deploy auto-fix / hårdare valideringsfas före deploy — **produktbeslut** | Policy dokumenterad + implementation eller medvetet `[x]` med motivering i tabellen; `deploy-precheck.md` / Vitest i linje med beslut |
 | **K-018** | **Användarnas** genererade sidor: **React**-preview i **samma klass som `npm run dev`**, inkl. **fidelity i `iframe`** | Rimliga acceptanstester / visuell parity dokumenterad; `[x]` med datum eller uppdelade delmoment i tabellen |
 | **K-019** | **Standard-UX + promptkedja:** diagnostik sekundär som default; kanonisk promptkontext över stream-steg (ingen tappad/dubblerad kontext mellan närliggande pass) | Beteende verifierat i builder; `[x]` med datum i master-tabellen |
-| **K-009** | Own-engine **utanför** avslutad W3-track (SSE) — **inte** prioriterat: FAQ/innehåll på Sajtmaskins marknadssajt | Scope avgrensat, levererat eller `[x]` med motivering; inga motsägelser mot stream-kontrakt |
 
 ## Arbetssteg (för agent)
 

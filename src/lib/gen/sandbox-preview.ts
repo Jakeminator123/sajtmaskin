@@ -1,10 +1,16 @@
 import type { CodeFile } from "./parser";
+import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox-env-local";
 import { buildCompleteProject } from "./project-scaffold";
 import { repairGeneratedFiles } from "./repair-generated-files";
-import { touchSandboxSession } from "@/lib/gen/sandbox-session-store";
+import {
+  clearSandboxSessionAsync,
+  getActiveSandboxSessionAsync,
+  touchSandboxSessionAsync,
+} from "@/lib/gen/sandbox-session-store";
 import {
   createSandboxRuntimeFromFiles,
   resolveSandboxPreviewModeFromEnv,
+  tryResumeSandboxById,
   type RuntimeFile,
   type SandboxPreviewMode,
 } from "@/lib/mcp/runtime-url";
@@ -28,16 +34,22 @@ export interface SandboxPreviewError {
 }
 
 export type StartSandboxPreviewOptions = {
-  /** Reserved for project-bound `.env.local` merge when implemented. */
+  /** When set, decrypted `projectEnvVars` merge into sandbox `.env.local` (after placeholders). */
   appProjectId?: string | null;
   chatId?: string | null;
   previewMode?: SandboxPreviewMode;
+  /**
+   * When set with `chatId`, reuse an existing Vercel Sandbox for this version if the in-memory
+   * session still points at a running VM (avoids duplicate sandboxes on reopen / bootstrap).
+   */
+  versionIdForSession?: string | null;
 };
 
 /**
  * Start a full Next.js sandbox from generated files.
  *
- * Flow: repair -> buildCompleteProject -> @vercel/sandbox -> install -> dev (and optional build verify).
+ * Flow: repair -> buildCompleteProject -> merged `.env.local` (placeholders + project + generated)
+ * -> @vercel/sandbox -> install -> dev (and optional build verify).
  */
 export async function startSandboxPreview(
   generatedFiles: CodeFile[],
@@ -66,8 +78,54 @@ export async function startSandboxPreview(
     content: f.content,
   }));
 
+  const envLocalPath = ".env.local";
+  const envIdx = runtimeFiles.findIndex((f) => f.name === envLocalPath);
+  let priorEnvLocal: string | null = null;
+  if (envIdx >= 0) {
+    priorEnvLocal = runtimeFiles[envIdx]!.content;
+    runtimeFiles.splice(envIdx, 1);
+  }
+  const envBody = await buildSandboxEnvLocalContents({
+    appProjectId: options?.appProjectId ?? null,
+    generatedEnvLocal: priorEnvLocal,
+  });
+  runtimeFiles.push({ name: envLocalPath, content: envBody });
+
   const resolvedMode = options?.previewMode ?? resolveSandboxPreviewModeFromEnv();
   const verifyBuild = resolvedMode === "dev_then_build";
+
+  const cid =
+    typeof options?.chatId === "string" && options.chatId.trim() ? options.chatId.trim() : null;
+  const vid =
+    typeof options?.versionIdForSession === "string" && options.versionIdForSession.trim()
+      ? options.versionIdForSession.trim()
+      : null;
+
+  if (cid && vid) {
+    const sess = await getActiveSandboxSessionAsync(cid);
+    if (sess?.versionId === vid && sess.sandboxId) {
+      const resumed = await tryResumeSandboxById(sess.sandboxId);
+      if (resumed) {
+        await touchSandboxSessionAsync({
+          chatId: cid,
+          sandboxId: resumed.sandboxId,
+          sandboxUrl: resumed.primaryUrl,
+          versionId: vid,
+        });
+        return {
+          ok: true,
+          result: {
+            sandboxUrl: resumed.primaryUrl,
+            sandboxId: resumed.sandboxId,
+            sandboxPreviewMode: resolvedMode,
+            fidelityTier: 2,
+            prodBuildVerified: false,
+          },
+        };
+      }
+      await clearSandboxSessionAsync(cid);
+    }
+  }
 
   try {
     const runtime = await createSandboxRuntimeFromFiles(runtimeFiles, {
@@ -81,10 +139,13 @@ export async function startSandboxPreview(
     const bv = runtime.buildVerification;
     const fidelityTier: 2 | 3 = bv !== undefined ? 3 : 2;
     const sandboxUrl = runtime.primaryUrl ?? runtime.urls[3000] ?? "";
-    const cid =
-      typeof options?.chatId === "string" && options.chatId.trim() ? options.chatId.trim() : null;
     if (cid && sandboxUrl.trim()) {
-      touchSandboxSession({ chatId: cid, sandboxId: runtime.sandboxId, sandboxUrl });
+      await touchSandboxSessionAsync({
+        chatId: cid,
+        sandboxId: runtime.sandboxId,
+        sandboxUrl,
+        versionId: vid,
+      });
     }
 
     return {

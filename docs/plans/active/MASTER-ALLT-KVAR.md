@@ -22,7 +22,7 @@
 - **`MASTER-ALLT-KVAR.md` ligger i `docs/plans/active/`** (samma nivå som `kritik-consolidated-open-items.md`) — **inte** i `active/reviews/`. Mappen **`reviews/`** ska bara innehålla second-opinion-saker (`reviews/README.md`). Om editorn ser ut att visa MASTER under `reviews` är det oftast **fel sortering** i trädet — kontrollera sökvägen i fliken.
 - **`active/queue/`** innehåller **levande** `PLAN-*.md`, FAQ, m.m. **Handoff-/beslutsbundle** (`COMPLETION-ROADMAP`, `BESLUT`, progress-dashboard, orchestrator-mall) ligger arkiverad: [`../avklarat/2026-03-handoff-doc-bundle/`](../avklarat/2026-03-handoff-doc-bundle/) — uppdatera **inte** arkivet som sanning; uppdatera execution plan + kritik-tabell.
 - **Post-exit-kö (historik):** Dublettmappar (`docs/plans/post-exit-queue-2026-03/`, m.fl.) var **identiska** med `active/queue/*` och ska **inte** återinföras med full filuppsättning. **Arkivnotis** (pekar till MASTER + `active/queue/`): [`../avklarat/post-exit-queue-2026-03/README.md`](../avklarat/post-exit-queue-2026-03/README.md).
-- **Beslut Fas A (historik, besvarad 2026-03-26):** [`../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md) (K-007, K-009, K-018, K-019, Plan 17 WS-4/5) — öppet arbete = raderna **`[ ]`** i kritik-tabellen tills kod levereras.
+- **Beslut Fas A (historik, besvarad 2026-03-26):** [`../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md) (K-018, K-019, Plan 17 WS-4/5 m.m.) — **K-007** och **K-009** stängda i kritik-tabellen **2026-03-26** (`[x]` / `[N/A]`).
 
 ---
 
@@ -82,7 +82,7 @@ Nedan: **kanonisk svensk sammanfattning** som styr § 1–2 och K-018 / K-019. U
 
 **Parallellt med låg risk:** Plan 17 **endast dokumentation** (t.ex. sanning i `ENV.md`) — **inte** samma PR som tung `generation-stream.ts`-refaktor om du vill undvika konflikter.
 
-**Om preview *inte* är prio:** Gå till **§ 3** (K-007 deploy-policy eller K-009 SSE-scope) först.
+**Om preview *inte* är prio:** Gå till **§ 3** (K-019 m.m.); **K-007/K-009** är stängda — se kritik-tabellen om du behöver historik.
 
 ---
 
@@ -156,8 +156,8 @@ Allt som handlar om `.env.local` / `dev` / `build` här avser **den genererade s
 
 | ID | Vad | Status / nästa steg |
 |----|-----|---------------------|
-| **K-007** | Deploy: auto-fix / hårdare validering före deploy — **produktbeslut** (`deploy-precheck.md`, Vitest) | `[ ]` — välj policy: stramare / oförändrat / tydligare opt-in |
-| **K-009** | Own-engine **utanför** avslutad W3 (SSE). **Inte** samma som FAQ på Sajtmaskins marknadssajt (sekundärt) | `[ ]` — spika scope eller stäng med motivering |
+| **K-007** | Deploy: auto-fix / validering före deploy | `[x]` **2026-03-26** — auto-fix **oförändrad standard**; [`deploy-precheck.md`](../../architecture/deploy-precheck.md); Vitest; se kritik-tabell |
+| **K-009** | Own-engine **utanför** avslutad W3 (SSE) | `[x]` / **`[N/A]`** **2026-03-26** — ingen planerad extra SSE; [`own-engine-sse-scope.md`](../../architecture/own-engine-sse-scope.md) |
 | **K-019** | **Builder standard-UX + promptkedja** (§ 0): intern telemetri/klarifieringar **sekundära** i standardläge; **kanonisk förberedd prompt/orchestration-kontext** persisteras och återanvänds över follow-up och närliggande stream-steg så kontext inte tappas eller dupliceras | `[ ]` — **delmoment:** Agentlogg hopfälld som standard; **kvar:** snapshot över stream-steg — [`queue/PLAN-K019-PROMPT-SNAPSHOT.md`](./queue/PLAN-K019-PROMPT-SNAPSHOT.md); se `.j_to_agent/fidelity.txt` |
 | **K-008** | Landning | `[x]` — material fryst; fokus K-018 |
 | **K-014** | Juridik/cookies/om oss | `[x]` — OK oförändrat |
@@ -204,7 +204,7 @@ Uppdatera **både** denna lista och [`17-repo-separation-and-independence.md`](.
 - **Vercel-templates** → **scaffolds** för OwnEngine; **V0-templates** → separat plattformsspår (FAQ [`queue/FRAGOR-SVAR-FAQ.md`](./queue/FRAGOR-SVAR-FAQ.md) § I1).
 - **Remediation W1–W5:** klart per [`../avklarat/external-review-execution/REMEDIATION-EXIT.md`](../avklarat/external-review-execution/REMEDIATION-EXIT.md).
 - **Tidslinje / faser (arkiv):** [`../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md`](../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md).
-- **Fas A (K-007/009/018/019 + Plan 17 WS-4/5-rester) besvarad 2026-03-26:** [`../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md) — kritik **`[ ]`** kvar tills kod levereras.
+- **Fas A (K-018/019 + Plan 17 WS-4/5-rester m.m.) besvarad 2026-03-26:** [`../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md) — **K-007/K-009** stängda **2026-03-26**; övriga K-rader enligt kritik-tabell.
 
 ---
 
@@ -226,10 +226,10 @@ Orchestrator är **inte** magiskt snabbare; det är **tydligare spårbarhet** oc
 |-----|-----|
 | [`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt) | Full **engelsk** byggagent-instruktion; speglas i § 0 |
 | [`queue/PLAN-PREVIEW-SANDBOX.md`](./queue/PLAN-PREVIEW-SANDBOX.md) | K-018-detalj (samma innehåll som § 2 i korthet) |
-| [`queue/PLAN-KRITIK-OPEN.md`](./queue/PLAN-KRITIK-OPEN.md) | K-007 / K-009 acceptansrader |
+| [`queue/PLAN-KRITIK-OPEN.md`](./queue/PLAN-KRITIK-OPEN.md) | Öppna K-rader (K-018, K-019); K-007/K-009 stängda 2026-03-26 |
 | [`queue/PLAN-REPO-SEPARATION-OPEN.md`](./queue/PLAN-REPO-SEPARATION-OPEN.md) | Plan 17 öppet (WS-2/4/5 + deferred); **WS-6** arkiverad: [`../avklarat/2026-03-plan17-ws6-product-decisions.md`](../avklarat/2026-03-plan17-ws6-product-decisions.md) |
 | [`queue/PLAN-DRIFT-VERIFICATION.md`](./queue/PLAN-DRIFT-VERIFICATION.md) | Smoke/progress-rutin |
-| [`queue/PLAN-MULTIAGENT-PREVIEW-TRACKS.md`](./queue/PLAN-MULTIAGENT-PREVIEW-TRACKS.md) | Metaplan: flera tier-2-agenter → egna planfiler (K-018 / K-019 / integrationer / K-007·K-009) |
+| [`queue/PLAN-MULTIAGENT-PREVIEW-TRACKS.md`](./queue/PLAN-MULTIAGENT-PREVIEW-TRACKS.md) | Metaplan: flera tier-2-agenter → egna planfiler (K-018 / K-019 / integrationer) |
 
 ---
 
@@ -242,3 +242,4 @@ Orchestrator är **inte** magiskt snabbare; det är **tydligare spårbarhet** oc
 | 2026-03-26 | **K-018 delmoment:** `.env.local` i sandbox-upload (merge); pekare **§ 8** → `PLAN-MULTIAGENT-PREVIEW-TRACKS.md`. |
 | 2026-03-26 | **K-018 delmoment:** separat `npm run build` i sandbox + SSE/UI (`verifyBuild`, previewpanel). |
 | 2026-03-26 | **Plan 17 WS-6:** produktbeslut arkiverade (`docs/plans/avklarat/2026-03-plan17-ws6-product-decisions.md`); `PLAN-REPO-SEPARATION-OPEN` slimmas till öppna WS. |
+| 2026-03-26 | **K-007 [x], K-009 [x]/[N/A]:** kritik-tabell + `deploy-precheck.md` + Vitest; `own-engine-sse-scope.md` stängd process. §3 uppdaterad. |

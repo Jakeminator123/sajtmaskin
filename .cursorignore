@@ -134,8 +134,10 @@ services/mpc/logs/
 .cursor/automation/archive/
 .cursor/automation/input/
 
-# Archived or low-signal docs (stub at docs/old/README.md stays indexable)
-docs/plans/avklarat/
+# Archived plan history: **do not** ignore `docs/plans/avklarat/` — agents and
+# humans need to read completed snapshots, handoffs, and execution-plan closures.
+# (A line like `docs/plans/avklarat/` here would hide that tree from Cursor index.)
+# Low-signal analyses (optional; keep commented unless you really want them hidden):
 #docs/analyses/
 
 # Migration archive (moved from STOR_MIGRATION/ to .cursor/migration-archive/)

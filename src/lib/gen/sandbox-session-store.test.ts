@@ -47,6 +47,17 @@ describe("sandbox-session-store", () => {
     expect(getActiveSandboxSession("c1", { now: t0 + idleMs + 1, idleMs })).toBeNull();
   });
 
+  it("stores versionId when provided", () => {
+    touchSandboxSession({
+      chatId: "c1",
+      sandboxId: "s1",
+      sandboxUrl: "https://x.run",
+      versionId: "ver-99",
+      now: 0,
+    });
+    expect(getActiveSandboxSession("c1", { now: 0 })?.versionId).toBe("ver-99");
+  });
+
   it("clearSandboxSession removes entry", () => {
     touchSandboxSession({
       chatId: "c1",

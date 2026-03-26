@@ -29,7 +29,10 @@ import {
 } from "./finalize-preflight";
 import { mergeGeneratedProjectFiles } from "./finalize-merge";
 import { injectIntegrationManifestIntoFilesJson } from "@/lib/integrations/inject-integration-manifest";
-import { buildPersistedOrchestrationSnapshot } from "@/lib/gen/orchestration-snapshot";
+import {
+  buildPersistedOrchestrationSnapshot,
+  mergePersistedOrchestrationSnapshots,
+} from "@/lib/gen/orchestration-snapshot";
 
 let _lastMaterializedUrls: Set<string> = new Set();
 
@@ -286,7 +289,9 @@ export async function finalizeAndSaveVersion(
         chatId,
         buildIntent: buildIntent ?? null,
       });
-      await chatRepo.updateChatOrchestrationSnapshot(chatId, snap);
+      const previous = await chatRepo.getChatOrchestrationSnapshot(chatId);
+      const merged = mergePersistedOrchestrationSnapshots(previous, snap);
+      await chatRepo.updateChatOrchestrationSnapshot(chatId, merged);
     } catch (e) {
       console.warn("[orchestration-snapshot] Failed to persist:", e);
     }

@@ -13,6 +13,7 @@ const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
 const updateChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
+const getChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const deleteEngineMessage = vi.hoisted(() => vi.fn());
 const logGeneration = vi.hoisted(() => vi.fn());
@@ -66,6 +67,7 @@ vi.mock("@/lib/gen/project-scaffold", () => ({
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
   updateChatOrchestrationSnapshot,
+  getChatOrchestrationSnapshot,
   addMessage,
   deleteEngineMessage,
   logGeneration,
@@ -125,6 +127,7 @@ describe("finalizeAndSaveVersion", () => {
     buildCompleteProject.mockReset();
     addAssistantMessageAndCreateDraftVersion.mockReset();
     updateChatOrchestrationSnapshot.mockReset();
+    getChatOrchestrationSnapshot.mockReset();
     addMessage.mockReset();
     deleteEngineMessage.mockReset();
     logGeneration.mockReset();
@@ -194,6 +197,7 @@ describe("finalizeAndSaveVersion", () => {
       version: { id: "ver_1" },
     });
     updateChatOrchestrationSnapshot.mockResolvedValue(true);
+    getChatOrchestrationSnapshot.mockResolvedValue(null);
     addMessage.mockResolvedValue({ id: "orphan_msg" });
     deleteEngineMessage.mockResolvedValue(true);
     logGeneration.mockResolvedValue({});
@@ -234,6 +238,28 @@ describe("finalizeAndSaveVersion", () => {
     const arg = updateChatOrchestrationSnapshot.mock.calls[0];
     expect(arg?.[0]).toBe("chat_1");
     expect((arg?.[1] as Record<string, unknown>)?.lastVersionId).toBe("ver_1");
+  });
+
+  it("merges orchestration snapshot with previous chat row (K-019)", async () => {
+    getChatOrchestrationSnapshot.mockResolvedValueOnce({
+      scaffoldId: "scaffold_prev",
+      modelTier: "pro",
+    });
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      orchestrationStreamMeta: { promptStrategy: "deep" },
+    });
+    expect(getChatOrchestrationSnapshot).toHaveBeenCalledWith("chat_1");
+    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(saved?.scaffoldId).toBe("scaffold_prev");
+    expect(saved?.promptStrategy).toBe("deep");
+    expect(saved?.lastVersionId).toBe("ver_1");
   });
 
   it("propagates when transactional assistant+draft persist fails (no manual message delete)", async () => {

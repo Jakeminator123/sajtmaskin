@@ -55,18 +55,18 @@ Användbart för verktyg och felsökning utan att publicera.
 
 - `precheckOnly: true` — 200, `deployReadiness`, ingen credits-debitering
 - Saknad Stripe-env när versionen signalerar Stripe
+- **Auto-fix på som standard (K-007):** utan `skipAutoFix` tas t.ex. `pnpm-lock.yaml` bort och `fixesApplied` innehåller **inte** «skipped»-meddelandet för auto-fix
 - **`skipAutoFix: true`** — auto-fix-pipelinen körs inte (t.ex. `pnpm-lock.yaml` finns kvar i `fileCount`), `fixesApplied` innehåller meddelandet om att auto-fix hoppats över
 - Ogiltig `package.json` — `deployReadiness.invalidFiles` innehåller `package.json`
 
-Full **HTTP/Playwright e2e** mot inloggad session och riktig DB är separat spår (se progress-doc § *Återstår*).
+Full **HTTP/Playwright e2e** mot inloggad session och riktig DB är **valfritt** förbättringsspår (inte krav för K-007).
 
-## Framtida fördjupning (K-007 / produkt)
+## Produktbeslut K-007 (låst 2026-03-26)
 
-Vitest-kontrakt ovan täcker **API-form** och auto-fix **opt-out**. För att stänga **K-007** i kritik-tabellen krävs i regel **produkt-/prioriteringsbeslut**, t.ex.:
-
-- Playwright (eller motsv.) mot **deploy** med riktig **auth-session** och stabil testdata.
-- Eventuell **tuffare valideringsfas** före debitering (utöver nuvarande `DEPLOY_MISSING_ENV` / preflight) — dokumentera beslut här och i `useBuilderDeployActions` om beteendet ändras.
-- Avstämning mot [`kritik-consolidated-open-items.md`](../plans/active/kritik-consolidated-open-items.md) så rad **K-007** inte stängs i förtid.
+- **Auto-fix i preflight förblir på som standard** — samma beteende som idag (`applyPreDeployFixes` före env-beräkning och deploy).
+- **Opt-out oförändrat:** `skipAutoFix: true` i body och/eller `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX=1` / `DEPLOY_DISABLE_AUTO_FIX=1`.
+- **Ingen ny «stramare» valideringsfas** eller ändrad auto-fix-policy ingick i detta beslut; framtida ändringar kräver ny produktnotis här + uppdatering av Vitest-kontrakt.
+- **Strikt JSON** för `package.json` / `components.json` / `jsconfig.json` i sparad version: fortsatt spärr i `GET .../readiness` (`version-file-integrity.ts`) — se avsnitt om readiness ovan.
 
 ## Observability
 

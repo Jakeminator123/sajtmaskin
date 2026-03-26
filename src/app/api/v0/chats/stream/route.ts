@@ -63,6 +63,7 @@ import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 
 export const runtime = "nodejs";
+/** Server stream ceiling (seconds). Client stream safety timeout is separate — see `[chatId]/stream` route comment. */
 export const maxDuration = 800;
 
 export async function POST(req: Request) {

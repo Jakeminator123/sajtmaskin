@@ -226,7 +226,7 @@ export function useSendMessage(
         }
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
-          pendingBriefRef.current = null;
+          promptMeta.promptAssistDeep = true;
         }
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelTierId = canonicalTier;

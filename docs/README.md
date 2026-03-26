@@ -14,9 +14,10 @@
 ## Quick path (when `docs/` feels heavy)
 
 1. This file → **Key navigation** table below.
-2. `docs/architecture/engine-status.md` — current engine picture.
-3. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
-4. `docs/ENV.md` — env topology when debugging deploy/local.
+2. `docs/plans/active/SAJTMASKIN-EXECUTION-PLAN.md` — **spaltlista** över öppen backlog (**K-018**, **K-019**, Plan 17; K-007/K-009 stängda 2026-03-26).
+3. `docs/architecture/engine-status.md` — current engine picture.
+4. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
+5. `docs/ENV.md` — env topology when debugging deploy/local.
 
 **Orchestrator / remediation:** Färska procentsiffror och “Done / Next” finns bara i [`docs/plans/active/external-review-remediation-progress.md`](plans/active/external-review-remediation-progress.md). Kopieringsmallar (t.ex. [`docs/plans/avklarat/2026-03-handoff-doc-bundle/orchestrator-handoff-sequential-stramning.md`](plans/avklarat/2026-03-handoff-doc-bundle/orchestrator-handoff-sequential-stramning.md), arkiverad) ska **inte** duplicera % — uppdatera alltid källfilen vid leverans.
 

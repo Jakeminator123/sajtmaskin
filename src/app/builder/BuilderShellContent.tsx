@@ -896,9 +896,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
               demoUrl={vm.currentDemoUrl}
+              alternatePreviewUrls={vm.activeVersionAlternatePreview}
               sandboxBuildError={vm.sandboxBuildError}
               sandboxProdBuild={vm.sandboxProdBuild}
-              onNavigatePreviewUrl={(url) => vm.setCurrentDemoUrl(url)}
+              onNavigatePreviewUrl={(url) => {
+                vm.setCurrentDemoUrl(url);
+                vm.bumpPreviewRefreshToken();
+              }}
               isLoading={vm.isAnyStreaming || vm.isCreatingChat}
               imageGenerationsEnabled={vm.enableImageGenerations}
               imageGenerationsSupported={vm.isImageGenerationsSupported}

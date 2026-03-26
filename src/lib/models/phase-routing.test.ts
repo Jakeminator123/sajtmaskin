@@ -21,10 +21,11 @@ describe("resolvePhaseModel", () => {
     expect(planner.reason).toBe("fast-tier-no-downgrade");
   });
 
-  it("uses full tier for planner and generator on pro; auxiliary phases on mini", () => {
+  it("uses full tier for planner, generator, and fixer on pro; verifier/deploy on mini", () => {
     expect(resolvePhaseModel("pro", "planner").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.3-codex");
-    expect(resolvePhaseModel("pro", "fixer").modelId).toBe("gpt-4.1-mini");
+    expect(resolvePhaseModel("pro", "fixer").modelId).toBe("gpt-5.3-codex");
+    expect(resolvePhaseModel("pro", "fixer").reason).toBe("fixer-tier-primary");
     expect(resolvePhaseModel("pro", "verifier").modelId).toBe("gpt-4.1-mini");
     expect(resolvePhaseModel("pro", "deploy-assistant").modelId).toBe(
       "gpt-4.1-mini",
@@ -32,17 +33,19 @@ describe("resolvePhaseModel", () => {
     expect(resolvePhaseModel("pro", "verifier").reason).toBe("aux-openai-efficient");
   });
 
-  it("uses full tier for planner and generator on max; auxiliary phases on mini", () => {
+  it("uses full tier for planner, generator, and fixer on max; verifier on mini", () => {
     expect(resolvePhaseModel("max", "planner").modelId).toBe("gpt-5.4");
     expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
+    expect(resolvePhaseModel("max", "fixer").modelId).toBe("gpt-5.4");
     expect(resolvePhaseModel("max", "verifier").modelId).toBe("gpt-4.1-mini");
   });
 
-  it("uses full tier for planner and generator on codex; auxiliary phases on mini", () => {
+  it("uses full tier for planner, generator, and fixer on codex; verifier on mini", () => {
     expect(resolvePhaseModel("codex", "planner").modelId).toBe("gpt-5.1-codex-max");
     expect(resolvePhaseModel("codex", "generator").modelId).toBe(
       "gpt-5.1-codex-max",
     );
+    expect(resolvePhaseModel("codex", "fixer").modelId).toBe("gpt-5.1-codex-max");
     expect(resolvePhaseModel("codex", "verifier").modelId).toBe("gpt-4.1-mini");
   });
 
@@ -89,11 +92,11 @@ describe("getPhaseRoutingSummary", () => {
     expect(summary.generator).toBe("gpt-4.1");
   });
 
-  it("splits pro tier: planner/generator vs auxiliary phases", () => {
+  it("splits pro tier: planner/generator/fixer vs verifier/deploy mini", () => {
     const summary = getPhaseRoutingSummary("pro");
     expect(summary.planner).toBe("gpt-5.3-codex");
     expect(summary.generator).toBe("gpt-5.3-codex");
-    expect(summary.fixer).toBe("gpt-4.1-mini");
+    expect(summary.fixer).toBe("gpt-5.3-codex");
     expect(summary.verifier).toBe("gpt-4.1-mini");
     expect(summary["deploy-assistant"]).toBe("gpt-4.1-mini");
   });

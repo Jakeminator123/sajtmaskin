@@ -70,6 +70,7 @@ import {
 import { prependOrchestrationContinuityToFollowUp } from "@/lib/gen/orchestration-snapshot";
 
 export const runtime = "nodejs";
+/** Server stream ceiling (seconds). Client-side stream safety timeout (`streamSafetyTimeoutMs` in manifest) is separate; if it fires first, the UI may abort before `done` while the server could still run. */
 export const maxDuration = 800;
 
 export async function handleMessageStreamRequest(

@@ -11,6 +11,7 @@ import {
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import { DEFAULT_PROMPT_POLISH_MODEL } from "@/lib/builder/defaults";
+import { ASSIST_MODEL } from "@/lib/gen/defaults";
 import type { WebsiteSpec } from "@/lib/builder/promptAssistContext";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -49,6 +50,8 @@ type PromptAssistMode = "rewrite" | "polish";
 
 type PromptAssistOptions = {
   forceShallow?: boolean;
+  /** First-chat path: always run structured brief (uses gateway + ASSIST_MODEL if assist tier is non-gateway). */
+  forceDeepBrief?: boolean;
   mode?: PromptAssistMode;
   forceEnglish?: boolean;
   modelOverride?: string;
@@ -403,18 +406,20 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
       const provider = resolvePromptAssistProvider(normalizedModel);
       const startedAt = Date.now();
-      const resolvedDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
-      const useDeep = resolvedDeep && !options.forceShallow;
+      const resolvedGatewayDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
+      const useDeepBrief =
+        !options.forceShallow &&
+        (options.forceDeepBrief === true || resolvedGatewayDeep);
 
       debugLog("AI", "Dynamic instructions started", {
         provider,
         model: normalizedModel,
-        deep: useDeep,
+        deep: useDeepBrief,
         imageGenerations,
         promptLength: originalPrompt.length,
       });
 
-      if (!useDeep) {
+      if (!useDeepBrief) {
         return buildDynamicInstructionAddendumFromPrompt({
           originalPrompt,
           imageGenerations,
@@ -423,10 +428,21 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         });
       }
 
+      const briefUsesGateway =
+        options.forceDeepBrief === true && !isGatewayAssistModel(normalizedModel)
+          ? true
+          : provider !== "anthropic";
+      const briefProvider = briefUsesGateway ? "gateway" : "anthropic";
+      const briefModel = briefUsesGateway
+        ? isGatewayAssistModel(normalizedModel)
+          ? normalizedModel
+          : normalizeAssistModel(ASSIST_MODEL)
+        : normalizedModel;
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
       try {
-        toast.loading("Skapar dynamiska instruktioner...", {
+        toast.loading("Skapar dynamiska instruktioner (deep brief)...", {
           id: "sajtmaskin:dynamic-instructions",
         });
 
@@ -435,8 +451,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           headers: { "Content-Type": "application/json" },
           signal: controller.signal,
           body: JSON.stringify({
-            provider,
-            model: normalizedModel,
+            provider: briefProvider,
+            model: briefModel,
             temperature: 0.2,
             prompt: originalPrompt,
             imageGenerations,

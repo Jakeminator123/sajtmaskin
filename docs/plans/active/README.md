@@ -16,7 +16,7 @@ Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscyke
 
 ## En sida för «vad är kvar?»
 
-[`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md) + [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) — körplan respektive djup referens; hubb [`REMAINING-WORK.md`](./REMAINING-WORK.md); [`INPUT_GPT.txt`](../../../INPUT_GPT.txt); `queue/KORFIL.md` = pekare till MASTER.
+[`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md) (**§1 = spaltlista** över alla öppna brister) + [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) (djup referens); hubb [`REMAINING-WORK.md`](./REMAINING-WORK.md); [`INPUT_GPT.txt`](../../../INPUT_GPT.txt); `queue/KORFIL.md` = pekare till MASTER.
 
 ## Innehåll i `active/` (kort)
 

@@ -314,10 +314,24 @@ function extractPreviewRoutesFromFileNames(fileNames: string[]): string[] {
   return orderedRoutes;
 }
 
+function previewUrlsEquivalent(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    const o = window.location.origin;
+    return new URL(a, o).href === new URL(b, o).href;
+  } catch {
+    return false;
+  }
+}
+
 interface PreviewPanelProps {
   chatId: string | null;
   versionId: string | null;
   demoUrl: string | null;
+  /** Tier 1 + tier 2 URLs stored on the active version (K-018 / K18-2). */
+  alternatePreviewUrls?: { shimUrl: string | null; sandboxUrl: string | null };
   onNavigatePreviewUrl?: (url: string) => void;
   isLoading?: boolean;
   onClear?: () => void;
@@ -370,6 +384,7 @@ export function PreviewPanel({
   chatId,
   versionId,
   demoUrl,
+  alternatePreviewUrls,
   onNavigatePreviewUrl,
   isLoading: externalLoading,
   onClear,
@@ -2356,6 +2371,21 @@ export function PreviewPanel({
       badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
     };
   }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview]);
+
+  const alternatePreviewBanner = useMemo(() => {
+    if (!demoUrl || !alternatePreviewUrls) return null;
+    const shimUrl = alternatePreviewUrls.shimUrl?.trim() || null;
+    const sandboxUrl = alternatePreviewUrls.sandboxUrl?.trim() || null;
+    const offerShim = Boolean(
+      sandboxUrl && isSandboxPreview && shimUrl && !previewUrlsEquivalent(demoUrl, shimUrl),
+    );
+    const offerSandbox = Boolean(
+      shimUrl && isOwnEnginePreview && sandboxUrl && !previewUrlsEquivalent(demoUrl, sandboxUrl),
+    );
+    if (!offerShim && !offerSandbox) return null;
+    return { offerShim, offerSandbox, shimUrl: shimUrl!, sandboxUrl: sandboxUrl! };
+  }, [demoUrl, alternatePreviewUrls, isSandboxPreview, isOwnEnginePreview]);
+
   if (!demoUrl && !isCodeView) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
     const normalizedAwaitingQuestion =
@@ -2428,12 +2458,23 @@ export function PreviewPanel({
     demoUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled,
   );
   const showExternalWarning = Boolean(demoUrl && isV0Preview);
-  const showSandboxWarning = Boolean(demoUrl && !isOwnEnginePreview && isSandboxPreview);
   const showImagesDisabledWarning = Boolean(demoUrl && !imageGenerationsEnabled);
   const showImagesUnsupportedWarning = Boolean(
     demoUrl && imageGenerationsEnabled && !imageGenerationsSupported,
   );
   const showBlobConfigWarning = Boolean(demoUrl && imageGenerationsEnabled && !isBlobConfigured);
+  /** Tier 2: one user-facing strip for media/env limits (K-018 / K18-3) — no env-var name dump. */
+  const showSandboxUnifiedStrip = Boolean(
+    !isCodeView &&
+      demoUrl &&
+      !isOwnEnginePreview &&
+      isSandboxPreview &&
+      (showBlobWarning ||
+        showBlobConfigWarning ||
+        integrationError ||
+        showImagesDisabledWarning ||
+        showImagesUnsupportedWarning),
+  );
   const showWorkerLamp = inspectorWorkerStatus !== "disabled";
   const workerLampClass =
     inspectorWorkerStatus === "healthy"
@@ -2571,6 +2612,30 @@ export function PreviewPanel({
       <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
         {surfaceDescriptor.detail}
       </div>
+      {alternatePreviewBanner && onNavigatePreviewUrl ? (
+        <div className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-300">
+          <span>
+            {alternatePreviewBanner.offerShim
+              ? "Statisk preview (tier 1) finns också för samma version."
+              : "Live preview i sandbox (tier 2) finns också för samma version."}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 border-zinc-600 text-xs text-zinc-200 hover:bg-zinc-800"
+            onClick={() =>
+              onNavigatePreviewUrl(
+                alternatePreviewBanner.offerShim
+                  ? alternatePreviewBanner.shimUrl
+                  : alternatePreviewBanner.sandboxUrl,
+              )
+            }
+          >
+            {alternatePreviewBanner.offerShim ? "Visa statisk" : "Byt till live-preview"}
+          </Button>
+        </div>
+      ) : null}
       {sandboxBuildError ? (
         <Alert
           variant="destructive"
@@ -2641,11 +2706,34 @@ export function PreviewPanel({
           </div>
         </div>
       )}
+      {showSandboxUnifiedStrip ? (
+        <div className="border-b border-amber-900/45 bg-amber-950/30 px-4 py-2 text-xs text-amber-100">
+          <p className="font-medium text-amber-50">Live-preview (tier 2)</p>
+          <p className="mt-1 text-amber-100/90">
+            En riktig Next.js dev-server för din genererade kod. I den här miljön kan följande
+            gälla:
+          </p>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-amber-100/85">
+            {(showBlobWarning || showBlobConfigWarning) && (
+              <li>Bilder och uppladdningar kan saknas om mediastorage inte är aktivt i byggaren.</li>
+            )}
+            {integrationError && (
+              <li>Integrationsstatus kunde inte läsas — vissa resurser kan saknas i preview.</li>
+            )}
+            {showImagesDisabledWarning && (
+              <li>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</li>
+            )}
+            {showImagesUnsupportedWarning && (
+              <li>Bildgenerering är inte tillgänglig med nuvarande konfiguration.</li>
+            )}
+          </ul>
+        </div>
+      ) : null}
       {!isCodeView &&
         !isOwnEnginePreview &&
+        !isSandboxPreview &&
         (showBlobWarning ||
           showExternalWarning ||
-          showSandboxWarning ||
           integrationError ||
           showImagesDisabledWarning ||
           showImagesUnsupportedWarning ||
@@ -2658,16 +2746,10 @@ export function PreviewPanel({
                 Blob‑URL:er.
               </div>
             )}
-            {showSandboxWarning && (
-              <div>
-                Preview körs från sandbox. Sandbox har separat runtime och kan sakna samma
-                miljövariabler som din ordinarie miljö (t.ex. blob-token).
-              </div>
-            )}
             {showBlobWarning && (
               <div>
-                Vercel Blob saknas. AI‑bilder och uppladdningar visas inte i preview förrän
-                BLOB_READ_WRITE_TOKEN är konfigurerad.
+                Mediastorage för uppladdningar saknas. AI-bilder och filer visas inte fullt ut i
+                preview förrän det är aktiverat för byggaren.
               </div>
             )}
             {showImagesDisabledWarning && (
@@ -2680,8 +2762,8 @@ export function PreviewPanel({
             )}
             {showBlobConfigWarning && (
               <div>
-                Blob är inte aktivt. Bilder kan skapas av AI men saknas i preview tills blob är
-                konfigurerad.
+                Mediastorage är inte aktivt. Bilder kan skapas av AI men saknas i preview tills det
+                är påslaget.
               </div>
             )}
             {integrationError && (

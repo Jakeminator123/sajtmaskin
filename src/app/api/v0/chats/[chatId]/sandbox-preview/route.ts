@@ -1,0 +1,134 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { withRateLimit } from "@/lib/rateLimit";
+import {
+  getPreferredVersion,
+  getLatestVersion,
+  updateVersionSandboxUrl,
+  type Version,
+} from "@/lib/db/chat-repository-pg";
+import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
+import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
+import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
+import { isSandboxConfigured, SANDBOX_SETUP_HINT } from "@/lib/mcp/runtime-url";
+
+const postBodySchema = z.object({
+  versionId: z.string().min(1).optional(),
+});
+
+export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  return withRateLimit(req, "sandbox:create", async () => {
+    try {
+      const { chatId } = await ctx.params;
+
+      if (!isSandboxConfigured()) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "sandbox_disabled",
+            message: "Sandbox is not configured on this deployment.",
+            hint: SANDBOX_SETUP_HINT,
+          },
+          { status: 503 },
+        );
+      }
+
+      const chat = await getEngineChatByIdForRequest(req, chatId);
+      if (!chat) {
+        return NextResponse.json(
+          { ok: false, code: "not_engine_chat", message: "Chat not found." },
+          { status: 404 },
+        );
+      }
+
+      const raw = await req.json().catch(() => ({}));
+      const parsed = postBodySchema.safeParse(raw);
+      if (!parsed.success) {
+        return NextResponse.json({ ok: false, message: "Invalid body" }, { status: 400 });
+      }
+
+      let versionRow: Version;
+
+      if (parsed.data.versionId) {
+        const scoped = await getEngineVersionForChatByIdForRequest(
+          req,
+          chatId,
+          parsed.data.versionId,
+        );
+        if (!scoped) {
+          return NextResponse.json({ ok: false, message: "Version not found." }, { status: 404 });
+        }
+        versionRow = scoped.version;
+      } else {
+        const v = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
+        if (!v) {
+          return NextResponse.json({ ok: false, message: "No versions for chat." }, { status: 400 });
+        }
+        const scoped = await getEngineVersionForChatByIdForRequest(req, chatId, v.id);
+        if (!scoped) {
+          return NextResponse.json({ ok: false, message: "Version not accessible." }, { status: 403 });
+        }
+        versionRow = scoped.version;
+      }
+
+      if (!canExposeEnginePreview(versionRow)) {
+        return NextResponse.json(
+          { ok: false, code: "preview_blocked", message: "Version cannot be previewed." },
+          { status: 400 },
+        );
+      }
+
+      let files = (await getVersionFiles(versionRow.id)) ?? [];
+      if (files.length === 0 && versionRow.files_json?.trim()) {
+        const fromJson = parseCodeFilesFromFilesJson(versionRow.files_json);
+        if (fromJson?.length) files = fromJson;
+      }
+
+      if (files.length === 0) {
+        return NextResponse.json(
+          { ok: false, code: "no_files", message: "No files in version for sandbox." },
+          { status: 400 },
+        );
+      }
+
+      const appProjectId =
+        typeof chat.project_id === "string" && chat.project_id.trim() ? chat.project_id.trim() : null;
+
+      const started = await startSandboxPreview(files, {
+        chatId,
+        appProjectId,
+        versionIdForSession: versionRow.id,
+      });
+
+      if (!started.ok) {
+        return NextResponse.json({
+          ok: false,
+          stage: started.error.stage,
+          message: started.error.message,
+        });
+      }
+
+      const sr = started.result;
+      if (sr.sandboxUrl.trim()) {
+        await updateVersionSandboxUrl(versionRow.id, sr.sandboxUrl);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        sandboxUrl: sr.sandboxUrl,
+        sandboxId: sr.sandboxId,
+        sandboxPreviewMode: sr.sandboxPreviewMode,
+        fidelityTier: sr.fidelityTier,
+        prodBuildVerified: sr.prodBuildVerified,
+        ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
+      });
+    } catch (err) {
+      console.error("[sandbox-preview] POST", err);
+      return NextResponse.json(
+        { ok: false, message: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
+      );
+    }
+  });
+}

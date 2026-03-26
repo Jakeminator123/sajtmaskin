@@ -6,7 +6,7 @@
 
 - långa implementationsdetaljer (t.ex. **K-018** i [`PLAN-PREVIEW-SANDBOX.md`](./PLAN-PREVIEW-SANDBOX.md)),
 - **FAQ** och begrepp ([`FRAGOR-SVAR-FAQ.md`](./FRAGOR-SVAR-FAQ.md)),
-- **beslutsunderlag (arkiv):** [`../../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md),
+- **beslutsunderlag (arkiv):** [`../../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md`](../../avklarat/2026-03-handoff-doc-bundle/BESLUT-INNAN-VI-GAR-VIDARE.md) — lokal **stub** (samma filnamn): [`BESLUT-INNAN-VI-GAR-VIDARE.md`](./BESLUT-INNAN-VI-GAR-VIDARE.md),
 - **tidslinje / faser (arkiv):** [`../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md`](../../avklarat/2026-03-handoff-doc-bundle/COMPLETION-ROADMAP.md).
 
 **Antal filer:** Under `queue/` finns **omkring elva** `.md`-filer (tabellen nedan + några till) — inte tjugo. Mappen **[`reviews/`](../reviews/)** innehåller i praktiken bara en **README** som pekar till redan **arkiverad** uppföljning i [`../../avklarat/orchestrator-followup-from-39fef25e.md`](../../avklarat/orchestrator-followup-from-39fef25e.md).
@@ -15,7 +15,7 @@
 
 ---
 
-**Start här:** [`../SAJTMASKIN-EXECUTION-PLAN.md`](../SAJTMASKIN-EXECUTION-PLAN.md) · djup referens [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md)
+**Start här:** [`../SAJTMASKIN-EXECUTION-PLAN.md`](../SAJTMASKIN-EXECUTION-PLAN.md) (**§1 = spaltlista**) · djup referens [`../MASTER-ALLT-KVAR.md`](../MASTER-ALLT-KVAR.md)
 
 **Äldre ingång:** [`KORFIL.md`](./KORFIL.md) pekar bara till MASTER.
 

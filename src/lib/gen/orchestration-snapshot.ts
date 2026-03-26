@@ -77,6 +77,16 @@ export function buildPersistedOrchestrationSnapshot(params: {
   return base;
 }
 
+/** Shallow merge: new finalize wins on key collision; keeps prior keys omitted from latest stream (K-019). */
+export function mergePersistedOrchestrationSnapshots(
+  previous: Record<string, unknown> | null | undefined,
+  next: Record<string, unknown>,
+): Record<string, unknown> {
+  const base =
+    previous && typeof previous === "object" && !Array.isArray(previous) ? { ...previous } : {};
+  return { ...base, ...next };
+}
+
 export function prependOrchestrationContinuityToFollowUp(
   message: string,
   snapshot: Record<string, unknown> | null | undefined,
@@ -86,10 +96,12 @@ export function prependOrchestrationContinuityToFollowUp(
   const strat = typeof snapshot.promptStrategy === "string" ? snapshot.promptStrategy : null;
   const scid = typeof snapshot.scaffoldId === "string" ? snapshot.scaffoldId : null;
   const lastV = typeof snapshot.lastVersionId === "string" ? snapshot.lastVersionId : null;
+  const buildIntent = typeof snapshot.buildIntent === "string" ? snapshot.buildIntent : null;
   const lines: string[] = [];
   if (tier) lines.push(`- Previous model tier: ${tier}`);
   if (strat) lines.push(`- Previous prompt strategy: ${strat}`);
   if (scid) lines.push(`- Previous scaffold id: ${scid}`);
+  if (buildIntent) lines.push(`- Previous build intent: ${buildIntent}`);
   if (lastV) lines.push(`- Last saved version id: ${lastV}`);
   if (lines.length === 0) return message;
   return [

@@ -7,6 +7,7 @@ import { requireNotBot } from "@/lib/botProtection";
 import {
   isSandboxConfigured,
   resolveSandboxAccessCredentials,
+  SANDBOX_SETUP_HINT,
 } from "@/lib/mcp/runtime-url";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
@@ -75,8 +76,9 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error: "Sandbox requires authentication",
-            setup:
-              "Run `vercel link` then `vercel env pull` (OIDC), or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID and pass them to Sandbox.create (see docs/architecture/vercel-sandbox-credentials.md).",
+            code: "sandbox_disabled",
+            setup: SANDBOX_SETUP_HINT,
+            hint: SANDBOX_SETUP_HINT,
           },
           { status: 401 },
         );
