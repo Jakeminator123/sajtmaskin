@@ -1,0 +1,56 @@
+Allmänna buggar — Sajtmaskin (worktree)
+
+Projekt i korthet
+Sajtmaskin är en Next.js-app (App Router) där own-engine-driver kodgenerering, scaffold/export och preview eller sandbox för genererade projekt. Tyngdpunkter ligger i audit-API med krediter och deduplicering, export-baseline i project-scaffold, samt SSE/stream-läsning i generate-site och generation-stream. Databas och auth binder ihop projekt, gäster och användare.
+
+Rapporten nedan listar fem potentiella fel (inte alla är reproducerade i körning). Varje punkt har en sannolikhetsbedömning, en kort motivering och en bedömning av påverkan på produkten.
+
+---
+
+1. Saknad valfri kedja vid utläsning av OpenAI-svar (projektanalys)
+
+Sannolikhet: 85%
+
+Motivering: I POST-hanteraren för projektanalys byggs texten med messageItem?.content.filter(...). Optional chaining gäller bara messageItem; om content saknas eller är undefined anropas .filter på undefined, vilket ger TypeError i runtime. Det inträffar när Responses-API:et returnerar ett message-objekt utan content-array eller med oväntad form.
+
+Påverkan: Hög för funktionen «analysera projekt»: användaren får 500 istället för analys när leverantörens svar avviker, vilket undergräver förtroendet för en gratisfunktion som ska kännas pålitlig.
+
+---
+
+2. Kreditdebitering efter fullföljd audit-arbete
+
+Sannolikhet: 70%
+
+Motivering: creditCheck.commit() körs efter scraping, modellanrop och uppbyggnad av resultatet. Om databastransaktionen för debitering misslyckas returneras 500 trots att analysarbetet i praktiken är gjort. Användaren kan uppleva dubbel debitering eller förvirring vid omförsök, beroende på om flödet är idempotent på klientsidan och serversidan.
+
+Påverkan: Hög för ekonomi och support: felaktig eller upplevd dubbeldebitering, eller att användaren betalar mental «skatt» i form av upprepade försök utan tydlig återbetalnings- eller idempotensstory.
+
+---
+
+3. reader.releaseLock() i finally efter stream-läsning
+
+Sannolikhet: 55%
+
+Motivering: Flera ställen släpper läsarlåset i finally efter en read-loop. Repo-regler för plattformen varnar för releaseLock när read() fortfarande är pending. I det lyckliga fallet (loopen avslutas med done) är det ofta harmlöst; vid avbrott, exception mitt i read eller avbruten konsumtion kan beteendet i kantfall skilja sig från rekommenderat mönster (t.ex. cancel på strömmen).
+
+Påverkan: Medel: sporadiska hängningar eller svårdebuggade fel vid nätverks- eller modellfel under generering, särskilt under belastning eller timeout.
+
+---
+
+4. Placeholder-promise i inFlightAudits
+
+Sannolikhet: 45%
+
+Motivering: Kartan för pågående audit lagrar promise: Promise.resolve({} som AuditResult). För nuvarande deduplicering räcker nyckel och starttid; själva promise-värdet används inte för att leverera resultat. Om framtida kod await:ar denna promise får den ett tomt objekt i stället för verkligt resultat.
+
+Påverkan: Låg idag; kan bli medel om någon bygger om flödet så att samma promise ska signalera färdig audit.
+
+---
+
+5. Dubbel Radix-yta i export-scaffold package.json
+
+Sannolikhet: 50%
+
+Motivering: Baseline för zip/export innehåller både npm-paketet radix-ui och många @radix-ui/react-*-paket. Det speglar appens rot men kan ge onödigt stort beroendetträd eller npm-resolver-konflikter i genererade projekt jämfört med att enbart använda den struktur som verkligen behövs för exporterad kod.
+
+Påverkan: Medel för export och sandbox: längre npm install, risk för versionsmismatch eller förvirring vid underhåll av genererade projekt.

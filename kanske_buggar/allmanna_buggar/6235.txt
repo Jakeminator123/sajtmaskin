@@ -1,0 +1,60 @@
+Allmänna buggar / risker — Sajtmaskin (worktree-genomgång)
+===========================================================
+
+Projektkontext
+--------------
+Sajtmaskin är en Next.js-app (App Router) där own-engine genererar kod under `src/lib/gen/`, builder-UI under `src/components/builder/`, och REST-API:er under `src/app/api/`. Rapporten nedan listar fem observerade brister eller risker med bedömning av hur sannolikt det är att de utgör en verklig bugg eller meningsfull skuld, samt påverkan på projektet.
+
+---
+
+1. parseCodeProject — validering kringgås via sanitizeFilePath
+   Plats: `src/lib/gen/parser.ts` (rader 45–46).
+
+   Sannolikhet att det är en verklig brist: 90 %
+   Påverkan: Hög (säkerhet / filintegritet om vägar skrivs till disk eller projektträd)
+
+   Motivering: När `validateFilePath` returnerar ogiltigt anropas `sanitizeFilePath` och resultatet används utan omvalidering. Saniteringen tar bort `..` och otillåtna tecken i stället för att avvisa blocket, vilket kan ge en ny relativ sökväg som aldrig kontrolleras mot `ALLOWED_ROOT_PREFIXES` i `path-validator.ts`. Det underminerar den avsedda modellen för var genererade filer får ligga. Om nedströms kod skriver filer utifrån dessa strängar kan filer hamna utanför tänkta kataloger.
+
+---
+
+2. Own-engine SSE — felgren med typcast kring error.message
+   Plats: `src/lib/providers/own-engine/generation-stream.ts` (`case "error"`, ca rad 506–510).
+
+   Sannolikhet att det är en verklig brist: 48 %
+   Påverkan: Låg till medel (felmeddelanden / underhåll)
+
+   Motivering: Koden gör `typeof …message === "string"` innan värdet används, så körningen är oftast säker. Däremot följer en TypeScript-cast till `Record<string, string>` som är redundant och kan vilseleda vid framtida ändringar om felpayloadens form ändras. Om kontraktet från upstream bryts kan felmeddelandet till klienten bli generiskt i stället för informativt. Risken för felaktigt innehåll är begränsad så länge `message` verkligen är en sträng när grenen väljs.
+
+---
+
+3. Dubbla Radix-beroenden i scaffold-package.json
+   Plats: `src/lib/gen/project-scaffold.ts` (t.ex. `radix-ui` och många `@radix-ui/react-*`).
+
+   Sannolikhet att det är en verklig brist: 65 %
+   Påverkan: Medel för exporterade zip-projekt; lägre för själva host-appen
+
+   Motivering: Samma ekosystem dras in två gånger (metapaketet `radix-ui` plus individuella `@radix-ui/react-*`). Det ger onödig vikt i `node_modules`, risk för versionsdrift mellan exportmall och rot-app, och kan i undantagsfall ge oväntad dependency-upplösning hos slutanvändaren som kör `npm install` på en export.
+
+---
+
+4. Download med backoffice — ZIP-relativePath utan sanering
+   Plats: `src/app/api/download/route.ts` (`zip.forEach`, push av `relativePath` till `codeFiles`).
+
+   Sannolikhet att det är en verklig brist: 42 %
+   Påverkan: Medel (korrekthet / säkerhet om lagrat innehåll kan innehålla elaka eller felaktiga sökvägar)
+
+   Motivering: ZIP-bufferten byggs internt från motorversioner, men poster använder `relativePath` rakt av när kod samlas för `extractContent` och backoffice. Om databaslagrat arkiv någonsin innehåller `../` eller andra konstiga namn kan manifest och injicerade filer bete sig oväntat. Projekt-nedladdning (`projects/[id]/download`) sanerar uttryckligen vägar; denna väg gör det inte, vilket är en inkonsistent försvarslinje.
+
+---
+
+5. deriveProviderKey — slump i fallback-nyckel för integrationssignaler
+   Plats: `src/lib/hooks/chat/helpers.ts` (retur `signal:${Math.random().…}`).
+
+   Sannolikhet att det är en verklig brist: 58 %
+   Påverkan: Låg (UX / determinism)
+
+   Motivering: När varken provider, namn eller kända env-ledtrådar finns blir grupperingsnyckeln slumpmässig. Det gör sammanslagning av `IntegrationSseSignal` inkonsekvent mellan körningar för samma underliggande händelse, vilket kan ge dubbla rader eller “flicker” i integrations-UI. Kollision mellan två slumpnycklar i samma batch är försumbar, men designen är svag jämfört med en stabil hash eller sekvensindex.
+
+---
+
+Slut rapport (filnamn slump: 6235)

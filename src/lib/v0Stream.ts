@@ -574,8 +574,8 @@ export function extractDemoUrl(parsed: unknown): string | null {
   if (typeof direct === "string" && direct.trim()) return direct;
   const nested: string[] = [];
   collectKeyedStrings(obj, new Set(["demoUrl", "demo_url"]), nested);
-  const found = nested.join("");
-  return found ? found : null;
+  const found = nested[0] ?? null;
+  return found && found.trim() ? found : null;
 }
 
 export function extractVersionId(parsed: unknown): string | null {
@@ -590,8 +590,8 @@ export function extractVersionId(parsed: unknown): string | null {
   if (typeof direct === "string" && direct.trim()) return direct;
   const nested: string[] = [];
   collectKeyedStrings(obj, new Set(["versionId", "version_id"]), nested);
-  const found = nested.join("");
-  return found ? found : null;
+  const found = nested[0] ?? null;
+  return found && found.trim() ? found : null;
 }
 
 export function extractMessageId(parsed: unknown): string | null {

@@ -1,0 +1,56 @@
+Sajtmaskin — allmän buggrapport (statisk kodgranskning)
+Genererad: 2026-03-27
+Procentsiffror är bedömningar av sannolikhet att beteendet är en oavsiktlig bugg, inte mätvärden.
+
+--------------------------------------------------------------------------------
+1. Feltext uppdaterar inte assistentbubblan när strömmen redan hunnit skriva innehåll
+--------------------------------------------------------------------------------
+Sannolikhet att det är en bugg: 87%
+
+Motivering:
+I useSendMessage och useCreateChat sätts varningstext på assistentmeddelandet bara när meddelandet saknar innehåll (!m.content). Om felet inträffar efter att tokens strömmats in finns redan partial content, och bubblan uppdateras då inte med "Varning: …" trots att toast kan visas.
+
+Påverkan på projektet: Medel — påverkar kärn-UX i buildern (användaren kan se ofullständigt svar utan tydlig felmarkering i tråden).
+
+--------------------------------------------------------------------------------
+2. MCP generate-site: streamError kastar bort partiellt ackumulerat innehåll
+--------------------------------------------------------------------------------
+Sannolikhet att det är en bugg: 70%
+
+Motivering:
+Efter SSE-loopen kastas fel om streamError är satt, även när accumulatedContent redan innehåller text. Om backend någon gång skickar både innehåll och senare ett error-event kastas allt bort i stället för att finalisera eller åtminstone bevara det partiella utfallet.
+
+Påverkan på projektet: Medel — gäller MCP-/agentvägen (generate-site), mindre synlig i vanlig UI men kan slösa tokens och blockera arbetsflöden.
+
+--------------------------------------------------------------------------------
+3. Materialisering av bilder (GET files med materialize): fel exponeras inte i API-svaret
+--------------------------------------------------------------------------------
+Sannolikhet att det är en bugg: 60%
+
+Motivering:
+Vid fel i materializeImagesInTextFiles loggas bara till console; svaret är fortfarande HTTP 200 med filer som kan innehålla kvarvarande icke-blob-URL:er. Klienten får ingen flagga att uppladdningen misslyckades — kan tolkas som trasigt innehåll utan förklaring. Kan också vara medvetet "best effort".
+
+Påverkan på projektet: Medel–låg — tydligast när materialize=1 används aktivt.
+
+--------------------------------------------------------------------------------
+4. GET /api/v0/chats/[chatId]: v0-mappad chat utan rader i versions ger 404
+--------------------------------------------------------------------------------
+Sannolikhet att det är en bugg: 45%
+
+Motivering:
+Om getChatByV0ChatIdForRequest hittar en chat men latestMappedVersion är tom returneras samma 404 som för helt okänd chat. Om produktmålet är att känna igen chatten med tom latestVersion blir det inkonsekvent; om 404 för "ingen version" är avsiktligt är det korrekt beteende.
+
+Påverkan på projektet: Låg — kantfall, t.ex. migrering eller legacy-data.
+
+--------------------------------------------------------------------------------
+5. finally-block i own-engine generation-stream: releaseLock() på pipeläsaren
+--------------------------------------------------------------------------------
+Sannolikhet att det är en aktiv bugg idag: 40%
+
+Motivering:
+Plattformsregeln varnar för releaseLock medan read() fortfarande väntar. Nuvarande flöde läser tills done och har try/catch runt releaseLock, vilket oftast är OK; risken är främst vid framtida refaktor eller avvikande avbrott som kan ge fel timing eller låst reader.
+
+Påverkan på projektet: Låg i steady state; högt om det triggas (genereringsström kan fallera).
+
+--------------------------------------------------------------------------------
+Slut på rapport

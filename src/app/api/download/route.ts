@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import { extractContent, generateBackofficeFiles } from "@/lib/backoffice";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
+import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 
 /**
  * Download endpoint with optional backoffice injection
@@ -68,18 +69,24 @@ async function processDownload(
     const filePromises: Promise<void>[] = [];
 
     zip.forEach((relativePath, file) => {
+      const normalizedZipPath = relativePath.split("\\").join("/");
+      const safeName = sanitizeProjectPath(normalizedZipPath);
+      if (!safeName) {
+        console.warn(`[API/download] Skipping unsafe zip path: ${relativePath}`);
+        return;
+      }
       if (
         !file.dir &&
-        (relativePath.endsWith(".tsx") ||
-          relativePath.endsWith(".ts") ||
-          relativePath.endsWith(".jsx") ||
-          relativePath.endsWith(".js"))
+        (safeName.endsWith(".tsx") ||
+          safeName.endsWith(".ts") ||
+          safeName.endsWith(".jsx") ||
+          safeName.endsWith(".js"))
       ) {
         filePromises.push(
           file
             .async("string")
             .then((content) => {
-              codeFiles.push({ name: relativePath, content });
+              codeFiles.push({ name: safeName, content });
             })
             .catch((error) => {
               console.warn(`[API/download] Failed to read file ${relativePath}:`, error);

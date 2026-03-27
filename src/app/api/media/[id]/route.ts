@@ -32,7 +32,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const mediaId = parseInt(id);
+    const mediaId = parseInt(id, 10);
 
     if (isNaN(mediaId)) {
       return NextResponse.json({ success: false, error: "Ogiltigt fil-ID" }, { status: 400 });

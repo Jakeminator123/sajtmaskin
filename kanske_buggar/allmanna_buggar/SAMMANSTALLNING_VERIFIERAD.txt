@@ -1,0 +1,78 @@
+Sammanställning — verifiering av fem buggrapporter (6235, 4826, 4829, 6148, 4821)
+================================================================================
+Uppdatering: Scaffolds/project-scaffold.ts och osäkra audit/stream-punkter är medvetet orörda.
+Verifierad kodrot för ändringar: C:\Users\jakem\dev\projects\sajtmaskin (annan worktree kan skilja sig).
+
+Datum: 2026-03-27
+Syfte: Gå igenom alla unika påståenden, avgöra om de motsvarar verkliga brister i kodbasen,
+och lista vad som åtgärdats i kod jämfört med vad som lämnats (medvetet eller av omfattning).
+
+Metod
+------
+Statisk kodgranskning mot aktuell branch, plus `npm run typecheck` efter ändringar.
+Inga separata e2e-tester kördes för varje punkt.
+
+A. Åtgärdade i kod (verifierade brister)
+---------------------------------------
+
+1. parseCodeProject / sanitizeFilePath (6235 m.fl.)
+   Problem: Ogiltig väg kunde "saniteras" till en ny väg utan omvalidering mot allowlist.
+   Åtgärd: `src/lib/gen/parser.ts` — efter `sanitizeFilePath` krävs `validateFilePath` igen; annars hoppas blocket över.
+
+2. llm-fixer mergeFixedFiles — replace bara första träffen (4826)
+   Problem: `String.replace` utan global flagga vid fallback när stängselfence inte matchade.
+   Åtgärd: `src/lib/gen/autofix/llm-fixer.ts` — om samma `orig.content` förekommer flera gånger varnas och ersättning skippas; vid exakt en träff ersätts den.
+
+3. analyze-presentation — greedy JSON-regex (4826, 4821)
+   Problem: `/\{[\s\S]*\}/` kunde plocka för stort spann vid flera JSON-liknande block.
+   Åtgärd: `src/app/api/analyze-presentation/route.ts` — ny `extractFirstJsonObject()` med balanserade klamrar och enkel sträng-hantering; `JSON.parse` på den första hela objektsträngen.
+
+4. placeholder route — parseInt utan radix (4826)
+   Problem: Teoretisk feltolkning av vissa strängar.
+   Åtgärd: `src/app/api/placeholder/route.ts` — `parseInt(..., 10)`.
+
+5. media DELETE — parseInt utan radix (4826)
+   Åtgärd: `src/app/api/media/[id]/route.ts` — `parseInt(id, 10)`.
+
+6. useSendMessage / useCreateChat — varning bara utan innehåll (4829)
+   Problem: Vid fel efter partiell stream uppdaterades inte bubblan om `m.content` redan fanns.
+   Åtgärd: `src/lib/hooks/chat/useSendMessage.ts`, `useCreateChat.ts` — lägger till `\n\nVarning: …` efter befintligt innehåll.
+
+7. MCP generate-site — streamError kastar bort partiellt innehåll (4829)
+   Problem: Fel efter SSE trots ackumulerad text gav throw innan finalize.
+   Åtgärd: `src/lib/mcp/generate-site.ts` — om det finns text sparas utfallet och varning loggas; throw endast om inget innehåll.
+
+8. Projektanalys API — messageItem.content kan saknas (6148)
+   Problem: `messageItem?.content.filter` kunde ge TypeError om `content` saknas.
+   Åtgärd: `src/app/api/projects/[id]/analyze/route.ts` — `(messageItem?.content ?? []).filter(...)`.
+
+9. GET files + materialize — fel döljs (4829)
+   Problem: Fel i materialize loggades bara; klient fick 200 utan signal.
+   Åtgärd: `src/app/api/v0/chats/[chatId]/files/route.ts` — fältet `imageMaterializeError` i JSON när materialisering misslyckas.
+
+10. Download + backoffice — ZIP-sökvägar (6235)
+    Problem: `relativePath` användes utan sanering.
+    Åtgärd: `src/app/api/download/route.ts` — `sanitizeProjectPath` efter normalisering av backslash; osäkra poster hoppas över med logg.
+
+11. deriveProviderKey — slump (6235)
+    Problem: Icke-deterministisk nyckel för integrationssignaler.
+    Åtgärd: `src/lib/hooks/chat/helpers.ts` — `stableIntegrationSignalKey()` (FNV-1a-liknande hash över serialiserad signal).
+
+12. extractDemoUrl / extractVersionId — join("") (4821)
+    Problem: Flera träffar sammanfogades utan separator till en ogiltig URL/id-sträng.
+    Åtgärd: `src/lib/v0Stream.ts` — använder första träffen `nested[0]` när direktfält saknas.
+
+B. Bekräftat men ej ändrat i kod (medvetet eller stor refaktor)
+--------------------------------------------------------------
+
+- Audit: `creditCheck.commit()` efter genomfört LLM-arbete ger 500 vid DB-fel (4821, 6148). Kräver idempotens, kompensation eller kö — lämnat till produkt/arkitektur.
+- Audit: `inFlightAudits` med placeholder-Promise och `setInterval`-städning i serverless (4821, 6148). Funktionellt för nuvarande dedup; förbättring kräver design.
+- ReadableStream `releaseLock` i finally (4826, 4829, 6148): plattformsnotering; inga ändringar utan riktade stream-tester.
+- GET /api/v0/chats/[chatId] — 404 när version saknas (4829): kan vara avsiktlig produktsemantik.
+- Dubbel Radix i scaffold package.json (6235, 6148): speglar app; minskad omfattning — ingen ändring i denna omgång.
+
+C. Kort slutsats
+----------------
+Majoriteten av de **enkelt verifierbara** kodbristerna är åtgärdade i listan under A. Punkterna under B kräver större produktbeslut eller riskerar regression vid snabb patch.
+
+Verifiering: `npm run typecheck` OK efter ändringar.

@@ -248,7 +248,13 @@ export async function generateSiteFromPrompt(
   }
 
   if (streamError) {
-    throw new Error(streamError);
+    if (!accumulatedContent.trim()) {
+      throw new Error(streamError);
+    }
+    console.warn(
+      "[generate-site] SSE error after partial output; finalizing with available content:",
+      streamError,
+    );
   }
 
   if (!sawDone) {

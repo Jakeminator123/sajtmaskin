@@ -105,6 +105,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     }
 
     if (files) {
+      let imageMaterializeError: string | null = null;
       const effectiveVersionId = resolvedVersionId ?? requestedVersionId ?? chatId;
 
       const repairResult = repairGeneratedFiles(files);
@@ -140,6 +141,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
           }
         } catch (error) {
           console.error("[materialize] Own engine image materialization failed:", error);
+          imageMaterializeError =
+            error instanceof Error ? error.message : "Image materialization failed";
         }
       }
 
@@ -177,6 +180,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       return NextResponse.json({
         versionId: resolvedVersionId,
         files: formattedFiles,
+        ...(imageMaterializeError ? { imageMaterializeError } : {}),
       });
     }
 

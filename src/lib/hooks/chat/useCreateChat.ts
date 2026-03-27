@@ -490,8 +490,14 @@ export function useCreateChat(
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMessageId && !m.content
-              ? { ...m, content: `Varning: ${message}`, isStreaming: false }
+            m.id === assistantMessageId
+              ? {
+                  ...m,
+                  content: m.content?.trim()
+                    ? `${m.content}\n\nVarning: ${message}`
+                    : `Varning: ${message}`,
+                  isStreaming: false,
+                }
               : m,
           ),
         );

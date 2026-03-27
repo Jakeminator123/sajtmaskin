@@ -187,7 +187,7 @@ Ge en strukturerad analys enligt formatet.`;
     );
 
     const analysis =
-      messageItem?.content
+      (messageItem?.content ?? [])
         .filter((c): c is OpenAI.Responses.ResponseOutputText => c.type === "output_text")
         .map((c) => c.text)
         .join("\n") || "Kunde inte generera analys.";

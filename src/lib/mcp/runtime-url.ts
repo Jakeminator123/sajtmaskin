@@ -85,9 +85,16 @@ export function resolveSandboxTemplateGitUrl(): string {
   return "https://github.com/vercel/sandbox-example-next.git";
 }
 
+/**
+ * Hard ceiling for sandbox VM wall-clock lifetime (`Sandbox.create({ timeout })`).
+ * After this, Vercel stops the machine even if the app never calls `Sandbox.stop()`.
+ */
+export const SANDBOX_MAX_LIFETIME_MS = 8 * 60_000;
+
 export type SandboxRuntimeOptions = {
   runtime?: "node24" | "node22" | "python3.13";
   vcpus?: number;
+  /** Requested lifetime; always capped at {@link SANDBOX_MAX_LIFETIME_MS}. */
   timeoutMs?: number;
   installCommand?: string;
   startCommand?: string;
@@ -372,8 +379,9 @@ export async function createSandboxRuntimeFromFiles(
   const runsProdBuild =
     previewMode === "build_only" ||
     (previewMode === "dev_then_build" && verifyBuild);
-  const timeoutMs =
+  const requestedTimeout =
     options.timeoutMs ?? (runsProdBuild ? 12 * 60_000 : 5 * 60_000);
+  const timeoutMs = Math.min(requestedTimeout, SANDBOX_MAX_LIFETIME_MS);
   const installCommand = options.installCommand ?? "npm install";
   const startCommand = options.startCommand ?? "npm run dev";
   const ports = options.ports ?? [3000];

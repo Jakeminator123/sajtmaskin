@@ -525,6 +525,23 @@ const KNOWN_PROVIDERS = [
   "prisma", "convex", "appwrite", "sanity", "contentful",
 ];
 
+function stableIntegrationSignalKey(signal: IntegrationSseSignal): string {
+  const payload = JSON.stringify({
+    key: signal.key,
+    name: signal.name,
+    provider: signal.provider,
+    status: signal.status,
+    intent: signal.intent,
+    envVars: signal.envVars,
+  });
+  let h = 2166136261;
+  for (let i = 0; i < payload.length; i++) {
+    h ^= payload.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
 function deriveProviderKey(signal: IntegrationSseSignal): string {
   const provider = signal.provider?.toLowerCase().trim();
   if (provider) {
@@ -548,7 +565,7 @@ function deriveProviderKey(signal: IntegrationSseSignal): string {
   if (signal.envVars && signal.envVars.length > 0) {
     return `env:${signal.envVars.sort().join(",")}`;
   }
-  return `signal:${Math.random().toString(36).slice(2, 8)}`;
+  return `signal:${stableIntegrationSignalKey(signal)}`;
 }
 
 function mergeIntegrationSignalsByProvider(

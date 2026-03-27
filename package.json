@@ -55,6 +55,7 @@
     "scaffolds:curate": "npx tsx scripts/curate-scaffold-candidates.ts",
     "scaffolds:promote": "npx tsx scripts/promote-to-scaffold.ts",
     "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts",
+    "baseline-deps:verify": "npx tsx scripts/validate-baseline-npm-versions.ts",
     "docs:embeddings": "npx tsx scripts/generate-docs-embeddings.ts",
     "eval": "npx tsx scripts/run-eval.ts",
     "eval:suite": "npx tsx src/lib/gen/eval/cli.ts",

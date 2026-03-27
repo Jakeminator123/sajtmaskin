@@ -73,6 +73,41 @@ Regler for visuell analys:
 - Alla texter pa svenska, korta (1-2 meningar per falt)
 - suggestions: max 3`;
 
+
+/** First balanced `{ ... }` slice — avoids greedy `/\{[\s\S]*\}/` grabbing multiple JSON-like blocks. */
+function extractFirstJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (c === "\\") {
+        escape = true;
+        continue;
+      }
+      if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function buildFallbackAnalysis(
   transcript: string,
   hasFrames: boolean,
@@ -170,8 +205,8 @@ export async function POST(req: Request) {
     // Parse JSON
     let analysis;
     try {
-      const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-      analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      const jsonBlob = extractFirstJsonObject(analysisText);
+      analysis = jsonBlob ? JSON.parse(jsonBlob) : null;
     } catch {
       analysis = null;
     }
