@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { withRateLimit } from "@/lib/rateLimit";
-import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { sanitizeMetadata } from "@/lib/sanitize/sanitize-metadata";
 import { nanoid } from "nanoid";
 
 // Allow 5 minutes for v0 API responses
@@ -73,7 +73,7 @@ async function persistTemplateChatState(params: {
         v0VersionId: versionId,
         v0MessageId: null,
         demoUrl: demoUrl ?? null,
-        metadata: sanitizeV0Metadata({
+        metadata: sanitizeMetadata({
           id: versionId,
           demoUrl: demoUrl ?? null,
           model: model ?? null,
@@ -85,7 +85,7 @@ async function persistTemplateChatState(params: {
         target: [versions.chatId, versions.v0VersionId],
         set: {
           demoUrl: demoUrl ?? null,
-          metadata: sanitizeV0Metadata({
+          metadata: sanitizeMetadata({
             id: versionId,
             demoUrl: demoUrl ?? null,
             model: model ?? null,

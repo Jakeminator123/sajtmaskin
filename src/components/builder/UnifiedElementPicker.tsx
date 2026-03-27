@@ -55,7 +55,11 @@ import {
   buildPreviewImageUrl,
   FEATURED_BLOCKS,
 } from "@/lib/shadcn-registry-service";
-import { getRegistryBaseUrl, getRegistryStyle, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
+import {
+  getRegistryBaseUrl,
+  getRegistryStyle,
+  resolveRegistryStyle,
+} from "@/lib/shadcn/registry-url";
 import {
   analyzeSections,
   generatePlacementOptions,

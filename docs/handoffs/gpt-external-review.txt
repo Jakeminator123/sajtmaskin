@@ -1,0 +1,262 @@
+
+Sajtmaskin own-engine audit on master: why you see static previews, how to eliminate v0 dependencies, and how to reach world-class output
+Repository reality check
+Your repo contains two different meanings of “v0”, and conflating them is a major source of confusion when debugging “why am I seeing static pages?”:
+
+One “v0” is simply your internal API namespace (/api/v0/...) used by the builder UI to talk to your own backend (chat streams, files, sandbox preview, etc.). It is not the external v0 Platform. This internal API is what powers the own-engine pipeline and the sandbox bootstrap logic in the builder.
+
+The other “v0” is the external v0 Platform integration, implemented under src/lib/v0/ (e.g. v0-sdk usage) and routes that explicitly initialize templates/registry via that platform. The v0-generator.ts header comment is explicit that own-engine builder streams do not use the v0 generator module; it is reserved for template/registry/ZIP flows that still point at v0 Platform.
+
+
+On master you also already have an explicit “keep own-engine clean” policy enforced by a boundary test: src/lib/own-engine and src/lib/providers/own-engine must not import v0 Platform internals or the v0 SDK. That’s a strong foundation for gradually removing v0 without regressing your own-engine path.
+
+Current own-engine pipeline as implemented today
+At a code level, the own-engine flow is not “one monolithic LLM call.” It is a deterministic orchestration → stream generation → finalize pipeline → preview tiering pipeline—where the “static preview” is intentionally a tier-1 shim and the full Next runtime is a tier-2 sandbox that comes later.
+
+High-level control flow
+Below is a faithful “as-is” flow diagram of what happens for an own-engine generation and what the builder UI does with it:
+
+User prompt (builder UI) ↓ POST /api/v0/chats/stream (create + generate) OR POST /api/v0/chats/[chatId]/stream (follow-up + refine) ↓ Prompt orchestration + metadata normalization
+
+orchestratePromptMessage(...)
+model selection + credit checks ↓ Contract inference
+infer preGenerationContracts
+if unresolved: emit clarification SSE and STOP ↓ Own-engine generation stream
+createOwnEnginePipelineAndGenerationStream(...)
+SSE: meta / thinking / content / tool-call / progress ↓ Finalize (server-side)
+runAutoFix(...)
+validateAndFix(...) (esbuild + optional LLM fixer passes)
+expand URLs + materialize images
+parse files → merge into project → preflight
+persist assistant message + draft version ↓ DONE (SSE)
+demoUrl defaults to tier-1 shim (/api/preview-render)
+sandboxPending may be true ↓ (async) Sandbox preview start (tier 2)
+buildCompleteProject(...) + @vercel/sandbox
+npm install + npm run dev (+ optional npm run build depending on mode) ↓ SSE sandbox-ready (or build-error)
+builder UI upgrades preview URL to sandbox when available
+This behavior is directly visible in the own-engine stream adapter: the done event is emitted with a shim URL while the sandbox boots, and later a sandbox-ready event is emitted if sandbox startup works.
+
+
+
+Where “awaiting input” fits (and why it doesn’t “continue”)
+You asked earlier whether “Awaiting input” should loop back into the chain once the user answers. In your code, it does—by design.
+
+On follow-ups, the stream route explicitly:
+
+infers contracts,
+asks a clarification question if required (returning a contract-gate SSE stream),
+later consumes the user’s reply as a contract answer, and then continues generation using confirmed decisions.
+So the correct diagram is:
+
+Contracts inferred ↓ Need user answer? ── yes ─→ SSE: awaitingInput + question → UI shows state “Awaiting input” ↓ no ↓ Continue generation User replies in chat ↓ ↓ Finalize + preview POST /api/v0/chats/[chatId]/stream again ↓ Contract answers collected → generation continues
+
+If you want the UI to more explicitly “re-enter the chain,” you should treat the user’s answer as a first-class event (“contract.answer.submitted”) and show a resumed pipeline state in the progress strip—today the resume does happen, but it can feel implicit.
+
+
+Why you’re seeing “static pages” instead of a full Next sandbox runtime
+Based on the code on master, you are not getting a static preview because a “static production wins a race.” You are getting tier-1 shim preview because the system intentionally returns it first, and tier-2 sandbox preview is either not starting, failing, or not being upgraded.
+
+The shim is a real, intentional tier
+The route /api/preview-render serves a self-contained HTML preview built from the generated files. It’s explicitly described as a fast/legacy path and is not a full Next runtime.
+
+That route even warns that it needs a renderable default-export React component (e.g. app/page.tsx) and points users to sandbox preview for “full Next.js running.”
+
+The server intentionally emits shim first—even when sandbox will run
+Your own-engine generation stream emits done with demoUrl = shimUrl while sandbox starts in the background; sandbox success/failure is communicated later via sandbox-ready or build-error.
+
+
+On the client side, the SSE consumer explicitly upgrades currentDemoUrl to the sandbox URL only once it receives sandbox-ready.
+
+The builder also tries to “upgrade” older versions automatically
+Even if a generation finished earlier and you reopened the builder later, useBuilderPageController will attempt to bootstrap a sandbox preview when:
+
+you are authenticated,
+it’s an own-engine chat (not a v0-style chat),
+the active version doesn’t already have a stored sandbox URL,
+and the current preview URL is tier-1 (shim) or unset.
+If that POST to /api/v0/chats/{chatId}/sandbox-preview never succeeds, you’ll stay on tier-1.
+
+
+The most common concrete causes in your code
+The following are the “real reasons” (not guesses) why tier-2 is not appearing:
+
+Sandbox is not configured. Your sandbox route returns a dedicated sandbox_disabled style error when sandbox credentials are missing, and you ship a setup hint that explicitly names the supported credential strategies (OIDC token or access token + team/project).
+
+
+Authentication is required for the builder’s sandbox bootstrap effect. The upgrade logic in the builder exits early unless isAuthenticated is true. If you’re testing logged out (or auth is flaky locally), you will reliably stay on the shim.
+
+Sandbox can be blocked after finalize. The server-side sandbox kickoff is gated on three booleans: sandbox configured, preview not blocked, and parsed file count > 0. If preflight marks the version as preview-blocked, sandbox won’t run in the generation stream.
+
+
+
+Sandbox boot fails in install/dev/build. The sandbox runtime calls npm install, then starts npm run dev, and optionally runs npm run build. Any failure is surfaced as a typed error and in the SSE contract as build-error, after which the UI falls back to shim and shows a toast.
+
+
+
+Generated projects exceed sandbox limits. The runtime enforces hard caps (file count and total bytes) and will throw before sandbox startup if exceeded. This produces “I only see shim” without necessarily meaning generation failed.
+
+One subtle code-quality issue worth fixing immediately: resolveSandboxPreviewModeFromEnv() defaults to dev_then_build, but the SandboxRuntimeOptions docstring in the same module claims the default is dev_only. That contradiction is exactly the kind of “docs vs reality” mismatch that causes operator confusion during debugging.
+
+v0 dependency audit and a clean removal plan
+If your product goal is “own-engine only, no v0 folder, no v0 Platform dependency,” you need to separate “what’s already independent” from “what’s still v0-backed.”
+
+What is already own-engine and does not require v0 Platform
+The core own-engine generation + finalize pipeline is fully independent:
+
+Finalize includes deterministic autofix, esbuild validation + optional LLM fixer, URL expansion, image materialization, merge, preflight, and persistence into your Postgres-backed chat/version store.
+
+
+Sandbox runtime is also not v0 Platform–dependent; it relies on Vercel Sandbox credentials and @vercel/sandbox, not v0 Platform.
+
+ZIP download for own-engine versions is already implemented against your engine version storage (engine_versions.files_json).
+
+
+What is still backed by v0 Platform (and therefore blocks “no v0 anywhere”)
+Template initialization currently calls generateFromTemplate from the v0 generator (v0-sdk), caches template results keyed by user, and persists rows keyed by v0 chat/version IDs. If you want “own-engine only,” this entire path must be replaced or removed.
+
+
+There are still shared utilities living under src/lib/v0/ that are being imported from own-engine endpoints (e.g. normalizeV0Error). That’s not a runtime dependency on v0 Platform, but it is a repo-level dependency that prevents deleting the v0 folder.
+
+
+The src/lib/v0.ts wrapper documents that v0 SDK is still used for certain platform features and that a “v0 fallback builder” flag affects preview URL preference when a v0-hosted demo exists. If your policy is “never prefer v0 demos,” you should remove that branch entirely.
+
+
+A pragmatic removal sequence that won’t break the product
+The cleanest way to remove v0 without destabilizing the builder is to treat it as a migration with explicit “done” milestones:
+
+First, make “own-engine only” a runtime mode.
+
+Add a single feature flag like SAJTMASKIN_V0_PLATFORM_ENABLED=false and make every v0 Platform entry point early-return with a clear error. This avoids “half-working” states while you migrate templates and registry init.
+
+Second, relocate generic utilities out of src/lib/v0/.
+
+For example, move normalizeV0Error into src/lib/providers/errors/normalize-provider-error.ts (or similar), and rewire imports in /api/v0/chats/*/stream so these routes no longer import anything from a v0 folder. Your own-engine boundary test already formalizes this direction for core modules.
+
+
+Third, replace v0-backed templates with own-engine scaffolds + internal template library.
+
+The fastest replacement pattern is:
+
+treat “template selection” as selecting an internal scaffold + reference library snippet set,
+then run an own-engine “template hydration” pipeline step that produces the project by applying your system prompt + brief/spec rules to that scaffold (instead of cloning v0 output).
+This aligns with how your own-engine already merges generated files against a scaffold base in finalize.
+
+Fourth, deprecate v0 ID fields in your persistence layer.
+
+Today your template route persists v0ChatId, v0ProjectId, v0VersionId etc. If you remove v0, you should migrate schemas to store only engine IDs, otherwise you’ll keep “v0-shaped” data models forever.
+
+Fifth, delete src/lib/v0/ and remove v0 Platform routes.
+
+At this point you can safely remove v0-sdk from dependencies and delete the v0 folder. The boundary test can be upgraded to: “no src/lib/v0 folder exists on disk” (hard fail), which ensures the repo stays clean.
+
+A world-class target: LLM flows + repair loops + tests + sandbox preview
+The good news is that you already have several “world-class” ingredients:
+
+structured finalize pipeline (autofix + validation fixer loop + preflight),
+sandbox preview machinery with readiness probing and optional build verification,
+post-generation checks that run image validation and then kick off a sandbox “quality gate” (typecheck + build) and can queue autofix if those checks fail.
+So the “world-class plan” is less about replacing everything and more about turning what you already have into an explicit, measurable loop where visual quality + correctness are enforced, not just requested in prompts.
+
+A world-class flow diagram that resolves the “awaiting input” loop explicitly
+User prompt ↓ Prompt intake
+
+orchestration (direct/summarize/phase)
+(optional) prompt assist / deep brief / spec ↓ Contracts inference ↓ Need user answer? ├─ yes → SSE: awaitingInput → UI shows question → user answers → back to Contracts inference └─ no ↓ Code generation (own-engine) ↓ Finalize + merge + preflight (server)
+deterministic autofix
+syntax repair (LLM fixer only when needed)
+scaffold merge / previous-file merge
+preflight + persistence ↓ Preview tiering
+tier-1 shim immediate
+tier-2 sandbox dev preview
+tier-3 build verification ↓ Quality gates (must be first-class)
+typecheck
+lint
+next build
+(optional) smoke e2e ↓ Design QA loop (the missing “world-class” differentiator)
+screenshot key routes in sandbox
+evaluate layout rhythm, spacing, hierarchy, contrast, CTA clarity
+produce a minimal patch plan + implement via targeted code edits
+re-run sandbox gates ↓ Stable sandbox URL shown in iframe
+Concrete improvements you should implement next
+Make “sandbox is missing” impossible to miss.
+
+Right now, if sandbox isn’t configured you can get stuck on shim and interpret it as “the engine is only producing static.” You already have a strong setup hint string for operators; surface it in the UI whenever the sandbox bootstrap endpoint returns sandbox_disabled (not only in dev).
+
+
+Make correctness gates consistent and explicit.
+
+You already run a sandbox quality gate (typecheck + build) from post-checks. The key upgrade is to make the result feed back into generation deterministically:
+
+if typecheck/build fails, trigger a “Build Engineer” repair loop that edits code/package.json minimally,
+re-run gates,
+only then mark a version “world-class ready.”
+Reduce dependency drift in sandbox.
+
+Your sandbox runtime uses npm install and a git template repo URL (defaulting to vercel/sandbox-example-next). For reliability:
+
+pin the template repo URL to a commit or your own fork via SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL,
+move toward npm ci by ensuring a lockfile is generated and included in the sandbox project build step,
+implement an “ERESOLVE repair agent” that proposes controlled version pins and retries install.
+Make visual excellence measurable.
+
+You already have an inspector system in the builder UI (element mapping / Playwright capture paths are implied by UI features), which is a perfect foundation for an automated “Design QA agent.” The missing step is simply to run a post-sandbox screenshot + heuristic evaluation and then apply fixes automatically before the user ever sees the final preview.
+
+Cursor IDE instruction pack for improving the system
+This section is designed to be copy/pasted as a single instruction to an LLM inside Cursor so the assistant can execute a disciplined change set without reintroducing v0 coupling or breaking the builder.
+
+Cursor system instruction for the implementation agent
+You are a codebase-refactor assistant working in Jakeminator123/sajtmaskin (branch master). Goal: make own-engine the only runtime path for website generation and ensure builder preview reliably upgrades from shim (/api/preview-render) to sandbox (Next.js running), with world-class quality gates. Do not add dependencies on v0 Platform or src/lib/v0. Keep changes small, tested, and observable.
+
+Constraints:
+
+Own-engine modules must not import src/lib/v0 or v0-sdk (respect the boundary test).
+Preserve SSE contract shapes (builder-stream-contract), do not break event names.
+Any new repair loops must be gated and capped (max iterations/time).
+Checklist of required outcomes:
+
+A user who generates a site sees tier-1 shim immediately, then tier-2 sandbox URL automatically as soon as sandbox is ready (when sandbox is configured).
+If sandbox credentials are missing, the UI must show a clear, non-dev-only banner explaining exactly what is missing and how to fix it.
+Remove repo-level reliance on src/lib/v0 for own-engine routes/utilities (move generic helpers out of v0 folder).
+Add an explicit “world-class readiness” pipeline: sandbox typecheck + lint + build (and optional smoke test), with a minimal automated repair loop on failures.
+Add a design QA loop hook (initially stubbed): once sandbox is ready, take screenshots for Home + key routes and compute a heuristic score; if below threshold, queue a targeted code-editing pass and rerun gates.
+File-by-file workplan the Cursor assistant should follow
+Refactor v0 utilities out of the v0 folder.
+
+Identify own-engine endpoints importing normalizeV0Error (e.g. /api/v0/chats/[chatId]/stream). Move the normalizer to a provider-agnostic module like src/lib/providers/errors/normalize-provider-error.ts. Update imports accordingly and leave src/lib/v0/errors.ts as a thin re-export temporarily, then delete it once all call sites are migrated.
+
+Make sandbox setup failure user-visible in all environments.
+
+In useBuilderPageController, the sandbox bootstrap call already recognizes sandbox_disabled but only shows a toast in development. Remove that dev-only restriction and show a persistent UI banner in the preview panel (or a toast with a long duration) containing SANDBOX_SETUP_HINT guidance. Also store a “sandbox disabled” state in builder state so it’s visible even after refresh.
+
+Fix the sandbox preview mode documentation/behavior mismatch.
+
+In src/lib/mcp/runtime-url.ts, align docstrings with actual defaults (currently resolveSandboxPreviewModeFromEnv() returns dev_then_build by default while the options comment claims dev_only). Decide on one default policy, encode it once, and make the docs truthful.
+Turn quality gate into a closed-loop repair system.
+
+You already call /api/v0/chats/{chatId}/quality-gate with checks typecheck and build after post-checks. Extend the gate to include lint (and optionally a smoke test). If any gate fails, queue an autofix payload that includes the command output and triggers a targeted repair stream (do not do a full regeneration). Keep a cap: max 2 repair passes per version.
+Add “Design QA” after sandbox-ready.
+
+Extend the SSE client handler for sandbox-ready to enqueue a new “design QA” job only when sandboxUrl exists. Start with a server endpoint that uses Playwright (or your existing inspector capture infra) to screenshot the primary route(s). Return a simple heuristic score + checklist (e.g., hierarchy, spacing, contrast, CTA). If score < threshold, trigger a targeted “design patch” autofix loop that edits dominant UI files and reruns the sandbox gates.
+
+Replace v0-backed templates with own-engine templates.
+
+Disable /api/template (v0-backed) when v0 is off, and implement a new own-engine template init route that:
+creates an engine chat,
+selects a scaffold,
+hydrates it via own-engine refine (previousFiles merge) rather than v0 cloning,
+persists an engine version immediately.
+
+Acceptance tests the Cursor assistant must add
+Add tests that prove the preview tiering works:
+
+A server-side test that the own-engine generation stream returns done.demoUrl pointing to /api/preview-render but also emits sandbox-ready (mocked) that upgrades the preview URL.
+
+A client-side test that useBuilderPageController triggers sandbox bootstrap when current URL is shim and upgrades to sandbox URL on success.
+A regression test for the own-engine ↔ v0 boundary that ensures no new src/lib/v0 imports creep into own-engine modules.
+Quick diagnostic checklist for your current “static only” symptom
+If you want the shortest path to “why am I stuck on static preview?” given the current code:
+
+Confirm sandbox credentials are present/usable (isSandboxConfigured() relies on OIDC token or access token trio).
+Confirm you are authenticated in the builder (bootstrap effect requires it).
+Check whether your SSE stream ever emits sandbox-ready or build-error (client handler upgrades on sandbox-ready, and shows fallback + toast on build-error).
+If sandbox fails, capture and persist the install/build logs more aggressively (right now you truncate snippets; store last 500–2000 lines per stage so you can fix dependency issues fast).

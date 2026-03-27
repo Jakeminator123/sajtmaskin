@@ -49,8 +49,8 @@ vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
-vi.mock("@/lib/v0/errors", () => ({
-  normalizeV0Error: (error: unknown) => ({
+vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
+  normalizeProviderError: (error: unknown) => ({
     message: error instanceof Error ? error.message : "Unknown error",
     status: 500,
     code: null,
@@ -111,8 +111,8 @@ vi.mock("@/lib/utils/debug", () => ({
   warnLog: vi.fn(),
 }));
 
-vi.mock("@/lib/v0/sanitize-metadata", () => ({
-  sanitizeV0Metadata: vi.fn(),
+vi.mock("@/lib/sanitize/sanitize-metadata", () => ({
+  sanitizeMetadata: vi.fn(),
 }));
 
 vi.mock("@/lib/db/services", () => ({

@@ -5,7 +5,7 @@ import {
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
 import { materializeImagesInTextFiles } from "@/lib/imageAssets";
-import { normalizeV0Error } from "@/lib/v0/errors";
+import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
 import type { CodeFile } from "@/lib/gen/parser";
 import {
@@ -21,7 +21,7 @@ import {
 import { deriveSetupContract, buildEnvExampleContent } from "@/lib/gen/setup-contract";
 
 function v0ErrorResponse(err: unknown, fallbackMessage: string) {
-  const info = normalizeV0Error(err);
+  const info = normalizeProviderError(err);
   return NextResponse.json(
     { error: info.message || fallbackMessage, code: info.code },
     { status: info.status },

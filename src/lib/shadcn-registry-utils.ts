@@ -3,7 +3,7 @@ import {
   getPlacementInstruction,
   type PlacementOption,
 } from "@/lib/builder/placement-utils";
-import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
+import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/shadcn/registry-url";
 
 const REGISTRY_BASE_URL = getRegistryBaseUrl();
 const DEFAULT_STYLE = resolveRegistryStyle(undefined, REGISTRY_BASE_URL);

@@ -6,7 +6,7 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
-import { normalizeV0Error } from "@/lib/v0/errors";
+import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
@@ -600,7 +600,7 @@ export async function handleMessageStreamRequest(
         return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
     } catch (err) {
       errorLog("v0", `Send message error (requestId=${requestId})`, err);
-      const normalized = normalizeV0Error(err);
+      const normalized = normalizeProviderError(err);
       devLogAppend("latest", {
         type: "comm.error.send",
         chatId: null,

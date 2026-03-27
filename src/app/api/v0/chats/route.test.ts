@@ -152,8 +152,8 @@ vi.mock("@/lib/utils/debug", () => ({
   debugLog: vi.fn(),
 }));
 
-vi.mock("@/lib/v0/sanitize-metadata", () => ({
-  sanitizeV0Metadata: vi.fn(),
+vi.mock("@/lib/sanitize/sanitize-metadata", () => ({
+  sanitizeMetadata: vi.fn(),
 }));
 
 import { POST } from "./route";

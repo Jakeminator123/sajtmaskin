@@ -9,7 +9,7 @@ const SCAN_ROOTS = [
   join(repoRoot, "src", "lib", "providers", "own-engine"),
 ];
 
-/** Block v0 Platform API / SDK from own-engine modules (routes may still use e.g. `normalizeV0Error`). */
+/** Block v0 Platform API / SDK from own-engine modules (routes may still use provider-neutral helpers). */
 const FORBIDDEN = [
   /@\/lib\/v0\//,
   /from\s+["']v0-sdk["']/,

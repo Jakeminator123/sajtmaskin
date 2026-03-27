@@ -2,7 +2,7 @@ import { createSSEHeaders } from "@/lib/streaming";
 import { createChatSchema } from "@/lib/validations/chatSchemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
-import { normalizeV0Error } from "@/lib/v0/errors";
+import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { prepareCredits } from "@/lib/credits/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
@@ -634,7 +634,7 @@ export async function POST(req: Request) {
       }
     } catch (err) {
       errorLog("v0", `Create chat error (requestId=${requestId})`, err);
-      const normalized = normalizeV0Error(err);
+      const normalized = normalizeProviderError(err);
       devLogAppend("latest", {
         type: "comm.error.create",
         message: normalized.message,

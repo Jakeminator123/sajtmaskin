@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db, dbConfigured } from "@/lib/db/client";
 import { registryCache } from "@/lib/db/schema";
 import type { RegistryIndex } from "@/lib/shadcn-registry-service";
-import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
+import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/shadcn/registry-url";
 
 export type RegistrySource = "official" | "legacy";
 

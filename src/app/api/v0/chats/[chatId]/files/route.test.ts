@@ -71,8 +71,8 @@ vi.mock("@/lib/imageAssets", () => ({
   materializeImagesInTextFiles: vi.fn(),
 }));
 
-vi.mock("@/lib/v0/errors", () => ({
-  normalizeV0Error: (err: unknown) => ({
+vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
+  normalizeProviderError: (err: unknown) => ({
     message: err instanceof Error ? err.message : "Unknown error",
     code: null,
     status: 500,

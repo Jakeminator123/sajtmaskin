@@ -8,7 +8,7 @@ import { z } from "zod/v4";
 import { ensureProjectForRequest } from "@/lib/tenant";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
-import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { sanitizeMetadata } from "@/lib/sanitize/sanitize-metadata";
 import { prepareCredits } from "@/lib/credits/server";
 
 export const runtime = "nodejs";
@@ -379,7 +379,7 @@ export async function POST(req: Request) {
                 v0VersionId: versionId,
                 v0MessageId: latestVersion.messageId || null,
                 demoUrl: demoUrl,
-                metadata: sanitizeV0Metadata(latestVersion),
+                metadata: sanitizeMetadata(latestVersion),
               });
             }
           }

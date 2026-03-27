@@ -7,7 +7,7 @@ import { z } from "zod/v4";
 import { ensureProjectForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { initFromRegistry, type QualityLevel } from "@/lib/v0/v0-generator";
-import { isRegistryUrl, parseRegistryUrl } from "@/lib/v0/v0-url-parser";
+import { isRegistryUrl, parseRegistryUrl } from "@/lib/shadcn/registry-url";
 import { prepareCredits } from "@/lib/credits/server";
 
 export const runtime = "nodejs";

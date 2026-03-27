@@ -5,7 +5,7 @@ import { chats, versions, deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
-import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { sanitizeMetadata } from "@/lib/sanitize/sanitize-metadata";
 
 export async function POST(req: Request) {
   return withRateLimit(req, "webhook:v0", async () => {
@@ -86,12 +86,12 @@ async function handleMessageCompleted(data: any) {
       v0VersionId: versionId || messageId,
       v0MessageId: messageId,
       demoUrl: demoUrl || null,
-      metadata: sanitizeV0Metadata(data),
+      metadata: sanitizeMetadata(data),
     });
   } else if (demoUrl && !existingVersion[0].demoUrl) {
     await db
       .update(versions)
-      .set({ demoUrl, metadata: sanitizeV0Metadata(data) })
+      .set({ demoUrl, metadata: sanitizeMetadata(data) })
       .where(eq(versions.id, existingVersion[0].id));
   }
 }

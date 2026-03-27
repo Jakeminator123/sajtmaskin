@@ -13,7 +13,7 @@
  */
 
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
-import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
+import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/shadcn/registry-url";
 import {
   resolveShadcnComponentMetadata,
   type ComponentPreviewKind,
