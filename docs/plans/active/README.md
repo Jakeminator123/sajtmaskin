@@ -1,27 +1,13 @@
 # Active plans
 
-Execution-ready material under denna mapp. **Statuskarta + arkivlista + livscykel:** [`../README.md`](../README.md) · [`../../architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md`](../../architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md) (hub: [`../../architecture/README.md`](../../architecture/README.md)). **Primär körplan:** [`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md). **Arkiverad handoff-historik:** [`../avklarat/2026-03-handoff-doc-bundle/`](../avklarat/2026-03-handoff-doc-bundle/).
+**[`PROJECT-STATE-AND-DIRECTION.md`](./PROJECT-STATE-AND-DIRECTION.md)** — kanonisk backlog (K-rader, Plan 17, beslut, git-rutin).
 
-## Vad betyder «100% klart» här?
+## Undermappar
 
-| Spår | «Klart» betyder | Var sanningen lever |
-|------|-----------------|---------------------|
-| **External review remediation** | W1–W5 execution enligt `1.txt`–`3.txt` är levererad; **100%** = *remediation exit*, inte att alla produktönskemål är borta | [`external-review-remediation-progress.md`](./external-review-remediation-progress.md) + [`avklarat/external-review-execution/REMEDIATION-EXIT.md`](../avklarat/external-review-execution/REMEDIATION-EXIT.md) |
-| **Kritik / K-rader** | Öppna punkter tills produkt stänger dem | [`kritik-consolidated-open-items.md`](./kritik-consolidated-open-items.md) |
-| **Plan 17 (repo separation)** | **WS-6 klar** (2026-03-26). **Kvar:** WS-5 + deferred (WS-2/WS-4) — huvudfilen arkiveras inte som «färdig» förrän de är gjorda eller N/A med motivering | [`17-repo-separation-and-independence.md`](./17-repo-separation-and-independence.md) |
+| Mapp | Syfte |
+|------|--------|
+| **`queue/`** | Platshållare. Tidigare `PLAN-*`/FAQ låg här; operativ sanning är i `PROJECT-STATE-AND-DIRECTION.md`. Historik: git. |
+| **`reviews/`** | Platshållare. Tidigare second-opinion; operativt i `PROJECT-STATE-AND-DIRECTION.md`. Äldre material: [`../avklarat/`](../avklarat/README.md). |
+| **`external-review-execution/`** | Platshållare för spårbara körningar (tom — se git-historik vid behov). |
 
-## `external-review-execution/` i `active/` (stub)
-
-**Innehåll** (README, REMEDIATION-EXIT, MASTER-ROADMAP, CONTINUATION, tracks) ligger i [`../avklarat/external-review-execution/`](../avklarat/external-review-execution/). Under `active/external-review-execution/` finns bara en [**stub**](./external-review-execution/README.md) så gamla länkar till den sökvägen inte går sönder. **Historik:** äldre körningar kan nämnas i `docs/plans/avklarat/`; repot har inte längre en `.cursor/orchestrator/`-mapp (se [`orchestrator-run-protocol.md`](../../architecture/archive/pre-2026-03-consolidation/orchestrator-run-protocol.md)).
-
-## En sida för «vad är kvar?»
-
-[`SAJTMASKIN-EXECUTION-PLAN.md`](./SAJTMASKIN-EXECUTION-PLAN.md) (**§1 = spaltlista** över alla öppna brister) + [`MASTER-ALLT-KVAR.md`](./MASTER-ALLT-KVAR.md) (djup referens); hubb [`REMAINING-WORK.md`](./REMAINING-WORK.md); [`INPUT_GPT.txt`](../../../INPUT_GPT.txt); `queue/KORFIL.md` = pekare till MASTER.
-
-## Innehåll i `active/` (kort)
-
-- **Styrning remediation:** `external-review-remediation-progress.md`, `orchestrator-workloads-external-review.md` (**stub** → arkiverad W1–W5-text); orchestrator-handoff-mall i [`../avklarat/2026-03-handoff-doc-bundle/`](../avklarat/2026-03-handoff-doc-bundle/).
-- **Genomfört spår + audit trail:** `avklarat/external-review-execution/*` + stub `external-review-execution/README.md`.
-- **Parallell kritik:** `kritik-consolidated-open-items.md`, `kritik-derived-backlog.md`.
-- **Second opinion / reviews:** `reviews/README.md` — färdiga granskningar flyttas till [`../avklarat/`](../avklarat/) (se t.ex. `orchestrator-followup-from-39fef25e.md`).
-- **Separat arkitekturplan:** `17-repo-separation-and-independence.md` (WS-5/6 kvar).
+**Livscykel:** [`../README.md`](../README.md) · [`documentation-lifecycle.md`](../../architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md). **Arkitektur:** [`../../architecture/README.md`](../../architecture/README.md). **Avklarat:** [`../avklarat/README.md`](../avklarat/README.md).

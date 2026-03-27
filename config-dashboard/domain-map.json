@@ -5,7 +5,7 @@
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Det mesta som dashboarden redigerar ligger här.",
     "config-dashboard": "Endast Streamlit-verktyget (python app.py). Importeras inte av Next.js.",
     "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md (tidigare structure-and-terminology.md, nu arkiv).",
-    ".cursor": "Cursor-projektregler och skills. terminology.mdc (alwaysApply) redigeras från vyn Cursor-agenter."
+    ".cursor": "Cursor-projektregler och skills. Fem always-on .mdc (terminology, session-git-docs, tooling-routing, repo-env-indexing, platform-quirks) — redigeras från vyn Cursor-agenter."
   },
   "pages": {
     "Översikt": {
@@ -115,10 +115,15 @@
       ]
     },
     "Cursor-agenter": {
-      "summary": "Ordlista och strukturterminologi som Cursor laddar som projektregel respektive arkitekturdoc — samma filer du redigerar här.",
+      "summary": "Ordlista, struktur och aktiv backlog — projektregler + arkitektur + en samlad planfil.",
       "canonicalPaths": [
         ".cursor/rules/terminology.mdc",
-        "docs/architecture/repository-and-platform.md"
+        ".cursor/rules/session-git-docs.mdc",
+        ".cursor/rules/tooling-routing.mdc",
+        ".cursor/rules/repo-env-indexing.mdc",
+        ".cursor/rules/platform-quirks.mdc",
+        "docs/architecture/repository-and-platform.md",
+        "docs/plans/active/PROJECT-STATE-AND-DIRECTION.md"
       ],
       "docsPaths": [
         ".cursor/README.md",

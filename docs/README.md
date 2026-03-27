@@ -1,4 +1,4 @@
-# Documentation Hub
+# Documentation
 
 `docs/` is the main home for human-readable documentation.
 
@@ -14,14 +14,14 @@
 ## Quick path (when `docs/` feels heavy)
 
 1. This file → **Key navigation** table below.
-2. `docs/plans/active/SAJTMASKIN-EXECUTION-PLAN.md` — **spaltlista** över öppen backlog (**K-018**, **K-019**, Plan 17; K-007/K-009 stängda 2026-03-26).
+2. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **enda aktiva backlog-filen** (K-018, K-019, Plan 17, beslut).
 3. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt (detalj: arkiv `engine-status.md`).
 4. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 5. `docs/ENV.md` — env topology when debugging deploy/local.
 
-**Orchestrator / remediation:** Färska procentsiffror och “Done / Next” finns bara i [`docs/plans/active/external-review-remediation-progress.md`](plans/active/external-review-remediation-progress.md). Kopieringsmallar (t.ex. [`docs/plans/avklarat/2026-03-handoff-doc-bundle/orchestrator-handoff-sequential-stramning.md`](plans/avklarat/2026-03-handoff-doc-bundle/orchestrator-handoff-sequential-stramning.md), arkiverad) ska **inte** duplicera % — uppdatera alltid källfilen vid leverans.
+**Remediation-historik** (%, orchestrator-körningar) finns i **git-historik** under `docs/plans/avklarat/` — se [`docs/plans/avklarat/README.md`](plans/avklarat/README.md). Operativ backlog: [`PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) §10.
 
-Everything else is deep reference, history, or plans.
+Everything else is deep reference, history, or architecture.
 
 **Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) (fyra kapitel + arkiv) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `old/` (history; analyses under `old/analyses/`). Doc-policy: arkiv [`architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md`](architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md).
 
@@ -77,7 +77,7 @@ Good production inputs:
 
 Not runtime dependencies:
 
-- Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs, local engine/scaffold helpers — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.**
+- Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.**
 - browser-driven doc helpers in `tools/doc-browser/`
 - raw discovery under `research/external-templates/raw-discovery/current/`
 - local shallow clone cache under `research/external-templates/repo-cache/`
@@ -87,7 +87,7 @@ Not runtime dependencies:
 
 | What you need | Where to look |
 |---|---|
-| **Architecture hub** (fyra kapitel + vad som flyttats till arkiv) | [`docs/architecture/README.md`](architecture/README.md) |
+| **Arkitektur** (fyra kapitel + arkiv med äldre uppdelningar) | [`docs/architecture/README.md`](architecture/README.md) |
 | System / motor / builder-entry | [`docs/architecture/system-overview.md`](architecture/system-overview.md) |
 | Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/builder-generation.md`](architecture/builder-generation.md) |
 | Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) |
@@ -95,10 +95,8 @@ Not runtime dependencies:
 | Utförliga äldre filer (en per ämne) | [`docs/architecture/archive/pre-2026-03-consolidation/`](architecture/archive/pre-2026-03-consolidation/) |
 | Plans (all buckets) | `docs/plans/README.md` |
 | Plan / agent handoff (historik) | arkiv [`agent-roadmap-and-handoff.md`](architecture/archive/pre-2026-03-consolidation/agent-roadmap-and-handoff.md) |
-| External review — progress, %, commit-rutin | `docs/plans/active/external-review-remediation-progress.md` |
-| External review — W1–W5 workloads (stub → arkiv) | `docs/plans/active/orchestrator-workloads-external-review.md` |
-| External review — execution (arkiv; stub i active) | `docs/plans/avklarat/external-review-execution/README.md` · stub: `docs/plans/active/external-review-execution/README.md` |
-| Allt kvar | `docs/plans/active/SAJTMASKIN-EXECUTION-PLAN.md` (körplan) · `docs/plans/active/MASTER-ALLT-KVAR.md` (djup) · `queue/KORFIL.md` pekar till MASTER · `INPUT_GPT.txt` (rot) |
+| Backlog & beslut (kanonisk) | [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
+| Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
 | Agent workflows (deep brief, runtime vs MCP) | `docs/contributing/agent-workflows.md` |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Terminology (folders + research flow) | [`repository-and-platform.md`](architecture/repository-and-platform.md) · djup: arkiv `structure-and-terminology.md` |

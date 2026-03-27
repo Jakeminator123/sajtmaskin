@@ -195,5 +195,5 @@ auxiliary OpenAI phases stay on `gpt-4.1-mini` unless the implementation changes
 ## Archived docs
 
 Earlier model-schema notes and tier-history docs were archived under
-`docs/plans/avklarat/2026-03-docs-old-archive/schemas/`.
+git under `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`).
 

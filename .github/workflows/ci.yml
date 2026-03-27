@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # origin/HEAD is master; keep main for forks/branches that still use it
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 concurrency:
   group: ci-${{ github.ref }}

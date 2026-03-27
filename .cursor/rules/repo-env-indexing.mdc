@@ -1,0 +1,20 @@
+---
+description: Workspace layout, env and ignore files, cursorignored paths (read explicitly)
+alwaysApply: true
+---
+
+# Workspace, environment, and indexing
+
+## Workspace
+
+Single root = repo checkout. Tracked work only under repo root. Prefer `sajtmaskin.code-workspace` (gitignored; copy from `sajtmaskin.code-workspace.example`). Shared tooling: `.vscode/settings.json` + same `settings` in workspace file. Cursor-only: `.cursor/settings.json`. Changing ESLint/Prettier/markdownlint ignores → update `.vscode/settings.json`, workspace file, and ignore files together.
+
+## Env and ignore files
+
+**Catalog:** `docs/ENV.md`, `src/lib/env.ts`, `config/env-policy.json` (indexed). Secrets in `.env.local` / `.env.production` (ignored) — open only for concrete debugging; never commit. Templates: `.env.example`, `.env.*.example`.
+
+**Access:** Read/edit `.env*`, `.gitignore`, `.cursorignore`, etc. when relevant (setup, deploy, indexing, user-requested key help). Smallest read first; summarize keys/mismatches in chat — never paste secret values unless user asks for exact values.
+
+## Cursorignored context
+
+Semantic search/grep miss these — use **Read** with known paths: `research/external-templates/reference-library/` (dossiers); `docs/plans/avklarat/` (history; see `README.md` there); `.cursor/migration-archive/` (repo split); `scripts/` (tooling). Large JSON (`scaffold-embeddings.json`, `template-library.generated.json`): use folder **README**s, not full file. Entry READMEs: `src/lib/gen/data/README.md`, `scaffolds/README.md`, `template-library/README.md`.

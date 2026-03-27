@@ -23,3 +23,4 @@ Infrastructure and deployment files are grouped under `infra/` where possible.
 - Seeded OpenClaw config:
   - `infra/openclaw/config/agents/sajtagenten/agent/IDENTITY.md`
   - `infra/openclaw/config/workspace/`
+

@@ -197,3 +197,6 @@ internt_jakob/
 
 .vercel
 .env*.local
+
+.vercel
+.env*.local

@@ -1,6 +1,6 @@
 # Miljövariabler
 
-Översikt av env-variabler för lokal utveckling och Vercel-deploy.
+**Syfte:** Mänsklig översikt av vilka variabler som finns, hur de kopplas till lokal dev och Vercel, och vilka nycklar som är kritiska. Maskinläsbar canonical källa är `src/lib/env.ts` och `config/env-policy.json`; `manage_env.py` används för audit och synk.
 
 ## Hur env-filerna hänger ihop
 
@@ -359,7 +359,7 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 4. **Postgres (dev):** Skapa ett Supabase-projekt (gratis tier går för lokal dev), sätt `POSTGRES_URL`. Produktion använder separat projekt; vid högre krav använd betald Supabase-plan (se infrastruktur-tabellen ovan).
 5. Kör `npm run db:init` för att skapa databasschemat.
 6. För e-post: `RESEND_API_KEY` (valfritt i dev).
-7. **Valfritt — Cursor MCP:** kopiera **`.cursor/mcp.json.example` → `.cursor/mcp.json`** om du vill ha plattforms-MCP och lokala `sajtmaskin-engine` / `sajtmaskin-scaffolds` i editorn (`npx tsx tools/mcp/...`). Detta är **inte** nödvändigt för att läsa eller arbeta med projektets dokumentation — den ligger i `docs/` och repot.
+7. **Valfritt — Cursor MCP:** kopiera **`.cursor/mcp.json.example` → `.cursor/mcp.json`** om du vill ha plattforms-MCP (t.ex. v0, Vercel, OpenAI-docs) i editorn. Detta är **inte** nödvändigt för att läsa eller arbeta med projektets dokumentation — den ligger i `docs/` och repot.
 8. Extern template-research:
    - `npm run references:discover` skriver kanonisk rå discovery till `research/external-templates/raw-discovery/current/` — Playwright-specen är **`e2e/vercel-templates/scrape-catalog.spec.ts`** (spårad). Kräver Playwright + nät. Se arkiv [`vercel-templates-discovery.md`](architecture/archive/pre-2026-03-consolidation/vercel-templates-discovery.md) och [`vercel-templates-playwright-scaffold-integration.txt`](architecture/archive/pre-2026-03-consolidation/vercel-templates-playwright-scaffold-integration.txt).
    - `npm run template-library:import-legacy` importerar legacy `_sidor`-summary till samma plats

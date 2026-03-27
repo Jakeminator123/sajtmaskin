@@ -1,8 +1,0 @@
----
-description: Read explicitly from cursorignored paths when relevant (not indexed)
-alwaysApply: true
----
-
-# Cursorignored context
-
-Semantic search/grep miss these — use **Read** with known paths: `research/external-templates/reference-library/` (dossiers); `docs/plans/avklarat/` (history); `.cursor/migration-archive/` (repo split); `scripts/` (tooling). Large JSON (`scaffold-embeddings.json`, `template-library.generated.json`): use folder **README**s, not full file. Entry READMEs: `src/lib/gen/data/README.md`, `scaffolds/README.md`, `template-library/README.md`.

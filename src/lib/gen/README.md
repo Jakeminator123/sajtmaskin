@@ -1,5 +1,7 @@
 # gen/ — Code Generation Module
 
+Human architecture overview: [`docs/architecture/README.md`](../../../docs/architecture/README.md) · [`builder-generation.md`](../../../docs/architecture/builder-generation.md).
+
 Sajtmaskin's own code generation engine. Uses OpenAI models (gpt-5.3-codex default, gpt-5.4 max) via AI SDK to generate Next.js/React sites from prompts. Builder **codegen** uses this own-engine path only; v0 Platform API is not used for `createGenerationPipeline`.
 
 ## Architecture

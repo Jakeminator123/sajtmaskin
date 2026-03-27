@@ -4,14 +4,9 @@
 
 ## Terminologi (mappar och lager)
 
-| Begrepp | Var | Roll |
-|---------|-----|------|
-| **v0-templates** | `src/lib/templates/` | Produktgalleri — **inte** runtime-scaffold |
-| **Runtime scaffolds** | `src/lib/gen/scaffolds/` | Enda codegen-basen för egen motor |
-| **Vercel mall (research)** | `research/external-templates/`, `template-library` | Kurering som **informerar** scaffolds — inte samma som Mall-fliken |
-| **Artifact** | t.ex. `template-library/*.json` | Genererad data för ranking/enrichment |
+**Kompakt ordlista (lager, kod vs UI, lanes):** [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc). **På-disk-tabell** (scaffold / v0-templates / research / artifacts) finns där — duplicera inte här.
 
-Full glossary: [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc). Djupare filstruktur: [arkiv `structure-and-terminology.md`](./archive/pre-2026-03-consolidation/structure-and-terminology.md).
+Djupare filstruktur och pipeline: [arkiv `structure-and-terminology.md`](./archive/pre-2026-03-consolidation/structure-and-terminology.md).
 
 ## Dokumentationslivscykel
 
@@ -57,4 +52,4 @@ Lokal capture: arkiv `inspector-worker-quickstart.md`.
 
 - **Config dashboard (Streamlit)** vs `docs/`: arkiv `config-dashboard-sources.md`.
 - **D-ID / avatar test route**: arkiv `did-avatar-test-route.md`.
-- **Orchestrator i Cursor**: borttaget — kort notis i arkiv `orchestrator-run-protocol.md`; planhistorik i `docs/plans/avklarat/`.
+- **Orchestrator i Cursor**: borttaget — kort notis i arkiv `orchestrator-run-protocol.md`; äldre planhistorik i git under `docs/plans/avklarat/` (se [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).

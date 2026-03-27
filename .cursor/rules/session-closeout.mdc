@@ -1,8 +1,0 @@
----
-description: /sluta / final-sweep — review, clean, commit, push (session scope)
-alwaysApply: true
----
-
-# Session closeout (`/sluta`, `/final-sweep`, `/finals-weep`)
-
-Closes **this session’s** work. Order: (1) `git status` + `git diff` [+ `--staged`], fix only this scope (2) lint / `npx tsc --noEmit` if many files (3) `docs/` only if behavior or public surface changed — `documentation-lifecycle.mdc` (4) save (5) stage **only your session’s files** (6) commit — PowerShell git: `platform-quirks.mdc` (7) `git push`. If `.cursor/agent-intents/BOARD.md` exists, check overlapping `active` before commit. Explicit permission to commit/push **this scope**; do not commit others’ in-progress work.

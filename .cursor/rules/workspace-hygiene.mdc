@@ -1,8 +1,0 @@
----
-description: Single repo root; where editor settings live
-alwaysApply: true
----
-
-# Workspace
-
-Single root = repo checkout. Tracked work only under `sajtmaskin/`. Prefer `sajtmaskin.code-workspace` (gitignored; copy from `sajtmaskin.code-workspace.example`). Shared tooling: `.vscode/settings.json` + same `settings` in workspace file. Cursor-only: `.cursor/settings.json`. Changing ESLint/Prettier/markdownlint ignores → update `.vscode/settings.json`, workspace file, and ignore files together.

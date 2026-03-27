@@ -15,7 +15,7 @@ Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverkty
 | Lager                                             | Lever vid                                                       | Syfte                                                                                                                                                                              |
 | ------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **App-runtime** (Sajtmaskin på Vercel/lokal Next) | `npm run dev` / produktion                                      | Användare, builder, API-routes, DB, deploy. **Oberoende** av att MCP eller Cursor körs.                                                                                            |
-| **Valfria MCP-kopplingar i Cursor**               | Cursor `mcp.json` (lokal kopia från `.cursor/mcp.json.example`) | **Inte** källan till projektets dokumentation — den ligger i **`docs/`**, `README` och `.cursor/rules/`. MCP här är valfria hjälpmedel för agenter (plattforms-API:er, egen motor/scaffold-verktyg). Se `[.cursor/README.md](../../.cursor/README.md)` § MCP. |
+| **Valfria MCP-kopplingar i Cursor**               | Cursor `mcp.json` (lokal kopia från `.cursor/mcp.json.example`) | **Inte** källan till projektets dokumentation — den ligger i **`docs/`**, `README` och `.cursor/rules/`. MCP här är valfria hjälpmedel för agenter (plattforms-API:er). Motor/scaffold-kod läses i repot (`src/lib/mcp/*`, `src/lib/gen/scaffolds/`). Se `[.cursor/README.md](../../.cursor/README.md)` § MCP. |
 | **Vitest / Playwright**                           | CI & lokal utveckling                                           | Tester körs utan MCP; `e2e/`** körs med Playwright, exkluderad från Vitest.                                                                                                        |
 
 
@@ -25,19 +25,17 @@ Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverkty
 
 ## Agent-underlag i git (`.j_to_agent`)
 
-Underlag och kritikfiler kan ligga i `**.j_to_agent/`** för reproducerbarhet. **Committa inte** secrets, tokens, personuppgifter eller stora binärer — använd `.gitignore` och samma hygien som i `[external-review-remediation-progress.md](../plans/active/external-review-remediation-progress.md)` § *Arbetsyta / commit*.
+Underlag och kritikfiler kan ligga i `**.j_to_agent/`** för reproducerbarhet. **Committa inte** secrets, tokens, personuppgifter eller stora binärer — använd `.gitignore` och [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-indexing.mdc).
 
-**Worktree:** säkerställ `git fetch` + `master` synkad mot `origin/master` om du jämför plan/remediation med lokala filer (se samma progress-dokument § *Gren och arbetsyta*).
+**Worktree:** `git fetch` + `git pull` innan du jämför plan med `origin/master`.
 
 ## Verifiering före större merge
 
 Kör `**npm run typecheck`** och `**npx vitest run**` (plus `npm run lint` vid behov) innan du pushar större ändringar — särskilt om flera agenter rör samma spår.
 
-## Relaterade planfiler
+## Plan / backlog
 
-- [External review — workloads](../plans/active/orchestrator-workloads-external-review.md) (stub → [full snapshot](../plans/avklarat/orchestrator-workloads-external-review.md); aktiv backlog: [REMAINING-WORK](../plans/active/REMAINING-WORK.md))
-- [External review — progress %](../plans/active/external-review-remediation-progress.md)
-- [Execution — MASTER-ROADMAP (arkiv)](../plans/avklarat/external-review-execution/MASTER-ROADMAP.md) · [stub](../plans/active/external-review-execution/README.md)
-- [Allt kvar — MASTER](../plans/active/MASTER-ALLT-KVAR.md) · [KORFIL (pekare)](../plans/active/queue/KORFIL.md) · valfria `queue/PLAN-*.md`
-- [Kritik-derived backlog](../plans/active/kritik-derived-backlog.md) — öppna punkter från parallell granskning
+- [PROJECT-STATE-AND-DIRECTION.md](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — kanonisk backlog  
+- [`avklarat/README.md`](../plans/avklarat/README.md) — äldre planhandoff i git-historik  
+- [KRITIK-OVERVIEW.md](../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) — parallell kritikspårning
 

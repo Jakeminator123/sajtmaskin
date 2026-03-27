@@ -59,3 +59,4 @@ Commands inside the interactive loop:
 - These helpers are useful for quick doc lookups and product-behavior questions.
 - For structured platform operations, prefer the existing MCP tools in this repo.
 - For the main builder/generation flow, the own engine remains the default path.
+

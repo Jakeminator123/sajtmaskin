@@ -1,5 +1,7 @@
 # Scripts
 
+GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`** och **`master`**: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+
 ## Översikt och inventering
 
 - **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/archive/pre-2026-03-consolidation/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.

@@ -110,5 +110,5 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 
 ## Archived docs
 
-Older scaffold schema notes were archived under `docs/plans/avklarat/2026-03-docs-old-archive/schemas/`.
+Older scaffold schema notes may exist in git under `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`).
 

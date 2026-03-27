@@ -1,0 +1,33 @@
+---
+description: MCP servers, skills (sajtmaskin-context, react best practices), aliases
+alwaysApply: true
+---
+
+# MCP and skills routing
+
+## MCP and docs routing
+
+**Sajtmaskin project docs:** architecture, plans, and conventions live under **`docs/`** and in-repo sources — read those directly. MCP does **not** expose a dedicated «full project documentation» feed; use the filesystem / `@` references.
+
+**Config:** `.cursor/mcp.json` (example: `.cursor/mcp.json.example`).
+
+| Server | Scope |
+|--------|--------|
+| `v0` | v0 Platform API, chats, generation |
+| `Vercel` | Deploys, projects, env, platform docs (incl. AI SDK docs) |
+| `openaiDeveloperDocs` | OpenAI API / models (resources) |
+| `openclaw-docs` | OpenClaw install, gateway, channels, CLI (often user-level; not always in `mcp.json`) |
+
+**Own engine / runtime scaffolds:** read the repo (`src/lib/mcp/*`, `src/lib/gen/scaffolds/`) — there is no dedicated local MCP server for these.
+
+**Route:** v0 API/SDK → `v0`. Vercel platform → `Vercel`. OpenAI → `openaiDeveloperDocs`. OpenClaw topics → **`openclaw-docs` tools** (`openclaw_docs_search` → `section` / `index`; training data is often wrong).
+
+**Fallback:** Logged-in site questions: `tools/doc-browser/talk_to_v0_doc/ask_v0.py`, `tools/doc-browser/talk_to_vercel_doc/ask_vercel.py` — not production deps.
+
+## Skills routing
+
+**Domain (builder, scaffolds, v0 vs Vercel mall, preview/deploy, v0/Vercel/OpenAI/OpenClaw docs):** read `.cursor/skills/sajtmaskin-context/SKILL.md` first; terminology → **`terminology.mdc`**; MCP → this file. Skip for generic non-domain tasks.
+
+**React / Next / Node / perf:** apply `vercel-react-best-practices` (project `.cursor/skills/` or Vercel plugin — rules matter, not path). Deep refactors: `https://raw.githubusercontent.com/vercel-labs/agent-skills/main/skills/react-best-practices/AGENTS.md`; focused: `.../rules/{rule-name}.md`.
+
+**Aliases:** Varicell/Vericell → Vercel; Veenol/Venol → v0.

@@ -1,6 +1,6 @@
 # External Template Research
 
-This folder is the canonical external-template research lane.
+This folder is the canonical external-template research lane. Repo context (mappar, mallar vs scaffold): [`docs/architecture/repository-and-platform.md`](../../docs/architecture/repository-and-platform.md).
 
 ## Canonical sub-areas
 

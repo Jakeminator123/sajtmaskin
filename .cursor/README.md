@@ -2,7 +2,7 @@
 
 ## Workspace (en rot, samma verktygsinställningar)
 
-- Öppna projektet med **`sajtmaskin.code-workspace`** i repots rot (en mapp: `.`), eller öppna själva **`sajtmaskin`**-mappen. Filen är **gitignorerad** (lokala inställningar); efter klon: kopiera **`sajtmaskin.code-workspace.example`** → **`sajtmaskin.code-workspace`**. Lägg inte till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`, worktrees) som extra workspace-mappar om du vill undvika brus i Problems (markdownlint, sökning, m.m.).
+- Öppna projektet med **`sajtmaskin.code-workspace`** i repots rot (en mapp: `.`), eller öppna själva **`sajtmaskin`**-mappen. Workspace-filen är **gitignorerad** (lokala inställningar). Om repot har en mall **`sajtmaskin.code-workspace.example`**, kopiera den till **`sajtmaskin.code-workspace`**; annars räcker det att öppna mappen eller skapa en enkel workspace-fil som pekar på **``.`**. Lägg inte till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`, worktrees) som extra workspace-mappar om du vill undvika brus i Problems (markdownlint, sökning, m.m.).
 - **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`**. **`sajtmaskin.code-workspace`** innehåller samma `settings`-block så att beteendet matchar oavsett om du öppnar mappen eller workspace-filen.
 - **Endast Cursor**: **`.cursor/settings.json`** (t.ex. Vercel-plugin). Den ersätter inte `.vscode` för vanliga tillägg; håll verktygsignorer synkade mellan **`.vscode/settings.json`** och **`sajtmaskin.code-workspace`**.
 - Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer *utanför* repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
@@ -13,17 +13,11 @@ Alla nedan har `alwaysApply: true` och laddas i **Cursor → Settings → Rules 
 
 | Regel | Syfte (kort) |
 |--------|----------------|
-| [agent-intent-board.mdc](rules/agent-intent-board.mdc) | Intent board, parallellt arbete, push-flöde |
-| [cursorignored-context-search.mdc](rules/cursorignored-context-search.mdc) | Sök/grep missar vissa mappar — läs explicit vid behov |
-| [documentation-lifecycle.mdc](rules/documentation-lifecycle.mdc) | Var `docs/` och planer lever; när canonical uppdateras |
-| [env-and-ignore-access.mdc](rules/env-and-ignore-access.mdc) | `.env*`, ignore-filer — inga hemligheter i git/chat |
-| [mcp-docs-routing.mdc](rules/mcp-docs-routing.mdc) | Vilken MCP för v0/Vercel/OpenAI/OpenClaw m.m. |
+| [terminology.mdc](rules/terminology.mdc) | Stack, lager, kod vs UI, scaffold/v0-templates, lanes |
+| [session-git-docs.mdc](rules/session-git-docs.mdc) | `/sluta`, intent board, push, parallellt arbete, docs/plans-livscykel |
+| [tooling-routing.mdc](rules/tooling-routing.mdc) | MCP-tabell + skills (sajtmaskin-context, react best practices) |
+| [repo-env-indexing.mdc](rules/repo-env-indexing.mdc) | Workspace, `.env*`, cursorignored paths |
 | [platform-quirks.mdc](rules/platform-quirks.mdc) | PowerShell, Sandbox, Playwright, streams, git-commit |
-| [project-overview.mdc](rules/project-overview.mdc) | Stack, arkitektur, huvudvägar |
-| [session-closeout.mdc](rules/session-closeout.mdc) | `/sluta`, final sweep — status, commit, push |
-| [skills-routing.mdc](rules/skills-routing.mdc) | När sajtmaskin-context / react-best-practices |
-| [terminology.mdc](rules/terminology.mdc) | Produktordlista (kort); detaljer i `docs/` |
-| [workspace-hygiene.mdc](rules/workspace-hygiene.mdc) | En repo-rot, `.vscode` vs workspace |
 
 ## Terminologidokument (produkt- och kodnamn)
 
@@ -38,24 +32,14 @@ Alla nedan har `alwaysApply: true` och laddas i **Cursor → Settings → Rules 
 För **mappar, Vercel-mall/research och v0-templates vs scaffold** (inte hela produktordlistan), se
 `docs/architecture/repository-and-platform.md` (och vid behov arkiv `docs/architecture/archive/pre-2026-03-consolidation/structure-and-terminology.md`) samt `docs/README.md` § Terminology.
 
+**Aktiv backlog / K-rader / Plan 17:** `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`.
+
 För **Djup brief vs större arbets­paket**, **runtime vs MCP** och **scaffold/dossier/artifact** i en sida: `docs/contributing/agent-workflows.md`.
 
-## MCP-servrar (`mcp.json`)
+## MCP (`mcp.json`)
 
-**Vad det inte är:** Ingen MCP här ersätter **Sajtmaskins mänskliga dokumentation** — den finns i **`docs/`**, rot-`README` och **`.cursor/rules/`** (läs från filträdet / indexering). MCP-servrarna nedan är **valfria** hjälp för agenter (API-anrop, egen motor/scaffold), inte en samlad «allt om projektet»-server.
+Valfria **plattforms-MCP** (v0, Vercel, OpenAI-docs; ev. `openclaw-docs` på användarnivå). **Hur Sajtmaskin fungerar** läses i **`docs/`** och `.cursor/rules/` — se `rules/tooling-routing.mdc` för tabell.
 
-**GitHub:** `.cursor/mcp.json` är **ignorerad** i git (kan få hemligheter vid URL-auth eller framtida fält). Kopiera mallen:
+**GitHub:** `.cursor/mcp.json` är **ignorerad**; kopiera `.cursor/mcp.json.example` → `.cursor/mcp.json`.
 
-```bash
-cp .cursor/mcp.json.example .cursor/mcp.json
-```
-
-| Server | Typ | Syfte |
-|--------|-----|--------|
-| `v0`, `Vercel`, `openaiDeveloperDocs` | Remote (URL) | Plattforms-API resp. officiell OpenAI-docs. |
-| **`sajtmaskin-engine`** | Lokal stdio | Own engine **utan** att gå via Next.js HTTP: generera sajt, läsa manifest/filer, skapa preview/sandbox-runtime. Start: `npx tsx tools/mcp/engine-server.ts`. |
-| **`sajtmaskin-scaffolds`** | Lokal stdio | De **interna runtime-scaffolds** (~10 st): lista, detaljer, filinnehåll, sök taggar, jämför två scaffolds. Start: `npx tsx tools/mcp/scaffold-server.ts`. |
-
-Mer routingregler för agenter: `rules/mcp-docs-routing.mdc` (servrar + OpenClaw + routing).
-
-**OBS:** **v0-templates** (`src/lib/templates/`) är *inte* samma sak som **runtime scaffolds** — se terminologidokumentet (inkl. särskiljning *inbäddningar* vs *semantik*).
+**OBS:** **v0-templates** (`src/lib/templates/`) är *inte* samma som **runtime scaffolds** — se `terminology.mdc`.

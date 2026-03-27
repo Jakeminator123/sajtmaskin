@@ -59,7 +59,11 @@ detta är bara en samlad minneslista, inte beslut eller färdig dokumentation.
 10) Cursor: terminologi + lokala MCP (2026-03-24)
 -------------------------------------------------
 - Ny `.cursor/README.md`: var terminologi finns, hur man öppnar den, tabell över lokala MCP-servrar.
-- `MCP-Servers.mdc` utökad med verktygsnamn för `sajtmaskin-engine` och `sajtmaskin-scaffolds`.
+- `MCP-Servers.mdc` utökad med verktygsnamn för `sajtmaskin-engine` och `sajtmaskin-scaffolds` (sedan borttagna — se punkt 12).
+
+12) MCP: borttagna lokala engine/scaffold-servrar (2026-03-27)
+--------------------------------------------------------------
+- `tools/mcp/engine-server.ts` och `scaffold-server.ts` borttagna; mall `.cursor/mcp.json.example` och docs pekar bara på plattforms-MCP. Egen motor/scaffold: läs repot (`src/lib/mcp/*`, `src/lib/gen/scaffolds/`).
 - `docs/README.md` länkar till `.cursor/README.md` i terminologiraden.
 
 11) Svenska vs engelska: inbäddningar vs semantik (2026-03-24)

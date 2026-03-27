@@ -65,6 +65,7 @@ Tom `/builder` är **inte** en sjätte canonical metod — bootstrap. v0-templat
 
 ## Planer och handoff
 
-- **Aktiva planer:** [`docs/plans/README.md`](../plans/README.md), [`docs/plans/active/`](../plans/active/).
-- **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [builder-generation.md](./builder-generation.md) → [preview-deploy.md](./preview-deploy.md) → relevant planfil.
-- Utförlig handoff-tabell (numrerade planer, faser) fanns i `agent-roadmap-and-handoff.md` (nu arkiverad); **sanning om vilka filer som är aktiva** = `docs/plans/README.md`.
+- **Operativ backlog (kanonisk):** [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — K-rader, Plan 17, beslut.
+- **Index / buckets:** [`docs/plans/README.md`](../plans/README.md), övrigt under [`docs/plans/active/`](../plans/active/) (korta README:er; ingen separat MASTER/execution längre).
+- **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [builder-generation.md](./builder-generation.md) → [preview-deploy.md](./preview-deploy.md) → capstone ovan vid backlog-frågor.
+- Utförlig historisk handoff-tabell: arkiv [`archive/pre-2026-03-consolidation/agent-roadmap-and-handoff.md`](./archive/pre-2026-03-consolidation/agent-roadmap-and-handoff.md) (narrativ; **inte** fil-lista som sanning).

@@ -8,14 +8,6 @@
     },
     "Vercel": {
       "url": "https://mcp.vercel.com"
-    },
-    "sajtmaskin-engine": {
-      "command": "npx",
-      "args": ["tsx", "tools/mcp/engine-server.ts"]
-    },
-    "sajtmaskin-scaffolds": {
-      "command": "npx",
-      "args": ["tsx", "tools/mcp/scaffold-server.ts"]
     }
   }
 }

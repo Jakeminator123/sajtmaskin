@@ -1,6 +1,6 @@
 ---
 name: sajtmaskin-context
-description: Apply Sajtmaskin project context, terminology, and MCP routing rules for v0, Vercel, OpenAI, and OpenClaw questions. Use when tasks mention builder flow, generation architecture, scaffolds, v0-templates, deployments, demoUrl, chats, versions, or external docs lookup.
+description: Sajtmaskin terminology and domain model; use docs/ for product architecture. For v0/Vercel/OpenAI/OpenClaw *API* routing see tooling-routing.mdc. Triggers: builder, scaffolds, v0-templates, deployments, demoUrl, chats, versions.
 ---
 
 # Sajtmaskin Context
@@ -9,13 +9,10 @@ Use this skill to align decisions and wording with this repository's domain mode
 
 ## Quick start
 
-1. Read these project rules first:
-   - `.cursor/rules/terminology.mdc`
-   - `.cursor/rules/mcp-docs-routing.mdc`
-   - `.cursor/rules/skills-routing.mdc`
-2. Keep canonical product terminology in all reasoning and responses.
-3. **Project documentation** (architecture, plans, how Sajtmaskin works): read **`docs/`** and repo files — there is no MCP that replaces that.
-4. For **external platform** APIs (v0, Vercel, OpenAI, OpenClaw product docs), route to the matching MCP server before generic web search when the server is configured.
+1. `.cursor/rules/terminology.mdc` + **`docs/`** for how the product/repo is structured. **Backlog / öppna K-rader:** `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`.
+2. `.cursor/rules/tooling-routing.mdc` when you need **which MCP** for v0/Vercel/OpenAI/OpenClaw (not a substitute for reading `docs/`).
+3. Same file for when to load this skill vs React best-practices.
+4. Keep canonical product terminology in reasoning and responses.
 
 ## Terminology guardrails
 
@@ -30,11 +27,10 @@ Route by domain:
 - v0 API or generation behavior -> `v0` MCP server
 - Vercel platform/deployments/env vars/docs -> `Vercel` MCP server
 - OpenAI API/models/docs -> `openaiDeveloperDocs`
-- Own engine runtime/manifests/generated files -> `sajtmaskin-engine`
-- Internal scaffolds/manifests/comparison -> `sajtmaskin-scaffolds`
 - OpenClaw install/config/channels/CLI -> `openclaw-docs`
+- Own engine / runtime scaffolds -> read `src/lib/mcp/*` and `src/lib/gen/scaffolds/` in the repo (no MCP wrapper)
 
-Prefer MCP for **those** platforms when available. Use web search as fallback. (Local `sajtmaskin-engine` / `sajtmaskin-scaffolds` are optional dev helpers — not a full project wiki.)
+Prefer MCP for **those** platforms when available; web search as fallback.
 
 ## React/Next tasks
 

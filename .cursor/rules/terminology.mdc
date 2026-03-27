@@ -1,38 +1,103 @@
 ---
-description: Product vocabulary — short form; details in docs/architecture/repository-and-platform.md (+ archive structure-and-terminology if needed)
+description: Product vocabulary, stack sketch, code vs UI — details in docs/architecture/repository-and-platform.md
 alwaysApply: true
 ---
 
-# Terminology (compact)
+# Terminology and product context
 
-**Layers:** Vercel (hosting) → Sajtmaskin (app, own-engine default) → v0 (templates/registry/zip; **not** builder codegen streams; optional `V0_FALLBACK_BUILDER` prefers v0 `demoUrl` in preview) → demo sites (user sites; “demo URL” usually means our preview/deploy, not legacy `*.vusercontent.net`).
+## Stack and overview
 
-**Start modes →** `/builder?buildMethod=...`: `wizard` | `category` (v0-templates / Template tab) | `audit` | `freeform` — Swedish UI **Fritext**, code **`freeform`**.
+AI site builder: prompt → own-engine codegen (default) → preview → deploy (Vercel).
 
-**Three words:** **Scaffold** = runtime starter (`src/lib/gen/scaffolds/`). **Dossier** = external template research (`research/.../dossiers/`). **Artifact** = generated JSON/embeddings consumed by code. **Mall (builder)** = v0-templates gallery — **not** `vercel.com/templates` (**Vercel mall** = research lane → dossiers/artifacts/scaffold ranking). Never call runtime scaffolds plain “templates”.
+**Stack:** Next.js 16 App Router, React 19, TS 5.9, Tailwind 4, shadcn/ui; OpenAI via AI SDK (own engine); Drizzle + Postgres (Supabase); Redis; Stripe; Vercel Blob. Env: `src/lib/config.ts`, `docs/ENV.md`.
 
-**Builder model lanes:** model lane (build stream), product lane (prompt assist), polish lane (`SAJTMASKIN_POLISH`), **Resonemang** = flag not a lane. Don’t mix scaffold/Vercel-mall research with lanes.
+**Architecture:** `User → Builder UI → src/lib/gen (own engine) → files → Preview → Deploy`. v0 SDK (templates/registry/zip) is **not** the main codegen stream.
 
-**Aliases → canonical:** Varicell → Vercel, Veenol → v0.
+**Key paths:** `src/app/builder/`, `src/app/api/v0/` (routes + legacy v0 API), `src/lib/gen/`, `src/lib/templates/` (v0-templates), `src/components/builder/`, `src/lib/builder/`, `src/lib/hooks/`, `src/lib/db/`, `src/lib/auth/`, `src/proxy.ts` (auth/CORS/headers). Hub: `docs/architecture/README.md`.
 
-**semantics / semantic / embedding:** HTML **semantik** ≠ ML **semantisk sökning** / **inbäddning**; code identifiers stay English.
+**Builder flow:** `ChatInterface` → optional `/api/ai/chat` → orchestration → scaffold → `prepareGenerationContext` → SSE stream → autofix/parse → `PreviewPanel`.
 
-**Legacy docs:** Older plans may mention a removed Cursor multi-agent orchestrator — not part of the product runtime.
+**DB:** Main app tables + own-engine tables (`engine_*`). **Conventions:** Swedish UI copy, English code; `@/*` → `src/*`.
 
-**Own-engine pipeline (rough):** prompt assist → orchestration → scaffold → `orchestrate.ts` → `system-prompt.ts` → stream → autofix/merge. **Custom instructions:** `defaults.ts` — CORE always; EXTENDED when scaffold `off`.
+## Layers (do not collapse)
 
-**BuildMethod:** `wizard` | `category` | `audit` | `freeform` | `kostnadsfri`. **BuildIntent:** `website` | `app` | `template` (UI **Kompakt**). **`own-engine`** in metadata; **egen motor** in Swedish UI only.
+| Layer | Role |
+|-------|------|
+| **Vercel** | Hosting |
+| **Sajtmaskin** | App; own-engine default |
+| **v0** | templates/registry/zip; **not** builder codegen streams; optional `V0_FALLBACK_BUILDER` prefers v0 `demoUrl` in preview |
+| **Demo sites** | User sites; “demo URL” usually means our preview/deploy, not legacy `*.vusercontent.net` |
 
-**Theme vs Figma vs v0 DS:** `designTheme` / `themeColors` ≠ Figma attachment ≠ `v0DesignSystemId` — don’t conflate.
+## Code identifier vs Swedish UI
 
-**Project / chat / version:** DB project + chats + file snapshots; preview URL; optional legacy v0 IDs.
+| Code / URL | Swedish UI (examples) | Notes |
+|------------|------------------------|-------|
+| `freeform` | Fritext | `buildMethod` |
+| `wizard` \| `category` \| `audit` \| `freeform` \| `kostnadsfri` | Startlägen | `/builder?buildMethod=` |
+| `own-engine` | egen motor | metadata / Swedish UI only |
+| `website` \| `app` \| `template` | Kompakt (template intent) | `buildIntent` |
+| **Mall (builder)** | v0-templates gallery | **not** `vercel.com/templates` |
+| **Vercel mall** | Research lane | dossiers / artifacts / scaffold ranking |
 
-**Preview:** in-app Next preview; optional v0 `demoUrl` if fallback flag; degraded env placeholders in `config/ai_models/` + `user_degraded_env.txt`; Sandbox = opt-in server test.
+## On-disk vocabulary
+
+| Word | Where | Typical mistake |
+|------|--------|-------------------|
+| **Scaffold** | `src/lib/gen/scaffolds/` | Calling scaffolds “templates” |
+| **v0-templates** | `src/lib/templates/` | Confusing with runtime scaffold |
+| **Dossier** | `research/.../dossiers/` | — |
+| **Artifact** | e.g. `template-library/*.json`, embeddings JSON | — |
+| **Vercel mall (research)** | `research/external-templates/`, `template-library` | Same as builder Mall tab |
+
+## Builder model lanes
+
+| Lane | Role |
+|------|------|
+| Model lane | Build stream |
+| Product lane | Prompt assist |
+| Polish lane | `SAJTMASKIN_POLISH` |
+| **Resonemang** | Flag, **not** a lane |
+
+Do not mix scaffold/Vercel-mall research with lanes.
+
+## Aliases → canonical
+
+Varicell / Vericell → **Vercel**. Veenol / Venol → **v0**.
+
+## semantics vs semantic vs embedding
+
+HTML **semantik** ≠ ML **semantisk sökning** / **inbäddning**; code identifiers stay English.
+
+## Legacy docs
+
+Older plans may mention a removed Cursor multi-agent orchestrator — not part of product runtime.
+
+## Own-engine pipeline (rough)
+
+prompt assist → orchestration → scaffold → `orchestrate.ts` → `system-prompt.ts` → stream → autofix/merge. **Custom instructions:** `defaults.ts` — CORE always; EXTENDED when scaffold `off`.
+
+## Theme vs Figma vs v0 DS
+
+`designTheme` / `themeColors` ≠ Figma attachment ≠ `v0DesignSystemId` — do not conflate.
+
+## Project / chat / version
+
+DB project + chats + file snapshots; preview URL; optional legacy v0 IDs.
+
+## Preview and deploy
+
+**Preview:** in-app Next preview; optional v0 `demoUrl` if fallback; degraded env placeholders in `config/ai_models/` + `user_degraded_env.txt`; Sandbox = opt-in server test.
 
 **Deploy:** version files → images → Vercel API → URL.
 
-**Picker (reference):** `UnifiedElementPicker`, `UiElementPicker`, `UiElementPickerPreview`.
+## Picker (reference)
 
-**IDs (examples):** `appProjectId`, `v0ProjectId`, `demoUrl` (legacy v0), `buildMethod`, `buildIntent`.
+`UnifiedElementPicker`, `UiElementPicker`, `UiElementPickerPreview`.
 
-**See:** `docs/architecture/repository-and-platform.md`, `docs/architecture/README.md`, `docs/README.md`, `docs/schemas/README.md`, `docs/plans/README.md`.
+## IDs (examples)
+
+`appProjectId`, `v0ProjectId`, `demoUrl` (legacy v0), `buildMethod`, `buildIntent`.
+
+## See also
+
+`docs/architecture/repository-and-platform.md`, `docs/architecture/README.md`, `docs/README.md`, `docs/schemas/README.md`, `docs/plans/README.md`, `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` (backlog).

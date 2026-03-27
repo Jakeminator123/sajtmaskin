@@ -1,0 +1,173 @@
+================================================================================
+SAJTMASKIN — Vercel Templates Playwright, "spökmappen", och scaffolds
+Informationsfil (text). Senast uppdaterad: 2026-03-25.
+================================================================================
+
+SYFTE
+-----
+Den här filen samlar beslut, risker, pipeline och exakta steg så att ingen
+råkar blanda ihop:
+  - v0-mallar (produkt / Mall-fliken)
+  - runtime scaffolds (src/lib/gen/scaffolds, scaffold-embeddings.json)
+  - template-library (Vercel-katalog → kurering → template-library.generated.json
+    + template-library-embeddings.json)
+  - Playwright-specen som skrapar vercel.com/templates
+
+Trötthet och förkortningar ursäktas inte i koden; här skriver vi ut allt
+pedantiskt.
+
+
+1. ORDLISTA (använd konsekvent)
+-------------------------------
+vercel_templates_levels/     Gitignorerad rotmapp. Äldre namn "Vercel Templates
+                             Levels". Kan finnas lokalt med INSTRUCTIONS.md m.m.
+                             Kallas informellt "spökmappen" när clone saknar den
+                             men docs pekade dit.
+
+e2e/vercel-templates/        Kanonisk, GIT-SPÅRAD plats för scrape-catalog.spec.ts
+                             från och med den här integrationen.
+
+references:discover*         npm-scripts i package.json som kör Playwright mot
+                             specen (samt alias scaffolds:discover*).
+
+Raw discovery                research/external-templates/raw-discovery/current/
+                             — utdata från Playwright (och andra källor) som
+                             template-library-importen kan läsa.
+
+Template library (runtime)   src/lib/gen/template-library/ — bl.a.
+                             template-library.generated.json och
+                             template-library-embeddings.json (committade
+                             artefakter efter build + embeddings-steg).
+
+Scaffolds (runtime)          src/lib/gen/scaffolds/ — manifest, serialize,
+                             scaffold-embeddings.json (SEPARAT från template-
+                             library-embeddings). Väljs via matchScaffoldWith
+                             Embeddings i orchestrate.ts.
+
+Orchestrate / system-prompt  src/lib/gen/orchestrate.ts + system-prompt.ts —
+                             användarprompt → scaffold-val + dynamisk kontext,
+                             inkl. searchTemplateLibrary för referenser.
+
+
+2. VARFÖR "SPOEKMAPPEN" VAR PROBLEMATISK
+----------------------------------------
+Bra med gitignore på en rotmapp:
+  - Undviker att committa skrap, experiment, personliga anteckningar.
+
+Dåligt när package.json pekar BARA dit:
+  - Ny git clone har ingen mapp → npm run references:discover* faller.
+  - Två kopior av samma spec (e2e + vercel_templates_levels) → drift om en
+    uppdateras.
+
+Lösning vi genomfört:
+  - Kanonisk spec under e2e/ (spårad).
+  - package.json pekar på e2e-sökvägen.
+  - vercel_templates_levels/ förblir ignorerad som valfri spillra; kan raderas
+    lokalt.
+
+
+3. SCAFFOLDS — VAD FÅR INTE GÅ SÖNDER
+-------------------------------------
+Playwright-specen ändrar INTE:
+  - scaffold-embeddings.json (genereras av scripts/generate-scaffold-embeddings.ts
+    från befintliga manifest).
+  - Mall-flödet templates:* (v0).
+
+Den matar template-library-kedjan via raw-discovery:
+  - Efter scrape: kör befintliga npm-steg för import / hydrate / build /
+    template-library:embeddings enligt research/external-templates/README.md.
+  - Först då uppdateras committade JSON som searchTemplateLibrary läser.
+
+Promote-to-scaffold och liknande skript kopplar template-library entries till
+scaffolds — det är ett MEDVETET steg, inte automatiskt vid references:discover.
+
+Om du bara kör Playwright utan build/embeddings får du NY rådata på disk men
+GAMMAL runtime i src/lib/gen/template-library/*.json tills du kör pipelinen.
+
+
+4. PIPELINE (ORDNING)
+---------------------
+A) references:discover*  → raw-discovery/current/*
+B) template-library:import (eller motsvarande för er dataset-label)
+C) template-library:hydrate-cache (vid behov)
+D) template-library:build
+E) template-library:embeddings
+F) (Valfritt) kurering, promote-to-scaffold, generate-scaffold-embeddings — när
+   ni medvetet vill uppdatera scaffolds.
+
+Verifiering: se template-library-external-integration.test.ts och
+scaffold-embeddings-parity.test.ts för vad som förväntas committat.
+
+
+5. KONFIGURATION SOM ÄNDRATS (CHECKLISTA)
+-----------------------------------------
+package.json
+  references:discover*, second-pass, full → e2e/vercel-templates/scrape-catalog.spec.ts
+
+tsconfig.json
+  exclude: "e2e" (så tsc inte typecheckar Playwright-filer med fel projekt)
+
+vitest.config.ts
+  exclude: "e2e/**" (så Vitest inte plockar Playwright-filer)
+
+e2e/README.md
+  Ny: pekar på spec + npm + skillnad OpenClaw e2e
+
+e2e/vercel-templates/scrape-catalog.spec.ts
+  Kommentar: kanonisk sökväg + varning om legacy-kopia
+
+docs/architecture/vercel-templates-discovery.md
+  Omskriven: kanon e2e, legacy-mapp förklarad, länk till denna .txt
+
+docs + scripts + research README + inventory + ENV + terminology
+  Uppdaterade sökvägar och formuleringar (inga nya semantiska scaffold-ändringar)
+
+.gitignore
+  OFÖRÄNDRAD: vercel_templates_levels/ kvar ignorerad för lokal spillra
+
+.cursorignore
+  OFÖRÄNDRAD: vercel_templates_levels/ kvar dold i Cursor om mappen finns
+
+
+6. BRA / DÅLIGT — SAMMANFATTNING
+--------------------------------
+Bra:
+  - Clone + npm install → discover-scripts hittar filen.
+  - Tydlig separation: template-library vs scaffold-embeddings dokumenterad.
+  - Ignorerad legacy-mapp stör inte git om den finns kvar lokalt.
+
+Dåligt / kvar att bevaka:
+  - DOM på vercel.com kan bryta specen.
+  - Fler entries i katalogen utan bra kurering kan öka brus i embedding-sök.
+  - Om någon återintroducerar package.json-pekning till enbart ignorerad mapp
+    återkommer spökproblemet.
+
+
+7. VERIFIERING (LOKALT)
+-----------------------
+  npx playwright test e2e/vercel-templates/scrape-catalog.spec.ts --list
+  npm run typecheck
+
+references:discover kräver nät och Chromium; kör inte i CI som standard om ni
+inte sätter upp det medvetet.
+
+
+8. KONTAKT MELLAN AGENTER / ORCHESTRATOR
+----------------------------------------
+Tidigare handoff nämnde öppen fråga om spökmappen — den är nu löst i kod +
+docs; nästa agent ska läsa denna fil om de rör discovery eller scaffolds.
+
+
+9. DENNA ÄNDRINGSSATS (LEVERANS)
+--------------------------------
+Allt ovan har genomförts i en samlad ändring: flytt av kanon till e2e/,
+package.json, tsconfig, vitest, uppdaterade arkitektur- och plan-docs,
+research README + raw-discovery README, scripts README, ENV, terminology,
+hamta_sidor_branch_emil.py docstring, m.m.
+
+Leverans-commit på master: d2ff542d (meddelande: track Playwright Vercel discovery
+in e2e/ and document scaffold boundary).
+
+================================================================================
+SLUT
+================================================================================
