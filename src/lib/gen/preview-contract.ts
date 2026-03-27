@@ -27,3 +27,20 @@ export type SandboxReadySsePayload = {
   prodBuildLogSnippet?: string;
   fallbackDemoUrl?: string;
 };
+
+/** Response body from `POST /api/v0/chats/[chatId]/sandbox-preview`. */
+export type SandboxPreviewPostApiJson = {
+  ok?: boolean;
+  code?: string;
+  hint?: string;
+  message?: string;
+  stage?: string;
+  failureCode?: string;
+  retryable?: boolean;
+  sandboxUrl?: string;
+  sandboxId?: string;
+  sandboxPreviewMode?: string;
+  fidelityTier?: number;
+  prodBuildVerified?: boolean;
+  prodBuildLogSnippet?: string;
+};

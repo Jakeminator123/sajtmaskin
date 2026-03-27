@@ -14,12 +14,12 @@
 
 ## Demo-URL-kedja
 
-1. Efter `done` i SSE: `demoUrl` / `shimPreviewUrl` pekar på **tier-1 shim** när `previewUrl` finns (`sandboxPending` kan vara true medan tier-2 startar).
+1. Efter `done` i SSE: `demoUrl` / `shimPreviewUrl` pekar på **tier-1 shim** när `previewUrl` finns; om sandbox ska starta men `previewUrl` saknas används `buildOwnEnginePreviewRuntime` → `/api/preview-render` så iframen inte lämnas tom (`sandboxPending` kan vara true medan tier-2 startar).
 2. Kanoniska filer för sandbox är **`filesJson` efter finalize** (merge + preflight), inte rå `contentForVersion`.
-3. Om sandbox konfigurerad och inte `previewBlocked`: `startSandboxPreview` → `sandbox-ready` / `build-error`. Efter `npm run dev` körs en **readiness probe** mot preview-URL (se `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` i `docs/ENV.md`).
+3. Om sandbox konfigurerad och inte `previewBlocked`: `startSandboxPreview` → `sandbox-ready` / `build-error`. Efter `npm run dev` körs en **readiness probe** mot preview-URL: **2xx** och dokumentlik `Content-Type` (t.ex. `text/html`), inte bara att undvika 5xx (se `waitForSandboxDevServerReady` i `runtime-url.ts`; `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` i `docs/ENV.md`).
 4. `engine_versions.sandbox_url` uppdateras vid lyckad sandbox.
 
-**Typer / kontrakt:** `src/lib/gen/preview-contract.ts` (SSE-fält). **HTTP:** `/api/v0/chats/[chatId]/sandbox-preview` returnerar meningsfulla statuskoder (`422` repair, `503`/`504` runtime) — se `httpStatusForSandboxPreviewFailure`.
+**Typer / kontrakt:** `src/lib/gen/preview-contract.ts` (SSE-fält). **HTTP:** `/api/v0/chats/[chatId]/sandbox-preview` returnerar meningsfulla statuskoder (`422` repair, `503`/`504` runtime) och fältet `retryable` (bootstrap retry:ar bara när `retryable !== false`; **500** kräver `retryable: true` för auto-retry) — se `httpStatusForSandboxPreviewFailure`.
 
 Kodstart: `generation-stream.ts`, `finalize-version.ts`, `sandbox-preview.ts`, `PreviewPanel.tsx`, `stream-handlers.ts`.
 

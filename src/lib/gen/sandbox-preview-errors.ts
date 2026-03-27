@@ -2,6 +2,7 @@
 export function httpStatusForSandboxPreviewFailure(error: {
   stage: "repair" | "sandbox-create" | "install" | "build";
   message: string;
+  failureCode?: "readiness_timeout";
 }): number {
   switch (error.stage) {
     case "repair":
@@ -11,6 +12,10 @@ export function httpStatusForSandboxPreviewFailure(error: {
     case "build":
       return 422;
     case "sandbox-create": {
+      if (error.failureCode === "readiness_timeout") {
+        return 504;
+      }
+      // Fallback when `message` comes from non-SandboxReadinessTimeoutError throws (SDK, older builds).
       const m = error.message;
       if (
         m.includes("SANDBOX_NOT_LISTENING") ||

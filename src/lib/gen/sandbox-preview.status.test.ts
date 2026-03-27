@@ -20,4 +20,14 @@ describe("httpStatusForSandboxPreviewFailure", () => {
       }),
     ).toBe(504);
   });
+
+  it("maps failureCode readiness_timeout to 504 without substring in message", () => {
+    expect(
+      httpStatusForSandboxPreviewFailure({
+        stage: "sandbox-create",
+        message: "wrapped: something else",
+        failureCode: "readiness_timeout",
+      }),
+    ).toBe(504);
+  });
 });

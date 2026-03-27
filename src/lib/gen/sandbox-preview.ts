@@ -10,6 +10,7 @@ import {
 import {
   createSandboxRuntimeFromFiles,
   resolveSandboxPreviewModeFromEnv,
+  SandboxReadinessTimeoutError,
   tryResumeSandboxById,
   type RuntimeFile,
   type SandboxPreviewMode,
@@ -27,9 +28,13 @@ export interface SandboxPreviewResult {
   prodBuildLogSnippet?: string;
 }
 
+export type SandboxPreviewFailureCode = "readiness_timeout";
+
 export interface SandboxPreviewError {
   stage: "repair" | "sandbox-create" | "install" | "build";
   message: string;
+  /** Stable classifier for HTTP mapping — prefer over `message` substring checks. */
+  failureCode?: SandboxPreviewFailureCode;
   raw?: string;
 }
 
@@ -168,6 +173,17 @@ export async function startSandboxPreview(
       },
     };
   } catch (err) {
+    if (err instanceof SandboxReadinessTimeoutError) {
+      return {
+        ok: false,
+        error: {
+          stage: "sandbox-create",
+          message: err.message,
+          failureCode: "readiness_timeout",
+          raw: err.stack,
+        },
+      };
+    }
     const message = err instanceof Error ? err.message : "Sandbox creation failed";
     const isInstallError = message.includes("npm install") || message.includes("ERESOLVE");
     return {

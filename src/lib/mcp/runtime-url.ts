@@ -110,21 +110,46 @@ const MAX_TOTAL_BYTES = 2_500_000;
 const DEFAULT_READINESS_MAX_MS = 90_000;
 const READINESS_INTERVAL_MS = 1_000;
 
+/** Shared by `waitForSandboxDevServerReady` and `createSandboxRuntimeFromFiles` (env `SAJTMASKIN_SANDBOX_READINESS_MAX_MS`). */
+export function resolveSandboxReadinessMaxMsFromEnv(): number {
+  const raw = process.env.SAJTMASKIN_SANDBOX_READINESS_MAX_MS?.trim();
+  if (raw && /^\d+$/.test(raw)) {
+    return Math.min(Math.max(5_000, parseInt(raw, 10)), 180_000);
+  }
+  return DEFAULT_READINESS_MAX_MS;
+}
+
+/** Thrown when the dev server never responds with a usable document within the deadline. */
+export class SandboxReadinessTimeoutError extends Error {
+  readonly code = "SANDBOX_READINESS_TIMEOUT" as const;
+  constructor(message: string) {
+    super(message);
+    this.name = "SandboxReadinessTimeoutError";
+  }
+}
+
+/** True when the response looks like a document the iframe can render (not 404 HTML shell from proxy, etc.). */
+export function sandboxDevServerResponseLooksReady(res: Response): boolean {
+  if (!res.ok) return false;
+  const ct = res.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!ct.trim()) return true;
+  return (
+    ct.includes("text/html") ||
+    ct.includes("text/x-component") ||
+    ct.includes("application/xhtml+xml")
+  );
+}
+
 /**
  * Poll until the sandbox preview host accepts HTTP (reduces empty iframe / 502 right after `npm run dev`).
+ * Requires **2xx** and a document-like `Content-Type` — not merely “not 5xx” (avoids false positives on 404/401).
  * Exported for tests and diagnostics.
  */
 export async function waitForSandboxDevServerReady(
   primaryUrl: string,
   options?: { maxMs?: number; intervalMs?: number },
 ): Promise<{ elapsedMs: number }> {
-  const maxMs =
-    options?.maxMs ??
-    (() => {
-      const raw = process.env.SAJTMASKIN_SANDBOX_READINESS_MAX_MS?.trim();
-      if (raw && /^\d+$/.test(raw)) return Math.min(Math.max(5_000, parseInt(raw, 10)), 180_000);
-      return DEFAULT_READINESS_MAX_MS;
-    })();
+  const maxMs = options?.maxMs ?? resolveSandboxReadinessMaxMsFromEnv();
   const intervalMs = options?.intervalMs ?? READINESS_INTERVAL_MS;
   const deadline = Date.now() + maxMs;
   const started = Date.now();
@@ -141,17 +166,19 @@ export async function waitForSandboxDevServerReady(
         headers: { Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" },
       });
       clearTimeout(tid);
-      if (res.status < 500) {
+      if (sandboxDevServerResponseLooksReady(res)) {
         return { elapsedMs: Date.now() - started };
       }
-      lastMessage = `HTTP ${res.status}`;
+      lastMessage = res.ok
+        ? `HTTP ${res.status} (unexpected content-type: ${res.headers.get("content-type") ?? "?"})`
+        : `HTTP ${res.status}`;
     } catch (err) {
       lastMessage = err instanceof Error ? err.message : String(err);
     }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
 
-  throw new Error(
+  throw new SandboxReadinessTimeoutError(
     `SANDBOX_NOT_LISTENING: dev server did not become ready within ${maxMs}ms. Last error: ${lastMessage}`,
   );
 }
@@ -298,13 +325,7 @@ export async function createSandboxRuntimeFromFiles(
   });
 
   const readinessProbe = options.readinessProbe !== false;
-  const readinessProbeMaxMs =
-    options.readinessProbeMaxMs ??
-    (() => {
-      const raw = process.env.SAJTMASKIN_SANDBOX_READINESS_MAX_MS?.trim();
-      if (raw && /^\d+$/.test(raw)) return Math.min(Math.max(5_000, parseInt(raw, 10)), 180_000);
-      return DEFAULT_READINESS_MAX_MS;
-    })();
+  const readinessProbeMaxMs = options.readinessProbeMaxMs ?? resolveSandboxReadinessMaxMsFromEnv();
 
   try {
     await sandbox.writeFiles(

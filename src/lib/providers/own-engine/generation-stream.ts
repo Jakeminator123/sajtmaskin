@@ -18,7 +18,7 @@ import type { RoutePlan } from "@/lib/gen/route-plan";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
-import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
+import { buildOwnEnginePreviewRuntime, isSandboxConfigured } from "@/lib/mcp/runtime-url";
 
 type UrlMap = Record<string, string>;
 
@@ -250,8 +250,18 @@ export function createOwnEngineGenerationStream(
         const previewBlocked = finalized.preflight.previewBlocked;
         const sandboxWillRun =
           isSandboxConfigured() && !previewBlocked && parsedForSandbox.length > 0;
-        const shimUrl =
+        const tier1Preview =
           finalized.previewUrl && finalized.previewUrl.trim() ? finalized.previewUrl.trim() : null;
+        /** Tier-1 när finalize inte satte previewUrl men sandbox startar — samma väg som bootstrap (preview-render). */
+        const shimUrl =
+          tier1Preview ||
+          (sandboxWillRun && finalized.version.id
+            ? buildOwnEnginePreviewRuntime({
+                chatId,
+                versionId: finalized.version.id,
+                projectId: null,
+              }).url
+            : null);
         /** Visa alltid shim i klienten medan sandbox bootar — undviker tom iframe. */
         const doneDemoUrl = shimUrl;
         const shimFallback =

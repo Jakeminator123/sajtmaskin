@@ -70,6 +70,28 @@ Exakta implementationer och gränser: `docs/architecture/preview-deploy.md`, `.j
 
 ---
 
+## Miljövariabler (två slag — skilj alltid)
+
+När någon skriver «environment variables» / «env» måste agenten avgöra **vilken kategori** som avses.
+
+### 1. Plattformens env-filer (Sajtmaskin-repot)
+
+**Vad:** Klassiska filer i **detta** repo — t.ex. `.env.local`, `.env.production`, `.env.development.local`, andra `.env.*` som följer Next/Vercel-konventioner, ev. Vercel-pullade varianter.
+
+**Vem:** **Sajtmaskin**-applikationen, dess databas, API-nycklar för plattformen, sandbox-autentisering mot Vercel, m.m.
+
+**Detaljer:** `docs/ENV.md`, `src/lib/config.ts`.
+
+### 2. Användarens / genererade projektets env (per projekt)
+
+**Vad:** Nycklar och värden som **hör till användarens genererade sajt** (Next/React som körs i preview/sandbox) — **inte** samma filer som punkt 1. Ofta **en uppsättning per projekt** (metadata som `project_data.meta.projectEnvVars`, merge in i sandlådans `.env.local` tillsammans med **placeholders** — se `src/lib/gen/build-generated-site-env.ts`, `src/lib/project-env-vars.ts`).
+
+**Varför i terminologin:** En hänvisning till **användarens** «environment variables» betyder att det finns (eller ska finnas) **projekt-specifik** konfiguration — t.ex. så **demo-URL**, integrationer eller publika nycklar finns när den genererade appen startar. För **fidelity 2** (dev-server i sandbox) är denna kategori ofta **nödvändig** för att `npm run dev` ska komma upp, även om den är **delvis separerad** från plattformens env.
+
+**Placeholders:** För genererade mallar används ofta **dummy-värden** (t.ex. `abc123`) så att enkla eller tillfälliga hemligheter inte **stoppar** uppstart av React/Next i dev — riktiga värden ersätter sedan vid behov.
+
+---
+
 ## own-engine
 
 - **Vad:** **Nuvarande standard** för kodgenerering — egen arkitektur kring prompter, **scaffolds**, **dossiers**-kontext, autofix, merge. LLM driver flödet här.

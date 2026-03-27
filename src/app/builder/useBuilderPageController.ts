@@ -46,6 +46,7 @@ import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
 import { buildPreviewUrl } from "@/lib/gen/preview";
+import type { SandboxPreviewPostApiJson } from "@/lib/gen/preview-contract";
 
 /** Own-engine chat + version rows use UUID ids; safe for `buildPreviewUrl(chatId, versionId)`. */
 const ENGINE_UUID_RE =
@@ -1323,6 +1324,20 @@ export function useBuilderPageController() {
     const tid = window.setTimeout(() => {
       void (async () => {
         if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
+
+        const scheduleTransientRetry = () => {
+          const prev = sandboxBootstrapTransientAttemptsRef.current.get(key) ?? 0;
+          const next = prev + 1;
+          sandboxBootstrapTransientAttemptsRef.current.set(key, next);
+          if (next <= 4) {
+            window.setTimeout(() => {
+              setSandboxBootstrapRetryNonce((n) => n + 1);
+            }, 6_000);
+          } else {
+            sandboxBootstrapDoneKeysRef.current.add(key);
+          }
+        };
+
         try {
           const res = await fetch(
             `/api/v0/chats/${encodeURIComponent(chatId)}/sandbox-preview`,
@@ -1333,15 +1348,7 @@ export function useBuilderPageController() {
               signal: ac.signal,
             },
           );
-          const data = (await res.json().catch(() => null)) as {
-            ok?: boolean;
-            code?: string;
-            hint?: string;
-            sandboxUrl?: string;
-            fidelityTier?: number;
-            prodBuildVerified?: boolean;
-            prodBuildLogSnippet?: string;
-          } | null;
+          const data = (await res.json().catch(() => null)) as SandboxPreviewPostApiJson | null;
           if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
 
           if (res.status === 503) {
@@ -1362,19 +1369,18 @@ export function useBuilderPageController() {
             }
           }
 
+          const serverSaysNoRetry = data?.retryable === false;
+          /** 5xx retry: all 501–599 except bare 500 unless API sets retryable (route catch sets true). */
+          const transient5xx =
+            res.status >= 501 &&
+            res.status < 600 &&
+            (res.status !== 500 || data?.retryable === true);
           const transientHttp =
-            res.status === 502 || res.status === 503 || res.status === 504 || res.status >= 500;
-          if (transientHttp && (!data || !data.ok)) {
-            const prev = sandboxBootstrapTransientAttemptsRef.current.get(key) ?? 0;
-            const next = prev + 1;
-            sandboxBootstrapTransientAttemptsRef.current.set(key, next);
-            if (next <= 4) {
-              window.setTimeout(() => {
-                setSandboxBootstrapRetryNonce((n) => n + 1);
-              }, 6_000);
-            } else {
-              sandboxBootstrapDoneKeysRef.current.add(key);
-            }
+            !serverSaysNoRetry &&
+            (!data || !data.ok) &&
+            (res.status === 429 || res.status === 408 || transient5xx);
+          if (transientHttp) {
+            scheduleTransientRetry();
             return;
           }
 
@@ -1403,16 +1409,7 @@ export function useBuilderPageController() {
         } catch (err) {
           if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
           if (err instanceof Error && err.name === "AbortError") return;
-          const prev = sandboxBootstrapTransientAttemptsRef.current.get(key) ?? 0;
-          const next = prev + 1;
-          sandboxBootstrapTransientAttemptsRef.current.set(key, next);
-          if (next <= 4) {
-            window.setTimeout(() => {
-              setSandboxBootstrapRetryNonce((n) => n + 1);
-            }, 6_000);
-          } else {
-            sandboxBootstrapDoneKeysRef.current.add(key);
-          }
+          scheduleTransientRetry();
         }
       })();
     }, 0);

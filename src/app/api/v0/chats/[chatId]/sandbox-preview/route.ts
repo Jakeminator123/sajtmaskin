@@ -32,6 +32,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             code: "sandbox_disabled",
             message: "Sandbox is not configured on this deployment.",
             hint: SANDBOX_SETUP_HINT,
+            retryable: true,
           },
           { status: 503 },
         );
@@ -40,7 +41,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const chat = await getEngineChatByIdForRequest(req, chatId);
       if (!chat) {
         return NextResponse.json(
-          { ok: false, code: "not_engine_chat", message: "Chat not found." },
+          {
+            ok: false,
+            code: "not_engine_chat",
+            message: "Chat not found.",
+            retryable: false,
+          },
           { status: 404 },
         );
       }
@@ -48,7 +54,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const raw = await req.json().catch(() => ({}));
       const parsed = postBodySchema.safeParse(raw);
       if (!parsed.success) {
-        return NextResponse.json({ ok: false, message: "Invalid body" }, { status: 400 });
+        return NextResponse.json(
+          { ok: false, message: "Invalid body", retryable: false },
+          { status: 400 },
+        );
       }
 
       let versionRow: Version;
@@ -60,24 +69,38 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           parsed.data.versionId,
         );
         if (!scoped) {
-          return NextResponse.json({ ok: false, message: "Version not found." }, { status: 404 });
+          return NextResponse.json(
+            { ok: false, message: "Version not found.", retryable: false },
+            { status: 404 },
+          );
         }
         versionRow = scoped.version;
       } else {
         const v = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
         if (!v) {
-          return NextResponse.json({ ok: false, message: "No versions for chat." }, { status: 400 });
+          return NextResponse.json(
+            { ok: false, message: "No versions for chat.", retryable: false },
+            { status: 400 },
+          );
         }
         const scoped = await getEngineVersionForChatByIdForRequest(req, chatId, v.id);
         if (!scoped) {
-          return NextResponse.json({ ok: false, message: "Version not accessible." }, { status: 403 });
+          return NextResponse.json(
+            { ok: false, message: "Version not accessible.", retryable: false },
+            { status: 403 },
+          );
         }
         versionRow = scoped.version;
       }
 
       if (!canExposeEnginePreview(versionRow)) {
         return NextResponse.json(
-          { ok: false, code: "preview_blocked", message: "Version cannot be previewed." },
+          {
+            ok: false,
+            code: "preview_blocked",
+            message: "Version cannot be previewed.",
+            retryable: false,
+          },
           { status: 400 },
         );
       }
@@ -90,7 +113,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       if (files.length === 0) {
         return NextResponse.json(
-          { ok: false, code: "no_files", message: "No files in version for sandbox." },
+          {
+            ok: false,
+            code: "no_files",
+            message: "No files in version for sandbox.",
+            retryable: false,
+          },
           { status: 400 },
         );
       }
@@ -106,6 +134,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       if (!started.ok) {
         const status = httpStatusForSandboxPreviewFailure(started.error);
+        const retryable = status === 503 || status === 504;
         const headers =
           status === 503 || status === 504
             ? new Headers({ "Retry-After": "5" })
@@ -115,6 +144,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             ok: false,
             stage: started.error.stage,
             message: started.error.message,
+            ...(started.error.failureCode ? { failureCode: started.error.failureCode } : {}),
+            retryable,
           },
           { status, headers },
         );
@@ -137,7 +168,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     } catch (err) {
       console.error("[sandbox-preview] POST", err);
       return NextResponse.json(
-        { ok: false, message: err instanceof Error ? err.message : "Unknown error" },
+        {
+          ok: false,
+          message: err instanceof Error ? err.message : "Unknown error",
+          retryable: true,
+        },
         { status: 500 },
       );
     }
