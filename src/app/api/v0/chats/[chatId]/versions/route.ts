@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { assertV0Key, v0 } from "@/lib/v0";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -7,7 +6,6 @@ import {
   getChatByV0ChatIdForRequest,
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
-  getProjectByIdForRequest,
 } from "@/lib/tenant";
 import {
   addMessage,
@@ -17,20 +15,6 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
-
-type V0LatestVersionLike = {
-  id?: string | null;
-  versionId?: string | null;
-  demoUrl?: string | null;
-  demo_url?: string | null;
-  messageId?: string | null;
-};
-
-type V0ChatLike = {
-  latestVersion?: V0LatestVersionLike | null;
-  demoUrl?: string | null;
-  projectId?: string | null;
-};
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -88,49 +72,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       }
     }
 
-    // Only attempt v0 lookup for non-UUID chat IDs (template/category flows
-    // that originated on v0). Own-engine chats use UUIDs and will never exist
-    // on v0, so the lookup would always 404 and pollute the logs.
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chatId);
-    if (!isUuid) {
-      try {
-        assertV0Key();
-        const v0Chat = await v0.chats.getById({ chatId }) as V0ChatLike;
-        const projectId = typeof v0Chat.projectId === "string" ? v0Chat.projectId.trim() : "";
-        if (!projectId) {
-          return NextResponse.json({ versions: [] });
-        }
-        const ownedProject = await getProjectByIdForRequest(req, projectId);
-        if (!ownedProject) {
-          return NextResponse.json({ versions: [] });
-        }
-        const latest = v0Chat.latestVersion ?? null;
-        const versionId = latest?.id || latest?.versionId || null;
-        const demoUrl = latest?.demoUrl || latest?.demo_url || v0Chat.demoUrl || null;
-        if (versionId || demoUrl) {
-          return NextResponse.json({
-            versions: [
-                {
-                  id: typeof versionId === "string" ? versionId : null,
-                  versionId: typeof versionId === "string" ? versionId : null,
-                  demoUrl: typeof demoUrl === "string" ? demoUrl : null,
-                  createdAt: null,
-                  versionNumber: null,
-                  messageId: latest?.messageId ?? null,
-                  sandboxUrl: null,
-                  releaseState: null,
-                  verificationState: null,
-                  verificationSummary: null,
-                  promotedAt: null,
-                  canPin: true,
-              },
-            ],
-          });
-        }
-      } catch (lookupError) {
-        console.warn("[chat/versions] Non-fallback v0 lookup failed:", lookupError);
-      }
-    }
     return NextResponse.json({ versions: [] });
   } catch (err) {
     return NextResponse.json(

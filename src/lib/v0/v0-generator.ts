@@ -463,7 +463,8 @@ export function isV0StreamingEnabled(): boolean {
 }
 
 /**
- * Download a chat version as ZIP
+ * Download a chat version as ZIP from **V0 Platform** (legacy).
+ * @deprecated Product download uses `buildZipBufferFromEngineVersion` (`engine-version-zip.ts`) for own-engine versions.
  */
 export async function downloadVersionAsZip(
   chatId: string,

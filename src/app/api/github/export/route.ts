@@ -5,7 +5,13 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
-import { getChatByIdForRequest, getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import {
+  getChatByIdForRequest,
+  getChatByV0ChatIdForRequest,
+  getEngineChatByIdForRequest,
+} from "@/lib/tenant";
+import { getVersionById } from "@/lib/db/chat-repository-pg";
+import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { getCurrentUser } from "@/lib/auth/auth";
 
 export const runtime = "nodejs";
@@ -189,61 +195,91 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: "Invalid repo name" }, { status: 400 });
       }
 
-      assertV0Key();
+      const engineChat = await getEngineChatByIdForRequest(request, chatId);
+      let files: Array<{ path: string; content: string }>;
+      let exportLabel: string;
 
-      let chat = await getChatByV0ChatIdForRequest(request, chatId);
-      if (!chat) chat = await getChatByIdForRequest(request, chatId);
-      if (!chat) {
-        return NextResponse.json({ success: false, error: "Chat not found" }, { status: 404 });
-      }
+      if (engineChat) {
+        const ev = await getVersionById(versionId);
+        if (!ev || ev.chat_id !== engineChat.id) {
+          return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 });
+        }
+        const rawFiles = parseCodeFilesFromFilesJson(ev.files_json) ?? [];
+        files = rawFiles
+          .map((file) => ({
+            path: normalizeFilePath(file.path),
+            content: file.content,
+          }))
+          .filter((file): file is { path: string; content: string } =>
+            Boolean(file.path && file.content),
+          );
+        if (files.length === 0) {
+          return NextResponse.json(
+            { success: false, error: "No files available to export" },
+            { status: 400 },
+          );
+        }
+        exportLabel = `${chatId}:${versionId}`;
+      } else {
+        assertV0Key();
 
-      let version = await db
-        .select()
-        .from(versions)
-        .where(and(eq(versions.chatId, chat.id), eq(versions.id, versionId)))
-        .limit(1);
+        let chat = await getChatByV0ChatIdForRequest(request, chatId);
+        if (!chat) chat = await getChatByIdForRequest(request, chatId);
+        if (!chat) {
+          return NextResponse.json({ success: false, error: "Chat not found" }, { status: 404 });
+        }
 
-      if (version.length === 0) {
-        version = await db
+        let version = await db
           .select()
           .from(versions)
-          .where(and(eq(versions.chatId, chat.id), eq(versions.v0VersionId, versionId)))
+          .where(and(eq(versions.chatId, chat.id), eq(versions.id, versionId)))
           .limit(1);
-      }
 
-      if (version.length === 0) {
-        return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 });
-      }
+        if (version.length === 0) {
+          version = await db
+            .select()
+            .from(versions)
+            .where(and(eq(versions.chatId, chat.id), eq(versions.v0VersionId, versionId)))
+            .limit(1);
+        }
 
-      const v0VersionId = version[0].v0VersionId;
-      const v0ChatId = chat.v0ChatId;
+        if (version.length === 0) {
+          return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 });
+        }
 
-      const v0Version = await v0.chats.getVersion({
-        chatId: v0ChatId,
-        versionId: v0VersionId,
-        includeDefaultFiles: true,
-      });
+        const v0VersionId = version[0].v0VersionId;
+        const v0ChatId = chat.v0ChatId;
 
-      const rawFiles = Array.isArray((v0Version as any)?.files)
-        ? ((v0Version as any).files as Array<{ name?: string; content?: string }>)
-        : [];
+        const v0Version = await v0.chats.getVersion({
+          chatId: v0ChatId,
+          versionId: v0VersionId,
+          includeDefaultFiles: true,
+        });
 
-      const files = rawFiles
-        .map((file) => ({
-          name: typeof file.name === "string" ? file.name : "",
-          content: typeof file.content === "string" ? file.content : "",
-        }))
-        .map((file) => ({
-          path: normalizeFilePath(file.name),
-          content: file.content,
-        }))
-        .filter((file) => Boolean(file.path && file.content));
+        const rawFiles = Array.isArray((v0Version as any)?.files)
+          ? ((v0Version as any).files as Array<{ name?: string; content?: string }>)
+          : [];
 
-      if (files.length === 0) {
-        return NextResponse.json(
-          { success: false, error: "No files available to export" },
-          { status: 400 },
-        );
+        files = rawFiles
+          .map((file) => ({
+            name: typeof file.name === "string" ? file.name : "",
+            content: typeof file.content === "string" ? file.content : "",
+          }))
+          .map((file) => ({
+            path: normalizeFilePath(file.name),
+            content: file.content,
+          }))
+          .filter((file): file is { path: string; content: string } =>
+            typeof file.path === "string" && file.path.length > 0 && file.content.length > 0,
+          );
+
+        if (files.length === 0) {
+          return NextResponse.json(
+            { success: false, error: "No files available to export" },
+            { status: 400 },
+          );
+        }
+        exportLabel = `${v0ChatId}:${v0VersionId}`;
       }
 
       const token = user.github_token;
@@ -313,7 +349,7 @@ export async function POST(request: NextRequest) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message: `Export from Sajtmaskin (${v0ChatId}:${v0VersionId})`,
+            message: `Export from Sajtmaskin (${exportLabel})`,
             tree: treeResponse.data.sha,
             ...(base?.commitSha ? { parents: [base.commitSha] } : {}),
           }),

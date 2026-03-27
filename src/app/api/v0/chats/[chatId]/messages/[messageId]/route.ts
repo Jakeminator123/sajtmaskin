@@ -1,27 +1,31 @@
 import { NextResponse } from "next/server";
-import { assertV0Key, v0 } from "@/lib/v0";
-import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { getEngineChatByIdForRequest } from "@/lib/tenant";
 
 export async function GET(
   req: Request,
   ctx: { params: Promise<{ chatId: string; messageId: string }> },
 ) {
   try {
-    assertV0Key();
-
     const { chatId, messageId } = await ctx.params;
 
-    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) {
+    const chat = await getEngineChatByIdForRequest(req, chatId);
+    if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
-    const result = await v0.chats.getMessage({
-      chatId,
-      messageId,
-    });
+    const message = chat.messages.find((m) => m.id === messageId);
+    if (!message) {
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      uiParts: Array.isArray(message.ui_parts) ? message.ui_parts : undefined,
+      tokenCount: message.token_count,
+      createdAt: message.created_at,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },

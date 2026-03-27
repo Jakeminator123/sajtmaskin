@@ -20,7 +20,8 @@ const PACKAGE_JSON = `{
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "16.1.0",

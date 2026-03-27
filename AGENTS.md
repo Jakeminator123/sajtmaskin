@@ -8,3 +8,4 @@ Tunn pekare — canonical innehåll ligger under `docs/` och `.cursor/`.
 - **Cursor (regler, workspace, `@terminology`):** [`.cursor/README.md`](.cursor/README.md)
 - **Integrationspolicy (agenter):** [`.cursor/rules/integrations-policy.mdc`](.cursor/rules/integrations-policy.mdc) — kanon: `sajtmaskin.integration-manifest.json` och pre-generation contracts; sparsamma integrationsfrågor; standardval via `config/env-policy.json` och [`docs/ENV.md`](docs/ENV.md).
 - **V0-mapp vs v0-SDK vs V0 Platform API:** [`.cursor/rules/terminology.mdc`](.cursor/rules/terminology.mdc) — `src/lib/v0/` är en katalog (kan innehålla egen logik); `v0-sdk` och V0 Platform API är **extern** leverantör; `/api/v0/` är ert HTTP-API versionsprefix.
+- **Own-engine äger genereringen:** Primär väg är stream → finalize (autofix, preflight) → `files_json` → sandbox (Fidelity 2). Se [`docs/architecture/preview-deploy.md`](docs/architecture/preview-deploy.md) (avsnitt *End-to-end*).

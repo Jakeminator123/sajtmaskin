@@ -65,13 +65,24 @@ const SANDBOX_PREVIEW_MODE_VALUES = new Set<SandboxPreviewMode>([
   "dev_then_build",
 ]);
 
-/** Server env `SAJTMASKIN_SANDBOX_PREVIEW_MODE` — default `dev_only` (tier 2: install + dev, no sandbox `npm run build`). */
+/**
+ * Server env `SAJTMASKIN_SANDBOX_PREVIEW_MODE`.
+ * Default `dev_then_build`: tier-2 dev preview plus `npm run build` verification (Fidelity 3 signal when build succeeds).
+ * Set to `dev_only` for faster iteration without production build in the VM.
+ */
 export function resolveSandboxPreviewModeFromEnv(): SandboxPreviewMode {
   const raw = process.env.SAJTMASKIN_SANDBOX_PREVIEW_MODE?.trim().toLowerCase().replace(/-/g, "_");
   if (raw && SANDBOX_PREVIEW_MODE_VALUES.has(raw as SandboxPreviewMode)) {
     return raw as SandboxPreviewMode;
   }
-  return "dev_only";
+  return "dev_then_build";
+}
+
+/** Git URL for the Next.js template VM (`Sandbox.create` source). Override for a pinned fork/commit. */
+export function resolveSandboxTemplateGitUrl(): string {
+  const fromEnv = process.env.SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL?.trim();
+  if (fromEnv) return fromEnv;
+  return "https://github.com/vercel/sandbox-example-next.git";
 }
 
 export type SandboxRuntimeOptions = {
@@ -316,7 +327,7 @@ export async function createSandboxRuntimeFromFiles(
     ...(access ?? {}),
     source: {
       type: "git",
-      url: "https://github.com/vercel/sandbox-example-next.git",
+      url: resolveSandboxTemplateGitUrl(),
     },
     resources: { vcpus },
     timeout: timeoutMs,

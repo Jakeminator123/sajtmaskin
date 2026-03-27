@@ -120,8 +120,10 @@ export const serverSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
-  /** Vercel Sandbox: `dev_only` (default, tier 2), `dev_then_build`, `build_only`. See `resolveSandboxPreviewModeFromEnv`. */
+  /** Vercel Sandbox: `dev_only`, `dev_then_build` (default), `build_only`. See `resolveSandboxPreviewModeFromEnv`. */
   SAJTMASKIN_SANDBOX_PREVIEW_MODE: z.string().optional(),
+  /** Optional git URL for sandbox VM template (default: vercel/sandbox-example-next). Pin in production. */
+  SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL: z.string().optional(),
   /** Max ms to wait for dev server HTTP after `npm run` dev in sandbox (digits only). Default 90000. */
   SAJTMASKIN_SANDBOX_READINESS_MAX_MS: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),

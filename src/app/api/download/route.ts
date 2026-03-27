@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { downloadVersionAsZip } from "@/lib/v0/v0-generator";
+import { buildZipBufferFromEngineVersion } from "@/lib/gen/engine-version-zip";
 import JSZip from "jszip";
 import { extractContent, generateBackofficeFiles } from "@/lib/backoffice";
 import { getCurrentUser } from "@/lib/auth/auth";
@@ -21,15 +21,25 @@ async function processDownload(
   password?: string,
 ): Promise<NextResponse> {
   try {
-    let zipBuffer: ArrayBuffer;
+    let zipBuffer: ArrayBuffer | null;
     try {
-      zipBuffer = await downloadVersionAsZip(chatId, versionId);
+      zipBuffer = await buildZipBufferFromEngineVersion(chatId, versionId);
     } catch (downloadError) {
       const errorMessage = downloadError instanceof Error ? downloadError.message : "Okänt fel";
-      console.error("[API/download] Failed to download ZIP:", errorMessage);
+      console.error("[API/download] Failed to build ZIP:", errorMessage);
       return NextResponse.json(
         { success: false, error: `Kunde inte ladda ner ZIP: ${errorMessage}` },
         { status: 500 },
+      );
+    }
+    if (!zipBuffer) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Version hittades inte eller saknar sparade filer (own-engine). Kontrollera chatId och versionId.",
+        },
+        { status: 404 },
       );
     }
 

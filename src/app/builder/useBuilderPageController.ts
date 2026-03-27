@@ -16,7 +16,6 @@ import {
   writeChatGenerationSettings,
 } from "@/lib/builder/chat-generation-settings";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
-import { isV0BuilderPreviewFallbackEnabledInBrowser } from "@/lib/builder/v0-preview-priority";
 import { getProject, saveProjectData } from "@/lib/project-client";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -57,18 +56,12 @@ import {
 const ENGINE_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Prefer sandbox URL over shim / v0-hosted when resolving iframe preview — se `docs/architecture/preview-deploy.md`. */
-function pickVersionPreviewUrl(
-  v: VersionSummary | undefined,
-  preferV0HostedPreview: boolean,
-): string | null {
+/** Prefer sandbox URL, then shim/demoUrl — se `docs/architecture/preview-deploy.md`. */
+function pickVersionPreviewUrl(v: VersionSummary | undefined): string | null {
   if (!v) return null;
   const sand = v.sandboxUrl;
   if (typeof sand === "string" && sand.trim()) return sand.trim();
   const du = v.demoUrl;
-  if (preferV0HostedPreview && typeof du === "string" && du.includes("vusercontent.net")) {
-    return du;
-  }
   return typeof du === "string" && du.trim() ? du.trim() : null;
 }
 
@@ -1247,7 +1240,6 @@ export function useBuilderPageController() {
     const chatObj = chat as ChatData;
     const canUseServerDemoUrl =
       !serverProjectChatId || !chatId || serverProjectChatId === chatId;
-    const preferV0HostedPreview = isV0BuilderPreviewFallbackEnabledInBrowser();
     const firstListed = derived.effectiveVersionsList[0];
     const chatLatest = chatObj?.latestVersion;
     const chatLevelPreview =
@@ -1262,9 +1254,9 @@ export function useBuilderPageController() {
 
     const nextDemoUrl =
       persistedPreviewOverride ||
-      pickVersionPreviewUrl(activeVersionMatch, preferV0HostedPreview) ||
+      pickVersionPreviewUrl(activeVersionMatch) ||
       chatLevelPreview ||
-      pickVersionPreviewUrl(firstListed, preferV0HostedPreview) ||
+      pickVersionPreviewUrl(firstListed) ||
       (canUseServerDemoUrl && typeof serverProjectDemoUrl === "string" && serverProjectDemoUrl.trim()
         ? serverProjectDemoUrl.trim()
         : null) ||

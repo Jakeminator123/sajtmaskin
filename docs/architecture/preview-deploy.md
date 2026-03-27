@@ -4,6 +4,21 @@
 
 **Operativt kördokument** för own-engine → finalize → sandbox → iframe. Intent, leveranser och kodpekare: denna fil + [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) (backlog/beslut).
 
+## End-to-end: own-engine som ägare och Fidelity 2
+
+**Sanning i produkt:** Genererad kod, versioner och preview ska spåras till **own-engine** (`engine_chats` / `engine_versions`, `files_json`) och **inte** till V0 Platform API.
+
+**Kedja (lyckat fall):**
+
+1. `POST /api/v0/chats/stream` skapar/uppdaterar engine-chatt och strömmar own-engine-generering.
+2. **Finalize** (`finalize-version.ts`) kör autofix, validering, merge, preflight och sparar **`files_json`** på versionen.
+3. `startSandboxPreview` (`sandbox-preview.ts`) bygger fullt projekt, kör `npm install` + `npm run dev` i Vercel Sandbox.
+4. Vid lyckad readiness: **`engine_versions.sandbox_url`** sätts; klienten visar **Fidelity 2** — `fidelityTier: 2` i `SandboxPreviewResult` (riktig Next dev-server i VM). **Shim** (`/api/preview-render`) är bara **brygga** under uppstart eller vid fel, inte målpreview.
+
+**Fidelity 3** (`prodBuildVerified`, `fidelityTier: 3`) när `SAJTMASKIN_SANDBOX_PREVIEW_MODE=dev_then_build` och byggsteget lyckas — se `runtime-url.ts`.
+
+**V0 Platform** (npm `v0-sdk`, `V0_API_KEY`) ska inte vara del av denna kedja; HTTP-prefixet `/api/v0/` är **API-version 0**, inte leverantören V0.
+
 ## Levererat (preview-kedjan)
 
 Följande är **implementerat** i kod och täcks av denna fil + `docs/ENV.md` där det anges:
@@ -33,7 +48,7 @@ Följande är **implementerat** i kod och täcks av denna fil + `docs/ENV.md` d�
 | 2 — **Sandbox** | Vercel Sandbox / `npm run dev` | Riktigare Next dev-runtime (ephemeral, on-demand) |
 | 3 — **Build-check** | `npm run build` i sandbox (läge-beroende) | Validering närmare produktion |
 
-**Produktintent:** när sandbox lyckas ska **sandbox-URL** prioriteras i iframen före shim och före valfri v0-hostad `demoUrl` (om flaggor så säger). Fel (`502`, HMR-brus) och sekvens: följ `generation-stream.ts` → `sandbox-preview.ts` → `PreviewPanel.tsx`.
+**Produktintent:** när sandbox lyckas ska **sandbox-URL** prioriteras i iframen före shim och övrig `demoUrl`. Fel (`502`, HMR-brus) och sekvens: följ `generation-stream.ts` → `sandbox-preview.ts` → `PreviewPanel.tsx`.
 
 ## Demo-URL-kedja
 
