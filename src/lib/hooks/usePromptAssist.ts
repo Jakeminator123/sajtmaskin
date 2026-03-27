@@ -9,6 +9,7 @@ import {
   isPromptAssistOff,
   normalizeAssistModel,
   resolvePromptAssistProvider,
+  type PromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import { DEFAULT_PROMPT_POLISH_MODEL } from "@/lib/builder/defaults";
 import { ASSIST_MODEL } from "@/lib/gen/defaults";
@@ -41,16 +42,15 @@ type UsePromptAssistParams = {
 };
 
 // maxTokens is intentionally NOT sent from the client.
-// The gateway/model uses its own maximum when omitted, avoiding
-// validation failures when the gateway cap is lower than expected.
-// 10 minutes to accommodate slow models or gateway delays
+// The model uses its own maximum when omitted, avoiding validation failures when the cap is lower than expected.
+// 10 minutes to accommodate slow models or upstream delays
 const PROMPT_ASSIST_TIMEOUT_MS = 600_000;
 
 type PromptAssistMode = "rewrite" | "polish";
 
 type PromptAssistOptions = {
   forceShallow?: boolean;
-  /** First-chat path: always run structured brief (uses gateway + ASSIST_MODEL if assist tier is non-gateway). */
+  /** First-chat path: always run structured brief (OpenAI brief path + ASSIST_MODEL if assist tier is non–OpenAI-class). */
   forceDeepBrief?: boolean;
   mode?: PromptAssistMode;
   forceEnglish?: boolean;
@@ -58,6 +58,17 @@ type PromptAssistOptions = {
   /** Called with the raw brief object when deep brief is generated (for spec file) */
   onBrief?: (brief: Record<string, unknown>) => void;
 };
+
+/**
+ * Internal `PromptAssistProvider` still uses the label `"gateway"` for OpenAI-class models.
+ * Server routes call OpenAI/Anthropic directly (`createDirectModel` + API keys) — not Vercel AI Gateway.
+ */
+function promptAssistDebugFields(provider: PromptAssistProvider) {
+  return {
+    assistLane: provider === "gateway" ? "openai" : "anthropic",
+    apiRouting: "direct_provider" as const,
+  };
+}
 
 const STOPWORDS = new Set([
   "och",
@@ -211,7 +222,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
       };
 
       debugLog("AI", "Prompt assist started", {
-        provider,
+        ...promptAssistDebugFields(provider),
         model: normalizedModel,
         deep: useDeep,
         imageGenerations,
@@ -345,7 +356,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
         debugLog("AI", "Prompt assist failed", {
           durationMs: Date.now() - startedAt,
-          provider,
+          ...promptAssistDebugFields(provider),
           model: normalizedModel,
           deep: useDeep,
           error: rawMessage,
@@ -412,7 +423,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         (options.forceDeepBrief === true || resolvedGatewayDeep);
 
       debugLog("AI", "Dynamic instructions started", {
-        provider,
+        ...promptAssistDebugFields(provider),
         model: normalizedModel,
         deep: useDeepBrief,
         imageGenerations,

@@ -334,6 +334,16 @@ function applyAuthAnswer(
     });
     pushEnvVars(contracts.envVars, auth0Rule.envVars, "Bekräftat auth-val.", true);
     removeUnresolved(unresolvedDecisions, "auth");
+    return;
+  }
+  // UI option "Annat / vet inte än" — ship without auth for now.
+  if (
+    /\bannat\b/i.test(normalized) ||
+    /\bvet inte\b/i.test(normalized) ||
+    /\b(osäker|osaker)\b/i.test(normalized)
+  ) {
+    contracts.authProvider = "ingen";
+    removeUnresolved(unresolvedDecisions, "auth");
   }
 }
 
@@ -359,6 +369,16 @@ function applyPaymentAnswer(
       envVars: stripeRule.envVars,
     });
     pushEnvVars(contracts.envVars, stripeRule.envVars, "Bekräftat payment-val.", true);
+    removeUnresolved(unresolvedDecisions, "payment");
+    return;
+  }
+  // UI option "Annat / vet inte än" — no payment flow yet.
+  if (
+    /\bannat\b/i.test(normalized) ||
+    /\bvet inte\b/i.test(normalized) ||
+    /\b(osäker|osaker)\b/i.test(normalized)
+  ) {
+    contracts.paymentProvider = "ingen";
     removeUnresolved(unresolvedDecisions, "payment");
   }
 }
@@ -401,6 +421,16 @@ function applyDatabaseAnswer(
     removeUnresolved(unresolvedDecisions, "database");
     return;
   }
+  // UI option "Annat / vet inte än" — proceed with mock data first (defers real DB).
+  if (
+    /\bannat\b/i.test(normalized) ||
+    /\bvet inte\b/i.test(normalized) ||
+    /\b(osäker|osaker)\b/i.test(normalized)
+  ) {
+    contracts.databaseProvider = "mock data";
+    contracts.dataMode = "mocked";
+    removeUnresolved(unresolvedDecisions, "database");
+  }
 }
 
 function applyIntegrationAnswer(
@@ -410,6 +440,18 @@ function applyIntegrationAnswer(
 ) {
   const normalized = normalizedAnswer(answer);
   if (/\b(mock|mockad|mockat|senare|placeholder)\b/i.test(normalized)) {
+    if (contracts.dataMode === "none") {
+      contracts.dataMode = "mocked";
+    } else if (contracts.dataMode === "persisted") {
+      contracts.dataMode = "mixed";
+    }
+    removeUnresolved(unresolvedDecisions, "integration");
+    return;
+  }
+  if (
+    /\b(osäker|osaker|vet inte|annat|unsure)\b/i.test(normalized) ||
+    /behöver välja senare/i.test(normalized)
+  ) {
     if (contracts.dataMode === "none") {
       contracts.dataMode = "mocked";
     } else if (contracts.dataMode === "persisted") {

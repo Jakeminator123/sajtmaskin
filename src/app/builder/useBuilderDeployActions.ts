@@ -509,12 +509,19 @@ export function useBuilderDeployActions({
     const res = await fetch("/api/health", { signal });
     if (!res.ok) return null;
     const data = (await res.json().catch(() => null)) as {
-      features?: { vercelBlob?: boolean; v0?: boolean };
-      featureReasons?: { vercelBlob?: string | null; v0?: string | null };
+      features?: { vercelBlob?: boolean; v0?: boolean; imageGenerations?: boolean };
+      featureReasons?: {
+        vercelBlob?: string | null;
+        v0?: string | null;
+        imageGenerations?: string | null;
+      };
     } | null;
     return {
       blobEnabled: Boolean(data?.features?.vercelBlob),
-      v0Enabled: Boolean(data?.features?.v0),
+      /** Own-engine: OPENAI_API_KEY — prompt image-generation instructions. */
+      imageGenerationsEnabled: Boolean(data?.features?.imageGenerations),
+      /** V0 Platform API key configured (separate from builder generation). */
+      v0PlatformConfigured: Boolean(data?.features?.v0),
       reasons: data?.featureReasons ?? {},
     };
   }, []);

@@ -390,6 +390,9 @@ export const FEATURES = {
 
   useV0Api: Boolean(SECRETS.v0ApiKey),
 
+  /** Builder prompt “image generations” toggle — own engine uses OpenAI, not V0 Platform. */
+  useBuilderImageGenerations: Boolean(SECRETS.openaiApiKey),
+
   useVercelApi: Boolean(SECRETS.vercelApiToken),
 
   useBraveSearch: Boolean(SECRETS.braveApiKey),

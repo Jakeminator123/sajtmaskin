@@ -814,6 +814,24 @@ export function appendModelInfoPart(
   });
 }
 
+function formatPromptStrategyReason(reason: string): string {
+  const map: Record<string, string> = {
+    within_budget:
+      "Under mjuk orkestreringsgräns — prompten skickas direkt (ingen sammandragning)",
+    empty_prompt: "Tom prompt",
+    preserve_registry_payload: "Registry-data bevarad oförändrad",
+    technical_content_preserved: "Tekniskt innehåll bevarat",
+    force_phase_threshold: "Mycket lång prompt — fasadläge (Plan → Build → Polish)",
+    high_complexity: "Hög komplexitet — fasadläge",
+    over_budget_summarized: "Över mjuk gräns — prompt sammandragen",
+    over_budget_summarized_design_safe: "Över mjuk gräns — sammandragning (designsäker)",
+  };
+  if (reason.endsWith("_hard_cap")) {
+    return "Hård teckengräns — extra sammandragning";
+  }
+  return map[reason] ?? reason;
+}
+
 function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
   const strategyLabel =
     meta.strategy === "phase_plan_build_polish"
@@ -821,13 +839,14 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
       : meta.strategy === "summarize"
         ? "sammanfattad"
         : "redo";
+  // budgetTarget = soft ceiling (ORCHESTRATION_SOFT_TARGET_*); NOT a goal length for the user prompt.
   const lengthLine =
     meta.originalLength !== meta.optimizedLength
-      ? `Langd: ${meta.originalLength} -> ${meta.optimizedLength} (mal ~${meta.budgetTarget})`
-      : `Langd: ${meta.originalLength} (mal ~${meta.budgetTarget})`;
+      ? `Langd: ${meta.originalLength} → ${meta.optimizedLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget})`
+      : `Langd: ${meta.originalLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget} innan ev. sammandragning)`;
 
   const steps = [`Prompt optimerad: ${strategyLabel}`, `Typ: ${meta.promptType}`, lengthLine];
-  if (meta.reason) steps.push(`Orsak: ${meta.reason}`);
+  if (meta.reason) steps.push(`Orsak: ${formatPromptStrategyReason(meta.reason)}`);
   // Do not duplicate "Genererar innehåll och filer…" here — the engine progress tool
   // (generation / streaming) already emits the same line when output starts.
   return steps;

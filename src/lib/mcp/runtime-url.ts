@@ -118,6 +118,65 @@ export type SandboxRuntimeOptions = {
 const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
 
+/**
+ * @vercel/sandbox `runCommand` with `wait: true` resolves to a command object whose output is read via
+ * `await result.output("both")` — not plain `.stdout` / `.stderr` string fields. Use {@link getSandboxCommandTextOutput}.
+ *
+ * When those fields exist (tests, older shapes), {@link combineSandboxCommandStreams} still coerces
+ * Buffer/Uint8Array to utf8 strings.
+ */
+export function sandboxCommandOutputToString(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof Buffer !== "undefined" && Buffer.isBuffer(value)) {
+    return value.toString("utf8");
+  }
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value).toString("utf8");
+  }
+  if (typeof value === "object" && value !== null && "length" in value) {
+    try {
+      return Buffer.from(value as ArrayLike<number>).toString("utf8");
+    } catch {
+      /* fall through */
+    }
+  }
+  return String(value);
+}
+
+export function combineSandboxCommandStreams(result: {
+  stdout?: unknown;
+  stderr?: unknown;
+}): string {
+  const out = `${sandboxCommandOutputToString(result.stdout)}\n${sandboxCommandOutputToString(result.stderr)}`.trim();
+  return out;
+}
+
+type SandboxCommandLike = {
+  output?: (stream?: "stdout" | "stderr" | "both") => Promise<string>;
+  stdout?: unknown;
+  stderr?: unknown;
+};
+
+/**
+ * Reads full stdout+stderr from a finished sandbox command. Prefer this over {@link combineSandboxCommandStreams}
+ * for real `@vercel/sandbox` results.
+ */
+export async function getSandboxCommandTextOutput(result: unknown): Promise<string> {
+  if (result && typeof result === "object") {
+    const r = result as SandboxCommandLike;
+    if (typeof r.output === "function") {
+      try {
+        const both = await r.output("both");
+        if (typeof both === "string" && both.trim()) return both.trim();
+      } catch {
+        /* fall through */
+      }
+    }
+  }
+  return combineSandboxCommandStreams(result as SandboxCommandLike);
+}
+
 const DEFAULT_READINESS_MAX_MS = 90_000;
 const READINESS_INTERVAL_MS = 1_000;
 
@@ -352,11 +411,12 @@ export async function createSandboxRuntimeFromFiles(
       cmd: "bash",
       args: ["-c", installCommand],
     });
-    const installOut =
-      `${typeof installResult.stdout === "string" ? installResult.stdout : ""}\n${typeof installResult.stderr === "string" ? installResult.stderr : ""}`.trim();
+    const installOut = await getSandboxCommandTextOutput(installResult);
     const installExit = installResult.exitCode ?? 1;
     if (installExit !== 0) {
-      const snippet = installOut.slice(0, 6000) || "No output from sandbox.";
+      const snippet =
+        installOut.slice(0, 6000) ||
+        "(Ingen logg från sandbox — om felet kvarstår, kontrollera package.json / package-lock och nätverksproxy.)";
       throw new Error(`npm install failed (exit ${installExit}). ${snippet}`);
     }
 
@@ -367,11 +427,7 @@ export async function createSandboxRuntimeFromFiles(
         cmd: "bash",
         args: ["-c", `timeout ${buildVerifyTimeoutSec}s npm run build`],
       });
-      const buildStdout =
-        typeof buildResult.stdout === "string" ? buildResult.stdout : "";
-      const buildStderr =
-        typeof buildResult.stderr === "string" ? buildResult.stderr : "";
-      const buildOut = `${buildStdout}\n${buildStderr}`.trim();
+      const buildOut = await getSandboxCommandTextOutput(buildResult);
       const exitCode =
         typeof buildResult.exitCode === "number" ? buildResult.exitCode : null;
       buildVerification = {
@@ -398,11 +454,7 @@ export async function createSandboxRuntimeFromFiles(
           cmd: "bash",
           args: ["-c", `timeout ${buildVerifyTimeoutSec}s npm run build`],
         });
-        const buildStdout =
-          typeof buildResult.stdout === "string" ? buildResult.stdout : "";
-        const buildStderr =
-          typeof buildResult.stderr === "string" ? buildResult.stderr : "";
-        const buildOut = `${buildStdout}\n${buildStderr}`.trim();
+        const buildOut = await getSandboxCommandTextOutput(buildResult);
         const exitCode =
           typeof buildResult.exitCode === "number" ? buildResult.exitCode : null;
         buildVerification = {

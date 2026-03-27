@@ -5,6 +5,7 @@ import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
 import {
+  getSandboxCommandTextOutput,
   isSandboxConfigured,
   resolveSandboxAccessCredentials,
   SANDBOX_SETUP_HINT,
@@ -168,7 +169,12 @@ export async function POST(req: Request) {
         });
 
         if (installResult.exitCode !== 0) {
-          console.error("Install failed with exit code:", installResult.exitCode);
+          const log = await getSandboxCommandTextOutput(installResult);
+          console.error(
+            "Install failed with exit code:",
+            installResult.exitCode,
+            log ? `\n${log.slice(0, 8000)}` : "",
+          );
           try {
             await sandbox.stop();
           } catch (stopError) {
@@ -178,6 +184,7 @@ export async function POST(req: Request) {
             {
               success: false,
               error: `npm install failed (exit ${installResult.exitCode})`,
+              log: log.slice(0, 12_000) || undefined,
             },
             { status: 502 },
           );

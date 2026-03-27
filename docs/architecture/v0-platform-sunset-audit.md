@@ -19,5 +19,7 @@
 | `POST /api/template` | `generateFromTemplate` (V0) — migrera | Teknisk skuld |
 | `v0-sdk` i `package.json` | Kvar tills init/template rensats | |
 | `src/lib/v0.ts` | Kvar medan beroenden finns | |
+| `resolve-latest-version` / `resolve-version-files` | Borttagna (oanvända efter engine-migrering) | Klart |
+| `v0-env-vars.ts` | Borttagen (inga importer) | Klart |
 
 Uppdatera tabellen när rader tas bort.

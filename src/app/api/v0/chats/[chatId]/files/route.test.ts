@@ -71,10 +71,6 @@ vi.mock("@/lib/imageAssets", () => ({
   materializeImagesInTextFiles: vi.fn(),
 }));
 
-vi.mock("@/lib/v0/resolve-version-files", () => ({
-  resolveVersionFiles: vi.fn(),
-}));
-
 vi.mock("@/lib/v0/errors", () => ({
   normalizeV0Error: (err: unknown) => ({
     message: err instanceof Error ? err.message : "Unknown error",

@@ -45,10 +45,6 @@ vi.mock("@/lib/validations/chatSchemas", () => ({
   },
 }));
 
-vi.mock("@/lib/v0/resolve-latest-version", () => ({
-  resolveLatestVersion: vi.fn(),
-}));
-
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));

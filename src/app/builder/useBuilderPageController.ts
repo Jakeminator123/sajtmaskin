@@ -1049,22 +1049,26 @@ export function useBuilderPageController() {
       try {
         const flags = await fetchHealthFeatures(controller.signal);
         if (!flags) return;
-        const { blobEnabled, v0Enabled, reasons } = flags;
+        const { blobEnabled, imageGenerationsEnabled, v0PlatformConfigured, reasons } = flags;
         if (!isActive) return;
         setIsMediaEnabled(blobEnabled);
-        setIsImageGenerationsSupported(v0Enabled);
-        if (!v0Enabled) setEnableImageGenerations(false);
-        if (!v0Enabled && !featureWarnedRef.current.v0) {
-          featureWarnedRef.current.v0 = true;
-          const reason = reasons?.v0 || "AI-konfiguration saknas";
+        setIsImageGenerationsSupported(imageGenerationsEnabled);
+        if (!imageGenerationsEnabled) setEnableImageGenerations(false);
+        if (!imageGenerationsEnabled && !featureWarnedRef.current.imageGen) {
+          featureWarnedRef.current.imageGen = true;
+          const reason = reasons?.imageGenerations || reasons?.v0 || "AI-konfiguration saknas";
           toast.error(`Bildgenerering är avstängd: ${reason}`);
         }
-        if (v0Enabled && !blobEnabled && !featureWarnedRef.current.blob) {
+        if (imageGenerationsEnabled && !blobEnabled && !featureWarnedRef.current.blob) {
           featureWarnedRef.current.blob = true;
           const reason = reasons?.vercelBlob || "BLOB_READ_WRITE_TOKEN saknas";
           toast(`Blob saknas: ${reason}. Bilder kan saknas i preview.`);
         }
-        debugLog("AI", "Builder feature flags resolved", { v0Enabled, blobEnabled });
+        debugLog("AI", "Builder feature flags resolved", {
+          imageGenerationsEnabled,
+          blobEnabled,
+          v0PlatformConfigured,
+        });
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
       }

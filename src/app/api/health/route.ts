@@ -11,19 +11,24 @@ import { FEATURES, REDIS_CONFIG } from "@/lib/config";
 export async function GET() {
   const v0Reason = FEATURES.useV0Api
     ? null
-    : "V0_API_KEY is optional unless you use v0 prompt assist or other v0 integrations";
+    : "V0_API_KEY saknas (valfritt om du inte använder kvarvarande v0-integrationer).";
+  const imageGenReason = FEATURES.useBuilderImageGenerations
+    ? null
+    : "OPENAI_API_KEY saknas — bildinstruktioner i prompt kräver OpenAI (own engine).";
   const checks: Record<string, unknown> = {
     timestamp: new Date().toISOString(),
     features: {
       redis: FEATURES.useRedisCache,
+      /** V0 Platform API key present (legacy routes / integrationer). */
       v0: FEATURES.useV0Api,
-      imageGenerations: FEATURES.useV0Api,
+      /** Own-engine builder: prompt image-generation instructions (OpenAI). */
+      imageGenerations: FEATURES.useBuilderImageGenerations,
       vercel: FEATURES.useVercelApi,
       vercelBlob: FEATURES.useVercelBlob,
     },
     featureReasons: {
       v0: v0Reason,
-      imageGenerations: v0Reason,
+      imageGenerations: imageGenReason,
       vercelBlob: FEATURES.useVercelBlob ? null : "Missing BLOB_READ_WRITE_TOKEN",
     },
   };

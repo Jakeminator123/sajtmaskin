@@ -80,7 +80,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const [customInstructions, setCustomInstructions] = useState("");
   const [applyInstructionsOnce, setApplyInstructionsOnce] = useState(false);
-  const featureWarnedRef = useRef({ v0: false, blob: false });
+  const featureWarnedRef = useRef({ imageGen: false, blob: false });
   const hasLoadedInstructions = useRef(false);
   const pendingInstructionsRef = useRef<string | null>(null);
   const hasLoadedInstructionsOnce = useRef(false);

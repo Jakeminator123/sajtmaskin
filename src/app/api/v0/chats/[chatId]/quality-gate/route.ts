@@ -13,6 +13,7 @@ import {
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import {
+  getSandboxCommandTextOutput,
   isSandboxConfigured as isSandboxAuthConfigured,
   resolveSandboxAccessCredentials,
 } from "@/lib/mcp/runtime-url";
@@ -142,9 +143,7 @@ async function runSandboxChecks(
       const logFile = `/tmp/sajtmaskin-qg-${check}-${logSuffix}.log`;
       const script = buildCheckShellScript(baseCmd, logFile);
       const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", script] });
-      const stdout = typeof result.stdout === "string" ? result.stdout : "";
-      const stderr = typeof result.stderr === "string" ? result.stderr : "";
-      let output = (stdout + "\n" + stderr).trim().slice(0, OUTPUT_CAP);
+      let output = (await getSandboxCommandTextOutput(result)).slice(0, OUTPUT_CAP);
       const exitCode = result.exitCode ?? 1;
       const passed = exitCode === 0;
       if (!passed && !output) {
