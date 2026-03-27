@@ -122,6 +122,8 @@ export const serverSchema = z.object({
   VERCEL_OIDC_TOKEN: z.string().optional(),
   /** Vercel Sandbox: `dev_only` (default, tier 2), `dev_then_build`, `build_only`. See `resolveSandboxPreviewModeFromEnv`. */
   SAJTMASKIN_SANDBOX_PREVIEW_MODE: z.string().optional(),
+  /** Max ms to wait for dev server HTTP after `npm run` dev in sandbox (digits only). Default 90000. */
+  SAJTMASKIN_SANDBOX_READINESS_MAX_MS: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),

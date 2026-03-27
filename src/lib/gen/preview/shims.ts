@@ -3,6 +3,11 @@ import { isPreviewBuiltinImportSource } from "./constants";
 import { normalizeFilePath, inferPreviewUiComponentName, resolveLocalImportPath } from "./utils";
 import { buildCodeFileMap, buildPreparedModuleMap } from "./file-resolution";
 
+/**
+ * Shim stubs keep the static iframe preview from crashing on optional deps.
+ * **Source of truth for visuals** is tier-2 sandbox (`npm run dev`) or production — not this layer.
+ */
+
 export function buildPreviewPrelude(modules: PreparedModule[], routePath: string): string {
   const lines: string[] = [
     "const __previewRoot = document.getElementById('root');",

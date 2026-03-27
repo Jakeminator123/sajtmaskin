@@ -23,9 +23,9 @@ const PACKAGE_JSON = `{
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "^16.1.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "next": "16.1.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "radix-ui": "^1.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -260,6 +260,20 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   const allCode = generatedFiles.map((f) => f.content).join("\n");
   const detected = runDepCompleter(allCode);
 
+  const mergeModelPackageJson = (file: CodeFile): CodeFile => {
+    if (file.path !== "package.json") return file;
+    try {
+      const pkg = JSON.parse(file.content) as {
+        dependencies?: Record<string, string>;
+        [key: string]: unknown;
+      };
+      pkg.dependencies = { ...(pkg.dependencies ?? {}), ...detected.dependencies };
+      return { ...file, content: JSON.stringify(pkg, null, 2) };
+    } catch {
+      return file;
+    }
+  };
+
   for (const [filePath, content] of Object.entries(SCAFFOLD_FILES)) {
     if (filePath === "package.json" && !generatedPaths.has(filePath)) {
       try {
@@ -284,7 +298,7 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
     }
   }
 
-  result.push(...generatedFiles);
+  result.push(...generatedFiles.map(mergeModelPackageJson));
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }
 

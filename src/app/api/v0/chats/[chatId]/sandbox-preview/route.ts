@@ -10,7 +10,10 @@ import {
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
+import {
+  httpStatusForSandboxPreviewFailure,
+  startSandboxPreview,
+} from "@/lib/gen/sandbox-preview";
 import { isSandboxConfigured, SANDBOX_SETUP_HINT } from "@/lib/mcp/runtime-url";
 
 const postBodySchema = z.object({
@@ -102,11 +105,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       });
 
       if (!started.ok) {
-        return NextResponse.json({
-          ok: false,
-          stage: started.error.stage,
-          message: started.error.message,
-        });
+        const status = httpStatusForSandboxPreviewFailure(started.error);
+        const headers =
+          status === 503 || status === 504
+            ? new Headers({ "Retry-After": "5" })
+            : undefined;
+        return NextResponse.json(
+          {
+            ok: false,
+            stage: started.error.stage,
+            message: started.error.message,
+          },
+          { status, headers },
+        );
       }
 
       const sr = started.result;

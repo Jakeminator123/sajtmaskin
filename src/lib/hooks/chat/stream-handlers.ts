@@ -661,7 +661,12 @@ export async function handleSseStream(
               null;
             const awaitingInput = Boolean(doneData.awaitingInput);
             const hasRecoveredArtifact =
-              awaitingInput || Boolean(resolvedVersionId) || Boolean(doneData.demoUrl);
+              awaitingInput ||
+              Boolean(resolvedVersionId) ||
+              Boolean(doneData.demoUrl) ||
+              Boolean(
+                typeof doneData.shimPreviewUrl === "string" && (doneData.shimPreviewUrl as string).trim(),
+              );
 
             if (!resolvedChatId) {
               throw new Error("No chat ID returned from stream");

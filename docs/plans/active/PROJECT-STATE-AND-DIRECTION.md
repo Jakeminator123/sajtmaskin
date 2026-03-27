@@ -58,12 +58,12 @@
 | # | Brist | Status |
 |---|--------|--------|
 | K18-1 | Env-merge → `.env.local`, placeholders, `projectEnvVars` | delvis [x] |
-| K18-2 | Sandbox primär preview; shim fallback | delvis [x] |
+| K18-2 | Sandbox primär preview; shim fallback; `filesJson`→sandbox; readiness probe; `previewBlocked` gate; SSE `sandboxPending` + shim `demoUrl` | delvis [x] |
 | K18-3 | UI: tydlig shim ↔ runtime ↔ build utan intern plattformslista | delvis [x] |
 | K18-4 | VM-återanvändning / plattforms-SDK / Redis session | delvis [x]; kvar: kall start-heuristik |
 | K18-5 | Fas 3: adapters / degraded preview (SQLite, preview-mail, demo-auth, …) | [ ] |
 | K18-6 | Fas 4: GitHub export (ej primär persistence) | [ ] |
-| K18-7 | Övrigt klart (merge, build i sandbox, SSE, session store, warmup, …) | delvis [x]; rad [ ] tills produkt accepterar hela målbilden |
+| K18-7 | Övrigt klart (merge, build i sandbox, SSE, session store, warmup, HTTP-status sandbox API, bootstrap retry, dep-merge på modell-`package.json`, …) | delvis [x]; rad [ ] tills produkt accepterar hela målbilden |
 
 ---
 

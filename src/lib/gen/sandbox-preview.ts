@@ -33,6 +33,8 @@ export interface SandboxPreviewError {
   raw?: string;
 }
 
+export { httpStatusForSandboxPreviewFailure } from "./sandbox-preview-errors";
+
 export type StartSandboxPreviewOptions = {
   /** When set, decrypted `projectEnvVars` merge into sandbox `.env.local` (after placeholders). */
   appProjectId?: string | null;
@@ -50,6 +52,12 @@ export type StartSandboxPreviewOptions = {
  *
  * Flow: repair -> buildCompleteProject -> merged `.env.local` (placeholders + project + generated)
  * -> @vercel/sandbox -> install -> dev (and optional build verify).
+ *
+ * **Paritet mot sparad version:** `finalizeAndSaveVersion` kör redan merge + preflight på `filesJson`.
+ * Denna väg kör dessutom `repairGeneratedFiles()` på inkommande filer innan `buildCompleteProject`
+ * (samma repair som behövs för att Next ska starta i VM). Om du behöver bit-exakt samma bytes som i DB,
+ * mata in rå `files_json` och acceptera att repair kan justera kända mönster — annars riskerar
+ * sandbox att visa en marginellt annan variant än kodvyn om repair ändrar något.
  */
 export async function startSandboxPreview(
   generatedFiles: CodeFile[],

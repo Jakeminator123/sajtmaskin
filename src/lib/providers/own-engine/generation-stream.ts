@@ -230,30 +230,32 @@ export function createOwnEngineGenerationStream(
         }
 
         let parsedForSandbox: CodeFile[] = [];
-        let sandboxParseError: unknown = null;
-        if (isSandboxConfigured() && finalized.contentForVersion) {
+        if (finalized.filesJson?.trim()) {
+          try {
+            const fromSaved = parseCodeFilesFromFilesJson(finalized.filesJson);
+            if (fromSaved && fromSaved.length > 0) {
+              parsedForSandbox = fromSaved;
+            }
+          } catch {
+            /* fallback below */
+          }
+        }
+        if (parsedForSandbox.length === 0 && finalized.contentForVersion?.trim()) {
           try {
             parsedForSandbox = parseCodeProject(finalized.contentForVersion).files;
-          } catch (e) {
-            sandboxParseError = e;
+          } catch {
+            /* no sandbox files */
           }
         }
-        if (parsedForSandbox.length === 0 && finalized.filesJson?.trim()) {
-          const fromSaved = parseCodeFilesFromFilesJson(finalized.filesJson);
-          if (fromSaved && fromSaved.length > 0) {
-            parsedForSandbox = fromSaved;
-            sandboxParseError = null;
-          }
-        }
+        const previewBlocked = finalized.preflight.previewBlocked;
         const sandboxWillRun =
-          isSandboxConfigured() &&
-          Boolean(finalized.contentForVersion) &&
-          parsedForSandbox.length > 0;
-        const doneDemoUrl = sandboxWillRun ? null : finalized.previewUrl;
+          isSandboxConfigured() && !previewBlocked && parsedForSandbox.length > 0;
+        const shimUrl =
+          finalized.previewUrl && finalized.previewUrl.trim() ? finalized.previewUrl.trim() : null;
+        /** Visa alltid shim i klienten medan sandbox bootar — undviker tom iframe. */
+        const doneDemoUrl = shimUrl;
         const shimFallback =
-          finalized.previewUrl && finalized.previewUrl.trim()
-            ? { fallbackDemoUrl: finalized.previewUrl.trim() }
-            : {};
+          shimUrl ? { fallbackDemoUrl: shimUrl } : {};
 
         safeEnqueue(
           enc.encode(
@@ -262,6 +264,8 @@ export function createOwnEngineGenerationStream(
               versionId: finalized.version.id,
               messageId: finalized.messageId,
               demoUrl: doneDemoUrl,
+              sandboxPending: sandboxWillRun,
+              shimPreviewUrl: shimUrl,
               preflight: finalized.preflight,
               previewBlocked: finalized.preflight.previewBlocked,
               verificationBlocked: finalized.preflight.verificationBlocked,
@@ -274,103 +278,81 @@ export function createOwnEngineGenerationStream(
           type: "site.done",
           chatId,
           versionId: finalized.version.id,
-          demoUrl: doneDemoUrl ?? finalized.previewUrl,
+          demoUrl: doneDemoUrl,
           sandboxPreviewDeferred: sandboxWillRun,
+          previewBlocked,
           durationMs: Date.now() - engineStartedAt,
         });
         devLogFinalizeSite();
         await commitCredits();
 
-        if (isSandboxConfigured() && finalized.contentForVersion) {
-          if (parsedForSandbox.length > 0) {
-            safeEnqueue(
-              enc.encode(
-                formatSSEEvent("progress", { step: "sandbox", phase: "starting" }),
-              ),
-            );
+        if (isSandboxConfigured() && sandboxWillRun) {
+          safeEnqueue(
+            enc.encode(
+              formatSSEEvent("progress", { step: "sandbox", phase: "starting" }),
+            ),
+          );
 
-            try {
-              const chatRow = await chatRepo.getChat(chatId);
-              const appProjectId =
-                typeof chatRow?.project_id === "string" && chatRow.project_id.trim()
-                  ? chatRow.project_id.trim()
-                  : null;
-              const sandboxResult = await startSandboxPreview(parsedForSandbox, {
-                appProjectId,
-                chatId,
-                versionIdForSession: finalized.version.id,
-              });
-              if (sandboxResult.ok) {
-                const sr = sandboxResult.result;
-                const sandboxUrlTrimmed = sr.sandboxUrl.trim();
-                const sandboxFallback =
-                  !sandboxUrlTrimmed &&
-                  finalized.previewUrl &&
-                  finalized.previewUrl.trim()
-                    ? { fallbackDemoUrl: finalized.previewUrl.trim() }
-                    : {};
-                safeEnqueue(
-                  enc.encode(
-                    formatSSEEvent("sandbox-ready", {
-                      sandboxUrl: sr.sandboxUrl,
-                      sandboxId: sr.sandboxId,
-                      sandboxPreviewMode: sr.sandboxPreviewMode,
-                      fidelityTier: sr.fidelityTier,
-                      prodBuildVerified: sr.prodBuildVerified,
-                      ...(sr.prodBuildLogSnippet
-                        ? { prodBuildLogSnippet: sr.prodBuildLogSnippet }
-                        : {}),
-                      ...sandboxFallback,
-                    }),
-                  ),
-                );
-                if (sr.sandboxUrl.trim()) {
-                  chatRepo
-                    .updateVersionSandboxUrl(finalized.version.id, sr.sandboxUrl)
-                    .catch(() => {});
-                }
-              } else {
-                warnLog("engine", "sandbox_preview_failed_shim_fallback", {
-                  chatId,
-                  versionId: finalized.version.id,
-                  stage: sandboxResult.error.stage,
-                  message: sandboxResult.error.message,
-                });
-                safeEnqueue(
-                  enc.encode(
-                    formatSSEEvent("build-error", { ...sandboxResult.error, ...shimFallback }),
-                  ),
-                );
-              }
-            } catch (err) {
-              const message = err instanceof Error ? err.message : "Sandbox failed";
-              warnLog("engine", "sandbox_preview_failed_shim_fallback", {
-                chatId,
-                versionId: finalized.version.id,
-                stage: "sandbox-create",
-                message,
-              });
+          try {
+            const chatRow = await chatRepo.getChat(chatId);
+            const appProjectId =
+              typeof chatRow?.project_id === "string" && chatRow.project_id.trim()
+                ? chatRow.project_id.trim()
+                : null;
+            const sandboxResult = await startSandboxPreview(parsedForSandbox, {
+              appProjectId,
+              chatId,
+              versionIdForSession: finalized.version.id,
+            });
+            if (sandboxResult.ok) {
+              const sr = sandboxResult.result;
+              const sandboxUrlTrimmed = sr.sandboxUrl.trim();
+              const sandboxFallback =
+                !sandboxUrlTrimmed &&
+                finalized.previewUrl &&
+                finalized.previewUrl.trim()
+                  ? { fallbackDemoUrl: finalized.previewUrl.trim() }
+                  : {};
               safeEnqueue(
                 enc.encode(
-                  formatSSEEvent("build-error", {
-                    stage: "sandbox-create" as const,
-                    message,
-                    ...shimFallback,
+                  formatSSEEvent("sandbox-ready", {
+                    sandboxUrl: sr.sandboxUrl,
+                    sandboxId: sr.sandboxId,
+                    sandboxPreviewMode: sr.sandboxPreviewMode,
+                    fidelityTier: sr.fidelityTier,
+                    prodBuildVerified: sr.prodBuildVerified,
+                    ...(sr.prodBuildLogSnippet
+                      ? { prodBuildLogSnippet: sr.prodBuildLogSnippet }
+                      : {}),
+                    ...sandboxFallback,
                   }),
                 ),
               );
+              if (sr.sandboxUrl.trim()) {
+                chatRepo
+                  .updateVersionSandboxUrl(finalized.version.id, sr.sandboxUrl)
+                  .catch(() => {});
+              }
+            } else {
+              warnLog("engine", "sandbox_preview_failed_shim_fallback", {
+                chatId,
+                versionId: finalized.version.id,
+                stage: sandboxResult.error.stage,
+                message: sandboxResult.error.message,
+              });
+              safeEnqueue(
+                enc.encode(
+                  formatSSEEvent("build-error", { ...sandboxResult.error, ...shimFallback }),
+                ),
+              );
             }
-          } else {
-            const message =
-              sandboxParseError instanceof Error
-                ? `Kunde inte tolka genererade filer för sandbox: ${sandboxParseError.message}`
-                : "Inga filer att köra i sandbox — projektstruktur saknas.";
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Sandbox failed";
             warnLog("engine", "sandbox_preview_failed_shim_fallback", {
               chatId,
               versionId: finalized.version.id,
               stage: "sandbox-create",
               message,
-              parseFailed: Boolean(sandboxParseError),
             });
             safeEnqueue(
               enc.encode(

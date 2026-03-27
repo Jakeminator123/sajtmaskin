@@ -14,9 +14,12 @@
 
 ## Demo-URL-kedja
 
-1. Efter `done` i SSE: ofta `demoUrl` → shim.
-2. Om sandbox konfigurerad: `startSandboxPreview` → `sandbox-ready` / `build-error`.
-3. `engine_versions.sandbox_url` uppdateras vid lyckad sandbox.
+1. Efter `done` i SSE: `demoUrl` / `shimPreviewUrl` pekar på **tier-1 shim** när `previewUrl` finns (`sandboxPending` kan vara true medan tier-2 startar).
+2. Kanoniska filer för sandbox är **`filesJson` efter finalize** (merge + preflight), inte rå `contentForVersion`.
+3. Om sandbox konfigurerad och inte `previewBlocked`: `startSandboxPreview` → `sandbox-ready` / `build-error`. Efter `npm run dev` körs en **readiness probe** mot preview-URL (se `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` i `docs/ENV.md`).
+4. `engine_versions.sandbox_url` uppdateras vid lyckad sandbox.
+
+**Typer / kontrakt:** `src/lib/gen/preview-contract.ts` (SSE-fält). **HTTP:** `/api/v0/chats/[chatId]/sandbox-preview` returnerar meningsfulla statuskoder (`422` repair, `503`/`504` runtime) — se `httpStatusForSandboxPreviewFailure`.
 
 Kodstart: `generation-stream.ts`, `finalize-version.ts`, `sandbox-preview.ts`, `PreviewPanel.tsx`, `stream-handlers.ts`.
 

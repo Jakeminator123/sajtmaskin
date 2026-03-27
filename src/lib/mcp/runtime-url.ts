@@ -95,10 +95,77 @@ export type SandboxRuntimeOptions = {
    * Default from env: `resolveSandboxPreviewModeFromEnv()` → **`dev_only`** unless `SAJTMASKIN_SANDBOX_PREVIEW_MODE` is set.
    */
   sandboxPreviewMode?: SandboxPreviewMode;
+  /**
+   * After detached `npm run dev`, poll the preview URL until HTTP responds (avoids 502 in iframe).
+   * Default true for modes that start the dev server. Set false only for tests.
+   */
+  readinessProbe?: boolean;
+  /** Max wait for dev server. Default from env `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` or 90s. */
+  readinessProbeMaxMs?: number;
 };
 
 const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
+
+const DEFAULT_READINESS_MAX_MS = 90_000;
+const READINESS_INTERVAL_MS = 1_000;
+
+/**
+ * Poll until the sandbox preview host accepts HTTP (reduces empty iframe / 502 right after `npm run dev`).
+ * Exported for tests and diagnostics.
+ */
+export async function waitForSandboxDevServerReady(
+  primaryUrl: string,
+  options?: { maxMs?: number; intervalMs?: number },
+): Promise<{ elapsedMs: number }> {
+  const maxMs =
+    options?.maxMs ??
+    (() => {
+      const raw = process.env.SAJTMASKIN_SANDBOX_READINESS_MAX_MS?.trim();
+      if (raw && /^\d+$/.test(raw)) return Math.min(Math.max(5_000, parseInt(raw, 10)), 180_000);
+      return DEFAULT_READINESS_MAX_MS;
+    })();
+  const intervalMs = options?.intervalMs ?? READINESS_INTERVAL_MS;
+  const deadline = Date.now() + maxMs;
+  const started = Date.now();
+  let lastMessage = "";
+
+  while (Date.now() < deadline) {
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 8_000);
+      const res = await fetch(primaryUrl, {
+        method: "GET",
+        redirect: "follow",
+        signal: ctrl.signal,
+        headers: { Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" },
+      });
+      clearTimeout(tid);
+      if (res.status < 500) {
+        return { elapsedMs: Date.now() - started };
+      }
+      lastMessage = `HTTP ${res.status}`;
+    } catch (err) {
+      lastMessage = err instanceof Error ? err.message : String(err);
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+
+  throw new Error(
+    `SANDBOX_NOT_LISTENING: dev server did not become ready within ${maxMs}ms. Last error: ${lastMessage}`,
+  );
+}
+
+/** Remove stock template files from the example repo so stray routes/README do not affect the build. */
+async function removeSandboxTemplateLeftovers(sandbox: InstanceType<typeof Sandbox>): Promise<void> {
+  await sandbox.runCommand({
+    cmd: "bash",
+    args: [
+      "-c",
+      "rm -f README.md LICENSE CONTRIBUTING.md CODE_OF_CONDUCT.md 2>/dev/null; true",
+    ],
+  });
+}
 
 /** Status values that mean the dev server is not usable — skip resume and create fresh. */
 const SANDBOX_NON_RUNNING_STATUS = new Set([
@@ -230,6 +297,15 @@ export async function createSandboxRuntimeFromFiles(
     runtime,
   });
 
+  const readinessProbe = options.readinessProbe !== false;
+  const readinessProbeMaxMs =
+    options.readinessProbeMaxMs ??
+    (() => {
+      const raw = process.env.SAJTMASKIN_SANDBOX_READINESS_MAX_MS?.trim();
+      if (raw && /^\d+$/.test(raw)) return Math.min(Math.max(5_000, parseInt(raw, 10)), 180_000);
+      return DEFAULT_READINESS_MAX_MS;
+    })();
+
   try {
     await sandbox.writeFiles(
       files.map((file) => ({
@@ -237,6 +313,8 @@ export async function createSandboxRuntimeFromFiles(
         content: Buffer.from(file.content, "utf-8"),
       })),
     );
+
+    await removeSandboxTemplateLeftovers(sandbox);
 
     const installResult = await sandbox.runCommand({
       cmd: "bash",
@@ -275,6 +353,13 @@ export async function createSandboxRuntimeFromFiles(
         args: ["-c", startCommand],
         detached: true,
       });
+
+      const probeUrl = sandbox.domain(ports[0] ?? 3000)?.trim() ?? "";
+      if (readinessProbe && probeUrl) {
+        await waitForSandboxDevServerReady(probeUrl, {
+          maxMs: readinessProbeMaxMs,
+        });
+      }
 
       if (previewMode === "dev_then_build" && verifyBuild) {
         const buildResult = await sandbox.runCommand({

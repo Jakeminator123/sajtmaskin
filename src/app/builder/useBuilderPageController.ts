@@ -1273,9 +1273,14 @@ export function useBuilderPageController() {
   const postStreamCooldownUntilRef = useRef(0);
   const sandboxBootstrapGenRef = useRef(0);
   const sandboxBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
+  /** Bumps to re-run bootstrap after transient sandbox API failures (503/504/network). */
+  const [sandboxBootstrapRetryNonce, setSandboxBootstrapRetryNonce] = useState(0);
+  const sandboxBootstrapTransientAttemptsRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     sandboxBootstrapDoneKeysRef.current.clear();
+    sandboxBootstrapTransientAttemptsRef.current.clear();
+    setSandboxBootstrapRetryNonce(0);
   }, [chatId]);
 
   useEffect(() => {
@@ -1351,14 +1356,30 @@ export function useBuilderPageController() {
                 duration: 14_000,
               });
             }
-            // Do not mark done when only credentials are missing — retry after refresh / env pull.
-            if (data?.code !== "sandbox_disabled") {
+            // Credentials missing: retry when user fixes env (do not mark done).
+            if (data?.code === "sandbox_disabled") {
+              return;
+            }
+          }
+
+          const transientHttp =
+            res.status === 502 || res.status === 503 || res.status === 504 || res.status >= 500;
+          if (transientHttp && (!data || !data.ok)) {
+            const prev = sandboxBootstrapTransientAttemptsRef.current.get(key) ?? 0;
+            const next = prev + 1;
+            sandboxBootstrapTransientAttemptsRef.current.set(key, next);
+            if (next <= 4) {
+              window.setTimeout(() => {
+                setSandboxBootstrapRetryNonce((n) => n + 1);
+              }, 6_000);
+            } else {
               sandboxBootstrapDoneKeysRef.current.add(key);
             }
             return;
           }
 
           sandboxBootstrapDoneKeysRef.current.add(key);
+          sandboxBootstrapTransientAttemptsRef.current.delete(key);
           if (!data?.ok || typeof data.sandboxUrl !== "string" || !data.sandboxUrl.trim()) {
             return;
           }
@@ -1382,7 +1403,16 @@ export function useBuilderPageController() {
         } catch (err) {
           if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
           if (err instanceof Error && err.name === "AbortError") return;
-          sandboxBootstrapDoneKeysRef.current.add(key);
+          const prev = sandboxBootstrapTransientAttemptsRef.current.get(key) ?? 0;
+          const next = prev + 1;
+          sandboxBootstrapTransientAttemptsRef.current.set(key, next);
+          if (next <= 4) {
+            window.setTimeout(() => {
+              setSandboxBootstrapRetryNonce((n) => n + 1);
+            }, 6_000);
+          } else {
+            sandboxBootstrapDoneKeysRef.current.add(key);
+          }
         }
       })();
     }, 0);
@@ -1407,6 +1437,7 @@ export function useBuilderPageController() {
     mutateVersions,
     setSandboxBuildError,
     setSandboxProdBuild,
+    sandboxBootstrapRetryNonce,
   ]);
 
   // Prompt assist context fetch
