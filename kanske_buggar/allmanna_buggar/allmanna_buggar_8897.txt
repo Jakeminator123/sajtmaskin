@@ -1,0 +1,79 @@
+Allmän buggrapport — Sajtmaskin (kodgranskning)
+Fil: allmanna_buggar_8897.txt
+Datum: 2026-03-27
+
+Sammanfattning: Fem potentiella problem med bedömd sannolikhet, kort motivering och påverkan.
+Procentsatser är manuella bedömningar, inte mätdata.
+
+──────────────────────────────────────────────────────────────────────────────
+
+1) inFlightAudits rensas inte vid flera tidiga return-svar
+
+   Sannolikhet att det är en bugg: 92%
+
+   Motivering: Efter att nyckeln lagts in i inFlightAudits (src/app/api/audit/route.ts)
+   returneras HTTP-svar från flera grenar utan inFlightAudits.delete — t.ex. när
+   scrapeWebsite misslyckas, när AI-svaret är tomt, eller när AI Gateway saknas.
+   Den yttre catch som rensar körs inte vid dessa return. Posten ligger kvar tills
+   cleanupStaleInFlightAudits tar bort den (upp till ca 10 minuter).
+
+   Påverkan: Medel till hög. Användaren kan felaktigt få 409 «audit pågår redan»
+   och blockeras från omedelbar omförsök efter ett fel.
+
+──────────────────────────────────────────────────────────────────────────────
+
+2) Lyckad audit-respons trots misslyckad kreditdebitering
+
+   Sannolikhet att det är en bugg: 75%
+
+   Motivering: creditCheck.commit() är inpackad i try/catch; vid fel loggas felet
+   men lyckat resultat returneras ändå (kommentar anger avsikt att «ändå returnera
+   resultat»). Om produktkravet är strikt atomärt (ingen debitering = ingen rapport)
+   är det inkonsekvent beteende.
+
+   Påverkan: Hög för credits/affärslogik om oavsiktligt — risk för gratis audit
+   vid transaktionsfel eller missbruksscenario.
+
+──────────────────────────────────────────────────────────────────────────────
+
+3) setInterval på modulnivå i audit-route
+
+   Sannolikhet att det är problematiskt: 55%
+
+   Motivering: setInterval(cleanupStaleInFlightAudits, …) körs när modulen laddas.
+   I serverless eller många instanser kan det ge upprepade timers och onödig
+   bakgrundslast jämfört med att rensa vid request eller lazy-init.
+
+   Påverkan: Låg till medel — minne/CPU i drift, svårare att resonera om i
+   skalad miljö; inte nödvändigtvis en klassisk logikbugg.
+
+──────────────────────────────────────────────────────────────────────────────
+
+4) ensureProjectForRequest — sista utväg returnerar id som kanske aldrig skrevs
+
+   Sannolikhet att det är en bugg: 40%
+
+   Motivering: Efter upsert och fallback-queries returneras i sista hand { id, v0ProjectId }
+   med ett nanoid som genererats för insert (src/lib/tenant.ts). Om denna gren
+   nås utan att raden finns i databasen får klienten ett projekt-id utan motsvarande
+   rad — kommentaren säger att det inte borde hända.
+
+   Påverkan: Hög om grenen träffar i produktion (trasiga referenser, följdfel i UI/API).
+
+──────────────────────────────────────────────────────────────────────────────
+
+5) ReadableStreamDefaultReader.releaseLock() i finally efter streamfel
+
+   Sannolikhet att det är en bugg: 48%
+
+   Motivering: Flera strömmar anropar reader.releaseLock() i finally (t.ex.
+   generation-stream.ts, plan-mode-stream.ts, generate-site.ts). Plattformsregeln
+   för streams varnar för releaseLock() när read() fortfarande är outstanding —
+   kan ge fel tillstånd eller varningar i vissa felscenarier.
+
+   Påverkan: Medel — robusthet vid avbrott i generation/streaming; ofta fungerar
+   det när läsloopen redan avslutats.
+
+──────────────────────────────────────────────────────────────────────────────
+
+Slut på rapport.

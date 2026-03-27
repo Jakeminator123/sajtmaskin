@@ -72,10 +72,12 @@ export const REPO_CACHE_ROOT = path.resolve(
   "external-templates",
   "repo-cache",
 );
+/** Optional extra root (must exist on disk). Replaces former machine-specific paths in repo. */
+const legacyRootFromEnv = process.env.SAJTMASKIN_LEGACY_SUMMARY_ROOT?.trim();
 export const LEGACY_SOURCE_ROOT_CANDIDATES = [
   path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
   path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
-  "C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates",
+  ...(legacyRootFromEnv && fs.existsSync(legacyRootFromEnv) ? [legacyRootFromEnv] : []),
 ];
 export const CANONICAL_USE_CASE_SLUGS = new Set([
   "ai",

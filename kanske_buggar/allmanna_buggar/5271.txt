@@ -1,0 +1,41 @@
+Sajtmaskin (Next.js, API under src/app/api/, codegen under src/lib/gen/) — snabb genomgång av worktree med fokus på sannolika fel. Rapporten listar fem ärenden med uppskattad sannolikhet att det rör sig om en riktig bugg, kort motivering och bedömd påverkan.
+
+---
+
+1) inFlightAudits rensas inte vid alla tidiga return (POST /api/audit)
+
+Sannolikhet: 88%
+Motivering: Efter att en nyckel lagts in i Map med inFlightAudits.set finns många vägar som returnerar NextResponse direkt (t.ex. misslyckad scraping, tom AI-respons, saknad gateway) utan att anropa delete. Rensning sker vid lyckat slutförande och i yttre catch, men inte vid dessa tidiga returer — posten lever kvar tills TTL (t.ex. 10 min) eller periodisk städning.
+Påverkan: Medel — användaren kan felaktigt få 409 "audit pågår redan" en stund efter ett misslyckat försök.
+
+---
+
+2) getPricingForModel returnerar alltid noll (kostnadsfält i audit-svar)
+
+Sannolikhet: 95%
+Motivering: Funktionen returnerar { input: 0, output: 0 } oavsett modell, vilket gör att beräknad USD/SEK och result.cost blir noll trots att token-räknare kan vara ifyllda.
+Påverkan: Låg till medel — fel eller missvisande kostnadsinformation i API/UI; själva audit-resultatet påverkas inte nödvändigtvis.
+
+---
+
+3) För bred strängmatchning vid scrape-fel: includes("50")
+
+Sannolikhet: 60%
+Motivering: Villkoret errorMessage.includes("50") kan träffa godtycklig text som råkar innehålla "50" (inte bara HTTP 5xx), vilket kan ge fel statuskod gentemot klient jämfört med avsedd klassificering.
+Påverkan: Låg — främst fel HTTP-status i undantagsfall; beror på hur webscraper formulerar felmeddelanden.
+
+---
+
+4) Hårdkodad Windows-sökväg i LEGACY_SOURCE_ROOT_CANDIDATES (template-library-discovery)
+
+Sannolikhet: 90%
+Motivering: En kandidat pekar på en fast användarsökväg (Desktop/_sidor/...), vilket inte finns på andra maskiner eller i CI om inte filen kopieras dit.
+Påverkan: Medel — skript som resolveExistingLegacySummaryPath() hittar inte legacy summary.json automatiskt utan manuell sökväg eller duplicerad data.
+
+---
+
+5) Rå feltext till klient i init-registry (sista fallback)
+
+Sannolikhet: 75%
+Motivering: När inget tidigare felgren-matchar returneras err.message direkt i JSON (500), till skillnad från övriga grenar med neutrala texter — risk för informationsläckage och inkonsekvent UX.
+Påverkan: Medel — kan exponera interna eller leverantörsdetaljer; sämre användarupplevelse än med generiska fel.

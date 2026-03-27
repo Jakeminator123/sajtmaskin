@@ -1088,8 +1088,22 @@ function estimateWordCountFromSiteContent(siteContent?: AuditResult["site_conten
   return count;
 }
 
-function getPricingForModel(_model: string): { input: number; output: number } {
-  return { input: 0, output: 0 };
+/**
+ * Approximate USD per 1M tokens for cost display (provider list prices change;
+ * figures are indicative, not billing truth).
+ */
+function getPricingForModel(model: string): { input: number; output: number } {
+  const m = model.toLowerCase();
+  if (m.includes("gpt-5.2")) return { input: 1.25, output: 10 };
+  if (m.includes("opus")) return { input: 15, output: 75 };
+  if (m.includes("sonnet")) return { input: 3, output: 15 };
+  if (m.includes("claude")) return { input: 3, output: 15 };
+  return { input: 2, output: 10 };
+}
+
+/** Matches HTTP 5xx status codes mentioned in error strings (avoids loose "50" substring). */
+function messageLooksLikeHttp5xx(message: string): boolean {
+  return /\b5\d{2}\b/.test(message);
 }
 
 export async function POST(request: NextRequest) {
@@ -1185,6 +1199,7 @@ export async function POST(request: NextRequest) {
       promise: Promise.resolve({} as AuditResult), // Placeholder
     });
 
+    try {
     // Scrape website content
     console.info(`[${requestId}] Scraping website...`);
     let websiteContent;
@@ -1213,7 +1228,7 @@ export async function POST(request: NextRequest) {
         statusCode = 404;
       } else if (errorMessage.includes("Timeout")) {
         statusCode = 408;
-      } else if (errorMessage.includes("Serverfel") || errorMessage.includes("50")) {
+      } else if (errorMessage.includes("Serverfel") || messageLooksLikeHttp5xx(errorMessage)) {
         statusCode = 502;
       }
 
@@ -1604,14 +1619,23 @@ export async function POST(request: NextRequest) {
       }
     } catch (txError) {
       console.error(`[${requestId}] Failed to deduct diamonds:`, txError);
-      // Still return result even if transaction fails
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Debiteringen misslyckades. Försök igen om en stund.",
+        },
+        {
+          status: 500,
+          headers: {
+            "X-Request-ID": requestId,
+            "X-Response-Time": `${Date.now() - requestStartTime}ms`,
+          },
+        },
+      );
     }
 
     const totalDuration = Date.now() - requestStartTime;
     console.info(`[${requestId}] Audit completed in ${totalDuration}ms`);
-
-    // Clean up in-flight tracking
-    inFlightAudits.delete(inFlightKey);
 
     return NextResponse.json(
       {
@@ -1626,12 +1650,12 @@ export async function POST(request: NextRequest) {
         },
       },
     );
-    } catch (error: unknown) {
-    // Clean up in-flight tracking on error
-    if (inFlightKey) {
-      inFlightAudits.delete(inFlightKey);
+    } finally {
+      if (inFlightKey) {
+        inFlightAudits.delete(inFlightKey);
+      }
     }
-
+    } catch (error: unknown) {
     const totalDuration = Date.now() - requestStartTime;
     const err = error as { message?: string; status?: number; code?: string };
 

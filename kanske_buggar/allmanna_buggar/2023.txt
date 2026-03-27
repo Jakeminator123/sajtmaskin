@@ -1,0 +1,116 @@
+Verifierad buggsammanställning — Sajtmaskin
+============================================
+Skapad: 2026-03-27
+Källfiler: 3133.txt, 5271.txt, 5844.txt, 7691.txt, allmanna_buggar_8897.txt
+Metod: Fem parallella rapporter har lästs igenom. Varje ärende har kontrollerats mot
+aktuell kod i repot (src/, scripts/). Där flera källor pekar på samma mönster, eller
+där koden entydigt matchar beskrivningen, höjs den gemensamma sannolikheten.
+
+Förkortningar:
+  [B] = bekräftad i kod (radreferenser avser nuvarande träd)
+  [K] = konsensus mellan flera rapportfiler
+
+-------------------------------------------------------------------------------
+A. Ärenden med starkast stöd efter kodgranskning
+-------------------------------------------------------------------------------
+
+1) inFlightAudits rensas inte vid tidiga return efter .set (POST /api/audit)
+   Rapporter: 5271, allmanna_buggar_8897  |  [B] [K]
+   Kod: inFlightAudits.set(...) ca rad 1182; vid scrape-fel returneras svar ca 1220–1226
+   utan delete. delete körs vid lyckat slut (ca 1614) och i yttre catch (ca 1631–1632).
+   Slutsats: VERIFIERAD BUGG — logisk lucka ger kvarlemmande nyckel tills TTL (~10 min).
+   Gemensam sannolikhet (efter bekräftelse): ~93 %
+   Påverkan: Medel (fel 409 «pågår redan» efter misslyckat försök).
+
+2) Hårdkodad Windows-sökväg i LEGACY_SOURCE_ROOT_CANDIDATES
+   Rapporter: 3133, 5271, 7691  |  [B] [K]
+   Kod: scripts/template-library-discovery.ts — absolut sökväg under C:\Users\jakem\...
+   Slutsats: VERIFIERAD — portabilitets-/reproducerbarhetsproblem; inte en runtime-bugg
+   i Next men fel beteende för skript på andra maskiner/CI.
+   Gemensam sannolikhet: ~92 %
+   Påverkan: Medel för team som kör discovery-skript.
+
+3) plan-mode-stream: SSE-event "done" och "error" hanteras med tom break
+   Rapporter: 3133, 5844  |  [B] [K]
+   Kod: src/lib/gen/stream/plan-mode-stream.ts — switch case "done"/"error" (ca 175–177)
+   gör inget; därefter körs resolvePlanArtifact, persistAssistantSummary och klient-"done"
+   som vanligt. Upstream-fel via SSE når inte användaren som separat signal.
+   Slutsats: VERIFIERAD AVVIKELSE — kan vara avsiktligt om endast byte-strömslut spelar roll,
+   men rapporternas beskrivning stämmer med koden.
+   Gemensam sannolikhet: ~86 %
+   Påverkan: Hög för planläges-UX om pipelinen förlitar sig på explicit error-event.
+
+4) getPricingForModel returnerar alltid { input: 0, output: 0 }
+   Rapporter: 5271  |  [B]
+   Kod: src/app/api/audit/route.ts ca 1091–1093; används för costUSD/costSEK i resultat.
+   Slutsats: VERIFIERAD — ofullständig prissättning / placeholder i produktionslogik.
+   Gemensam sannolikhet: ~96 % (ensam rapport men kod entydig)
+   Påverkan: Låg–medel (fel kostnadsfält; audit-innehåll påverkas inte nödvändigtvis).
+
+5) init-registry: rå feltext i sista fallback (500)
+   Rapporter: 5271  |  [B]
+   Kod: src/app/api/v0/chats/init-registry/route.ts — NextResponse.json({ error: msg || ... })
+   Slutsats: VERIFIERAD — informationsläckage / inkonsekvent felpolicy jämfört med övriga grenar.
+   Gemensam sannolikhet: ~78 %
+   Påverkan: Medel.
+
+6) Lyckad audit trots misslyckad kreditdebitering (creditCheck.commit)
+   Rapporter: allmanna_buggar_8897  |  [B]
+   Kod: src/app/api/audit/route.ts try/catch runt commit; vid fel loggas men success returneras
+   (kommentar «Still return result»).
+   Slutsats: VERIFIERAD BETEENDE — om kravet är strikt atomiskt debitering↔rapport är det en
+   affärs-/logikbugg; om medvetet «gratis vid DB-fel» är det policy.
+   Gemensam sannolikhet: ~82 % (som bugg mot strikt krav)
+   Påverkan: Hög om oavsiktlig gratis audit.
+
+7) MCP generate-site: streamError stoppar inte om det finns innehåll men saknas sawDone
+   Rapporter: 5844  |  [B]
+   Kod: src/lib/mcp/generate-site.ts — throw endast när !sawDone && !accumulatedContent.trim();
+   vid fel-event men ackumulerad text fortsätter flödet till finalizeAndSaveVersion.
+   Slutsats: VERIFIERAD — risken i rapporten stämmer; kan vara medvetet (partial save).
+   Gemensam sannolikhet: ~80 %
+   Påverkan: Hög om MCP-anroparen förväntar sig hård felabort.
+
+8) Admin analytics: days från query utan validering (parseInt → NaN)
+   Rapporter: 7691  |  [B]
+   Kod: src/app/api/analytics/route.ts parseInt(...); getAnalyticsStats(days) använder
+   startDate.setDate(getDate() - days) — NaN ger ogiltigt datumintervall.
+   Slutsats: VERIFIERAD — gränsfall för ?days=foo eller ogiltiga värden.
+   Gemensam sannolikhet: ~82 %
+   Påverkan: Medel (fel statistik eller oväntade resultat för admin).
+
+-------------------------------------------------------------------------------
+B. Ärenden med en källa eller lägre kodbekräftelse (kvar som risk, inte «samstämmigt»)
+-------------------------------------------------------------------------------
+
+• Scrape-fel: errorMessage.includes("50") — 5271, [B] audit/route.ts — bred matchning;
+  sannolikhet ~58 %, låg påverkan.
+
+• createPlanModeStream saknar cancel() på utgående ReadableStream — 3133; [B] endast
+  start() i new ReadableStream — sannolikhet ~72 %, medel påverkan vid avbrott.
+
+• useAutoFix / isLatestVersionPayload vid null — 3133; ej dubbelkollad i denna session.
+
+• useLocalStorageSync exhaustive-deps — 3133; sannolikhet lägre.
+
+• useDeploymentStatus tom catch, deployment events catch {}, consumeSseResponse filter —
+  5844; rimliga fynd men en källa — rekommenderas separat kodpass.
+
+• collectSSEContent i eval/runner — 7691; intern kvalitet.
+
+• parseInt placeholder/media — 7691; låg sannolikhet/påverkan.
+
+• setInterval i audit-modul, ensureProjectForTenant, releaseLock i finally — 8897;
+  blandning av drift och stil; releaseLock diskuteras i plattformsregler.
+
+-------------------------------------------------------------------------------
+C. Rekommenderad prioritering (verifierade, oberoende av rapportantal)
+-------------------------------------------------------------------------------
+
+Hög:  inFlightAudits-leak; plan-mode SSE done/error; ev. MCP partial+error; credits vs audit.
+Medel: hårdkodad sökväg; init-registry raw error; analytics NaN days; getPricingForModel-nollor.
+Lägre: includes("50")-klassificering; övriga enkelkällsärenden.
+
+-------------------------------------------------------------------------------
+Slut på sammanställning (fil: 2023.txt)
+-------------------------------------------------------------------------------

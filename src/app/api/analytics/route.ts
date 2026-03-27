@@ -68,12 +68,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const days = parseInt(req.nextUrl.searchParams.get("days") || "30");
+    const rawDays = parseInt(req.nextUrl.searchParams.get("days") || "30", 10);
+    const days =
+      Number.isFinite(rawDays) && rawDays >= 1 && rawDays <= 366 ? rawDays : 30;
     const stats = await getAnalyticsStats(days);
 
     return NextResponse.json({
       success: true,
       stats,
+      daysUsed: days,
     });
   } catch (error) {
     console.error("[API/analytics] Error getting stats:", error);

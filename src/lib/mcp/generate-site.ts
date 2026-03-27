@@ -247,6 +247,10 @@ export async function generateSiteFromPrompt(
     throw new Error(streamError || "Generation produced no content.");
   }
 
+  if (streamError) {
+    throw new Error(streamError);
+  }
+
   if (!sawDone) {
     const flushed = suspense.flush();
     if (flushed) accumulatedContent += flushed;

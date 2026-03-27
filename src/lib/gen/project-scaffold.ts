@@ -59,7 +59,7 @@ const PACKAGE_JSON = `{
     "@radix-ui/react-tooltip": "1.1.14",
     "@radix-ui/react-accordion": "1.2.8",
     "@radix-ui/react-collapsible": "1.1.12",
-    "@radix-ui/react-select": "2.1.15",
+    "@radix-ui/react-select": "2.2.6",
     "@radix-ui/react-switch": "1.1.8",
     "@radix-ui/react-checkbox": "1.3.3",
     "@radix-ui/react-label": "2.1.6",

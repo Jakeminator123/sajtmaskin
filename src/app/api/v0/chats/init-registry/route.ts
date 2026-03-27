@@ -283,8 +283,15 @@ export async function POST(req: Request) {
         );
       }
 
+      console.error("Init registry unhandled error:", msg || "(empty)");
       return attachSessionCookie(
-        NextResponse.json({ error: msg || "Unknown error" }, { status: 500 }),
+        NextResponse.json(
+          {
+            error: "Registry-import misslyckades",
+            details: "Ett oväntat fel uppstod. Försök igen eller använd fallback-läget.",
+          },
+          { status: 500 },
+        ),
       );
     }
   });

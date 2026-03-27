@@ -1,7 +1,7 @@
 # Template Library Catalog
 
-Generated: 2026-03-24T12:55:25.509Z
-Source root: C:\Users\jakem\dev\projects\sajtmaskin\scraped-vercel-scorefolds
+Generated: 2026-03-27T12:57:33.410Z
+Source root: C:\Users\jakem\dev\projects\sajtmaskin\research\external-templates\raw-discovery\current
 Total templates audited: 69
 Curated templates: 6
 
