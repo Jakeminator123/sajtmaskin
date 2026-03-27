@@ -18,9 +18,10 @@
 
 | Behov | Fil / plats |
 |--------|-------------|
+| Var finns vad (rot-träd, `data/` vs codegen-data) | [`docs/architecture/repo-tree.md`](../../architecture/repo-tree.md) |
 | System / builder | [`docs/architecture/system-overview.md`](../../architecture/system-overview.md) |
 | Generation, SSE | [`docs/architecture/builder-generation.md`](../../architecture/builder-generation.md) |
-| Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](../../architecture/preview-deploy.md) · arkiv: [`preview-and-sandbox-flow.md`](../../architecture/archive/pre-2026-03-consolidation/preview-and-sandbox-flow.md), [`preview-fidelity-tiers.md`](../../architecture/archive/pre-2026-03-consolidation/preview-fidelity-tiers.md) |
+| Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](../../architecture/preview-deploy.md) |
 | Mappar, scaffold vs v0-templates | [`docs/architecture/repository-and-platform.md`](../../architecture/repository-and-platform.md) |
 | Env | [`docs/ENV.md`](../../ENV.md), `config/env-policy.json` |
 | Ordlista (agenter) | [`.cursor/rules/terminology.mdc`](../../../.cursor/rules/terminology.mdc) |

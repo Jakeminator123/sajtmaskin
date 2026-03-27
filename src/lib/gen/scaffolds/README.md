@@ -1,6 +1,6 @@
 # Runtime Scaffolds (partially cursorignored)
 
-Large generated JSON is cursorignored. Overview: [`../README.md`](../README.md) · Product terms: `.cursor/rules/terminology.mdc` (scaffold vs v0-templates).
+Large generated JSON is cursorignored. Overview: [`../README.md`](../README.md) · Product terms: `.cursor/rules/terminology.mdc` (runtime **scaffold** vs **v0-templates** / builder «Mall» vs **Vercel-mall** research).
 
 ## Cursorignored files
 

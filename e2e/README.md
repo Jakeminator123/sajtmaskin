@@ -6,7 +6,7 @@
 |----------------|------------|
 | **`SAJTMASKIN_E2E_BASE_URL`**, `…_SESSION_COOKIE`, `…_DEPLOY_CHAT_ID`, `…_DEPLOY_VERSION_ID` | Endast för **`e2e/deploy/deploy-api-precheck.smoke.spec.ts`**: Playwright anropar **din körda Sajtmaskin** (`POST /api/v0/deployments`, `precheckOnly`). **Ingen** koppling till v0:s mall-API eller en «mallmapp». |
 
-**v0 / builder-scaffolds:** synkas och versioneras via **`npm run templates:*`**, `src/lib/gen/scaffolds/`, template-library-pipelinen — se [`docs/architecture/README.md`](../docs/architecture/README.md) och arkiv [`vercel-templates-discovery.md`](../docs/architecture/archive/pre-2026-03-consolidation/vercel-templates-discovery.md) om mall-spåret.
+**v0 / builder-scaffolds:** synkas och versioneras via **`npm run templates:*`**, `src/lib/gen/scaffolds/`, template-library-pipelinen — se [`docs/architecture/README.md`](../docs/architecture/README.md) och [`research/external-templates/README.md`](../research/external-templates/README.md) om mall-spåret.
 
 **Den här `e2e/`-mappen** har två spår: (1) **Vercel.com**-katalog-skapning → `research/external-templates/`, (2) **valfri deploy-API-smoke** ovan. Malltyper: [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc) (V0-templates vs Vercel-mall research).
 
@@ -27,13 +27,13 @@
 
 Output: `research/external-templates/raw-discovery/current/` (see spec header). This is the **external-template research** lane, not v0 gallery templates (`templates:*`).
 
-**Scaffolds:** this spec does **not** edit `src/lib/gen/scaffolds/` or `scaffold-embeddings.json`. After discovery you run the **template-library** pipeline (`template-library:import`, hydrate, `template-library:build`, `template-library:embeddings`) before promoted scaffolds / runtime enrichment see new data. See arkiv `docs/architecture/archive/pre-2026-03-consolidation/vercel-templates-playwright-scaffold-integration.txt`.
+**Scaffolds:** this spec does **not** edit `src/lib/gen/scaffolds/` or `scaffold-embeddings.json`. After discovery you run the **template-library** pipeline (`template-library:import`, hydrate, `template-library:build`, `template-library:embeddings`) before promoted scaffolds / runtime enrichment see new data. Se [`scripts/README.md`](../scripts/README.md) (template-library) och [`research/external-templates/README.md`](../research/external-templates/README.md).
 
 **OpenClaw app e2e:** `npm run test:openclaw:e2e` uses `playwright.openclaw.config.ts` and `tests/openclaw/` — unrelated to this spec.
 
 ## Builder & deploy API (regression idag)
 
-Kontraktstester (mockad DB/version, inga riktiga Vercel-anrop): `src/app/api/v0/deployments/route.test.ts`. Preflight, `precheckOnly`, `skipAutoFix` och canonical path: `docs/architecture/archive/pre-2026-03-consolidation/deploy-precheck.md` (översikt: `docs/architecture/preview-deploy.md`).
+Kontraktstester (mockad DB/version, inga riktiga Vercel-anrop): `src/app/api/v0/deployments/route.test.ts`. Preflight, `precheckOnly`, `skipAutoFix` och canonical path: [`docs/architecture/preview-deploy.md`](../docs/architecture/preview-deploy.md).
 
 En full **HTTP- eller Playwright-`request`-smoke mot `POST /api/v0/deployments`** kräver autentiserad session och ägarskap till chat/version — separat produktbeslut.
 

@@ -3,7 +3,7 @@
 Sajtmaskin — konfigurationsdashboard (Streamlit).
 
 Kör från repo-root (PowerShell, UTF-8):
-  cd config-dashboard
+  cd config/dashboard
   $env:PYTHONUTF8 = "1"
   python -m pip install -r requirements.txt
   python app.py
@@ -107,7 +107,7 @@ def render_where_panel(page: str, dm: dict[str, Any]) -> None:
     meta = (dm.get("pages") or {}).get(page)
     if not meta:
         st.info(
-            f"Saknar post för **{page}** i `config-dashboard/domain-map.json`. "
+            f"Saknar post för **{page}** i `config/dashboard/domain-map.json`. "
             "Lägg till en `pages`-nyckel som matchar vynamnet."
         )
         return
@@ -184,7 +184,7 @@ with st.sidebar:
     st.subheader("Navigation")
     page = st.radio("Vy", NAV_PAGES, label_visibility="collapsed")
     st.caption(
-        "`config/` · `docs/` · `config-dashboard/` · sist: **Cursor-agenter** → `.cursor/` + docs"
+        "`config/` · `config/dashboard/` (Streamlit) · `docs/` · sist: **Cursor-agenter** → `.cursor/` + docs"
     )
     st.divider()
     st.subheader("Repo")
@@ -207,7 +207,7 @@ st.caption(
 # -- Översikt -------------------------------------------------------------------
 
 if page == "Översikt":
-    with st.expander("Repo-roten: config · docs · config-dashboard · .cursor", expanded=False):
+    with st.expander("Repo-roten: config (inkl. dashboard/) · docs · .cursor", expanded=False):
         for name, blurb in (domain_map.get("repoSiblings") or {}).items():
             st.markdown(f"**`{name}/`** — {blurb}")
 

@@ -194,9 +194,3 @@ STOR_MIGRATION
 .cursor/migration-archive/
 
 internt_jakob/
-
-.vercel
-.env*.local
-
-.vercel
-.env*.local

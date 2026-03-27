@@ -40,10 +40,10 @@ export function isSandboxConfigured(): boolean {
 
 /**
  * Returned in API responses when sandbox auth is missing so local `npm run dev` and
- * operators know how to enable tier-2 preview. See `docs/architecture/archive/pre-2026-03-consolidation/vercel-sandbox-credentials.md`.
+ * operators know how to enable tier-2 preview. See docs/architecture/preview-deploy.md and docs/ENV.md.
  */
 export const SANDBOX_SETUP_HINT =
-  "Lokal dev: kör `vercel link` och `vercel env pull` (VERCEL_OIDC_TOKEN), eller sätt VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID i .env.local. Se docs/architecture/archive/pre-2026-03-consolidation/vercel-sandbox-credentials.md.";
+  "Lokal dev: kör `vercel link` och `vercel env pull` (VERCEL_OIDC_TOKEN), eller sätt VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID i .env.local. Se docs/architecture/preview-deploy.md och docs/ENV.md.";
 
 export type RuntimeFile = {
   name: string;

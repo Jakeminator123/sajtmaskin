@@ -6,24 +6,28 @@
 
 | Audience / topic | Canonical location | What it covers |
 |------------------|-------------------|----------------|
-| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | Sajtmaskin vs Vercel vs v0, builder modes (`freeform` vs “Fritext”), **model lanes** vs **scaffold / v0-templates / Vercel-mall research**, **builder Mall tab (v0) vs Vercel-mall research**, naming in code. **Hur du öppnar filen i Cursor:** se `.cursor/README.md`. |
-| **Repo layout & research pipeline** | `docs/architecture/repository-and-platform.md` | Tabell + länkar; djup mermaid/pipeline: arkiv `archive/pre-2026-03-consolidation/structure-and-terminology.md`. |
+| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | v0-templates («Mall») vs **Vercel-mall** (research), **buildern**, **fidelity**, **own-engine**, demo/preview, m.m. **Hur du öppnar:** `.cursor/README.md`. |
+| **Repo layout & research pipeline** | `docs/architecture/repository-and-platform.md` | Mappar, skript, integrationer; mermaid där det behövs. |
+| **Dokumentationspolicy (var saker ska ligga)** | `docs/architecture/documentation-lifecycle.md` | Planstatus, rensning, varför policy ligger i `docs/` inte bara i `.cursor/rules/`. |
 
-**Rule:** Add new **UI/product** terms to `terminology.mdc`. Add new **folder / artifact** terms to `repository-and-platform.md` (och vid behov arkivfilen ovan). Link between them; avoid pasting the full glossary into random plans.
+**Rule:** Nya **UI/produkt**-termer → `terminology.mdc`. Nya **mapp-/pipeline**-detaljer → `repository-and-platform.md` (eller `repo-tree.md` för snabb orientering). Länka; klistra inte in hela ordlistan i planfiler.
 
 ## Quick path (when `docs/` feels heavy)
 
 1. This file → **Key navigation** table below.
-2. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **enda aktiva backlog-filen** (K-018, K-019, Plan 17, beslut).
-3. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt (detalj: arkiv `engine-status.md`).
-4. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
-5. `docs/ENV.md` — env topology when debugging deploy/local.
+2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
+3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **enda aktiva backlog-filen** (K-018, K-019, Plan 17, beslut).
+4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
+5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
+6. `docs/ENV.md` — env topology when debugging deploy/local.
 
 **Remediation-historik** (%, orchestrator-körningar) finns i **git-historik** under `docs/plans/avklarat/` — se [`docs/plans/avklarat/README.md`](plans/avklarat/README.md). Operativ backlog: [`PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) §10.
 
 Everything else is deep reference, history, or architecture.
 
-**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) (fyra kapitel + arkiv) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `old/` (history; analyses under `old/analyses/`). Doc-policy: arkiv [`architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md`](architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md).
+**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) (fyra kapitel) · [`architecture/repo-tree.md`](architecture/repo-tree.md) (rot-träd) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `contributing/` → [`contributing/README.md`](contributing/README.md) · `old/` (pekare). Doc-policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
+
+**För agenter (orientering):** [`architecture/repo-tree.md`](architecture/repo-tree.md) → [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) → [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc).
 
 ## Source of truth policy
 
@@ -77,8 +81,8 @@ Good production inputs:
 
 Not runtime dependencies:
 
-- Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.**
-- browser-driven doc helpers in `tools/doc-browser/`
+- Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.** Lokala MCP-servrar under `tools/mcp/` finns **inte** längre — se `.cursor/rules/tooling-routing.mdc`.
+- browser-driven doc helpers in `tools/doc-browser/` (see `tools/README.md`)
 - raw discovery under `research/external-templates/raw-discovery/current/`
 - local shallow clone cache under `research/external-templates/repo-cache/`
 - raw local `_sidor` datasets
@@ -87,22 +91,22 @@ Not runtime dependencies:
 
 | What you need | Where to look |
 |---|---|
-| **Arkitektur** (fyra kapitel + arkiv med äldre uppdelningar) | [`docs/architecture/README.md`](architecture/README.md) |
+| **Rot-träd** (snabb: var mappar ligger) | [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) |
+| **Arkitektur** (fyra kapitel) | [`docs/architecture/README.md`](architecture/README.md) |
 | System / motor / builder-entry | [`docs/architecture/system-overview.md`](architecture/system-overview.md) |
 | Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/builder-generation.md`](architecture/builder-generation.md) |
 | Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) |
 | Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |
-| Utförliga äldre filer (en per ämne) | [`docs/architecture/archive/pre-2026-03-consolidation/`](architecture/archive/pre-2026-03-consolidation/) |
 | Plans (all buckets) | `docs/plans/README.md` |
-| Plan / agent handoff (historik) | arkiv [`agent-roadmap-and-handoff.md`](architecture/archive/pre-2026-03-consolidation/agent-roadmap-and-handoff.md) |
+| Plan / agent handoff (historik) | git-historik under `docs/architecture/` / gamla arkivvägar; operativt: [`PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
 | Backlog & beslut (kanonisk) | [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
-| Agent workflows (deep brief, runtime vs MCP) | `docs/contributing/agent-workflows.md` |
+| Agent workflows (deep brief, runtime vs MCP) | [`docs/contributing/README.md`](contributing/README.md) |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
-| Terminology (folders + research flow) | [`repository-and-platform.md`](architecture/repository-and-platform.md) · djup: arkiv `structure-and-terminology.md` |
-| Vercel Templates discovery + Playwright + scaffolds (full narrativ) | arkiv `vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt` |
+| Terminology (folders + research flow) | [`repository-and-platform.md`](architecture/repository-and-platform.md) |
+| Vercel Templates discovery + Playwright + scaffolds | [`research/external-templates/README.md`](../research/external-templates/README.md), [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md) |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Marketing sidor (landning footer) | `/om`, `/blogg`, `/faq` (App Router under `src/app/`) |
 | Env setup | `docs/ENV.md` |
-| Config GUI (Streamlit) och var `config/` vs `docs/` bor | `config-dashboard/` (`run.ps1`), arkiv `config-dashboard-sources.md` |
-| Orchestrator protocol (historical; tooling removed) | arkiv [`orchestrator-run-protocol.md`](architecture/archive/pre-2026-03-consolidation/orchestrator-run-protocol.md) |
+| Config GUI (Streamlit) och var `config/` vs `docs/` bor | `config/dashboard/` (`run.ps1`), `config/dashboard/domain-map.json` |
+| Orchestrator protocol (historical; tooling removed) | git-historik (`git log -- docs/architecture/`) — inget aktivt protokoll i trädet |

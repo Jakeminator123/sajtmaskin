@@ -6,4 +6,4 @@ Historiska dokument, analyser och loggar som tidigare låg här finns nu i:
 
 - Där: `analyses/`, `transcripts/`, `schemas/`, `2026-03-holding-area/`, samt `INVENTORY-2026-03-26.md`.
 
-**Nytt arbetsmaterial** ska inte läggas i denna mapp — använd `docs/plans/active/`, `docs/architecture/`, eller vid behov lägg utkast i `docs/plans/review-needed/` enligt [documentation lifecycle](../architecture/documentation-lifecycle.md).
+**Nytt arbetsmaterial** ska inte läggas i denna mapp — använd `docs/plans/active/` eller `docs/architecture/`. Livscykel: [`documentation-lifecycle.md`](../architecture/documentation-lifecycle.md).

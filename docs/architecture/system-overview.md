@@ -19,7 +19,7 @@ Användarprompt
   → Version sparad → preview (shim) → valfritt sandbox → deploy (Vercel API)
 ```
 
-Mer detaljerad runtime-mermaid och modul-lista finns i arkivet: `archive/pre-2026-03-consolidation/engine-status.md`.
+Mer detaljerad runtime-mermaid och modul-lista: [builder-generation.md](./builder-generation.md).
 
 ## Own-engine preview vs «riktig» runtime
 
@@ -51,7 +51,7 @@ Canonical tabell och manifest: [`docs/schemas/model-build-profiles.md`](../schem
 
 ## Builder-entry (`BuildMethod`)
 
-Offentlig modell (detaljer + mermaid): arkiv `builder-entry-flow.md`.
+Offentlig modell (detaljer): [`docs/schemas/builder-entry-contract.md`](../schemas/builder-entry-contract.md), [builder-generation.md](./builder-generation.md).
 
 | `BuildMethod` | Yta | Typiskt vid första render |
 |---------------|-----|---------------------------|
@@ -66,6 +66,6 @@ Tom `/builder` är **inte** en sjätte canonical metod — bootstrap. v0-templat
 ## Planer och handoff
 
 - **Operativ backlog (kanonisk):** [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — K-rader, Plan 17, beslut.
-- **Index / buckets:** [`docs/plans/README.md`](../plans/README.md), övrigt under [`docs/plans/active/`](../plans/active/) (korta README:er; ingen separat MASTER/execution längre).
+- **Index / buckets:** [`docs/plans/README.md`](../plans/README.md).
 - **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [builder-generation.md](./builder-generation.md) → [preview-deploy.md](./preview-deploy.md) → capstone ovan vid backlog-frågor.
-- Utförlig historisk handoff-tabell: arkiv [`archive/pre-2026-03-consolidation/agent-roadmap-and-handoff.md`](./archive/pre-2026-03-consolidation/agent-roadmap-and-handoff.md) (narrativ; **inte** fil-lista som sanning).
+- Äldre handoff-narrativ fanns i borttaget arkiv — återfinns i **git-historik** vid behov; operativ sanning: capstone ovan.

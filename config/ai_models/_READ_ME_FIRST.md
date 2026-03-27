@@ -25,7 +25,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
 - **Dokumentation om modeller och prompts:** Länkar under `manifest.docLinks` med `appliesTo: "direct_provider_api"` avser **direktanrop** till OpenAI respektive Anthropic (samma tänk som officiella SDK:er mot standard endpoint). De beskriver **inte** trafik som routas via **Vercel AI Gateway** — för det, se poster märkta `vercel_ai_gateway`. Läs även `documentationDirectApiNote` i `manifest.json` och [00-overview.md](00-overview.md).
 - **Miljövariabler vinner alltid** över värden i `manifest.json`. Se `src/lib/gen/defaults.ts` och `src/lib/models/catalog.ts`.
 - När du ändrar **tillåtna assist-modeller** i manifestet måste du uppdatera **`GATEWAY_ASSIST_MODELS`** och **`ANTHROPIC_ASSIST_MODELS`** i `promptAssist.ts` (eller refaktorera så listorna importeras från JSON). **`v0Models`** i manifestet ska förbli tom (prompt assist använder inte v0 Model API). **`src/lib/ai-models/manifest-parity.test.ts`** varnar om de divergerar.
-- Efter ändring: kör `pnpm test` (minst manifest-parity + befintliga modelltester).
+- Efter ändring: kör `npm run test` eller `npm run test:ci` (minst manifest-parity + befintliga modelltester).
 
 ## Anthropic-modell-ID:n (punkt vs bindestreck)
 

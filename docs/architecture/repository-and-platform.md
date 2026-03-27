@@ -4,52 +4,52 @@
 
 ## Terminologi (mappar och lager)
 
-**Kompakt ordlista (lager, kod vs UI, lanes):** [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc). **På-disk-tabell** (scaffold / v0-templates / research / artifacts) finns där — duplicera inte här.
-
-Djupare filstruktur och pipeline: [arkiv `structure-and-terminology.md`](./archive/pre-2026-03-consolidation/structure-and-terminology.md).
+**Kanonisk ordlista:** [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc) (v0-templates vs Vercel-mall, buildern, fidelity, own-engine, m.m.). **Mappar och research-flöde** — tabellen nedan; duplicera inte hela ordlistan här.
 
 ## Dokumentationslivscykel
 
 | Status | Mapp |
 |--------|------|
 | `active` | `docs/plans/active/` |
-| `review-needed` | `docs/plans/review-needed/` |
 | `avklarat` | `docs/plans/avklarat/` |
 
-`docs/architecture/` = **kanoniska översikter** (det här dokumentet + syskonfiler). Tillfälliga utkast ska inte lägga sig som parallella sanningar — se arkiv `documentation-lifecycle.md`.
+Osäkra utkast kan ligga som egna filer under `active/` tills de flyttas till `avklarat/` (ingen separat review-mapp).
+
+`docs/architecture/` = **kanoniska översikter** (det här dokumentet + syskonfiler). Tillfälliga utkast ska inte lägga sig som parallella sanningar — se [`documentation-lifecycle.md`](./documentation-lifecycle.md).
 
 ## Repo-hygien
 
 - **Git** bestämmer vad som följer med clone/PR; stora lokala kataloger (`logs/`, `data/`) är ofta ignorerade.
 - **`.cursorignore`** styr indexering i Cursor — inte samma som git.
-Detalj: arkiv `repo-hygiene.md`.
+Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-indexing.mdc) (ignore-filer, workspace).
 
 ## Skript och scaffolds
 
 - **NPM**-skript: se rot `package.json` och [`scripts/README.md`](../../scripts/README.md).
-- **Research-skript** (`hamta_sidor_branch_emil.py`, `vercel_template_cli.py`, m.m.): påverkar **inte** produktion direkt — se arkiv `scripts-scaffolds-inventory.md`.
+- **Hjälpverktyg utanför runtime** (doc-browser, m.m.): [`tools/README.md`](../../tools/README.md).
+- **Research-skript** (`hamta_sidor_branch_emil.py`, `vercel_template_cli.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
 
 ## Kända fel och autofix
 
-Autofix-steg (use client, imports, metadata, esbuild, …): arkiv `known-issues-and-fixes.md` + kod `src/lib/gen/autofix/`.
+Autofix-steg (use client, imports, metadata, esbuild, …): kod `src/lib/gen/autofix/`.
 
 ## v0 — soft deprecation
 
 - Own-engine är **enda** codegen-streamen.
 - `V0_FALLBACK_BUILDER` styr bara **preview-preferens** för v0-hostad `demoUrl`.
-- API under `src/app/api/v0/` används fortfarande för mall/CRUD — se arkiv `v0-soft-deprecation.md`.
+- API under `src/app/api/v0/` används fortfarande för mall/CRUD (egen motor är codegen-standard).
 
 ## Vercel Templates / Playwright / scorefolds
 
-- Discovery pipeline, Playwright-spec, koppling till scaffold-kandidater: arkiv `vercel-templates-discovery.md`, `vercel-templates-playwright-scaffold-integration.txt`, `scraped-scorefolds-pipeline.md`.
+- Discovery pipeline, Playwright-spec, koppling till scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`research/external-templates/README.md`](../../research/external-templates/README.md), [`scripts/README.md`](../../scripts/README.md).
 
 ## Inspector / Playwright worker
 
-Lokal capture: arkiv `inspector-worker-quickstart.md`.
+Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `package.json`).
 
 ## Övrigt
 
-- **Config dashboard (Streamlit)** vs `docs/`: arkiv `config-dashboard-sources.md`.
-- **D-ID / avatar test route**: arkiv `did-avatar-test-route.md`.
-- **Orchestrator i Cursor**: borttaget — kort notis i arkiv `orchestrator-run-protocol.md`; äldre planhistorik i git under `docs/plans/avklarat/` (se [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).
+- **Config dashboard (Streamlit)** vs `docs/`: `config/dashboard/` (se `config/dashboard/domain-map.json`).
+- **D-ID / avatar**: `src/app/api/avatar` (rutter enligt produkt).
+- **Orchestrator i Cursor**: borttaget; äldre planhistorik i git under `docs/plans/avklarat/` (se [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).

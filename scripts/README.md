@@ -4,13 +4,13 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 
 ## Översikt och inventering
 
-- **Nav:** [docs/architecture/scripts-scaffolds-inventory.md](../docs/architecture/archive/pre-2026-03-consolidation/scripts-scaffolds-inventory.md) — vilka skript som hänger ihop med package.json, hamta_sidor-varianter, runtime scaffolds, .cursorignore.
+- **Nav:** denna fil + `package.json` — se även [`docs/architecture/repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
 - **Vercel use-case-skrapning (Python):** under `scripts/` (ingen kopia i repo-roten).
   - **Kanonisk entrypoint:** [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (historisk bred lista, ~25 use cases), tierad utdata, rapporter. **Standard** för manuell inhämtning.
   - **Tidigare:** `scripts/hamta_sidor.py` (borttagen) motsvaras av `python scripts/hamta_sidor_branch_emil.py --legacy-wide-use-cases` om du **medvetet** behöver jämföra mot historisk bred lista — **inte** som standard i produktions- eller kanon-researchflöden.
   - **Kärnlistan** i skriptet = **`USE_CASES_CORE` (12 Vercel-sluggar)** + valfritt **`USE_CASES_EXTENDED` (2)** med `--extended-scrape`. Det är **osammanhängande** med t.ex. **`EVAL_PROMPTS` (15 eval-promptar)** i `src/lib/gen/eval/prompts.ts` — olika domäner, räkna dem inte ihop.
   - **Icke-kanon:** lokal **`vercel_templates_levels/`** (gitignored); använd **inte** som källa för “hur många kategorier” produkten har. Spårat alternativ: **`e2e/vercel-templates/`**.
-  - Se [`docs/architecture/scripts-scaffolds-inventory.md`](../docs/architecture/archive/pre-2026-03-consolidation/scripts-scaffolds-inventory.md).
+  - Se [`repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
   - Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
 - **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
 
@@ -26,7 +26,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | `npm run first-llm:live` | `scripts/labs/testning_scarf/run_first_llm_live.ts` |
 | `npm run testning:codegen-print` | `scripts/labs/testning_scarf/print_codegen_context.py` |
 
-Om du flyttar labbfiler **måste** dessa npm-rader uppdateras. Inventering: [`docs/architecture/scripts-scaffolds-inventory.md`](../docs/architecture/archive/pre-2026-03-consolidation/scripts-scaffolds-inventory.md).
+Om du flyttar labbfiler **måste** dessa npm-rader uppdateras — se tabellen ovan.
 
 ## vercel_template_cli.py (repo root)
 
@@ -87,7 +87,7 @@ npm run template-library:build
 npx tsx scripts/build-template-library.ts --source="research/external-templates/raw-discovery/current"
 ```
 
-För **lokal** `scraped-vercel-scorefolds/` (gitignorerad): verifiera först `summary.json` med `npm run template-library:verify-summary`, bygg sedan med explicit `--source="<repo>/scraped-vercel-scorefolds"`. Utan `repo-cache`-kloning ger många poster låg `qualityScore` → `curatedTemplates: 0`; kör `template-library:hydrate-cache` med samma `--source=` (se [docs/architecture/archive/pre-2026-03-consolidation/scraped-scorefolds-pipeline.md](../docs/architecture/archive/pre-2026-03-consolidation/scraped-scorefolds-pipeline.md)).
+För **lokal** `scraped-vercel-scorefolds/` (gitignorerad): verifiera först `summary.json` med `npm run template-library:verify-summary`, bygg sedan med explicit `--source="<repo>/scraped-vercel-scorefolds"`. Utan `repo-cache`-kloning ger många poster låg `qualityScore` → `curatedTemplates: 0`; kör `template-library:hydrate-cache` med samma `--source=` (se [builder-generation.md](../docs/architecture/builder-generation.md) och template-library-avsnitt i [research/external-templates/README.md](../research/external-templates/README.md); äldre pipeline-narrativ i git-historik).
 
 Skriptet letar annars automatiskt efter råinput i denna ordning:
 
@@ -295,7 +295,7 @@ npm run scaffolds:discover
 npm run scaffolds:discover:full
 ```
 
-**OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`vercel-templates-playwright-scaffold-integration.txt`](../docs/architecture/archive/pre-2026-03-consolidation/vercel-templates-playwright-scaffold-integration.txt). Översikt: [`vercel-templates-discovery.md`](../docs/architecture/archive/pre-2026-03-consolidation/vercel-templates-discovery.md), [`e2e/README.md`](../e2e/README.md).
+**OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md) och [`research/external-templates/README.md`](../research/external-templates/README.md); äldre narrativfiler i git-historik.
 
 ## ~~extract-static-core.mjs~~ (borttagen, 2026-03-27)
 

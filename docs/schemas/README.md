@@ -22,17 +22,16 @@ folder documents **contracts and field shapes** only — not the full product gl
   The stable own-engine storage contract for structured builder message parts,
   including persisted plan-review cards.
 
-Only stable, canonical schema docs belong in this folder. If a schema note is
-still exploratory, partially true, or comparing alternatives, place it under
-`docs/analyses/` (if you use that bucket) or keep notes in git; **historical** schema notes may exist in git under `docs/plans/avklarat/` (see [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).
+Only stable, canonical schema docs belong in this folder. Exploratory schema notes
+belong in `docs/plans/active/` until they are promoted here or superseded; **historical**
+notes may exist in git under `docs/plans/avklarat/` (see [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).
 
 ## Related configuration (not schema definitions)
 
 The **own-engine static system prompt** is not a “schema” doc in this folder; it
 is configured as JSON + Markdown under the repo root: `config/codegen-static-prompt.json`
 and `config/prompt-static/*.md`. Full pipeline context (loader, checks, debug
-dumps, fallbacks) is summarized in [`docs/architecture/builder-generation.md`](../architecture/builder-generation.md); full prompt-tree detail is in [`archive/.../prompt-tree.md`](../architecture/archive/pre-2026-03-consolidation/prompt-tree.md)
-(see *STATIC_CORE* and *Changelog — 2026-03-24*).
+dumps, fallbacks) is summarized in [`docs/architecture/builder-generation.md`](../architecture/builder-generation.md) (prompt layering and STATIC_CORE live there; older prompt-tree narrative was removed with the archive — recover via `git log` on that path if needed).
 
 ## Code sources of truth
 

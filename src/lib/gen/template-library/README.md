@@ -24,4 +24,4 @@ Large JSON is cursorignored. Context: [`../README.md`](../README.md), [`../../..
 ## Regeneration
 
 Run `scripts/build-template-library.ts` to rebuild from dossiers in `research/external-templates/reference-library/`.
-Run `scripts/generate-template-library-embeddings.ts` (or `pnpm run template-library:embeddings`) after the catalog has `entries[]` again.
+Run `scripts/generate-template-library-embeddings.ts` (or `npm run template-library:embeddings`) after the catalog has `entries[]` again.

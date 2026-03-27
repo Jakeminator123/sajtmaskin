@@ -1,8 +1,12 @@
 # Arkitektur — översikt
 
-**Senast strukturerad om:** 2026-03-27 (färre filer, samma ämnen; detaljer finns i arkivmappen).
+**Senast strukturerad om:** 2026-03-27 (fyra huvuddokument; utförligt arkiv under `docs/architecture/archive/` finns **inte** — återfinns vid behov med `git log` / `git show` på historiska sökvägar).
 
 **Vad det här är:** en **ingångs**-sammanfattning i vanlig markdown — inte en tjänst, MCP-server eller “hub” i teknisk mening. Den här mappen beskriver **hur Sajtmaskin är uppbyggt** (egen motor, builder, preview, integrationer, repo). Produktordlista för agenter: [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc). Nav i hela `docs/`: [`docs/README.md`](../README.md).
+
+## Snabb orientering (rot-träd)
+
+[Karta över rotmappar och två “data”-begrepp](./repo-tree.md) — läs före du gräver i detalj nedan.
 
 ## De fyra huvuddokumenten
 
@@ -13,9 +17,9 @@
 | [preview-deploy.md](./preview-deploy.md) | Shim vs sandbox, fidelity tiers, deploy-precheck, sandbox-credentials |
 | [repository-and-platform.md](./repository-and-platform.md) | Mappar & terminologi, doc-livscykel, repo-hygien, skript/scaffolds, kände fel, v0-deprecation, Vercel-mallar/webhooks, övriga integrationer |
 
-## Arkiv
+## Dokumentlivscykel
 
-Utförliga äldre uppdelningar (en fil per ämne) ligger i **[archive/pre-2026-03-consolidation/](./archive/pre-2026-03-consolidation/)** — använd vid djup felsökning eller historik, men uppdatera **inte** de filerna som sanning; utgå från de fyra dokumenten ovan.
+Policy: [`documentation-lifecycle.md`](./documentation-lifecycle.md).
 
 ## Snabblänkar (kod som sanning)
 

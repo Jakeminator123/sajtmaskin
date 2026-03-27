@@ -1,13 +1,13 @@
 # Agent- och utvecklarflöden (Cursor)
 
-Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverktyg**. Utförligare produktordlista: `[.cursor/rules/terminology.mdc](../../.cursor/rules/terminology.mdc)`. Mappar och research-pipeline: `[repository-and-platform.md](../architecture/repository-and-platform.md)` · djup: [arkiv `structure-and-terminology.md`](../architecture/archive/pre-2026-03-consolidation/structure-and-terminology.md).
+Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverktyg**. Utförligare produktordlista: `[.cursor/rules/terminology.mdc](../../.cursor/rules/terminology.mdc)`. Mappar och research-pipeline: `[repository-and-platform.md](../architecture/repository-and-platform.md)`.
 
 ## Djup brief (produkt) vs stora arbetspaket (repo)
 
 | Begrepp        | Var                               | Vad det är |
 | -------------- | --------------------------------- | ---------- |
 | **Djup brief** | Byggaren (`/builder`), produktlane | Prompt-assist **före** huvudgenerering (UI: t.ex. *Djup brief*). |
-| **Större spår** | `docs/plans/active/`, issues     | Dela upp manuellt i planfiler eller milestones — repot har **inte** längre ett separat Cursor-orchestrator-protokoll under `.cursor/` (historik: [orchestrator-run-protocol.md](../architecture/archive/pre-2026-03-consolidation/orchestrator-run-protocol.md)). |
+| **Större spår** | `docs/plans/active/`, issues     | Dela upp manuellt i planfiler eller milestones — repot har **inte** längre ett separat Cursor-orchestrator-protokoll under `.cursor/` (historik i git om behov). |
 
 ## Runtime vs MCP vs Cursor-only
 
@@ -16,10 +16,10 @@ Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverkty
 | ------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **App-runtime** (Sajtmaskin på Vercel/lokal Next) | `npm run dev` / produktion                                      | Användare, builder, API-routes, DB, deploy. **Oberoende** av att MCP eller Cursor körs.                                                                                            |
 | **Valfria MCP-kopplingar i Cursor**               | Cursor `mcp.json` (lokal kopia från `.cursor/mcp.json.example`) | **Inte** källan till projektets dokumentation — den ligger i **`docs/`**, `README` och `.cursor/rules/`. MCP här är valfria hjälpmedel för agenter (plattforms-API:er). Motor/scaffold-kod läses i repot (`src/lib/mcp/*`, `src/lib/gen/scaffolds/`). Se `[.cursor/README.md](../../.cursor/README.md)` § MCP. |
-| **Vitest / Playwright**                           | CI & lokal utveckling                                           | Tester körs utan MCP; `e2e/`** körs med Playwright, exkluderad från Vitest.                                                                                                        |
+| **Vitest / Playwright**                           | CI & lokal utveckling                                           | Tester körs utan MCP; `e2e/` körs med Playwright, exkluderad från Vitest.                                                                                                            |
 
 
-**Preview / sandbox (ephemeral norm, inspector m.m.):** [`preview-deploy.md`](../architecture/preview-deploy.md) — översikt; detalj: [arkiv `preview-and-sandbox-flow.md`](../architecture/archive/pre-2026-03-consolidation/preview-and-sandbox-flow.md).
+**Preview / sandbox (ephemeral norm, inspector m.m.):** [`preview-deploy.md`](../architecture/preview-deploy.md).
 
 **MCP är inte en produktionsberoende** för den deployade sajten — se även `docs/README.md` § Production boundary.
 
@@ -31,7 +31,7 @@ Underlag och kritikfiler kan ligga i `**.j_to_agent/`** för reproducerbarhet. *
 
 ## Verifiering före större merge
 
-Kör `**npm run typecheck`** och `**npx vitest run**` (plus `npm run lint` vid behov) innan du pushar större ändringar — särskilt om flera agenter rör samma spår.
+Kör `npm run typecheck` och `npx vitest run` (plus `npm run lint` vid behov) innan du pushar större ändringar — särskilt om flera agenter rör samma spår.
 
 ## Plan / backlog
 

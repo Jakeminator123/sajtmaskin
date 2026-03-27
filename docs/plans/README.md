@@ -1,17 +1,15 @@
 # Plans
 
-**Katalogsystem:** **`active/`** = vad som styr arbetet nu · **`review-needed/`** = utkast som ska sanitetscheckas innan återbruk · **`avklarat/`** = avklarade planer (ofta bara i git-historik) · **`archived/`** = gammal sökväg; pekar vidare till `avklarat/`. Undermappar under `active/` (queue, reviews, …) beskrivs i [`active/README.md`](./active/README.md).
+**Katalogsystem (förenklat):** **`active/`** = nuvarande planer och backlog · **`avklarat/`** = avklarat eller historiskt. Ingen separat “review”- eller “archived”-mapp — utkast och osäkra filer kan ligga under `active/` (eller i git) tills du flyttar dem till `avklarat/`.
 
-Livscykel (detalj): [`documentation-lifecycle.md`](../architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md) · arkitektur: [`docs/architecture/README.md`](../architecture/README.md).
+**`active/`** har inga undermappar i git (tidigare `queue/`, `reviews/` m.m. är borttagna). Operativ sanning: [`PROJECT-STATE-AND-DIRECTION.md`](./active/PROJECT-STATE-AND-DIRECTION.md) och valfria `.md`-filer i samma mapp.
+
+**Länkar:** [`documentation-lifecycle.md`](../architecture/documentation-lifecycle.md) · [`docs/architecture/README.md`](../architecture/README.md) · [`avklarat/README.md`](./avklarat/README.md).
 
 ## Nu
 
 **[`active/PROJECT-STATE-AND-DIRECTION.md`](./active/PROJECT-STATE-AND-DIRECTION.md)** — backlog, K-rader, Plan 17, git-rutin, länkar.
 
-`review-needed/` — tom (`.gitkeep`); lägg utkast här tills de är verifierade.
+**[`avklarat/README.md`](./avklarat/README.md)** — var historik och bulk-arkiv pekar.
 
-`avklarat/` — [`avklarat/README.md`](./avklarat/README.md).
-
-`archived/` — [`archived/README.md`](./archived/README.md) (bokmärkeskompatibilitet).
-
-Nya planer skapas under **`docs/plans/active/`**, inte i denna rot.
+Nya planer skapas under **`docs/plans/active/`**.

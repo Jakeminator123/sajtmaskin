@@ -1,5 +1,12 @@
 # Cursor-konfiguration i detta repo
 
+## Agent: var börja?
+
+1. [`docs/README.md`](../docs/README.md) — dokumentationsnav och terminologi-lager.
+2. [`docs/architecture/repo-tree.md`](../docs/architecture/repo-tree.md) — snabb orientering i repots rot (undvik att förväxla `data/` med `src/lib/gen/data/`).
+3. [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](../docs/plans/active/PROJECT-STATE-AND-DIRECTION.md) — aktiv backlog och beslut.
+4. [`rules/terminology.mdc`](rules/terminology.mdc) — produkt- och kodordlista (`@terminology` i chat).
+
 ## Workspace (en rot, samma verktygsinställningar)
 
 - Öppna projektet med **`sajtmaskin.code-workspace`** i repots rot (en mapp: `.`), eller öppna själva **`sajtmaskin`**-mappen. Workspace-filen är **gitignorerad** (lokala inställningar). Om repot har en mall **`sajtmaskin.code-workspace.example`**, kopiera den till **`sajtmaskin.code-workspace`**; annars räcker det att öppna mappen eller skapa en enkel workspace-fil som pekar på **``.`**. Lägg inte till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`, worktrees) som extra workspace-mappar om du vill undvika brus i Problems (markdownlint, sökning, m.m.).
@@ -29,8 +36,7 @@ Alla nedan har `alwaysApply: true` och laddas i **Cursor → Settings → Rules 
 2. **Cursor Settings → Rules / Project rules:** regeln laddas som `alwaysApply` (beskrivning: *Product terminology and concepts*).
 3. I chat kan du skriva **`@terminology`** eller **`@.cursor/rules/terminology.mdc`** för att bifoga filen.
 
-För **mappar, Vercel-mall/research och v0-templates vs scaffold** (inte hela produktordlistan), se
-`docs/architecture/repository-and-platform.md` (och vid behov arkiv `docs/architecture/archive/pre-2026-03-consolidation/structure-and-terminology.md`) samt `docs/README.md` § Terminology.
+För **mappar och research-flöde** utöver själva ordlistan, se `docs/architecture/repository-and-platform.md` och `docs/README.md` § Terminology. **Dokumentationspolicy:** `docs/architecture/documentation-lifecycle.md`.
 
 **Aktiv backlog / K-rader / Plan 17:** `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`.
 

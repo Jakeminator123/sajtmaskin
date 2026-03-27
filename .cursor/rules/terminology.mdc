@@ -1,103 +1,137 @@
 ---
-description: Product vocabulary, stack sketch, code vs UI — details in docs/architecture/repository-and-platform.md
+description: Kanonisk produktterminologi (svenska + kodidentifierare) — håll listan tight; detaljer i docs/architecture
 alwaysApply: true
 ---
 
-# Terminology and product context
+# Terminologi (Sajtmaskin)
 
-## Stack and overview
+Kompakt ordlista för agenter och kod. **Mappar, pipelines, skriptnamn:** `docs/architecture/repository-and-platform.md`, `docs/architecture/repo-tree.md`. **Teknisk stack / env:** `docs/ENV.md`, `src/lib/config.ts`.
 
-AI site builder: prompt → own-engine codegen (default) → preview → deploy (Vercel).
+## Stack (en rad)
 
-**Stack:** Next.js 16 App Router, React 19, TS 5.9, Tailwind 4, shadcn/ui; OpenAI via AI SDK (own engine); Drizzle + Postgres (Supabase); Redis; Stripe; Vercel Blob. Env: `src/lib/config.ts`, `docs/ENV.md`.
+Prompt → **own-engine** (standard codegen) → filer → **preview** → valfritt **sandbox** → **deploy**. Next.js App Router, OpenAI/AI SDK, Postgres, Redis, Vercel m.m.
 
-**Architecture:** `User → Builder UI → src/lib/gen (own engine) → files → Preview → Deploy`. v0 SDK (templates/registry/zip) is **not** the main codegen stream.
+---
 
-**Key paths:** `src/app/builder/`, `src/app/api/v0/` (routes + legacy v0 API), `src/lib/gen/`, `src/lib/templates/` (v0-templates), `src/components/builder/`, `src/lib/builder/`, `src/lib/hooks/`, `src/lib/db/`, `src/lib/auth/`, `src/proxy.ts` (auth/CORS/headers). Hub: `docs/architecture/README.md`.
+## v0-templates / «Mall» (produkt-UI)
 
-**Builder flow:** `ChatInterface` → optional `/api/ai/chat` → orchestration → scaffold → `prepareGenerationContext` → SSE stream → autofix/parse → `PreviewPanel`.
+- **Vad:** Kategorier och kort under modalen **«Mall»** på startsidan — pekar mot v0:s **applikationsliknande** mallar som kan **streamas in** som utgångspunkt.
+- **Kod / data:** `src/lib/templates/` (v0-templates), API under `src/app/api/v0/` för registry/mall-flöden.
+- **Skilj från:** **Vercel-mall** (research) nedan — samma ord «mall» får inte blandas ihop.
 
-**DB:** Main app tables + own-engine tables (`engine_*`). **Conventions:** Swedish UI copy, English code; `@/*` → `src/*`.
+Valfria hänvisningar i kod: `V0_API_KEY`, v0 SDK — det är **v0-plattformen**, inte Vercel Templates-skräpningen.
 
-## Layers (do not collapse)
+---
 
-| Layer | Role |
-|-------|------|
-| **Vercel** | Hosting |
-| **Sajtmaskin** | App; own-engine default |
-| **v0** | templates/registry/zip; **not** builder codegen streams; optional `V0_FALLBACK_BUILDER` prefers v0 `demoUrl` in preview |
-| **Demo sites** | User sites; “demo URL” usually means our preview/deploy, not legacy `*.vusercontent.net` |
+## Vercel-templates / Vercel-mall (research)
 
-## Code identifier vs Swedish UI
+- **Vad:** Material **inhämtat från Vercels webbplats** (skrapning), ofta via Python-skript t.ex. `scripts/hamta_sidor_branch_emil.py`. Utdata kan ligga **utanför** repot (t.ex. syskonmapp `vercel-scrape` / `SAJTMASKIN_VERCEL_SCRAPE_DIR`) — se `research/external-templates/README.md`, `scripts/README.md`.
+- **Var i trädet:** `research/external-templates/` (bl.a. rådiscovery, reference-library). **Inte** samma som builder-fliken «Mall» (v0-templates).
 
-| Code / URL | Swedish UI (examples) | Notes |
-|------------|------------------------|-------|
-| `freeform` | Fritext | `buildMethod` |
-| `wizard` \| `category` \| `audit` \| `freeform` \| `kostnadsfri` | Startlägen | `/builder?buildMethod=` |
-| `own-engine` | egen motor | metadata / Swedish UI only |
-| `website` \| `app` \| `template` | Kompakt (template intent) | `buildIntent` |
-| **Mall (builder)** | v0-templates gallery | **not** `vercel.com/templates` |
-| **Vercel mall** | Research lane | dossiers / artifacts / scaffold ranking |
+---
 
-## On-disk vocabulary
+## Dossiers
 
-| Word | Where | Typical mistake |
-|------|--------|-------------------|
-| **Scaffold** | `src/lib/gen/scaffolds/` | Calling scaffolds “templates” |
-| **v0-templates** | `src/lib/templates/` | Confusing with runtime scaffold |
-| **Dossier** | `research/.../dossiers/` | — |
-| **Artifact** | e.g. `template-library/*.json`, embeddings JSON | — |
-| **Vercel mall (research)** | `research/external-templates/`, `template-library` | Same as builder Mall tab |
+- **Vad:** **Kurerade** underlag byggda ur Vercel-template-materialet (och metadata), som **matar LLM-/research-lane** (inspiration, ranking, kontext) — inte samma som färdig **scaffold** i runtime.
+- **Var:** t.ex. `research/external-templates/reference-library/dossiers/`.
 
-## Builder model lanes
+---
 
-| Lane | Role |
-|------|------|
-| Model lane | Build stream |
-| Product lane | Prompt assist |
-| Polish lane | `SAJTMASKIN_POLISH` |
-| **Resonemang** | Flag, **not** a lane |
+## Buildern
 
-Do not mix scaffold/Vercel-mall research with lanes.
+- **Vad:** Huvudvy **efter** startsidan — **chat** (vänster), **versioner** (höger), **preview** (mitt). Här formulerar användaren prompt och ser resultat.
+- **Kod:** `src/app/builder/`, `src/components/builder/`, `src/lib/gen/` m.m.
 
-## Aliases → canonical
+---
+
+## Användare
+
+Person som använder Sajtmaskin för att bygga **sin** sajt/hemsida (produktens slutanvändare).
+
+---
+
+## Demo-URL, preview, sajt / hemsida
+
+- **demoUrl** (fält/legacy): historiskt ofta v0-hostad URL; i produkt språk ofta «det som visas i **iframe/preview**».
+- **Preview:** det som visas i byggarens förhandsvisning — kan vara **shim**, **sandbox** (`npm run dev`), eller annat — se `docs/architecture/preview-deploy.md`.
+- **Sajt / hemsida:** används växelvis om samma sak; vid **oklarhet**, fråga om det gäller **genererat innehåll**, **preview-läge**, eller **publicerad** sajt.
+
+---
+
+## Fidelity (tre nivåer — begrepp)
+
+| Nivå | Typiskt innehåll |
+|------|-------------------|
+| **1** | Lägst — gärna **statiska** filer, begränsad «levande» runtime. |
+| **2** | **Next.js-projekt** som kan köras i **sandbox** (dev-server); fokus på visuellt troget; kan kopplas till GitHub m.m. enligt integration. |
+| **3** | Högst — ska klara **`npm run build`** och motsvara **produktion**/deploy med relevanta integrationer. |
+
+Exakta implementationer och gränser: `docs/architecture/preview-deploy.md`, `.j_to_agent/fidelity.txt` (intent).
+
+---
+
+## own-engine
+
+- **Vad:** **Nuvarande standard** för kodgenerering — egen arkitektur kring prompter, **scaffolds**, **dossiers**-kontext, autofix, merge. LLM driver flödet här.
+- **Kod:** `src/lib/gen/` (bl.a. `generation-stream`, `system-prompt`, scaffolds).
+
+---
+
+## v0 (plattform, ej huvudmotor)
+
+- **Historik:** Kodgenerering kunde gå via **v0 API / SDK**.
+- **Nu:** **own-engine** är **huvudspår** för codegen. v0 återstår för **mallar/registry/zip/deploy-hjälp** m.m.; håll **`src/app/api/v0/`** separat från own-engine i resonemang.
+- **Flagga:** `V0_FALLBACK_BUILDER` kan styra **preview-preferens** mot v0-**demoUrl** — inte samma som egen motor.
+
+---
+
+## Sandbox
+
+- **Vad:** Kör användarens genererade **Next-projekt** i isolerad miljö (dev-server) — knapp eller auto när preview ska upp på **nivå 2**-fidelity. Inte samma som lätt **shim**-preview.
+- **Kod:** `src/lib/gen/sandbox-*`, `PreviewPanel`, m.m.
+
+---
+
+## Deploy / publicera
+
+- **Vad:** Knapp/flöde som leder till **deployment** — typiskt ambition **fidelity 3** (byggbart projekt) mot **GitHub** och vidare **Vercel** eller annan host. Detaljer kan variera; håll termen **öppen** för flera providers.
+
+---
+
+## Kodidentifierare vs svensk UI (urval)
+
+| Kod / API | UI / språk |
+|-----------|------------|
+| `freeform` | Fritext |
+| `own-engine` | «egen motor» (metadata) |
+| `buildMethod`, `buildIntent` | Startlägen / avsikt |
+| **Mall (builder)** | v0-templates (inte Vercel-mall-research) |
+
+---
+
+## På-disk (minnesregel)
+
+| Begrepp | Ungefär var |
+|---------|-------------|
+| **Scaffold** | `src/lib/gen/scaffolds/` |
+| **v0-templates** | `src/lib/templates/` |
+| **Vercel-mall / research** | `research/external-templates/` |
+| **Artifact** | t.ex. genererad JSON under `template-library/`, embeddings-filer |
+
+---
+
+## Aliaser → kanon
 
 Varicell / Vericell → **Vercel**. Veenol / Venol → **v0**.
 
-## semantics vs semantic vs embedding
+---
 
-HTML **semantik** ≠ ML **semantisk sökning** / **inbäddning**; code identifiers stay English.
+## Semantik (HTML) vs semantisk sökning / inbäddning
 
-## Legacy docs
+**Semantik** (tillgänglighet, HTML) ≠ **ML-semantik** / **inbäddningar** — blanda inte ihop i kodreview.
 
-Older plans may mention a removed Cursor multi-agent orchestrator — not part of product runtime.
+---
 
-## Own-engine pipeline (rough)
+## Se även
 
-prompt assist → orchestration → scaffold → `orchestrate.ts` → `system-prompt.ts` → stream → autofix/merge. **Custom instructions:** `defaults.ts` — CORE always; EXTENDED when scaffold `off`.
-
-## Theme vs Figma vs v0 DS
-
-`designTheme` / `themeColors` ≠ Figma attachment ≠ `v0DesignSystemId` — do not conflate.
-
-## Project / chat / version
-
-DB project + chats + file snapshots; preview URL; optional legacy v0 IDs.
-
-## Preview and deploy
-
-**Preview:** in-app Next preview; optional v0 `demoUrl` if fallback; degraded env placeholders in `config/ai_models/` + `user_degraded_env.txt`; Sandbox = opt-in server test.
-
-**Deploy:** version files → images → Vercel API → URL.
-
-## Picker (reference)
-
-`UnifiedElementPicker`, `UiElementPicker`, `UiElementPickerPreview`.
-
-## IDs (examples)
-
-`appProjectId`, `v0ProjectId`, `demoUrl` (legacy v0), `buildMethod`, `buildIntent`.
-
-## See also
-
-`docs/architecture/repository-and-platform.md`, `docs/architecture/README.md`, `docs/README.md`, `docs/schemas/README.md`, `docs/plans/README.md`, `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` (backlog).
+`docs/architecture/system-overview.md`, `docs/architecture/builder-generation.md`, `docs/README.md`, `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`.

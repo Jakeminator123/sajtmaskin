@@ -10,7 +10,7 @@
 | 2 — **Sandbox** | Vercel Sandbox / `npm run dev` | Riktigare Next dev-runtime (ephemeral, on-demand) |
 | 3 — **Build-check** | `npm run build` i sandbox (läge-beroende) | Validering närmare produktion |
 
-**Produktintent:** när sandbox lyckas ska **sandbox-URL** prioriteras i iframen före shim och före valfri v0-hostad `demoUrl` (om flaggor så säger). Detaljer, sekvensdiagram och fel (`502`, HMR-brus): arkiv `preview-and-sandbox-flow.md`, `preview-fidelity-tiers.md`.
+**Produktintent:** när sandbox lyckas ska **sandbox-URL** prioriteras i iframen före shim och före valfri v0-hostad `demoUrl` (om flaggor så säger). Fel (`502`, HMR-brus) och sekvens: följ `generation-stream.ts` → `sandbox-preview.ts` → `PreviewPanel.tsx`.
 
 ## Demo-URL-kedja
 
@@ -22,18 +22,18 @@ Kodstart: `generation-stream.ts`, `finalize-version.ts`, `sandbox-preview.ts`, `
 
 ## MCP vs builder-stream
 
-`src/lib/mcp/generate-site.ts` kan starta sandbox **utan** samma SSE som UI — viktigt vid felsökning (se arkiv `preview-and-sandbox-flow.md` § MCP).
+`src/lib/mcp/generate-site.ts` kan starta sandbox **utan** samma SSE som UI — viktigt vid felsökning.
 
 ## Deploy
 
-- **Preflight / auto-fix** före Vercel: `applyPreDeployFixes`, lockfile-normalisering, `"use client"`, m.m. — full tabell i arkiv `deploy-precheck.md`.
+- **Preflight / auto-fix** före Vercel: `applyPreDeployFixes`, lockfile-normalisering, `"use client"`, m.m. — se `src/app/api/v0/deployments/route.ts` och Vitest `route.test.ts` (`precheckOnly`, `skipAutoFix`).
 - **409 DEPLOY_MISSING_ENV** om obligatoriska nycklar saknas.
 - Opt-out: `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX` eller `skipAutoFix` i body.
 
 ## Sandbox-credentials
 
-Vercel Sandbox token / org: [`docs/ENV.md`](../ENV.md) och arkiv `vercel-sandbox-credentials.md`.
+Vercel Sandbox token / org: [`docs/ENV.md`](../ENV.md) (`VERCEL_TOKEN`, `VERCEL_OIDC_TOKEN`, team/project-id enligt behov).
 
 ## Webhook / deploy events
 
-Vercel → Sajtmaskin webhook: arkiv `vercel-webhook-sajtmaskin.md`.
+Vercel → Sajtmaskin webhook: `src/app/api/webhooks/vercel/route.ts` (`VERCEL_WEBHOOK_SECRET`).

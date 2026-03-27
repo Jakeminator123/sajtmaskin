@@ -2,9 +2,8 @@
   "schemaVersion": 1,
   "title": "Karta: dashboard-vy → kataloger",
   "repoSiblings": {
-    "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Det mesta som dashboarden redigerar ligger här.",
-    "config-dashboard": "Endast Streamlit-verktyget (python app.py). Importeras inte av Next.js.",
-    "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md (tidigare structure-and-terminology.md, nu arkiv).",
+    "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ har valfri Streamlit-GUI (app.py) för samma material — importeras inte av Next.js.",
+    "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md.",
     ".cursor": "Cursor-projektregler och skills. Fem always-on .mdc (terminology, session-git-docs, tooling-routing, repo-env-indexing, platform-quirks) — redigeras från vyn Cursor-agenter."
   },
   "pages": {
@@ -19,8 +18,8 @@
         "config/user_degraded_env.txt"
       ],
       "docsPaths": [
-        "docs/architecture/archive/pre-2026-03-consolidation/config-dashboard-sources.md",
-        "config-dashboard/domain-map.json"
+        "docs/architecture/repository-and-platform.md",
+        "config/dashboard/domain-map.json"
       ],
       "codeReaders": []
     },
@@ -31,9 +30,7 @@
         "config/prompt-static/*.md (via fragments i JSON)"
       ],
       "docsPaths": [
-        "docs/architecture/builder-generation.md",
-        "docs/architecture/archive/pre-2026-03-consolidation/builder-prompt-layer.md",
-        "docs/architecture/archive/pre-2026-03-consolidation/prompt-tree.md"
+        "docs/architecture/builder-generation.md"
       ],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts",
@@ -47,9 +44,7 @@
         "config/prompt-static/_READ_ME_FIRST.md"
       ],
       "docsPaths": [
-        "docs/architecture/builder-generation.md",
-        "docs/architecture/archive/pre-2026-03-consolidation/builder-prompt-layer.md",
-        "docs/architecture/archive/pre-2026-03-consolidation/prompt-tree.md"
+        "docs/architecture/builder-generation.md"
       ],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts"
@@ -66,8 +61,7 @@
       ],
       "docsPaths": [
         "docs/schemas/model-build-profiles.md",
-        "docs/architecture/builder-generation.md",
-        "docs/architecture/archive/pre-2026-03-consolidation/builder-model-routing-and-trace.md"
+        "docs/architecture/builder-generation.md"
       ],
       "codeReaders": [
         "src/lib/ai-models/load-manifest.ts",

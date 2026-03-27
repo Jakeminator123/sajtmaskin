@@ -19,8 +19,10 @@ Closes **this session’s** work. Order: (1) `git status` + `git diff` [+ `--sta
 
 ## Docs and plans
 
-**Locations:** `docs/architecture/` (system, handoff), `docs/schemas/` (stable human schema; truth in code), `docs/analyses/` (temporary). History: `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`); `docs/old/` is pointer only. Full policy: [`docs/architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md`](../../docs/architecture/archive/pre-2026-03-consolidation/documentation-lifecycle.md) (hub: [`docs/architecture/README.md`](../../docs/architecture/README.md)).
+**Locations:** `docs/architecture/` (system, handoff), `docs/schemas/` (stable human schema; truth in code). History: `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`); `docs/old/` is pointer only. Full policy: [`docs/architecture/documentation-lifecycle.md`](../../docs/architecture/documentation-lifecycle.md) (hub: [`docs/architecture/README.md`](../../docs/architecture/README.md)).
 
-**Plans:** `docs/plans/active/` → `review-needed/` → `avklarat/`. One canonical copy; archive when done. On status change: `docs/plans/README.md`, `docs/architecture/README.md`, folder README.
+**Plans:** `docs/plans/active/` → `avklarat/` (utkast får ligga under `active/` tills flytt). En kanonisk kopia per plan; vid statusändring: `docs/plans/README.md`, `docs/architecture/README.md` vid behov.
 
-**Structural / terminology / flow changes:** Update canonical files in the same turn; replace stale docs instead of duplicating; new file only for genuinely new scope. Renames: also `terminology.mdc`, `docs/`, `docs/ENV.md` if paths matter, `scripts/README.md` if scripts/artifacts change. Larger write-ups → `docs/architecture/` + link from `docs/README.md`.
+**Structural / terminology / flow changes:** Update canonical files in the same turn; **remove** obsolete text in those files instead of leaving parallel outdated sections; new file only for genuinely new scope. Renames: also `terminology.mdc`, `docs/`, `docs/ENV.md` if paths matter, `scripts/README.md` if scripts/artifacts change. Larger write-ups → `docs/architecture/` + link from `docs/README.md`.
+
+**Modularity:** Keep boundaries clear — follow existing folder conventions; see [`docs/architecture/repo-tree.md`](../../docs/architecture/repo-tree.md). **Env / `.vercel`:** read policy in `repo-env-indexing.mdc`.
