@@ -52,3 +52,7 @@ export function getTemplateCatalog(params: {
   const v0Items = TEMPLATES.map(mapV0Template);
   return v0Items.filter((item) => (intent ? item.buildIntent === intent : true));
 }
+
+export function getTemplateCatalogItemById(id: string): TemplateCatalogItem | undefined {
+  return getTemplateCatalog().find((item) => item.id === id);
+}

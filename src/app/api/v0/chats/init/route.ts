@@ -1,18 +1,81 @@
+import JSZip from "jszip";
 import { NextResponse } from "next/server";
-import { assertV0Key, v0 } from "@/lib/v0";
-import { db } from "@/lib/db/client";
-import { chats, versions } from "@/lib/db/schema";
-import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
 import { z } from "zod/v4";
-import { ensureProjectForRequest } from "@/lib/tenant";
+import { createProject as createAppProject, saveProjectData } from "@/lib/db/services";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
-import { sanitizeMetadata } from "@/lib/sanitize/sanitize-metadata";
 import { prepareCredits } from "@/lib/credits/server";
-import { buildV0PlatformDisabledResponse, isV0PlatformDisabled } from "@/lib/v0-platform-guard";
+import { buildOwnEnginePreviewRuntime } from "@/lib/mcp/runtime-url";
+import { resolveAppProjectIdForRequest } from "@/lib/tenant";
+import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
+import { resolveEngineModelId } from "@/lib/models/selection";
+import type { CodeFile } from "@/lib/gen/parser";
 
 export const runtime = "nodejs";
+
+const MAX_IMPORT_ARCHIVE_BYTES = 50 * 1024 * 1024;
+const MAX_IMPORTED_FILES = 600;
+const MAX_IMPORTED_TEXT_BYTES = 4 * 1024 * 1024;
+const BLOCKED_IMPORT_PREFIXES = [
+  "node_modules/",
+  ".git/",
+  ".next/",
+  "dist/",
+  "build/",
+  "coverage/",
+  "out/",
+] as const;
+const SKIPPED_IMPORT_FILENAMES = new Set([
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "yarn.lock",
+  ".ds_store",
+]);
+const TEXT_EXTENSIONS = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".json",
+  ".css",
+  ".scss",
+  ".sass",
+  ".less",
+  ".html",
+  ".md",
+  ".mdx",
+  ".txt",
+  ".yml",
+  ".yaml",
+  ".toml",
+  ".env",
+  ".example",
+  ".svg",
+  ".sql",
+  ".sh",
+  ".prisma",
+  ".graphql",
+  ".gql",
+]);
+const TEXT_BASENAMES = new Set([
+  "dockerfile",
+  "makefile",
+  ".gitignore",
+  ".npmrc",
+  ".nvmrc",
+  ".env",
+  ".env.local",
+  ".env.example",
+  ".env.production",
+  ".env.development",
+  ".env.test",
+  "readme",
+  "license",
+]);
 
 type GitHubRepoRef = {
   owner: string;
@@ -39,7 +102,6 @@ function normalizeGithubRepoUrl(
     }
 
     const repo = repoRaw.replace(/\.git$/i, "");
-
     let branch = inputBranch?.trim() || "";
     if (!branch) {
       const treeIdx = parts.indexOf("tree");
@@ -48,8 +110,10 @@ function normalizeGithubRepoUrl(
       }
     }
 
-    const repoUrl = `https://github.com/${owner}/${repo}`;
-    return { repoUrl, ...(branch ? { branch } : {}) };
+    return {
+      repoUrl: `https://github.com/${owner}/${repo}`,
+      ...(branch ? { branch } : {}),
+    };
   } catch {
     return { repoUrl: inputUrl, ...(inputBranch ? { branch: inputBranch } : {}) };
   }
@@ -83,10 +147,7 @@ async function fetchGithubRepoMeta(
   const response = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.repo}`, {
     headers,
   }).catch(() => null);
-
-  if (!response || !response.ok) {
-    return null;
-  }
+  if (!response || !response.ok) return null;
 
   const data = (await response.json()) as { private?: boolean; default_branch?: string };
   return {
@@ -102,27 +163,17 @@ function buildGithubZipUrl(repo: GitHubRepoRef, branch: string): string {
   )}.zip`;
 }
 
-async function downloadGithubZipBase64(params: {
-  repo: GitHubRepoRef;
-  branch: string;
-  token: string;
+async function downloadZipBufferFromUrl(params: {
+  url: string;
   maxBytes: number;
-}): Promise<{ base64: string; byteLength: number }> {
-  const response = await fetch(
-    `https://api.github.com/repos/${params.repo.owner}/${params.repo.repo}/zipball/${encodeURIComponent(
-      params.branch,
-    )}`,
-    {
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${params.token}`,
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    },
-  );
+  headers?: Record<string, string>;
+}): Promise<Buffer> {
+  const response = await fetch(params.url, {
+    headers: params.headers,
+  });
 
   if (!response.ok) {
-    throw new Error("Failed to download GitHub archive");
+    throw new Error(`Failed to download ZIP archive (HTTP ${response.status})`);
   }
 
   const contentLength = response.headers.get("content-length");
@@ -135,7 +186,139 @@ async function downloadGithubZipBase64(params: {
     throw new Error("Repository ZIP is too large for import");
   }
 
-  return { base64: buffer.toString("base64"), byteLength: buffer.byteLength };
+  return buffer;
+}
+
+async function downloadGithubZipBuffer(params: {
+  repo: GitHubRepoRef;
+  branch: string;
+  token: string;
+  maxBytes: number;
+}): Promise<Buffer> {
+  return downloadZipBufferFromUrl({
+    url: `https://api.github.com/repos/${params.repo.owner}/${params.repo.repo}/zipball/${encodeURIComponent(
+      params.branch,
+    )}`,
+    maxBytes: params.maxBytes,
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${params.token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+}
+
+function inferLanguage(fileName: string): string {
+  const normalized = fileName.toLowerCase();
+  if (normalized.endsWith(".tsx")) return "tsx";
+  if (normalized.endsWith(".ts")) return "ts";
+  if (normalized.endsWith(".jsx")) return "jsx";
+  if (normalized.endsWith(".js")) return "js";
+  if (normalized.endsWith(".css")) return "css";
+  if (normalized.endsWith(".json")) return "json";
+  if (normalized.endsWith(".md")) return "md";
+  if (normalized.endsWith(".html")) return "html";
+  if (normalized.endsWith(".svg")) return "svg";
+  return "text";
+}
+
+function normalizeImportedPath(rawPath: string): string | null {
+  const normalized = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized || normalized.includes("\0")) return null;
+  if (normalized.split("/").some((segment) => segment === "..")) return null;
+  if (BLOCKED_IMPORT_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return null;
+  const basename = normalized.split("/").pop()?.toLowerCase() ?? "";
+  if (SKIPPED_IMPORT_FILENAMES.has(basename)) return null;
+  return normalized;
+}
+
+function shouldTreatAsText(filePath: string): boolean {
+  const lowerPath = filePath.toLowerCase();
+  const basename = lowerPath.split("/").pop() ?? "";
+  if (TEXT_BASENAMES.has(basename)) return true;
+  for (const extension of TEXT_EXTENSIONS) {
+    if (lowerPath.endsWith(extension)) return true;
+  }
+  return false;
+}
+
+function looksBinary(buffer: Buffer): boolean {
+  if (buffer.length === 0) return false;
+  let suspicious = 0;
+  const sample = buffer.subarray(0, Math.min(buffer.length, 4096));
+  for (const byte of sample) {
+    if (byte === 0) return true;
+    if ((byte < 7 || (byte > 14 && byte < 32)) && byte !== 9 && byte !== 10 && byte !== 13) {
+      suspicious += 1;
+    }
+  }
+  return suspicious / sample.length > 0.1;
+}
+
+function stripCommonArchiveRoot(paths: string[]): string[] {
+  if (paths.length === 0) return paths;
+  const segments = paths.map((filePath) => filePath.split("/").filter(Boolean));
+  const first = segments[0]?.[0];
+  if (!first) return paths;
+  const shouldStrip = segments.every((parts) => parts.length > 1 && parts[0] === first);
+  if (!shouldStrip) return paths;
+  return segments.map((parts) => parts.slice(1).join("/"));
+}
+
+async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeFile[]> {
+  const zip = await JSZip.loadAsync(buffer);
+  const rawEntries = Object.values(zip.files)
+    .filter((entry) => !entry.dir)
+    .map((entry) => entry.name);
+  const normalizedEntries = stripCommonArchiveRoot(rawEntries);
+
+  const files: CodeFile[] = [];
+  let totalBytes = 0;
+
+  for (let index = 0; index < rawEntries.length; index += 1) {
+    const originalName = rawEntries[index];
+    const strippedName = normalizedEntries[index];
+    const safePath = normalizeImportedPath(strippedName);
+    if (!safePath) continue;
+    if (!shouldTreatAsText(safePath)) continue;
+
+    const entry = zip.files[originalName];
+    const contentBuffer = Buffer.from(await entry.async("uint8array"));
+    if (looksBinary(contentBuffer)) continue;
+
+    totalBytes += contentBuffer.byteLength;
+    if (files.length >= MAX_IMPORTED_FILES) {
+      throw new Error(`Too many files in import (${files.length} >= ${MAX_IMPORTED_FILES})`);
+    }
+    if (totalBytes > MAX_IMPORTED_TEXT_BYTES) {
+      throw new Error(
+        `Imported project contains too much text content (${totalBytes} bytes > ${MAX_IMPORTED_TEXT_BYTES})`,
+      );
+    }
+
+    files.push({
+      path: safePath,
+      content: contentBuffer.toString("utf8"),
+      language: inferLanguage(safePath),
+    });
+  }
+
+  return files;
+}
+
+function findPrimaryImportedFile(files: Array<{ path: string; content: string }>): string {
+  if (files.length === 0) return "";
+  const mainFile =
+    files.find(
+      (file) =>
+        file.path.includes("app/page.tsx") ||
+        file.path.includes("src/app/page.tsx") ||
+        file.path.endsWith("page.tsx") ||
+        file.path.endsWith("Page.tsx"),
+    ) ??
+    files.find((file) => file.path.endsWith(".tsx")) ??
+    files[0];
+  return mainFile?.content ?? "";
 }
 
 const initChatSchema = z.object({
@@ -172,8 +355,6 @@ export async function POST(req: Request) {
   };
   return withRateLimit(req, "chat:create", async () => {
     try {
-      assertV0Key();
-
       const body = await req.json().catch(() => ({}));
 
       const validationResult = initChatSchema.safeParse(body);
@@ -186,14 +367,8 @@ export async function POST(req: Request) {
         );
       }
 
-      if (isV0PlatformDisabled()) {
-        return attachSessionCookie(
-          buildV0PlatformDisabledResponse("Chat-init"),
-        );
-      }
-
       const { source, message, projectId, lockConfigFiles, lockedFiles } = validationResult.data;
-
+      const user = await getCurrentUser(req);
       const configLockedFiles =
         lockedFiles ||
         (lockConfigFiles
@@ -210,67 +385,91 @@ export async function POST(req: Request) {
             ]
           : []);
       const lockedSet = new Set(configLockedFiles.map((p) => p.replace(/^\.?\//, "")));
+      const trimmedMessage = message?.trim() || "";
 
-      const initParams: any = {
-        ...(projectId ? { projectId } : {}),
-        ...(message ? { message } : {}),
-      };
+      const resolvedProjectId = projectId
+        ? await resolveAppProjectIdForRequest(req, { appProjectId: projectId }, { sessionId })
+        : null;
+      if (projectId && !resolvedProjectId) {
+        return attachSessionCookie(
+          NextResponse.json(
+            { error: "Project not found or not accessible for this session" },
+            { status: 404 },
+          ),
+        );
+      }
+
+      let importLabel = `ZIP Import ${new Date().toISOString().slice(0, 10)}`;
+      let importedFiles: CodeFile[] = [];
 
       if (source.type === "github") {
         const normalized = normalizeGithubRepoUrl(source.url, source.branch);
         const repoRef = parseGithubRepo(normalized.repoUrl);
-        const preferZip = Boolean(source.preferZip);
-        const user = await getCurrentUser(req);
+        if (!repoRef) {
+          return attachSessionCookie(
+            NextResponse.json({ error: "Invalid GitHub repository URL" }, { status: 400 }),
+          );
+        }
+
         const githubToken = user?.github_token || null;
-        const repoMeta = repoRef ? await fetchGithubRepoMeta(repoRef, githubToken) : null;
+        const repoMeta = await fetchGithubRepoMeta(repoRef, githubToken);
         const resolvedBranch = normalized.branch || repoMeta?.defaultBranch || "";
         const isPrivate = repoMeta?.private ?? false;
 
-        if (preferZip || (isPrivate && githubToken)) {
-          if (!repoRef) {
-            return attachSessionCookie(
-              NextResponse.json({ error: "Invalid GitHub repository URL" }, { status: 400 }),
-            );
-          }
-          if (!resolvedBranch) {
-            return attachSessionCookie(
-              NextResponse.json(
-                { error: "Branch is required for ZIP import. Please specify a branch." },
-                { status: 400 },
-              ),
-            );
-          }
-          if (isPrivate) {
-            if (!githubToken) {
-              return attachSessionCookie(
-                NextResponse.json(
-                  { error: "Connect GitHub to import private repositories." },
-                  { status: 401 },
-                ),
-              );
-            }
-            const zip = await downloadGithubZipBase64({
-              repo: repoRef,
-              branch: resolvedBranch,
-              token: githubToken,
-              maxBytes: 50 * 1024 * 1024,
-            });
-            initParams.type = "zip";
-            initParams.zip = { content: zip.base64 };
-          } else {
-            initParams.type = "zip";
-            initParams.zip = { url: buildGithubZipUrl(repoRef, resolvedBranch) };
-          }
-        } else {
-          initParams.type = "repo";
-          initParams.repo = {
-            url: normalized.repoUrl,
-            ...(normalized.branch ? { branch: normalized.branch } : {}),
-          };
+        if (!resolvedBranch) {
+          return attachSessionCookie(
+            NextResponse.json(
+              { error: "Branch is required for ZIP import. Please specify a branch." },
+              { status: 400 },
+            ),
+          );
         }
+
+        const zipBuffer = isPrivate
+          ? (() => {
+              if (!githubToken) {
+                throw new Error("Connect GitHub to import private repositories.");
+              }
+              return downloadGithubZipBuffer({
+                repo: repoRef,
+                branch: resolvedBranch,
+                token: githubToken,
+                maxBytes: MAX_IMPORT_ARCHIVE_BYTES,
+              });
+            })()
+          : downloadZipBufferFromUrl({
+              url: buildGithubZipUrl(repoRef, resolvedBranch),
+              maxBytes: MAX_IMPORT_ARCHIVE_BYTES,
+            });
+
+        importedFiles = await extractImportedFilesFromZip(await zipBuffer);
+        importLabel = `Import: ${repoRef.owner}/${repoRef.repo}`;
       } else {
-        initParams.type = "zip";
-        initParams.zip = "content" in source ? { content: source.content } : { url: source.url };
+        const zipBuffer =
+          "content" in source
+            ? Buffer.from(source.content, "base64")
+            : await downloadZipBufferFromUrl({
+                url: source.url,
+                maxBytes: MAX_IMPORT_ARCHIVE_BYTES,
+              });
+
+        if (zipBuffer.byteLength > MAX_IMPORT_ARCHIVE_BYTES) {
+          throw new Error("Repository ZIP is too large for import");
+        }
+        importedFiles = await extractImportedFilesFromZip(zipBuffer);
+      }
+
+      if (importedFiles.length === 0) {
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              error: "No supported text files found in import archive",
+              details:
+                "Import currently keeps text-based project files only (code, config, styles, markdown, svg).",
+            },
+            { status: 400 },
+          ),
+        );
       }
 
       const creditCheck = await prepareCredits(
@@ -283,117 +482,56 @@ export async function POST(req: Request) {
         return attachSessionCookie(creditCheck.response);
       }
 
-      const result = await (v0.chats as any).init(initParams);
+      const project =
+        resolvedProjectId != null
+          ? { id: resolvedProjectId }
+          : await createAppProject(
+              importLabel,
+              "import",
+              source.type === "github"
+                ? `Imported from ${source.url}`
+                : "Imported from ZIP archive",
+              user ? undefined : sessionId || undefined,
+              user?.id,
+            );
 
-      try {
-        if (lockConfigFiles) {
-          const v0ChatIdCandidate =
-            (result && typeof result === "object" && (result as any).id) ||
-            (result && typeof result === "object" && (result as any).chat?.id) ||
-            null;
-
-          if (typeof v0ChatIdCandidate === "string" && v0ChatIdCandidate.length > 0) {
-            const v0Chat = await v0.chats.getById({ chatId: v0ChatIdCandidate });
-            const latestVersionId =
-              (v0Chat as any)?.latestVersion?.id ||
-              (v0Chat as any)?.latestVersion?.versionId ||
-              null;
-
-            if (latestVersionId) {
-              const version = await v0.chats.getVersion({
-                chatId: v0ChatIdCandidate,
-                versionId: latestVersionId,
-                includeDefaultFiles: true,
-              });
-
-              const files = Array.isArray((version as any)?.files) ? (version as any).files : [];
-              if (files.length > 0) {
-                const updatedFiles = files.map((f: any) => {
-                  const rawName = typeof f?.name === "string" ? f.name : "";
-                  const normalized = rawName.replace(/^\.?\//, "");
-                  const shouldLock = lockedSet.has(normalized);
-                  return {
-                    name: rawName,
-                    content: typeof f?.content === "string" ? f.content : "",
-                    locked: shouldLock,
-                  };
-                });
-
-                await v0.chats.updateVersion({
-                  chatId: v0ChatIdCandidate,
-                  versionId: latestVersionId,
-                  files: updatedFiles,
-                });
-              }
-            }
-          }
-        }
-      } catch (lockErr) {
-        console.error("Failed to lock config files after init:", lockErr);
+      const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID, false);
+      const chat = await chatRepo.createChat(project.id, engineModel);
+      if (trimmedMessage) {
+        await chatRepo.addMessage(chat.id, "user", trimmedMessage);
       }
+      const assistantSummary = trimmedMessage
+        ? "Projektet importerades till own-engine och ar redo for vidare andringar. Din startinstruktion sparades i chatten, men har inte korsts automatiskt an."
+        : "Projektet importerades till own-engine och ar redo for vidare andringar.";
+      const assistantMessage = await chatRepo.addMessage(chat.id, "assistant", assistantSummary);
+      const version = await chatRepo.createDraftVersion(
+        chat.id,
+        assistantMessage.id,
+        JSON.stringify(importedFiles),
+      );
+      const previewRuntime = buildOwnEnginePreviewRuntime({
+        chatId: chat.id,
+        versionId: version.id,
+        projectId: project.id,
+      });
 
-      let internalChatId: string | null = null;
-      let internalProjectId: string | null = null;
-      try {
-        internalChatId = nanoid();
-        const chatResult = "id" in result ? result : null;
-        const v0ProjectId =
-          (chatResult && "projectId" in chatResult ? chatResult.projectId : null) ||
-          projectId ||
-          "";
-
-        if (v0ProjectId) {
-          const importName =
-            source.type === "github"
-              ? (() => {
-                  const normalized = normalizeGithubRepoUrl(source.url, source.branch);
-                  try {
-                    const u = new URL(normalized.repoUrl);
-                    return `Import: ${u.pathname.replace(/^\//, "")}`;
-                  } catch {
-                    return `Import: ${source.url}`;
-                  }
-                })()
-              : `ZIP Import ${new Date().toISOString().slice(0, 10)}`;
-
-          const project = await ensureProjectForRequest({
-            req,
-            v0ProjectId,
-            name: importName,
-            sessionId,
-          });
-          internalProjectId = project.id;
-        }
-
-        if (chatResult && "id" in chatResult) {
-          await db.insert(chats).values({
-            id: internalChatId,
-            v0ChatId: chatResult.id,
-            v0ProjectId,
-            projectId: internalProjectId,
-            webUrl: ("webUrl" in chatResult ? chatResult.webUrl : null) || null,
-          });
-
-          const latestVersion = (chatResult as any).latestVersion;
-          if (latestVersion) {
-            const versionId = latestVersion.id || latestVersion.versionId;
-            const demoUrl = latestVersion.demoUrl || latestVersion.demo_url || null;
-
-            if (versionId) {
-              await db.insert(versions).values({
-                id: nanoid(),
-                chatId: internalChatId,
-                v0VersionId: versionId,
-                v0MessageId: latestVersion.messageId || null,
-                demoUrl: demoUrl,
-                metadata: sanitizeMetadata(latestVersion),
-              });
-            }
-          }
-        }
-      } catch (dbError) {
-        console.error("Failed to save init chat to database:", dbError);
-      }
+      await saveProjectData({
+        project_id: project.id,
+        chat_id: chat.id,
+        demo_url: previewRuntime.url,
+        current_code: findPrimaryImportedFile(importedFiles),
+        files: importedFiles.map((file) => ({
+          name: file.path,
+          content: file.content,
+          locked: lockedSet.has(file.path.replace(/^\.?\//, "")),
+        })),
+        messages: (await chatRepo.getChat(chat.id))?.messages ?? [],
+        meta: {
+          source: "import-init:own-engine",
+          importSource: source.type,
+          importLockedFiles: configLockedFiles,
+        },
+      });
 
       try {
         await creditCheck.commit();
@@ -403,19 +541,27 @@ export async function POST(req: Request) {
 
       return attachSessionCookie(
         NextResponse.json({
-          ...result,
-          internalChatId,
-          projectId: internalProjectId,
+          success: true,
+          id: chat.id,
+          chatId: chat.id,
+          versionId: version.id,
+          demoUrl: previewRuntime.url,
+          projectId: project.id,
           source: source.type,
           lockedFiles: configLockedFiles,
         }),
       );
     } catch (err) {
       console.error("Init chat error:", err);
+      const message = err instanceof Error ? err.message : "Unknown error";
+      const status =
+        message.includes("Connect GitHub") ? 401 :
+        message.includes("too large") ? 413 :
+        500;
       return attachSessionCookie(
         NextResponse.json(
-          { error: err instanceof Error ? err.message : "Unknown error" },
-          { status: 500 },
+          { error: message },
+          { status },
         ),
       );
     }

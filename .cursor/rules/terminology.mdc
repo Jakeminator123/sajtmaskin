@@ -138,8 +138,7 @@ När någon skriver «environment variables» / «env» måste agenten avgöra *
 ## v0 (plattform, ej huvudmotor)
 
 - **Historik:** Kodgenerering kunde gå via **v0 API / SDK**.
-- **Nu:** **own-engine** är **huvudspår** för codegen. v0 återstår för **mallar/registry/zip/deploy-hjälp** m.m.; håll **`src/app/api/v0/`** separat från own-engine i resonemang.
-- **Flagga:** `V0_FALLBACK_BUILDER` kan styra **preview-preferens** mot v0-**demoUrl** — inte samma som egen motor.
+- **Nu:** **own-engine** är **huvudspår** för codegen. Kvarvarande referenser till V0 är främst historiska dokument, externa mall-URL:er eller enstaka admin-/underhållsytor — håll **`src/app/api/v0/`** separat från leverantören V0 i resonemang.
 
 ---
 

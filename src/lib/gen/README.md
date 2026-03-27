@@ -19,7 +19,7 @@ createGenerationPipeline()  (fallback.ts)
            └─ suspense/ (TransformStream post-processing)
 ```
 
-v0 Platform API remains in use elsewhere (templates, registry init, zip download, deploy helpers) via `@/lib/v0/v0-generator` and related API routes — not through this module's stream entrypoint.
+Legacy V0 Platform codegen is no longer part of the runtime generation surface. This module is the canonical generation path.
 
 ## Key Files
 
@@ -35,10 +35,6 @@ v0 Platform API remains in use elsewhere (templates, registry init, zip download
 | `parser.ts` | Parses fenced code blocks from streamed content. |
 | `preview/` | Preview runtime modules. `preview/index.ts` exposes `buildPreviewHtml()` and `buildPreviewUrl()`, while sibling files split resolution, CSS, transpilation, script assembly, and shims. |
 | `version-manager.ts` | Creates versions from content, parses files. |
-
-## Preview flag `V0_FALLBACK_BUILDER` (optional)
-
-This env var does **not** switch codegen to v0. When set to an affirmative value (`y`, `yes`, `true`, `1`, `on`), the **builder UI** may prefer a v0-hosted `demoUrl` (`*.vusercontent.net`) over a sandbox URL when both exist. Values like `n`, `no`, `false`, or empty leave that behavior off. See `docs/ENV.md` and `src/lib/builder/v0-preview-priority.ts`.
 
 ## Generated Artifacts And Indexing
 

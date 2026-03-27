@@ -17,12 +17,6 @@ type EnvKeyDefinition = Omit<EnvKeyStatus, "present" | "required"> & {
 const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "POSTGRES_URL", required: true, notes: "Primär databas (Supabase)" },
   { key: "DB_SSL_REJECT_UNAUTHORIZED", required: false, notes: "DB TLS strictness" },
-  {
-    key: "V0_API_KEY",
-    required: false,
-    notes: "v0 Platform API (used by v0 prompt assist and other v0 integrations)",
-  },
-  { key: "V0_STREAMING_ENABLED", required: false, notes: "v0 streaming feature flag" },
   { key: "JWT_SECRET", required: true, notes: "Auth tokens" },
   { key: "CSP_ENFORCE", required: false, notes: "Enable CSP enforce mode" },
   { key: "LOG_PROMPTS", required: false, notes: "Allow prompt logging in production" },

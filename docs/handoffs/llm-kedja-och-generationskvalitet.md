@@ -131,4 +131,4 @@ När V0-platform inte längre används:
 
 ---
 
-*Handoff skapad för own-engine-upprustning. Se `v0-fasning-och-forenkling.md` för V0-borttagning och `autofix-och-quality-gates.md` för reparationskedjan.*
+*Handoff skapad för own-engine-upprustning. Se `autofix-och-quality-gates.md` för reparationskedjan och `kontrakt-forenkling-och-integrationer.md` för kontraktsflödet.*

@@ -6,7 +6,7 @@
 import path from "path";
 import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 import { getAppBaseUrl } from "./app-url";
-import { getServerEnv, isAffirmativeEnvValue, isV0PlatformEnabled } from "./env";
+import { getServerEnv, isAffirmativeEnvValue } from "./env";
 
 const env = getServerEnv();
 
@@ -165,10 +165,6 @@ export const SECRETS = {
       return "";
     }
     return "dev-secret-do-not-use-in-prod";
-  },
-
-  get v0ApiKey() {
-    return env.V0_API_KEY ?? "";
   },
 
   get vercelApiToken() {
@@ -363,7 +359,7 @@ export const OPENCLAW = {
 } as const;
 
 /**
- * AI / v0 configuration
+ * AI configuration
  */
 export const AI = {
   get designSystemId(): string | undefined {
@@ -388,8 +384,6 @@ export const FEATURES = {
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
   useFigmaApi: Boolean(SECRETS.figmaAccessToken),
 
-  useV0Api: isV0PlatformEnabled() && Boolean(SECRETS.v0ApiKey),
-
   /** Builder prompt “image generations” toggle — own engine uses OpenAI, not V0 Platform. */
   useBuilderImageGenerations: Boolean(SECRETS.openaiApiKey),
 
@@ -405,7 +399,7 @@ export const FEATURES = {
 
   useOpenClawSurface: OPENCLAW.surfaceEnabled,
 
-  // CRITICAL for AI-generated images in v0 preview
+  // Required for asset materialization and sandbox/shared preview flows
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),
 } as const;
 

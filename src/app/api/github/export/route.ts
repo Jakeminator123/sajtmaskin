@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { assertV0Key, v0 } from "@/lib/v0";
 import { withRateLimit } from "@/lib/rateLimit";
-import { db } from "@/lib/db/client";
-import { versions } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
-import {
-  getChatByIdForRequest,
-  getChatByV0ChatIdForRequest,
-  getEngineChatByIdForRequest,
-} from "@/lib/tenant";
+import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { buildV0PlatformDisabledResponse, isV0PlatformDisabled } from "@/lib/v0-platform-guard";
 
 export const runtime = "nodejs";
 
@@ -197,94 +188,36 @@ export async function POST(request: NextRequest) {
       }
 
       const engineChat = await getEngineChatByIdForRequest(request, chatId);
-      let files: Array<{ path: string; content: string }>;
-      let exportLabel: string;
-
-      if (engineChat) {
-        const ev = await getVersionById(versionId);
-        if (!ev || ev.chat_id !== engineChat.id) {
-          return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 });
-        }
-        const rawFiles = parseCodeFilesFromFilesJson(ev.files_json) ?? [];
-        files = rawFiles
-          .map((file) => ({
-            path: normalizeFilePath(file.path),
-            content: file.content,
-          }))
-          .filter((file): file is { path: string; content: string } =>
-            Boolean(file.path && file.content),
-          );
-        if (files.length === 0) {
-          return NextResponse.json(
-            { success: false, error: "No files available to export" },
-            { status: 400 },
-          );
-        }
-        exportLabel = `${chatId}:${versionId}`;
-      } else {
-        if (isV0PlatformDisabled()) {
-          return buildV0PlatformDisabledResponse("Legacy GitHub-export");
-        }
-        assertV0Key();
-
-        let chat = await getChatByV0ChatIdForRequest(request, chatId);
-        if (!chat) chat = await getChatByIdForRequest(request, chatId);
-        if (!chat) {
-          return NextResponse.json({ success: false, error: "Chat not found" }, { status: 404 });
-        }
-
-        let version = await db
-          .select()
-          .from(versions)
-          .where(and(eq(versions.chatId, chat.id), eq(versions.id, versionId)))
-          .limit(1);
-
-        if (version.length === 0) {
-          version = await db
-            .select()
-            .from(versions)
-            .where(and(eq(versions.chatId, chat.id), eq(versions.v0VersionId, versionId)))
-            .limit(1);
-        }
-
-        if (version.length === 0) {
-          return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 });
-        }
-
-        const v0VersionId = version[0].v0VersionId;
-        const v0ChatId = chat.v0ChatId;
-
-        const v0Version = await v0.chats.getVersion({
-          chatId: v0ChatId,
-          versionId: v0VersionId,
-          includeDefaultFiles: true,
-        });
-
-        const rawFiles = Array.isArray((v0Version as any)?.files)
-          ? ((v0Version as any).files as Array<{ name?: string; content?: string }>)
-          : [];
-
-        files = rawFiles
-          .map((file) => ({
-            name: typeof file.name === "string" ? file.name : "",
-            content: typeof file.content === "string" ? file.content : "",
-          }))
-          .map((file) => ({
-            path: normalizeFilePath(file.name),
-            content: file.content,
-          }))
-          .filter((file): file is { path: string; content: string } =>
-            typeof file.path === "string" && file.path.length > 0 && file.content.length > 0,
-          );
-
-        if (files.length === 0) {
-          return NextResponse.json(
-            { success: false, error: "No files available to export" },
-            { status: 400 },
-          );
-        }
-        exportLabel = `${v0ChatId}:${v0VersionId}`;
+      if (!engineChat) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Legacy V0-export ar inte langre tillganglig. Export fungerar bara for own-engine-chattar.",
+          },
+          { status: 410 },
+        );
       }
+
+      const ev = await getVersionById(versionId);
+      if (!ev || ev.chat_id !== engineChat.id) {
+        return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 });
+      }
+      const rawFiles = parseCodeFilesFromFilesJson(ev.files_json) ?? [];
+      const files = rawFiles
+        .map((file) => ({
+          path: normalizeFilePath(file.path),
+          content: file.content,
+        }))
+        .filter((file): file is { path: string; content: string } =>
+          Boolean(file.path && file.content),
+        );
+      if (files.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "No files available to export" },
+          { status: 400 },
+        );
+      }
+      const exportLabel = `${chatId}:${versionId}`;
 
       const token = user.github_token;
       const repoResult = await ensureRepo({

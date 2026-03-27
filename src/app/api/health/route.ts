@@ -7,14 +7,8 @@
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/data/redis";
 import { FEATURES, REDIS_CONFIG } from "@/lib/config";
-import { isV0PlatformEnabled } from "@/lib/env";
 
 export async function GET() {
-  const v0Reason = FEATURES.useV0Api
-    ? null
-    : isV0PlatformEnabled()
-      ? "V0_API_KEY saknas (valfritt om du inte använder kvarvarande v0-integrationer)."
-      : "SAJTMASKIN_V0_PLATFORM_ENABLED ar avstangd, sa legacy V0 Platform-rutter ar inte tillgangliga.";
   const imageGenReason = FEATURES.useBuilderImageGenerations
     ? null
     : "OPENAI_API_KEY saknas — bildinstruktioner i prompt kräver OpenAI (own engine).";
@@ -22,15 +16,12 @@ export async function GET() {
     timestamp: new Date().toISOString(),
     features: {
       redis: FEATURES.useRedisCache,
-      /** V0 Platform API key present (legacy routes / integrationer). */
-      v0: FEATURES.useV0Api,
       /** Own-engine builder: prompt image-generation instructions (OpenAI). */
       imageGenerations: FEATURES.useBuilderImageGenerations,
       vercel: FEATURES.useVercelApi,
       vercelBlob: FEATURES.useVercelBlob,
     },
     featureReasons: {
-      v0: v0Reason,
       imageGenerations: imageGenReason,
       vercelBlob: FEATURES.useVercelBlob ? null : "Missing BLOB_READ_WRITE_TOKEN",
     },

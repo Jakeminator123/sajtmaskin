@@ -8,8 +8,24 @@ Own-engine / gen / mcp:
 MCP-mappen:
 - src/lib/mcp/runtime-url.ts ar aktivt inkopplad i own-engine/sandbox-floden och dess riktade tester passerar.
 - src/lib/mcp/generate-site.ts och src/lib/mcp/local-engine.ts ser ut som bra seams for verktyg/agent-anrop, men ar mindre bevisade i produktflodet an runtime-url.ts.
+- Non-SSE own-engine-generation ar nu extraherad till src/lib/own-engine/generate-site-from-prompt.ts, sa mcp/generate-site inte langer behover aga core-generationlogiken sjalv.
+
+Template-init:
+- POST /api/template ar nu own-engine-baserad och returnerar engine-chat-id i stallet for att ga via V0 Platform.
+- Gamla template-cacheposter som inte pekar pa en engine-chat ignoreras i stallet for att aterintroducera legacy-vagen.
+
+Vidare utfasing:
+- POST /api/v0/chats/init ar nu own-engine-baserad import av repo/ZIP till forsta engine-version.
+- Direct registry-init via API ar avvecklad; UI faller tillbaka till vanlig own-engine-promptstart.
+- src/lib/v0.ts, src/lib/v0/ och npm-paketet v0-sdk ar borttagna ur appflodet.
+- Den tillfalliga feature-flaggan SAJTMASKIN_V0_PLATFORM_ENABLED togs bort igen nar den inte langre styrde nagon aktiv appvag.
+- Kvarvarande admin-cleanup mot V0 API togs bort, tillsammans med de sista runtime-/health-/trace-sporen av V0_API_KEY.
 
 OpenClaw:
 - OpenClaw lever idag separat under src/lib/openclaw/ och src/app/api/openclaw/.
 - Ingen direkt runtime-koppling mellan OpenClaw och src/lib/mcp idag.
 - src/lib/mcp kan pa sikt vara en bra adapteryta om OpenClaw senare ska trigga own-engine programmatisk generation eller runtime-start.
+
+Dokumentstädning:
+- Historiska v0-filer togs bort: docs/handoffs/v0-fasning-och-forenkling.md, docs/handoffs/gpt-external-review.txt och docs/architecture/v0-platform-sunset-audit.md.
+- Kvarvarande handoff-filer pekar nu till aktiva arkitektur-/handoff-dokument i stallet for borttagna historikfiler.

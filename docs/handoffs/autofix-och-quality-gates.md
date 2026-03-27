@@ -5,7 +5,7 @@
 **Prioritet:** Hög — detta är steget mellan generation och sandbox (Fidelity 2).
 
 **Kanoniska källor:**  
-[`docs/handoffs/gpt-external-review.txt`](gpt-external-review.txt) · [`docs/architecture/preview-deploy.md`](../architecture/preview-deploy.md) · [`docs/handoffs/scaffold-sandbox-findings-och-llm-uppfoljning.md`](scaffold-sandbox-findings-och-llm-uppfoljning.md)
+[`docs/architecture/preview-deploy.md`](../architecture/preview-deploy.md) · [`docs/architecture/builder-generation.md`](../architecture/builder-generation.md) · [`docs/handoffs/scaffold-sandbox-findings-och-llm-uppfoljning.md`](scaffold-sandbox-findings-och-llm-uppfoljning.md)
 
 ---
 
@@ -61,7 +61,7 @@
 
 **Mål:** Om typecheck **eller** build **eller** (framtida) lint misslyckas:
 
-1. Samla **kommandoutdata** (sista N rader, t.ex. 500–2000 — jfr. external review).
+1. Samla **kommandoutdata** (sista N rader, t.ex. 500–2000, enligt interna felsökningsfynd).
 2. Trigga **inriktad** repair (inte full regeneration): antingen befintlig autofix + LLM-fix med feltext som kontext.
 3. **Cap:** max **2** repair-variationer per version; spara status på versionen.
 
@@ -78,14 +78,14 @@
 
 **Åtgärder:**
 
-- När API returnerar `sandbox_disabled` (eller motsvarande kod): **banner** i preview-panelen, inte bara dev-toast — se external review och [`useBuilderPageController`](../../src/components/builder/) (sök `sandbox`).
+- När API returnerar `sandbox_disabled` (eller motsvarande kod): **banner** i preview-panelen, inte bara dev-toast — se [`useBuilderPageController`](../../src/components/builder/) (sök `sandbox`).
 - Persistera “sandbox otillgänglig” i builder-state så det överlever navigation.
 
 ---
 
 ## 5. Loggar för felsökning
 
-- Vid `npm install` / build-fel i sandbox: **öka** sparad logggrad-gräns (truncate idag) — se review § “Quick diagnostic checklist”.
+- Vid `npm install` / build-fel i sandbox: **öka** sparad logggrad-gräns (truncate idag) så root cause syns utan manuell reproduktion.
 - Lagra per **stage**: install, dev, build (om körs).
 
 ---
@@ -125,4 +125,4 @@ npm run baseline-deps:verify
 
 ---
 
-*Handoff skapad för own-engine-upprustning. Se `v0-fasning-och-forenkling.md` och `kontrakt-forenkling-och-integrationer.md`.*
+*Handoff skapad för own-engine-upprustning. Se `kontrakt-forenkling-och-integrationer.md` och `llm-kedja-och-generationskvalitet.md`.*

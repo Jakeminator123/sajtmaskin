@@ -7,8 +7,8 @@
  * Build Models:
  *   - The first group represents build profiles, not prompt-assist models.
  *   - Profiles map to the own engine's provider model IDs (codegen is own-engine only).
- *   - `V0_FALLBACK_BUILDER` does not change build models; it only affects optional
- *     preview URL preference when a v0-hosted demo exists.
+ *   - Legacy V0 Platform flags do not change build models; own-engine remains
+ *     the canonical codegen path.
  *   - Prompt Assist models are listed separately below and are only used to
  *     rewrite/brief the prompt before generation.
  *

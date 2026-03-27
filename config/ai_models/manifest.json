@@ -234,15 +234,6 @@
       }
     },
     {
-      "id": "v0_platform_chats",
-      "title": "v0 Platform chat generation",
-      "description": "streamText against v0 when using the v0 adapter path.",
-      "invocation": "streamText_ai_sdk",
-      "provider": "v0_openai_compat",
-      "codeEntry": ["src/app/api/v0/chats/route.ts"],
-      "authEnv": ["V0_API_KEY"]
-    },
-    {
       "id": "runtime_embeddings_query",
       "title": "Runtime embedding queries (RAG-style search)",
       "description": "OpenAI SDK embeddings.create for live query vectors vs precomputed JSON indexes.",

@@ -37,8 +37,7 @@ Autofix-steg (use client, imports, metadata, esbuild, …): kod `src/lib/gen/aut
 ## v0 — soft deprecation
 
 - Own-engine är **enda** codegen-streamen.
-- `V0_FALLBACK_BUILDER` styr bara **preview-preferens** för v0-hostad `demoUrl`.
-- API under `src/app/api/v0/` används fortfarande för mall/CRUD (egen motor är codegen-standard).
+- HTTP-prefixet `/api/v0/` lever kvar som intern API-version, men generation, template-init och importfloden kör nu via own-engine.
 
 ## Vercel Templates / Playwright / scorefolds
 

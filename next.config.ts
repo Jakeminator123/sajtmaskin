@@ -2,10 +2,6 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  // Expose V0_FALLBACK_BUILDER to the client for preview URL ordering only (see v0-preview-priority.ts).
-  env: {
-    NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK: process.env.V0_FALLBACK_BUILDER ?? "",
-  },
   serverExternalPackages: ["esbuild", "pg"],
   outputFileTracingRoot: path.join(__dirname, "./"),
   experimental: {
@@ -13,16 +9,6 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "v0.dev",
-        pathname: "/api/og/**",
-      },
-      {
-        protocol: "https",
-        hostname: "api.v0.dev",
-        pathname: "/v1/chats/**",
-      },
       // DiceBear avatars
       {
         protocol: "https",
@@ -112,7 +98,7 @@ const nextConfig: NextConfig = {
   },
   // Cross-Origin Isolation headers required for WebContainer (SharedArrayBuffer)
   // ONLY applied to /project/* routes where WebContainer is used (after takeover)
-  // NOT applied to /builder/* where we embed v0's demo iframes
+  // NOT applied to /builder/* where preview iframes may point at sandbox/runtime surfaces
   // See: https://webcontainers.io/guides/configuring-headers
   async headers() {
     return [

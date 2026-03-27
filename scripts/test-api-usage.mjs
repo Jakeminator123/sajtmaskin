@@ -55,13 +55,6 @@ try {
     log("Installation", "fail", "@ai-sdk/openai INTE installerad!");
   }
 
-  // Kolla v0-sdk
-  if (deps["v0-sdk"]) {
-    log("Installation", "ok", `v0-sdk installerad: ${deps["v0-sdk"]}`);
-  } else {
-    log("Installation", "fail", "v0-sdk INTE installerad!");
-  }
-
   // Kolla OpenAI SDK (direkt)
   if (deps["openai"]) {
     log("Installation", "ok", `OpenAI SDK installerad: ${deps["openai"]}`);
@@ -85,19 +78,8 @@ console.log("");
 console.log("🔑 API-NYCKLAR (från .env.local - DINA PRIVATA NYCKLAR):");
 console.log("-".repeat(70));
 
-const v0ApiKey = process.env.V0_API_KEY;
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const aiGatewayKey = process.env.AI_GATEWAY_API_KEY;
-
-if (v0ApiKey) {
-  const keyPreview =
-    v0ApiKey.length > 12 ? `${v0ApiKey.slice(0, 8)}...${v0ApiKey.slice(-4)}` : v0ApiKey;
-  log("API Keys", "ok", `V0_API_KEY: Konfigurerad (${keyPreview})`);
-  log("API Keys", "info", "  → Detta är DIN PRIVATA nyckel från .env.local");
-  log("API Keys", "info", "  → Används för KODGENERERING (v0 API)");
-} else {
-  log("API Keys", "fail", "V0_API_KEY: INTE konfigurerad (krävs för kodgenerering!)");
-}
 
 if (openaiApiKey) {
   const keyPreview =
@@ -152,21 +134,19 @@ När du bygger en sajt går flödet så här:
    └─> Förbättrar vaga prompts
 
 5. PROMPT ENRICHER (INGEN AI)
-   └─> Formaterar prompten för v0
+   └─> Formaterar prompten for own-engine
    └─> API: Ingen (lokal formatering)
 
-6. V0 API (v0-sdk)
-   └─> Använder: v0-sdk createClient()
-   └─> API-nyckel: DIN PRIVATA V0_API_KEY från .env.local
-   └─> Går till: https://api.v0.dev (DIREKT, INTE via Vercel)
+6. OWN-ENGINE CODEGEN
+   └─> Använder: appens egen generationpipeline
+   └─> API-nyckel: DIN PRIVATA OPENAI_API_KEY / ANTHROPIC_API_KEY beroende pa modellval
+   └─> Går DIREKT till respektive modellprovider
    └─> Genererar faktisk kod
 
 SAMMANFATTNING:
-- AI SDK används för PROMPT-BEHANDLING (router, enhancer)
-- v0 API används för KODGENERERING
-- Båda använder DINA PRIVATA API-NYCKLAR från .env.local
-- AI SDK går via OpenAI API (DIREKT till api.openai.com, INTE via Vercel)
-- v0 API går direkt till v0.dev (DIREKT till api.v0.dev, INTE via Vercel)
+- AI SDK / direkta provider-SDK:er används för PROMPT-BEHANDLING och KODGENERERING
+- Allt använder DINA PRIVATA API-NYCKLAR från .env.local
+- OpenAI går via api.openai.com (DIREKT, INTE via Vercel)
 `);
 
 console.log("");
@@ -212,53 +192,6 @@ if (openaiApiKey) {
   }
 } else {
   log("OpenAI Test", "fail", "Kan inte testa OpenAI API - OPENAI_API_KEY saknas i .env.local");
-}
-
-console.log("");
-
-// Test v0 API direkt
-if (v0ApiKey) {
-  try {
-    log("v0 API Test", "info", "Testar direktanslutning till api.v0.dev...");
-
-    const { createClient } = await import("v0-sdk");
-    const v0 = createClient({ apiKey: v0ApiKey });
-
-    // Testa att skapa en enkel chat
-    const testResult = await v0.chats.create({
-      message: "Say hi",
-      system: "Be brief",
-      chatPrivacy: "private",
-      modelConfiguration: {
-        modelId: "v0-1.5-md",
-        imageGenerations: false,
-        thinking: false,
-      },
-      responseMode: "sync",
-    });
-
-    if (testResult && testResult.id) {
-      log("v0 API Test", "ok", `✅ v0 API fungerar! (chat: ${testResult.id.slice(0, 8)}...)`);
-      log("v0 API Test", "info", "  → Använder DIN PRIVATA nyckel från .env.local");
-      log("v0 API Test", "info", "  → Går DIREKT till api.v0.dev (INTE via Vercel)");
-      log("v0 API Test", "info", "  → Används för: Kodgenerering (generateCode, refineCode)");
-    }
-  } catch (error) {
-    const msg = error.message || String(error);
-    if (msg.includes("401") || msg.includes("Unauthorized")) {
-      log("v0 API Test", "fail", "v0 API: Ogiltig nyckel");
-      log("v0 API Test", "fail", "  → Kontrollera din V0_API_KEY i .env.local");
-      log("v0 API Test", "info", "  → Hämta ny nyckel på: https://v0.dev/settings");
-    } else if (msg.includes("422")) {
-      log("v0 API Test", "ok", "v0 API: Nyckel är giltig (API svarar)");
-      log("v0 API Test", "info", "  → Använder DIN PRIVATA nyckel från .env.local");
-      log("v0 API Test", "info", "  → Går DIREKT till api.v0.dev (INTE via Vercel)");
-    } else {
-      log("v0 API Test", "warn", `v0 API: ${msg.slice(0, 60)}`);
-    }
-  }
-} else {
-  log("v0 API Test", "fail", "Kan inte testa v0 API - V0_API_KEY saknas i .env.local");
 }
 
 console.log("");
@@ -310,7 +243,7 @@ console.log("-".repeat(70));
 console.log(`
 KONTROLL:
 - OpenAI API: Går till https://api.openai.com (DIREKT)
-- v0 API: Går till https://api.v0.dev (DIREKT)
+- Ingen appkritisk modelltrafik går via V0 Platform langre
 - Ingen av dem går via Vercel AI Gateway om AI_GATEWAY_API_KEY inte är satt
 
 VIKTIGT:
@@ -339,23 +272,18 @@ console.log(`\n✅ OK: ${ok}  ⚠️  Varningar: ${warn}  ❌ Fel: ${fail}  ℹ�
 console.log("VIKTIGT - DINA PRIVATA API-NYCKLAR:");
 console.log("-".repeat(70));
 console.log("• OpenAI API: Använder DIN PRIVATA OPENAI_API_KEY från .env.local");
-console.log("• v0 API: Använder DIN PRIVATA V0_API_KEY från .env.local");
-console.log("• Båda går DIREKT till respektive API (INTE via Vercel)");
+console.log("• Modellanrop går DIREKT till respektive provider (INTE via Vercel om AI Gateway inte används)");
 console.log("• Ingen annan part har tillgång till dina nycklar\n");
 
 console.log("FLÖDE:");
 console.log("-".repeat(70));
 console.log("1. Prompt-behandling → AI SDK + OpenAI API (DIN PRIVATA NYCKEL)");
-console.log("2. Kodgenerering → v0 API (DIN PRIVATA NYCKEL)");
+console.log("2. Kodgenerering → own-engine + direkt provideranrop");
 console.log("3. Allt går DIREKT till respektive API-leverantör\n");
 
 if (fail > 0) {
   console.log("🔧 FÖR ATT FIXA:");
   console.log("-".repeat(70));
-  if (!v0ApiKey) {
-    console.log("• V0_API_KEY: Lägg till i .env.local");
-    console.log("  Hämta nyckel: https://v0.dev/settings");
-  }
   if (!openaiApiKey) {
     console.log("• OPENAI_API_KEY: Lägg till i .env.local");
     console.log("  Hämta nyckel: https://platform.openai.com/api-keys");

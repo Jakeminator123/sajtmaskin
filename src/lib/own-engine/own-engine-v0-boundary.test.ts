@@ -3,13 +3,14 @@ import { join, relative } from "path";
 import { describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
+const LEGACY_V0_ROOT = join(repoRoot, "src", "lib", "v0");
 
 const SCAN_ROOTS = [
   join(repoRoot, "src", "lib", "own-engine"),
   join(repoRoot, "src", "lib", "providers", "own-engine"),
 ];
 
-/** Block v0 Platform API / SDK from own-engine modules (routes may still use provider-neutral helpers). */
+/** Block legacy V0 Platform code and imports from own-engine modules. */
 const FORBIDDEN = [
   /@\/lib\/v0\//,
   /from\s+["']v0-sdk["']/,
@@ -29,6 +30,10 @@ function walkTsFiles(dir: string, acc: string[] = []): string[] {
 
 describe("own-engine ↔ v0 import boundary", () => {
   it("src/lib/own-engine and src/lib/providers/own-engine do not import v0 Platform internals", () => {
+    expect(existsSync(LEGACY_V0_ROOT), `Legacy directory must be removed: ${LEGACY_V0_ROOT}`).toBe(
+      false,
+    );
+
     for (const root of SCAN_ROOTS) {
       if (!existsSync(root)) {
         throw new Error(

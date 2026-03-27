@@ -30,15 +30,6 @@ vi.mock("@/lib/db/schema", () => ({
   versions: {},
 }));
 
-vi.mock("@/lib/v0", () => ({
-  assertV0Key: vi.fn(),
-  v0: {
-    chats: {
-      create: vi.fn(),
-    },
-  },
-}));
-
 vi.mock("@/lib/validations/chatSchemas", () => ({
   createChatSchema: {
     safeParse: createChatSchemaSafeParse,

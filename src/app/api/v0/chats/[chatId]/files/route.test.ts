@@ -4,21 +4,6 @@ const shouldUseV0Fallback = vi.hoisted(() => vi.fn(() => false));
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const updateVersionFiles = vi.hoisted(() => vi.fn());
-const assertV0Key = vi.hoisted(() => vi.fn());
-const v0ChatsGetVersion = vi.hoisted(() => vi.fn());
-const v0ChatsUpdateVersion = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/v0", () => ({
-  assertV0Key,
-  v0: {
-    chats: {
-      getVersion: v0ChatsGetVersion,
-      updateVersion: v0ChatsUpdateVersion,
-      getById: vi.fn(),
-    },
-  },
-}));
-
 vi.mock("@/lib/tenant", () => ({
   getChatByV0ChatIdForRequest: vi.fn(),
   getEngineChatByIdForRequest: vi.fn(),
@@ -94,9 +79,6 @@ describe("own-engine file route parity", () => {
     getEngineVersionForChatByIdForRequest.mockReset();
     getVersionFiles.mockReset();
     updateVersionFiles.mockReset();
-    assertV0Key.mockReset();
-    v0ChatsGetVersion.mockReset();
-    v0ChatsUpdateVersion.mockReset();
   });
 
   it("updates a single own-engine file via PATCH without touching the v0 path", async () => {
@@ -122,9 +104,6 @@ describe("own-engine file route parity", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(assertV0Key).not.toHaveBeenCalled();
-    expect(v0ChatsGetVersion).not.toHaveBeenCalled();
-    expect(v0ChatsUpdateVersion).not.toHaveBeenCalled();
     expect(updateVersionFiles).toHaveBeenCalledWith(
       "ver_1",
       JSON.stringify([{ path: "src/app/page.tsx", content: "new content", language: "tsx" }]),
@@ -152,9 +131,6 @@ describe("own-engine file route parity", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(assertV0Key).not.toHaveBeenCalled();
-    expect(v0ChatsGetVersion).not.toHaveBeenCalled();
-    expect(v0ChatsUpdateVersion).not.toHaveBeenCalled();
     expect(updateVersionFiles).toHaveBeenCalledWith(
       "ver_1",
       JSON.stringify([{ path: "src/lib/util.ts", content: "util", language: "ts" }]),

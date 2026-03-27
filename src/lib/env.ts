@@ -49,7 +49,6 @@ export const serverSchema = z.object({
   INBOUND_WEBHOOK_SHARED_SECRET: z.string().optional(),
 
   // API keys
-  V0_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   VERCEL_TOKEN: z.string().optional(),
   VERCEL_TEAM_ID: z.string().optional(),
@@ -133,7 +132,6 @@ export const serverSchema = z.object({
   SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS: z.string().optional(),
   SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),
   SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),
-  SAJTMASKIN_V0_PLATFORM_ENABLED: z.string().optional(),
 
   // AI – Model overrides per tier (see src/lib/models/catalog.ts, src/lib/gen/defaults.ts)
   SAJTMASKIN_MODEL_FAST: z.string().optional(),
@@ -151,8 +149,6 @@ export const serverSchema = z.object({
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),
   AUDIT_WEB_SEARCH: z.string().optional(),
-  V0_STREAMING_ENABLED: z.string().optional(),
-  V0_FALLBACK_BUILDER: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
@@ -217,21 +213,3 @@ export function getServerEnv(): ServerEnv {
   return _cached;
 }
 
-/**
- * Opt-in: prefer v0-hosted preview URLs in the builder when both sandbox and
- * `*.vusercontent.net` demo URLs exist. Does not enable v0 Platform API for codegen
- * (`createGenerationPipeline` is own-engine only). Off unless value is affirmative
- * (`y`, `yes`, `true`, `1`, `on`); `n` / `no` / `false` / empty → off.
- */
-export function isV0BuilderPreviewFallbackEnabled(): boolean {
-  return isAffirmativeEnvValue(getServerEnv().V0_FALLBACK_BUILDER);
-}
-
-/**
- * Opt-in: allow legacy V0 Platform routes and helpers (`v0-sdk`, template init,
- * registry init, legacy export branch). Off by default so own-engine remains
- * the canonical generation path unless explicitly enabled.
- */
-export function isV0PlatformEnabled(): boolean {
-  return isAffirmativeEnvValue(getServerEnv().SAJTMASKIN_V0_PLATFORM_ENABLED);
-}

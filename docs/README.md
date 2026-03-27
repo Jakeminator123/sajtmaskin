@@ -42,7 +42,7 @@ Important code sources of truth include:
 - `src/lib/models/catalog.ts` — build profiles and model IDs (own engine)
 - `config/ai_models/manifest.json` — committed defaults for own-engine models per profile, assist/polish defaults, token budgets, timeouts, workload metadata (`src/lib/ai-models/load-manifest.ts`; env overrides). Human guide: `config/ai_models/_READ_ME_FIRST.md`.
 - `src/lib/models/selection.ts` — model resolution for requests
-- `src/lib/v0/*` — **mapp** med historisk kod; **inte** samma som V0 Platform API (se **V0-mapp vs v0-SDK vs V0 Platform API** i [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc)). Där kan finnas Sajtmaskin-eget (t.ex. zip/DB) bredvid äkta SDK-anrop — läs implementationen.
+- `src/lib/own-engine/*`, `src/lib/providers/own-engine/*`, `src/lib/gen/*` — kanoniska kallytor for den egna generationmotorn och dess delade karna.
 - `src/lib/gen/scaffolds/types.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/template-library/types.ts`

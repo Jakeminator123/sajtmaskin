@@ -179,8 +179,6 @@
     "UPSTASH_REDIS_REST_TOKEN",
     "UPSTASH_REDIS_REST_URL",
     "USE_RESPONSES_API",
-    "V0_FALLBACK_BUILDER",
-    "V0_STREAMING_ENABLED",
     "VERCEL",
     "VERCEL_ENV",
     "VERCEL_URL",
@@ -229,12 +227,6 @@
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required for auth and session integrity."
-    },
-    {
-      "key": "V0_API_KEY",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Required when v0 fallback is enabled, and also used by v0-backed prompt assist and related integrations."
     },
     {
       "key": "OPENAI_API_KEY",
@@ -487,18 +479,6 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "CSP enforce-mode toggle."
-    },
-    {
-      "key": "V0_STREAMING_ENABLED",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "v0 streaming feature flag. Only used by v0-fallback path (v0-generator.ts). Candidate for removal when v0-fallback is deprecated."
-    },
-    {
-      "key": "V0_FALLBACK_BUILDER",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": ["development"],
-      "notes": "Affirmative only (y/yes/true/1/on): prefer v0-hosted demoUrl in builder preview when sandbox also exists. Does not enable v0 API codegen. Inlined to NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK at build (next.config)."
     },
     {
       "key": "LOOPIA_API_USER",

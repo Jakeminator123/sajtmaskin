@@ -61,7 +61,11 @@ export function useBuilderEffects({
         const response = await fetch("/api/template", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ templateId, quality }),
+          body: JSON.stringify({
+            templateId,
+            quality,
+            ...(appProjectId ? { projectId: appProjectId } : {}),
+          }),
         });
         const data = await response.json();
         if (!response.ok || !data?.success) {

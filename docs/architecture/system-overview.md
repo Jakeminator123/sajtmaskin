@@ -42,8 +42,6 @@ Canonical tabell och manifest: [`docs/schemas/model-build-profiles.md`](../schem
 |--------|------------------|
 | Kodgenerering | `OPENAI_API_KEY` |
 | Prompt assist / gateway | `AI_GATEWAY_API_KEY` |
-| v0 SDK (mallar m.m.) | `V0_API_KEY` |
-| Preview-preferens v0-host | `V0_FALLBACK_BUILDER` (affirmative → föredra v0 `demoUrl` i UI när både sandbox och v0 finns) |
 
 ## Scaffold-system
 

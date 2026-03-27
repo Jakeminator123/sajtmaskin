@@ -18,16 +18,6 @@ vi.mock("next/server", async () => {
   return actual;
 });
 
-vi.mock("@/lib/v0", () => ({
-  assertV0Key: vi.fn(),
-  v0: {
-    chats: {
-      sendMessage: vi.fn(),
-      getById: vi.fn(),
-    },
-  },
-}));
-
 vi.mock("@/lib/streaming", () => ({
   createSSEHeaders: () => ({ "Content-Type": "text/event-stream" }),
   formatSSEEvent: (event: string, data: unknown) =>

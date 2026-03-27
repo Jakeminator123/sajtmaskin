@@ -119,16 +119,6 @@ vi.mock("@/lib/gen/request-metadata", () => ({
   summarizeDesignReferences: () => [],
 }));
 
-vi.mock("@/lib/v0", () => ({
-  assertV0Key: vi.fn(),
-  v0: {
-    chats: {
-      find: vi.fn(),
-      create: vi.fn(),
-    },
-  },
-}));
-
 vi.mock("@/lib/config", () => ({
   AI: {
     designSystemId: null,

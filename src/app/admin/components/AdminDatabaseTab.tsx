@@ -508,48 +508,6 @@ export function AdminDatabaseTab({
               variant="outline"
               size="sm"
               onClick={async () => {
-                if (confirmAction !== "v0-cleanup") {
-                  setConfirmAction("v0-cleanup");
-                  return;
-                }
-                setActionLoading("v0-cleanup");
-                try {
-                  const res = await fetch("/api/admin/database", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      action: "cleanup-v0-projects",
-                    }),
-                  });
-                  const data = await res.json();
-                  showMessage(data.message || `Raderade ${data.deleted || 0} v0-projekt`);
-                } catch {
-                  showMessage("Misslyckades");
-                }
-                setActionLoading(null);
-                setConfirmAction(null);
-              }}
-              disabled={actionLoading === "v0-cleanup"}
-              className={`gap-2 ${
-                confirmAction === "v0-cleanup"
-                  ? "border-brand-warm text-brand-warm"
-                  : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
-              }`}
-            >
-              {actionLoading === "v0-cleanup" ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : confirmAction === "v0-cleanup" ? (
-                <AlertTriangle className="h-3 w-3" />
-              ) : (
-                <Trash2 className="h-3 w-3" />
-              )}
-              {confirmAction === "v0-cleanup" ? "Bekräfta?" : "Rensa v0-projekt"}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
                 if (confirmAction !== "vercel-cleanup") {
                   setConfirmAction("vercel-cleanup");
                   return;

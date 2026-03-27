@@ -17,7 +17,6 @@ import {
   isGatewayAssistModel,
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
-import { saveProjectData } from "@/lib/project-client";
 import {
   useCallback,
   useState,
@@ -27,7 +26,6 @@ import {
 } from "react";
 import { toast } from "sonner";
 import type { CreateChatOptions } from "./types";
-import { MODEL_TIER_TO_QUALITY } from "./types";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 
 export type TemplateSwitchDialogState =
@@ -292,66 +290,9 @@ export function useBuilderPromptActions({
         toast.error("Registry-URL saknas");
         return false;
       }
-
-      try {
-        resetBeforeCreateChat();
-        const quality = MODEL_TIER_TO_QUALITY[selectedModelTier] || "max";
-        const name = selection.block?.title ? `shadcn/ui: ${selection.block.title}` : undefined;
-        const response = await fetch("/api/v0/chats/init-registry", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ registryUrl: selection.registryUrl, quality, name }),
-        });
-
-        const data = (await response.json().catch(() => null)) as {
-          chatId?: string;
-          projectId?: string | null;
-          project_id?: string | null;
-          demoUrl?: string | null;
-          error?: string;
-          details?: string;
-        } | null;
-
-        if (!response.ok || !data?.chatId) {
-          throw new Error(data?.error || data?.details || "Kunde inte starta från UI-element");
-        }
-
-        setChatId(data.chatId);
-        if (appProjectId) {
-          applyAppProjectId(appProjectId, { chatId: data.chatId });
-        } else {
-          const params = new URLSearchParams(searchParams.toString());
-          params.set("chatId", data.chatId);
-          router.replace(`/builder?${params.toString()}`);
-        }
-        setMessages([]);
-        setCurrentDemoUrl(data.demoUrl || null);
-        if (appProjectId) {
-          saveProjectData(appProjectId, {
-            chatId: data.chatId,
-            demoUrl: data.demoUrl ?? undefined,
-          }).catch((error) => {
-            console.warn("[Builder] Failed to save registry project mapping:", error);
-          });
-        }
-        toast.success("Projekt skapat från block!");
-        return true;
-      } catch (error) {
-        console.warn("[Builder] Could not start directly from registry:", error);
-        return false;
-      }
+      return false;
     },
-    [
-      resetBeforeCreateChat,
-      selectedModelTier,
-      router,
-      setChatId,
-      setMessages,
-      setCurrentDemoUrl,
-      appProjectId,
-      applyAppProjectId,
-      searchParams,
-    ],
+    [],
   );
 
   const handleStartFromTemplate = useCallback(
