@@ -15,6 +15,7 @@
 | [system-overview.md](./system-overview.md) | Motorflöde, modellager, builder-entry (`BuildMethod`), handoff till planer |
 | [builder-generation.md](./builder-generation.md) | Promptlager, modellval & trace, SSE, generation loop, UX-kontrakt, projektinställningar |
 | [preview-deploy.md](./preview-deploy.md) | Shim vs sandbox, fidelity tiers, deploy-precheck, sandbox-credentials |
+| [preview-white-screen-runbook.md](./preview-white-screen-runbook.md) | Vit/tom preview: felsökning, loggar, förebyggande; speglar UI-runbook |
 | [repository-and-platform.md](./repository-and-platform.md) | Mappar & terminologi, doc-livscykel, repo-hygien, skript/scaffolds, kände fel, v0-deprecation, Vercel-mallar/webhooks, övriga integrationer |
 
 ## Dokumentlivscykel

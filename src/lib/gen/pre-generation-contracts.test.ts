@@ -18,6 +18,18 @@ const baseCaps = (over: Partial<InferredCapabilities> = {}): InferredCapabilitie
 });
 
 describe("inferPreGenerationContracts — UI answers", () => {
+  it("defaults to SQLite (no modal) when persistence is implied but no DB named in prompt", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Vi behöver spara data i en databas",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsDatabase: true }),
+    });
+
+    expect(ctx.unresolvedDecisions.some((d) => d.kind === "database")).toBe(false);
+    expect(ctx.contracts.databaseProvider).toBe("SQLite");
+    expect(ctx.contracts.integrations.some((i) => i.provider === "SQLite")).toBe(true);
+  });
+
   it('clears database unresolved when user picks "Annat / vet inte än" (mock first)', () => {
     const ctx = inferPreGenerationContracts({
       prompt: "Vi behöver spara data i en databas",
@@ -35,6 +47,30 @@ describe("inferPreGenerationContracts — UI answers", () => {
     expect(ctx.unresolvedDecisions.some((d) => d.kind === "database")).toBe(false);
     expect(ctx.contracts.databaseProvider).toBe("mock data");
     expect(ctx.contracts.dataMode).toBe("mocked");
+  });
+
+  it("marks inferred Stripe env as non-blocking (no env modal) when checkout is mentioned", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "We need Stripe checkout for subscriptions",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsEcommerce: true }),
+    });
+
+    expect(ctx.contracts.paymentProvider).toBe("Stripe");
+    expect(ctx.unresolvedDecisions.some((d) => d.kind === "env")).toBe(false);
+    expect(ctx.contracts.envVars.every((e) => !e.required)).toBe(true);
+  });
+
+  it("defaults to NextAuth/Auth.js (no modal) when login is needed but no provider named", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Bygg med inloggning för användare",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsAuth: true }),
+    });
+
+    expect(ctx.unresolvedDecisions.some((d) => d.kind === "auth")).toBe(false);
+    expect(ctx.contracts.authProvider).toBe("NextAuth / Auth.js");
+    expect(ctx.contracts.integrations.some((i) => i.provider === "NextAuth / Auth.js")).toBe(true);
   });
 
   it('clears auth unresolved when user picks "Annat / vet inte än" (no auth yet)', () => {

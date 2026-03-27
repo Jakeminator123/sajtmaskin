@@ -143,6 +143,7 @@ import {
   INITIAL_PREVIEW_RENDER_OUTCOME_STATE,
   describePreviewDiagnosticCode,
   nextPreviewRenderOutcomeState,
+  previewRunbookLinesForCode,
   previewDiagnosticCodeFromKind,
   previewDiagnosticStageFromKind,
   shouldAutoFixPreviewDiagnostic,
@@ -406,6 +407,8 @@ export function PreviewPanel({
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
   const [iframeErrorMessage, setIframeErrorMessage] = useState<string | null>(null);
+  /** Stable code for `previewRunbookLinesForCode` when iframe overlay shows. */
+  const [iframeDiagnosticCode, setIframeDiagnosticCode] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const [files, setFiles] = useState<FileNode[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -1114,6 +1117,15 @@ export function PreviewPanel({
   }, [demoUrl]);
 
   useEffect(() => {
+    if (!iframeError) setIframeDiagnosticCode(null);
+  }, [iframeError]);
+
+  const iframeRunbookLines = useMemo(
+    () => (iframeError ? previewRunbookLinesForCode(iframeDiagnosticCode) : []),
+    [iframeError, iframeDiagnosticCode],
+  );
+
+  useEffect(() => {
     return () => {
       if (inspectPulseTimerRef.current) {
         clearTimeout(inspectPulseTimerRef.current);
@@ -1125,7 +1137,9 @@ export function PreviewPanel({
   useEffect(() => {
     previewIssueKeysRef.current.clear();
     renderOutcomeStateRef.current = INITIAL_PREVIEW_RENDER_OUTCOME_STATE;
+    setIframeError(false);
     setIframeErrorMessage(null);
+    setIframeDiagnosticCode(null);
   }, [chatId, versionId, demoUrl]);
 
   useEffect(() => {
@@ -2193,6 +2207,7 @@ export function PreviewPanel({
         } catch {
           setIframeLoading(false);
           setIframeError(true);
+          setIframeDiagnosticCode("preview_document_unavailable");
           setIframeErrorMessage(describePreviewDiagnosticCode("preview_document_unavailable"));
           clearPreviewReadyTimer();
           reportOwnEngineRenderFailure({
@@ -2208,6 +2223,7 @@ export function PreviewPanel({
         if (Date.now() - startedAt >= PREVIEW_READY_TIMEOUT_MS) {
           setIframeLoading(false);
           setIframeError(true);
+          setIframeDiagnosticCode("preview_ready_timeout");
           setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
           clearPreviewReadyTimer();
           reportOwnEngineRenderFailure({
@@ -2236,6 +2252,7 @@ export function PreviewPanel({
     clearPreviewReadyTimer();
     setIframeLoading(false);
     setIframeError(true);
+    setIframeDiagnosticCode("preview_transport_error");
     setIframeErrorMessage(describePreviewDiagnosticCode("preview_transport_error"));
     if (isOwnEnginePreview) {
       reportOwnEngineRenderFailure({
@@ -4209,15 +4226,26 @@ export function PreviewPanel({
             </div>
           )}
           {iframeError && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80 p-4">
-              <AlertCircle className="mb-4 h-12 w-12 text-red-400" />
-              <p className="mb-2 text-center text-sm text-gray-400">
+            <div className="absolute inset-0 z-10 flex max-h-full flex-col items-center justify-center overflow-y-auto bg-black/85 p-4">
+              <AlertCircle className="mb-4 h-12 w-12 shrink-0 text-red-400" />
+              <p className="mb-2 max-w-lg text-center text-sm text-gray-300">
                 {iframeErrorMessage ||
                   "Preview kunde inte laddas i iframe. Öppna i ny flik istället."}
               </p>
-              <p className="mb-4 text-center text-xs text-gray-500">
-                Öppna i ny flik eller försök reparera previewn om felet kvarstår.
-              </p>
+              {iframeDiagnosticCode ? (
+                <p className="mb-2 font-mono text-[11px] text-zinc-500">Kod: {iframeDiagnosticCode}</p>
+              ) : null}
+              {iframeRunbookLines.length > 0 ? (
+                <ul className="mb-4 max-h-48 max-w-lg list-disc space-y-1.5 overflow-y-auto pl-5 text-left text-[11px] leading-snug text-zinc-400">
+                  {iframeRunbookLines.map((line, idx) => (
+                    <li key={`${idx}-${line.slice(0, 48)}`}>{line}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mb-4 text-center text-xs text-gray-500">
+                  Öppna i ny flik eller försök reparera previewn om felet kvarstår.
+                </p>
+              )}
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button onClick={handleOpenInNewTab}>
                   <ExternalLink className="mr-2 h-4 w-4" />

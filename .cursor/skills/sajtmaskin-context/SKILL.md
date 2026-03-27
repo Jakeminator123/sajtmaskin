@@ -39,6 +39,11 @@ Prefer MCP for those platforms when available; web search as fallback.
 
 Use `vercel-react-best-practices` when editing many TSX components.
 
+## Exporterade / genererade Next-projekt (zip, sandbox, kopia)
+
+- **`as const` + navigation/content-listor:** om bara vissa poster har en extra egenskap (t.ex. `featured: true`) blir unionen smal och komponenter som läser `item.featured` får TS-fel. Sätt samma egenskap på **alla** poster (t.ex. `featured: false`) eller gör fältet valfritt i typen och använd `'featured' in item && item.featured`.
+- Efter export: kör `npm install` och `npm run build` i målmappen; åtgärda build-fel innan man antar att projektet är “klart”.
+
 ## Response behavior
 
 - User writes Swedish → reply in Swedish unless they ask otherwise.

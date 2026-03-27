@@ -16,7 +16,7 @@
 
 1. This file → **Key navigation** table below.
 2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **enda aktiva backlog-filen** (K-019, Plan 17, beslut). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där).
+3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **enda aktiva backlog-filen** (K-019, Plan 17, beslut). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — env topology when debugging deploy/local.

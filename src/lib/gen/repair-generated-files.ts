@@ -1,4 +1,5 @@
 import type { CodeFile } from "@/lib/gen/parser";
+import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
 
 type RepairEntry = {
@@ -202,6 +203,12 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     if (metadataConflictResult.fixed) {
       content = metadataConflictResult.code;
       fixes.push(...metadataConflictResult.fixes);
+    }
+
+    const asConstKeysResult = fixAsConstBooleanKeys(content, file.path);
+    if (asConstKeysResult.fixed) {
+      content = asConstKeysResult.code;
+      fixes.push(...asConstKeysResult.fixes);
     }
 
     return content === file.content ? file : { ...file, content };

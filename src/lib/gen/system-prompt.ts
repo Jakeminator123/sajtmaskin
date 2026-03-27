@@ -404,12 +404,16 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
             .map((envVar) => `  - ${envVar.key} — ${envVar.reason}${envVar.required ? " (required)" : ""}`),
         );
       }
+      parts.push(
+        "",
+        "- **Placeholder policy (mandatory for runnable preview):** If **Auth** is NextAuth/Auth.js, use **Credentials** (password/demo user) only — **no OAuth** providers unless the user explicitly asked for one by name. If **Stripe/payment** appears, use test-mode keys and/or `process.env` fallbacks so the app never throws at import time. The preview/sandbox merges non-secret placeholder `.env.local` values; your code must still run when those are absent.",
+        "",
+      );
       if (unresolvedDecisions.length > 0) {
         parts.push("", "- **Unresolved decisions:**");
         parts.push(...unresolvedDecisions.map((entry) => `  - ${entry.kind}: ${entry.reason}`));
         parts.push(
-          "  - If these decisions matter for backend/runtime behavior, ask a clarifying question before generating provider-specific code.",
-          "  - If the user has not chosen the provider yet, use a sensible default (e.g. Drizzle + SQLite) with mock data. State your choice so the user can override it.",
+          "  - Prefer **non-blocking** defaults: Auth.js Credentials, SQLite or mock data, Stripe test placeholders. Do not stall generation on provider choice; ship runnable code first.",
         );
       }
       if (preGenerationContracts.confirmedAnswers.length > 0) {

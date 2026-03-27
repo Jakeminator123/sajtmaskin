@@ -6,6 +6,7 @@ import {
   nextPreviewRenderOutcomeState,
   previewDiagnosticCodeFromKind,
   previewDiagnosticStageFromKind,
+  previewRunbookLinesForCode,
   readPreviewDiagnosticMeta,
   shouldAutoFixPreviewDiagnostic,
   shouldReportPreviewOutcome,
@@ -39,6 +40,13 @@ describe("preview diagnostics helpers", () => {
     expect(describePreviewDiagnosticCode("preview_document_unavailable")).toBe(
       "Previewns iframe-dokument kunde inte lasas.",
     );
+  });
+
+  it("returns runbook lines for iframe timeout and defaults", () => {
+    const timeoutLines = previewRunbookLinesForCode("preview_ready_timeout");
+    expect(timeoutLines.length).toBeGreaterThan(0);
+    expect(timeoutLines.some((l) => l.includes("CDN"))).toBe(true);
+    expect(previewRunbookLinesForCode(null).length).toBeGreaterThan(0);
   });
 
   it("extracts normalized preview diagnostic metadata from persisted logs", () => {

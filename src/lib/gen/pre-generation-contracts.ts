@@ -227,7 +227,13 @@ function pushEnvVars(target: PlanEnvVarContract[], nextVars: string[], reason: s
   for (const key of nextVars) {
     if (!key) continue;
     const existing = target.find((entry) => entry.key === key);
-    if (existing) continue;
+    if (existing) {
+      if (required) {
+        existing.required = true;
+        if (reason) existing.reason = reason;
+      }
+      continue;
+    }
     target.push({ key, reason, required });
   }
 }
@@ -245,6 +251,96 @@ function mentionsDataPersistence(corpus: string, capabilities: InferredCapabilit
 
 function mentionsMockData(corpus: string): boolean {
   return /\b(mock|mocked|demo data|placeholder data|static data|utan backend|no backend)\b/i.test(corpus);
+}
+
+/**
+ * When the prompt implies persistence but no concrete DB was inferred from keywords,
+ * default to **SQLite in the repo** (e.g. `file:./dev.db`) instead of blocking on a
+ * clarifying modal. Env is non-blocking so preview/sandbox can use placeholders.
+ */
+function applyDefaultSqliteWhenPersistenceNeedsProvider(
+  corpus: string,
+  capabilities: InferredCapabilities,
+  contracts: PlanContracts,
+  integrations: PlanIntegrationContract[],
+  envVars: PlanEnvVarContract[],
+): void {
+  if (!mentionsDataPersistence(corpus, capabilities) || contracts.databaseProvider) {
+    return;
+  }
+  contracts.databaseProvider = "SQLite";
+  pushIntegration(integrations, {
+    provider: "SQLite",
+    name: "SQLite",
+    reason:
+      "Automatiskt standardval: lokal SQLite i projektet när persistence behövs men ingen databas nämns — undviker blockerande fråga.",
+    status: "chosen",
+    envVars: ["DATABASE_URL"],
+  });
+  pushEnvVars(
+    envVars,
+    ["DATABASE_URL"],
+    "SQLite: använd t.ex. `file:./dev.db` (Prisma/Drizzle); ingen extern DB krävs för första preview.",
+    false,
+  );
+}
+
+/**
+ * When the prompt implies login but no Clerk/NextAuth/Auth0 was inferred, default to
+ * **NextAuth/Auth.js with Credentials (lösenord)** — not OAuth consent flows. Env keys are
+ * non-blocking; preview uses placeholders from generated-site policy (e.g. AUTH_SECRET).
+ */
+function applyDefaultCredentialsAuthWhenNeeded(
+  capabilities: InferredCapabilities,
+  contracts: PlanContracts,
+  integrations: PlanIntegrationContract[],
+  envVars: PlanEnvVarContract[],
+): void {
+  if (!capabilities.needsAuth || contracts.authProvider) {
+    return;
+  }
+  const nextAuthRule = PROVIDER_RULES.find((r) => r.kind === "auth" && r.provider === "NextAuth / Auth.js");
+  if (!nextAuthRule) return;
+  contracts.authProvider = nextAuthRule.provider;
+  pushIntegration(integrations, {
+    provider: nextAuthRule.provider,
+    name: nextAuthRule.name,
+    reason:
+      "Automatiskt standardval: inloggning med **lösenord** (Auth.js Credentials), inga OAuth-appar. Placeholders för AUTH_SECRET/NEXTAUTH_URL i preview.",
+    status: "chosen",
+    envVars: nextAuthRule.envVars,
+  });
+  pushEnvVars(envVars, nextAuthRule.envVars, nextAuthRule.reason, false);
+}
+
+/**
+ * Checkout/betalning utan vald provider → Stripe med **test-placeholders** (pk_/sk_test…),
+ * ingen blockerande fråga. LLM kan bygga UI mot Stripe test mode.
+ */
+function applyDefaultStripePlaceholderWhenPaymentNeeded(
+  corpus: string,
+  capabilities: InferredCapabilities,
+  contracts: PlanContracts,
+  integrations: PlanIntegrationContract[],
+  envVars: PlanEnvVarContract[],
+): void {
+  const needsPayment =
+    capabilities.needsEcommerce || /\b(payment|checkout|billing|subscription|betalning|kassa)\b/i.test(corpus);
+  if (!needsPayment || contracts.paymentProvider) {
+    return;
+  }
+  const stripeRule = PROVIDER_RULES.find((r) => r.kind === "payment" && r.provider === "Stripe");
+  if (!stripeRule) return;
+  contracts.paymentProvider = stripeRule.provider;
+  pushIntegration(integrations, {
+    provider: stripeRule.provider,
+    name: stripeRule.name,
+    reason:
+      "Automatiskt standardval: Stripe test-nycklar som placeholders — ingen koppling till riktig kassa förrän du byter env.",
+    status: "chosen",
+    envVars: stripeRule.envVars,
+  });
+  pushEnvVars(envVars, stripeRule.envVars, stripeRule.reason, false);
 }
 
 function inferDataMode(
@@ -545,42 +641,31 @@ export function inferPreGenerationContracts(params: {
       status: rule.status ?? "chosen",
       envVars: rule.envVars,
     });
-    pushEnvVars(envVars, rule.envVars, rule.reason, true);
+    // Inferred keyword matches are preview-first: never mark env as blocking — sandbox uses
+    // merged `.env.local` placeholders (`config/ai_models/40-generated-site-integration-placeholders.env.txt`).
+    pushEnvVars(envVars, rule.envVars, rule.reason, false);
   }
 
-  if (capabilities.needsAuth && !contracts.authProvider) {
-    contracts.authProvider = "unresolved";
-    unresolvedDecisions.push({
-      kind: "auth",
-      reason: "Prompten kräver autentisering men ingen auth-provider är vald ännu.",
-    });
-  }
+  applyDefaultCredentialsAuthWhenNeeded(capabilities, contracts, integrations, envVars);
 
-  if (
-    (capabilities.needsEcommerce || /\b(payment|checkout|billing|subscription|betalning|kassa)\b/i.test(corpus)) &&
-    !contracts.paymentProvider
-  ) {
-    contracts.paymentProvider = "unresolved";
-    unresolvedDecisions.push({
-      kind: "payment",
-      reason: "Prompten kräver betal- eller checkoutflöde men payment-provider är inte vald ännu.",
-    });
-  }
+  applyDefaultStripePlaceholderWhenPaymentNeeded(
+    corpus,
+    capabilities,
+    contracts,
+    integrations,
+    envVars,
+  );
 
-  if (mentionsDataPersistence(corpus, capabilities) && !contracts.databaseProvider) {
-    contracts.databaseProvider = "unresolved";
-    unresolvedDecisions.push({
-      kind: "database",
-      reason: "Prompten tyder på verklig persistence men databas/provider är inte vald ännu.",
-    });
-  }
+  applyDefaultSqliteWhenPersistenceNeedsProvider(
+    corpus,
+    capabilities,
+    contracts,
+    integrations,
+    envVars,
+  );
 
-  if (/\b(api|webhook|oauth|integration|third-party|extern tjänst)\b/i.test(corpus) && integrations.length === 0) {
-    unresolvedDecisions.push({
-      kind: "integration",
-      reason: "Prompten antyder extern integration men ingen tydlig provider kunde infereras.",
-    });
-  }
+  // Vague "integration" hints no longer block the stream — codegen stubs or uses placeholders.
+  // (Previously `oauth` in this regex caused spurious blocking modals.)
 
   applyConfirmedAnswers(contractAnswers, contracts, unresolvedDecisions);
 

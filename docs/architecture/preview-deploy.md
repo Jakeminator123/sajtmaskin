@@ -40,6 +40,10 @@ Följande är **implementerat** i kod och täcks av denna fil + `docs/ENV.md` d�
 
 **Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se backlog i [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
 
+**Vit / tom preview:** operativ runbook + checklista — [`preview-white-screen-runbook.md`](./preview-white-screen-runbook.md). Kort hjälptext visas i byggarens iframe-overlay (`previewRunbookLinesForCode` i `preview-diagnostics.ts`).
+
+**Zip-export och lokal utveckling:** `GET .../versions/{versionId}/download` (och sandbox) kör `buildCompleteProject` i [`project-scaffold.ts`](../../src/lib/gen/project-scaffold.ts). Modellens `package.json` **merge:as** med baseline (så `scripts` som `dev`/`build` och devDependencies som TypeScript/Tailwind inte försvinner), och om `.env.local` saknas läggs en **placeholder-fil** till (samma nycklar som i sandbox-preview, från `config/ai_models/` placeholders).
+
 ## Begrepp
 
 | Tier | Vad | Ungefär |

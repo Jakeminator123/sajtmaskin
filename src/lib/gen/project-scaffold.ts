@@ -1,5 +1,9 @@
 import fs from "node:fs";
 import nodePath from "node:path";
+import {
+  parseGeneratedSitePlaceholderLines,
+  readGeneratedSitePlaceholdersEnvText,
+} from "@/lib/ai-models/load-generated-site-placeholders";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
 
@@ -57,7 +61,7 @@ const PACKAGE_JSON = `{
     "@radix-ui/react-collapsible": "1.1.12",
     "@radix-ui/react-select": "2.1.15",
     "@radix-ui/react-switch": "1.1.8",
-    "@radix-ui/react-checkbox": "1.1.9",
+    "@radix-ui/react-checkbox": "1.3.3",
     "@radix-ui/react-label": "2.1.6",
     "@radix-ui/react-scroll-area": "1.2.9",
     "@radix-ui/react-separator": "1.1.6",
@@ -74,6 +78,9 @@ const PACKAGE_JSON = `{
     "tailwindcss": "4.1.5"
   }
 }`;
+
+/** Parsed once — baseline for merge when the model emits a partial `package.json`. */
+const BASELINE_PACKAGE_JSON = JSON.parse(PACKAGE_JSON) as Record<string, unknown>;
 
 const TSCONFIG = `{
   "compilerOptions": {
@@ -254,6 +261,66 @@ const SCAFFOLD_FILES: Record<string, string> = {
   "lib/utils.ts": LIB_UTILS,
 };
 
+const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for local development (not production secrets)
+# Same keys as sandbox preview; override with real values when deploying.
+`;
+
+function quoteEnvValue(val: string): string {
+  if (val === "") return '""';
+  if (/[\s#"'\\]/.test(val) || val.includes("\n")) {
+    return `"${val
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, "\\n")}"`;
+  }
+  return val;
+}
+
+function formatDotenvRecord(vars: Record<string, string>): string {
+  const keys = Object.keys(vars).sort((a, b) => a.localeCompare(b));
+  return keys.map((k) => `${k}=${quoteEnvValue(vars[k] ?? "")}`).join("\n");
+}
+
+/**
+ * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
+ * and core tooling survive thin LLM output (zip export / sandbox use the same merge).
+ */
+export function mergePackageJsonWithBaseline(
+  model: Record<string, unknown>,
+  detected: { dependencies: Record<string, string> },
+): Record<string, unknown> {
+  const b = BASELINE_PACKAGE_JSON;
+  const bScripts = (b.scripts as Record<string, string> | undefined) ?? {};
+  const bDep = (b.dependencies as Record<string, string> | undefined) ?? {};
+  const bDevDep = (b.devDependencies as Record<string, string> | undefined) ?? {};
+  const mScripts = (model.scripts as Record<string, string> | undefined) ?? {};
+  const mDep = (model.dependencies as Record<string, string> | undefined) ?? {};
+  const mDevDep = (model.devDependencies as Record<string, string> | undefined) ?? {};
+
+  return {
+    ...b,
+    ...model,
+    scripts: { ...bScripts, ...mScripts },
+    dependencies: { ...bDep, ...mDep, ...detected.dependencies },
+    devDependencies: { ...bDevDep, ...mDevDep },
+  };
+}
+
+function buildPlaceholderEnvLocalBody(): string | null {
+  try {
+    const text = readGeneratedSitePlaceholdersEnvText();
+    const lines = parseGeneratedSitePlaceholderLines(text);
+    const record = Object.fromEntries(lines.map((x) => [x.key, x.value]));
+    return `${GENERATED_ENV_LOCAL_HEADER}\n${formatDotenvRecord(record)}\n`;
+  } catch (err) {
+    console.warn(
+      "[project-scaffold] Could not load generated-site placeholders for .env.local:",
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}
+
 export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   const result: CodeFile[] = [];
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
@@ -264,26 +331,19 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   const mergeModelPackageJson = (file: CodeFile): CodeFile => {
     if (file.path !== "package.json") return file;
     try {
-      const pkg = JSON.parse(file.content) as {
-        dependencies?: Record<string, string>;
-        [key: string]: unknown;
-      };
-      pkg.dependencies = { ...(pkg.dependencies ?? {}), ...detected.dependencies };
-      return { ...file, content: JSON.stringify(pkg, null, 2) };
+      const model = JSON.parse(file.content) as Record<string, unknown>;
+      const merged = mergePackageJsonWithBaseline(model, detected);
+      return { ...file, content: JSON.stringify(merged, null, 2) };
     } catch {
-      return file;
+      const merged = mergePackageJsonWithBaseline({}, detected);
+      return { ...file, content: JSON.stringify(merged, null, 2) };
     }
   };
 
   for (const [filePath, content] of Object.entries(SCAFFOLD_FILES)) {
     if (filePath === "package.json" && !generatedPaths.has(filePath)) {
-      try {
-        const pkg = JSON.parse(content);
-        pkg.dependencies = { ...pkg.dependencies, ...detected.dependencies };
-        result.push({ path: filePath, content: JSON.stringify(pkg, null, 2), language: "json" });
-      } catch {
-        result.push({ path: filePath, content, language: "json" });
-      }
+      const merged = mergePackageJsonWithBaseline({}, detected);
+      result.push({ path: filePath, content: JSON.stringify(merged, null, 2), language: "json" });
       continue;
     }
     if (!generatedPaths.has(filePath)) {
@@ -300,6 +360,14 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   }
 
   result.push(...generatedFiles.map(mergeModelPackageJson));
+
+  if (!result.some((f) => f.path === ".env.local")) {
+    const envBody = buildPlaceholderEnvLocalBody();
+    if (envBody) {
+      result.push({ path: ".env.local", content: envBody, language: "text" });
+    }
+  }
+
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }
 

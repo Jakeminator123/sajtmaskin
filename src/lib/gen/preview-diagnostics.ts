@@ -128,6 +128,54 @@ export function describePreviewDiagnosticCode(code?: string | null): string | nu
   }
 }
 
+/**
+ * Korta åtgärdsrader för preview-overlay och runbook — visas i UI när iframe-fel inträffar.
+ * Full operativ text: `docs/architecture/preview-white-screen-runbook.md`.
+ */
+export function previewRunbookLinesForCode(code: string | null | undefined): string[] {
+  const c = (code ?? "").trim();
+  const docHint =
+    "Utvecklare: full runbook finns i repot under docs/architecture/preview-white-screen-runbook.md.";
+  switch (c) {
+    case "preview_ready_timeout":
+      return [
+        "Shim-preview laddar React och Tailwind från CDN — öppna DevTools för iframe preview-iframe och kontrollera Network (unpkg, cdn.tailwindcss.com) att allt får 200.",
+        "Om #root förblir tom: ofta blockerad CDN, eller genererad sida returnerar inget synligt DOM (null/ krasch).",
+        "Om live-preview (sandbox) finns för versionen: byt till den — då körs riktig Next.js i stället för shim.",
+        docHint,
+      ];
+    case "preview_document_unavailable":
+      return [
+        "Webbläsaren tillät inte läsning av iframe-dokumentet (cross-origin eller säkerhetsbegränsning). Prova Öppna i ny flik.",
+        "Om det bara gäller inbäddad vy: ladda om sidan eller byt webbläsare.",
+        docHint,
+      ];
+    case "preview_transport_error":
+      return [
+        "Iframe kunde inte ladda URL:en (nätverk eller ogiltig preview-URL). Kontrollera att versionen har demoUrl och att servern svarar.",
+        docHint,
+      ];
+    case "preview_compile_error":
+    case "preview_validation_error":
+      return [
+        "Genererad kod uppfyller inte shim-transpilering eller validering. Använd agentlogg / Kodvy och Försök reparera preview om det finns.",
+        docHint,
+      ];
+    case "preview_runtime_error":
+    case "preview_react_render_error":
+      return [
+        "Fel inträffade när preview-skriptet körde. Öppna DevTools → Console i iframe och läs stacktrace.",
+        docHint,
+      ];
+    default:
+      return [
+        "Kontrollera Agentloggen och versionsfel-logg (preview) för samma version.",
+        "Skilj på shim (/api/preview-render) och sandbox — sandbox kräver Vercel Sandbox-credentials på servern.",
+        docHint,
+      ];
+  }
+}
+
 export function readPreviewDiagnosticMeta(meta: unknown): {
   previewCode: string | null;
   previewStage: string | null;
