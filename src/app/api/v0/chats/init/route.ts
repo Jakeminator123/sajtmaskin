@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { sanitizeMetadata } from "@/lib/sanitize/sanitize-metadata";
 import { prepareCredits } from "@/lib/credits/server";
+import { buildV0PlatformDisabledResponse, isV0PlatformDisabled } from "@/lib/v0-platform-guard";
 
 export const runtime = "nodejs";
 
@@ -182,6 +183,12 @@ export async function POST(req: Request) {
             { error: "Validation failed", details: validationResult.error.issues },
             { status: 400 },
           ),
+        );
+      }
+
+      if (isV0PlatformDisabled()) {
+        return attachSessionCookie(
+          buildV0PlatformDisabledResponse("Chat-init"),
         );
       }
 

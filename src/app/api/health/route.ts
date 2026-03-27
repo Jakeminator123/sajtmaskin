@@ -7,11 +7,14 @@
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/data/redis";
 import { FEATURES, REDIS_CONFIG } from "@/lib/config";
+import { isV0PlatformEnabled } from "@/lib/env";
 
 export async function GET() {
   const v0Reason = FEATURES.useV0Api
     ? null
-    : "V0_API_KEY saknas (valfritt om du inte använder kvarvarande v0-integrationer).";
+    : isV0PlatformEnabled()
+      ? "V0_API_KEY saknas (valfritt om du inte använder kvarvarande v0-integrationer)."
+      : "SAJTMASKIN_V0_PLATFORM_ENABLED ar avstangd, sa legacy V0 Platform-rutter ar inte tillgangliga.";
   const imageGenReason = FEATURES.useBuilderImageGenerations
     ? null
     : "OPENAI_API_KEY saknas — bildinstruktioner i prompt kräver OpenAI (own engine).";

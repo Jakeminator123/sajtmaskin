@@ -133,6 +133,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS: z.string().optional(),
   SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),
   SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),
+  SAJTMASKIN_V0_PLATFORM_ENABLED: z.string().optional(),
 
   // AI – Model overrides per tier (see src/lib/models/catalog.ts, src/lib/gen/defaults.ts)
   SAJTMASKIN_MODEL_FAST: z.string().optional(),
@@ -224,4 +225,13 @@ export function getServerEnv(): ServerEnv {
  */
 export function isV0BuilderPreviewFallbackEnabled(): boolean {
   return isAffirmativeEnvValue(getServerEnv().V0_FALLBACK_BUILDER);
+}
+
+/**
+ * Opt-in: allow legacy V0 Platform routes and helpers (`v0-sdk`, template init,
+ * registry init, legacy export branch). Off by default so own-engine remains
+ * the canonical generation path unless explicitly enabled.
+ */
+export function isV0PlatformEnabled(): boolean {
+  return isAffirmativeEnvValue(getServerEnv().SAJTMASKIN_V0_PLATFORM_ENABLED);
 }

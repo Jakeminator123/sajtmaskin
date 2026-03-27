@@ -6,7 +6,7 @@
 import path from "path";
 import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 import { getAppBaseUrl } from "./app-url";
-import { getServerEnv, isAffirmativeEnvValue } from "./env";
+import { getServerEnv, isAffirmativeEnvValue, isV0PlatformEnabled } from "./env";
 
 const env = getServerEnv();
 
@@ -388,7 +388,7 @@ export const FEATURES = {
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
   useFigmaApi: Boolean(SECRETS.figmaAccessToken),
 
-  useV0Api: Boolean(SECRETS.v0ApiKey),
+  useV0Api: isV0PlatformEnabled() && Boolean(SECRETS.v0ApiKey),
 
   /** Builder prompt “image generations” toggle — own engine uses OpenAI, not V0 Platform. */
   useBuilderImageGenerations: Boolean(SECRETS.openaiApiKey),

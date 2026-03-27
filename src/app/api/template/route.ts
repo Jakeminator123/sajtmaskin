@@ -10,6 +10,7 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { sanitizeMetadata } from "@/lib/sanitize/sanitize-metadata";
+import { buildV0PlatformDisabledResponse, isV0PlatformDisabled } from "@/lib/v0-platform-guard";
 import { nanoid } from "nanoid";
 
 // Allow 5 minutes for v0 API responses
@@ -134,6 +135,12 @@ export async function POST(request: NextRequest) {
           },
           { status: 404 },
         ),
+      );
+    }
+
+    if (isV0PlatformDisabled()) {
+      return attachSessionCookie(
+        buildV0PlatformDisabledResponse("Template-init"),
       );
     }
 

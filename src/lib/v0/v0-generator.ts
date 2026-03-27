@@ -56,6 +56,7 @@ import { compressUrls, expandUrls } from "@/lib/gen/url-compress";
 import { debugLog, logFinalPrompt, warnLog } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/logging/file-logger";
 import { SECRETS } from "@/lib/config";
+import { isV0PlatformEnabled } from "@/lib/env";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import {
@@ -68,8 +69,13 @@ const RATE_LIMIT_RETRY_DELAY_MS = 2000;
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
+const V0_PLATFORM_DISABLED_ERROR =
+  "V0 Platform is disabled. Set SAJTMASKIN_V0_PLATFORM_ENABLED=true to re-enable legacy V0 routes.";
 
 function getV0Client() {
+  if (!isV0PlatformEnabled()) {
+    throw new Error(V0_PLATFORM_DISABLED_ERROR);
+  }
   if (!_v0Client) {
     const apiKey = SECRETS.v0ApiKey;
     if (!apiKey) {

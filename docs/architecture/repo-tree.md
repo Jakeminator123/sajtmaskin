@@ -23,6 +23,14 @@
 
 **Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog).
 
+## Viktiga `src/lib/`-områden
+
+| Plats | Roll |
+|-------|------|
+| `src/lib/own-engine/` + `src/lib/providers/own-engine/` | Den kanoniska **produktbanan** för egen motor: sessioner, streams, plan-mode, contract-gate och providerkopplingar. |
+| `src/lib/gen/` | Delad **genereringskärna**: scaffold-matchning, orchestration, system prompts, autofix, finalize, merge, previewförberedelser. |
+| `src/lib/mcp/` | Programmatisk **adapteryta** runt own-engine-resultat: köra generation utan builder-UI, bygga preview/sandbox-runtime, läsa filer/versioner för verktyg och lokala runtime-flöden. |
+
 ## Två olika “data” (förväxla inte)
 
 | Plats | Vad det är |

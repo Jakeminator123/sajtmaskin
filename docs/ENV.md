@@ -183,7 +183,7 @@ Sajtmaskin-installationen:
 
 - databas och cache: `POSTGRES_URL`, `REDIS_URL`, `KV_URL`, `UPSTASH_*`
 - auth och sessioner: `JWT_SECRET`
-- AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (direktanrop till OpenAI/Anthropic för egen motor och prompt assist via `createDirectModel`); `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` kan fortfarande krävas av **andra** routes (t.ex. vissa audit-/admin-flöden) — sök i kod efter `AI_GATEWAY`; `V0_API_KEY` för v0 SDK (mallar, registry, zip, m.m.) — **inte** för prompt assist; valfri `V0_FALLBACK_BUILDER` styr **endast** om byggaren ska föredra v0-hostad preview (`*.vusercontent.net`) framför sandbox när båda finns — **inte** kodgenerering (egen motor alltid för stream-pipelinen)
+- AI och buildermotor: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (direktanrop till OpenAI/Anthropic för egen motor och prompt assist via `createDirectModel`); `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` kan fortfarande krävas av **andra** routes (t.ex. vissa audit-/admin-flöden) — sök i kod efter `AI_GATEWAY`; `V0_API_KEY` for v0 SDK (mallar, registry, zip, m.m.) men **bara** om `SAJTMASKIN_V0_PLATFORM_ENABLED` uttryckligen ar pa; detta ar **inte** prompt assist; valfri `V0_FALLBACK_BUILDER` styr **endast** om byggaren ska föredra v0-hostad preview (`*.vusercontent.net`) framför sandbox när båda finns — **inte** kodgenerering (egen motor alltid för stream-pipelinen)
 - deploy och Vercel: `VERCEL_TOKEN`, valfritt `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID`, `BLOB_READ_WRITE_TOKEN`; full Next-preview i sandbox: se [architecture/vercel-sandbox-credentials.md](./architecture/vercel-sandbox-credentials.md) och [architecture/preview-and-sandbox-flow.md](./architecture/preview-and-sandbox-flow.md)
 - interna tjänster: `OPENCLAW_*`, `INSPECTOR_*`, `RESEND_API_KEY`
 
@@ -236,7 +236,8 @@ källa.
 | `POSTGRES_URL`        | .env.local | production, preview | Primär databas (Supabase)                                               |
 | `JWT_SECRET`          | .env.local | production, preview | Auth-tokens                                                             |
 | `OPENAI_API_KEY`      | .env.local | production, preview | Egen motor (builder-codegen) och prompt-assist OpenAI-modeller (`openai/gpt-5.*`) |
-| `V0_API_KEY`          | .env.local | production, preview | v0 SDK: mallar, registry, zip, m.m. (prompt assist använder OpenAI/Anthropic direkt). Inte kopplat till `V0_FALLBACK_BUILDER` |
+| `SAJTMASKIN_V0_PLATFORM_ENABLED` | .env.local | development, preview, production | **Av** som standard. Sätt `true` / `1` / `yes` / `on` endast om kvarvarande legacy V0 Platform-rutter ska vara tillgängliga (`/api/template`, `init`, `init-registry`, legacy exportgren). |
+| `V0_API_KEY`          | .env.local | production, preview | v0 SDK: mallar, registry, zip, m.m. (prompt assist använder OpenAI/Anthropic direkt). Har ingen effekt om `SAJTMASKIN_V0_PLATFORM_ENABLED` ar av. Inte kopplat till `V0_FALLBACK_BUILDER`. |
 | `V0_FALLBACK_BUILDER` | .env.local | development (typiskt) | **Av** som standard. Sätt `y` / `yes` / `true` / `1` / `on` för att föredra v0-hostad `demoUrl` i preview när den finns. Värden som `n`, `no`, `false`, tomt → av. Påverkar inte codegen. Vid build kopieras värdet till `NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK` (se `next.config.ts`). |
 | `NEXT_PUBLIC_APP_URL` | .env.local | production, preview | Appens publika URL (t.ex. https://sajtmaskin.se)                        |
 

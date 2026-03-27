@@ -13,6 +13,7 @@ import {
 import { getVersionById } from "@/lib/db/chat-repository-pg";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { buildV0PlatformDisabledResponse, isV0PlatformDisabled } from "@/lib/v0-platform-guard";
 
 export const runtime = "nodejs";
 
@@ -221,6 +222,9 @@ export async function POST(request: NextRequest) {
         }
         exportLabel = `${chatId}:${versionId}`;
       } else {
+        if (isV0PlatformDisabled()) {
+          return buildV0PlatformDisabledResponse("Legacy GitHub-export");
+        }
         assertV0Key();
 
         let chat = await getChatByV0ChatIdForRequest(request, chatId);

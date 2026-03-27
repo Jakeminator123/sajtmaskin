@@ -122,8 +122,16 @@ När någon skriver «environment variables» / «env» måste agenten avgöra *
 
 ## own-engine
 
-- **Vad:** **Nuvarande standard** för kodgenerering — egen arkitektur kring prompter, **scaffolds**, **dossiers**-kontext, autofix, merge. LLM driver flödet här.
-- **Kod:** `src/lib/gen/` (bl.a. `generation-stream`, `system-prompt`, scaffolds).
+- **Vad:** **Nuvarande standard** för kodgenerering — Sajtmaskins **kanoniska byggspår** och produktmässiga «svarta låda» för att skapa sajter från prompt till filer/preview.
+- **Kod:** Körs via `src/lib/own-engine/`, `src/lib/providers/own-engine/` och återanvänder kärnlogik i `src/lib/gen/`.
+
+### own-engine vs `src/lib/gen/` vs `src/lib/mcp/`
+
+| Begrepp | Vad det är |
+|---|---|
+| **`own-engine`** | Den **produktmässiga** banan: chat/session/stream/plan/contract-gate och allt som gör att Sajtmaskin använder den egna motorn som standardflöde. |
+| **`src/lib/gen/`** | **Motorrummet**: delad genereringskärna och verktyg som prompt-orchestration, scaffold-matchning, system prompt, autofix, finalize, merge, previewförberedelser m.m. Detta är **inte en separat produktmotor**, utan verkstaden som own-engine bygger på. |
+| **`src/lib/mcp/`** | **Adapter-/verktygslager** för programmatisk åtkomst till redan existerande own-engine-flöden: generera en sajt utan builder-UI, skapa preview/sandbox-runtime, läsa ut genererade filer/versioner. Inte en egen codegen-motor och inte den kanoniska platsen för core promptlogik. |
 
 ---
 

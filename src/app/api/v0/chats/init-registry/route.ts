@@ -9,6 +9,7 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { initFromRegistry, type QualityLevel } from "@/lib/v0/v0-generator";
 import { isRegistryUrl, parseRegistryUrl } from "@/lib/shadcn/registry-url";
 import { prepareCredits } from "@/lib/credits/server";
+import { buildV0PlatformDisabledResponse, isV0PlatformDisabled } from "@/lib/v0-platform-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 120; // Registry init can take time
@@ -69,6 +70,12 @@ export async function POST(req: Request) {
       }
 
       const { registryUrl, quality, name, projectId } = validationResult.data;
+
+      if (isV0PlatformDisabled()) {
+        return attachSessionCookie(
+          buildV0PlatformDisabledResponse("Registry-init"),
+        );
+      }
 
       // Validate that it's actually a registry URL
       if (!isRegistryUrl(registryUrl)) {
