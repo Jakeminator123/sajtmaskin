@@ -17,6 +17,7 @@ import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
+import { shouldRunOwnEngineSandbox } from "@/lib/gen/own-engine-sandbox-gate";
 import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
 import { buildOwnEnginePreviewRuntime, isSandboxConfigured } from "@/lib/mcp/runtime-url";
 
@@ -230,11 +231,13 @@ export function createOwnEngineGenerationStream(
         }
 
         let parsedForSandbox: CodeFile[] = [];
+        let parsedFromFinalizeFilesJson = false;
         if (finalized.filesJson?.trim()) {
           try {
             const fromSaved = parseCodeFilesFromFilesJson(finalized.filesJson);
             if (fromSaved && fromSaved.length > 0) {
               parsedForSandbox = fromSaved;
+              parsedFromFinalizeFilesJson = true;
             }
           } catch {
             /* fallback below */
@@ -248,8 +251,11 @@ export function createOwnEngineGenerationStream(
           }
         }
         const previewBlocked = finalized.preflight.previewBlocked;
-        const sandboxWillRun =
-          isSandboxConfigured() && !previewBlocked && parsedForSandbox.length > 0;
+        const sandboxWillRun = shouldRunOwnEngineSandbox({
+          isSandboxConfigured: isSandboxConfigured(),
+          previewBlocked,
+          parsedFileCount: parsedForSandbox.length,
+        });
         const tier1Preview =
           finalized.previewUrl && finalized.previewUrl.trim() ? finalized.previewUrl.trim() : null;
         /** Tier-1 när finalize inte satte previewUrl men sandbox startar — samma väg som bootstrap (preview-render). */
@@ -313,6 +319,7 @@ export function createOwnEngineGenerationStream(
               appProjectId,
               chatId,
               versionIdForSession: finalized.version.id,
+              skipRepair: parsedFromFinalizeFilesJson,
             });
             if (sandboxResult.ok) {
               const sr = sandboxResult.result;

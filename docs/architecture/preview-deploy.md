@@ -21,6 +21,16 @@
 
 **Typer / kontrakt:** `src/lib/gen/preview-contract.ts` (SSE-fält). **HTTP:** `/api/v0/chats/[chatId]/sandbox-preview` returnerar meningsfulla statuskoder (`422` repair, `503`/`504` runtime) och fältet `retryable` (bootstrap retry:ar bara när `retryable !== false`; **500** kräver `retryable: true` för auto-retry) — se `httpStatusForSandboxPreviewFailure`.
 
+**Bootstrap (klient):** `src/lib/builder/sandbox-bootstrap-retry.ts` — samma semantik som ovan; vid `503`/`504` kan servern skicka `Retry-After` (sekunder) som klienten använder som delay före retry (fallback ~6 s).
+
+**Repair en gång:** Filer från `files_json` efter finalize är redan repairade i preflight. `startSandboxPreview` anropas med `skipRepair: true` från own-engine-strömmen (när underlaget kommer från `filesJson`) och från sandbox-preview-API:et, så tier-2 inte kör ett andra repair-varv i onödan.
+
+**Scaffold-beroenden:** Standard-`package.json` i `project-scaffold.ts` använder **exakta versionsnummer** (inga `^`) för reproducerbara `npm install` i sandbox. Paket som `runDepCompleter` lägger till från import-scan kan fortfarande använda intervall — okända paket kräver manuell pin.
+
+## Sandbox-mall (git)
+
+`@vercel/sandbox` skapas med `Sandbox.create({ source: { type: "git", url: "…" } })` (officiellt mönster). Vi använder `vercel/sandbox-example-next` som bas, skriver sedan användarfiler med `writeFiles` och kör `removeSandboxTemplateLeftovers()` så mall-artefakter inte läcker. **Alternativ** med lägre drift-risk: egen fork av samma repo med **fast tag/commit** som URL, eller (om SDK stödjer det i er miljö) byta till minimal källa när plattformen tillåter fil-only init — kräver separat spike.
+
 Kodstart: `generation-stream.ts`, `finalize-version.ts`, `sandbox-preview.ts`, `PreviewPanel.tsx`, `stream-handlers.ts`.
 
 ## MCP vs builder-stream

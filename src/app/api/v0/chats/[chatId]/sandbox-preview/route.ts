@@ -130,6 +130,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         chatId,
         appProjectId,
         versionIdForSession: versionRow.id,
+        skipRepair: true,
       });
 
       if (!started.ok) {

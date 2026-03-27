@@ -47,6 +47,11 @@ import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import type { SandboxPreviewPostApiJson } from "@/lib/gen/preview-contract";
+import {
+  parseRetryAfterMs,
+  SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS,
+  shouldRetrySandboxBootstrapFetch,
+} from "@/lib/builder/sandbox-bootstrap-retry";
 
 /** Own-engine chat + version rows use UUID ids; safe for `buildPreviewUrl(chatId, versionId)`. */
 const ENGINE_UUID_RE =
@@ -1325,14 +1330,14 @@ export function useBuilderPageController() {
       void (async () => {
         if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
 
-        const scheduleTransientRetry = () => {
+        const scheduleTransientRetry = (delayMs: number) => {
           const prev = sandboxBootstrapTransientAttemptsRef.current.get(key) ?? 0;
           const next = prev + 1;
           sandboxBootstrapTransientAttemptsRef.current.set(key, next);
           if (next <= 4) {
             window.setTimeout(() => {
               setSandboxBootstrapRetryNonce((n) => n + 1);
-            }, 6_000);
+            }, delayMs);
           } else {
             sandboxBootstrapDoneKeysRef.current.add(key);
           }
@@ -1370,17 +1375,16 @@ export function useBuilderPageController() {
           }
 
           const serverSaysNoRetry = data?.retryable === false;
-          /** 5xx retry: all 501–599 except bare 500 unless API sets retryable (route catch sets true). */
-          const transient5xx =
-            res.status >= 501 &&
-            res.status < 600 &&
-            (res.status !== 500 || data?.retryable === true);
-          const transientHttp =
+          const responseLooksFailed = !data || !data.ok;
+          const shouldRetryBootstrap =
             !serverSaysNoRetry &&
-            (!data || !data.ok) &&
-            (res.status === 429 || res.status === 408 || transient5xx);
-          if (transientHttp) {
-            scheduleTransientRetry();
+            responseLooksFailed &&
+            shouldRetrySandboxBootstrapFetch({
+              httpStatus: res.status,
+              retryable: data?.retryable,
+            });
+          if (shouldRetryBootstrap) {
+            scheduleTransientRetry(parseRetryAfterMs(res.headers, SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS));
             return;
           }
 
@@ -1409,7 +1413,7 @@ export function useBuilderPageController() {
         } catch (err) {
           if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
           if (err instanceof Error && err.name === "AbortError") return;
-          scheduleTransientRetry();
+          scheduleTransientRetry(SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS);
         }
       })();
     }, 0);

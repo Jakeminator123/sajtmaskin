@@ -531,13 +531,6 @@ export function ProjectEnvVarsPanel({
 
   // --- derived ---
 
-  const statusSummary = useMemo(() => {
-    if (!integrationStatus) return null;
-    const missing = integrationStatus.items.filter((i) => i.required && !i.enabled);
-    const optional = integrationStatus.items.filter((i) => !i.required && !i.enabled);
-    return { missing, optional };
-  }, [integrationStatus]);
-
   const isRealProject = Boolean(effectiveEnvProjectId && !syntheticProject);
   const configuredEnvKeys = useMemo(
     () => new Set(envVars.map((item) => item.key.trim().toUpperCase()).filter(isValidEnvKey)),
@@ -665,7 +658,52 @@ export function ProjectEnvVarsPanel({
     () => likelyRequiredEnvKeys.filter((key) => !configuredEnvKeys.has(key)),
     [configuredEnvKeys, likelyRequiredEnvKeys],
   );
-  const totalIssues = (statusSummary?.missing.length ?? 0) + missingRequiredEnvKeys.length;
+  /** Endast projektets saknade nycklar — inte Sajtmaskin-serverns plattformsstatus. */
+  const totalIssues = missingRequiredEnvKeys.length;
+
+  const marketplaceOptionsInfo = useMemo(() => {
+    if (integrationOptions.length === 0) {
+      return {
+        options: [] as MarketplaceIntegrationOption[],
+        isFilteredSubset: false,
+        fallbackToFullList: false,
+      };
+    }
+    const integrationKeys = new Set(detectedIntegrations.map((d) => d.key));
+    const envKeysUpper = likelyRequiredEnvKeys.map((k) => k.toUpperCase());
+    const matchesProjectSignal = (id: string): boolean => {
+      if (id === "supabase") return integrationKeys.has("supabase");
+      if (id === "upstash") return integrationKeys.has("upstash");
+      if (id === "neon") {
+        return (
+          integrationKeys.has("prisma") ||
+          envKeysUpper.some((k) => k.includes("POSTGRES") || k === "DATABASE_URL")
+        );
+      }
+      return true;
+    };
+    const filtered = integrationOptions.filter((o) => matchesProjectSignal(o.id));
+    if (filtered.length > 0) {
+      return {
+        options: filtered,
+        isFilteredSubset: filtered.length < integrationOptions.length,
+        fallbackToFullList: false,
+      };
+    }
+    return {
+      options: integrationOptions,
+      isFilteredSubset: false,
+      fallbackToFullList: true,
+    };
+  }, [detectedIntegrations, integrationOptions, likelyRequiredEnvKeys]);
+
+  useEffect(() => {
+    const opts = marketplaceOptionsInfo.options;
+    if (opts.length === 0) return;
+    if (!opts.some((o) => o.id === selectedIntegration)) {
+      setSelectedIntegration(opts[0].id);
+    }
+  }, [marketplaceOptionsInfo.options, selectedIntegration]);
 
   const hasDetectedIntegrations = siteIntegrations.length > 0 || businessPackItems.length > 0;
 
@@ -724,9 +762,11 @@ export function ProjectEnvVarsPanel({
           <TabsContent value="integrations">
             <div className="space-y-2">
               <div className="rounded-lg border border-border/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                Panelen visar fyra separata lager. Koddetektionen är heuristisk och
-                kan visa falska signaler. Projektets env-variabler och plattformens
-                status är faktiskt verifierade.
+                <span className="text-foreground/90">Fokus är din sajt:</span> vad som hittas i den aktiva
+                versionens kod (och manifest om det finns), samt vilka nycklar som är satta i projektets
+                miljövariabler. Ren heuristik kan ge falska träffar — använd fliken Miljövariabler för
+                verifierade värden. Under &quot;Felsökning&quot; nedan ligger endast Sajtmaskin-serverns
+                egen status (påverkar inte den genererade sajten).
               </div>
 
               {showSetupWizard && hasDetectedIntegrations ? (
@@ -757,9 +797,11 @@ export function ProjectEnvVarsPanel({
                   <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-200">automatisk</span>
                 </div>
                 <div className="text-muted-foreground mt-1 text-[11px]">
-                  Heuristiskt detekterat från koden i den valda versionen. Kan visa falska signaler. ORM-lager
-                  (t.ex. Prisma) är inte samma sak som en extern tjänst — röd status gäller bara när vi listar
-                  konkreta nycklar som saknas i projektets miljö.
+                  Heuristiskt detekterat från koden i den valda versionen. Om{" "}
+                  <code className="text-[10px]">sajtmaskin.integration-manifest.json</code> finns används den
+                  som primär lista (pålitligare än enbart mönster i koden). ORM-lager (t.ex. Prisma) är inte
+                  samma sak som en hostad databas — röd status gäller bara när listade nycklar saknas i
+                  projektets miljö.
                 </div>
                 {isLoadingDetectedIntegrations ? (
                   <div className="text-muted-foreground mt-2 flex items-center gap-2 text-[11px]">
@@ -992,53 +1034,6 @@ export function ProjectEnvVarsPanel({
                 </div>
               ) : null}
 
-              {integrationError && (
-                <div className="text-muted-foreground text-xs">
-                  Kunde inte hämta integrationsstatus.
-                </div>
-              )}
-
-              {integrationStatus && statusSummary && (
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div className="text-foreground text-xs font-medium">Plattformens status (Sajtmaskin-runtime)</div>
-                    <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-200">verifierad</span>
-                  </div>
-                  <div className="text-muted-foreground text-[11px]">
-                    Faktisk status för Sajtmaskin-plattformen som kör buildern, inte den genererade sajten.
-                  </div>
-                  {integrationStatus.items.map((item) => {
-                    const stateLabel = item.enabled
-                      ? "OK"
-                      : item.required
-                        ? "Saknas"
-                        : "Valfri";
-                    const stateColor = item.enabled
-                      ? "text-green-400"
-                      : item.required
-                        ? "text-red-400"
-                        : "text-yellow-400";
-                    return (
-                      <div
-                        key={item.id}
-                        className="border-border rounded-md border p-2 text-xs"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-gray-200">{item.label}</span>
-                          <span className={stateColor}>{stateLabel}</span>
-                        </div>
-                        <div className="text-muted-foreground mt-0.5">{item.affects}</div>
-                        {!item.enabled && item.requiredEnv.length > 0 && (
-                          <div className="text-muted-foreground mt-0.5">
-                            Saknas: {item.requiredEnv.join(", ")}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
               {isRealProject ? (
                 <div className="border-border mt-2 rounded-md border p-2">
                   <div className="flex items-center gap-2">
@@ -1049,9 +1044,20 @@ export function ProjectEnvVarsPanel({
                     <div className="text-muted-foreground mt-1 text-[11px]">
                       Du hanterar och bekostar integrationen själv.{" "}
                       <span className="text-foreground/90">
-                        Detta krävs inte för Sajtmaskin — bara om du vill koppla Neon, Supabase eller Upstash till{" "}
-                        <em>ditt</em> Vercel-projekt via Marketplace. Din plattforms-Postgres ovan är redan separat.
+                        Valfritt: koppla Neon, Supabase eller Upstash till <em>ditt</em> Vercel-projekt via
+                        Marketplace — oberoende av Sajtmaskin-appens egen databas.
                       </span>
+                    </div>
+                  )}
+                  {marketplaceOptionsInfo.isFilteredSubset && (
+                    <div className="text-muted-foreground mt-2 text-[11px]">
+                      Listan är filtrerad utifrån vad som verkar användas i den aktiva versionen (t.ex. Supabase
+                      om detekterat).
+                    </div>
+                  )}
+                  {marketplaceOptionsInfo.fallbackToFullList && integrationOptions.length > 0 && (
+                    <div className="text-muted-foreground mt-2 text-[11px]">
+                      Ingen tydlig match i koden ännu — alla valfria marketplace-providers visas.
                     </div>
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1060,10 +1066,10 @@ export function ProjectEnvVarsPanel({
                       onChange={(event) => setSelectedIntegration(event.target.value)}
                       className="border-border bg-background h-8 min-w-[160px] rounded-md border px-2 text-xs"
                     >
-                      {integrationOptions.length === 0 && (
+                      {marketplaceOptionsInfo.options.length === 0 && integrationOptions.length === 0 && (
                         <option value="neon">Neon Postgres</option>
                       )}
-                      {integrationOptions.map((option) => (
+                      {marketplaceOptionsInfo.options.map((option) => (
                         <option key={option.id} value={option.id}>
                           {option.label}
                         </option>
@@ -1106,40 +1112,97 @@ export function ProjectEnvVarsPanel({
                 </div>
               )}
 
-              {mcpPriorities.length > 0 && (
-                <div className="border-border mt-2 rounded-md border p-2">
-                  <div className="text-foreground text-xs font-medium">MCP-prioritering</div>
-                  <div className="mt-1 space-y-1">
-                    {mcpPriorities.slice(0, 5).map((item) => (
-                      <div
-                        key={item.id}
-                        className="border-border flex flex-col gap-0.5 rounded-md border px-2 py-1"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-foreground text-[11px]">
-                            Fas {item.phase}: {item.label}
-                          </span>
-                          <span
-                            className={cn(
-                              "text-[10px]",
-                              item.readiness === "ready"
-                                ? "text-emerald-300"
-                                : "text-amber-300",
-                            )}
-                          >
-                            {item.readiness === "ready" ? "redo" : "saknar miljövariabler"}
-                          </span>
-                        </div>
-                        {item.missingEnv && item.missingEnv.length > 0 && (
-                          <div className="text-muted-foreground text-[10px]">
-                            Saknas: {item.missingEnv.join(", ")}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+              {integrationError && (
+                <div className="text-muted-foreground text-xs">
+                  Kunde inte hämta serverstatus för felsökningspanelen.
                 </div>
               )}
+
+              <details className="border-border group mt-2 rounded-md border p-2">
+                <summary className="cursor-pointer list-none text-left text-xs font-medium text-gray-200 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span className="inline-flex items-center gap-2">
+                    Felsökning: Sajtmaskin-server &amp; MCP
+                    <span className="rounded-full border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[9px] text-slate-200">
+                      valfritt
+                    </span>
+                    <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-open:rotate-180" />
+                  </span>
+                </summary>
+                <div className="text-muted-foreground mt-2 text-[11px]">
+                  Här visas hur Sajtmaskin-appens backend är konfigurerad (t.ex. appens Postgres, OpenAI).
+                  Det är inte samma sak som databaser eller API:er i <em>din</em> genererade sajt — öppna bara
+                  om du felsöker själva plattformen. Samma sektion samlar MCP-prioritering för utvecklingsverktyg.
+                </div>
+                {integrationStatus && (
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="text-foreground text-xs font-medium">Plattformens status</div>
+                      <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-200">
+                        verifierad
+                      </span>
+                    </div>
+                    {integrationStatus.items.map((item) => {
+                      const stateLabel = item.enabled
+                        ? "OK"
+                        : item.required
+                          ? "Saknas"
+                          : "Valfri";
+                      const stateColor = item.enabled
+                        ? "text-green-400"
+                        : item.required
+                          ? "text-red-400"
+                          : "text-yellow-400";
+                      return (
+                        <div key={item.id} className="border-border rounded-md border p-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-gray-200">{item.label}</span>
+                            <span className={stateColor}>{stateLabel}</span>
+                          </div>
+                          <div className="text-muted-foreground mt-0.5">{item.affects}</div>
+                          {!item.enabled && item.requiredEnv.length > 0 && (
+                            <div className="text-muted-foreground mt-0.5">
+                              Saknas: {item.requiredEnv.join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {mcpPriorities.length > 0 && (
+                  <div className="border-border mt-2 rounded-md border border-dashed p-2">
+                    <div className="text-foreground text-xs font-medium">MCP-prioritering</div>
+                    <div className="mt-1 space-y-1">
+                      {mcpPriorities.slice(0, 5).map((item) => (
+                        <div
+                          key={item.id}
+                          className="border-border flex flex-col gap-0.5 rounded-md border px-2 py-1"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-foreground text-[11px]">
+                              Fas {item.phase}: {item.label}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[10px]",
+                                item.readiness === "ready" ? "text-emerald-300" : "text-amber-300",
+                              )}
+                            >
+                              {item.readiness === "ready" ? "redo" : "saknar miljövariabler"}
+                            </span>
+                          </div>
+                          {item.missingEnv && item.missingEnv.length > 0 && (
+                            <div className="text-muted-foreground text-[10px]">
+                              Saknas: {item.missingEnv.join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </details>
                 </>
               )}
             </div>

@@ -92,6 +92,20 @@ När någon skriver «environment variables» / «env» måste agenten avgöra *
 
 ---
 
+## Integrationsnivåer (tre steg — skilj från fidelity)
+
+**Fidelity** (tabellen ovan) styr **hur** preview körs (statiskt → dev i sandbox → build/deploy). **Integrationsnivå** styr **hur tung eller förenklad** externa kopplingar är i **genererad kod** — en egen treledad skala som ofta **linjerar** med fidelity men inte är samma begrepp.
+
+| Nivå | Typiskt innehåll |
+|------|------------------|
+| **1** | **Lättast** — mockdata, inga eller minimala externa beroenden; snabb preview, lite krav på env. |
+| **2 — «Mittnivå» / sandbox-vänlig** | **Förenklad men körande stack** för bättre UX i sandlådan: t.ex. **Prisma med SQLite** i stället för molndatabas tidigt, **enklare eller stubbad OAuth** där full flöde skulle kräva många hemligheter. Målet är att användaren ska kunna köra **`npm run dev` i sandbox** utan att **bygg- eller uppstartsprocessen** stoppas av saknade nycklar eller tung infra — se **placeholders** och **användarens env** ovan. |
+| **3** | **Produktion** — riktig databas (t.ex. Postgres), fulla OAuth-flöden, API-nycklar som hör till **deploy**; överlappar ofta **fidelity 3**. |
+
+**Agentregel:** Om målet är «fungerar i sandbox / fidelity 2» — välj förenklingar på nivå **2** framför att generera full produktionsintegration direkt.
+
+---
+
 ## own-engine
 
 - **Vad:** **Nuvarande standard** för kodgenerering — egen arkitektur kring prompter, **scaffolds**, **dossiers**-kontext, autofix, merge. LLM driver flödet här.

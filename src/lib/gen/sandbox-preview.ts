@@ -50,19 +50,21 @@ export type StartSandboxPreviewOptions = {
    * session still points at a running VM (avoids duplicate sandboxes on reopen / bootstrap).
    */
   versionIdForSession?: string | null;
+  /**
+   * Skip `repairGeneratedFiles` when files already went through finalize preflight repair
+   * (`filesJson` from DB / own-engine stream). Use `false` when parsing from raw `contentForVersion`.
+   */
+  skipRepair?: boolean;
 };
 
 /**
- * Start a full Next.js sandbox from generated files.
+ * Start a full Next.js sandbox from generated files (own-engine + `/sandbox-preview` API).
  *
- * Flow: repair -> buildCompleteProject -> merged `.env.local` (placeholders + project + generated)
- * -> @vercel/sandbox -> install -> dev (and optional build verify).
+ * Ordning: (1) återanvänd befintlig VM om session matchar chat+version — **utan** att bygga projekt på nytt;
+ * (2) valfritt `repairGeneratedFiles` om inte `skipRepair`; (3) `buildCompleteProject` + `.env.local`;
+ * (4) @vercel/sandbox install → dev (ev. build verify).
  *
- * **Paritet mot sparad version:** `finalizeAndSaveVersion` kör redan merge + preflight på `filesJson`.
- * Denna väg kör dessutom `repairGeneratedFiles()` på inkommande filer innan `buildCompleteProject`
- * (samma repair som behövs för att Next ska starta i VM). Om du behöver bit-exakt samma bytes som i DB,
- * mata in rå `files_json` och acceptera att repair kan justera kända mönster — annars riskerar
- * sandbox att visa en marginellt annan variant än kodvyn om repair ändrar något.
+ * **Paritet:** `skipRepair: true` när underlaget redan är finalize-preflightat (`filesJson`), t.ex. own-engine-ström och API mot DB.
  */
 export async function startSandboxPreview(
   generatedFiles: CodeFile[],
@@ -71,39 +73,6 @@ export async function startSandboxPreview(
   | { ok: true; result: SandboxPreviewResult }
   | { ok: false; error: SandboxPreviewError }
 > {
-  let repairedFiles: CodeFile[];
-  try {
-    repairedFiles = repairGeneratedFiles(generatedFiles).files;
-  } catch (err) {
-    return {
-      ok: false,
-      error: {
-        stage: "repair",
-        message: err instanceof Error ? err.message : "File repair failed",
-      },
-    };
-  }
-
-  const projectFiles = buildCompleteProject(repairedFiles);
-
-  const runtimeFiles: RuntimeFile[] = projectFiles.map((f) => ({
-    name: f.path,
-    content: f.content,
-  }));
-
-  const envLocalPath = ".env.local";
-  const envIdx = runtimeFiles.findIndex((f) => f.name === envLocalPath);
-  let priorEnvLocal: string | null = null;
-  if (envIdx >= 0) {
-    priorEnvLocal = runtimeFiles[envIdx]!.content;
-    runtimeFiles.splice(envIdx, 1);
-  }
-  const envBody = await buildSandboxEnvLocalContents({
-    appProjectId: options?.appProjectId ?? null,
-    generatedEnvLocal: priorEnvLocal,
-  });
-  runtimeFiles.push({ name: envLocalPath, content: envBody });
-
   const resolvedMode = options?.previewMode ?? resolveSandboxPreviewModeFromEnv();
   const verifyBuild = resolvedMode === "dev_then_build";
 
@@ -139,6 +108,44 @@ export async function startSandboxPreview(
       await clearSandboxSessionAsync(cid);
     }
   }
+
+  const skipRepair = options?.skipRepair === true;
+  let filesForProject: CodeFile[];
+  if (skipRepair) {
+    filesForProject = generatedFiles;
+  } else {
+    try {
+      filesForProject = repairGeneratedFiles(generatedFiles).files;
+    } catch (err) {
+      return {
+        ok: false,
+        error: {
+          stage: "repair",
+          message: err instanceof Error ? err.message : "File repair failed",
+        },
+      };
+    }
+  }
+
+  const projectFiles = buildCompleteProject(filesForProject);
+
+  const runtimeFiles: RuntimeFile[] = projectFiles.map((f) => ({
+    name: f.path,
+    content: f.content,
+  }));
+
+  const envLocalPath = ".env.local";
+  const envIdx = runtimeFiles.findIndex((f) => f.name === envLocalPath);
+  let priorEnvLocal: string | null = null;
+  if (envIdx >= 0) {
+    priorEnvLocal = runtimeFiles[envIdx]!.content;
+    runtimeFiles.splice(envIdx, 1);
+  }
+  const envBody = await buildSandboxEnvLocalContents({
+    appProjectId: options?.appProjectId ?? null,
+    generatedEnvLocal: priorEnvLocal,
+  });
+  runtimeFiles.push({ name: envLocalPath, content: envBody });
 
   try {
     const runtime = await createSandboxRuntimeFromFiles(runtimeFiles, {
