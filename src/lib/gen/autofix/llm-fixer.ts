@@ -8,6 +8,8 @@ import { FIXER_SYSTEM_PROMPT, buildFixerUserPrompt } from "./fixer-prompt";
 export interface FixerResult {
   fixedContent: string;
   fixedFiles: string[];
+  missingFiles: string[];
+  partial: boolean;
   success: boolean;
   durationMs: number;
 }
@@ -16,7 +18,7 @@ const DEFAULT_FIXER_MODEL = process.env.SAJTMASKIN_MODEL_PRO?.trim() || "gpt-5.3
 export async function runLlmFixer(
   content: string,
   errors: string[],
-  options?: { model?: string; maxTokens?: number },
+  options?: { model?: string; maxTokens?: number; requiredFiles?: string[] },
 ): Promise<FixerResult> {
   const start = performance.now();
 
@@ -38,18 +40,34 @@ export async function runLlmFixer(
       return {
         fixedContent: content,
         fixedFiles: [],
+        missingFiles: [],
+        partial: false,
         success: false,
         durationMs: performance.now() - start,
       };
     }
 
     const mergedContent = mergeFixedFiles(content, fixedProject.files);
-    const fixedPaths = fixedProject.files.map((f) => f.path);
+    const fixedPaths = [...new Set(fixedProject.files.map((f) => f.path.trim()).filter(Boolean))];
+    const requiredFiles = [
+      ...new Set((options?.requiredFiles ?? []).map((f) => f.trim()).filter(Boolean)),
+    ];
+    const fixedPathSet = new Set(fixedPaths);
+    const missingFiles =
+      requiredFiles.length === 0
+        ? []
+        : requiredFiles.filter((filePath) => !fixedPathSet.has(filePath));
+    const allRequiredFilesAddressed =
+      requiredFiles.length === 0 || missingFiles.length === 0;
+    const success = fixedPaths.length > 0 && allRequiredFilesAddressed;
+    const partial = fixedPaths.length > 0 && !allRequiredFilesAddressed;
 
     return {
       fixedContent: mergedContent,
       fixedFiles: fixedPaths,
-      success: true,
+      missingFiles,
+      partial,
+      success,
       durationMs: performance.now() - start,
     };
   } catch (err) {
@@ -60,6 +78,8 @@ export async function runLlmFixer(
     return {
       fixedContent: content,
       fixedFiles: [],
+      missingFiles: [],
+      partial: false,
       success: false,
       durationMs: performance.now() - start,
     };

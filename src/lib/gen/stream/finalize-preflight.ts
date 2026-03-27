@@ -90,12 +90,24 @@ export async function runFinalizePreflight({
       });
 
       const { runLlmFixer } = await import("@/lib/gen/autofix/llm-fixer");
+      const brokenFiles = [
+        ...new Set(mergedSyntax.errors.map((error) => error.file).filter(Boolean)),
+      ];
       const fixerResult = await runLlmFixer(
         mergedProjectContent,
         mergedSyntax.errors.map((error) => `${error.file}:${error.line} ${error.message}`),
+        { requiredFiles: brokenFiles },
       );
 
-      if (fixerResult.success) {
+      if (fixerResult.success || fixerResult.partial) {
+        if (fixerResult.partial) {
+          devLogAppend("in-progress", {
+            type: "merged-syntax.fixer.partial",
+            chatId,
+            missingFiles: fixerResult.missingFiles,
+            fixedFiles: fixerResult.fixedFiles,
+          });
+        }
         const reFixed = await runAutoFix(fixerResult.fixedContent, { chatId, model });
         const reValidated = await validateGeneratedCode(reFixed.fixedContent);
         if (reValidated.valid || reValidated.errors.length < mergedSyntax.errors.length) {

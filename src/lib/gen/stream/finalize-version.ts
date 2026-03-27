@@ -176,13 +176,15 @@ export async function finalizeAndSaveVersion(
   });
   contentForVersion = syntaxResult.content;
 
-  if (syntaxResult.fixerUsed) {
+  if (syntaxResult.fixerUsed || syntaxResult.status !== "passed") {
     devLogAppend("in-progress", {
       type: "syntax-validation.result",
       chatId,
       fixerImproved: syntaxResult.fixerImproved,
       errorsBefore: syntaxResult.errorsBefore,
       errorsAfter: syntaxResult.errorsAfter,
+      status: syntaxResult.status,
+      pipelineError: syntaxResult.pipelineError,
     });
   }
 

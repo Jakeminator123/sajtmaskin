@@ -34,3 +34,17 @@ Kontraktsforenkling / integrationer:
 - `inferPreGenerationContracts` stoppar inte langre pa `env` i preview-forst-flodet, inte ens nar en provider bekraftats i ett persisterat appfall.
 - `buildContractClarificationQuestion` returnerar `null` for env-only unresolved decisions, sa API-nycklar blockerar inte forsta generationen.
 - Verifierat med `npm run test:ci -- src/lib/gen/pre-generation-contracts.test.ts src/lib/gen/contract-clarification.test.ts src/lib/gen/sandbox-env-local.test.ts src/lib/integrations/integration-manifest.test.ts` -> 4 testfiler, 24 tester, allt passerade.
+
+Autofix / quality-gate hardening:
+- `dep-completer` ar synkad med baseline for `zod` (nu `^4`) och har regressions-test mot `project-scaffold.ts` PACKAGE_JSON.
+- `validateAndFix` rapporterar nu explicit `pipeline-error` i stallet for falskt gront resultat nar valideringspipen kastar.
+- `runLlmFixer` har strict/partial-signal med `requiredFiles`; partial fixar kan fortfarande provas och valideras, men markeras tydligt i logg.
+- `quality-gate` i sandbox loggar nu stage-specifikt med tydligare output-klippning och explicit install-stage (`npm install`) innan typecheck/build/lint.
+- `sandbox_disabled` persisteras i builder-state och visas som synlig varning i previewn (inte bara dev-toast).
+- `runtime-url` kommentar for preview mode-default ar synkad med faktisk kod (`dev_then_build`), och `docs/ENV.md` pekar pa `sandbox-env-local.ts` for merged generated-site env.
+- Verifierat med:
+  `npm run test:ci -- src/lib/gen/autofix/dep-completer.test.ts src/lib/gen/autofix/validate-and-fix.test.ts src/lib/hooks/chat/post-checks.test.ts src/lib/mcp/runtime-url-sandbox-output.test.ts src/lib/integrations/integration-manifest.test.ts`
+  -> 5 testfiler, 31 tester, allt passerade.
+- Verifierat med:
+  `npm run baseline-deps:verify`
+  -> OK (46 poster i PACKAGE_JSON-baseline, npm registry).

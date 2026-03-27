@@ -2,7 +2,6 @@ import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
-import { fixFontImport } from "./rules/font-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
 import { fixMissingMetadataImport, fixMissingMetadataRouteImport, fixMissingCnImport } from "./rules/metadata-import-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
@@ -47,9 +46,14 @@ export interface AutoFixContext {
  *  1. use-client-fixer  — prepend "use client" when client APIs detected
  *  2. import-validator   — fix shadcn import paths
  *  3. react-import-fixer — add missing `import React`
- *  4. syntax-validator   — esbuild transform check (async)
- *  5. jsx-checker        — tag matching warnings
- *  6. dep-completer      — collect third-party dependencies
+ *  4. metadata/cn/lucide-image import fixers
+ *  5. syntax-validator   — esbuild transform check (async)
+ *  6. jsx-checker        — tag matching warnings
+ *  7. dep-completer      — collect third-party dependencies
+ *  8. security checks    — sanitize suspicious payloads
+ *
+ * Note: font import repair is owned by `repairGeneratedFiles()` so deterministic
+ * font fixes run in one canonical place.
  *
  * Fail-safe: if any fixer throws, it is skipped and a warning is logged.
  */
@@ -134,22 +138,7 @@ export async function runAutoFix(
         );
       }
 
-      // 3b. font-import-fixer (layout files only)
-      try {
-        const fontResult = fixFontImport(currentCode, file.path);
-        if (fontResult.fixed) {
-          currentCode = fontResult.code;
-          for (const fix of fontResult.fixes) {
-            allFixes.push({ ...fix, file: file.path });
-          }
-        }
-      } catch (err) {
-        allWarnings.push(
-          `[${file.path}] font-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      // 3c. metadata-import-fixer — add missing Metadata type import in page/layout files
+      // 4a. metadata-import-fixer — add missing Metadata type import in page/layout files
       try {
         const metaResult = fixMissingMetadataImport(currentCode, file.path);
         if (metaResult.fixed) {
@@ -166,7 +155,7 @@ export async function runAutoFix(
         );
       }
 
-      // 3c2. MetadataRoute import fixer
+      // 4b. MetadataRoute import fixer
       try {
         const mrResult = fixMissingMetadataRouteImport(currentCode, file.path);
         if (mrResult.fixed) {
@@ -183,7 +172,7 @@ export async function runAutoFix(
         );
       }
 
-      // 3c3. cn import fixer — add missing cn import from @/lib/utils
+      // 4c. cn import fixer — add missing cn import from @/lib/utils
       try {
         const cnResult = fixMissingCnImport(currentCode);
         if (cnResult.fixed) {
@@ -200,7 +189,7 @@ export async function runAutoFix(
         );
       }
 
-      // 3d. lucide-image-fixer — fix Image imported from lucide-react when used as next/image
+      // 4d. lucide-image-fixer — fix Image imported from lucide-react when used as next/image
       try {
         const imgResult = fixLucideImageMisuse(currentCode, file.path);
         if (imgResult.fixed) {
@@ -217,7 +206,7 @@ export async function runAutoFix(
         );
       }
 
-      // 4. syntax-validator (async, dynamically imported to avoid Turbopack bundling esbuild)
+      // 5. syntax-validator (async, dynamically imported to avoid Turbopack bundling esbuild)
       try {
         const { validateSyntax } = await import("./syntax-validator");
         const syntaxResult: SyntaxValidation = await validateSyntax(currentCode, file.path);
@@ -234,7 +223,7 @@ export async function runAutoFix(
         );
       }
 
-      // 5. jsx-checker (fix missing imports & default export)
+      // 6. jsx-checker (fix missing imports & default export)
       try {
         const jsxResult = runJsxChecker(currentCode);
         currentCode = jsxResult.code;
@@ -250,7 +239,7 @@ export async function runAutoFix(
         );
       }
 
-      // 6. dep-completer
+      // 7. dep-completer
       try {
         const depResult = runDepCompleter(currentCode);
         for (const fix of depResult.fixes) {
@@ -272,7 +261,7 @@ export async function runAutoFix(
 
   let fixedContent = rebuildContent(content, project.files, fixedFiles);
 
-  // 7. security checks (last step)
+  // 8. security checks (last step)
   try {
     const securityResult = runSecurityChecks(fixedContent);
     fixedContent = securityResult.sanitizedContent;

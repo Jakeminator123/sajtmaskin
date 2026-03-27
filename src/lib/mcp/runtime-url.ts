@@ -108,9 +108,10 @@ export type SandboxRuntimeOptions = {
   buildVerifyTimeoutSec?: number;
   /**
    * `build_only`: install + `npm run build` only (no dev server; `primaryUrl` is null).
-   * `dev_only`: install + detached `npm run dev` — **tier 2** preview (default when env unset).
+   * `dev_only`: install + detached `npm run dev` — **tier 2** preview.
    * `dev_then_build`: install + detached dev + `npm run build` verification (tier 2 + tier-3 signal).
-   * Default from env: `resolveSandboxPreviewModeFromEnv()` → **`dev_only`** unless `SAJTMASKIN_SANDBOX_PREVIEW_MODE` is set.
+   * Default from env: `resolveSandboxPreviewModeFromEnv()` → **`dev_then_build`** unless
+   * `SAJTMASKIN_SANDBOX_PREVIEW_MODE` explicitly sets another mode.
    */
   sandboxPreviewMode?: SandboxPreviewMode;
   /**

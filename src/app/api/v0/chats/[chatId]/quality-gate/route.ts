@@ -14,6 +14,7 @@ import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import {
   getSandboxCommandTextOutput,
+  SANDBOX_SETUP_HINT,
   isSandboxConfigured as isSandboxAuthConfigured,
   resolveSandboxAccessCredentials,
 } from "@/lib/mcp/runtime-url";
@@ -80,7 +81,30 @@ const CHECK_COMMANDS: Record<string, string> = {
   lint: "npx eslint . --max-warnings=0",
 };
 
-const OUTPUT_CAP = 12_000;
+const OUTPUT_CAP_BY_STAGE: Record<string, number> = {
+  install: 16_000,
+  typecheck: 12_000,
+  build: 14_000,
+  lint: 12_000,
+  default: 12_000,
+};
+
+function clipStageOutput(stage: string, rawOutput: string): string {
+  const normalized = rawOutput.trim();
+  if (!normalized) return "";
+  const cap = OUTPUT_CAP_BY_STAGE[stage] ?? OUTPUT_CAP_BY_STAGE.default;
+  if (normalized.length <= cap) return normalized;
+  const head = Math.floor(cap * 0.35);
+  const tail = Math.max(0, cap - head - 64);
+  const omitted = Math.max(0, normalized.length - head - tail);
+  return [
+    normalized.slice(0, head).trimEnd(),
+    `...[${stage} output truncated: ${omitted} chars omitted]...`,
+    normalized.slice(-tail).trimStart(),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
 function buildCheckShellScript(baseCmd: string, logFile: string): string {
   return [
@@ -133,17 +157,43 @@ async function runSandboxChecks(
       await sandbox.writeFiles(writePayload);
     }
 
-    await sandbox.runCommand({ cmd: "bash", args: ["-c", "npm install --prefer-offline 2>&1 || true"] });
-
     const results: CheckResult[] = [];
     const logSuffix = `${startMs}-${Math.random().toString(36).slice(2, 9)}`;
+    const installLogFile = `/tmp/sajtmaskin-qg-install-${logSuffix}.log`;
+    const installScript = buildCheckShellScript("npm install --prefer-offline", installLogFile);
+    const installResult = await sandbox.runCommand({ cmd: "bash", args: ["-c", installScript] });
+    const installExitCode = installResult.exitCode ?? 1;
+    let installOutput = clipStageOutput(
+      "install",
+      await getSandboxCommandTextOutput(installResult),
+    );
+    if (!installOutput) {
+      installOutput = [
+        `(No log output captured from sandbox; exit ${installExitCode}.)`,
+        "Command: npm install --prefer-offline",
+        "If this persists, the sandbox runner may not be streaming stdout; check Vercel Sandbox logs.",
+      ].join("\n");
+    }
+    results.push({
+      check: "install",
+      passed: installExitCode === 0,
+      exitCode: installExitCode,
+      output:
+        installExitCode === 0
+          ? "npm install --prefer-offline passed."
+          : installOutput,
+    });
+    if (installExitCode !== 0) {
+      return { results, sandboxDurationMs: Date.now() - startMs };
+    }
+
     for (const check of checks) {
       const baseCmd = CHECK_COMMANDS[check];
       if (!baseCmd) continue;
       const logFile = `/tmp/sajtmaskin-qg-${check}-${logSuffix}.log`;
       const script = buildCheckShellScript(baseCmd, logFile);
       const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", script] });
-      let output = (await getSandboxCommandTextOutput(result)).slice(0, OUTPUT_CAP);
+      let output = clipStageOutput(check, await getSandboxCommandTextOutput(result));
       const exitCode = result.exitCode ?? 1;
       const passed = exitCode === 0;
       if (!passed && !output) {
@@ -197,7 +247,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     if (codeFiles && codeFiles.length > 0) {
       if (!isSandboxAuthConfigured()) {
         return NextResponse.json(
-          { error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)" },
+          {
+            error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)",
+            code: "sandbox_disabled",
+            hint: SANDBOX_SETUP_HINT,
+          },
           { status: 501 },
         );
       }
@@ -238,7 +292,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 level: "error" as const,
                 category: `quality-gate:${r.check}`,
                 message: `${r.check} failed (exit ${r.exitCode})`,
-                meta: { output: r.output.slice(0, 4000), exitCode: r.exitCode },
+                meta: {
+                  stage: r.check,
+                  command:
+                    r.check === "install"
+                      ? "npm install --prefer-offline"
+                      : CHECK_COMMANDS[r.check] ?? null,
+                  output: r.output.slice(0, 12_000),
+                  outputLength: r.output.length,
+                  exitCode: r.exitCode,
+                },
               };
           }),
         ];
@@ -270,7 +333,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           },
         );
         if (err instanceof SandboxNotConfiguredError) {
-          return NextResponse.json({ error: err.message }, { status: 501 });
+          return NextResponse.json(
+            {
+              error: err.message,
+              code: "sandbox_disabled",
+              hint: SANDBOX_SETUP_HINT,
+            },
+            { status: 501 },
+          );
         }
         throw err;
       }

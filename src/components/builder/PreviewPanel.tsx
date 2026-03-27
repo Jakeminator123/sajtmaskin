@@ -2671,9 +2671,16 @@ export function PreviewPanel({
         >
           <AlertCircle className="h-4 w-4" />
           <AlertTitle className="text-sm text-rose-100">
-            Sandbox / build: {sandboxBuildError.stage}
+            {sandboxBuildError.stage === "sandbox_disabled"
+              ? "Sandbox inte tillgänglig"
+              : `Sandbox / build: ${sandboxBuildError.stage}`}
           </AlertTitle>
-          <AlertDescription className="max-h-36 overflow-y-auto font-mono text-[11px] whitespace-pre-wrap text-rose-200/95">
+          <AlertDescription
+            className={cn(
+              "max-h-36 overflow-y-auto text-[11px] whitespace-pre-wrap text-rose-200/95",
+              sandboxBuildError.stage === "sandbox_disabled" ? "font-medium" : "font-mono",
+            )}
+          >
             {sandboxBuildError.message}
           </AlertDescription>
         </Alert>

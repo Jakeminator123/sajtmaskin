@@ -33,14 +33,18 @@ const BUILTIN_PACKAGES = new Set([
  * Maps npm package name to latest known compatible version.
  * Used to auto-complete dependencies so npm install succeeds in @vercel/sandbox.
  */
-const KNOWN_PACKAGES: Record<string, string> = {
+/**
+ * Keep majors aligned with `project-scaffold.ts` baseline so autofix-generated
+ * dependency ranges do not drift from the canonical exported project setup.
+ */
+export const KNOWN_PACKAGES: Record<string, string> = {
   "recharts": "^2",
   "framer-motion": "^12",
   "motion": "^12",
   "@tanstack/react-table": "^8",
   "@tanstack/react-query": "^5",
   "date-fns": "^4",
-  "zod": "^3",
+  "zod": "^4",
   "zustand": "^5",
   "jotai": "^2",
   "react-hook-form": "^7",

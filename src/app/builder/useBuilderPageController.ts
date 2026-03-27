@@ -1353,6 +1353,17 @@ export function useBuilderPageController() {
             }
             // Credentials missing: retry when user fixes env (do not mark done).
             if (data?.code === "sandbox_disabled") {
+              const persistedHint =
+                typeof data.hint === "string" && data.hint.trim().length > 0
+                  ? data.hint.trim()
+                  : typeof data.message === "string" && data.message.trim().length > 0
+                    ? data.message.trim()
+                    : "Sandbox är inte konfigurerad i den här miljön.";
+              setSandboxBuildError({
+                stage: "sandbox_disabled",
+                message: persistedHint,
+              });
+              setSandboxProdBuild(null);
               return;
             }
           }
