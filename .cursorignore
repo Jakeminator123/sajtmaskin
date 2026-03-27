@@ -74,12 +74,12 @@ src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
 
 # --- Cursor session / automation / migration ---
-.cursor/plans/
-.cursor/documents/
-.cursor/automation/runs/
-.cursor/automation/archive/
-.cursor/automation/input/
-.cursor/migration-archive/
+#.cursor/plans/
+#.cursor/documents/
+#.cursor/automation/runs/
+#.cursor/automation/archive/
+#.cursor/automation/input/
+#.cursor/migration-archive/
 
 # --- Vercel CLI (lokal länk) ---
 .vercel/

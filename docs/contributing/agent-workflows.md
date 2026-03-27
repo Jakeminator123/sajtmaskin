@@ -23,11 +23,14 @@ Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverkty
 
 **MCP är inte en produktionsberoende** för den deployade sajten — se även `docs/README.md` § Production boundary.
 
-## Agent-underlag i git (`.j_to_agent`)
+## Operativa dokument (kör utan separata plan-ID)
 
-Underlag och kritikfiler kan ligga i `**.j_to_agent/`** för reproducerbarhet. **Committa inte** secrets, tokens, personuppgifter eller stora binärer — använd `.gitignore` och [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-indexing.mdc).
+- **Preview / sandbox / deploy:** [`preview-deploy.md`](../architecture/preview-deploy.md) — inkl. § *Levererat* och länkar till kod.
+- **Backlog / beslut:** [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
 
-**Worktree:** `git fetch` + `git pull` innan du jämför plan med `origin/master`.
+Historiska planhandoff finns i **git-historik** (`docs/plans/avklarat/`, äldre commits). **Aktuell drift:** tabellen *Operativa dokument* ovan — inga separata numrerade kördokument i repo-trädet.
+
+**Worktree:** `git fetch` + `git pull` innan du jämför med `origin/master`.
 
 ## Verifiering före större merge
 
@@ -36,6 +39,5 @@ Kör `npm run typecheck` och `npx vitest run` (plus `npm run lint` vid behov) in
 ## Plan / backlog
 
 - [PROJECT-STATE-AND-DIRECTION.md](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — kanonisk backlog  
-- [`avklarat/README.md`](../plans/avklarat/README.md) — äldre planhandoff i git-historik  
-- [KRITIK-OVERVIEW.md](../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md) — parallell kritikspårning
+- [`avklarat/README.md`](../plans/avklarat/README.md) — äldre planhandoff i git-historik
 

@@ -60,8 +60,8 @@ export function buildPreviewHtml(files: CodeFile[], routePath?: string | null): 
 </head>
 <body>
   <div id="root"></div>
-  <script src="https://unpkg.com/react@19/umd/react.production.min.js"><\/script>
-  <script src="https://unpkg.com/react-dom@19/umd/react-dom.production.min.js"><\/script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
   <script>
     ${previewScript}
   <\/script>

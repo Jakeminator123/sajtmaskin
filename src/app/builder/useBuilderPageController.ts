@@ -57,7 +57,7 @@ import {
 const ENGINE_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Prefer sandbox URL over shim / v0-hosted when resolving iframe preview (K-018). */
+/** Prefer sandbox URL over shim / v0-hosted when resolving iframe preview — se `docs/architecture/preview-deploy.md`. */
 function pickVersionPreviewUrl(
   v: VersionSummary | undefined,
   preferV0HostedPreview: boolean,
@@ -180,7 +180,7 @@ export function useBuilderPageController() {
     enableBlobMedia: state.enableBlobMedia,
   });
 
-  /** Tier 1 shim URL + tier 2 sandbox URL for the active version (K-018 / K18-2). */
+  /** Tier 1 shim URL + tier 2 sandbox URL for the active version — se `docs/architecture/preview-deploy.md` § Begrepp. */
   const activeVersionAlternatePreview = useMemo(() => {
     const vid = derived.activeVersionId;
     if (!vid) return { shimUrl: null as string | null, sandboxUrl: null as string | null };
@@ -1229,7 +1229,8 @@ export function useBuilderPageController() {
       setClearedPreviewVersionId(null);
     }
 
-    if (!didChangeVersion && currentDemoUrl) return;
+    // Do not skip when only `currentDemoUrl` is set: the active version can gain `sandboxUrl` later
+    // (async sandbox, SWR refresh) while `activeVersionId` stays the same — we must upgrade shim → tier 2.
     if (!didChangeVersion && clearedPreviewVersionId === derived.activeVersionId) return;
 
     const activeVersionMatch = derived.activeVersionId
@@ -1275,8 +1276,6 @@ export function useBuilderPageController() {
     }
   }, [derived.activeVersionId, chat, currentDemoUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentDemoUrl, setPreviewRefreshToken]);
 
-  const streamWasActiveRef = useRef(false);
-  const postStreamCooldownUntilRef = useRef(0);
   const sandboxBootstrapGenRef = useRef(0);
   const sandboxBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
   /** Bumps to re-run bootstrap after transient sandbox API failures (503/504/network). */
@@ -1289,26 +1288,14 @@ export function useBuilderPageController() {
     setSandboxBootstrapRetryNonce(0);
   }, [chatId]);
 
-  useEffect(() => {
-    if (isAnyStreamingEarly) {
-      streamWasActiveRef.current = true;
-      return;
-    }
-    if (streamWasActiveRef.current) {
-      streamWasActiveRef.current = false;
-      // Server already starts sandbox after generation; wait so we do not spawn a duplicate VM.
-      postStreamCooldownUntilRef.current = Date.now() + 12_000;
-    }
-  }, [isAnyStreamingEarly]);
-
-  // Own-engine: auto-start sandbox when opening a chat/version that only has tier-1 (shim) preview.
+  // Own-engine: start sandbox when preview is still tier-1 (shim) — e.g. after prompt/generation or reopen.
+  // Duplicate VM: `startSandboxPreview` dedupes in-flight work per chat+version on the server.
   useEffect(() => {
     const gen = ++sandboxBootstrapGenRef.current;
 
     if (!isAuthenticated || !chatId || !derived.activeVersionId) return;
     if (isChatLoading || !chat) return;
     if (isAnyStreamingEarly) return;
-    if (Date.now() < postStreamCooldownUntilRef.current) return;
     if (isV0StyleChatRecord(chat)) return;
 
     const key = `${chatId}:${derived.activeVersionId}`;

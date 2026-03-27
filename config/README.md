@@ -5,7 +5,7 @@ Kanoniska **JSON/MD/txt** som Sajtmaskin-appen, bygget och skript **läser** vid
 | Del | Roll |
 |-----|------|
 | `codegen-static-prompt.json` + `prompt-static/` | Statisk own-engine-systemprompt — fragmentordning i JSON, texter som `.md`. |
-| `ai_models/` | `manifest.json` + mänskliga noter; modellval, budgetar, workloads. |
+| `ai_models/` | `manifest.json` + mänskliga noter; modellval, budgetar, workloads; `40-generated-site-integration-placeholders.env.txt` mergas till sandbox-`.env.local` när `startSandboxPreview` körs, se `sandbox-env-local.ts`. |
 | `env-policy.json` | Policy för env-nycklar (par med `src/lib/env.ts`, `docs/ENV.md`). |
 | `shadcn-mirror-audit-policy.json` | Audit mot externa mall-repon. |
 | `user_degraded_env.txt` | Policytext för degraded/placeholder i användarprojekt. |

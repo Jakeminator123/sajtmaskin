@@ -449,16 +449,24 @@ export function createOwnEngineGenerationStream(
                   toolSignaledProviders.add(providerKey);
                   debugLog("engine", "Tool: suggestIntegration", { provider: providerKey });
                 } else if (toolName === "requestEnvVar") {
-                  sawBlockingToolCall = true;
-                  safeEnqueue(enc.encode(formatSSEEvent("integration", {
-                    items: [{
-                      key: "custom-env",
-                      name: "Miljövariabel",
-                      intent: "env_vars" as const,
-                      envVars: [typeof toolArgs.key === "string" ? toolArgs.key : "UNKNOWN"],
-                      status: typeof toolArgs.description === "string" ? toolArgs.description : "Kräver konfiguration",
-                    }],
-                  })));
+                  const envKey =
+                    typeof toolArgs.key === "string" ? toolArgs.key.trim() : "";
+                  if (!envKey) {
+                    debugLog("engine", "Tool: requestEnvVar skipped (missing key)", {});
+                  } else {
+                    sawBlockingToolCall = true;
+                    safeEnqueue(enc.encode(formatSSEEvent("integration", {
+                      items: [{
+                        key: "custom-env",
+                        name: "Miljövariabel",
+                        intent: "env_vars" as const,
+                        envVars: [envKey],
+                        status: typeof toolArgs.description === "string"
+                          ? toolArgs.description
+                          : "Kräver konfiguration",
+                      }],
+                    })));
+                  }
                 } else if (toolName === "askClarifyingQuestion") {
                   sawBlockingToolCall = true;
                   safeEnqueue(enc.encode(formatSSEEvent("tool-call", {

@@ -617,6 +617,14 @@ export function ProjectEnvVarsPanel({
       };
     });
   }, [businessPacks, configuredEnvKeys, effectiveEnvProjectId, isLoading, syntheticProject]);
+  const businessPackItemsPrimary = useMemo(
+    () => businessPackItems.filter((pack) => pack.signalStrength !== "weak"),
+    [businessPackItems],
+  );
+  const businessPackItemsExtra = useMemo(
+    () => businessPackItems.filter((pack) => pack.signalStrength === "weak"),
+    [businessPackItems],
+  );
   const wizardIntegrations = useMemo(
     () =>
       siteIntegrations.map((i) => ({
@@ -767,6 +775,11 @@ export function ProjectEnvVarsPanel({
                 miljövariabler. Ren heuristik kan ge falska träffar — använd fliken Miljövariabler för
                 verifierade värden. Under &quot;Felsökning&quot; nedan ligger endast Sajtmaskin-serverns
                 egen status (påverkar inte den genererade sajten).
+                <span className="mt-2 block text-[11px] leading-snug text-muted-foreground/95">
+                  <span className="text-foreground/85">Automatisk analys:</span> samma aktiva version
+                  läses av för koddetektion, analytics/konvertering och affärsflöden — se sektionerna
+                  nedan.
+                </span>
               </div>
 
               {showSetupWizard && hasDetectedIntegrations ? (
@@ -878,9 +891,6 @@ export function ProjectEnvVarsPanel({
               {analyticsReview ? (
                 <div className="border-border rounded-md border p-2">
                   <div className="text-foreground text-xs font-medium">Analytics & konvertering</div>
-                  <div className="text-muted-foreground mt-1 text-[11px]">
-                    Första fas 9-lagret: buildern läser trackingstack och konverteringssignaler från den aktiva versionen.
-                  </div>
                   <div className="mt-2 space-y-2 text-xs">
                     <div
                       className={cn(
@@ -966,71 +976,148 @@ export function ProjectEnvVarsPanel({
                 </div>
               ) : null}
 
-              {businessPackItems.length > 0 ? (
+              {businessPackItemsPrimary.length > 0 || businessPackItemsExtra.length > 0 ? (
                 <div className="border-border rounded-md border p-2">
                   <div className="text-foreground text-xs font-medium">Business workflow packs</div>
                   <div className="text-muted-foreground mt-1 text-[11px]">
-                    Första fas 9-lagret: buildern läser affärsflöden från den aktiva versionen och visar rekommenderade integrationspaket.
+                    Rekommenderade paket utifrån kod och signalstyrka (svagare förslag kan döljas under
+                    «Fler förslag»).
                   </div>
-                  <div className="mt-2 space-y-2">
-                    {businessPackItems.map((pack) => (
-                      <div key={pack.id} className="border-border rounded-md border p-2 text-xs">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-gray-200">{pack.label}</span>
-                          <span
-                            className={cn(
-                              "text-[11px]",
-                              pack.isConfigured
-                                ? "text-green-400"
-                                : pack.envVars.length === 0
-                                  ? "text-amber-300"
-                                  : "text-red-400",
-                            )}
-                          >
-                            {pack.statusLabel}
-                          </span>
+                  {businessPackItemsPrimary.length > 0 ? (
+                    <div className="mt-2 space-y-2">
+                      {businessPackItemsPrimary.map((pack) => (
+                        <div key={pack.id} className="border-border rounded-md border p-2 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-gray-200">{pack.label}</span>
+                            <span
+                              className={cn(
+                                "text-[11px]",
+                                pack.isConfigured
+                                  ? "text-green-400"
+                                  : pack.envVars.length === 0
+                                    ? "text-amber-300"
+                                    : "text-red-400",
+                              )}
+                            >
+                              {pack.statusLabel}
+                            </span>
+                          </div>
+                          <div className="text-muted-foreground mt-0.5">{pack.description}</div>
+                          {pack.recommendedIntegrations.length > 0 ? (
+                            <div className="text-muted-foreground mt-1 text-[11px]">
+                              Rekommenderat: {pack.recommendedIntegrations.join(", ")}
+                            </div>
+                          ) : null}
+                          {pack.envVars.length > 0 ? (
+                            <div className="text-muted-foreground mt-1 text-[11px]">
+                              Behöver: {pack.envVars.join(", ")}
+                            </div>
+                          ) : null}
+                          {pack.missingEnvVars.length > 0 ? (
+                            <div className="mt-1 text-[11px] text-amber-200">
+                              Saknas här: {pack.missingEnvVars.join(", ")}
+                            </div>
+                          ) : null}
+                          {pack.verificationChecklist.length > 0 ? (
+                            <div className="mt-2 rounded-md border border-border/60 bg-background/40 p-2 text-[11px] text-muted-foreground">
+                              <div className="mb-1 font-medium text-foreground">Verifiera efter deploy:</div>
+                              <ul className="space-y-1">
+                                {pack.verificationChecklist.map((item) => (
+                                  <li key={`${pack.id}:${item}`}>- {item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {pack.envVars.length > 0 ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="mt-2 h-7 px-2 text-[11px]"
+                              onClick={() =>
+                                openEnvTab(pack.missingEnvVars.length > 0 ? pack.missingEnvVars : pack.envVars)
+                              }
+                            >
+                              Öppna miljövariabler
+                            </Button>
+                          ) : null}
                         </div>
-                        <div className="text-muted-foreground mt-0.5">{pack.description}</div>
-                        {pack.recommendedIntegrations.length > 0 ? (
-                          <div className="text-muted-foreground mt-1 text-[11px]">
-                            Rekommenderat: {pack.recommendedIntegrations.join(", ")}
+                      ))}
+                    </div>
+                  ) : null}
+                  {businessPackItemsExtra.length > 0 ? (
+                    <details
+                      className="group border-border mt-2 rounded-md border border-dashed bg-muted/20 p-2"
+                      open={businessPackItemsPrimary.length === 0}
+                    >
+                      <summary className="cursor-pointer list-none text-xs font-medium text-gray-200 marker:content-none [&::-webkit-details-marker]:hidden">
+                        <span className="inline-flex items-center gap-2">
+                          Fler förslag (svagare signal)
+                          <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-open:rotate-180" />
+                        </span>
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {businessPackItemsExtra.map((pack) => (
+                          <div key={pack.id} className="border-border rounded-md border p-2 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium text-gray-200">{pack.label}</span>
+                              <span
+                                className={cn(
+                                  "text-[11px]",
+                                  pack.isConfigured
+                                    ? "text-green-400"
+                                    : pack.envVars.length === 0
+                                      ? "text-amber-300"
+                                      : "text-red-400",
+                                )}
+                              >
+                                {pack.statusLabel}
+                              </span>
+                            </div>
+                            <div className="text-muted-foreground mt-0.5">{pack.description}</div>
+                            {pack.recommendedIntegrations.length > 0 ? (
+                              <div className="text-muted-foreground mt-1 text-[11px]">
+                                Rekommenderat: {pack.recommendedIntegrations.join(", ")}
+                              </div>
+                            ) : null}
+                            {pack.envVars.length > 0 ? (
+                              <div className="text-muted-foreground mt-1 text-[11px]">
+                                Behöver: {pack.envVars.join(", ")}
+                              </div>
+                            ) : null}
+                            {pack.missingEnvVars.length > 0 ? (
+                              <div className="mt-1 text-[11px] text-amber-200">
+                                Saknas här: {pack.missingEnvVars.join(", ")}
+                              </div>
+                            ) : null}
+                            {pack.verificationChecklist.length > 0 ? (
+                              <div className="mt-2 rounded-md border border-border/60 bg-background/40 p-2 text-[11px] text-muted-foreground">
+                                <div className="mb-1 font-medium text-foreground">Verifiera efter deploy:</div>
+                                <ul className="space-y-1">
+                                  {pack.verificationChecklist.map((item) => (
+                                    <li key={`${pack.id}-extra:${item}`}>- {item}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                            {pack.envVars.length > 0 ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="mt-2 h-7 px-2 text-[11px]"
+                                onClick={() =>
+                                  openEnvTab(
+                                    pack.missingEnvVars.length > 0 ? pack.missingEnvVars : pack.envVars,
+                                  )
+                                }
+                              >
+                                Öppna miljövariabler
+                              </Button>
+                            ) : null}
                           </div>
-                        ) : null}
-                        {pack.envVars.length > 0 ? (
-                          <div className="text-muted-foreground mt-1 text-[11px]">
-                            Behöver: {pack.envVars.join(", ")}
-                          </div>
-                        ) : null}
-                        {pack.missingEnvVars.length > 0 ? (
-                          <div className="mt-1 text-[11px] text-amber-200">
-                            Saknas här: {pack.missingEnvVars.join(", ")}
-                          </div>
-                        ) : null}
-                        {pack.verificationChecklist.length > 0 ? (
-                          <div className="mt-2 rounded-md border border-border/60 bg-background/40 p-2 text-[11px] text-muted-foreground">
-                            <div className="mb-1 font-medium text-foreground">Verifiera efter deploy:</div>
-                            <ul className="space-y-1">
-                              {pack.verificationChecklist.map((item) => (
-                                <li key={`${pack.id}:${item}`}>- {item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-                        {pack.envVars.length > 0 ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="mt-2 h-7 px-2 text-[11px]"
-                            onClick={() =>
-                              openEnvTab(pack.missingEnvVars.length > 0 ? pack.missingEnvVars : pack.envVars)
-                            }
-                          >
-                            Öppna miljövariabler
-                          </Button>
-                        ) : null}
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </details>
+                  ) : null}
                 </div>
               ) : null}
 

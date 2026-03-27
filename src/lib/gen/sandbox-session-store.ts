@@ -3,7 +3,7 @@
  *
  * - **Sync API** (`getActiveSandboxSession`, …): in-process `Map` only — tests & same-instance hot path.
  * - **Async API** (`getActiveSandboxSessionAsync`, …): when `getRedis()` is configured (`FEATURES.useRedisCache`),
- *   entries are also stored in Redis so another serverless instance can resume the same sandbox (K-018 / K18-4).
+ *   entries are also stored in Redis so another serverless instance can resume the same sandbox (`preview-deploy.md`).
  */
 
 import { REDIS_KEY_PREFIX } from "@/lib/config";
@@ -144,7 +144,7 @@ export function clearSandboxSession(chatId: string): void {
 }
 
 /**
- * Prefer in preview start/resume paths when Redis may be available — cross-instance resume (K18-4).
+ * Prefer in preview start/resume paths when Redis may be available — cross-instance resume (`preview-deploy.md` § VM-resume).
  */
 export async function getActiveSandboxSessionAsync(
   chatId: string,

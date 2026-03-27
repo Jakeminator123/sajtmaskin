@@ -1,7 +1,7 @@
 import { streamText, type ModelMessage, type ToolSet } from "ai";
 
 import { ENGINE_MAX_OUTPUT_TOKENS } from "./defaults";
-import { getOpenAIModel, DEFAULT_MODEL } from "./models";
+import { getOpenAIModel, DEFAULT_MODEL, isAnthropicModel } from "./models";
 import {
   buildUserPromptContent,
   type RequestAttachment,
@@ -56,6 +56,14 @@ export function generateCode(
     { role: "user" as const, content: buildUserPromptContent(prompt, referenceAttachments) },
   ];
 
+  const resolvedId = modelId ?? DEFAULT_MODEL;
+  const anthropic = isAnthropicModel(resolvedId);
+
+  const providerOptions =
+    thinking && !anthropic
+      ? { openai: { reasoningEffort: "high" as const } }
+      : undefined;
+
   const result = streamText({
     model,
     system: systemPrompt,
@@ -63,6 +71,7 @@ export function generateCode(
     maxOutputTokens: maxTokens ?? ENGINE_MAX_OUTPUT_TOKENS,
     abortSignal,
     ...(tools ? { tools, maxSteps: maxSteps ?? 2 } : {}),
+    ...(providerOptions ? { providerOptions } : {}),
   });
 
   return createCodeGenSSEStream(result, { thinking, meta });

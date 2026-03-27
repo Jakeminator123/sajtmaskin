@@ -25,7 +25,7 @@ För att **genererade** Next-projekt ofta ska kunna byggas/köras utan riktiga R
 
 Detta är **parallellt med** `config/codegen-static-prompt.json` + `prompt-static/*.md`: manifest + vanlig text under `config/`, men här är nyttolasten env-placeholders för slutkundsprojekt, inte systemprompt.
 
-**Medvetet idag:** Sajtmaskin läser filen via Node men **slår inte automatiskt in** den i preview/sandbox. Det är ett repo-kontrakt + loader så nästa steg kan vara explicit koppling (t.ex. sandbox eller MCP) till `readGeneratedSitePlaceholdersEnvText()` — se [_READ_ME_FIRST.md — Handoff](_READ_ME_FIRST.md).
+**Sandbox (Tier 2) via builder:** När sandbox startas genom [`startSandboxPreview`](../../src/lib/gen/sandbox-preview.ts) mergas nycklarna från denna fil in i `.env.local` via `buildSandboxEnvLocalContents` i [`src/lib/gen/sandbox-env-local.ts`](../../src/lib/gen/sandbox-env-local.ts). **Tier-1 shim** och **MCP** `generate-site` (direkt `createSandboxRuntimeFromFiles`) använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
 
 ## Direkt API vs AI Gateway (viktigt)
 

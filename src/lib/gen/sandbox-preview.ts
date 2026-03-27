@@ -40,6 +40,13 @@ export interface SandboxPreviewError {
 
 export { httpStatusForSandboxPreviewFailure } from "./sandbox-preview-errors";
 
+type StartSandboxPreviewOutcome =
+  | { ok: true; result: SandboxPreviewResult }
+  | { ok: false; error: SandboxPreviewError };
+
+/** Own-engine stream + `/sandbox-preview` bootstrap can call `startSandboxPreview` at the same time for the same chat+version — share one in-flight promise so we do not spawn two VMs. */
+const inflightSandboxByChatVersion = new Map<string, Promise<StartSandboxPreviewOutcome>>();
+
 export type StartSandboxPreviewOptions = {
   /** When set, decrypted `projectEnvVars` merge into sandbox `.env.local` (after placeholders). */
   appProjectId?: string | null;
@@ -69,10 +76,33 @@ export type StartSandboxPreviewOptions = {
 export async function startSandboxPreview(
   generatedFiles: CodeFile[],
   options?: StartSandboxPreviewOptions,
-): Promise<
-  | { ok: true; result: SandboxPreviewResult }
-  | { ok: false; error: SandboxPreviewError }
-> {
+): Promise<StartSandboxPreviewOutcome> {
+  const cid =
+    typeof options?.chatId === "string" && options.chatId.trim() ? options.chatId.trim() : null;
+  const vid =
+    typeof options?.versionIdForSession === "string" && options.versionIdForSession.trim()
+      ? options.versionIdForSession.trim()
+      : null;
+  const dedupeKey = cid && vid ? `${cid}:${vid}` : null;
+  if (dedupeKey) {
+    const existing = inflightSandboxByChatVersion.get(dedupeKey);
+    if (existing) return existing;
+  }
+
+  const run = runStartSandboxPreview(generatedFiles, options);
+  if (dedupeKey) {
+    inflightSandboxByChatVersion.set(dedupeKey, run);
+    void run.finally(() => {
+      inflightSandboxByChatVersion.delete(dedupeKey);
+    });
+  }
+  return run;
+}
+
+async function runStartSandboxPreview(
+  generatedFiles: CodeFile[],
+  options?: StartSandboxPreviewOptions,
+): Promise<StartSandboxPreviewOutcome> {
   const resolvedMode = options?.previewMode ?? resolveSandboxPreviewModeFromEnv();
   const verifyBuild = resolvedMode === "dev_then_build";
 

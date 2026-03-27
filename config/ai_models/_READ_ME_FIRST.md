@@ -10,7 +10,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
    - **tokenbudgetar** och **route-timeout**-värden (med min/max som i koden);
    - listor över **tillåtna assist-modeller** (måste hålla jämna steg med `src/lib/builder/promptAssist.ts` tills listorna flyttas hit);
    - **`workloads`**: en post per huvudsakligt anropssteg (filvägar, auth-env, API-typ).
-   - **`generatedSiteIntegrationPlaceholders`**: pekar på **`40-generated-site-integration-placeholders.env.txt`** — vanlig text i dotenv-stil (som `prompt-static`-fragment men för **genererade användarsajters** preview-byggen, inte Sajtmaskin-appens `.env`). Läs med `src/lib/ai-models/load-generated-site-placeholders.ts` (endast Node). Policy: `config/user_degraded_env.txt`.
+   - **`generatedSiteIntegrationPlaceholders`**: pekar på **`40-generated-site-integration-placeholders.env.txt`** — vanlig text i dotenv-stil (som `prompt-static`-fragment men för **genererade användarsajters** sandbox, inte Sajtmaskin-appens `.env`). Läs med `src/lib/ai-models/load-generated-site-placeholders.ts` (endast Node). När sandbox startas via **`startSandboxPreview`** (`src/lib/gen/sandbox-preview.ts`, används från own-engine-strömmen och `/api/v0/chats/.../sandbox-preview`) mergas innehållet in i `.env.local` av `src/lib/gen/sandbox-env-local.ts`. **Tier-1 shim** (`/api/preview-render`) och **MCP** `generate-site` (sandbox läge anropar `createSandboxRuntimeFromFiles` direkt) kör **inte** denna merge. Policy: `config/user_degraded_env.txt`.
 2. **`00-overview.md`**, **`10-own-engine.md`**, **`20-prompt-assist.md`**, **`30-embeddings-and-misc.md`** — förklaringar och tabeller för människor.
 3. **`manifest.schema.json`** — JSON Schema för validering (t.ex. i editor eller CI).
 
@@ -18,7 +18,8 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
 
 - **Nav:** håll `config/ai_models/manifest.json` som nav när **provider → env-nycklar** flyttas eller struktureras om ur `PROVIDER_RULES` i `src/lib/gen/pre-generation-contracts.ts`. Använd manifest + `generatedSiteIntegrationPlaceholders` (och vid behov en **generator** som läser `workloads` + den blocken) så ni inte får en **tredje osynkad lista** bredvid kod och JSON.
 - **Idag:** `PROVIDER_RULES` är fortfarande källan för kontraktsfrågor i genereringen; manifestet beskriver workloads och pekar in placeholder-filen för överblick och framtida inkoppling.
-- **OBS (medvetet):** Sajtmaskin **injicerar ännu inte automatiskt** dessa placeholder-värden i preview eller sandbox. Repot har ett stabilt kontrakt (`generatedSiteIntegrationPlaceholders` + `40-generated-site-integration-placeholders.env.txt`) och Node-API:t `readGeneratedSitePlaceholdersEnvText()` i `src/lib/ai-models/load-generated-site-placeholders.ts`. **Nästa steg** när ni vill: koppla t.ex. sandbox-start, MCP eller annat byggsteg till den läsaren så genererade Next-appar kan få `.env.local`-merge utan manuella kopior.
+- **Sandbox (Tier 2) via builder:** `startSandboxPreview` bygger **`.env.local`** med `buildSandboxEnvLocalContents` (`src/lib/gen/sandbox-env-local.ts`): globala placeholders från `40-…env.txt`, projekt-preview-token (`sandbox-project-preview-env.ts`), lagrade projekt-env, sist innehåll från genererad `.env.local` om modellen skrev en — **senare lager vinner**. Loader: `readGeneratedSitePlaceholdersEnvText()` i `load-generated-site-placeholders.ts`.
+- **Utanför den kedjan:** Tier-1 shim, MCP `generate-site`→sandbox, och script som bara läser filen manuellt — **ingen** automatisk merge från denna pipeline.
 
 ## Viktiga regler
 

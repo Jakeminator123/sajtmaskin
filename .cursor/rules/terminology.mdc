@@ -13,6 +13,20 @@ Prompt → **own-engine** (standard codegen) → filer → **preview** → valfr
 
 ---
 
+## V0-mapp (`src/lib/v0/`) vs v0-SDK vs V0 Platform API — skilj alltid
+
+Tre **olika** saker; blanda inte ihop dem i diskussion eller kodreview.
+
+| Begrepp | Vad det är |
+|--------|------------|
+| **Mappen `src/lib/v0/`** | Historisk **katalog** i repot. Den kan innehålla **Sajtmaskin-eget** (zip från egna filer, registry-URL-hjälp, felformat) som råkat ligga här under namn som låser «v0». **En zip-nedladdning eller egen filhantering är inte automatiskt «V0-företaget»** — kolla **implementationen** (anropas `v0-sdk` / externt API eller bara DB/`files_json`?). Own-engine-relaterad kod ska på sikt ligga under `lib/own-engine/` eller `lib/gen/` där det är tydligare. |
+| **`v0-sdk` (npm-paket)** | Tredjepartsklient **mot** V0 Platform — inte samma sak som mappnamnet. |
+| **V0 Platform API** | Externt API (t.ex. `V0_API_KEY`) — **det** är leverantören V0 som plattform. |
+
+**HTTP-prefix `/api/v0/`** är dessutom **Sajtmaskins REST API-version** (v0 av ert HTTP-API), inte samma sak som V0 Platform.
+
+---
+
 ## v0-templates / «Mall» (produkt-UI)
 
 - **Vad:** Kategorier och kort under modalen **«Mall»** på startsidan — pekar mot v0:s **applikationsliknande** mallar som kan **streamas in** som utgångspunkt.
@@ -66,7 +80,7 @@ Person som använder Sajtmaskin för att bygga **sin** sajt/hemsida (produktens 
 | **2** | **Next.js-projekt** som kan köras i **sandbox** (dev-server); fokus på visuellt troget; kan kopplas till GitHub m.m. enligt integration. |
 | **3** | Högst — ska klara **`npm run build`** och motsvara **produktion**/deploy med relevanta integrationer. |
 
-Exakta implementationer och gränser: `docs/architecture/preview-deploy.md`, `.j_to_agent/fidelity.txt` (intent).
+Exakta implementationer, levererat/öppet och gränser: `docs/architecture/preview-deploy.md` (kanon för preview-kedjan).
 
 ---
 

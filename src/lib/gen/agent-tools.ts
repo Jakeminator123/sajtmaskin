@@ -27,8 +27,9 @@ export const INTEGRATION_PROVIDERS = [
 export const suggestIntegration = tool({
   description:
     "Signal that the generated site requires an external integration or service. " +
-    "Call this BEFORE writing code that depends on the integration so the user " +
-    "can configure it. Include all required environment variables.",
+    "Call ONLY when generated code will actually depend on that integration (not for hypothetical " +
+    "Resend/DB/auth on a static landing page). Call BEFORE writing code that depends on it. " +
+    "Include all required environment variables.",
   inputSchema: z.object({
     name: z.string().describe("Human-readable integration name, e.g. 'Supabase'"),
     provider: z
@@ -49,9 +50,9 @@ export const suggestIntegration = tool({
 
 export const requestEnvVar = tool({
   description:
-    "Signal that the generated code requires a specific environment variable " +
-    "that the user must configure. Use this for custom env vars not covered " +
-    "by a known integration provider.",
+    "Signal that the generated code requires a specific environment variable the user must set. " +
+    "Use for custom keys not covered by suggestIntegration. Do not call for optional nice-to-haves " +
+    "on simple brochure/landing pages; prefer mocks or client-only behavior when non-blocking.",
   inputSchema: z.object({
     key: z
       .string()
@@ -68,9 +69,9 @@ export const requestEnvVar = tool({
 
 export const askClarifyingQuestion = tool({
   description:
-    "Ask the user a clarifying question before generating code. Use this when " +
-    "the prompt is ambiguous about a critical decision like database choice, " +
-    "auth provider, payment system, or core feature scope.",
+    "Ask a clarifying question before generating code when the prompt is ambiguous about a " +
+    "blocking decision (database, auth, payment, core scope). Do not use for every possible " +
+    "integration or for static sites that do not need backend choices.",
   inputSchema: z.object({
     question: z
       .string()

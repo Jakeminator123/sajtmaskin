@@ -35,9 +35,10 @@
 # Postgres-shaped URLs, empty `DATABASE_URL` often breaks migrate/build; the
 # fragment file supplies local-shaped URLs for preview only.
 #
-# This policy file is *not* loaded automatically by the Sajtmaskin app.
-# Auto-injection of placeholders into preview pipelines is optional product
-# work; the fragment + manifest are the repository contract.
+# This policy narrative file is *not* parsed by merge logic; it is human/agent
+# documentation. The KEY=value fragment is merged into sandbox .env.local when
+# preview starts via startSandboxPreview (sandbox-env-local.ts, sandbox-preview.ts).
+# MCP generate-site sandbox and Tier-1 HTML shim do not use this merge path.
 #
 # -----------------------------------------------------------------------------
 # Cross-reference

@@ -1,5 +1,5 @@
 /**
- * Merge `.env.local` for Vercel Sandbox preview (K-018 / K18-1):
+ * Merge `.env.local` for Vercel Sandbox preview (`docs/architecture/preview-deploy.md` § Sandbox `.env.local`):
  * 1) global integration placeholders from `config/ai_models/*-placeholders.env.txt`
  * 2) per-app-project preview tokens (stable fake secrets from project id)
  * 3) decrypted `projectEnvVars` from app project meta (user-configured)

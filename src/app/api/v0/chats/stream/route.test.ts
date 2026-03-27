@@ -145,6 +145,19 @@ vi.mock("@/lib/config", () => ({
   AI: {
     designSystemId: null,
   },
+  /** Required when `@/lib/data/redis` loads (module-level prefixes use this). */
+  REDIS_KEY_PREFIX: "dev:",
+  REDIS_CONFIG: {
+    url: "",
+    host: "",
+    port: 6379,
+    password: "",
+    username: "default",
+    enabled: false,
+  },
+  FEATURES: {
+    useRedisCache: false,
+  },
 }));
 
 vi.mock("@/lib/gen/generation-pipeline", () => ({

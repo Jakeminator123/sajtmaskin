@@ -6,7 +6,7 @@
 
 | Audience / topic | Canonical location | What it covers |
 |------------------|-------------------|----------------|
-| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | v0-templates («Mall») vs **Vercel-mall** (research), **buildern**, **fidelity**, **own-engine**, demo/preview, m.m. **Hur du öppnar:** `.cursor/README.md`. |
+| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | v0-templates («Mall») vs **Vercel-mall** (research), **buildern**, **fidelity**, **own-engine**, demo/preview, m.m.; **V0-mapp vs v0-SDK vs V0 Platform API** (zip/egen kod vs extern leverantör). **Hur du öppnar:** `.cursor/README.md`. |
 | **Repo layout & research pipeline** | `docs/architecture/repository-and-platform.md` | Mappar, skript, integrationer; mermaid där det behövs. |
 | **Dokumentationspolicy (var saker ska ligga)** | `docs/architecture/documentation-lifecycle.md` | Planstatus, rensning, varför policy ligger i `docs/` inte bara i `.cursor/rules/`. |
 
@@ -16,7 +16,7 @@
 
 1. This file → **Key navigation** table below.
 2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **enda aktiva backlog-filen** (K-018, K-019, Plan 17, beslut).
+3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **enda aktiva backlog-filen** (K-019, Plan 17, beslut). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — env topology when debugging deploy/local.
@@ -42,7 +42,7 @@ Important code sources of truth include:
 - `src/lib/models/catalog.ts` — build profiles and model IDs (own engine)
 - `config/ai_models/manifest.json` — committed defaults for own-engine models per profile, assist/polish defaults, token budgets, timeouts, workload metadata (`src/lib/ai-models/load-manifest.ts`; env overrides). Human guide: `config/ai_models/_READ_ME_FIRST.md`.
 - `src/lib/models/selection.ts` — model resolution for requests
-- `src/lib/v0/*` — legacy v0 helpers (SDK usage, errors, env); not the primary model catalog
+- `src/lib/v0/*` — **mapp** med historisk kod; **inte** samma som V0 Platform API (se **V0-mapp vs v0-SDK vs V0 Platform API** i [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc)). Där kan finnas Sajtmaskin-eget (t.ex. zip/DB) bredvid äkta SDK-anrop — läs implementationen.
 - `src/lib/gen/scaffolds/types.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/template-library/types.ts`

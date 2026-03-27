@@ -377,7 +377,7 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 
 ## Genererade sajter — preview / degraded env (referens)
 
-- **`config/ai_models/40-generated-site-integration-placeholders.env.txt`** är den **kanoniska** dotenv-liknande listan (KEY=value) för icke-hemliga placeholders när en **användares** genererade Next-projekt ska byggas eller startas utan riktiga integrationer. Den indexeras från **`config/ai_models/manifest.json`** (`generatedSiteIntegrationPlaceholders`) och kan läsas i Node via `src/lib/ai-models/load-generated-site-placeholders.ts`. Sajtmaskin injicerar den **inte** automatiskt i preview ännu; använd manuellt, i scripts eller framtida pipeline.
+- **`config/ai_models/40-generated-site-integration-placeholders.env.txt`** är den **kanoniska** dotenv-liknande listan (KEY=value) för icke-hemliga placeholders när en **användares** genererade Next-projekt ska köras utan riktiga integrationer. Den indexeras från **`config/ai_models/manifest.json`** (`generatedSiteIntegrationPlaceholders`) och läses i Node via `src/lib/ai-models/load-generated-site-placeholders.ts`. När sandbox startas via **`startSandboxPreview`** (`src/lib/gen/sandbox-preview.ts`, builder / sandbox-preview-API) mergas innehållet in i `.env.local` av `src/lib/gen/sandbox-env-local.ts`. **Tier-1 shim**, **MCP** `generate-site` i sandbox-läge och andra vägar utan `startSandboxPreview` kör inte denna merge. Deploy till Vercel kräver riktiga hemligheter där det behövs — se deploy-precheck och `DEPLOY_MISSING_ENV`.
 - **`config/user_degraded_env.txt`** beskriver **policy och motivering** (samma målgrupp som ovan); den duplicerar inte längre alla nycklar.
 
 ### Sajtmaskin-appen vs genererade användarsajter (tre lager)
@@ -386,7 +386,7 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 |-------|-----|--------|
 | **`config/env-policy.json`** | Sajtmaskin (denna repo) | Klassificering och regler för **appens** miljövariabler; styr `manage_env.py` / `env-audit`. |
 | **`.env.local` / Vercel Dashboard** | Sajtmaskin | Riktiga hemligheter för **plattformen** (DB, OpenAI, Stripe för credits, osv.). |
-| **`config/ai_models/` + `user_degraded_env.txt`** | Dokumentation / fragment | **Inte** samma som env-policy: avser **kod som genereras till slutkunder**. Placeholder-nycklar ligger i `40-generated-site-integration-placeholders.env.txt`. **Auto-injicering** i preview/deploy-pipeline är valfri produktutveckling. |
+| **`config/ai_models/` + `user_degraded_env.txt`** | Dokumentation / fragment + merge vid `startSandboxPreview` | **Inte** samma som env-policy: avser **genererade användarsajter**. Placeholder-nycklar ligger i `40-generated-site-integration-placeholders.env.txt`. Sandbox-merge till `.env.local` sker via `sandbox-env-local.ts` **när** preview startas genom `startSandboxPreview` (inte t.ex. MCP-sandbox direkt mot `createSandboxRuntimeFromFiles`). **Deploy** till Vercel följer appens egna env-krav. |
 
 Tomma **`VERCEL_*` / `VERCEL_GIT_*`** i en pullad `.env.vercel.production.pulled` är normalt (byggmetadata finns bara under deployment). De finns i `knownEmptyOk` i `env-policy.json` så audit inte flaggar dem.
 

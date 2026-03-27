@@ -609,8 +609,12 @@ export function buildBusinessWorkflowReview(files: FileEntry[]): BusinessWorkflo
   return {
     packs,
     signals: {
-      hasLeadCapture: packs.some((pack) => pack.id === "lead-capture"),
-      hasBookingFlow: packs.some((pack) => pack.id === "booking"),
+      hasLeadCapture: packs.some(
+        (pack) => pack.id === "lead-capture" && pack.signalStrength !== "weak",
+      ),
+      hasBookingFlow: packs.some(
+        (pack) => pack.id === "booking" && pack.signalStrength !== "weak",
+      ),
       hasCrmSync: packs.some((pack) => pack.id === "crm-sync"),
     },
   };

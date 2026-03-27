@@ -401,7 +401,8 @@ elif page == "ai_models":
             gip = m.get("generatedSiteIntegrationPlaceholders")
             if gip:
                 st.info(
-                    f"`generatedSiteIntegrationPlaceholders`: {gip} — se placeholders-filen som manifestet pekar på."
+                    f"`generatedSiteIntegrationPlaceholders`: {gip} — se placeholders-filen som manifestet pekar på. "
+                    "Merge till sandbox `.env.local` sker när `startSandboxPreview` körs (builder); MCP `generate-site` i sandbox-läge hoppar över den kedjan."
                 )
         except Exception as e:
             st.error(str(e))

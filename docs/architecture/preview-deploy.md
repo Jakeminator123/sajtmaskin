@@ -2,6 +2,29 @@
 
 **Senast uppdaterad:** 2026-03-27
 
+**Operativt kördokument** för own-engine → finalize → sandbox → iframe. Intent, leveranser och kodpekare: denna fil + [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) (backlog/beslut).
+
+## Levererat (preview-kedjan)
+
+Följande är **implementerat** i kod och täcks av denna fil + `docs/ENV.md` där det anges:
+
+| Område | Vad | Var i kod (vägledning) |
+|--------|-----|-------------------------|
+| Kanoniska filer | Sandbox bygger från **`filesJson`** efter finalize, inte primärt `contentForVersion` | `generation-stream.ts`, `sandbox-preview/route.ts` |
+| `previewBlocked` | Startar inte tier-2 sandbox när preflight blockerar | `own-engine-sandbox-gate.ts`, `generation-stream.ts` |
+| Readiness | HTTP-probe efter `npm run dev` (2xx + dokumentlik `Content-Type`) | `runtime-url.ts` (`waitForSandboxDevServerReady`) |
+| Shim under boot | `done` med shim / `sandboxPending` så iframen inte lämnas tom | `generation-stream.ts`, `stream-handlers.ts` |
+| HTTP API | Meningsfulla statuskoder + `retryable` för `/sandbox-preview` | `sandbox-preview-errors.ts`, route |
+| Bootstrap-retry | Klienten respekterar `retryable`, **500** med `retryable: true`, `Retry-After` | `sandbox-bootstrap-retry.ts`, `useBuilderPageController.ts` |
+| Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `sandbox-preview.ts` |
+| VM-resume | Session återanvänds **före** `buildCompleteProject` när session matchar | `sandbox-preview.ts` |
+| Scaffold | Pinnade versioner i standard-`package.json` (minimal `^`-drift) | `project-scaffold.ts` |
+| Mall | Git-bas + `writeFiles` + `removeSandboxTemplateLeftovers` | `runtime-url.ts` |
+| Tester | Bl.a. `httpStatusForSandboxPreviewFailure`, bootstrap-retry, sandbox-gate, repair-idempotens | `*.test.ts` under `src/lib/gen`, `src/lib/builder` |
+| Vitest / config-mock | `route.test.ts` mockar `REDIS_KEY_PREFIX` m.m. när `redis.ts` laddas | `src/app/api/v0/chats/stream/route.test.ts` |
+
+**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se backlog i [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
+
 ## Begrepp
 
 | Tier | Vad | Ungefär |
@@ -25,6 +48,8 @@
 
 **Repair en gång:** Filer från `files_json` efter finalize är redan repairade i preflight. `startSandboxPreview` anropas med `skipRepair: true` från own-engine-strömmen (när underlaget kommer från `filesJson`) och från sandbox-preview-API:et, så tier-2 inte kör ett andra repair-varv i onödan.
 
+**Sandbox `.env.local`:** Endast när sandbox startas via **`startSandboxPreview`** (`sandbox-preview.ts`): `buildSandboxEnvLocalContents` (`src/lib/gen/sandbox-env-local.ts`) bygger merged `.env.local` i VM — globala placeholders från `config/ai_models/40-generated-site-integration-placeholders.env.txt`, projekt-preview-token, lagrade projekt-env, sist genererad `.env.local` om modellen skrev en (senare vinner). Se `config/user_degraded_env.txt` och `docs/ENV.md` (avsnitt genererade sajter).
+
 **Scaffold-beroenden:** Standard-`package.json` i `project-scaffold.ts` använder **exakta versionsnummer** (inga `^`) för reproducerbara `npm install` i sandbox. Paket som `runDepCompleter` lägger till från import-scan kan fortfarande använda intervall — okända paket kräver manuell pin.
 
 ## Sandbox-mall (git)
@@ -35,13 +60,29 @@ Kodstart: `generation-stream.ts`, `finalize-version.ts`, `sandbox-preview.ts`, `
 
 ## MCP vs builder-stream
 
-`src/lib/mcp/generate-site.ts` kan starta sandbox **utan** samma SSE som UI — viktigt vid felsökning.
+`src/lib/mcp/generate-site.ts` kan starta sandbox **utan** samma SSE som UI — viktigt vid felsökning. I sandbox-läge anropas **`createSandboxRuntimeFromFiles`** direkt **utan** `startSandboxPreview` / `sandbox-env-local`-merge; builder-kedjan (`startSandboxPreview`) injicerar däremot `40-generated-site-integration-placeholders.env.txt` enligt ovan.
 
 ## Deploy
 
 - **Preflight / auto-fix** före Vercel: `applyPreDeployFixes`, lockfile-normalisering, `"use client"`, m.m. — se `src/app/api/v0/deployments/route.ts` och Vitest `route.test.ts` (`precheckOnly`, `skipAutoFix`).
 - **409 DEPLOY_MISSING_ENV** om obligatoriska nycklar saknas.
 - Opt-out: `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX` eller `skipAutoFix` i body.
+
+## Felsökning: varför startar inte sandbox «automatiskt»?
+
+Sandbox är **inte** en separat bakgrundstjänst som alltid är igång — den **startar när** (a) own-engine-strömmen har sparat en version och anropar `startSandboxPreview`, och/eller (b) klienten POST:ar `/api/v0/chats/.../sandbox-preview` (bootstrap i `useBuilderPageController`). Följande **stoppar eller fördröjer** tier 2 trots att shim redan visas:
+
+| Orsak | Vad händer | Var |
+|--------|------------|-----|
+| **Ingen Vercel-credentials** | `isSandboxConfigured()` är false → sandbox körs inte i strömmen; API `/sandbox-preview` → **503** `sandbox_disabled` | `runtime-url.ts`, `sandbox-preview/route.ts` |
+| **`previewBlocked`** | Preflight kunde inte bygga tier-1 preview (`buildPreviewHtml` tomt / undantag) → `shouldRunOwnEngineSandbox` false | `finalize-preflight.ts`, `own-engine-sandbox-gate.ts` |
+| **`npm install` / VM-fel** | `startSandboxPreview` returnerar fel (t.ex. **502** från `/api/sandbox`, eller fel från `createSandboxRuntimeFromFiles`) → `build-error` i SSE, ingen `sandbox_url` | `sandbox-preview.ts`, `runtime-url.ts` |
+| **Readiness-timeout** | Dev-server svarar inte HTTP inom `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` | `runtime-url.ts` |
+| **Misslyckad quality gate** | `verificationState === failed` → `canExposeEnginePreview` är **false** → POST `/sandbox-preview` → **400** `preview_blocked` (bootstrap kan inte «efterstarta» sandbox för den versionen) | `engine-version-lifecycle.ts`, `sandbox-preview/route.ts` |
+| **Bootstrap villkor** | Bootstrap körs bara om användaren är inloggad, own-engine-chatt (ej v0-stil), **ingen** `sandboxUrl` på versionen än, och `currentDemoUrl` är shim eller tom; hoppar över under aktiv streaming | `useBuilderPageController.ts` |
+| **Deduplicering** | Samma chat+version delar en in-flight `startSandboxPreview` — om första anropet failar måste fel spåras i logg, inte anta dubbel VM | `sandbox-preview.ts` |
+
+**Intent:** När tier 2 lyckas ska `pickVersionPreviewUrl` redan prioritera `sandboxUrl` i UI — problemet är i praktiken att **VM-steget** eller **credentials** saknas, eller att **versionen** är spärrad för preview efter failed verification.
 
 ## Sandbox-credentials
 

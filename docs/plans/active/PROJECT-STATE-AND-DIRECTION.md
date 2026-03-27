@@ -9,7 +9,7 @@
 
 ## 1. Produktintent (kort)
 
-- **Engelsk kanon:** [`.j_to_agent/fidelity.txt`](../../../.j_to_agent/fidelity.txt)
+- **Preview-kedja (operativt kördokument):** [`docs/architecture/preview-deploy.md`](../../architecture/preview-deploy.md) — inkl. § *Levererat* (vad som är implementerat och var i kod).
 - **I korthet:** Användaren ska *skriva önskemål → få körbar preview* utan att bli intern orkestratör. **Sandbox** (`npm install` + `npm run dev`) är **primär** preview när runtime startar; **shim** är fallback; **`npm run build`** i sandbox är **egen** signal (deploy-paritet), inte samma som «preview känns levande». **Preflight/quality gate** är ett **tredje lager** — rivs inte.
 
 ---
@@ -42,43 +42,30 @@
 
 | ID | Innehåll | Status |
 |----|-----------|--------|
-| **K-018** | Preview/sandbox/`iframe` för **genererad** sajt — env-merge, session, shim↔sandbox, adapters, export | **[ ]** öppen — delmoment klara i kod; se §6–§8 |
-| **K-019** | Builder UX + **orchestration snapshot** / promptkedja (merge-policy, ev. UI, sync create-path) | **[ ]** öppen — DB + shallow merge + follow-up prepend m.m. levererat; se §7 |
+| **Preview / sandbox** | Own-engine → finalize → tier-1 shim → tier-2 sandbox → iframe; HTTP; bootstrap; env-merge vid `startSandboxPreview` | **[x]** — se [`preview-deploy.md` § Levererat](../../architecture/preview-deploy.md#levererat-preview-kedjan); återstående spår i §5 nedan |
+| **K-019** | Builder UX + **orchestration snapshot** / promptkedja (merge-policy, ev. UI, sync create-path) | **[ ]** öppen — DB + shallow merge + follow-up prepend m.m. levererat; se §6 |
 | K-007 | Deploy auto-fix / preflight | **[x]** 2026-03-26 — policy oförändrad; `deploy-precheck` (arkiv) + Vitest |
 | K-008 | Landning | **[x]** — fryst; fokus användarsidor |
 | K-009 | SSE utanför W3 | **[x]/[N/A]** — `own-engine-sse-scope.md` (arkiv); nytt behov → ny rad |
 | K-014 | Juridik/cookies | **[x]** — copy OK oförändrat |
 
-*Detaljerad kritik-historik och batch-loggar fanns i äldre `kritik-consolidated-*`; uppdatera **denna tabell** när något ändras.*
+---
+
+## 5. Preview — återstående (ej samma som «core kedja»)
+
+Kärnan preview/sandbox är **levererad** (se `preview-deploy.md`). Detta är **vidare** produkt/teknik:
+
+| Spår | Status |
+|------|--------|
+| Adapters / «degraded preview» för vissa integrationer (mer än placeholders) | [ ] |
+| GitHub-export som **sekundär** väg (persistens = fortfarande Postgres / `files_json`) | [ ] |
+| Ev. kallstarts-heuristik för VM / session | delvis |
+
+Tier-modell (preflight / dev / build) och förenklad fasöversikt finns i [`preview-deploy.md`](../../architecture/preview-deploy.md) under **Begrepp**.
 
 ---
 
-## 5. K-018 — öppna delmoment (spaltlista)
-
-| # | Brist | Status |
-|---|--------|--------|
-| K18-1 | Env-merge → `.env.local`, placeholders, `projectEnvVars` | delvis [x] |
-| K18-2 | Sandbox primär preview; shim fallback; `filesJson`→sandbox; readiness probe; `previewBlocked` gate; SSE `sandboxPending` + shim `demoUrl` | delvis [x] |
-| K18-3 | UI: tydlig shim ↔ runtime ↔ build utan intern plattformslista | delvis [x] |
-| K18-4 | VM-återanvändning / plattforms-SDK / Redis session | delvis [x]; kvar: kall start-heuristik |
-| K18-5 | Fas 3: adapters / degraded preview (SQLite, preview-mail, demo-auth, …) | [ ] |
-| K18-6 | Fas 4: GitHub export (ej primär persistence) | [ ] |
-| K18-7 | Övrigt klart (merge, build i sandbox, SSE, session store, warmup, HTTP-status sandbox API, bootstrap retry, dep-merge på modell-`package.json`, …) | delvis [x]; rad [ ] tills produkt accepterar hela målbilden |
-
----
-
-## 6. K-018 — faser (översikt)
-
-| Fas | Innehåll |
-|-----|----------|
-| **1** | Env → `.env.local`, `npm install`, `npm run dev`; `npm run build` separat status |
-| **2** | Session-varm sandbox, idle ~30 min, cap ~2 h, Redis när finns |
-| **3** | Adapters / degraded preview för integrationer som behöver mer än placeholders |
-| **4** | GitHub som export |
-
----
-
-## 7. K-019 — öppna delmoment
+## 6. K-019 — öppna delmoment
 
 | # | Brist | Status |
 |---|--------|--------|
@@ -90,7 +77,7 @@
 
 ---
 
-## 8. Plan 17 — vad som återstår
+## 7. Plan 17 — vad som återstår
 
 **Levererat:** WS-1–WS-4 kärna, **WS-6** beslutad (D-ID `/avatar`, OpenClaw; Brave/Loopia optional).  
 **Kvar / deferred:**
@@ -109,32 +96,30 @@
 
 ---
 
-## 9. Hög konfliktrisk (undvik tung preview-refaktor + deploy i samma PR)
+## 8. Hög konfliktrisk (undvik tung preview-refaktor + deploy i samma PR)
 
 - `src/lib/integrations/registry.ts`, `src/lib/gen/detect-integrations.ts`
 - `config/env-policy.json`, deploy-API, `useBuilderDeployActions`, builder-copy kring env/409
 
-**Rekommenderad ordning:** en K-id per PR i konfliktzonen · K-019-polish när du redan rör stream/finalize · K-018 i små steg · Plan 17 doc/repo när preview-kedjan är lugn.
+**Rekommenderad ordning:** små PR:ar i konfliktzonen · K-019-polish när du redan rör stream/finalize · Plan 17 doc/repo när preview-kedjan är lugn.
 
 ---
 
-## 10. External review & remediation (historik)
+## 9. External review & remediation (historik)
 
-Grundspåret W1–W5 byggde på exportfiler **`.j_to_agent/1.txt`–`3.txt`** (extern granskning). De kan vara **borttagna** i din arbetskopia — återställ med `git show <commit>:.j_to_agent/1.txt` m.m. om du behöver originaltext.
-
-*Remediation exit* är levererad. Detaljerade %-tabeller, «Last code touch» och orchestrator-snapshots fanns i **`external-review-remediation-progress.md`** m.m. — **inte längre separata filer** i `active/`; återfinns i **git-historik** (`docs/plans/avklarat/`, äldre commits).
+Extern granskning och remediation är **införlivad** i kod och i [`preview-deploy.md`](../../architecture/preview-deploy.md) (§ Levererat). Detaljerade %-tabeller, orchestrator-körningar och gamla handoff-filer återfinns i **git-historik** (`docs/plans/avklarat/`, äldre commits) — inga separata aktiva kördokument med gamla plan-ID:n.
 
 ---
 
-## 11. Beslut att minnas
+## 10. Beslut att minnas
 
 - **Own-engine** default; **v0 SDK / mall-API** medvetet **separata** spår.  
 - **Vercel-templates** (research) ≠ **v0-templates** (builder gallery) — se `terminology.mdc`.  
-- **ENV-städ** efter att K-018/K-019 stabiliserats.
+- **ENV-städ** periodiskt när K-019 / Plan 17-punkter rör env-policy.
 
 ---
 
-## 12. Git- och agentrutin
+## 11. Git- och agentrutin
 
 - Före `git push`: `git fetch` && `git pull` (rebase om ni kör så).  
 - Om `.cursor/agent-intents/BOARD.md` finns: läs `active`-rader; stage:a bara din sessions filer.  
@@ -142,8 +127,8 @@ Grundspåret W1–W5 byggde på exportfiler **`.j_to_agent/1.txt`–`3.txt`** (e
 
 ---
 
-## 13. Relaterat (utan extra planfiler)
+## 12. Relaterat
 
 - Nav i `docs/`: [`docs/README.md`](../../README.md)  
-- Kritikfiler / repro: [`.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md`](../../../.j_to_agent/structure_bugs_and_parralells/kritik/KRITIK-OVERVIEW.md)  
-- Arkiverade kritik-snapshots: [`.j_to_agent/archive/kritik-addressed/`](../../../.j_to_agent/archive/kritik-addressed/README.md)
+- Preview / sandbox (kanon): [`docs/architecture/preview-deploy.md`](../../architecture/preview-deploy.md)  
+- Agentflöden: [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md)

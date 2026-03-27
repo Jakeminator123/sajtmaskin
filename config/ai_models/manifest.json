@@ -165,7 +165,7 @@
     "envFragmentFile": "40-generated-site-integration-placeholders.env.txt",
     "policyDocRelativeToConfig": "user_degraded_env.txt",
     "preGenerationContractsEntry": "src/lib/gen/pre-generation-contracts.ts",
-    "notes": "Targets generated user Next.js apps (preview/sandbox), not Sajtmaskin. Merge envFragmentFile into .env.local for optional integrations so build/dev often succeeds. Never use these values in production. Sajtmaskin does not auto-inject into preview/sandbox yet (intentional); use readGeneratedSitePlaceholdersEnvText() / load-generated-site-placeholders.ts from Node when wiring sandbox, MCP, or scripts."
+    "notes": "Targets generated user Next.js apps, not Sajtmaskin app env. When startSandboxPreview runs, sandbox-env-local.ts merges envFragmentFile into .env.local with project preview tokens, stored project env, then generated .env.local (later wins). Tier-1 shim and MCP generate-site sandbox (createSandboxRuntimeFromFiles) skip this merge. Never use placeholder values in production. Loader: readGeneratedSitePlaceholdersEnvText in load-generated-site-placeholders.ts."
   },
   "workloads": [
     {

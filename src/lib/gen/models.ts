@@ -7,6 +7,10 @@ export const DEFAULT_MODEL = DEFAULT_OWN_MODEL_ID;
 
 const ANTHROPIC_PREFIX_RE = /^claude-/;
 
+export function isAnthropicModel(id: string): boolean {
+  return ANTHROPIC_PREFIX_RE.test(id);
+}
+
 /**
  * Returns an AI SDK LanguageModel for code generation.
  * OpenAI models use OPENAI_API_KEY directly.

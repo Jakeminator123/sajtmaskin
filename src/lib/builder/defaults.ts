@@ -57,13 +57,15 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "max",
     label: "Tanker",
-    description: "Stor/dyrare profil. GPT-5.4 för komplexare jobb och mer resonemang.",
+    description:
+      "GPT-5.4 — resonemang/thinking som standard i strömmen (inte samma profil som «Kod Max»/codex nedan).",
     hint: "dyr",
   },
   {
     value: "codex",
     label: "Kod Max",
-    description: "Specialiserad kodprofil. GPT-5.1 Codex Max för längre och tyngre kodarbete.",
+    description:
+      "Separat tung kodmodell (gpt-5.1-codex-max). Använd när du uttryckligen vill codex-varianten — vardagsläge för stark modell är «Tanker» ovan.",
   },
   {
     value: "anthropic",

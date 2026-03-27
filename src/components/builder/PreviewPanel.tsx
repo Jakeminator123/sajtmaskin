@@ -330,7 +330,7 @@ interface PreviewPanelProps {
   chatId: string | null;
   versionId: string | null;
   demoUrl: string | null;
-  /** Tier 1 + tier 2 URLs stored on the active version (K-018 / K18-2). */
+  /** Tier 1 + tier 2 URLs stored on the active version — se `docs/architecture/preview-deploy.md`. */
   alternatePreviewUrls?: { shimUrl: string | null; sandboxUrl: string | null };
   onNavigatePreviewUrl?: (url: string) => void;
   isLoading?: boolean;
@@ -2320,6 +2320,8 @@ export function PreviewPanel({
   const isV0Preview = Boolean(
     demoUrl && !isOwnEnginePreview && demoUrl.includes("vusercontent.net"),
   );
+  /** True när versionen har en sandbox-URL sparad — då kan användaren byta till live-preview. */
+  const sandboxUrlPresent = Boolean(alternatePreviewUrls?.sandboxUrl?.trim());
   const surfaceDescriptor = useMemo(() => {
     if (viewMode === "registry") {
       return {
@@ -2338,19 +2340,28 @@ export function PreviewPanel({
       };
     }
     if (isOwnEnginePreview) {
+      if (!sandboxUrlPresent) {
+        return {
+          label: "Förhandsvisning",
+          detail:
+            "Målet är att din sajt automatiskt visas med Next.js i live-preview när sandbox är redo. Om du fastnar i den här vyn: kolla Agentloggen och bygg-/kvalitetsfel, samt att miljö för Vercel Sandbox är satt (docs/ENV.md i repot).",
+          className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
+          badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
+        };
+      }
       return {
-        label: "Statisk preview (shim)",
+        label: "Förhandsvisning",
         detail:
-          "Tier 1: snabb approximation via /api/preview-render (inte full Next-server). Primär live-preview är sandbox (tier 2) när den lyckas.",
+          "Snabb förhandsvisning. Live-preview med Next.js finns också för denna version — använd knappen nedan om du vill byta.",
         className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
         badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
       };
     }
     if (isSandboxPreview) {
       return {
-        label: "Live preview (sandbox)",
+        label: "Live-preview",
         detail:
-          "Tier 2: genererad sajt körs med npm install + npm run dev i isolerad miljö — närmare riktig Next dev än shim.",
+          "Din genererade sajt körs här med Next.js (motsvarar npm run dev) i en isolerad miljö.",
         className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
         badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
       };
@@ -2370,7 +2381,7 @@ export function PreviewPanel({
       className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
       badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
     };
-  }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview]);
+  }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview, sandboxUrlPresent]);
 
   const alternatePreviewBanner = useMemo(() => {
     if (!demoUrl || !alternatePreviewUrls) return null;
@@ -2463,7 +2474,7 @@ export function PreviewPanel({
     demoUrl && imageGenerationsEnabled && !imageGenerationsSupported,
   );
   const showBlobConfigWarning = Boolean(demoUrl && imageGenerationsEnabled && !isBlobConfigured);
-  /** Tier 2: one user-facing strip for media/env limits (K-018 / K18-3) — no env-var name dump. */
+  /** Tier 2: one user-facing strip for media/env limits — no env-var name dump (`preview-deploy.md`). */
   const showSandboxUnifiedStrip = Boolean(
     !isCodeView &&
       demoUrl &&
@@ -2499,22 +2510,22 @@ export function PreviewPanel({
           <Badge variant="outline" className={surfaceDescriptor.badgeClassName}>
             {surfaceDescriptor.label}
           </Badge>
-          {isOwnEnginePreview ? (
+          {isOwnEnginePreview && !sandboxUrlPresent ? (
             <Badge
               variant="outline"
-              className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
-              title="Tier 1: statisk/snabb förhandsvisning. Om sandbox misslyckades kan du se denna tillsammans med ett felmeddelande."
+              className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
+              title="Live-preview med Next.js i sandbox är inte tillgänglig än — ofta miljö, npm install eller byggfel."
             >
-              Tier 1 · Shim
+              Live-preview väntar
             </Badge>
           ) : null}
           {demoUrl && isSandboxPreview && !isOwnEnginePreview ? (
             <Badge
               variant="outline"
-              className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
-              title="Tier 2: riktig Next dev-server i Vercel Sandbox (npm run dev). Närmare din app än shim."
+              className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
+              title="Next.js körs i sandbox — motsvarar lokal utveckling."
             >
-              Tier 2 · Sandbox
+              Next.js
             </Badge>
           ) : null}
         </div>
@@ -2616,8 +2627,8 @@ export function PreviewPanel({
         <div className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-300">
           <span>
             {alternatePreviewBanner.offerShim
-              ? "Statisk preview (tier 1) finns också för samma version."
-              : "Live preview i sandbox (tier 2) finns också för samma version."}
+              ? "En snabb förhandsvisning finns också för samma version."
+              : "Live-preview med Next.js finns också för samma version."}
           </span>
           <Button
             type="button"
@@ -2708,10 +2719,9 @@ export function PreviewPanel({
       )}
       {showSandboxUnifiedStrip ? (
         <div className="border-b border-amber-900/45 bg-amber-950/30 px-4 py-2 text-xs text-amber-100">
-          <p className="font-medium text-amber-50">Live-preview (tier 2)</p>
+          <p className="font-medium text-amber-50">Live-preview (Next.js)</p>
           <p className="mt-1 text-amber-100/90">
-            En riktig Next.js dev-server för din genererade kod. I den här miljön kan följande
-            gälla:
+            Din genererade kod körs med Next.js i den här miljön. Följande kan fortfarande gälla:
           </p>
           <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-amber-100/85">
             {(showBlobWarning || showBlobConfigWarning) && (

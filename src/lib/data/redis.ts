@@ -33,7 +33,7 @@
  * Preview Cache:
  *   {prefix}preview:{templateId}        → CachedPreview JSON (TTL: 24 hours)
  *
- * Sandbox preview session (K-018, optional cross-instance reuse):
+ * Sandbox preview session (optional cross-instance reuse; `docs/architecture/preview-deploy.md`):
  *   {prefix}sandbox-preview:session:{chatId} → SandboxSessionEntry JSON (TTL: hard-cap, ~2 h)
  */
 

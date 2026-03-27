@@ -56,7 +56,7 @@ export type SandboxBuildVerification = {
   logSnippet: string;
 };
 
-/** How the sandbox combines Next dev server and `npm run build`. See `docs/architecture/preview-deploy.md` (detalj: arkiv `preview-fidelity-tiers.md`). */
+/** How the sandbox combines Next dev server and `npm run build`. Se `docs/architecture/preview-deploy.md` § Begrepp. */
 export type SandboxPreviewMode = "dev_only" | "build_only" | "dev_then_build";
 
 const SANDBOX_PREVIEW_MODE_VALUES = new Set<SandboxPreviewMode>([
