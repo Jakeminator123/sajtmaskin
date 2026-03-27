@@ -61,6 +61,20 @@ describe("inferPreGenerationContracts — UI answers", () => {
     expect(ctx.contracts.envVars.every((e) => !e.required)).toBe(true);
   });
 
+  it("inferred Stripe env uses NEXT_PUBLIC_ prefix for the publishable key", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Build a Stripe checkout page",
+      buildIntent: "website",
+      capabilities: baseCaps({ needsEcommerce: true }),
+    });
+
+    const stripeKeys = ctx.contracts.envVars
+      .filter((e) => e.key.includes("STRIPE"))
+      .map((e) => e.key);
+    expect(stripeKeys).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+    expect(stripeKeys).not.toContain("STRIPE_PUBLISHABLE_KEY");
+  });
+
   it("does not add an env blocker after a provider answer in persisted preview flows", () => {
     const ctx = inferPreGenerationContracts({
       prompt: "Bygg en medlemsportal med inloggning och databas för kunder",

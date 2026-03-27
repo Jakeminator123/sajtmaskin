@@ -30,10 +30,17 @@ Dokumentstädning:
 - Historiska v0-filer togs bort: docs/handoffs/v0-fasning-och-forenkling.md, docs/handoffs/gpt-external-review.txt och docs/architecture/v0-platform-sunset-audit.md.
 - Kvarvarande handoff-filer pekar nu till aktiva arkitektur-/handoff-dokument i stallet for borttagna historikfiler.
 
-Kontraktsforenkling / integrationer:
-- `inferPreGenerationContracts` stoppar inte langre pa `env` i preview-forst-flodet, inte ens nar en provider bekraftats i ett persisterat appfall.
-- `buildContractClarificationQuestion` returnerar `null` for env-only unresolved decisions, sa API-nycklar blockerar inte forsta generationen.
-- Verifierat med `npm run test:ci -- src/lib/gen/pre-generation-contracts.test.ts src/lib/gen/contract-clarification.test.ts src/lib/gen/sandbox-env-local.test.ts src/lib/integrations/integration-manifest.test.ts` -> 4 testfiler, 24 tester, allt passerade.
+Kontraktsforenkling / integrationer (del 4):
+- `buildContractClarificationQuestion` har nu `previewFirst`-parameter (default `true`) — returnerar `null` direkt i sandbox/preview-flodet. Blockering bara vid explicit `previewFirst: false` (produktion).
+- `inferPreGenerationContracts` invariant: `unresolvedDecisions` alltid tom i default-flode; dokumenterat i JSDoc.
+- Stripe env: fixat mismatch `STRIPE_PUBLISHABLE_KEY` -> `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` i registry och PROVIDER_RULES for paritet med placeholder-filen.
+- Generated-site env konsoliderat: `loadPlaceholderRecord` + `formatDotenvBody` exporteras fran `sandbox-env-local.ts`; `project-scaffold.ts` importerar dessa istallet for att duplicera logik. Lazy import av `project-env-vars` undviker transitiv DB-laddning.
+- MCP/own-engine sandbox (`generateOwnEngineSiteFromPrompt`) anvander nu `buildSandboxEnvLocalContents` — samma env-merge som builder-sandbox; Fidelity 2-paritet sakerstelld.
+- `registry-parity.test.ts`: ny test att core registry envVars ar tackta i placeholder-filen.
+- `pre-generation-contracts.test.ts`: ny test att infererade Stripe-env anvander NEXT_PUBLIC_ prefix.
+- `contract-clarification.test.ts`: tva nya tester — previewFirst=true (default) returnerar null; previewFirst=false med auth blockerar.
+- Verifierat med `npx vitest run src/lib/gen/pre-generation-contracts.test.ts src/lib/gen/contract-clarification.test.ts src/lib/gen/sandbox-env-local.test.ts src/lib/gen/project-scaffold.test.ts src/lib/integrations/integration-manifest.test.ts src/lib/integrations/registry-parity.test.ts` -> 6 testfiler, 34 tester, allt passerade.
+- `npx tsc --noEmit` -> rent (exit 0).
 
 Autofix / quality-gate hardening:
 - `dep-completer` ar synkad med baseline for `zod` (nu `^4`) och har regressions-test mot `project-scaffold.ts` PACKAGE_JSON.

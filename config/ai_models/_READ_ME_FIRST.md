@@ -18,8 +18,8 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
 
 - **Nav:** håll `config/ai_models/manifest.json` som nav när **provider → env-nycklar** flyttas eller struktureras om ur `PROVIDER_RULES` i `src/lib/gen/pre-generation-contracts.ts`. Använd manifest + `generatedSiteIntegrationPlaceholders` (och vid behov en **generator** som läser `workloads` + den blocken) så ni inte får en **tredje osynkad lista** bredvid kod och JSON.
 - **Idag:** `PROVIDER_RULES` är fortfarande källan för kontraktsfrågor i genereringen; manifestet beskriver workloads och pekar in placeholder-filen för överblick och framtida inkoppling.
-- **Sandbox (Tier 2) via builder:** `startSandboxPreview` bygger **`.env.local`** med `buildSandboxEnvLocalContents` (`src/lib/gen/sandbox-env-local.ts`): globala placeholders från `40-…env.txt`, projekt-preview-token (`sandbox-project-preview-env.ts`), lagrade projekt-env, sist innehåll från genererad `.env.local` om modellen skrev en — **senare lager vinner**. Loader: `readGeneratedSitePlaceholdersEnvText()` i `load-generated-site-placeholders.ts`.
-- **Utanför den kedjan:** Tier-1 shim, MCP `generate-site`→sandbox, och script som bara läser filen manuellt — **ingen** automatisk merge från denna pipeline.
+- **Sandbox (Tier 2):** Både `startSandboxPreview` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) bygger **`.env.local`** med `buildSandboxEnvLocalContents` (`src/lib/gen/sandbox-env-local.ts`): globala placeholders från `40-…env.txt`, projekt-preview-token (`sandbox-project-preview-env.ts`), lagrade projekt-env, sist innehåll från genererad `.env.local` om modellen skrev en — **senare lager vinner**. Loader: `readGeneratedSitePlaceholdersEnvText()` i `load-generated-site-placeholders.ts`.
+- **Utanför den kedjan:** Tier-1 shim och script som bara läser filen manuellt — **ingen** automatisk merge från denna pipeline.
 
 ## Viktiga regler
 

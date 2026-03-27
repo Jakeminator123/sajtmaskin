@@ -1,11 +1,8 @@
 import fs from "node:fs";
 import nodePath from "node:path";
-import {
-  parseGeneratedSitePlaceholderLines,
-  readGeneratedSitePlaceholdersEnvText,
-} from "@/lib/ai-models/load-generated-site-placeholders";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
+import { loadPlaceholderRecord, formatDotenvBody } from "./sandbox-env-local";
 
 /**
  * Download/export scaffold.
@@ -265,22 +262,6 @@ const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for 
 # Same keys as sandbox preview; override with real values when deploying.
 `;
 
-function quoteEnvValue(val: string): string {
-  if (val === "") return '""';
-  if (/[\s#"'\\]/.test(val) || val.includes("\n")) {
-    return `"${val
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, "\\n")}"`;
-  }
-  return val;
-}
-
-function formatDotenvRecord(vars: Record<string, string>): string {
-  const keys = Object.keys(vars).sort((a, b) => a.localeCompare(b));
-  return keys.map((k) => `${k}=${quoteEnvValue(vars[k] ?? "")}`).join("\n");
-}
-
 /**
  * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
  * and core tooling survive thin LLM output (zip export / sandbox use the same merge).
@@ -308,15 +289,10 @@ export function mergePackageJsonWithBaseline(
 
 function buildPlaceholderEnvLocalBody(): string | null {
   try {
-    const text = readGeneratedSitePlaceholdersEnvText();
-    const lines = parseGeneratedSitePlaceholderLines(text);
-    const record = Object.fromEntries(lines.map((x) => [x.key, x.value]));
-    return `${GENERATED_ENV_LOCAL_HEADER}\n${formatDotenvRecord(record)}\n`;
-  } catch (err) {
-    console.warn(
-      "[project-scaffold] Could not load generated-site placeholders for .env.local:",
-      err instanceof Error ? err.message : err,
-    );
+    const record = loadPlaceholderRecord();
+    if (Object.keys(record).length === 0) return null;
+    return `${GENERATED_ENV_LOCAL_HEADER}\n${formatDotenvBody(record)}\n`;
+  } catch {
     return null;
   }
 }

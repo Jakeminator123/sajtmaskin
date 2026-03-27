@@ -105,7 +105,7 @@ const PROVIDER_RULES: ProviderRule[] = [
     kind: "payment",
     provider: "Stripe",
     name: "Stripe",
-    envVars: ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY"],
+    envVars: ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
     patterns: [/\bstripe\b|\bcheckout\b|\bsubscription\b|\bbilling\b/i],
     reason: "Prompten pekar på checkout, subscription eller Stripe.",
   },
@@ -602,6 +602,14 @@ function applyConfirmedAnswers(
   }
 }
 
+/**
+ * Infer pre-generation contracts from prompt, brief, and capabilities.
+ *
+ * **Invariant (preview-first):** `unresolvedDecisions` is always returned empty
+ * for the default flow — defaults (SQLite, NextAuth Credentials, Stripe test)
+ * are applied automatically.  `buildContractClarificationQuestion` guards the
+ * gate with `previewFirst` so first generation never blocks on missing env.
+ */
 export function inferPreGenerationContracts(params: {
   prompt: string;
   buildIntent: BuildIntent;

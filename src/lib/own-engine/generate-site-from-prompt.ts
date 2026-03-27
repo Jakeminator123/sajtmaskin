@@ -14,6 +14,7 @@ import {
   buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
 } from "@/lib/mcp/runtime-url";
+import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox-env-local";
 
 export type GenerateOwnEngineSiteFromPromptParams = {
   prompt: string;
@@ -255,6 +256,19 @@ export async function generateOwnEngineSiteFromPrompt(
   let ports: number[] | undefined;
 
   if (runtimeMode === "sandbox") {
+    const envLocalPath = ".env.local";
+    const envIdx = runtimeFiles.findIndex((f) => f.name === envLocalPath);
+    let priorEnvLocal: string | null = null;
+    if (envIdx >= 0) {
+      priorEnvLocal = runtimeFiles[envIdx]!.content;
+      runtimeFiles.splice(envIdx, 1);
+    }
+    const envBody = await buildSandboxEnvLocalContents({
+      appProjectId: projectId,
+      generatedEnvLocal: priorEnvLocal,
+    });
+    runtimeFiles.push({ name: envLocalPath, content: envBody });
+
     const sandboxRuntime = await createSandboxRuntimeFromFiles(
       runtimeFiles,
       params.sandbox,

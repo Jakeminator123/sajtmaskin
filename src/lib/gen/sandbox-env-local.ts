@@ -10,7 +10,6 @@ import {
   parseGeneratedSitePlaceholderLines,
   readGeneratedSitePlaceholdersEnvText,
 } from "@/lib/ai-models/load-generated-site-placeholders";
-import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import { buildProjectPreviewPlaceholderRecord } from "@/lib/gen/sandbox-project-preview-env";
 
 const FILE_HEADER = `# Sajtmaskin sandbox preview — merged env (global → project preview → user project → generated)
@@ -49,12 +48,13 @@ function quoteEnvValue(val: string): string {
   return val;
 }
 
-function formatDotenvBody(vars: Record<string, string>): string {
+export function formatDotenvBody(vars: Record<string, string>): string {
   const keys = Object.keys(vars).sort((a, b) => a.localeCompare(b));
   return keys.map((k) => `${k}=${quoteEnvValue(vars[k] ?? "")}`).join("\n");
 }
 
-function loadPlaceholderRecord(): Record<string, string> {
+/** Load global integration placeholders as a flat record. Canonical source for all env-merge consumers. */
+export function loadPlaceholderRecord(): Record<string, string> {
   try {
     const text = readGeneratedSitePlaceholdersEnvText();
     return Object.fromEntries(
@@ -91,6 +91,7 @@ export async function buildSandboxEnvLocalContents(params: {
   const pid = typeof params.appProjectId === "string" ? params.appProjectId.trim() : "";
   if (pid) {
     try {
+      const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
       project = await getStoredProjectEnvVarMap(pid);
     } catch (err) {
       console.warn(
