@@ -3,7 +3,7 @@ import { buildContractClarificationQuestion } from "./contract-clarification";
 import type { PreGenerationContractContext } from "./pre-generation-contracts";
 
 describe("buildContractClarificationQuestion", () => {
-  it("returns env clarification when only env decisions are unresolved", () => {
+  it("does not block on env-only unresolved decisions", () => {
     const context: PreGenerationContractContext = {
       contracts: {
         dataMode: "none",
@@ -19,8 +19,6 @@ describe("buildContractClarificationQuestion", () => {
       context,
     });
 
-    expect(q).not.toBeNull();
-    expect(q?.kind).toBe("env");
-    expect(q?.question).toContain("miljövariabler");
+    expect(q).toBeNull();
   });
 });

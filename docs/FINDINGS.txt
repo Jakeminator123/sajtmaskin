@@ -29,3 +29,8 @@ OpenClaw:
 Dokumentstädning:
 - Historiska v0-filer togs bort: docs/handoffs/v0-fasning-och-forenkling.md, docs/handoffs/gpt-external-review.txt och docs/architecture/v0-platform-sunset-audit.md.
 - Kvarvarande handoff-filer pekar nu till aktiva arkitektur-/handoff-dokument i stallet for borttagna historikfiler.
+
+Kontraktsforenkling / integrationer:
+- `inferPreGenerationContracts` stoppar inte langre pa `env` i preview-forst-flodet, inte ens nar en provider bekraftats i ett persisterat appfall.
+- `buildContractClarificationQuestion` returnerar `null` for env-only unresolved decisions, sa API-nycklar blockerar inte forsta generationen.
+- Verifierat med `npm run test:ci -- src/lib/gen/pre-generation-contracts.test.ts src/lib/gen/contract-clarification.test.ts src/lib/gen/sandbox-env-local.test.ts src/lib/integrations/integration-manifest.test.ts` -> 4 testfiler, 24 tester, allt passerade.

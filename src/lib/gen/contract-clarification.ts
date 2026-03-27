@@ -91,21 +91,7 @@ export function buildContractClarificationQuestion(params: {
   }
 
   if (hasUnresolved(context, "env")) {
-    const envReason =
-      context.unresolvedDecisions.find((d) => d.kind === "env")?.reason ??
-      "Miljövariabler behövs för valda integrationer.";
-    return {
-      kind: "env",
-      question:
-        "Hur vill du hantera miljövariabler (API-nycklar) innan vi går vidare med generering?",
-      options: [
-        "Jag fyller i nycklar i projektpanelen nu",
-        "Fortsätt med mock / degraded preview först",
-        "Visa mig vilka nycklar som behövs",
-      ],
-      blocking: true,
-      reason: envReason,
-    };
+    return null;
   }
 
   return null;

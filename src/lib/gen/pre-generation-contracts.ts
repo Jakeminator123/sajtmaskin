@@ -669,31 +669,9 @@ export function inferPreGenerationContracts(params: {
 
   applyConfirmedAnswers(contractAnswers, contracts, unresolvedDecisions);
 
-  const answeredEnvStep = contractAnswers.some((c) => c.kind === "env" && asString(c.answer).length > 0);
-  const hasRequiredEnv = contracts.envVars.some((e) => e.required);
-  const databaseResolved =
-    Boolean(contracts.databaseProvider) &&
-    contracts.databaseProvider !== "unresolved" &&
-    contracts.databaseProvider !== "mock data";
-  const onlyDatabaseUrlEnv =
-    contracts.envVars.length > 0 && contracts.envVars.every((e) => e.key === "DATABASE_URL");
-  const skipEnvBecauseDatabaseUrlOnly =
-    databaseResolved && onlyDatabaseUrlEnv && contracts.integrations.length === 0;
-
-  if (
-    !answeredEnvStep &&
-    hasRequiredEnv &&
-    unresolvedDecisions.length === 0 &&
-    (contracts.dataMode === "persisted" || contracts.dataMode === "mixed") &&
-    !mentionsMockData(corpus) &&
-    !skipEnvBecauseDatabaseUrlOnly
-  ) {
-    unresolvedDecisions.push({
-      kind: "env",
-      reason:
-        "Valda integrationer kräver miljövariabler. Bekräfta om vi ska fortsätta med mock/degraded preview eller om du vill ange nycklar i projektpanelen först.",
-    });
-  }
+  // Preview/sandbox is the first delivery target: keep env requirements visible in
+  // `contracts.envVars`, but never stop first generation on missing keys. Placeholder
+  // `.env.local` + project env UI handles the handoff to production-grade config later.
 
   return {
     contracts,

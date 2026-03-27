@@ -61,6 +61,26 @@ describe("inferPreGenerationContracts — UI answers", () => {
     expect(ctx.contracts.envVars.every((e) => !e.required)).toBe(true);
   });
 
+  it("does not add an env blocker after a provider answer in persisted preview flows", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt: "Bygg en medlemsportal med inloggning och databas för kunder",
+      buildIntent: "app",
+      capabilities: baseCaps({ needsDatabase: true, needsAuth: true }),
+      contractAnswers: [
+        {
+          kind: "auth",
+          question: "Vilken autentisering?",
+          answer: "Clerk",
+        },
+      ],
+    });
+
+    expect(ctx.contracts.authProvider).toBe("Clerk");
+    expect(ctx.contracts.databaseProvider).toBe("SQLite");
+    expect(ctx.contracts.envVars.some((e) => e.key === "CLERK_SECRET_KEY" && e.required)).toBe(true);
+    expect(ctx.unresolvedDecisions.some((d) => d.kind === "env")).toBe(false);
+  });
+
   it("defaults to NextAuth/Auth.js (no modal) when login is needed but no provider named", () => {
     const ctx = inferPreGenerationContracts({
       prompt: "Bygg med inloggning för användare",
