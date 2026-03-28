@@ -4,7 +4,12 @@ import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { createDraftVersion } from "@/lib/db/chat-repository-pg";
+import {
+  createDraftVersion,
+  markVersionRepairing,
+  promoteVersion,
+  failVersionVerification,
+} from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
@@ -118,6 +123,12 @@ export async function POST(
       );
     }
 
+    if (dbConfigured) {
+      await markVersionRepairing(internalVersionId).catch((err) => {
+        console.warn("[repair] Failed to mark version repairing:", err);
+      });
+    }
+
     const exportable = buildExportableProject(codeFiles);
     let content = filesToCodeProject(exportable);
 
@@ -141,6 +152,12 @@ export async function POST(
       if (dbConfigured) {
         const version = await createDraftVersion(chatId, null, filesJson);
         newVersionId = version.id;
+        await promoteVersion(
+          newVersionId,
+          "Server repair succeeded (deterministic).",
+        ).catch((err) => {
+          console.warn("[repair] Failed to promote repaired version:", err);
+        });
       }
       logRepair(chatId, internalVersionId, "deterministic", true, 0);
       return NextResponse.json({
@@ -155,6 +172,14 @@ export async function POST(
     const hasErrorContext =
       gateFailures.length > 0 || syntaxResult.errors.length > 0;
     if (!hasErrorContext) {
+      if (dbConfigured) {
+        await failVersionVerification(
+          internalVersionId,
+          "Repair attempted but no actionable error context available.",
+        ).catch((err) => {
+          console.warn("[repair] Failed to mark version failed (no context):", err);
+        });
+      }
       return NextResponse.json({
         repaired: false,
         deterministic: false,
@@ -206,11 +231,22 @@ export async function POST(
     let newVersionId: string | null = null;
     const improvedSyntax = bestErrorCount < initialSyntaxErrorCount;
 
-    // Only persist a new draft when the route can confidently claim success.
-    // Partial server-side improvements are not yet surfaced cleanly in the UI.
     if (dbConfigured && repaired) {
       const version = await createDraftVersion(chatId, null, filesJson);
       newVersionId = version.id;
+      await promoteVersion(
+        newVersionId,
+        "Server repair succeeded (LLM).",
+      ).catch((err) => {
+        console.warn("[repair] Failed to promote repaired version:", err);
+      });
+    } else if (dbConfigured) {
+      await failVersionVerification(
+        internalVersionId,
+        `Server repair incomplete (${bestErrorCount} errors remain).`,
+      ).catch((err) => {
+        console.warn("[repair] Failed to mark version failed after repair:", err);
+      });
     }
 
     logRepair(

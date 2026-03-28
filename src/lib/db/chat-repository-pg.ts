@@ -387,6 +387,25 @@ export async function markVersionVerifying(
   return getStoredVersion(versionId);
 }
 
+export async function markVersionRepairing(
+  versionId: string,
+  verificationSummary: string | null = "Server-side repair in progress.",
+): Promise<Version | null> {
+  const result = await db
+    .update(engineVersions)
+    .set({
+      releaseState: "draft",
+      verificationState: "repairing",
+      verificationSummary,
+      promotedAt: null,
+    })
+    .where(eq(engineVersions.id, versionId));
+  if ((result.rowCount ?? 0) === 0) {
+    return null;
+  }
+  return getStoredVersion(versionId);
+}
+
 export async function promoteVersion(
   versionId: string,
   verificationSummary: string | null = "Automatic verification passed.",

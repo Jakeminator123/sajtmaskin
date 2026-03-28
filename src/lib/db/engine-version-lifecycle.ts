@@ -4,6 +4,7 @@ export type EngineVersionReleaseState = (typeof ENGINE_VERSION_RELEASE_STATES)[n
 export const ENGINE_VERSION_VERIFICATION_STATES = [
   "pending",
   "verifying",
+  "repairing",
   "passed",
   "failed",
 ] as const;
@@ -20,7 +21,7 @@ export type EngineVersionLifecycleLike = {
   verification_state?: string | null;
 };
 
-export type EngineVersionLifecycleStatus = "draft" | "verifying" | "failed" | "promoted";
+export type EngineVersionLifecycleStatus = "draft" | "verifying" | "repairing" | "failed" | "promoted";
 
 export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
 
@@ -50,6 +51,9 @@ export function resolveEngineVersionLifecycleStatus(
   }
   if (verificationState === "pending" || verificationState === "verifying") {
     return "verifying";
+  }
+  if (verificationState === "repairing") {
+    return "repairing";
   }
   if (verificationState === "failed") {
     return "failed";

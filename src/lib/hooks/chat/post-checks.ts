@@ -413,10 +413,10 @@ async function runSandboxQualityGate(params: {
   }
 }
 
-function isServerRepairEnabled(): boolean {
+function isServerRepairDisabled(): boolean {
   try {
     return typeof window !== "undefined" &&
-      (window as unknown as Record<string, unknown>).__SAJTMASKIN_SERVER_REPAIR__ === true;
+      (window as unknown as Record<string, unknown>).__SAJTMASKIN_SKIP_SERVER_REPAIR__ === true;
   } catch {
     return false;
   }
@@ -434,7 +434,7 @@ async function tryServerRepair(
   versionId: string,
   repair: RepairContext,
 ): Promise<ServerRepairResult | null> {
-  if (!isServerRepairEnabled()) return null;
+  if (isServerRepairDisabled()) return null;
   try {
     const res = await fetch(
       `/api/v0/chats/${encodeURIComponent(chatId)}/repair`,

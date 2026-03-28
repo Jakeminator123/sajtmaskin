@@ -508,23 +508,27 @@ export function VersionHistory({
                 ? "Promoted"
                 : lifecycleStatus === "verifying"
                   ? "Verifying"
-                  : lifecycleStatus === "retrying"
-                    ? "Omtag"
-                    : lifecycleStatus === "failed"
-                      ? "Fel"
-                      : "Draft";
+                  : lifecycleStatus === "repairing"
+                    ? "Repairing"
+                    : lifecycleStatus === "retrying"
+                      ? "Omtag"
+                      : lifecycleStatus === "failed"
+                        ? "Fel"
+                        : "Draft";
             const lifecycleBadgeVariant =
               lifecycleStatus === "failed"
                 ? "destructive"
                 : lifecycleStatus === "promoted"
                   ? "default"
-                  : lifecycleStatus === "retrying"
+                  : lifecycleStatus === "retrying" || lifecycleStatus === "repairing"
                     ? "outline"
                     : "secondary";
             const lifecycleBadgeClassName =
               lifecycleStatus === "retrying"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                : undefined;
+                : lifecycleStatus === "repairing"
+                  ? "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300"
+                  : undefined;
             const qualityTier = resolveQualityTier(
               {
                 releaseState: version.releaseState,
@@ -588,7 +592,7 @@ export function VersionHistory({
                           variant={lifecycleBadgeVariant}
                           className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadgeClassName)}
                         >
-                          {lifecycleStatus === "verifying" && (
+                          {(lifecycleStatus === "verifying" || lifecycleStatus === "repairing") && (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           )}
                           {lifecycleStatus === "retrying" && <RotateCcw className="h-3 w-3" />}

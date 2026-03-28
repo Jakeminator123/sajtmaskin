@@ -20,6 +20,7 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { shouldRunOwnEngineSandbox } from "@/lib/gen/own-engine-sandbox-gate";
 import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
 import { buildOwnEnginePreviewRuntime, isSandboxConfigured } from "@/lib/mcp/runtime-url";
+import { isServerVerifyEligible, triggerServerVerification } from "@/lib/gen/server-verify";
 
 type UrlMap = Record<string, string>;
 
@@ -385,6 +386,19 @@ export function createOwnEngineGenerationStream(
               ),
             );
           }
+        }
+
+        if (
+          isServerVerifyEligible(finalized.version.id) &&
+          !finalized.preflight.previewBlocked &&
+          !finalized.preflight.verificationBlocked
+        ) {
+          triggerServerVerification({
+            chatId,
+            versionId: finalized.version.id,
+          }).catch((err) => {
+            console.warn("[engine] Background server verification failed:", err);
+          });
         }
       };
 
