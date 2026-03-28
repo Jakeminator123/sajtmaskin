@@ -84,13 +84,16 @@ Tier-modell (preflight / dev / build) och förenklad fasöversikt finns i [`prev
 
 | # | Punkt | Status |
 |---|--------|--------|
-| P17-1 | v0 SDK (`src/lib/v0.ts`) medvetet kvar | policy [ ] medvetet separat |
-| P17-2 | `V0_API_KEY` i required env | samma |
+| P17-1 | v0 SDK (`src/lib/v0.ts`) | [x] borttagen |
+| P17-2 | `V0_API_KEY` i required env | [x] borttagen ur runtime |
 | P17-3 | Rensa `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` ur schema när policy klar | [ ] |
 | P17-4 | `ENV.md` + `env-policy.json` i synk | doc [ ] låg prio |
 | P17-5 | Stora JSON → `.gitignore` / LFS / build-time | repo [ ] |
 | P17-6 | `research/`-policy | delvis [x] — se `research/README.md` |
 | P17-7 | `docs/old/` flytt | [x] |
+| P17-8 | Naming debt: `v0ChatId`, `v0ProjectId`, `v0_*` DB-fält, `/api/v0/`-prefix | deferred — intern naming rensas löpande; payload-/DB-kontrakt bryts inte utan migrationsplan |
+| P17-9 | Root-verktyg till `scripts/env/` och `scripts/manual/` | [x] — wrappers i roten |
+| P17-10 | Shadcn-moduler grupperade under `src/lib/shadcn/` | [x] — re-exporter |
 
 **Skilj på:** *external-review remediation 100%* (historisk våg) vs *Plan 17* (arkitektur/städ) — båda kan vara «klara» i olika bemärkelser.
 
@@ -113,7 +116,8 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 
 ## 10. Beslut att minnas
 
-- **Own-engine** default; **v0 SDK / mall-API** medvetet **separata** spår.  
+- **Own-engine** default och enda codegen-väg. `v0-sdk` och `V0_API_KEY` borttagna.  
+- **«v0» i repot** har tre distinkta betydelser: (1) API-versionering, (2) naming debt, (3) template-källa — se `terminology.mdc`.  
 - **Vercel-templates** (research) ≠ **v0-templates** (builder gallery) — se `terminology.mdc`.  
 - **ENV-städ** periodiskt när K-019 / Plan 17-punkter rör env-policy.
 

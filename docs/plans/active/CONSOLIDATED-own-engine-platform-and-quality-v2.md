@@ -5,9 +5,7 @@ overview: |
   och (2) LLM-/sandbox-kvalitet: verifieringsgrindar, lineage, visuell QA-förberedelse.
   Gemensamt ämne: samma end-to-end kedja — chatt → own-engine → finalize → sandbox → iframe.
 version: 2
-supersedes:
-  - .cursor/plans/llm-flöde_förbättringsplan_f0f48954.plan.md
-  - .cursor/plans/ta_bort_v0-plattform_259eff74.plan.md
+supersedes_history: LLM-flöde förbättringsplan + V0-plattform avvecklingsplan (borttagna; se git-historik)
 ---
 
 # Konsoliderad plan v2: Own-engine som plattform + kvalitet och spårbarhet
@@ -42,9 +40,9 @@ De två tidigare planerna berör **samma produktkedja** men olika dimensioner:
 - Lås in att team/agenter följer terminologi (V0-mapp vs SDK vs API vs HTTP v0).
 - Verifiera kedjan: **chat → POST stream → finalize → `startSandboxPreview` → `sandbox_url` → iframe**; dokumentera luckor om tier 2 uteblir (credentials, `previewBlocked`, gates, klient-sync — spår [`preview-deploy.md`](../../architecture/preview-deploy.md)).
 
-### A.1 Inventering `src/lib/v0/`
+### A.1 Inventering `src/lib/v0/` — AVKLARAT
 
-Klassificera filer: **A** V0 Platform (SDK-anrop), **B** neutral utility (flytta/omdöp, t.ex. `v0-url-parser`), **C** own-engine-relaterat felplacerat (flytta till `lib/gen` eller `lib/own-engine`).
+`src/lib/v0/`, `src/lib/v0.ts` och `v0-sdk` är borttagna. Kvarvarande `v0`-namn i repot är naming debt (symboler, DB-fält, payload-nycklar) — se `terminology.mdc` tre-kategori-modellen. Kontrakts- och DB-omdöpningar (t.ex. `v0ChatId`, `v0_*` kolumner) kräver migrationsplan och hör till en separat fas.
 
 ### A.2 HTTP-lager: stäng V0 API-vägar
 
@@ -56,9 +54,9 @@ Klassificera filer: **A** V0 Platform (SDK-anrop), **B** neutral utility (flytta
 
 - `api/template`, `api/download`, `api/v0/chats/init-registry`: ersätt med scaffold + `files_json` / DB eller avveckla tills ersättning finns.
 
-### A.4 Ta bort v0-sdk
+### A.4 Ta bort v0-sdk — AVKLARAT
 
-- När inga imports: ta bort `src/lib/v0.ts`, `v0-sdk` i `package.json`, `V0_API_KEY` från env/docs.
+`v0-sdk`, `src/lib/v0.ts` och `V0_API_KEY` är borttagna ur runtime (2026-03-27).
 
 ### A.5 Builder och klient
 
@@ -205,4 +203,4 @@ _Kvalitet / LLM_
 ## Historik
 
 - **v2 (denna fil):** Konsolidering av LLM-kvalitetsplan och V0/own-engine-plattformsplan.
-- Tidigare källor: `.cursor/plans/llm-flöde_förbättringsplan_f0f48954.plan.md`, `.cursor/plans/ta_bort_v0-plattform_259eff74.plan.md` — kan arkiveras till `docs/plans/avklarat/` när v2 ersätter dem operativt.
+- Tidigare källor borttagna (LLM-flöde förbättringsplan, V0-plattform avvecklingsplan) — finns i git-historik.

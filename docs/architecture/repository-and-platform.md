@@ -27,17 +27,21 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 
 - **NPM**-skript: se rot `package.json` och [`scripts/README.md`](../../scripts/README.md).
 - **Hjälpverktyg utanför runtime** (doc-browser, m.m.): [`tools/README.md`](../../tools/README.md).
-- **Research-skript** (`hamta_sidor_branch_emil.py`, `vercel_template_cli.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
+- **Research-skript** (`scripts/hamta_sidor_branch_emil.py`, `scripts/manual/vercel_template_cli.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
+- **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`, `scripts/env/check_env.py`): root-wrappers finns kvar för bakåtkompatibilitet.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
 
 ## Kända fel och autofix
 
 Autofix-steg (use client, imports, metadata, esbuild, …): kod `src/lib/gen/autofix/`.
 
-## v0 — soft deprecation
+## v0 — tre kvarvarande betydelser
 
-- Own-engine är **enda** codegen-streamen.
-- HTTP-prefixet `/api/v0/` lever kvar som intern API-version, men generation, template-init och importfloden kör nu via own-engine.
+Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` är borttagna. Kvarvarande `v0` i repot faller i tre kategorier (detaljer: [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc)):
+
+1. **API-versionering** — `/api/v0/...` är Sajtmaskins HTTP-API v0, inte leverantören V0.
+2. **Naming debt** — symboler som `v0ChatId`, `v0EnrichmentContext`, `v0Stream.ts` m.fl. kvarstår historiskt; interna namn rensas löpande, payload-/DB-nycklar bryts inte utan migrationsplan.
+3. **Template-källa** — mallgalleriet hämtar fortfarande data från v0.app (`scripts/sync-v0-templates.mjs`, `src/lib/templates/`).
 
 ## Vercel Templates / Playwright / scorefolds
 

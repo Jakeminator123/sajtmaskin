@@ -2,10 +2,7 @@
 
 ## Agent: var börja?
 
-1. [`docs/README.md`](../docs/README.md) — dokumentationsnav och terminologi-lager.
-2. [`docs/architecture/repo-tree.md`](../docs/architecture/repo-tree.md) — snabb orientering i repots rot (undvik att förväxla `data/` med `src/lib/gen/data/`).
-3. [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](../docs/plans/active/PROJECT-STATE-AND-DIRECTION.md) — aktiv backlog och beslut.
-4. [`rules/terminology.mdc`](rules/terminology.mdc) — produkt- och kodordlista (`@terminology` i chat).
+Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordning: `docs/README.md` → `docs/architecture/repo-tree.md` → `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` → `rules/terminology.mdc`.
 
 ## Workspace (en rot, samma verktygsinställningar)
 

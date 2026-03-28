@@ -58,9 +58,9 @@ Important code sources of truth include:
 | `ENV.md`                 | Yes             | Human-readable overview of env topology, critical keys, and setup instructions.                                                    |
 | `.env.local`             | No (gitignored) | Local development values.                                                                                                          |
 | `.env.production`        | No (gitignored) | Reference copy of production-like values.                                                                                          |
-| `manage_env.py`          | Yes             | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. |
-| `model_trace_overlay.py` | Yes             | Focused helper that syncs GUI-facing model env vars in `.env.local` and opens the builder model-trace overlay.                    |
-| `check_env.py`           | Yes             | Backward-compatible wrapper that forwards to `manage_env.py audit`.                                                                |
+| `scripts/env/manage_env.py` | Yes          | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. Root wrapper forwards. |
+| `scripts/env/model_trace_overlay.py` | Yes | Focused helper that syncs GUI-facing model env vars in `.env.local` and opens the builder model-trace overlay. Root wrapper forwards. |
+| `scripts/env/check_env.py` | Yes           | Backward-compatible wrapper that forwards to `manage_env.py audit`. Root wrapper forwards.                                         |
 
 When adding a new env var: add it to `src/lib/env.ts` (schema), then to
 `config/env-policy.json` (classification + target rules), and optionally to

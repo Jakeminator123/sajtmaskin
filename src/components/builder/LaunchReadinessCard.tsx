@@ -7,7 +7,7 @@ import type { ChatReadiness, ChatReadinessItem } from "@/lib/chat-readiness";
 import {
   deployReadinessBadgeClassName,
   formatDeployReadinessStatusLabel,
-} from "@/lib/builder/deploy-readiness-copy";
+} from "@/lib/builder/deploy-readiness-ui";
 import { cn } from "@/lib/utils";
 
 type Props = {

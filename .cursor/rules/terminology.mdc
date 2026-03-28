@@ -13,27 +13,25 @@ Prompt → **own-engine** (standard codegen) → filer → **preview** → valfr
 
 ---
 
-## V0-mapp (`src/lib/v0/`) vs v0-SDK vs V0 Platform API — skilj alltid
+## «v0» i repot — tre distinkta betydelser
 
-Tre **olika** saker; blanda inte ihop dem i diskussion eller kodreview.
+Termen `v0` förekommer i repot med tre **helt olika** innebörder. Blanda dem inte.
 
-| Begrepp | Vad det är |
-|--------|------------|
-| **Mappen `src/lib/v0/`** | Historisk **katalog** i repot. Den kan innehålla **Sajtmaskin-eget** (zip från egna filer, registry-URL-hjälp, felformat) som råkat ligga här under namn som låser «v0». **En zip-nedladdning eller egen filhantering är inte automatiskt «V0-företaget»** — kolla **implementationen** (anropas `v0-sdk` / externt API eller bara DB/`files_json`?). Own-engine-relaterad kod ska på sikt ligga under `lib/own-engine/` eller `lib/gen/` där det är tydligare. |
-| **`v0-sdk` (npm-paket)** | Tredjepartsklient **mot** V0 Platform — inte samma sak som mappnamnet. |
-| **V0 Platform API** | Externt API (t.ex. `V0_API_KEY`) — **det** är leverantören V0 som plattform. |
+| Kategori | Vad det betyder | Exempel | Status |
+|----------|----------------|---------|--------|
+| **1. API-versionering** | Sajtmaskins egna HTTP-API version 0. Inget med leverantören V0 att göra. | `/api/v0/chats/...`, `/api/v0/deployments/...` | **Aktivt** — inga planer att byta prefix. |
+| **2. Naming debt (historisk)** | Symbolnamn och filnamn som härstammar från tiden då V0 Platform var codegen-väg. Koden gör inte längre V0-anrop. | `v0EnrichmentContext`, `v0Stream.ts`, `V0_CATEGORIES`, `v0ChatId`, `v0ProjectId` (payload-nycklar) | **Kvar tills vidare** — interna symboler rensas löpande; payload-/DB-nycklar bryts inte utan migrationsplan. |
+| **3. Mall-/template-källa** | Mall-galleriet på startsidan hämtar data från v0.app-ekosystemet. | `src/lib/templates/`, `scripts/sync-v0-templates.mjs`, `TemplateCatalogSource = "v0"` | **Operationellt** — template-sync körs fortfarande. |
 
-**HTTP-prefix `/api/v0/`** är dessutom **Sajtmaskins REST API-version** (v0 av ert HTTP-API), inte samma sak som V0 Platform.
+**Borttaget:** `src/lib/v0/` (katalog), `src/lib/v0.ts`, `v0-sdk` (npm-paket) och `V0_API_KEY` i runtime — se `docs/FINDINGS.txt` 2026-03-27.
 
 ---
 
 ## v0-templates / «Mall» (produkt-UI)
 
-- **Vad:** Kategorier och kort under modalen **«Mall»** på startsidan — pekar mot v0:s **applikationsliknande** mallar som kan **streamas in** som utgångspunkt.
-- **Kod / data:** `src/lib/templates/` (v0-templates), API under `src/app/api/v0/` för registry/mall-flöden.
+- **Vad:** Kategorier och kort under modalen **«Mall»** på startsidan.
+- **Kod / data:** `src/lib/templates/` (v0-templates), API under `src/app/api/v0/` (= API-versionering, kategori 1 ovan).
 - **Skilj från:** **Vercel-mall** (research) nedan — samma ord «mall» får inte blandas ihop.
-
-Valfria hänvisningar i kod: `V0_API_KEY`, v0 SDK — det är **v0-plattformen**, inte Vercel Templates-skräpningen.
 
 ---
 
@@ -135,10 +133,10 @@ När någon skriver «environment variables» / «env» måste agenten avgöra *
 
 ---
 
-## v0 (plattform, ej huvudmotor)
+## v0 (plattform — avvecklad som codegen-väg)
 
-- **Historik:** Kodgenerering kunde gå via **v0 API / SDK**.
-- **Nu:** **own-engine** är **huvudspår** för codegen. Kvarvarande referenser till V0 är främst historiska dokument, externa mall-URL:er eller enstaka admin-/underhållsytor — håll **`src/app/api/v0/`** separat från leverantören V0 i resonemang.
+- **Historik:** Kodgenerering gick via **v0 API / SDK**. Sedan 2026-03-27 är `v0-sdk`, `src/lib/v0.ts` och `V0_API_KEY` **borttagna** ur runtime.
+- **Nu:** **own-engine** är **enda** codegen-väg. Kvarvarande `v0`-namn i kod och DB är **naming debt** (kategori 2 ovan) eller **template-källa** (kategori 3). API-prefixet `/api/v0/` är **versionering** (kategori 1), inte leverantören V0.
 
 ---
 

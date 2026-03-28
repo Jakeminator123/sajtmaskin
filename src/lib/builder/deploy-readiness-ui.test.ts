@@ -3,9 +3,9 @@ import { buildChatReadiness } from "@/lib/chat-readiness";
 import {
   deployReadinessBadgeClassName,
   formatDeployReadinessStatusLabel,
-} from "./deploy-readiness-copy";
+} from "./deploy-readiness-ui";
 
-describe("deploy-readiness-copy", () => {
+describe("deploy-readiness-ui", () => {
   it("formats blocked / warning / ready labels", () => {
     const oneBlocker = buildChatReadiness({
       blockers: [{ id: "a", title: "T", severity: "blocker" }],

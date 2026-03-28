@@ -1,3 +1,9 @@
+Tidsbunden sessionslogg — inte kanonisk dokumentation.
+Flytta viktiga slutsatser till PROJECT-STATE-AND-DIRECTION.md eller relevanta
+arkitekturdokument; rensa eller arkivera denna fil periodiskt.
+
+---
+
 2026-03-27
 
 Own-engine / gen / mcp:

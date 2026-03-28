@@ -22,7 +22,12 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 | `docs/architecture/` | Kanoniska översikter (fyra huvuddokument + denna fil) | Tillfälliga scratch |
 | `docs/schemas/` | Stabila schema-beskrivningar (sanning i kod) | Osäkra utkast |
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
+| `docs/handoffs/` | Tidsbundna arbetsström-briefer — sekundära till arkitektur och backlog | Kanonisk arkitektur eller policy |
+| `docs/notes/` | Scratch / sessionsloggar — rensa periodiskt | Stabil referens |
+| `docs/FINDINGS.txt` | Sessionslogg, inte sanningskälla — flytta viktigt till backlog/arkitektur | Kanonisk information som inte finns på bättre ställe |
 | `docs/old/` | Stub / pekare | Nytt material |
+
+**Navigering:** `docs/README.md` är enda fulla navtabellen. `AGENTS.md` och `.cursor/README.md` ska vara tunna pekare — inga duplicerade orienteringstabeller.
 
 **Plan-flöde:** nya planer i `active/` → när klart eller ersatt, flytta till `avklarat/` eller lita på git-historik. Uppdatera [`docs/plans/README.md`](../plans/README.md) vid större ändring.
 

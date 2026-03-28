@@ -9,19 +9,20 @@
 | `src/` | Next.js App Router, API-routes, UI, domänlogik. Egen motor: `src/lib/gen/`. |
 | `config/` | Kanonisk konfiguration (promptfragment, `ai_models`, `env-policy`, m.m.) — [`config/README.md`](../../config/README.md). |
 | `config/dashboard/` | Valfri **Streamlit**-GUI (`app.py`) för att redigera/överblicka samma material — **importeras inte** av Next.js. Karta: [`config/dashboard/domain-map.json`](../../config/dashboard/domain-map.json). |
-| `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). |
+| `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). Kanonisk arkitektur i `docs/architecture/`, backlog i `docs/plans/active/`, handoffs och notes är tidsbundna/sekundära. |
 | `research/` | Icke-runtime: mall-discovery, dossiers, rådata. [`research/README.md`](../../research/README.md). |
 | `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite). Se [`docs/ENV.md`](../ENV.md). Ofta gitignorerad innehållsmässigt. |
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
-| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). |
+| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Undermappar: `scripts/env/` (env-verktyg), `scripts/manual/` (manuell curation). |
 | `tools/` | Verktyg utanför runtime (t.ex. doc-browser) — [`tools/README.md`](../../tools/README.md). |
 | `infra/` | OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |
 | `services/` | Hjälpprocesser (t.ex. inspector worker). |
 | `tests/` | Tester utanför `src/` där så är upplagt. |
+| `isolated_tests/` | Vitest-integrationstester som kräver isolation från `src/`-trädets tsconfig. |
 | `.cursor/` | Cursor-regler, skills, README — [`.cursor/README.md`](../../.cursor/README.md). |
 
-**Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog).
+**Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Python-wrappers i roten (`manage_env.py`, `check_env.py`, `model_trace_overlay.py`, `vercel_template_cli.py`) vidarebefordrar till `scripts/env/` resp. `scripts/manual/`.
 
 ## Viktiga `src/lib/`-områden
 
@@ -30,6 +31,7 @@
 | `src/lib/own-engine/` + `src/lib/providers/own-engine/` | Den kanoniska **produktbanan** för egen motor: sessioner, streams, plan-mode, contract-gate och providerkopplingar. |
 | `src/lib/gen/` | Delad **genereringskärna**: scaffold-matchning, orchestration, system prompts, autofix, finalize, merge, previewförberedelser. |
 | `src/lib/mcp/` | Programmatisk **adapteryta** runt own-engine-resultat: köra generation utan builder-UI, bygga preview/sandbox-runtime, läsa filer/versioner för verktyg och lokala runtime-flöden. |
+| `src/lib/shadcn/` | Shadcn/ui registry-logik samlad: URL-parser, cache, service, types, utils. Re-exporter på `src/lib/shadcn-registry-*.ts` för bakåtkompatibilitet. |
 
 ## Två olika “data” (förväxla inte)
 

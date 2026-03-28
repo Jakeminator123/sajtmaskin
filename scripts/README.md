@@ -28,9 +28,9 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 
 Om du flyttar labbfiler **måste** dessa npm-rader uppdateras — se tabellen ovan.
 
-## vercel_template_cli.py (repo root)
+## vercel_template_cli.py (`scripts/manual/`)
 
-Offline-verktyg som skrapar Vercels **template directory** (flera filterdimensioner: use case, framework, CSS, database, m.m.) och kan exportera GitHub-repo-länkar. **Körs inte i produktion**; det stödjer kurering av externa mallar innan de blir interna scaffolds.
+Offline-verktyg som skrapar Vercels **template directory** (flera filterdimensioner: use case, framework, CSS, database, m.m.) och kan exportera GitHub-repo-länkar. **Körs inte i produktion**; det stödjer kurering av externa mallar innan de blir interna scaffolds. Root-wrapper finns för bakåtkompatibilitet.
 
 ### Förutsättningar
 
@@ -41,11 +41,21 @@ pip install requests beautifulsoup4
 ### Exempel
 
 ```bash
-python vercel_template_cli.py --groups use-case,framework --slugs ai,next.js --json templates.json
-python vercel_template_cli.py --candidates data/scaffold-candidates-vercel-cli.json
+python scripts/manual/vercel_template_cli.py --groups use-case,framework --slugs ai,next.js --json templates.json
+python scripts/manual/vercel_template_cli.py --candidates data/scaffold-candidates-vercel-cli.json
 ```
 
 Fullständig pipeline och flaggor beskrivs i filens modul-docstring. Därefter: `npm run scaffolds:curate` (eller er interna rapportkedja), manuell granskning, `sync-scaffold-refs.mjs`, arbeta i `src/lib/gen/scaffolds/`.
+
+## Env-verktyg (`scripts/env/`)
+
+Tidigare i repo-roten; nu under `scripts/env/`. Tunna root-wrappers finns kvar och vidarebefordrar.
+
+| Verktyg | Syfte |
+|---------|-------|
+| `scripts/env/manage_env.py` | Kanonisk env-CLI: status, add, set, push, pull, audit, reconcile |
+| `scripts/env/model_trace_overlay.py` | Synkar GUI-modell-envs i `.env.local` + öppnar trace-overlay |
+| `scripts/env/check_env.py` | Bakåtkompatibel wrapper som kör `manage_env.py audit` |
 
 ## sync-scaffold-refs.mjs
 
