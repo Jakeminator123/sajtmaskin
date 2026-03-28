@@ -14,7 +14,7 @@ import { debugLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 
 export type PlanModePlannerOrchestrationSlice = {
-  v0EnrichmentContext: string;
+  dynamicContext: string;
   resolvedScaffold: { id: string } | null;
 };
 
@@ -26,7 +26,7 @@ export function computePlanModePlannerPrompts(
   planOrchestration: PlanModePlannerOrchestrationSlice,
 ): { planPreamble: string; planSystemPrompt: string } {
   const planPreamble = buildPlannerSystemPrompt();
-  const planSystemPrompt = `${planPreamble}\n\n---\n\n${planOrchestration.v0EnrichmentContext}`;
+  const planSystemPrompt = `${planPreamble}\n\n---\n\n${planOrchestration.dynamicContext}`;
   return { planPreamble, planSystemPrompt };
 }
 
@@ -40,7 +40,7 @@ export function dumpPlanModePlannerPrompts(
     PROMPT_DUMP_CATEGORY.planModePlanner,
     {
       "planner-preamble.md": planPreamble,
-      "dynamic-context.md": planOrchestration.v0EnrichmentContext,
+      "dynamic-context.md": planOrchestration.dynamicContext,
       "full-system.md": planSystemPrompt,
     },
     { route, planMode: true },

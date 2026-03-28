@@ -13,6 +13,7 @@ import {
   type ScaffoldRetrySuggestion,
 } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
+import { runPolishPass, isPolishPassEnabled } from "@/lib/gen/polish-pass";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import {
   createEngineVersionErrorLogs,
@@ -67,6 +68,8 @@ export interface FinalizeParams {
   onProgress?: FinalizeProgressCallback;
   /** SSE `meta` from own-engine stream — persisted on chat after save (K-019). */
   orchestrationStreamMeta?: Record<string, unknown> | null;
+  /** 0 = first generation, 1+ = quality-gate-triggered repair pass. */
+  repairPassIndex?: number;
 }
 
 export interface FinalizeResult {
@@ -121,6 +124,7 @@ export async function finalizeAndSaveVersion(
     previousFiles,
     onProgress,
     orchestrationStreamMeta,
+    repairPassIndex = 0,
   } = params;
 
   let contentForVersion = accumulatedContent;
@@ -217,6 +221,27 @@ export async function finalizeAndSaveVersion(
     throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
   }
 
+  // 3c. Polish pass (feature-flagged second LLM pass for copy/placeholder cleanup)
+  if (isPolishPassEnabled() && repairPassIndex === 0) {
+    onProgress?.("polish", { phase: "start" });
+    try {
+      const polishResult = await runPolishPass(contentForVersion, { model });
+      if (polishResult.applied) {
+        contentForVersion = polishResult.polishedContent;
+        devLogAppend("in-progress", {
+          type: "polish-pass",
+          chatId,
+          filesChanged: polishResult.filesChanged,
+          applied: true,
+        });
+      }
+      onProgress?.("polish", { phase: "done", applied: polishResult.applied, filesChanged: polishResult.filesChanged });
+    } catch (polishErr) {
+      console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
+      onProgress?.("polish", { phase: "error" });
+    }
+  }
+
   onProgress?.("finalizing", { phase: "start" });
 
   // 4. Parse files + merge (scaffold-based for first gen, previousFiles-based for follow-up)
@@ -281,6 +306,7 @@ export async function finalizeAndSaveVersion(
     type: "version.created",
     chatId,
     versionId: version.id,
+    repairPassIndex,
   });
 
   if (orchestrationStreamMeta && typeof orchestrationStreamMeta === "object") {
@@ -362,7 +388,7 @@ export async function finalizeAndSaveVersion(
       scaffoldId: resolvedScaffold?.id ?? null,
       model,
       buildIntent: buildIntent ?? null,
-      retryCount: 0,
+      retryCount: repairPassIndex,
       autofixApplied: runAutofix,
       syntaxFixerUsed: syntaxResult.fixerUsed,
       preflightErrorCount: preflightErrors.length,

@@ -180,6 +180,8 @@ export interface DynamicContextOptions {
    * Default true. Used by offline CLI traces; production omits this.
    */
   embeddingEnrichment?: boolean;
+  /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
+  generationMode?: "init" | "followUp";
 }
 
 function str(v: unknown): string {
@@ -304,9 +306,22 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     designReferences,
     customInstructions,
     embeddingEnrichment = true,
+    generationMode,
   } = options;
 
+  const isFollowUp = generationMode === "followUp";
+
   const parts: string[] = [];
+
+  // ── Generation Mode ────────────────────────────────────────────────────
+  if (isFollowUp) {
+    parts.push(
+      "## Generation Mode: Follow-Up",
+      "",
+      "You are editing/refining an existing generation. The scaffold, brief, and route plan below were established in the initial generation. Apply only the user's requested changes.",
+      "",
+    );
+  }
 
   // ── Custom Instructions (user-supplied from builder UI) ────────────────
   const trimmedCustom = customInstructions?.trim();
@@ -710,6 +725,7 @@ export interface BuildSystemPromptOptions {
   designReferences?: DesignReferenceAsset[];
   customInstructions?: string;
   embeddingEnrichment?: boolean;
+  generationMode?: "init" | "followUp";
 }
 
 /**
@@ -736,6 +752,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     designReferences: options.designReferences,
     customInstructions: options.customInstructions,
     embeddingEnrichment: options.embeddingEnrichment,
+    generationMode: options.generationMode,
   });
 
   return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContext}`;

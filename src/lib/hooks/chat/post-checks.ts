@@ -276,7 +276,7 @@ async function runSandboxQualityGate(params: {
     toolName: "Quality gate",
     toolCallId,
     state: "input-streaming",
-    input: { chatId, versionId, checks: ["typecheck", "build"] },
+    input: { chatId, versionId, checks: ["typecheck", "build", "lint"] },
   } as UiMessagePart);
 
   try {
@@ -285,7 +285,7 @@ async function runSandboxQualityGate(params: {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, checks: ["typecheck", "build"] }),
+        body: JSON.stringify({ versionId, checks: ["typecheck", "build", "lint"] }),
       },
     );
 
@@ -305,6 +305,11 @@ async function runSandboxQualityGate(params: {
       checks?: QualityGateCheckResult[];
       sandboxDurationMs?: number;
       error?: string;
+      visualQA?: {
+        overallScore: number;
+        passed: boolean;
+        checks: Array<{ check: string; passed: boolean; score: number; detail: string }>;
+      };
     } | null;
 
     if (!res.ok || !data) {
@@ -342,6 +347,14 @@ async function runSandboxQualityGate(params: {
       },
     } as UiMessagePart);
 
+    if (data.visualQA) {
+      const vqaSteps = data.visualQA.checks.map(
+        (c) => `visual:${c.check}: ${c.passed ? "PASS" : "FAIL"} (${c.score}/100) — ${c.detail}`,
+      );
+      steps.push(`Visual QA: ${data.visualQA.overallScore}/100 ${data.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}`);
+      steps.push(...vqaSteps);
+    }
+
     if (!data.passed && failedChecks.length > 0 && onAutoFix) {
       const failedOutputs: Record<string, string> = {};
       for (const check of data.checks ?? []) {
@@ -352,6 +365,17 @@ async function runSandboxQualityGate(params: {
         versionId,
         reasons: failedChecks.map((check) => `${check} failed`),
         meta: { qualityGate: failedOutputs },
+      });
+    } else if (data.passed && data.visualQA && !data.visualQA.passed && onAutoFix) {
+      const failedVisualChecks = data.visualQA.checks
+        .filter((c) => !c.passed)
+        .map((c) => `${c.check}: ${c.detail}`)
+        .slice(0, 4);
+      onAutoFix({
+        chatId,
+        versionId,
+        reasons: [`Visual QA score ${data.visualQA.overallScore}/100 below threshold`],
+        meta: { visualQA: failedVisualChecks },
       });
     }
   } catch {

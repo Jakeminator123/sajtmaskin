@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { analyzeVisualQuality, isVisualQAEnabled, type VisualQAResult } from "@/lib/gen/visual-qa";
 import {
   getSandboxCommandTextOutput,
   SANDBOX_SETUP_HINT,
@@ -41,6 +42,7 @@ type GateResult = {
   passed: boolean;
   checks: CheckResult[];
   sandboxDurationMs: number;
+  visualQA?: VisualQAResult;
 };
 
 function buildQualityGateSummaryLog(params: {
@@ -268,10 +270,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       try {
         const { results, sandboxDurationMs } = await runSandboxChecks(sandboxFiles, checks);
 
+        let visualQA: VisualQAResult | undefined;
+        if (isVisualQAEnabled() && results.every((r) => r.passed)) {
+          try {
+            visualQA = analyzeVisualQuality(
+              sandboxFiles.map((f) => ({ path: f.name, content: f.content })),
+            );
+          } catch (vqaErr) {
+            console.warn("[quality-gate] Visual QA error (non-fatal):", vqaErr);
+          }
+        }
+
         const gateResult: GateResult = {
           passed: results.every((r) => r.passed),
           checks: results,
           sandboxDurationMs,
+          visualQA,
         };
 
         const logs = [

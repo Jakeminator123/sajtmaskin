@@ -120,7 +120,7 @@ function writeCodegenSnapshot(
   prompt: string,
   orchestration: {
     engineSystemPrompt: string;
-    v0EnrichmentContext: string;
+    dynamicContext: string;
     resolvedScaffold: { id: string; label: string } | null;
     scaffoldContext?: string;
   },
@@ -131,7 +131,7 @@ function writeCodegenSnapshot(
   fs.writeFileSync(path.join(abs, "00_PIPELINE_README.md"), CODEGEN_README_SV, "utf-8");
   fs.writeFileSync(path.join(abs, "01_user_message.txt"), prompt + "\n", "utf-8");
   fs.writeFileSync(path.join(abs, "02_engine_system_prompt.txt"), orchestration.engineSystemPrompt + "\n", "utf-8");
-  fs.writeFileSync(path.join(abs, "03_v0_enrichment_context.txt"), orchestration.v0EnrichmentContext + "\n", "utf-8");
+  fs.writeFileSync(path.join(abs, "03_dynamic_context.txt"), orchestration.dynamicContext + "\n", "utf-8");
   const meta = {
     offline: opts.offline,
     buildIntent: opts.buildIntent,
@@ -142,7 +142,7 @@ function writeCodegenSnapshot(
     charCounts: {
       userMessage: prompt.length,
       engineSystemPrompt: orchestration.engineSystemPrompt.length,
-      v0EnrichmentContext: orchestration.v0EnrichmentContext.length,
+      dynamicContext: orchestration.dynamicContext.length,
       scaffoldContext: orchestration.scaffoldContext?.length ?? 0,
     },
     openaiConfigured: Boolean(process.env.OPENAI_API_KEY?.trim()),
@@ -320,8 +320,8 @@ async function main(): Promise<void> {
     })) ?? [];
 
   const lens = getSystemPromptLengths(orchestration.engineSystemPrompt);
-  const dynPreview = orchestration.v0EnrichmentContext.slice(0, previewChars);
-  const dynTruncated = orchestration.v0EnrichmentContext.length > previewChars;
+  const dynPreview = orchestration.dynamicContext.slice(0, previewChars);
+  const dynTruncated = orchestration.dynamicContext.length > previewChars;
 
   const toRepoRel = (abs: string) => path.relative(REPO_ROOT, abs).split(path.sep).join("/");
 
@@ -385,7 +385,7 @@ async function main(): Promise<void> {
       systemPromptLengths: lens,
       userMessagePreview: prompt.slice(0, 2000) + (prompt.length > 2000 ? "\n…" : ""),
       dynamicContextPreview: dynPreview + (dynTruncated ? "\n\n… [truncate]" : ""),
-      v0EnrichmentChars: orchestration.v0EnrichmentContext.length,
+      dynamicContextChars: orchestration.dynamicContext.length,
     },
   };
 

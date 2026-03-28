@@ -56,6 +56,12 @@ export interface OrchestrationInput {
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
   /**
+   * `init` = first generation (Deep Brief, full scaffold selection).
+   * `followUp` = editing/refining an existing generation.
+   * Default: inferred from persistedScaffoldId presence.
+   */
+  generationMode?: "init" | "followUp";
+  /**
    * When false, auto scaffold selection uses keyword matching only (no embedding API).
    * Default true. Used by CLI trace tools; production callers omit this.
    */
@@ -80,9 +86,18 @@ export interface OrchestrationBase {
 export interface OrchestrationResult extends OrchestrationBase {
   /** Full system prompt (STATIC_CORE + dynamic) for own engine */
   engineSystemPrompt: string;
-  /** Dynamic-only context suitable for injecting into v0 fallback `system` */
+  /** Dynamic-only context for plan mode, prompt dump, and debug. */
+  dynamicContext: string;
+  /** @deprecated Use `dynamicContext` — kept for backward compat in tests. */
   v0EnrichmentContext: string;
 }
+
+/**
+ * Single fan-in artifact from orchestration to engine.
+ * Every signal the model needs (scaffold, routes, contracts, brief, theme)
+ * is consolidated here before prompt construction.
+ */
+export type GenerationInputPackage = OrchestrationResult;
 
 /**
  * Resolve scaffold, route plan, and contracts without building the full system prompt.
@@ -181,7 +196,7 @@ export async function resolveOrchestrationBase(
 export async function finalizeOrchestrationPrompts(
   base: OrchestrationBase,
   input: OrchestrationInput,
-): Promise<{ engineSystemPrompt: string; v0EnrichmentContext: string }> {
+): Promise<{ engineSystemPrompt: string; dynamicContext: string; v0EnrichmentContext: string }> {
   const {
     prompt,
     buildIntent,
@@ -193,7 +208,10 @@ export async function finalizeOrchestrationPrompts(
     designReferences = [],
     customInstructions,
     embeddingEnrichment = true,
+    generationMode,
   } = input;
+
+  const resolvedMode = generationMode ?? (input.persistedScaffoldId ? "followUp" : "init");
 
   const dynamicOpts: DynamicContextOptions = {
     intent: buildIntent,
@@ -210,17 +228,18 @@ export async function finalizeOrchestrationPrompts(
     designReferences,
     customInstructions,
     embeddingEnrichment,
+    generationMode: resolvedMode,
   };
 
   const engineSystemPrompt = await buildSystemPrompt({
     ...dynamicOpts,
   });
 
-  const v0EnrichmentContext = await buildDynamicContext(dynamicOpts);
+  const dynamicContext = await buildDynamicContext(dynamicOpts);
 
   writeLatestPromptDump(
     PROMPT_DUMP_CATEGORY.orchestrationDynamic,
-    { "latest.md": v0EnrichmentContext },
+    { "latest.md": dynamicContext },
     {
       buildIntent,
       scaffoldId: base.resolvedScaffold?.id ?? null,
@@ -229,7 +248,7 @@ export async function finalizeOrchestrationPrompts(
     },
   );
 
-  return { engineSystemPrompt, v0EnrichmentContext };
+  return { engineSystemPrompt, dynamicContext, v0EnrichmentContext: dynamicContext };
 }
 
 /**
@@ -242,13 +261,11 @@ export async function prepareGenerationContext(
   input: OrchestrationInput,
 ): Promise<OrchestrationResult> {
   const base = await resolveOrchestrationBase(input);
-  const { engineSystemPrompt, v0EnrichmentContext } = await finalizeOrchestrationPrompts(
-    base,
-    input,
-  );
+  const result = await finalizeOrchestrationPrompts(base, input);
   return {
     ...base,
-    engineSystemPrompt,
-    v0EnrichmentContext,
+    engineSystemPrompt: result.engineSystemPrompt,
+    dynamicContext: result.dynamicContext,
+    v0EnrichmentContext: result.v0EnrichmentContext,
   };
 }

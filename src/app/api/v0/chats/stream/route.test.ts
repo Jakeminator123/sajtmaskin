@@ -360,6 +360,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
       scaffoldContext: undefined,
       scaffoldAndCapability: "",
       engineSystemPrompt: "SYSTEM",
+      dynamicContext: "V0",
       v0EnrichmentContext: "V0",
     });
     resolveOrchestrationBase.mockResolvedValue({
@@ -399,6 +400,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
     });
     finalizeOrchestrationPrompts.mockResolvedValue({
       engineSystemPrompt: "SYSTEM",
+      dynamicContext: "V0",
       v0EnrichmentContext: "V0",
     });
     createChat.mockResolvedValue({ id: "engine_chat_1" });

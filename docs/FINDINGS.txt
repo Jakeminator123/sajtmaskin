@@ -55,3 +55,46 @@ Autofix / quality-gate hardening:
 - Verifierat med:
   `npm run baseline-deps:verify`
   -> OK (46 poster i PACKAGE_JSON-baseline, npm registry).
+
+World-class plan implementation (2026-03-27):
+
+Fas 1 — Hard kvalitetsbarriar:
+- quality-gate-klienten skickar nu `checks: ["typecheck", "build", "lint"]` (lint tillagt).
+- Servern stodde redan lint via `CHECK_COMMANDS` och `requestSchema`.
+- `FinalizeParams.repairPassIndex` tillagd — persists i telemetri och devLog; hardkodade `retryCount: 0` ersatt med paramvarde.
+- Autofix-loop ar redan capped (MAX_AUTOFIX_PER_CHAT=2, MAX_ATTEMPTS_PER_REASON=1, DEDUPE_TTL_MS=5min).
+- Sandbox-disabled-signal i UI verifierad (banner i PreviewPanel, toast i controller).
+
+Fas 2 — Generationskvalitet:
+- `GenerationInputPackage` typ exporterad fran orchestrate.ts som alias for OrchestrationResult.
+- `v0EnrichmentContext` omdopt till `dynamicContext` i alla runtime-filer (plan-mode, prompt-dump, trace-script); bakatkompat-alias behalls i OrchestrationResult for testfiler.
+- `generationMode` ("init" | "followUp") tillagd i OrchestrationInput, DynamicContextOptions, BuildSystemPromptOptions.
+- Narvarande: `followUp` auto-detekteras fran persistedScaffoldId; kan overridas explicit.
+- Dynamic context renderar "Generation Mode: Follow-Up" header med tydlig delta-instruktion.
+- Scaffold-serialisering: inspirational mode skickar nu kritiska strukturfiler (globals.css, layout.tsx, page.tsx) istallet for bara filelista.
+- Bade inspirational och structural mode har stark "replace ALL bracket placeholders"-instruktion.
+- 3 huvudscaffolds (landing-page, saas-landing, ecommerce) uppgraderade med qualityChecklist (6 punkter) och research.upgradeTargets (5 mal).
+
+Fas 3 — Polish och visuell QA:
+- `src/lib/gen/polish-pass.ts`: feature-flaggad (SAJTMASKIN_POLISH_PASS=1) andra LLM-pass.
+  Fokuserar pa bracket-placeholder-borttagning, copy-kvalitet, CTA-tydlighet, visuell hierarki.
+  Kor bakom flag, max 45s timeout, fail-safe (faller tillbaka pa original vid fel).
+  Integrerad i finalize-version.ts efter image-materialization, bara pa forsta generation (repairPassIndex=0).
+- `src/lib/gen/visual-qa.ts`: statisk heuristik-scoring av genererade filer.
+  6 checks: bracket-placeholders, hero-quality, color-adaptation, metadata, image-usage, section-variety.
+  Passerar vid overall score >= 60.
+  Integrerad i quality-gate API: kor nar alla sandbox-checks passerar och SAJTMASKIN_VISUAL_QA=1.
+  Klientens post-checks visar visual QA-resultat i UI och triggar design-patch autofix nar score ar under troskel.
+
+Fas 4 — Kontrakt och integrationer:
+- `previewFirst=true` ar redan default i buildContractClarificationQuestion — inga blockerande fragor i normalt flode.
+- Registry-parity-test passerar (3/3).
+- Ingen ytterligare andring kravdes — systemet ar korrekt konfigurerat.
+
+Verifiering:
+- `npx tsc --noEmit` -> rent (exit 0).
+- V0-boundary-test passerar (1/1).
+- Stream-route-tester passerar (5/5).
+- Autofix/contract/plan-mode tester passerar (8/8).
+- Registry-parity passerar (3/3).
+- Totalt 17 riktade tester verifierade, allt gront.

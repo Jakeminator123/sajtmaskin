@@ -7,7 +7,7 @@ const ROOT_SEGMENTS = ["data", "prompt-dumps"] as const;
 
 /** Subfolders under data/prompt-dumps/ — one logical “prompt type” each. */
 export const PROMPT_DUMP_CATEGORY = {
-  /** Output of buildDynamicContext (same blob as v0EnrichmentContext). */
+  /** Output of buildDynamicContext (the dynamic portion of the system prompt). */
   orchestrationDynamic: "orchestration-dynamic",
   /** Full system string sent to the codegen LLM (static + separator + dynamic). */
   ownEngineCodegen: "own-engine-codegen",

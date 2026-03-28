@@ -22,6 +22,24 @@ export const saasLandingManifest: ScaffoldManifest = {
     "Keep the product narrative: problem, product value, feature panels, pricing, FAQ, and final CTA.",
     "The right-side hero card is a product preview slot and should stay visually product-led.",
   ],
+  qualityChecklist: [
+    "Product name replaces 'Orbit OS' everywhere — header, hero, footer, metadata.",
+    "Pricing tiers have realistic names, prices, and feature lists matching the prompt.",
+    "FAQ answers are specific to the user's product, not generic scaffold text.",
+    "Hero dashboard preview card reflects the actual product's metrics/domain.",
+    "Feature icons and descriptions match the product's value proposition.",
+    "Dark theme colors adapted to the product's brand, not left as default blue.",
+  ],
+  research: {
+    upgradeTargets: [
+      "Add a product screenshot or animated preview in the hero dashboard card.",
+      "Include a trust bar with customer logos or integration partner badges.",
+      "Add toggle for monthly/annual pricing with discount indicator.",
+      "Include comparison table for pricing tiers on larger screens.",
+      "Generate structured data (JSON-LD SoftwareApplication) for SEO.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",
