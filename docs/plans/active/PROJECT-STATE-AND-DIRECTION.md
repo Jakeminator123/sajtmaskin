@@ -124,6 +124,11 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 - **Sandbox-policy** centraliserad i `src/lib/mcp/runtime-url.ts` — quality-gate och sandbox-routes delar helpers (`isSafeRelativePath`, `resolveSandboxTemplateGitUrl`).  
 - **Template-katalog** har en stabil barrel (`src/lib/templates/index.ts`) — externa konsumenter importerar från `@/lib/templates`.  
 - **Bildpolicy** synkad: genererad `next.config` vitlistar inte längre hosts som prompten förbjuder.  
+- **Generation fan-in** kanoniserad via `GenerationInputPackage` + `computeLineageHash()` i `src/lib/gen/generation-input-package.ts`.  
+- **Server-verify** (`src/lib/gen/server-verify.ts`) triggas automatiskt efter finalize; kör quality gate + capped repair (max 2 pass). Verification state `repairing` synlig i UI.  
+- **Server repair** är default efter quality-gate-fel; klientautofix fallback. `__SAJTMASKIN_SKIP_SERVER_REPAIR__` opt-out ersätter gammal opt-in.  
+- **v0Stream.ts** och **gen/fallback.ts** borttagna (inga runtime-konsumenter).  
+- **AVKLARAT handoffs** trimmade till stub + pekare; fulltext i git-historik.  
 - **Senaste handoff:** [`docs/handoffs/export-reliability-och-nasta-steg.md`](../../handoffs/export-reliability-och-nasta-steg.md) — öppna gap och rekommenderade nästa steg.
 
 ---

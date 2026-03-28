@@ -19,14 +19,15 @@ createGenerationPipeline()  (generation-pipeline.ts)
            └─ suspense/ (TransformStream post-processing)
 ```
 
-This module is the canonical generation path (own-engine). `fallback.ts` is a back-compat re-export of `generation-pipeline.ts`.
+This module is the canonical generation path (own-engine).
 
 ## Key Files
 
 | File | Role |
 |------|------|
 | `generation-pipeline.ts` | Canonical entry point. `createGenerationPipeline()` delegates to own-engine (`engine.ts`). |
-| `fallback.ts` | Back-compat re-export of `generation-pipeline.ts`. Prefer the canonical module for new code. |
+| `generation-input-package.ts` | `GenerationInputPackage` type, `computeLineageHash()`, and dump serialization. |
+| `server-verify.ts` | Server-side verify+repair loop triggered after finalize. |
 | `engine.ts` | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
 | `system-prompt.ts` | Builds the system prompt (static core + dynamic context). |
 | `stream-format.ts` | Converts AI SDK stream to SSE events (`meta`, `thinking`, `content`, `done`, `error`). |

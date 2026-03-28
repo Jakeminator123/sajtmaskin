@@ -38,18 +38,6 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
 }));
 
-vi.mock("@/lib/v0Stream", () => ({
-  extractContentText: vi.fn(),
-  extractDemoUrl: vi.fn(),
-  extractIntegrationSignals: vi.fn(),
-  extractMessageId: vi.fn(),
-  extractThinkingText: vi.fn(),
-  extractUiParts: vi.fn(),
-  extractVersionId: vi.fn(),
-  shouldSuppressContentForEvent: vi.fn(),
-  safeJsonParse: vi.fn(),
-}));
-
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));

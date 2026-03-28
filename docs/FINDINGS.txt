@@ -4,45 +4,29 @@ arkitekturdokument; rensa eller arkivera denna fil periodiskt.
 
 ---
 
-2026-03-27 (konsoliderad — tidigare poster arkiverade i git-historik)
+2026-03-28 (konsoliderad)
 
 Nuvarande tillstand:
 
-Own-engine ar enda produktionsbanan. V0 SDK, src/lib/v0/, V0_API_KEY borttagna.
-"/api/v0/"-prefix ar HTTP API versioning, inte V0 Platform — se terminology.mdc.
+Own-engine ar enda produktionsbanan. V0 SDK, src/lib/v0/, V0_API_KEY, v0Stream.ts
+och gen/fallback.ts ar borttagna.
+"/api/v0/"-prefix ar HTTP API versioning, inte V0 Platform.
 
-Exportpipeline:
-- `buildExportableProject()` i src/lib/gen/build-exportable-project.ts ar enda
-  ingangen for download, export, quality-gate och engine-version-zip.
-- Baseline: Next 16.2.1, React 19.2.4, inga lint-scripts i exporterade projekt.
+Kanoniska ytor:
+- buildExportableProject() — enda artefaktbyggare for export/verify/download.
+- GenerationInputPackage + computeLineageHash() — kanonisk fan-in fore generation.
+- server-verify.ts — serveragd verify + capped repair-loop efter finalize.
+- repairing verification state — DB-driven, visas i VersionHistory.
+- Server repair ar default efter quality-gate-fel; klientautofix ar fallback.
+- Template-katalog via src/lib/templates/index.ts barrel.
+- Sandbox-policy centraliserad i src/lib/mcp/runtime-url.ts.
 
-Deterministiska fixar i autofix-pipeline:
-- react-import-fixer (default React import)
-- react-hook-import-fixer (namngivna hooks: useState, useEffect etc.)
-- tailwind-font-arbitrary-fixer (font-[family-name:var(--x)] -> inline style)
-- font-import-fixer, lucide-image-fixer, metadata-import-fixer
-- as-const-boolean-keys (readonly tuples -> mutable for Next.js Metadata)
-- dep-completer (saknade beroenden mot baseline)
+Oppna gap:
 
-System-prompt-regler (website-intent):
-- Scroll-reveal aldrig pa hero/above-the-fold.
-- CSS blur forbjudet i reveal-transitioner pa text.
-- font-[family-name:var(--x)] forbjudet.
-
-Autofix-prompt: regel 5 — LLM far aldrig fraga anvandaren under autofix.
-
----
-
-Oppna gap (prioritetsordning):
-
-1. Forbattra felkontext till autofix-LLM — exakta tsc/build-fel bor skickas som
-   strukturerad kontext, inte bara sammanfattning.
-2. [x] Centralisera sandbox-policy — isSafeRelativePath, template-URL etc.
-   anvander nu delade helpers fran src/lib/mcp/runtime-url.ts (2026-03-28).
-3. [x] Synka bildregler — picsum.photos/via.placeholder.com borttagna fran
-   genererad next.config; prompt och scaffold ar nu konsekventa (2026-03-28).
-4. Visuell QA med screenshots — nuvarande visual-qa.ts gor statisk kodanalys;
+1. Visuell QA med screenshots — visual-qa.ts gor statisk kodanalys;
    riktig QA kraver Playwright-screenshots fran sandbox (bakom feature-flag).
-5. Autofix-persistering — resultat loggas men sparas inte permanent per version i DB.
+2. GenerationInputPackage-fan-in ar inte helt genomford i alla routes —
+   streaming routes beraknar delar lokalt istallet for att bara hela paketet.
+3. /api/v0/*-naming debt lever kvar i routes och konsumenter.
 
-Se docs/handoffs/export-reliability-och-nasta-steg.md for detaljerat handoff.
+Se docs/plans/active/CONSOLIDATED-own-engine-platform-and-quality-v2.md for plan.
