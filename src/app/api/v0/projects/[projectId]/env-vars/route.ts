@@ -39,7 +39,8 @@ const deleteEnvVarsSchema = z
     path: ["ids"],
   });
 
-const V0_ENV_SYNC_REMOVED =
+/** @deprecated V0 Platform env sync removed; app-project env vars are stored locally. */
+const LEGACY_ENV_SYNC_REMOVED =
   "V0 Platform env-synk är borttagen. Använd ett app-projekt från byggaren (lagrade env i Sajtmaskin).";
 
 async function resolveOwnedAppProject(req: Request, projectId: string) {
@@ -66,9 +67,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ projectId: stri
           envVars,
         });
       }
-      return NextResponse.json({ error: V0_ENV_SYNC_REMOVED }, { status: 410 });
+      return NextResponse.json({ error: LEGACY_ENV_SYNC_REMOVED }, { status: 410 });
     } catch (error) {
-      errorLog("v0", "Failed to list project env vars", error);
+      errorLog("env-vars", "Failed to list project env vars", error);
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Failed to list env vars" },
         { status: 500 },
@@ -107,9 +108,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ projectId: str
           envVars,
         });
       }
-      return NextResponse.json({ error: V0_ENV_SYNC_REMOVED }, { status: 410 });
+      return NextResponse.json({ error: LEGACY_ENV_SYNC_REMOVED }, { status: 410 });
     } catch (error) {
-      errorLog("v0", "Failed to create/update project env vars", error);
+      errorLog("env-vars", "Failed to create/update project env vars", error);
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Failed to create env vars" },
         { status: 500 },
@@ -137,7 +138,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ projectId: s
           ids: validation.data.ids ?? [],
           keys: validation.data.keys ?? [],
         });
-        debugLog("v0", "Deleted stored app-project env vars", {
+        debugLog("env-vars", "Deleted stored app-project env vars", {
           projectId: appProject.id,
           deletedIds: validation.data.ids ?? [],
           deletedKeys: validation.data.keys ?? [],
@@ -149,9 +150,9 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ projectId: s
           envVars: nextEnvVars,
         });
       }
-      return NextResponse.json({ error: V0_ENV_SYNC_REMOVED }, { status: 410 });
+      return NextResponse.json({ error: LEGACY_ENV_SYNC_REMOVED }, { status: 410 });
     } catch (error) {
-      errorLog("v0", "Failed to delete project env vars", error);
+      errorLog("env-vars", "Failed to delete project env vars", error);
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Failed to delete env vars" },
         { status: 500 },

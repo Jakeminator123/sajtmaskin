@@ -14,9 +14,11 @@ import { buildExportableProject } from "@/lib/gen/build-exportable-project";
 import { analyzeVisualQuality, isVisualQAEnabled, type VisualQAResult } from "@/lib/gen/visual-qa";
 import {
   getSandboxCommandTextOutput,
+  isSafeRelativePath,
   SANDBOX_SETUP_HINT,
   isSandboxConfigured as isSandboxAuthConfigured,
   resolveSandboxAccessCredentials,
+  resolveSandboxTemplateGitUrl,
 } from "@/lib/mcp/runtime-url";
 
 export const runtime = "nodejs";
@@ -118,13 +120,6 @@ function buildCheckShellScript(baseCmd: string, logFile: string): string {
   ].join("\n");
 }
 
-function isSafeRelativePath(path: string): boolean {
-  if (!path || path.includes("\0")) return false;
-  if (path.startsWith("/") || path.startsWith("\\")) return false;
-  if (path.includes("..")) return false;
-  return /^[A-Za-z0-9._/@-]+$/.test(path);
-}
-
 async function runSandboxChecks(
   sandboxFiles: Array<{ name: string; content: string }>,
   checks: string[],
@@ -139,7 +134,7 @@ async function runSandboxChecks(
     ...(access ?? {}),
     source: {
       type: "git",
-      url: "https://github.com/vercel/sandbox-example-next.git",
+      url: resolveSandboxTemplateGitUrl(),
     },
     resources: { vcpus: 2 },
     timeout: 90_000,

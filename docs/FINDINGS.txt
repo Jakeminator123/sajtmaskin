@@ -4,103 +4,45 @@ arkitekturdokument; rensa eller arkivera denna fil periodiskt.
 
 ---
 
-2026-03-27
+2026-03-27 (konsoliderad — tidigare poster arkiverade i git-historik)
 
-Own-engine / gen / mcp:
-- own-engine = den kanoniska produktbanan och Sajtmaskins "svarta låda" for generation.
-- src/lib/gen = delad genereringskarna som own-engine bygger pa; inte en separat motor.
-- src/lib/mcp = adapter- och verktygslager for programmatisk atkomst till own-engine-resultat (preview, sandbox, generate-site), inte platsen for core promptlogik.
+Nuvarande tillstand:
 
-MCP-mappen:
-- src/lib/mcp/runtime-url.ts ar aktivt inkopplad i own-engine/sandbox-floden och dess riktade tester passerar.
-- src/lib/mcp/generate-site.ts och src/lib/mcp/local-engine.ts ser ut som bra seams for verktyg/agent-anrop, men ar mindre bevisade i produktflodet an runtime-url.ts.
-- Non-SSE own-engine-generation ar nu extraherad till src/lib/own-engine/generate-site-from-prompt.ts, sa mcp/generate-site inte langer behover aga core-generationlogiken sjalv.
+Own-engine ar enda produktionsbanan. V0 SDK, src/lib/v0/, V0_API_KEY borttagna.
+"/api/v0/"-prefix ar HTTP API versioning, inte V0 Platform — se terminology.mdc.
 
-Template-init:
-- POST /api/template ar nu own-engine-baserad och returnerar engine-chat-id i stallet for att ga via V0 Platform.
-- Gamla template-cacheposter som inte pekar pa en engine-chat ignoreras i stallet for att aterintroducera legacy-vagen.
+Exportpipeline:
+- `buildExportableProject()` i src/lib/gen/build-exportable-project.ts ar enda
+  ingangen for download, export, quality-gate och engine-version-zip.
+- Baseline: Next 16.2.1, React 19.2.4, inga lint-scripts i exporterade projekt.
 
-Vidare utfasing:
-- POST /api/v0/chats/init ar nu own-engine-baserad import av repo/ZIP till forsta engine-version.
-- Direct registry-init via API ar avvecklad; UI faller tillbaka till vanlig own-engine-promptstart.
-- src/lib/v0.ts, src/lib/v0/ och npm-paketet v0-sdk ar borttagna ur appflodet.
-- Den tillfalliga feature-flaggan SAJTMASKIN_V0_PLATFORM_ENABLED togs bort igen nar den inte langre styrde nagon aktiv appvag.
-- Kvarvarande admin-cleanup mot V0 API togs bort, tillsammans med de sista runtime-/health-/trace-sporen av V0_API_KEY.
+Deterministiska fixar i autofix-pipeline:
+- react-import-fixer (default React import)
+- react-hook-import-fixer (namngivna hooks: useState, useEffect etc.)
+- tailwind-font-arbitrary-fixer (font-[family-name:var(--x)] -> inline style)
+- font-import-fixer, lucide-image-fixer, metadata-import-fixer
+- as-const-boolean-keys (readonly tuples -> mutable for Next.js Metadata)
+- dep-completer (saknade beroenden mot baseline)
 
-OpenClaw:
-- OpenClaw lever idag separat under src/lib/openclaw/ och src/app/api/openclaw/.
-- Ingen direkt runtime-koppling mellan OpenClaw och src/lib/mcp idag.
-- src/lib/mcp kan pa sikt vara en bra adapteryta om OpenClaw senare ska trigga own-engine programmatisk generation eller runtime-start.
+System-prompt-regler (website-intent):
+- Scroll-reveal aldrig pa hero/above-the-fold.
+- CSS blur forbjudet i reveal-transitioner pa text.
+- font-[family-name:var(--x)] forbjudet.
 
-Dokumentstädning:
-- Historiska v0-filer togs bort: docs/handoffs/v0-fasning-och-forenkling.md, docs/handoffs/gpt-external-review.txt och docs/architecture/v0-platform-sunset-audit.md.
-- Kvarvarande handoff-filer pekar nu till aktiva arkitektur-/handoff-dokument i stallet for borttagna historikfiler.
+Autofix-prompt: regel 5 — LLM far aldrig fraga anvandaren under autofix.
 
-Kontraktsforenkling / integrationer (del 4):
-- `buildContractClarificationQuestion` har nu `previewFirst`-parameter (default `true`) — returnerar `null` direkt i sandbox/preview-flodet. Blockering bara vid explicit `previewFirst: false` (produktion).
-- `inferPreGenerationContracts` invariant: `unresolvedDecisions` alltid tom i default-flode; dokumenterat i JSDoc.
-- Stripe env: fixat mismatch `STRIPE_PUBLISHABLE_KEY` -> `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` i registry och PROVIDER_RULES for paritet med placeholder-filen.
-- Generated-site env konsoliderat: `loadPlaceholderRecord` + `formatDotenvBody` exporteras fran `sandbox-env-local.ts`; `project-scaffold.ts` importerar dessa istallet for att duplicera logik. Lazy import av `project-env-vars` undviker transitiv DB-laddning.
-- MCP/own-engine sandbox (`generateOwnEngineSiteFromPrompt`) anvander nu `buildSandboxEnvLocalContents` — samma env-merge som builder-sandbox; Fidelity 2-paritet sakerstelld.
-- `registry-parity.test.ts`: ny test att core registry envVars ar tackta i placeholder-filen.
-- `pre-generation-contracts.test.ts`: ny test att infererade Stripe-env anvander NEXT_PUBLIC_ prefix.
-- `contract-clarification.test.ts`: tva nya tester — previewFirst=true (default) returnerar null; previewFirst=false med auth blockerar.
-- Verifierat med `npx vitest run src/lib/gen/pre-generation-contracts.test.ts src/lib/gen/contract-clarification.test.ts src/lib/gen/sandbox-env-local.test.ts src/lib/gen/project-scaffold.test.ts src/lib/integrations/integration-manifest.test.ts src/lib/integrations/registry-parity.test.ts` -> 6 testfiler, 34 tester, allt passerade.
-- `npx tsc --noEmit` -> rent (exit 0).
+---
 
-Autofix / quality-gate hardening:
-- `dep-completer` ar synkad med baseline for `zod` (nu `^4`) och har regressions-test mot `project-scaffold.ts` PACKAGE_JSON.
-- `validateAndFix` rapporterar nu explicit `pipeline-error` i stallet for falskt gront resultat nar valideringspipen kastar.
-- `runLlmFixer` har strict/partial-signal med `requiredFiles`; partial fixar kan fortfarande provas och valideras, men markeras tydligt i logg.
-- `quality-gate` i sandbox loggar nu stage-specifikt med tydligare output-klippning och explicit install-stage (`npm install`) innan typecheck/build/lint.
-- `sandbox_disabled` persisteras i builder-state och visas som synlig varning i previewn (inte bara dev-toast).
-- `runtime-url` kommentar for preview mode-default ar synkad med faktisk kod (`dev_then_build`), och `docs/ENV.md` pekar pa `sandbox-env-local.ts` for merged generated-site env.
-- Verifierat med:
-  `npm run test:ci -- src/lib/gen/autofix/dep-completer.test.ts src/lib/gen/autofix/validate-and-fix.test.ts src/lib/hooks/chat/post-checks.test.ts src/lib/mcp/runtime-url-sandbox-output.test.ts src/lib/integrations/integration-manifest.test.ts`
-  -> 5 testfiler, 31 tester, allt passerade.
-- Verifierat med:
-  `npm run baseline-deps:verify`
-  -> OK (46 poster i PACKAGE_JSON-baseline, npm registry).
+Oppna gap (prioritetsordning):
 
-World-class plan implementation (2026-03-27):
+1. Forbattra felkontext till autofix-LLM — exakta tsc/build-fel bor skickas som
+   strukturerad kontext, inte bara sammanfattning.
+2. [x] Centralisera sandbox-policy — isSafeRelativePath, template-URL etc.
+   anvander nu delade helpers fran src/lib/mcp/runtime-url.ts (2026-03-28).
+3. [x] Synka bildregler — picsum.photos/via.placeholder.com borttagna fran
+   genererad next.config; prompt och scaffold ar nu konsekventa (2026-03-28).
+4. Visuell QA med screenshots — nuvarande visual-qa.ts gor statisk kodanalys;
+   riktig QA kraver Playwright-screenshots fran sandbox (bakom feature-flag).
+5. Autofix-persistering — resultat loggas men sparas inte permanent per version i DB.
 
-Fas 1 — Hard kvalitetsbarriar:
-- quality-gate-klienten skickar nu `checks: ["typecheck", "build", "lint"]` (lint tillagt).
-- Servern stodde redan lint via `CHECK_COMMANDS` och `requestSchema`.
-- `FinalizeParams.repairPassIndex` tillagd — persists i telemetri och devLog; hardkodade `retryCount: 0` ersatt med paramvarde.
-- Autofix-loop ar redan capped (MAX_AUTOFIX_PER_CHAT=2, MAX_ATTEMPTS_PER_REASON=1, DEDUPE_TTL_MS=5min).
-- Sandbox-disabled-signal i UI verifierad (banner i PreviewPanel, toast i controller).
-
-Fas 2 — Generationskvalitet:
-- `GenerationInputPackage` typ exporterad fran orchestrate.ts som alias for OrchestrationResult.
-- `v0EnrichmentContext` omdopt till `dynamicContext` i alla runtime-filer (plan-mode, prompt-dump, trace-script); bakatkompat-alias behalls i OrchestrationResult for testfiler.
-- `generationMode` ("init" | "followUp") tillagd i OrchestrationInput, DynamicContextOptions, BuildSystemPromptOptions.
-- Narvarande: `followUp` auto-detekteras fran persistedScaffoldId; kan overridas explicit.
-- Dynamic context renderar "Generation Mode: Follow-Up" header med tydlig delta-instruktion.
-- Scaffold-serialisering: inspirational mode skickar nu kritiska strukturfiler (globals.css, layout.tsx, page.tsx) istallet for bara filelista.
-- Bade inspirational och structural mode har stark "replace ALL bracket placeholders"-instruktion.
-- 3 huvudscaffolds (landing-page, saas-landing, ecommerce) uppgraderade med qualityChecklist (6 punkter) och research.upgradeTargets (5 mal).
-
-Fas 3 — Polish och visuell QA:
-- `src/lib/gen/polish-pass.ts`: feature-flaggad (SAJTMASKIN_POLISH_PASS=1) andra LLM-pass.
-  Fokuserar pa bracket-placeholder-borttagning, copy-kvalitet, CTA-tydlighet, visuell hierarki.
-  Kor bakom flag, max 45s timeout, fail-safe (faller tillbaka pa original vid fel).
-  Integrerad i finalize-version.ts efter image-materialization, bara pa forsta generation (repairPassIndex=0).
-- `src/lib/gen/visual-qa.ts`: statisk heuristik-scoring av genererade filer.
-  6 checks: bracket-placeholders, hero-quality, color-adaptation, metadata, image-usage, section-variety.
-  Passerar vid overall score >= 60.
-  Integrerad i quality-gate API: kor nar alla sandbox-checks passerar och SAJTMASKIN_VISUAL_QA=1.
-  Klientens post-checks visar visual QA-resultat i UI och triggar design-patch autofix nar score ar under troskel.
-
-Fas 4 — Kontrakt och integrationer:
-- `previewFirst=true` ar redan default i buildContractClarificationQuestion — inga blockerande fragor i normalt flode.
-- Registry-parity-test passerar (3/3).
-- Ingen ytterligare andring kravdes — systemet ar korrekt konfigurerat.
-
-Verifiering:
-- `npx tsc --noEmit` -> rent (exit 0).
-- V0-boundary-test passerar (1/1).
-- Stream-route-tester passerar (5/5).
-- Autofix/contract/plan-mode tester passerar (8/8).
-- Registry-parity passerar (3/3).
-- Totalt 17 riktade tester verifierade, allt gront.
+Se docs/handoffs/export-reliability-och-nasta-steg.md for detaljerat handoff.

@@ -384,7 +384,7 @@ export const FEATURES = {
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
   useFigmaApi: Boolean(SECRETS.figmaAccessToken),
 
-  /** Builder prompt “image generations” toggle — own engine uses OpenAI, not V0 Platform. */
+  /** Builder prompt “image generations” toggle — own-engine uses OpenAI. */
   useBuilderImageGenerations: Boolean(SECRETS.openaiApiKey),
 
   useVercelApi: Boolean(SECRETS.vercelApiToken),

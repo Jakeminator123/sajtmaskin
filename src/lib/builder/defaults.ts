@@ -7,8 +7,7 @@
  * Build Models:
  *   - The first group represents build profiles, not prompt-assist models.
  *   - Profiles map to the own engine's provider model IDs (codegen is own-engine only).
- *   - Legacy V0 Platform flags do not change build models; own-engine remains
- *     the canonical codegen path.
+ *   - own-engine is the canonical codegen path.
  *   - Prompt Assist models are listed separately below and are only used to
  *     rewrite/brief the prompt before generation.
  *

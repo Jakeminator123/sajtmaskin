@@ -309,7 +309,6 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       },
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
-      v0EnrichmentContext: "V0",
     });
     finalizeOrHandleEmptyGeneration.mockResolvedValue({
       version: { id: "ver_2" },

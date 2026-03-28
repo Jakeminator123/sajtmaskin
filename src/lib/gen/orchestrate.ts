@@ -1,6 +1,6 @@
 /**
  * Shared generation orchestration — single source of truth for context
- * preparation that both the own engine and v0 fallback consume.
+ * preparation that own-engine consumers use.
  *
  * Resolves scaffold, builds system prompt context, and returns everything
  * needed so that callers never diverge in what signals reach the model.
@@ -37,6 +37,11 @@ import {
   type PreGenerationContractContext,
 } from "./pre-generation-contracts";
 import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "./prompt-dump";
+import {
+  type GenerationInputPackage,
+  computeLineageHash,
+  serializePackageForDump,
+} from "./generation-input-package";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -83,21 +88,7 @@ export interface OrchestrationBase {
   scaffoldAndCapability: string;
 }
 
-export interface OrchestrationResult extends OrchestrationBase {
-  /** Full system prompt (STATIC_CORE + dynamic) for own engine */
-  engineSystemPrompt: string;
-  /** Dynamic-only context for plan mode, prompt dump, and debug. */
-  dynamicContext: string;
-  /** @deprecated Use `dynamicContext` — kept for backward compat in tests. */
-  v0EnrichmentContext: string;
-}
-
-/**
- * Single fan-in artifact from orchestration to engine.
- * Every signal the model needs (scaffold, routes, contracts, brief, theme)
- * is consolidated here before prompt construction.
- */
-export type GenerationInputPackage = OrchestrationResult;
+export { type GenerationInputPackage } from "./generation-input-package";
 
 /**
  * Resolve scaffold, route plan, and contracts without building the full system prompt.
@@ -191,12 +182,12 @@ export async function resolveOrchestrationBase(
 }
 
 /**
- * Build full system prompt and v0 enrichment from a resolved orchestration base.
+ * Build full system prompt from a resolved orchestration base.
  */
 export async function finalizeOrchestrationPrompts(
   base: OrchestrationBase,
   input: OrchestrationInput,
-): Promise<{ engineSystemPrompt: string; dynamicContext: string; v0EnrichmentContext: string }> {
+): Promise<{ engineSystemPrompt: string; dynamicContext: string }> {
   const {
     prompt,
     buildIntent,
@@ -237,35 +228,62 @@ export async function finalizeOrchestrationPrompts(
 
   const dynamicContext = await buildDynamicContext(dynamicOpts);
 
-  writeLatestPromptDump(
-    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
-    { "latest.md": dynamicContext },
-    {
-      buildIntent,
-      scaffoldId: base.resolvedScaffold?.id ?? null,
-      scaffoldFamily: base.resolvedScaffold?.family ?? null,
-      promptLength: prompt.length,
-    },
-  );
-
-  return { engineSystemPrompt, dynamicContext, v0EnrichmentContext: dynamicContext };
+  return { engineSystemPrompt, dynamicContext };
 }
 
 /**
- * Prepare all generation context in one place.
+ * Prepare all generation context in one place so that scaffold, brief,
+ * theme, and intent flow identically across all own-engine callers.
  *
- * Both the own engine path and the v0 fallback path should call this
- * so that scaffold, brief, theme, and intent flow identically.
+ * Returns a `GenerationInputPackage` — the canonical fan-in artifact
+ * that captures every signal used to shape generation.
  */
 export async function prepareGenerationContext(
   input: OrchestrationInput,
-): Promise<OrchestrationResult> {
+): Promise<GenerationInputPackage> {
   const base = await resolveOrchestrationBase(input);
-  const result = await finalizeOrchestrationPrompts(base, input);
-  return {
+  const { engineSystemPrompt, dynamicContext } =
+    await finalizeOrchestrationPrompts(base, input);
+
+  const capabilityHints = base.scaffoldAndCapability;
+  const lineageHash = computeLineageHash({
+    userPrompt: input.prompt,
+    brief: input.brief,
+    scaffoldMode: input.scaffoldMode ?? "auto",
+    scaffoldContext: base.scaffoldContext,
+    routePlan: base.routePlan,
+    preGenerationContracts: base.preGenerationContracts,
+    capabilityHints,
+  });
+
+  const pkg: GenerationInputPackage = {
     ...base,
-    engineSystemPrompt: result.engineSystemPrompt,
-    dynamicContext: result.dynamicContext,
-    v0EnrichmentContext: result.v0EnrichmentContext,
+    userPrompt: input.prompt,
+    brief: (input.brief as Record<string, unknown>) ?? null,
+    scaffoldMode: input.scaffoldMode ?? "auto",
+    engineSystemPrompt,
+    dynamicContext,
+    lineageHash,
   };
+
+  writeLatestPromptDump(
+    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
+    {
+      "latest.md": dynamicContext,
+      "generation-input-package.json": JSON.stringify(
+        serializePackageForDump(pkg),
+        null,
+        2,
+      ),
+    },
+    {
+      lineageHash,
+      buildIntent: input.buildIntent,
+      scaffoldId: base.resolvedScaffold?.id ?? null,
+      scaffoldFamily: base.resolvedScaffold?.family ?? null,
+      promptLength: input.prompt.length,
+    },
+  );
+
+  return pkg;
 }

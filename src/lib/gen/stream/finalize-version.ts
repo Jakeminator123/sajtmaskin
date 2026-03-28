@@ -70,6 +70,8 @@ export interface FinalizeParams {
   orchestrationStreamMeta?: Record<string, unknown> | null;
   /** 0 = first generation, 1+ = quality-gate-triggered repair pass. */
   repairPassIndex?: number;
+  /** SHA-256 of deterministic generation inputs (prompt lineage). */
+  lineageHash?: string | null;
 }
 
 export interface FinalizeResult {
@@ -125,6 +127,7 @@ export async function finalizeAndSaveVersion(
     onProgress,
     orchestrationStreamMeta,
     repairPassIndex = 0,
+    lineageHash,
   } = params;
 
   let contentForVersion = accumulatedContent;
@@ -307,12 +310,13 @@ export async function finalizeAndSaveVersion(
     chatId,
     versionId: version.id,
     repairPassIndex,
+    lineageHash: lineageHash ?? null,
   });
 
   if (orchestrationStreamMeta && typeof orchestrationStreamMeta === "object") {
     try {
       const snap = buildPersistedOrchestrationSnapshot({
-        streamMeta: orchestrationStreamMeta,
+        streamMeta: { ...orchestrationStreamMeta, lineageHash: lineageHash ?? undefined },
         versionId: version.id,
         chatId,
         buildIntent: buildIntent ?? null,

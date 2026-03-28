@@ -83,13 +83,7 @@ export function normalizeProviderError(err: unknown): ProviderErrorInfo {
     normalized.includes("api key") ||
     normalized.includes("401")
   ) {
-    const isLegacyV0Auth =
-      normalized.includes("v0") ||
-      normalized.includes("platform") ||
-      normalized.includes("model api");
-    const setup = isLegacyV0Auth
-      ? "Kontrollera V0 Platform-konfigurationen i miljövariabler."
-      : "Kontrollera API-nycklar i miljövariabler.";
+    const setup = "Kontrollera API-nycklar i miljövariabler.";
     return {
       status: 401,
       code: "unauthorized",

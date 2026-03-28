@@ -33,12 +33,41 @@ De två tidigare planerna berör **samma produktkedja** men olika dimensioner:
 
 ---
 
+## Terminologi-låsning (skärpt 2026-03-28)
+
+I denna plan får `v0` bara användas i tre betydelser:
+
+1. **`v0-templates`** — builderns katalogsystem och datakälla från v0.app.
+2. **`/api/v0/*`** — HTTP API-versionering eller compat-präglad route-yta.
+3. **Naming debt** — historiska symboler eller filnamn som fortfarande finns kvar men inte beskriver den kanoniska motorn.
+
+Allt annat ska beskrivas som:
+
+- **own-engine**
+- generation / generation package
+- scaffold / template references
+- quality gate
+- sandbox preview
+- repair loop
+
+**Konsekvens:** låt inte kvarvarande route-paths eller legacy-symboler smitta språkbruket i nya planer, kommentarer eller implementation.
+
+---
+
 ## Del A — Plattform: own-engine som ägare, minska V0-beroende
 
 ### A.0 Terminologi och kedjeverifiering
 
 - Lås in att team/agenter följer terminologi (V0-mapp vs SDK vs API vs HTTP v0).
 - Verifiera kedjan: **chat → POST stream → finalize → `startSandboxPreview` → `sandbox_url` → iframe**; dokumentera luckor om tier 2 uteblir (credentials, `previewBlocked`, gates, klient-sync — spår [`preview-deploy.md`](../../architecture/preview-deploy.md)).
+
+### A.0b Små tighteningar levererade 2026-03-28
+
+- **Sandbox-policy centraliserad:** quality gate återanvänder nu `isSafeRelativePath` och `resolveSandboxTemplateGitUrl` från `src/lib/mcp/runtime-url.ts`.
+- **Template-kataloggräns förstärkt:** externa konsumenter använder en stabil barrel i `src/lib/templates/index.ts`.
+- **Bildpolicy synkad:** genererad `next.config` vitlistar inte längre hosts som prompten förbjuder i scaffold-kedjan.
+
+Detta betyder att nästa plattformssteg inte ska uppfinna nya lager, utan fortsätta kapa naming debt och compat-ytor konservativt.
 
 ### A.1 Inventering `src/lib/v0/` — AVKLARAT
 
@@ -61,6 +90,7 @@ De två tidigare planerna berör **samma produktkedja** men olika dimensioner:
 ### A.5 Builder och klient
 
 - Minska `v0ProjectId` / `isV0StyleChatRecord` / `v0-preview-priority`; copy i t.ex. `ProjectEnvVarsPanel` ska tala **own-engine/projektbegrepp** där det är sant.
+- Behandla kvarvarande filer och symboler som `v0Stream.ts` och `fallback.ts` som **compat/naming debt**, inte som kanoniska namn för motorn.
 
 ### A.6 Databas (valfritt, egen PR)
 
@@ -76,11 +106,20 @@ De två tidigare planerna berör **samma produktkedja** men olika dimensioner:
 
 ## Del B — Kvalitet: sandbox, grindar, lineage, QA
 
+### B.0 Kedjan ska läsas i tre lager
+
+1. **Automatiskt planlager** — prompt, deep brief, contracts, route plan, scaffold och retrieval ska mynna ut i ett **enda generation-underlag**.
+2. **Mekaniskt/deterministiskt lager** — merge, baseline, deterministiska fixar, artefaktbyggande och quality gates ska vara den tekniska sanningen.
+3. **Riktat LLM-reparationslager** — får bara aktiveras efter att det mekaniska lagret fallerat och kan ge exakt felkontext.
+
+**Konsekvens:** nya LLM-steg ska inte läggas till “ovanpå allt” förrän fan-in och det deterministiska lagret är tydliga.
+
 ### Verifikation av extern kritik (kort)
 
 - **`dev_only` default:** [`runtime-url.ts`](../../../src/lib/mcp/runtime-url.ts) — `SAJTMASKIN_SANDBOX_PREVIEW_MODE` default → ingen `npm run build` i sandbox utan `dev_then_build`.
 - **Typecheck:** [`project-scaffold.ts`](../../../src/lib/gen/project-scaffold.ts) — `lint` finns; **`typecheck`-script** saknas i mallen (rimligt tillägg).
-- **Bildpolicy:** `next.config` i scaffold kan tillåta t.ex. `picsum.photos` medan prompt regler annat — **aligna** eller motivera.
+- **Sandbox-policy:** helperdrift mellan quality gate och preview-runtime är minskad genom delade helpers i `runtime-url.ts`; återstår främst fortsatt konsolidering av policy och outputhantering.
+- **Bildpolicy:** prompt och genererad scaffold är nu alignade; återstår främst renderad visual QA.
 
 ### B.1 P0 — Högst impact
 
@@ -94,7 +133,9 @@ De två tidigare planerna berör **samma produktkedja** men olika dimensioner:
 
 ### B.2 P1
 
+- Ett explicit **generation package** som fångar prompt, brief, scaffold, contracts, route plan, template references och retrieval i en enda fan-in.
 - Dependency repair vid resolverfel (allowlist, patch `package.json`, retry, logga).
+- Serverstyrd repair-loop: quality gate ska ge strukturerad felkontext till riktad autofix utan klientberoende huvudlogik.
 - Visuell QA **v0**: kontrakt/hook efter sandbox (screenshot + JSON-kritik + ev. patch-task).
 - Innehålls-QA: heuristik mot brief (lorem, tomma CTA).
 
@@ -102,7 +143,7 @@ De två tidigare planerna berör **samma produktkedja** men olika dimensioner:
 
 - **Prompt lineage** per version (original → orchestrerad → brief/spec → scaffold → källor → hash).
 - **Drift-check** mot brief efter generering.
-- **Policy alignment:** `remotePatterns` vs prompt bildregler.
+- **Persistens av repair-historik:** lagra vad som triggade respektive reparationspass och vad som ändrades.
 
 ---
 
@@ -154,12 +195,11 @@ flowchart LR
 Rekommenderad **sekvens** (justera vid team-beroenden):
 
 1. **A.0** Terminologi + kedjeverifiering (+ ev. `verify-branch-docs`).
-2. **B.1 del:** Pinna sandbox-bas + loggsnitt (förklarar tier-2-problem samtidigt som A pågår).
-3. **A.1–A.2** Inventering + HTTP-fallback (låg risk om feature-flagg/gradvis).
-4. **B.1** Preview-policy + typecheck + lint-gates (produktbeslut om kostnad/latens för default `dev_then_build`).
-5. **A.3–A.4** Mall/zip + SDK-borttagning när ersättning finns.
-6. **A.5–A.7** Builder + tester + docs.
-7. **B.2–B.3** Dep repair, visual QA kontrakt, lineage, drift, image policy.
+2. **A.0b + A.5** Små plattformstighteningar: sandbox-policy, template-gräns, naming debt, compat-spår.
+3. **B.2 först inom kvalitet:** generation package och tydlig fan-in.
+4. **B.1 + B.2** Preview-policy, typecheck/lint, strukturerad felkontext och serverstyrd repair-loop.
+5. **B.2–B.3** Visual QA med screenshots, lineage och repair-persistens.
+6. **A.3–A.7** Fortsatt mall/zip/compat-städ, builder-copy, tester och docs i takt med låg-riskfönster.
 
 ---
 
@@ -176,27 +216,89 @@ Rekommenderad **sekvens** (justera vid team-beroenden):
 
 _Plattform / V0_
 
-- [ ] `terminology-lock-in` — Följ `terminology.mdc`
-- [ ] `verify-own-engine-chain` — Dokumentera kedja och luckor tier 2
-- [ ] `audit-lib-v0` — Klassificera A/B/C, flytta B/C
-- [ ] `remove-http-v0-fallback` — GET chat, assertV0Key-vägar
-- [ ] `replace-template-registry-zip` — Engine + DB, ingen `downloadVersion`
-- [ ] `remove-v0-sdk` — Paket + env rensning
-- [ ] `builder-cleanup` — v0ProjectId, preview-priority, copy
-- [ ] `deploy-clarity` — Sandbox vs deploy i UI/docs
-- [ ] `schema-migration-optional` — Separat PR legacy vs engine
+- [x] `terminology-lock-in` — Följ `terminology.mdc`
+- [x] `verify-own-engine-chain` — Dokumentera kedja och luckor tier 2
+- [x] `sandbox-policy-centralization` — Quality-gate och preview delar centrala sandbox-helpers
+- [x] `template-catalog-boundary` — Stabil extern importyta via `@/lib/templates`
+- [x] `audit-lib-v0` — Klassificera A/B/C, flytta B/C
+- [x] `remove-http-v0-fallback` — GET chat, assertV0Key-vägar
+- [x] `replace-template-registry-zip` — Engine + DB, ingen `downloadVersion`
+- [x] `remove-v0-sdk` — Paket + env rensning
+- [ ] `builder-cleanup` — v0ProjectId, preview-priority, copy (naming debt — deferred)
+- [x] `deploy-clarity` — Sandbox vs deploy i UI/docs
+- [ ] `schema-migration-optional` — Separat PR legacy vs engine (deferred)
 
 _Kvalitet / LLM_
 
-- [ ] `verify-branch-docs` — main vs master i docs
-- [ ] `p0-preview-policy` — dev_then_build / SSE build-steg
-- [ ] `p0-scaffold-typecheck` — Script + sandbox
-- [ ] `p0-sandbox-logs` — Loggsnitt vid fel
-- [ ] `p0-pin-template` — Sandbox git-bas
-- [ ] `p1-dep-repair` — ERESOLVE-loop
-- [ ] `p1-visual-qa-contract` — Hook efter sandbox
-- [ ] `p2-lineage` — prompt_lineage per version
-- [ ] `p2-image-policy` — next.config vs prompt
+- [x] `verify-branch-docs` — main vs master i docs
+- [x] `p0-preview-policy` — dev_then_build / SSE build-steg
+- [x] `p0-scaffold-typecheck` — Script + sandbox (typecheck + build + lint i quality-gate)
+- [x] `p0-sandbox-logs` — Loggsnitt vid fel
+- [ ] `p0-pin-template` — Sandbox git-bas (deferred)
+- [ ] `p1-generation-package` — kanonisk fan-in före prompt och generation
+- [x] `p1-dep-repair` — ERESOLVE-loop (dep-completer implementerad)
+- [ ] `p1-server-owned-repair` — quality-gate -> strukturerad felkontext -> capped repair
+- [x] `p1-visual-qa-contract` — Hook efter sandbox (visual-qa.ts, bakom feature-flag)
+- [ ] `p2-lineage` — prompt_lineage per version (deferred)
+- [x] `p2-image-policy` — next.config vs prompt alignade
+
+---
+
+## Agent 2 av 2 — implementeringsprompt
+
+Använd denna prompt för nästa agent när plattformsstädningen ovan är gjord eller pågår:
+
+```text
+Arbeta endast inom den konsoliderade planen i `docs/plans/active/CONSOLIDATED-own-engine-platform-and-quality-v2.md`.
+
+Du är agent 2 av 2.
+Agent 1 har redan gjort den första konservativa own-engine-tighteningen:
+- quality-gate återanvänder centrala sandbox-helpers från `src/lib/mcp/runtime-url.ts`
+- template-katalogen har en stabil barrel i `src/lib/templates/index.ts`
+- genererad bildpolicy är synkad med promptreglerna
+
+Ditt uppdrag är INTE att fortsätta plattformsstädning brett.
+Ditt uppdrag är att strama upp LLM-/repair-kedjan ovanpå den renare strukturen.
+
+Mål:
+1. Gör fan-in tydlig: ett kanoniskt generation package eller motsvarande struktur före prompt/generation.
+2. Gör quality-gate -> repair mindre klientberoende och mer serverägd.
+3. Förbättra exakt felkontext till autofix/repair-flödet.
+4. Behåll deterministiska fixar som första linje; använd riktad LLM-repair bara när exakt felkontext finns.
+5. Förbered lineage och renderad visual QA utan att bygga en lös agentloop.
+
+Hårda regler:
+- Beskriv motorn som `own-engine`, inte `v0`.
+- `v0-templates` är ett isolerat katalogsystem; rör inte det om det inte krävs direkt.
+- `/api/v0/*` är route-yta/versionering; skapa inte nya parallella API-ytor om det inte är absolut nödvändigt.
+- Rör inte DB-/payload-fält som `v0ProjectId`, `v0ChatId` eller andra migrationskänsliga legacy-fält.
+- Skapa inte nya docs-filer i onödan.
+- Commita inte.
+- Om något kräver större migrering eller korsar tillbaka in i plattformsstädning: lämna tydlig notering i stället för att gissa.
+
+Fokusera i denna ordning:
+1. Inventera nuvarande fan-in i `orchestrate.ts`, `system-prompt.ts`, `route-plan.ts`, `pre-generation-contracts.ts`.
+2. Inför minsta rimliga “generation package”-yta eller motsvarande enhetlig struktur.
+3. Gå igenom quality-gate/autofix-kedjan: `quality-gate/route.ts`, `useAutoFix.ts`, `buildAutoFixPrompt()`, relevanta helpermoduler.
+4. Förbättra strukturerad felkontext och capped repair utan att bygga full regeneration-loop.
+5. Om tid/risk tillåter: lämna en liten seam för lineage eller renderad visual QA, men bara om den är låg risk.
+
+Bra filer att börja i:
+- `src/lib/gen/orchestrate.ts`
+- `src/lib/gen/system-prompt.ts`
+- `src/lib/gen/stream/finalize-version.ts`
+- `src/app/api/v0/chats/[chatId]/quality-gate/route.ts`
+- `src/lib/hooks/chat/useAutoFix.ts`
+- `src/lib/hooks/chat/helpers.ts`
+- `src/lib/gen/autofix/pipeline.ts`
+- `src/lib/gen/autofix/validate-and-fix.ts`
+
+Leverera tillbaka:
+- liten till medelstor diff
+- exakt vad som ändrades
+- vilka delar som nu är tydligare i kedjan
+- öppna risker / medvetet orörda områden
+```
 
 ---
 

@@ -276,6 +276,7 @@ export async function POST(req: Request) {
               completion: usage?.outputTokens,
             },
             logNote: "Done from sync create",
+            lineageHash: ownOrchestration.lineageHash,
           });
           const latestVersion = finalized.version;
           const verificationState = finalized.preflight.verificationBlocked

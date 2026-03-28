@@ -110,8 +110,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.pexels.com" },
       { protocol: "https", hostname: "*.blob.vercel-storage.com" },
       { protocol: "https", hostname: "api.dicebear.com" },
-      { protocol: "https", hostname: "picsum.photos" },
-      { protocol: "https", hostname: "via.placeholder.com" },
     ],
   },
 };

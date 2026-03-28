@@ -417,10 +417,14 @@ describe("runPostGenerationChecks", () => {
     expect(onAutoFix).toHaveBeenCalledWith(
       expect.objectContaining({
         reasons: ["build failed"],
-        meta: {
-          qualityGate: {
-            build: "Build failed: missing export",
-          },
+        repair: {
+          qualityGate: [
+            {
+              check: "build",
+              exitCode: 1,
+              output: "Build failed: missing export",
+            },
+          ],
         },
       }),
     );

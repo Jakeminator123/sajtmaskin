@@ -31,7 +31,7 @@ import {
   getTemplatesByCategory,
   getTemplateImageUrl,
   type Template,
-} from "@/lib/templates/template-data";
+} from "@/lib/templates";
 import { createProject } from "@/lib/project-client";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import Image from "next/image";

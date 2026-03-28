@@ -520,7 +520,7 @@ export function useBuilderDeployActions({
       blobEnabled: Boolean(data?.features?.vercelBlob),
       /** Own-engine: OPENAI_API_KEY — prompt image-generation instructions. */
       imageGenerationsEnabled: Boolean(data?.features?.imageGenerations),
-      /** V0 Platform API key configured (separate from builder generation). */
+      /** @deprecated V0 Platform key no longer used for codegen; kept for compat. */
       v0PlatformConfigured: Boolean(data?.features?.v0),
       reasons: data?.featureReasons ?? {},
     };

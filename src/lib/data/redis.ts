@@ -847,7 +847,7 @@ export async function updateVideoJob(
 }
 
 // ============ Preview Cache ============
-// For template preview caching (reduces v0 API calls)
+// For template preview caching (reduces repeated generation calls)
 
 const PREVIEW_CACHE_PREFIX = `${REDIS_KEY_PREFIX}preview:`;
 const PREVIEW_CACHE_TTL = 60 * 60 * 24; // 24 hours

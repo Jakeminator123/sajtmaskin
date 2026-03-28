@@ -1054,16 +1054,44 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
 
 export function buildAutoFixPrompt(payload: AutoFixPayload): string {
   const reasons = payload.reasons.length > 0 ? payload.reasons.join(", ") : "unknown issues";
-  const currentVersionErrors = Array.isArray(payload.meta?.currentVersionErrors)
-    ? payload.meta.currentVersionErrors.filter((value): value is string => typeof value === "string")
-    : [];
-  const previousVersionErrors = Array.isArray(payload.meta?.previousVersionErrors)
-    ? payload.meta.previousVersionErrors.filter((value): value is string => typeof value === "string")
-    : [];
-  const scaffoldRetry =
-    payload.meta?.scaffoldRetry && typeof payload.meta.scaffoldRetry === "object"
-      ? (payload.meta.scaffoldRetry as Record<string, unknown>)
+  const repair = payload.repair;
+
+  const currentVersionErrors = repair?.currentVersionErrors
+    ?? (Array.isArray(payload.meta?.currentVersionErrors)
+      ? payload.meta!.currentVersionErrors.filter((value): value is string => typeof value === "string")
+      : []);
+  const previousVersionErrors = repair?.previousVersionErrors
+    ?? (Array.isArray(payload.meta?.previousVersionErrors)
+      ? payload.meta!.previousVersionErrors.filter((value): value is string => typeof value === "string")
+      : []);
+
+  const scaffoldRetry = repair?.scaffoldRetry
+    ?? (payload.meta?.scaffoldRetry && typeof payload.meta.scaffoldRetry === "object"
+      ? (payload.meta.scaffoldRetry as {
+          labels?: string[];
+          currentScaffoldLabel?: string;
+          suggestedScaffoldLabel?: string;
+          reason?: string;
+        })
+      : null);
+
+  const scaffoldRetryReason =
+    scaffoldRetry && typeof scaffoldRetry.reason === "string" ? scaffoldRetry.reason : null;
+  const scaffoldRetryLabels =
+    scaffoldRetry && Array.isArray(scaffoldRetry.labels) && scaffoldRetry.labels.length >= 2
+      ? scaffoldRetry.labels
       : null;
+  const currentScaffoldLabel =
+    scaffoldRetryLabels?.[0]
+    ?? (scaffoldRetry && typeof scaffoldRetry.currentScaffoldLabel === "string"
+      ? scaffoldRetry.currentScaffoldLabel
+      : null);
+  const suggestedScaffoldLabel =
+    scaffoldRetryLabels?.[1]
+    ?? (scaffoldRetry && typeof scaffoldRetry.suggestedScaffoldLabel === "string"
+      ? scaffoldRetry.suggestedScaffoldLabel
+      : null);
+
   const lines = [
     "AUTO-FIX REQUEST — TARGETED REPAIR",
     "",
@@ -1083,28 +1111,50 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     "- All internal links resolve to existing routes.",
     "- No broken images or invalid React use() calls.",
   ];
+
   if (currentVersionErrors.length > 0) {
     lines.push("", "Persisted errors for this version:", ...currentVersionErrors.map((entry) => `- ${entry}`));
   }
   if (previousVersionErrors.length > 0) {
     lines.push("", "Related unresolved errors from previous version:", ...previousVersionErrors.map((entry) => `- ${entry}`));
   }
+
   if (
     scaffoldRetry &&
-    typeof scaffoldRetry.currentScaffoldLabel === "string" &&
-    typeof scaffoldRetry.suggestedScaffoldLabel === "string" &&
-    typeof scaffoldRetry.reason === "string"
+    scaffoldRetryReason &&
+    currentScaffoldLabel &&
+    suggestedScaffoldLabel
   ) {
     lines.push(
       "",
       "Scaffold-aware retry guidance:",
-      `- Current scaffold: ${scaffoldRetry.currentScaffoldLabel}`,
-      `- Suggested repair scaffold: ${scaffoldRetry.suggestedScaffoldLabel}`,
-      `- Why: ${scaffoldRetry.reason}`,
+      `- Current scaffold: ${currentScaffoldLabel}`,
+      `- Suggested repair scaffold: ${suggestedScaffoldLabel}`,
+      `- Why: ${scaffoldRetryReason}`,
       "- If the current structure keeps fighting the fix, pivot toward the suggested scaffold while still making the smallest viable repair.",
     );
   }
-  if (payload.meta) {
+
+  if (repair?.qualityGate?.length) {
+    for (const failure of repair.qualityGate) {
+      const trimmed = failure.output.trim();
+      if (trimmed) {
+        lines.push(
+          "",
+          `## ${failure.check} output (exit ${failure.exitCode})`,
+          trimmed.slice(0, 4000),
+        );
+      }
+    }
+    if (repair.qualityGate.every((f) => !f.output.trim())) {
+      lines.push(
+        "",
+        "NOTE: Quality gate failed but no error output was captured.",
+        "Likely causes: missing type imports, undeclared variables, JSX errors, or missing dependencies.",
+        "Review the generated files for obvious TypeScript and build errors.",
+      );
+    }
+  } else if (payload.meta) {
     const qualityGate = payload.meta.qualityGate as Record<string, string> | undefined;
     if (qualityGate && typeof qualityGate === "object") {
       const hasOutput = Object.values(qualityGate).some((v) => typeof v === "string" && v.trim().length > 0);
@@ -1123,9 +1173,20 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
         );
       }
     }
+  }
+
+  if (repair?.visualQA?.length) {
+    lines.push("", "Visual QA failures:");
+    for (const vq of repair.visualQA) {
+      lines.push(`- ${vq.check}: score ${vq.score}/100 — ${vq.detail}`);
+    }
+  }
+
+  if (payload.meta && !repair) {
     const metaStr = JSON.stringify(payload.meta, null, 2);
     const truncated = metaStr.length > 3000 ? metaStr.slice(0, 3000) + "\n..." : metaStr;
     lines.push("", "Diagnostic context:", truncated);
   }
+
   return lines.join("\n");
 }

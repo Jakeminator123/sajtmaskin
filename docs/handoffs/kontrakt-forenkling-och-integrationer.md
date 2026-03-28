@@ -1,5 +1,8 @@
 # Handoff: Kontraktsförenkling och automatiska integrationer
 
+> **STATUS: AVKLARAT** — Denna handoff kördes 2026-03-27 (fas 4 i world-class plan).
+> Aktuellt handoff-dokument: [`export-reliability-och-nasta-steg.md`](export-reliability-och-nasta-steg.md).
+
 **Mål:** **Färre** blockerande frågor i LLM-kedjan, **fler** säkra defaults för sandbox (Fidelity 2), och **automatisk** koppling av integrationer/env utan att störa codegen — i linje med [`.cursor/rules/integrations-policy.mdc`](../../.cursor/rules/integrations-policy.mdc).
 
 **Prioritet:** Medel–hög — påverkar när `pre-generation-contract-gate` stoppar streamen.

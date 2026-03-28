@@ -122,7 +122,7 @@ export async function validateAndFix(
       }
 
       const errorSummary = validation.errors.map(
-        (e) => `${e.file}:${e.line} ${e.message}`,
+        (e) => `${e.file}:${e.line}:${e.column} ${e.message}`,
       );
       console.warn(`[engine] Pass ${pass}: ${validation.errors.length} syntax errors, attempting LLM fixer`);
 

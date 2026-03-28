@@ -290,8 +290,8 @@ async function enrichAutoFixPayload(payload: AutoFixPayload): Promise<AutoFixPay
 
   return {
     ...payload,
-    meta: {
-      ...(payload.meta ?? {}),
+    repair: {
+      ...(payload.repair ?? {}),
       currentVersionErrors,
       previousVersionErrors,
     },
@@ -356,9 +356,10 @@ export function useAutoFix(
         const enrichedPayload = await enrichAutoFixPayload(payload);
         const prompt = buildAutoFixPrompt(enrichedPayload);
         const scaffoldRetry =
-          enrichedPayload.meta?.scaffoldRetry && typeof enrichedPayload.meta.scaffoldRetry === "object"
+          enrichedPayload.repair?.scaffoldRetry
+          ?? (enrichedPayload.meta?.scaffoldRetry && typeof enrichedPayload.meta.scaffoldRetry === "object"
             ? (enrichedPayload.meta.scaffoldRetry as Record<string, unknown>)
-            : null;
+            : null);
         const retryScaffoldId =
           scaffoldRetry && typeof scaffoldRetry.suggestedScaffoldId === "string"
             ? scaffoldRetry.suggestedScaffoldId

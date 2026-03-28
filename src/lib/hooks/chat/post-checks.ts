@@ -21,6 +21,7 @@ import {
 } from "./post-checks-summary";
 import type {
   AutoFixPayload,
+  RepairContext,
   SetMessages,
   StreamQualitySignal,
   VersionErrorLogPayload,
@@ -355,27 +356,50 @@ async function runSandboxQualityGate(params: {
       steps.push(...vqaSteps);
     }
 
-    if (!data.passed && failedChecks.length > 0 && onAutoFix) {
-      const failedOutputs: Record<string, string> = {};
-      for (const check of data.checks ?? []) {
-        if (!check.passed) failedOutputs[check.check] = check.output.slice(0, 2000);
+    if (!data.passed && failedChecks.length > 0) {
+      const repair: RepairContext = {
+        qualityGate: (data.checks ?? [])
+          .filter((c) => !c.passed)
+          .map((c) => ({
+            check: c.check as "typecheck" | "build" | "lint",
+            exitCode: c.exitCode,
+            output: c.output.slice(0, 4000),
+          })),
+      };
+
+      const serverRepaired = await tryServerRepair(chatId, versionId, repair);
+      if (serverRepaired) {
+        appendToolPartToMessage(setMessages, assistantMessageId, {
+          type: "tool:quality-gate",
+          toolName: "Server repair",
+          toolCallId: `server-repair:${versionId}`,
+          state: "output-available",
+          output: {
+            repaired: true,
+            method: serverRepaired.deterministic ? "deterministic" : "llm",
+            newVersionId: serverRepaired.newVersionId,
+          },
+        } as UiMessagePart);
+      } else {
+        onAutoFix?.({
+          chatId,
+          versionId,
+          reasons: failedChecks.map((check) => `${check} failed`),
+          repair,
+        });
       }
-      onAutoFix({
-        chatId,
-        versionId,
-        reasons: failedChecks.map((check) => `${check} failed`),
-        meta: { qualityGate: failedOutputs },
-      });
     } else if (data.passed && data.visualQA && !data.visualQA.passed && onAutoFix) {
-      const failedVisualChecks = data.visualQA.checks
-        .filter((c) => !c.passed)
-        .map((c) => `${c.check}: ${c.detail}`)
-        .slice(0, 4);
+      const repair: RepairContext = {
+        visualQA: data.visualQA.checks
+          .filter((c) => !c.passed)
+          .map((c) => ({ check: c.check, score: c.score, detail: c.detail }))
+          .slice(0, 4),
+      };
       onAutoFix({
         chatId,
         versionId,
         reasons: [`Visual QA score ${data.visualQA.overallScore}/100 below threshold`],
-        meta: { visualQA: failedVisualChecks },
+        repair,
       });
     }
   } catch {
@@ -386,5 +410,45 @@ async function runSandboxQualityGate(params: {
       state: "output-error",
       errorText: "Quality gate request failed (network error)",
     } as UiMessagePart);
+  }
+}
+
+function isServerRepairEnabled(): boolean {
+  try {
+    return typeof window !== "undefined" &&
+      (window as unknown as Record<string, unknown>).__SAJTMASKIN_SERVER_REPAIR__ === true;
+  } catch {
+    return false;
+  }
+}
+
+type ServerRepairResult = {
+  repaired: boolean;
+  deterministic: boolean;
+  newVersionId?: string | null;
+  remainingErrors?: number;
+};
+
+async function tryServerRepair(
+  chatId: string,
+  versionId: string,
+  repair: RepairContext,
+): Promise<ServerRepairResult | null> {
+  if (!isServerRepairEnabled()) return null;
+  try {
+    const res = await fetch(
+      `/api/v0/chats/${encodeURIComponent(chatId)}/repair`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId, repairContext: repair }),
+      },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as ServerRepairResult | null;
+    if (!data?.repaired) return null;
+    return data;
+  } catch {
+    return null;
   }
 }

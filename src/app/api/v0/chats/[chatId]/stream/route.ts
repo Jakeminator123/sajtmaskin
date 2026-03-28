@@ -27,6 +27,7 @@ import {
   prepareGenerationContext,
   resolveOrchestrationBase,
 } from "@/lib/gen/orchestrate";
+import { computeLineageHash } from "@/lib/gen/generation-input-package";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
@@ -550,6 +551,15 @@ export async function handleMessageStreamRequest(
           orchestrationBase,
           orchestrationInput,
         );
+        const lineageHash = computeLineageHash({
+          userPrompt: optimizedMessage,
+          brief: metaBrief,
+          scaffoldMode: metaScaffoldMode ?? "auto",
+          scaffoldContext: orchestrationBase.scaffoldContext,
+          routePlan: orchestrationBase.routePlan,
+          preGenerationContracts: orchestrationBase.preGenerationContracts,
+          capabilityHints: orchestrationBase.scaffoldAndCapability,
+        });
         dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
           route: "POST /api/v0/chats/[chatId]/stream",
           planMode: false,
@@ -594,6 +604,7 @@ export async function handleMessageStreamRequest(
           urlMap,
           commitCredits: commitCreditsOnce,
           previousFiles: previousFiles.length > 0 ? previousFiles : undefined,
+          lineageHash,
         });
 
         const engineHeaders = new Headers(createSSEHeaders());

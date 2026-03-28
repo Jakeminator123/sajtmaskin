@@ -38,6 +38,7 @@ export type OwnEnginePipelineAndGenerationInput = {
   urlMap: Record<string, string>;
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
+  lineageHash?: string | null;
 };
 
 /**
@@ -72,5 +73,6 @@ export function createOwnEnginePipelineAndGenerationStream(
     urlMap: input.urlMap,
     commitCredits: input.commitCredits,
     previousFiles: input.previousFiles,
+    lineageHash: input.lineageHash,
   });
 }

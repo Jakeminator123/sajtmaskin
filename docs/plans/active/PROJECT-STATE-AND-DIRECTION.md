@@ -120,6 +120,11 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 - **«v0» i repot** har tre distinkta betydelser: (1) API-versionering, (2) naming debt, (3) template-källa — se `terminology.mdc`.  
 - **Vercel-templates** (research) ≠ **v0-templates** (builder gallery) — se `terminology.mdc`.  
 - **ENV-städ** periodiskt när K-019 / Plan 17-punkter rör env-policy.
+- **Export-pipeline** kanoniserad via `buildExportableProject()` — alla nedladdnings-/verifieringsvägar går genom samma funktion.  
+- **Sandbox-policy** centraliserad i `src/lib/mcp/runtime-url.ts` — quality-gate och sandbox-routes delar helpers (`isSafeRelativePath`, `resolveSandboxTemplateGitUrl`).  
+- **Template-katalog** har en stabil barrel (`src/lib/templates/index.ts`) — externa konsumenter importerar från `@/lib/templates`.  
+- **Bildpolicy** synkad: genererad `next.config` vitlistar inte längre hosts som prompten förbjuder.  
+- **Senaste handoff:** [`docs/handoffs/export-reliability-och-nasta-steg.md`](../../handoffs/export-reliability-och-nasta-steg.md) — öppna gap och rekommenderade nästa steg.
 
 ---
 

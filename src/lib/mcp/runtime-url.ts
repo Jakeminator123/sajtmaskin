@@ -313,7 +313,7 @@ export function isSafeRelativePath(filePath: string): boolean {
   if (!filePath || filePath.includes("\0")) return false;
   if (filePath.startsWith("/") || filePath.startsWith("\\")) return false;
   if (filePath.includes("..")) return false;
-  return /^[A-Za-z0-9._/-]+$/.test(filePath);
+  return /^[A-Za-z0-9._/@-]+$/.test(filePath);
 }
 
 export function buildOwnEnginePreviewRuntime(params: {

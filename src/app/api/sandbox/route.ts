@@ -6,8 +6,10 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
 import {
   getSandboxCommandTextOutput,
+  isSafeRelativePath,
   isSandboxConfigured,
   resolveSandboxAccessCredentials,
+  resolveSandboxTemplateGitUrl,
   SANDBOX_SETUP_HINT,
 } from "@/lib/mcp/runtime-url";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
@@ -36,13 +38,6 @@ const createSandboxSchema = z.object({
 
 const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
-
-function isSafeRelativePath(path: string): boolean {
-  if (!path || path.includes("\0")) return false;
-  if (path.startsWith("/") || path.startsWith("\\")) return false;
-  if (path.includes("..")) return false;
-  return /^[A-Za-z0-9._/-]+$/.test(path);
-}
 
 function inferLanguage(fileName: string): string {
   const normalized = fileName.toLowerCase();
@@ -137,7 +132,7 @@ export async function POST(req: Request) {
       } else {
         sourceConfig = {
           type: "git",
-          url: "https://github.com/vercel/sandbox-example-next.git",
+          url: resolveSandboxTemplateGitUrl(),
         };
       }
 

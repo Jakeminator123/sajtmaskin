@@ -28,6 +28,7 @@ import {
   prepareGenerationContext,
   resolveOrchestrationBase,
 } from "@/lib/gen/orchestrate";
+import { computeLineageHash } from "@/lib/gen/generation-input-package";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildPlanSummaryMessage,
@@ -565,6 +566,15 @@ export async function POST(req: Request) {
           orchestrationBase,
           orchestrationInput,
         );
+        const lineageHash = computeLineageHash({
+          userPrompt: optimizedMessage,
+          brief: metaBrief,
+          scaffoldMode: metaScaffoldMode ?? "auto",
+          scaffoldContext: orchestrationBase.scaffoldContext,
+          routePlan: orchestrationBase.routePlan,
+          preGenerationContracts: orchestrationBase.preGenerationContracts,
+          capabilityHints: orchestrationBase.scaffoldAndCapability,
+        });
         dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
           route: "POST /api/v0/chats/stream",
           planMode: false,
@@ -625,6 +635,7 @@ export async function POST(req: Request) {
           engineIntent,
           routePlan: routePlan ?? null,
           resolvedScaffold: resolvedScaffold ?? null,
+          lineageHash,
           urlMap,
           commitCredits: commitCreditsOnce,
         });

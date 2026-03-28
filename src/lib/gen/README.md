@@ -9,7 +9,7 @@ Sajtmaskin's own code generation engine. Uses OpenAI models (gpt-5.3-codex defau
 ## Architecture
 
 ```
-createGenerationPipeline()  (fallback.ts)
+createGenerationPipeline()  (generation-pipeline.ts)
     │
     └─ engine.ts (streamText + createCodeGenSSEStream)
            │
@@ -19,13 +19,14 @@ createGenerationPipeline()  (fallback.ts)
            └─ suspense/ (TransformStream post-processing)
 ```
 
-Legacy V0 Platform codegen is no longer part of the runtime generation surface. This module is the canonical generation path.
+This module is the canonical generation path (own-engine). `fallback.ts` is a back-compat re-export of `generation-pipeline.ts`.
 
 ## Key Files
 
 | File | Role |
 |------|------|
-| `fallback.ts` | Entry point. `createGenerationPipeline()` delegates to the own-engine (`engine.ts`) only. |
+| `generation-pipeline.ts` | Canonical entry point. `createGenerationPipeline()` delegates to own-engine (`engine.ts`). |
+| `fallback.ts` | Back-compat re-export of `generation-pipeline.ts`. Prefer the canonical module for new code. |
 | `engine.ts` | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
 | `system-prompt.ts` | Builds the system prompt (static core + dynamic context). |
 | `stream-format.ts` | Converts AI SDK stream to SSE events (`meta`, `thinking`, `content`, `done`, `error`). |

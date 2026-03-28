@@ -45,6 +45,8 @@ export interface GenerationStreamParams {
   urlMap: UrlMap;
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
+  /** SHA-256 of deterministic generation inputs (prompt lineage). */
+  lineageHash?: string | null;
 }
 
 export function createOwnEngineGenerationStream(
@@ -63,6 +65,7 @@ export function createOwnEngineGenerationStream(
     urlMap,
     commitCredits,
     previousFiles,
+    lineageHash,
   } = params;
 
   const engineStartedAt = Date.now();
@@ -208,6 +211,7 @@ export function createOwnEngineGenerationStream(
         },
         previousFiles,
         onProgress: emitProgress,
+        lineageHash,
         ...extra,
       });
 

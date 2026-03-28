@@ -1,5 +1,8 @@
 # Handoff: LLM-kedja och generationskvalitet (own-engine)
 
+> **STATUS: AVKLARAT** — Denna handoff kördes 2026-03-27 (fas 2-3 i world-class plan).
+> Aktuellt handoff-dokument: [`export-reliability-och-nasta-steg.md`](export-reliability-och-nasta-steg.md).
+
 **Mål:** Göra own-engine-spåret till leverantör av **högkvalitativa** sidor — inte tunna scaffold-teman med kvarvarande hakparentes-placeholders — med tydlig **fan-in** av all kontext innan codegen och valfri **polish** efter första passet.
 
 **Prioritet:** Hög — direkt produktvärde (Fidelity 2 i sandbox som “sanning”, scaffold som golv).

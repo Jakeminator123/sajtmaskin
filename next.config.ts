@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
         hostname: "quickchart.io",
         pathname: "/**",
       },
-      // Lorem Picsum (placeholder images)
+      // Lorem Picsum (legacy; prompt now uses /placeholder.svg pipeline instead)
       {
         protocol: "https",
         hostname: "picsum.photos",

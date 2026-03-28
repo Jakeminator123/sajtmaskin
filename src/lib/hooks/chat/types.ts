@@ -36,10 +36,40 @@ export type CreateChatLock = {
   chatId?: string | null;
 };
 
+export type QualityGateFailure = {
+  check: "typecheck" | "build" | "lint";
+  exitCode: number;
+  /** Truncated check output (max ~4000 chars). */
+  output: string;
+  errorCount?: number;
+};
+
+export type RepairScaffoldRetry = {
+  /** New compact form for prompts. */
+  labels?: string[];
+  /** Legacy / preview-preflight shape still used in runtime metadata. */
+  currentScaffoldId?: string;
+  currentScaffoldLabel?: string;
+  suggestedScaffoldId?: string;
+  suggestedScaffoldLabel?: string;
+  reason: string;
+};
+
+export type RepairContext = {
+  qualityGate?: QualityGateFailure[];
+  visualQA?: { check: string; score: number; detail: string }[];
+  previousVersionErrors?: string[];
+  currentVersionErrors?: string[];
+  scaffoldRetry?: RepairScaffoldRetry | null;
+};
+
 export type AutoFixPayload = {
   chatId: string;
   versionId: string;
   reasons: string[];
+  /** Structured repair context from quality gate / post-checks. */
+  repair?: RepairContext;
+  /** General metadata — kept for backward compat with preview/diagnostics callers. */
   meta?: Record<string, unknown>;
 };
 

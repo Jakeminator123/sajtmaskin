@@ -31,7 +31,7 @@ import {
 import {
   getAllV0Categories,
   getTemplatesByCategory,
-} from "@/lib/templates/template-data";
+} from "@/lib/templates";
 
 // ═══════════════════════════════════════════════════════════════
 // ICON MAPPING

@@ -1,5 +1,8 @@
 # Handoff: Autofix, validering och quality gates
 
+> **STATUS: AVKLARAT** — Denna handoff kördes 2026-03-27 (fas 1 i world-class plan).
+> Aktuellt handoff-dokument: [`export-reliability-och-nasta-steg.md`](export-reliability-och-nasta-steg.md).
+
 **Mål:** Göra reparationskedjan **pålitlig**, **mätbar** och **sluten** — deterministiska fixar + LLM-fix + sandbox/quality gate — utan dolda fel och utan onödig dubbelarbete.
 
 **Prioritet:** Hög — detta är steget mellan generation och sandbox (Fidelity 2).

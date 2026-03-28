@@ -26,3 +26,18 @@ Closes **this session’s** work. Order: (1) `git status` + `git diff` [+ `--sta
 **Structural / terminology / flow changes:** Update canonical files in the same turn; **remove** obsolete text in those files instead of leaving parallel outdated sections; new file only for genuinely new scope. Renames: also `terminology.mdc`, `docs/`, `docs/ENV.md` if paths matter, `scripts/README.md` if scripts/artifacts change. Larger write-ups → `docs/architecture/` + link from `docs/README.md`.
 
 **Modularity:** Keep boundaries clear — follow existing folder conventions; see [`docs/architecture/repo-tree.md`](../../docs/architecture/repo-tree.md). **Env / `.vercel`:** read policy in `repo-env-indexing.mdc`.
+
+## Doc hygiene (keep docs current, not growing)
+
+When you change code behavior, check if these files reference the changed area — update or **trim** in the same turn:
+
+1. `docs/FINDINGS.txt` — sessionslogg, inte sanningskälla. **Ta bort** poster som är klara eller inaktuella. Flytta viktigt till `PROJECT-STATE-AND-DIRECTION.md`. Filen ska vara kort (<60 rader): nuvarande tillstånd + öppna gap.
+2. `docs/handoffs/*.md` — tidsbundna. När en handoff är genomförd, lägg till `> STATUS: AVKLARAT` + pekare till aktuellt dokument i toppen. Radera inte innehållet (referens), men markera tydligt.
+3. `docs/plans/active/*.md` — checklista-items (`[ ]`/`[x]`) ska uppdateras när arbete slutförs. Färdiga planer → `avklarat/` eller markera i filen.
+4. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — kanonisk backlog. Uppdatera beslut (§10) vid nya konventioner; ta bort rader som inte längre gäller.
+
+**Principer:**
+- **Ta bort** > lägg till. Om något är klart, stryk det — skriv inte "detta är nu klart" bredvid.
+- **Inga nya docs-filer** om inte genuint nytt scope. Redigera befintliga.
+- **En sanning, ett ställe.** Duplicera aldrig samma fakta i flera filer. Länka istället.
+- Om du inte ändrat beteende, rör inte docs.

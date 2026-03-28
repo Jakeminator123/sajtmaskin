@@ -1,5 +1,8 @@
 # Scaffold / sandbox-isolering — findings, ändringar och brief för LLM-flöde (Tier 2+)
 
+> **STATUS: AVKLARAT** — Denna handoff kördes 2026-03-27. Åtgärderna är implementerade.
+> Aktuellt handoff-dokument: [`export-reliability-och-nasta-steg.md`](export-reliability-och-nasta-steg.md).
+
 Detta dokument sammanfattar **vad vi lärt oss** och **vad som ändrats i kodbasen** kring embedding-valda scaffolds, sandbox-preview och baseline-beroenden — utan att lista enskilda testfall. Sista avsnittet är en **utförlig prompt** till en ny agent som ska fortsätta arbetet med **LLM-kedjan** och hur den ska **bygga vidare på scaffolds** mot en högre produktstandard.
 
 **Kanoniska begrepp:** Tier 1 = shim (`/api/preview-render`), Tier 2 = riktig Next i Vercel Sandbox (`npm run dev`), Fidelity 2/3 — se [`docs/architecture/preview-deploy.md`](../architecture/preview-deploy.md). Ordlista: [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc).

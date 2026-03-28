@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/layout";
-import { getAllV0Categories, getTemplatesByCategory } from "@/lib/templates/template-data";
+import { getAllV0Categories, getTemplatesByCategory } from "@/lib/templates";
 import {
   Wand2,
   Zap,
