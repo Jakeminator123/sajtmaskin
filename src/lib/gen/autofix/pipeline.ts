@@ -4,6 +4,7 @@ import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
 import { fixReactHookImports } from "./react-hook-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
+import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
 import { fixMissingMetadataImport, fixMissingMetadataRouteImport, fixMissingCnImport } from "./rules/metadata-import-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
@@ -221,6 +222,23 @@ export async function runAutoFix(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] lucide-image-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 4e. tailwind-font-arbitrary-fixer — replace font-[family-name:var(--x)] with inline style
+      try {
+        const fontResult = fixTailwindFontArbitrary(currentCode);
+        if (fontResult.fixed) {
+          currentCode = fontResult.code;
+          allFixes.push({
+            fixer: "tailwind-font-arbitrary-fixer",
+            description: `Replaced ${fontResult.count} Tailwind font-[family-name:...] class(es) with inline style`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] tailwind-font-arbitrary-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

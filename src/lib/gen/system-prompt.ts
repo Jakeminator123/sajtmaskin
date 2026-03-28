@@ -74,6 +74,8 @@ const BUILD_INTENT_GUIDANCE: Record<
       "Add social proof: testimonial quotes with names/titles, client logos (as placeholder images), star ratings.",
       "Match scope to the request: short prompt = polished one-pager; detailed prompt = multi-page site.",
       "SEO baseline is required by default: include metadata with title/description, Open Graph/Twitter data, canonical strategy, sitemap, robots, and at least one sensible JSON-LD/schema.org block for company-style sites unless the user explicitly says otherwise.",
+      "Scroll-reveal animations (fade-in, slide-up) must NEVER be applied to hero sections or other above-the-fold content — that content must render instantly without any opacity/blur/transform transition. Only use reveal on sections that appear below the fold on scroll. Never use CSS blur as part of reveal transitions on text — it makes content unreadable during the transition. Prefer opacity + translateY only.",
+      "Never use the Tailwind arbitrary class `font-[family-name:var(--x)]` — it produces corrupt CSS in Turbopack. Instead, use inline `style={{ fontFamily: 'var(--font-serif)' }}` or define a utility class in globals.css.",
     ],
   },
   app: {
