@@ -1,6 +1,7 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
+import { fixReactHookImports } from "@/lib/gen/autofix/react-hook-import-fixer";
 
 type RepairEntry = {
   fixer: string;
@@ -209,6 +210,16 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     if (asConstKeysResult.fixed) {
       content = asConstKeysResult.code;
       fixes.push(...asConstKeysResult.fixes);
+    }
+
+    const hookResult = fixReactHookImports(content);
+    if (hookResult.fixed) {
+      content = hookResult.code;
+      fixes.push({
+        fixer: "react-hook-import-fixer",
+        description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
+        file: file.path,
+      });
     }
 
     return content === file.content ? file : { ...file, content };

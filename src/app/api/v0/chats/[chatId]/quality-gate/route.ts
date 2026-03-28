@@ -10,8 +10,7 @@ import {
   markVersionVerifying,
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
-import { buildCompleteProject } from "@/lib/gen/project-scaffold";
-import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { buildExportableProject } from "@/lib/gen/build-exportable-project";
 import { analyzeVisualQuality, isVisualQAEnabled, type VisualQAResult } from "@/lib/gen/visual-qa";
 import {
   getSandboxCommandTextOutput,
@@ -258,7 +257,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         );
       }
 
-      const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
+      const completeProjectFiles = buildExportableProject(codeFiles);
       const sandboxFiles = completeProjectFiles
         .filter((f) => f.content != null)
         .map((f) => ({ name: f.path, content: f.content }));

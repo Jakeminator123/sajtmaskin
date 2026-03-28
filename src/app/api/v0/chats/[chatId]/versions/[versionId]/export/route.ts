@@ -3,6 +3,7 @@ import { put } from "@vercel/blob";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
+import { buildExportableProject } from "@/lib/gen/build-exportable-project";
 
 export const runtime = "nodejs";
 
@@ -43,9 +44,10 @@ export async function POST(
       }
       const codeFiles = await getVersionFiles(scopedVersion.version.id);
       if (codeFiles && codeFiles.length > 0) {
+        const completeProject = buildExportableProject(codeFiles);
         const JSZip = (await import("jszip")).default;
         const zip = new JSZip();
-        for (const file of codeFiles) {
+        for (const file of completeProject) {
           zip.file(file.path, file.content);
         }
 

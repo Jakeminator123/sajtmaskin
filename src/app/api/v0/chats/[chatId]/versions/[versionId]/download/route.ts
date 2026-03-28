@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { buildCompleteProject } from "@/lib/gen/project-scaffold";
-import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { buildExportableProject } from "@/lib/gen/build-exportable-project";
 
 export async function GET(
   req: Request,
@@ -17,7 +16,7 @@ export async function GET(
     }
     const codeFiles = await getVersionFiles(scopedVersion.version.id);
     if (codeFiles && codeFiles.length > 0) {
-      const completeProject = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
+      const completeProject = buildExportableProject(codeFiles);
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       for (const file of completeProject) {

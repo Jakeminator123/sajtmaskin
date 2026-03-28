@@ -1074,6 +1074,7 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     "2. Do NOT change layout, naming, styling, or architecture unless required by the fix.",
     "3. You MAY add a missing dependency import or install if the error requires it.",
     "4. Return ONLY the changed files with minimal edits.",
+    "5. NEVER ask the user questions, request confirmation, or wait for input. Fix immediately and silently.",
     "",
     "Acceptance criteria (the fix MUST pass all):",
     "- TypeScript typecheck (tsc --noEmit) passes.",

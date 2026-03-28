@@ -2,6 +2,7 @@ import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
+import { fixReactHookImports } from "./react-hook-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
 import { fixMissingMetadataImport, fixMissingMetadataRouteImport, fixMissingCnImport } from "./rules/metadata-import-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
@@ -135,6 +136,23 @@ export async function runAutoFix(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] react-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3b. react-hook-import-fixer — add missing named React hook imports (useState etc.)
+      try {
+        const hookResult = fixReactHookImports(currentCode);
+        if (hookResult.fixed) {
+          currentCode = hookResult.code;
+          allFixes.push({
+            fixer: "react-hook-import-fixer",
+            description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] react-hook-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
