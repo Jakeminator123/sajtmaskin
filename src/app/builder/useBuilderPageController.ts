@@ -49,17 +49,18 @@ import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
-import { buildPreviewUrl } from "@/lib/gen/preview";
-import type { SandboxPreviewPostApiJson } from "@/lib/gen/preview-contract";
+import {
+  hasSandboxPreviewUrl,
+  isShimOrMissingPreviewUrl,
+  normalizePreviewUrl,
+  resolveAlternatePreviewUrls,
+  type SandboxPreviewPostApiJson,
+} from "@/lib/gen/preview";
 import {
   parseRetryAfterMs,
   SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS,
   shouldRetrySandboxBootstrapFetch,
 } from "@/lib/builder/sandbox-bootstrap-retry";
-
-/** Own-engine chat + version rows use UUID ids; safe for `buildPreviewUrl(chatId, versionId)`. */
-const ENGINE_UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Prefer sandbox URL, then shim/demoUrl — se `docs/architecture/preview-deploy.md`. */
 function pickVersionPreviewUrl(
@@ -68,10 +69,9 @@ function pickVersionPreviewUrl(
 ): string | null {
   if (!v) return null;
   if (!options?.allowFailed && !canExposeEnginePreview(v)) return null;
-  const sand = v.sandboxUrl;
-  if (typeof sand === "string" && sand.trim()) return sand.trim();
-  const du = v.demoUrl;
-  return typeof du === "string" && du.trim() ? du.trim() : null;
+  const sand = normalizePreviewUrl(v.sandboxUrl);
+  if (sand) return sand;
+  return normalizePreviewUrl(v.demoUrl);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -98,19 +98,13 @@ function isV0StyleChatRecord(chat: unknown): boolean {
   return Boolean(c?.v0ChatId);
 }
 
-/** Tier-1 static preview (shim) or not yet resolved — prefer upgrading to sandbox when possible. */
-function isTier1ShimOrUnsetPreviewUrl(url: string | null | undefined): boolean {
-  if (url == null || !String(url).trim()) return true;
-  return String(url).includes("/api/preview-render");
-}
-
 function versionSummaryHasSandbox(
   v: VersionSummary | undefined,
   options?: { allowFailed?: boolean },
 ): boolean {
   if (!v) return false;
   if (!options?.allowFailed && !canExposeEnginePreview(v)) return false;
-  return typeof v.sandboxUrl === "string" && v.sandboxUrl.trim().length > 0;
+  return hasSandboxPreviewUrl(v.sandboxUrl);
 }
 
 export function useBuilderPageController() {
@@ -193,16 +187,12 @@ export function useBuilderPageController() {
     if (!vid) return { shimUrl: null as string | null, sandboxUrl: null as string | null };
     const v = derived.effectiveVersionsList.find((x) => (x.versionId || x.id) === vid);
     if (!v) return { shimUrl: null, sandboxUrl: null };
-    const du = typeof v.demoUrl === "string" && v.demoUrl.trim() ? v.demoUrl.trim() : null;
-    const sand = typeof v.sandboxUrl === "string" && v.sandboxUrl.trim() ? v.sandboxUrl.trim() : null;
-    let shimUrl = du && du.includes("/api/preview-render") ? du : null;
-    if (!shimUrl && sand && state.chatId && ENGINE_UUID_RE.test(state.chatId)) {
-      const versionKey = String(vid);
-      if (ENGINE_UUID_RE.test(versionKey)) {
-        shimUrl = buildPreviewUrl(state.chatId, versionKey);
-      }
-    }
-    return { shimUrl, sandboxUrl: sand };
+    return resolveAlternatePreviewUrls({
+      chatId: state.chatId,
+      versionId: String(vid),
+      demoUrl: v.demoUrl,
+      sandboxUrl: v.sandboxUrl,
+    });
   }, [derived.activeVersionId, derived.effectiveVersionsList, state.chatId]);
 
   const { readiness: deployReadiness, isLoading: isDeployReadinessLoading } = useChatReadiness(
@@ -1327,9 +1317,8 @@ export function useBuilderPageController() {
         : null) ||
       null;
 
-    const currentIsLivePreview =
-      currentDemoUrl != null && !isTier1ShimOrUnsetPreviewUrl(currentDemoUrl);
-    const nextIsShimPreview = nextDemoUrl != null && isTier1ShimOrUnsetPreviewUrl(nextDemoUrl);
+    const currentIsLivePreview = currentDemoUrl != null && !isShimOrMissingPreviewUrl(currentDemoUrl);
+    const nextIsShimPreview = nextDemoUrl != null && isShimOrMissingPreviewUrl(nextDemoUrl);
     if (
       currentIsLivePreview &&
       nextIsShimPreview &&
@@ -1341,7 +1330,7 @@ export function useBuilderPageController() {
     if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
       setCurrentDemoUrl(nextDemoUrl);
       setPreviewRefreshToken(Date.now());
-      if (!isTier1ShimOrUnsetPreviewUrl(nextDemoUrl)) {
+      if (!isShimOrMissingPreviewUrl(nextDemoUrl)) {
         setSandboxPending(false);
       }
     }
@@ -1387,7 +1376,7 @@ export function useBuilderPageController() {
       if (!isForcedRestart) return;
     }
 
-    if (!isTier1ShimOrUnsetPreviewUrl(currentDemoUrl) && !isForcedRestart) {
+    if (!isShimOrMissingPreviewUrl(currentDemoUrl) && !isForcedRestart) {
       sandboxBootstrapDoneKeysRef.current.add(key);
       return;
     }

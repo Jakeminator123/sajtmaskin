@@ -1,5 +1,20 @@
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
+import type { PreflightIssueCategory, SandboxPrimaryPreviewTarget } from "@/lib/gen/preview";
 import type { VersionErrorLogPayload } from "./types";
+
+function isSandboxPrimaryPreviewTarget(value: unknown): value is SandboxPrimaryPreviewTarget {
+  return value === "sandbox" || value === "compatibility-shim" || value === "none";
+}
+
+function isPreflightIssueCategory(value: unknown): value is PreflightIssueCategory {
+  return (
+    value === "code_structure_failure" ||
+    value === "dependency_install_failure" ||
+    value === "env_config_missing" ||
+    value === "shim_preview_failure" ||
+    value === "non_blocking_quality_warning"
+  );
+}
 
 export type PreviewUnavailableDetails = {
   message: string;
@@ -39,20 +54,16 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
         ? root.previewBlockingReason
         : null;
   const primaryPreviewTarget =
-    nested?.primaryPreviewTarget === "sandbox" ||
-    nested?.primaryPreviewTarget === "compatibility-shim" ||
-    nested?.primaryPreviewTarget === "none"
+    isSandboxPrimaryPreviewTarget(nested?.primaryPreviewTarget)
       ? nested.primaryPreviewTarget
-      : root?.primaryPreviewTarget === "sandbox" ||
-          root?.primaryPreviewTarget === "compatibility-shim" ||
-          root?.primaryPreviewTarget === "none"
+      : isSandboxPrimaryPreviewTarget(root?.primaryPreviewTarget)
         ? root.primaryPreviewTarget
         : undefined;
   const issueCategories =
     Array.isArray(nested?.issueCategories)
-      ? nested.issueCategories.filter((value): value is string => typeof value === "string")
+      ? nested.issueCategories.filter(isPreflightIssueCategory)
       : Array.isArray(root?.issueCategories)
-        ? root.issueCategories.filter((value): value is string => typeof value === "string")
+        ? root.issueCategories.filter(isPreflightIssueCategory)
         : undefined;
   const sandboxRoot =
     root?.sandbox && typeof root.sandbox === "object"
@@ -66,9 +77,7 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
   const sandbox =
     sandboxData &&
     typeof sandboxData.canStartSandbox === "boolean" &&
-    (sandboxData.primaryPreviewTarget === "sandbox" ||
-      sandboxData.primaryPreviewTarget === "compatibility-shim" ||
-      sandboxData.primaryPreviewTarget === "none") &&
+    isSandboxPrimaryPreviewTarget(sandboxData.primaryPreviewTarget) &&
     typeof sandboxData.shimBlocked === "boolean" &&
     typeof sandboxData.requiresEnvConfig === "boolean" &&
     typeof sandboxData.hasCriticalInstallRisk === "boolean" &&
@@ -98,13 +107,7 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
               Number((sandboxData.issueCounts as Record<string, unknown>).non_blocking_quality_warning) || 0,
           },
           blockingCategories: sandboxData.blockingCategories.filter(
-            (value): value is
-              | "code_structure_failure"
-              | "dependency_install_failure"
-              | "env_config_missing"
-              | "shim_preview_failure"
-              | "non_blocking_quality_warning" =>
-              typeof value === "string",
+            isPreflightIssueCategory,
           ),
         }
       : null;

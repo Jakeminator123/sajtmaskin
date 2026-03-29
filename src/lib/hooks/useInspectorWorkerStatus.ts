@@ -1,15 +1,26 @@
 import { useEffect, useRef, useState } from "react";
+import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 
 export type InspectorWorkerStatus = "unknown" | "healthy" | "unhealthy" | "disabled";
 
 const POLL_INTERVAL_MS = 30_000;
 
 export function useInspectorWorkerStatus() {
-  const [status, setStatus] = useState<InspectorWorkerStatus>("unknown");
-  const [message, setMessage] = useState<string | null>(null);
+  const inspectorEnabled = isBuilderInspectorEnabled();
+  const [status, setStatus] = useState<InspectorWorkerStatus>(inspectorEnabled ? "unknown" : "disabled");
+  const [message, setMessage] = useState<string | null>(
+    inspectorEnabled ? null : getBuilderInspectorDisabledMessage(),
+  );
   const settledDisabled = useRef(false);
 
   useEffect(() => {
+    if (!inspectorEnabled) {
+      settledDisabled.current = true;
+      setStatus("disabled");
+      setMessage(getBuilderInspectorDisabledMessage());
+      return;
+    }
+
     let isActive = true;
     let timer: number | null = null;
 
@@ -52,7 +63,7 @@ export function useInspectorWorkerStatus() {
       isActive = false;
       if (timer) window.clearInterval(timer);
     };
-  }, []);
+  }, [inspectorEnabled]);
 
   return { inspectorWorkerStatus: status, inspectorWorkerMessage: message };
 }

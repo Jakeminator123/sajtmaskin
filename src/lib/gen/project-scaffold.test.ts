@@ -210,6 +210,7 @@ describe("runProjectSanityChecks peer heuristics", () => {
     ];
     const result = runProjectSanityChecks(files);
     expect(result.issues.some((i) => i.message.includes("@react-three/fiber") && i.severity === "error")).toBe(true);
+    expect(result.issues.some((i) => i.category === "dependency_install_failure")).toBe(true);
   });
 
   it("does not flag @react-three/fiber 9 with react 19", () => {
@@ -240,5 +241,6 @@ describe("runProjectSanityChecks peer heuristics", () => {
     ];
     const result = runProjectSanityChecks(files);
     expect(result.issues.some((i) => i.message.includes("next") && i.message.includes("react >=19"))).toBe(true);
+    expect(result.issues.some((i) => i.category === "dependency_install_failure")).toBe(true);
   });
 });

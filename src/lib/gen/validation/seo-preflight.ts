@@ -1,10 +1,12 @@
 import type { CodeFile } from "@/lib/gen/parser";
+import type { PreflightIssueCategory } from "@/lib/gen/preview";
 
 export type SeoPreflightIssue = {
   file: string;
   severity: "error" | "warning";
   code: string;
   message: string;
+  category?: PreflightIssueCategory;
 };
 
 const LAYOUT_SUFFIXES = ["app/layout.tsx", "src/app/layout.tsx"];
@@ -22,6 +24,21 @@ function findFileBySuffix(files: CodeFile[], suffixes: string[]): CodeFile | und
 
 function hasFile(files: CodeFile[], suffixes: string[]): boolean {
   return findFileBySuffix(files, suffixes) !== undefined;
+}
+
+function createSeoIssue(
+  file: string,
+  severity: "error" | "warning",
+  code: string,
+  message: string,
+): SeoPreflightIssue {
+  return {
+    file,
+    severity,
+    code,
+    message,
+    category: "non_blocking_quality_warning",
+  };
 }
 
 export function runSeoPreflightChecks(files: CodeFile[]): SeoPreflightIssue[] {
@@ -43,60 +60,36 @@ export function runSeoPreflightChecks(files: CodeFile[]): SeoPreflightIssue[] {
   const layoutPath = layoutFile?.path ?? "app/layout.tsx";
 
   if (!hasMetadataExport) {
-    issues.push({
-      file: layoutPath,
-      severity: "error",
-      code: "missing-metadata",
-      message: "Layouten saknar export av metadata för title/description.",
-    });
+    issues.push(
+      createSeoIssue(
+        layoutPath,
+        "error",
+        "missing-metadata",
+        "Layouten saknar export av metadata för title/description.",
+      ),
+    );
   }
   if (hasMetadataExport && !hasTitle) {
-    issues.push({
-      file: layoutPath,
-      severity: "error",
-      code: "missing-title",
-      message: "Metadata saknar title.",
-    });
+    issues.push(createSeoIssue(layoutPath, "error", "missing-title", "Metadata saknar title."));
   }
   if (hasMetadataExport && !hasDescription) {
-    issues.push({
-      file: layoutPath,
-      severity: "warning",
-      code: "missing-description",
-      message: "Metadata saknar description.",
-    });
+    issues.push(
+      createSeoIssue(layoutPath, "warning", "missing-description", "Metadata saknar description."),
+    );
   }
   if (!hasRobots) {
-    issues.push({
-      file: "seo",
-      severity: "warning",
-      code: "missing-robots",
-      message: "Projektet saknar app/robots.ts.",
-    });
+    issues.push(createSeoIssue("seo", "warning", "missing-robots", "Projektet saknar app/robots.ts."));
   }
   if (!hasSitemap) {
-    issues.push({
-      file: "seo",
-      severity: "warning",
-      code: "missing-sitemap",
-      message: "Projektet saknar app/sitemap.ts.",
-    });
+    issues.push(createSeoIssue("seo", "warning", "missing-sitemap", "Projektet saknar app/sitemap.ts."));
   }
   if (homePageFile && homeH1Count === 0) {
-    issues.push({
-      file: homePageFile.path,
-      severity: "warning",
-      code: "missing-h1",
-      message: "Startsidan saknar h1-rubrik.",
-    });
+    issues.push(createSeoIssue(homePageFile.path, "warning", "missing-h1", "Startsidan saknar h1-rubrik."));
   }
   if (hasMetadataExport && !hasOpenGraph) {
-    issues.push({
-      file: layoutPath,
-      severity: "warning",
-      code: "missing-open-graph",
-      message: "Metadata saknar Open Graph-fält.",
-    });
+    issues.push(
+      createSeoIssue(layoutPath, "warning", "missing-open-graph", "Metadata saknar Open Graph-fält."),
+    );
   }
 
   return issues;

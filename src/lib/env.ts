@@ -159,6 +159,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_DEV_LOG: z.string().optional(),
   SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS: z.string().optional(),
   CRON_SECRET: z.string().optional(),
+  SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
 
   // Inspector / capture worker
   INSPECTOR_CAPTURE_WORKER_URL: z.string().optional(),
@@ -181,6 +182,7 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_AVATAR_CLIENT_KEY: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
+  NEXT_PUBLIC_SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

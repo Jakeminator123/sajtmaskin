@@ -8,7 +8,7 @@ import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
 import {
   buildSandboxStartContract,
-  detectPreflightIssueCategory,
+  resolvePreflightIssueCategory,
   type PreflightIssueCategory,
   type SandboxStartContract,
 } from "./preflight-contract";
@@ -59,12 +59,13 @@ function createIssue(
   file: string,
   severity: "error" | "warning",
   message: string,
+  category?: PreflightIssueCategory | null,
 ): FinalizePreflightIssue {
   return {
     file,
     severity,
     message,
-    category: detectPreflightIssueCategory({ file, severity, message }),
+    category: resolvePreflightIssueCategory({ file, severity, message, category }),
   };
 }
 
@@ -150,13 +151,13 @@ export async function runFinalizePreflight({
     const sanity = runProjectSanityChecks(completeProjectFiles);
     preflightIssues = [
       ...preflightIssues,
-      ...sanity.issues.map((issue) => createIssue(issue.file, issue.severity, issue.message)),
+      ...sanity.issues.map((issue) => createIssue(issue.file, issue.severity, issue.message, issue.category)),
     ];
     const seoIssues = runSeoPreflightChecks(completeProjectFiles);
     preflightIssues = [
       ...preflightIssues,
       ...seoIssues.map((issue) =>
-        createIssue(issue.file || "seo", issue.severity, issue.message)
+        createIssue(issue.file || "seo", issue.severity, issue.message, issue.category)
       ),
     ];
     const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));
@@ -170,6 +171,7 @@ export async function runFinalizePreflight({
             route.path,
             severity,
             `Planned route is missing from generated files: ${route.path} (${route.name})`,
+            severity === "error" ? "code_structure_failure" : "non_blocking_quality_warning",
           )
         ),
       );

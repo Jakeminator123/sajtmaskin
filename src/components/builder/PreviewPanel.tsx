@@ -1,20 +1,7 @@
 "use client";
 
 import {
-  AlertCircle,
-  BrainCircuit,
-  CircleCheck,
-  Code2,
-  ExternalLink,
-  FileText,
   Loader2,
-  MessageCircleQuestion,
-  MousePointer2,
-  RefreshCw,
-  Search,
-  Wand2,
-  X,
-  Zap,
 } from "lucide-react";
 import {
   useCallback,
@@ -24,14 +11,14 @@ import {
   useState,
   useTransition,
   type MouseEvent,
+  type MouseEventHandler,
 } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
+import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import {
   readContactDetailsDraft,
   updateContactDetailsDraft,
@@ -133,12 +120,22 @@ import {
   nearestInsertionPoint,
   type InsertionPoint,
 } from "@/lib/builder/sectionAnalyzer";
-import { ElementRegistry } from "@/components/builder/ElementRegistry";
-import { FileExplorer } from "@/components/builder/FileExplorer";
+import { PreviewPanelChrome } from "@/components/builder/preview-panel/PreviewPanelChrome";
+import { PreviewPanelCode } from "@/components/builder/preview-panel/PreviewPanelCode";
+import { PreviewPanelCompatibilityShim } from "@/components/builder/preview-panel/PreviewPanelCompatibilityShim";
+import { PreviewPanelEmptyState } from "@/components/builder/preview-panel/PreviewPanelEmptyState";
+import { PreviewPanelInspectorDev } from "@/components/builder/preview-panel/PreviewPanelInspectorDev";
+import { PreviewPanelSandbox } from "@/components/builder/preview-panel/PreviewPanelSandbox";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import { useInspectorWorkerStatus } from "@/lib/hooks/useInspectorWorkerStatus";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
+import {
+  buildAlternatePreviewBannerState,
+  isCompatibilityShimPreviewUrl,
+  isSandboxPreviewUrl,
+  type AlternatePreviewUrls,
+} from "@/lib/gen/preview";
 import {
   INITIAL_PREVIEW_RENDER_OUTCOME_STATE,
   describePreviewDiagnosticCode,
@@ -315,24 +312,12 @@ function extractPreviewRoutesFromFileNames(fileNames: string[]): string[] {
   return orderedRoutes;
 }
 
-function previewUrlsEquivalent(a: string | null | undefined, b: string | null | undefined): boolean {
-  if (!a || !b) return false;
-  if (a === b) return true;
-  if (typeof window === "undefined") return false;
-  try {
-    const o = window.location.origin;
-    return new URL(a, o).href === new URL(b, o).href;
-  } catch {
-    return false;
-  }
-}
-
 interface PreviewPanelProps {
   chatId: string | null;
   versionId: string | null;
   demoUrl: string | null;
   /** Tier 1 + tier 2 URLs stored on the active version — se `docs/architecture/preview-deploy.md`. */
-  alternatePreviewUrls?: { shimUrl: string | null; sandboxUrl: string | null };
+  alternatePreviewUrls?: AlternatePreviewUrls;
   onNavigatePreviewUrl?: (url: string) => void;
   isLoading?: boolean;
   onClear?: () => void;
@@ -388,7 +373,7 @@ export function PreviewPanel({
   demoUrl,
   alternatePreviewUrls,
   onNavigatePreviewUrl,
-  isLoading: externalLoading,
+  isLoading: externalLoading = false,
   onClear,
   onFixPreview,
   refreshToken,
@@ -479,6 +464,7 @@ export function PreviewPanel({
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
   const { integrationStatus, integrationError } = useIntegrationStatus(demoUrl);
   const { inspectorWorkerStatus, inspectorWorkerMessage } = useInspectorWorkerStatus();
+  const inspectorEnabled = isBuilderInspectorEnabled();
   const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
   const [inspectMode, setInspectMode] = useState(false);
   const [inspectEngine, setInspectEngine] = useState<InspectEngine>("map");
@@ -682,13 +668,21 @@ export function PreviewPanel({
       height: number,
       requestToken = inspectFetchTokenRef.current,
     ) => {
+      if (!inspectorEnabled) {
+        if (requestToken === inspectFetchTokenRef.current) {
+          setElementMap([]);
+          setElementMapLoading(false);
+          setInspectorUnavailable(true);
+        }
+        return 0;
+      }
       if (requestToken !== inspectFetchTokenRef.current) return 0;
       setElementMapLoading(true);
       setInspectorUnavailable(false);
       try {
         const inspectorUrl = url.startsWith("/") ? `${window.location.origin}${url}` : url;
 
-        const isOwnEnginePreview = inspectorUrl.includes("/api/preview-render");
+        const isOwnEnginePreview = isCompatibilityShimPreviewUrl(inspectorUrl);
 
         const res = await fetch("/api/inspector-element-map", {
           method: "POST",
@@ -726,11 +720,11 @@ export function PreviewPanel({
         }
       }
     },
-    [],
+    [inspectorEnabled],
   );
 
   const handleToggleInspect = useCallback(() => {
-    if (!demoUrl) return;
+    if (!inspectorEnabled || !demoUrl) return;
     setInspectMode((prev) => {
       const next = !prev;
       const requestToken = ++inspectFetchTokenRef.current;
@@ -760,7 +754,7 @@ export function PreviewPanel({
     });
     setLastCodeMatch(null);
     setInspectStatus("Laddar elementkarta...");
-  }, [buildPreviewSrc, demoUrl, fetchFilesForRegistry, fetchElementMap]);
+  }, [buildPreviewSrc, demoUrl, fetchFilesForRegistry, fetchElementMap, inspectorEnabled]);
 
   const flatFilesForAi = useMemo(() => {
     const result: Array<{ name: string; content: string }> = [];
@@ -823,7 +817,9 @@ export function PreviewPanel({
 
   const handleCaptureClick = useCallback(
     async (event: MouseEvent<HTMLDivElement>) => {
-      if (!demoUrl || !inspectMode || isCapturePending || iframeLoading || externalLoading) return;
+      if (!inspectorEnabled || !demoUrl || !inspectMode || isCapturePending || iframeLoading || externalLoading) {
+        return;
+      }
 
       const rect = event.currentTarget.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
@@ -1105,17 +1101,13 @@ export function PreviewPanel({
       chatId,
       versionId,
       hoveredMapElement,
+      inspectorEnabled,
     ],
   );
 
   const isOwnEnginePreview = useMemo(() => {
     if (!demoUrl) return false;
-    return demoUrl.startsWith("/api/preview-render");
-  }, [demoUrl]);
-
-  const isSandboxUrl = useMemo(() => {
-    if (!demoUrl) return false;
-    return /sandbox/i.test(demoUrl) && !demoUrl.startsWith("/api/preview-render");
+    return isCompatibilityShimPreviewUrl(demoUrl);
   }, [demoUrl]);
 
   useEffect(() => {
@@ -1238,6 +1230,15 @@ export function PreviewPanel({
       cancelled = true;
     };
   }, [demoUrl, versionId, fetchElementMap]);
+
+  useEffect(() => {
+    if (inspectorEnabled) return;
+    setInspectMode(false);
+    setHoveredMapElement(null);
+    setElementMap([]);
+    setElementMapLoading(false);
+    setHoveredPlacement(null);
+  }, [inspectorEnabled]);
 
   useEffect(() => {
     if (!placementMode) return;
@@ -2328,13 +2329,7 @@ export function PreviewPanel({
   );
   const isSandboxPreview = useMemo(() => {
     if (!demoUrl) return false;
-    try {
-      const host = new URL(demoUrl).hostname.toLowerCase();
-      return host.includes("sandbox") || host.endsWith(".vercel.run");
-    } catch {
-      const d = demoUrl.toLowerCase();
-      return d.includes("sandbox") || d.includes("vercel.run");
-    }
+    return isSandboxPreviewUrl(demoUrl);
   }, [demoUrl]);
   const isV0Preview = Boolean(
     demoUrl && !isOwnEnginePreview && demoUrl.includes("vusercontent.net"),
@@ -2403,98 +2398,22 @@ export function PreviewPanel({
   }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview, sandboxUrlPresent]);
 
   const alternatePreviewBanner = useMemo(() => {
-    if (!demoUrl || !alternatePreviewUrls) return null;
-    const shimUrl = alternatePreviewUrls.shimUrl?.trim() || null;
-    const sandboxUrl = alternatePreviewUrls.sandboxUrl?.trim() || null;
-    const offerShim = Boolean(
-      sandboxUrl && isSandboxPreview && shimUrl && !previewUrlsEquivalent(demoUrl, shimUrl),
-    );
-    const offerSandbox = Boolean(
-      shimUrl && isOwnEnginePreview && sandboxUrl && !previewUrlsEquivalent(demoUrl, sandboxUrl),
-    );
-    if (!offerShim && !offerSandbox) return null;
-    return { offerShim, offerSandbox, shimUrl: shimUrl!, sandboxUrl: sandboxUrl! };
-  }, [demoUrl, alternatePreviewUrls, isSandboxPreview, isOwnEnginePreview]);
+    return buildAlternatePreviewBannerState({ currentUrl: demoUrl, alternatePreviewUrls });
+  }, [demoUrl, alternatePreviewUrls]);
 
   if (!demoUrl && !isCodeView) {
-    const isInitialEmpty = !chatId && !versionId && !externalLoading;
-    const normalizedAwaitingQuestion =
-      typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
-        ? awaitingInputQuestion.trim()
-        : null;
-    const normalizedAwaitingOptions = awaitingInputOptions
-      .map((option) => option.trim())
-      .filter(Boolean)
-      .slice(0, 6);
-    const title = sandboxBuildError
-      ? "Sandbox-preview misslyckades"
-      : sandboxPending
-        ? "Startar live-preview"
-        : awaitingInput
-      ? "AI väntar på ditt svar"
-      : isInitialEmpty
-        ? "Välkommen"
-        : "Ingen förhandsvisning ännu";
-    const subtitle = sandboxBuildError
-      ? `Steg: ${sandboxBuildError.stage}. ${sandboxBuildError.message}`
-      : sandboxPending
-        ? "Next.js byggs i sandbox och previewn visas så snart dev-servern svarar."
-        : awaitingInput
-      ? "AI behöver ditt svar innan nästa preview kan genereras."
-      : externalLoading
-        ? "AI tänker... preview kommer strax."
-        : isInitialEmpty
-          ? "Skriv en prompt till vänster så genererar vi första preview."
-          : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
-    const showFixAction = Boolean(
-      onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput && !sandboxPending,
-    );
-    const EmptyIcon = sandboxBuildError
-      ? AlertCircle
-      : sandboxPending
-        ? Loader2
-        : awaitingInput
-          ? MessageCircleQuestion
-          : isInitialEmpty
-            ? Wand2
-            : AlertCircle;
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
-        <EmptyIcon className={cn("mb-4 h-12 w-12", sandboxPending && "animate-spin")} />
-        <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
-          {title}
-        </p>
-        <p className="text-sm" suppressHydrationWarning>
-          {subtitle}
-        </p>
-        {awaitingInput && normalizedAwaitingQuestion ? (
-          <div className="mt-4 max-w-xl space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">
-            <p className="text-sm font-semibold text-amber-100">{normalizedAwaitingQuestion}</p>
-            {normalizedAwaitingOptions.length > 0 ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                {normalizedAwaitingOptions.map((option) => (
-                  <Badge
-                    key={option}
-                    variant="secondary"
-                    className="border border-amber-500/20 bg-amber-500/10 text-amber-100"
-                  >
-                    {option}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-amber-200/80">
-                Svara i chatten till vänster för att fortsätta.
-              </p>
-            )}
-          </div>
-        ) : null}
-        {showFixAction && (
-          <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>
-            Försök reparera preview
-          </Button>
-        )}
-      </div>
+      <PreviewPanelEmptyState
+        chatId={chatId}
+        versionId={versionId}
+        externalLoading={externalLoading}
+        awaitingInput={awaitingInput}
+        awaitingInputQuestion={awaitingInputQuestion}
+        awaitingInputOptions={awaitingInputOptions}
+        sandboxPending={sandboxPending}
+        sandboxBuildError={sandboxBuildError}
+        onFixPreview={onFixPreview}
+      />
     );
   }
 
@@ -2521,7 +2440,7 @@ export function PreviewPanel({
         showImagesDisabledWarning ||
         showImagesUnsupportedWarning),
   );
-  const showWorkerLamp = inspectorWorkerStatus !== "disabled";
+  const showWorkerLamp = inspectorEnabled && inspectorWorkerStatus !== "disabled";
   const workerLampClass =
     inspectorWorkerStatus === "healthy"
       ? "bg-emerald-400"
@@ -2534,365 +2453,139 @@ export function PreviewPanel({
       : inspectorWorkerStatus === "unknown"
         ? "Kontrollerar inspector worker..."
         : inspectorWorkerMessage || "Inspector worker är offline. Fallback används.";
-  const showPlacementOverlay = placementMode && Boolean(demoUrl);
-  const showInspectOverlay = inspectMode && !showPlacementOverlay;
+  const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(demoUrl);
+  const showInspectOverlay = inspectorEnabled && inspectMode && !showPlacementOverlay;
+  const handleInspectMouseMove = useCallback<MouseEventHandler<HTMLDivElement>>(
+    (event) => {
+      if (inspectEngine !== "map" || elementMap.length === 0) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const xPct = ((event.clientX - rect.left) / rect.width) * 100;
+      const yPct = ((event.clientY - rect.top) / rect.height) * 100;
+      let best: ElementMapItem | null = null;
+      let bestArea = Infinity;
+      for (const el of elementMap) {
+        const vp = el.vpPercent;
+        if (xPct >= vp.x && xPct <= vp.x + vp.w && yPct >= vp.y && yPct <= vp.y + vp.h) {
+          const area = vp.w * vp.h;
+          if (area < bestArea && area > 0.01) {
+            best = el;
+            bestArea = area;
+          }
+        }
+      }
+      setHoveredMapElement(best);
+    },
+    [elementMap, inspectEngine],
+  );
+  const handleShowLastCodeMatch = useCallback(() => {
+    if (!lastCodeMatch) return;
+    setInspectMode(false);
+    startViewSwitchTransition(() => {
+      setViewMode("registry");
+      setSelectedRegistryId(lastCodeMatch.item.id);
+      setSelectedRegistryLine(lastCodeMatch.item.lineNumber);
+      setSelectedPath(lastCodeMatch.item.filePath);
+    });
+  }, [lastCodeMatch, startViewSwitchTransition]);
+  const PreviewSurface = isOwnEnginePreview ? PreviewPanelCompatibilityShim : PreviewPanelSandbox;
 
   return (
     <div className="flex h-full flex-col bg-black/40">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold tracking-tight text-white">Preview</h3>
-          <Badge variant="outline" className={surfaceDescriptor.badgeClassName}>
-            {surfaceDescriptor.label}
-          </Badge>
-          {isOwnEnginePreview && !sandboxUrlPresent ? (
-            <Badge
-              variant="outline"
-              className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
-              title="Live-preview med Next.js i sandbox är inte tillgänglig än — ofta miljö, npm install eller byggfel."
-            >
-              Live-preview väntar
-            </Badge>
-          ) : null}
-          {demoUrl && isSandboxPreview && !isOwnEnginePreview ? (
-            <Badge
-              variant="outline"
-              className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
-              title="Next.js körs i sandbox — motsvarar lokal utveckling."
-            >
-              Next.js
-            </Badge>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1">
-          {showWorkerLamp && (
-            <div
-              className="mr-1 inline-flex items-center gap-1 rounded border border-gray-700 bg-black/40 px-2 py-1 text-[11px] text-gray-400"
-              title={workerLampTitle}
-            >
-              <span className={cn("h-2 w-2 rounded-full", workerLampClass)} />
-              <span>Worker</span>
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleInspect}
-            disabled={!demoUrl || placementMode}
-            title={
-              placementMode
-                ? "Placering aktiv - avsluta placering först"
-                : "Markera punkt i preview och skicka till chatten"
-            }
-            className={cn(
-              "text-gray-400 hover:text-white",
-              inspectMode && "bg-emerald-900/50 text-emerald-300 hover:text-emerald-200",
-            )}
-          >
-            <Search className="mr-1 h-4 w-4" />
-            Inspektera preview
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleElementRegistry}
-            disabled={!canShowCode || isViewSwitchPending}
-            title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"}
-            className={cn(
-              "text-gray-400 hover:text-white",
-              showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100",
-            )}
-          >
-            <Code2 className="mr-1 h-4 w-4" />
-            Elementregister
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleCode}
-            disabled={!canShowCode || isViewSwitchPending}
-            title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"}
-            className={cn(
-              "text-gray-400 hover:text-white",
-              viewMode === "code" && "bg-gray-800 text-white hover:text-white",
-            )}
-          >
-            <FileText className="mr-1 h-4 w-4" />
-            Kodvy
-          </Button>
-          {demoUrl && onClear && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClear}
-              disabled={isLoading}
-              title="Rensa preview"
-              className="text-gray-400 hover:text-white"
-            >
-              Rensa
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isLoading}
-            title="Uppdatera preview"
-            aria-label="Uppdatera preview"
-            className="text-gray-400 hover:text-white"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenInNewTab}
-            title="Öppna i ny flik"
-            className="text-gray-400 hover:text-white"
-          >
-            <ExternalLink className="mr-1 h-4 w-4" />
-            Öppna
-          </Button>
-        </div>
-      </div>
-      <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
-        {surfaceDescriptor.detail}
-      </div>
-      {alternatePreviewBanner && onNavigatePreviewUrl ? (
-        <div className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-300">
-          <span>
-            {alternatePreviewBanner.offerShim
-              ? "En kompatibilitetsvy finns också för samma version."
-              : "Live-preview med Next.js finns också för samma version."}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 border-zinc-600 text-xs text-zinc-200 hover:bg-zinc-800"
-            onClick={() =>
-              onNavigatePreviewUrl(
-                alternatePreviewBanner.offerShim
-                  ? alternatePreviewBanner.shimUrl
-                  : alternatePreviewBanner.sandboxUrl,
-              )
-            }
-          >
-            {alternatePreviewBanner.offerShim ? "Visa kompatibilitetsvy" : "Byt till live-preview"}
-          </Button>
-        </div>
-      ) : null}
-      {sandboxBuildError ? (
-        <Alert
-          variant="destructive"
-          className="mx-4 mt-2 border-rose-900/55 bg-rose-950/45 text-rose-50"
-        >
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle className="text-sm text-rose-100">
-            {sandboxBuildError.stage === "sandbox_disabled"
-              ? "Sandbox inte tillgänglig"
-              : `Sandbox / build: ${sandboxBuildError.stage}`}
-          </AlertTitle>
-          <AlertDescription
-            className={cn(
-              "max-h-36 overflow-y-auto text-[11px] whitespace-pre-wrap text-rose-200/95",
-              sandboxBuildError.stage === "sandbox_disabled" ? "font-medium" : "font-mono",
-            )}
-          >
-            {sandboxBuildError.message}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      {sandboxProdBuild && !sandboxBuildError ? (
-        sandboxProdBuild.verified ? (
-          <Alert className="mx-4 mt-2 border-emerald-900/50 bg-emerald-950/35 text-emerald-50">
-            <CircleCheck className="h-4 w-4 text-emerald-400" />
-            <AlertTitle className="text-sm text-emerald-100">Production build OK</AlertTitle>
-            <AlertDescription className="text-[11px] text-emerald-200/90">
-              <code className="font-mono">npm run build</code> lyckades i sandbox — separat signal från
-              dev-preview (<code className="font-mono">npm run dev</code>).
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <Alert className="mx-4 mt-2 border-amber-900/50 bg-amber-950/40 text-amber-50">
-            <AlertCircle className="h-4 w-4 text-amber-400" />
-            <AlertTitle className="text-sm text-amber-100">Production build misslyckades</AlertTitle>
-            <AlertDescription className="space-y-1 text-[11px] text-amber-200/90">
-              <p>
-                Dev-preview kan ändå fungera. Åtgärda build-fel innan deploy — se loggutdrag nedan.
-              </p>
-              {sandboxProdBuild.logSnippet ? (
-                <pre className="max-h-36 overflow-y-auto rounded border border-amber-900/40 bg-black/30 p-2 font-mono text-[10px] whitespace-pre-wrap text-amber-100/95">
-                  {sandboxProdBuild.logSnippet}
-                </pre>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        )
-      ) : null}
-      {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0) && (
-        <div className="border-b border-gray-800 bg-black/30 px-4 py-2">
-          <div className="mb-1 text-[11px] font-medium text-gray-300">Sidor i skapad preview</div>
-          <div className="flex flex-wrap gap-1.5">
-            {previewRoutesLoading && previewRoutes.length === 0 ? (
-              <span className="text-[11px] text-gray-500">
-                Läser routes från versionens filer...
-              </span>
-            ) : (
-              previewRoutes.map((route) => (
-                <Button
-                  key={route}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-6 border-gray-700 px-2 text-[11px] text-gray-300 hover:bg-gray-800 hover:text-white",
-                    activePreviewRoute === route && "border-sky-500/60 bg-sky-500/10 text-sky-200",
-                  )}
-                  onClick={() => handleNavigateRoute(route)}
-                  title={`Visa ${route}`}
-                >
-                  {route}
-                </Button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-      {showSandboxUnifiedStrip ? (
-        <div className="border-b border-amber-900/45 bg-amber-950/30 px-4 py-2 text-xs text-amber-100">
-          <p className="font-medium text-amber-50">Live-preview (Next.js)</p>
-          <p className="mt-1 text-amber-100/90">
-            Din genererade kod körs med Next.js i den här miljön. Följande kan fortfarande gälla:
-          </p>
-          <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-amber-100/85">
-            {(showBlobWarning || showBlobConfigWarning) && (
-              <li>Bilder och uppladdningar kan saknas om mediastorage inte är aktivt i byggaren.</li>
-            )}
-            {integrationError && (
-              <li>Integrationsstatus kunde inte läsas — vissa resurser kan saknas i preview.</li>
-            )}
-            {showImagesDisabledWarning && (
-              <li>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</li>
-            )}
-            {showImagesUnsupportedWarning && (
-              <li>Bildgenerering är inte tillgänglig med nuvarande konfiguration.</li>
-            )}
-          </ul>
-        </div>
-      ) : null}
-      {!isCodeView &&
-        !isOwnEnginePreview &&
-        !isSandboxPreview &&
-        (showBlobWarning ||
-          showExternalWarning ||
-          integrationError ||
-          showImagesDisabledWarning ||
-          showImagesUnsupportedWarning ||
-          showBlobConfigWarning) && (
-          <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
-            {showExternalWarning && (
-              <div>
-                Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan
-                ge 404 eller blockeras. Ladda upp media via mediabiblioteket för publika
-                Blob‑URL:er.
-              </div>
-            )}
-            {showBlobWarning && (
-              <div>
-                Mediastorage för uppladdningar saknas. AI-bilder och filer visas inte fullt ut i
-                preview förrän det är aktiverat för byggaren.
-              </div>
-            )}
-            {showImagesDisabledWarning && (
-              <div>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</div>
-            )}
-            {showImagesUnsupportedWarning && (
-              <div>
-                Bildgenerering är inte tillgänglig just nu (saknad/ogiltig AI-konfiguration).
-              </div>
-            )}
-            {showBlobConfigWarning && (
-              <div>
-                Mediastorage är inte aktivt. Bilder kan skapas av AI men saknas i preview tills det
-                är påslaget.
-              </div>
-            )}
-            {integrationError && (
-              <div>Kunde inte hämta integrationsstatus. Media kan saknas i preview.</div>
-            )}
-          </div>
-        )}
+      <PreviewPanelChrome
+        demoUrl={demoUrl}
+        surfaceDescriptor={surfaceDescriptor}
+        isOwnEnginePreview={isOwnEnginePreview}
+        isSandboxPreview={isSandboxPreview}
+        sandboxUrlPresent={sandboxUrlPresent}
+        inspectorEnabled={inspectorEnabled}
+        showWorkerLamp={showWorkerLamp}
+        workerLampClass={workerLampClass}
+        workerLampTitle={workerLampTitle}
+        handleToggleInspect={handleToggleInspect}
+        placementMode={placementMode}
+        inspectMode={inspectMode}
+        handleToggleElementRegistry={handleToggleElementRegistry}
+        canShowCode={canShowCode}
+        isViewSwitchPending={isViewSwitchPending}
+        showElementRegistry={showElementRegistry}
+        handleToggleCode={handleToggleCode}
+        viewMode={viewMode}
+        onClear={onClear}
+        handleClear={handleClear}
+        isLoading={isLoading}
+        handleRefresh={handleRefresh}
+        handleOpenInNewTab={handleOpenInNewTab}
+        alternatePreviewBanner={alternatePreviewBanner}
+        onNavigatePreviewUrl={onNavigatePreviewUrl}
+        sandboxBuildError={sandboxBuildError}
+        sandboxProdBuild={sandboxProdBuild}
+        isCodeView={isCodeView}
+        previewRoutesLoading={previewRoutesLoading}
+        previewRoutes={previewRoutes}
+        activePreviewRoute={activePreviewRoute}
+        handleNavigateRoute={handleNavigateRoute}
+        showSandboxUnifiedStrip={showSandboxUnifiedStrip}
+        showBlobWarning={showBlobWarning}
+        showBlobConfigWarning={showBlobConfigWarning}
+        integrationError={integrationError}
+        showImagesDisabledWarning={showImagesDisabledWarning}
+        showImagesUnsupportedWarning={showImagesUnsupportedWarning}
+        showExternalWarning={showExternalWarning}
+      />
 
       {isCodeView ? (
-        <div className="flex flex-1 overflow-hidden">
-          <div className="w-64 border-r border-gray-800 bg-black/50">
-            {showElementRegistry ? (
-              <ElementRegistry
-                items={elementRegistry}
-                selectedId={selectedRegistryId}
-                isLoading={filesLoading}
-                error={filesError}
-                onSelect={(item) => {
-                  setSelectedRegistryId(item.id);
-                  setSelectedRegistryLine(item.lineNumber);
-                  setSelectedPath(item.filePath);
-                }}
-              />
+        <PreviewPanelCode
+          showElementRegistry={showElementRegistry}
+          elementRegistry={elementRegistry}
+          selectedRegistryId={selectedRegistryId}
+          filesLoading={filesLoading}
+          filesError={filesError}
+          onRegistrySelect={(item) => {
+            setSelectedRegistryId(item.id);
+            setSelectedRegistryLine(item.lineNumber);
+            setSelectedPath(item.filePath);
+          }}
+          files={files}
+          selectedPath={selectedPath}
+          onFileSelect={(file) => {
+            setSelectedRegistryId(null);
+            setSelectedRegistryLine(null);
+            setSelectedPath(file.path);
+          }}
+          codeScrollRef={codeScrollRef}
+          selectedFile={selectedFile}
+          headerActions={
+            rawEditMode ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setRawEditMode(false);
+                    setRawCodeDraft(selectedFile?.content || "");
+                    setRawCodeSaveError(null);
+                  }}
+                  disabled={isRawCodeSaving}
+                >
+                  Avbryt redigering
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => void handleSaveRawCode()}
+                  disabled={!rawCodeDirty || isRawCodeSaving}
+                >
+                  {isRawCodeSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Spara fil
+                </Button>
+              </>
             ) : (
-              <FileExplorer
-                files={files}
-                selectedPath={selectedPath}
-                onFileSelect={(file) => {
-                  setSelectedRegistryId(null);
-                  setSelectedRegistryLine(null);
-                  setSelectedPath(file.path);
-                }}
-                isLoading={filesLoading}
-                error={filesError}
-              />
-            )}
-          </div>
-          <div ref={codeScrollRef} className="flex-1 overflow-auto p-4">
-            {!selectedFile ? (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                Ingen fil vald
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm text-gray-300">{selectedFile.path}</div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {rawEditMode ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setRawEditMode(false);
-                            setRawCodeDraft(selectedFile.content || "");
-                            setRawCodeSaveError(null);
-                          }}
-                          disabled={isRawCodeSaving}
-                        >
-                          Avbryt redigering
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => void handleSaveRawCode()}
-                          disabled={!rawCodeDirty || isRawCodeSaving}
-                        >
-                          {isRawCodeSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                          Spara fil
-                        </Button>
-                      </>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => setRawEditMode(true)}>
-                        Redigera fil
-                      </Button>
-                    )}
-                  </div>
-                </div>
+              <Button size="sm" variant="outline" onClick={() => setRawEditMode(true)}>
+                Redigera fil
+              </Button>
+            )
+          }
+        >
                 {metadataDraft && editableMetadata ? (
                   <div className="rounded-md border border-cyan-500/30 bg-cyan-500/10 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
@@ -4229,308 +3922,60 @@ export function PreviewPanel({
                   </div>
                 ) : (
                   <CodeBlock
-                    code={selectedFile.content || ""}
-                    language={getLanguageFromName(selectedFile.name)}
+                    code={selectedFile?.content || ""}
+                    language={getLanguageFromName(selectedFile?.name || "")}
                     showLineNumbers
                   >
                     <CodeBlockCopyButton className="text-gray-300 hover:text-white" />
                   </CodeBlock>
                 )}
-              </div>
-            )}
-          </div>
-        </div>
+        </PreviewPanelCode>
       ) : (
-        <div className="relative flex-1 overflow-hidden bg-gray-950">
-          {isLoading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80">
-              <div className="text-center">
-                <Loader2 className="text-primary mx-auto mb-2 h-8 w-8 animate-spin" />
-                <p className="text-muted-foreground text-sm">Laddar preview...</p>
-              </div>
-            </div>
-          )}
-          {iframeError && (
-            <div className="absolute inset-0 z-10 flex max-h-full flex-col items-center justify-center overflow-y-auto bg-black/85 p-4">
-              <AlertCircle className="mb-4 h-12 w-12 shrink-0 text-red-400" />
-              <p className="mb-2 max-w-lg text-center text-sm text-gray-300">
-                {iframeErrorMessage ||
-                  "Preview kunde inte laddas i iframe. Öppna i ny flik istället."}
-              </p>
-              {iframeDiagnosticCode ? (
-                <p className="mb-2 font-mono text-[11px] text-zinc-500">Kod: {iframeDiagnosticCode}</p>
-              ) : null}
-              {iframeRunbookLines.length > 0 ? (
-                <ul className="mb-4 max-h-48 max-w-lg list-disc space-y-1.5 overflow-y-auto pl-5 text-left text-[11px] leading-snug text-zinc-400">
-                  {iframeRunbookLines.map((line, idx) => (
-                    <li key={`${idx}-${line.slice(0, 48)}`}>{line}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mb-4 text-center text-xs text-gray-500">
-                  Öppna i ny flik eller försök reparera previewn om felet kvarstår.
-                </p>
-              )}
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button onClick={handleOpenInNewTab}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Öppna i ny flik
-                </Button>
-                {onFixPreview && (
-                  <Button variant="outline" onClick={onFixPreview} disabled={isLoading}>
-                    Försök reparera preview
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-          <iframe
-            id="preview-iframe"
-            ref={iframeRef}
-            src={previewSrc}
-            className="h-full w-full border-0"
-            onLoad={handleIframeLoad}
-            onError={handleIframeError}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            title="Preview"
+        <PreviewSurface
+          isLoading={isLoading}
+          iframeError={iframeError}
+          iframeErrorMessage={iframeErrorMessage}
+          iframeDiagnosticCode={iframeDiagnosticCode}
+          iframeRunbookLines={iframeRunbookLines}
+          handleOpenInNewTab={handleOpenInNewTab}
+          onFixPreview={onFixPreview}
+          previewSrc={previewSrc}
+          iframeRef={iframeRef}
+          handleIframeLoad={handleIframeLoad}
+          handleIframeError={handleIframeError}
+        >
+          <PreviewPanelInspectorDev
+            showPlacementOverlay={showPlacementOverlay}
+            showInspectOverlay={showInspectOverlay}
+            iframeLoading={iframeLoading}
+            externalLoading={externalLoading}
+            handlePlacementClick={handlePlacementClick}
+            handlePlacementMouseMove={handlePlacementMouseMove}
+            onPlacementMouseLeave={() => setHoveredPlacement(null)}
+            hoveredPlacement={hoveredPlacement}
+            pendingPlacementItem={pendingPlacementItem}
+            elementMapLoading={elementMapLoading}
+            sectionZonesCount={sectionZones.length}
+            isCapturePending={isCapturePending}
+            handleCaptureClick={handleCaptureClick}
+            handleInspectMouseMove={
+              inspectEngine === "map" && elementMap.length > 0 ? handleInspectMouseMove : undefined
+            }
+            onInspectMouseLeave={inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined}
+            inspectEngine={inspectEngine}
+            hoveredMapElement={hoveredMapElement}
+            inspectPulse={inspectPulse}
+            setInspectEngine={setInspectEngine}
+            inspectorUnavailable={inspectorUnavailable}
+            elementMapCount={elementMap.length}
+            totalAiCostUsd={totalAiCostUsd}
+            lastAiCostDisplay={lastAiCostDisplay}
+            inspectStatus={inspectStatus}
+            lastCodeMatch={lastCodeMatch}
+            onShowLastCodeMatch={handleShowLastCodeMatch}
+            handleToggleInspect={handleToggleInspect}
           />
-
-          {showPlacementOverlay && (
-            <>
-              <div
-                className={cn(
-                  "absolute inset-0 z-20 cursor-crosshair bg-sky-950/10",
-                  (iframeLoading || externalLoading) && "pointer-events-none",
-                )}
-                onClick={handlePlacementClick}
-                onMouseMove={handlePlacementMouseMove}
-                onMouseLeave={() => setHoveredPlacement(null)}
-              />
-              {hoveredPlacement && (
-                <div
-                  className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-dashed border-sky-400"
-                  style={{ top: `${hoveredPlacement.lineYPercent}%` }}
-                >
-                  <div className="absolute -top-6 left-3 rounded bg-sky-950/90 px-2 py-1 text-[11px] text-sky-200 shadow-lg">
-                    {hoveredPlacement.label}
-                  </div>
-                </div>
-              )}
-              <div className="absolute top-3 right-3 left-3 z-30 rounded border border-sky-700/70 bg-sky-950/85 px-3 py-2 text-xs text-sky-100 shadow-lg backdrop-blur-sm">
-                <div className="font-semibold tracking-tight text-sky-300">Placering aktiv</div>
-                <div className="mt-1">
-                  Klicka i previewn för att placera{" "}
-                  <span className="font-medium text-white">
-                    {pendingPlacementItem?.title || "det valda elementet"}
-                  </span>
-                  .
-                </div>
-                {pendingPlacementItem?.description ? (
-                  <div className="mt-1 text-sky-200/85">{pendingPlacementItem.description}</div>
-                ) : null}
-                <div className="mt-1 text-[11px] text-sky-200/80">
-                  {elementMapLoading
-                    ? "Laddar elementkarta för exakt placering..."
-                    : `Identifierade zoner: ${sectionZones.length}`}
-                </div>
-              </div>
-            </>
-          )}
-
-          {showInspectOverlay && (
-            <>
-              <div
-                className={cn(
-                  "absolute inset-0 z-20 cursor-crosshair bg-emerald-950/5",
-                  isCapturePending && "pointer-events-none",
-                )}
-                onClick={handleCaptureClick}
-                onMouseMove={
-                  inspectEngine === "map" && elementMap.length > 0
-                    ? (e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        if (rect.width <= 0 || rect.height <= 0) return;
-                        const xPct = ((e.clientX - rect.left) / rect.width) * 100;
-                        const yPct = ((e.clientY - rect.top) / rect.height) * 100;
-                        let best: ElementMapItem | null = null;
-                        let bestArea = Infinity;
-                        for (const el of elementMap) {
-                          const vp = el.vpPercent;
-                          if (
-                            xPct >= vp.x &&
-                            xPct <= vp.x + vp.w &&
-                            yPct >= vp.y &&
-                            yPct <= vp.y + vp.h
-                          ) {
-                            const area = vp.w * vp.h;
-                            if (area < bestArea && area > 0.01) {
-                              best = el;
-                              bestArea = area;
-                            }
-                          }
-                        }
-                        setHoveredMapElement(best);
-                      }
-                    : undefined
-                }
-                onMouseLeave={
-                  inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined
-                }
-              />
-              {inspectEngine === "map" && hoveredMapElement && (
-                <div
-                  className="pointer-events-none absolute z-25 border-2 border-violet-400 bg-violet-500/10"
-                  style={{
-                    left: `${hoveredMapElement.vpPercent.x}%`,
-                    top: `${hoveredMapElement.vpPercent.y}%`,
-                    width: `${hoveredMapElement.vpPercent.w}%`,
-                    height: `${hoveredMapElement.vpPercent.h}%`,
-                  }}
-                >
-                  <div className="absolute bottom-full left-0 mb-1 max-w-64 truncate rounded bg-zinc-900/95 px-2 py-1 text-[11px] text-violet-200 shadow-lg">
-                    &lt;{hoveredMapElement.tag}&gt;
-                    {hoveredMapElement.text ? ` "${hoveredMapElement.text.slice(0, 40)}"` : ""}
-                    {hoveredMapElement.className
-                      ? ` .${hoveredMapElement.className.split(/\s+/).slice(0, 2).join(".")}`
-                      : ""}
-                  </div>
-                </div>
-              )}
-              {inspectPulse && (
-                <div
-                  key={inspectPulse.key}
-                  className="pointer-events-none absolute z-30"
-                  style={{ left: inspectPulse.x, top: inspectPulse.y }}
-                >
-                  <span className="absolute inline-flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full border-2 border-rose-400 bg-rose-500/30" />
-                  <span className="absolute inline-flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-500 shadow-[0_0_0_2px_rgba(0,0,0,0.35)] ring-2 ring-white/90" />
-                </div>
-              )}
-              <div className="absolute right-0 bottom-0 left-0 z-30 border-t border-emerald-800/60 bg-zinc-950/95 px-4 py-3 text-xs text-gray-300 backdrop-blur-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold tracking-tight text-emerald-400">
-                        Inspektion aktiv
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-zinc-900/80 px-1.5 py-0.5 text-[10px]">
-                        <button
-                          type="button"
-                          onClick={() => setInspectEngine("playwright")}
-                          className={cn(
-                            "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
-                            inspectEngine === "playwright"
-                              ? "bg-emerald-800 text-emerald-200"
-                              : "text-zinc-500 hover:text-zinc-300",
-                          )}
-                          title="Playwright: headless browser (screenshot + DOM)"
-                        >
-                          <Zap className="h-2.5 w-2.5" />
-                          PW
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setInspectEngine("ai")}
-                          className={cn(
-                            "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
-                            inspectEngine === "ai"
-                              ? "bg-purple-800 text-purple-200"
-                              : "text-zinc-500 hover:text-zinc-300",
-                          )}
-                          title="AI: gpt-4o-mini analyserar koden"
-                        >
-                          <BrainCircuit className="h-2.5 w-2.5" />
-                          AI
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setInspectEngine("map")}
-                          className={cn(
-                            "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
-                            inspectEngine === "map"
-                              ? "bg-violet-800 text-violet-200"
-                              : "text-zinc-500 hover:text-zinc-300",
-                          )}
-                          title="Map: forkompilerad elementkarta med hover"
-                        >
-                          <MousePointer2 className="h-2.5 w-2.5" />
-                          Map
-                        </button>
-                      </span>
-                      {inspectEngine === "map" && (
-                        <span className="text-[10px] text-violet-400/70">
-                          {elementMapLoading
-                            ? "Laddar karta..."
-                            : inspectorUnavailable
-                              ? "Inspector kräver Playwright eller inspector-worker"
-                              : `${elementMap.length} element`}
-                        </span>
-                      )}
-                      {totalAiCostUsd > 0 && (
-                        <span
-                          className="text-[10px] text-amber-400/70"
-                          title="Total AI-kostnad denna session"
-                        >
-                          session: ${totalAiCostUsd.toFixed(4)}
-                          {lastAiCostDisplay ? ` (senaste: ${lastAiCostDisplay})` : ""}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-zinc-400">
-                      {inspectEngine === "map"
-                        ? "Hovra för att markera element. Klicka för att välja."
-                        : inspectEngine === "ai"
-                          ? "Klicka i previewn — AI identifierar elementet i koden."
-                          : "Klicka i previewn — Playwright tar screenshot + hittar DOM-element."}
-                    </div>
-                    {inspectStatus && (
-                      <div className="mt-1 whitespace-pre-line text-zinc-500">{inspectStatus}</div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isCapturePending && (
-                      <div className="rounded bg-zinc-800 px-2 py-1 text-[11px] text-zinc-300">
-                        Skapar bild...
-                      </div>
-                    )}
-                    {lastCodeMatch && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setInspectMode(false);
-                          startViewSwitchTransition(() => {
-                            setViewMode("registry");
-                            setSelectedRegistryId(lastCodeMatch.item.id);
-                            setSelectedRegistryLine(lastCodeMatch.item.lineNumber);
-                            setSelectedPath(lastCodeMatch.item.filePath);
-                          });
-                        }}
-                        className="rounded bg-purple-900/60 px-2 py-1 text-[11px] font-medium text-purple-200 transition-colors hover:bg-purple-800/70 hover:text-white"
-                        title={`Visa ${lastCodeMatch.item.filePath}:${lastCodeMatch.item.lineNumber}`}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          <Code2 className="h-3.5 w-3.5" />
-                          Visa i kod
-                        </span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleToggleInspect}
-                      className="rounded bg-zinc-800 px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:text-white"
-                      title="Stäng inspektion"
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        <X className="h-3.5 w-3.5" />
-                        Avsluta
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        </PreviewSurface>
       )}
     </div>
   );

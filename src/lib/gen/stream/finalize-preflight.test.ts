@@ -169,4 +169,74 @@ describe("runFinalizePreflight", () => {
     expect(result.sandbox.canStartSandbox).toBe(false);
     expect(result.sandbox.primaryPreviewTarget).toBe("compatibility-shim");
   });
+
+  it("preserves explicit sanity categories instead of falling back to message heuristics", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    runProjectSanityChecks.mockReturnValue({
+      valid: false,
+      issues: [
+        {
+          file: "package.json",
+          severity: "error",
+          message: "Install validation failed",
+          category: "dependency_install_failure",
+        },
+      ],
+    });
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        {
+          path: "src/app/page.tsx",
+          content: "export default function Page() { return <div>Hello</div>; }",
+          language: "tsx",
+        },
+      ]),
+    });
+
+    expect(result.preflightIssues).toContainEqual({
+      file: "package.json",
+      severity: "error",
+      message: "Install validation failed",
+      category: "dependency_install_failure",
+    });
+    expect(result.sandbox.canStartSandbox).toBe(false);
+    expect(result.sandbox.hasCriticalInstallRisk).toBe(true);
+  });
+
+  it("keeps sandbox eligible when SEO preflight only reports non-blocking quality issues", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    runSeoPreflightChecks.mockReturnValue([
+      {
+        file: "src/app/layout.tsx",
+        severity: "error",
+        code: "missing-title",
+        message: "Metadata saknar title.",
+        category: "non_blocking_quality_warning",
+      },
+    ]);
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        {
+          path: "src/app/page.tsx",
+          content: "export default function Page() { return <div>Hello</div>; }",
+          language: "tsx",
+        },
+      ]),
+    });
+
+    expect(result.preflightIssues).toContainEqual({
+      file: "src/app/layout.tsx",
+      severity: "error",
+      message: "Metadata saknar title.",
+      category: "non_blocking_quality_warning",
+    });
+    expect(result.sandbox.canStartSandbox).toBe(true);
+    expect(result.sandbox.primaryPreviewTarget).toBe("sandbox");
+  });
 });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -156,6 +157,13 @@ async function localElementMap(
 }
 
 export async function POST(req: Request) {
+  if (!isBuilderInspectorEnabled()) {
+    return NextResponse.json(
+      { success: false, error: getBuilderInspectorDisabledMessage() },
+      { status: 503 },
+    );
+  }
+
   const body = (await req.json().catch(() => null)) as MapRequest | null;
   if (!body?.url?.trim()) {
     return NextResponse.json({ success: false, error: "Missing url." }, { status: 400 });

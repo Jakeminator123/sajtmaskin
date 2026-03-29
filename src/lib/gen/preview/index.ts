@@ -106,7 +106,32 @@ export function buildPreviewUrl(
 }
 
 export type { CodeFile, ImportBinding, ParsedImport, PreparedModule, PreviewValidationIssue } from "./types";
+export type { AlternatePreviewUrls } from "./compatibility-shim";
+export type {
+  OwnEngineDoneSsePayload,
+  SandboxReadySsePayload,
+  SandboxPreviewPostApiJson,
+} from "../preview-contract";
+export type {
+  PreflightIssueCategory,
+  PreflightIssueInput,
+  PreflightIssueLike,
+  SandboxPrimaryPreviewTarget,
+  SandboxStartContract,
+} from "../stream/preflight-contract";
 export { isPreviewBuiltinImportSource, PREVIEW_BUILTIN_SOURCES } from "./constants";
+export {
+  buildAlternatePreviewBannerState,
+  buildCompatibilityShimPreviewUrl,
+  hasSandboxPreviewUrl,
+  isCompatibilityShimPreviewUrl,
+  isSandboxPreviewUrl,
+  isShimOrMissingPreviewUrl,
+  normalizePreviewUrl,
+  previewUrlsEquivalent,
+  resolveCompatibilityShimPreviewUrl,
+  resolveAlternatePreviewUrls,
+} from "./compatibility-shim";
 export { normalizeFilePath, normalizeRoutePath, routeFromPageFile, resolveLocalImportPath } from "./utils";
 export { findPageFile, findCssFiles, findComponentFiles, buildCodeFileMap } from "./file-resolution";
 export { parseImports, stripNextImports } from "./import-parser";
@@ -114,3 +139,9 @@ export { buildPreviewBaseCss, normalizePreviewCss } from "./css";
 export { prepareModules } from "./transpile";
 export { buildPreviewPrelude } from "./shims";
 export { buildPreviewScript, collectPreviewValidationIssues } from "./script-builder";
+export {
+  buildSandboxStartContract,
+  detectPreflightIssueCategory,
+  resolveCompatibilityShimAllowed,
+  resolvePreflightIssueCategory,
+} from "../stream/preflight-contract";

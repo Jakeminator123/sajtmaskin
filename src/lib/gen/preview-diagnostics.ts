@@ -1,5 +1,5 @@
 import type { RoutePlan } from "./route-plan";
-import type { PreflightIssueCategory, SandboxStartContract } from "./stream/preflight-contract";
+import type { PreflightIssueCategory, SandboxStartContract } from "./preview";
 
 export type PreviewDiagnosticCode =
   | "preflight_preview_blocked"

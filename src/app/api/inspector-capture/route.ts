@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import net from "node:net";
 import type { Page } from "playwright";
+import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -481,6 +482,13 @@ function parseBody(body: unknown): CaptureRequest | null {
 }
 
 export async function POST(req: Request) {
+  if (!isBuilderInspectorEnabled()) {
+    return NextResponse.json(
+      { success: false, error: getBuilderInspectorDisabledMessage() },
+      { status: 503 },
+    );
+  }
+
   const json = await req.json().catch(() => null);
   const parsed = parseBody(json);
   if (!parsed) {

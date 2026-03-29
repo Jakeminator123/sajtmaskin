@@ -14,6 +14,13 @@ export interface PreflightIssueLike {
   category: PreflightIssueCategory;
 }
 
+export interface PreflightIssueInput {
+  file: string;
+  severity: "error" | "warning";
+  message: string;
+  category?: PreflightIssueCategory | null;
+}
+
 export interface SandboxStartContract {
   canStartSandbox: boolean;
   primaryPreviewTarget: SandboxPrimaryPreviewTarget;
@@ -84,6 +91,10 @@ export function detectPreflightIssueCategory(params: {
   }
 
   return "code_structure_failure";
+}
+
+export function resolvePreflightIssueCategory(params: PreflightIssueInput): PreflightIssueCategory {
+  return params.category ?? detectPreflightIssueCategory(params);
 }
 
 export function buildSandboxStartContract(params: {

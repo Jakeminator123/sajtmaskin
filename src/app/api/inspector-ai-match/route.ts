@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import OpenAI from "openai";
+import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +63,13 @@ function truncateCode(files: Array<{ name: string; content: string }>): string {
 }
 
 export async function POST(req: Request) {
+  if (!isBuilderInspectorEnabled()) {
+    return NextResponse.json(
+      { success: false, error: getBuilderInspectorDisabledMessage() },
+      { status: 503 },
+    );
+  }
+
   const client = createClient();
   if (!client) {
     return NextResponse.json(

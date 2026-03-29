@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,15 @@ const HEALTH_TIMEOUT_MS = 1500;
 const IS_VERCEL = Boolean(process.env.VERCEL);
 
 export async function GET() {
+  if (!isBuilderInspectorEnabled()) {
+    return NextResponse.json({
+      enabled: false,
+      healthy: false,
+      status: "disabled" as const,
+      message: getBuilderInspectorDisabledMessage(),
+    });
+  }
+
   if (!WORKER_URL) {
     return NextResponse.json({
       enabled: false,

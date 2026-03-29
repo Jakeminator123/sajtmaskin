@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PreviewPanel } from "./PreviewPanel";
+import { PreviewPanel } from "./preview-panel";
 
 vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
   useIntegrationStatus: () => ({
@@ -11,7 +11,7 @@ vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
 
 vi.mock("@/lib/hooks/useInspectorWorkerStatus", () => ({
   useInspectorWorkerStatus: () => ({
-    inspectorWorkerStatus: "idle",
+    inspectorWorkerStatus: "unknown",
     inspectorWorkerMessage: null,
   }),
 }));
