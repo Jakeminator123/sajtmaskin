@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
-import { searchTemplates } from "@/lib/templates";
+import { searchTemplates } from "@/lib/templates/template-search";
 
 export async function POST(req: Request) {
   return withRateLimit(req, "default", async () => {
