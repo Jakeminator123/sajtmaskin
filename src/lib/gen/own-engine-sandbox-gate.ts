@@ -1,14 +1,17 @@
+import type { SandboxStartContract } from "./stream/preflight-contract";
+
 /**
  * Own-engine: whether tier-2 sandbox ska startas efter finalize (SSE `done` / sandbox-block).
- * Speglar `isSandboxConfigured() && !previewBlocked && files` — används från
- * `generation-stream.ts`; logiken ska inte dupliceras där.
+ * Sandbox är nu primär previewväg; compatibility-shim får inte blockera tier 2.
  */
 export function shouldRunOwnEngineSandbox(params: {
   isSandboxConfigured: boolean;
-  previewBlocked: boolean;
+  sandbox: SandboxStartContract;
   parsedFileCount: number;
 }): boolean {
   return (
-    params.isSandboxConfigured && !params.previewBlocked && params.parsedFileCount > 0
+    params.isSandboxConfigured &&
+    params.sandbox.canStartSandbox &&
+    params.parsedFileCount > 0
   );
 }

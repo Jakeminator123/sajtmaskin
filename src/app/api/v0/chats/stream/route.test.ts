@@ -23,6 +23,7 @@ vi.mock("@/lib/streaming", () => ({
 
 vi.mock("@/lib/db/client", () => ({
   db: {},
+  dbConfigured: false,
 }));
 
 vi.mock("@/lib/db/schema", () => ({
@@ -120,6 +121,7 @@ vi.mock("@/lib/models/selection", () => ({
 
 vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_MODEL_ID: "test-model-id",
+  DEFAULT_OWN_MODEL_ID: "gpt-5.4",
   MODEL_LABELS: {
     "test-tier": "Test Tier",
   },
@@ -451,7 +453,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
       chatId: "engine_chat_1",
       versionId: "ver_1",
       messageId: "msg_1",
-      demoUrl: "https://preview.example/chat_1/ver_1",
+      demoUrl: null,
       previewBlocked: false,
       verificationBlocked: false,
       previewBlockingReason: null,

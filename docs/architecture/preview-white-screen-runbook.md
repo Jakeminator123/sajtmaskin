@@ -1,7 +1,7 @@
 # Runbook: vit preview, tom iframe och shim vs sandbox
 
 **Senast uppdaterad:** 2026-03-27  
-**Mål:** Snabb felsökning när preview-ytan ser **vit** ut eller **ingen** Next.js-preview syns, plus **förebyggande** åtgärder så samma klass av fel inte upprepas.
+**Mål:** Snabb felsökning när preview-ytan ser **vit** ut eller **ingen** Next.js-preview syns, plus **förebyggande** åtgärder så samma klass av fel inte upprepas. Sandbox är den primära previewvägen; shim är bara en kompatibilitetsvy under migration/fallback.
 
 **Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/PreviewPanel.tsx`; sandbox i `src/lib/gen/sandbox-preview.ts` + `src/lib/mcp/runtime-url.ts`.
 
@@ -11,10 +11,10 @@
 
 | Lager | Vad | När det syns |
 |--------|-----|----------------|
-| **Tier 1 — Shim** | Statisk HTML + React 18 från **CDN** (unpkg) + Tailwind från **cdn.tailwindcss.com** | `demoUrl` pekar på `/api/preview-render?...` |
-| **Tier 2 — Sandbox** | Riktig `npm run dev` i Vercel Sandbox | `demoUrl` är `*.vercel.run` / sandbox-host; `engine_versions.sandbox_url` satt |
+| **Kompatibilitetsvy — Shim** | Statisk HTML + React 18 från **CDN** (unpkg) + Tailwind från **cdn.tailwindcss.com** | `shimPreviewUrl` eller `demoUrl` pekar på `/api/preview-render?...` |
+| **Primär preview — Sandbox** | Riktig `npm run dev` i Vercel Sandbox | `demoUrl` är `*.vercel.run` / sandbox-host; `engine_versions.sandbox_url` satt |
 
-**Preflight grön** (`previewBlocked: false`) betyder **inte** att sandbox körts — bara att statiska filkontroller passerade. Sandbox kräver **server-miljö** (`VERCEL_OIDC_TOKEN` eller `VERCEL_TOKEN` + team + project). Se [`preview-deploy.md`](./preview-deploy.md) och [`docs/ENV.md`](../ENV.md).
+**Preflight grön** (`previewBlocked: false`) betyder inte längre “shim funkar”, utan att den aktiva versionen fortfarande kan exponeras. Sandbox kräver fortfarande **server-miljö** (`VERCEL_OIDC_TOKEN` eller `VERCEL_TOKEN` + team + project). Se [`preview-deploy.md`](./preview-deploy.md) och [`docs/ENV.md`](../ENV.md).
 
 ---
 
@@ -43,6 +43,7 @@
 
 - Sök serverloggar efter: `sandbox_preview_failed_shim_fallback`, `sandbox_disabled`, `code: "sandbox_disabled"` (503).
 - Klient: `useBuilderPageController` POST `/sandbox-preview` — vid `sandbox_disabled` finns hint i svar.
+- Om buildern visar “Startar live-preview” länge utan iframe-URL: kontrollera `sandboxPending`, readiness-timeout och npm-install/buildfel före du misstänker att preview “bara är statisk”.
 
 ---
 

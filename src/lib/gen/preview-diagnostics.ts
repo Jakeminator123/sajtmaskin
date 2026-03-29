@@ -1,8 +1,10 @@
 import type { RoutePlan } from "./route-plan";
+import type { PreflightIssueCategory, SandboxStartContract } from "./stream/preflight-contract";
 
 export type PreviewDiagnosticCode =
   | "preflight_preview_blocked"
   | "preflight_verification_blocked"
+  | "preview_waiting_for_sandbox"
   | "render_route_version_not_found"
   | "render_route_chat_not_found"
   | "render_route_files_missing"
@@ -36,6 +38,9 @@ export type PreviewPreflightState = {
   previewBlocked: boolean;
   verificationBlocked: boolean;
   previewBlockingReason: string | null;
+  primaryPreviewTarget?: "sandbox" | "compatibility-shim" | "none";
+  issueCategories?: PreflightIssueCategory[] | null;
+  sandbox?: SandboxStartContract | null;
   scaffoldRetry?: ScaffoldRetryState | null;
   routePlan?: RoutePlan | null;
 };
@@ -95,6 +100,8 @@ export function describePreviewDiagnosticCode(code?: string | null): string | nu
       return "Preview blockerades redan i preflight.";
     case "preflight_verification_blocked":
       return "Previewn ar tillganglig, men verifieringen hittade blockerande problem.";
+    case "preview_waiting_for_sandbox":
+      return "Live-preview byggs fortfarande i sandbox.";
     case "render_route_version_not_found":
       return "Preview-route kunde inte hitta versionen.";
     case "render_route_chat_not_found":
@@ -153,6 +160,12 @@ export function previewRunbookLinesForCode(code: string | null | undefined): str
     case "preview_transport_error":
       return [
         "Iframe kunde inte ladda URL:en (nätverk eller ogiltig preview-URL). Kontrollera att versionen har demoUrl och att servern svarar.",
+        docHint,
+      ];
+    case "preview_waiting_for_sandbox":
+      return [
+        "Sandbox är nu primär previewväg för den här versionen. Vänta på att npm install och dev-servern blir klara innan live-preview visas.",
+        "Om det fastnar länge: kontrollera sandbox-loggar, npm install-fel och readiness-timeout enligt runbooken.",
         docHint,
       ];
     case "preview_compile_error":
@@ -237,6 +250,7 @@ export function shouldAutoFixPreviewDiagnostic(code?: string | null): boolean {
     case "preview_document_unavailable":
     case "preflight_preview_blocked":
     case "preflight_verification_blocked":
+    case "preview_waiting_for_sandbox":
     case "preview_missing_url":
     default:
       return false;

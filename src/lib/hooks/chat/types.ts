@@ -214,6 +214,7 @@ export type ChatMessagingParams = {
   /** Cleared on sandbox-ready; set on SSE build-error for inline preview UI. */
   setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
   setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
+  setSandboxPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
   onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
   onV0ProjectId?: (projectId: string) => void;

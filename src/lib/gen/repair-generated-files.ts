@@ -1,6 +1,8 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,
+  buildProjectModuleExportIndex,
+  fixLocalDefaultImportMismatches,
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
@@ -182,6 +184,7 @@ export function repairGeneratedFiles(files: CodeFile[]): {
 } {
   const fixes: RepairEntry[] = [];
   const exportIndex = buildProjectExportIndex(files);
+  const moduleExportIndex = buildProjectModuleExportIndex(files);
 
   const repairedFiles = files.map((file) => {
     if (!/\.(tsx?|jsx?)$/i.test(file.path)) {
@@ -189,6 +192,16 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     }
 
     let content = file.content;
+
+    const defaultImportResult = fixLocalDefaultImportMismatches(content, file.path, files, moduleExportIndex);
+    if (defaultImportResult.fixed) {
+      content = defaultImportResult.code;
+      fixes.push({
+        fixer: "local-default-import-fixer",
+        description: `Rewired local default imports to named imports: ${defaultImportResult.rewiredImports.join(", ")}`,
+        file: file.path,
+      });
+    }
 
     const fontResult = fixFontImport(content, file.path);
     if (fontResult.fixed) {

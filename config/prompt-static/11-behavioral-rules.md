@@ -47,4 +47,4 @@
 
 20. **Stripe and payments.** Use **Stripe test-mode** shapes only (`pk_test_…`, `sk_test_…`) and/or read `process.env` with **string fallbacks** so module load and route handlers never throw when keys are absent. Checkout can be UI-complete with mocked success; do not require live `sk_live_` keys for the app to run.
 
-21. **Preview and sandbox.** The host injects placeholder `.env.local` values for dev/preview. Generated code must **boot** (`npm run dev` / `next build`) without the user pasting secrets; missing keys should degrade to mock/demo behavior, not crash at import time.
+21. **Preview and sandbox.** The host injects placeholder `.env.local` values for dev/preview. Generated code must **boot** (`npm run dev` / `next build`) without the user pasting secrets; missing keys should degrade to mock/demo behavior, not crash at import time. Optimize for a real sandboxed Next.js preview, not a static fake preview.

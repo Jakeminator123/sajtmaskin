@@ -349,6 +349,7 @@ interface PreviewPanelProps {
   sandboxBuildError?: { stage: string; message: string } | null;
   /** `npm run build` result in Vercel sandbox after dev (own-engine); separate from dev-preview. */
   sandboxProdBuild?: { verified: boolean; logSnippet?: string } | null;
+  sandboxPending?: boolean;
   placementMode?: boolean;
   pendingPlacementItem?: {
     title: string;
@@ -400,6 +401,7 @@ export function PreviewPanel({
   awaitingInputOptions = [],
   sandboxBuildError = null,
   sandboxProdBuild = null,
+  sandboxPending = false,
   placementMode = false,
   pendingPlacementItem = null,
   onPlacementComplete,
@@ -2359,17 +2361,17 @@ export function PreviewPanel({
     if (isOwnEnginePreview) {
       if (!sandboxUrlPresent) {
         return {
-          label: "Förhandsvisning",
+          label: "Kompatibilitetsvy",
           detail:
-            "Målet är att din sajt automatiskt visas med Next.js i live-preview när sandbox är redo. Om du fastnar i den här vyn: kolla Agentloggen och bygg-/kvalitetsfel, samt att miljö för Vercel Sandbox är satt (docs/ENV.md i repot).",
+            "Sandbox är primär previewväg. Den här kompatibilitetsvyn finns bara tillfälligt medan live-preview ännu inte är redo.",
           className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
           badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
         };
       }
       return {
-        label: "Förhandsvisning",
+        label: "Kompatibilitetsvy",
         detail:
-          "Snabb förhandsvisning. Live-preview med Next.js finns också för denna version — använd knappen nedan om du vill byta.",
+          "Du tittar på kompatibilitetsvyn. Live-preview med Next.js i sandbox är den primära körbara ytan för versionen.",
         className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
         badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
       };
@@ -2424,12 +2426,20 @@ export function PreviewPanel({
       .map((option) => option.trim())
       .filter(Boolean)
       .slice(0, 6);
-    const title = awaitingInput
+    const title = sandboxBuildError
+      ? "Sandbox-preview misslyckades"
+      : sandboxPending
+        ? "Startar live-preview"
+        : awaitingInput
       ? "AI väntar på ditt svar"
       : isInitialEmpty
         ? "Välkommen"
         : "Ingen förhandsvisning ännu";
-    const subtitle = awaitingInput
+    const subtitle = sandboxBuildError
+      ? `Steg: ${sandboxBuildError.stage}. ${sandboxBuildError.message}`
+      : sandboxPending
+        ? "Next.js byggs i sandbox och previewn visas så snart dev-servern svarar."
+        : awaitingInput
       ? "AI behöver ditt svar innan nästa preview kan genereras."
       : externalLoading
         ? "AI tänker... preview kommer strax."
@@ -2437,12 +2447,20 @@ export function PreviewPanel({
           ? "Skriv en prompt till vänster så genererar vi första preview."
           : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
     const showFixAction = Boolean(
-      onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput,
+      onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput && !sandboxPending,
     );
-    const EmptyIcon = awaitingInput ? MessageCircleQuestion : isInitialEmpty ? Wand2 : AlertCircle;
+    const EmptyIcon = sandboxBuildError
+      ? AlertCircle
+      : sandboxPending
+        ? Loader2
+        : awaitingInput
+          ? MessageCircleQuestion
+          : isInitialEmpty
+            ? Wand2
+            : AlertCircle;
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
-        <EmptyIcon className="mb-4 h-12 w-12" />
+        <EmptyIcon className={cn("mb-4 h-12 w-12", sandboxPending && "animate-spin")} />
         <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
           {title}
         </p>
@@ -2644,7 +2662,7 @@ export function PreviewPanel({
         <div className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-300">
           <span>
             {alternatePreviewBanner.offerShim
-              ? "En snabb förhandsvisning finns också för samma version."
+              ? "En kompatibilitetsvy finns också för samma version."
               : "Live-preview med Next.js finns också för samma version."}
           </span>
           <Button
@@ -2660,7 +2678,7 @@ export function PreviewPanel({
               )
             }
           >
-            {alternatePreviewBanner.offerShim ? "Visa statisk" : "Byt till live-preview"}
+            {alternatePreviewBanner.offerShim ? "Visa kompatibilitetsvy" : "Byt till live-preview"}
           </Button>
         </div>
       ) : null}

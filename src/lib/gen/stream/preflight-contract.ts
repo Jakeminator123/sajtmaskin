@@ -1,0 +1,144 @@
+export type PreflightIssueCategory =
+  | "code_structure_failure"
+  | "dependency_install_failure"
+  | "env_config_missing"
+  | "shim_preview_failure"
+  | "non_blocking_quality_warning";
+
+export type SandboxPrimaryPreviewTarget = "sandbox" | "compatibility-shim" | "none";
+
+export interface PreflightIssueLike {
+  file: string;
+  severity: "error" | "warning";
+  message: string;
+  category: PreflightIssueCategory;
+}
+
+export interface SandboxStartContract {
+  canStartSandbox: boolean;
+  primaryPreviewTarget: SandboxPrimaryPreviewTarget;
+  shimBlocked: boolean;
+  requiresEnvConfig: boolean;
+  hasCriticalInstallRisk: boolean;
+  hasCriticalCodeFailure: boolean;
+  compatibilityShimAllowed: boolean;
+  issueCounts: Record<PreflightIssueCategory, number>;
+  blockingCategories: PreflightIssueCategory[];
+}
+
+const SANDBOX_ONLY_PREVIEW_VALUES = new Set(["1", "true", "yes", "on"]);
+
+function createInitialCounts(): Record<PreflightIssueCategory, number> {
+  return {
+    code_structure_failure: 0,
+    dependency_install_failure: 0,
+    env_config_missing: 0,
+    shim_preview_failure: 0,
+    non_blocking_quality_warning: 0,
+  };
+}
+
+export function resolveCompatibilityShimAllowed(): boolean {
+  const raw = process.env.SAJTMASKIN_SANDBOX_ONLY_PREVIEW?.trim().toLowerCase();
+  return !raw || !SANDBOX_ONLY_PREVIEW_VALUES.has(raw);
+}
+
+export function detectPreflightIssueCategory(params: {
+  file: string;
+  severity: "error" | "warning";
+  message: string;
+}): PreflightIssueCategory {
+  const file = params.file.toLowerCase();
+  const message = params.message.toLowerCase();
+
+  if (file === "preview" || message.includes("preview entrypoint") || message.includes("while preparing preview")) {
+    return "shim_preview_failure";
+  }
+
+  if (
+    file.endsWith("package.json") ||
+    message.includes("eresolve") ||
+    message.includes("peer") ||
+    message.includes("npm install") ||
+    message.includes("react >=19") ||
+    message.includes("fiber") ||
+    message.includes("drei")
+  ) {
+    return "dependency_install_failure";
+  }
+
+  if (
+    message.includes("env var") ||
+    message.includes("environment variable") ||
+    message.includes("missing env") ||
+    message.includes("requires auth_secret") ||
+    message.includes("nextauth_url") ||
+    message.includes("api key") ||
+    message.includes("secret")
+  ) {
+    return "env_config_missing";
+  }
+
+  if (params.severity === "warning") {
+    return "non_blocking_quality_warning";
+  }
+
+  return "code_structure_failure";
+}
+
+export function buildSandboxStartContract(params: {
+  issues: PreflightIssueLike[];
+  finalizedPreviewFileCount: number;
+  compatibilityShimAllowed?: boolean;
+}): SandboxStartContract {
+  const compatibilityShimAllowed = params.compatibilityShimAllowed ?? resolveCompatibilityShimAllowed();
+  const issueCounts = createInitialCounts();
+
+  for (const issue of params.issues) {
+    issueCounts[issue.category] += 1;
+  }
+
+  const hasCriticalCodeFailure = params.issues.some(
+    (issue) => issue.severity === "error" && issue.category === "code_structure_failure",
+  );
+  const hasCriticalInstallRisk = params.issues.some(
+    (issue) => issue.severity === "error" && issue.category === "dependency_install_failure",
+  );
+  const requiresEnvConfig = params.issues.some(
+    (issue) => issue.severity === "error" && issue.category === "env_config_missing",
+  );
+  const shimBlocked = params.issues.some(
+    (issue) => issue.severity === "error" && issue.category === "shim_preview_failure",
+  );
+
+  const canStartSandbox =
+    params.finalizedPreviewFileCount > 0 &&
+    !hasCriticalCodeFailure &&
+    !hasCriticalInstallRisk &&
+    !requiresEnvConfig;
+
+  const primaryPreviewTarget: SandboxPrimaryPreviewTarget = canStartSandbox
+    ? "sandbox"
+    : compatibilityShimAllowed && !shimBlocked
+      ? "compatibility-shim"
+      : "none";
+
+  const blockingCategories = ([
+    hasCriticalCodeFailure ? "code_structure_failure" : null,
+    hasCriticalInstallRisk ? "dependency_install_failure" : null,
+    requiresEnvConfig ? "env_config_missing" : null,
+    !canStartSandbox && shimBlocked && primaryPreviewTarget === "none" ? "shim_preview_failure" : null,
+  ].filter(Boolean) as PreflightIssueCategory[]);
+
+  return {
+    canStartSandbox,
+    primaryPreviewTarget,
+    shimBlocked,
+    requiresEnvConfig,
+    hasCriticalInstallRisk,
+    hasCriticalCodeFailure,
+    compatibilityShimAllowed,
+    issueCounts,
+    blockingCategories,
+  };
+}

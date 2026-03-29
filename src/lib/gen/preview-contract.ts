@@ -2,17 +2,19 @@
  * Contract for own-engine SSE `done` and related preview events.
  * Canonical file payload for sandbox is `filesJson` after `finalizeAndSaveVersion` — see `generation-stream.ts`.
  */
+import type { PreviewPreflightSummary } from "@/lib/gen/preview-diagnostics";
 
 export type OwnEngineDoneSsePayload = {
   chatId: string;
   versionId: string;
   messageId: string;
-  /** Tier-1 shim URL when available — show in iframe even while sandbox is pending. */
+  /** Primary preview URL for the current version. In staged migration this is often null until sandbox is ready. */
   demoUrl: string | null;
   /** True when tier-2 sandbox boot is in progress after this `done`. */
   sandboxPending?: boolean;
+  /** Optional compatibility shim URL during the sandbox-first migration. */
   shimPreviewUrl?: string | null;
-  preflight?: unknown;
+  preflight?: PreviewPreflightSummary;
   previewBlocked?: boolean;
   verificationBlocked?: boolean;
   previewBlockingReason?: string | null;

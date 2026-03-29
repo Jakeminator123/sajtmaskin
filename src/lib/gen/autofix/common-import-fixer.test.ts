@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,
+  buildProjectModuleExportIndex,
+  fixLocalDefaultImportMismatches,
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
@@ -73,5 +75,32 @@ describe("common-import-fixer", () => {
     const result = fixNextImageImport(code);
 
     expect(result.fixed).toBe(false);
+  });
+
+  it("rewires local default imports to named imports when the target has no default export", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/site-footer.tsx",
+        content: `export function SiteFooter() { return <footer />; }`,
+        language: "tsx",
+      },
+      {
+        path: "app/layout.tsx",
+        content:
+          `import SiteFooter from "@/components/site-footer";\n\nexport default function Layout({ children }: { children: React.ReactNode }) {\n  return <SiteFooter />;\n}`,
+        language: "tsx",
+      },
+    ];
+
+    const moduleExportIndex = buildProjectModuleExportIndex(files);
+    const result = fixLocalDefaultImportMismatches(
+      files[1]!.content,
+      files[1]!.path,
+      files,
+      moduleExportIndex,
+    );
+
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import { SiteFooter } from "@/components/site-footer";');
   });
 });

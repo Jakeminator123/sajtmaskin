@@ -341,6 +341,7 @@ export async function finalizeAndSaveVersion(
     preflightIssues,
     preflightFileCount,
     previewBlockingReason,
+    sandbox: preflightResult.sandbox,
     finalizedPreviewFileCount: finalizedFilesForPreview.length,
     scaffoldRetry,
     routePlan,
@@ -476,7 +477,10 @@ export async function finalizeAndSaveVersion(
     }
   }
 
-  const previewUrl = hasPreviewBlockingPreflightErrors ? null : buildPreviewUrl(chatId, version.id);
+  const compatibilityPreviewUrl =
+    preflightResult.sandbox.primaryPreviewTarget === "compatibility-shim"
+      ? buildPreviewUrl(chatId, version.id)
+      : null;
 
   debugLog("engine", "Version saved via finalizeAndSaveVersion", {
     chatId,
@@ -490,7 +494,7 @@ export async function finalizeAndSaveVersion(
   return {
     version,
     messageId: assistantMsg.id,
-    previewUrl,
+    previewUrl: compatibilityPreviewUrl,
     sandboxUrl: null,
     filesJson,
     contentForVersion,
@@ -501,6 +505,9 @@ export async function finalizeAndSaveVersion(
       errorCount: preflightErrors.length,
       warningCount: preflightWarnings.length,
       previewBlockingReason,
+      primaryPreviewTarget: preflightResult.sandbox.primaryPreviewTarget,
+      issueCategories: [...new Set(preflightIssues.map((issue) => issue.category))],
+      sandbox: preflightResult.sandbox,
       scaffoldRetry,
       routePlan,
     },

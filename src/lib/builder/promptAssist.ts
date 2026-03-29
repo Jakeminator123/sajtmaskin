@@ -972,7 +972,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
     "",
     "## Coding Direction",
     "- Output complete files in CodeProject format: ```tsx file=\"path/file.tsx\"",
-    "- Every React component file uses a default export. Use kebab-case for all filenames.",
+    "- Route files like app/page.tsx and app/layout.tsx use default exports. Shared components may use named exports, but imports and exports must match exactly. Use kebab-case for filenames.",
     "- Import shadcn/ui from @/components/ui/* — never regenerate these components.",
     "- Import all icons from lucide-react — never use inline SVG or other icon libraries.",
     "- Use Tailwind semantic tokens (bg-primary, text-muted-foreground, etc.) — avoid hardcoded colors.",

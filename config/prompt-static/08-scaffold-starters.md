@@ -35,3 +35,4 @@ Your output runs in a real Next.js environment with `npm install` and `next buil
 
 ### Import safety
 When replacing scaffold files, make sure imports, exports, and shared layout patterns still line up. Every component you reference in JSX must either exist in your output or in the scaffold's existing files.
+- `app/page.tsx` and `app/layout.tsx` should keep a `default export`. Shared scaffold components may use named exports, but every importer must match the target module's real export shape exactly.

@@ -338,11 +338,11 @@ describe("finalizeAndSaveVersion", () => {
       { prompt: undefined, completion: undefined },
       expect.any(Number),
       false,
-      "Automatic preflight found verification-blocking issues.",
+      "Automatic preflight found sandbox-blocking issues.",
     );
     expect(failVersionVerification).toHaveBeenCalledWith(
       "ver_1",
-      "Automatic preflight found verification-blocking issues.",
+      "Automatic preflight found sandbox-blocking issues.",
     );
   });
 
@@ -360,23 +360,22 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(result.previewUrl).toBeNull();
-    expect(result.preflight.previewBlocked).toBe(true);
+    expect(result.preflight.previewBlocked).toBe(false);
+    expect(result.preflight.verificationBlocked).toBe(false);
     expect(result.preflight.previewBlockingReason).toBe(
       "Automatic preflight could not build a renderable own-engine preview entrypoint.",
     );
+    expect(result.preflight.primaryPreviewTarget).toBe("sandbox");
     expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",
       { prompt: undefined, completion: undefined },
       expect.any(Number),
-      false,
-      "Automatic preflight found preview-blocking issues.",
+      true,
+      undefined,
     );
-    expect(failVersionVerification).toHaveBeenCalledWith(
-      "ver_1",
-      "Automatic preflight found preview-blocking issues.",
-    );
+    expect(failVersionVerification).not.toHaveBeenCalled();
   });
 
   it("uses previousFiles as the merge base for follow-up generations", async () => {
@@ -459,17 +458,21 @@ describe("finalizeAndSaveVersion", () => {
         expect.objectContaining({
           category: "preflight:summary",
           meta: expect.objectContaining({
-            previewBlocked: true,
-            verificationBlocked: true,
+            previewBlocked: false,
+            verificationBlocked: false,
+            sandbox: expect.objectContaining({
+              canStartSandbox: true,
+              primaryPreviewTarget: "sandbox",
+            }),
           }),
         }),
         expect.objectContaining({
           category: "preview",
-          level: "error",
+          level: "warning",
           meta: expect.objectContaining({
-            previewCode: "preflight_preview_blocked",
-            previewBlocked: true,
-            verificationBlocked: true,
+            previewCode: "compatibility_shim_blocked",
+            previewBlocked: false,
+            verificationBlocked: false,
           }),
         }),
       ]),

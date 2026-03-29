@@ -46,6 +46,7 @@ export type StreamContext = {
   setCurrentDemoUrl: (url: string | null) => void;
   setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
   setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
+  setSandboxPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
   onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
   mutateVersions: () => void;
@@ -96,6 +97,7 @@ export async function handleSseStream(
     setCurrentDemoUrl,
     setSandboxBuildError,
     setSandboxProdBuild,
+    setSandboxPending,
     onPreviewRefresh,
     onGenerationComplete,
     mutateVersions,
@@ -561,6 +563,7 @@ export async function handleSseStream(
                 ? sandboxData.sandboxUrl.trim()
                 : "";
 
+            setSandboxPending?.(false);
             setSandboxBuildError?.(null);
 
             if (sandboxUrl) {
@@ -629,6 +632,7 @@ export async function handleSseStream(
             const fallbackRaw = buildErrorData.fallbackDemoUrl;
             const fallbackDemoUrl =
               typeof fallbackRaw === "string" && fallbackRaw.trim() ? fallbackRaw.trim() : "";
+            setSandboxPending?.(false);
             setSandboxBuildError?.({
               stage,
               message,
@@ -666,6 +670,7 @@ export async function handleSseStream(
               setCurrentDemoUrl(doneData.demoUrl as string);
               onPreviewRefresh?.();
             }
+            setSandboxPending?.(Boolean(doneData.sandboxPending));
             const resolvedChatId =
               doneData.chatId || doneData.id || chatIdFromStream || effectiveChatId || null;
             const resolvedVersionId =

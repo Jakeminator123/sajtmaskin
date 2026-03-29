@@ -73,6 +73,7 @@ function createMessageStore() {
 function createContext(setMessages: SetMessages) {
   const setChatId = vi.fn();
   const setCurrentDemoUrl = vi.fn();
+  const setSandboxPending = vi.fn();
   const onPreviewRefresh = vi.fn();
   const onGenerationComplete = vi.fn();
   const mutateVersions = vi.fn();
@@ -87,6 +88,7 @@ function createContext(setMessages: SetMessages) {
     touchStreamSafetyTimer,
     setChatId,
     setCurrentDemoUrl,
+    setSandboxPending,
     onPreviewRefresh,
     onGenerationComplete,
     mutateVersions,
@@ -101,6 +103,7 @@ function createContext(setMessages: SetMessages) {
     spies: {
       setChatId,
       setCurrentDemoUrl,
+      setSandboxPending,
       onPreviewRefresh,
       onGenerationComplete,
       mutateVersions,

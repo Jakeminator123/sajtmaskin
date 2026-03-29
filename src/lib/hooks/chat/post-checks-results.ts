@@ -8,6 +8,7 @@ import {
   getPreviewBlockingReason,
   getPreviewUnavailableAutoFixReason,
   getPreviewUnavailableQualityGateFailure,
+  isPreviewPendingOnSandbox,
 } from "./post-checks-preview";
 import type { FileDiff } from "./post-checks-diff";
 import type {
@@ -300,6 +301,7 @@ export function buildPostCheckArtifacts(params: {
   } = params;
 
   const previewBlockingReason = getPreviewBlockingReason(preflight);
+  const previewPendingOnSandbox = isPreviewPendingOnSandbox(preflight);
   const steps: string[] = [];
 
   if (changes) {
@@ -381,6 +383,15 @@ export function buildPostCheckArtifacts(params: {
   if (!finalDemoUrl) {
     steps.push(buildPreviewUnavailableStep(preflight));
   }
+  if (preflight?.sandbox?.hasCriticalInstallRisk) {
+    steps.push("Sandbox readiness: package/dependency-risk blocker upptäckt före live-preview.");
+  }
+  if (preflight?.sandbox?.requiresEnvConfig) {
+    steps.push("Sandbox readiness: live-preview väntar på projektets miljövariabler eller secrets.");
+  }
+  if (preflight?.sandbox?.hasCriticalCodeFailure) {
+    steps.push("Sandbox readiness: kodstrukturen blockerar live-preview tills preflightfel är lösta.");
+  }
   if (preflight?.scaffoldRetry) {
     steps.push(
       `Scaffold retry: byt från ${preflight.scaffoldRetry.currentScaffoldLabel} till ${preflight.scaffoldRetry.suggestedScaffoldLabel} om repair-turnen behöver en strukturpivot.`,
@@ -402,7 +413,7 @@ export function buildPostCheckArtifacts(params: {
   if (changedFilesCount === 0) {
     qualityGateFailures.push("no_file_changes");
   }
-  if (!finalDemoUrl) {
+  if (!finalDemoUrl && !previewPendingOnSandbox) {
     qualityGateFailures.push(getPreviewUnavailableQualityGateFailure(preflight));
   }
   if (streamQuality?.hasCriticalAnomaly) {
@@ -414,6 +425,12 @@ export function buildPostCheckArtifacts(params: {
   if (sanityErrors.length > 0) {
     qualityGateFailures.push("project_sanity_errors");
   }
+  if (preflight?.sandbox?.hasCriticalInstallRisk) {
+    qualityGateFailures.push("dependency_install_failure");
+  }
+  if (preflight?.sandbox?.requiresEnvConfig) {
+    qualityGateFailures.push("env_config_missing");
+  }
   if (missingPlannedRoutes.length > 0) {
     qualityGateFailures.push("planned_routes_missing");
   }
@@ -421,8 +438,14 @@ export function buildPostCheckArtifacts(params: {
   const qualityGatePassed = qualityGateFailures.length === 0;
 
   const criticalReasons: string[] = [];
-  if (!finalDemoUrl) {
+  if (!finalDemoUrl && !previewPendingOnSandbox && !preflight?.sandbox?.requiresEnvConfig) {
     criticalReasons.push(getPreviewUnavailableAutoFixReason(preflight));
+  }
+  if (preflight?.sandbox?.hasCriticalInstallRisk) {
+    criticalReasons.push("dependency/install-risk");
+  }
+  if (preflight?.sandbox?.hasCriticalCodeFailure) {
+    criticalReasons.push("kodstruktur blockerar sandbox");
   }
   if (sanityErrors.length > 0) criticalReasons.push("kodsanity error");
   const shouldEscalateScaffoldRetry =
@@ -440,6 +463,7 @@ export function buildPostCheckArtifacts(params: {
 
   const warningReasons: string[] = [];
   if (missingRoutes.length > 0) warningReasons.push("saknade routes");
+  if (preflight?.sandbox?.requiresEnvConfig) warningReasons.push("miljövariabler saknas");
   if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source !== "brief") {
     warningReasons.push("route-plan mismatch");
   }
@@ -462,7 +486,7 @@ export function buildPostCheckArtifacts(params: {
   const provisionalVersion = !qualityGatePassed || qualityGatePending || autoFixQueued;
 
   const qualityTier: QualityTier =
-    !finalDemoUrl || criticalReasons.length > 0
+    (!finalDemoUrl && !previewPendingOnSandbox) || criticalReasons.length > 0
       ? "none"
       : qualityGatePassed && warningReasons.length === 0
         ? "sandbox"
@@ -543,7 +567,7 @@ export function buildPostCheckArtifacts(params: {
   };
 
   const logItems: VersionErrorLogPayload[] = [];
-  if (!finalDemoUrl) {
+  if (!finalDemoUrl && !previewPendingOnSandbox) {
     logItems.push(buildPreviewUnavailableLog(versionId, preflight));
   }
   if (missingRoutes.length > 0) {

@@ -58,7 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       path: "components/site-header.tsx",
       language: "tsx",
       content: `"use client";
-export default function SiteHeader() {
+export function SiteHeader() {
   return <div>{siteConfig.shortName}</div>;
 }
 `,
@@ -76,5 +76,35 @@ export default function SiteHeader() {
     const repaired = repairGeneratedFiles(fixtures);
     const header = repaired.files.find((file) => file.path === "components/site-header.tsx");
     expect(header?.content).toContain('import { siteConfig } from "@/lib/store-data";');
+  });
+
+  it("rewires local default imports to named imports for scaffold components", () => {
+    const repaired = repairGeneratedFiles([
+      {
+        path: "components/site-footer.tsx",
+        language: "tsx",
+        content: `export function SiteFooter() { return <footer>Hej</footer>; }`,
+      },
+      {
+        path: "app/layout.tsx",
+        language: "tsx",
+        content: `import SiteFooter from "@/components/site-footer";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv">
+      <body>
+        {children}
+        <SiteFooter />
+      </body>
+    </html>
+  );
+}
+`,
+      },
+    ]);
+
+    const layout = repaired.files.find((file) => file.path === "app/layout.tsx");
+    expect(layout?.content).toContain('import { SiteFooter } from "@/components/site-footer";');
   });
 });

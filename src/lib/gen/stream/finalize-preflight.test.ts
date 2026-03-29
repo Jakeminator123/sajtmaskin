@@ -8,6 +8,7 @@ const runProjectSanityChecks = vi.hoisted(() => vi.fn());
 const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 const runLlmFixer = vi.hoisted(() => vi.fn());
+const runSeoPreflightChecks = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/autofix/pipeline", () => ({
   runAutoFix,
@@ -27,6 +28,10 @@ vi.mock("@/lib/gen/repair-generated-files", () => ({
 
 vi.mock("@/lib/gen/validation/project-sanity", () => ({
   runProjectSanityChecks,
+}));
+
+vi.mock("@/lib/gen/validation/seo-preflight", () => ({
+  runSeoPreflightChecks,
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
@@ -58,6 +63,7 @@ describe("runFinalizePreflight", () => {
     buildCompleteProject.mockReset();
     repairGeneratedFiles.mockReset();
     runProjectSanityChecks.mockReset();
+    runSeoPreflightChecks.mockReset();
     parseFilesFromContent.mockReset();
     validateGeneratedCode.mockReset();
     runLlmFixer.mockReset();
@@ -65,6 +71,7 @@ describe("runFinalizePreflight", () => {
     repairGeneratedFiles.mockImplementation((files: unknown) => ({ files, fixes: [] }));
     buildCompleteProject.mockImplementation((files: unknown) => files);
     runProjectSanityChecks.mockReturnValue({ valid: true, issues: [] });
+    runSeoPreflightChecks.mockReturnValue([]);
     validateGeneratedCode.mockResolvedValue({ valid: true, errors: [] });
     runLlmFixer.mockResolvedValue({ success: false });
     runAutoFix.mockResolvedValue({ fixedContent: "", fixes: [], warnings: [], dependencies: [] });
@@ -92,7 +99,10 @@ describe("runFinalizePreflight", () => {
       file: "preview",
       severity: "error",
       message: "Automatic preflight could not build a renderable own-engine preview entrypoint.",
+      category: "shim_preview_failure",
     });
+    expect(result.sandbox.canStartSandbox).toBe(true);
+    expect(result.sandbox.primaryPreviewTarget).toBe("sandbox");
   });
 
   it("preserves the thrown preview preparation error in the blocking reason", async () => {
@@ -119,7 +129,9 @@ describe("runFinalizePreflight", () => {
       file: "preview",
       severity: "error",
       message: "Automatic preflight failed while preparing preview: kaboom",
+      category: "shim_preview_failure",
     });
+    expect(result.sandbox.canStartSandbox).toBe(true);
   });
 
   it("keeps preview unblocked when only project sanity reports verification issues", async () => {
@@ -152,6 +164,9 @@ describe("runFinalizePreflight", () => {
       file: "src/app/page.tsx",
       severity: "error",
       message: "Missing required export",
+      category: "code_structure_failure",
     });
+    expect(result.sandbox.canStartSandbox).toBe(false);
+    expect(result.sandbox.primaryPreviewTarget).toBe("compatibility-shim");
   });
 });

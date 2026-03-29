@@ -899,6 +899,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               alternatePreviewUrls={vm.activeVersionAlternatePreview}
               sandboxBuildError={vm.sandboxBuildError}
               sandboxProdBuild={vm.sandboxProdBuild}
+              sandboxPending={vm.sandboxPending}
               onNavigatePreviewUrl={(url) => {
                 vm.setCurrentDemoUrl(url);
                 vm.bumpPreviewRefreshToken();

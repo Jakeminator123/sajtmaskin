@@ -1,4 +1,3 @@
-import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { buildPreviewHtml } from "@/lib/gen/preview";
 import type { CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
@@ -6,13 +5,19 @@ import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type Route
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
-import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
+import {
+  buildSandboxStartContract,
+  detectPreflightIssueCategory,
+  type PreflightIssueCategory,
+  type SandboxStartContract,
+} from "./preflight-contract";
 
 export type FinalizePreflightIssue = {
   file: string;
   severity: "error" | "warning";
   message: string;
+  category: PreflightIssueCategory;
 };
 
 export interface RunFinalizePreflightParams {
@@ -28,6 +33,7 @@ export interface RunFinalizePreflightResult {
   preflightFileCount: number;
   preflightIssues: FinalizePreflightIssue[];
   previewBlockingReason: string | null;
+  sandbox: SandboxStartContract;
 }
 
 function inferCodeFenceLanguage(path: string): string {
@@ -49,9 +55,22 @@ function serializeFilesToCodeProject(files: CodeFile[]): string {
     .join("\n\n");
 }
 
+function createIssue(
+  file: string,
+  severity: "error" | "warning",
+  message: string,
+): FinalizePreflightIssue {
+  return {
+    file,
+    severity,
+    message,
+    category: detectPreflightIssueCategory({ file, severity, message }),
+  };
+}
+
 export async function runFinalizePreflight({
   chatId,
-  model,
+  model: _model,
   filesJson,
   routePlan = null,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
@@ -60,6 +79,10 @@ export async function runFinalizePreflight({
   let preflightFileCount = 0;
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
+  let sandbox = buildSandboxStartContract({
+    issues: [],
+    finalizedPreviewFileCount: 0,
+  });
 
   try {
     let finalFiles = (
@@ -81,7 +104,6 @@ export async function runFinalizePreflight({
     let mergedProjectContent = serializeFilesToCodeProject(finalFiles);
     let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
     if (!mergedSyntax.valid) {
-      const initialMergedSyntaxErrorCount = mergedSyntax.errors.length;
       devLogAppend("in-progress", {
         type: "merged-syntax.invalid",
         chatId,
@@ -89,57 +111,15 @@ export async function runFinalizePreflight({
         errors: mergedSyntax.errors.slice(0, 8),
       });
 
-      const { runLlmFixer } = await import("@/lib/gen/autofix/llm-fixer");
-      const brokenFiles = [
-        ...new Set(mergedSyntax.errors.map((error) => error.file).filter(Boolean)),
-      ];
-      const fixerResult = await runLlmFixer(
-        mergedProjectContent,
-        mergedSyntax.errors.map((error) => `${error.file}:${error.line} ${error.message}`),
-        { requiredFiles: brokenFiles },
-      );
-
-      if (fixerResult.success || fixerResult.partial) {
-        if (fixerResult.partial) {
-          devLogAppend("in-progress", {
-            type: "merged-syntax.fixer.partial",
-            chatId,
-            missingFiles: fixerResult.missingFiles,
-            fixedFiles: fixerResult.fixedFiles,
-          });
-        }
-        const reFixed = await runAutoFix(fixerResult.fixedContent, { chatId, model });
-        const reValidated = await validateGeneratedCode(reFixed.fixedContent);
-        if (reValidated.valid || reValidated.errors.length < mergedSyntax.errors.length) {
-          finalFiles = (
-            JSON.parse(parseFilesFromContent(reFixed.fixedContent)) as Array<{
-              path: string;
-              content: string;
-              language?: string;
-            }>
-          ).map((file) => ({ ...file, language: file.language || "tsx" }));
-          const postFixRepair = repairGeneratedFiles(finalFiles);
-          finalFiles = postFixRepair.files;
-          nextFilesJson = JSON.stringify(finalFiles);
-          mergedProjectContent = reFixed.fixedContent;
-          mergedSyntax = reValidated;
-          devLogAppend("in-progress", {
-            type: "merged-syntax.fixed",
-            chatId,
-            errorsBefore: initialMergedSyntaxErrorCount,
-            errorsAfter: reValidated.errors.length,
-            repairFixes: postFixRepair.fixes,
-          });
-        }
-      }
-
       if (!mergedSyntax.valid) {
         preflightIssues.push(
-          ...mergedSyntax.errors.slice(0, 20).map((error) => ({
-            file: error.file,
-            severity: "error" as const,
-            message: `Merged syntax error line ${error.line}:${error.column} — ${error.message}`,
-          })),
+          ...mergedSyntax.errors.slice(0, 20).map((error) =>
+            createIssue(
+              error.file,
+              "error",
+              `Merged syntax error line ${error.line}:${error.column} — ${error.message}`,
+            )
+          ),
         );
       }
     }
@@ -150,22 +130,14 @@ export async function runFinalizePreflight({
       if (!previewHtml) {
         previewBlockingReason =
           "Automatic preflight could not build a renderable own-engine preview entrypoint.";
-        preflightIssues.push({
-          file: "preview",
-          severity: "error",
-          message: previewBlockingReason,
-        });
+        preflightIssues.push(createIssue("preview", "error", previewBlockingReason));
       }
     } catch (previewErr) {
       previewBlockingReason =
         previewErr instanceof Error
           ? `Automatic preflight failed while preparing preview: ${previewErr.message}`
           : "Automatic preflight failed while preparing preview.";
-      preflightIssues.push({
-        file: "preview",
-        severity: "error",
-        message: previewBlockingReason,
-      });
+      preflightIssues.push(createIssue("preview", "error", previewBlockingReason));
       devLogAppend("in-progress", {
         type: "preview-preflight.error",
         chatId,
@@ -176,15 +148,16 @@ export async function runFinalizePreflight({
     const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(finalFiles)).files;
     preflightFileCount = completeProjectFiles.length;
     const sanity = runProjectSanityChecks(completeProjectFiles);
-    preflightIssues = [...preflightIssues, ...sanity.issues];
+    preflightIssues = [
+      ...preflightIssues,
+      ...sanity.issues.map((issue) => createIssue(issue.file, issue.severity, issue.message)),
+    ];
     const seoIssues = runSeoPreflightChecks(completeProjectFiles);
     preflightIssues = [
       ...preflightIssues,
-      ...seoIssues.map((issue) => ({
-        file: issue.file || "seo",
-        severity: issue.severity,
-        message: issue.message,
-      })),
+      ...seoIssues.map((issue) =>
+        createIssue(issue.file || "seo", issue.severity, issue.message)
+      ),
     ];
     const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));
     const missingPlannedRoutes = findMissingPlannedRoutes(routePlan, actualRoutes);
@@ -192,11 +165,13 @@ export async function runFinalizePreflight({
       const severity: FinalizePreflightIssue["severity"] =
         routePlan?.source === "brief" ? "error" : "warning";
       preflightIssues.push(
-        ...missingPlannedRoutes.slice(0, 10).map((route) => ({
-          file: route.path,
-          severity,
-          message: `Planned route is missing from generated files: ${route.path} (${route.name})`,
-        })),
+        ...missingPlannedRoutes.slice(0, 10).map((route) =>
+          createIssue(
+            route.path,
+            severity,
+            `Planned route is missing from generated files: ${route.path} (${route.name})`,
+          )
+        ),
       );
       devLogAppend("in-progress", {
         type: "route-plan.preflight",
@@ -215,6 +190,10 @@ export async function runFinalizePreflight({
         completeProjectFiles: completeProjectFiles.length,
       });
     }
+    sandbox = buildSandboxStartContract({
+      issues: preflightIssues,
+      finalizedPreviewFileCount: finalizedFilesForPreview.length,
+    });
   } catch (sanityErr) {
     console.warn("[sanity] Project sanity check error:", sanityErr);
     devLogAppend("in-progress", {
@@ -230,5 +209,6 @@ export async function runFinalizePreflight({
     preflightFileCount,
     preflightIssues,
     previewBlockingReason,
+    sandbox,
   };
 }

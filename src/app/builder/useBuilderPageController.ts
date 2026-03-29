@@ -316,10 +316,12 @@ export function useBuilderPageController() {
     message: string;
   } | null>(null);
   const [sandboxProdBuild, setSandboxProdBuild] = useState<SandboxProdBuildPayload | null>(null);
+  const [sandboxPending, setSandboxPending] = useState(false);
 
   const clearSandboxBuildError = useCallback(() => {
     setSandboxBuildError(null);
     setSandboxProdBuild(null);
+    setSandboxPending(false);
   }, []);
 
   const resetBeforeCreateChat = useCallback(() => {
@@ -327,6 +329,7 @@ export function useBuilderPageController() {
     setPreviewRefreshToken(0);
     setSandboxBuildError(null);
     setSandboxProdBuild(null);
+    setSandboxPending(false);
   }, [setCurrentDemoUrl, setPreviewRefreshToken]);
 
   const bumpPreviewRefreshToken = useCallback(() => {
@@ -362,6 +365,7 @@ export function useBuilderPageController() {
       setCurrentDemoUrl: state.setCurrentDemoUrl,
       setSandboxBuildError,
       setSandboxProdBuild,
+      setSandboxPending,
       onPreviewRefresh: bumpPreviewRefreshToken,
       onGenerationComplete: deployActions.handleGenerationComplete,
       onV0ProjectId: (nextId) => state.setV0ProjectId(nextId),
@@ -1337,8 +1341,11 @@ export function useBuilderPageController() {
     if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
       setCurrentDemoUrl(nextDemoUrl);
       setPreviewRefreshToken(Date.now());
+      if (!isTier1ShimOrUnsetPreviewUrl(nextDemoUrl)) {
+        setSandboxPending(false);
+      }
     }
-  }, [derived.activeVersionId, selectedVersionId, chat, currentDemoUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentDemoUrl, setPreviewRefreshToken]);
+  }, [derived.activeVersionId, selectedVersionId, chat, currentDemoUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentDemoUrl, setPreviewRefreshToken, setSandboxPending]);
 
   const sandboxBootstrapGenRef = useRef(0);
   const sandboxBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
@@ -1405,6 +1412,7 @@ export function useBuilderPageController() {
         };
 
         try {
+          setSandboxPending(true);
           const res = await fetch(
             `/api/v0/chats/${encodeURIComponent(chatId)}/sandbox-preview`,
             {
@@ -1445,6 +1453,7 @@ export function useBuilderPageController() {
                 message: persistedHint,
               });
               setSandboxProdBuild(null);
+              setSandboxPending(false);
               return;
             }
           }
@@ -1469,10 +1478,12 @@ export function useBuilderPageController() {
             setForcedSandboxRestartKey((current) => (current === key ? null : current));
           }
           if (!data?.ok || typeof data.sandboxUrl !== "string" || !data.sandboxUrl.trim()) {
+            setSandboxPending(false);
             return;
           }
 
           setSandboxBuildError(null);
+          setSandboxPending(false);
           setCurrentDemoUrl(data.sandboxUrl.trim());
           bumpPreviewRefreshToken();
           if (typeof data.prodBuildVerified === "boolean") {
@@ -1514,6 +1525,7 @@ export function useBuilderPageController() {
     isChatLoading,
     currentDemoUrl,
     setCurrentDemoUrl,
+    setSandboxPending,
     bumpPreviewRefreshToken,
     mutateChat,
     mutateVersions,
@@ -1702,6 +1714,7 @@ export function useBuilderPageController() {
     currentDemoUrl: state.currentDemoUrl,
     sandboxBuildError,
     sandboxProdBuild,
+    sandboxPending,
     clearSandboxBuildError,
     serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,
@@ -1734,6 +1747,7 @@ export function useBuilderPageController() {
     setDomainManagerOpen: state.setDomainManagerOpen,
     setDomainQuery: state.setDomainQuery,
     setCurrentDemoUrl: state.setCurrentDemoUrl,
+    setSandboxPending,
     setServerProjectPreviewOverrideUrl: state.setServerProjectPreviewOverrideUrl,
     setServerProjectPreviewOverrideVersionId: state.setServerProjectPreviewOverrideVersionId,
     setClearedPreviewVersionId: state.setClearedPreviewVersionId,

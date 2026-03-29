@@ -260,28 +260,48 @@ export function createOwnEngineGenerationStream(
             /* no sandbox files */
           }
         }
+        const sandboxContract = finalized.preflight.sandbox ?? {
+          canStartSandbox: false,
+          primaryPreviewTarget: "none",
+          shimBlocked: false,
+          requiresEnvConfig: false,
+          hasCriticalInstallRisk: false,
+          hasCriticalCodeFailure: false,
+          compatibilityShimAllowed: true,
+          issueCounts: {
+            code_structure_failure: 0,
+            dependency_install_failure: 0,
+            env_config_missing: 0,
+            shim_preview_failure: 0,
+            non_blocking_quality_warning: 0,
+          },
+          blockingCategories: [],
+        };
         const previewBlocked = finalized.preflight.previewBlocked;
         const sandboxWillRun = shouldRunOwnEngineSandbox({
           isSandboxConfigured: isSandboxConfigured(),
-          previewBlocked,
+          sandbox: sandboxContract,
           parsedFileCount: parsedForSandbox.length,
         });
-        const tier1Preview =
-          finalized.previewUrl && finalized.previewUrl.trim() ? finalized.previewUrl.trim() : null;
-        /** Tier-1 när finalize inte satte previewUrl men sandbox startar — samma väg som bootstrap (preview-render). */
-        const shimUrl =
-          tier1Preview ||
-          (sandboxWillRun && finalized.version.id
-            ? buildOwnEnginePreviewRuntime({
-                chatId,
-                versionId: finalized.version.id,
-                projectId: null,
-              }).url
-            : null);
-        /** Visa alltid shim i klienten medan sandbox bootar — undviker tom iframe. */
-        const doneDemoUrl = shimUrl;
+        const compatibilityShimUrl =
+          sandboxContract.compatibilityShimAllowed && !sandboxContract.shimBlocked && finalized.version.id
+            ? (
+                (finalized.previewUrl && finalized.previewUrl.trim()
+                  ? finalized.previewUrl.trim()
+                  : null) ||
+                buildOwnEnginePreviewRuntime({
+                  chatId,
+                  versionId: finalized.version.id,
+                  projectId: null,
+                }).url
+              )
+            : null;
+        const doneDemoUrl =
+          sandboxContract.primaryPreviewTarget === "compatibility-shim"
+            ? compatibilityShimUrl
+            : null;
         const shimFallback =
-          shimUrl ? { fallbackDemoUrl: shimUrl } : {};
+          compatibilityShimUrl ? { fallbackDemoUrl: compatibilityShimUrl } : {};
 
         safeEnqueue(
           enc.encode(
@@ -291,7 +311,7 @@ export function createOwnEngineGenerationStream(
               messageId: finalized.messageId,
               demoUrl: doneDemoUrl,
               sandboxPending: sandboxWillRun,
-              shimPreviewUrl: shimUrl,
+              shimPreviewUrl: compatibilityShimUrl,
               preflight: finalized.preflight,
               previewBlocked: finalized.preflight.previewBlocked,
               verificationBlocked: finalized.preflight.verificationBlocked,

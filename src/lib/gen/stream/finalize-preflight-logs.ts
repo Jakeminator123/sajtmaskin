@@ -1,6 +1,7 @@
 import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { FinalizePreflightIssue } from "./finalize-preflight";
+import type { SandboxStartContract } from "./preflight-contract";
 
 export interface FinalizeVersionErrorLog {
   chatId: string;
@@ -17,6 +18,7 @@ export interface BuildFinalizePreflightLogBundleParams {
   preflightIssues: FinalizePreflightIssue[];
   preflightFileCount: number;
   previewBlockingReason: string | null;
+  sandbox: SandboxStartContract;
   finalizedPreviewFileCount: number;
   scaffoldRetry: ScaffoldRetrySuggestion | null;
   routePlan: RoutePlan | null | undefined;
@@ -37,14 +39,16 @@ export function buildFinalizePreflightLogBundle({
   preflightIssues,
   preflightFileCount,
   previewBlockingReason,
+  sandbox,
   finalizedPreviewFileCount,
   scaffoldRetry,
   routePlan,
 }: BuildFinalizePreflightLogBundleParams): FinalizePreflightLogBundle {
   const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
   const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
-  const hasVerificationBlockingPreflightErrors = preflightErrors.length > 0;
-  const hasPreviewBlockingPreflightErrors = Boolean(previewBlockingReason);
+  const hasVerificationBlockingPreflightErrors = !sandbox.canStartSandbox;
+  const hasPreviewBlockingPreflightErrors =
+    !sandbox.canStartSandbox && sandbox.primaryPreviewTarget === "none";
 
   const preflightLogs: FinalizeVersionErrorLog[] = [
     {
@@ -64,6 +68,7 @@ export function buildFinalizePreflightLogBundle({
         verificationBlocked: hasVerificationBlockingPreflightErrors,
         previewBlocked: hasPreviewBlockingPreflightErrors,
         previewBlockingReason,
+        sandbox,
         routePlan,
       },
     },
@@ -80,7 +85,23 @@ export function buildFinalizePreflightLogBundle({
     });
   }
 
-  if (hasPreviewBlockingPreflightErrors) {
+  if (sandbox.shimBlocked && sandbox.canStartSandbox) {
+    preflightLogs.push({
+      chatId,
+      versionId,
+      level: "warning",
+      category: "preview",
+      message: "Compatibility shim preview failed, but sandbox can still start for this version.",
+      meta: {
+        source: "finalize-preflight",
+        previewCode: "compatibility_shim_blocked",
+        previewStage: "preflight",
+        previewBlocked: false,
+        verificationBlocked: false,
+        primaryPreviewTarget: sandbox.primaryPreviewTarget,
+      },
+    });
+  } else if (hasPreviewBlockingPreflightErrors) {
     preflightLogs.push({
       chatId,
       versionId,
@@ -93,6 +114,7 @@ export function buildFinalizePreflightLogBundle({
         previewStage: "preflight",
         previewBlocked: true,
         verificationBlocked: hasVerificationBlockingPreflightErrors,
+        primaryPreviewTarget: sandbox.primaryPreviewTarget,
       },
     });
   } else if (hasVerificationBlockingPreflightErrors) {
@@ -109,6 +131,7 @@ export function buildFinalizePreflightLogBundle({
         previewBlocked: false,
         verificationBlocked: true,
         previewFileCount: finalizedPreviewFileCount,
+        primaryPreviewTarget: sandbox.primaryPreviewTarget,
       },
     });
   }
@@ -134,6 +157,10 @@ export function buildFinalizePreflightLogBundle({
     preflightLogs,
     preflightFailureSummary: hasPreviewBlockingPreflightErrors
       ? "Automatic preflight found preview-blocking issues."
-      : "Automatic preflight found verification-blocking issues.",
+      : hasVerificationBlockingPreflightErrors
+        ? "Automatic preflight found sandbox-blocking issues."
+        : sandbox.shimBlocked
+          ? "Automatic preflight found compatibility-shim issues."
+          : "Automatic preflight completed.",
   };
 }

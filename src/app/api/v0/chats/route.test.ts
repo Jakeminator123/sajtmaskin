@@ -200,8 +200,8 @@ describe("POST /api/v0/chats", () => {
         version_number: 1,
         sandbox_url: "https://sandbox.example/ver_1",
         release_state: "draft",
-        verification_state: "failed",
-        verification_summary: "Automatic preflight found verification-blocking issues.",
+        verification_state: "pending",
+        verification_summary: null,
         promoted_at: null,
       },
       messageId: "msg_assistant",
@@ -209,12 +209,13 @@ describe("POST /api/v0/chats", () => {
       filesJson: "[]",
       contentForVersion: "generated content",
       preflight: {
-        previewBlocked: true,
-        verificationBlocked: true,
+        previewBlocked: false,
+        verificationBlocked: false,
         previewBlockingReason: "Automatic preflight could not build a renderable own-engine preview entrypoint.",
         issueCount: 1,
         errorCount: 1,
         warningCount: 0,
+        primaryPreviewTarget: "sandbox",
       },
     });
 
@@ -230,17 +231,18 @@ describe("POST /api/v0/chats", () => {
     expect(response.status).toBe(200);
     expect(json.demoUrl).toBeNull();
     expect(json.preflight).toMatchObject({
-      previewBlocked: true,
-      verificationBlocked: true,
+      previewBlocked: false,
+      verificationBlocked: false,
+      primaryPreviewTarget: "sandbox",
     });
     expect(json.latestVersion).toMatchObject({
       id: "ver_1",
       versionId: "ver_1",
       messageId: "msg_assistant",
       demoUrl: null,
-      verificationState: "failed",
+      verificationState: "pending",
     });
-    expect(json.previewBlocked).toBe(true);
+    expect(json.previewBlocked).toBe(false);
     expect(json.previewBlockingReason).toContain("renderable own-engine preview entrypoint");
     expect(finalizeAndSaveVersion).toHaveBeenCalledWith(
       expect.objectContaining({

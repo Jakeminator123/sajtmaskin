@@ -156,7 +156,11 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
       const deps = pkgJson.dependencies ?? {};
       checkKnownBadPeers(deps, issues);
     } catch {
-      // unparseable package.json — other checks will catch this
+      issues.push({
+        file: pkgFile.path,
+        severity: "error",
+        message: "package.json could not be parsed, so dependency readiness cannot be verified",
+      });
     }
   }
 
