@@ -453,7 +453,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
       try {
-        toast.loading("Skapar dynamiska instruktioner (deep brief)...", {
+        toast.loading("Skapar brief och dynamiska instruktioner innan own-engine startar...", {
           id: "sajtmaskin:dynamic-instructions",
         });
 
@@ -504,7 +504,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           outputLength: addendum.length,
         });
 
-        toast.success("Instruktioner uppdaterade", {
+        toast.success("Brief klar — own-engine kan starta.", {
           id: "sajtmaskin:dynamic-instructions",
         });
 
@@ -531,7 +531,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         });
 
         if (isAbort) {
-          toast.error("Instruktions‑generering tog för lång tid (timeout)", {
+          toast.error("Brief/instruktions-generering tog för lång tid (timeout)", {
             id: "sajtmaskin:dynamic-instructions",
           });
         } else if (isParseError) {

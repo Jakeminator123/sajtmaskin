@@ -18,6 +18,7 @@ import { isSandboxConfigured, SANDBOX_SETUP_HINT } from "@/lib/mcp/runtime-url";
 
 const postBodySchema = z.object({
   versionId: z.string().min(1).optional(),
+  forceRestart: z.boolean().optional(),
 });
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -93,7 +94,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         versionRow = scoped.version;
       }
 
-      if (!canExposeEnginePreview(versionRow)) {
+      if (!parsed.data.forceRestart && !canExposeEnginePreview(versionRow)) {
         return NextResponse.json(
           {
             ok: false,
@@ -129,6 +130,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const started = await startSandboxPreview(files, {
         chatId,
         appProjectId,
+        forceRestart: parsed.data.forceRestart === true,
         versionIdForSession: versionRow.id,
         skipRepair: true,
       });

@@ -425,8 +425,16 @@ export function buildPostCheckArtifacts(params: {
     criticalReasons.push(getPreviewUnavailableAutoFixReason(preflight));
   }
   if (sanityErrors.length > 0) criticalReasons.push("kodsanity error");
-  if (preflight?.scaffoldRetry) criticalReasons.push("misstänkt scaffold-mismatch");
-  if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source === "brief") {
+  const shouldEscalateScaffoldRetry =
+    Boolean(preflight?.scaffoldRetry) &&
+    (Boolean(previewBlockingReason) || sanityErrors.length > 0);
+  if (shouldEscalateScaffoldRetry) criticalReasons.push("misstänkt scaffold-mismatch");
+  if (
+    missingPlannedRoutes.length > 0 &&
+    preflight?.routePlan?.source === "brief" &&
+    !finalDemoUrl &&
+    sanityErrors.length > 0
+  ) {
     criticalReasons.push("planerade routes saknas");
   }
 
@@ -434,6 +442,12 @@ export function buildPostCheckArtifacts(params: {
   if (missingRoutes.length > 0) warningReasons.push("saknade routes");
   if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source !== "brief") {
     warningReasons.push("route-plan mismatch");
+  }
+  if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source === "brief") {
+    warningReasons.push("planerade routes saknas");
+  }
+  if (preflight?.scaffoldRetry && !shouldEscalateScaffoldRetry) {
+    warningReasons.push("misstänkt scaffold-mismatch");
   }
   if (lucideLinkMisuse.length > 0) warningReasons.push("fel Link-import");
   if (suspiciousUseCalls.length > 0) warningReasons.push("misstankt use()");

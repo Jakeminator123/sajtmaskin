@@ -53,6 +53,11 @@ export type StartSandboxPreviewOptions = {
   chatId?: string | null;
   previewMode?: SandboxPreviewMode;
   /**
+   * Ignore any resumable sandbox session and build a fresh VM.
+   * Used when project env vars changed and the old sandbox would keep stale `.env.local`.
+   */
+  forceRestart?: boolean;
+  /**
    * When set with `chatId`, reuse an existing Vercel Sandbox for this version if the in-memory
    * session still points at a running VM (avoids duplicate sandboxes on reopen / bootstrap).
    */
@@ -83,7 +88,9 @@ export async function startSandboxPreview(
     typeof options?.versionIdForSession === "string" && options.versionIdForSession.trim()
       ? options.versionIdForSession.trim()
       : null;
-  const dedupeKey = cid && vid ? `${cid}:${vid}` : null;
+  const dedupeKey = cid && vid
+    ? `${cid}:${vid}:${options?.forceRestart === true ? "force-restart" : "default"}`
+    : null;
   if (dedupeKey) {
     const existing = inflightSandboxByChatVersion.get(dedupeKey);
     if (existing) return existing;
@@ -113,7 +120,11 @@ async function runStartSandboxPreview(
       ? options.versionIdForSession.trim()
       : null;
 
-  if (cid && vid) {
+  if (cid && options?.forceRestart) {
+    await clearSandboxSessionAsync(cid);
+  }
+
+  if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActiveSandboxSessionAsync(cid);
     if (sess?.versionId === vid && sess.sandboxId) {
       const resumed = await tryResumeSandboxById(sess.sandboxId);

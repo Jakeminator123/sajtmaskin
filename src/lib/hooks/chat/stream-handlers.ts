@@ -131,7 +131,20 @@ export async function handleSseStream(
         : null;
 
     if (step === "generation") {
+      if (phase === "start") return ["Startar own-engine-strömmen."];
+      if (phase === "reasoning") {
+        return ["Modellen analyserar uppgiften innan första synliga outputen kommer."];
+      }
+      if (phase === "awaiting-output") {
+        return ["Väntar på första kod- eller textoutput från modellen."];
+      }
       if (phase === "streaming") return ["Genererar innehåll och filer från prompten."];
+      if (phase === "awaiting-input") {
+        return ["Genereringen pausades eftersom modellen behöver mer input eller konfiguration."];
+      }
+      if (phase === "empty-output") {
+        return ["Genereringen avslutades utan användbar kod eller preview-artifact."];
+      }
       if (phase === "done") return ["Generering klar. Startar efterkontroller och slutsteg."];
     }
     if (step === "autofix") {
@@ -495,6 +508,9 @@ export async function handleSseStream(
             const step = typeof progressData.step === "string" ? progressData.step : "";
             const phase = typeof progressData.phase === "string" ? progressData.phase : "";
             if (step && phase) {
+              if (step === "generation") {
+                generationProgressStarted = true;
+              }
               appendProgressPart(step, phase, progressData);
             }
             break;
@@ -648,8 +664,8 @@ export async function handleSseStream(
             }
             if (doneData.demoUrl) {
               setCurrentDemoUrl(doneData.demoUrl as string);
+              onPreviewRefresh?.();
             }
-            onPreviewRefresh?.();
             const resolvedChatId =
               doneData.chatId || doneData.id || chatIdFromStream || effectiveChatId || null;
             const resolvedVersionId =
@@ -667,6 +683,10 @@ export async function handleSseStream(
               Boolean(
                 typeof doneData.shimPreviewUrl === "string" && (doneData.shimPreviewUrl as string).trim(),
               );
+            const emptyGenerationReason =
+              typeof doneData.reason === "string" && doneData.reason.trim().length > 0
+                ? doneData.reason.trim()
+                : "no_version_or_preview";
 
             if (!resolvedChatId) {
               throw new Error("No chat ID returned from stream");
@@ -691,6 +711,30 @@ export async function handleSseStream(
             }
             if (pendingCreateKeyRef?.current) {
               updateCreateChatLockChatId(pendingCreateKeyRef.current, nextId);
+            }
+
+            if (!awaitingInput && !hasRecoveredArtifact) {
+              appendProgressPart("generation", "empty-output", { reason: emptyGenerationReason });
+              const explicitFailureMessage =
+                pendingStreamErrorMessage ||
+                (emptyGenerationReason.includes("empty_output")
+                  ? "Own-engine genererade ingen användbar kod i det här försöket."
+                  : "Genereringen avslutades utan version eller preview.");
+              setMessages((prev) =>
+                prev.map((m) => {
+                  if (m.id !== assistantMessageId) return m;
+                  if ((m.content || "").trim().length > 0) {
+                    return { ...m, isStreaming: false };
+                  }
+                  return {
+                    ...m,
+                    content: `${explicitFailureMessage} Försök igen eller justera prompten.`,
+                    isStreaming: false,
+                  };
+                }),
+              );
+              toast.error(explicitFailureMessage);
+              break;
             }
 
             if (awaitingInput) {

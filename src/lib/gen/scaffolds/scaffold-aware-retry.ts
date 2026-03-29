@@ -223,6 +223,10 @@ export async function inferScaffoldRetrySuggestion({
     finalizedFilesForPreview,
   );
 
+  if (failureType === "blocking-preflight") {
+    return null;
+  }
+
   const heuristicCandidate = suggestHeuristicScaffold(buildIntent, resolvedScaffold, failureType);
   if (heuristicCandidate && heuristicCandidate.id !== resolvedScaffold.id) {
     return withHistoricalRate({

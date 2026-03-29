@@ -42,10 +42,6 @@ export {
   type TemplateCatalogSource,
 } from "./template-catalog";
 
-// --- template-search ---
-export {
-  searchTemplates,
-  cosineSimilarity,
-  invalidateEmbeddingsCache,
-  type TemplateSearchResult,
-} from "./template-search";
+// --- template-search (server-only; import from `./template-search` directly) ---
+// Not re-exported here because `template-search` transitively imports
+// `fs/promises` via embeddings storage, which breaks client component bundling.

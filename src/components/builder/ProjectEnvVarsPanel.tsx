@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { IntegrationSetupWizard } from "@/components/builder/IntegrationSetupWizard";
+import { dispatchProjectEnvVarsUpdated } from "@/lib/builder/project-env-events";
 import { detectBusinessWorkflowPacks, type BusinessWorkflowPack } from "@/lib/gen/business-packs";
 import {
   detectIntegrationsFromVersionFiles,
@@ -449,6 +450,14 @@ export function ProjectEnvVarsPanel({
       setEnvVars(Array.isArray(data.envVars) ? data.envVars : []);
       setNewKey("");
       setNewValue("");
+      if (chatId && activeVersionId) {
+        dispatchProjectEnvVarsUpdated({
+          projectId: effectiveEnvProjectId,
+          chatId,
+          versionId: activeVersionId,
+          envKeys: [key],
+        });
+      }
     } catch (saveError) {
       setError(
         saveError instanceof Error ? saveError.message : "Kunde inte spara miljövariabel",
@@ -479,6 +488,14 @@ export function ProjectEnvVarsPanel({
           return;
         }
         setEnvVars(Array.isArray(data.envVars) ? data.envVars : []);
+        if (chatId && activeVersionId) {
+          dispatchProjectEnvVarsUpdated({
+            projectId: effectiveEnvProjectId,
+            chatId,
+            versionId: activeVersionId,
+            envKeys: [item.key],
+          });
+        }
       } catch (deleteError) {
         setError(
           deleteError instanceof Error

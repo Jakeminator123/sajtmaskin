@@ -130,6 +130,10 @@ export function createOwnEngineGenerationStream(
         didSendDone = true;
         const toolCalls = Array.from(toolCallNames);
         const awaitingInput = options?.awaitingInput ?? sawBlockingToolCall;
+        emitProgress("generation", {
+          phase: awaitingInput ? "awaiting-input" : "empty-output",
+          reason,
+        });
 
         if (options?.userMessage) {
           safeEnqueue(enc.encode(formatSSEEvent("content", options.userMessage)));
@@ -181,6 +185,7 @@ export function createOwnEngineGenerationStream(
 
       safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
       safeEnqueue(enc.encode(formatSSEEvent("meta", meta)));
+      emitProgress("generation", { phase: "start" });
 
       enginePingTimer = setInterval(() => {
         if (engineControllerClosed) return;
@@ -499,6 +504,16 @@ export function createOwnEngineGenerationStream(
                     args: toolArgs,
                   })));
                 }
+                break;
+              }
+
+              case "progress": {
+                const progressData = evt.data as Record<string, unknown>;
+                const step =
+                  typeof progressData?.step === "string" ? progressData.step : "generation";
+                const phase =
+                  typeof progressData?.phase === "string" ? progressData.phase : "streaming";
+                emitProgress(step, { ...progressData, phase });
                 break;
               }
 

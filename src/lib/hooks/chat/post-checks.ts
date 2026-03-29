@@ -1,6 +1,6 @@
 import type { UiMessagePart } from "@/lib/builder/types";
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
-import { appendToolPartToMessage } from "./helpers";
+import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import {
   buildPostCheckBaseline,
   type PostCheckBaseline,
@@ -69,6 +69,38 @@ async function validateImages(params: {
   } catch {
     return null;
   }
+}
+
+const ENV_LOOKUP_RE = /\b[A-Z][A-Z0-9_]{2,}\b/g;
+const ENV_ERROR_HINTS = [
+  "environment variable",
+  "environment variables",
+  "env var",
+  "env vars",
+  "missing env",
+  "missing required",
+  "must be set",
+  "process.env",
+  "saknas fortfarande",
+  "saknad",
+];
+
+function extractMissingEnvKeysFromQualityGate(checks: QualityGateCheckResult[]): string[] {
+  const keys = new Set<string>();
+  for (const check of checks) {
+    const output = typeof check.output === "string" ? check.output : "";
+    if (!output.trim()) continue;
+    const lower = output.toLowerCase();
+    if (!ENV_ERROR_HINTS.some((hint) => lower.includes(hint))) continue;
+    for (const match of output.matchAll(ENV_LOOKUP_RE)) {
+      const candidate = match[0];
+      if (!candidate) continue;
+      if (candidate.includes("_") || candidate.endsWith("URL")) {
+        keys.add(candidate);
+      }
+    }
+  }
+  return Array.from(keys).sort((a, b) => a.localeCompare(b));
 }
 
 function buildAutoFixMeta(
@@ -357,6 +389,27 @@ async function runSandboxQualityGate(params: {
     }
 
     if (!data.passed && failedChecks.length > 0) {
+      const missingEnvKeys = extractMissingEnvKeysFromQualityGate(data.checks ?? []);
+      if (missingEnvKeys.length > 0) {
+        appendToolPartToMessage(
+          setMessages,
+          assistantMessageId,
+          integrationSignalToToolPart(
+            {
+              key: `quality-gate-env:${versionId}`,
+              name: "Miljövariabler",
+              intent: "env_vars",
+              envVars: missingEnvKeys,
+              status:
+                "Bygget kräver miljövariabler innan live-preview kan nå Fidelity 2. Lägg in nycklarna och starta om previewn i stället för att generera om sajten.",
+              sourceEvent: "quality-gate",
+            },
+            versionId,
+          ),
+        );
+        return;
+      }
+
       const repair: RepairContext = {
         qualityGate: (data.checks ?? [])
           .filter((c) => !c.passed)

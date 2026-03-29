@@ -69,6 +69,12 @@ function notifyAutofixSkipped(reasons: string[]) {
 const MAX_ATTEMPTS_PER_REASON = 1;
 const MAX_AUTOFIX_PER_CHAT = 2;
 const DEDUPE_TTL_MS = 5 * 60 * 1000;
+const SOFT_ONLY_AUTOFIX_REASONS = new Set([
+  "misstänkt scaffold-mismatch",
+  "planerade routes saknas",
+  "saknade routes",
+  "route-plan mismatch",
+]);
 
 type AttemptEntry = { count: number; ts: number };
 
@@ -334,6 +340,12 @@ export function useAutoFix(
     (payload: AutoFixPayload) => {
       if (!readAutofixClientPreference()) {
         notifyAutofixSkipped(payload.reasons);
+        return;
+      }
+      if (
+        payload.reasons.length > 0 &&
+        payload.reasons.every((reason) => SOFT_ONLY_AUTOFIX_REASONS.has(reason))
+      ) {
         return;
       }
       void (async () => {

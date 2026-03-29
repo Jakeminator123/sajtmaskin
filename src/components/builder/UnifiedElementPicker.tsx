@@ -84,7 +84,7 @@ import {
   getTemplatesByCategory,
   type CategoryInfo,
   type Template,
-} from "@/lib/templates";
+} from "@/lib/templates/client";
 
 import {
   DESIGN_THEME_OPTIONS,

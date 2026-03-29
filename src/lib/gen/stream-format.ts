@@ -22,6 +22,8 @@ interface StreamTextLike {
     type: string;
     text?: string;
     textDelta?: string;
+    reasoning?: string;
+    reasoningDelta?: string;
     error?: unknown;
     toolName?: string;
     toolCallId?: string;
@@ -35,6 +37,15 @@ interface StreamTextLike {
 
 function resolveStreamText(part: { text?: string; textDelta?: string }): string | undefined {
   return part.textDelta ?? part.text;
+}
+
+function resolveReasoningText(part: {
+  reasoning?: string;
+  reasoningDelta?: string;
+  text?: string;
+  textDelta?: string;
+}): string | undefined {
+  return part.reasoningDelta ?? part.reasoning ?? part.textDelta ?? part.text;
 }
 
 function parseToolArgs(candidate: unknown): Record<string, unknown> | null {
@@ -90,10 +101,24 @@ export function createCodeGenSSEStream(
         string,
         { toolName?: string; toolCallId?: string; inputText: string }
       >();
+      let emittedGenerationStart = false;
+      let emittedReasoningWait = false;
+      let emittedOutputWait = false;
+      let sawContentEvent = false;
       const enqueue = <TEvent extends BuilderStreamEventName>(
         streamEvent: BuilderStreamEvent<TEvent>,
       ) => {
         controller.enqueue(encoder.encode(formatSSEEvent(streamEvent.event, streamEvent.data)));
+      };
+      const ensureGenerationStarted = () => {
+        if (emittedGenerationStart) return;
+        emittedGenerationStart = true;
+        enqueue(
+          createBuilderStreamEvent("progress", {
+            step: "generation",
+            phase: "start",
+          }),
+        );
       };
       const getToolInputKey = (part: { toolCallId?: string; toolName?: string }): string | null => {
         if (part.toolCallId) return part.toolCallId;
@@ -139,6 +164,7 @@ export function createCodeGenSSEStream(
         const toolName = part.toolName ?? buffered?.toolName;
         const toolCallId = part.toolCallId ?? buffered?.toolCallId;
         if (!toolName) return false;
+        toolCallCounts.set(toolName, (toolCallCounts.get(toolName) ?? 0) + 1);
         enqueue(
           createBuilderStreamEvent("tool-call", {
             toolName,
@@ -175,16 +201,55 @@ export function createCodeGenSSEStream(
 
         for await (const part of result.fullStream) {
           eventCounts.set(part.type, (eventCounts.get(part.type) ?? 0) + 1);
-          if (part.type === "tool-call" && part.toolName) {
-            toolCallCounts.set(part.toolName, (toolCallCounts.get(part.toolName) ?? 0) + 1);
-          }
 
           switch (part.type) {
+            case "start":
+            case "start-step":
+            case "finish-step":
+            case "finish": {
+              ensureGenerationStarted();
+              break;
+            }
+
+            case "reasoning-start": {
+              ensureGenerationStarted();
+              if (thinking && !emittedReasoningWait) {
+                emittedReasoningWait = true;
+                enqueue(
+                  createBuilderStreamEvent("progress", {
+                    step: "generation",
+                    phase: "reasoning",
+                  }),
+                );
+              }
+              break;
+            }
+
             case "reasoning":
             case "reasoning-delta": {
-              const reasoningText = resolveStreamText(part);
+              ensureGenerationStarted();
+              const reasoningText = resolveReasoningText(part);
               if (thinking && reasoningText) {
                 enqueue(createBuilderStreamEvent("thinking", { text: reasoningText }));
+              }
+              break;
+            }
+
+            case "reasoning-end": {
+              ensureGenerationStarted();
+              break;
+            }
+
+            case "text-start": {
+              ensureGenerationStarted();
+              if (!emittedOutputWait) {
+                emittedOutputWait = true;
+                enqueue(
+                  createBuilderStreamEvent("progress", {
+                    step: "generation",
+                    phase: "awaiting-output",
+                  }),
+                );
               }
               break;
             }
@@ -193,37 +258,49 @@ export function createCodeGenSSEStream(
             case "text-delta":
             case "output-text":
             case "output-text-delta": {
+              ensureGenerationStarted();
               const contentText = resolveStreamText(part);
               if (contentText) {
+                sawContentEvent = true;
                 enqueue(createBuilderStreamEvent("content", { text: contentText }));
               }
               break;
             }
 
+            case "text-end": {
+              ensureGenerationStarted();
+              break;
+            }
+
             case "tool-input-start":
             case "tool_call_streaming_start": {
+              ensureGenerationStarted();
               rememberToolInput(part, "reset");
               break;
             }
 
             case "tool-input-delta":
             case "tool_call_delta": {
+              ensureGenerationStarted();
               rememberToolInput(part, "append");
               break;
             }
 
             case "tool-input-end":
             case "tool-input-available": {
+              ensureGenerationStarted();
               rememberToolInput(part, "append");
               break;
             }
 
             case "tool-call": {
+              ensureGenerationStarted();
               emitToolCall(part);
               break;
             }
 
             case "error":
+              ensureGenerationStarted();
               enqueue(
                 createBuilderStreamEvent("error", {
                   message: part.error instanceof Error ? part.error.message : "Stream error",
@@ -235,6 +312,21 @@ export function createCodeGenSSEStream(
 
         for (const pending of pendingToolInputs.values()) {
           emitToolCall(pending);
+        }
+
+        if (!sawContentEvent && toolCallCounts.size === 0) {
+          enqueue(
+            createBuilderStreamEvent("progress", {
+              step: "generation",
+              phase: "empty-output",
+            }),
+          );
+          enqueue(
+            createBuilderStreamEvent("error", {
+              message:
+                "Model produced no text events (silent output). No code was emitted for this run.",
+            }),
+          );
         }
 
         const usage = await result.usage;

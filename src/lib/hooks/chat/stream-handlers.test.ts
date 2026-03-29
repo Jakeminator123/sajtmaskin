@@ -209,6 +209,38 @@ describe("handleSseStream", () => {
     expect(toast.warning).not.toHaveBeenCalled();
   });
 
+  it("surfaces an explicit empty-generation failure when done has no version or preview", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("done", { chatId: "chat_1", reason: "done_empty_output" }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    const result = await handleSseStream(
+      new Response(null),
+      ctx,
+      new AbortController().signal,
+    );
+
+    expect(result.chatIdFromStream).toBe("chat_1");
+    expect(spies.onGenerationComplete).not.toHaveBeenCalled();
+    expect(spies.mutateVersions).not.toHaveBeenCalled();
+    expect(runPostGenerationChecks).not.toHaveBeenCalled();
+    expect(triggerImageMaterialization).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      "Own-engine genererade ingen användbar kod i det här försöket.",
+    );
+    expect(store.getMessages()[0]?.content).toContain("Own-engine genererade ingen användbar kod");
+    expect(store.getMessages()[0]?.isStreaming).toBe(false);
+  });
+
   it("sets sandbox prod-build state on sandbox-ready with prodBuildVerified", async () => {
     const setSandboxProdBuild = vi.fn();
     consumeSseResponse.mockImplementation(

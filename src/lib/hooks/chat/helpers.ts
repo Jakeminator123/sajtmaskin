@@ -1131,7 +1131,7 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
       `- Current scaffold: ${currentScaffoldLabel}`,
       `- Suggested repair scaffold: ${suggestedScaffoldLabel}`,
       `- Why: ${scaffoldRetryReason}`,
-      "- If the current structure keeps fighting the fix, pivot toward the suggested scaffold while still making the smallest viable repair.",
+      "- Treat this as a hint only. Preserve the current scaffold unless the listed errors make the existing structure impossible to repair with a small change.",
     );
   }
 
