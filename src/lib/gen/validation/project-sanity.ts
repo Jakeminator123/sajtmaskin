@@ -148,7 +148,19 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     });
   }
 
-  // 6. Duplicate route detection
+  // 6. Known bad peer-dependency pairs in package.json
+  const pkgFile = fileMap.get("package.json") ?? fileMap.get("src/package.json");
+  if (pkgFile) {
+    try {
+      const pkgJson = JSON.parse(pkgFile.content) as { dependencies?: Record<string, string> };
+      const deps = pkgJson.dependencies ?? {};
+      checkKnownBadPeers(deps, issues);
+    } catch {
+      // unparseable package.json — other checks will catch this
+    }
+  }
+
+  // 7. Duplicate route detection
   const routes = new Set<string>();
   for (const file of files) {
     const routeMatch = file.path.match(/^(?:src\/)?app(\/.*)\/(page|layout)\.(tsx|jsx|ts|js)$/);
@@ -169,4 +181,61 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     issues,
     valid: issues.filter((i) => i.severity === "error").length === 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Known bad peer-dependency pairs
+// ---------------------------------------------------------------------------
+
+function extractMajor(version: string): number | null {
+  const m = version.match(/\d+/);
+  return m ? Number.parseInt(m[0], 10) : null;
+}
+
+/**
+ * Lightweight heuristic checks for version combos that are known to cause
+ * `npm install` ERESOLVE failures. Add new rules as they surface in logs.
+ */
+function checkKnownBadPeers(
+  deps: Record<string, string>,
+  issues: SanityIssue[],
+): void {
+  const reactMajor = deps.react ? extractMajor(deps.react) : null;
+
+  // @react-three/fiber <9 requires react <19
+  if (deps["@react-three/fiber"] && reactMajor !== null && reactMajor >= 19) {
+    const fiberMajor = extractMajor(deps["@react-three/fiber"]);
+    if (fiberMajor !== null && fiberMajor < 9) {
+      issues.push({
+        file: "package.json",
+        severity: "error",
+        message: `@react-three/fiber ${deps["@react-three/fiber"]} requires react <19 but react is ${deps.react} — use fiber >=9`,
+      });
+    }
+  }
+
+  // @react-three/drei <10 requires fiber <9
+  if (deps["@react-three/drei"] && deps["@react-three/fiber"]) {
+    const dreiMajor = extractMajor(deps["@react-three/drei"]);
+    const fiberMajor = extractMajor(deps["@react-three/fiber"]);
+    if (dreiMajor !== null && dreiMajor < 10 && fiberMajor !== null && fiberMajor >= 9) {
+      issues.push({
+        file: "package.json",
+        severity: "error",
+        message: `@react-three/drei ${deps["@react-three/drei"]} is incompatible with fiber ${deps["@react-three/fiber"]} — use drei >=10`,
+      });
+    }
+  }
+
+  // next 16+ requires react 19+
+  if (deps.next && reactMajor !== null) {
+    const nextMajor = extractMajor(deps.next);
+    if (nextMajor !== null && nextMajor >= 16 && reactMajor < 19) {
+      issues.push({
+        file: "package.json",
+        severity: "error",
+        message: `next ${deps.next} requires react >=19 but react is ${deps.react}`,
+      });
+    }
+  }
 }

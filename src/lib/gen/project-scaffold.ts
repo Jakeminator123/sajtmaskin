@@ -260,6 +260,21 @@ const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for 
 `;
 
 /**
+ * Dependencies where the scaffold baseline must always win over the model.
+ * The LLM sometimes pins older majors that conflict with peer requirements
+ * (e.g. fiber 8 + React 19, or React 18 + Next 16).  Keep this list short
+ * and only add packages whose version is load-bearing for the whole tree.
+ */
+const BASELINE_PINNED_DEPS = [
+  "react",
+  "react-dom",
+  "next",
+  "three",
+  "@react-three/fiber",
+  "@react-three/drei",
+] as const;
+
+/**
  * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
  * and core tooling survive thin LLM output (zip export / sandbox use the same merge).
  */
@@ -275,11 +290,22 @@ export function mergePackageJsonWithBaseline(
   const mDep = (model.dependencies as Record<string, string> | undefined) ?? {};
   const mDevDep = (model.devDependencies as Record<string, string> | undefined) ?? {};
 
+  const dependencies: Record<string, string> = {
+    ...bDep,
+    ...mDep,
+    ...detected.dependencies,
+  };
+  for (const key of BASELINE_PINNED_DEPS) {
+    if (bDep[key] !== undefined) {
+      dependencies[key] = bDep[key];
+    }
+  }
+
   return {
     ...b,
     ...model,
     scripts: { ...bScripts, ...mScripts },
-    dependencies: { ...bDep, ...mDep, ...detected.dependencies },
+    dependencies,
     devDependencies: { ...bDevDep, ...mDevDep },
   };
 }

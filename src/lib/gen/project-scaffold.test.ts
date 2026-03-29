@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCompleteProject, mergePackageJsonWithBaseline } from "./project-scaffold";
 import { buildExportableProject } from "./build-exportable-project";
+import { runProjectSanityChecks } from "./validation/project-sanity";
 import type { CodeFile } from "./parser";
 
 describe("mergePackageJsonWithBaseline", () => {
@@ -26,8 +27,9 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.scripts.build).toBe("next build");
     expect(merged.devDependencies.typescript).toBeDefined();
     expect(merged.devDependencies.tailwindcss).toBeDefined();
-    expect(merged.dependencies.next).toBe("^16.2.1");
-    expect(merged.dependencies.react).toBe("^19.2.0");
+    expect(merged.dependencies.next).toBe("16.2.1");
+    expect(merged.dependencies.react).toBe("19.2.4");
+    expect(merged.dependencies["react-dom"]).toBe("19.2.4");
   });
 
   it("lets the model override individual script names", () => {
@@ -37,6 +39,22 @@ describe("mergePackageJsonWithBaseline", () => {
     ) as { scripts: Record<string, string> };
     expect(merged.scripts.dev).toBe("next dev -p 4000");
     expect(merged.scripts.build).toBe("next build");
+  });
+
+  it("pins three / @react-three/* to baseline so model cannot downgrade below React 19–compatible majors", () => {
+    const model = {
+      dependencies: {
+        "@react-three/fiber": "^8.17.10",
+        "@react-three/drei": "^9.117.3",
+        three: "^0.150.0",
+      },
+    } as Record<string, unknown>;
+    const merged = mergePackageJsonWithBaseline(model, {
+      dependencies: { "@react-three/fiber": "^9", "@react-three/drei": "^10" },
+    }) as { dependencies: Record<string, string> };
+    expect(merged.dependencies["@react-three/fiber"]).toBe("9.1.2");
+    expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
+    expect(merged.dependencies.three).toBe("0.176.0");
   });
 });
 
@@ -98,6 +116,58 @@ describe("buildCompleteProject", () => {
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
     expect(pkg.scripts).not.toHaveProperty("lint");
   });
+
+  it("pins react/next/fiber/drei to baseline even when model and code use old versions", () => {
+    const generated: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: {
+            react: "^18.2.0",
+            "react-dom": "^18.2.0",
+            next: "^14.0.0",
+            "@react-three/fiber": "^8.17.10",
+            "@react-three/drei": "^9.117.3",
+            three: "^0.150.0",
+          },
+        }),
+        language: "json",
+      },
+      {
+        path: "app/page.tsx",
+        content: `import { Canvas } from "@react-three/fiber";\nimport { OrbitControls } from "@react-three/drei";\nexport default function Page() { return <Canvas><OrbitControls /></Canvas>; }`,
+        language: "tsx",
+      },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
+      dependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies.react).toBe("19.2.4");
+    expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
+    expect(pkg.dependencies.next).toBe("16.2.1");
+    expect(pkg.dependencies["@react-three/fiber"]).toBe("9.1.2");
+    expect(pkg.dependencies["@react-three/drei"]).toBe("10.7.7");
+    expect(pkg.dependencies.three).toBe("0.176.0");
+  });
+
+  it("detects scoped @radix-ui imports via dep-completer in buildCompleteProject", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: `import { Dialog } from "@radix-ui/react-dialog";\nexport default function Page() { return <Dialog />; }`,
+        language: "tsx",
+      },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
+      dependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies["@radix-ui/react-dialog"]).toBeDefined();
+  });
 });
 
 describe("buildExportableProject", () => {
@@ -123,5 +193,52 @@ describe("buildExportableProject", () => {
     const counter = exported.find((f) => f.path === "components/counter.tsx");
     expect(counter).toBeDefined();
     expect(counter!.content).toContain('import { useState } from "react"');
+  });
+});
+
+describe("runProjectSanityChecks peer heuristics", () => {
+  it("flags @react-three/fiber <9 with react 19", () => {
+    const files: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { react: "19.2.4", "@react-three/fiber": "8.17.10" },
+        }),
+        language: "json",
+      },
+      { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
+    ];
+    const result = runProjectSanityChecks(files);
+    expect(result.issues.some((i) => i.message.includes("@react-three/fiber") && i.severity === "error")).toBe(true);
+  });
+
+  it("does not flag @react-three/fiber 9 with react 19", () => {
+    const files: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { react: "19.2.4", "@react-three/fiber": "9.1.2" },
+        }),
+        language: "json",
+      },
+      { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
+    ];
+    const result = runProjectSanityChecks(files);
+    expect(result.issues.some((i) => i.message.includes("@react-three/fiber"))).toBe(false);
+  });
+
+  it("flags next 16 with react 18", () => {
+    const files: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { react: "18.2.0", next: "16.2.1" },
+        }),
+        language: "json",
+      },
+      { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
+    ];
+    const result = runProjectSanityChecks(files);
+    expect(result.issues.some((i) => i.message.includes("next") && i.message.includes("react >=19"))).toBe(true);
   });
 });
