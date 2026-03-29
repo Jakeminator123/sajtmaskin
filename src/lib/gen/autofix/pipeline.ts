@@ -3,6 +3,12 @@ import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
 import { fixReactHookImports } from "./react-hook-import-fixer";
+import {
+  buildProjectExportIndex,
+  fixMissingLocalSymbolImports,
+  fixMissingReactTypeImports,
+  fixNextImageImport,
+} from "./common-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
 import { fixMissingMetadataImport, fixMissingMetadataRouteImport, fixMissingCnImport } from "./rules/metadata-import-fixer";
@@ -79,6 +85,7 @@ export async function runAutoFix(
   }
 
   const fixedFiles: CodeFile[] = [];
+  const exportIndex = buildProjectExportIndex(project.files);
 
   for (const file of project.files) {
     const isTsxOrJsx =
@@ -154,6 +161,57 @@ export async function runAutoFix(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] react-hook-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3c. react-type-import-fixer — add missing ReactNode / common type-only imports
+      try {
+        const reactTypeResult = fixMissingReactTypeImports(currentCode);
+        if (reactTypeResult.fixed) {
+          currentCode = reactTypeResult.code;
+          allFixes.push({
+            fixer: "react-type-import-fixer",
+            description: `Added missing React type imports: ${reactTypeResult.addedTypes.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] react-type-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3d. next-image-import-fixer — add next/image when Image JSX is used without import
+      try {
+        const nextImageResult = fixNextImageImport(currentCode);
+        if (nextImageResult.fixed) {
+          currentCode = nextImageResult.code;
+          allFixes.push({
+            fixer: "next-image-import-fixer",
+            description: 'Added missing `import Image from "next/image"`',
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] next-image-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3e. local-symbol-import-fixer — import shared local config/data symbols when uniquely exported
+      try {
+        const symbolResult = fixMissingLocalSymbolImports(currentCode, file.path, exportIndex);
+        if (symbolResult.fixed) {
+          currentCode = symbolResult.code;
+          allFixes.push({
+            fixer: "local-symbol-import-fixer",
+            description: `Added missing local symbol imports: ${symbolResult.addedSymbols.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] local-symbol-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

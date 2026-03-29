@@ -37,6 +37,12 @@ jobs:
       - name: Test
         run: npm run test:ci
 
+      - name: Verify baseline dependency versions
+        run: npm run baseline-deps:verify
+
+      - name: Verify baseline dependency tree
+        run: npm run baseline-deps:tree
+
       - name: Build
         run: npm run build
         env:

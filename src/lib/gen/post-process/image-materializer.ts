@@ -1,4 +1,8 @@
 import { SECRETS, FEATURES } from "@/lib/config";
+import {
+  buildUnsplashSearchCandidates,
+  chooseUnsplashOrientation,
+} from "@/lib/images/unsplash-query-fallback";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 
 const _PLACEHOLDER_RE =
@@ -396,8 +400,8 @@ export async function materializeImages(content: string): Promise<MaterializeRes
     let queryUsed = match.text;
 
     if (!url) {
-      const orientation = chooseOrientation(match.width, match.height);
-      const candidates = buildSearchCandidates(match.text);
+      const orientation = chooseUnsplashOrientation(match.width, match.height);
+      const candidates = buildUnsplashSearchCandidates(match.text);
       for (const candidate of candidates) {
         const hit = await searchUnsplash(candidate, accessKey, orientation);
         if (!hit) continue;
@@ -418,7 +422,7 @@ export async function materializeImages(content: string): Promise<MaterializeRes
     } else {
       warnLog("images", "No Unsplash result", {
         originalQuery: match.text,
-        attemptedQueries: buildSearchCandidates(match.text),
+        attemptedQueries: buildUnsplashSearchCandidates(match.text),
       });
     }
   }

@@ -21,6 +21,7 @@ If the user's request describes a unique visual identity (retro, futuristic, wes
 - Use **`"use client"`** on any module that mounts `<Canvas>` or physics.
 - Default stack: **`@react-three/fiber` + `@react-three/drei` + `three`**. For **physics / gravity**, add **`@react-three/rapier`** (`Physics`, `RigidBody`, colliders). Do not confuse **Lucide** tree icons (`TreePine`, etc.) with 3D objects — Lucide is 2D UI only.
 - **GLB/GLTF:** `useGLTF` from drei; static assets under `public/`.
+- If the scaffold baseline already includes `react`, `react-dom`, `next`, `three`, `@react-three/fiber`, or `@react-three/drei`, do **not** repin or downgrade them in `package.json`. Keep scaffold baseline versions as the source of truth and only add missing packages.
 
 ### Full Next.js build target
 Your output runs in a real Next.js environment with `npm install` and `next build`. This means:

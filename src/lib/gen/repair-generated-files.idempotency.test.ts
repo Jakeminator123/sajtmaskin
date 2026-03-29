@@ -49,6 +49,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       language: "markdown",
       content: "# noop",
     },
+    {
+      path: "lib/store-data.tsx",
+      language: "tsx",
+      content: `export const siteConfig = { shortName: "Nordrost", name: "Nordrost Kafferosteri" };`,
+    },
+    {
+      path: "components/site-header.tsx",
+      language: "tsx",
+      content: `"use client";
+export default function SiteHeader() {
+  return <div>{siteConfig.shortName}</div>;
+}
+`,
+    },
   ];
 
   it("second pass produces identical file contents as first pass", () => {
@@ -56,5 +70,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     const twice = repairGeneratedFiles(once.files);
     expect(stableStringify(twice.files)).toBe(stableStringify(once.files));
     expect(twice.fixes.length).toBe(0);
+  });
+
+  it("adds missing local shared symbol imports during repair", () => {
+    const repaired = repairGeneratedFiles(fixtures);
+    const header = repaired.files.find((file) => file.path === "components/site-header.tsx");
+    expect(header?.content).toContain('import { siteConfig } from "@/lib/store-data";');
   });
 });

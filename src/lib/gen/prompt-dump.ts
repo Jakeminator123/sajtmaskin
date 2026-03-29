@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { SYSTEM_PROMPT_SEPARATOR } from "./system-prompt";
 
-const ROOT_SEGMENTS = ["data", "prompt-dumps"] as const;
+const ROOT_DIR = join(process.cwd(), "data", "prompt-dumps");
 
 /** Subfolders under data/prompt-dumps/ — one logical “prompt type” each. */
 export const PROMPT_DUMP_CATEGORY = {
@@ -17,6 +17,12 @@ export const PROMPT_DUMP_CATEGORY = {
 
 export type PromptDumpCategory =
   (typeof PROMPT_DUMP_CATEGORY)[keyof typeof PROMPT_DUMP_CATEGORY];
+
+const PROMPT_DUMP_DIR_BY_CATEGORY: Record<PromptDumpCategory, string> = {
+  [PROMPT_DUMP_CATEGORY.orchestrationDynamic]: join(ROOT_DIR, PROMPT_DUMP_CATEGORY.orchestrationDynamic),
+  [PROMPT_DUMP_CATEGORY.ownEngineCodegen]: join(ROOT_DIR, PROMPT_DUMP_CATEGORY.ownEngineCodegen),
+  [PROMPT_DUMP_CATEGORY.planModePlanner]: join(ROOT_DIR, PROMPT_DUMP_CATEGORY.planModePlanner),
+};
 
 export function isPromptDumpEnabled(): boolean {
   const v = process.env.SAJTMASKIN_PROMPT_DUMP?.trim().toLowerCase();
@@ -51,7 +57,7 @@ export function writeLatestPromptDump(
   meta?: Record<string, unknown>,
 ): void {
   if (!isPromptDumpEnabled()) return;
-  const dir = join(process.cwd(), ...ROOT_SEGMENTS, category);
+  const dir = PROMPT_DUMP_DIR_BY_CATEGORY[category];
   mkdirSync(dir, { recursive: true });
   for (const [name, content] of Object.entries(files)) {
     if (!name || name.includes("..") || name.includes("/") || name.includes("\\")) continue;

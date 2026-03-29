@@ -1,7 +1,14 @@
 import type { CodeFile } from "@/lib/gen/parser";
+import {
+  buildProjectExportIndex,
+  fixMissingLocalSymbolImports,
+  fixMissingReactTypeImports,
+  fixNextImageImport,
+} from "@/lib/gen/autofix/common-import-fixer";
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
 import { fixReactHookImports } from "@/lib/gen/autofix/react-hook-import-fixer";
+import { fixLucideImageMisuse } from "@/lib/gen/autofix/rules/lucide-image-fixer";
 
 type RepairEntry = {
   fixer: string;
@@ -174,6 +181,7 @@ export function repairGeneratedFiles(files: CodeFile[]): {
   fixes: RepairEntry[];
 } {
   const fixes: RepairEntry[] = [];
+  const exportIndex = buildProjectExportIndex(files);
 
   const repairedFiles = files.map((file) => {
     if (!/\.(tsx?|jsx?)$/i.test(file.path)) {
@@ -200,6 +208,16 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       fixes.push(...linkResult.fixes);
     }
 
+    const lucideImageResult = fixLucideImageMisuse(content, file.path);
+    if (lucideImageResult.fixed) {
+      content = lucideImageResult.code;
+      fixes.push({
+        fixer: "lucide-image-fixer",
+        description: "Replaced lucide-react Image with next/image",
+        file: file.path,
+      });
+    }
+
     const metadataConflictResult = fixMetadataClientConflict(content, file.path);
     if (metadataConflictResult.fixed) {
       content = metadataConflictResult.code;
@@ -218,6 +236,36 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       fixes.push({
         fixer: "react-hook-import-fixer",
         description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
+        file: file.path,
+      });
+    }
+
+    const reactTypeResult = fixMissingReactTypeImports(content);
+    if (reactTypeResult.fixed) {
+      content = reactTypeResult.code;
+      fixes.push({
+        fixer: "react-type-import-fixer",
+        description: `Added missing React type imports: ${reactTypeResult.addedTypes.join(", ")}`,
+        file: file.path,
+      });
+    }
+
+    const nextImageResult = fixNextImageImport(content);
+    if (nextImageResult.fixed) {
+      content = nextImageResult.code;
+      fixes.push({
+        fixer: "next-image-import-fixer",
+        description: 'Added missing `import Image from "next/image"`',
+        file: file.path,
+      });
+    }
+
+    const symbolResult = fixMissingLocalSymbolImports(content, file.path, exportIndex);
+    if (symbolResult.fixed) {
+      content = symbolResult.code;
+      fixes.push({
+        fixer: "local-symbol-import-fixer",
+        description: `Added missing local symbol imports: ${symbolResult.addedSymbols.join(", ")}`,
         file: file.path,
       });
     }
