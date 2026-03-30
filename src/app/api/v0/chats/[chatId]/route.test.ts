@@ -99,14 +99,14 @@ describe("GET /api/v0/chats/[chatId]", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.demoUrl).toBeNull();
-    expect(json.latestVersion.demoUrl).toBeNull();
+    expect(json.previewUrl).toBeNull();
+    expect(json.latestVersion.previewUrl).toBeNull();
     expect(json.legacyShimPreviewUrl).toBeNull();
     expect(json.latestVersion.legacyShimPreviewUrl).toBeNull();
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
-  it("returns legacyShimPreviewUrl but null demoUrl when latest own-engine version exposes preview", async () => {
+  it("returns legacyShimPreviewUrl but null previewUrl when latest own-engine version exposes preview", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({
       id: "chat_1",
       project_id: "proj_1",
@@ -136,9 +136,9 @@ describe("GET /api/v0/chats/[chatId]", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.demoUrl).toBeNull();
+    expect(json.previewUrl).toBeNull();
     expect(json.legacyShimPreviewUrl).toBe("/api/preview-render?chatId=chat_1&versionId=ver_ok");
-    expect(json.latestVersion.demoUrl).toBeNull();
+    expect(json.latestVersion.previewUrl).toBeNull();
     expect(json.latestVersion.legacyShimPreviewUrl).toBe(
       "/api/preview-render?chatId=chat_1&versionId=ver_ok",
     );

@@ -44,7 +44,7 @@ Följande **allmänna** `docs/`-ytor ändrades i leveransen (exakt diff: `git lo
 - [x] Zon-tabell i `docs/architecture/repo-tree.md`
 - [x] Builder-state + VM: `currentPreviewUrl` / `setCurrentPreviewUrl` (tidigare `currentDemoUrl` i state, hooks och `BuilderShellContent`; borttaget duplicerat VM-fält)
 - [x] Props `demoUrl` → `previewUrl` i `PreviewPanel` + `BuilderShellContent` + relaterade hooks/chrome ( **`demoUrl` behålls som nyckel** i events/API-meta där backend/kontrakt kräver det)
-- [ ] API-fält `demoUrl` i JSON — **medvetet uppskjutet**; följ [`PROJECT-STATE`](../active/PROJECT-STATE-AND-DIRECTION.md) (redan nämnt där) vid migrering
+- [x] API-fält: publika svar använder `previewUrl` (ingen `demoUrl` i svar); inbound legacy kvar — se [`KORPLAN-preview-url-api.md`](./KORPLAN-preview-url-api.md)
 
 ## Eventuellt ta bort senare (parking lot — inte del av epikens scope)
 

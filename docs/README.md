@@ -27,7 +27,7 @@
 3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **kanonisk backlog** (K-rader, Plan 17, beslut). Avslutad post-epic-städ (historik): [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
-6. `docs/ENV.md` — env topology when debugging deploy/local.
+6. `docs/ENV.md` — kort env-översikt (must-have / valfritt / pekare till `src/lib/env.ts` och `config/env-policy.json`).
 
 **Remediation-historik** (%, orchestrator-körningar) finns i **git-historik** under `docs/plans/avklarat/` — se [`docs/plans/avklarat/README.md`](plans/avklarat/README.md). Operativ backlog: [`PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) §10.
 
@@ -63,7 +63,7 @@ Important code sources of truth include:
 | `config/env-policy.json` | Yes             | Shared policy: classification, target rules, known-empty-ok lists. Consumed by `manage_env.py` and `src/lib/env-audit.ts`.         |
 | `src/lib/env.ts`         | Yes             | Zod schema declaring every env var the app can read.                                                                               |
 | `src/lib/env-audit.ts`   | Yes             | Runtime audit logic that loads `config/env-policy.json`.                                                                           |
-| `ENV.md`                 | Yes             | Human-readable overview of env topology, critical keys, and setup instructions.                                                    |
+| `ENV.md`                 | Yes             | Kort översikt (must-have, lokalt vs Vercel); full lista = `src/lib/env.ts` + `config/env-policy.json`.                             |
 | `.env.local`             | No (gitignored) | Local development values.                                                                                                          |
 | `.env.production`        | No (gitignored) | Reference copy of production-like values.                                                                                          |
 | `scripts/env/manage_env.py` | Yes          | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. Root wrapper forwards. |
@@ -71,8 +71,7 @@ Important code sources of truth include:
 | `scripts/env/check_env.py` | Yes           | Backward-compatible wrapper that forwards to `manage_env.py audit`. Root wrapper forwards.                                         |
 
 When adding a new env var: add it to `src/lib/env.ts` (schema), then to
-`config/env-policy.json` (classification + target rules), and optionally to
-`ENV.md` if it is critical or frequently asked about.
+`config/env-policy.json` (classification + target rules). Uppdatera `ENV.md` bara om nyckeln är **central för onboarding** (annars räcker kod + policy).
 
 ## Production boundary
 
@@ -108,6 +107,7 @@ Not runtime dependencies:
 | Plans (all buckets) | `docs/plans/README.md` |
 | Plan / agent handoff (historik) | Tidigare `docs/handoffs/*.md` → **git-historik**; pekare [`handoffs/README.md`](handoffs/README.md). Operativt: [`PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
 | Backlog & beslut (kanonisk) | [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
+| Storstädning (kod, docs, DB-fas, %-spårning i planen) | [`STORDSTAD-repo-kod-databas.md`](plans/active/STORDSTAD-repo-kod-databas.md) |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
 | Agent workflows (deep brief, runtime vs MCP) | [`docs/contributing/README.md`](contributing/README.md) |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |

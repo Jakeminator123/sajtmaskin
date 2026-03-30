@@ -38,7 +38,7 @@ Tolkning: antingen borttagna i Vercel, tomma, eller aldrig satta i production. E
 
 - Gå igenom Vercel Dashboard production mot `.env.vercel.production.pulled` (redigera aldrig pull-filen som sanning — `vercel env pull` igen vid behov).
 - Besluta vilka saknade nycklar som ska bort från Vercel vs läggas till.
-- Uppdatera [`../ENV.md`](../ENV.md) efter beslut (AI Gateway vs direktnycklar).
+- Säkerställ att [`src/lib/env.ts`](../../src/lib/env.ts) / [`config/env-policy.json`](../../config/env-policy.json) speglar beslut (AI Gateway vs direktnycklar); [`../ENV.md`](../ENV.md) bara om ni vill lyfta något i *must-have*-tabellen.
 - Sätt riktiga Stripe Price IDs om ni ska ta betalt.
 
 ## Kommando för att förnya production-pull

@@ -25,11 +25,15 @@
 
 **Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Python-wrappers i roten (`manage_env.py`, `check_env.py`, `model_trace_overlay.py`, `vercel_template_cli.py`) vidarebefordrar till `scripts/env/` resp. `scripts/manual/`.
 
+## `.cursorignore` (varför vissa sökvägar “saknas” i index)
+
+Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan** bara för att en agent ska “se” innehåll — särskilt inte `.env*`, byggartefakter eller stora dumps (se även [STORDSTAD-planen](../plans/active/STORDSTAD-repo-kod-databas.md) § `.cursorignore`). För orientering: denna fil + README i respektive mapp (`archive/`, `research/`, `data/`, m.fl.) beskriver *vad* som finns. Genererade men committade filer under t.ex. `src/lib/gen/` kan vara ignorerade i index men **aktiva** i bygget — verifiera med `package.json`-scripts och importer, inte med “syns i sök”.
+
 ## Mentala repo-zoner (kod)
 
 | Zon | Typiska sökvägar |
 |-----|------------------|
-| **Builder UI** | `src/app/builder/*`, `src/components/builder/*` |
+| **Builder UI** | `src/app/builder/*`, `src/components/builder/*`, `src/components/ai-elements/*` (importer per fil, t.ex. `@/components/ai-elements/message` — ingen committad root-barrel) |
 | **Preview runtime / livscykel** | `src/lib/builder/preview-session/*`, `src/components/builder/preview-panel/*`, `src/lib/gen/preview/*` |
 | **Generation engine** | `src/lib/gen/stream/*`, `src/lib/providers/own-engine/*`, `src/lib/own-engine/*` |
 | **DB / versioner / diagnostik** | `src/lib/db/*`, `src/lib/gen/preview-diagnostics.ts`, `src/lib/gen/eval/*` |

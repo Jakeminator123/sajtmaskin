@@ -15,6 +15,7 @@ import {
 import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
+import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
 
 export function useSendMessage(
@@ -114,19 +115,18 @@ export function useSendMessage(
       ]);
 
       const handleNonStreamingSend = async (data: Record<string, unknown>) => {
-        const demoUrl =
-          (data?.demoUrl as string) ||
-          ((data?.latestVersion as Record<string, unknown>)?.demoUrl as string) ||
-          null;
+        const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
+        const previewResolved =
+          resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown }) ||
+          resolveInboundPreviewUrl(latestVersion);
         const preflight = readPreviewPreflight(data);
-        if (demoUrl) {
-          const n = normalizePreviewUrl(demoUrl);
+        if (previewResolved) {
+          const n = normalizePreviewUrl(previewResolved);
           if (n && !isCompatibilityShimPreviewUrl(n)) {
             setCurrentPreviewUrl(n);
           }
         }
         onPreviewRefresh?.();
-        const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
           data?.versionId || latestVersion?.id || latestVersion?.versionId || null;
         const responseText =
@@ -175,7 +175,7 @@ export function useSendMessage(
         onGenerationComplete?.({
           chatId: chatId || "",
           versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-          demoUrl: demoUrl ?? undefined,
+          previewUrl: previewResolved ?? undefined,
         });
         if (chatId && resolvedVersionId) {
           void triggerImageMaterialization({
@@ -188,7 +188,7 @@ export function useSendMessage(
           void runPostGenerationChecks({
             chatId: String(chatId),
             versionId: String(resolvedVersionId),
-            demoUrl: demoUrl ?? null,
+            demoUrl: previewResolved ?? null,
             preflight,
             assistantMessageId,
             setMessages,

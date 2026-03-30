@@ -31,10 +31,15 @@ import {
   ownEnginePostStreamStepLabelSv,
 } from "@/lib/gen/stream/finalize-pipeline-contract";
 import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
+import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 
-function effectivePreviewUrlFromDoneDemo(demoUrl: unknown): string | null {
-  if (typeof demoUrl !== "string" || !demoUrl.trim()) return null;
-  const normalized = normalizePreviewUrl(demoUrl);
+function effectivePreviewUrlFromDonePayload(done: Record<string, unknown>): string | null {
+  const raw = resolveInboundPreviewUrl({
+    previewUrl: done.previewUrl,
+    demoUrl: done.demoUrl,
+  });
+  if (!raw) return null;
+  const normalized = normalizePreviewUrl(raw);
   if (!normalized || isCompatibilityShimPreviewUrl(normalized)) return null;
   return normalized;
 }
@@ -63,7 +68,7 @@ export type StreamContext = {
   onGenerationComplete?: (data: {
     chatId: string;
     versionId?: string;
-    demoUrl?: string;
+    previewUrl?: string;
     onlySelectVersionIfWasLatest?: boolean;
   }) => void;
   /** Own-engine sandbox session metadata (SSE sandbox-ready). */
@@ -716,7 +721,7 @@ export async function handleSseStream(
               v0ProjectIdFromStream = String(doneV0ProjectId);
               onV0ProjectId?.(v0ProjectIdFromStream);
             }
-            const effectiveDoneDemo = effectivePreviewUrlFromDoneDemo(doneData.demoUrl);
+            const effectiveDoneDemo = effectivePreviewUrlFromDonePayload(doneData);
             if (effectiveDoneDemo) {
               setCurrentPreviewUrl(effectiveDoneDemo);
               onPreviewRefresh?.();
@@ -924,7 +929,7 @@ export async function handleSseStream(
             onGenerationComplete?.({
               chatId: nextId,
               versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-              demoUrl: effectiveDoneDemo ?? undefined,
+              previewUrl: effectiveDoneDemo ?? undefined,
               onlySelectVersionIfWasLatest,
             });
             if (resolvedChatId && resolvedVersionId) {

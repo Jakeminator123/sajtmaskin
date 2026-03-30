@@ -76,4 +76,4 @@ Om du letar efter domänspecifika byggflöden, se `meritmind-build-flows.md` i a
 ## Snabb felsökning
 
 - Fel route eller modell: spåra `selectedModelTier` + stream route i nätverkspanelen.
-- Trace overlay: `model_trace_overlay.py` / env som beskrivs i [`docs/ENV.md`](../ENV.md).
+- Trace overlay: `scripts/env/model_trace_overlay.py` — synkar GUI-relaterade modell-env i `.env.local`; nycklar finns i [`src/lib/env.ts`](../../src/lib/env.ts).

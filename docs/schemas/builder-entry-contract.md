@@ -46,6 +46,13 @@ type BuildIntent = "website" | "app" | "template";
 | `v0ProjectId` | server/client state | non-entry state | External v0 project identity, not part of builder entry URL |
 | `sandboxUrl` | server/client version state | non-entry state | Version-level sandbox runtime URL, not part of builder entry |
 
+## HTTP JSON (chats / template / project save)
+
+| Field | Status | Meaning |
+|-------|--------|---------|
+| `previewUrl` | **canonical** | Iframe/live preview URL for a chat or version (svar och normal klientpayload). |
+| `demoUrl` | **legacy inbound only** | Inte längre i API-svar. Fortfarande accepterad i vissa bodies (t.ex. `POST .../save`) och webhooks; tolkas via `resolveInboundPreviewUrl` server-side. DB-kolumn `demo_url` oförändrad. |
+
 ## Canonical Entry Shapes
 
 ### Prompt-Driven Entry

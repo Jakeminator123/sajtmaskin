@@ -19,7 +19,7 @@ export interface CssValidationResult {
   }>;
   fixed?: boolean;
   message?: string;
-  demoUrl?: string;
+  previewUrl?: string | null;
 }
 
 interface UseCssValidationOptions {

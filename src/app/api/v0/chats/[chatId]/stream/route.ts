@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { createSSEHeaders } from "@/lib/streaming";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
@@ -421,7 +422,7 @@ export async function handleMessageStreamRequest(
               chatId,
               versionId: null,
               messageId: null,
-              demoUrl: null,
+              ...previewUrlField(null),
               awaitingInput: hasBlockers,
               planArtifact: planData,
               planMode: true,

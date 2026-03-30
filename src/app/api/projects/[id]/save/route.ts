@@ -3,6 +3,7 @@ import { getProjectByIdForOwner, getProjectData, saveProjectData } from "@/lib/d
 import { deleteCache } from "@/lib/data/redis";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -37,7 +38,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
  * Vercel deployment is NOT triggered here!
  *
  * For deployment, use POST /api/v0/deployments when user clicks "Publish".
- * During editing, use v0's demoUrl for live preview (no build needed).
+ * During editing, use preview URL for live preview (no build needed). Body: `previewUrl`; legacy `demoUrl` still accepted via `resolveInboundPreviewUrl`.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    const { chatId, demoUrl, currentCode, files, messages, meta } = body;
+    const { chatId, currentCode, files, messages, meta } = body;
 
     const payload: Parameters<typeof saveProjectData>[0] = {
       project_id: id,
@@ -63,8 +64,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (Object.prototype.hasOwnProperty.call(body, "chatId")) {
       payload.chat_id = chatId ?? null;
     }
-    if (Object.prototype.hasOwnProperty.call(body, "demoUrl")) {
-      payload.demo_url = demoUrl ?? null;
+    const hasPreviewUrlKey = Object.prototype.hasOwnProperty.call(body, "previewUrl");
+    const hasDemoUrlKey = Object.prototype.hasOwnProperty.call(body, "demoUrl");
+    if (hasPreviewUrlKey || hasDemoUrlKey) {
+      payload.demo_url = resolveInboundPreviewUrl(body as { previewUrl?: unknown; demoUrl?: unknown });
     }
     if (Object.prototype.hasOwnProperty.call(body, "currentCode")) {
       payload.current_code = currentCode ?? null;
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // This caused unnecessary builds and deployment quota usage.
     //
     // Now:
-    // - Use v0's demoUrl for preview during editing (instant, no build)
+    // - Use preview URL (`previewUrl`, or legacy `demoUrl` in body) for preview during editing (instant, no build)
     // - Only deploy to Vercel when user clicks "Publish" (/api/v0/deployments)
     // ═══════════════════════════════════════════════════════════════════════════
 

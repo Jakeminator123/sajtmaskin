@@ -7,6 +7,7 @@ import { saveProjectData, updateProject } from "@/lib/project-client";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
+import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 
 type Args = {
   selectedVersionIdRef: MutableRefObject<string | null>;
@@ -47,7 +48,7 @@ type Args = {
   validateCss: (chatId: string, versionId: string) => Promise<{
     issues: Array<{ fileName: string; issues: Array<{ severity: string }> }>;
     fixed?: boolean;
-    demoUrl?: string | null;
+    previewUrl?: string | null;
   } | null>;
 };
 
@@ -325,7 +326,7 @@ export function useBuilderDeployActions({
     async (data: {
       chatId: string;
       versionId?: string;
-      demoUrl?: string;
+      previewUrl?: string;
       onlySelectVersionIfWasLatest?: boolean;
     }) => {
       const normalized = pendingInstructionsRef.current?.trim() || "";
@@ -419,7 +420,7 @@ export function useBuilderDeployActions({
                     errorCount,
                     warningCount,
                     fixed: Boolean(result.fixed),
-                    demoUrl: result.demoUrl ?? null,
+                    previewUrl: result.previewUrl ?? null,
                     files: result.issues.map((f) => ({ fileName: f.fileName, issueCount: f.issues.length })),
                   },
                 },
@@ -457,7 +458,7 @@ export function useBuilderDeployActions({
               changedFiles?: number;
               replacements?: number;
               fixed?: boolean;
-              demoUrl?: string | null;
+              previewUrl?: string | null;
               error?: string;
             } | null;
             if (!res.ok) throw new Error(payload?.error || "Unicode normalization failed");
@@ -471,7 +472,7 @@ export function useBuilderDeployActions({
                     changedFiles: payload.changedFiles ?? 0,
                     replacements: payload.replacements ?? 0,
                     fixed: Boolean(payload.fixed),
-                    demoUrl: payload.demoUrl ?? null,
+                    previewUrl: payload.previewUrl ?? null,
                   },
                 },
               ]);
@@ -488,7 +489,8 @@ export function useBuilderDeployActions({
               },
             ]);
           });
-        if (!data.demoUrl) {
+        const donePreview = readPreviewUrl(data);
+        if (!donePreview) {
           setTimeout(() => {
             mutateChat();
             mutateVersions();
@@ -496,9 +498,10 @@ export function useBuilderDeployActions({
         }
       }
       if (appProjectId && data.chatId) {
+        const persistedPreview = readPreviewUrl(data);
         saveProjectData(appProjectId, {
           chatId: data.chatId,
-          demoUrl: data.demoUrl ?? undefined,
+          ...(persistedPreview ? { previewUrl: persistedPreview } : {}),
         }).catch((error) => {
           console.warn("[Builder] Failed to save project chat mapping:", error);
         });

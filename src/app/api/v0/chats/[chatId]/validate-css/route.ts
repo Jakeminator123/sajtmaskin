@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { validateFiles, formatIssuesForDisplay, fixCssIssues } from "@/lib/utils/css-validator";
 import { z } from "zod";
@@ -75,7 +76,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           issues: results,
           fixed: true,
           message: `Fixed ${fixedIssueCount} CSS issues`,
-          demoUrl: null,
+          ...previewUrlField(null),
           formattedIssues: formatIssuesForDisplay(results),
         });
       }

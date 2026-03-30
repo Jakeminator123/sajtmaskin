@@ -21,6 +21,7 @@ import {
   listChatsByProject,
 } from "@/lib/db/chat-repository-pg";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { streamText } from "ai";
@@ -297,7 +298,7 @@ export async function POST(req: Request) {
             type: "comm.response.create.sync",
             chatId: chat.id,
             versionId: latestVersion.id,
-            demoUrl: finalized.previewUrl,
+            previewUrl: finalized.previewUrl,
             durationMs: Date.now() - genStartedAt,
           });
 
@@ -306,7 +307,7 @@ export async function POST(req: Request) {
               id: chat.id,
               internalChatId: chat.id,
               model: engineModel,
-              demoUrl: finalized.previewUrl,
+              ...previewUrlField(finalized.previewUrl),
               preflight: finalized.preflight,
               previewBlocked: finalized.preflight.previewBlocked,
               verificationBlocked: finalized.preflight.verificationBlocked,
@@ -316,7 +317,7 @@ export async function POST(req: Request) {
                 versionId: latestVersion.id,
                 versionNumber: latestVersion.version_number,
                 messageId: finalized.messageId,
-                demoUrl: finalized.previewUrl,
+                ...previewUrlField(finalized.previewUrl),
                 sandboxUrl: latestVersion.sandbox_url,
                 releaseState: latestVersion.release_state,
                 verificationState,

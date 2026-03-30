@@ -20,6 +20,7 @@ import {
   type Template,
 } from "@/lib/templates";
 import { getEngineChatByIdForRequest, resolveAppProjectIdForRequest } from "@/lib/tenant";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 
 // Allow 5 minutes for own-engine generation
 export const maxDuration = 300;
@@ -286,7 +287,7 @@ export async function POST(request: NextRequest) {
                 files,
                 chatId: engineChat.id,
                 projectId: effectiveProjectId,
-                demoUrl: cached.demo_url,
+                ...previewUrlField(cached.demo_url ?? null),
                 model: cached.model,
                 cached: true,
               }),
@@ -377,7 +378,7 @@ export async function POST(request: NextRequest) {
           files,
           chatId: generated.chatId,
           projectId,
-          demoUrl: effectiveDemoUrl,
+          ...previewUrlField(effectiveDemoUrl),
           model: generated.model,
           cached: false,
         }),

@@ -229,7 +229,7 @@ describe("POST /api/v0/chats", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.demoUrl).toBeNull();
+    expect(json.previewUrl).toBeNull();
     expect(json.preflight).toMatchObject({
       previewBlocked: false,
       verificationBlocked: false,
@@ -239,7 +239,7 @@ describe("POST /api/v0/chats", () => {
       id: "ver_1",
       versionId: "ver_1",
       messageId: "msg_assistant",
-      demoUrl: null,
+      previewUrl: null,
       verificationState: "pending",
     });
     expect(json.previewBlocked).toBe(false);

@@ -15,6 +15,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -27,7 +28,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const versionsList = engineVersions.map((v) => ({
           id: v.id,
           versionId: v.id,
-          demoUrl: null,
+          ...previewUrlField(null),
           legacyShimPreviewUrl: canExposeEnginePreview(v)
             ? buildPreviewUrl(engineChatId, v.id)
             : null,
@@ -65,7 +66,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
               versionId: v.v0VersionId,
               id: v.id,
               messageId: v.v0MessageId,
-              demoUrl: v.demoUrl,
+              ...previewUrlField(v.demoUrl),
               pinned: v.pinned,
               pinnedAt: v.pinnedAt,
             createdAt: v.createdAt,
@@ -196,7 +197,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     return NextResponse.json({
       success: true,
       versionId: restoredVersion.id,
-      demoUrl: null,
+      ...previewUrlField(null),
       legacyShimPreviewUrl: canExposeEnginePreview(restoredVersion)
         ? buildPreviewUrl(engineChat.id, restoredVersion.id)
         : null,

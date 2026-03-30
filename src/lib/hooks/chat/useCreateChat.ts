@@ -21,6 +21,7 @@ import {
 import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
+import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
 
 export function useCreateChat(
@@ -263,10 +264,12 @@ export function useCreateChat(
         );
         const sandboxLive =
           fromLatestSandbox && isSandboxPreviewUrl(fromLatestSandbox) ? fromLatestSandbox : null;
+        const fromDual =
+          resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown }) ||
+          resolveInboundPreviewUrl(latestVersion as { previewUrl?: unknown; demoUrl?: unknown } | undefined);
         const resolvedDemoUrl =
           sandboxLive ||
-          (typeof data.demoUrl === "string" && data.demoUrl) ||
-          (typeof latestVersion?.demoUrl === "string" && latestVersion.demoUrl) ||
+          fromDual ||
           (typeof latestVersion?.legacyShimPreviewUrl === "string" && latestVersion.legacyShimPreviewUrl) ||
           null;
 
@@ -297,7 +300,7 @@ export function useCreateChat(
         onGenerationComplete?.({
           chatId: String(newChatId),
           versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-          demoUrl: resolvedDemoUrl ?? undefined,
+          previewUrl: resolvedDemoUrl ?? undefined,
         });
         if (resolvedVersionId) {
           void triggerImageMaterialization({

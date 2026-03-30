@@ -106,7 +106,7 @@ describe("POST /api/v0/chats/init", () => {
       projectId: "proj_import",
       source: "zip",
     });
-    expect(json.demoUrl).toContain("chatId=chat_import");
+    expect(json.previewUrl).toContain("chatId=chat_import");
     expect(Array.isArray(json.lockedFiles)).toBe(true);
     expect(createChat).toHaveBeenCalledWith("proj_import", "gpt-5.4");
     expect(createDraftVersion).toHaveBeenCalledWith(

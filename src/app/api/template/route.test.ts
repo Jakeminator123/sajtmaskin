@@ -172,7 +172,7 @@ describe("POST /api/template", () => {
       cached: false,
       chatId: "chat_new",
       projectId: "proj_new",
-      demoUrl: "/api/preview-render?chatId=chat_new&versionId=ver_new&projectId=proj_new",
+      previewUrl: "/api/preview-render?chatId=chat_new&versionId=ver_new&projectId=proj_new",
       model: "gpt-5.4",
     });
     expect(generateOwnEngineSiteFromPrompt).toHaveBeenCalledWith(

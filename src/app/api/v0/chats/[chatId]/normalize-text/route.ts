@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { z } from "zod";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { normalizeUnicodeEscapes } from "@/lib/utils/unicode-normalizer";
@@ -63,7 +64,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
         changedFiles,
         replacements,
         fixed: true,
-        demoUrl: null,
+        ...previewUrlField(null),
       });
     }
 

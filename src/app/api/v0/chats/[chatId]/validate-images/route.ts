@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { validateImages } from "@/lib/utils/image-validator";
@@ -68,7 +69,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
         replacedCount: result.replacedCount,
         warnings: result.warnings,
         fixed,
-        demoUrl: null,
+        ...previewUrlField(null),
         message: result.broken.length === 0
           ? `Alla ${result.total} bild-URL:er är giltiga`
           : `${result.broken.length} av ${result.total} bilder trasiga${fixed ? `, ${result.replacedCount} ersatta` : ""}`,

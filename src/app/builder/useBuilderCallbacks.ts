@@ -2,6 +2,7 @@
 
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
+import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import {
   isCompatibilityShimPreviewUrl,
   isSandboxPreviewUrl,
@@ -11,6 +12,7 @@ import {
 export type VersionLike = {
   versionId?: string | null;
   id?: string | null;
+  previewUrl?: string | null;
   demoUrl?: string | null;
   legacyShimPreviewUrl?: string | null;
   sandboxUrl?: string | null;
@@ -105,7 +107,12 @@ export function useBuilderCallbacks({
         bumpPreviewRefreshToken();
         return;
       }
-      const legacy = normalizePreviewUrl(match?.demoUrl);
+      const legacy = normalizePreviewUrl(
+        resolveInboundPreviewUrl({
+          previewUrl: match?.previewUrl,
+          demoUrl: match?.demoUrl,
+        }),
+      );
       if (legacy) {
         setCurrentPreviewUrl(legacy);
         bumpPreviewRefreshToken();

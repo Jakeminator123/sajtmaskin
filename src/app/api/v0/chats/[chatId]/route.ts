@@ -7,6 +7,7 @@ import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -33,7 +34,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           scaffoldId: chat.scaffold_id,
           scaffoldFamily: resolvedScaffold?.family ?? null,
           scaffoldLabel: resolvedScaffold?.label ?? null,
-          demoUrl: null,
+          ...previewUrlField(null),
           legacyShimPreviewUrl,
           createdAt: chat.created_at,
           updatedAt: chat.updated_at,
@@ -49,7 +50,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             ? {
                 id: latest.id,
                 versionId: latest.id,
-                demoUrl: null,
+                ...previewUrlField(null),
                 legacyShimPreviewUrl,
                 createdAt: latest.created_at,
                 versionNumber: latest.version_number,
@@ -74,6 +75,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           .orderBy(desc(versions.createdAt))
           .limit(1);
         if (latestMappedVersion.length > 0) {
+          const v0Preview = latestMappedVersion[0].demoUrl;
           return NextResponse.json({
             chatId,
             id: mappedV0Chat.id,
@@ -85,11 +87,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             latestVersion: {
               versionId: latestMappedVersion[0].v0VersionId,
               messageId: latestMappedVersion[0].v0MessageId,
-              demoUrl: latestMappedVersion[0].demoUrl,
+              ...previewUrlField(v0Preview),
               createdAt: latestMappedVersion[0].createdAt,
               canPin: true,
             },
-            demoUrl: latestMappedVersion[0].demoUrl,
+            ...previewUrlField(v0Preview),
           });
         }
       }

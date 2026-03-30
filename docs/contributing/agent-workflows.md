@@ -27,6 +27,8 @@ Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverkty
 
 - **Preview / sandbox / deploy:** [`preview-deploy.md`](../architecture/preview-deploy.md) — inkl. § *Levererat* och länkar till kod.
 - **Backlog / beslut:** [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
+- **Aktiv storstädning (repo + DB-fas):** [`STORDSTAD-repo-kod-databas.md`](../plans/active/STORDSTAD-repo-kod-databas.md).
+- **Preview-URL i JSON/SSE (klar):** [`KORPLAN-preview-url-api.md`](../plans/avklarat/KORPLAN-preview-url-api.md) (arkiverad körplan).
 
 Historiska planhandoff finns i **git-historik** (`docs/plans/avklarat/`, äldre commits). **Aktuell drift:** tabellen *Operativa dokument* ovan — inga separata numrerade kördokument i repo-trädet.
 

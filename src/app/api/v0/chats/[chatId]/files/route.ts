@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { z } from "zod";
 import {
   getEngineChatByIdForRequest,
@@ -241,7 +242,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
         name: file.path,
         content: file.content,
       })),
-      demoUrl: null,
+      ...previewUrlField(null),
     });
   } catch (err) {
     console.error("Error updating files:", err);
@@ -309,7 +310,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
             locked: locked ?? false,
           }
         : null,
-      demoUrl: null,
+      ...previewUrlField(null),
     });
   } catch (err) {
     console.error("Error updating file:", err);

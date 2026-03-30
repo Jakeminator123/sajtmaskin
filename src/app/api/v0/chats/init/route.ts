@@ -12,6 +12,7 @@ import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import { resolveEngineModelId } from "@/lib/models/selection";
 import type { CodeFile } from "@/lib/gen/parser";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 
 export const runtime = "nodejs";
 
@@ -545,7 +546,7 @@ export async function POST(req: Request) {
           id: chat.id,
           chatId: chat.id,
           versionId: version.id,
-          demoUrl: previewRuntime.url,
+          ...previewUrlField(previewRuntime.url),
           projectId: project.id,
           source: source.type,
           lockedFiles: configLockedFiles,

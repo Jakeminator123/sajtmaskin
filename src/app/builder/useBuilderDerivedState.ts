@@ -7,6 +7,7 @@ import { useMemo } from "react";
 export type VersionSummary = {
   id?: string | null;
   versionId?: string | null;
+  previewUrl?: string | null;
   demoUrl?: string | null;
   /** Legacy shim URL for own-engine; primary live preview is `sandboxUrl`. */
   legacyShimPreviewUrl?: string | null;
@@ -22,6 +23,7 @@ export type VersionSummary = {
 };
 
 export type ChatData = {
+  previewUrl?: string | null;
   demoUrl?: string | null;
   legacyShimPreviewUrl?: string | null;
   latestVersion?: VersionSummary | null;
@@ -82,6 +84,7 @@ export function useBuilderDerivedState({
     list.unshift({
       versionId: latest?.versionId || latest?.id || null,
       id: latest?.id || null,
+      previewUrl: latest?.previewUrl ?? latest?.demoUrl ?? null,
       demoUrl: latest?.demoUrl ?? null,
       legacyShimPreviewUrl: latest?.legacyShimPreviewUrl ?? null,
       createdAt: latest?.createdAt ?? new Date().toISOString(),

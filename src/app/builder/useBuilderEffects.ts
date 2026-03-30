@@ -7,6 +7,7 @@ import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } 
 import { toast } from "sonner";
 import { MODEL_TIER_TO_QUALITY } from "./types";
 import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
+import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 
 type UseBuilderEffectsArgs = {
   auditPromptLoaded: boolean;
@@ -83,8 +84,9 @@ export function useBuilderEffects({
             router.replace(`/builder?${params.toString()}`);
           }
         }
-        if (data?.demoUrl) {
-          const n = normalizePreviewUrl(data.demoUrl as string);
+        const templatePreview = readPreviewUrl(data as { previewUrl?: unknown });
+        if (templatePreview) {
+          const n = normalizePreviewUrl(templatePreview);
           if (n && !isCompatibilityShimPreviewUrl(n)) {
             setCurrentPreviewUrl(n);
           }
@@ -92,7 +94,7 @@ export function useBuilderEffects({
         if (data?.chatId && appProjectId) {
           saveProjectData(appProjectId, {
             chatId: data.chatId,
-            demoUrl: data.demoUrl ?? undefined,
+            ...(templatePreview ? { previewUrl: templatePreview } : {}),
           }).catch((error) => {
             console.warn("[Builder] Failed to save template project mapping:", error);
           });

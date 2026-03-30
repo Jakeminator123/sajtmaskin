@@ -1,3 +1,4 @@
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/route-helpers";
 import {
@@ -139,7 +140,7 @@ export function createOwnEngineGenerationStream(
               chatId,
               versionId: null,
               messageId: null,
-              demoUrl: null,
+              ...previewUrlField(null),
               awaitingInput,
               toolCalls,
               reason,
@@ -434,7 +435,7 @@ export function createOwnEngineGenerationStream(
                   chatId,
                   versionId: null,
                   messageId: null,
-                  demoUrl: null,
+                  ...previewUrlField(null),
                 }),
               ),
             );

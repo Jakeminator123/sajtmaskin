@@ -24,6 +24,7 @@
     "devtest": "npm run typecheck && npm run scaffolds:validate && npm run test:ci && npm run lint",
     "db:init": "node scripts/db-init.mjs",
     "db:check": "node scripts/check-dev-db.mjs",
+    "db:rows": "node scripts/db-row-overview.mjs",
     "test": "vitest",
     "test:ci": "vitest run",
     "test:openclaw:e2e": "playwright test -c playwright.openclaw.config.ts",

@@ -104,6 +104,8 @@ export type StreamQualitySignal = {
 export type VersionEntry = {
   versionId?: string | null;
   id?: string | null;
+  previewUrl?: string | null;
+  /** @deprecated Prefer `previewUrl` from API responses. */
   demoUrl?: string | null;
   createdAt?: string | null;
   versionNumber?: number | null;
@@ -217,7 +219,7 @@ export type ChatMessagingParams = {
   onGenerationComplete?: (data: {
     chatId: string;
     versionId?: string;
-    demoUrl?: string;
+    previewUrl?: string;
     onlySelectVersionIfWasLatest?: boolean;
   }) => void;
   /** SSE sandbox-ready: bind sandboxId to the current stream version for heartbeat/status. */

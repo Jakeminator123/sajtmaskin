@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { previewUrlField, readPreviewUrl, resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { handleMessageStreamRequest } from "../stream/route";
 
 type SseEvent = {
@@ -6,10 +7,12 @@ type SseEvent = {
   data: unknown;
 };
 
+/** Parsed from SSE `done` JSON; `demoUrl` only for legacy stored transcripts. */
 type DonePayload = {
   chatId?: string | null;
   messageId?: string | null;
   versionId?: string | null;
+  previewUrl?: string | null;
   demoUrl?: string | null;
   awaitingInput?: boolean;
   reason?: string | null;
@@ -148,7 +151,7 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
       ? (doneEvent.data as DonePayload)
       : {};
   const versionId = typeof done.versionId === "string" ? done.versionId : null;
-  const demoUrl = typeof done.demoUrl === "string" ? done.demoUrl : null;
+  const previewResolved = readPreviewUrl(done) ?? resolveInboundPreviewUrl(done);
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
   const assistantText = content || null;
   const awaitingInputPrompt =
@@ -161,7 +164,7 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
       chatId: typeof done.chatId === "string" ? done.chatId : chatId,
       messageId,
       versionId,
-      demoUrl,
+      ...previewUrlField(previewResolved),
       text: assistantText,
       message: assistantText,
       awaitingInput: done.awaitingInput === true,
@@ -169,11 +172,11 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
       reason: typeof done.reason === "string" ? done.reason : null,
       toolCalls: Array.isArray(done.toolCalls) ? done.toolCalls : [],
       latestVersion:
-        versionId || demoUrl || messageId
+        versionId || previewResolved || messageId
           ? {
               id: versionId,
               versionId,
-              demoUrl,
+              ...previewUrlField(previewResolved),
               messageId,
             }
           : null,

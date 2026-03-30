@@ -62,7 +62,8 @@ Kärnan preview/sandbox är **levererad** (se `preview-deploy.md`). Detta är **
 | Adapters / «degraded preview» för vissa integrationer (mer än placeholders) | [ ] |
 | GitHub-export som **sekundär** väg (persistens = fortfarande Postgres / `files_json`) | [ ] |
 | Ev. kallstarts-heuristik för VM / session | delvis |
-| Massstädning efter warm-sandbox / preview-lifecycle (död kod, planfiler, docs) | [ ] — **egen PR** efter merge av epiken |
+| Massstädning efter warm-sandbox / preview-lifecycle (död kod, planfiler, docs, DB-fas) | [ ] — körplan: [`STORDSTAD-repo-kod-databas.md`](./STORDSTAD-repo-kod-databas.md) |
+| API-kontrakt: publika svar med `previewUrl` endast; inbound legacy via `resolveInboundPreviewUrl` | [x] 2026-03-30 — [`KORPLAN-preview-url-api.md`](../avklarat/KORPLAN-preview-url-api.md) (arkiverad) |
 
 Tier-modell (preflight / dev / build) och förenklad fasöversikt finns i [`preview-deploy.md`](../../architecture/preview-deploy.md) under **Begrepp**.
 
@@ -90,7 +91,7 @@ Tier-modell (preflight / dev / build) och förenklad fasöversikt finns i [`prev
 | P17-1 | v0 SDK (`src/lib/v0.ts`) | [x] borttagen |
 | P17-2 | `V0_API_KEY` i required env | [x] borttagen ur runtime |
 | P17-3 | Rensa `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` ur schema när policy klar | [ ] |
-| P17-4 | `ENV.md` + `env-policy.json` i synk | doc [ ] låg prio |
+| P17-4 | `ENV.md` + `env-policy.json` i synk | doc delvis [x] — `ENV.md` förkortad 2026-03-30 (kanon = `env.ts` + policy); policy-jämförelse låg prio |
 | P17-5 | Stora JSON → `.gitignore` / LFS / build-time | repo [ ] |
 | P17-6 | `research/`-policy | delvis [x] — se `research/README.md` |
 | P17-7 | `docs/old/` flytt | [x] |
@@ -133,7 +134,7 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 - **Server-verify** (`src/lib/gen/server-verify.ts`) triggas automatiskt efter finalize; kör quality gate + capped repair (max 2 pass). Verification state `repairing` synlig i UI.  
 - **Server repair** är default efter quality-gate-fel; klientautofix fallback. `__SAJTMASKIN_SKIP_SERVER_REPAIR__` opt-out ersätter gammal opt-in.  
 - **v0Stream.ts** och **gen/fallback.ts** borttagna (inga runtime-konsumenter).  
-- **Builder preview-URL i klientstate:** `currentPreviewUrl` / `setCurrentPreviewUrl` (`useBuilderState`, stream-handlers, VM) — inte `currentDemoUrl`. API/versionspayload kan fortfarande använda fältnamnet `demoUrl` tills explicit migrering.  
+- **Builder preview-URL i klientstate:** `currentPreviewUrl` / `setCurrentPreviewUrl` (`useBuilderState`, stream-handlers, VM) — inte `currentDemoUrl`. Publika API-svar använder `previewUrl` (ingen `demoUrl` i svar); se [`KORPLAN-preview-url-api.md`](../avklarat/KORPLAN-preview-url-api.md).  
 - **Handoff-dokument** under `docs/handoffs/*.md` är **borttagna**; fulltext finns i **git-historik**. Pekare: [`docs/handoffs/README.md`](../../handoffs/README.md). Öppna gap och nästa steg styrs här (§4–§7) och i [`preview-deploy.md`](../../architecture/preview-deploy.md).
 
 ---

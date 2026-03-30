@@ -345,7 +345,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       chatId: "chat_1",
       versionId: null,
       messageId: null,
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       awaitingInputPrompt:
         "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?",
@@ -384,7 +384,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       chatId: "chat_1",
       versionId: null,
       messageId: null,
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       awaitingInputPrompt: "Vad vill du att jag fokuserar på i nästa ändring?",
       reason: "followup_edit_underspecified",

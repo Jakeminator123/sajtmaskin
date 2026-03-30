@@ -1,3 +1,4 @@
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
@@ -94,7 +95,7 @@ export function createPreGenerationContractGateReadableStream(
             chatId: p.sseChatId,
             versionId: null,
             messageId: p.assistantMessageId,
-            demoUrl: null,
+            ...previewUrlField(null),
             awaitingInput: true,
             awaitingInputPrompt: p.contractClarification.question,
             reason: "pre_generation_contracts",

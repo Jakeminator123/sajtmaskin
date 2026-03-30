@@ -10,6 +10,7 @@ import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
 import { isServerVerifyEligible, triggerServerVerification } from "@/lib/gen/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { warnLog } from "@/lib/utils/debug";
 
@@ -107,7 +108,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         chatId,
         versionId: finalized.version.id,
         messageId: finalized.messageId,
-        demoUrl: null,
+        ...previewUrlField(null),
         sandboxPending: sandboxWillRun,
         shimPreviewUrl: null,
         preflight: finalized.preflight,
@@ -122,7 +123,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     type: "site.done",
     chatId,
     versionId: finalized.version.id,
-    demoUrl: null,
+    previewUrl: null,
     sandboxPreviewDeferred: sandboxWillRun,
     previewBlocked,
     durationMs: Date.now() - engineStartedAt,

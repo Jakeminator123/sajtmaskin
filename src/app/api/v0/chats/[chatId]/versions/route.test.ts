@@ -96,12 +96,12 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
 
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
-    expect(json.versions[0].demoUrl).toBeNull();
+    expect(json.versions[0].previewUrl).toBeNull();
     expect(json.versions[0].legacyShimPreviewUrl).toBeNull();
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
-  it("returns legacyShimPreviewUrl but null demoUrl when own-engine preview may be exposed", async () => {
+  it("returns legacyShimPreviewUrl but null previewUrl when own-engine preview may be exposed", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
     getVersionsByChat.mockResolvedValue([
       {
@@ -125,7 +125,7 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
 
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
-    expect(json.versions[0].demoUrl).toBeNull();
+    expect(json.versions[0].previewUrl).toBeNull();
     expect(json.versions[0].legacyShimPreviewUrl).toBe(
       "/api/preview-render?chatId=chat_1&versionId=ver_ok",
     );

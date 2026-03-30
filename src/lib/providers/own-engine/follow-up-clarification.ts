@@ -1,3 +1,4 @@
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 
 const FOLLOW_UP_REFINE_PATTERNS = [
@@ -216,7 +217,7 @@ export function buildAwaitingClarificationStream(params: {
             chatId,
             versionId: null,
             messageId: null,
-            demoUrl: null,
+            ...previewUrlField(null),
             awaitingInput: true,
             awaitingInputPrompt: clarification.question,
             reason: clarification.reason,

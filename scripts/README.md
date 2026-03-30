@@ -59,6 +59,7 @@ Tidigare i repo-roten; nu under `scripts/env/`. Tunna root-wrappers finns kvar o
 | npm-script | Entry |
 |------------|--------|
 | `npm run db:check` | [`scripts/check-dev-db.mjs`](check-dev-db.mjs) — läser `POSTGRES_URL` från `.env.local`, enkel anslutningskoll (ej CI). Valfri flagga `--allow-insecure-ssl`. |
+| `npm run db:rows` | [`scripts/db-row-overview.mjs`](db-row-overview.mjs) — read-only: `COUNT(*)` per utvald tabell (own-engine + app + legacy). Samma env som `db:check`. |
 
 ## sync-scaffold-refs.mjs
 

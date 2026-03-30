@@ -134,7 +134,7 @@ describe("handleSseStream", () => {
             chatId: "chat_1",
             versionId: "ver_1",
             messageId: "msg_1",
-            demoUrl: "https://preview.example/chat_1/ver_1",
+            previewUrl: "https://preview.example/chat_1/ver_1",
             preflight: {
               previewBlocked: false,
               verificationBlocked: false,
@@ -166,7 +166,7 @@ describe("handleSseStream", () => {
     expect(spies.onGenerationComplete).toHaveBeenCalledWith({
       chatId: "chat_1",
       versionId: "ver_1",
-      demoUrl: "https://preview.example/chat_1/ver_1",
+      previewUrl: "https://preview.example/chat_1/ver_1",
       onlySelectVersionIfWasLatest: false,
     });
     expect(triggerImageMaterialization).toHaveBeenCalledWith({
@@ -259,7 +259,7 @@ describe("handleSseStream", () => {
             chatId: "chat_1",
             versionId: "ver_1",
             messageId: "msg_1",
-            demoUrl: null,
+            previewUrl: null,
             preflight: {
               previewBlocked: false,
               verificationBlocked: false,
@@ -294,7 +294,7 @@ describe("handleSseStream", () => {
     expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://sandbox.example");
   });
 
-  it("does not set demoUrl on empty sandbox-ready (build_only) but records prod build", async () => {
+  it("does not set preview iframe on empty sandbox-ready (build_only) but records prod build", async () => {
     const setSandboxProdBuild = vi.fn();
     consumeSseResponse.mockImplementation(
       async (
@@ -308,7 +308,7 @@ describe("handleSseStream", () => {
             chatId: "chat_1",
             versionId: "ver_1",
             messageId: "msg_1",
-            demoUrl: null,
+            previewUrl: null,
             preflight: {
               previewBlocked: false,
               verificationBlocked: false,
@@ -347,7 +347,7 @@ describe("handleSseStream", () => {
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
   });
 
-  it("does not set iframe URL from done when demoUrl is compatibility shim only", async () => {
+  it("does not set iframe URL from done when previewUrl is compatibility shim only", async () => {
     consumeSseResponse.mockImplementation(
       async (
         _response: Response,
@@ -360,7 +360,7 @@ describe("handleSseStream", () => {
             chatId: "chat_1",
             versionId: "ver_1",
             messageId: "msg_1",
-            demoUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
+            previewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
             preflight: {
               previewBlocked: false,
               verificationBlocked: false,
@@ -382,7 +382,7 @@ describe("handleSseStream", () => {
       expect.objectContaining({
         chatId: "chat_1",
         versionId: "ver_1",
-        demoUrl: undefined,
+        previewUrl: undefined,
       }),
     );
   });
@@ -400,7 +400,7 @@ describe("handleSseStream", () => {
             chatId: "chat_1",
             versionId: "ver_1",
             messageId: "msg_1",
-            demoUrl: null,
+            previewUrl: null,
             preflight: {
               previewBlocked: false,
               verificationBlocked: false,

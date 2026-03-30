@@ -153,7 +153,7 @@ describe("createPreGenerationContractGateReadableStream (golden SSE)", () => {
       chatId: "chat_followup",
       versionId: null,
       messageId: "msg_a",
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       awaitingInputPrompt: "Vilken auth?",
       reason: "pre_generation_contracts",

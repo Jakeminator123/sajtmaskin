@@ -166,7 +166,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(doneData.chatId).toBe("chat_golden");
     expect(doneData.versionId).toBe("ver_golden_1");
     expect(doneData.messageId).toBe("msg_golden_1");
-    expect(doneData.demoUrl).toBeNull();
+    expect(doneData.previewUrl).toBeNull();
     expect(doneData.previewBlocked).toBe(false);
     expect(doneData.verificationBlocked).toBe(false);
 

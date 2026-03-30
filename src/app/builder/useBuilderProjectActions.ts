@@ -197,7 +197,7 @@ export function useBuilderProjectActions({
 
       await saveProjectData(targetProjectId, {
         chatId,
-        demoUrl: currentPreviewUrl ?? undefined,
+        ...(currentPreviewUrl ? { previewUrl: currentPreviewUrl } : {}),
         files,
         messages,
         meta: { palette: paletteState },
