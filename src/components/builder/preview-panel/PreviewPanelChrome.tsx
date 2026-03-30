@@ -18,7 +18,7 @@ type AlternatePreviewBannerState = {
 };
 
 interface PreviewPanelChromeProps {
-  demoUrl: string | null;
+  previewUrl: string | null;
   surfaceDescriptor: SurfaceDescriptor;
   isOwnEnginePreview: boolean;
   isSandboxPreview: boolean;
@@ -57,7 +57,7 @@ interface PreviewPanelChromeProps {
 }
 
 export function PreviewPanelChrome({
-  demoUrl,
+  previewUrl,
   surfaceDescriptor,
   isOwnEnginePreview,
   isSandboxPreview,
@@ -111,7 +111,7 @@ export function PreviewPanelChrome({
               Live-preview väntar
             </Badge>
           ) : null}
-          {demoUrl && isSandboxPreview && !isOwnEnginePreview ? (
+          {previewUrl && isSandboxPreview && !isOwnEnginePreview ? (
             <Badge
               variant="outline"
               className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
@@ -126,7 +126,7 @@ export function PreviewPanelChrome({
             variant="ghost"
             size="sm"
             onClick={handleToggleInspect}
-            disabled={!inspectorEnabled || !demoUrl || placementMode}
+            disabled={!inspectorEnabled || !previewUrl || placementMode}
             title={
               !inspectorEnabled
                 ? "Inspector är avstängd via feature flag"
@@ -170,7 +170,7 @@ export function PreviewPanelChrome({
             <FileText className="mr-1 h-4 w-4" />
             Kodvy
           </Button>
-          {demoUrl && onClear ? (
+          {previewUrl && onClear ? (
             <Button
               variant="ghost"
               size="sm"

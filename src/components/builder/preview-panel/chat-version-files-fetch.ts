@@ -1,0 +1,28 @@
+/**
+ * Shared GET for `/api/v0/chats/:id/files?versionId=` used by code view, registry preload, and route list.
+ */
+
+export type ChatVersionFilesApiRow = {
+  name: string;
+  content?: string;
+  locked?: boolean;
+};
+
+export type ChatVersionFilesApiResponse = {
+  files?: ChatVersionFilesApiRow[];
+  error?: string;
+};
+
+export function chatVersionFilesUrl(chatId: string, versionId: string): string {
+  return `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`;
+}
+
+export async function fetchChatVersionFilesJson(
+  chatId: string,
+  versionId: string,
+  init?: RequestInit,
+): Promise<{ response: Response; data: ChatVersionFilesApiResponse | null }> {
+  const response = await fetch(chatVersionFilesUrl(chatId, versionId), init);
+  const data = (await response.json().catch(() => null)) as ChatVersionFilesApiResponse | null;
+  return { response, data };
+}

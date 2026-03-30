@@ -48,51 +48,18 @@ import { useBuilderSandboxPreview } from "./useBuilderSandboxPreview";
 import { useSandboxPreviewSession } from "./useSandboxPreviewSession";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import {
-  hasSandboxPreviewUrl,
   isCompatibilityShimPreviewUrl,
   isSandboxPreviewUrl,
   isShimOrMissingPreviewUrl,
   normalizePreviewUrl,
   resolveAlternatePreviewUrls,
 } from "@/lib/gen/preview";
-
-/** Sandbox (fidelity 2) only; legacy `demoUrl` shim URLs are ignored. */
-function pickVersionPreviewUrl(
-  v: VersionSummary | undefined,
-  options?: { allowFailed?: boolean },
-): string | null {
-  if (!v) return null;
-  if (!options?.allowFailed && !canExposeEnginePreview(v)) return null;
-  return normalizePreviewUrl(v.sandboxUrl);
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function parsePreviewOverride(
-  value: unknown,
-): { url: string | null; versionId: string | null } {
-  const record = asRecord(value);
-  const url =
-    typeof record?.url === "string" && record.url.trim().length > 0 ? record.url.trim() : null;
-  const versionId =
-    typeof record?.versionId === "string" && record.versionId.trim().length > 0
-      ? record.versionId.trim()
-      : null;
-  return { url, versionId };
-}
-
-function versionSummaryHasSandbox(
-  v: VersionSummary | undefined,
-  options?: { allowFailed?: boolean },
-): boolean {
-  if (!v) return false;
-  if (!options?.allowFailed && !canExposeEnginePreview(v)) return false;
-  return hasSandboxPreviewUrl(v.sandboxUrl);
-}
+import {
+  asRecord,
+  parsePreviewOverride,
+  pickVersionPreviewUrl,
+  versionSummaryHasSandbox,
+} from "./builder-page-preview-helpers";
 
 export function useBuilderPageController() {
   const router = useRouter();

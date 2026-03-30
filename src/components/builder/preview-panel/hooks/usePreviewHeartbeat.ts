@@ -8,7 +8,7 @@ import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 export function usePreviewHeartbeat(params: {
   chatId: string | null;
   versionId: string | null;
-  demoUrl: string | null;
+  previewUrl: string | null;
   activeSandboxId: string | null | undefined;
   previewLifecycle: PreviewLifecycleState | undefined;
   onSessionSuspect?: () => void;
@@ -16,7 +16,7 @@ export function usePreviewHeartbeat(params: {
   const {
     chatId,
     versionId,
-    demoUrl,
+    previewUrl,
     activeSandboxId,
     previewLifecycle,
     onSessionSuspect,
@@ -32,10 +32,10 @@ export function usePreviewHeartbeat(params: {
 
   useEffect(() => {
     if (!chatId || !versionId || !activeSandboxId?.trim()) return;
-    if (!demoUrl || !isSandboxPreviewUrl(demoUrl)) return;
+    if (!previewUrl || !isSandboxPreviewUrl(previewUrl)) return;
     const allowHeartbeat =
       previewLifecycle === "live" ||
-      (previewLifecycle === undefined && isSandboxPreviewUrl(demoUrl));
+      (previewLifecycle === undefined && isSandboxPreviewUrl(previewUrl));
     if (!allowHeartbeat) return;
 
     const tick = async () => {
@@ -58,5 +58,5 @@ export function usePreviewHeartbeat(params: {
     const id = window.setInterval(tick, 25_000);
     void tick();
     return () => window.clearInterval(id);
-  }, [chatId, versionId, activeSandboxId, demoUrl, previewLifecycle, onSessionSuspect]);
+  }, [chatId, versionId, activeSandboxId, previewUrl, previewLifecycle, onSessionSuspect]);
 }

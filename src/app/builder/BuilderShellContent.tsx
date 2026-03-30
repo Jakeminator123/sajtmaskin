@@ -895,7 +895,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <PreviewPanel
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
-              demoUrl={vm.currentPreviewUrl}
+              previewUrl={vm.currentPreviewUrl}
               alternatePreviewUrls={vm.activeVersionAlternatePreview}
               sandboxBuildError={vm.sandboxBuildError}
               sandboxProdBuild={vm.sandboxProdBuild}
