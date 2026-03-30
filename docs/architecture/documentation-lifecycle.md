@@ -22,7 +22,7 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 | `docs/architecture/` | Kanoniska översikter (fyra huvuddokument + denna fil) | Tillfälliga scratch |
 | `docs/schemas/` | Stabila schema-beskrivningar (sanning i kod) | Osäkra utkast |
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
-| `docs/handoffs/` | [`README.md`](../handoffs/README.md) som pekare; tidigare handoff-`*.md` borttagna (fulltext i git-historik). Lägg inte till binärer eller tillgångar här om inget kanoniskt doc länkar till dem | Kanonisk arkitektur, `PROJECT-STATE-AND-DIRECTION.md`, eller nytt scope under `docs/architecture/` |
+| `docs/handoffs/` | [`README.md`](../handoffs/README.md) som pekare; tidigare handoff-`*.md` borttagna (fulltext i git-historik). **Binära diagramfiler** under `handoffs/bilder/` rensades i samma städspår som post-epic-merge (återställ via git om du behöver en gammal PNG). Lägg inte till nya binärer här om inget kanoniskt doc uttryckligen länkar till dem | Kanonisk arkitektur, `PROJECT-STATE-AND-DIRECTION.md`, eller nytt scope under `docs/architecture/` |
 | `docs/notes/` | Scratch / sessionsloggar — rensa periodiskt | Stabil referens |
 | `docs/archive/` | Kort pekare / tillfälligt arkivmaterial — inte kanon; flytta viktigt till backlog eller arkitektur | Ny aktiv planering som enda sanning |
 | `docs/old/` | [`README.md`](../old/README.md) — pekare; tidigare innehåll i git-historik | Nytt arbetsmaterial |

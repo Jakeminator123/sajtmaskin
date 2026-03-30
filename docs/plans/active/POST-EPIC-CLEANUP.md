@@ -4,6 +4,22 @@
 
 **Telemetri (sandbox):** strukturerad `console.info` med prefix `[telemetry:sandbox-lifecycle]` — ingen MCP-server; loggar i runtime (t.ex. Vercel Logs). Se [`sandbox-lifecycle-telemetry.ts`](../../../src/lib/gen/sandbox-lifecycle-telemetry.ts).
 
+## Dokumentation som berörts (samma städvåg som preview/builder-merge till `master`)
+
+Följande **allmänna** `docs/`-ytor ändrades i leveransen (exakt diff: `git log` / `git show` på merge till `master`). Kod under `src/` listas inte här — se commit `refactor(builder): split PreviewPanel…`.
+
+| Område | Vad som hände |
+|--------|----------------|
+| [`docs/README.md`](../../README.md) | Nav och pekare uppdaterade |
+| [`documentation-lifecycle.md`](../../architecture/documentation-lifecycle.md) | Policy / handoffs-formulering |
+| [`docs/archive/`](../archive/) | `FINDINGS.txt` borttagen; `README.md` justerad |
+| [`docs/handoffs/bilder/`](../handoffs/bilder/) | Äldre mermaid-export-PNG borttagna (kvar i git-historik) |
+| [`docs/notes/`](../notes/) | `builder-smoke-2026-03-27.txt` borttagen (kvar i git-historik) |
+| [`docs/old/README.md`](../old/README.md) | Pekare uppdaterad |
+| [`docs/plans/README.md`](../README.md) | Aktiv vs avklarat |
+| [`PROJECT-STATE-AND-DIRECTION.md`](./PROJECT-STATE-AND-DIRECTION.md) | Backlog/beslut (löpande) |
+| [`docs/plans/avklarat/`](../avklarat/) | `CONSOLIDATED-own-engine-platform-and-quality-v2.md` flyttad från `active/` hit; `LLM-PIPELINE-…` och `README.md` mindre uppdateringar |
+
 ## Flytta / konsolidera
 
 - [x] `src/lib/builder/preview-session/` — klient-API + typer
