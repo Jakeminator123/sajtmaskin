@@ -1,9 +1,5 @@
-# `docs/old/` — pekare (innehåll flyttat)
+# `docs/old/` — pekare
 
-Historiska dokument, analyser och loggar som tidigare låg här finns nu i:
+Tidigare innehåll under `docs/old/` finns i **git-historik** (`git log -- docs/old/`, `git show <commit>:docs/old/...`). Lägg inte nytt arbetsmaterial här — använd [`docs/plans/active/`](../plans/active/) eller [`docs/architecture/`](../architecture/).
 
-**[`docs/plans/avklarat/2026-03-docs-old-archive/`](../plans/avklarat/2026-03-docs-old-archive/)**
-
-- Där: `analyses/`, `transcripts/`, `schemas/`, `2026-03-holding-area/`, samt `INVENTORY-2026-03-26.md`.
-
-**Nytt arbetsmaterial** ska inte läggas i denna mapp — använd `docs/plans/active/` eller `docs/architecture/`. Livscykel: [`documentation-lifecycle.md`](../architecture/documentation-lifecycle.md).
+**Nav:** [`docs/README.md`](../README.md) · [`documentation-lifecycle.md`](../architecture/documentation-lifecycle.md).

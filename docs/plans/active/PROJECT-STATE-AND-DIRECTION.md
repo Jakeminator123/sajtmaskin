@@ -140,11 +140,9 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 
 ## 11. Git- och agentrutin
 
-- Före `git push`: `git fetch` && `git pull` (rebase om ni kör så).  
-- Om `.cursor/agent-intents/BOARD.md` finns: läs `active`-rader; stage:a bara din sessions filer.  
-- Regel: [`.cursor/rules/session-git-docs.mdc`](../../../.cursor/rules/session-git-docs.mdc)
-
----
+- Git-hygien, staging och docs: [`.cursor/rules/session-git-docs.mdc`](../../../.cursor/rules/session-git-docs.mdc).
+- Efter städning eller större refaktor: [`.cursor/rules/cleanup-and-scope.mdc`](../../../.cursor/rules/cleanup-and-scope.mdc).
+- Innan `git push`: synka med fjärr (`fetch` / `pull` eller rebase enligt teamets vanor) så du inte skriver över andras arbete av misstag.
 
 ## 12. Relaterat
 

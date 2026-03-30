@@ -1,6 +1,6 @@
 # Dokumentationsarkiv
 
-**Syfte:** Material som **inte** är kanonisk operativ dokumentation — tidsbunden sessionslogg, gamla utkast som behålls för spårbarhet utan att brusa i roten av `docs/`.
+**Syfte:** Material som **inte** är kanonisk operativ dokumentation — valfritt tillfälligt eller sekundärt, utan att blanda ihop med backlog eller arkitektur i roten av `docs/`.
 
 **Kanonisk policy:** [`docs/architecture/documentation-lifecycle.md`](../architecture/documentation-lifecycle.md).
 

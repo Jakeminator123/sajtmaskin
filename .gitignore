@@ -150,10 +150,6 @@ docs/old/**/*.env.local
 docs/old/**/*.env.production
 docs/old/**/*.env
 docs/old/**/*env*.txt
-docs/plans/avklarat/2026-03-docs-old-archive/**/*.env.local
-docs/plans/avklarat/2026-03-docs-old-archive/**/*.env.production
-docs/plans/avklarat/2026-03-docs-old-archive/**/*.env
-docs/plans/avklarat/2026-03-docs-old-archive/**/*env*.txt
 
 # Vercel
 .vercel

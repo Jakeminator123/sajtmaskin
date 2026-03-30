@@ -23,7 +23,7 @@ function buildPreviewPanelProps(
   return {
     chatId: "chat_1",
     versionId: "ver_1",
-    demoUrl: "https://preview.example/ver_1",
+    previewUrl: "https://preview.example/ver_1",
     onNavigatePreviewUrl: vi.fn(),
     onFilesSaved: vi.fn(),
     ...overrides,
@@ -41,7 +41,7 @@ describe("PreviewPanel", () => {
 
   it("shows the actual awaiting-input question in the empty preview state", async () => {
     renderPreviewPanel({
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       awaitingInputQuestion: "Vilken del vill du att jag fokuserar på först?",
       awaitingInputOptions: ["Design", "Innehåll"],
@@ -68,11 +68,11 @@ describe("PreviewPanel", () => {
       ),
     );
 
-    const props = buildPreviewPanelProps({ demoUrl: null });
+    const props = buildPreviewPanelProps({ previewUrl: null });
     const { rerender } = render(<PreviewPanel {...props} />);
 
     expect(() => {
-      rerender(<PreviewPanel {...props} demoUrl="https://preview.example/ver_1" />);
+      rerender(<PreviewPanel {...props} previewUrl="https://preview.example/ver_1" />);
     }).not.toThrow();
   });
 

@@ -4,150 +4,42 @@ import dynamic from "next/dynamic";
 import {
   Loader2,
 } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-  type MouseEvent,
-  type MouseEventHandler,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
-import {
-  readContactDetailsDraft,
-  updateContactDetailsDraft,
-  type ContactDetailsDraft,
-} from "@/lib/builder/contact-editor";
-import {
-  readHeroContentDraft,
-  updateHeroContentDraft,
-  type HeroContentDraft,
-} from "@/lib/builder/hero-editor";
-import {
-  readServiceItemsDraft,
-  updateServiceItemsDraft,
-  type ServiceItemDraft,
-} from "@/lib/builder/services-editor";
-import {
-  readFaqItemsDraft,
-  updateFaqItemsDraft,
-  type FaqItemDraft,
-} from "@/lib/builder/faq-editor";
-import {
-  readTestimonialItemsDraft,
-  updateTestimonialItemsDraft,
-  type TestimonialItemDraft,
-} from "@/lib/builder/testimonials-editor";
-import {
-  readTeamMembers,
-  updateTeamMembersDraft,
-  type TeamMemberDraft,
-} from "@/lib/builder/team-editor";
-import {
-  readStatItemsDraft,
-  updateStatItemsDraft,
-  type StatItemDraft,
-} from "@/lib/builder/stats-editor";
-import {
-  readProcessStepsDraft,
-  updateProcessStepsDraft,
-  type ProcessStepDraft,
-} from "@/lib/builder/process-editor";
-import {
-  readProductItemsDraft,
-  updateProductItemsDraft,
-  type ProductItemDraft,
-} from "@/lib/builder/product-editor";
-import {
-  readPricingCardsDraft,
-  updatePricingCardsDraft,
-  type PricingCardDraft,
-} from "@/lib/builder/pricing-editor";
-import {
-  readPricingFeatureCardsDraft,
-  updatePricingFeatureCardsDraft,
-  type PricingFeatureCardDraft,
-} from "@/lib/builder/pricing-features-editor";
-import {
-  readCategoryItemsDraft,
-  updateCategoryItemsDraft,
-  type CategoryItemDraft,
-} from "@/lib/builder/category-editor";
-import {
-  readNavItemsDraft,
-  updateNavItemsDraft,
-  type NavItemDraft,
-} from "@/lib/builder/nav-items-editor";
-import {
-  readButtonLabelsDraft,
-  updateButtonLabelsDraft,
-  type ButtonLabelDraft,
-} from "@/lib/builder/button-label-editor";
-import {
-  readBlogPostsDraft,
-  updateBlogPostsDraft,
-  type BlogPostDraft,
-} from "@/lib/builder/blog-posts-editor";
-import {
-  readFooterLinkGroupsDraft,
-  updateFooterLinkGroupsDraft,
-  type FooterLinkGroupDraft,
-} from "@/lib/builder/footer-links-editor";
-import {
-  readStaticMetadataDraft,
-  updateStaticMetadataDraft,
-  type StaticMetadataDraft,
-} from "@/lib/builder/metadata-editor";
-import {
-  dispatchInspectCaptureEvent,
-  dispatchPlacementSelectEvent,
-  type PlacementSelectEventDetail,
-} from "@/lib/builder/inspect-events";
-import type { FileNode, ElementMapItem, ElementMapResponse } from "@/lib/builder/types";
-import {
-  buildJsxElementRegistry,
-  matchCapturedElement,
-  type RegistryMatch,
-} from "@/lib/builder/jsx-element-registry";
-import {
-  extractSectionZones,
-  nearestInsertionPoint,
-  type InsertionPoint,
-} from "@/lib/builder/sectionAnalyzer";
+import type { FileNode } from "@/lib/builder/types";
+import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import { PreviewPanelChrome } from "./PreviewPanelChrome";
 import { PreviewPanelCode } from "./PreviewPanelCode";
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { PreviewPanelSandbox } from "./PreviewPanelSandbox";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
+import { fetchChatVersionFilesJson } from "./chat-version-files-fetch";
 import { usePreviewHeartbeat } from "./hooks/usePreviewHeartbeat";
 import { usePreviewIframe } from "./hooks/usePreviewIframe";
+import { usePreviewPanelCodeDrafts } from "./hooks/usePreviewPanelCodeDrafts";
+import { usePreviewPanelInspectCapture } from "./hooks/usePreviewPanelInspectCapture";
+import { usePreviewPanelInspectMapPlacement } from "./hooks/usePreviewPanelInspectMapPlacement";
+import { usePreviewPanelOwnEnginePreviewTelemetry } from "./hooks/usePreviewPanelOwnEnginePreviewTelemetry";
+import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
+import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
+import type { InspectEngine, PreviewPanelProps, PreviewViewMode } from "./preview-panel-types";
+import {
+  buildExternalRoutePreviewUrl,
+  buildOwnEngineRoutePreviewUrl,
+} from "./preview-route-helpers";
+import { findFileNodeByPath, getLanguageFromFileName } from "./code-file-tree-utils";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
-import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
-import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
-import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import {
   buildAlternatePreviewBannerState,
   isCompatibilityShimPreviewUrl,
   isSandboxPreviewUrl,
-  type AlternatePreviewUrls,
 } from "@/lib/gen/preview";
-import {
-  INITIAL_PREVIEW_RENDER_OUTCOME_STATE,
-  describePreviewDiagnosticCode,
-  nextPreviewRenderOutcomeState,
-  previewRunbookLinesForCode,
-  previewDiagnosticCodeFromKind,
-  previewDiagnosticStageFromKind,
-  shouldAutoFixPreviewDiagnostic,
-  shouldReportPreviewOutcome,
-} from "@/lib/gen/preview-diagnostics";
+import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview-diagnostics";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -159,182 +51,10 @@ const PreviewPanelInspectorDev = dynamic(
   { ssr: false },
 );
 
-type CaptureResponse = {
-  success?: boolean;
-  capturedUrl?: string;
-  previewDataUrl?: string;
-  previewMimeType?: string;
-  pointSummary?: string;
-  element?: {
-    tag?: string;
-    id?: string | null;
-    className?: string | null;
-    text?: string | null;
-    ariaLabel?: string | null;
-    role?: string | null;
-    href?: string | null;
-    selector?: string | null;
-    nearestHeading?: string | null;
-  };
-  clip?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  source?: "worker" | "local";
-  error?: string;
-};
-
-type InspectPulseMarker = {
-  x: number;
-  y: number;
-  key: number;
-};
-
-type PreviewIframeMessage = {
-  source?: string;
-  type?: "preview-error" | "preview-ready" | "navigation-attempt";
-  payload?: PreviewIssuePayload & { href?: string | null };
-};
-
-function buildOwnEngineRoutePreviewUrl(currentUrl: string, nextHref: string): string | null {
-  const href = nextHref.trim();
-  if (!href.startsWith("/")) return null;
-
-  try {
-    const url = new URL(currentUrl, window.location.origin);
-    url.searchParams.set("route", href);
-    return `${url.pathname}${url.search}`;
-  } catch {
-    return null;
-  }
-}
-
-function buildExternalRoutePreviewUrl(currentUrl: string, nextHref: string): string | null {
-  const href = nextHref.trim();
-  if (!href.startsWith("/")) return null;
-
-  try {
-    const url = new URL(currentUrl, window.location.origin);
-    url.pathname = href;
-    return currentUrl.startsWith("/") ? `${url.pathname}${url.search}` : url.toString();
-  } catch {
-    return null;
-  }
-}
-
-function extractPreviewRoutesFromFileNames(fileNames: string[]): string[] {
-  const routes = new Set<string>();
-
-  const pushRoute = (segments: string[]) => {
-    const normalized = segments
-      .filter(Boolean)
-      .map((segment) => segment.trim())
-      .filter((segment) => segment && !segment.startsWith("(") && !segment.startsWith("@"));
-    if (normalized.some((segment) => segment.includes("[") || segment.includes("]"))) return;
-    routes.add(normalized.length > 0 ? `/${normalized.join("/")}` : "/");
-  };
-
-  for (const rawName of fileNames) {
-    const name = rawName.replace(/\\/g, "/");
-
-    const appMatch = name.match(/^(?:src\/)?app\/(.+)$/);
-    if (appMatch) {
-      const relative = appMatch[1];
-      if (relative === "page.tsx" || relative.endsWith("/page.tsx")) {
-        const routeDir = relative.replace(/\/?page\.tsx$/, "");
-        pushRoute(routeDir ? routeDir.split("/") : []);
-      }
-      continue;
-    }
-
-    const pagesMatch = name.match(/^pages\/(.+)$/);
-    if (pagesMatch) {
-      const relative = pagesMatch[1];
-      if (relative.startsWith("api/")) continue;
-      if (!/\.(tsx|ts|jsx|js)$/.test(relative)) continue;
-      const routeFile = relative.replace(/\.(tsx|ts|jsx|js)$/, "");
-      const routePath = routeFile.endsWith("/index")
-        ? routeFile.slice(0, -"/index".length)
-        : routeFile === "index"
-          ? ""
-          : routeFile;
-      pushRoute(routePath ? routePath.split("/") : []);
-    }
-  }
-
-  const orderedRoutes = Array.from(routes).sort((a, b) => {
-    if (a === "/") return -1;
-    if (b === "/") return 1;
-    if (a.length !== b.length) return a.length - b.length;
-    return a.localeCompare(b);
-  });
-  return orderedRoutes;
-}
-
-interface PreviewPanelProps {
-  chatId: string | null;
-  versionId: string | null;
-  demoUrl: string | null;
-  /** Tier 1 + tier 2 URLs stored on the active version — se `docs/architecture/preview-deploy.md`. */
-  alternatePreviewUrls?: AlternatePreviewUrls;
-  onNavigatePreviewUrl?: (url: string) => void;
-  isLoading?: boolean;
-  onClear?: () => void;
-  onFixPreview?: () => void;
-  refreshToken?: number;
-  onFilesSaved?: () => void;
-  imageGenerationsEnabled?: boolean;
-  imageGenerationsSupported?: boolean;
-  isBlobConfigured?: boolean;
-  awaitingInput?: boolean;
-  awaitingInputQuestion?: string | null;
-  awaitingInputOptions?: string[];
-  /** Last SSE sandbox/build failure for this session (cleared on sandbox-ready or version change). */
-  sandboxBuildError?: { stage: string; message: string } | null;
-  /** `npm run build` result in Vercel sandbox after dev (own-engine); separate from dev-preview. */
-  sandboxProdBuild?: { verified: boolean; logSnippet?: string } | null;
-  sandboxPending?: boolean;
-  /** Server-known sandbox VM id for heartbeat / status (own-engine). */
-  activeSandboxId?: string | null;
-  previewLifecycle?: PreviewLifecycleState;
-  /** Ask controller to verify server session and recover sandbox if needed. */
-  onPreviewSessionSuspect?: () => void;
-  placementMode?: boolean;
-  pendingPlacementItem?: {
-    title: string;
-    description?: string | null;
-  } | null;
-  onPlacementComplete?: (detail: PlacementSelectEventDetail) => void;
-}
-
-type PreviewViewMode = "preview" | "code" | "registry";
-type InspectEngine = "playwright" | "ai" | "map";
-
-type AiMatchResult = {
-  tag: string;
-  text: string | null;
-  className: string | null;
-  filePath: string | null;
-  lineNumber: number | null;
-  confidence: string;
-  reasoning: string | null;
-};
-
-type AiMatchResponse = {
-  success: boolean;
-  model?: string;
-  element?: AiMatchResult | null;
-  tokens?: { input: number; output: number; total: number };
-  cost?: { usd: number; display: string };
-  error?: string;
-};
-
 export function PreviewPanel({
   chatId,
   versionId,
-  demoUrl,
+  previewUrl,
   alternatePreviewUrls,
   onNavigatePreviewUrl,
   isLoading: externalLoading = false,
@@ -359,110 +79,176 @@ export function PreviewPanel({
   onPlacementComplete,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
-  const [files, setFiles] = useState<FileNode[]>([]);
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [filesLoading, setFilesLoading] = useState(false);
-  const [filesError, setFilesError] = useState<string | null>(null);
-  const [previewRoutes, setPreviewRoutes] = useState<string[]>([]);
-  const [previewRoutesLoading, setPreviewRoutesLoading] = useState(false);
-  const [metadataDraft, setMetadataDraft] = useState<StaticMetadataDraft | null>(null);
-  const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
-  const [isMetadataSaving, setIsMetadataSaving] = useState(false);
-  const [heroDraft, setHeroDraft] = useState<HeroContentDraft | null>(null);
-  const [heroSaveError, setHeroSaveError] = useState<string | null>(null);
-  const [isHeroSaving, setIsHeroSaving] = useState(false);
-  const [serviceItemsDraft, setServiceItemsDraft] = useState<ServiceItemDraft[] | null>(null);
-  const [servicesSaveError, setServicesSaveError] = useState<string | null>(null);
-  const [isServicesSaving, setIsServicesSaving] = useState(false);
-  const [contactDraft, setContactDraft] = useState<ContactDetailsDraft | null>(null);
-  const [contactSaveError, setContactSaveError] = useState<string | null>(null);
-  const [isContactSaving, setIsContactSaving] = useState(false);
-  const [faqItemsDraft, setFaqItemsDraft] = useState<FaqItemDraft[] | null>(null);
-  const [faqSaveError, setFaqSaveError] = useState<string | null>(null);
-  const [isFaqSaving, setIsFaqSaving] = useState(false);
-  const [testimonialItemsDraft, setTestimonialItemsDraft] = useState<TestimonialItemDraft[] | null>(null);
-  const [testimonialsSaveError, setTestimonialsSaveError] = useState<string | null>(null);
-  const [isTestimonialsSaving, setIsTestimonialsSaving] = useState(false);
-  const [teamMembersDraft, setTeamMembersDraft] = useState<TeamMemberDraft[] | null>(null);
-  const [teamSaveError, setTeamSaveError] = useState<string | null>(null);
-  const [isTeamSaving, setIsTeamSaving] = useState(false);
-  const [statItemsDraft, setStatItemsDraft] = useState<StatItemDraft[] | null>(null);
-  const [statsSaveError, setStatsSaveError] = useState<string | null>(null);
-  const [isStatsSaving, setIsStatsSaving] = useState(false);
-  const [processStepsDraft, setProcessStepsDraft] = useState<ProcessStepDraft[] | null>(null);
-  const [processSaveError, setProcessSaveError] = useState<string | null>(null);
-  const [isProcessSaving, setIsProcessSaving] = useState(false);
-  const [productItemsDraft, setProductItemsDraft] = useState<ProductItemDraft[] | null>(null);
-  const [productsSaveError, setProductsSaveError] = useState<string | null>(null);
-  const [isProductsSaving, setIsProductsSaving] = useState(false);
-  const [pricingCardsDraft, setPricingCardsDraft] = useState<PricingCardDraft[] | null>(null);
-  const [pricingSaveError, setPricingSaveError] = useState<string | null>(null);
-  const [isPricingSaving, setIsPricingSaving] = useState(false);
-  const [pricingFeatureCardsDraft, setPricingFeatureCardsDraft] =
-    useState<PricingFeatureCardDraft[] | null>(null);
-  const [pricingFeaturesSaveError, setPricingFeaturesSaveError] = useState<string | null>(null);
-  const [isPricingFeaturesSaving, setIsPricingFeaturesSaving] = useState(false);
-  const [categoryItemsDraft, setCategoryItemsDraft] = useState<CategoryItemDraft[] | null>(null);
-  const [categorySaveError, setCategorySaveError] = useState<string | null>(null);
-  const [isCategorySaving, setIsCategorySaving] = useState(false);
-  const [navItemsDraft, setNavItemsDraft] = useState<NavItemDraft[] | null>(null);
-  const [navSaveError, setNavSaveError] = useState<string | null>(null);
-  const [isNavSaving, setIsNavSaving] = useState(false);
-  const [buttonLabelsDraft, setButtonLabelsDraft] = useState<ButtonLabelDraft[] | null>(null);
-  const [buttonLabelsSaveError, setButtonLabelsSaveError] = useState<string | null>(null);
-  const [isButtonLabelsSaving, setIsButtonLabelsSaving] = useState(false);
-  const [blogPostsDraft, setBlogPostsDraft] = useState<BlogPostDraft[] | null>(null);
-  const [blogPostsSaveError, setBlogPostsSaveError] = useState<string | null>(null);
-  const [isBlogPostsSaving, setIsBlogPostsSaving] = useState(false);
-  const [footerLinkGroupsDraft, setFooterLinkGroupsDraft] =
-    useState<FooterLinkGroupDraft[] | null>(null);
-  const [footerLinksSaveError, setFooterLinksSaveError] = useState<string | null>(null);
-  const [isFooterLinksSaving, setIsFooterLinksSaving] = useState(false);
-  const [rawEditMode, setRawEditMode] = useState(false);
-  const [rawCodeDraft, setRawCodeDraft] = useState("");
-  const [rawCodeSaveError, setRawCodeSaveError] = useState<string | null>(null);
-  const [isRawCodeSaving, setIsRawCodeSaving] = useState(false);
+  const isCodeView = viewMode !== "preview";
+  const {
+    files,
+    setFiles,
+    selectedPath,
+    setSelectedPath,
+    filesLoading,
+    filesError,
+    saveSelectedFileContent,
+  } = usePreviewPanelCodeFiles({
+    isCodeView,
+    chatId,
+    versionId,
+    refreshToken,
+    onFilesSaved,
+  });
+  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(chatId, versionId);
+  const selectedFile = useMemo(() => {
+    if (!selectedPath) return null;
+    return findFileNodeByPath(files, selectedPath);
+  }, [files, selectedPath]);
+
+  const {
+    metadataDraft,
+    setMetadataDraft,
+    metadataSaveError,
+    isMetadataSaving,
+    heroDraft,
+    setHeroDraft,
+    heroSaveError,
+    isHeroSaving,
+    serviceItemsDraft,
+    setServiceItemsDraft,
+    servicesSaveError,
+    isServicesSaving,
+    contactDraft,
+    setContactDraft,
+    contactSaveError,
+    isContactSaving,
+    faqItemsDraft,
+    setFaqItemsDraft,
+    faqSaveError,
+    isFaqSaving,
+    testimonialItemsDraft,
+    setTestimonialItemsDraft,
+    testimonialsSaveError,
+    isTestimonialsSaving,
+    teamMembersDraft,
+    setTeamMembersDraft,
+    teamSaveError,
+    isTeamSaving,
+    statItemsDraft,
+    setStatItemsDraft,
+    statsSaveError,
+    isStatsSaving,
+    processStepsDraft,
+    setProcessStepsDraft,
+    processSaveError,
+    isProcessSaving,
+    productItemsDraft,
+    setProductItemsDraft,
+    productsSaveError,
+    isProductsSaving,
+    pricingCardsDraft,
+    setPricingCardsDraft,
+    pricingSaveError,
+    isPricingSaving,
+    pricingFeatureCardsDraft,
+    setPricingFeatureCardsDraft,
+    pricingFeaturesSaveError,
+    isPricingFeaturesSaving,
+    categoryItemsDraft,
+    setCategoryItemsDraft,
+    categorySaveError,
+    isCategorySaving,
+    navItemsDraft,
+    setNavItemsDraft,
+    navSaveError,
+    isNavSaving,
+    buttonLabelsDraft,
+    setButtonLabelsDraft,
+    buttonLabelsSaveError,
+    isButtonLabelsSaving,
+    blogPostsDraft,
+    setBlogPostsDraft,
+    blogPostsSaveError,
+    isBlogPostsSaving,
+    footerLinkGroupsDraft,
+    setFooterLinkGroupsDraft,
+    footerLinksSaveError,
+    isFooterLinksSaving,
+    rawEditMode,
+    setRawEditMode,
+    rawCodeDraft,
+    setRawCodeDraft,
+    rawCodeSaveError,
+    setRawCodeSaveError,
+    isRawCodeSaving,
+    editableMetadata,
+    editableHeroContent,
+    editableServiceItems,
+    editableContactDetails,
+    editableFaqItems,
+    editableTestimonialItems,
+    editableTeamMembers,
+    editableStatItems,
+    editableProcessSteps,
+    editableProductItems,
+    editablePricingCards,
+    editablePricingFeatureCards,
+    editableCategoryItems,
+    editableNavItems,
+    editableButtonLabels,
+    editableBlogPosts,
+    editableFooterLinkGroups,
+    metadataDirty,
+    heroDirty,
+    servicesDirty,
+    contactDirty,
+    faqDirty,
+    testimonialsDirty,
+    teamDirty,
+    statsDirty,
+    processDirty,
+    productsDirty,
+    pricingDirty,
+    pricingFeaturesDirty,
+    categoryDirty,
+    navDirty,
+    buttonLabelsDirty,
+    blogPostsDirty,
+    footerLinksDirty,
+    rawCodeDirty,
+    handleSaveMetadata,
+    handleSaveHeroContent,
+    handleSaveServiceItems,
+    handleSaveContactDetails,
+    handleSaveFaqItems,
+    handleSaveTestimonialItems,
+    handleSaveTeamMembers,
+    handleSaveStatItems,
+    handleSaveProcessSteps,
+    handleSaveProductItems,
+    handleSavePricingCards,
+    handleSavePricingFeatures,
+    handleSaveCategoryItems,
+    handleSaveNavItems,
+    handleSaveButtonLabels,
+    handleSaveBlogPosts,
+    handleSaveFooterLinks,
+    handleSaveRawCode,
+  } = usePreviewPanelCodeDrafts({ selectedFile, saveSelectedFileContent });
+
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
-  const { integrationStatus, integrationError } = useIntegrationStatus(demoUrl);
+  const { integrationStatus, integrationError } = useIntegrationStatus(previewUrl);
   const inspectorEnabled = isBuilderInspectorEnabled();
   const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
-  const [inspectMode, setInspectMode] = useState(false);
   const [inspectEngine, setInspectEngine] = useState<InspectEngine>("map");
-  const [isCapturePending, setIsCapturePending] = useState(false);
   const [inspectStatus, setInspectStatus] = useState<string | null>(null);
-  const [inspectPulse, setInspectPulse] = useState<InspectPulseMarker | null>(null);
   const [lastCodeMatch, setLastCodeMatch] = useState<RegistryMatch | null>(null);
   const [lastAiCostDisplay, setLastAiCostDisplay] = useState<string | null>(null);
   const [totalAiCostUsd, setTotalAiCostUsd] = useState(0);
-  const [elementMap, setElementMap] = useState<ElementMapItem[]>([]);
-  const [elementMapLoading, setElementMapLoading] = useState(false);
-  const [inspectorUnavailable, setInspectorUnavailable] = useState(false);
-  const [hoveredMapElement, setHoveredMapElement] = useState<ElementMapItem | null>(null);
-  const [hoveredPlacement, setHoveredPlacement] = useState<InsertionPoint | null>(null);
-  const inspectPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
   const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
-  const previewIssueKeysRef = useRef<Set<string>>(new Set());
-  const renderOutcomeStateRef = useRef(INITIAL_PREVIEW_RENDER_OUTCOME_STATE);
-  const inspectFetchTokenRef = useRef(0);
-
-  const updateFileTreeContent = useCallback(
-    (nodes: FileNode[], targetPath: string, nextContent: string): FileNode[] =>
-      nodes.map((node) => {
-        if (node.type === "file" && node.path === targetPath) {
-          return { ...node, content: nextContent };
-        }
-        if (node.children?.length) {
-          return {
-            ...node,
-            children: updateFileTreeContent(node.children, targetPath, nextContent),
-          };
-        }
-        return node;
-      }),
-    [],
-  );
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const reportOwnEngineRenderFailureSink = useRef<(payload: PreviewIssuePayload) => void>(() => {});
+  const reportOwnEngineRenderFailure = useCallback((payload: PreviewIssuePayload) => {
+    reportOwnEngineRenderFailureSink.current(payload);
+  }, []);
 
   const buildPreviewSrc = useCallback((url: string, token?: number) => {
     let src = url;
@@ -473,107 +259,12 @@ export function PreviewPanel({
     return src;
   }, []);
 
-  const reportPreviewIssue = useCallback(
-    async (payload: PreviewIssuePayload) => {
-      if (!chatId || !versionId) return;
-
-      const message = payload.message?.trim();
-      if (!message) return;
-
-      const kind = payload.kind?.trim() || "runtime";
-      const code = payload.code?.trim() || previewDiagnosticCodeFromKind(kind);
-      const stage = payload.stage?.trim() || previewDiagnosticStageFromKind(kind);
-      const source = payload.source?.trim() || "own-engine-preview";
-      const dedupeKey = `${chatId}:${versionId}:${code}:${message}`;
-      if (previewIssueKeysRef.current.has(dedupeKey)) return;
-      previewIssueKeysRef.current.add(dedupeKey);
-
-      const reason = describePreviewDiagnosticCode(code) ?? "Previewfel upptackt.";
-      const meta = {
-        source,
-        demoUrl,
-        kind,
-        previewKind: kind,
-        previewCode: code,
-        previewStage: stage,
-        previewSource: source,
-        name: payload.name ?? null,
-        message,
-        stack: payload.stack ?? null,
-      };
-
-      try {
-        await fetch(
-          `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              level: "error",
-              category: "preview",
-              message: reason,
-              meta,
-            }),
-          },
-        );
-      } catch (error) {
-        console.warn("[Preview] Failed to persist preview issue:", error);
-      }
-
-      if (shouldAutoFixPreviewDiagnostic(code)) {
-        dispatchAutoFixEvent({
-          chatId,
-          versionId,
-          reasons: [reason],
-          meta,
-        });
-        toast.error("Preview-fel upptäckt. Försöker reparera automatiskt.", { duration: 5000 });
-      } else {
-        toast.error(reason, { duration: 5000 });
-      }
-    },
-    [chatId, versionId, demoUrl],
-  );
-
-  const reportOwnEngineRenderFailure = useCallback(
-    (payload: PreviewIssuePayload) => {
-      void reportPreviewIssue(payload);
-      if (!chatId || !versionId) return;
-      if (!shouldReportPreviewOutcome(renderOutcomeStateRef.current, versionId, "failure")) return;
-      renderOutcomeStateRef.current = nextPreviewRenderOutcomeState(versionId, "failure");
-      const errorMsg =
-        typeof payload.message === "string" && payload.message.trim()
-          ? payload.message
-          : "Preview render error";
-      const errorKind = typeof payload.kind === "string" ? payload.kind : "runtime";
-      const errorCode =
-        typeof payload.code === "string" ? payload.code : previewDiagnosticCodeFromKind(errorKind);
-      const errorStage =
-        typeof payload.stage === "string"
-          ? payload.stage
-          : previewDiagnosticStageFromKind(errorKind);
-      void reportRenderOutcome({
-        chatId,
-        versionId,
-        success: false,
-        source: "own-engine",
-        demoUrl: demoUrl ?? undefined,
-        errorMessage: errorMsg,
-        errorCategory: errorKind,
-        errorCode,
-        errorStage,
-      });
-    },
-    [chatId, versionId, demoUrl, reportPreviewIssue],
-  );
-
   const isOwnEnginePreview = useMemo(() => {
-    if (!demoUrl) return false;
-    return isCompatibilityShimPreviewUrl(demoUrl);
-  }, [demoUrl]);
+    if (!previewUrl) return false;
+    return isCompatibilityShimPreviewUrl(previewUrl);
+  }, [previewUrl]);
 
   const {
-    iframeRef,
     iframeLoading,
     setIframeLoading,
     iframeError,
@@ -585,26 +276,40 @@ export function PreviewPanel({
     clearPreviewReadyTimer,
     handleIframeLoad,
   } = usePreviewIframe({
-    demoUrl,
+    previewUrl,
     refreshToken,
     chatId,
     versionId,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
+    iframeRef,
+  });
+
+  usePreviewPanelOwnEnginePreviewTelemetry({
+    chatId,
+    versionId,
+    previewUrl,
+    iframeRef,
+    setIframeLoading,
+    setIframeError,
+    setIframeErrorMessage,
+    onNavigatePreviewUrl,
+    reportOwnEngineRenderFailureSink,
   });
 
   const fetchFilesForRegistry = useCallback(async () => {
     if (!chatId || !versionId || files.length > 0) return;
     try {
-      const response = await fetch(
-        `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
-      );
-      const data = (await response.json().catch(() => null)) as {
-        files?: Array<{ name: string; content: string; locked?: boolean }>;
-      } | null;
+      const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
       if (!response.ok) return;
-      const flatFiles = Array.isArray(data?.files) ? data.files : [];
+      const flatFiles = Array.isArray(data?.files)
+        ? data.files.map((f) => ({
+            name: f.name,
+            content: f.content ?? "",
+            locked: f.locked,
+          }))
+        : [];
       if (flatFiles.length > 0) {
         setFiles(buildFileTree(flatFiles));
       }
@@ -613,127 +318,39 @@ export function PreviewPanel({
     }
   }, [chatId, versionId, files.length]);
 
-  const fetchPreviewRoutes = useCallback(async () => {
-    if (!chatId || !versionId) {
-      setPreviewRoutes([]);
-      return;
-    }
-
-    setPreviewRoutesLoading(true);
-    try {
-      const response = await fetch(
-        `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
-      );
-      const data = (await response.json().catch(() => null)) as {
-        files?: Array<{ name: string }>;
-      } | null;
-      if (!response.ok) {
-        setPreviewRoutes([]);
-        return;
-      }
-      const fileNames = Array.isArray(data?.files) ? data.files.map((file) => file.name) : [];
-      setPreviewRoutes(extractPreviewRoutesFromFileNames(fileNames));
-    } catch {
-      setPreviewRoutes([]);
-    } finally {
-      setPreviewRoutesLoading(false);
-    }
-  }, [chatId, versionId]);
-
-  const fetchElementMap = useCallback(
-    async (
-      url: string,
-      width: number,
-      height: number,
-      requestToken = inspectFetchTokenRef.current,
-    ) => {
-      if (!inspectorEnabled) {
-        if (requestToken === inspectFetchTokenRef.current) {
-          setElementMap([]);
-          setElementMapLoading(false);
-          setInspectorUnavailable(true);
-        }
-        return 0;
-      }
-      if (requestToken !== inspectFetchTokenRef.current) return 0;
-      setElementMapLoading(true);
-      setInspectorUnavailable(false);
-      try {
-        const inspectorUrl = url.startsWith("/") ? `${window.location.origin}${url}` : url;
-
-        const isOwnEnginePreview = isCompatibilityShimPreviewUrl(inspectorUrl);
-
-        const res = await fetch("/api/inspector-element-map", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: inspectorUrl,
-            viewportWidth: width,
-            viewportHeight: height,
-            maxElements: 300,
-          }),
-        });
-        const data = (await res.json().catch(() => null)) as ElementMapResponse | null;
-        if (res.ok && data?.success && Array.isArray(data.elements)) {
-          if (requestToken !== inspectFetchTokenRef.current) return 0;
-          setElementMap(data.elements);
-          return data.elements.length;
-        }
-        if (requestToken !== inspectFetchTokenRef.current) return 0;
-        setElementMap([]);
-        setInspectorUnavailable(true);
-        if (isOwnEnginePreview) {
-          console.info(
-            "[inspector] Own-engine preview — inspector requires Playwright or inspector-worker to be running.",
-          );
-        }
-        return 0;
-      } catch {
-        if (requestToken !== inspectFetchTokenRef.current) return 0;
-        setElementMap([]);
-        setInspectorUnavailable(true);
-        return 0;
-      } finally {
-        if (requestToken === inspectFetchTokenRef.current) {
-          setElementMapLoading(false);
-        }
-      }
-    },
-    [inspectorEnabled],
-  );
-
-  const handleToggleInspect = useCallback(() => {
-    if (!inspectorEnabled || !demoUrl) return;
-    setInspectMode((prev) => {
-      const next = !prev;
-      const requestToken = ++inspectFetchTokenRef.current;
-      if (next) {
-        setIframeLoading(true);
-        setIframeError(false);
-        setIframeErrorMessage(null);
-        const iframe = iframeRef.current;
-        if (iframe) {
-          iframe.src = buildPreviewSrc(demoUrl, Date.now());
-        }
-        fetchFilesForRegistry();
-        const container = iframeRef.current?.parentElement;
-        const w = container?.clientWidth || 1280;
-        const h = container?.clientHeight || 800;
-        fetchElementMap(demoUrl, w, h, requestToken).then((count) => {
-          if (requestToken === inspectFetchTokenRef.current && count > 0) {
-            setInspectStatus(`Elementkarta laddad: ${count} element. Hovra för att identifiera.`);
-          }
-        });
-      } else {
-        setHoveredMapElement(null);
-        setElementMap([]);
-        setElementMapLoading(false);
-      }
-      return next;
-    });
-    setLastCodeMatch(null);
-    setInspectStatus("Laddar elementkarta...");
-  }, [buildPreviewSrc, demoUrl, fetchFilesForRegistry, fetchElementMap, inspectorEnabled]);
+  const {
+    inspectMode,
+    setInspectMode,
+    elementMap,
+    elementMapLoading,
+    inspectorUnavailable,
+    hoveredMapElement,
+    setHoveredMapElement,
+    hoveredPlacement,
+    setHoveredPlacement,
+    handleToggleInspect,
+    sectionZones,
+    handlePlacementMouseMove,
+    handlePlacementClick,
+    handleInspectMouseMove,
+  } = usePreviewPanelInspectMapPlacement({
+    inspectorEnabled,
+    previewUrl,
+    versionId,
+    placementMode: Boolean(placementMode),
+    iframeLoading,
+    externalLoading,
+    iframeRef,
+    buildPreviewSrc,
+    setIframeLoading,
+    setIframeError,
+    setIframeErrorMessage,
+    fetchFilesForRegistry,
+    setInspectStatus,
+    setLastCodeMatch,
+    onPlacementComplete,
+    inspectEngine,
+  });
 
   const flatFilesForAi = useMemo(() => {
     const result: Array<{ name: string; content: string }> = [];
@@ -748,476 +365,31 @@ export function PreviewPanel({
     return result;
   }, [files]);
 
-  const sectionZones = useMemo(() => extractSectionZones(elementMap), [elementMap]);
-
-  const handlePlacementMouseMove = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      if (!placementMode) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
-      const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
-      const yPercent = Number(((y / rect.height) * 100).toFixed(2));
-      const insertion = nearestInsertionPoint(yPercent, sectionZones);
-      setHoveredPlacement(insertion);
-    },
-    [placementMode, sectionZones],
-  );
-
-  const handlePlacementClick = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      if (!demoUrl || !placementMode || iframeLoading || externalLoading) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
-
-      const x = Math.min(Math.max(event.clientX - rect.left, 0), rect.width);
-      const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
-      const xPercent = Number(((x / rect.width) * 100).toFixed(2));
-      const yPercent = Number(((y / rect.height) * 100).toFixed(2));
-      const insertion = nearestInsertionPoint(yPercent, sectionZones);
-
-      const detail: PlacementSelectEventDetail = {
-        id: `placement-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        demoUrl,
-        xPercent,
-        yPercent,
-        lineYPercent: insertion.lineYPercent,
-        viewportWidth: Math.round(rect.width),
-        viewportHeight: Math.round(rect.height),
-        placement: insertion.placement,
-        placementLabel: insertion.label,
-        anchorSection: insertion.anchorSection,
-      };
-      dispatchPlacementSelectEvent(detail);
-      onPlacementComplete?.(detail);
-      toast.success(`Placering vald: ${insertion.label}`);
-    },
-    [demoUrl, placementMode, iframeLoading, externalLoading, sectionZones, onPlacementComplete],
-  );
-
-  const handleCaptureClick = useCallback(
-    async (event: MouseEvent<HTMLDivElement>) => {
-      if (!inspectorEnabled || !demoUrl || !inspectMode || isCapturePending || iframeLoading || externalLoading) {
-        return;
-      }
-
-      const rect = event.currentTarget.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
-
-      const x = Math.min(Math.max(event.clientX - rect.left, 0), rect.width);
-      const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
-      const xPercent = Number(((x / rect.width) * 100).toFixed(2));
-      const yPercent = Number(((y / rect.height) * 100).toFixed(2));
-      const captureId = `inspect-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      setInspectPulse({ x, y, key: Date.now() });
-      if (inspectPulseTimerRef.current) clearTimeout(inspectPulseTimerRef.current);
-      inspectPulseTimerRef.current = setTimeout(() => setInspectPulse(null), 900);
-
-      setIsCapturePending(true);
-      setLastCodeMatch(null);
-      setLastAiCostDisplay(null);
-
-      if (inspectEngine === "map") {
-        const el = hoveredMapElement;
-        if (!el) {
-          setIsCapturePending(false);
-          toast("Hovra över ett element först.");
-          return;
-        }
-
-        const codeMatch = matchCapturedElement(elementRegistryRef.current, {
-          tag: el.tag,
-          id: el.id,
-          className: el.className,
-          text: el.text,
-          selector: el.selector,
-        });
-        setLastCodeMatch(codeMatch);
-
-        const matchHint = codeMatch
-          ? ` → ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}`
-          : "";
-        setInspectStatus(`<${el.tag}>${el.text ? ` "${el.text.slice(0, 50)}"` : ""}${matchHint}`);
-        toast.success(
-          `Valde <${el.tag}>${codeMatch ? ` i ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}` : ""}`,
-        );
-
-        dispatchInspectCaptureEvent({
-          id: captureId,
-          demoUrl,
-          xPercent,
-          yPercent,
-          viewportWidth: Math.round(rect.width),
-          viewportHeight: Math.round(rect.height),
-          pointSummary: `Map: <${el.tag}> vid ${xPercent}%/${yPercent}%${el.text ? ` "${el.text.slice(0, 60)}"` : ""}${matchHint}`,
-          element: {
-            tag: el.tag,
-            id: el.id,
-            className: el.className,
-            text: el.text,
-            ariaLabel: null,
-            role: null,
-            href: null,
-            selector: el.selector,
-            nearestHeading: null,
-          },
-          source: "local",
-        });
-
-        setIsCapturePending(false);
-        return;
-      }
-
-      if (inspectEngine === "ai") {
-        setInspectStatus("AI analyserar klickposition...");
-        try {
-          let aiFiles = flatFilesForAi;
-          if (aiFiles.length === 0 && chatId && versionId) {
-            setInspectStatus("Hämtar kodfiler...");
-            try {
-              const filesRes = await fetch(
-                `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
-              );
-              const filesData = (await filesRes.json().catch(() => null)) as {
-                files?: Array<{ name: string; content: string }>;
-              } | null;
-              if (filesRes.ok && Array.isArray(filesData?.files) && filesData.files.length > 0) {
-                aiFiles = filesData.files;
-                setFiles(buildFileTree(filesData.files));
-              }
-            } catch {
-              /* best-effort */
-            }
-            setInspectStatus("AI analyserar klickposition...");
-          }
-
-          const response = await fetch("/api/inspector-ai-match", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              xPercent,
-              yPercent,
-              viewportWidth: Math.round(rect.width),
-              viewportHeight: Math.round(rect.height),
-              files: aiFiles,
-            }),
-          });
-          const data = (await response.json().catch(() => null)) as AiMatchResponse | null;
-
-          if (data?.cost?.display) setLastAiCostDisplay(data.cost.display);
-          if (data?.cost?.usd) setTotalAiCostUsd((prev) => prev + data.cost!.usd);
-
-          if (!response.ok || !data?.success) {
-            toast.error(data?.error || "AI-matchning misslyckades.");
-            setInspectStatus(`AI-fel: ${data?.error || "okänt"}`);
-            return;
-          }
-
-          const el = data.element;
-          if (!el || !el.filePath) {
-            setInspectStatus(
-              `AI kunde inte identifiera elementet vid ${xPercent}%/${yPercent}%. (${data.cost?.display || ""})`,
-            );
-            return;
-          }
-
-          const registryHit = matchCapturedElement(elementRegistryRef.current, {
-            tag: el.tag,
-            className: el.className,
-            text: el.text,
-          });
-          setLastCodeMatch(registryHit);
-
-          const tokenInfo = data.tokens ? ` ${data.tokens.total} tokens` : "";
-          const costInfo = data.cost?.display ? ` (${data.cost.display})` : "";
-          const confLabel =
-            el.confidence === "high" ? "hög" : el.confidence === "medium" ? "medel" : "låg";
-          setInspectStatus(
-            `AI: <${el.tag}> i ${el.filePath}:${el.lineNumber ?? "?"} [${confLabel}]${tokenInfo}${costInfo}` +
-              (el.reasoning ? `\n${el.reasoning}` : ""),
-          );
-
-          if (registryHit) {
-            toast.success(`AI hittade <${el.tag}> i ${el.filePath}:${el.lineNumber}`);
-          } else {
-            toast(
-              `AI-gissning: <${el.tag}> i ${el.filePath}:${el.lineNumber} (${confLabel} konfidens)`,
-            );
-          }
-
-          dispatchInspectCaptureEvent({
-            id: captureId,
-            demoUrl,
-            xPercent,
-            yPercent,
-            viewportWidth: Math.round(rect.width),
-            viewportHeight: Math.round(rect.height),
-            pointSummary: `AI: <${el.tag}> vid ${el.filePath}:${el.lineNumber} (${confLabel})`,
-            element: {
-              tag: el.tag,
-              id: null,
-              className: el.className || null,
-              text: el.text || null,
-              ariaLabel: null,
-              role: null,
-              href: null,
-              selector: null,
-              nearestHeading: null,
-            },
-            source: "local",
-          });
-        } catch {
-          toast.error("Nätverksfel vid AI-matchning.");
-          setInspectStatus("AI-matchning misslyckades (nätverksfel).");
-        } finally {
-          setIsCapturePending(false);
-        }
-        return;
-      }
-
-      setInspectStatus("Skapar punktbild (Playwright)...");
-
-      try {
-        const response = await fetch("/api/inspector-capture", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: demoUrl,
-            xPercent,
-            yPercent,
-            viewportWidth: Math.round(rect.width),
-            viewportHeight: Math.round(rect.height),
-          }),
-        });
-
-        const data = (await response.json().catch(() => null)) as CaptureResponse | null;
-
-        dispatchInspectCaptureEvent({
-          id: captureId,
-          demoUrl,
-          xPercent,
-          yPercent,
-          viewportWidth: Math.round(rect.width),
-          viewportHeight: Math.round(rect.height),
-          capturedUrl: data?.capturedUrl,
-          previewDataUrl: data?.previewDataUrl,
-          pointSummary: data?.pointSummary,
-          element: data?.element
-            ? {
-                tag: data.element.tag || "unknown",
-                id: data.element.id || null,
-                className: data.element.className || null,
-                text: data.element.text || null,
-                ariaLabel: data.element.ariaLabel || null,
-                role: data.element.role || null,
-                href: data.element.href || null,
-                selector: data.element.selector || null,
-                nearestHeading: data.element.nearestHeading || null,
-              }
-            : undefined,
-          clip: data?.clip,
-          source: data?.source,
-          error: response.ok ? undefined : data?.error || "Kunde inte skapa punktbild",
-        });
-
-        if (!response.ok) {
-          toast.error(data?.error || "Punkt tillagd utan bild.");
-          setInspectStatus("Punkt tillagd utan bild (kunde inte skapa preview).");
-          return;
-        }
-
-        toast.success("Punkt tillagd i chatten.");
-
-        const codeMatch = data?.element
-          ? matchCapturedElement(elementRegistryRef.current, {
-              tag: data.element.tag,
-              id: data.element.id,
-              className: data.element.className,
-              text: data.element.text,
-              selector: data.element.selector,
-            })
-          : null;
-        setLastCodeMatch(codeMatch);
-
-        if (data?.pointSummary) {
-          const matchHint = codeMatch
-            ? ` → ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}`
-            : "";
-          setInspectStatus(
-            `${data.pointSummary}${data.source ? ` (${data.source})` : ""}${matchHint}`,
-          );
-        } else {
-          setInspectStatus(`Senaste punkt: x ${xPercent}% • y ${yPercent}%`);
-        }
-        if (data?.element?.tag && ["html", "body"].includes(data.element.tag)) {
-          toast(
-            "Tip: klicka närmare själva elementet (t.ex. knapptexten) för mer exakt DOM-träff.",
-          );
-        }
-      } catch {
-        dispatchInspectCaptureEvent({
-          id: captureId,
-          demoUrl,
-          xPercent,
-          yPercent,
-          viewportWidth: Math.round(rect.width),
-          viewportHeight: Math.round(rect.height),
-          error: "Nätverksfel vid punktfångst",
-        });
-        toast.error("Nätverksfel vid punktfångst.");
-        setInspectStatus("Punkt tillagd utan bild (nätverksfel).");
-      } finally {
-        setIsCapturePending(false);
-      }
-    },
-    [
-      demoUrl,
-      inspectMode,
-      inspectEngine,
-      isCapturePending,
-      iframeLoading,
-      externalLoading,
-      flatFilesForAi,
-      chatId,
-      versionId,
-      hoveredMapElement,
-      inspectorEnabled,
-    ],
-  );
+  const { isCapturePending, inspectPulse, handleCaptureClick } = usePreviewPanelInspectCapture({
+    inspectorEnabled,
+    previewUrl,
+    inspectMode,
+    iframeLoading,
+    externalLoading,
+    inspectEngine,
+    hoveredMapElement,
+    chatId,
+    versionId,
+    flatFilesForAi,
+    elementRegistryRef,
+    setFiles,
+    setInspectStatus,
+    setLastCodeMatch,
+    setLastAiCostDisplay,
+    setTotalAiCostUsd,
+  });
 
   const iframeRunbookLines = useMemo(
     () => (iframeError ? previewRunbookLinesForCode(iframeDiagnosticCode) : []),
     [iframeError, iframeDiagnosticCode],
   );
 
-  useEffect(() => {
-    return () => {
-      if (inspectPulseTimerRef.current) {
-        clearTimeout(inspectPulseTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    previewIssueKeysRef.current.clear();
-    renderOutcomeStateRef.current = INITIAL_PREVIEW_RENDER_OUTCOME_STATE;
-  }, [chatId, versionId, demoUrl]);
-
-  useEffect(() => {
-    void fetchPreviewRoutes();
-  }, [fetchPreviewRoutes]);
-
-  useEffect(() => {
-    const handlePreviewMessage = (event: MessageEvent<PreviewIframeMessage>) => {
-      const iframeWindow = iframeRef.current?.contentWindow;
-      if (!iframeWindow || event.source !== iframeWindow) return;
-      const data = event.data;
-      if (!data || typeof data !== "object" || data.source !== "sajtmaskin-preview") return;
-      if (!isOwnEnginePreview) return;
-
-      if (data.type === "navigation-attempt") {
-        const href = typeof data.payload?.href === "string" ? data.payload.href : "";
-        if (!demoUrl || !href) return;
-        const nextUrl = buildOwnEngineRoutePreviewUrl(demoUrl, href);
-        if (nextUrl && nextUrl !== demoUrl) {
-          onNavigatePreviewUrl?.(nextUrl);
-        }
-        return;
-      }
-
-      if (data.type === "preview-ready" && chatId && versionId) {
-        setIframeLoading(false);
-        setIframeError(false);
-        setIframeErrorMessage(null);
-        if (!shouldReportPreviewOutcome(renderOutcomeStateRef.current, versionId, "success")) {
-          return;
-        }
-        renderOutcomeStateRef.current = nextPreviewRenderOutcomeState(versionId, "success");
-        void reportRenderOutcome({
-          chatId,
-          versionId,
-          success: true,
-          source: "own-engine",
-          demoUrl: demoUrl ?? undefined,
-        });
-        return;
-      }
-
-      if (data.type !== "preview-error") return;
-      reportOwnEngineRenderFailure(data.payload ?? {});
-    };
-
-    window.addEventListener("message", handlePreviewMessage);
-    return () => window.removeEventListener("message", handlePreviewMessage);
-  }, [
-    demoUrl,
-    chatId,
-    versionId,
-    isOwnEnginePreview,
-    onNavigatePreviewUrl,
-    reportOwnEngineRenderFailure,
-  ]);
-
-  useEffect(() => {
-    if (!demoUrl || !inspectorEnabled) return;
-    setElementMap([]);
-    let cancelled = false;
-    const sleep = (ms: number) =>
-      new Promise<void>((resolve) => {
-        const timerId = window.setTimeout(() => {
-          window.clearTimeout(timerId);
-          resolve();
-        }, ms);
-      });
-
-    const run = async () => {
-      // Retry map extraction up to ~10s to avoid false empty/502 during warmup.
-      const delays = [2000, 3000, 5000];
-      for (const delay of delays) {
-        await sleep(delay);
-        if (cancelled) return;
-        const container = iframeRef.current?.parentElement;
-        const w = container?.clientWidth || 1280;
-        const h = container?.clientHeight || 800;
-        const count = await fetchElementMap(demoUrl, w, h);
-        if (cancelled) return;
-        if (count > 0) return;
-      }
-    };
-
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [demoUrl, versionId, fetchElementMap, inspectorEnabled]);
-
-  useEffect(() => {
-    if (inspectorEnabled) return;
-    setInspectMode(false);
-    setHoveredMapElement(null);
-    setElementMap([]);
-    setElementMapLoading(false);
-    setHoveredPlacement(null);
-  }, [inspectorEnabled]);
-
-  useEffect(() => {
-    if (!placementMode) return;
-    setInspectMode(false);
-    setHoveredMapElement(null);
-  }, [placementMode]);
-
-  useEffect(() => {
-    if (!placementMode || !demoUrl || !inspectorEnabled) {
-      setHoveredPlacement(null);
-      return;
-    }
-    const container = iframeRef.current?.parentElement;
-    const w = container?.clientWidth || 1280;
-    const h = container?.clientHeight || 800;
-    void fetchElementMap(demoUrl, w, h);
-  }, [placementMode, demoUrl, fetchElementMap, inspectorEnabled]);
-
   const canShowCode = Boolean(chatId && versionId);
-  const isCodeView = viewMode !== "preview";
   const showElementRegistry = viewMode === "registry";
 
   const handleToggleCode = useCallback(() => {
@@ -1235,885 +407,6 @@ export function PreviewPanel({
       setViewMode((prev) => (prev === "registry" ? "preview" : "registry"));
     });
   }, [canShowCode, startViewSwitchTransition]);
-
-  const selectedFile = useMemo(() => {
-    if (!selectedPath) return null;
-    const walk = (nodes: FileNode[]): FileNode | null => {
-      for (const node of nodes) {
-        if (node.path === selectedPath) return node;
-        if (node.type === "folder" && node.children) {
-          const hit = walk(node.children);
-          if (hit) return hit;
-        }
-      }
-      return null;
-    };
-    return walk(files);
-  }, [files, selectedPath]);
-
-  const editableMetadata = useMemo(
-    () =>
-      selectedFile
-        ? readStaticMetadataDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableHeroContent = useMemo(
-    () =>
-      selectedFile
-        ? readHeroContentDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableServiceItems = useMemo(
-    () =>
-      selectedFile
-        ? readServiceItemsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableContactDetails = useMemo(
-    () => (selectedFile ? readContactDetailsDraft(selectedFile.content || "") : null),
-    [selectedFile],
-  );
-
-  const editableFaqItems = useMemo(
-    () =>
-      selectedFile
-        ? readFaqItemsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableTestimonialItems = useMemo(
-    () =>
-      selectedFile
-        ? readTestimonialItemsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableTeamMembers = useMemo(
-    () =>
-      selectedFile
-        ? readTeamMembers(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableStatItems = useMemo(
-    () =>
-      selectedFile
-        ? readStatItemsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableProcessSteps = useMemo(
-    () =>
-      selectedFile
-        ? readProcessStepsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableProductItems = useMemo(
-    () =>
-      selectedFile
-        ? readProductItemsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editablePricingCards = useMemo(
-    () =>
-      selectedFile
-        ? readPricingCardsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editablePricingFeatureCards = useMemo(
-    () =>
-      selectedFile
-        ? readPricingFeatureCardsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableCategoryItems = useMemo(
-    () =>
-      selectedFile
-        ? readCategoryItemsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  const editableNavItems = useMemo(
-    () => (selectedFile ? readNavItemsDraft(selectedFile.path, selectedFile.content || "") : null),
-    [selectedFile],
-  );
-
-  const editableButtonLabels = useMemo(
-    () =>
-      selectedFile ? readButtonLabelsDraft(selectedFile.path, selectedFile.content || "") : null,
-    [selectedFile],
-  );
-
-  const editableBlogPosts = useMemo(
-    () => (selectedFile ? readBlogPostsDraft(selectedFile.path, selectedFile.content || "") : null),
-    [selectedFile],
-  );
-
-  const editableFooterLinkGroups = useMemo(
-    () =>
-      selectedFile
-        ? readFooterLinkGroupsDraft(selectedFile.path, selectedFile.content || "")
-        : null,
-    [selectedFile],
-  );
-
-  useEffect(() => {
-    setMetadataDraft(editableMetadata ? { ...editableMetadata } : null);
-    setMetadataSaveError(null);
-  }, [editableMetadata, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setHeroDraft(editableHeroContent ? { ...editableHeroContent } : null);
-    setHeroSaveError(null);
-  }, [editableHeroContent, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setServiceItemsDraft(
-      editableServiceItems ? editableServiceItems.map((item) => ({ ...item })) : null,
-    );
-    setServicesSaveError(null);
-  }, [editableServiceItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setContactDraft(editableContactDetails ? { ...editableContactDetails } : null);
-    setContactSaveError(null);
-  }, [editableContactDetails, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setFaqItemsDraft(
-      editableFaqItems ? editableFaqItems.map((item) => ({ ...item })) : null,
-    );
-    setFaqSaveError(null);
-  }, [editableFaqItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setTestimonialItemsDraft(
-      editableTestimonialItems
-        ? editableTestimonialItems.map((item) => ({ ...item }))
-        : null,
-    );
-    setTestimonialsSaveError(null);
-  }, [editableTestimonialItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setTeamMembersDraft(
-      editableTeamMembers ? editableTeamMembers.map((item) => ({ ...item })) : null,
-    );
-    setTeamSaveError(null);
-  }, [editableTeamMembers, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setStatItemsDraft(editableStatItems ? editableStatItems.map((item) => ({ ...item })) : null);
-    setStatsSaveError(null);
-  }, [editableStatItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setProcessStepsDraft(
-      editableProcessSteps ? editableProcessSteps.map((item) => ({ ...item })) : null,
-    );
-    setProcessSaveError(null);
-  }, [editableProcessSteps, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setProductItemsDraft(
-      editableProductItems ? editableProductItems.map((item) => ({ ...item })) : null,
-    );
-    setProductsSaveError(null);
-  }, [editableProductItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setPricingCardsDraft(
-      editablePricingCards ? editablePricingCards.map((item) => ({ ...item })) : null,
-    );
-    setPricingSaveError(null);
-  }, [editablePricingCards, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setPricingFeatureCardsDraft(
-      editablePricingFeatureCards
-        ? editablePricingFeatureCards.map((item) => ({
-            ...item,
-            features: [...item.features],
-          }))
-        : null,
-    );
-    setPricingFeaturesSaveError(null);
-  }, [editablePricingFeatureCards, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setCategoryItemsDraft(
-      editableCategoryItems ? editableCategoryItems.map((item) => ({ ...item })) : null,
-    );
-    setCategorySaveError(null);
-  }, [editableCategoryItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setNavItemsDraft(editableNavItems ? editableNavItems.map((item) => ({ ...item })) : null);
-    setNavSaveError(null);
-  }, [editableNavItems, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setButtonLabelsDraft(
-      editableButtonLabels ? editableButtonLabels.map((item) => ({ ...item })) : null,
-    );
-    setButtonLabelsSaveError(null);
-  }, [editableButtonLabels, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setBlogPostsDraft(editableBlogPosts ? editableBlogPosts.map((item) => ({ ...item })) : null);
-    setBlogPostsSaveError(null);
-  }, [editableBlogPosts, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setFooterLinkGroupsDraft(
-      editableFooterLinkGroups
-        ? editableFooterLinkGroups.map((group) => ({
-            ...group,
-            items: [...group.items],
-          }))
-        : null,
-    );
-    setFooterLinksSaveError(null);
-  }, [editableFooterLinkGroups, selectedFile?.path, selectedFile?.content]);
-
-  useEffect(() => {
-    setRawEditMode(false);
-    setRawCodeDraft(selectedFile?.content || "");
-    setRawCodeSaveError(null);
-  }, [selectedFile?.path, selectedFile?.content]);
-
-  const metadataDirty = Boolean(
-    metadataDraft &&
-      editableMetadata &&
-      (metadataDraft.title !== editableMetadata.title ||
-        metadataDraft.description !== editableMetadata.description),
-  );
-
-  const heroDirty = Boolean(
-    heroDraft &&
-      editableHeroContent &&
-      (heroDraft.title !== editableHeroContent.title ||
-        heroDraft.intro !== editableHeroContent.intro ||
-        heroDraft.ctaLabel !== editableHeroContent.ctaLabel),
-  );
-
-  const servicesDirty = Boolean(
-    serviceItemsDraft &&
-      editableServiceItems &&
-      JSON.stringify(serviceItemsDraft) !== JSON.stringify(editableServiceItems),
-  );
-
-  const contactDirty = Boolean(
-    contactDraft &&
-      editableContactDetails &&
-      (contactDraft.email !== editableContactDetails.email ||
-        contactDraft.phone !== editableContactDetails.phone),
-  );
-
-  const faqDirty = Boolean(
-    faqItemsDraft &&
-      editableFaqItems &&
-      JSON.stringify(faqItemsDraft) !== JSON.stringify(editableFaqItems),
-  );
-
-  const testimonialsDirty = Boolean(
-    testimonialItemsDraft &&
-      editableTestimonialItems &&
-      JSON.stringify(testimonialItemsDraft) !== JSON.stringify(editableTestimonialItems),
-  );
-
-  const teamDirty = Boolean(
-    teamMembersDraft &&
-      editableTeamMembers &&
-      JSON.stringify(teamMembersDraft) !== JSON.stringify(editableTeamMembers),
-  );
-
-  const statsDirty = Boolean(
-    statItemsDraft &&
-      editableStatItems &&
-      JSON.stringify(statItemsDraft) !== JSON.stringify(editableStatItems),
-  );
-
-  const processDirty = Boolean(
-    processStepsDraft &&
-      editableProcessSteps &&
-      JSON.stringify(processStepsDraft) !== JSON.stringify(editableProcessSteps),
-  );
-
-  const productsDirty = Boolean(
-    productItemsDraft &&
-      editableProductItems &&
-      JSON.stringify(productItemsDraft) !== JSON.stringify(editableProductItems),
-  );
-
-  const pricingDirty = Boolean(
-    pricingCardsDraft &&
-      editablePricingCards &&
-      JSON.stringify(pricingCardsDraft) !== JSON.stringify(editablePricingCards),
-  );
-
-  const pricingFeaturesDirty = Boolean(
-    pricingFeatureCardsDraft &&
-      editablePricingFeatureCards &&
-      JSON.stringify(pricingFeatureCardsDraft) !== JSON.stringify(editablePricingFeatureCards),
-  );
-
-  const categoryDirty = Boolean(
-    categoryItemsDraft &&
-      editableCategoryItems &&
-      JSON.stringify(categoryItemsDraft) !== JSON.stringify(editableCategoryItems),
-  );
-
-  const navDirty = Boolean(
-    navItemsDraft &&
-      editableNavItems &&
-      JSON.stringify(navItemsDraft) !== JSON.stringify(editableNavItems),
-  );
-
-  const buttonLabelsDirty = Boolean(
-    buttonLabelsDraft &&
-      editableButtonLabels &&
-      JSON.stringify(buttonLabelsDraft) !== JSON.stringify(editableButtonLabels),
-  );
-
-  const blogPostsDirty = Boolean(
-    blogPostsDraft &&
-      editableBlogPosts &&
-      JSON.stringify(blogPostsDraft) !== JSON.stringify(editableBlogPosts),
-  );
-
-  const footerLinksDirty = Boolean(
-    footerLinkGroupsDraft &&
-      editableFooterLinkGroups &&
-      JSON.stringify(footerLinkGroupsDraft) !== JSON.stringify(editableFooterLinkGroups),
-  );
-
-  const rawCodeDirty = Boolean(selectedFile && rawCodeDraft !== (selectedFile.content || ""));
-
-  const getPreferredFilePath = useCallback((flatFiles: Array<{ name: string }>) => {
-    const candidates = [
-      "app/page.tsx",
-      "src/app/page.tsx",
-      "pages/index.tsx",
-      "page.tsx",
-      "Page.tsx",
-    ];
-    for (const candidate of candidates) {
-      const match = flatFiles.find((file) => file.name.endsWith(candidate));
-      if (match) return match.name;
-    }
-    return flatFiles[0]?.name || null;
-  }, []);
-
-  const findFirstFile = useCallback((nodes: FileNode[]): FileNode | null => {
-    for (const node of nodes) {
-      if (node.type === "file") return node;
-      if (node.children?.length) {
-        const hit = findFirstFile(node.children);
-        if (hit) return hit;
-      }
-    }
-    return null;
-  }, []);
-
-  const getLanguageFromName = (name: string) => {
-    const ext = name.split(".").pop()?.toLowerCase() || "";
-    if (ext === "ts") return "typescript";
-    if (ext === "tsx") return "tsx";
-    if (ext === "js") return "javascript";
-    if (ext === "jsx") return "jsx";
-    if (ext === "json") return "json";
-    if (ext === "css") return "css";
-    if (ext === "md") return "markdown";
-    if (ext === "html") return "html";
-    return "text";
-  };
-
-  useEffect(() => {
-    if (!isCodeView || !chatId || !versionId) return;
-    let isActive = true;
-    const controller = new AbortController();
-    const loadFiles = async () => {
-      setFilesLoading(true);
-      setFilesError(null);
-      try {
-        const response = await fetch(
-          `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
-          { signal: controller.signal },
-        );
-        const data = (await response.json().catch(() => null)) as {
-          files?: Array<{ name: string; content: string; locked?: boolean }>;
-          error?: string;
-        } | null;
-        if (!response.ok)
-          throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
-        const flatFiles: Array<{ name: string; content: string; locked?: boolean }> = Array.isArray(
-          data?.files,
-        )
-          ? data.files
-          : [];
-        const tree = buildFileTree(flatFiles);
-        const preferredPath = getPreferredFilePath(flatFiles);
-        const preferredNode =
-          (preferredPath &&
-            (function findByPath(nodes: FileNode[], target: string): FileNode | null {
-              for (const node of nodes) {
-                if (node.path === target) return node;
-                if (node.children?.length) {
-                  const hit = findByPath(node.children, target);
-                  if (hit) return hit;
-                }
-              }
-              return null;
-            })(tree, preferredPath)) ||
-          findFirstFile(tree);
-        if (!isActive) return;
-        setFiles(tree);
-        setSelectedPath(preferredNode?.path || null);
-      } catch (error) {
-        if (!isActive) return;
-        if (error instanceof Error && error.name === "AbortError") return;
-        setFilesError(error instanceof Error ? error.message : "Kunde inte hämta filer");
-      } finally {
-        if (isActive) setFilesLoading(false);
-      }
-    };
-    loadFiles();
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [isCodeView, chatId, versionId, refreshToken, findFirstFile, getPreferredFilePath]);
-
-  const saveSelectedFileContent = useCallback(async (nextContent: string) => {
-    if (!chatId || !versionId || !selectedFile) {
-      throw new Error("Ingen aktiv fil att spara.");
-    }
-
-    const currentContent = selectedFile.content || "";
-    if (nextContent === currentContent) return false;
-
-    try {
-      const response = await fetch(
-        `/api/v0/chats/${encodeURIComponent(chatId)}/files`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            versionId,
-            fileName: selectedFile.path,
-            content: nextContent,
-          }),
-        },
-      );
-      const data = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
-      if (!response.ok) {
-        throw new Error(data?.error || `Kunde inte spara metadata (HTTP ${response.status})`);
-      }
-
-      setFiles((prev) => updateFileTreeContent(prev, selectedFile.path, nextContent));
-      onFilesSaved?.();
-      return true;
-    } catch (error) {
-      throw new Error(
-        error instanceof Error ? error.message : "Kunde inte spara filinnehåll",
-      );
-    }
-  }, [chatId, versionId, selectedFile, updateFileTreeContent, onFilesSaved]);
-
-  const handleSaveMetadata = useCallback(async () => {
-    if (!selectedFile || !metadataDraft) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateStaticMetadataDraft(currentContent, metadataDraft);
-
-    setIsMetadataSaving(true);
-    setMetadataSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Metadata sparad i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara metadata";
-      setMetadataSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsMetadataSaving(false);
-    }
-  }, [selectedFile, metadataDraft, saveSelectedFileContent]);
-
-  const handleSaveHeroContent = useCallback(async () => {
-    if (!selectedFile || !heroDraft || !editableHeroContent) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateHeroContentDraft(currentContent, editableHeroContent, heroDraft);
-
-    setIsHeroSaving(true);
-    setHeroSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Hero-innehåll sparat i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara hero-innehåll";
-      setHeroSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsHeroSaving(false);
-    }
-  }, [selectedFile, heroDraft, editableHeroContent, saveSelectedFileContent]);
-
-  const handleSaveServiceItems = useCallback(async () => {
-    if (!selectedFile || !serviceItemsDraft || !editableServiceItems) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateServiceItemsDraft(currentContent, serviceItemsDraft);
-
-    setIsServicesSaving(true);
-    setServicesSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Tjänstepaket sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara tjänstepaket";
-      setServicesSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsServicesSaving(false);
-    }
-  }, [selectedFile, serviceItemsDraft, editableServiceItems, saveSelectedFileContent]);
-
-  const handleSaveContactDetails = useCallback(async () => {
-    if (!selectedFile || !contactDraft || !editableContactDetails) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateContactDetailsDraft(currentContent, editableContactDetails, contactDraft);
-
-    setIsContactSaving(true);
-    setContactSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Kontaktuppgifter sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara kontaktuppgifter";
-      setContactSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsContactSaving(false);
-    }
-  }, [selectedFile, contactDraft, editableContactDetails, saveSelectedFileContent]);
-
-  const handleSaveFaqItems = useCallback(async () => {
-    if (!selectedFile || !faqItemsDraft || !editableFaqItems) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateFaqItemsDraft(currentContent, faqItemsDraft);
-
-    setIsFaqSaving(true);
-    setFaqSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("FAQ sparad i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara FAQ";
-      setFaqSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsFaqSaving(false);
-    }
-  }, [selectedFile, faqItemsDraft, editableFaqItems, saveSelectedFileContent]);
-
-  const handleSaveTestimonialItems = useCallback(async () => {
-    if (!selectedFile || !testimonialItemsDraft || !editableTestimonialItems) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateTestimonialItemsDraft(currentContent, testimonialItemsDraft);
-
-    setIsTestimonialsSaving(true);
-    setTestimonialsSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Omdömen sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara omdömen";
-      setTestimonialsSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsTestimonialsSaving(false);
-    }
-  }, [selectedFile, testimonialItemsDraft, editableTestimonialItems, saveSelectedFileContent]);
-
-  const handleSaveTeamMembers = useCallback(async () => {
-    if (!selectedFile || !teamMembersDraft || !editableTeamMembers) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateTeamMembersDraft(currentContent, editableTeamMembers, teamMembersDraft);
-
-    setIsTeamSaving(true);
-    setTeamSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Teammedlemmar sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara teammedlemmar";
-      setTeamSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsTeamSaving(false);
-    }
-  }, [selectedFile, teamMembersDraft, editableTeamMembers, saveSelectedFileContent]);
-
-  const handleSaveStatItems = useCallback(async () => {
-    if (!selectedFile || !statItemsDraft || !editableStatItems) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateStatItemsDraft(currentContent, statItemsDraft);
-
-    setIsStatsSaving(true);
-    setStatsSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Nyckeltal sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara nyckeltal";
-      setStatsSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsStatsSaving(false);
-    }
-  }, [selectedFile, statItemsDraft, editableStatItems, saveSelectedFileContent]);
-
-  const handleSaveProcessSteps = useCallback(async () => {
-    if (!selectedFile || !processStepsDraft || !editableProcessSteps) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateProcessStepsDraft(currentContent, processStepsDraft);
-
-    setIsProcessSaving(true);
-    setProcessSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Processteg sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara processteg";
-      setProcessSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsProcessSaving(false);
-    }
-  }, [selectedFile, processStepsDraft, editableProcessSteps, saveSelectedFileContent]);
-
-  const handleSaveProductItems = useCallback(async () => {
-    if (!selectedFile || !productItemsDraft || !editableProductItems) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateProductItemsDraft(currentContent, productItemsDraft);
-
-    setIsProductsSaving(true);
-    setProductsSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Produkter sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara produkter";
-      setProductsSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsProductsSaving(false);
-    }
-  }, [selectedFile, productItemsDraft, editableProductItems, saveSelectedFileContent]);
-
-  const handleSavePricingCards = useCallback(async () => {
-    if (!selectedFile || !pricingCardsDraft || !editablePricingCards) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updatePricingCardsDraft(currentContent, pricingCardsDraft);
-
-    setIsPricingSaving(true);
-    setPricingSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Prisplaner sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara prisplaner";
-      setPricingSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsPricingSaving(false);
-    }
-  }, [selectedFile, pricingCardsDraft, editablePricingCards, saveSelectedFileContent]);
-
-  const handleSavePricingFeatures = useCallback(async () => {
-    if (!selectedFile || !pricingFeatureCardsDraft || !editablePricingFeatureCards) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updatePricingFeatureCardsDraft(
-      currentContent,
-      pricingFeatureCardsDraft,
-    );
-
-    setIsPricingFeaturesSaving(true);
-    setPricingFeaturesSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Pricing-features sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara pricing-features";
-      setPricingFeaturesSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsPricingFeaturesSaving(false);
-    }
-  }, [
-    selectedFile,
-    pricingFeatureCardsDraft,
-    editablePricingFeatureCards,
-    saveSelectedFileContent,
-  ]);
-
-  const handleSaveCategoryItems = useCallback(async () => {
-    if (!selectedFile || !categoryItemsDraft || !editableCategoryItems) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateCategoryItemsDraft(currentContent, categoryItemsDraft);
-
-    setIsCategorySaving(true);
-    setCategorySaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Kategorier sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara kategorier";
-      setCategorySaveError(message);
-      toast.error(message);
-    } finally {
-      setIsCategorySaving(false);
-    }
-  }, [selectedFile, categoryItemsDraft, editableCategoryItems, saveSelectedFileContent]);
-
-  const handleSaveNavItems = useCallback(async () => {
-    if (!selectedFile || !navItemsDraft || !editableNavItems) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateNavItemsDraft(currentContent, navItemsDraft);
-
-    setIsNavSaving(true);
-    setNavSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Navigation sparad i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara navigation";
-      setNavSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsNavSaving(false);
-    }
-  }, [selectedFile, navItemsDraft, editableNavItems, saveSelectedFileContent]);
-
-  const handleSaveButtonLabels = useCallback(async () => {
-    if (!selectedFile || !buttonLabelsDraft || !editableButtonLabels) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateButtonLabelsDraft(currentContent, buttonLabelsDraft);
-
-    setIsButtonLabelsSaving(true);
-    setButtonLabelsSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("CTA-knappar sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara CTA-knappar";
-      setButtonLabelsSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsButtonLabelsSaving(false);
-    }
-  }, [selectedFile, buttonLabelsDraft, editableButtonLabels, saveSelectedFileContent]);
-
-  const handleSaveBlogPosts = useCallback(async () => {
-    if (!selectedFile || !blogPostsDraft || !editableBlogPosts) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateBlogPostsDraft(currentContent, blogPostsDraft);
-
-    setIsBlogPostsSaving(true);
-    setBlogPostsSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Blogginlägg sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara blogginlägg";
-      setBlogPostsSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsBlogPostsSaving(false);
-    }
-  }, [selectedFile, blogPostsDraft, editableBlogPosts, saveSelectedFileContent]);
-
-  const handleSaveFooterLinks = useCallback(async () => {
-    if (!selectedFile || !footerLinkGroupsDraft || !editableFooterLinkGroups) return;
-    const currentContent = selectedFile.content || "";
-    const nextContent = updateFooterLinkGroupsDraft(currentContent, footerLinkGroupsDraft);
-
-    setIsFooterLinksSaving(true);
-    setFooterLinksSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(nextContent);
-      if (didSave) toast.success("Footerlänkar sparade i aktiv version.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara footerlänkar";
-      setFooterLinksSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsFooterLinksSaving(false);
-    }
-  }, [
-    selectedFile,
-    footerLinkGroupsDraft,
-    editableFooterLinkGroups,
-    saveSelectedFileContent,
-  ]);
-
-  const handleSaveRawCode = useCallback(async () => {
-    if (!selectedFile) return;
-    setIsRawCodeSaving(true);
-    setRawCodeSaveError(null);
-    try {
-      const didSave = await saveSelectedFileContent(rawCodeDraft);
-      if (didSave) {
-        setRawEditMode(false);
-        toast.success("Filändringar sparade i aktiv version.");
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Kunde inte spara filändringar";
-      setRawCodeSaveError(message);
-      toast.error(message);
-    } finally {
-      setIsRawCodeSaving(false);
-    }
-  }, [selectedFile, rawCodeDraft, saveSelectedFileContent]);
 
   const elementRegistry = useMemo(() => buildJsxElementRegistry(files), [files]);
   elementRegistryRef.current = elementRegistry;
@@ -2136,43 +429,43 @@ export function PreviewPanel({
     setIframeErrorMessage(null);
     const iframe = iframeRef.current;
     if (iframe) {
-      const base = demoUrl || iframe.src;
+      const base = previewUrl || iframe.src;
       if (!base) return;
       iframe.src = buildPreviewSrc(base, Date.now());
     }
   };
 
   const handleOpenInNewTab = () => {
-    if (demoUrl) window.open(demoUrl, "_blank", "noopener,noreferrer");
+    if (previewUrl) window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
   const activePreviewRoute = useMemo(() => {
-    if (!demoUrl) return null;
+    if (!previewUrl) return null;
     try {
       if (isOwnEnginePreview) {
-        const current = new URL(demoUrl, window.location.origin);
+        const current = new URL(previewUrl, window.location.origin);
         return current.searchParams.get("route") || "/";
       }
-      const current = new URL(demoUrl, window.location.origin);
+      const current = new URL(previewUrl, window.location.origin);
       return current.pathname || "/";
     } catch {
       return null;
     }
-  }, [demoUrl, isOwnEnginePreview]);
+  }, [previewUrl, isOwnEnginePreview]);
 
   const handleNavigateRoute = useCallback(
     (route: string) => {
-      if (!demoUrl) return;
+      if (!previewUrl) return;
       const nextUrl = isOwnEnginePreview
-        ? buildOwnEngineRoutePreviewUrl(demoUrl, route)
-        : buildExternalRoutePreviewUrl(demoUrl, route);
-      if (!nextUrl || nextUrl === demoUrl) return;
+        ? buildOwnEngineRoutePreviewUrl(previewUrl, route)
+        : buildExternalRoutePreviewUrl(previewUrl, route);
+      if (!nextUrl || nextUrl === previewUrl) return;
       onNavigatePreviewUrl?.(nextUrl);
       setIframeLoading(true);
       setIframeError(false);
       setIframeErrorMessage(null);
     },
-    [demoUrl, isOwnEnginePreview, onNavigatePreviewUrl],
+    [previewUrl, isOwnEnginePreview, onNavigatePreviewUrl],
   );
 
   const handleClear = () => {
@@ -2189,14 +482,14 @@ export function PreviewPanel({
     [integrationStatus],
   );
   const isSandboxPreview = useMemo(() => {
-    if (!demoUrl) return false;
-    return isSandboxPreviewUrl(demoUrl);
-  }, [demoUrl]);
+    if (!previewUrl) return false;
+    return isSandboxPreviewUrl(previewUrl);
+  }, [previewUrl]);
 
   usePreviewHeartbeat({
     chatId,
     versionId,
-    demoUrl,
+    previewUrl,
     activeSandboxId,
     previewLifecycle,
     onSessionSuspect: onPreviewSessionSuspect,
@@ -2229,7 +522,7 @@ export function PreviewPanel({
   ]);
 
   const isV0Preview = Boolean(
-    demoUrl && !isOwnEnginePreview && demoUrl.includes("vusercontent.net"),
+    previewUrl && !isOwnEnginePreview && previewUrl.includes("vusercontent.net"),
   );
   /** True när versionen har en sandbox-URL sparad — då kan användaren byta till live-preview. */
   const sandboxUrlPresent = Boolean(alternatePreviewUrls?.sandboxUrl?.trim());
@@ -2330,24 +623,24 @@ export function PreviewPanel({
   ]);
 
   const alternatePreviewBanner = useMemo(() => {
-    return buildAlternatePreviewBannerState({ currentUrl: demoUrl, alternatePreviewUrls });
-  }, [demoUrl, alternatePreviewUrls]);
+    return buildAlternatePreviewBannerState({ currentUrl: previewUrl, alternatePreviewUrls });
+  }, [previewUrl, alternatePreviewUrls]);
 
   const isLoading = externalLoading || iframeLoading;
-  const previewSrc = demoUrl ? buildPreviewSrc(demoUrl, refreshToken) : "";
+  const previewSrc = previewUrl ? buildPreviewSrc(previewUrl, refreshToken) : "";
   const showBlobWarning = Boolean(
-    demoUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled,
+    previewUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled,
   );
-  const showExternalWarning = Boolean(demoUrl && isV0Preview);
-  const showImagesDisabledWarning = Boolean(demoUrl && !imageGenerationsEnabled);
+  const showExternalWarning = Boolean(previewUrl && isV0Preview);
+  const showImagesDisabledWarning = Boolean(previewUrl && !imageGenerationsEnabled);
   const showImagesUnsupportedWarning = Boolean(
-    demoUrl && imageGenerationsEnabled && !imageGenerationsSupported,
+    previewUrl && imageGenerationsEnabled && !imageGenerationsSupported,
   );
-  const showBlobConfigWarning = Boolean(demoUrl && imageGenerationsEnabled && !isBlobConfigured);
+  const showBlobConfigWarning = Boolean(previewUrl && imageGenerationsEnabled && !isBlobConfigured);
   /** Tier 2: one user-facing strip for media/env limits — no env-var name dump (`preview-deploy.md`). */
   const showSandboxUnifiedStrip = Boolean(
     !isCodeView &&
-      demoUrl &&
+      previewUrl &&
       !isOwnEnginePreview &&
       isSandboxPreview &&
       (showBlobWarning ||
@@ -2356,32 +649,9 @@ export function PreviewPanel({
         showImagesDisabledWarning ||
         showImagesUnsupportedWarning),
   );
-  const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(demoUrl);
+  const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(previewUrl);
   const showInspectOverlay = inspectorEnabled && inspectMode && !showPlacementOverlay;
   const shouldRenderInspectorDev = inspectorEnabled && (showPlacementOverlay || showInspectOverlay);
-  const handleInspectMouseMove = useCallback<MouseEventHandler<HTMLDivElement>>(
-    (event) => {
-      if (inspectEngine !== "map" || elementMap.length === 0) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
-      const xPct = ((event.clientX - rect.left) / rect.width) * 100;
-      const yPct = ((event.clientY - rect.top) / rect.height) * 100;
-      let best: ElementMapItem | null = null;
-      let bestArea = Infinity;
-      for (const el of elementMap) {
-        const vp = el.vpPercent;
-        if (xPct >= vp.x && xPct <= vp.x + vp.w && yPct >= vp.y && yPct <= vp.y + vp.h) {
-          const area = vp.w * vp.h;
-          if (area < bestArea && area > 0.01) {
-            best = el;
-            bestArea = area;
-          }
-        }
-      }
-      setHoveredMapElement(best);
-    },
-    [elementMap, inspectEngine],
-  );
   const handleShowLastCodeMatch = useCallback(() => {
     if (!lastCodeMatch) return;
     setInspectMode(false);
@@ -2394,7 +664,7 @@ export function PreviewPanel({
   }, [lastCodeMatch, startViewSwitchTransition]);
   const PreviewSurface = PreviewPanelSandbox;
 
-  if (!demoUrl && !isCodeView) {
+  if (!previewUrl && !isCodeView) {
     return (
       <PreviewPanelEmptyState
         chatId={chatId}
@@ -2413,7 +683,7 @@ export function PreviewPanel({
   return (
     <div className="flex h-full flex-col bg-black/40">
       <PreviewPanelChrome
-        demoUrl={demoUrl}
+        previewUrl={previewUrl}
         surfaceDescriptor={surfaceDescriptor}
         isOwnEnginePreview={isOwnEnginePreview}
         isSandboxPreview={isSandboxPreview}
@@ -3840,7 +2110,7 @@ export function PreviewPanel({
                 ) : (
                   <CodeBlock
                     code={selectedFile?.content || ""}
-                    language={getLanguageFromName(selectedFile?.name || "")}
+                    language={getLanguageFromFileName(selectedFile?.name || "")}
                     showLineNumbers
                   >
                     <CodeBlockCopyButton className="text-gray-300 hover:text-white" />

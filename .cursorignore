@@ -48,7 +48,6 @@ scripts/output_test_scaffold/
 .cursor/mcp.json
 config.browser.txt
 config.txt
-config.example.txt
 
 # --- Media ---
 public/video/
@@ -74,15 +73,15 @@ src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
 
 # --- Cursor session / automation / migration ---
-#.cursor/plans/
-#.cursor/documents/
-#.cursor/automation/runs/
-#.cursor/automation/archive/
-#.cursor/automation/input/
-#.cursor/migration-archive/
+.cursor/plans/
+.cursor/documents/
+.cursor/automation/runs/
+.cursor/automation/archive/
+.cursor/automation/input/
+.cursor/migration-archive/
 
 # --- Vercel CLI (lokal länk) ---
-.vercel/
+#.vercel/
 
 # --- Loggar & skrot i roten ---
 logs/*
@@ -98,3 +97,13 @@ internt_jakob/
 old/
 skrapning/
 ovrigt/
+
+eval-output/
+EGEN_MOTOR_V2/
+_template_refs/
+vercel_templates_levels/
+_sidor/
+research/_sidor/
+services/mpc/docs/**
+services/mpc/logs/
+next-env.d.ts

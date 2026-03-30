@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
 import { isSandboxPreviewUrl } from "@/lib/gen/preview";
 import {
@@ -12,22 +12,25 @@ export const PREVIEW_READY_TIMEOUT_MS = 10_000;
 export const PREVIEW_READY_POLL_MS = 250;
 
 export function usePreviewIframe(params: {
-  demoUrl: string | null;
+  previewUrl: string | null;
   refreshToken?: number;
   chatId: string | null;
   versionId: string | null;
   isOwnEnginePreview: boolean;
   onPreviewSessionSuspect?: () => void;
   reportOwnEngineRenderFailure: (payload: PreviewIssuePayload) => void;
+  /** When set, this ref is used for the iframe element instead of an internal ref (shared with telemetry). */
+  iframeRef?: MutableRefObject<HTMLIFrameElement | null>;
 }) {
   const {
-    demoUrl,
+    previewUrl,
     refreshToken,
     chatId,
     versionId,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
+    iframeRef: externalIframeRef,
   } = params;
 
   const [iframeLoading, setIframeLoading] = useState(true);
@@ -35,7 +38,8 @@ export function usePreviewIframe(params: {
   const [iframeErrorMessage, setIframeErrorMessage] = useState<string | null>(null);
   const [iframeDiagnosticCode, setIframeDiagnosticCode] = useState<string | null>(null);
 
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const internalIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const iframeRef = externalIframeRef ?? internalIframeRef;
   const previewReadyTimerRef = useRef<number | null>(null);
 
   const clearPreviewReadyTimer = useCallback(() => {
@@ -57,14 +61,14 @@ export function usePreviewIframe(params: {
     setIframeError(false);
     setIframeErrorMessage(null);
     setIframeDiagnosticCode(null);
-  }, [chatId, versionId, demoUrl]);
+  }, [chatId, versionId, previewUrl]);
 
   useEffect(() => {
-    if (!demoUrl) return;
+    if (!previewUrl) return;
     setIframeLoading(true);
     setIframeError(false);
     setIframeErrorMessage(null);
-  }, [demoUrl, refreshToken]);
+  }, [previewUrl, refreshToken]);
 
   const handleIframeLoad = useCallback(() => {
     clearPreviewReadyTimer();
@@ -124,7 +128,7 @@ export function usePreviewIframe(params: {
           setIframeDiagnosticCode("preview_ready_timeout");
           setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
           clearPreviewReadyTimer();
-          if (demoUrl && isSandboxPreviewUrl(demoUrl)) {
+          if (previewUrl && isSandboxPreviewUrl(previewUrl)) {
             onPreviewSessionSuspect?.();
           }
           reportOwnEngineRenderFailure({
@@ -149,7 +153,7 @@ export function usePreviewIframe(params: {
     setIframeErrorMessage(null);
   }, [
     clearPreviewReadyTimer,
-    demoUrl,
+    previewUrl,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,

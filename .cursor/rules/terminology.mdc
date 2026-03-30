@@ -18,15 +18,15 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 ## Mall, preview, sandbox
 
 - **v0-templates / "Mall"**: builderns mallgalleri i `src/lib/templates/`.
-- **Vercel-mall**: research-material i `research/external-templates/`. Inte samma sak som builderns mallgalleri.
+- **Vercel-mall /Templates**: research-material i `research/external-templates/`. Inte samma sak som builderns mallgalleri.
 - **Preview**: det användaren ser i buildern.
 - **Sandbox**: kör ett genererat Next-projekt, typiskt `npm run dev`, för högre preview-fidelity.
 - **demoUrl**: legacy-namn för URL eller preview-mål; tolka efter kontext.
 
 ## Fidelity
 
-- **1**: enklare eller statisk preview.
-- **2**: sandbox-körbar Next-app med fokus på visuell trohet.
+- **1**: enklare eller statisk preview. (kan också elelr är legacy)S
+- **2**: sandbox-körbar Next-app med fokus på visuell trohet. Denna typ av nivå är det som projektet i allmänhet strävar efter att ge användaren.
 - **3**: byggbar och deploybar produktionstro version.
 
 `docs/architecture/preview-deploy.md` är kanonisk källa för den faktiska preview-kedjan.

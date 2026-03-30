@@ -22,10 +22,10 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 | `docs/architecture/` | Kanoniska översikter (fyra huvuddokument + denna fil) | Tillfälliga scratch |
 | `docs/schemas/` | Stabila schema-beskrivningar (sanning i kod) | Osäkra utkast |
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
-| `docs/handoffs/` | Endast [`README.md`](../handoffs/README.md) — pekare; tidigare `*.md` borttagna, fulltext i git-historik | Kanonisk arkitektur, `PROJECT-STATE-AND-DIRECTION.md`, eller nytt scope under `docs/architecture/` |
+| `docs/handoffs/` | [`README.md`](../handoffs/README.md) som pekare; tidigare handoff-`*.md` borttagna (fulltext i git-historik). Lägg inte till binärer eller tillgångar här om inget kanoniskt doc länkar till dem | Kanonisk arkitektur, `PROJECT-STATE-AND-DIRECTION.md`, eller nytt scope under `docs/architecture/` |
 | `docs/notes/` | Scratch / sessionsloggar — rensa periodiskt | Stabil referens |
-| `docs/archive/FINDINGS.txt` | Arkiverad sessionslogg, inte aktiv sanningskälla — flytta viktigt till backlog/arkitektur | Ny aktiv planering eller kanonisk dokumentation |
-| `docs/old/` | Stub / pekare | Nytt material |
+| `docs/archive/` | Kort pekare / tillfälligt arkivmaterial — inte kanon; flytta viktigt till backlog eller arkitektur | Ny aktiv planering som enda sanning |
+| `docs/old/` | [`README.md`](../old/README.md) — pekare; tidigare innehåll i git-historik | Nytt arbetsmaterial |
 
 **Navigering:** `docs/README.md` är enda fulla navtabellen. `AGENTS.md` och `.cursor/README.md` ska vara tunna pekare — inga duplicerade orienteringstabeller.
 
