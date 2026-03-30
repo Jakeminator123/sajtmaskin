@@ -12,10 +12,10 @@ Följande **allmänna** `docs/`-ytor ändrades i leveransen (exakt diff: `git lo
 |--------|----------------|
 | [`docs/README.md`](../../README.md) | Nav och pekare uppdaterade |
 | [`documentation-lifecycle.md`](../../architecture/documentation-lifecycle.md) | Policy / handoffs-formulering |
-| [`docs/archive/`](../archive/) | `FINDINGS.txt` borttagen; `README.md` justerad |
-| [`docs/handoffs/bilder/`](../handoffs/bilder/) | Äldre mermaid-export-PNG borttagna (kvar i git-historik) |
-| [`docs/notes/`](../notes/) | `builder-smoke-2026-03-27.txt` borttagen (kvar i git-historik) |
-| [`docs/old/README.md`](../old/README.md) | Pekare uppdaterad |
+| [`docs/archive/`](../../archive/) | `FINDINGS.txt` borttagen; `README.md` justerad |
+| [`docs/handoffs/bilder/`](../../handoffs/bilder/) | Äldre mermaid-export-PNG borttagna (kvar i git-historik) |
+| [`docs/notes/`](../../notes/) | `builder-smoke-2026-03-27.txt` borttagen (kvar i git-historik) |
+| [`docs/old/README.md`](../../old/README.md) | Pekare uppdaterad |
 | [`docs/plans/README.md`](../README.md) | Aktiv vs avklarat |
 | [`PROJECT-STATE-AND-DIRECTION.md`](./PROJECT-STATE-AND-DIRECTION.md) | Backlog/beslut (löpande) |
 | [`docs/plans/avklarat/`](../avklarat/) | `CONSOLIDATED-own-engine-platform-and-quality-v2.md` flyttad från `active/` hit; `LLM-PIPELINE-…` och `README.md` mindre uppdateringar |
