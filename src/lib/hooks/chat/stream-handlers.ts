@@ -26,6 +26,18 @@ import {
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
 import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
 import { readPreviewPreflight } from "./post-checks-preview";
+import {
+  isOwnEnginePostStreamPhaseId,
+  ownEnginePostStreamStepLabelSv,
+} from "@/lib/gen/stream/finalize-pipeline-contract";
+import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
+
+function effectivePreviewUrlFromDoneDemo(demoUrl: unknown): string | null {
+  if (typeof demoUrl !== "string" || !demoUrl.trim()) return null;
+  const normalized = normalizePreviewUrl(demoUrl);
+  if (!normalized || isCompatibilityShimPreviewUrl(normalized)) return null;
+  return normalized;
+}
 
 export type StreamContext = {
   streamType: "create" | "send";
@@ -48,7 +60,14 @@ export type StreamContext = {
   setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
   setSandboxPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
-  onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
+  onGenerationComplete?: (data: {
+    chatId: string;
+    versionId?: string;
+    demoUrl?: string;
+    onlySelectVersionIfWasLatest?: boolean;
+  }) => void;
+  /** Own-engine sandbox session metadata (SSE sandbox-ready). */
+  onSandboxSessionMeta?: (meta: { sandboxId: string; versionId: string | null } | null) => void;
   mutateVersions: () => void;
   enableImageMaterialization: boolean;
   autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
@@ -94,6 +113,7 @@ export async function handleSseStream(
     appProjectId,
     pendingCreateKeyRef,
     onV0ProjectId,
+    onSandboxSessionMeta,
     setCurrentDemoUrl,
     setSandboxBuildError,
     setSandboxProdBuild,
@@ -108,12 +128,10 @@ export async function handleSseStream(
   const effectiveChatId = ctx.chatId;
 
   const getProgressToolName = (step: string) => {
+    if (isOwnEnginePostStreamPhaseId(step)) return ownEnginePostStreamStepLabelSv(step);
     if (step === "generation") return "Generering";
-    if (step === "autofix") return "Autofix";
-    if (step === "polish") return "Polish";
-    if (step === "validation") return "Validering";
-    if (step === "finalizing") return "Finalisering";
     if (step === "sandbox") return "Sandbox";
+    if (step === "build-error") return "Byggfel";
     return step;
   };
 
@@ -188,7 +206,27 @@ export async function handleSseStream(
       }
       if (phase === "error") return ["Polish misslyckades. Fortsätter utan finputs."];
     }
-    if (step === "validation") {
+    if (step === "url_expand") {
+      if (phase === "start") return ["Expanderar kortade URL:er till fulla adresser."];
+      if (phase === "done") return ["URL-expansion klar."];
+    }
+    if (step === "materialize_images") {
+      if (phase === "start") return ["Materialiserar bildplatshållare (t.ex. riktiga bild-URL:er)…"];
+      if (phase === "done") {
+        const replaced =
+          typeof payload.replacedCount === "number" && Number.isFinite(payload.replacedCount)
+            ? payload.replacedCount
+            : null;
+        if (replaced !== null && replaced > 0) {
+          return [`Bytte ut ${replaced} bildplatshållare.`];
+        }
+        return ["Inga bildplatshållare behövde bytas."];
+      }
+      if (phase === "error") {
+        return ["Bildmaterialisering misslyckades; platshållare kan kvarstå."];
+      }
+    }
+    if (step === "validate_syntax") {
       if (phase === "start" || phase === "validating") {
         return [`Validerar genererad kod${pass ? ` (pass ${pass})` : ""}.`];
       }
@@ -208,7 +246,7 @@ export async function handleSseStream(
       }
       if (phase === "error") return ["Valideringen misslyckades."];
     }
-    if (step === "finalizing") {
+    if (step === "parse_merge_preflight") {
       if (phase === "start") return ["Finaliserar filer, gör project checks och sparar versionen."];
       if (phase === "done") {
         const details: string[] = ["Finalisering klar."];
@@ -218,6 +256,9 @@ export async function handleSseStream(
       }
     }
     if (step === "sandbox") {
+      if (phase === "starting") {
+        return ["Startar sandbox-preview (install och dev-server)…"];
+      }
       if (phase === "build-verified") {
         return ["Production build (npm run build) lyckades i sandbox — separat från dev-preview."];
       }
@@ -588,11 +629,19 @@ export async function handleSseStream(
               typeof sandboxData.sandboxUrl === "string"
                 ? sandboxData.sandboxUrl.trim()
                 : "";
+            const sandboxIdRaw =
+              typeof sandboxData.sandboxId === "string" ? sandboxData.sandboxId.trim() : "";
+            if (sandboxIdRaw) {
+              onSandboxSessionMeta?.({
+                sandboxId: sandboxIdRaw,
+                versionId: versionIdFromStream,
+              });
+            }
 
             setSandboxPending?.(false);
             setSandboxBuildError?.(null);
 
-            if (sandboxUrl) {
+            if (sandboxUrl && !isCompatibilityShimPreviewUrl(sandboxUrl)) {
               setCurrentDemoUrl(sandboxUrl);
               onPreviewRefresh?.();
               const pendingPost = postCheckQueue[postCheckQueue.length - 1];
@@ -667,8 +716,9 @@ export async function handleSseStream(
               v0ProjectIdFromStream = String(doneV0ProjectId);
               onV0ProjectId?.(v0ProjectIdFromStream);
             }
-            if (doneData.demoUrl) {
-              setCurrentDemoUrl(doneData.demoUrl as string);
+            const effectiveDoneDemo = effectivePreviewUrlFromDoneDemo(doneData.demoUrl);
+            if (effectiveDoneDemo) {
+              setCurrentDemoUrl(effectiveDoneDemo);
               onPreviewRefresh?.();
             }
             setSandboxPending?.(Boolean(doneData.sandboxPending));
@@ -681,11 +731,14 @@ export async function handleSseStream(
               (doneData.latestVersion as Record<string, unknown> | undefined)?.versionId ||
               versionIdFromStream ||
               null;
+            if (resolvedVersionId) {
+              versionIdFromStream = String(resolvedVersionId);
+            }
             const awaitingInput = Boolean(doneData.awaitingInput);
             const hasRecoveredArtifact =
               awaitingInput ||
               Boolean(resolvedVersionId) ||
-              Boolean(doneData.demoUrl);
+              Boolean(effectiveDoneDemo);
             const emptyGenerationReason =
               typeof doneData.reason === "string" && doneData.reason.trim().length > 0
                 ? doneData.reason.trim()
@@ -867,10 +920,12 @@ export async function handleSseStream(
               toast.success(planArtifact ? "Plan skapad!" : "Sajt skapad!");
             }
             mutateVersions();
+            const onlySelectVersionIfWasLatest = Boolean(doneData.onlySelectVersionIfWasLatest);
             onGenerationComplete?.({
               chatId: nextId,
               versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-              demoUrl: doneData.demoUrl as string | undefined,
+              demoUrl: effectiveDoneDemo ?? undefined,
+              onlySelectVersionIfWasLatest,
             });
             if (resolvedChatId && resolvedVersionId) {
               materializeQueue.push({
@@ -880,7 +935,7 @@ export async function handleSseStream(
               postCheckQueue.push({
                 chatId: String(resolvedChatId),
                 versionId: String(resolvedVersionId),
-                demoUrl: (doneData.demoUrl as string) ?? null,
+                demoUrl: effectiveDoneDemo,
                 preflight: donePreflight,
               });
             }

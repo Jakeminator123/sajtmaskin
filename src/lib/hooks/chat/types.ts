@@ -214,7 +214,14 @@ export type ChatMessagingParams = {
   setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
   setSandboxPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
-  onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
+  onGenerationComplete?: (data: {
+    chatId: string;
+    versionId?: string;
+    demoUrl?: string;
+    onlySelectVersionIfWasLatest?: boolean;
+  }) => void;
+  /** SSE sandbox-ready: bind sandboxId to the current stream version for heartbeat/status. */
+  onSandboxSessionMeta?: (meta: { sandboxId: string; versionId: string | null } | null) => void;
   onV0ProjectId?: (projectId: string) => void;
   setMessages: SetMessages;
   resetBeforeCreateChat: () => void;

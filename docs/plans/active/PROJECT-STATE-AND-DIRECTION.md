@@ -3,7 +3,7 @@
 **En fil** = operativ sanning för *vad som är kvar*, *hur vi tänker*, och *var kod/docs finns*. Uppdatera här när du levererar eller stänger en rad.  
 **Verifiering efter kod:** `npm run typecheck` && `npx vitest run` · valfritt deploy-smoke: `e2e/README.md`.
 
-**Senast:** 2026-03-30 · **Gamla planhandoff:ar / %-historik:** `git log`, `docs/plans/avklarat/README.md`
+**Senast:** 2026-03-30 · **Gamla planhandoff:ar / %-historik:** `git log`, `docs/plans/avklarat/README.md` · *LLM-pipeline runbook (Del B) ligger arkiverad under [`avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md).*
 
 ---
 
@@ -21,7 +21,7 @@
 | Var finns vad (rot-träd, `data/` vs codegen-data) | [`docs/architecture/repo-tree.md`](../../architecture/repo-tree.md) |
 | System / builder | [`docs/architecture/system-overview.md`](../../architecture/system-overview.md) |
 | Generation, SSE | [`docs/architecture/builder-generation.md`](../../architecture/builder-generation.md) |
-| LLM-pipeline milstolpe + review-körlista | [`LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](./LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md) |
+| LLM-pipeline milstolpe + review-körlista (arkiv) | [`avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md) |
 | Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](../../architecture/preview-deploy.md) |
 | Mappar, scaffold vs v0-templates | [`docs/architecture/repository-and-platform.md`](../../architecture/repository-and-platform.md) |
 | Env | [`docs/ENV.md`](../../ENV.md), `config/env-policy.json` |
@@ -58,9 +58,11 @@ Kärnan preview/sandbox är **levererad** (se `preview-deploy.md`). Detta är **
 
 | Spår | Status |
 |------|--------|
+| Läcka stängd: `demoUrl` vs `sandboxUrl` (GET chat/versions + versionval i builder + quality-badges) | [x] 2026-03-30 |
 | Adapters / «degraded preview» för vissa integrationer (mer än placeholders) | [ ] |
 | GitHub-export som **sekundär** väg (persistens = fortfarande Postgres / `files_json`) | [ ] |
 | Ev. kallstarts-heuristik för VM / session | delvis |
+| Massstädning efter warm-sandbox / preview-lifecycle (död kod, planfiler, docs) | [ ] — **egen PR** efter merge av epiken |
 
 Tier-modell (preflight / dev / build) och förenklad fasöversikt finns i [`preview-deploy.md`](../../architecture/preview-deploy.md) under **Begrepp**.
 
@@ -112,6 +114,8 @@ Tier-modell (preflight / dev / build) och förenklad fasöversikt finns i [`prev
 ## 9. External review & remediation (historik)
 
 Extern granskning och remediation är **införlivad** i kod och i [`preview-deploy.md`](../../architecture/preview-deploy.md) (§ Levererat). Detaljerade %-tabeller, orchestrator-körningar och gamla handoff-filer återfinns i **git-historik** (`docs/plans/avklarat/`, äldre commits) — inga separata aktiva kördokument med gamla plan-ID:n.
+
+**LLM-pipeline (runbook Del B):** **Stängd** 2026-03-30 (B1–B4), dokument i [`avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md). Kod/detaljer: [`builder-generation.md`](../../architecture/builder-generation.md), `finalize-pipeline-contract.ts`, `builder-stream-contract.ts`.
 
 ---
 

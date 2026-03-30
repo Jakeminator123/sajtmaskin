@@ -900,6 +900,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               sandboxBuildError={vm.sandboxBuildError}
               sandboxProdBuild={vm.sandboxProdBuild}
               sandboxPending={vm.sandboxPending}
+              activeSandboxId={vm.activeSandboxId}
+              previewLifecycle={vm.previewLifecycle}
+              onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
               onNavigatePreviewUrl={(url) => {
                 vm.setCurrentDemoUrl(url);
                 vm.bumpPreviewRefreshToken();

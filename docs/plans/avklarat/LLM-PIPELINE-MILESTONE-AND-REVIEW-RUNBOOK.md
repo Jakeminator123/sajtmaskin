@@ -1,5 +1,9 @@
 # LLM-pipeline: milstolpe på GitHub + review-uppföljning (kördokument)
 
+**Arkiv:** ligger under `docs/plans/avklarat/` (review-spår **stängt** 2026-03-30). Operativ backlog: [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md).
+
+**Status — Del B (review-uppföljning):** **Stängd** (2026-03-30). Alla rader B1–B4 i tabellen nedan är levererade. Detta dokument behålls som **referens** för milstolpe-tag (Del A), rollback och vad som gjordes i Del B.
+
 **Syfte:** Säkerställa en **återgångspunkt** på GitHub för den version som extern review bedömt som **rätt riktning**, och sedan — i **tydlig ordning** — åtgärda kvarvarande skärpa från samma review.
 
 **Review-sammanfattning:** Baseline (t.ex. commit `59820639b`) är **inte** ett steg bort från “world-class”; den **förtydligar kontrakt** (prompt, merge, pipeline-ordning) och **delar upp** stream-kod. Revert är bara motiverat vid **reproducerbar regression** (t.ex. `git bisect`), inte på grund av reviewens ton.
@@ -59,8 +63,8 @@ Checka av raderna när de är klara. Efter varje batch: `npm run typecheck` och 
 | # | Åtgärd | Varför | Var i kod / docs | Verifiering |
 |---|--------|--------|------------------|-------------|
 | **B1** | **`_lastMaterializedUrls` per körning** — sätt alltid från senaste `materializeImages()`-resultat (även vid 0 byten); vid fel i blocket, nollställ t.ex. `new Set()`. | Undviker att validering hoppar över gamla URL:er från föregående generation. | `src/lib/gen/stream/finalize-version.ts` | **Klart** i första uppföljningscommit efter milstolpe-taggen. Verifiera: `npm run test:ci`. |
-| **B2** | **En fas-vokabulär** — låt `OwnEnginePostStreamPhaseId` från `finalize-pipeline-contract.ts` styra `onProgress`-steg (eller mappa 1:1 i ett enda lager) så UI/telemetri inte har tre parallella namn (`validation` vs `validate_syntax`). | Review: minskar förvirring när UI kopplas till pipeline. | `finalize-version.ts`, `stream-handlers.ts`, ev. `builder-stream-contract.ts` | Progress i UI stämmer med loggade fas-id:n. |
-| **B3** | **Integration-SSE och typkontrakt** — antingen emittera payload som matchar `BuilderIntegrationPayload`, eller uppdatera typen till `{ items: [...] }` m.m. och dokumentera. | Kontrakt ska spegla verkligheten, inte bara `coerce` på klienten. | `generation-stream-tools.ts`, `builder-stream-contract.ts`, `stream-handlers.ts` | Typecheck + manuellt: `suggestIntegration` i stream. |
+| **B2** | **En fas-vokabulär** — låt `OwnEnginePostStreamPhaseId` från `finalize-pipeline-contract.ts` styra `onProgress`-steg (eller mappa 1:1 i ett enda lager) så UI/telemetri inte har tre parallella namn (`validation` vs `validate_syntax`). | Review: minskar förvirring när UI kopplas till pipeline. | `finalize-version.ts`, `stream-handlers.ts`, ev. `builder-stream-contract.ts` | **Klart** 2026-03-30 — SSE `progress.step` = pipeline `id`; svenska etiketter från `labelSv` / `stream-handlers`. |
+| **B3** | **Integration-SSE och typkontrakt** — antingen emittera payload som matchar `BuilderIntegrationPayload`, eller uppdatera typen till `{ items: [...] }` m.m. och dokumentera. | Kontrakt ska spegla verkligheten, inte bara `coerce` på klienten. | `generation-stream-tools.ts`, `builder-stream-contract.ts`, `stream-handlers.ts` | **Klart** 2026-03-30 — `BuilderIntegrationEnvelope` + typade emissions; `coerceIntegrationSignals` kvar för tolerans. |
 | **B4** | **`done` före `sandbox-ready`** är **avsiktligt** — dokumentera i kanonisk arkitektur att fler events kan komma efter `done`. | Förhindrar att någon “stänger” lyssnaren vid `done` och bryter sandbox. | `docs/architecture/builder-generation.md` (+ ev. `builder-stream-contract.ts` kommentar) | Läsning: ny utvecklare förstår livscykeln. |
 
 ### Rekommenderad arbetsordning
@@ -74,7 +78,7 @@ Checka av raderna när de är klara. Efter varje batch: `npm run typecheck` och 
 
 ## Underhåll
 
-När Del B är klar: uppdatera [`PROJECT-STATE-AND-DIRECTION.md`](./PROJECT-STATE-AND-DIRECTION.md) eller stäng en planrad så nästa person inte duplicerar arbete.
+Del B är stängd — se statusrutan överst. Fortsatt operativ backlog: [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) och [`../active/CONSOLIDATED-own-engine-platform-and-quality-v2.md`](../active/CONSOLIDATED-own-engine-platform-and-quality-v2.md).
 
 **Skapad:** 2026-03-30 · **Milstolpe-tag:** `milestone/llm-pipeline-baseline-59820639` (pekar på commit `59820639b` — *före* kördokument/B1/B4-commit på `master`).
 

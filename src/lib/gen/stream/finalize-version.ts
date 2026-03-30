@@ -33,7 +33,10 @@ import {
   buildPersistedOrchestrationSnapshot,
   mergePersistedOrchestrationSnapshots,
 } from "@/lib/gen/orchestration-snapshot";
-import { OWN_ENGINE_POST_STREAM_PIPELINE } from "./finalize-pipeline-contract";
+import {
+  OWN_ENGINE_POST_STREAM_PIPELINE,
+  type OwnEnginePostStreamPhaseId,
+} from "./finalize-pipeline-contract";
 
 let _lastMaterializedUrls: Set<string> = new Set();
 
@@ -46,7 +49,10 @@ export function getLastMaterializedUrls(): Set<string> {
   return _lastMaterializedUrls;
 }
 
-export type FinalizeProgressCallback = (event: string, data: Record<string, unknown>) => void;
+export type FinalizeProgressCallback = (
+  step: OwnEnginePostStreamPhaseId,
+  data: Record<string, unknown>,
+) => void;
 
 export interface FinalizeParams {
   accumulatedContent: string;
@@ -176,9 +182,12 @@ export async function finalizeAndSaveVersion(
   }
 
   // 2. URL expansion (before polish so polish sees final URLs)
+  onProgress?.("url_expand", { phase: "start" });
   contentForVersion = expandUrls(contentForVersion, urlMap);
+  onProgress?.("url_expand", { phase: "done" });
 
   // 3. Image materialization (replace /placeholder.svg?text=... with real Unsplash URLs)
+  onProgress?.("materialize_images", { phase: "start" });
   try {
     const imgResult = await materializeImages(contentForVersion);
     // Always refresh so validators never reuse URLs from a previous generation (review: staleness).
@@ -192,9 +201,14 @@ export async function finalizeAndSaveVersion(
         queries: imgResult.queries.slice(0, 10),
       });
     }
+    onProgress?.("materialize_images", {
+      phase: "done",
+      replacedCount: imgResult.replacedCount,
+    });
   } catch (imgErr) {
     _lastMaterializedUrls = new Set();
     console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
+    onProgress?.("materialize_images", { phase: "error" });
   }
 
   if (!contentForVersion.trim()) {
@@ -228,13 +242,13 @@ export async function finalizeAndSaveVersion(
   }
 
   // 5. Syntax validation + multi-pass fix
-  onProgress?.("validation", { phase: "start" });
+  onProgress?.("validate_syntax", { phase: "start" });
   const syntaxResult = await validateAndFix(contentForVersion, {
     chatId,
     model,
     resolvedTier,
     onProgress: (evt) => {
-      onProgress?.("validation", {
+      onProgress?.("validate_syntax", {
         pass: evt.pass,
         phase: evt.phase,
         errorCount: evt.errorCount,
@@ -264,7 +278,7 @@ export async function finalizeAndSaveVersion(
     throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
   }
 
-  onProgress?.("finalizing", { phase: "start" });
+  onProgress?.("parse_merge_preflight", { phase: "start" });
 
   // 4. Parse files + merge (scaffold-based for first gen, previousFiles-based for follow-up)
   let filesJson = parseFilesFromContent(contentForVersion);
@@ -378,7 +392,7 @@ export async function finalizeAndSaveVersion(
     previewBlockingReason,
     scaffoldRetry,
   });
-  onProgress?.("finalizing", {
+  onProgress?.("parse_merge_preflight", {
     phase: "done",
     versionId: version.id,
     fileCount: preflightFileCount,

@@ -26,6 +26,8 @@ export interface SandboxPreviewResult {
   fidelityTier: 2 | 3;
   prodBuildVerified: boolean;
   prodBuildLogSnippet?: string;
+  /** VM reused from session vs new provisioning. */
+  startOutcome: "resumed" | "recreated";
 }
 
 export type SandboxPreviewFailureCode = "readiness_timeout";
@@ -143,6 +145,7 @@ async function runStartSandboxPreview(
             sandboxPreviewMode: resolvedMode,
             fidelityTier: 2,
             prodBuildVerified: false,
+            startOutcome: "resumed",
           },
         };
       }
@@ -218,6 +221,7 @@ async function runStartSandboxPreview(
         fidelityTier,
         prodBuildVerified: bv ? bv.ok : false,
         prodBuildLogSnippet: bv && !bv.ok ? bv.logSnippet : undefined,
+        startOutcome: "recreated",
       },
     };
   } catch (err) {

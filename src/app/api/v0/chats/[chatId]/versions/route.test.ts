@@ -97,7 +97,39 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].demoUrl).toBeNull();
+    expect(json.versions[0].legacyShimPreviewUrl).toBeNull();
     expect(buildPreviewUrl).not.toHaveBeenCalled();
+  });
+
+  it("returns legacyShimPreviewUrl but null demoUrl when own-engine preview may be exposed", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_ok",
+        created_at: "2026-03-13T10:01:00.000Z",
+        version_number: 3,
+        message_id: "msg_1",
+        sandbox_url: "https://sandbox.example",
+        release_state: "draft",
+        verification_state: "passed",
+        verification_summary: null,
+        promoted_at: null,
+      },
+    ]);
+    buildPreviewUrl.mockReturnValue("/api/preview-render?chatId=chat_1&versionId=ver_ok");
+
+    const response = await GET(new Request("https://example.com/api/v0/chats/chat_1/versions"), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.versions).toHaveLength(1);
+    expect(json.versions[0].demoUrl).toBeNull();
+    expect(json.versions[0].legacyShimPreviewUrl).toBe(
+      "/api/preview-render?chatId=chat_1&versionId=ver_ok",
+    );
+    expect(buildPreviewUrl).toHaveBeenCalledWith("chat_1", "ver_ok");
   });
 
   it("returns empty versions when chat is not engine-backed and has no legacy DB mapping", async () => {

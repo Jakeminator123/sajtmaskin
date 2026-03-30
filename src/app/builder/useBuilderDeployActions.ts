@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 
 type Args = {
+  selectedVersionIdRef: MutableRefObject<string | null>;
+  latestVersionIdRef: MutableRefObject<string | null>;
   chatId: string | null;
   activeVersionId: string | null;
   deployReadiness: ChatReadiness | null;
@@ -50,6 +52,8 @@ type Args = {
 };
 
 export function useBuilderDeployActions({
+  selectedVersionIdRef,
+  latestVersionIdRef,
   chatId,
   activeVersionId,
   deployReadiness,
@@ -318,11 +322,23 @@ export function useBuilderDeployActions({
   }, []);
 
   const handleGenerationComplete = useCallback(
-    async (data: { chatId: string; versionId?: string; demoUrl?: string }) => {
+    async (data: {
+      chatId: string;
+      versionId?: string;
+      demoUrl?: string;
+      onlySelectVersionIfWasLatest?: boolean;
+    }) => {
       const normalized = pendingInstructionsRef.current?.trim() || "";
       const shouldApplyOnce = pendingInstructionsOnceRef.current ?? applyInstructionsOnce;
       if (data.versionId) {
-        setSelectedVersionId(data.versionId);
+        if (data.onlySelectVersionIfWasLatest) {
+          const sel = selectedVersionIdRef.current;
+          const latest = latestVersionIdRef.current;
+          const wasOnLatest = !sel || sel === latest;
+          if (wasOnLatest) setSelectedVersionId(data.versionId);
+        } else {
+          setSelectedVersionId(data.versionId);
+        }
       }
       if (data.chatId) {
         if (normalized && !shouldApplyOnce) {
@@ -502,6 +518,8 @@ export function useBuilderDeployActions({
       setSelectedVersionId,
       setCustomInstructions,
       setApplyInstructionsOnce,
+      selectedVersionIdRef,
+      latestVersionIdRef,
     ],
   );
 

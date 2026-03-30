@@ -14,6 +14,7 @@ import {
   httpStatusForSandboxPreviewFailure,
   startSandboxPreview,
 } from "@/lib/gen/sandbox-preview";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
 import { isSandboxConfigured, SANDBOX_SETUP_HINT } from "@/lib/mcp/runtime-url";
 
 const postBodySchema = z.object({
@@ -159,6 +160,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         await updateVersionSandboxUrl(versionRow.id, sr.sandboxUrl);
       }
 
+      logSandboxLifecycleTelemetry({
+        kind: "sandbox_start_outcome",
+        chatId,
+        versionId: versionRow.id,
+        outcome: sr.startOutcome,
+      });
+
       return NextResponse.json({
         ok: true,
         sandboxUrl: sr.sandboxUrl,
@@ -166,6 +174,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         sandboxPreviewMode: sr.sandboxPreviewMode,
         fidelityTier: sr.fidelityTier,
         prodBuildVerified: sr.prodBuildVerified,
+        startOutcome: sr.startOutcome,
         ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
       });
     } catch (err) {

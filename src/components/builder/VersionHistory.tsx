@@ -5,6 +5,7 @@ import {
   resolveEngineVersionDisplayStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
+import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
 import {
   AlertCircle,
   CheckCircle,
@@ -45,6 +46,8 @@ type VersionSummary = {
   id?: string | null;
   versionId?: string | null;
   demoUrl?: string | null;
+  legacyShimPreviewUrl?: string | null;
+  sandboxUrl?: string | null;
   createdAt?: string | Date | null;
   versionNumber?: number | null;
   releaseState?: string | null;
@@ -75,6 +78,7 @@ type RestoreVersionResponse = {
   success?: boolean;
   versionId?: string | null;
   demoUrl?: string | null;
+  legacyShimPreviewUrl?: string | null;
   error?: string;
 };
 
@@ -321,7 +325,7 @@ export function VersionHistory({
         throw new Error(data?.error || `Restore failed (HTTP ${res.status})`);
       }
       if (data?.versionId) {
-        onVersionSelect(String(data.versionId), data.demoUrl ?? undefined);
+        onVersionSelect(String(data.versionId));
       }
       toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version restored som ny draftversion");
       mutate();
@@ -529,13 +533,25 @@ export function VersionHistory({
                 : lifecycleStatus === "repairing"
                   ? "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300"
                   : undefined;
+            const isEngineVersionRow =
+              version.canPin === false || typeof version.versionNumber === "number";
+            const sandboxNorm = normalizePreviewUrl(version.sandboxUrl);
+            const hasSandboxForTier = Boolean(
+              sandboxNorm && isSandboxPreviewUrl(sandboxNorm),
+            );
             const qualityTier = resolveQualityTier(
               {
                 releaseState: version.releaseState,
                 verificationState: version.verificationState,
               },
-              { hasDemoUrl: Boolean(version.demoUrl) },
+              isEngineVersionRow
+                ? { hasSandboxUrl: hasSandboxForTier }
+                : { hasDemoUrl: Boolean(version.demoUrl) },
             );
+            const listPreviewUrl =
+              (sandboxNorm && isSandboxPreviewUrl(sandboxNorm) ? sandboxNorm : null) ??
+              normalizePreviewUrl(version.legacyShimPreviewUrl) ??
+              normalizePreviewUrl(version.demoUrl);
             const qualityTierLabel =
               qualityTier === "production"
                 ? "Produktionsklar"
@@ -648,18 +664,18 @@ export function VersionHistory({
                           {lifecycleSummary}
                         </p>
                       )}
-                      {version.demoUrl && (
+                      {listPreviewUrl && (
                         <p
                           className="text-muted-foreground truncate text-xs"
-                          title={version.demoUrl}
+                          title={listPreviewUrl}
                         >
-                          {version.demoUrl}
+                          {listPreviewUrl}
                         </p>
                       )}
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-1">
-                    {version.demoUrl && (
+                    {listPreviewUrl && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -667,7 +683,7 @@ export function VersionHistory({
                         onClick={(e) => e.stopPropagation()}
                         className="h-7 px-2 text-xs"
                       >
-                        <a href={version.demoUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={listPreviewUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="mr-1 h-3 w-3" />
                           View
                         </a>

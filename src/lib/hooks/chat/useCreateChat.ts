@@ -21,6 +21,7 @@ import {
 import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
+import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
 
 export function useCreateChat(
   params: ChatMessagingParams,
@@ -66,6 +67,7 @@ export function useCreateChat(
     setSandboxPending,
     onPreviewRefresh,
     onGenerationComplete,
+    onSandboxSessionMeta,
     onV0ProjectId,
     setMessages,
     resetBeforeCreateChat,
@@ -256,9 +258,16 @@ export function useCreateChat(
         const latestVersion = data.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
           data.versionId || latestVersion?.id || latestVersion?.versionId || null;
+        const fromLatestSandbox = normalizePreviewUrl(
+          typeof latestVersion?.sandboxUrl === "string" ? latestVersion.sandboxUrl : null,
+        );
+        const sandboxLive =
+          fromLatestSandbox && isSandboxPreviewUrl(fromLatestSandbox) ? fromLatestSandbox : null;
         const resolvedDemoUrl =
+          sandboxLive ||
           (typeof data.demoUrl === "string" && data.demoUrl) ||
           (typeof latestVersion?.demoUrl === "string" && latestVersion.demoUrl) ||
+          (typeof latestVersion?.legacyShimPreviewUrl === "string" && latestVersion.legacyShimPreviewUrl) ||
           null;
 
         if (!newChatId) {
@@ -434,6 +443,7 @@ export function useCreateChat(
               setSandboxPending,
               onPreviewRefresh,
               onGenerationComplete,
+              onSandboxSessionMeta,
               mutateVersions,
               enableImageMaterialization,
               autoFixHandlerRef,
@@ -535,6 +545,7 @@ export function useCreateChat(
       setSandboxProdBuild,
       onPreviewRefresh,
       onGenerationComplete,
+      onSandboxSessionMeta,
       onV0ProjectId,
       mutateVersions,
       buildBuilderParams,

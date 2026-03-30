@@ -18,6 +18,11 @@ export type OwnEngineDoneSsePayload = {
   previewBlocked?: boolean;
   verificationBlocked?: boolean;
   previewBlockingReason?: string | null;
+  /**
+   * When true, the builder only moves selection to the returned `versionId` if the user was
+   * already on the previous server "latest" (repair fork — see `preview-deploy.md`).
+   */
+  onlySelectVersionIfWasLatest?: boolean;
 };
 
 export type SandboxReadySsePayload = {
@@ -44,4 +49,23 @@ export type SandboxPreviewPostApiJson = {
   fidelityTier?: number;
   prodBuildVerified?: boolean;
   prodBuildLogSnippet?: string;
+  startOutcome?: "resumed" | "recreated";
+};
+
+/** `GET /api/v0/chats/[chatId]/sandbox-status?versionId=&sandboxId=` */
+export type SandboxStatusApiJson = {
+  ok: boolean;
+  status: "running" | "stopped" | "missing" | "version_mismatch";
+  sandboxId: string | null;
+  sandboxUrl: string | null;
+  versionId: string | null;
+  sessionExpiresAt: number | null;
+  reason?: string;
+  message?: string;
+};
+
+/** `POST /api/v0/chats/[chatId]/sandbox-heartbeat` */
+export type SandboxHeartbeatApiJson = {
+  ok: boolean;
+  reason?: string;
 };

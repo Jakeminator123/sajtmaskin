@@ -111,6 +111,8 @@ export type {
   OwnEngineDoneSsePayload,
   SandboxReadySsePayload,
   SandboxPreviewPostApiJson,
+  SandboxStatusApiJson,
+  SandboxHeartbeatApiJson,
 } from "../preview-contract";
 export type {
   PreflightIssueCategory,

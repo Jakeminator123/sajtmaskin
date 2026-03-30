@@ -2,12 +2,14 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { shouldRunOwnEngineSandbox } from "@/lib/gen/own-engine-sandbox-gate";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
 import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
 import { isServerVerifyEligible, triggerServerVerification } from "@/lib/gen/server-verify";
+import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { warnLog } from "@/lib/utils/debug";
 
@@ -44,7 +46,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
     toolSignaledProviders,
   );
   if (newDetected.length > 0) {
-    safeEnqueue(enc.encode(formatSSEEvent("integration", { items: newDetected })));
+    const integrationPayload: BuilderIntegrationEnvelope = { items: newDetected };
+    safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
     devLogAppend("in-progress", {
       type: "engine.integration_signals",
       chatId,
@@ -144,6 +147,12 @@ export async function runOwnEngineStreamPostFinalize(params: {
       });
       if (sandboxResult.ok) {
         const sr = sandboxResult.result;
+        logSandboxLifecycleTelemetry({
+          kind: "sandbox_start_outcome",
+          chatId,
+          versionId: finalized.version.id,
+          outcome: sr.startOutcome,
+        });
         safeEnqueue(
           enc.encode(
             formatSSEEvent("sandbox-ready", {

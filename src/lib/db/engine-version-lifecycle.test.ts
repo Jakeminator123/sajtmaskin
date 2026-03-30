@@ -5,6 +5,7 @@ import {
   resolveEngineVersionDisplayStatus,
   canExposeEnginePreview,
   selectPreferredEngineVersion,
+  resolveQualityTier,
 } from "./engine-version-lifecycle";
 
 describe("resolveEngineVersionLifecycleStatus", () => {
@@ -50,6 +51,14 @@ describe("resolveEngineVersionDisplayStatus", () => {
     const failed = { verificationState: "failed", versionNumber: 1 };
     const newer = { verificationState: "verifying", versionNumber: 2 };
     expect(resolveEngineVersionDisplayStatus(failed, [failed, newer])).toBe("retrying");
+  });
+});
+
+describe("resolveQualityTier", () => {
+  it("uses hasSandboxUrl when provided instead of implied demoUrl preview", () => {
+    const v = { verificationState: "verifying" as const };
+    expect(resolveQualityTier(v, { hasSandboxUrl: true })).toBe("preview");
+    expect(resolveQualityTier(v, { hasSandboxUrl: false })).toBe("none");
   });
 });
 

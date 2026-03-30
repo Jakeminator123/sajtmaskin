@@ -27,7 +27,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const versionsList = engineVersions.map((v) => ({
           id: v.id,
           versionId: v.id,
-          demoUrl: canExposeEnginePreview(v) ? buildPreviewUrl(engineChatId, v.id) : null,
+          demoUrl: null,
+          legacyShimPreviewUrl: canExposeEnginePreview(v)
+            ? buildPreviewUrl(engineChatId, v.id)
+            : null,
           createdAt: v.created_at,
           versionNumber: v.version_number,
           messageId: v.message_id,
@@ -193,7 +196,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     return NextResponse.json({
       success: true,
       versionId: restoredVersion.id,
-      demoUrl: canExposeEnginePreview(restoredVersion)
+      demoUrl: null,
+      legacyShimPreviewUrl: canExposeEnginePreview(restoredVersion)
         ? buildPreviewUrl(engineChat.id, restoredVersion.id)
         : null,
     });

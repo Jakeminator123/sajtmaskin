@@ -6,6 +6,7 @@ import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { MODEL_TIER_TO_QUALITY } from "./types";
+import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
 
 type UseBuilderEffectsArgs = {
   auditPromptLoaded: boolean;
@@ -83,7 +84,10 @@ export function useBuilderEffects({
           }
         }
         if (data?.demoUrl) {
-          setCurrentDemoUrl(data.demoUrl);
+          const n = normalizePreviewUrl(data.demoUrl as string);
+          if (n && !isCompatibilityShimPreviewUrl(n)) {
+            setCurrentDemoUrl(n);
+          }
         }
         if (data?.chatId && appProjectId) {
           saveProjectData(appProjectId, {

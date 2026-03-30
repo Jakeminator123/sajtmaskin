@@ -1,3 +1,4 @@
+import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { debugLog } from "@/lib/utils/debug";
 
@@ -27,24 +28,21 @@ export function emitOwnEngineToolCallSse(
   if (toolName === "suggestIntegration") {
     setBlockingToolCall();
     const envVars = Array.isArray(toolArgs.envVars) ? (toolArgs.envVars as string[]) : [];
-    safeEnqueue(
-      enc.encode(
-        formatSSEEvent("integration", {
-          items: [
-            {
-              key: typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown",
-              name: typeof toolArgs.name === "string" ? toolArgs.name : "Integration",
-              provider: typeof toolArgs.provider === "string" ? toolArgs.provider : undefined,
-              intent: "env_vars" as const,
-              envVars,
-              status: "Kräver konfiguration",
-              reason: typeof toolArgs.reason === "string" ? toolArgs.reason : undefined,
-              setupHint: typeof toolArgs.setupHint === "string" ? toolArgs.setupHint : undefined,
-            },
-          ],
-        }),
-      ),
-    );
+    const integrationPayload: BuilderIntegrationEnvelope = {
+      items: [
+        {
+          key: typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown",
+          name: typeof toolArgs.name === "string" ? toolArgs.name : "Integration",
+          provider: typeof toolArgs.provider === "string" ? toolArgs.provider : undefined,
+          intent: "env_vars",
+          envVars,
+          status: "Kräver konfiguration",
+          reason: typeof toolArgs.reason === "string" ? toolArgs.reason : undefined,
+          setupHint: typeof toolArgs.setupHint === "string" ? toolArgs.setupHint : undefined,
+        },
+      ],
+    };
+    safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
     const providerKey = typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown";
     toolSignaledProviders.add(providerKey);
     debugLog("engine", "Tool: suggestIntegration", { provider: providerKey });
@@ -58,24 +56,21 @@ export function emitOwnEngineToolCallSse(
       return;
     }
     setBlockingToolCall();
-    safeEnqueue(
-      enc.encode(
-        formatSSEEvent("integration", {
-          items: [
-            {
-              key: "custom-env",
-              name: "Miljövariabel",
-              intent: "env_vars" as const,
-              envVars: [envKey],
-              status:
-                typeof toolArgs.description === "string"
-                  ? toolArgs.description
-                  : "Kräver konfiguration",
-            },
-          ],
-        }),
-      ),
-    );
+    const integrationPayload: BuilderIntegrationEnvelope = {
+      items: [
+        {
+          key: "custom-env",
+          name: "Miljövariabel",
+          intent: "env_vars",
+          envVars: [envKey],
+          status:
+            typeof toolArgs.description === "string"
+              ? toolArgs.description
+              : "Kräver konfiguration",
+        },
+      ],
+    };
+    safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
     return;
   }
 

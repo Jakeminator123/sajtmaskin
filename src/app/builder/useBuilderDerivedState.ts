@@ -8,6 +8,8 @@ export type VersionSummary = {
   id?: string | null;
   versionId?: string | null;
   demoUrl?: string | null;
+  /** Legacy shim URL for own-engine; primary live preview is `sandboxUrl`. */
+  legacyShimPreviewUrl?: string | null;
   createdAt?: string | Date | null;
   versionNumber?: number | null;
   sandboxUrl?: string | null;
@@ -15,10 +17,13 @@ export type VersionSummary = {
   verificationState?: string | null;
   verificationSummary?: string | null;
   promotedAt?: string | Date | null;
+  /** Own-engine rows use `false`; legacy mapped chats use `true`. */
+  canPin?: boolean;
 };
 
 export type ChatData = {
   demoUrl?: string | null;
+  legacyShimPreviewUrl?: string | null;
   latestVersion?: VersionSummary | null;
   v0ProjectId?: string | null;
 } | null;
@@ -78,6 +83,7 @@ export function useBuilderDerivedState({
       versionId: latest?.versionId || latest?.id || null,
       id: latest?.id || null,
       demoUrl: latest?.demoUrl ?? null,
+      legacyShimPreviewUrl: latest?.legacyShimPreviewUrl ?? null,
       createdAt: latest?.createdAt ?? new Date().toISOString(),
       versionNumber: latest?.versionNumber ?? null,
       sandboxUrl: latest?.sandboxUrl ?? null,
@@ -85,6 +91,7 @@ export function useBuilderDerivedState({
       verificationState: latest?.verificationState ?? null,
       verificationSummary: latest?.verificationSummary ?? null,
       promotedAt: latest?.promotedAt ?? null,
+      canPin: latest?.canPin,
     });
     return list;
   }, [versionsList, chat]);

@@ -49,8 +49,13 @@ import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
+import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
+import type { SandboxStatusApiJson } from "@/lib/gen/preview-contract";
 import {
   hasSandboxPreviewUrl,
+  isCompatibilityShimPreviewUrl,
+  isSandboxPreviewUrl,
   isShimOrMissingPreviewUrl,
   normalizePreviewUrl,
   resolveAlternatePreviewUrls,
@@ -91,7 +96,7 @@ function parsePreviewOverride(
   return { url, versionId };
 }
 
-function isV0StyleChatRecord(chat: unknown): boolean {
+function isLegacyMappedChatRecord(chat: unknown): boolean {
   const c = chat as { v0ChatId?: string } | null | undefined;
   return Boolean(c?.v0ChatId);
 }
@@ -179,6 +184,11 @@ export function useBuilderPageController() {
     enableBlobMedia: state.enableBlobMedia,
   });
 
+  const selectedVersionIdRef = useRef<string | null>(null);
+  const latestVersionIdRef = useRef<string | null>(null);
+  selectedVersionIdRef.current = state.selectedVersionId;
+  latestVersionIdRef.current = derived.latestVersionId;
+
   /** Sandbox URL for the active version (shim slot kept null). */
   const activeVersionAlternatePreview = useMemo(() => {
     const vid = derived.activeVersionId;
@@ -258,6 +268,8 @@ export function useBuilderPageController() {
 
   // ── Deploy actions ───────────────────────────────────────────────────
   const deployActions = useBuilderDeployActions({
+    selectedVersionIdRef,
+    latestVersionIdRef,
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
     deployReadiness,
@@ -305,6 +317,22 @@ export function useBuilderPageController() {
   } | null>(null);
   const [sandboxProdBuild, setSandboxProdBuild] = useState<SandboxProdBuildPayload | null>(null);
   const [sandboxPending, setSandboxPending] = useState(false);
+  const [activeSandboxMeta, setActiveSandboxMeta] = useState<{
+    sandboxId: string;
+    versionId: string;
+  } | null>(null);
+  const [sandboxPreviewRecovering, setSandboxPreviewRecovering] = useState(false);
+
+  const onSandboxSessionMeta = useCallback(
+    (meta: { sandboxId: string; versionId: string | null } | null) => {
+      if (!meta?.sandboxId?.trim() || !meta.versionId?.trim()) return;
+      setActiveSandboxMeta({
+        sandboxId: meta.sandboxId.trim(),
+        versionId: meta.versionId.trim(),
+      });
+    },
+    [],
+  );
 
   const clearSandboxBuildError = useCallback(() => {
     setSandboxBuildError(null);
@@ -356,6 +384,7 @@ export function useBuilderPageController() {
       setSandboxPending,
       onPreviewRefresh: bumpPreviewRefreshToken,
       onGenerationComplete: deployActions.handleGenerationComplete,
+      onSandboxSessionMeta,
       onV0ProjectId: (nextId) => state.setV0ProjectId(nextId),
       setMessages: state.setMessages,
       resetBeforeCreateChat,
@@ -1339,6 +1368,23 @@ export function useBuilderPageController() {
     sandboxBootstrapTransientAttemptsRef.current.clear();
     setSandboxBootstrapRetryNonce(0);
     setForcedSandboxRestartKey(null);
+    setActiveSandboxMeta(null);
+    setSandboxPreviewRecovering(false);
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!activeSandboxMeta || !derived.activeVersionId) return;
+    if (activeSandboxMeta.versionId !== derived.activeVersionId) {
+      setActiveSandboxMeta(null);
+    }
+  }, [activeSandboxMeta, derived.activeVersionId]);
+
+  const lastPreviewRecoverAtRef = useRef(0);
+  const previewRecoverAttemptsRef = useRef(0);
+
+  useEffect(() => {
+    previewRecoverAttemptsRef.current = 0;
+    lastPreviewRecoverAtRef.current = 0;
   }, [chatId]);
 
   // Own-engine: start sandbox when there is no live sandbox URL yet (e.g. after generation or reopen).
@@ -1349,7 +1395,7 @@ export function useBuilderPageController() {
     if (!isAuthenticated || !chatId || !derived.activeVersionId) return;
     if (isChatLoading || !chat) return;
     if (isAnyStreamingEarly) return;
-    if (isV0StyleChatRecord(chat)) return;
+    if (isLegacyMappedChatRecord(chat)) return;
 
     const key = `${chatId}:${derived.activeVersionId}`;
     const isForcedRestart = forcedSandboxRestartKey === key;
@@ -1434,6 +1480,7 @@ export function useBuilderPageController() {
               });
               setSandboxProdBuild(null);
               setSandboxPending(false);
+              if (isForcedRestart) setSandboxPreviewRecovering(false);
               return;
             }
           }
@@ -1459,13 +1506,23 @@ export function useBuilderPageController() {
           }
           if (!data?.ok || typeof data.sandboxUrl !== "string" || !data.sandboxUrl.trim()) {
             setSandboxPending(false);
+            if (isForcedRestart) setSandboxPreviewRecovering(false);
             return;
           }
 
           setSandboxBuildError(null);
           setSandboxPending(false);
+          setSandboxPreviewRecovering(false);
+          previewRecoverAttemptsRef.current = 0;
           setCurrentDemoUrl(data.sandboxUrl.trim());
           bumpPreviewRefreshToken();
+          const activeVid = derived.activeVersionId;
+          if (activeVid && typeof data.sandboxId === "string" && data.sandboxId.trim()) {
+            setActiveSandboxMeta({
+              sandboxId: data.sandboxId.trim(),
+              versionId: activeVid,
+            });
+          }
           if (typeof data.prodBuildVerified === "boolean") {
             setSandboxProdBuild({
               verified: data.prodBuildVerified,
@@ -1476,6 +1533,14 @@ export function useBuilderPageController() {
             });
           } else {
             setSandboxProdBuild(null);
+          }
+          if (isForcedRestart) {
+            logSandboxLifecycleTelemetry({
+              kind: "recover",
+              phase: "succeeded",
+              chatId,
+              ...(derived.activeVersionId ? { versionId: derived.activeVersionId } : {}),
+            });
           }
           void mutateChat();
           void mutateVersions();
@@ -1515,6 +1580,97 @@ export function useBuilderPageController() {
     setForcedSandboxRestartKey,
     sandboxBootstrapRetryNonce,
   ]);
+
+  const handlePreviewSessionSuspect = useCallback(async () => {
+    const versionId = derived.activeVersionId;
+    if (!chatId || !versionId) return;
+    const demo = normalizePreviewUrl(currentDemoUrl);
+    if (!demo || !isSandboxPreviewUrl(demo)) return;
+
+    const now = Date.now();
+    if (now - lastPreviewRecoverAtRef.current < 12_000) return;
+    lastPreviewRecoverAtRef.current = now;
+
+    const params = new URLSearchParams({ versionId });
+    if (activeSandboxMeta?.sandboxId) {
+      params.set("sandboxId", activeSandboxMeta.sandboxId);
+    }
+
+    let statusPayload: SandboxStatusApiJson | null = null;
+    try {
+      const res = await fetch(
+        `/api/v0/chats/${encodeURIComponent(chatId)}/sandbox-status?${params.toString()}`,
+      );
+      statusPayload = (await res.json()) as SandboxStatusApiJson;
+      if (!res.ok || !statusPayload || statusPayload.ok !== true) return;
+    } catch {
+      return;
+    }
+
+    if (statusPayload.status === "running") {
+      const serverUrl = statusPayload.sandboxUrl?.trim() ?? "";
+      if (serverUrl) {
+        const cur = normalizePreviewUrl(currentDemoUrl);
+        const next = normalizePreviewUrl(serverUrl);
+        if (next && next !== cur) {
+          logSandboxLifecycleTelemetry({
+            kind: "sandbox_url_resync",
+            chatId,
+            versionId,
+            detail: "status_running_mismatch",
+          });
+          setCurrentDemoUrl(serverUrl);
+          bumpPreviewRefreshToken();
+        }
+      }
+      return;
+    }
+
+    if (previewRecoverAttemptsRef.current >= 5) {
+      logSandboxLifecycleTelemetry({
+        kind: "recover",
+        phase: "failed",
+        chatId,
+        versionId,
+        detail: "max_attempts",
+      });
+      setSandboxPreviewRecovering(false);
+      return;
+    }
+    previewRecoverAttemptsRef.current += 1;
+
+    logSandboxLifecycleTelemetry({
+      kind: "recover",
+      phase: "started",
+      chatId,
+      versionId,
+      detail: statusPayload.status,
+    });
+
+    setSandboxPreviewRecovering(true);
+    const key = `${chatId}:${versionId}`;
+    sandboxBootstrapDoneKeysRef.current.delete(key);
+    setForcedSandboxRestartKey(key);
+    setSandboxBootstrapRetryNonce((n) => n + 1);
+  }, [
+    chatId,
+    derived.activeVersionId,
+    activeSandboxMeta,
+    currentDemoUrl,
+    setCurrentDemoUrl,
+    bumpPreviewRefreshToken,
+  ]);
+
+  const previewLifecycle: PreviewLifecycleState = useMemo(() => {
+    if (sandboxBuildError?.stage === "sandbox_disabled") return "failed";
+    if (sandboxPreviewRecovering) return "recovering";
+    if (sandboxPending) return "bootstrapping";
+    if (sandboxBuildError) return "failed";
+    const url = normalizePreviewUrl(currentDemoUrl);
+    if (url && isSandboxPreviewUrl(url)) return "live";
+    if (url && !isCompatibilityShimPreviewUrl(url)) return "live";
+    return "idle";
+  }, [sandboxBuildError, sandboxPreviewRecovering, sandboxPending, currentDemoUrl]);
 
   // Prompt assist context fetch
   useEffect(() => {
@@ -1695,6 +1851,9 @@ export function useBuilderPageController() {
     sandboxBuildError,
     sandboxProdBuild,
     sandboxPending,
+    activeSandboxId: activeSandboxMeta?.sandboxId ?? null,
+    previewLifecycle,
+    handlePreviewSessionSuspect,
     clearSandboxBuildError,
     serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,

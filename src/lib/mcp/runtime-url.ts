@@ -67,15 +67,15 @@ const SANDBOX_PREVIEW_MODE_VALUES = new Set<SandboxPreviewMode>([
 
 /**
  * Server env `SAJTMASKIN_SANDBOX_PREVIEW_MODE`.
- * Default `dev_then_build`: tier-2 dev preview plus `npm run build` verification (Fidelity 3 signal when build succeeds).
- * Set to `dev_only` for faster iteration without production build in the VM.
+ * Default `dev_only`: Fidelity 2 only (`npm run dev` in VM) — snabbare och produktens primära previewväg.
+ * Sätt `dev_then_build` för dev + `npm run build`-verifiering (Fidelity 3-signal när bygget lyckas).
  */
 export function resolveSandboxPreviewModeFromEnv(): SandboxPreviewMode {
   const raw = process.env.SAJTMASKIN_SANDBOX_PREVIEW_MODE?.trim().toLowerCase().replace(/-/g, "_");
   if (raw && SANDBOX_PREVIEW_MODE_VALUES.has(raw as SandboxPreviewMode)) {
     return raw as SandboxPreviewMode;
   }
-  return "dev_then_build";
+  return "dev_only";
 }
 
 /** Git URL for the Next.js template VM (`Sandbox.create` source). Override for a pinned fork/commit. */
@@ -110,8 +110,8 @@ export type SandboxRuntimeOptions = {
    * `build_only`: install + `npm run build` only (no dev server; `primaryUrl` is null).
    * `dev_only`: install + detached `npm run dev` — **tier 2** preview.
    * `dev_then_build`: install + detached dev + `npm run build` verification (tier 2 + tier-3 signal).
-   * Default from env: `resolveSandboxPreviewModeFromEnv()` → **`dev_then_build`** unless
-   * `SAJTMASKIN_SANDBOX_PREVIEW_MODE` explicitly sets another mode.
+   * Default from env: `resolveSandboxPreviewModeFromEnv()` → **`dev_only`** unless
+   * `SAJTMASKIN_SANDBOX_PREVIEW_MODE` sätter annat läge.
    */
   sandboxPreviewMode?: SandboxPreviewMode;
   /**

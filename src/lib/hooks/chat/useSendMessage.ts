@@ -15,6 +15,7 @@ import {
 import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
+import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
 
 export function useSendMessage(
   params: ChatMessagingParams,
@@ -58,6 +59,7 @@ export function useSendMessage(
     setSandboxPending,
     onPreviewRefresh,
     onGenerationComplete,
+    onSandboxSessionMeta,
     setMessages,
   } = params;
 
@@ -117,7 +119,12 @@ export function useSendMessage(
           ((data?.latestVersion as Record<string, unknown>)?.demoUrl as string) ||
           null;
         const preflight = readPreviewPreflight(data);
-        if (demoUrl) setCurrentDemoUrl(demoUrl);
+        if (demoUrl) {
+          const n = normalizePreviewUrl(demoUrl);
+          if (n && !isCompatibilityShimPreviewUrl(n)) {
+            setCurrentDemoUrl(n);
+          }
+        }
         onPreviewRefresh?.();
         const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
@@ -298,6 +305,7 @@ export function useSendMessage(
             setSandboxPending,
             onPreviewRefresh,
             onGenerationComplete,
+            onSandboxSessionMeta,
             mutateVersions,
             enableImageMaterialization,
             autoFixHandlerRef,
@@ -387,6 +395,7 @@ export function useSendMessage(
       setSandboxProdBuild,
       onPreviewRefresh,
       onGenerationComplete,
+      onSandboxSessionMeta,
       selectedModelTier,
       buildIntent,
       buildMethod,

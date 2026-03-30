@@ -30,6 +30,10 @@ Eventet **`done`** betyder att **versionen är finaliserad och sparad** (assista
 
 Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/stream/builder-stream-contract.ts) och post-finalize i `generation-stream-post-finalize.ts`.
 
+**Progress efter codegen:** `progress.step` för finalize-pipelinen följer `OwnEnginePostStreamPhaseId` i [`finalize-pipeline-contract.ts`](../../src/lib/gen/stream/finalize-pipeline-contract.ts) (t.ex. `validate_syntax`, `parse_merge_preflight`), inte äldre alias som `validation` / `finalizing`.
+
+**Integration-SS:** eventet `integration` bär kanoniskt `{ items: BuilderIntegrationItemPayload[] }` (se `builder-stream-contract.ts`); klienten tolererar fortfarande en rå array via `coerceIntegrationSignals`.
+
 ## Generationsloop och felminne
 
 - Efter stream: `finalizeAndSaveVersion`, autofix-pipeline, ev. kvalitetsgrind — se `generation-loop-and-error-memory.md` i arkivet.
@@ -43,6 +47,31 @@ Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/st
 ## Meritmind / särskilda flöden
 
 Om du letar efter domänspecifika byggflöden, se `meritmind-build-flows.md` i arkivet.
+
+## Preview-shim vs sandbox — problemtyper (arbetslista)
+
+*Gäller **allt** som genereras från prompt (egen motor): jämförelse mellan **tier‑1** `/api/preview-render` (snabb kompatibilitetsvy) och **Fidelity 2 / sandbox** (`next dev` i VM), som är **primär** previewväg när sandbox är konfigurerad och lyckas.*
+
+**Kontrakt (2026-03-30):** För own-engine returnerar chat- och versions-API `demoUrl: null` och sätter ev. shim i **`legacyShimPreviewUrl`**; byggaren väljer **sandbox-URL** vid versionsbyte och visar quality-tier «preview» först när **sandbox** finns, inte när bara shim finns.
+
+| # | Problemtyp | Kort beskrivning |
+|---|------------|------------------|
+| P1 | **Runtime-paritet** | Shim bygger självständig HTML/React-ström; **samma beteende** som full Next + WebGL i sandbox är **inte garanterad** (t.ex. spelloopar, `canvas`, audio). |
+| P2 | **WebGL / Three / R3F** | Fiber + `Canvas` kräver **browser + WebGL-kontext**; server-side tier‑1 kan **förenkla, hoppa över eller feltolka** importer och livscykel jämfört med klientbundle i sandbox. |
+| P3 | **Bundling & sidoeffekter** | Workers, WASM, dynamiska `import()`, villkor beroende på `window` — risk för **skillnad** mellan shim, sandbox-build och produktion. |
+| P4 | **Routing & bas-URL** | Länkar och `next/link` som blir **absoluta mot fel host** i iframe (t.ex. pekar på appens domän i stället för preview-host). |
+| P5 | **Flera routes** | Shim styrs ofta med `?route=`; **riktig** App Router har **egna** segment, layouts, `loading.tsx` — paritet saknas ofta. |
+| P6 | **API routes / server actions** | Genererade `app/api/*`, server actions och **reella nätverksanrop** körs **inte** som i en riktig Next-server inuti tier‑1. |
+| P7 | **Middleware / edge** | Middleware och edge-runtime **ingår inte** i preview-shimens modell. |
+| P8 | **Miljövariabler & placeholders** | **`suggestIntegration` / `requestEnvVar`** kan sätta **blocking** utan att projekt-env i UI **räknas** som “svar”; **placeholders i `.env.example`** löser inte automatiskt `awaiting-input` i chatten. |
+| P9 | **Hemligheter vs demo** | Stripe/DB utan nycklar: shim kan **visa statiskt innehåll** medan **sandbox quality gate** (`tsc` / `next build`) **faller** — **dubbla sanningar**. |
+| P10 | **Verifiering vs förhandsvisning** | **Lyckad** `preview-render` + **misslyckad** server-verify — svårt för medlemmar utan tydlig koppling i UI. |
+| P11 | **CSP & eval** | Dev/prod och iframe **CSP** skiljer sig; vissa 3D-/spelbibliotek utlöser **strängare** policy i preview än lokalt. |
+| P12 | **Prestanda & DPR** | Hög `dpr`, partiklar, post-processing — **smidigt i sandbox**, **dyrt eller nedbantat** i shim eller på svaga enheter. |
+| P13 | **Tillgång till devserver** | Externa webbläsare (t.ex. assistenter i **Cursor IDE**) når ofta **inte** utvecklarens `localhost`; **deployad URL** kan ge annan **auth/data** än lokal DB — förvirring vid felsökning. *Detta är inte en del av Sajtmaskin-produkten.* |
+| P14 | **Tredjepartsskript** | Analytics, Stripe.js, kartor — **laddning/blockering** skiljer sig mellan shim-HTML och full app. |
+
+**Produktmål:** medlemmar skapar sidor **via prompt**; **standardpreview** ska vara **sandbox (Fidelity 2)** när miljön tillåter — shim finns som fallback under tid eller vid fel.
 
 ## Snabb felsökning
 

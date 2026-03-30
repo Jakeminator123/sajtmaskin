@@ -120,6 +120,7 @@ export const serverSchema = z.object({
   AI_GATEWAY_API_KEY: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
   /** Vercel Sandbox: `dev_only`, `dev_then_build` (default), `build_only`. See `resolveSandboxPreviewModeFromEnv`. */
+  /** `dev_only` (default i kod om unset), `dev_then_build`, eller `build_only` — se `resolveSandboxPreviewModeFromEnv`. */
   SAJTMASKIN_SANDBOX_PREVIEW_MODE: z.string().optional(),
   /** Optional git URL for sandbox VM template (default: vercel/sandbox-example-next). Pin in production. */
   SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL: z.string().optional(),

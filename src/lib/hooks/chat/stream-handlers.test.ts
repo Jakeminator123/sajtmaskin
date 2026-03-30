@@ -167,6 +167,7 @@ describe("handleSseStream", () => {
       chatId: "chat_1",
       versionId: "ver_1",
       demoUrl: "https://preview.example/chat_1/ver_1",
+      onlySelectVersionIfWasLatest: false,
     });
     expect(triggerImageMaterialization).toHaveBeenCalledWith({
       chatId: "chat_1",
@@ -344,6 +345,46 @@ describe("handleSseStream", () => {
       logSnippet: undefined,
     });
     expect(spies.setCurrentDemoUrl).not.toHaveBeenCalled();
+  });
+
+  it("does not set iframe URL from done when demoUrl is compatibility shim only", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            demoUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(spies.setCurrentDemoUrl).not.toHaveBeenCalled();
+    expect(spies.onGenerationComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        demoUrl: undefined,
+      }),
+    );
   });
 
   it("does not apply shim fallback from build-error", async () => {

@@ -10,6 +10,8 @@ supersedes_history: LLM-flöde förbättringsplan + V0-plattform avvecklingsplan
 
 # Konsoliderad plan v2: Own-engine som plattform + kvalitet och spårbarhet
 
+**Aktiv roadmap:** denna fil — flera öppna rader i checklistan längst ner. *Separat* LLM-review-spår (runbook Del B: B1–B4) är **stängt** och **arkiverat**: [`../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md).
+
 ## Varför en plan
 
 De två tidigare planerna berör **samma produktkedja** men olika dimensioner:
@@ -224,7 +226,7 @@ _Plattform / V0_
 - [x] `remove-http-v0-fallback` — GET chat, assertV0Key-vägar
 - [x] `replace-template-registry-zip` — Engine + DB, ingen `downloadVersion`
 - [x] `remove-v0-sdk` — Paket + env rensning
-- [ ] `builder-cleanup` — v0ProjectId, preview-priority, copy (naming debt — deferred)
+- [ ] `builder-cleanup` — v0ProjectId, preview-priority, copy (naming debt — deferred). *Sandbox kanon vs shim i API/versionval/quality-tier levererat 2026-03-30; `isLegacyMappedChatRecord`.*
 - [x] `deploy-clarity` — Sandbox vs deploy i UI/docs
 - [ ] `schema-migration-optional` — Separat PR legacy vs engine (deferred)
 

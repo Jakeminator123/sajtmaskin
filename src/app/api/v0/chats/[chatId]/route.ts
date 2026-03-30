@@ -19,7 +19,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           (await getPreferredVersion(resolvedChatId)) ??
           (await getLatestVersion(resolvedChatId));
         const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
-        const previewUrl =
+        const legacyShimPreviewUrl =
           latest && canExposeEnginePreview(latest)
             ? buildPreviewUrl(resolvedChatId, latest.id)
             : null;
@@ -33,7 +33,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           scaffoldId: chat.scaffold_id,
           scaffoldFamily: resolvedScaffold?.family ?? null,
           scaffoldLabel: resolvedScaffold?.label ?? null,
-          demoUrl: previewUrl,
+          demoUrl: null,
+          legacyShimPreviewUrl,
           createdAt: chat.created_at,
           updatedAt: chat.updated_at,
           messages: chat.messages.map((m) => ({
@@ -48,7 +49,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             ? {
                 id: latest.id,
                 versionId: latest.id,
-                demoUrl: previewUrl,
+                demoUrl: null,
+                legacyShimPreviewUrl,
                 createdAt: latest.created_at,
                 versionNumber: latest.version_number,
                 messageId: latest.message_id,
@@ -57,6 +59,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
                 verificationState: latest.verification_state,
                 verificationSummary: latest.verification_summary,
                 promotedAt: latest.promoted_at,
+                canPin: false,
               }
             : null,
         });
@@ -84,6 +87,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
               messageId: latestMappedVersion[0].v0MessageId,
               demoUrl: latestMappedVersion[0].demoUrl,
               createdAt: latestMappedVersion[0].createdAt,
+              canPin: true,
             },
             demoUrl: latestMappedVersion[0].demoUrl,
           });

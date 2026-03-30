@@ -27,6 +27,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "chatId is required" }, { status: 400 });
   }
 
+  console.info("[telemetry:legacy-preview-render]", {
+    chatId,
+    versionId: versionId ?? "latest",
+  });
+
   if (versionId) {
     const version = await getVersionById(versionId);
     if (!version || version.chat_id !== chatId) {

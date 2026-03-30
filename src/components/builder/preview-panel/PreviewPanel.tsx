@@ -128,6 +128,8 @@ import { PreviewPanelSandbox } from "./PreviewPanelSandbox";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
+import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+import type { SandboxHeartbeatApiJson } from "@/lib/gen/preview-contract";
 import {
   buildAlternatePreviewBannerState,
   isCompatibilityShimPreviewUrl,
@@ -341,6 +343,11 @@ interface PreviewPanelProps {
   /** `npm run build` result in Vercel sandbox after dev (own-engine); separate from dev-preview. */
   sandboxProdBuild?: { verified: boolean; logSnippet?: string } | null;
   sandboxPending?: boolean;
+  /** Server-known sandbox VM id for heartbeat / status (own-engine). */
+  activeSandboxId?: string | null;
+  previewLifecycle?: PreviewLifecycleState;
+  /** Ask controller to verify server session and recover sandbox if needed. */
+  onPreviewSessionSuspect?: () => void;
   placementMode?: boolean;
   pendingPlacementItem?: {
     title: string;
@@ -393,6 +400,9 @@ export function PreviewPanel({
   sandboxBuildError = null,
   sandboxProdBuild = null,
   sandboxPending = false,
+  activeSandboxId = null,
+  previewLifecycle,
+  onPreviewSessionSuspect,
   placementMode = false,
   pendingPlacementItem = null,
   onPlacementComplete,
@@ -2234,6 +2244,9 @@ export function PreviewPanel({
           setIframeDiagnosticCode("preview_ready_timeout");
           setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
           clearPreviewReadyTimer();
+          if (isSandboxPreviewUrl(demoUrl)) {
+            onPreviewSessionSuspect?.();
+          }
           reportOwnEngineRenderFailure({
             message: `Preview remained blank after waiting ${PREVIEW_READY_TIMEOUT_MS}ms.`,
             kind: "transport",
@@ -2254,24 +2267,7 @@ export function PreviewPanel({
     setIframeLoading(false);
     setIframeError(false);
     setIframeErrorMessage(null);
-  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportOwnEngineRenderFailure]);
-
-  const handleIframeError = useCallback(() => {
-    clearPreviewReadyTimer();
-    setIframeLoading(false);
-    setIframeError(true);
-    setIframeDiagnosticCode("preview_transport_error");
-    setIframeErrorMessage(describePreviewDiagnosticCode("preview_transport_error"));
-    if (isOwnEnginePreview) {
-      reportOwnEngineRenderFailure({
-        message: "Preview iframe failed to load.",
-        kind: "transport",
-        code: "preview_transport_error",
-        stage: "iframe",
-        source: "preview-iframe",
-      });
-    }
-  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportOwnEngineRenderFailure]);
+  }, [clearPreviewReadyTimer, demoUrl, isOwnEnginePreview, onPreviewSessionSuspect, reportOwnEngineRenderFailure]);
 
   const handleRefresh = () => {
     clearPreviewReadyTimer();
@@ -2336,6 +2332,84 @@ export function PreviewPanel({
     if (!demoUrl) return false;
     return isSandboxPreviewUrl(demoUrl);
   }, [demoUrl]);
+
+  const viewerIdRef = useRef<string | null>(null);
+  if (typeof window !== "undefined" && !viewerIdRef.current) {
+    viewerIdRef.current =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `viewer_${Math.random().toString(36).slice(2)}`;
+  }
+
+  useEffect(() => {
+    if (!chatId || !versionId || !activeSandboxId?.trim()) return;
+    if (!demoUrl || !isSandboxPreviewUrl(demoUrl)) return;
+    const allowHeartbeat =
+      previewLifecycle === "live" ||
+      (previewLifecycle === undefined && isSandboxPreviewUrl(demoUrl));
+    if (!allowHeartbeat) return;
+
+    const tick = async () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/sandbox-heartbeat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            versionId,
+            sandboxId: activeSandboxId.trim(),
+            viewerId: viewerIdRef.current ?? "unknown",
+          }),
+        });
+        let data: SandboxHeartbeatApiJson | null = null;
+        try {
+          data = (await res.json()) as SandboxHeartbeatApiJson;
+        } catch {
+          return;
+        }
+        if (
+          data &&
+          data.ok === false &&
+          (data.reason === "no_session" || data.reason === "session_mismatch")
+        ) {
+          onPreviewSessionSuspect?.();
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const id = window.setInterval(tick, 25_000);
+    void tick();
+    return () => window.clearInterval(id);
+  }, [chatId, versionId, activeSandboxId, demoUrl, previewLifecycle, onPreviewSessionSuspect]);
+
+  const handleIframeError = useCallback(() => {
+    clearPreviewReadyTimer();
+    setIframeLoading(false);
+    setIframeError(true);
+    setIframeDiagnosticCode("preview_transport_error");
+    setIframeErrorMessage(describePreviewDiagnosticCode("preview_transport_error"));
+    if (isSandboxPreview) {
+      onPreviewSessionSuspect?.();
+    }
+    if (isOwnEnginePreview) {
+      reportOwnEngineRenderFailure({
+        message: "Preview iframe failed to load.",
+        kind: "transport",
+        code: "preview_transport_error",
+        stage: "iframe",
+        source: "preview-iframe",
+      });
+    }
+  }, [
+    clearPreviewReadyTimer,
+    isOwnEnginePreview,
+    isSandboxPreview,
+    onPreviewSessionSuspect,
+    reportOwnEngineRenderFailure,
+  ]);
+
   const isV0Preview = Boolean(
     demoUrl && !isOwnEnginePreview && demoUrl.includes("vusercontent.net"),
   );
@@ -2359,11 +2433,29 @@ export function PreviewPanel({
       };
     }
     if (isOwnEnginePreview) {
+      if (previewLifecycle === "recovering") {
+        return {
+          label: "Live-preview",
+          detail:
+            "Sandbox svarade inte som förväntat — vi kontrollerar sessionen mot servern och startar om vid behov.",
+          className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
+          badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+        };
+      }
+      if (sandboxPending) {
+        return {
+          label: "Live-preview",
+          detail:
+            "Sandbox startar eller laddar om (Next dev i VM). Vänta tills URL:en är klar — då laddas live-preview om automatiskt.",
+          className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
+          badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+        };
+      }
       if (!sandboxUrlPresent) {
         return {
           label: "Kompatibilitetsvy",
           detail:
-            "Sandbox är primär previewväg. Den här kompatibilitetsvyn finns bara tillfälligt medan live-preview ännu inte är redo.",
+            "Sandbox är primär previewväg. Den här kompatibilitetsvyn (äldre shim) är fallback tills live-preview finns.",
           className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
           badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
         };
@@ -2371,12 +2463,21 @@ export function PreviewPanel({
       return {
         label: "Kompatibilitetsvy",
         detail:
-          "Du tittar på kompatibilitetsvyn. Live-preview med Next.js i sandbox är den primära körbara ytan för versionen.",
+          "Du tittar på shim-/kompatibilitetsvyn. Live-preview med Next.js i sandbox är den primära körbara ytan — byt när sandbox-URL finns.",
         className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
         badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
       };
     }
     if (isSandboxPreview) {
+      if (previewLifecycle === "recovering") {
+        return {
+          label: "Live-preview",
+          detail:
+            "Återansluter till sandbox — sessionen verifieras mot servern och preview startas om vid behov.",
+          className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
+          badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+        };
+      }
       return {
         label: "Live-preview",
         detail:
@@ -2400,7 +2501,15 @@ export function PreviewPanel({
       className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
       badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
     };
-  }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview, sandboxUrlPresent]);
+  }, [
+    viewMode,
+    isOwnEnginePreview,
+    isSandboxPreview,
+    isV0Preview,
+    sandboxPending,
+    sandboxUrlPresent,
+    previewLifecycle,
+  ]);
 
   const alternatePreviewBanner = useMemo(() => {
     return buildAlternatePreviewBannerState({ currentUrl: demoUrl, alternatePreviewUrls });
