@@ -106,7 +106,7 @@ export function buildPreviewUrl(
 }
 
 export type { CodeFile, ImportBinding, ParsedImport, PreparedModule, PreviewValidationIssue } from "./types";
-export type { AlternatePreviewUrls } from "./compatibility-shim";
+export type { AlternatePreviewUrls } from "./legacy/compatibility-shim";
 export type {
   OwnEngineDoneSsePayload,
   SandboxReadySsePayload,
@@ -133,13 +133,13 @@ export {
   previewUrlsEquivalent,
   resolveCompatibilityShimPreviewUrl,
   resolveAlternatePreviewUrls,
-} from "./compatibility-shim";
+} from "./legacy/compatibility-shim";
 export { normalizeFilePath, normalizeRoutePath, routeFromPageFile, resolveLocalImportPath } from "./utils";
 export { findPageFile, findCssFiles, findComponentFiles, buildCodeFileMap } from "./file-resolution";
 export { parseImports, stripNextImports } from "./import-parser";
 export { buildPreviewBaseCss, normalizePreviewCss } from "./css";
 export { prepareModules } from "./transpile";
-export { buildPreviewPrelude } from "./shims";
+export { buildPreviewPrelude } from "./legacy/shims";
 export { buildPreviewScript, collectPreviewValidationIssues } from "./script-builder";
 export {
   buildSandboxStartContract,

@@ -1,3 +1,7 @@
+/**
+ * Legacy tier-1 preview URL helpers (`/api/preview-render`) och shim-detektion.
+ * Primär produktpreview är sandbox (Fidelity 2); se `docs/architecture/preview-deploy.md`.
+ */
 export type AlternatePreviewUrls = {
   shimUrl: string | null;
   sandboxUrl: string | null;

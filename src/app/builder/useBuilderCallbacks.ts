@@ -46,39 +46,39 @@ function pickEngineIframeUrl(match: VersionLike, explicitDemo?: string | null): 
 
 type UseBuilderCallbacksArgs = {
   chatId: string | null;
-  currentDemoUrl: string | null;
+  currentPreviewUrl: string | null;
   sendMessage: (message: string) => Promise<void>;
   effectiveVersionsList: VersionLike[];
   bumpPreviewRefreshToken: () => void;
-  setCurrentDemoUrl: Dispatch<SetStateAction<string | null>>;
+  setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
   setIsVersionPanelCollapsed: Dispatch<SetStateAction<boolean>>;
 };
 
 export function useBuilderCallbacks({
   chatId,
-  currentDemoUrl,
+  currentPreviewUrl,
   sendMessage,
   effectiveVersionsList,
   bumpPreviewRefreshToken,
-  setCurrentDemoUrl,
+  setCurrentPreviewUrl,
   setSelectedVersionId,
   setIsVersionPanelCollapsed,
 }: UseBuilderCallbacksArgs) {
   const handleClearPreview = useCallback(() => {
-    setCurrentDemoUrl(null);
-  }, [setCurrentDemoUrl]);
+    setCurrentPreviewUrl(null);
+  }, [setCurrentPreviewUrl]);
 
   const handleFixPreview = useCallback(async () => {
     if (!chatId) {
       toast.error("Ingen chat att reparera ännu.");
       return;
     }
-    const prompt = currentDemoUrl
+    const prompt = currentPreviewUrl
       ? "Preview verkar vara fel eller laddar inte. Fixa versionen och returnera en fungerande sandbox-preview (sandboxUrl). Behåll layouten om möjligt. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt."
       : "Sandbox-preview saknas eller laddar inte. Regenerera eller starta om preview för senaste versionen. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt.";
     await sendMessage(prompt);
-  }, [chatId, currentDemoUrl, sendMessage]);
+  }, [chatId, currentPreviewUrl, sendMessage]);
 
   const handleVersionSelect = useCallback(
     (versionId: string, demoUrl?: string) => {
@@ -90,28 +90,28 @@ export function useBuilderCallbacks({
       if (isOwnEngineVersionRow(match)) {
         const next = pickEngineIframeUrl(match!, demoUrl);
         if (next) {
-          setCurrentDemoUrl(next);
+          setCurrentPreviewUrl(next);
           bumpPreviewRefreshToken();
           return;
         }
-        setCurrentDemoUrl(null);
+        setCurrentPreviewUrl(null);
         bumpPreviewRefreshToken();
         return;
       }
 
       const explicit = normalizePreviewUrl(demoUrl);
       if (explicit) {
-        setCurrentDemoUrl(explicit);
+        setCurrentPreviewUrl(explicit);
         bumpPreviewRefreshToken();
         return;
       }
       const legacy = normalizePreviewUrl(match?.demoUrl);
       if (legacy) {
-        setCurrentDemoUrl(legacy);
+        setCurrentPreviewUrl(legacy);
         bumpPreviewRefreshToken();
       }
     },
-    [effectiveVersionsList, bumpPreviewRefreshToken, setCurrentDemoUrl, setSelectedVersionId],
+    [effectiveVersionsList, bumpPreviewRefreshToken, setCurrentPreviewUrl, setSelectedVersionId],
   );
 
   const handleToggleVersionPanel = useCallback(() => {

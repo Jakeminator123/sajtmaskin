@@ -237,9 +237,9 @@ _Kvalitet / LLM_
 - [x] `p0-scaffold-typecheck` — Script + sandbox (typecheck + build + lint i quality-gate)
 - [x] `p0-sandbox-logs` — Loggsnitt vid fel
 - [ ] `p0-pin-template` — Sandbox git-bas (deferred)
-- [ ] `p1-generation-package` — kanonisk fan-in före prompt och generation
+- [x] `p1-generation-package` — kanonisk fan-in: `GenerationInputPackage` + `computeLineageHash()` (`src/lib/gen/generation-input-package.ts`, `orchestrate.ts`, stream-routes)
 - [x] `p1-dep-repair` — ERESOLVE-loop (dep-completer implementerad)
-- [ ] `p1-server-owned-repair` — quality-gate -> strukturerad felkontext -> capped repair
+- [x] `p1-server-owned-repair` — `server-verify` efter finalize, quality-gate → strukturerad felkontext → capped repair (default server, klientfallback); se `PROJECT-STATE-AND-DIRECTION.md` §10
 - [x] `p1-visual-qa-contract` — Hook efter sandbox (visual-qa.ts, bakom feature-flag)
 - [ ] `p2-lineage` — prompt_lineage per version (deferred)
 - [x] `p2-image-policy` — next.config vs prompt alignade
@@ -247,6 +247,8 @@ _Kvalitet / LLM_
 ---
 
 ## Agent 2 av 2 — implementeringsprompt
+
+_Vid behov av nytt pass:_ flera mål i blocket nedan är redan levererade i kodbasen (bl.a. generation package, serverstyrd repair) — se checklistan ovan och `PROJECT-STATE-AND-DIRECTION.md` §10 innan du duplicerar arbete.
 
 Använd denna prompt för nästa agent när plattformsstädningen ovan är gjord eller pågår:
 

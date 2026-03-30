@@ -24,7 +24,7 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
 | `docs/handoffs/` | Endast [`README.md`](../handoffs/README.md) — pekare; tidigare `*.md` borttagna, fulltext i git-historik | Kanonisk arkitektur, `PROJECT-STATE-AND-DIRECTION.md`, eller nytt scope under `docs/architecture/` |
 | `docs/notes/` | Scratch / sessionsloggar — rensa periodiskt | Stabil referens |
-| `docs/FINDINGS.txt` | Sessionslogg, inte sanningskälla — flytta viktigt till backlog/arkitektur | Kanonisk information som inte finns på bättre ställe |
+| `docs/archive/FINDINGS.txt` | Arkiverad sessionslogg, inte aktiv sanningskälla — flytta viktigt till backlog/arkitektur | Ny aktiv planering eller kanonisk dokumentation |
 | `docs/old/` | Stub / pekare | Nytt material |
 
 **Navigering:** `docs/README.md` är enda fulla navtabellen. `AGENTS.md` och `.cursor/README.md` ska vara tunna pekare — inga duplicerade orienteringstabeller.

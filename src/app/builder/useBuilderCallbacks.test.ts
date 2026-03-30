@@ -4,12 +4,12 @@ import { useBuilderCallbacks } from "./useBuilderCallbacks";
 
 describe("useBuilderCallbacks handleVersionSelect", () => {
   it("prefers sandbox URL for own-engine rows over shim demoUrl argument", () => {
-    const setCurrentDemoUrl = vi.fn();
+    const setCurrentPreviewUrl = vi.fn();
     const bumpPreviewRefreshToken = vi.fn();
     const { result } = renderHook(() =>
       useBuilderCallbacks({
         chatId: "chat_1",
-        currentDemoUrl: null,
+        currentPreviewUrl: null,
         sendMessage: vi.fn(),
         effectiveVersionsList: [
           {
@@ -22,7 +22,7 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
           },
         ],
         bumpPreviewRefreshToken,
-        setCurrentDemoUrl,
+        setCurrentPreviewUrl,
         setSelectedVersionId: vi.fn(),
         setIsVersionPanelCollapsed: vi.fn(),
       }),
@@ -32,17 +32,17 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
       result.current.handleVersionSelect("ver_1", "/api/preview-render?chatId=x&versionId=y");
     });
 
-    expect(setCurrentDemoUrl).toHaveBeenCalledWith("https://proj-abc.sandbox.vercel.run");
+    expect(setCurrentPreviewUrl).toHaveBeenCalledWith("https://proj-abc.sandbox.vercel.run");
     expect(bumpPreviewRefreshToken).toHaveBeenCalled();
   });
 
   it("sets null for own-engine when sandbox missing so bootstrap can take over", () => {
-    const setCurrentDemoUrl = vi.fn();
+    const setCurrentPreviewUrl = vi.fn();
     const bumpPreviewRefreshToken = vi.fn();
     const { result } = renderHook(() =>
       useBuilderCallbacks({
         chatId: "chat_1",
-        currentDemoUrl: "https://old.sandbox.vercel.run",
+        currentPreviewUrl: "https://old.sandbox.vercel.run",
         sendMessage: vi.fn(),
         effectiveVersionsList: [
           {
@@ -55,7 +55,7 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
           },
         ],
         bumpPreviewRefreshToken,
-        setCurrentDemoUrl,
+        setCurrentPreviewUrl,
         setSelectedVersionId: vi.fn(),
         setIsVersionPanelCollapsed: vi.fn(),
       }),
@@ -65,16 +65,16 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
       result.current.handleVersionSelect("ver_2");
     });
 
-    expect(setCurrentDemoUrl).toHaveBeenCalledWith(null);
+    expect(setCurrentPreviewUrl).toHaveBeenCalledWith(null);
     expect(bumpPreviewRefreshToken).toHaveBeenCalled();
   });
 
   it("legacy mapped rows still use demoUrl from list", () => {
-    const setCurrentDemoUrl = vi.fn();
+    const setCurrentPreviewUrl = vi.fn();
     const { result } = renderHook(() =>
       useBuilderCallbacks({
         chatId: "chat_legacy",
-        currentDemoUrl: null,
+        currentPreviewUrl: null,
         sendMessage: vi.fn(),
         effectiveVersionsList: [
           {
@@ -85,7 +85,7 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
           },
         ],
         bumpPreviewRefreshToken: vi.fn(),
-        setCurrentDemoUrl,
+        setCurrentPreviewUrl,
         setSelectedVersionId: vi.fn(),
         setIsVersionPanelCollapsed: vi.fn(),
       }),
@@ -95,6 +95,6 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
       result.current.handleVersionSelect("v0_1");
     });
 
-    expect(setCurrentDemoUrl).toHaveBeenCalledWith("https://vusercontent.net/legacy");
+    expect(setCurrentPreviewUrl).toHaveBeenCalledWith("https://vusercontent.net/legacy");
   });
 });

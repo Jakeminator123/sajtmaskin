@@ -125,11 +125,13 @@ import { PreviewPanelChrome } from "./PreviewPanelChrome";
 import { PreviewPanelCode } from "./PreviewPanelCode";
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { PreviewPanelSandbox } from "./PreviewPanelSandbox";
+import type { PreviewIssuePayload } from "./iframe-diagnostics";
+import { usePreviewHeartbeat } from "./hooks/usePreviewHeartbeat";
+import { usePreviewIframe } from "./hooks/usePreviewIframe";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
-import type { SandboxHeartbeatApiJson } from "@/lib/gen/preview-contract";
 import {
   buildAlternatePreviewBannerState,
   isCompatibilityShimPreviewUrl,
@@ -190,60 +192,11 @@ type InspectPulseMarker = {
   key: number;
 };
 
-type PreviewIssuePayload = {
-  message?: string | null;
-  name?: string | null;
-  stack?: string | null;
-  kind?: string | null;
-  code?: string | null;
-  stage?: string | null;
-  source?: string | null;
-};
-
 type PreviewIframeMessage = {
   source?: string;
   type?: "preview-error" | "preview-ready" | "navigation-attempt";
   payload?: PreviewIssuePayload & { href?: string | null };
 };
-
-function detectOwnEnginePreviewIssue(doc: Document | null): PreviewIssuePayload | null {
-  if (!doc?.body) return null;
-
-  const diagnosticCode =
-    doc.querySelector('meta[name="preview-error-code"]')?.getAttribute("content")?.trim() || null;
-  const diagnosticStage =
-    doc.querySelector('meta[name="preview-error-stage"]')?.getAttribute("content")?.trim() || null;
-  const diagnosticSource =
-    doc.querySelector('meta[name="preview-error-source"]')?.getAttribute("content")?.trim() || null;
-
-  const root = doc.getElementById("root");
-  const rootText = root?.innerText?.trim() || "";
-  if (rootText.startsWith("Preview-fel")) {
-    const kind = rootText.includes("Preview validation failed") ? "validation" : "runtime";
-    return {
-      message: rootText.replace(/^Preview-fel\s*/u, "").trim() || "Unknown preview error",
-      kind,
-      code: diagnosticCode || previewDiagnosticCodeFromKind(kind),
-      stage: diagnosticStage || previewDiagnosticStageFromKind(kind),
-      source: diagnosticSource || "own-engine-preview",
-    };
-  }
-
-  if (!root) {
-    const bodyText = doc.body.innerText.trim();
-    if (bodyText) {
-      return {
-        message: bodyText,
-        kind: "route",
-        code: diagnosticCode || "preview_route_error",
-        stage: diagnosticStage || "render-route",
-        source: diagnosticSource || "preview-render-route",
-      };
-    }
-  }
-
-  return null;
-}
 
 function buildOwnEngineRoutePreviewUrl(currentUrl: string, nextHref: string): string | null {
   const href = nextHref.trim();
@@ -358,8 +311,6 @@ interface PreviewPanelProps {
 
 type PreviewViewMode = "preview" | "code" | "registry";
 type InspectEngine = "playwright" | "ai" | "map";
-const PREVIEW_READY_TIMEOUT_MS = 10_000;
-const PREVIEW_READY_POLL_MS = 250;
 
 type AiMatchResult = {
   tag: string;
@@ -407,11 +358,6 @@ export function PreviewPanel({
   pendingPlacementItem = null,
   onPlacementComplete,
 }: PreviewPanelProps) {
-  const [iframeLoading, setIframeLoading] = useState(true);
-  const [iframeError, setIframeError] = useState(false);
-  const [iframeErrorMessage, setIframeErrorMessage] = useState<string | null>(null);
-  /** Stable code for `previewRunbookLinesForCode` when iframe overlay shows. */
-  const [iframeDiagnosticCode, setIframeDiagnosticCode] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const [files, setFiles] = useState<FileNode[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -494,10 +440,8 @@ export function PreviewPanel({
   const [inspectorUnavailable, setInspectorUnavailable] = useState(false);
   const [hoveredMapElement, setHoveredMapElement] = useState<ElementMapItem | null>(null);
   const [hoveredPlacement, setHoveredPlacement] = useState<InsertionPoint | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const inspectPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
-  const previewReadyTimerRef = useRef<number | null>(null);
   const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
   const previewIssueKeysRef = useRef<Set<string>>(new Set());
   const renderOutcomeStateRef = useRef(INITIAL_PREVIEW_RENDER_OUTCOME_STATE);
@@ -519,13 +463,6 @@ export function PreviewPanel({
       }),
     [],
   );
-
-  const clearPreviewReadyTimer = useCallback(() => {
-    if (previewReadyTimerRef.current) {
-      window.clearTimeout(previewReadyTimerRef.current);
-      previewReadyTimerRef.current = null;
-    }
-  }, []);
 
   const buildPreviewSrc = useCallback((url: string, token?: number) => {
     let src = url;
@@ -629,6 +566,33 @@ export function PreviewPanel({
     },
     [chatId, versionId, demoUrl, reportPreviewIssue],
   );
+
+  const isOwnEnginePreview = useMemo(() => {
+    if (!demoUrl) return false;
+    return isCompatibilityShimPreviewUrl(demoUrl);
+  }, [demoUrl]);
+
+  const {
+    iframeRef,
+    iframeLoading,
+    setIframeLoading,
+    iframeError,
+    setIframeError,
+    iframeErrorMessage,
+    setIframeErrorMessage,
+    iframeDiagnosticCode,
+    setIframeDiagnosticCode,
+    clearPreviewReadyTimer,
+    handleIframeLoad,
+  } = usePreviewIframe({
+    demoUrl,
+    refreshToken,
+    chatId,
+    versionId,
+    isOwnEnginePreview,
+    onPreviewSessionSuspect,
+    reportOwnEngineRenderFailure,
+  });
 
   const fetchFilesForRegistry = useCallback(async () => {
     if (!chatId || !versionId || files.length > 0) return;
@@ -1120,15 +1084,6 @@ export function PreviewPanel({
     ],
   );
 
-  const isOwnEnginePreview = useMemo(() => {
-    if (!demoUrl) return false;
-    return isCompatibilityShimPreviewUrl(demoUrl);
-  }, [demoUrl]);
-
-  useEffect(() => {
-    if (!iframeError) setIframeDiagnosticCode(null);
-  }, [iframeError]);
-
   const iframeRunbookLines = useMemo(
     () => (iframeError ? previewRunbookLinesForCode(iframeDiagnosticCode) : []),
     [iframeError, iframeDiagnosticCode],
@@ -1139,24 +1094,13 @@ export function PreviewPanel({
       if (inspectPulseTimerRef.current) {
         clearTimeout(inspectPulseTimerRef.current);
       }
-      clearPreviewReadyTimer();
     };
-  }, [clearPreviewReadyTimer]);
+  }, []);
 
   useEffect(() => {
     previewIssueKeysRef.current.clear();
     renderOutcomeStateRef.current = INITIAL_PREVIEW_RENDER_OUTCOME_STATE;
-    setIframeError(false);
-    setIframeErrorMessage(null);
-    setIframeDiagnosticCode(null);
   }, [chatId, versionId, demoUrl]);
-
-  useEffect(() => {
-    if (!demoUrl) return;
-    setIframeLoading(true);
-    setIframeError(false);
-    setIframeErrorMessage(null);
-  }, [demoUrl, refreshToken]);
 
   useEffect(() => {
     void fetchPreviewRoutes();
@@ -2185,90 +2129,6 @@ export function PreviewPanel({
     });
   }, [showElementRegistry, selectedRegistryLine, selectedPath]);
 
-  const handleIframeLoad = useCallback(() => {
-    clearPreviewReadyTimer();
-
-    const iframe = iframeRef.current;
-    if (!iframe) {
-      setIframeLoading(false);
-      setIframeError(false);
-      setIframeErrorMessage(null);
-      return;
-    }
-
-    // For own-engine preview, wait until iframe DOM actually contains rendered content.
-    if (isOwnEnginePreview) {
-      const startedAt = Date.now();
-      const checkReady = () => {
-        try {
-          const doc = iframe.contentDocument;
-          const previewIssue = detectOwnEnginePreviewIssue(doc);
-          if (previewIssue) {
-            setIframeLoading(false);
-            setIframeError(false);
-            setIframeErrorMessage(null);
-            clearPreviewReadyTimer();
-            reportOwnEngineRenderFailure(previewIssue);
-            return;
-          }
-          const root = doc?.getElementById("root");
-          const hasRootChildren = Boolean(root && root.childElementCount > 0);
-          const hasBodyContent = Boolean((doc?.body?.innerText || "").trim().length > 0);
-          const hasSubstantialDom = Boolean((doc?.body?.querySelectorAll("*").length || 0) > 12);
-          if (hasRootChildren || hasBodyContent || hasSubstantialDom) {
-            setIframeLoading(false);
-            setIframeError(false);
-            setIframeErrorMessage(null);
-            clearPreviewReadyTimer();
-            return;
-          }
-        } catch {
-          setIframeLoading(false);
-          setIframeError(true);
-          setIframeDiagnosticCode("preview_document_unavailable");
-          setIframeErrorMessage(describePreviewDiagnosticCode("preview_document_unavailable"));
-          clearPreviewReadyTimer();
-          reportOwnEngineRenderFailure({
-            message: "Preview iframe document could not be read.",
-            kind: "transport",
-            code: "preview_document_unavailable",
-            stage: "iframe",
-            source: "preview-ready-poll",
-          });
-          return;
-        }
-
-        if (Date.now() - startedAt >= PREVIEW_READY_TIMEOUT_MS) {
-          setIframeLoading(false);
-          setIframeError(true);
-          setIframeDiagnosticCode("preview_ready_timeout");
-          setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
-          clearPreviewReadyTimer();
-          if (isSandboxPreviewUrl(demoUrl)) {
-            onPreviewSessionSuspect?.();
-          }
-          reportOwnEngineRenderFailure({
-            message: `Preview remained blank after waiting ${PREVIEW_READY_TIMEOUT_MS}ms.`,
-            kind: "transport",
-            code: "preview_ready_timeout",
-            stage: "iframe",
-            source: "preview-ready-poll",
-          });
-          return;
-        }
-
-        previewReadyTimerRef.current = window.setTimeout(checkReady, PREVIEW_READY_POLL_MS);
-      };
-
-      previewReadyTimerRef.current = window.setTimeout(checkReady, PREVIEW_READY_POLL_MS);
-      return;
-    }
-
-    setIframeLoading(false);
-    setIframeError(false);
-    setIframeErrorMessage(null);
-  }, [clearPreviewReadyTimer, demoUrl, isOwnEnginePreview, onPreviewSessionSuspect, reportOwnEngineRenderFailure]);
-
   const handleRefresh = () => {
     clearPreviewReadyTimer();
     setIframeLoading(true);
@@ -2333,56 +2193,14 @@ export function PreviewPanel({
     return isSandboxPreviewUrl(demoUrl);
   }, [demoUrl]);
 
-  const viewerIdRef = useRef<string | null>(null);
-  if (typeof window !== "undefined" && !viewerIdRef.current) {
-    viewerIdRef.current =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `viewer_${Math.random().toString(36).slice(2)}`;
-  }
-
-  useEffect(() => {
-    if (!chatId || !versionId || !activeSandboxId?.trim()) return;
-    if (!demoUrl || !isSandboxPreviewUrl(demoUrl)) return;
-    const allowHeartbeat =
-      previewLifecycle === "live" ||
-      (previewLifecycle === undefined && isSandboxPreviewUrl(demoUrl));
-    if (!allowHeartbeat) return;
-
-    const tick = async () => {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      try {
-        const res = await fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/sandbox-heartbeat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            versionId,
-            sandboxId: activeSandboxId.trim(),
-            viewerId: viewerIdRef.current ?? "unknown",
-          }),
-        });
-        let data: SandboxHeartbeatApiJson | null = null;
-        try {
-          data = (await res.json()) as SandboxHeartbeatApiJson;
-        } catch {
-          return;
-        }
-        if (
-          data &&
-          data.ok === false &&
-          (data.reason === "no_session" || data.reason === "session_mismatch")
-        ) {
-          onPreviewSessionSuspect?.();
-        }
-      } catch {
-        /* ignore */
-      }
-    };
-
-    const id = window.setInterval(tick, 25_000);
-    void tick();
-    return () => window.clearInterval(id);
-  }, [chatId, versionId, activeSandboxId, demoUrl, previewLifecycle, onPreviewSessionSuspect]);
+  usePreviewHeartbeat({
+    chatId,
+    versionId,
+    demoUrl,
+    activeSandboxId,
+    previewLifecycle,
+    onSessionSuspect: onPreviewSessionSuspect,
+  });
 
   const handleIframeError = useCallback(() => {
     clearPreviewReadyTimer();

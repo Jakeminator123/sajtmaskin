@@ -53,7 +53,7 @@ export function useSendMessage(
     paletteState,
     pendingBriefRef,
     mutateVersions,
-    setCurrentDemoUrl,
+    setCurrentPreviewUrl,
     setSandboxBuildError,
     setSandboxProdBuild,
     setSandboxPending,
@@ -122,7 +122,7 @@ export function useSendMessage(
         if (demoUrl) {
           const n = normalizePreviewUrl(demoUrl);
           if (n && !isCompatibilityShimPreviewUrl(n)) {
-            setCurrentDemoUrl(n);
+            setCurrentPreviewUrl(n);
           }
         }
         onPreviewRefresh?.();
@@ -299,7 +299,7 @@ export function useSendMessage(
             chatId,
             setMessages,
             touchStreamSafetyTimer,
-            setCurrentDemoUrl,
+            setCurrentPreviewUrl,
             setSandboxBuildError,
             setSandboxProdBuild,
             setSandboxPending,
@@ -390,7 +390,7 @@ export function useSendMessage(
       designThemePreset,
       systemPrompt,
       setMessages,
-      setCurrentDemoUrl,
+      setCurrentPreviewUrl,
       setSandboxBuildError,
       setSandboxProdBuild,
       onPreviewRefresh,

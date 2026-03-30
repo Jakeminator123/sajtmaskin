@@ -20,7 +20,7 @@ type UseBuilderEffectsArgs = {
   searchParams: ReadonlyURLSearchParams;
   router: { replace: (url: string) => void };
   setChatId: Dispatch<SetStateAction<string | null>>;
-  setCurrentDemoUrl: Dispatch<SetStateAction<string | null>>;
+  setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setIsTemplateLoading: Dispatch<SetStateAction<boolean>>;
   templateInitAttemptKeyRef: MutableRefObject<string | null>;
 };
@@ -37,7 +37,7 @@ export function useBuilderEffects({
   searchParams,
   router,
   setChatId,
-  setCurrentDemoUrl,
+  setCurrentPreviewUrl,
   setIsTemplateLoading,
   templateInitAttemptKeyRef,
 }: UseBuilderEffectsArgs) {
@@ -86,7 +86,7 @@ export function useBuilderEffects({
         if (data?.demoUrl) {
           const n = normalizePreviewUrl(data.demoUrl as string);
           if (n && !isCompatibilityShimPreviewUrl(n)) {
-            setCurrentDemoUrl(n);
+            setCurrentPreviewUrl(n);
           }
         }
         if (data?.chatId && appProjectId) {
@@ -132,7 +132,7 @@ export function useBuilderEffects({
     applyAppProjectId,
     searchParams,
     setChatId,
-    setCurrentDemoUrl,
+    setCurrentPreviewUrl,
     setIsTemplateLoading,
     templateInitAttemptKeyRef,
   ]);

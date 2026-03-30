@@ -16,10 +16,6 @@ import {
   writeChatGenerationSettings,
 } from "@/lib/builder/chat-generation-settings";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
-import {
-  PROJECT_ENV_VARS_UPDATED_EVENT,
-  readProjectEnvVarsUpdatedDetail,
-} from "@/lib/builder/project-env-events";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getProject, saveProjectData } from "@/lib/project-client";
 import { useChat } from "@/lib/hooks/useChat";
@@ -27,7 +23,6 @@ import { useCssValidation } from "@/lib/hooks/useCssValidation";
 import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
 import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
 import { useChatMessaging } from "@/lib/hooks/chat";
-import type { SandboxProdBuildPayload } from "@/lib/hooks/chat/types";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { useChatReadiness } from "@/lib/hooks/useChatReadiness";
 import { useAuth } from "@/lib/auth/auth-store";
@@ -49,9 +44,9 @@ import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
+import { useBuilderSandboxPreview } from "./useBuilderSandboxPreview";
+import { useSandboxPreviewSession } from "./useSandboxPreviewSession";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
-import type { SandboxStatusApiJson } from "@/lib/gen/preview-contract";
 import {
   hasSandboxPreviewUrl,
   isCompatibilityShimPreviewUrl,
@@ -59,13 +54,7 @@ import {
   isShimOrMissingPreviewUrl,
   normalizePreviewUrl,
   resolveAlternatePreviewUrls,
-  type SandboxPreviewPostApiJson,
 } from "@/lib/gen/preview";
-import {
-  parseRetryAfterMs,
-  SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS,
-  shouldRetrySandboxBootstrapFetch,
-} from "@/lib/builder/sandbox-bootstrap-retry";
 
 /** Sandbox (fidelity 2) only; legacy `demoUrl` shim URLs are ignored. */
 function pickVersionPreviewUrl(
@@ -96,11 +85,6 @@ function parsePreviewOverride(
   return { url, versionId };
 }
 
-function isLegacyMappedChatRecord(chat: unknown): boolean {
-  const c = chat as { v0ChatId?: string } | null | undefined;
-  return Boolean(c?.v0ChatId);
-}
-
 function versionSummaryHasSandbox(
   v: VersionSummary | undefined,
   options?: { allowFailed?: boolean },
@@ -126,7 +110,7 @@ export function useBuilderPageController() {
   // for eslint-disable comments.
   const {
     appProjectId, applyInstructionsOnce, buildIntentParam, buildMethod,
-    buildMethodParam, chatId, chatIdParam, currentDemoUrl, customInstructions,
+    buildMethodParam, chatId, chatIdParam, currentPreviewUrl, customInstructions,
     designTheme, designSystemId, enableBlobMedia, enableImageGenerations, enableThinking,
     entryIntentActive, hasEntryParams, isIntentionalReset, paletteState,
     projectParam, promptId, promptParam, resolvedPrompt, selectedModelTier,
@@ -136,7 +120,7 @@ export function useBuilderPageController() {
     showStructuredChat, source, templateId, v0ProjectId,
     setApplyInstructionsOnce, setAppProjectId, setAppProjectName,
     setAuditPromptLoaded, setBuildIntent, setBuildMethod, setChatId,
-    setCurrentDemoUrl, setCurrentPageCode, setCustomInstructions,
+    setCurrentPreviewUrl, setCurrentPageCode, setCustomInstructions,
     setDesignTheme, setDesignSystemId, setEnableBlobMedia,
     setEnableImageGenerations, setEnableThinking, setEntryIntentActive,
     setExistingUiComponents,
@@ -155,6 +139,12 @@ export function useBuilderPageController() {
     promptAssistContextKeyRef, promptFetchDoneRef,
     promptFetchInFlightRef,
   } = state;
+
+  const bumpPreviewRefreshToken = useCallback(() => {
+    setPreviewRefreshToken(Date.now());
+  }, [setPreviewRefreshToken]);
+
+  const resetRecoverAfterBootstrapRef = useRef<(() => void) | null>(null);
 
   // ── External data hooks ──────────────────────────────────────────────
   const { chat, mutate: mutateChat, isError: isChatError, isLoading: isChatLoading } =
@@ -227,7 +217,7 @@ export function useBuilderPageController() {
     isSavingProject: state.isSavingProject,
     messages: state.messages,
     resolvedPrompt: state.resolvedPrompt,
-    currentDemoUrl: state.currentDemoUrl,
+    currentPreviewUrl: state.currentPreviewUrl,
     activeVersionId: derived.activeVersionId,
     mediaEnabled: derived.mediaEnabled,
     paletteState: state.paletteState,
@@ -244,7 +234,7 @@ export function useBuilderPageController() {
     setAppProjectId: state.setAppProjectId,
     setAppProjectName: state.setAppProjectName,
     setPendingProjectName: state.setPendingProjectName,
-    setCurrentDemoUrl: state.setCurrentDemoUrl,
+    setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     setPreviewRefreshToken: state.setPreviewRefreshToken,
     setMessages: state.setMessages,
     setIsImportModalOpen: state.setIsImportModalOpen,
@@ -310,48 +300,60 @@ export function useBuilderPageController() {
   // ── Deployment status SSE ──────────────────────────────────────────
   const deploymentStatus = useDeploymentStatus(state.activeDeploymentId);
 
-  // ── V0 Chat messaging ───────────────────────────────────────────────
-  const [sandboxBuildError, setSandboxBuildError] = useState<{
-    stage: string;
-    message: string;
-  } | null>(null);
-  const [sandboxProdBuild, setSandboxProdBuild] = useState<SandboxProdBuildPayload | null>(null);
-  const [sandboxPending, setSandboxPending] = useState(false);
-  const [activeSandboxMeta, setActiveSandboxMeta] = useState<{
-    sandboxId: string;
-    versionId: string;
-  } | null>(null);
-  const [sandboxPreviewRecovering, setSandboxPreviewRecovering] = useState(false);
+  // ── Sandbox preview (Vercel VM) + session recover ───────────────────
+  const sandboxPreview = useBuilderSandboxPreview({
+    isAuthenticated,
+    chatId: state.chatId,
+    appProjectId: state.appProjectId,
+    activeVersionId: derived.activeVersionId,
+    effectiveVersionsList: derived.effectiveVersionsList,
+    chat: chat as ChatData,
+    isAnyStreamingEarly,
+    isChatLoading,
+    currentPreviewUrl: state.currentPreviewUrl,
+    setCurrentPreviewUrl: state.setCurrentPreviewUrl,
+    bumpPreviewRefreshToken,
+    mutateChat,
+    mutateVersions,
+    isShimOrMissingPreviewUrl,
+    onBootstrapRecoverSucceeded: () => resetRecoverAfterBootstrapRef.current?.(),
+  });
 
-  const onSandboxSessionMeta = useCallback(
-    (meta: { sandboxId: string; versionId: string | null } | null) => {
-      if (!meta?.sandboxId?.trim() || !meta.versionId?.trim()) return;
-      setActiveSandboxMeta({
-        sandboxId: meta.sandboxId.trim(),
-        versionId: meta.versionId.trim(),
-      });
-    },
-    [],
-  );
+  const {
+    sandboxBuildError,
+    sandboxProdBuild,
+    sandboxPending,
+    sandboxPreviewRecovering,
+    activeSandboxMeta,
+    setSandboxBuildError,
+    setSandboxProdBuild,
+    setSandboxPending,
+    onSandboxSessionMeta,
+    clearSandboxBuildError,
+    resetSandboxForNewChat,
+  } = sandboxPreview;
 
-  const clearSandboxBuildError = useCallback(() => {
-    setSandboxBuildError(null);
-    setSandboxProdBuild(null);
-    setSandboxPending(false);
-  }, []);
+  const { handlePreviewSessionSuspect, resetRecoverAttempts } = useSandboxPreviewSession({
+    chatId: state.chatId,
+    activeVersionId: derived.activeVersionId,
+    currentPreviewUrl: state.currentPreviewUrl,
+    activeSandboxMeta,
+    setCurrentPreviewUrl: state.setCurrentPreviewUrl,
+    bumpPreviewRefreshToken,
+    setSandboxPreviewRecovering: sandboxPreview.setSandboxPreviewRecovering,
+    sandboxBootstrapDoneKeysRef: sandboxPreview.sandboxBootstrapDoneKeysRef,
+    setForcedSandboxRestartKey: sandboxPreview.setForcedSandboxRestartKey,
+    setSandboxBootstrapRetryNonce: sandboxPreview.setSandboxBootstrapRetryNonce,
+  });
+  resetRecoverAfterBootstrapRef.current = resetRecoverAttempts;
 
   const resetBeforeCreateChat = useCallback(() => {
-    setCurrentDemoUrl(null);
+    setCurrentPreviewUrl(null);
     setPreviewRefreshToken(0);
-    setSandboxBuildError(null);
-    setSandboxProdBuild(null);
-    setSandboxPending(false);
-  }, [setCurrentDemoUrl, setPreviewRefreshToken]);
+    resetSandboxForNewChat();
+  }, [setCurrentPreviewUrl, setPreviewRefreshToken, resetSandboxForNewChat]);
 
-  const bumpPreviewRefreshToken = useCallback(() => {
-    setPreviewRefreshToken(Date.now());
-  }, [setPreviewRefreshToken]);
-
+  // ── Chat messaging ───────────────────────────────────────────────────
   const { isCreatingChat, createNewChat, sendMessage: rawSendMessage, cancelActiveGeneration } =
     useChatMessaging({
       chatId: state.chatId,
@@ -378,7 +380,7 @@ export function useBuilderPageController() {
       paletteState: state.paletteState,
       pendingBriefRef: state.pendingBriefRef,
       mutateVersions,
-      setCurrentDemoUrl: state.setCurrentDemoUrl,
+      setCurrentPreviewUrl: state.setCurrentPreviewUrl,
       setSandboxBuildError,
       setSandboxProdBuild,
       setSandboxPending,
@@ -430,7 +432,7 @@ export function useBuilderPageController() {
     searchParams,
     setChatId: state.setChatId,
     setMessages: state.setMessages,
-    setCurrentDemoUrl: state.setCurrentDemoUrl,
+    setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     setSelectedVersionId: state.setSelectedVersionId,
     setEntryIntentActive: state.setEntryIntentActive,
     setIsPreparingPrompt: state.setIsPreparingPrompt,
@@ -450,11 +452,11 @@ export function useBuilderPageController() {
   // ── Preview / version callbacks ──────────────────────────────────────
   const builderCallbacks = useBuilderCallbacks({
     chatId: state.chatId,
-    currentDemoUrl: state.currentDemoUrl,
+    currentPreviewUrl: state.currentPreviewUrl,
     sendMessage,
     effectiveVersionsList: derived.effectiveVersionsList,
     bumpPreviewRefreshToken,
-    setCurrentDemoUrl: state.setCurrentDemoUrl,
+    setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     setSelectedVersionId: state.setSelectedVersionId,
     setIsVersionPanelCollapsed: state.setIsVersionPanelCollapsed,
   });
@@ -489,7 +491,7 @@ export function useBuilderPageController() {
     searchParams,
     router,
     setChatId: state.setChatId,
-    setCurrentDemoUrl: state.setCurrentDemoUrl,
+    setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     setIsTemplateLoading: state.setIsTemplateLoading,
     templateInitAttemptKeyRef: state.templateInitAttemptKeyRef,
   });
@@ -1203,10 +1205,10 @@ export function useBuilderPageController() {
     pendingBriefRef.current = null;
     pendingSpecRef.current = null;
     setChatId(null);
-    setCurrentDemoUrl(null);
+    setCurrentPreviewUrl(null);
     setMessages([]);
     router.replace("/builder");
-  }, [chatId, isChatError, router, setChatId, setCurrentDemoUrl, setMessages, pendingBriefRef, pendingSpecRef]);
+  }, [chatId, isChatError, router, setChatId, setCurrentPreviewUrl, setMessages, pendingBriefRef, pendingSpecRef]);
 
   // V0 project id sync
   useEffect(() => {
@@ -1252,40 +1254,7 @@ export function useBuilderPageController() {
     }
   }, [chatId]);
 
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = readProjectEnvVarsUpdatedDetail(event);
-      if (!detail) return;
-      if (!appProjectId || detail.projectId !== appProjectId) return;
-      if (!chatId || !derived.activeVersionId) return;
-      if (detail.chatId && detail.chatId !== chatId) return;
-      if (detail.versionId && detail.versionId !== derived.activeVersionId) return;
-      const key = `${chatId}:${derived.activeVersionId}`;
-      sandboxBootstrapDoneKeysRef.current.delete(key);
-      sandboxBootstrapTransientAttemptsRef.current.delete(key);
-      setForcedSandboxRestartKey(key);
-      setSandboxBuildError(null);
-      setSandboxProdBuild(null);
-      setSandboxBootstrapRetryNonce((value) => value + 1);
-      toast.message("Miljövariabler sparade", {
-        description: "Startar om live-preview för att ladda om sandbox med nya värden.",
-        duration: 6000,
-      });
-    };
-
-    window.addEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handler as EventListener);
-    return () => {
-      window.removeEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handler as EventListener);
-    };
-  }, [
-    appProjectId,
-    chatId,
-    derived.activeVersionId,
-    setSandboxBuildError,
-    setSandboxProdBuild,
-  ]);
-
-  // DemoUrl sync when active version changes
+  // Preview URL sync when active version changes
   useEffect(() => {
     const didChangeVersion = lastActiveVersionIdRef.current !== derived.activeVersionId;
     lastActiveVersionIdRef.current = derived.activeVersionId;
@@ -1294,7 +1263,7 @@ export function useBuilderPageController() {
       setClearedPreviewVersionId(null);
     }
 
-    // Do not skip when only `currentDemoUrl` is set: the active version can gain `sandboxUrl` later
+    // Do not skip when only `currentPreviewUrl` is set: the active version can gain `sandboxUrl` later
     // (async sandbox, SWR refresh) while `activeVersionId` stays the same — keep sandbox URL when it arrives.
     if (!didChangeVersion && clearedPreviewVersionId === derived.activeVersionId) return;
 
@@ -1337,7 +1306,7 @@ export function useBuilderPageController() {
         : null) ||
       null;
 
-    const currentIsLivePreview = currentDemoUrl != null && !isShimOrMissingPreviewUrl(currentDemoUrl);
+    const currentIsLivePreview = currentPreviewUrl != null && !isShimOrMissingPreviewUrl(currentPreviewUrl);
     const nextIsShimPreview = nextDemoUrl != null && isShimOrMissingPreviewUrl(nextDemoUrl);
     if (
       currentIsLivePreview &&
@@ -1347,330 +1316,25 @@ export function useBuilderPageController() {
       return;
     }
 
-    if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
-      setCurrentDemoUrl(nextDemoUrl);
+    if (nextDemoUrl && nextDemoUrl !== currentPreviewUrl) {
+      setCurrentPreviewUrl(nextDemoUrl);
       setPreviewRefreshToken(Date.now());
       if (!isShimOrMissingPreviewUrl(nextDemoUrl)) {
         setSandboxPending(false);
       }
     }
-  }, [derived.activeVersionId, selectedVersionId, chat, currentDemoUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentDemoUrl, setPreviewRefreshToken, setSandboxPending]);
-
-  const sandboxBootstrapGenRef = useRef(0);
-  const sandboxBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
-  /** Bumps to re-run bootstrap after transient sandbox API failures (503/504/network). */
-  const [sandboxBootstrapRetryNonce, setSandboxBootstrapRetryNonce] = useState(0);
-  const sandboxBootstrapTransientAttemptsRef = useRef<Map<string, number>>(new Map());
-  const [forcedSandboxRestartKey, setForcedSandboxRestartKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    sandboxBootstrapDoneKeysRef.current.clear();
-    sandboxBootstrapTransientAttemptsRef.current.clear();
-    setSandboxBootstrapRetryNonce(0);
-    setForcedSandboxRestartKey(null);
-    setActiveSandboxMeta(null);
-    setSandboxPreviewRecovering(false);
-  }, [chatId]);
-
-  useEffect(() => {
-    if (!activeSandboxMeta || !derived.activeVersionId) return;
-    if (activeSandboxMeta.versionId !== derived.activeVersionId) {
-      setActiveSandboxMeta(null);
-    }
-  }, [activeSandboxMeta, derived.activeVersionId]);
-
-  const lastPreviewRecoverAtRef = useRef(0);
-  const previewRecoverAttemptsRef = useRef(0);
-
-  useEffect(() => {
-    previewRecoverAttemptsRef.current = 0;
-    lastPreviewRecoverAtRef.current = 0;
-  }, [chatId]);
-
-  // Own-engine: start sandbox when there is no live sandbox URL yet (e.g. after generation or reopen).
-  // Duplicate VM: `startSandboxPreview` dedupes in-flight work per chat+version on the server.
-  useEffect(() => {
-    const gen = ++sandboxBootstrapGenRef.current;
-
-    if (!isAuthenticated || !chatId || !derived.activeVersionId) return;
-    if (isChatLoading || !chat) return;
-    if (isAnyStreamingEarly) return;
-    if (isLegacyMappedChatRecord(chat)) return;
-
-    const key = `${chatId}:${derived.activeVersionId}`;
-    const isForcedRestart = forcedSandboxRestartKey === key;
-    if (sandboxBootstrapDoneKeysRef.current.has(key) && !isForcedRestart) return;
-
-    const activeMatch = derived.effectiveVersionsList.find(
-      (v) => (v.versionId || v.id) === derived.activeVersionId,
-    );
-    if (!activeMatch) return;
-    if (!canExposeEnginePreview(activeMatch) && !isForcedRestart) {
-      sandboxBootstrapDoneKeysRef.current.add(key);
-      return;
-    }
-    if (versionSummaryHasSandbox(activeMatch, { allowFailed: isForcedRestart })) {
-      if (!isForcedRestart) return;
-    }
-
-    if (!isShimOrMissingPreviewUrl(currentDemoUrl) && !isForcedRestart) {
-      sandboxBootstrapDoneKeysRef.current.add(key);
-      return;
-    }
-
-    let cancelled = false;
-    const ac = new AbortController();
-    const tid = window.setTimeout(() => {
-      void (async () => {
-        if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
-
-        const scheduleTransientRetry = (delayMs: number) => {
-          const prev = sandboxBootstrapTransientAttemptsRef.current.get(key) ?? 0;
-          const next = prev + 1;
-          sandboxBootstrapTransientAttemptsRef.current.set(key, next);
-          if (next <= 4) {
-            window.setTimeout(() => {
-              setSandboxBootstrapRetryNonce((n) => n + 1);
-            }, delayMs);
-          } else {
-            sandboxBootstrapDoneKeysRef.current.add(key);
-          }
-        };
-
-        try {
-          setSandboxPending(true);
-          const res = await fetch(
-            `/api/v0/chats/${encodeURIComponent(chatId)}/sandbox-preview`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                versionId: derived.activeVersionId,
-                forceRestart: isForcedRestart,
-              }),
-              signal: ac.signal,
-            },
-          );
-          const data = (await res.json().catch(() => null)) as SandboxPreviewPostApiJson | null;
-          if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
-
-          if (res.status === 503) {
-            if (
-              process.env.NODE_ENV === "development" &&
-              data?.code === "sandbox_disabled" &&
-              typeof data.hint === "string" &&
-              data.hint.trim()
-            ) {
-              toast.message("Sandbox ej konfigurerad", {
-                description: data.hint.trim(),
-                duration: 14_000,
-              });
-            }
-            // Credentials missing: retry when user fixes env (do not mark done).
-            if (data?.code === "sandbox_disabled") {
-              const persistedHint =
-                typeof data.hint === "string" && data.hint.trim().length > 0
-                  ? data.hint.trim()
-                  : typeof data.message === "string" && data.message.trim().length > 0
-                    ? data.message.trim()
-                    : "Sandbox är inte konfigurerad i den här miljön.";
-              setSandboxBuildError({
-                stage: "sandbox_disabled",
-                message: persistedHint,
-              });
-              setSandboxProdBuild(null);
-              setSandboxPending(false);
-              if (isForcedRestart) setSandboxPreviewRecovering(false);
-              return;
-            }
-          }
-
-          const serverSaysNoRetry = data?.retryable === false;
-          const responseLooksFailed = !data || !data.ok;
-          const shouldRetryBootstrap =
-            !serverSaysNoRetry &&
-            responseLooksFailed &&
-            shouldRetrySandboxBootstrapFetch({
-              httpStatus: res.status,
-              retryable: data?.retryable,
-            });
-          if (shouldRetryBootstrap) {
-            scheduleTransientRetry(parseRetryAfterMs(res.headers, SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS));
-            return;
-          }
-
-          sandboxBootstrapDoneKeysRef.current.add(key);
-          sandboxBootstrapTransientAttemptsRef.current.delete(key);
-          if (isForcedRestart) {
-            setForcedSandboxRestartKey((current) => (current === key ? null : current));
-          }
-          if (!data?.ok || typeof data.sandboxUrl !== "string" || !data.sandboxUrl.trim()) {
-            setSandboxPending(false);
-            if (isForcedRestart) setSandboxPreviewRecovering(false);
-            return;
-          }
-
-          setSandboxBuildError(null);
-          setSandboxPending(false);
-          setSandboxPreviewRecovering(false);
-          previewRecoverAttemptsRef.current = 0;
-          setCurrentDemoUrl(data.sandboxUrl.trim());
-          bumpPreviewRefreshToken();
-          const activeVid = derived.activeVersionId;
-          if (activeVid && typeof data.sandboxId === "string" && data.sandboxId.trim()) {
-            setActiveSandboxMeta({
-              sandboxId: data.sandboxId.trim(),
-              versionId: activeVid,
-            });
-          }
-          if (typeof data.prodBuildVerified === "boolean") {
-            setSandboxProdBuild({
-              verified: data.prodBuildVerified,
-              logSnippet:
-                !data.prodBuildVerified && typeof data.prodBuildLogSnippet === "string"
-                  ? data.prodBuildLogSnippet
-                  : undefined,
-            });
-          } else {
-            setSandboxProdBuild(null);
-          }
-          if (isForcedRestart) {
-            logSandboxLifecycleTelemetry({
-              kind: "recover",
-              phase: "succeeded",
-              chatId,
-              ...(derived.activeVersionId ? { versionId: derived.activeVersionId } : {}),
-            });
-          }
-          void mutateChat();
-          void mutateVersions();
-        } catch (err) {
-          if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
-          if (err instanceof Error && err.name === "AbortError") return;
-          if (isForcedRestart) {
-            setForcedSandboxRestartKey((current) => (current === key ? null : current));
-          }
-          scheduleTransientRetry(SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS);
-        }
-      })();
-    }, 0);
-
-    return () => {
-      cancelled = true;
-      ac.abort();
-      clearTimeout(tid);
-    };
-  }, [
-    isAuthenticated,
-    chatId,
-    derived.activeVersionId,
-    derived.effectiveVersionsList,
-    chat,
-    isAnyStreamingEarly,
-    isChatLoading,
-    currentDemoUrl,
-    setCurrentDemoUrl,
-    setSandboxPending,
-    bumpPreviewRefreshToken,
-    mutateChat,
-    mutateVersions,
-    setSandboxBuildError,
-    setSandboxProdBuild,
-    forcedSandboxRestartKey,
-    setForcedSandboxRestartKey,
-    sandboxBootstrapRetryNonce,
-  ]);
-
-  const handlePreviewSessionSuspect = useCallback(async () => {
-    const versionId = derived.activeVersionId;
-    if (!chatId || !versionId) return;
-    const demo = normalizePreviewUrl(currentDemoUrl);
-    if (!demo || !isSandboxPreviewUrl(demo)) return;
-
-    const now = Date.now();
-    if (now - lastPreviewRecoverAtRef.current < 12_000) return;
-    lastPreviewRecoverAtRef.current = now;
-
-    const params = new URLSearchParams({ versionId });
-    if (activeSandboxMeta?.sandboxId) {
-      params.set("sandboxId", activeSandboxMeta.sandboxId);
-    }
-
-    let statusPayload: SandboxStatusApiJson | null = null;
-    try {
-      const res = await fetch(
-        `/api/v0/chats/${encodeURIComponent(chatId)}/sandbox-status?${params.toString()}`,
-      );
-      statusPayload = (await res.json()) as SandboxStatusApiJson;
-      if (!res.ok || !statusPayload || statusPayload.ok !== true) return;
-    } catch {
-      return;
-    }
-
-    if (statusPayload.status === "running") {
-      const serverUrl = statusPayload.sandboxUrl?.trim() ?? "";
-      if (serverUrl) {
-        const cur = normalizePreviewUrl(currentDemoUrl);
-        const next = normalizePreviewUrl(serverUrl);
-        if (next && next !== cur) {
-          logSandboxLifecycleTelemetry({
-            kind: "sandbox_url_resync",
-            chatId,
-            versionId,
-            detail: "status_running_mismatch",
-          });
-          setCurrentDemoUrl(serverUrl);
-          bumpPreviewRefreshToken();
-        }
-      }
-      return;
-    }
-
-    if (previewRecoverAttemptsRef.current >= 5) {
-      logSandboxLifecycleTelemetry({
-        kind: "recover",
-        phase: "failed",
-        chatId,
-        versionId,
-        detail: "max_attempts",
-      });
-      setSandboxPreviewRecovering(false);
-      return;
-    }
-    previewRecoverAttemptsRef.current += 1;
-
-    logSandboxLifecycleTelemetry({
-      kind: "recover",
-      phase: "started",
-      chatId,
-      versionId,
-      detail: statusPayload.status,
-    });
-
-    setSandboxPreviewRecovering(true);
-    const key = `${chatId}:${versionId}`;
-    sandboxBootstrapDoneKeysRef.current.delete(key);
-    setForcedSandboxRestartKey(key);
-    setSandboxBootstrapRetryNonce((n) => n + 1);
-  }, [
-    chatId,
-    derived.activeVersionId,
-    activeSandboxMeta,
-    currentDemoUrl,
-    setCurrentDemoUrl,
-    bumpPreviewRefreshToken,
-  ]);
+  }, [derived.activeVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setSandboxPending]);
 
   const previewLifecycle: PreviewLifecycleState = useMemo(() => {
     if (sandboxBuildError?.stage === "sandbox_disabled") return "failed";
     if (sandboxPreviewRecovering) return "recovering";
     if (sandboxPending) return "bootstrapping";
     if (sandboxBuildError) return "failed";
-    const url = normalizePreviewUrl(currentDemoUrl);
+    const url = normalizePreviewUrl(currentPreviewUrl);
     if (url && isSandboxPreviewUrl(url)) return "live";
     if (url && !isCompatibilityShimPreviewUrl(url)) return "live";
     return "idle";
-  }, [sandboxBuildError, sandboxPreviewRecovering, sandboxPending, currentDemoUrl]);
+  }, [sandboxBuildError, sandboxPreviewRecovering, sandboxPending, currentPreviewUrl]);
 
   // Prompt assist context fetch
   useEffect(() => {
@@ -1847,7 +1511,7 @@ export function useBuilderPageController() {
     isDeployReadinessLoading,
     v0ProjectId: state.v0ProjectId,
     paletteState: state.paletteState,
-    currentDemoUrl: state.currentDemoUrl,
+    currentPreviewUrl: state.currentPreviewUrl,
     sandboxBuildError,
     sandboxProdBuild,
     sandboxPending,
@@ -1885,7 +1549,7 @@ export function useBuilderPageController() {
     setDomainSearchOpen: state.setDomainSearchOpen,
     setDomainManagerOpen: state.setDomainManagerOpen,
     setDomainQuery: state.setDomainQuery,
-    setCurrentDemoUrl: state.setCurrentDemoUrl,
+    setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     setSandboxPending,
     setServerProjectPreviewOverrideUrl: state.setServerProjectPreviewOverrideUrl,
     setServerProjectPreviewOverrideVersionId: state.setServerProjectPreviewOverrideVersionId,

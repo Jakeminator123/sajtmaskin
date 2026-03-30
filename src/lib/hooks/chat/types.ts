@@ -208,7 +208,7 @@ export type ChatMessagingParams = {
   paletteState?: PaletteState | null;
   pendingBriefRef?: MutableRefObject<Record<string, unknown> | null>;
   mutateVersions: () => void;
-  setCurrentDemoUrl: (url: string | null) => void;
+  setCurrentPreviewUrl: (url: string | null) => void;
   /** Cleared on sandbox-ready; set on SSE build-error for inline preview UI. */
   setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
   setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;

@@ -1,43 +1,34 @@
 ---
-description: Session closeout, intent board, parallel work, git push, docs lifecycle
+description: Stage bara ditt arbete; håll docs kanoniska och korta
 alwaysApply: true
 ---
 
-# Session, git, and documentation
+# Session, git, and docs
 
-## Session closeout (`/sluta`, `/final-sweep`, `/finals-weep`)
+## Git hygiene
 
-Closes **this session’s** work. Order: (1) `git status` + `git diff` [+ `--staged`], fix only this scope (2) lint / `npx tsc --noEmit` if many files (3) `docs/` only if behavior or public surface changed — see **Docs & plans** below (4) save (5) stage **only your session’s files** (6) commit — PowerShell git: **`platform-quirks.mdc`** (7) `git push`. If `.cursor/agent-intents/BOARD.md` exists, check overlapping `active` before commit. Explicit permission to commit/push **this scope**; do not commit others’ in-progress work.
+- Stage och commit:a bara filer som hör till den aktuella uppgiften.
+- Om delade filer redan har oväntade diffar eller parallellt arbete syns: smalna av scope, läs om och fråga innan du skriver över något tvetydigt.
+- Commit eller push bara när användaren faktiskt ber om det.
 
-## Agent intent and parallel work
+## Docs hygiene
 
-**Board:** `.cursor/agent-intents/BOARD.md` — read before editing shared areas; add/update your entry (`active` → `done`), unique **Agent** handle (not raw model name), narrow **Touching**, heartbeat on same local date = fresh; never remove another agent’s `active` row; stale → `stale-suspect` or remove.
+- Uppdatera docs bara när beteende, publik yta, struktur, terminologi eller verklig arbetsstatus har ändrats.
+- Uppdatera den kanoniska filen i samma vända; lämna inte parallell och gammal text kvar.
+- Ta bort obsolete text hellre än att lägga till ett nytt lager förklaring.
+- Skapa inte nya processfiler, handoffs eller meta-dokument om scope inte verkligen är nytt.
+- Återuppliva inte gamla loggar eller arkiv som aktiv sanningskälla.
 
-**Overlap:** Unexpected diffs or active board rows → assume parallel work; narrow scope, re-read files, **stage only your files**, ask before ambiguous edits. Never overwrite/commit others’ work without confirmation.
+## Canonical places
 
-**Push (`origin/master`):** Before `git push`: `git fetch origin` and `git pull` (or `git pull --rebase origin master`). Principles: [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](../../docs/plans/active/PROJECT-STATE-AND-DIRECTION.md) §6.
+- System och struktur: `docs/architecture/`
+- Stabil mänsklig schemaförklaring: `docs/schemas/`
+- Aktiv backlog och planer: `docs/plans/active/`
+- Full dokumentationspolicy: `docs/architecture/documentation-lifecycle.md`
+- Env- och ignore-policy: `repo-env-indexing.mdc`
 
-## Docs and plans
+## Guiding principles
 
-**Locations:** `docs/architecture/` (system), `docs/schemas/` (stable human schema; truth in code). History: `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`); `docs/handoffs/README.md` pekar till git-historik för borttagna handoffs; `docs/old/` is pointer only. Full policy: [`docs/architecture/documentation-lifecycle.md`](../../docs/architecture/documentation-lifecycle.md) (hub: [`docs/architecture/README.md`](../../docs/architecture/README.md)).
-
-**Plans:** `docs/plans/active/` → `avklarat/` (utkast får ligga under `active/` tills flytt). En kanonisk kopia per plan; vid statusändring: `docs/plans/README.md`, `docs/architecture/README.md` vid behov.
-
-**Structural / terminology / flow changes:** Update canonical files in the same turn; **remove** obsolete text in those files instead of leaving parallel outdated sections; new file only for genuinely new scope. Renames: also `terminology.mdc`, `docs/`, `docs/ENV.md` if paths matter, `scripts/README.md` if scripts/artifacts change. Larger write-ups → `docs/architecture/` + link from `docs/README.md`.
-
-**Modularity:** Keep boundaries clear — follow existing folder conventions; see [`docs/architecture/repo-tree.md`](../../docs/architecture/repo-tree.md). **Env / `.vercel`:** read policy in `repo-env-indexing.mdc`.
-
-## Doc hygiene (keep docs current, not growing)
-
-When you change code behavior, check if these files reference the changed area — update or **trim** in the same turn:
-
-1. `docs/FINDINGS.txt` — sessionslogg, inte sanningskälla. **Ta bort** poster som är klara eller inaktuella. Flytta viktigt till `PROJECT-STATE-AND-DIRECTION.md`. Filen ska vara kort (<60 rader): nuvarande tillstånd + öppna gap.
-2. `docs/handoffs/` — håll endast [`docs/handoffs/README.md`](../../docs/handoffs/README.md) som pekare. **Lägg inte** nya långa handoff-filer här; skriv i `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` eller kanonisk arkitektur under `docs/architecture/`.
-3. `docs/plans/active/*.md` — checklista-items (`[ ]`/`[x]`) ska uppdateras när arbete slutförs. Färdiga planer → `avklarat/` eller markera i filen.
-4. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — kanonisk backlog. Uppdatera beslut (§10) vid nya konventioner; ta bort rader som inte längre gäller.
-
-**Principer:**
-- **Ta bort** > lägg till. Om något är klart, stryk det — skriv inte "detta är nu klart" bredvid.
-- **Inga nya docs-filer** om inte genuint nytt scope. Redigera befintliga.
-- **En sanning, ett ställe.** Duplicera aldrig samma fakta i flera filer. Länka istället.
-- Om du inte ändrat beteende, rör inte docs.
+- En sanning, ett ställe.
+- Ta bort > lägg till när text blivit inaktuell.
+- Om beteendet inte ändrats, rör inte docs.

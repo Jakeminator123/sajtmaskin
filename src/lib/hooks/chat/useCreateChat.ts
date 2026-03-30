@@ -61,7 +61,7 @@ export function useCreateChat(
     paletteState,
     pendingBriefRef,
     mutateVersions,
-    setCurrentDemoUrl,
+    setCurrentPreviewUrl,
     setSandboxBuildError,
     setSandboxProdBuild,
     setSandboxPending,
@@ -291,7 +291,7 @@ export function useCreateChat(
         toast.success("Sajt skapad!");
 
         if (resolvedDemoUrl) {
-          setCurrentDemoUrl(resolvedDemoUrl);
+          setCurrentPreviewUrl(resolvedDemoUrl);
           onPreviewRefresh?.();
         }
         onGenerationComplete?.({
@@ -437,7 +437,7 @@ export function useCreateChat(
               appProjectId,
               pendingCreateKeyRef,
               onV0ProjectId,
-              setCurrentDemoUrl,
+              setCurrentPreviewUrl,
               setSandboxBuildError,
               setSandboxProdBuild,
               setSandboxPending,
@@ -540,7 +540,7 @@ export function useCreateChat(
       router,
       appProjectId,
       v0ProjectId,
-      setCurrentDemoUrl,
+      setCurrentPreviewUrl,
       setSandboxBuildError,
       setSandboxProdBuild,
       onPreviewRefresh,

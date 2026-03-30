@@ -27,7 +27,7 @@ type Args = {
   isSavingProject: boolean;
   messages: ChatMessage[];
   resolvedPrompt: string | null;
-  currentDemoUrl: string | null;
+  currentPreviewUrl: string | null;
   activeVersionId: string | null;
   mediaEnabled: boolean;
   paletteState: PaletteState;
@@ -44,7 +44,7 @@ type Args = {
   setAppProjectId: Dispatch<SetStateAction<string | null>>;
   setAppProjectName: Dispatch<SetStateAction<string | null>>;
   setPendingProjectName: Dispatch<SetStateAction<string | null>>;
-  setCurrentDemoUrl: Dispatch<SetStateAction<string | null>>;
+  setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setPreviewRefreshToken: Dispatch<SetStateAction<number>>;
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   setIsImportModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -77,7 +77,7 @@ export function useBuilderProjectActions({
   isSavingProject,
   messages,
   resolvedPrompt,
-  currentDemoUrl,
+  currentPreviewUrl,
   activeVersionId,
   mediaEnabled,
   paletteState,
@@ -94,7 +94,7 @@ export function useBuilderProjectActions({
   setAppProjectId,
   setAppProjectName,
   setPendingProjectName,
-  setCurrentDemoUrl,
+  setCurrentPreviewUrl,
   setPreviewRefreshToken,
   setMessages,
   setIsImportModalOpen,
@@ -197,7 +197,7 @@ export function useBuilderProjectActions({
 
       await saveProjectData(targetProjectId, {
         chatId,
-        demoUrl: currentDemoUrl ?? undefined,
+        demoUrl: currentPreviewUrl ?? undefined,
         files,
         messages,
         meta: { palette: paletteState },
@@ -213,7 +213,7 @@ export function useBuilderProjectActions({
     chatId,
     appProjectId,
     activeVersionId,
-    currentDemoUrl,
+    currentPreviewUrl,
     mediaEnabled,
     messages,
     paletteState,
@@ -243,7 +243,7 @@ export function useBuilderProjectActions({
 
     setChatId(null);
     setMessages([]);
-    setCurrentDemoUrl(null);
+    setCurrentPreviewUrl(null);
     setAppProjectId(null);
 
     router.replace("/builder");
@@ -254,7 +254,7 @@ export function useBuilderProjectActions({
       setDeployNameInput("");
       setDeployNameDialogOpen(false);
       setV0ProjectId(null);
-      setCurrentDemoUrl(null);
+      setCurrentPreviewUrl(null);
       setPreviewRefreshToken(0);
       setMessages([]);
       setIsImportModalOpen(false);
@@ -286,7 +286,7 @@ export function useBuilderProjectActions({
     setDeployNameInput,
     setDeployNameDialogOpen,
     setV0ProjectId,
-    setCurrentDemoUrl,
+    setCurrentPreviewUrl,
     setPreviewRefreshToken,
     setMessages,
     setIsImportModalOpen,

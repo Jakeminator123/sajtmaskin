@@ -1,10 +1,10 @@
-import type { PreparedModule } from "./types";
-import { isPreviewBuiltinImportSource } from "./constants";
-import { normalizeFilePath, inferPreviewUiComponentName, resolveLocalImportPath } from "./utils";
-import { buildCodeFileMap, buildPreparedModuleMap } from "./file-resolution";
+import type { PreparedModule } from "../types";
+import { isPreviewBuiltinImportSource } from "../constants";
+import { normalizeFilePath, inferPreviewUiComponentName, resolveLocalImportPath } from "../utils";
+import { buildCodeFileMap, buildPreparedModuleMap } from "../file-resolution";
 
 /**
- * Shim stubs keep the static iframe preview from crashing on optional deps.
+ * Legacy shim stubs for tier-1 static iframe preview (optional deps).
  * **Source of truth for visuals** is tier-2 sandbox (`npm run dev`) or production — not this layer.
  */
 

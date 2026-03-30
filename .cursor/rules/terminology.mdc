@@ -1,192 +1,54 @@
 ---
-description: Kanonisk produktterminologi (svenska + kodidentifierare) — håll listan tight; detaljer i docs/architecture
+description: Kanoniska begrepp som agenter ofta blandar ihop
 alwaysApply: true
 ---
 
-# Terminologi (Sajtmaskin)
+# Terminology
 
-Kompakt ordlista för agenter och kod. **Mappar, pipelines, skriptnamn:** `docs/architecture/repository-and-platform.md`, `docs/architecture/repo-tree.md`. **Teknisk stack / env:** `docs/ENV.md`, `src/lib/config.ts`.
+Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines: `docs/architecture/repository-and-platform.md` och `docs/architecture/repo-tree.md`.
 
-## Stack (en rad)
+## `v0` betyder tre olika saker
 
-Prompt → **own-engine** (standard codegen) → filer → **preview** → valfritt **sandbox** → **deploy**. Next.js App Router, OpenAI/AI SDK, Postgres, Redis, Vercel m.m.
+1. **API-versionering**: Sajtmaskins egna routes under `/api/v0/`. Det har inget med leverantören v0 att göra.
+2. **Naming debt**: gamla symbolnamn eller payload-nycklar från tidigare v0-baserad codegen.
+3. **Template-källa**: builderns mallgalleri hämtar data från v0-ekosystemet via `src/lib/templates/`.
 
----
+`v0-sdk`, `src/lib/v0/` och `V0_API_KEY` är borttagna ur runtime. **own-engine** är den enda aktiva codegen-vägen.
 
-## «v0» i repot — tre distinkta betydelser
+## Mall, preview, sandbox
 
-Termen `v0` förekommer i repot med tre **helt olika** innebörder. Blanda dem inte.
+- **v0-templates / "Mall"**: builderns mallgalleri i `src/lib/templates/`.
+- **Vercel-mall**: research-material i `research/external-templates/`. Inte samma sak som builderns mallgalleri.
+- **Preview**: det användaren ser i buildern.
+- **Sandbox**: kör ett genererat Next-projekt, typiskt `npm run dev`, för högre preview-fidelity.
+- **demoUrl**: legacy-namn för URL eller preview-mål; tolka efter kontext.
 
-| Kategori | Vad det betyder | Exempel | Status |
-|----------|----------------|---------|--------|
-| **1. API-versionering** | Sajtmaskins egna HTTP-API version 0. Inget med leverantören V0 att göra. | `/api/v0/chats/...`, `/api/v0/deployments/...` | **Aktivt** — inga planer att byta prefix. |
-| **2. Naming debt (historisk)** | Symbolnamn och filnamn som härstammar från tiden då V0 Platform var codegen-väg. Koden gör inte längre V0-anrop. | `v0EnrichmentContext`, `v0Stream.ts`, `V0_CATEGORIES`, `v0ChatId`, `v0ProjectId` (payload-nycklar) | **Kvar tills vidare** — interna symboler rensas löpande; payload-/DB-nycklar bryts inte utan migrationsplan. |
-| **3. Mall-/template-källa** | Mall-galleriet på startsidan hämtar data från v0.app-ekosystemet. | `src/lib/templates/`, `scripts/sync-v0-templates.mjs`, `TemplateCatalogSource = "v0"` | **Operationellt** — template-sync körs fortfarande. |
+## Fidelity
 
-**Borttaget:** `src/lib/v0/` (katalog), `src/lib/v0.ts`, `v0-sdk` (npm-paket) och `V0_API_KEY` i runtime — se `docs/FINDINGS.txt` 2026-03-27.
+- **1**: enklare eller statisk preview.
+- **2**: sandbox-körbar Next-app med fokus på visuell trohet.
+- **3**: byggbar och deploybar produktionstro version.
 
----
+`docs/architecture/preview-deploy.md` är kanonisk källa för den faktiska preview-kedjan.
 
-## v0-templates / «Mall» (produkt-UI)
+## Env: två olika nivåer
 
-- **Vad:** Kategorier och kort under modalen **«Mall»** på startsidan.
-- **Kod / data:** `src/lib/templates/` (v0-templates), API under `src/app/api/v0/` (= API-versionering, kategori 1 ovan).
-- **Skilj från:** **Vercel-mall** (research) nedan — samma ord «mall» får inte blandas ihop.
+- **Plattformens env**: `.env*` för själva Sajtmaskin-repot.
+- **Användarprojektets env**: projektunika värden som hör till den genererade sajten eller sandboxen.
 
----
+Blanda inte ihop dem när någon säger "env", "miljövariabler" eller "saknade keys".
 
-## Vercel-templates / Vercel-mall (research)
+## own-engine, `src/lib/gen/`, `src/lib/mcp/`
 
-- **Vad:** Material **inhämtat från Vercels webbplats** (skrapning), ofta via Python-skript t.ex. `scripts/hamta_sidor_branch_emil.py`. Utdata kan ligga **utanför** repot (t.ex. syskonmapp `vercel-scrape` / `SAJTMASKIN_VERCEL_SCRAPE_DIR`) — se `research/external-templates/README.md`, `scripts/README.md`.
-- **Var i trädet:** `research/external-templates/` (bl.a. rådiscovery, reference-library). **Inte** samma som builder-fliken «Mall» (v0-templates).
+- **own-engine**: produktens kanoniska genereringsbana.
+- **`src/lib/gen/`**: delad genereringskärna och verktyg som own-engine bygger på.
+- **`src/lib/mcp/`**: adapterlager för att använda befintliga flöden programmässigt; inte en separat motor.
 
----
+## Integrationer och källor
 
-## Dossiers
+- Provider- och integrationsnamn ska följa repoets faktiska källor, främst `sajtmaskin.integration-manifest.json` om den finns, pre-generation contracts, `config/env-policy.json` och `docs/ENV.md`.
+- Hitta inte på nya providernamn i copy eller frågor när projektets befintliga konfiguration redan visar vad som gäller.
 
-- **Vad:** **Kurerade** underlag byggda ur Vercel-template-materialet (och metadata), som **matar LLM-/research-lane** (inspiration, ranking, kontext) — inte samma som färdig **scaffold** i runtime.
-- **Var:** t.ex. `research/external-templates/reference-library/dossiers/`.
-
----
-
-## Buildern
-
-- **Vad:** Huvudvy **efter** startsidan — **chat** (vänster), **versioner** (höger), **preview** (mitt). Här formulerar användaren prompt och ser resultat.
-- **Kod:** `src/app/builder/`, `src/components/builder/`, `src/lib/gen/` m.m.
-
----
-
-## Användare
-
-Person som använder Sajtmaskin för att bygga **sin** sajt/hemsida (produktens slutanvändare).
-
----
-
-## Demo-URL, preview, sajt / hemsida
-
-- **demoUrl** (fält/legacy): historiskt ofta v0-hostad URL; i produkt språk ofta «det som visas i **iframe/preview**».
-- **Preview:** det som visas i byggarens förhandsvisning — kan vara **shim**, **sandbox** (`npm run dev`), eller annat — se `docs/architecture/preview-deploy.md`.
-- **Sajt / hemsida:** används växelvis om samma sak; vid **oklarhet**, fråga om det gäller **genererat innehåll**, **preview-läge**, eller **publicerad** sajt.
-
----
-
-## Fidelity (tre nivåer — begrepp)
-
-| Nivå | Typiskt innehåll |
-|------|-------------------|
-| **1** | Lägst — gärna **statiska** filer, begränsad «levande» runtime. |
-| **2** | **Next.js-projekt** som kan köras i **sandbox** (dev-server); fokus på visuellt troget; kan kopplas till GitHub m.m. enligt integration. |
-| **3** | Högst — ska klara **`npm run build`** och motsvara **produktion**/deploy med relevanta integrationer. |
-
-Exakta implementationer, levererat/öppet och gränser: `docs/architecture/preview-deploy.md` (kanon för preview-kedjan).
-
----
-
-## Miljövariabler (två slag — skilj alltid)
-
-När någon skriver «environment variables» / «env» måste agenten avgöra **vilken kategori** som avses.
-
-### 1. Plattformens env-filer (Sajtmaskin-repot)
-
-**Vad:** Klassiska filer i **detta** repo — t.ex. `.env.local`, `.env.production`, `.env.development.local`, andra `.env.*` som följer Next/Vercel-konventioner, ev. Vercel-pullade varianter.
-
-**Vem:** **Sajtmaskin**-applikationen, dess databas, API-nycklar för plattformen, sandbox-autentisering mot Vercel, m.m.
-
-**Detaljer:** `docs/ENV.md`, `src/lib/config.ts`.
-
-### 2. Användarens / genererade projektets env (per projekt)
-
-**Vad:** Nycklar och värden som **hör till användarens genererade sajt** (Next/React som körs i preview/sandbox) — **inte** samma filer som punkt 1. Ofta **en uppsättning per projekt** (metadata som `project_data.meta.projectEnvVars`, merge in i sandlådans `.env.local` tillsammans med **placeholders** — se `src/lib/gen/build-generated-site-env.ts`, `src/lib/project-env-vars.ts`).
-
-**Varför i terminologin:** En hänvisning till **användarens** «environment variables» betyder att det finns (eller ska finnas) **projekt-specifik** konfiguration — t.ex. så **demo-URL**, integrationer eller publika nycklar finns när den genererade appen startar. För **fidelity 2** (dev-server i sandbox) är denna kategori ofta **nödvändig** för att `npm run dev` ska komma upp, även om den är **delvis separerad** från plattformens env.
-
-**Placeholders:** För genererade mallar används ofta **dummy-värden** (t.ex. `abc123`) så att enkla eller tillfälliga hemligheter inte **stoppar** uppstart av React/Next i dev — riktiga värden ersätter sedan vid behov.
-
----
-
-## Integrationsnivåer (tre steg — skilj från fidelity)
-
-**Fidelity** (tabellen ovan) styr **hur** preview körs (statiskt → dev i sandbox → build/deploy). **Integrationsnivå** styr **hur tung eller förenklad** externa kopplingar är i **genererad kod** — en egen treledad skala som ofta **linjerar** med fidelity men inte är samma begrepp.
-
-| Nivå | Typiskt innehåll |
-|------|------------------|
-| **1** | **Lättast** — mockdata, inga eller minimala externa beroenden; snabb preview, lite krav på env. |
-| **2 — «Mittnivå» / sandbox-vänlig** | **Förenklad men körande stack** för bättre UX i sandlådan: t.ex. **Prisma med SQLite** i stället för molndatabas tidigt, **enklare eller stubbad OAuth** där full flöde skulle kräva många hemligheter. Målet är att användaren ska kunna köra **`npm run dev` i sandbox** utan att **bygg- eller uppstartsprocessen** stoppas av saknade nycklar eller tung infra — se **placeholders** och **användarens env** ovan. |
-| **3** | **Produktion** — riktig databas (t.ex. Postgres), fulla OAuth-flöden, API-nycklar som hör till **deploy**; överlappar ofta **fidelity 3**. |
-
-**Agentregel:** Om målet är «fungerar i sandbox / fidelity 2» — välj förenklingar på nivå **2** framför att generera full produktionsintegration direkt.
-
----
-
-## own-engine
-
-- **Vad:** **Nuvarande standard** för kodgenerering — Sajtmaskins **kanoniska byggspår** och produktmässiga «svarta låda» för att skapa sajter från prompt till filer/preview.
-- **Kod:** Körs via `src/lib/own-engine/`, `src/lib/providers/own-engine/` och återanvänder kärnlogik i `src/lib/gen/`.
-
-### own-engine vs `src/lib/gen/` vs `src/lib/mcp/`
-
-| Begrepp | Vad det är |
-|---|---|
-| **`own-engine`** | Den **produktmässiga** banan: chat/session/stream/plan/contract-gate och allt som gör att Sajtmaskin använder den egna motorn som standardflöde. |
-| **`src/lib/gen/`** | **Motorrummet**: delad genereringskärna och verktyg som prompt-orchestration, scaffold-matchning, system prompt, autofix, finalize, merge, previewförberedelser m.m. Detta är **inte en separat produktmotor**, utan verkstaden som own-engine bygger på. |
-| **`src/lib/mcp/`** | **Adapter-/verktygslager** för programmatisk åtkomst till redan existerande own-engine-flöden: generera en sajt utan builder-UI, skapa preview/sandbox-runtime, läsa ut genererade filer/versioner. Inte en egen codegen-motor och inte den kanoniska platsen för core promptlogik. |
-
----
-
-## v0 (plattform — avvecklad som codegen-väg)
-
-- **Historik:** Kodgenerering gick via **v0 API / SDK**. Sedan 2026-03-27 är `v0-sdk`, `src/lib/v0.ts` och `V0_API_KEY` **borttagna** ur runtime.
-- **Nu:** **own-engine** är **enda** codegen-väg. Kvarvarande `v0`-namn i kod och DB är **naming debt** (kategori 2 ovan) eller **template-källa** (kategori 3). API-prefixet `/api/v0/` är **versionering** (kategori 1), inte leverantören V0.
-
----
-
-## Sandbox
-
-- **Vad:** Kör användarens genererade **Next-projekt** i isolerad miljö (dev-server) — knapp eller auto när preview ska upp på **nivå 2**-fidelity. Inte samma som lätt **shim**-preview.
-- **Kod:** `src/lib/gen/sandbox-*`, `PreviewPanel`, m.m.
-
----
-
-## Deploy / publicera
-
-- **Vad:** Knapp/flöde som leder till **deployment** — typiskt ambition **fidelity 3** (byggbart projekt) mot **GitHub** och vidare **Vercel** eller annan host. Detaljer kan variera; håll termen **öppen** för flera providers.
-
----
-
-## Kodidentifierare vs svensk UI (urval)
-
-| Kod / API | UI / språk |
-|-----------|------------|
-| `freeform` | Fritext |
-| `own-engine` | «egen motor» (metadata) |
-| `buildMethod`, `buildIntent` | Startlägen / avsikt |
-| **Mall (builder)** | v0-templates (inte Vercel-mall-research) |
-
----
-
-## På-disk (minnesregel)
-
-| Begrepp | Ungefär var |
-|---------|-------------|
-| **Scaffold** | `src/lib/gen/scaffolds/` |
-| **v0-templates** | `src/lib/templates/` |
-| **Vercel-mall / research** | `research/external-templates/` |
-| **Artifact** | t.ex. genererad JSON under `template-library/`, embeddings-filer |
-
----
-
-## Aliaser → kanon
+## Aliaser
 
 Varicell / Vericell → **Vercel**. Veenol / Venol → **v0**.
-
----
-
-## Semantik (HTML) vs semantisk sökning / inbäddning
-
-**Semantik** (tillgänglighet, HTML) ≠ **ML-semantik** / **inbäddningar** — blanda inte ihop i kodreview.
-
----
-
-## Se även
-
-`docs/architecture/system-overview.md`, `docs/architecture/builder-generation.md`, `docs/README.md`, `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`.

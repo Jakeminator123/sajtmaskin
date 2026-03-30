@@ -59,7 +59,7 @@ type Args = {
   searchParams: { toString: () => string };
   setChatId: Dispatch<SetStateAction<string | null>>;
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
-  setCurrentDemoUrl: Dispatch<SetStateAction<string | null>>;
+  setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
   setEntryIntentActive: Dispatch<SetStateAction<boolean>>;
   setIsPreparingPrompt: Dispatch<SetStateAction<boolean>>;
@@ -113,7 +113,7 @@ export function useBuilderPromptActions({
   searchParams,
   setChatId,
   setMessages,
-  setCurrentDemoUrl,
+  setCurrentPreviewUrl,
   setSelectedVersionId,
   setEntryIntentActive,
   setIsPreparingPrompt,
@@ -138,7 +138,7 @@ export function useBuilderPromptActions({
       pendingSpecRef.current = null;
       setChatId(null);
       setMessages([]);
-      setCurrentDemoUrl(null);
+      setCurrentPreviewUrl(null);
       setSelectedVersionId(null);
       setEntryIntentActive(false);
       templateInitAttemptKeyRef.current = null;
@@ -154,7 +154,7 @@ export function useBuilderPromptActions({
       router,
       searchParams,
       setChatId,
-      setCurrentDemoUrl,
+      setCurrentPreviewUrl,
       setEntryIntentActive,
       setMessages,
       setSelectedVersionId,

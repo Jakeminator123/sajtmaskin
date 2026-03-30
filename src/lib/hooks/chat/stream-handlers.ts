@@ -55,7 +55,7 @@ export type StreamContext = {
   pendingCreateKeyRef?: React.MutableRefObject<string | null>;
   onV0ProjectId?: (projectId: string) => void;
 
-  setCurrentDemoUrl: (url: string | null) => void;
+  setCurrentPreviewUrl: (url: string | null) => void;
   setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
   setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
   setSandboxPending?: (pending: boolean) => void;
@@ -114,7 +114,7 @@ export async function handleSseStream(
     pendingCreateKeyRef,
     onV0ProjectId,
     onSandboxSessionMeta,
-    setCurrentDemoUrl,
+    setCurrentPreviewUrl,
     setSandboxBuildError,
     setSandboxProdBuild,
     setSandboxPending,
@@ -642,7 +642,7 @@ export async function handleSseStream(
             setSandboxBuildError?.(null);
 
             if (sandboxUrl && !isCompatibilityShimPreviewUrl(sandboxUrl)) {
-              setCurrentDemoUrl(sandboxUrl);
+              setCurrentPreviewUrl(sandboxUrl);
               onPreviewRefresh?.();
               const pendingPost = postCheckQueue[postCheckQueue.length - 1];
               if (pendingPost) {
@@ -718,7 +718,7 @@ export async function handleSseStream(
             }
             const effectiveDoneDemo = effectivePreviewUrlFromDoneDemo(doneData.demoUrl);
             if (effectiveDoneDemo) {
-              setCurrentDemoUrl(effectiveDoneDemo);
+              setCurrentPreviewUrl(effectiveDoneDemo);
               onPreviewRefresh?.();
             }
             setSandboxPending?.(Boolean(doneData.sandboxPending));

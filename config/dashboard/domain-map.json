@@ -4,7 +4,7 @@
   "repoSiblings": {
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ har valfri Streamlit-GUI (app.py) för samma material — importeras inte av Next.js.",
     "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md.",
-    ".cursor": "Cursor-projektregler och skills. Fem always-on .mdc (terminology, session-git-docs, tooling-routing, repo-env-indexing, platform-quirks) — redigeras från vyn Cursor-agenter."
+    ".cursor": "Cursor-projektregler och skills. Fyra kärnregler (`terminology`, `session-git-docs`, `repo-env-indexing`, `cleanup-and-scope`) plus en svagare `platform-quirks` — redigeras från vyn Cursor-agenter."
   },
   "pages": {
     "Översikt": {
@@ -113,8 +113,8 @@
       "canonicalPaths": [
         ".cursor/rules/terminology.mdc",
         ".cursor/rules/session-git-docs.mdc",
-        ".cursor/rules/tooling-routing.mdc",
         ".cursor/rules/repo-env-indexing.mdc",
+        ".cursor/rules/cleanup-and-scope.mdc",
         ".cursor/rules/platform-quirks.mdc",
         "docs/architecture/repository-and-platform.md",
         "docs/plans/active/PROJECT-STATE-AND-DIRECTION.md"

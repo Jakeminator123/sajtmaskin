@@ -212,7 +212,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               projectId: vm.appProjectId,
               chatId: vm.chatId,
               activeVersionId: vm.activeVersionId,
-              demoUrl: vm.currentDemoUrl,
+              demoUrl: vm.currentPreviewUrl,
               uiSurfaces: [
                 "vänster chatpanel",
                 "Lanseringskortet",
@@ -277,7 +277,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       vm.activeVersionId,
       vm.appProjectId,
       vm.chatId,
-      vm.currentDemoUrl,
+      vm.currentPreviewUrl,
       vm.currentPageCode,
       vm.messages,
     ],
@@ -378,7 +378,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       chatId: vm.chatId,
       buildMethod: vm.buildMethod,
       activeVersionId: vm.activeVersionId,
-      demoUrl: vm.currentDemoUrl,
+      demoUrl: vm.currentPreviewUrl,
       selectedModelTier: vm.selectedModelTier,
       selectedModelLabel,
       promptAssistModel: vm.promptAssistModel,
@@ -398,7 +398,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.chatId,
     vm.buildMethod,
     vm.activeVersionId,
-    vm.currentDemoUrl,
+    vm.currentPreviewUrl,
     vm.selectedModelTier,
     vm.promptAssistModel,
     vm.promptAssistDeep,
@@ -430,13 +430,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   useEffect(() => {
     if (!pendingPlacementRequest) return;
-    if (vm.chatId && vm.currentDemoUrl) return;
+    if (vm.chatId && vm.currentPreviewUrl) return;
     resolvePlacementFlow("cancelled");
-  }, [pendingPlacementRequest, resolvePlacementFlow, vm.chatId, vm.currentDemoUrl]);
+  }, [pendingPlacementRequest, resolvePlacementFlow, vm.chatId, vm.currentPreviewUrl]);
 
   const handleRequestPlacement = useCallback(
     async (request: VisualPlacementRequest) => {
-      if (!vm.chatId || !vm.currentDemoUrl) return "fallback";
+      if (!vm.chatId || !vm.currentPreviewUrl) return "fallback";
 
       const existingResolver = placementResolverRef.current;
       if (existingResolver) {
@@ -452,7 +452,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         placementResolverRef.current = resolve;
       });
     },
-    [vm.chatId, vm.currentDemoUrl],
+    [vm.chatId, vm.currentPreviewUrl],
   );
 
   const handlePlacementComplete = useCallback(
@@ -587,14 +587,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const handleUseSandboxInPreview = useCallback(
     (url: string) => {
       vm.setClearedPreviewVersionId(null);
-      vm.setCurrentDemoUrl(url);
+      vm.setCurrentPreviewUrl(url);
       void persistPreviewOverride(url, vm.activeVersionId);
       void persistSandboxUrlForVersion(url);
     },
     [
       vm.activeVersionId,
       vm.setClearedPreviewVersionId,
-      vm.setCurrentDemoUrl,
+      vm.setCurrentPreviewUrl,
       persistPreviewOverride,
       persistSandboxUrlForVersion,
     ],
@@ -602,12 +602,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   const handleClearPreview = useCallback(() => {
     vm.setClearedPreviewVersionId(vm.activeVersionId ?? null);
-    vm.setCurrentDemoUrl(null);
+    vm.setCurrentPreviewUrl(null);
     void persistPreviewOverride(null, null);
   }, [
     vm.activeVersionId,
     vm.setClearedPreviewVersionId,
-    vm.setCurrentDemoUrl,
+    vm.setCurrentPreviewUrl,
     persistPreviewOverride,
   ]);
 
@@ -755,7 +755,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         >
           <Eye className="h-4 w-4" />
           Preview
-          {vm.currentDemoUrl && mobileTab !== "preview" && (
+          {vm.currentPreviewUrl && mobileTab !== "preview" && (
             <span className="bg-brand-blue h-2 w-2 rounded-full" />
           )}
         </button>
@@ -895,7 +895,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <PreviewPanel
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
-              demoUrl={vm.currentDemoUrl}
+              demoUrl={vm.currentPreviewUrl}
               alternatePreviewUrls={vm.activeVersionAlternatePreview}
               sandboxBuildError={vm.sandboxBuildError}
               sandboxProdBuild={vm.sandboxProdBuild}
@@ -904,7 +904,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               previewLifecycle={vm.previewLifecycle}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
               onNavigatePreviewUrl={(url) => {
-                vm.setCurrentDemoUrl(url);
+                vm.setCurrentPreviewUrl(url);
                 vm.bumpPreviewRefreshToken();
               }}
               isLoading={vm.isAnyStreaming || vm.isCreatingChat}
@@ -974,7 +974,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             vm.router.replace(`/builder?${params.toString()}`);
           }
           vm.setMessages([]);
-          vm.setCurrentDemoUrl(null);
+          vm.setCurrentPreviewUrl(null);
         }}
       />
 

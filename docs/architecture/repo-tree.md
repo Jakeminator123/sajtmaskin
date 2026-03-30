@@ -25,6 +25,16 @@
 
 **Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Python-wrappers i roten (`manage_env.py`, `check_env.py`, `model_trace_overlay.py`, `vercel_template_cli.py`) vidarebefordrar till `scripts/env/` resp. `scripts/manual/`.
 
+## Mentala repo-zoner (kod)
+
+| Zon | Typiska sökvägar |
+|-----|------------------|
+| **Builder UI** | `src/app/builder/*`, `src/components/builder/*` |
+| **Preview runtime / livscykel** | `src/lib/builder/preview-session/*`, `src/components/builder/preview-panel/*`, `src/lib/gen/preview/*` |
+| **Generation engine** | `src/lib/gen/stream/*`, `src/lib/providers/own-engine/*`, `src/lib/own-engine/*` |
+| **DB / versioner / diagnostik** | `src/lib/db/*`, `src/lib/gen/preview-diagnostics.ts`, `src/lib/gen/eval/*` |
+| **HTTP API (v0)** | `src/app/api/v0/chats/*`, övriga `src/app/api/*` |
+
 ## Viktiga `src/lib/`-områden
 
 | Plats | Roll |

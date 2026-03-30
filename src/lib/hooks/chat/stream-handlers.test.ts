@@ -72,7 +72,7 @@ function createMessageStore() {
 
 function createContext(setMessages: SetMessages) {
   const setChatId = vi.fn();
-  const setCurrentDemoUrl = vi.fn();
+  const setCurrentPreviewUrl = vi.fn();
   const setSandboxPending = vi.fn();
   const onPreviewRefresh = vi.fn();
   const onGenerationComplete = vi.fn();
@@ -87,7 +87,7 @@ function createContext(setMessages: SetMessages) {
     setMessages,
     touchStreamSafetyTimer,
     setChatId,
-    setCurrentDemoUrl,
+    setCurrentPreviewUrl,
     setSandboxPending,
     onPreviewRefresh,
     onGenerationComplete,
@@ -102,7 +102,7 @@ function createContext(setMessages: SetMessages) {
     ctx,
     spies: {
       setChatId,
-      setCurrentDemoUrl,
+      setCurrentPreviewUrl,
       setSandboxPending,
       onPreviewRefresh,
       onGenerationComplete,
@@ -158,7 +158,7 @@ describe("handleSseStream", () => {
     expect(result.chatIdFromStream).toBe("chat_1");
     expect(result.streamQuality.hasCriticalAnomaly).toBe(false);
     expect(result.streamQuality.reasons).toContain("error_event_recovered");
-    expect(spies.setCurrentDemoUrl).toHaveBeenCalledWith(
+    expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith(
       "https://preview.example/chat_1/ver_1",
     );
     expect(spies.setChatId).toHaveBeenCalledWith("chat_1");
@@ -291,7 +291,7 @@ describe("handleSseStream", () => {
       verified: false,
       logSnippet: "Error: failed",
     });
-    expect(spies.setCurrentDemoUrl).toHaveBeenCalledWith("https://sandbox.example");
+    expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://sandbox.example");
   });
 
   it("does not set demoUrl on empty sandbox-ready (build_only) but records prod build", async () => {
@@ -344,7 +344,7 @@ describe("handleSseStream", () => {
       verified: true,
       logSnippet: undefined,
     });
-    expect(spies.setCurrentDemoUrl).not.toHaveBeenCalled();
+    expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
   });
 
   it("does not set iframe URL from done when demoUrl is compatibility shim only", async () => {
@@ -377,7 +377,7 @@ describe("handleSseStream", () => {
 
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
 
-    expect(spies.setCurrentDemoUrl).not.toHaveBeenCalled();
+    expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
     expect(spies.onGenerationComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: "chat_1",
@@ -425,6 +425,6 @@ describe("handleSseStream", () => {
 
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
 
-    expect(spies.setCurrentDemoUrl).not.toHaveBeenCalled();
+    expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
   });
 });

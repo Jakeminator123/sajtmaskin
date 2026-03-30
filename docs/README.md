@@ -2,6 +2,14 @@
 
 `docs/` is the main home for human-readable documentation.
 
+## Navigera `docs/` (tre block)
+
+| Block | Innehåll | Börja här |
+|-------|----------|-----------|
+| **Arkitektur** | Kanonisk systembeskrivning, preview/sandbox, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
+| **Aktiva planer** | Backlog, beslut, post-epic städlista | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/active/POST-EPIC-CLEANUP.md`](plans/active/POST-EPIC-CLEANUP.md) · [`plans/README.md`](plans/README.md) |
+| **Arkiv** | Avklarade planer, tidsbunden logg, handoffs-pekare | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) (t.ex. [`archive/FINDINGS.txt`](archive/FINDINGS.txt)) · [`handoffs/README.md`](handoffs/README.md) · [`notes/`](notes/) |
+
 ## Terminology (two layers — do not duplicate)
 
 | Audience / topic | Canonical location | What it covers |
@@ -25,7 +33,7 @@
 
 Everything else is deep reference, history, or architecture.
 
-**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) (fyra kapitel) · [`architecture/repo-tree.md`](architecture/repo-tree.md) (rot-träd) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `handoffs/` → [`handoffs/README.md`](handoffs/README.md) (endast pekare efter arkivering) · `contributing/` → [`contributing/README.md`](contributing/README.md) · `old/` (pekare). Doc-policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
+**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) (fyra kapitel) · [`architecture/repo-tree.md`](architecture/repo-tree.md) (rot-träd) · `archive/` → [`archive/README.md`](archive/README.md) (tidsbunden logg, ej kanon) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `handoffs/` → [`handoffs/README.md`](handoffs/README.md) (endast pekare efter arkivering) · `contributing/` → [`contributing/README.md`](contributing/README.md) · `old/` (pekare). Doc-policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
 
 **För agenter (orientering):** [`architecture/repo-tree.md`](architecture/repo-tree.md) → [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) → [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc).
 
@@ -81,7 +89,7 @@ Good production inputs:
 
 Not runtime dependencies:
 
-- Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.** Lokala MCP-servrar under `tools/mcp/` finns **inte** längre — se `.cursor/rules/tooling-routing.mdc`.
+- Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.** Lokala MCP-servrar under `tools/mcp/` finns **inte** längre; repoets egna flöden förstås via `docs/`, `.cursor/rules/` och kodbasen.
 - browser-driven doc helpers in `tools/doc-browser/` (see `tools/README.md`)
 - raw discovery under `research/external-templates/raw-discovery/current/`
 - local shallow clone cache under `research/external-templates/repo-cache/`

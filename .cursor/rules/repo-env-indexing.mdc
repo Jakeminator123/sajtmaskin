@@ -1,28 +1,25 @@
 ---
-description: Workspace layout, env and ignore files, cursorignored paths (read explicitly)
+description: Var env-sanningen bor och hur ignorerade sökvägar läses
 alwaysApply: true
 ---
 
-# Workspace, environment, and indexing
+# Repo, env, and indexing
 
-## Workspace
+## Canonical env sources
 
-Single root = repo checkout. Tracked work only under repo root. Prefer `sajtmaskin.code-workspace` (gitignored; optional local copy if the repo ships `sajtmaskin.code-workspace.example`, otherwise create a minimal workspace pointing at `.`). Shared tooling: `.vscode/settings.json` + same `settings` in workspace file. Cursor-only: `.cursor/settings.json`. Changing ESLint/Prettier/markdownlint ignores → update `.vscode/settings.json`, workspace file, and ignore files together.
+- Börja med `docs/ENV.md`, `src/lib/env.ts` och `config/env-policy.json`.
+- `.env.example` och `.env.*.example` visar mallar; `.env.local` och andra riktiga `.env*` får läsas vid felsökning eller setup.
+- Sammanfatta nycklar och mismatchar i chatten; klistra inte in secret-värden om det inte efterfrågas uttryckligen.
 
-## Env and ignore files
+## Practical policy
 
-**Catalog:** `docs/ENV.md`, `src/lib/env.ts`, `config/env-policy.json` (indexed). Secrets in `.env.local` / `.env.production` (ignored) — open only for concrete debugging; never commit. Templates: `.env.example`, `.env.*.example`.
+- Ändra `.env*` minimalt och committa aldrig hemligheter.
+- Läs `.vercel/` när deploy, projektlänkning eller env-kopplingar behöver felsökas. Committa inte lokal state därifrån.
+- Läs eller uppdatera `.gitignore`, `.cursorignore` och workspace-ignores när uppgiften kräver det.
 
-**Access:** Du **får läsa** alla relevanta `.env*`-varianter (t.ex. `.env.local`, `.env.production`, andra namn projektet använder) vid felsökning och setup. **Ändringar** ska vara minimala och medvetna — committa aldrig hemligheter.
+## Ignored and cursorignored paths
 
-**Vercel CLI / länkad projektdata:** Katalogen **`.vercel/`** (om den finns) kan innehålla länk till Vercel-projekt, ibland kopplade env-referenser — använd vid deploy-felsökning; **committa inte** secrets eller onödig lokal state.
-
-**Access (övrigt):** Read/edit `.gitignore`, `.cursorignore`, etc. when relevant. Smallest read first; summarize keys/mismatches in chat — never paste secret values unless user asks for exact values.
-
-## Cursorignored context
-
-Semantic search/grep miss these — use **Read** with known paths: `research/external-templates/reference-library/` (dossiers); `docs/plans/avklarat/` (history; see `README.md` there); `.cursor/migration-archive/` (repo split); `scripts/` (tooling). Large JSON (`scaffold-embeddings.json`, `template-library.generated.json`): use folder **README**s, not full file. Entry READMEs: `src/lib/gen/data/README.md`, `scaffolds/README.md`, `template-library/README.md`.
-
-**`.cursorignore` includes `package-lock.json`** — för exakta versioner och `npm ci`, använd terminal eller öppna filen med **Read**; `package.json` räcker oftast för skriptnamn.
-
-**Gitignored secrets** (`.env.local`, m.m.) — läs bara vid felsökning; canonical nyckellista: `docs/ENV.md`, `src/lib/env.ts`.
+- Sökverktyg missar ibland ignorerade sökvägar. Läs dem direkt när du vet var sanningen finns.
+- Vanliga exempel: `research/external-templates/reference-library/`, `docs/plans/avklarat/`, `.cursor/migration-archive/` och `scripts/`.
+- För stora genererade JSON-filer: börja i närmaste `README.md`, manifest eller katalogöversikt i stället för att läsa hela filen.
+- Om `package-lock.json` är ignorerad: läs den bara när exakta versioner eller `npm ci` verkligen är relevanta.

@@ -1,58 +1,46 @@
 ---
 name: sajtmaskin-context
-description: Sajtmaskin terminology and domain model; docs/ for architecture. MCP routing in tooling-routing.mdc. Triggers: builder, scaffolds, v0-templates, Vercel-mall research, preview, deploy, demoUrl.
+description: Quick domain/context skill for Sajtmaskin. Use when working on builder, preview, scaffolds, own-engine, templates, sandbox, deploy, or terminology-sensitive tasks.
 ---
 
 # Sajtmaskin Context
 
-Use this skill to align decisions and wording with this repository's domain model.
+Use this skill to stay aligned with Sajtmaskin's domain language and canonical docs.
 
-## Quick start
+## Read first
 
-1. **`.cursor/rules/terminology.mdc`** — kanonisk produktordlista (v0-templates vs **Vercel-mall**, buildern, fidelity, own-engine, sandbox, m.m.).
-2. **`docs/`** — arkitektur och policy: [`docs/README.md`](../../../docs/README.md), [`docs/architecture/repo-tree.md`](../../../docs/architecture/repo-tree.md), [`docs/architecture/documentation-lifecycle.md`](../../../docs/architecture/documentation-lifecycle.md).
-3. **Backlog:** [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](../../../docs/plans/active/PROJECT-STATE-AND-DIRECTION.md).
-4. **`.cursor/rules/tooling-routing.mdc`** — vilken MCP för v0/Vercel/OpenAI/OpenClaw API (ersätter inte att läsa `docs/`).
-5. **Konfiguration som styr beteende:** [`config/README.md`](../../../config/README.md) (rot under `config/`).
+1. `.cursor/rules/terminology.mdc` - canonical product/code terminology
+2. `docs/README.md` - canonical doc navigation
+3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` - active backlog and decisions
 
-Keep canonical terminology in reasoning and responses.
+## Core guardrails
 
-## Terminology guardrails
+- Keep Sajtmaskin terminology consistent.
+- Do not confuse `v0-templates` / "Mall" in the builder with Vercel template research under `research/external-templates/`.
+- Do not confuse runtime scaffolds under `src/lib/gen/scaffolds/` with either of those template sources.
+- `/api/v0/` is API versioning, not automatically the external v0 provider.
+- Own-engine behavior should be understood from repo code and canonical docs, not guessed.
 
-**Canonical:** `terminology.mdc` (always loaded). Skilj **Sajtmaskin** (appen), **Vercel** (hosting/plattform), **v0** (mall-API/SDK, legacy codegen-väg), **own-engine** (nuvarande codegen).
+## Preview / generation guardrails
 
-- **v0-templates** — «Mall» på startsidan, `src/lib/templates/`; inte samma som **Vercel-mall** (research under `research/external-templates/`).
-- **Scaffolds** — runtime under `src/lib/gen/scaffolds/`.
-- **Inbäddningar** (ML) ≠ **semantik** (HTML/a11y) — se `terminology.mdc`.
-
-## MCP routing defaults
-
-- v0 API / mallflöde → `v0` MCP server  
-- Vercel platform / deployments / env → `Vercel` MCP server  
-- OpenAI API / docs → `openaiDeveloperDocs`  
-- OpenClaw → `openclaw-docs`  
-- Own-engine / generation / scaffolds → läs repo (`src/lib/gen/`, ev. `src/lib/mcp/*`) — ingen generisk MCP-wrapper för hela motorn  
-
-Prefer MCP for those platforms when available; web search as fallback.
-
-## React/Next tasks
-
-Use `vercel-react-best-practices` when editing many TSX components.
-
-## Exporterade / genererade Next-projekt (zip, sandbox, kopia)
-
-- **`as const` + navigation/content-listor:** om bara vissa poster har en extra egenskap (t.ex. `featured: true`) blir unionen smal och komponenter som läser `item.featured` får TS-fel. Sätt samma egenskap på **alla** poster (t.ex. `featured: false`) eller gör fältet valfritt i typen och använd `'featured' in item && item.featured`.
-- Efter export: kör `npm install` och `npm run build` i målmappen; åtgärda build-fel innan man antar att projektet är “klart”.
+- Sandbox / Fidelity 2 is the primary live-preview path for own-engine.
+- Legacy shim preview is fallback or diagnostic only unless explicitly required.
+- Runtime truth lives in code; docs explain structure and intent.
 
 ## Response behavior
 
-- User writes Swedish → reply in Swedish unless they ask otherwise.
-- Normalize aliases → `Varicell` → **Vercel**, `Veenol` → **v0** (`terminology.mdc`).
+- Reply in Swedish if the user writes Swedish, unless they ask otherwise.
+- Normalize common aliases carefully: `Varicell` -> `Vercel`, `Veenol` -> `v0`.
 
-## Example trigger phrases
+## Typical triggers
 
-- "hur fungerar buildern"
-- "skillnad mellan v0-mall och Vercel-mall"
-- "vad är skillnaden på mall och scaffold"
-- "varför använder vi demoUrl"
-- "hur deployar vi till Vercel"
+- builder
+- sandbox
+- preview
+- fidelity
+- own-engine
+- scaffold
+- v0-template
+- Vercel template
+- deploy
+- demoUrl

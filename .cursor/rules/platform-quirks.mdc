@@ -1,15 +1,12 @@
 ---
-description: Windows shell, Vercel Sandbox, Playwright, streams, git commit in PowerShell
-alwaysApply: true
+description: Windows/PowerShell och några repo-specifika runtimefallgropar
+alwaysApply: false
 ---
 
-# Platform & shell
+# Platform quirks
 
-- **PowerShell on Windows** — bash heredocs (`<<'EOF'`) do not work natively.
-- **Vercel Sandbox** — prefer `sandbox.writeFiles([{ path, content: Buffer.from(str,"utf-8") })])`; large trees exceed `exec` arg limits (~2 MB).
-- **Playwright** — `INSPECTOR_CAPTURE_WORKER_URL` often unset; local chromium fallback. `npx playwright install chromium`.
-- **Stream proxy** — never `reader.releaseLock()` while `read()` pending; use `reader.cancel()` in `ReadableStream.cancel()`.
-
-## Git commits in PowerShell
-
-Never `$(cat <<'EOF' ...)`. Use `@' ... '@ | git commit -F -`, or `git commit -m "a" -m "b"`. Git Bash/WSL explicitly OK for bash heredoc.
+- **PowerShell på Windows**: bash-heredocs som `<<'EOF'` fungerar inte nativt.
+- **Git commit i PowerShell**: använd `@' ... '@ | git commit -F -` eller flera `-m`; använd inte bash-syntax.
+- **Vercel Sandbox**: föredra `sandbox.writeFiles([{ path, content: Buffer.from(str, "utf-8") }])` för större filträd.
+- **Playwright lokalt**: chromium kan behöva installeras separat med `npx playwright install chromium`.
+- **Stream proxy**: kalla inte `reader.releaseLock()` medan `read()` väntar; avbryt via `reader.cancel()` i `ReadableStream.cancel()`.
