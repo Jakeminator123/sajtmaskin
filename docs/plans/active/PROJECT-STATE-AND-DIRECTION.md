@@ -3,7 +3,7 @@
 **En fil** = operativ sanning för *vad som är kvar*, *hur vi tänker*, och *var kod/docs finns*. Uppdatera här när du levererar eller stänger en rad.  
 **Verifiering efter kod:** `npm run typecheck` && `npx vitest run` · valfritt deploy-smoke: `e2e/README.md`.
 
-**Senast:** 2026-03-27 · **Gamla planhandoff:ar / %-historik:** `git log`, `docs/plans/avklarat/README.md`
+**Senast:** 2026-03-30 · **Gamla planhandoff:ar / %-historik:** `git log`, `docs/plans/avklarat/README.md`
 
 ---
 
@@ -21,6 +21,7 @@
 | Var finns vad (rot-träd, `data/` vs codegen-data) | [`docs/architecture/repo-tree.md`](../../architecture/repo-tree.md) |
 | System / builder | [`docs/architecture/system-overview.md`](../../architecture/system-overview.md) |
 | Generation, SSE | [`docs/architecture/builder-generation.md`](../../architecture/builder-generation.md) |
+| LLM-pipeline milstolpe + review-körlista | [`LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](./LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md) |
 | Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](../../architecture/preview-deploy.md) |
 | Mappar, scaffold vs v0-templates | [`docs/architecture/repository-and-platform.md`](../../architecture/repository-and-platform.md) |
 | Env | [`docs/ENV.md`](../../ENV.md), `config/env-policy.json` |

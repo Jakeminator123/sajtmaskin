@@ -181,9 +181,10 @@ export async function finalizeAndSaveVersion(
   // 3. Image materialization (replace /placeholder.svg?text=... with real Unsplash URLs)
   try {
     const imgResult = await materializeImages(contentForVersion);
+    // Always refresh so validators never reuse URLs from a previous generation (review: staleness).
+    _lastMaterializedUrls = imgResult.resolvedUrls;
     if (imgResult.replacedCount > 0) {
       contentForVersion = imgResult.content;
-      _lastMaterializedUrls = imgResult.resolvedUrls;
       devLogAppend("in-progress", {
         type: "image-materialization",
         chatId,
@@ -192,6 +193,7 @@ export async function finalizeAndSaveVersion(
       });
     }
   } catch (imgErr) {
+    _lastMaterializedUrls = new Set();
     console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
   }
 

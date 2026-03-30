@@ -1,6 +1,6 @@
 # Builder — generering, modeller, prompt och SSE
 
-**Senast uppdaterad:** 2026-03-27
+**Senast uppdaterad:** 2026-03-30
 
 ## Modellbanor (UI ↔ API)
 
@@ -23,6 +23,12 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 ## SSE / stream-scope (W3)
 
 Builder **egen motor** använder SSE på engine-routes — det är **kanon** för chat/generation. Övriga SSE-ytor (admin, observability) är **inte** samma backlog som W3; K-009 är stängd — nya behov = ny planrad (tidigare `own-engine-sse-scope.md` i arkivet).
+
+### Livscykel: `done` och sandbox
+
+Eventet **`done`** betyder att **versionen är finaliserad och sparad** (assistant + `files_json`), inte att alla sidoeffekter är klara. **Efter `done`** kan servern fortfarande skicka t.ex. **`sandbox-ready`** eller **`build-error`**, och klienten ska fortsätta lyssna tills sandbox-steget är avslutat eller fel rapporterats. Fält som `sandboxPending` på `done` signalerar att preview i sandbox kan komma strax.
+
+Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/stream/builder-stream-contract.ts) och post-finalize i `generation-stream-post-finalize.ts`.
 
 ## Generationsloop och felminne
 
