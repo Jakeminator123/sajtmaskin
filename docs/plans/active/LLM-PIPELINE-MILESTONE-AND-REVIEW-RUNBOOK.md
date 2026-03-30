@@ -76,4 +76,6 @@ Checka av raderna när de är klara. Efter varje batch: `npm run typecheck` och 
 
 När Del B är klar: uppdatera [`PROJECT-STATE-AND-DIRECTION.md`](./PROJECT-STATE-AND-DIRECTION.md) eller stäng en planrad så nästa person inte duplicerar arbete.
 
-**Skapad:** 2026-03-30 · **Milstolpe-tag:** `milestone/llm-pipeline-baseline-59820639`
+**Skapad:** 2026-03-30 · **Milstolpe-tag:** `milestone/llm-pipeline-baseline-59820639` (pekar på commit `59820639b` — *före* kördokument/B1/B4-commit på `master`).
+
+**Efter push:** `master` innehåller även uppföljningscommit med detta dokument, `builder-generation`-livscykel och B1-fix. Återställ enbart kodbasen till milstolpen med taggen ovan; mergea sedan fram `master` när du vill ha fixarna.
