@@ -10,7 +10,7 @@ supersedes_history: LLM-flöde förbättringsplan + V0-plattform avvecklingsplan
 
 # Konsoliderad plan v2: Own-engine som plattform + kvalitet och spårbarhet
 
-**Arkiverad plan** (2026-03-30). Operativ backlog och status: [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md); tillfällig städlista: [`../active/POST-EPIC-CLEANUP.md`](../active/POST-EPIC-CLEANUP.md). Denna fil behålls som **historik + checklist-referens**; lita på git-historik för detaljer som redan är införlivade. LLM-review-spår (runbook Del B: B1–B4) är **stängt**: [`./LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](./LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md).
+**Arkiverad plan** (2026-03-30). Operativ backlog och status: [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md); städlista (arkiverad): [`./POST-EPIC-CLEANUP.md`](./POST-EPIC-CLEANUP.md). Denna fil behålls som **historik + checklist-referens**; lita på git-historik för detaljer som redan är införlivade. LLM-review-spår (runbook Del B: B1–B4) är **stängt**: [`./LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](./LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md).
 
 ## Varför en plan
 

@@ -34,7 +34,7 @@ Historiska planhandoff finns i **git-historik** (`docs/plans/avklarat/`, äldre 
 
 ## Flera agenter / säker merge till `master`
 
-För att slå ihop parallellt arbete utan att blanda staging: skapa en **tillfällig branch** (t.ex. `chore/…`), `git restore --staged .` om index är blandat, **separata commits** (docs vs tooling vs kod — inte `git add .` i en klump), `npm run typecheck` + riktade tester, sedan `git merge --no-ff` in i `master` och `git push origin master`. När allt ligger på `master`: ta bort den tillfälliga branchen lokalt (`git branch -d …`) och på origin (`git push origin --delete …`) så historiken förblir enkel. Vilka doc-filer som rörts i en större städvåg kan spåras i [`POST-EPIC-CLEANUP.md`](../plans/active/POST-EPIC-CLEANUP.md) § *Dokumentation som berörts*.
+För att slå ihop parallellt arbete utan att blanda staging: skapa en **tillfällig branch** (t.ex. `chore/…`), `git restore --staged .` om index är blandat, **separata commits** (docs vs tooling vs kod — inte `git add .` i en klump), `npm run typecheck` + riktade tester, sedan `git merge --no-ff` in i `master` och `git push origin master`. När allt ligger på `master`: ta bort den tillfälliga branchen lokalt (`git branch -d …`) och på origin (`git push origin --delete …`) så historiken förblir enkel. Vilka doc-filer som rörts i en större städvåg kan spåras i den arkiverade [`POST-EPIC-CLEANUP.md`](../plans/avklarat/POST-EPIC-CLEANUP.md) § *Dokumentation som berörts*.
 
 ## Verifiering före större merge
 

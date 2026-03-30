@@ -1017,3 +1017,5 @@ export function usePreviewPanelCodeDrafts(options: {
     handleSaveRawCode,
   };
 }
+
+export type PreviewPanelCodeDraftsBundle = ReturnType<typeof usePreviewPanelCodeDrafts>;

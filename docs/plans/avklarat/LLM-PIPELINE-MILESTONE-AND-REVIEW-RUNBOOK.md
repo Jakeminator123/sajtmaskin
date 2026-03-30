@@ -78,7 +78,7 @@ Checka av raderna när de är klara. Efter varje batch: `npm run typecheck` och 
 
 ## Underhåll
 
-Del B är stängd — se statusrutan överst. Fortsatt operativ backlog: [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) och vid behov [`../active/POST-EPIC-CLEANUP.md`](../active/POST-EPIC-CLEANUP.md). Historisk konsoliderad plan: [`./CONSOLIDATED-own-engine-platform-and-quality-v2.md`](./CONSOLIDATED-own-engine-platform-and-quality-v2.md).
+Del B är stängd — se statusrutan överst. Fortsatt operativ backlog: [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md). Post-epic-städ (historik): [`./POST-EPIC-CLEANUP.md`](./POST-EPIC-CLEANUP.md). Historisk konsoliderad plan: [`./CONSOLIDATED-own-engine-platform-and-quality-v2.md`](./CONSOLIDATED-own-engine-platform-and-quality-v2.md).
 
 **Skapad:** 2026-03-30 · **Milstolpe-tag:** `milestone/llm-pipeline-baseline-59820639` (pekar på commit `59820639b` — *före* kördokument/B1/B4-commit på `master`).
 
