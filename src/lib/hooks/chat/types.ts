@@ -163,11 +163,9 @@ export type DesignTokenSummary = {
 export type SandboxBuildErrorPayload = {
   stage: string;
   message: string;
-  /** Own-engine shim `/api/preview-render` when sandbox failed after `done` omitted it. */
-  fallbackDemoUrl?: string | null;
 };
 
-/** `npm run build` in Vercel sandbox after dev — separate from shim / dev preview. */
+/** `npm run build` in Vercel sandbox after dev. */
 export type SandboxProdBuildPayload = {
   verified: boolean;
   logSnippet?: string;

@@ -384,7 +384,7 @@ export async function POST(req: Request) {
           planSystemPrompt,
           planOrchestration.resolvedScaffold?.id,
         );
-        await chatRepo.addMessage(plannerChat.id, "user", optimizedMessage);
+        await chatRepo.addMessage(plannerChat.id, "user", message);
 
         return attachSessionCookie(createOwnEnginePlanModeResponse({
           pipelineStream,
@@ -511,7 +511,7 @@ export async function POST(req: Request) {
             undefined,
             resolvedScaffold?.id,
           );
-          await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+          await chatRepo.addMessage(engineChat.id, "user", message);
           devLogAppend("in-progress", {
             type: "contracts.inferred",
             chatId: engineChat.id,
@@ -588,7 +588,7 @@ export async function POST(req: Request) {
           engineSystemPrompt,
           resolvedScaffold?.id,
         );
-        await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+        await chatRepo.addMessage(engineChat.id, "user", message);
         devLogAppend("in-progress", {
           type: "contracts.inferred",
           chatId: engineChat.id,

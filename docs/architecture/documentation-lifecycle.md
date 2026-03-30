@@ -22,7 +22,7 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 | `docs/architecture/` | Kanoniska översikter (fyra huvuddokument + denna fil) | Tillfälliga scratch |
 | `docs/schemas/` | Stabila schema-beskrivningar (sanning i kod) | Osäkra utkast |
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
-| `docs/handoffs/` | Tidsbundna arbetsström-briefer — sekundära till arkitektur och backlog | Kanonisk arkitektur eller policy |
+| `docs/handoffs/` | Endast [`README.md`](../handoffs/README.md) — pekare; tidigare `*.md` borttagna, fulltext i git-historik | Kanonisk arkitektur, `PROJECT-STATE-AND-DIRECTION.md`, eller nytt scope under `docs/architecture/` |
 | `docs/notes/` | Scratch / sessionsloggar — rensa periodiskt | Stabil referens |
 | `docs/FINDINGS.txt` | Sessionslogg, inte sanningskälla — flytta viktigt till backlog/arkitektur | Kanonisk information som inte finns på bättre ställe |
 | `docs/old/` | Stub / pekare | Nytt material |

@@ -66,4 +66,4 @@ Tom `/builder` är **inte** en sjätte canonical metod — bootstrap. v0-templat
 - **Operativ backlog (kanonisk):** [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — K-rader, Plan 17, beslut.
 - **Index / buckets:** [`docs/plans/README.md`](../plans/README.md).
 - **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [builder-generation.md](./builder-generation.md) → [preview-deploy.md](./preview-deploy.md) → capstone ovan vid backlog-frågor.
-- Äldre handoff-narrativ fanns i borttaget arkiv — återfinns i **git-historik** vid behov; operativ sanning: capstone ovan.
+- Tidigare `docs/handoffs/*.md` är **borttagna**; fulltext i **git-historik**. Pekare: [`docs/handoffs/README.md`](../handoffs/README.md).

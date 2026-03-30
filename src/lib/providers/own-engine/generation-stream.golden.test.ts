@@ -87,15 +87,15 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       previewBlocked: false,
       verificationBlocked: false,
       previewBlockingReason: null,
-      primaryPreviewTarget: "compatibility-shim",
+      primaryPreviewTarget: "none",
       sandbox: {
         canStartSandbox: false,
-        primaryPreviewTarget: "compatibility-shim",
+        primaryPreviewTarget: "none",
         shimBlocked: false,
         requiresEnvConfig: false,
         hasCriticalInstallRisk: false,
         hasCriticalCodeFailure: false,
-        compatibilityShimAllowed: true,
+        compatibilityShimAllowed: false,
         issueCounts: {
           code_structure_failure: 0,
           dependency_install_failure: 0,
@@ -166,7 +166,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(doneData.chatId).toBe("chat_golden");
     expect(doneData.versionId).toBe("ver_golden_1");
     expect(doneData.messageId).toBe("msg_golden_1");
-    expect(doneData.demoUrl).toBe("https://preview.example/golden");
+    expect(doneData.demoUrl).toBeNull();
     expect(doneData.previewBlocked).toBe(false);
     expect(doneData.verificationBlocked).toBe(false);
 

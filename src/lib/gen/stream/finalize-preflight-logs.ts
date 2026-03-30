@@ -160,7 +160,7 @@ export function buildFinalizePreflightLogBundle({
       : hasVerificationBlockingPreflightErrors
         ? "Automatic preflight found sandbox-blocking issues."
         : sandbox.shimBlocked
-          ? "Automatic preflight found compatibility-shim issues."
+          ? "Automatic preflight found preview preparation issues."
           : "Automatic preflight completed.",
   };
 }

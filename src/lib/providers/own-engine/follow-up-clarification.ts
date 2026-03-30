@@ -15,6 +15,16 @@ const FOLLOW_UP_NEW_SITE_PATTERNS = [
   /\b(website|site|homepage|landing page|one-pager)\b/i,
 ];
 const FOLLOW_UP_BUILD_PATTERNS = [/\b(bygg|skapa|gör|designa)\b/i, /\b(build|create|make|design)\b/i];
+const FOLLOW_UP_SITE_BRIEF_INTENT_PATTERNS = [
+  /\b(vill ha|behöver|önskar|ska vara|ska innehålla)\b/i,
+  /\b(i want|we want|i need|we need|should include|needs to have)\b/i,
+];
+const FOLLOW_UP_SITE_BRIEF_REQUIREMENT_PATTERNS = [
+  /\b(3d|animation|bilder|bild|foton|photo|photos|image|images|video)\b/i,
+  /\b(hero|cta|galleri|gallery|booking|bokning|shop|e-handel|sortiment|meny)\b/i,
+  /\b(kontaktformulär|contact form|blogg|blog|sektioner|sections|sidor|pages)\b/i,
+  /\b(första sidan|startsidan|landing page|homepage|multi-page|flersidig|tre sidor|three pages)\b/i,
+];
 const FOLLOW_UP_VAGUE_EDIT_PATTERNS = [
   /\b(förbättra|förfina|justera|uppdatera|ändra|fixa|trimma)\b/i,
   /\b(improve|refine|adjust|update|fix|polish|tweak)\b/i,
@@ -58,10 +68,34 @@ function isUnderspecifiedFollowUp(message: string): boolean {
   return trimmed.split(/\s+/).length <= 10;
 }
 
+function countPatternMatches(patterns: RegExp[], message: string): number {
+  return patterns.reduce(
+    (count, pattern) => count + (pattern.test(message) ? 1 : 0),
+    0,
+  );
+}
+
+function looksLikeDetailedNewSiteBrief(message: string): boolean {
+  const trimmed = message.trim();
+  if (trimmed.length < 80) return false;
+
+  const mentionsNewSite = FOLLOW_UP_NEW_SITE_PATTERNS.some((pattern) => pattern.test(trimmed));
+  if (!mentionsNewSite) return false;
+
+  const hasBriefIntent = FOLLOW_UP_SITE_BRIEF_INTENT_PATTERNS.some((pattern) => pattern.test(trimmed));
+  if (!hasBriefIntent) return false;
+
+  const requirementMatches = countPatternMatches(FOLLOW_UP_SITE_BRIEF_REQUIREMENT_PATTERNS, trimmed);
+  return requirementMatches >= 2 || trimmed.length >= 160;
+}
+
 export function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   const trimmed = message.trim();
   if (!trimmed) return "neutral";
   if (FOLLOW_UP_REDESIGN_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+    return "clear-redesign";
+  }
+  if (looksLikeDetailedNewSiteBrief(trimmed)) {
     return "clear-redesign";
   }
   const mentionsNewSite = FOLLOW_UP_NEW_SITE_PATTERNS.some((pattern) => pattern.test(trimmed));

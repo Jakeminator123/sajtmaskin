@@ -3,7 +3,7 @@
 **Senast uppdaterad:** 2026-03-27  
 **Mål:** Snabb felsökning när preview-ytan ser **vit** ut eller **ingen** Next.js-preview syns, plus **förebyggande** åtgärder så samma klass av fel inte upprepas. Sandbox är den primära previewvägen; shim är bara en kompatibilitetsvy under migration/fallback.
 
-**Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/PreviewPanel.tsx`; sandbox i `src/lib/gen/sandbox-preview.ts` + `src/lib/mcp/runtime-url.ts`.
+**Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/preview-panel/PreviewPanel.tsx`; sandbox i `src/lib/gen/sandbox-preview.ts` + `src/lib/mcp/runtime-url.ts`.
 
 ---
 

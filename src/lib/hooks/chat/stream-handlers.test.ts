@@ -293,7 +293,7 @@ describe("handleSseStream", () => {
     expect(spies.setCurrentDemoUrl).toHaveBeenCalledWith("https://sandbox.example");
   });
 
-  it("does not replace demoUrl on empty sandbox-ready (build_only) but records prod build", async () => {
+  it("does not set demoUrl on empty sandbox-ready (build_only) but records prod build", async () => {
     const setSandboxProdBuild = vi.fn();
     consumeSseResponse.mockImplementation(
       async (
@@ -324,7 +324,6 @@ describe("handleSseStream", () => {
             sandboxPreviewMode: "build_only",
             fidelityTier: 3,
             prodBuildVerified: true,
-            fallbackDemoUrl: "https://shim.example",
           },
           "",
         );
@@ -344,11 +343,10 @@ describe("handleSseStream", () => {
       verified: true,
       logSnippet: undefined,
     });
-    expect(spies.setCurrentDemoUrl).toHaveBeenCalledTimes(1);
-    expect(spies.setCurrentDemoUrl).toHaveBeenCalledWith("https://shim.example");
+    expect(spies.setCurrentDemoUrl).not.toHaveBeenCalled();
   });
 
-  it("applies fallbackDemoUrl from build-error when sandbox fails after deferred shim", async () => {
+  it("does not apply shim fallback from build-error", async () => {
     consumeSseResponse.mockImplementation(
       async (
         _response: Response,
@@ -375,7 +373,6 @@ describe("handleSseStream", () => {
           {
             stage: "install",
             message: "npm failed",
-            fallbackDemoUrl: "https://shim.example/fallback",
           },
           "",
         );
@@ -387,6 +384,6 @@ describe("handleSseStream", () => {
 
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
 
-    expect(spies.setCurrentDemoUrl).toHaveBeenCalledWith("https://shim.example/fallback");
+    expect(spies.setCurrentDemoUrl).not.toHaveBeenCalled();
   });
 });

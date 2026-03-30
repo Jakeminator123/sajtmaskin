@@ -14,19 +14,16 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
   - Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
 - **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
 
-## Lab / debug (`scripts/labs/testning_scarf/`)
+## Arkiverat labb (`archive/scripts-labs-testning_scarf/`)
 
-**Inte produktion.** Python/TS-verktyg för spårning, scaffold-suite, första-LLM-lab och utskrift av codegen-kontext. Anropas från `package.json`:
+**Inte produktion.** Tidigare `scripts/labs/testning_scarf/` — flyttat till [`archive/scripts-labs-testning_scarf/`](../archive/scripts-labs-testning_scarf/) (se [`archive/README.md`](../archive/README.md)). Inga `npm run`-alias längre; kör skripten manuellt från repo-root, t.ex.:
 
-| npm-script | Entry |
-|------------|--------|
-| `npm run prompt:trace` | `scripts/labs/testning_scarf/trace-generation-context.ts` |
-| `npm run scaffold:suite` | `scripts/labs/testning_scarf/run_scaffold_suite.py` |
-| `npm run first-llm:lab` | `scripts/labs/testning_scarf/first_llm_promptlab.py` |
-| `npm run first-llm:live` | `scripts/labs/testning_scarf/run_first_llm_live.ts` |
-| `npm run testning:codegen-print` | `scripts/labs/testning_scarf/print_codegen_context.py` |
-
-Om du flyttar labbfiler **måste** dessa npm-rader uppdateras — se tabellen ovan.
+| Tidigare npm | Ersätt med (exempel) |
+|--------------|----------------------|
+| `prompt:trace` | `npx tsx archive/scripts-labs-testning_scarf/trace-generation-context.ts --prompt-file …` |
+| `scaffold:suite` | `python archive/scripts-labs-testning_scarf/run_scaffold_suite.py` |
+| `first-llm:lab` / live | `python archive/scripts-labs-testning_scarf/first_llm_promptlab.py` / `npx tsx archive/scripts-labs-testning_scarf/run_first_llm_live.ts …` |
+| `testning:codegen-print` | `python archive/scripts-labs-testning_scarf/print_codegen_context.py` |
 
 ## vercel_template_cli.py (`scripts/manual/`)
 
@@ -56,6 +53,12 @@ Tidigare i repo-roten; nu under `scripts/env/`. Tunna root-wrappers finns kvar o
 | `scripts/env/manage_env.py` | Kanonisk env-CLI: status, add, set, push, pull, audit, reconcile |
 | `scripts/env/model_trace_overlay.py` | Synkar GUI-modell-envs i `.env.local` + öppnar trace-overlay |
 | `scripts/env/check_env.py` | Bakåtkompatibel wrapper som kör `manage_env.py audit` |
+
+### Databas (lokal sanity)
+
+| npm-script | Entry |
+|------------|--------|
+| `npm run db:check` | [`scripts/check-dev-db.mjs`](check-dev-db.mjs) — läser `POSTGRES_URL` från `.env.local`, enkel anslutningskoll (ej CI). Valfri flagga `--allow-insecure-ssl`. |
 
 ## sync-scaffold-refs.mjs
 
@@ -346,6 +349,10 @@ python scripts/manual/scaffold-pipeline.py
 saknas lokalt, för att undvika att filer från fel del av repot (t.ex.
 `apps/bundle-analyzer/` i `vercel/next.js`) hamnar i dossiers. Metadata
 (summary, signals, styrkor) behålls.
+
+## Synk med `package.json`
+
+Alla `npm run …`-namn och deras exakta kommandon ligger i **rot [`package.json`](../package.json)** (`scripts`-fältet). Den här README:n är tematisk; vid avvikelse gäller `package.json`.
 
 ## recovery/recreate-repo-branch-commit.ps1 (saknas i repot)
 

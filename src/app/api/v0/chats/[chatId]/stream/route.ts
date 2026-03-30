@@ -332,7 +332,7 @@ export async function handleMessageStreamRequest(
         };
 
         if (metaPlanMode) {
-          await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+          await chatRepo.addMessage(engineChat.id, "user", message);
 
           const planEngineIntent: BuildIntent =
             metaBuildIntent === "template" ||
@@ -432,7 +432,7 @@ export async function handleMessageStreamRequest(
           }));
         }
 
-        await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+        await chatRepo.addMessage(engineChat.id, "user", message);
 
         const promptForLlm = optimizedMessage;
 

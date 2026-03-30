@@ -12,7 +12,7 @@ export type OwnEngineDoneSsePayload = {
   demoUrl: string | null;
   /** True when tier-2 sandbox boot is in progress after this `done`. */
   sandboxPending?: boolean;
-  /** Optional compatibility shim URL during the sandbox-first migration. */
+  /** Deprecated; always null — tier-1 shim removed. */
   shimPreviewUrl?: string | null;
   preflight?: PreviewPreflightSummary;
   previewBlocked?: boolean;
@@ -27,7 +27,6 @@ export type SandboxReadySsePayload = {
   fidelityTier?: number;
   prodBuildVerified?: boolean;
   prodBuildLogSnippet?: string;
-  fallbackDemoUrl?: string;
 };
 
 /** Response body from `POST /api/v0/chats/[chatId]/sandbox-preview`. */

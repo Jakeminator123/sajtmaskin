@@ -6,7 +6,6 @@ import { expandUrls } from "@/lib/gen/url-compress";
 import type { PreviewPreflightSummary } from "@/lib/gen/preview-diagnostics";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import type { CodeFile } from "@/lib/gen/parser";
-import { buildPreviewUrl } from "@/lib/gen/preview";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import {
   inferScaffoldRetrySuggestion,
@@ -34,6 +33,7 @@ import {
   buildPersistedOrchestrationSnapshot,
   mergePersistedOrchestrationSnapshots,
 } from "@/lib/gen/orchestration-snapshot";
+import { OWN_ENGINE_POST_STREAM_PIPELINE } from "./finalize-pipeline-contract";
 
 let _lastMaterializedUrls: Set<string> = new Set();
 
@@ -98,8 +98,9 @@ export class EmptyGenerationError extends Error {
 }
 
 /**
- * Shared post-generation pipeline: autofix -> syntax -> URL expansion ->
- * file parsing -> scaffold merge -> preflight -> assistant message -> version save.
+ * Shared post-generation pipeline: autofix -> URL expansion -> image materialize ->
+ * optional polish LLM -> syntax validate/fix -> file parsing -> scaffold merge ->
+ * preflight -> assistant message -> version save.
  *
  * Assistant row + draft version are persisted in one DB transaction (no orphan assistant
  * if version insert fails). Steps after that (preflight error logs, telemetry, generation
@@ -137,6 +138,13 @@ export async function finalizeAndSaveVersion(
   let finalizedFilesForPreview: CodeFile[] = [];
   let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
 
+  devLogAppend("in-progress", {
+    type: "finalize.pipeline",
+    chatId,
+    phases: OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id),
+    repairPassIndex,
+  });
+
   // 1. Autofix
   if (runAutofix) {
     onProgress?.("autofix", { phase: "start", chatId });
@@ -167,7 +175,57 @@ export async function finalizeAndSaveVersion(
     }
   }
 
-  // 2. Syntax validation + multi-pass fix
+  // 2. URL expansion (before polish so polish sees final URLs)
+  contentForVersion = expandUrls(contentForVersion, urlMap);
+
+  // 3. Image materialization (replace /placeholder.svg?text=... with real Unsplash URLs)
+  try {
+    const imgResult = await materializeImages(contentForVersion);
+    if (imgResult.replacedCount > 0) {
+      contentForVersion = imgResult.content;
+      _lastMaterializedUrls = imgResult.resolvedUrls;
+      devLogAppend("in-progress", {
+        type: "image-materialization",
+        chatId,
+        replacedCount: imgResult.replacedCount,
+        queries: imgResult.queries.slice(0, 10),
+      });
+    }
+  } catch (imgErr) {
+    console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
+  }
+
+  if (!contentForVersion.trim()) {
+    warnLog("engine", "Skipping empty generation output", {
+      chatId,
+      scaffold: resolvedScaffold?.id ?? null,
+      hadPreviousFiles: Boolean(previousFiles && previousFiles.length > 0),
+    });
+    throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
+  }
+
+  // 4. Polish pass — runs before syntax validation so esbuild + fix rounds cover post-polish code
+  if (isPolishPassEnabled() && repairPassIndex === 0) {
+    onProgress?.("polish", { phase: "start" });
+    try {
+      const polishResult = await runPolishPass(contentForVersion, { model });
+      if (polishResult.applied) {
+        contentForVersion = polishResult.polishedContent;
+        devLogAppend("in-progress", {
+          type: "polish-pass",
+          chatId,
+          filesChanged: polishResult.filesChanged,
+          applied: true,
+        });
+      }
+      onProgress?.("polish", { phase: "done", applied: polishResult.applied, filesChanged: polishResult.filesChanged });
+    } catch (polishErr) {
+      console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
+      onProgress?.("polish", { phase: "error" });
+    }
+  }
+
+  // 5. Syntax validation + multi-pass fix
   onProgress?.("validation", { phase: "start" });
   const syntaxResult = await validateAndFix(contentForVersion, {
     chatId,
@@ -195,54 +253,13 @@ export async function finalizeAndSaveVersion(
     });
   }
 
-  // 3. URL expansion
-  contentForVersion = expandUrls(contentForVersion, urlMap);
-
-  // 3b. Image materialization (replace /placeholder.svg?text=... with real Unsplash URLs)
-  try {
-    const imgResult = await materializeImages(contentForVersion);
-    if (imgResult.replacedCount > 0) {
-      contentForVersion = imgResult.content;
-      _lastMaterializedUrls = imgResult.resolvedUrls;
-      devLogAppend("in-progress", {
-        type: "image-materialization",
-        chatId,
-        replacedCount: imgResult.replacedCount,
-        queries: imgResult.queries.slice(0, 10),
-      });
-    }
-  } catch (imgErr) {
-    console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
-  }
-
   if (!contentForVersion.trim()) {
-    warnLog("engine", "Skipping empty generation output", {
+    warnLog("engine", "Skipping empty generation output after validation", {
       chatId,
       scaffold: resolvedScaffold?.id ?? null,
       hadPreviousFiles: Boolean(previousFiles && previousFiles.length > 0),
     });
     throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
-  }
-
-  // 3c. Polish pass (feature-flagged second LLM pass for copy/placeholder cleanup)
-  if (isPolishPassEnabled() && repairPassIndex === 0) {
-    onProgress?.("polish", { phase: "start" });
-    try {
-      const polishResult = await runPolishPass(contentForVersion, { model });
-      if (polishResult.applied) {
-        contentForVersion = polishResult.polishedContent;
-        devLogAppend("in-progress", {
-          type: "polish-pass",
-          chatId,
-          filesChanged: polishResult.filesChanged,
-          applied: true,
-        });
-      }
-      onProgress?.("polish", { phase: "done", applied: polishResult.applied, filesChanged: polishResult.filesChanged });
-    } catch (polishErr) {
-      console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
-      onProgress?.("polish", { phase: "error" });
-    }
   }
 
   onProgress?.("finalizing", { phase: "start" });
@@ -477,11 +494,6 @@ export async function finalizeAndSaveVersion(
     }
   }
 
-  const compatibilityPreviewUrl =
-    preflightResult.sandbox.primaryPreviewTarget === "compatibility-shim"
-      ? buildPreviewUrl(chatId, version.id)
-      : null;
-
   debugLog("engine", "Version saved via finalizeAndSaveVersion", {
     chatId,
     versionId: version.id,
@@ -494,7 +506,7 @@ export async function finalizeAndSaveVersion(
   return {
     version,
     messageId: assistantMsg.id,
-    previewUrl: compatibilityPreviewUrl,
+    previewUrl: null,
     sandboxUrl: null,
     filesJson,
     contentForVersion,

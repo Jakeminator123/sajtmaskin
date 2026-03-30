@@ -14,9 +14,6 @@ type SurfaceDescriptor = {
 };
 
 type AlternatePreviewBannerState = {
-  offerShim: boolean;
-  offerSandbox: boolean;
-  shimUrl: string;
   sandboxUrl: string;
 };
 
@@ -27,9 +24,6 @@ interface PreviewPanelChromeProps {
   isSandboxPreview: boolean;
   sandboxUrlPresent: boolean;
   inspectorEnabled: boolean;
-  showWorkerLamp: boolean;
-  workerLampClass: string;
-  workerLampTitle: string;
   handleToggleInspect: () => void;
   placementMode: boolean;
   inspectMode: boolean;
@@ -69,9 +63,6 @@ export function PreviewPanelChrome({
   isSandboxPreview,
   sandboxUrlPresent,
   inspectorEnabled,
-  showWorkerLamp,
-  workerLampClass,
-  workerLampTitle,
   handleToggleInspect,
   placementMode,
   inspectMode,
@@ -131,15 +122,6 @@ export function PreviewPanelChrome({
           ) : null}
         </div>
         <div className="flex items-center gap-1">
-          {showWorkerLamp ? (
-            <div
-              className="mr-1 inline-flex items-center gap-1 rounded border border-gray-700 bg-black/40 px-2 py-1 text-[11px] text-gray-400"
-              title={workerLampTitle}
-            >
-              <span className={cn("h-2 w-2 rounded-full", workerLampClass)} />
-              <span>Worker</span>
-            </div>
-          ) : null}
           <Button
             variant="ghost"
             size="sm"
@@ -230,25 +212,15 @@ export function PreviewPanelChrome({
 
       {alternatePreviewBanner && onNavigatePreviewUrl ? (
         <div className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-300">
-          <span>
-            {alternatePreviewBanner.offerShim
-              ? "En kompatibilitetsvy finns också för samma version."
-              : "Live-preview med Next.js finns också för samma version."}
-          </span>
+          <span>Live-preview med Next.js finns också för samma version.</span>
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="h-7 border-zinc-600 text-xs text-zinc-200 hover:bg-zinc-800"
-            onClick={() =>
-              onNavigatePreviewUrl(
-                alternatePreviewBanner.offerShim
-                  ? alternatePreviewBanner.shimUrl
-                  : alternatePreviewBanner.sandboxUrl,
-              )
-            }
+            onClick={() => onNavigatePreviewUrl(alternatePreviewBanner.sandboxUrl)}
           >
-            {alternatePreviewBanner.offerShim ? "Visa kompatibilitetsvy" : "Byt till live-preview"}
+            Byt till live-preview
           </Button>
         </div>
       ) : null}

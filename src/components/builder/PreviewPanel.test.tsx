@@ -9,13 +9,6 @@ vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
   }),
 }));
 
-vi.mock("@/lib/hooks/useInspectorWorkerStatus", () => ({
-  useInspectorWorkerStatus: () => ({
-    inspectorWorkerStatus: "unknown",
-    inspectorWorkerMessage: null,
-  }),
-}));
-
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
@@ -24,17 +17,21 @@ vi.mock("sonner", () => ({
   },
 }));
 
+function buildPreviewPanelProps(
+  overrides?: Partial<React.ComponentProps<typeof PreviewPanel>>,
+): React.ComponentProps<typeof PreviewPanel> {
+  return {
+    chatId: "chat_1",
+    versionId: "ver_1",
+    demoUrl: "https://preview.example/ver_1",
+    onNavigatePreviewUrl: vi.fn(),
+    onFilesSaved: vi.fn(),
+    ...overrides,
+  };
+}
+
 function renderPreviewPanel(overrides?: Partial<React.ComponentProps<typeof PreviewPanel>>) {
-  return render(
-    <PreviewPanel
-      chatId="chat_1"
-      versionId="ver_1"
-      demoUrl="https://preview.example/ver_1"
-      onNavigatePreviewUrl={vi.fn()}
-      onFilesSaved={vi.fn()}
-      {...overrides}
-    />,
-  );
+  return render(<PreviewPanel {...buildPreviewPanelProps(overrides)} />);
 }
 
 describe("PreviewPanel", () => {
@@ -58,6 +55,25 @@ describe("PreviewPanel", () => {
     ).toBeTruthy();
     expect(screen.getByText("Design")).toBeTruthy();
     expect(screen.getByText("Innehåll")).toBeTruthy();
+  });
+
+  it("keeps hook order stable when preview URL appears after the empty state", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, files: [], routes: [], elements: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    const props = buildPreviewPanelProps({ demoUrl: null });
+    const { rerender } = render(<PreviewPanel {...props} />);
+
+    expect(() => {
+      rerender(<PreviewPanel {...props} demoUrl="https://preview.example/ver_1" />);
+    }).not.toThrow();
   });
 
   it("shows the footer editor and not the nav editor for footer link files", async () => {

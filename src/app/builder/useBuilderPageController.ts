@@ -62,16 +62,14 @@ import {
   shouldRetrySandboxBootstrapFetch,
 } from "@/lib/builder/sandbox-bootstrap-retry";
 
-/** Prefer sandbox URL, then shim/demoUrl — se `docs/architecture/preview-deploy.md`. */
+/** Sandbox (fidelity 2) only; legacy `demoUrl` shim URLs are ignored. */
 function pickVersionPreviewUrl(
   v: VersionSummary | undefined,
   options?: { allowFailed?: boolean },
 ): string | null {
   if (!v) return null;
   if (!options?.allowFailed && !canExposeEnginePreview(v)) return null;
-  const sand = normalizePreviewUrl(v.sandboxUrl);
-  if (sand) return sand;
-  return normalizePreviewUrl(v.demoUrl);
+  return normalizePreviewUrl(v.sandboxUrl);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -181,7 +179,7 @@ export function useBuilderPageController() {
     enableBlobMedia: state.enableBlobMedia,
   });
 
-  /** Tier 1 shim URL + tier 2 sandbox URL for the active version — se `docs/architecture/preview-deploy.md` § Begrepp. */
+  /** Sandbox URL for the active version (shim slot kept null). */
   const activeVersionAlternatePreview = useMemo(() => {
     const vid = derived.activeVersionId;
     if (!vid) return { shimUrl: null as string | null, sandboxUrl: null as string | null };
@@ -1268,7 +1266,7 @@ export function useBuilderPageController() {
     }
 
     // Do not skip when only `currentDemoUrl` is set: the active version can gain `sandboxUrl` later
-    // (async sandbox, SWR refresh) while `activeVersionId` stays the same — we must upgrade shim → tier 2.
+    // (async sandbox, SWR refresh) while `activeVersionId` stays the same — keep sandbox URL when it arrives.
     if (!didChangeVersion && clearedPreviewVersionId === derived.activeVersionId) return;
 
     const activeVersionMatch = derived.activeVersionId
@@ -1295,17 +1293,10 @@ export function useBuilderPageController() {
     const chatLatest = chatObj?.latestVersion;
     const chatLevelPreview =
       chatLatest && canExposeEnginePreview(chatLatest)
-        ? (
-            (typeof chatLatest.sandboxUrl === "string" && chatLatest.sandboxUrl.trim()
-              ? chatLatest.sandboxUrl.trim()
-              : null) ||
-            (typeof chatLatest.demoUrl === "string" && chatLatest.demoUrl.trim()
-              ? chatLatest.demoUrl.trim()
-              : null)
-          )
-        : !chatLatest && typeof chatObj?.demoUrl === "string" && chatObj.demoUrl.trim()
-          ? chatObj.demoUrl.trim()
-          : null;
+        ? typeof chatLatest.sandboxUrl === "string" && chatLatest.sandboxUrl.trim()
+          ? chatLatest.sandboxUrl.trim()
+          : null
+        : null;
 
     const nextDemoUrl =
       persistedPreviewOverride ||
@@ -1350,7 +1341,7 @@ export function useBuilderPageController() {
     setForcedSandboxRestartKey(null);
   }, [chatId]);
 
-  // Own-engine: start sandbox when preview is still tier-1 (shim) — e.g. after prompt/generation or reopen.
+  // Own-engine: start sandbox when there is no live sandbox URL yet (e.g. after generation or reopen).
   // Duplicate VM: `startSandboxPreview` dedupes in-flight work per chat+version on the server.
   useEffect(() => {
     const gen = ++sandboxBootstrapGenRef.current;

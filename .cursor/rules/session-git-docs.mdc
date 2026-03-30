@@ -19,7 +19,7 @@ Closes **this session’s** work. Order: (1) `git status` + `git diff` [+ `--sta
 
 ## Docs and plans
 
-**Locations:** `docs/architecture/` (system, handoff), `docs/schemas/` (stable human schema; truth in code). History: `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`); `docs/old/` is pointer only. Full policy: [`docs/architecture/documentation-lifecycle.md`](../../docs/architecture/documentation-lifecycle.md) (hub: [`docs/architecture/README.md`](../../docs/architecture/README.md)).
+**Locations:** `docs/architecture/` (system), `docs/schemas/` (stable human schema; truth in code). History: `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`); `docs/handoffs/README.md` pekar till git-historik för borttagna handoffs; `docs/old/` is pointer only. Full policy: [`docs/architecture/documentation-lifecycle.md`](../../docs/architecture/documentation-lifecycle.md) (hub: [`docs/architecture/README.md`](../../docs/architecture/README.md)).
 
 **Plans:** `docs/plans/active/` → `avklarat/` (utkast får ligga under `active/` tills flytt). En kanonisk kopia per plan; vid statusändring: `docs/plans/README.md`, `docs/architecture/README.md` vid behov.
 
@@ -32,7 +32,7 @@ Closes **this session’s** work. Order: (1) `git status` + `git diff` [+ `--sta
 When you change code behavior, check if these files reference the changed area — update or **trim** in the same turn:
 
 1. `docs/FINDINGS.txt` — sessionslogg, inte sanningskälla. **Ta bort** poster som är klara eller inaktuella. Flytta viktigt till `PROJECT-STATE-AND-DIRECTION.md`. Filen ska vara kort (<60 rader): nuvarande tillstånd + öppna gap.
-2. `docs/handoffs/*.md` — tidsbundna. När en handoff är genomförd, lägg till `> STATUS: AVKLARAT` + pekare till aktuellt dokument i toppen. Radera inte innehållet (referens), men markera tydligt.
+2. `docs/handoffs/` — håll endast [`docs/handoffs/README.md`](../../docs/handoffs/README.md) som pekare. **Lägg inte** nya långa handoff-filer här; skriv i `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` eller kanonisk arkitektur under `docs/architecture/`.
 3. `docs/plans/active/*.md` — checklista-items (`[ ]`/`[x]`) ska uppdateras när arbete slutförs. Färdiga planer → `avklarat/` eller markera i filen.
 4. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — kanonisk backlog. Uppdatera beslut (§10) vid nya konventioner; ta bort rader som inte längre gäller.
 

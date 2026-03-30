@@ -7,6 +7,7 @@ import {
   fixMissingReactTypeImports,
   fixNextImageImport,
 } from "@/lib/gen/autofix/common-import-fixer";
+import { fixCnImportConflict } from "@/lib/gen/autofix/rules/metadata-import-fixer";
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
 import { fixReactHookImports } from "@/lib/gen/autofix/react-hook-import-fixer";
@@ -219,6 +220,16 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     if (linkResult.fixed) {
       content = linkResult.code;
       fixes.push(...linkResult.fixes);
+    }
+
+    const cnConflictResult = fixCnImportConflict(content, file.path);
+    if (cnConflictResult.fixed) {
+      content = cnConflictResult.code;
+      fixes.push({
+        fixer: "cn-import-conflict-fixer",
+        description: "Removed conflicting local cn import from @/lib/utils",
+        file: file.path,
+      });
     }
 
     const lucideImageResult = fixLucideImageMisuse(content, file.path);

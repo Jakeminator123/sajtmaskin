@@ -142,6 +142,5 @@ export { buildPreviewScript, collectPreviewValidationIssues } from "./script-bui
 export {
   buildSandboxStartContract,
   detectPreflightIssueCategory,
-  resolveCompatibilityShimAllowed,
   resolvePreflightIssueCategory,
 } from "../stream/preflight-contract";

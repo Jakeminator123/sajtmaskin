@@ -110,6 +110,7 @@ export async function handleSseStream(
   const getProgressToolName = (step: string) => {
     if (step === "generation") return "Generering";
     if (step === "autofix") return "Autofix";
+    if (step === "polish") return "Polish";
     if (step === "validation") return "Validering";
     if (step === "finalizing") return "Finalisering";
     if (step === "sandbox") return "Sandbox";
@@ -147,6 +148,14 @@ export async function handleSseStream(
       if (phase === "empty-output") {
         return ["Genereringen avslutades utan användbar kod eller preview-artifact."];
       }
+      if (phase === "tool") {
+        const toolName = typeof payload.toolName === "string" ? payload.toolName.trim() : "";
+        return [
+          toolName
+            ? `Modellen kör verktyget "${toolName}" (integration, plan eller fråga).`
+            : "Modellen kör ett verktyg — väntar på nästa kodoutput.",
+        ];
+      }
       if (phase === "done") return ["Generering klar. Startar efterkontroller och slutsteg."];
     }
     if (step === "autofix") {
@@ -161,6 +170,23 @@ export async function handleSseStream(
         return summary;
       }
       if (phase === "error") return ["Autofix misslyckades. Fortsätter med rått innehåll."];
+    }
+    if (step === "polish") {
+      if (phase === "start") {
+        return ["Polish: andra LLM-passet förbättrar texter och tar bort platshållare."];
+      }
+      if (phase === "done") {
+        const applied = payload.applied === true;
+        const filesChanged =
+          typeof payload.filesChanged === "number" && Number.isFinite(payload.filesChanged)
+            ? payload.filesChanged
+            : null;
+        if (!applied) return ["Polish hoppades över eller ändrade inget."];
+        return [
+          `Polish klar.${filesChanged !== null ? ` Uppdaterade filer: ${filesChanged}.` : ""}`,
+        ];
+      }
+      if (phase === "error") return ["Polish misslyckades. Fortsätter utan finputs."];
     }
     if (step === "validation") {
       if (phase === "start" || phase === "validating") {
@@ -573,19 +599,6 @@ export async function handleSseStream(
               if (pendingPost) {
                 pendingPost.demoUrl = sandboxUrl;
               }
-            } else {
-              const fb =
-                typeof sandboxData.fallbackDemoUrl === "string"
-                  ? sandboxData.fallbackDemoUrl.trim()
-                  : "";
-              if (fb) {
-                setCurrentDemoUrl(fb);
-                onPreviewRefresh?.();
-                const pendingPost = postCheckQueue[postCheckQueue.length - 1];
-                if (pendingPost) {
-                  pendingPost.demoUrl = fb;
-                }
-              }
             }
 
             const tierMeta =
@@ -629,26 +642,14 @@ export async function handleSseStream(
             const buildErrorData = data as Record<string, unknown>;
             const stage = String(buildErrorData.stage ?? "build");
             const message = String(buildErrorData.message ?? "Build failed");
-            const fallbackRaw = buildErrorData.fallbackDemoUrl;
-            const fallbackDemoUrl =
-              typeof fallbackRaw === "string" && fallbackRaw.trim() ? fallbackRaw.trim() : "";
             setSandboxPending?.(false);
             setSandboxBuildError?.({
               stage,
               message,
-              ...(fallbackDemoUrl ? { fallbackDemoUrl } : {}),
             });
             appendProgressPart("build-error", "error", { stage, message });
-            if (fallbackDemoUrl) {
-              setCurrentDemoUrl(fallbackDemoUrl);
-              onPreviewRefresh?.();
-              const pendingPost = postCheckQueue[postCheckQueue.length - 1];
-              if (pendingPost) {
-                pendingPost.demoUrl = fallbackDemoUrl;
-              }
-            }
             toast.error(
-              `Sandbox-preview gick inte [${stage}]: ${message.slice(0, 400)}. Statisk förhandsvisning används.`,
+              `Sandbox-preview gick inte [${stage}]: ${message.slice(0, 400)}. Ingen live-preview förrän sandbox lyckas.`,
             );
             break;
           }
@@ -684,10 +685,7 @@ export async function handleSseStream(
             const hasRecoveredArtifact =
               awaitingInput ||
               Boolean(resolvedVersionId) ||
-              Boolean(doneData.demoUrl) ||
-              Boolean(
-                typeof doneData.shimPreviewUrl === "string" && (doneData.shimPreviewUrl as string).trim(),
-              );
+              Boolean(doneData.demoUrl);
             const emptyGenerationReason =
               typeof doneData.reason === "string" && doneData.reason.trim().length > 0
                 ? doneData.reason.trim()

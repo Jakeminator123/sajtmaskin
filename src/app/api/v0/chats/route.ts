@@ -263,7 +263,7 @@ export async function POST(req: Request) {
             ownSystemPrompt,
             ownOrchestration.resolvedScaffold?.id,
           );
-          await addMessage(chat.id, "user", optimizedMessage);
+          await addMessage(chat.id, "user", message);
           const finalized = await finalizeAndSaveVersion({
             accumulatedContent: fullContent,
             chatId: chat.id,

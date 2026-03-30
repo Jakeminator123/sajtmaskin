@@ -115,6 +115,7 @@ vi.mock("@/lib/models/selection", () => ({
 
 vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_MODEL_ID: "test-model-id",
+  DEFAULT_OWN_MODEL_ID: "gpt-5.4",
   MODEL_LABELS: {
     "test-tier": "Test Tier",
   },

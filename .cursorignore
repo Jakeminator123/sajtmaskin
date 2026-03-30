@@ -39,9 +39,9 @@ data/prompt-dumps/*
 !data/prompt-dumps/README.md
 scraped-vercel-scorefolds
 
-scripts/labs/testning_scarf/output/
-scripts/labs/testning_scarf/output_test_scaffold/
-scripts/labs/testning_scarf/output_first_llm_underlag/
+archive/scripts-labs-testning_scarf/output/
+archive/scripts-labs-testning_scarf/output_test_scaffold/
+archive/scripts-labs-testning_scarf/output_first_llm_underlag/
 scripts/output_test_scaffold/
 
 # --- MCP & lokal config ---

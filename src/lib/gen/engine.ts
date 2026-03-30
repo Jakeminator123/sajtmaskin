@@ -24,6 +24,10 @@ export interface GenerateOptions {
 /**
  * Generates code from a prompt using AI SDK + OpenAI.
  *
+ * After this stream completes, `finalizeAndSaveVersion` runs the ordered
+ * post-stream phases in `finalize-pipeline-contract.ts` (autofix → URLs →
+ * images → optional polish → syntax validate/fix → merge/preflight/persist).
+ *
  * Returns a ReadableStream of SSE events:
  *  `meta`     — chat/version metadata
  *  `thinking` — model reasoning (when thinking=true)

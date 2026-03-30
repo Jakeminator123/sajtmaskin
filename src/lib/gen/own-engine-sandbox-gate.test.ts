@@ -10,7 +10,7 @@ function sandboxContract(overrides?: Partial<SandboxStartContract>): SandboxStar
     requiresEnvConfig: false,
     hasCriticalInstallRisk: false,
     hasCriticalCodeFailure: false,
-    compatibilityShimAllowed: true,
+      compatibilityShimAllowed: false,
     issueCounts: {
       code_structure_failure: 0,
       dependency_install_failure: 0,

@@ -38,7 +38,7 @@ export type PreviewPreflightState = {
   previewBlocked: boolean;
   verificationBlocked: boolean;
   previewBlockingReason: string | null;
-  primaryPreviewTarget?: "sandbox" | "compatibility-shim" | "none";
+  primaryPreviewTarget?: "sandbox" | "none";
   issueCategories?: PreflightIssueCategory[] | null;
   sandbox?: SandboxStartContract | null;
   scaffoldRetry?: ScaffoldRetryState | null;

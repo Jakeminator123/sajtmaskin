@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   Loader2,
 } from "lucide-react";
@@ -120,14 +121,11 @@ import {
   nearestInsertionPoint,
   type InsertionPoint,
 } from "@/lib/builder/sectionAnalyzer";
-import { PreviewPanelChrome } from "@/components/builder/preview-panel/PreviewPanelChrome";
-import { PreviewPanelCode } from "@/components/builder/preview-panel/PreviewPanelCode";
-import { PreviewPanelCompatibilityShim } from "@/components/builder/preview-panel/PreviewPanelCompatibilityShim";
-import { PreviewPanelEmptyState } from "@/components/builder/preview-panel/PreviewPanelEmptyState";
-import { PreviewPanelInspectorDev } from "@/components/builder/preview-panel/PreviewPanelInspectorDev";
-import { PreviewPanelSandbox } from "@/components/builder/preview-panel/PreviewPanelSandbox";
+import { PreviewPanelChrome } from "./PreviewPanelChrome";
+import { PreviewPanelCode } from "./PreviewPanelCode";
+import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
+import { PreviewPanelSandbox } from "./PreviewPanelSandbox";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
-import { useInspectorWorkerStatus } from "@/lib/hooks/useInspectorWorkerStatus";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
 import {
@@ -148,6 +146,14 @@ import {
 } from "@/lib/gen/preview-diagnostics";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+const PreviewPanelInspectorDev = dynamic(
+  () =>
+    import("./PreviewPanelInspectorDev").then((mod) => ({
+      default: mod.PreviewPanelInspectorDev,
+    })),
+  { ssr: false },
+);
 
 type CaptureResponse = {
   success?: boolean;
@@ -463,7 +469,6 @@ export function PreviewPanel({
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
   const { integrationStatus, integrationError } = useIntegrationStatus(demoUrl);
-  const { inspectorWorkerStatus, inspectorWorkerMessage } = useInspectorWorkerStatus();
   const inspectorEnabled = isBuilderInspectorEnabled();
   const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
   const [inspectMode, setInspectMode] = useState(false);
@@ -1199,7 +1204,7 @@ export function PreviewPanel({
   ]);
 
   useEffect(() => {
-    if (!demoUrl) return;
+    if (!demoUrl || !inspectorEnabled) return;
     setElementMap([]);
     let cancelled = false;
     const sleep = (ms: number) =>
@@ -1229,7 +1234,7 @@ export function PreviewPanel({
     return () => {
       cancelled = true;
     };
-  }, [demoUrl, versionId, fetchElementMap]);
+  }, [demoUrl, versionId, fetchElementMap, inspectorEnabled]);
 
   useEffect(() => {
     if (inspectorEnabled) return;
@@ -1247,7 +1252,7 @@ export function PreviewPanel({
   }, [placementMode]);
 
   useEffect(() => {
-    if (!placementMode || !demoUrl) {
+    if (!placementMode || !demoUrl || !inspectorEnabled) {
       setHoveredPlacement(null);
       return;
     }
@@ -1255,7 +1260,7 @@ export function PreviewPanel({
     const w = container?.clientWidth || 1280;
     const h = container?.clientHeight || 800;
     void fetchElementMap(demoUrl, w, h);
-  }, [placementMode, demoUrl, fetchElementMap]);
+  }, [placementMode, demoUrl, fetchElementMap, inspectorEnabled]);
 
   const canShowCode = Boolean(chatId && versionId);
   const isCodeView = viewMode !== "preview";
@@ -2401,22 +2406,6 @@ export function PreviewPanel({
     return buildAlternatePreviewBannerState({ currentUrl: demoUrl, alternatePreviewUrls });
   }, [demoUrl, alternatePreviewUrls]);
 
-  if (!demoUrl && !isCodeView) {
-    return (
-      <PreviewPanelEmptyState
-        chatId={chatId}
-        versionId={versionId}
-        externalLoading={externalLoading}
-        awaitingInput={awaitingInput}
-        awaitingInputQuestion={awaitingInputQuestion}
-        awaitingInputOptions={awaitingInputOptions}
-        sandboxPending={sandboxPending}
-        sandboxBuildError={sandboxBuildError}
-        onFixPreview={onFixPreview}
-      />
-    );
-  }
-
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = demoUrl ? buildPreviewSrc(demoUrl, refreshToken) : "";
   const showBlobWarning = Boolean(
@@ -2440,21 +2429,9 @@ export function PreviewPanel({
         showImagesDisabledWarning ||
         showImagesUnsupportedWarning),
   );
-  const showWorkerLamp = inspectorEnabled && inspectorWorkerStatus !== "disabled";
-  const workerLampClass =
-    inspectorWorkerStatus === "healthy"
-      ? "bg-emerald-400"
-      : inspectorWorkerStatus === "unknown"
-        ? "bg-amber-400 animate-pulse"
-        : "bg-rose-400";
-  const workerLampTitle =
-    inspectorWorkerStatus === "healthy"
-      ? "Inspector worker är online."
-      : inspectorWorkerStatus === "unknown"
-        ? "Kontrollerar inspector worker..."
-        : inspectorWorkerMessage || "Inspector worker är offline. Fallback används.";
   const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(demoUrl);
   const showInspectOverlay = inspectorEnabled && inspectMode && !showPlacementOverlay;
+  const shouldRenderInspectorDev = inspectorEnabled && (showPlacementOverlay || showInspectOverlay);
   const handleInspectMouseMove = useCallback<MouseEventHandler<HTMLDivElement>>(
     (event) => {
       if (inspectEngine !== "map" || elementMap.length === 0) return;
@@ -2488,7 +2465,23 @@ export function PreviewPanel({
       setSelectedPath(lastCodeMatch.item.filePath);
     });
   }, [lastCodeMatch, startViewSwitchTransition]);
-  const PreviewSurface = isOwnEnginePreview ? PreviewPanelCompatibilityShim : PreviewPanelSandbox;
+  const PreviewSurface = PreviewPanelSandbox;
+
+  if (!demoUrl && !isCodeView) {
+    return (
+      <PreviewPanelEmptyState
+        chatId={chatId}
+        versionId={versionId}
+        externalLoading={externalLoading}
+        awaitingInput={awaitingInput}
+        awaitingInputQuestion={awaitingInputQuestion}
+        awaitingInputOptions={awaitingInputOptions}
+        sandboxPending={sandboxPending}
+        sandboxBuildError={sandboxBuildError}
+        onFixPreview={onFixPreview}
+      />
+    );
+  }
 
   return (
     <div className="flex h-full flex-col bg-black/40">
@@ -2499,9 +2492,6 @@ export function PreviewPanel({
         isSandboxPreview={isSandboxPreview}
         sandboxUrlPresent={sandboxUrlPresent}
         inspectorEnabled={inspectorEnabled}
-        showWorkerLamp={showWorkerLamp}
-        workerLampClass={workerLampClass}
-        workerLampTitle={workerLampTitle}
         handleToggleInspect={handleToggleInspect}
         placementMode={placementMode}
         inspectMode={inspectMode}
@@ -3944,37 +3934,39 @@ export function PreviewPanel({
           handleIframeLoad={handleIframeLoad}
           handleIframeError={handleIframeError}
         >
-          <PreviewPanelInspectorDev
-            showPlacementOverlay={showPlacementOverlay}
-            showInspectOverlay={showInspectOverlay}
-            iframeLoading={iframeLoading}
-            externalLoading={externalLoading}
-            handlePlacementClick={handlePlacementClick}
-            handlePlacementMouseMove={handlePlacementMouseMove}
-            onPlacementMouseLeave={() => setHoveredPlacement(null)}
-            hoveredPlacement={hoveredPlacement}
-            pendingPlacementItem={pendingPlacementItem}
-            elementMapLoading={elementMapLoading}
-            sectionZonesCount={sectionZones.length}
-            isCapturePending={isCapturePending}
-            handleCaptureClick={handleCaptureClick}
-            handleInspectMouseMove={
-              inspectEngine === "map" && elementMap.length > 0 ? handleInspectMouseMove : undefined
-            }
-            onInspectMouseLeave={inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined}
-            inspectEngine={inspectEngine}
-            hoveredMapElement={hoveredMapElement}
-            inspectPulse={inspectPulse}
-            setInspectEngine={setInspectEngine}
-            inspectorUnavailable={inspectorUnavailable}
-            elementMapCount={elementMap.length}
-            totalAiCostUsd={totalAiCostUsd}
-            lastAiCostDisplay={lastAiCostDisplay}
-            inspectStatus={inspectStatus}
-            lastCodeMatch={lastCodeMatch}
-            onShowLastCodeMatch={handleShowLastCodeMatch}
-            handleToggleInspect={handleToggleInspect}
-          />
+          {shouldRenderInspectorDev ? (
+            <PreviewPanelInspectorDev
+              showPlacementOverlay={showPlacementOverlay}
+              showInspectOverlay={showInspectOverlay}
+              iframeLoading={iframeLoading}
+              externalLoading={externalLoading}
+              handlePlacementClick={handlePlacementClick}
+              handlePlacementMouseMove={handlePlacementMouseMove}
+              onPlacementMouseLeave={() => setHoveredPlacement(null)}
+              hoveredPlacement={hoveredPlacement}
+              pendingPlacementItem={pendingPlacementItem}
+              elementMapLoading={elementMapLoading}
+              sectionZonesCount={sectionZones.length}
+              isCapturePending={isCapturePending}
+              handleCaptureClick={handleCaptureClick}
+              handleInspectMouseMove={
+                inspectEngine === "map" && elementMap.length > 0 ? handleInspectMouseMove : undefined
+              }
+              onInspectMouseLeave={inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined}
+              inspectEngine={inspectEngine}
+              hoveredMapElement={hoveredMapElement}
+              inspectPulse={inspectPulse}
+              setInspectEngine={setInspectEngine}
+              inspectorUnavailable={inspectorUnavailable}
+              elementMapCount={elementMap.length}
+              totalAiCostUsd={totalAiCostUsd}
+              lastAiCostDisplay={lastAiCostDisplay}
+              inspectStatus={inspectStatus}
+              lastCodeMatch={lastCodeMatch}
+              onShowLastCodeMatch={handleShowLastCodeMatch}
+              handleToggleInspect={handleToggleInspect}
+            />
+          ) : null}
         </PreviewSurface>
       )}
     </div>

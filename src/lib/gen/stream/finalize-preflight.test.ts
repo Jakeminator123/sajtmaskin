@@ -167,7 +167,7 @@ describe("runFinalizePreflight", () => {
       category: "code_structure_failure",
     });
     expect(result.sandbox.canStartSandbox).toBe(false);
-    expect(result.sandbox.primaryPreviewTarget).toBe("compatibility-shim");
+    expect(result.sandbox.primaryPreviewTarget).toBe("none");
   });
 
   it("preserves explicit sanity categories instead of falling back to message heuristics", async () => {

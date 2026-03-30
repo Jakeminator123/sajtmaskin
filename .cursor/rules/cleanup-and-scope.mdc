@@ -1,0 +1,37 @@
+---
+description: Utför städning och tydligt scoped refaktor — inte bara lista; verifiera sedan
+alwaysApply: true
+---
+
+# Scope, städning och refaktor (icke-konservativ default)
+
+## Syfte
+
+Tidigare har agenter ibland **bara listat** vad som *skulle* kunna tas bort i stället för att **göra jobbet**, med hänvisning till “försiktighet”. I det här repot ska **tydligt efterfrågad städning eller borttagning** genomföras när det går att verifiera säkert.
+
+## När användaren ber om städning, borttagning eller flytt
+
+Ord som *städa*, *ta bort*, *radera*, *flytta ut*, *dead code*, *cleanup*, *planstädning*, eller en **konkret lista med sökvägar/mappar** räknas som **utförandedirektiv**, inte som “ge mig bara råd”.
+
+Gör då:
+
+1. **Spåra beroenden:** `import` / `require` / dynamiska strängar, `package.json`-scripts, CI-workflows, docs-länkar som pekar in i det som ska bort.
+2. **Utför** borttagningen eller flytten inom angivet scope (eller inom rimlig tolkning om användaren gett kategori — t.ex. gamla handoff-`*.md` under `docs/handoffs/` medan `README.md`-pekare behålls eller uppdateras).
+3. **Uppdatera** brutna länkar, regler och env-/script-referenser i samma svep när det behövs.
+4. **Verifiera:** kör åtminstone `npm run typecheck` och `npm run test:ci` (eller det användaren anger) efter större städning; vid ren docs-only-städning räcker målgranskad länkfix.
+
+**Sluta inte** vid “här är en lista du kan ta bort själv” om användaren redan bett om städning — **om** du har verktyg och repo-tillgång: genomför och rapportera kort vad som ändrats.
+
+## När användaren ber om refaktor med tydlig riktning
+
+Om scope är uttryckligt (t.ex. “dela upp `PreviewPanel`”, “extrahera gemensam stream-kärna”): **implementera** inom den ramen. Fråga inte om tillstånd för varje mellanfil om målet är klart.
+
+## Undantag (fortfarande försiktighet)
+
+- **Radera inte** secrets, `.env*`-innehåll eller produktionsdata.
+- **Ta inte bort** sökvägar som uppenbart är runtime-kritiska (`src/lib/gen`-embeddings-JSON, kärn-importkedjor) **utan** att användaren uttryckligen pekar ut dem *och* du har verifierat ersättning eller medveten brytning.
+- **Pågående arbete av andra:** stage:a inte andras filer; följ fortfarande `session-git-docs.mdc` om parallellt arbete.
+
+## Relation till övriga regler
+
+Denna regel **överstyr** en generisk “gör minimal diff”-tolkning **endast** när användaren uttryckligen vill städa, ta bort eller refaktorera i större utsträckning. För vanliga featurebuggar gäller fortfarande: ändra bara det som krävs för uppgiften.

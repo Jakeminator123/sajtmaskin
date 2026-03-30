@@ -107,4 +107,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     const layout = repaired.files.find((file) => file.path === "app/layout.tsx");
     expect(layout?.content).toContain('import { SiteFooter } from "@/components/site-footer";');
   });
+
+  it("removes conflicting cn self-imports from lib/utils.ts during repair", () => {
+    const repaired = repairGeneratedFiles([
+      {
+        path: "lib/utils.ts",
+        language: "ts",
+        content: `import { cn } from "@/lib/utils";
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+`,
+      },
+    ]);
+
+    const utilsFile = repaired.files.find((file) => file.path === "lib/utils.ts");
+    expect(utilsFile?.content).not.toContain('import { cn } from "@/lib/utils";');
+    expect(utilsFile?.content).toContain("export function cn(...inputs: ClassValue[])");
+  });
 });

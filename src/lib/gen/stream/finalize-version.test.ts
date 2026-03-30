@@ -305,7 +305,7 @@ describe("finalizeAndSaveVersion", () => {
     });
   });
 
-  it("keeps preview URLs when verification blockers do not prevent preview rendering", async () => {
+  it("emits no preview URL when sandbox is blocked and shim path is removed", async () => {
     runProjectSanityChecks.mockReturnValue({
       valid: false,
       issues: [
@@ -328,21 +328,21 @@ describe("finalizeAndSaveVersion", () => {
       logNote: "unit-test",
     });
 
-    expect(result.previewUrl).toBe("https://preview.example/chat_1/ver_1");
-    expect(result.preflight.previewBlocked).toBe(false);
+    expect(result.previewUrl).toBeNull();
+    expect(result.preflight.previewBlocked).toBe(true);
     expect(result.preflight.verificationBlocked).toBe(true);
-    expect(buildPreviewUrl).toHaveBeenCalledWith("chat_1", "ver_1");
+    expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",
       { prompt: undefined, completion: undefined },
       expect.any(Number),
       false,
-      "Automatic preflight found sandbox-blocking issues.",
+      "Automatic preflight found preview-blocking issues.",
     );
     expect(failVersionVerification).toHaveBeenCalledWith(
       "ver_1",
-      "Automatic preflight found sandbox-blocking issues.",
+      "Automatic preflight found preview-blocking issues.",
     );
   });
 

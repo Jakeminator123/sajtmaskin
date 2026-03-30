@@ -5,7 +5,8 @@ export type PreflightIssueCategory =
   | "shim_preview_failure"
   | "non_blocking_quality_warning";
 
-export type SandboxPrimaryPreviewTarget = "sandbox" | "compatibility-shim" | "none";
+/** Only sandbox (fidelity 2) or no in-app preview; tier-1 shim removed. */
+export type SandboxPrimaryPreviewTarget = "sandbox" | "none";
 
 export interface PreflightIssueLike {
   file: string;
@@ -33,8 +34,6 @@ export interface SandboxStartContract {
   blockingCategories: PreflightIssueCategory[];
 }
 
-const SANDBOX_ONLY_PREVIEW_VALUES = new Set(["1", "true", "yes", "on"]);
-
 function createInitialCounts(): Record<PreflightIssueCategory, number> {
   return {
     code_structure_failure: 0,
@@ -43,11 +42,6 @@ function createInitialCounts(): Record<PreflightIssueCategory, number> {
     shim_preview_failure: 0,
     non_blocking_quality_warning: 0,
   };
-}
-
-export function resolveCompatibilityShimAllowed(): boolean {
-  const raw = process.env.SAJTMASKIN_SANDBOX_ONLY_PREVIEW?.trim().toLowerCase();
-  return !raw || !SANDBOX_ONLY_PREVIEW_VALUES.has(raw);
 }
 
 export function detectPreflightIssueCategory(params: {
@@ -100,9 +94,8 @@ export function resolvePreflightIssueCategory(params: PreflightIssueInput): Pref
 export function buildSandboxStartContract(params: {
   issues: PreflightIssueLike[];
   finalizedPreviewFileCount: number;
-  compatibilityShimAllowed?: boolean;
 }): SandboxStartContract {
-  const compatibilityShimAllowed = params.compatibilityShimAllowed ?? resolveCompatibilityShimAllowed();
+  const compatibilityShimAllowed = false;
   const issueCounts = createInitialCounts();
 
   for (const issue of params.issues) {
@@ -128,11 +121,7 @@ export function buildSandboxStartContract(params: {
     !hasCriticalInstallRisk &&
     !requiresEnvConfig;
 
-  const primaryPreviewTarget: SandboxPrimaryPreviewTarget = canStartSandbox
-    ? "sandbox"
-    : compatibilityShimAllowed && !shimBlocked
-      ? "compatibility-shim"
-      : "none";
+  const primaryPreviewTarget: SandboxPrimaryPreviewTarget = canStartSandbox ? "sandbox" : "none";
 
   const blockingCategories = ([
     hasCriticalCodeFailure ? "code_structure_failure" : null,

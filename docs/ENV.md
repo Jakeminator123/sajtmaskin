@@ -108,9 +108,9 @@ builder-flödena resolverar idag alltid till own engine, inte till legacy-v0-bui
 
 | Env-variabel | Default | Vad den styr |
 |---|---|---|
-| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | `32768` | Max output-tokens för kodgenerering |
+| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS` | `62768` | Max output-tokens för kodgenerering |
 | `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS` | `12288` | Max output-tokens för autofix/LLM-fixer |
-| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `32768` | Max output-tokens för brief/chat assist (deep brief JSON kan vara långt; sänk om du vill spara kostnad) |
+| `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` | `62768` | Max output-tokens för brief/chat assist (deep brief JSON kan vara långt; sänk om du vill spara kostnad) |
 
 ### Hur modellerna hänger ihop
 
@@ -319,7 +319,7 @@ Bildflöde i generering:
 | `SAJTMASKIN_MODEL_ANTHROPIC`                   | `claude-sonnet-4.6` | Modell för Anthropic-jämförelseläge           |
 | `SAJTMASKIN_ASSIST_MODEL`                      | `openai/gpt-5.4`    | Default prompt-assistmodell for `Forbattra`   |
 | `SAJTMASKIN_POLISH_MODEL`                      | `openai/gpt-5.3-codex` | Standard-polishmodell for `Skriv om` (Anthropic-lane overrider den i jamforelselaget) |
-| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 32768               | Max output-tokens för sidgenerering           |
+| `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS`          | 62768               | Max output-tokens för sidgenerering           |
 | `SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS`         | 12288               | Autofix-pipeline                              |
 | `SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS`          | 720000 (12 min)     | Klient-timeout innan stream avbryts           |
 | `SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS` | 800                 | Route maxDuration för build/refine            |
@@ -356,9 +356,10 @@ sedan om kommandot i en shell dar Node/Volta ar tillgangligt.
 3. **Redis (dev):** Skapa en gratis Upstash Redis på [console.upstash.com](https://console.upstash.com), sätt `REDIS_URL`, `KV_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
 4. **Postgres (dev):** Skapa ett Supabase-projekt (gratis tier går för lokal dev), sätt `POSTGRES_URL`. Produktion använder separat projekt; vid högre krav använd betald Supabase-plan (se infrastruktur-tabellen ovan).
 5. Kör `npm run db:init` för att skapa databasschemat.
-6. För e-post: `RESEND_API_KEY` (valfritt i dev).
-7. **Valfritt — Cursor MCP:** kopiera **`.cursor/mcp.json.example` → `.cursor/mcp.json`** om du vill ha plattforms-MCP (t.ex. v0, Vercel, OpenAI-docs) i editorn. Detta är **inte** nödvändigt för att läsa eller arbeta med projektets dokumentation — den ligger i `docs/` och repot.
-8. Extern template-research:
+6. **Valfritt:** `npm run db:check` kör [`scripts/check-dev-db.mjs`](../scripts/check-dev-db.mjs) mot `POSTGRES_URL` i `.env.local` (snabb anslutningskoll).
+7. För e-post: `RESEND_API_KEY` (valfritt i dev).
+8. **Valfritt — Cursor MCP:** kopiera **`.cursor/mcp.json.example` → `.cursor/mcp.json`** om du vill ha plattforms-MCP (t.ex. v0, Vercel, OpenAI-docs) i editorn. Detta är **inte** nödvändigt för att läsa eller arbeta med projektets dokumentation — den ligger i `docs/` och repot.
+9. Extern template-research:
    - `npm run references:discover` skriver kanonisk rå discovery till `research/external-templates/raw-discovery/current/` — Playwright-specen är **`e2e/vercel-templates/scrape-catalog.spec.ts`** (spårad). Kräver Playwright + nät. Se [`research/external-templates/README.md`](research/external-templates/README.md) och [`scripts/README.md`](scripts/README.md).
    - `npm run template-library:import-legacy` importerar legacy `_sidor`-summary till samma plats
    - `npm run template-library:hydrate-cache` bygger lokal shallow-clone cache i `research/external-templates/repo-cache/`

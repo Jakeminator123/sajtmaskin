@@ -1,4 +1,5 @@
 import type { ChatMessage } from "@/lib/builder/types";
+import { sanitizeChatMessageContentForDisplay } from "@/lib/builder/messageAdapter";
 import { loadPersistedMessages, persistMessages } from "@/lib/builder/messagesStorage";
 import { useEffect } from "react";
 
@@ -15,7 +16,10 @@ function normalizeServerMessages(input: ChatMessage[] | undefined): ChatMessage[
     .map((msg) => ({
       id: msg.id,
       role: msg.role,
-      content: msg.content,
+      content: sanitizeChatMessageContentForDisplay({
+        role: msg.role,
+        content: msg.content,
+      }),
       thinking: typeof msg.thinking === "string" ? msg.thinking : null,
       uiParts: Array.isArray(msg.uiParts)
         ? msg.uiParts.filter((part: unknown) => part && typeof part === "object")
@@ -56,7 +60,7 @@ export function usePersistedChatMessages(params: {
     if (isAnyStreaming) return;
     if (messages.length > 0) return;
 
-    const restored = loadPersistedMessages(chatId);
+    const restored = normalizeServerMessages(loadPersistedMessages(chatId));
     const normalizedServerMessages = normalizeServerMessages(serverMessages);
 
     if (serverMessagesChatId && serverMessagesChatId !== chatId) {

@@ -3,7 +3,7 @@ import type { PreflightIssueCategory, SandboxPrimaryPreviewTarget } from "@/lib/
 import type { VersionErrorLogPayload } from "./types";
 
 function isSandboxPrimaryPreviewTarget(value: unknown): value is SandboxPrimaryPreviewTarget {
-  return value === "sandbox" || value === "compatibility-shim" || value === "none";
+  return value === "sandbox" || value === "none";
 }
 
 function isPreflightIssueCategory(value: unknown): value is PreflightIssueCategory {

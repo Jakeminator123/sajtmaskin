@@ -11,7 +11,12 @@ import {
 } from "./common-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
-import { fixMissingMetadataImport, fixMissingMetadataRouteImport, fixMissingCnImport } from "./rules/metadata-import-fixer";
+import {
+  fixCnImportConflict,
+  fixMissingMetadataImport,
+  fixMissingMetadataRouteImport,
+  fixMissingCnImport,
+} from "./rules/metadata-import-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
@@ -251,7 +256,16 @@ export async function runAutoFix(
 
       // 4c. cn import fixer — add missing cn import from @/lib/utils
       try {
-        const cnResult = fixMissingCnImport(currentCode);
+        const cnConflictResult = fixCnImportConflict(currentCode, file.path);
+        if (cnConflictResult.fixed) {
+          currentCode = cnConflictResult.code;
+          allFixes.push({
+            fixer: "cn-import-conflict-fixer",
+            description: "Removed conflicting local cn import from @/lib/utils",
+            file: file.path,
+          });
+        }
+        const cnResult = fixMissingCnImport(currentCode, file.path);
         if (cnResult.fixed) {
           currentCode = cnResult.code;
           allFixes.push({

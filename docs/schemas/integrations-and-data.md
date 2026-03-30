@@ -26,6 +26,7 @@ The main application database source of truth is:
 Operational SQL/bootstrap behavior also exists in:
 
 - `scripts/db-init.mjs`
+- `scripts/check-dev-db.mjs` (lokal anslutningskoll via `npm run db:check`)
 
 Important rule:
 

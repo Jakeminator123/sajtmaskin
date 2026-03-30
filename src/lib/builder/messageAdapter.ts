@@ -35,6 +35,66 @@ export type AIElementsMessage = {
   isStreaming?: boolean;
 };
 
+const DISPLAY_SANITIZE_MAX_PASSES = 4;
+const DISPLAY_CONTINUITY_HEADING = "## Continuity (from previous generation)";
+const DISPLAY_EXISTING_PROJECT_HEADING = "## Existing Project Files (reference)";
+const DISPLAY_REQUESTED_CHANGES_HEADING = "## Requested Changes";
+const DISPLAY_USER_REPLY_HEADING = "## User Reply";
+
+function extractSectionAfterHeading(text: string, heading: string): string | null {
+  const headingIndex = text.indexOf(heading);
+  if (headingIndex === -1) return null;
+  const afterHeading = text.slice(headingIndex + heading.length).trim();
+  return afterHeading || null;
+}
+
+function extractSectionAfterDivider(text: string): string | null {
+  const parts = text.split(/\r?\n---\r?\n/);
+  if (parts.length < 2) return null;
+  const trailing = parts.at(-1)?.trim();
+  return trailing || null;
+}
+
+function stripKnownUserPromptWrapper(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("## ")) return text;
+
+  if (trimmed.startsWith("## Follow-up Editing Mode")) {
+    const requestedChanges = extractSectionAfterHeading(trimmed, DISPLAY_REQUESTED_CHANGES_HEADING);
+    if (requestedChanges) return requestedChanges;
+  }
+
+  if (trimmed.startsWith("## Contract Clarification Answer")) {
+    const userReply = extractSectionAfterHeading(trimmed, DISPLAY_USER_REPLY_HEADING);
+    if (userReply) return userReply;
+  }
+
+  if (
+    trimmed.startsWith(DISPLAY_CONTINUITY_HEADING) ||
+    trimmed.startsWith(DISPLAY_EXISTING_PROJECT_HEADING)
+  ) {
+    return extractSectionAfterDivider(trimmed) ?? text;
+  }
+
+  return text;
+}
+
+export function sanitizeChatMessageContentForDisplay(
+  message: Pick<ChatMessage, "role" | "content">,
+): string {
+  const original = typeof message.content === "string" ? message.content : "";
+  if (message.role !== "user") return original;
+
+  let current = original;
+  for (let i = 0; i < DISPLAY_SANITIZE_MAX_PASSES; i += 1) {
+    const next = stripKnownUserPromptWrapper(current);
+    if (next === current) break;
+    current = next;
+  }
+
+  return current;
+}
+
 export function toAIElementsFormat(msg: ChatMessage): AIElementsMessage {
   const parts: MessagePart[] = [];
 
@@ -50,7 +110,10 @@ export function toAIElementsFormat(msg: ChatMessage): AIElementsMessage {
     .filter((part): part is MessagePart => Boolean(part));
   parts.push(...uiParts);
 
-  parts.push({ type: "text", text: msg.content || "" });
+  parts.push({
+    type: "text",
+    text: sanitizeChatMessageContentForDisplay(msg),
+  });
 
   return {
     id: msg.id,

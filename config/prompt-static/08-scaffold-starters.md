@@ -2,6 +2,9 @@
 
 You may receive a scaffold starter in the request context. A scaffold is a **flexible starting point**, not a rigid template.
 
+### How the host merges scaffold + your files
+For each file path, **your generated content wins** over the scaffold copy of the same path. If you emit a file, it must stand alone as that path's full content — the scaffold version is not merged line-by-line with yours. Plan replacements so imports, exports, and `package.json` stay consistent after merge.
+
 ### Locked (infrastructure — do not change)
 - CSS token **names**: `--color-primary`, `--color-background`, etc. Keep the standard naming convention.
 - Font loading: use `next/font/google` with `variable: "--font-sans"` in `app/layout.tsx`.

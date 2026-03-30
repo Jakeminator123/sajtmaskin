@@ -4,8 +4,6 @@ export type AlternatePreviewUrls = {
 };
 
 const OWN_ENGINE_PREVIEW_PATH = "/api/preview-render";
-const ENGINE_UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PREVIEW_URL_BASE = "https://preview.local";
 
 export function normalizePreviewUrl(url: string | null | undefined): string | null {
@@ -66,32 +64,14 @@ export function buildCompatibilityShimPreviewUrl(
   return `${OWN_ENGINE_PREVIEW_PATH}?${params.toString()}`;
 }
 
-export function resolveCompatibilityShimPreviewUrl(params: {
+export function resolveCompatibilityShimPreviewUrl(_params: {
   chatId?: string | null;
   versionId?: string | null;
   demoUrl?: string | null;
   sandboxUrl?: string | null;
   projectId?: string | null;
 }): string | null {
-  const demoUrl = normalizePreviewUrl(params.demoUrl);
-  if (isCompatibilityShimPreviewUrl(demoUrl)) {
-    return demoUrl;
-  }
-
-  if (!normalizePreviewUrl(params.sandboxUrl)) {
-    return null;
-  }
-
-  if (
-    !params.chatId ||
-    !ENGINE_UUID_RE.test(params.chatId) ||
-    !params.versionId ||
-    !ENGINE_UUID_RE.test(params.versionId)
-  ) {
-    return null;
-  }
-
-  return buildCompatibilityShimPreviewUrl(params.chatId, params.versionId, params.projectId);
+  return null;
 }
 
 export function resolveAlternatePreviewUrls(params: {
@@ -111,14 +91,10 @@ export function resolveAlternatePreviewUrls(params: {
 export function buildAlternatePreviewBannerState(params: {
   currentUrl: string | null | undefined;
   alternatePreviewUrls?: AlternatePreviewUrls | null;
-}): { offerShim: boolean; offerSandbox: boolean; shimUrl: string; sandboxUrl: string } | null {
+}): { sandboxUrl: string } | null {
   const currentUrl = normalizePreviewUrl(params.currentUrl);
-  const shimUrl = normalizePreviewUrl(params.alternatePreviewUrls?.shimUrl);
   const sandboxUrl = normalizePreviewUrl(params.alternatePreviewUrls?.sandboxUrl);
 
-  const offerShim = Boolean(
-    currentUrl && isSandboxPreviewUrl(currentUrl) && shimUrl && !previewUrlsEquivalent(currentUrl, shimUrl),
-  );
   const offerSandbox = Boolean(
     currentUrl &&
       isCompatibilityShimPreviewUrl(currentUrl) &&
@@ -126,14 +102,11 @@ export function buildAlternatePreviewBannerState(params: {
       !previewUrlsEquivalent(currentUrl, sandboxUrl),
   );
 
-  if (!offerShim && !offerSandbox) {
+  if (!offerSandbox) {
     return null;
   }
 
   return {
-    offerShim,
-    offerSandbox,
-    shimUrl: shimUrl!,
     sandboxUrl: sandboxUrl!,
   };
 }

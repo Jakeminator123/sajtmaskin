@@ -128,8 +128,7 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 - **Server-verify** (`src/lib/gen/server-verify.ts`) triggas automatiskt efter finalize; kör quality gate + capped repair (max 2 pass). Verification state `repairing` synlig i UI.  
 - **Server repair** är default efter quality-gate-fel; klientautofix fallback. `__SAJTMASKIN_SKIP_SERVER_REPAIR__` opt-out ersätter gammal opt-in.  
 - **v0Stream.ts** och **gen/fallback.ts** borttagna (inga runtime-konsumenter).  
-- **AVKLARAT handoffs** trimmade till stub + pekare; fulltext i git-historik.  
-- **Senaste handoff:** [`docs/handoffs/export-reliability-och-nasta-steg.md`](../../handoffs/export-reliability-och-nasta-steg.md) — öppna gap och rekommenderade nästa steg.
+- **Handoff-dokument** under `docs/handoffs/*.md` är **borttagna**; fulltext finns i **git-historik**. Pekare: [`docs/handoffs/README.md`](../../handoffs/README.md). Öppna gap och nästa steg styrs här (§4–§7) och i [`preview-deploy.md`](../../architecture/preview-deploy.md).
 
 ---
 
