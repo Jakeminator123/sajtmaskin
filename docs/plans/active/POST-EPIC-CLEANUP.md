@@ -10,14 +10,22 @@
 - [x] `useSandboxPreviewSession` — recover/debounce/url-resync ur `useBuilderPageController`
 - [x] `PreviewPanel`: `usePreviewHeartbeat`, `usePreviewIframe` under `preview-panel/hooks/`
 - [x] `useBuilderSandboxPreview` — sandbox-bootstrap/retry ur controllern
-- [ ] Ytterligare split av `PreviewPanel.tsx` (inspector, fil-editor-lager) — delpaneler finns redan (`PreviewPanelCode`, `PreviewPanelInspectorDev`, m.fl.); **kvar:** draft-state + handlers + träd/inspektors-orkestrering i huvudfilen (~3,9k rader)
-- [ ] Eventuellt `useBuilderProjectRestore` / generation-bootstrap om gränser klarnar
+- [ ] `PreviewPanel.tsx` — **fortsatt split** (huvudfil ~2,2k rader). **Redan utflyttat:**
+  - [x] Typer + route-hjälpare; GET versionsfiler → `chat-version-files-fetch.ts`; previewRoutes → `hooks/usePreviewPanelPreviewRoutes.ts` + `preview-route-helpers.ts`
+  - [x] Kodvy / filträd / spara fil → `usePreviewPanelCodeFiles`, `code-file-tree-utils`, `update-file-tree-content`
+  - [x] Sektionsdrafts + save-handlers → `hooks/usePreviewPanelCodeDrafts.ts`
+  - [x] Elementkarta, inspect-läge, placement, map-hover + relaterade effekter → `hooks/usePreviewPanelInspectMapPlacement.ts`
+  - [x] Own-engine `postMessage` + preview-issue/render-outcome-telemetri → `hooks/usePreviewPanelOwnEnginePreviewTelemetry.ts` (delad `iframeRef` med `usePreviewIframe`)
+  - [x] `handleCaptureClick` + pending/pulse-state → `hooks/usePreviewPanelInspectCapture.ts`
+  - [ ] **Kvar i huvudfilen:** stor JSX-yta och övrig panelorkestrering (t.ex. preview/code/registry/sandbox-layout och koppling till state/props)
+- [x] `useBuilderPageController` — preview-URL/override-hjälpare → `builder-page-preview-helpers.ts` (huvudhooken är fortfarande stor; vidare split senare)
+- [x] `useBuilderProjectRestore` / generation-bootstrap — **ingen hook med det namnet i `src/`;** motsvarande beteende ligger i `useBuilderPageController` (auto-projekt / `lastProjectId`) respektive `useBuilderSandboxPreview` (sandbox-bootstrap). Ny extraktion bara om ni namnger ett nytt konkret steg.
 
 ## Byt namn (internt)
 
 - [x] Zon-tabell i `docs/architecture/repo-tree.md`
 - [x] Builder-state + VM: `currentPreviewUrl` / `setCurrentPreviewUrl` (tidigare `currentDemoUrl` i state, hooks och `BuilderShellContent`; borttaget duplicerat VM-fält)
-- [ ] Props `demoUrl` → `previewUrl` i `PreviewPanel` när VM/BuilderShell uppdateras tillsammans
+- [x] Props `demoUrl` → `previewUrl` i `PreviewPanel` + `BuilderShellContent` + relaterade hooks/chrome ( **`demoUrl` behålls som nyckel** i events/API-meta där backend/kontrakt kräver det)
 - [ ] API-fält `demoUrl` i JSON — **lämna** tills explicit migrering av klienter
 
 ## Eventuellt ta bort senare

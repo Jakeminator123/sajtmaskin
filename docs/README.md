@@ -8,7 +8,7 @@
 |-------|----------|-----------|
 | **Arkitektur** | Kanonisk systembeskrivning, preview/sandbox, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
 | **Aktiva planer** | Backlog, beslut, post-epic städlista | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/active/POST-EPIC-CLEANUP.md`](plans/active/POST-EPIC-CLEANUP.md) · [`plans/README.md`](plans/README.md) |
-| **Arkiv** | Avklarade planer, tidsbunden logg, handoffs-pekare | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) (t.ex. [`archive/FINDINGS.txt`](archive/FINDINGS.txt)) · [`handoffs/README.md`](handoffs/README.md) · [`notes/`](notes/) |
+| **Arkiv** | Avklarade planer, handoffs-pekare; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) (`docs/notes/` om du skapar den lokalt) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) · [`handoffs/README.md`](handoffs/README.md) |
 
 ## Terminology (two layers — do not duplicate)
 
@@ -24,7 +24,7 @@
 
 1. This file → **Key navigation** table below.
 2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **enda aktiva backlog-filen** (K-019, Plan 17, beslut). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
+3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **kanonisk backlog** (K-rader, Plan 17, beslut). Tillfällig städlista: [`POST-EPIC-CLEANUP.md`](plans/active/POST-EPIC-CLEANUP.md) (samma mapp). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — env topology when debugging deploy/local.
@@ -33,7 +33,7 @@
 
 Everything else is deep reference, history, or architecture.
 
-**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) (fyra kapitel) · [`architecture/repo-tree.md`](architecture/repo-tree.md) (rot-träd) · `archive/` → [`archive/README.md`](archive/README.md) (tidsbunden logg, ej kanon) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `handoffs/` → [`handoffs/README.md`](handoffs/README.md) (endast pekare efter arkivering) · `contributing/` → [`contributing/README.md`](contributing/README.md) · `old/` (pekare). Doc-policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
+**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) (fyra kapitel) · [`architecture/repo-tree.md`](architecture/repo-tree.md) (rot-träd) · `archive/` → [`archive/README.md`](archive/README.md) (minimi / ej kanon) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `handoffs/` → [`handoffs/README.md`](handoffs/README.md) (pekare; fulltext i git-historik) · `contributing/` → [`contributing/README.md`](contributing/README.md) · `old/` → [`old/README.md`](old/README.md) (pekare till git-historik). Doc-policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
 
 **För agenter (orientering):** [`architecture/repo-tree.md`](architecture/repo-tree.md) → [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) → [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc).
 

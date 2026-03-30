@@ -10,7 +10,7 @@ supersedes_history: LLM-flöde förbättringsplan + V0-plattform avvecklingsplan
 
 # Konsoliderad plan v2: Own-engine som plattform + kvalitet och spårbarhet
 
-**Aktiv roadmap:** denna fil — flera öppna rader i checklistan längst ner. *Separat* LLM-review-spår (runbook Del B: B1–B4) är **stängt** och **arkiverat**: [`../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md).
+**Arkiverad plan** (2026-03-30). Operativ backlog och status: [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md); tillfällig städlista: [`../active/POST-EPIC-CLEANUP.md`](../active/POST-EPIC-CLEANUP.md). Denna fil behålls som **historik + checklist-referens**; lita på git-historik för detaljer som redan är införlivade. LLM-review-spår (runbook Del B: B1–B4) är **stängt**: [`./LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](./LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md).
 
 ## Varför en plan
 
@@ -246,14 +246,14 @@ _Kvalitet / LLM_
 
 ---
 
-## Agent 2 av 2 — implementeringsprompt
+## Agent 2 av 2 — implementeringsprompt (historisk)
 
-_Vid behov av nytt pass:_ flera mål i blocket nedan är redan levererade i kodbasen (bl.a. generation package, serverstyrd repair) — se checklistan ovan och `PROJECT-STATE-AND-DIRECTION.md` §10 innan du duplicerar arbete.
+_Planen ligger i `avklarat/`; använd inte detta block som primär agentinstruktion._ Börja från [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) och kanoniska arkitekturdocs. Flera mål nedan är redan levererade — se checklistan ovan och PROJECT-STATE §10 innan du duplicerar arbete.
 
-Använd denna prompt för nästa agent när plattformsstädningen ovan är gjord eller pågår:
+**Historisk prompt** (behålls som referens):
 
 ```text
-Arbeta endast inom den konsoliderade planen i `docs/plans/active/CONSOLIDATED-own-engine-platform-and-quality-v2.md`.
+Arbeta utifrån den arkiverade planen i `docs/plans/avklarat/CONSOLIDATED-own-engine-platform-and-quality-v2.md` och den aktuella backlogen i `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`.
 
 Du är agent 2 av 2.
 Agent 1 har redan gjort den första konservativa own-engine-tighteningen:
