@@ -203,6 +203,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (ae) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `agent-workflows.md` har konfliktzon-lista + att grön `master` inte kräver paus; STORDSTAD-handoff/startrad skiljer **parallell** städ (docs/scripts/AGENTS/.cursor m.m.) från kodstäd i B-zoner när B är aktivt; `AGENTS.md` pekar på konfliktzoner. Bekräftat från spår B: repo friskt på `master` (typecheck + full Vitest). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (af)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: lokal env-notes-mapp + sync chat-create meta; två commits (ignore + API). |
 | **Efter** pass 2026-03-31 (af) | 2026-03-31 | 11/21   | 52%     | 48%    | `files_envvars/` tillagd i `.gitignore` och `.cursorignore` (lokal scratch, ej kanon). `di-d.txt` borttagen från aktiv cursorignore-rad (rad kommenterad). API: `POST /api/v0/chats` synkväg skickar `orchestrationStreamMeta` via `buildOwnEngineGenerationStreamMeta`; `route.test.ts`-mock utökad. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (ag)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: handoff — spår B har aktiv checkpoint över finalize/post-finalize; spår A dokumenterar att dessa filer inte tas av städagenten. |
+| **Efter** pass 2026-03-31 (ag) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `agent-workflows.md` pekar på tillfällig “Aktiv spår B-batch” under STORDSTAD handoff (konkret fillista); spår A fortsätter i docs/env/ignore utan att röra den listan. Verifierat: endast markdown (ingen kodändring i detta pass). |
 
 ---
 
@@ -217,6 +219,7 @@ Tidigare sidospår för LLM-pipeline och STORDSTAD-städ är nu mergade till `ma
 - **När spår B inte kör samtidigt:** smala kodstädpass kan åter ta `src/lib/hooks/chat/`, `env*` och `config.ts` enligt [Förenklad körprofil](#förenklad-körprofil-aktiv-tills-vidare) och pass-loggen — fortfarande utan `src/lib/gen/scaffolds/*` och utan bred preview/deploy/DB i samma svep.
 - **Zoner jag inte tänker bredröra utan separat scope:** `src/lib/gen/scaffolds/*`, stora preview/deploy-/builder-pipelines och DB-fas.
 - **Parallell agent (spår B):** kan köra på `master` samtidigt som spår A när konfliktzonlistan följs — se [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md) § *Flera agenter*.
+- **Aktiv spår B-batch (checkpoint — ta bort hela denna punkt när committat/pushat på `master`):** spår A ska **inte** redigera, `git add` eller committa: `src/lib/gen/stream/finalize-version.ts`, `src/lib/providers/own-engine/generation-stream-post-finalize.ts`, `src/lib/providers/own-engine/generation-stream-post-finalize.test.ts`. Spår B äger den checkpointen.
 
 ### Cursor: var du arbetar (en git-root åt gången)
 

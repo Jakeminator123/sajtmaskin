@@ -50,6 +50,8 @@ När flera agenter delar samma repo är den största risken ofta **arbetsyta och
 
 **Spår B** kör i `src/lib/gen/*` (undantag: `scaffolds/*` utan egen scope), `src/lib/providers/own-engine/*` och prompt/runtime/orchestration. Pågår samma fil i två commits: undvik — eller merge/synka först.
 
+**Aktiv spår B-batch (tillfällig lista):** när spår B uttryckligen håller en checkpoint över vissa filer, ska spår A **inte** redigera eller committa dem — se aktuell rad i [`STORDSTAD-repo-kod-databas.md`](../plans/active/STORDSTAD-repo-kod-databas.md) § *Handoff-rutin* (“Aktiv spår B-batch”). **Radera** den raden när batchen är på `origin/master`.
+
 Vilka doc-filer som rörts i en större städvåg kan spåras i den arkiverade [`POST-EPIC-CLEANUP.md`](../plans/avklarat/POST-EPIC-CLEANUP.md) § *Dokumentation som berörts*.
 
 ## Verifiering före större merge
