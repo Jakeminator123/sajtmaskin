@@ -44,6 +44,8 @@ När flera agenter delar samma repo är den största risken ofta **arbetsyta och
 - **Verifiera före push:** `git fetch`, synka mot fjärr enligt teamets vana, kör `npm run typecheck` och `npx vitest run` (plus riktade tester vid behov).
 - **Städa efter merge:** när ett sidospår är uppätet av `master`, ta bort tillfällig branch/worktree så Cursor inte fortsätter visa gamla arbetslinjer.
 
+**Två spår samtidigt (låg konfliktrisk):** i [`STORDSTAD-repo-kod-databas.md`](../plans/active/STORDSTAD-repo-kod-databas.md) kallas **spår A** repo-städ (docs-nav, barrels, env-wrapper-dokumentation) och **spår B** own-engine / generation. Efter att en docs-städbatch är **committad och pushad** kan en annan agent gärna köra **spår B** i `src/lib/gen/*` (undantag: undvik massändringar i `src/lib/gen/scaffolds/*` utan egen scope), `src/lib/providers/own-engine/*` och prompt/runtime/orchestration — medan spår A håller sig till `docs/`, `scripts/README.md`, `AGENTS.md`, `.cursor/README.md` och smala `src/lib/`-zoner utanför generationsskärnan. Pågår en stor docs-redigering i samma working tree: låt spår B **inte** röra samma filer i samma commit.
+
 Vilka doc-filer som rörts i en större städvåg kan spåras i den arkiverade [`POST-EPIC-CLEANUP.md`](../plans/avklarat/POST-EPIC-CLEANUP.md) § *Dokumentation som berörts*.
 
 ## Verifiering före större merge
