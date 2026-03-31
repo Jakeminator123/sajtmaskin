@@ -1,0 +1,36 @@
+FRONTEND REDESIGN ANALYSIS: Global Layout, Navigation & Header
+================================================================
+
+CURRENT STATE
+- Two separate nav implementations: landing-v2/navbar.tsx (home) and layout/navbar.tsx (app pages)
+- Landing nav: inline links (Funktioner, Teknik, Hur det fungerar, Priser, FAQ) visible on desktop
+- App nav: fixed black bar with 4 text+icon nav buttons (Skapa, Projekt, Templates, Priser)
+- Login is text-based ("Logga in"), CTA is loud 3D+glow "Kom igång gratis"
+- Two separate footers with overlapping content (layout/footer.tsx + landing-v2/landing-footer.tsx)
+- BetaBanner and CookieBanner add visual noise
+- Root layout: ThemeProvider (dark default), Geist Sans + Space Grotesk fonts
+
+FILES TO CHANGE
+- src/app/layout.tsx — fonts, global providers, optional font reduction
+- src/app/globals.css — color tokens → dark blue / orange / white
+- tailwind.config.cjs — new color aliases
+- src/components/landing-v2/navbar.tsx — hamburger all breakpoints, icon login, subtle CTA
+- src/components/layout/navbar.tsx — same pattern for /projects, /buy-credits
+- src/components/landing-v2/landing-footer.tsx — radical simplification
+- src/components/layout/footer.tsx — same
+- src/styles/landing-v2.css — remove btn-3d/btn-glow, soften orbs
+- src/components/layout/beta-banner.tsx — shorten to icon-only or one line
+- src/components/layout/cookie-banner.tsx — optional simplification
+
+PROPOSED CHANGES
+1. ALL breakpoints: Remove visible nav links; put ALL destinations inside hamburger menu (top-right)
+2. Right cluster: [Kom igång gratis — outline/soft] [Login icon] [Menu icon]
+3. Use Sheet or DropdownMenu from @/components/ui for the menu panel
+4. Unify both navbars into one shared pattern
+5. Footer: collapse to single row (logo + 2-3 links + copyright)
+6. Remove "Beta" pill or make icon-only
+
+NEW COMPONENTS NEEDED
+- SiteNavMenu / HamburgerNav — shared drawer/sheet for all navigation
+- HeaderActions — right cluster: CTA + login icon + menu trigger
+- MinimalFooter — single implementation replacing both footers

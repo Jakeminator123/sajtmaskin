@@ -126,17 +126,17 @@ export function EnvCompare() {
   );
 
   return (
-    <div className="border border-gray-800 bg-black/50 p-6">
+    <div className="border border-border bg-card p-6">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-            <ArrowLeftRight className="text-brand-teal h-5 w-5" />
+          <div className="bg-primary/10 flex h-10 w-10 items-center justify-center">
+            <ArrowLeftRight className="text-primary h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="text-lg font-semibold text-foreground">
               Env-jämförare
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Lokalt vs Vercel vs kod-schema
             </p>
           </div>
@@ -146,7 +146,7 @@ export function EnvCompare() {
           size="sm"
           onClick={() => void fetchCompare()}
           disabled={loading}
-          className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+          className="gap-2 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -182,8 +182,8 @@ export function EnvCompare() {
                 onClick={() => setFilter(value)}
                 className={`rounded px-3 py-1 text-xs transition-colors ${
                   filter === value
-                    ? "bg-brand-teal/20 text-brand-teal ring-1 ring-brand-teal/40"
-                    : "bg-gray-800/50 text-gray-400 hover:text-white"
+                    ? "bg-primary/20 text-primary ring-1 ring-primary/40"
+                    : "bg-muted/50 text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {label}
@@ -191,7 +191,7 @@ export function EnvCompare() {
             ))}
           </div>
 
-          <div className="mb-4 flex flex-wrap gap-2 text-[10px] text-gray-500">
+          <div className="mb-4 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
             <span>Push till Vercel: {data.summary.pushToVercel}</span>
             <span>Pull fran Vercel: {data.summary.pullFromVercel}</span>
             <span>Manuell granskning: {data.summary.reviewManually}</span>
@@ -203,21 +203,21 @@ export function EnvCompare() {
               return (
                 <div
                   key={row.key}
-                  className={`border bg-black/30 px-3 py-2 text-sm ${cfg.bg}`}
+                  className={`border bg-muted/50 px-3 py-2 text-sm ${cfg.bg}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
-                        <span className="w-16 text-right font-mono text-[10px] text-gray-600">
+                        <span className="w-16 text-right font-mono text-[10px] text-muted-foreground">
                           {row.inLocal ? "L" : "·"}
                           {row.inVercel ? "V" : "·"}
                           {row.inSchema ? "S" : "·"}
                         </span>
-                        <span className="font-mono text-xs text-gray-300">
+                        <span className="font-mono text-xs text-foreground">
                           {row.key}
                         </span>
                       </div>
-                      <div className="mt-1 flex flex-wrap gap-2 pl-[76px] text-[10px] text-gray-500">
+                      <div className="mt-1 flex flex-wrap gap-2 pl-[76px] text-[10px] text-muted-foreground">
                         <span>{LOCAL_STATE_LABELS[row.localState]}</span>
                         <span>{CLASSIFICATION_LABELS[row.classification]}</span>
                         <span>{SYNC_LABELS[row.syncRecommendation]}</span>
@@ -234,14 +234,14 @@ export function EnvCompare() {
                           )}
                       </div>
                       {row.notes && (
-                        <p className="mt-1 pl-[76px] text-[10px] text-gray-600">
+                        <p className="mt-1 pl-[76px] text-[10px] text-muted-foreground">
                           {row.notes}
                         </p>
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {row.vercelTargets.length > 0 && (
-                        <span className="text-[10px] text-gray-600">
+                        <span className="text-[10px] text-muted-foreground">
                           {row.vercelTargets.join(", ")}
                         </span>
                       )}
@@ -253,7 +253,7 @@ export function EnvCompare() {
             })}
           </div>
 
-          <div className="mt-3 text-[10px] text-gray-600">
+          <div className="mt-3 text-[10px] text-muted-foreground">
             L = Lokalt (process.env) &middot; V = Vercel &middot; S = Definierad
             i kod-schema
           </div>
@@ -261,7 +261,7 @@ export function EnvCompare() {
       )}
 
       {!data && !loading && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Tryck &quot;Jämför&quot; för att hämta och jämföra env-variabler.
         </p>
       )}

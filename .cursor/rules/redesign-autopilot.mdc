@@ -1,0 +1,46 @@
+---
+description: Autopilot for 9-phase frontend redesign — respond to "Nästa fas" and "Felsök" commands
+alwaysApply: true
+---
+
+# Redesign Autopilot
+
+<!-- CURRENT_PHASE: 3 -->
+
+When the user says **"Nästa fas"**, read the CURRENT_PHASE comment above, then:
+
+1. Open `FRONTEND-REDESIGN-MASTERPLAN.md` and find the matching phase
+2. Implement ALL changes listed for that phase
+3. Run lints on every modified file and fix errors
+4. Verify the dev server still compiles (check terminal output)
+5. Increment CURRENT_PHASE in this file
+6. Report what was done and what to check on localhost:3000
+
+When the user says **"Felsök"**:
+
+1. Run lints on all files changed in the current and previous phases
+2. Search for hardcoded colors (hex values, Tailwind color classes like sky-*, indigo-*, cyan-*) in changed files
+3. Check for TypeScript errors
+4. Fix everything found
+5. Report fixes
+
+## Phase tracker
+
+| Phase | Status |
+|-------|--------|
+| 1. Designfundament | DONE |
+| 2. Navigation | DONE |
+| 3. Hero & Landing | NEXT |
+| 4. Builder/Chat UI | — |
+| 5. Preview & Templates | — |
+| 6. Auth | — |
+| 7. Marketing-sidor | — |
+| 8. OpenClaw chattbubbla | — |
+| 9. Hardkodade färger | — |
+
+## Rules
+
+- NEVER change backend logic, API routes, or data flow
+- Always use CSS variables / Tailwind tokens — never hardcode colors
+- Color palette: navy background, orange primary/CTA, white foreground
+- Minimalist: as few words as possible in all UI text

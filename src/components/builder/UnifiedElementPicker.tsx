@@ -470,12 +470,12 @@ export function UnifiedElementPicker({
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as UnifiedPickerTab)} className="contents">
         {/* ── Header ── */}
         <div className="relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-teal/50 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-primary/50 to-transparent" />
           <DialogHeader className="px-6 pt-5 pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-linear-to-br from-brand-teal/20 via-brand-blue/15 to-brand-teal/10 ring-1 ring-brand-teal/20">
-                  <Plus className="size-5 text-brand-teal" />
+                <div className="flex size-10 items-center justify-center rounded-xl bg-linear-to-br from-primary/20 via-primary/15 to-primary/10 ring-1 ring-primary/20">
+                  <Plus className="size-5 text-primary" />
                 </div>
                 <div>
                   <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
@@ -498,7 +498,7 @@ export function UnifiedElementPicker({
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="flex items-center gap-1.5 rounded-md border-0 px-3 py-1.5 text-xs font-medium shadow-none transition-all data-[state=active]:bg-brand-teal/15 data-[state=active]:text-brand-teal data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-brand-teal/20 data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
+                    className="flex items-center gap-1.5 rounded-md border-0 px-3 py-1.5 text-xs font-medium shadow-none transition-all data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-primary/20 data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
                   >
                     <Icon className="size-3.5" />
                     {tab.label}
@@ -523,7 +523,7 @@ export function UnifiedElementPicker({
                   <div className="flex items-center justify-between">
                     <div className="flex rounded-md border border-border bg-muted/30 p-0.5">
                       {(["block", "component"] as const).map((t) => (
-                        <button key={t} type="button" onClick={() => setUiItemType(t)} className={`rounded-sm px-2.5 py-1 text-[11px] font-medium transition-all ${uiItemType === t ? "bg-brand-teal/15 text-brand-teal shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                        <button key={t} type="button" onClick={() => setUiItemType(t)} className={`rounded-sm px-2.5 py-1 text-[11px] font-medium transition-all ${uiItemType === t ? "bg-primary/15 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
                           {t === "block" ? "Blocks" : "Komponenter"}
                         </button>
                       ))}
@@ -557,7 +557,7 @@ export function UnifiedElementPicker({
                         ))}
                       </div>
                       {activeUiCollection && (
-                        <div className="rounded-xl border border-brand-teal/20 bg-brand-teal/5 p-3">
+                        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -597,7 +597,7 @@ export function UnifiedElementPicker({
                 <div className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-3">
                   {uiLoadingCategories ? (
                     <div className="flex flex-col items-center justify-center gap-3 py-16">
-                      <Loader2 className="size-6 animate-spin text-brand-teal/60" />
+                      <Loader2 className="size-6 animate-spin text-primary/60" />
                       <span className="text-xs text-muted-foreground">Laddar katalog...</span>
                     </div>
                   ) : uiError ? (
@@ -624,7 +624,7 @@ export function UnifiedElementPicker({
                               const thumbUrl = showThumb ? item.lightImageUrl || buildPreviewImageUrl(item.name, "light", DEFAULT_STYLE) : null;
                               const thumbFailed = showThumb && thumbUrl ? uiFailedThumbs.has(item.name) : false;
                               return (
-                                <button key={item.name} type="button" onClick={() => setUiSelectedItem(item)} className={`group w-full rounded-xl border p-2 text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/5 shadow-sm shadow-brand-teal/5" : "border-transparent hover:border-border hover:bg-muted/30"}`}>
+                                <button key={item.name} type="button" onClick={() => setUiSelectedItem(item)} className={`group w-full rounded-xl border p-2 text-left transition-all ${isSelected ? "border-primary/40 bg-primary/5 shadow-sm shadow-primary/5" : "border-transparent hover:border-border hover:bg-muted/30"}`}>
                                   <div className="flex items-center gap-3">
                                     {showThumb ? (
                                       <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-lg border border-border/50 bg-white">
@@ -640,8 +640,8 @@ export function UnifiedElementPicker({
                                     )}
                                     <div className="min-w-0 flex-1">
                                       <div className="flex items-center gap-2">
-                                        <span className={`text-sm font-medium ${isSelected ? "text-brand-teal" : "text-foreground"}`}>{item.title}</span>
-                                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium uppercase ${item.type === "block" ? "bg-brand-blue/10 text-brand-blue/70" : "bg-brand-amber/10 text-brand-amber/70"}`}>{item.type === "block" ? "Block" : "UI"}</span>
+                                        <span className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>{item.title}</span>
+                                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium uppercase ${item.type === "block" ? "bg-primary/10 text-primary/70" : "bg-primary/10 text-primary/70"}`}>{item.type === "block" ? "Block" : "UI"}</span>
                                       </div>
                                       {item.description && <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">{item.description}</div>}
                                     </div>
@@ -700,15 +700,15 @@ export function UnifiedElementPicker({
                         const isPinned = paletteSelectionSet.has(`ai-element:${item.id}`);
                         const CatIcon = CATEGORY_ICONS[item.category] || Package;
                         return (
-                          <button key={item.id} type="button" onClick={() => setAiSelectedId(item.id)} className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:bg-muted/40"}`}>
+                          <button key={item.id} type="button" onClick={() => setAiSelectedId(item.id)} className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${isSelected ? "border-primary/40 bg-primary/10" : "border-border/60 hover:bg-muted/40"}`}>
                             <div className="flex items-center gap-2.5">
-                              <div className={`flex size-7 shrink-0 items-center justify-center rounded-md ${isSelected ? "bg-brand-teal/20 text-brand-teal" : "bg-muted/50 text-muted-foreground"}`}>
+                              <div className={`flex size-7 shrink-0 items-center justify-center rounded-md ${isSelected ? "bg-primary/20 text-primary" : "bg-muted/50 text-muted-foreground"}`}>
                                 <CatIcon className="size-3.5" />
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="text-sm font-medium text-foreground">{item.label}</div>
-                                  {isPinned && <span className="text-[10px] font-medium text-brand-teal">Tillagd</span>}
+                                  {isPinned && <span className="text-[10px] font-medium text-primary">Tillagd</span>}
                                 </div>
                                 <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">{item.description}</div>
                               </div>
@@ -746,8 +746,8 @@ export function UnifiedElementPicker({
                         <div className="mt-4 text-xs text-muted-foreground">Inga extra dependencies krävs.</div>
                       )}
                       {selectedAiItem.promptHints?.length ? (
-                        <div className="mt-4 rounded-xl border border-brand-teal/15 bg-brand-teal/5 p-4">
-                          <div className="text-xs font-medium text-brand-teal">Implementeringsguide</div>
+                        <div className="mt-4 rounded-xl border border-primary/15 bg-primary/5 p-4">
+                          <div className="text-xs font-medium text-primary">Implementeringsguide</div>
                           <ul className="mt-2 space-y-1.5">
                             {selectedAiItem.promptHints.map((hint, i) => (
                               <li key={i} className="text-[12px] leading-relaxed text-muted-foreground">• {hint}</li>
@@ -791,7 +791,7 @@ export function UnifiedElementPicker({
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Kategorier</div>
                   <div className="space-y-1">
                     {templateCategories.map((category: CategoryInfo) => (
-                      <button key={category.id} type="button" onClick={() => { setTemplateCategory(category.id); setTemplateQuery(""); }} className={`w-full rounded-md px-3 py-2 text-left text-xs font-medium transition-colors ${category.id === templateCategory && !templateQuery.trim() ? "bg-brand-blue/10 text-brand-blue" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"}`}>
+                      <button key={category.id} type="button" onClick={() => { setTemplateCategory(category.id); setTemplateQuery(""); }} className={`w-full rounded-md px-3 py-2 text-left text-xs font-medium transition-colors ${category.id === templateCategory && !templateQuery.trim() ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"}`}>
                         {category.title}
                       </button>
                     ))}
@@ -838,7 +838,7 @@ export function UnifiedElementPicker({
                           const isSelected = selectedTemplate?.id === result.template.id;
                           const scorePercent = Math.round(result.score * 100);
                           return (
-                            <button key={result.template.id} type="button" onClick={() => handleSearchResultSelect(result)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"}`}>
+                            <button key={result.template.id} type="button" onClick={() => handleSearchResultSelect(result)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-primary/40 bg-primary/10" : "border-border/60 hover:border-primary/30 hover:bg-muted/40"}`}>
                               <div className="relative aspect-16/10 w-full overflow-hidden bg-muted/30">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={result.template.previewImageUrl} alt={result.template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
@@ -865,7 +865,7 @@ export function UnifiedElementPicker({
                           {templateItems.map((template) => {
                             const isSelected = selectedTemplate?.id === template.id;
                             return (
-                              <button key={template.id} type="button" onClick={() => setSelectedTemplate(template)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"}`}>
+                              <button key={template.id} type="button" onClick={() => setSelectedTemplate(template)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-primary/40 bg-primary/10" : "border-border/60 hover:border-primary/30 hover:bg-muted/40"}`}>
                                 <div className="aspect-16/10 w-full overflow-hidden bg-muted/30">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img src={getTemplateImageUrl(template)} alt={template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
@@ -894,7 +894,7 @@ export function UnifiedElementPicker({
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Teman</div>
                   <div className="space-y-1">
                     {DESIGN_THEME_OPTIONS.map((option) => (
-                      <button key={option.value} type="button" onClick={() => setSelectedTheme(option.value)} className={`w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition-colors ${option.value === selectedTheme ? "border-brand-blue/30 bg-brand-blue/10 text-brand-blue" : "border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground"}`}>
+                      <button key={option.value} type="button" onClick={() => setSelectedTheme(option.value)} className={`w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition-colors ${option.value === selectedTheme ? "border-primary/30 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground"}`}>
                         {option.label}
                       </button>
                     ))}
@@ -946,10 +946,10 @@ export function UnifiedElementPicker({
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {dynamicPlacementOptions.map((opt) => (
-                    <DropdownMenuItem key={opt.value} onClick={() => setPlacement(opt.value)} className={`flex cursor-pointer items-start gap-3 py-2 ${placement === opt.value ? "bg-brand-teal/10" : ""}`}>
+                    <DropdownMenuItem key={opt.value} onClick={() => setPlacement(opt.value)} className={`flex cursor-pointer items-start gap-3 py-2 ${placement === opt.value ? "bg-primary/10" : ""}`}>
                       <span className="mt-0.5 shrink-0 text-muted-foreground">{opt.icon}</span>
                       <div>
-                        <div className={`text-sm font-medium ${placement === opt.value ? "text-brand-teal" : "text-foreground"}`}>{opt.label}</div>
+                        <div className={`text-sm font-medium ${placement === opt.value ? "text-primary" : "text-foreground"}`}>{opt.label}</div>
                         <div className="text-xs text-muted-foreground">{opt.description}</div>
                       </div>
                     </DropdownMenuItem>
@@ -970,28 +970,28 @@ export function UnifiedElementPicker({
             <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>Avbryt</Button>
 
             {activeTab === "ui" && hasChat && (
-              <Button size="sm" onClick={() => handleUiConfirm("add")} disabled={!uiCanAct} className="bg-brand-teal hover:bg-brand-teal/90 text-white shadow-sm shadow-brand-teal/20">
+              <Button size="sm" onClick={() => handleUiConfirm("add")} disabled={!uiCanAct} className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20">
                 {isSubmitting && uiPendingAction === "add" ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Wand2 className="mr-1.5 size-4" />}
                 Lägg till
               </Button>
             )}
             {activeTab === "ui" && !hasChat && (
-              <Button size="sm" onClick={() => handleUiConfirm("start")} disabled={!uiCanAct || uiItemType !== "block"} className="bg-brand-amber hover:bg-brand-amber/90 text-white shadow-sm shadow-brand-amber/20">
+              <Button size="sm" onClick={() => handleUiConfirm("start")} disabled={!uiCanAct || uiItemType !== "block"} className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20">
                 Starta från block
               </Button>
             )}
             {activeTab === "ai" && (
-              <Button size="sm" onClick={handleAiConfirm} disabled={!canAddAiElement} className="bg-brand-teal hover:bg-brand-teal/90 text-white shadow-sm shadow-brand-teal/20">
+              <Button size="sm" onClick={handleAiConfirm} disabled={!canAddAiElement} className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20">
                 Lägg till
               </Button>
             )}
             {activeTab === "mall" && (
-              <Button size="sm" onClick={handleTemplateConfirm} disabled={!canStartTemplate} className="bg-brand-blue hover:bg-brand-blue/90 text-white shadow-sm shadow-brand-blue/20">
+              <Button size="sm" onClick={handleTemplateConfirm} disabled={!canStartTemplate} className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20">
                 Starta mall
               </Button>
             )}
             {activeTab === "tema" && (
-              <Button size="sm" onClick={handleThemeConfirm} disabled={!canApplyTheme} className="bg-brand-blue hover:bg-brand-blue/90 text-white shadow-sm shadow-brand-blue/20">
+              <Button size="sm" onClick={handleThemeConfirm} disabled={!canApplyTheme} className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20">
                 Använd tema
               </Button>
             )}
@@ -1008,7 +1008,7 @@ function CategoryPill({ active, onClick, label }: { active: boolean; onClick: ()
       type="button"
       onClick={onClick}
       className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-        active ? "bg-brand-teal/15 text-brand-teal ring-1 ring-brand-teal/20" : "bg-muted/40 text-muted-foreground hover:text-foreground"
+        active ? "bg-primary/15 text-primary ring-1 ring-primary/20" : "bg-muted/40 text-muted-foreground hover:text-foreground"
       }`}
     >
       {label}
@@ -1023,14 +1023,14 @@ const COMPONENT_THUMB_META: Record<
   inputs: {
     emoji: "⌨️",
     label: "Input",
-    badgeClass: "bg-brand-blue/10 text-brand-blue/80",
-    backgroundClass: "from-brand-blue/8 to-brand-blue/2",
+    badgeClass: "bg-primary/10 text-primary/80",
+    backgroundClass: "from-primary/8 to-primary/2",
   },
   forms: {
     emoji: "📝",
     label: "Form",
-    badgeClass: "bg-brand-amber/10 text-brand-amber/80",
-    backgroundClass: "from-brand-amber/8 to-brand-amber/2",
+    badgeClass: "bg-primary/10 text-primary/80",
+    backgroundClass: "from-primary/8 to-primary/2",
   },
   overlay: {
     emoji: "🪟",
@@ -1088,7 +1088,7 @@ function ComponentListThumbnail({ item, selected }: { item: ComponentItem; selec
   return (
     <div
       className={`relative h-20 w-32 shrink-0 overflow-hidden rounded-lg border transition-colors ${
-        selected ? "border-brand-teal/40" : "border-border/50"
+        selected ? "border-primary/40" : "border-border/50"
       }`}
     >
       <div className={`h-full w-full bg-linear-to-br ${meta.backgroundClass} p-2`}>

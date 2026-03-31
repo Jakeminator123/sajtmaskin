@@ -33,6 +33,7 @@ export type AIElementsMessage = {
   role: "user" | "assistant";
   parts: MessagePart[];
   isStreaming?: boolean;
+  isHelpMessage?: boolean;
 };
 
 export function toAIElementsFormat(msg: ChatMessage): AIElementsMessage {
@@ -57,6 +58,7 @@ export function toAIElementsFormat(msg: ChatMessage): AIElementsMessage {
     role: msg.role,
     parts,
     isStreaming: msg.isStreaming,
+    isHelpMessage: msg.isHelpMessage,
   };
 }
 

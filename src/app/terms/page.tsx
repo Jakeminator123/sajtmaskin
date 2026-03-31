@@ -1,129 +1,90 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { Footer } from "@/components/layout";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Användarvillkor",
-  description: "Användarvillkor för Sajtmaskin – AI-driven webbplatsgenerering av Pretty Good AB.",
-};
+import Link from "next/link";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { MinimalFooter } from "@/components/layout";
+
+const sections = [
+  {
+    title: "1. Om tjänsten",
+    content: 'Sajtmaskin ("Tjänsten") är en AI-driven plattform för webbplatsgenerering som drivs av Pretty Good AB, org.nr DG97. Genom att använda Tjänsten godkänner du dessa villkor.',
+  },
+  {
+    title: "2. Användarkonto",
+    content: "Du ansvarar för att hålla dina inloggningsuppgifter säkra. Vi förbehåller oss rätten att stänga konton som missbrukas.",
+  },
+  {
+    title: "3. Credits och betalning",
+    content: "Tjänsten använder ett credit-baserat system. Credits köps via Stripe och kan användas för att generera webbplatser och AI-funktioner. Köpta credits återbetalas inte om inget annat avtalas.",
+  },
+  {
+    title: "4. Genererat innehåll",
+    content: "Innehåll som genereras via Tjänsten baseras på AI-modeller. Du erhåller rätten att använda genererat innehåll fritt, inklusive kommersiellt. Vi garanterar inte att innehållet är felfritt. Du ansvarar för att granska materialet innan publicering.",
+  },
+  {
+    title: "5. Acceptabel användning",
+    content: "Du förbinder dig att inte använda Tjänsten för att generera olagligt, skadligt eller vilseledande innehåll, kränka tredje parts rättigheter, eller överbelasta infrastrukturen.",
+  },
+  {
+    title: "6. Ansvarsbegränsning",
+    content: 'Tjänsten tillhandahålls "i befintligt skick". Vi ansvarar inte för indirekta skador. Vår maximala ansvarsskyldighet är begränsad till det belopp du betalat under de senaste 12 månaderna.',
+  },
+  {
+    title: "7. Ändringar",
+    content: "Vi kan uppdatera dessa villkor med 30 dagars förvarning. Fortsatt användning innebär godkännande.",
+  },
+  {
+    title: "8. Tvistlösning",
+    content: "Dessa villkor regleras av svensk lag. Tvister avgörs av Stockholms tingsrätt som första instans.",
+  },
+  {
+    title: "9. Kontakt",
+    content: "Pretty Good AB (DG97) — support@sajtmaskin.se — sajtstudio.se",
+  },
+];
+
+function Accordion({ title, content }: { title: string; content: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-border/30 last:border-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-4 py-4 text-left"
+      >
+        <span className="text-sm font-medium text-foreground">{title}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      <div className={`overflow-hidden transition-all duration-200 ${open ? "max-h-60 pb-4 opacity-100" : "max-h-0 opacity-0"}`}>
+        <p className="text-sm leading-relaxed text-muted-foreground">{content}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function TermsPage() {
   return (
     <>
-    <main className="bg-background text-foreground min-h-screen">
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <Link
-          href="/"
-          className="text-muted-foreground hover:text-foreground mb-8 inline-block text-sm transition-colors"
-        >
-          &larr; Tillbaka
-        </Link>
+      <main className="bg-background text-foreground min-h-screen">
+        <div className="mx-auto max-w-2xl px-6 py-16">
+          <Link href="/" className="text-muted-foreground hover:text-foreground mb-8 inline-block text-sm">
+            &larr; Tillbaka
+          </Link>
 
-        <h1 className="text-foreground mb-2 text-3xl font-semibold tracking-tight">
-          Användarvillkor
-        </h1>
-        <p className="text-muted-foreground mb-10 text-sm">
-          Senast uppdaterad: {new Date().toISOString().split("T")[0]}
-        </p>
+          <h1 className="mb-2 text-2xl font-semibold tracking-tight">Användarvillkor</h1>
+          <p className="text-muted-foreground mb-8 text-xs">
+            Senast uppdaterad: {new Date().toISOString().split("T")[0]}
+          </p>
 
-        <div className="prose-sm space-y-8">
-          <Section title="1. Om tjänsten">
-            <p>
-              Sajtmaskin (&quot;Tjänsten&quot;) är en AI-driven plattform för webbplatsgenerering som
-              drivs av Pretty Good AB, org.nr DG97 (&quot;Bolaget&quot;,
-              &quot;vi&quot;). Genom att använda Tjänsten godkänner du dessa villkor.
-            </p>
-          </Section>
-
-          <Section title="2. Användarkonto">
-            <p>
-              Du ansvarar för att hålla dina inloggningsuppgifter säkra. Du får inte dela ditt konto
-              med andra. Vi förbehåller oss rätten att stänga konton som missbrukas.
-            </p>
-          </Section>
-
-          <Section title="3. Credits och betalning">
-            <p>
-              Tjänsten använder ett credit-baserat system. Credits köps via Stripe och kan användas
-              för att generera webbplatser och AI-funktioner. Köpta credits återbetalas inte om
-              inget annat avtalas. Priserna anges inklusive moms om inget annat specificeras.
-            </p>
-          </Section>
-
-          <Section title="4. Genererat innehåll">
-            <p>
-              Innehåll som genereras via Tjänsten baseras på AI-modeller. Du erhåller rätten att
-              använda genererat innehåll fritt, inklusive kommersiellt. Vi garanterar inte att
-              genererat innehåll är fritt från fel, immaterialrättsliga intrång eller säkerhetsbrister.
-              Du ansvarar för att granska och anpassa genererat material innan publicering.
-            </p>
-          </Section>
-
-          <Section title="5. Acceptabel användning">
-            <p>Du förbinder dig att inte använda Tjänsten för att:</p>
-            <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
-              <li>Generera olagligt, skadligt eller vilseledande innehåll</li>
-              <li>Kränka tredje parts immaterialrättsliga rättigheter</li>
-              <li>Överbelasta eller störa Tjänstens infrastruktur</li>
-              <li>Automatisera åtkomst på sätt som inte stöds av Tjänsten</li>
-            </ul>
-          </Section>
-
-          <Section title="6. Ansvarsbegränsning">
-            <p>
-              Tjänsten tillhandahålls &quot;i befintligt skick&quot;. Vi ansvarar inte för indirekta
-              skador, utebliven vinst eller förlust av data. Vår maximala ansvarsskyldighet är
-              begränsad till det belopp du betalat till oss under de senaste 12 månaderna.
-            </p>
-          </Section>
-
-          <Section title="7. Ändringar av villkor">
-            <p>
-              Vi kan uppdatera dessa villkor med 30 dagars förvarning. Fortsatt användning efter
-              uppdatering innebär godkännande av de nya villkoren.
-            </p>
-          </Section>
-
-          <Section title="8. Tvistlösning">
-            <p>
-              Dessa villkor regleras av svensk lag. Tvister avgörs av svensk allmän domstol med
-              Stockholms tingsrätt som första instans.
-            </p>
-          </Section>
-
-          <Section title="9. Kontakt">
-            <p>
-              Pretty Good AB (DG97)
-              <br />
-              E-post:{" "}
-              <a href="mailto:support@sajtmaskin.se" className="text-primary hover:underline">
-                support@sajtmaskin.se
-              </a>
-              <br />
-              Webb:{" "}
-              <a
-                href="https://sajtstudio.se"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                sajtstudio.se
-              </a>
-            </p>
-          </Section>
+          <div>
+            {sections.map((s) => (
+              <Accordion key={s.title} title={s.title} content={s.content} />
+            ))}
+          </div>
         </div>
-      </div>
-    </main>
-    <Footer />
+      </main>
+      <MinimalFooter />
     </>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="text-foreground mb-3 text-lg font-medium tracking-tight">{title}</h2>
-      <div className="text-muted-foreground space-y-3 text-sm leading-relaxed">{children}</div>
-    </section>
   );
 }

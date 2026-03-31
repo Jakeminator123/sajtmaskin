@@ -1,11 +1,10 @@
 "use client"
 
-import { ArrowUp, ChevronDown, Mic, Video, X } from "lucide-react"
-import { toast } from "sonner"
+import { useEffect, useRef } from "react"
+import { ArrowUp, Mic, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
-import { ParticleOrb } from "@/components/landing-v2/particle-orb"
-import { categories, stats } from "@/components/landing-v2/landing-chat-data"
+import { categories } from "@/components/landing-v2/landing-chat-data"
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
 
 export type LandingHeroProps = Pick<
@@ -17,8 +16,6 @@ export type LandingHeroProps = Pick<
   | "inputValue"
   | "setInputValue"
   | "isSubmitting"
-  | "headlineTilt"
-  | "rotatingType"
   | "activeCategory"
   | "isAuditMode"
   | "currentAuditUrl"
@@ -37,221 +34,168 @@ export function LandingHero({
   inputValue,
   setInputValue,
   isSubmitting,
-  headlineTilt,
-  rotatingType,
   activeCategory,
   isAuditMode,
   currentAuditUrl,
   handleAuditUrlChange,
   submitPrimaryInput,
 }: LandingHeroProps) {
-  const { ref: headlineRef, handleMove: onHeadlineMove, handleLeave: onHeadlineLeave } = headlineTilt
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    videoRef.current?.play().catch(() => {})
+  }, [])
 
   return (
-    <section className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-6 pt-10 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-16 md:pb-12">
+    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden supports-[height:100svh]:min-h-[100svh]">
+      {/* Video background */}
+      <video
+        ref={videoRef}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover hidden md:block"
+        preload="auto"
+      >
+        <source src="/video/hero-desktop.mp4" type="video/mp4" />
+      </video>
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover md:hidden"
+        preload="auto"
+      >
+        <source src="/video/hero-mobile.mp4" type="video/mp4" />
+      </video>
+
+      {/* Overlay to ensure text readability */}
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-[2px]" />
+
       {heroPrefix}
-      <div className="relative mb-5 animate-fade-up" style={{ animationDelay: "0.1s" }}>
-        <ParticleOrb />
-      </div>
 
-      <div
-        className="inline-flex items-center gap-2 text-xs font-medium text-primary bg-primary/8 border border-primary/15 px-4 py-1.5 rounded-full mb-5 animate-fade-up"
-        style={{ animationDelay: "0.2s" }}
-      >
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-        </span>
-        F&ouml;r svenska f&ouml;retag som vill komma ig&aring;ng snabbt
-      </div>
-
-      <div
-        ref={headlineRef}
-        onMouseMove={onHeadlineMove}
-        onMouseLeave={onHeadlineLeave}
-        style={{ transition: "transform 0.15s ease-out", willChange: "transform" }}
-        className="cursor-default"
-      >
+      {/* Pulsating hero box */}
+      <div className="relative z-10 mx-4 w-full max-w-2xl animate-hero-pulse rounded-3xl border border-border/40 bg-card/85 px-6 py-10 shadow-2xl backdrop-blur-xl sm:px-10 sm:py-14 md:px-14 md:py-16">
         <h1
-          className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-4 text-center font-(--font-heading) tracking-tight text-balance animate-fade-up leading-[1.1]"
+          className="text-3xl sm:text-4xl md:text-5xl text-foreground text-center font-(--font-heading) tracking-tight text-balance leading-[1.1] mb-3 animate-fade-up"
+          style={{ animationDelay: "0.1s" }}
+        >
+          Bygg din sajt med AI
+        </h1>
+        <p
+          className="text-base sm:text-lg text-muted-foreground text-center max-w-lg mx-auto mb-8 animate-fade-up"
+          style={{ animationDelay: "0.2s" }}
+        >
+          Beskriv ditt företag. Vi sköter resten.
+        </p>
+
+        {/* Mode selector */}
+        <div
+          className="flex flex-wrap items-center justify-center gap-2 mb-6 animate-fade-up"
           style={{ animationDelay: "0.3s" }}
         >
-          Din n&auml;sta{" "}
-          <span className="relative inline-block">
-            <span
-              className={`text-primary transition-all duration-300 inline-block ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
-            >
-              {rotatingType.text}
-            </span>
-            <span className="absolute -bottom-1 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/60 to-transparent" />
-          </span>
-          <br className="hidden md:block" /> p&aring; 30 sekunder
-        </h1>
-      </div>
-      <p
-        className="text-base md:text-lg text-muted-foreground text-center max-w-2xl mb-8 leading-relaxed animate-fade-up text-pretty"
-        style={{ animationDelay: "0.4s" }}
-      >
-        Beskriv ditt f&ouml;retag &mdash; f&aring; en professionell sajt som driver aff&auml;rer, inte bara ser bra ut. Inga
-        f&ouml;rkunskaper kr&auml;vs. Byggt f&ouml;r svenska f&ouml;retagare som beh&ouml;ver mer &auml;n en statisk
-        startsida.
-      </p>
-
-      <div
-        className="flex flex-wrap items-center justify-center gap-2.5 mb-8 animate-fade-up"
-        style={{ animationDelay: "0.5s" }}
-      >
-        {categories.map((cat, i) => {
-          const Icon = cat.icon
-          const isActive = selectedCategory === cat.id
-          const hoverColors = [
-            "hover:border-sky-500/40 hover:shadow-sky-500/10",
-            "hover:border-violet-500/40 hover:shadow-violet-500/10",
-            "hover:border-amber-500/40 hover:shadow-amber-500/10",
-            "hover:border-rose-500/40 hover:shadow-rose-500/10",
-            "hover:border-emerald-500/40 hover:shadow-emerald-500/10",
-          ]
-          const iconHoverColors = [
-            "group-hover:text-sky-400",
-            "group-hover:text-violet-400",
-            "group-hover:text-amber-400",
-            "group-hover:text-rose-400",
-            "group-hover:text-emerald-400",
-          ]
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => {
-                const newVal = isActive ? null : cat.id
-                pickCategory(newVal)
-              }}
-              className={`group relative flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg ${
-                isActive
-                  ? "bg-primary/12 border-primary/40 text-foreground shadow-lg shadow-primary/5 -translate-y-0.5"
-                  : `bg-secondary/50 border-border/30 text-muted-foreground hover:text-foreground hover:bg-secondary/70 ${hoverColors[i]}`
-              }`}
-            >
-              <Icon
-                className={`w-4 h-4 shrink-0 transition-all duration-300 ${
-                  isActive ? "text-primary" : `text-muted-foreground ${iconHoverColors[i]}`
-                } group-hover:scale-110`}
-              />
-              <div className="flex flex-col items-start">
-                <span className="text-sm font-medium leading-tight">{cat.label}</span>
-                <span className="text-[10px] text-muted-foreground leading-tight">{cat.description}</span>
-              </div>
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-current scale-0 group-hover:scale-100" />
-            </button>
-          )
-        })}
-      </div>
-
-      <div className={`w-full ${isAuditMode ? "max-w-xl" : "max-w-2xl"} animate-fade-up`} style={{ animationDelay: "0.6s" }}>
-        {showVoiceRecorder && !isAuditMode && (
-          <div className="mb-3 input-3d bg-secondary/80 backdrop-blur-xl rounded-2xl border border-border/50 px-4 py-3 shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-300">
-            <div className="flex items-center justify-between gap-4">
-              <VoiceRecorder
-                compact
-                language="sv"
-                onTranscript={(t) => {
-                  setInputValue((prev) => (prev ? prev + " " + t : t))
-                  setShowVoiceRecorder(false)
-                }}
-                onRecordingChange={() => {}}
-                className="flex-1"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
-                onClick={() => setShowVoiceRecorder(false)}
-                aria-label="Stäng röstinspelning"
+          {categories.map((cat) => {
+            const Icon = cat.icon
+            const isActive = selectedCategory === cat.id
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => pickCategory(isActive ? null : cat.id)}
+                className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all ${
+                  isActive
+                    ? "bg-primary/10 border-primary/30 text-foreground"
+                    : "bg-secondary/50 border-border/30 text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+                }`}
               >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        )}
+                <Icon className={`w-4 h-4 ${isActive ? "text-primary" : ""}`} />
+                <span className="font-medium">{cat.label}</span>
+              </button>
+            )
+          })}
+        </div>
 
-        <div className={`input-3d bg-secondary/50 backdrop-blur-xl rounded-2xl border border-border/30 ${isAuditMode ? "p-3" : "p-4"} shadow-2xl`}>
-          <div className={isAuditMode ? "space-y-2" : "space-y-3"}>
+        {/* Input area */}
+        <div className="w-full animate-fade-up" style={{ animationDelay: "0.4s" }}>
+          {showVoiceRecorder && !isAuditMode && (
+            <div className="mb-3 rounded-2xl border border-border/30 bg-secondary/50 px-4 py-3 animate-in slide-in-from-bottom-2 fade-in duration-300">
+              <div className="flex items-center justify-between gap-4">
+                <VoiceRecorder
+                  compact
+                  language="sv"
+                  onTranscript={(t) => {
+                    setInputValue((prev) => (prev ? prev + " " + t : t))
+                    setShowVoiceRecorder(false)
+                  }}
+                  onRecordingChange={() => {}}
+                  className="flex-1"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 rounded-full"
+                  onClick={() => setShowVoiceRecorder(false)}
+                  aria-label="Stäng"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-border/30 bg-background/60 p-4 shadow-sm">
             {isAuditMode ? (
               <input
                 data-openclaw-text-target="landing.audit.url"
-                data-openclaw-text-label="Audit-URL på startsidan"
+                data-openclaw-text-label="Audit-URL"
                 type="url"
                 inputMode="url"
                 autoComplete="url"
-                placeholder={activeCategory?.placeholder ?? "Klistra in din webbadress här, t.ex. https://mittforetag.se"}
+                placeholder={activeCategory?.placeholder ?? "Klistra in din webbadress..."}
                 value={currentAuditUrl}
                 onChange={(e) => handleAuditUrlChange(e.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault()
-                    submitPrimaryInput()
-                  }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); submitPrimaryInput() }
                 }}
-                className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/60 text-base font-normal leading-relaxed py-2"
+                className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/50 text-base py-2"
               />
             ) : (
               <textarea
                 data-openclaw-text-target="landing.freeform.primary"
-                data-openclaw-text-label="Frilägesfältet på startsidan"
-                placeholder={activeCategory?.placeholder ?? "Beskriv ditt f\u00f6retag \u2014 t.ex. \u201dJag driver en fris\u00f6rsalong i G\u00f6teborg med 3 anst\u00e4llda\u201d"}
+                data-openclaw-text-label="Fritext"
+                placeholder={activeCategory?.placeholder ?? "Beskriv ditt företag..."}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault()
-                    submitPrimaryInput()
-                  }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitPrimaryInput() }
                 }}
-                className="w-full bg-transparent border-none outline-none resize-none text-foreground placeholder:text-muted-foreground/60 text-base min-h-[68px] font-normal leading-relaxed"
+                className="w-full bg-transparent border-none outline-none resize-none text-foreground placeholder:text-muted-foreground/50 text-base min-h-[68px]"
               />
             )}
             <div className="flex items-center justify-between pt-2 border-t border-border/15">
-              <p className="text-xs text-muted-foreground">
-                {activeCategory ? `L\u00e4ge: ${activeCategory.label}` : "V\u00e4lj Template ovan eller skriv fritt"}
-              </p>
+              <span className="text-xs text-muted-foreground">
+                {activeCategory ? activeCategory.label : "Fritext"}
+              </span>
               <div className="flex items-center gap-2">
                 {!isAuditMode && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                      onClick={() => setShowVoiceRecorder((v) => !v)}
-                      aria-label="Spela in röst"
-                    >
-                      <Mic className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                      aria-label="Byt till Analyserad för videoinspelning i wizarden"
-                      title="Videoinspelning med analys finns i Analyserad-läget — klicka för att välja det"
-                      onClick={() => {
-                        pickCategory("analyserad")
-                        toast.message("Analyserad", {
-                          description:
-                            "Fortsätt i wizarden för videoinspelning med analys (t.ex. hållning och blick).",
-                        })
-                      }}
-                    >
-                      <Video className="w-4 h-4" />
-                    </Button>
-                  </>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowVoiceRecorder((v) => !v)}
+                    aria-label="Röstinspelning"
+                  >
+                    <Mic className="w-4 h-4" />
+                  </Button>
                 )}
                 <Button
                   size="icon"
-                  className="h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
+                  className="h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
                   aria-label="Skicka"
                   disabled={isSubmitting || (isAuditMode && currentAuditUrl.trim().length === 0)}
-                  onClick={() => {
-                    submitPrimaryInput()
-                  }}
+                  onClick={() => submitPrimaryInput()}
                 >
                   <ArrowUp className="w-4 h-4" />
                 </Button>
@@ -259,39 +203,12 @@ export function LandingHero({
             </div>
           </div>
         </div>
-      </div>
 
-      {expandedContent && (
-        <div className="w-full flex justify-center mt-8 animate-fade-up">
-          {expandedContent}
-        </div>
-      )}
-
-      <div
-        className="flex flex-wrap items-center justify-center gap-3 md:gap-4 mt-10 animate-fade-up"
-        style={{ animationDelay: "0.7s" }}
-      >
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="group relative flex items-center gap-2 bg-secondary/40 border border-border/20 hover:border-primary/30 rounded-xl px-4 py-2.5 transition-all duration-300 hover:bg-secondary/60 cursor-default"
-          >
-            <span className="text-base md:text-lg text-primary font-(--font-heading) transition-transform duration-300 group-hover:scale-105">
-              {stat.value}
-            </span>
-            <span className="text-xs text-muted-foreground">{stat.label}</span>
-            <span className="absolute -top-9 left-1/2 -translate-x-1/2 text-[10px] text-foreground bg-card border border-border/30 rounded-lg px-2.5 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none -translate-y-1 group-hover:translate-y-0 shadow-lg">
-              {stat.tooltip}
-            </span>
+        {expandedContent && (
+          <div className="w-full flex justify-center mt-8 animate-fade-up">
+            {expandedContent}
           </div>
-        ))}
-      </div>
-
-      <div className="mt-12 animate-fade-up opacity-40" style={{ animationDelay: "1s" }}>
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Scrolla ner</span>
-          <ChevronDown className="w-4 h-4 text-muted-foreground animate-bounce" />
-        </div>
+        )}
       </div>
     </section>
   )

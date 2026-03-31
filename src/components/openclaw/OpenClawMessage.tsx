@@ -23,15 +23,15 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
             className={cn(
               "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
               isUser
-                ? "rounded-br-md bg-cyan-400 text-slate-950"
-                : "rounded-bl-md border border-white/10 bg-white/5 text-slate-100",
+                ? "rounded-br-md bg-primary text-primary-foreground"
+                : "rounded-bl-md border border-border bg-muted/50 text-foreground",
             )}
           >
             {parsed.visibleContent || (
               <span className="inline-flex items-center gap-1 opacity-60">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70 [animation-delay:150ms]" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-200/70 [animation-delay:300ms]" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-foreground/30" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-foreground/30 [animation-delay:150ms]" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-foreground/30 [animation-delay:300ms]" />
               </span>
             )}
           </div>
@@ -77,17 +77,17 @@ function OpenClawActionCard({
   };
 
   return (
-    <div className="rounded-2xl border border-cyan-400/20 bg-slate-900/70 p-3 text-slate-100">
-      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-200/80">
+    <div className="rounded-2xl border border-primary/20 bg-card p-3 text-foreground">
+      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-primary/80">
         Fältförslag
       </p>
-      <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-300">
+      <p className="mt-1 text-sm font-semibold text-foreground">{actionLabel}</p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
         {targetContext?.canWrite === false
           ? "Fältet är låst just nu. Om det blir skrivbart kan du prova igen."
           : "Jag kan lägga in den här texten i fältet när du godkänner."}
       </p>
-      <div className="mt-2 max-h-32 overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 whitespace-pre-wrap text-slate-200">
+      <div className="mt-2 max-h-32 overflow-y-auto rounded-xl border border-border bg-muted/50 p-2 text-xs leading-5 whitespace-pre-wrap text-foreground">
         {action.value}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -97,14 +97,14 @@ function OpenClawActionCard({
               type="button"
               onClick={handleApprove}
               disabled={targetContext?.canWrite === false}
-              className="rounded-full bg-cyan-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Godkänn och fyll
             </button>
             <button
               type="button"
               onClick={handleDecline}
-              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50"
             >
               Avvisa
             </button>
@@ -118,7 +118,7 @@ function OpenClawActionCard({
         ) : null}
 
         {actionState === "declined" ? (
-          <p className="text-xs text-slate-300">Förslaget avvisades.</p>
+          <p className="text-xs text-muted-foreground">Förslaget avvisades.</p>
         ) : null}
 
         {actionState === "failed" ? (

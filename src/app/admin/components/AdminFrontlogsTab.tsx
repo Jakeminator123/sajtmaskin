@@ -58,15 +58,15 @@ export function AdminFrontlogsTab({
 }: AdminFrontlogsTabProps) {
   return (
     <div className="space-y-6">
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-              <FileText className="text-brand-teal h-5 w-5" />
+            <div className="bg-primary/10 flex h-10 w-10 items-center justify-center">
+              <FileText className="text-primary h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Frontloggar</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-lg font-semibold text-foreground">Frontloggar</h2>
+              <p className="text-sm text-muted-foreground">
                 Runtime- och frontendnära loggar från den lokala dev-loggen
               </p>
             </div>
@@ -76,7 +76,7 @@ export function AdminFrontlogsTab({
             size="sm"
             onClick={() => void onRefresh()}
             disabled={frontlogsLoading}
-            className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+            className="gap-2 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <RefreshCw className={`h-4 w-4 ${frontlogsLoading ? "animate-spin" : ""}`} />
             Uppdatera
@@ -99,8 +99,8 @@ export function AdminFrontlogsTab({
               onClick={() => onSlugChange(null)}
               className={`rounded-full border px-3 py-1 text-xs ${
                 selectedSlug === null
-                  ? "border-brand-teal/50 bg-brand-teal/10 text-brand-teal"
-                  : "border-gray-700 text-gray-400 hover:text-white"
+                  ? "border-primary/50 bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground"
               }`}
             >
               Alla flöden
@@ -113,7 +113,7 @@ export function AdminFrontlogsTab({
                 className={`rounded-full border px-3 py-1 text-xs ${
                   selectedSlug === slug
                     ? "border-brand-blue/50 bg-brand-blue/10 text-brand-blue"
-                    : "border-gray-700 text-gray-400 hover:text-white"
+                    : "border-border text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {slug}
@@ -122,12 +122,12 @@ export function AdminFrontlogsTab({
           </div>
         )}
 
-        {frontlogsLoading && <p className="text-sm text-gray-500">Hämtar frontloggar...</p>}
+        {frontlogsLoading && <p className="text-sm text-muted-foreground">Hämtar frontloggar...</p>}
         {frontlogsError && <p className="text-sm text-red-400">{frontlogsError}</p>}
         {frontlogs?.note && <p className="text-sm text-amber-300">{frontlogs.note}</p>}
 
         {!frontlogsLoading && !frontlogsError && frontlogs && frontlogs.entries.length === 0 && (
-          <p className="text-sm text-gray-500">Inga frontloggar hittades för det här urvalet.</p>
+          <p className="text-sm text-muted-foreground">Inga frontloggar hittades för det här urvalet.</p>
         )}
 
         {frontlogs && frontlogs.entries.length > 0 && (
@@ -137,9 +137,9 @@ export function AdminFrontlogsTab({
               return (
                 <div
                   key={`${entry.ts}-${entry.target}-${index}`}
-                  className="border border-gray-800 bg-black/30 p-4"
+                  className="border border-border bg-muted/50 p-4"
                 >
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span>{formatWhen(entry.ts)}</span>
                     <span>• {entry.target}</span>
                     <span>• {summary.type}</span>
@@ -151,12 +151,12 @@ export function AdminFrontlogsTab({
                   </div>
 
                   {summary.message && (
-                    <p className="mt-3 text-sm whitespace-pre-wrap text-gray-200">{summary.message}</p>
+                    <p className="mt-3 text-sm whitespace-pre-wrap text-foreground">{summary.message}</p>
                   )}
 
                   <details className="mt-3">
-                    <summary className="cursor-pointer text-sm text-gray-300">Visa JSON</summary>
-                    <pre className="mt-2 max-h-[480px] overflow-auto whitespace-pre-wrap text-xs text-gray-200">
+                    <summary className="cursor-pointer text-sm text-foreground">Visa JSON</summary>
+                    <pre className="mt-2 max-h-[480px] overflow-auto whitespace-pre-wrap text-xs text-foreground">
                       {JSON.stringify(entry.data, null, 2)}
                     </pre>
                   </details>
@@ -180,9 +180,9 @@ function SummaryCard({
   mono?: boolean;
 }) {
   return (
-    <div className="border border-gray-800 bg-black/30 p-3">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className={`mt-1 text-sm text-white ${mono ? "font-mono" : ""}`}>{value}</p>
+    <div className="border border-border bg-muted/50 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-sm text-foreground ${mono ? "font-mono" : ""}`}>{value}</p>
     </div>
   );
 }

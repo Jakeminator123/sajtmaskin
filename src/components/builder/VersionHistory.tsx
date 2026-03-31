@@ -544,7 +544,7 @@ export function VersionHistory({
               qualityTier === "production"
                 ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"
                 : qualityTier === "sandbox"
-                  ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                  ? "border-primary/40 bg-primary/10 text-primary"
                   : qualityTier === "preview"
                     ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
                     : undefined;

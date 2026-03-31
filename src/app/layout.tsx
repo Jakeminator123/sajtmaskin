@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Space_Grotesk } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import "@/styles/landing-v2.css";
@@ -10,10 +10,7 @@ import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
-import { OpenClawChatLazy } from "@/components/openclaw/OpenClawChatLazy";
-import { OPENCLAW, URLS } from "@/lib/config";
-
-const openclawSurfaceEnabled = OPENCLAW.surfaceEnabled;
+import { URLS } from "@/lib/config";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -23,12 +20,6 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-body",
-  display: "swap",
 });
 
 const spaceGrotesk = Space_Grotesk({
@@ -73,18 +64,25 @@ export default async function RootLayout({
   return (
     <html
       lang="sv"
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${spaceGrotesk.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';localStorage.setItem('theme','light')}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="font-sans antialiased">
         <noscript>
-          <div style={{ padding: "2rem", maxWidth: 600, margin: "0 auto", fontFamily: "system-ui, sans-serif", color: "#e5e7eb" }}>
+          <div style={{ padding: "2rem", maxWidth: 600, margin: "0 auto", fontFamily: "system-ui, sans-serif", color: "#1e293b" }}>
             <h1>Sajtmaskin</h1>
             <p>AI-driven webbplatsgenerering. Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good AB.</p>
             <p>JavaScript krävs för att använda Sajtmaskin. Aktivera JavaScript i din webbläsare och ladda om sidan.</p>
           </div>
         </noscript>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} nonce={nonce}>
+        <ThemeProvider attribute="class" defaultTheme="light" forcedTheme="light" enableSystem={false} nonce={nonce}>
           <OrganizationJsonLd />
           <SoftwareApplicationJsonLd />
           <AnalyticsTracker />
@@ -93,7 +91,6 @@ export default async function RootLayout({
           <BetaBanner />
           {children}
           <Toaster position="top-right" />
-          {openclawSurfaceEnabled && <OpenClawChatLazy />}
           <CookieBanner />
         </ThemeProvider>
       </body>

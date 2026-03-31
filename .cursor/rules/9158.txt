@@ -1,0 +1,53 @@
+FRONTEND REDESIGN ANALYSIS: Preview, Template Selection & Publish UI
+=====================================================================
+
+CURRENT STATE — PREVIEW
+- PreviewPanel.tsx: iframe + code view + registry + inspect + placement overlays
+- Header row: title "Preview", surface badge, Worker lamp, 6+ action buttons with full Swedish text
+- Second row: surface descriptor detail
+- Warning blocks: multiple long paragraphs (media, blob, AI images, integration)
+- Inspect footer: engine labels, session cost, multi-line instructions
+- Code view: FileExplorer + ElementRegistry + CodeBlock + inline content editors
+- viewMode: "preview" | "code" | "registry"
+
+CURRENT STATE — TEMPLATE/MALL SELECTION
+- Builder "Mall" tab lives inside UnifiedElementPicker.tsx (4 tabs: UI/AI/Mallar/Tema)
+- Mall tab: left column "Kategorier" + right grid of template cards
+- Semantic search via POST /api/templates/search
+- "Starta mall" calls handleStartFromTemplate
+- Landing: TemplateGallery → /category/[type] → template grid + wizard + PreviewModal
+- Standalone: /templates hub with category cards
+
+CURRENT STATE — PUBLISH
+- BuilderHeader.tsx: Publicera/Publicerad/Bygger buttons
+- DeployNameDialog.tsx: name + cost bullets + hosting info
+
+FILES TO CHANGE
+- src/components/builder/PreviewPanel.tsx — collapse chrome to one slim toolbar
+- src/components/builder/SandboxModal.tsx — progressive disclosure, Swedish alignment
+- src/components/builder/UnifiedElementPicker.tsx — flatten Mall layout, search-first
+- src/components/templates/template-gallery.tsx — fewer words per card
+- src/app/templates/page.tsx — minimal hero
+- src/app/category/[type]/page.tsx — align with builder Mall visual language
+- src/components/templates/preview-modal.tsx — zero chrome (close + image only)
+- src/components/builder/BuilderHeader.tsx — deploy as icon+tooltip
+- src/components/builder/DeployNameDialog.tsx — one sentence + field + button
+
+PROPOSED CHANGES — PREVIEW
+1. Maximize iframe: one slim bar (refresh, open external, overflow for code/inspect)
+2. Move code/registry/inspect into overflow menu or segmented control
+3. Hide warning strip behind "Info" icon when non-blocking
+4. Route chips → single "Routes" dropdown
+5. Calm empty state: one short line + single CTA
+6. Separate "edit content" from "preview" — move draft editors to sidebar tab
+
+PROPOSED CHANGES — TEMPLATE/MALL
+1. Search-first: one field, no visible categories until overflow/filter
+2. Single scroll: search → optional filter row → grid (no sidebar column)
+3. Remove or defer match scores to tooltip
+4. Direct Mall entry from ChatInterface (not buried behind UI tab)
+5. Shorten amber new-chat warning to single line + icon
+
+PROPOSED CHANGES — PUBLISH
+1. Deploy: rocket icon only with tooltip on narrow, icon+text on wide
+2. DeployNameDialog: one sentence + field + primary button, move credit math to info icon

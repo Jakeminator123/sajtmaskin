@@ -20,11 +20,11 @@ export interface ColorPalette {
 
 export const PREDEFINED_PALETTES: ColorPalette[] = [
   {
-    id: "professional-blue",
-    name: "Professionell blå",
-    primary: "#1E40AF",
-    secondary: "#3B82F6",
-    accent: "#60A5FA",
+    id: "navy-orange",
+    name: "Navy & Orange",
+    primary: "#0A1628",
+    secondary: "#E67E22",
+    accent: "#F59E0B",
     industries: ["tech", "consulting", "education"],
   },
   {
@@ -300,7 +300,7 @@ export function ColorPalettePicker({
                 className={`relative border p-3 transition-all ${
                   selectedPalette?.id === palette.id && !showCustom
                     ? "border-brand-amber ring-brand-amber/20 ring-2"
-                    : "border-gray-700 hover:border-gray-600"
+                    : "border-border hover:border-border"
                 }`}
               >
                 {selectedPalette?.id === palette.id && !showCustom && (
@@ -313,7 +313,7 @@ export function ColorPalettePicker({
                   <div className={cn(styles.swatch, styles.secondary)} title="Sekundär" />
                   <div className={cn(styles.swatch, styles.accent)} title="Accent" />
                 </div>
-                <span className="block truncate text-xs text-gray-300">{palette.name}</span>
+                <span className="block truncate text-xs text-foreground">{palette.name}</span>
               </button>
             ))}
           </div>
@@ -323,7 +323,7 @@ export function ColorPalettePicker({
       {/* Other palettes */}
       <div className="space-y-2">
         {recommendedPalettes.length > 0 && (
-          <span className="text-sm text-gray-500">Övriga paletter</span>
+          <span className="text-sm text-muted-foreground">Övriga paletter</span>
         )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {otherPalettes.map((palette) => (
@@ -335,12 +335,12 @@ export function ColorPalettePicker({
               }}
               className={`relative border p-3 transition-all ${
                 selectedPalette?.id === palette.id && !showCustom
-                  ? "border-brand-teal ring-brand-teal/20 ring-2"
-                  : "border-gray-700 hover:border-gray-600"
+                  ? "border-primary ring-primary/20 ring-2"
+                  : "border-border hover:border-border"
               }`}
             >
               {selectedPalette?.id === palette.id && !showCustom && (
-                <div className="bg-brand-teal absolute -top-2 -right-2 p-0.5">
+                <div className="bg-primary absolute -top-2 -right-2 p-0.5">
                   <Check className="h-3 w-3 text-white" />
                 </div>
               )}
@@ -349,7 +349,7 @@ export function ColorPalettePicker({
                 <div className={cn(styles.swatch, styles.secondary)} title="Sekundär" />
                 <div className={cn(styles.swatch, styles.accent)} title="Accent" />
               </div>
-              <span className="block truncate text-xs text-gray-300">{palette.name}</span>
+              <span className="block truncate text-xs text-foreground">{palette.name}</span>
             </button>
           ))}
         </div>

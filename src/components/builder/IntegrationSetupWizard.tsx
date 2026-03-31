@@ -79,12 +79,12 @@ function IntegrationCard({
   );
   return (
     <Collapsible defaultOpen={item.status !== "configured"}>
-      <div className="border-border rounded-md border bg-zinc-900/60">
+      <div className="border-border rounded-md border bg-muted/50">
         <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-data-[state=open]:hidden" />
             <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground group-data-[state=open]:block" />
-            <span className="truncate text-xs font-medium text-gray-200">{item.name}</span>
+            <span className="truncate text-xs font-medium text-foreground">{item.name}</span>
           </div>
           <StatusBadge status={item.status} />
         </CollapsibleTrigger>
@@ -150,12 +150,12 @@ function BusinessPackCard({
 
   return (
     <Collapsible defaultOpen={pack.status !== "configured"}>
-      <div className="border-border rounded-md border bg-zinc-900/60">
+      <div className="border-border rounded-md border bg-muted/50">
         <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-data-[state=open]:hidden" />
             <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground group-data-[state=open]:block" />
-            <span className="truncate text-xs font-medium text-gray-200">{pack.label}</span>
+            <span className="truncate text-xs font-medium text-foreground">{pack.label}</span>
           </div>
           <StatusBadge status={pack.status} />
         </CollapsibleTrigger>
@@ -196,7 +196,7 @@ function BusinessPackCard({
                   {pack.verificationChecklist.map((item, idx) => (
                     <label
                       key={`${pack.id}-${idx}`}
-                      className="flex cursor-pointer items-start gap-2 text-[11px] text-gray-200"
+                      className="flex cursor-pointer items-start gap-2 text-[11px] text-foreground"
                     >
                       <Checkbox
                         checked={checkedItems[`${pack.id}:${idx}`] ?? false}
@@ -266,9 +266,9 @@ export function IntegrationSetupWizard({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-zinc-950 p-2.5 text-xs">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-2.5 text-xs">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-gray-200">Installationsguide</span>
+        <span className="font-medium text-foreground">Installationsguide</span>
         {onClose && (
           <Button
             size="sm"

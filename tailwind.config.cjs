@@ -6,6 +6,7 @@ const config = {
       fontFamily: {
         sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-geist-mono)", "Consolas", "monospace"],
+        heading: ["var(--font-heading)", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -14,10 +15,12 @@ const config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         brand: {
-          blue: "hsl(var(--brand-blue))",
-          teal: "hsl(var(--brand-teal))",
+          navy: "hsl(var(--brand-navy))",
+          orange: "hsl(var(--brand-orange))",
           warm: "hsl(var(--brand-warm))",
           amber: "hsl(var(--brand-amber))",
+          blue: "hsl(var(--brand-blue))",
+          teal: "hsl(var(--brand-teal))",
         },
         primary: {
           DEFAULT: "hsl(var(--primary))",

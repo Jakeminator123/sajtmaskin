@@ -163,21 +163,21 @@ export function MediaBank({
 
   return (
     <div
-      className={cn("overflow-hidden rounded-lg border border-gray-800 bg-gray-900/50", className)}
+      className={cn("overflow-hidden rounded-lg border border-border bg-muted/50", className)}
     >
       {/* Collapsible Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center justify-between p-3 transition-colors hover:bg-gray-800/50"
+        className="flex w-full items-center justify-between p-3 transition-colors hover:bg-muted/50"
       >
         <div className="flex items-center gap-2">
           <Wand2 className="text-brand-blue h-4 w-4" />
-          <span className="text-sm font-medium text-white">Mediabank ({items.length})</span>
+          <span className="text-sm font-medium text-foreground">Mediabank ({items.length})</span>
         </div>
         {isExpanded ? (
-          <ChevronUp className="h-4 w-4 text-gray-400" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         )}
       </button>
 
@@ -186,7 +186,7 @@ export function MediaBank({
           {/* Generated images section */}
           {generatedItems.length > 0 && (
             <div>
-              <p className="mb-2 flex items-center gap-1 text-xs text-gray-500">
+              <p className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
                 <Wand2 className="h-3 w-3" />
                 Genererade ({generatedItems.length})
               </p>
@@ -213,7 +213,7 @@ export function MediaBank({
           {/* Uploaded files section */}
           {uploadedItems.length > 0 && (
             <div>
-              <p className="mb-2 flex items-center gap-1 text-xs text-gray-500">
+              <p className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
                 <Upload className="h-3 w-3" />
                 Uppladdade ({uploadedItems.length})
               </p>
@@ -238,7 +238,7 @@ export function MediaBank({
           )}
 
           {/* Help text */}
-          <p className="px-1 text-left text-[10px] text-gray-600">
+          <p className="px-1 text-left text-[10px] text-muted-foreground">
             Dra filer till prompten eller klicka för att använda
           </p>
         </div>
@@ -291,7 +291,7 @@ function MediaItemCard({
       onMouseLeave={() => setShowActions(false)}
       className={cn(
         "relative aspect-square cursor-grab overflow-hidden rounded-lg border transition-all",
-        isDragging ? "border-brand-blue opacity-50" : "border-gray-700 hover:border-gray-600",
+        isDragging ? "border-primary opacity-50" : "border-border hover:border-border",
         disabled && "cursor-not-allowed opacity-50",
       )}
     >
@@ -305,22 +305,22 @@ function MediaItemCard({
           draggable={false}
         />
       ) : item.type === "video" ? (
-        <div className="flex h-full w-full items-center justify-center bg-gray-800">
-          <Video className="h-8 w-8 text-gray-500" />
+        <div className="flex h-full w-full items-center justify-center bg-muted">
+          <Video className="h-8 w-8 text-muted-foreground" />
         </div>
       ) : (
         // PDF, text, and other files show icon + filename
-        <div className="flex h-full w-full flex-col items-center justify-center bg-gray-800 p-2">
-          <Icon className="mb-1 h-8 w-8 text-gray-500" />
-          <span className="w-full truncate px-2 text-left text-[10px] text-gray-500">
+        <div className="flex h-full w-full flex-col items-center justify-center bg-muted p-2">
+          <Icon className="mb-1 h-8 w-8 text-muted-foreground" />
+          <span className="w-full truncate px-2 text-left text-[10px] text-muted-foreground">
             {item.filename || "File"}
           </span>
         </div>
       )}
 
       {/* Drag handle indicator (top-left) */}
-      <div className="absolute top-1 left-1 rounded bg-black/50 p-1">
-        <GripVertical className="h-3 w-3 text-white/70" />
+      <div className="absolute top-1 left-1 rounded bg-background/60 p-1">
+        <GripVertical className="h-3 w-3 text-foreground/70" />
       </div>
 
       {/* Source badge (top-right) - AI generated or user uploaded */}
@@ -328,8 +328,8 @@ function MediaItemCard({
         className={cn(
           "absolute top-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-medium",
           item.source === "generated"
-            ? "bg-brand-blue/80 text-white"
-            : "bg-brand-teal/80 text-white",
+            ? "bg-primary/80 text-white"
+            : "bg-primary/80 text-white",
         )}
       >
         {item.source === "generated" ? "AI" : "↑"}
@@ -344,7 +344,7 @@ function MediaItemCard({
 
       {/* Actions overlay on hover */}
       {showActions && !disabled && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/70 p-1">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-background/70 p-1">
           <Button
             size="sm"
             variant="ghost"
@@ -352,7 +352,7 @@ function MediaItemCard({
               e.stopPropagation();
               onAddToSite();
             }}
-            className="hover:bg-brand-blue/90 h-6 w-full text-[10px] text-white"
+            className="hover:bg-primary/90 h-6 w-full text-[10px] text-foreground"
           >
             <Plus className="mr-1 h-3 w-3" />
             Lägg till i sajten
@@ -366,7 +366,7 @@ function MediaItemCard({
                 e.stopPropagation();
                 onCopy();
               }}
-              className="h-6 flex-1 text-[10px] text-white hover:bg-gray-700"
+              className="h-6 flex-1 text-[10px] text-foreground hover:bg-muted"
             >
               {isCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             </Button>

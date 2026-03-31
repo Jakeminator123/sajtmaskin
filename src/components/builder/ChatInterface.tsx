@@ -29,7 +29,13 @@ import {
 } from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Loader2, Plus, Wand2, X } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { FileText, HelpCircle, ImageIcon, Loader2, Paperclip, Plus, Wand2, X } from "lucide-react";
+import { HELP_SUGGESTIONS } from "@/lib/builder/help-suggestions";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
@@ -293,8 +299,8 @@ export function ChatInterface({
     [isFigmaInputOpen, onFigmaInputOpenChange],
   );
 
-  // Single unified picker state replaces 4 separate picker states
   const [pickerTab, setPickerTab] = useState<UnifiedPickerTab | null>(null);
+  const [showHelpSuggestions, setShowHelpSuggestions] = useState(false);
 
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
@@ -885,49 +891,95 @@ export function ChatInterface({
         disabled={inputDisabled}
         className="border-input bg-background rounded-lg border shadow-sm"
       >
-        <PromptInputHeader className="flex-col items-stretch gap-2">
-          <p className="text-[11px] leading-4 text-zinc-500" suppressHydrationWarning>
-            Förfina innan du skickar
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {onEnhancePrompt && (
+        <PromptInputHeader className="items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
               <button
                 type="button"
-                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-                onClick={handleEnhancePrompt}
-                disabled={inputDisabled || isEnhancing || !input.trim()}
-                title="Gör prompten tydligare utan att ändra innebörd"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                disabled={inputDisabled}
+                title="Verktyg"
               >
-                {isEnhancing ? (
-                  <Loader2 className="size-3 animate-spin" />
-                ) : (
-                  <Wand2 className="size-3" />
-                )}
-                Skriv om
+                <Plus className="size-4" />
               </button>
-            )}
-            <button
-              type="button"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-              onClick={handlePlanRequest}
-              disabled={inputDisabled || !input.trim()}
-              title="Gör en plan eller PRD innan kod"
-            >
-              <FileText className="size-3" />
-              Plan
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-              onClick={() => setPickerTab("ui")}
-              disabled={inputDisabled}
-              title="Lägg till element, AI-block, mallar eller tema"
-            >
-              <Plus className="size-3" />
-              Element
-            </button>
-          </div>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-44 p-1">
+              {onEnhancePrompt && (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  onClick={handleEnhancePrompt}
+                  disabled={inputDisabled || isEnhancing || !input.trim()}
+                >
+                  {isEnhancing ? <Loader2 className="size-3.5 animate-spin" /> : <Wand2 className="size-3.5" />}
+                  Skriv om
+                </button>
+              )}
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                onClick={handlePlanRequest}
+                disabled={inputDisabled || !input.trim()}
+              >
+                <FileText className="size-3.5" />
+                Plan
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                onClick={() => setPickerTab("ui")}
+                disabled={inputDisabled}
+              >
+                <Plus className="size-3.5" />
+                Element
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                onClick={() => setPickerTab("mall")}
+                disabled={inputDisabled}
+              >
+                <ImageIcon className="size-3.5" />
+                Mall
+              </button>
+            </PopoverContent>
+          </Popover>
+          <button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+            disabled={inputDisabled}
+            title="Förslag & hjälp"
+            onClick={() => setShowHelpSuggestions((prev) => !prev)}
+          >
+            <HelpCircle className="size-4" />
+          </button>
         </PromptInputHeader>
+        {showHelpSuggestions && (
+          <div className="max-h-52 overflow-y-auto border-t border-border px-3 py-2 space-y-3">
+            {HELP_SUGGESTIONS.map((group) => (
+              <div key={group.group}>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {group.group}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {group.items.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => {
+                        setInput(item);
+                        setShowHelpSuggestions(false);
+                      }}
+                      className="rounded-md border border-border px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-muted/60"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {(isFigmaInputOpen || figmaUrl.trim()) && (
           <div className="space-y-2 px-3 pb-2">
             <div className="flex items-center gap-2">
@@ -1006,7 +1058,7 @@ export function ChatInterface({
                   <button
                     type="button"
                     onClick={() => handleRemoveInspectPoint(point.id)}
-                    className="absolute -top-1 -right-1 rounded-full bg-zinc-900 p-0.5 text-zinc-400 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
+                    className="absolute -top-1 -right-1 rounded-full bg-muted p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
                     title="Ta bort punkt"
                   >
                     <X className="size-3" />
@@ -1086,37 +1138,49 @@ export function ChatInterface({
             </div>
           )}
           <div className="flex items-end justify-between gap-2">
-            <PromptInputTools className="flex flex-wrap items-center gap-1.5">
+            <PromptInputTools className="flex items-center gap-1.5">
               {mediaEnabled && (
-                <>
-                  <FileUploadZone
-                    projectId={null}
-                    files={files}
-                    onFilesChange={setFiles}
-                    disabled={inputDisabled}
-                    compact
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsMediaDrawerOpen(true)}
-                    disabled={inputDisabled}
-                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] disabled:opacity-50"
-                    title="Öppna mediabibliotek"
-                  >
-                    <ImageIcon className="size-3" />
-                    Media
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsTextUploaderOpen(true)}
-                    disabled={inputDisabled}
-                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] disabled:opacity-50"
-                    title="Lägg till text eller PDF"
-                  >
-                    <FileText className="size-3" />
-                    Text
-                  </button>
-                </>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={inputDisabled}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                      title="Bifoga"
+                    >
+                      <Paperclip className="size-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-44 p-1">
+                    <div className="p-1">
+                      <FileUploadZone
+                        projectId={null}
+                        files={files}
+                        onFilesChange={setFiles}
+                        disabled={inputDisabled}
+                        compact
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsMediaDrawerOpen(true)}
+                      disabled={inputDisabled}
+                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                    >
+                      <ImageIcon className="size-3.5" />
+                      Media
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsTextUploaderOpen(true)}
+                      disabled={inputDisabled}
+                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                    >
+                      <FileText className="size-3.5" />
+                      Text/PDF
+                    </button>
+                  </PopoverContent>
+                </Popover>
               )}
               <VoiceRecorder
                 compact

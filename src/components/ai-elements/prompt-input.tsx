@@ -88,8 +88,8 @@ export function PromptInput({
     <PromptInputContext.Provider value={{ value, onChange, onSubmit, isLoading, disabled }}>
       <div
         className={cn(
-          "relative flex flex-col rounded-2xl border border-zinc-700 bg-zinc-900",
-          "focus-within:border-brand-blue focus-within:ring-brand-blue/50 focus-within:ring-1",
+          "relative flex flex-col rounded-2xl border border-border bg-card",
+          "focus-within:border-primary focus-within:ring-primary/50 focus-within:ring-1",
           "transition-colors",
           className,
         )}
@@ -112,7 +112,7 @@ export interface PromptInputHeaderProps extends HTMLAttributes<HTMLDivElement> {
 export function PromptInputHeader({ children, className, ...props }: PromptInputHeaderProps) {
   return (
     <div
-      className={cn("flex items-center gap-2 border-b border-zinc-800 px-3 pt-2 pb-1", className)}
+      className={cn("flex items-center gap-2 border-b border-border px-3 pt-2 pb-1", className)}
       {...props}
     >
       {children}
@@ -227,8 +227,8 @@ export function PromptInputTextarea({
       aria-labelledby={ariaLabelledByProp}
       autoComplete={autoComplete}
       className={cn(
-        "flex-1 resize-none bg-transparent text-sm text-white",
-        "placeholder:text-zinc-500 focus:outline-none",
+        "flex-1 resize-none bg-transparent text-sm text-foreground",
+        "placeholder:text-muted-foreground focus:outline-none",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
@@ -264,9 +264,9 @@ export function PromptInputSubmit({ children, className, "aria-label": ariaLabel
       aria-label={ariaLabel}
       className={cn(
         "shrink-0 rounded-xl p-2",
-        "bg-brand-blue text-white",
-        "hover:bg-brand-blue/90 active:bg-brand-blue",
-        "disabled:hover:bg-brand-blue disabled:cursor-not-allowed disabled:opacity-50",
+        "bg-primary text-primary-foreground",
+        "hover:bg-primary/90 active:bg-primary",
+        "disabled:hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50",
         "transition-colors",
         className,
       )}
@@ -303,7 +303,7 @@ export function PromptInputFooter({ children, className, ...props }: PromptInput
     <div
       className={cn(
         "flex items-center justify-between gap-2 px-3 pt-1 pb-2",
-        "border-t border-zinc-800 text-xs text-zinc-500",
+        "border-t border-border text-xs text-muted-foreground",
         className,
       )}
       {...props}
@@ -344,7 +344,7 @@ export function PromptInputAttachments({
 }: PromptInputAttachmentsProps) {
   return (
     <div
-      className={cn("flex flex-wrap gap-2 border-b border-zinc-800 px-3 py-2", className)}
+      className={cn("flex flex-wrap gap-2 border-b border-border px-3 py-2", className)}
       {...props}
     >
       {children}
@@ -373,7 +373,7 @@ export function PromptInputAttachment({
     <div
       className={cn(
         "inline-flex items-center gap-2 rounded-lg px-3 py-1.5",
-        "bg-zinc-800 text-sm text-zinc-300",
+        "bg-muted text-sm text-foreground",
         className,
       )}
       {...props}
@@ -408,7 +408,7 @@ export function PromptInputAttachment({
       )}
       <span className="max-w-[150px] truncate">{name}</span>
       {onRemove && (
-        <button type="button" onClick={onRemove} className="ml-1 text-zinc-500 hover:text-zinc-300">
+        <button type="button" onClick={onRemove} className="ml-1 text-muted-foreground hover:text-foreground">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="14"
@@ -464,7 +464,7 @@ export function PromptInputActionAddAttachments({
       type="button"
       onClick={handleClick}
       className={cn(
-        "rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
+        "rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground",
         "transition-colors",
         className,
       )}

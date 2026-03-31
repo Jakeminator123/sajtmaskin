@@ -58,9 +58,9 @@ export function AttachmentChips({
   const getStatusIcon = (status: UploadedFile["status"]) => {
     switch (status) {
       case "uploading":
-        return <Loader2 className="h-3 w-3 animate-spin text-gray-400" />;
+        return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
       case "success":
-        return <CheckCircle className="text-brand-teal h-3 w-3" />;
+        return <CheckCircle className="text-primary h-3 w-3" />;
       case "error":
         return <AlertCircle className="h-3 w-3 text-red-400" />;
     }
@@ -77,8 +77,8 @@ export function AttachmentChips({
             key={file.id}
             className={cn(
               "group relative flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
-              file.status === "success" && "bg-gray-800/80 text-gray-300 hover:bg-gray-700",
-              file.status === "uploading" && "bg-gray-800/60 text-gray-400",
+              file.status === "success" && "bg-muted/80 text-foreground hover:bg-muted",
+              file.status === "uploading" && "bg-muted/60 text-muted-foreground",
               file.status === "error" && "border border-red-500/30 bg-red-500/10 text-red-400",
             )}
           >
@@ -89,7 +89,7 @@ export function AttachmentChips({
                 <img src={file.url} alt={file.filename} className="h-full w-full object-cover" />
               </div>
             ) : (
-              <Icon className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+              <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             )}
 
             {/* Filename */}
@@ -104,7 +104,7 @@ export function AttachmentChips({
                 e.stopPropagation();
                 onRemove(file.id);
               }}
-              className="ml-0.5 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-600"
+              className="ml-0.5 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted"
               title="Ta bort"
             >
               <X className="h-3 w-3" />
@@ -117,7 +117,7 @@ export function AttachmentChips({
       {files.length > maxVisible && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 rounded-md bg-gray-800/60 px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-300"
+          className="flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           {hasHidden ? (
             <>
@@ -137,7 +137,7 @@ export function AttachmentChips({
       {files.length > 1 && (
         <button
           onClick={() => files.forEach((f) => onRemove(f.id))}
-          className="rounded-md px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+          className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
         >
           Rensa alla
         </button>

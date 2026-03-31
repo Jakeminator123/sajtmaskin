@@ -94,11 +94,11 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleSkip} />
 
       {/* Modal */}
-      <div className="relative mx-4 max-h-[90vh] w-full max-w-3xl overflow-y-auto border border-gray-800 bg-black shadow-2xl">
+      <div className="relative mx-4 max-h-[90vh] w-full max-w-3xl overflow-y-auto border border-border bg-card shadow-2xl">
         {/* Close button */}
         <button
           onClick={handleSkip}
-          className="absolute top-4 right-4 z-10 p-2 text-gray-400 transition-colors hover:text-white"
+          className="absolute top-4 right-4 z-10 p-2 text-muted-foreground transition-colors hover:text-foreground"
         >
           <X className="h-5 w-5" />
         </button>
@@ -107,16 +107,16 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
         {step === "video" && (
           <div className="p-6">
             <div className="mb-6 text-center">
-              <div className="bg-brand-teal/10 border-brand-teal/30 text-brand-teal mb-4 inline-flex items-center gap-2 border px-4 py-2 text-sm">
+              <div className="bg-primary/10 border-primary/30 text-primary mb-4 inline-flex items-center gap-2 border px-4 py-2 text-sm">
                 <Wand2 className="h-4 w-4" />
                 Välkommen till SajtMaskin
               </div>
-              <h2 className="text-2xl font-bold text-white">Din AI-partner för hemsidor</h2>
-              <p className="mt-2 text-gray-400">Se denna korta introduktion (ca 2 min)</p>
+              <h2 className="text-2xl font-bold text-foreground">Din AI-partner för hemsidor</h2>
+              <p className="mt-2 text-muted-foreground">Se denna korta introduktion (ca 2 min)</p>
             </div>
 
             {/* Video player */}
-            <div className="relative mb-4 aspect-video overflow-hidden border border-gray-800 bg-black">
+            <div className="relative mb-4 aspect-video overflow-hidden border border-border bg-card">
               <video
                 ref={videoRef}
                 className="h-full w-full"
@@ -140,7 +140,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
             <div className="flex justify-center">
               <button
                 onClick={handleSkipVideo}
-                className="flex items-center gap-2 border border-gray-800 bg-gray-900 px-6 py-3 text-gray-300 transition-colors hover:bg-gray-800"
+                className="flex items-center gap-2 border border-border bg-muted px-6 py-3 text-foreground transition-colors hover:bg-muted"
               >
                 Hoppa över videon
                 <ArrowRight className="h-4 w-4" />
@@ -153,8 +153,8 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
         {step === "form" && (
           <div className="p-6">
             <div className="mb-8 text-center">
-              <h2 className="text-2xl font-bold text-white">Berätta om ditt projekt</h2>
-              <p className="mt-2 text-gray-400">Så kan vi hjälpa dig bättre</p>
+              <h2 className="text-2xl font-bold text-foreground">Berätta om ditt projekt</h2>
+              <p className="mt-2 text-muted-foreground">Så kan vi hjälpa dig bättre</p>
             </div>
 
             <div className="space-y-6">
@@ -162,9 +162,9 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
               <div className="space-y-3">
                 <label
                   htmlFor="existing-url"
-                  className="flex items-center gap-2 text-sm font-medium text-gray-300"
+                  className="flex items-center gap-2 text-sm font-medium text-foreground"
                 >
-                  <Globe className="text-brand-teal h-4 w-4" />
+                  <Globe className="text-primary h-4 w-4" />
                   Har du en befintlig webbplats?
                 </label>
 
@@ -175,7 +175,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                     value={existingUrl}
                     onChange={(e) => setExistingUrl(e.target.value)}
                     placeholder="https://ditt-foretag.se"
-                    className="focus:border-brand-teal focus:ring-brand-teal flex-1 border border-gray-800 bg-black px-4 py-3 text-white placeholder-gray-500 focus:ring-1 focus:outline-none"
+                    className="focus:border-primary focus:ring-primary flex-1 border border-border bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground focus:ring-1 focus:outline-none"
                   />
                 </div>
 
@@ -185,20 +185,20 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                     <button
                       type="button"
                       onClick={() => setShowPurposeDropdown(!showPurposeDropdown)}
-                      className="flex w-full items-center justify-between border border-gray-800 bg-black px-4 py-3 text-left transition-colors hover:border-gray-700"
+                      className="flex w-full items-center justify-between border border-border bg-background px-4 py-3 text-left transition-colors hover:border-border"
                     >
-                      <span className={urlPurpose ? "text-white" : "text-gray-500"}>
+                      <span className={urlPurpose ? "text-foreground" : "text-muted-foreground"}>
                         {urlPurpose ? purposeLabels[urlPurpose] : "Vad vill du göra med denna URL?"}
                       </span>
                       <ChevronDown
-                        className={`h-4 w-4 text-gray-400 transition-transform ${
+                        className={`h-4 w-4 text-muted-foreground transition-transform ${
                           showPurposeDropdown ? "rotate-180" : ""
                         }`}
                       />
                     </button>
 
                     {showPurposeDropdown && (
-                      <div className="absolute top-full right-0 left-0 z-10 mt-1 overflow-hidden border border-gray-800 bg-black shadow-xl">
+                      <div className="absolute top-full right-0 left-0 z-10 mt-1 overflow-hidden border border-border bg-card shadow-xl">
                         {(Object.keys(purposeLabels) as UrlPurpose[]).map((purpose) => (
                           <button
                             key={purpose}
@@ -207,10 +207,10 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                               setUrlPurpose(purpose);
                               setShowPurposeDropdown(false);
                             }}
-                            className={`w-full px-4 py-3 text-left transition-colors hover:bg-gray-900 ${
+                            className={`w-full px-4 py-3 text-left transition-colors hover:bg-muted ${
                               urlPurpose === purpose
-                                ? "bg-brand-teal/10 text-brand-teal"
-                                : "text-gray-300"
+                                ? "bg-primary/10 text-primary"
+                                : "text-foreground"
                             }`}
                           >
                             {purposeLabels[purpose]}
@@ -226,7 +226,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
               <div className="space-y-3">
                 <label
                   htmlFor="analyze-web"
-                  className="flex cursor-pointer items-start gap-3 border border-gray-800 bg-gray-900/50 p-4 transition-colors hover:border-gray-700"
+                  className="flex cursor-pointer items-start gap-3 border border-border bg-muted/50 p-4 transition-colors hover:border-border"
                 >
                   <Switch
                     id="analyze-web"
@@ -235,11 +235,11 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                     className="mt-1"
                   />
                   <div>
-                    <div className="flex items-center gap-2 font-medium text-white">
-                      <Search className="text-brand-teal h-4 w-4" />
+                    <div className="flex items-center gap-2 font-medium text-foreground">
+                      <Search className="text-primary h-4 w-4" />
                       Analysera mitt företag från internet
                     </div>
-                    <p className="mt-1 text-sm text-gray-400">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       Jag vill att min företagsprofil, kundsegment och annan offentlig information
                       hämtas och analyseras för att skapa en bättre sajt.
                     </p>
@@ -251,9 +251,9 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
               <div className="space-y-3">
                 <label
                   htmlFor="project-description"
-                  className="flex items-center gap-2 text-sm font-medium text-gray-300"
+                  className="flex items-center gap-2 text-sm font-medium text-foreground"
                 >
-                  <FileText className="h-4 w-4 text-gray-400" />
+                  <FileText className="h-4 w-4 text-muted-foreground" />
                   Beskriv ditt projekt (valfritt)
                 </label>
                 <textarea
@@ -262,7 +262,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Beskriv vilken typ av sajt du vill skapa, ditt företag, din målgrupp, etc..."
                   rows={4}
-                  className="focus:border-brand-teal focus:ring-brand-teal w-full resize-none border border-gray-800 bg-black px-4 py-3 text-white placeholder-gray-500 focus:ring-1 focus:outline-none"
+                  className="focus:border-primary focus:ring-primary w-full resize-none border border-border bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground focus:ring-1 focus:outline-none"
                 />
               </div>
 
@@ -271,14 +271,14 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                 <button
                   type="button"
                   onClick={handleSkip}
-                  className="flex-1 border border-gray-800 bg-gray-900 px-6 py-3 text-gray-300 transition-colors hover:bg-gray-800"
+                  className="flex-1 border border-border bg-muted px-6 py-3 text-foreground transition-colors hover:bg-muted"
                 >
                   Hoppa över
                 </button>
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="bg-brand-teal hover:bg-brand-teal/90 flex flex-1 items-center justify-center gap-2 px-6 py-3 font-medium text-white transition-colors"
+                  className="bg-primary hover:bg-primary/90 flex flex-1 items-center justify-center gap-2 px-6 py-3 font-medium text-primary-foreground transition-colors"
                 >
                   <Building2 className="h-4 w-4" />
                   Kom igång

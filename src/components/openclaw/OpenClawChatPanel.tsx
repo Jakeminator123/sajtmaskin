@@ -1,16 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Bot, Send, Sparkles, Square, Trash2, X } from "lucide-react";
+import { HelpCircle, Send, Square, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenClawChat } from "./useOpenClawChat";
 import { OpenClawMessage } from "./OpenClawMessage";
-
-const DEFAULT_STARTER_PROMPTS = [
-  "Hur kan Sajtagenten hjälpa ett småföretag på sajten?",
-  "Vad kan jag senare kundanpassa för ett specifikt företag?",
-  "Hur fungerar OpenClaw i buildern i dag?",
-] as const;
+import { OpenClawHelpSuggestions } from "./OpenClawHelpSuggestions";
 
 export interface OpenClawChatPanelContent {
   badgeLabel: string;
@@ -25,12 +20,11 @@ export interface OpenClawChatPanelContent {
 export const DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT: OpenClawChatPanelContent = {
   badgeLabel: "OpenClaw-assistent",
   assistantLabel: "Sajtagenten",
-  idleStatus: "Guidar, förklarar och visar möjligheter",
-  emptyTitle: "Hej! Jag är Sajtagenten.",
-  emptyBody:
-    "Jag kan förklara hur OpenClaw-spåret fungerar, hur det kan presenteras på sajten och hur du bygger vidare på integrationen i Sajtmaskin.",
+  idleStatus: "",
+  emptyTitle: "Fråga mig vad som helst.",
+  emptyBody: "",
   inputPlaceholder: "Skriv ett meddelande...",
-  starterPrompts: DEFAULT_STARTER_PROMPTS,
+  starterPrompts: [],
 };
 
 export function OpenClawChatPanel({
@@ -42,6 +36,7 @@ export function OpenClawChatPanel({
 }) {
   const { messages, isStreaming, send, stop, clearConversation } = useOpenClawChat();
   const [input, setInput] = useState("");
+  const [showHelp, setShowHelp] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -67,120 +62,115 @@ export function OpenClawChatPanel({
     }
   };
 
-  const handleStarterPrompt = (prompt: string) => {
-    if (isStreaming) return;
-    void send(prompt);
-    setInput("");
+  const handleSuggestion = (text: string) => {
+    if (!isStreaming) {
+      void send(text);
+      setInput("");
+    }
   };
 
   return (
-    <div
-      className={cn(
-        "flex flex-col overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/95 text-slate-50 shadow-2xl shadow-cyan-950/35 backdrop-blur-xl",
-        "h-[min(500px,calc(100vh-7rem))] w-[min(380px,calc(100vw-1rem))] max-w-[calc(100vw-1rem)]",
-      )}
-    >
-      <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-3">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium tracking-[0.18em] text-cyan-200 uppercase">
-          <Sparkles className="h-3.5 w-3.5" />
-          {content.badgeLabel}
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-400/20 bg-white/5 text-cyan-200">
-              <Bot className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">{content.assistantLabel}</p>
-              <p className="text-[11px] text-slate-300">
-                {isStreaming ? "Skriver ett svar..." : content.idleStatus}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            {messages.length > 0 ? (
+    <>
+      <div
+        className={cn(
+          "flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-2xl",
+          "h-[min(560px,70vh)] w-[min(540px,calc(100vw-2rem))]",
+        )}
+      >
+        {/* Minimal header: name + help + clear + close */}
+        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+          <span className="text-sm font-semibold text-foreground">{content.assistantLabel}</span>
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => setShowHelp(true)}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+              aria-label="Hjälpförslag"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </button>
+            {messages.length > 0 && (
               <button
                 type="button"
                 onClick={clearConversation}
-                className="rounded-md p-1.5 text-slate-300 transition-colors hover:text-white"
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
                 aria-label="Rensa chatt"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
-            ) : null}
+            )}
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-1.5 text-slate-300 transition-colors hover:text-white"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
               aria-label="Stäng"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
-      </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
-        {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-slate-300">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-cyan-400/20 bg-cyan-400/10">
-              <Bot className="h-6 w-6 text-cyan-200" />
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+          {messages.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+              <p className="text-sm text-muted-foreground">{content.emptyTitle}</p>
+              <button
+                type="button"
+                onClick={() => setShowHelp(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                Visa förslag
+              </button>
             </div>
-            <p className="font-medium text-white">{content.emptyTitle}</p>
-            <p className="max-w-[290px] text-xs leading-5 text-slate-300/80">{content.emptyBody}</p>
-            <div className="mt-2 flex w-full flex-col gap-2">
-              {content.starterPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => handleStarterPrompt(prompt)}
-                  disabled={isStreaming}
-                  className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-slate-100 transition-colors hover:bg-white/10 disabled:opacity-50"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
+          ) : null}
+          {messages.map((msg) => (
+            <OpenClawMessage key={msg.id} msg={msg} />
+          ))}
+        </div>
+
+        {/* Input */}
+        <div className="border-t border-border px-3 py-2.5">
+          <div className="flex items-end gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={content.inputPlaceholder}
+              rows={1}
+              className="max-h-24 flex-1 resize-none bg-transparent text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={stop}
+                className="shrink-0 p-1 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Stoppa"
+              >
+                <Square className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={!input.trim()}
+                className="shrink-0 p-1 text-primary transition-colors hover:text-primary/90 disabled:opacity-30"
+                aria-label="Skicka"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            )}
           </div>
-        ) : null}
-        {messages.map((msg) => (
-          <OpenClawMessage key={msg.id} msg={msg} />
-        ))}
-      </div>
-
-      <div className="border-t border-white/10 px-3 py-2.5">
-        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={content.inputPlaceholder}
-            rows={1}
-            className="max-h-24 flex-1 resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-slate-400"
-          />
-          {isStreaming ? (
-            <button
-              type="button"
-              onClick={stop}
-              className="shrink-0 p-1 text-slate-300 transition-colors hover:text-white"
-              aria-label="Stoppa"
-            >
-              <Square className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className="shrink-0 p-1 text-cyan-200 transition-colors hover:text-cyan-100 disabled:opacity-30"
-              aria-label="Skicka"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          )}
         </div>
       </div>
-    </div>
+
+      <OpenClawHelpSuggestions
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        onSelect={handleSuggestion}
+      />
+    </>
   );
 }

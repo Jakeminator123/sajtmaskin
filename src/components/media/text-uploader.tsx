@@ -286,19 +286,19 @@ export function TextUploader({
         <div
           ref={modalRef}
           className={cn(
-            "w-full max-w-sm rounded-xl border border-gray-800 bg-gray-950 shadow-2xl",
+            "w-full max-w-sm rounded-xl border border-border bg-card shadow-2xl",
             "animate-in zoom-in-95 duration-200",
           )}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-800 p-4">
+          <div className="flex items-center justify-between border-b border-border p-4">
             <div className="flex items-center gap-2">
               <FileText className="text-brand-amber h-5 w-5" />
-              <h2 className="text-lg font-semibold text-white">Lägg till text</h2>
+              <h2 className="text-lg font-semibold text-foreground">Lägg till text</h2>
             </div>
             <button
               onClick={onClose}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <X className="h-5 w-5" />
             </button>
@@ -317,13 +317,13 @@ export function TextUploader({
                   "cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-colors",
                   isDragging
                     ? "border-brand-amber bg-brand-amber/10"
-                    : "border-gray-700 hover:border-gray-600 hover:bg-gray-900/50",
+                    : "border-border hover:border-border hover:bg-muted/50",
                   disabled && "cursor-not-allowed opacity-50",
                 )}
               >
-                <Upload className="mx-auto mb-3 h-10 w-10 text-gray-500" />
-                <p className="mb-1 text-sm text-gray-300">Dra in en textfil eller PDF här</p>
-                <p className="text-xs text-gray-500">.txt, .md, .json, .pdf stöds</p>
+                <Upload className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                <p className="mb-1 text-sm text-foreground">Dra in en textfil eller PDF här</p>
+                <p className="text-xs text-muted-foreground">.txt, .md, .json, .pdf stöds</p>
               </div>
             )}
 
@@ -339,7 +339,7 @@ export function TextUploader({
             {isProcessing && (
               <div className="flex flex-col items-center py-8">
                 <Loader2 className="text-brand-amber mb-3 h-8 w-8 animate-spin" />
-                <p className="text-sm text-gray-300">Läser filen...</p>
+                <p className="text-sm text-foreground">Läser filen...</p>
               </div>
             )}
 
@@ -347,12 +347,12 @@ export function TextUploader({
             {pendingText && !isProcessing && (
               <div className="space-y-3">
                 {/* Content preview */}
-                <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-3">
+                <div className="space-y-2 rounded-lg border border-border bg-muted p-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-200">{pendingText.filename}</p>
-                    <span className="text-xs text-gray-500">{wordCount} ord</span>
+                    <p className="text-sm font-medium text-foreground">{pendingText.filename}</p>
+                    <span className="text-xs text-muted-foreground">{wordCount} ord</span>
                   </div>
-                  <p className="line-clamp-3 text-xs text-gray-500">
+                  <p className="line-clamp-3 text-xs text-muted-foreground">
                     {pendingText.content.slice(0, 400)}
                     {pendingText.content.length > 400 ? "..." : ""}
                   </p>
@@ -360,9 +360,9 @@ export function TextUploader({
 
                 {/* Smart content hint */}
                 {contentHint && (
-                  <div className="bg-brand-teal/10 border-brand-teal/30 flex items-center gap-2 rounded-lg border px-3 py-2">
-                    <Wand2 className="text-brand-teal h-4 w-4 shrink-0" />
-                    <span className="text-brand-teal/80 text-xs">{contentHint.hint}</span>
+                  <div className="bg-primary/10 border-primary/30 flex items-center gap-2 rounded-lg border px-3 py-2">
+                    <Wand2 className="text-primary h-4 w-4 shrink-0" />
+                    <span className="text-primary/80 text-xs">{contentHint.hint}</span>
                   </div>
                 )}
 
@@ -372,10 +372,10 @@ export function TextUploader({
                     type="checkbox"
                     checked={saveToLibrary}
                     onChange={(e) => setSaveToLibrary(e.target.checked)}
-                    className="text-brand-teal focus:ring-brand-teal h-4 w-4 rounded border-gray-600 bg-gray-800 focus:ring-offset-0"
+                    className="text-primary focus:ring-primary h-4 w-4 rounded border-border bg-muted focus:ring-offset-0"
                   />
-                  <Save className="h-3.5 w-3.5 text-gray-500 group-hover:text-gray-400" />
-                  <span className="text-xs text-gray-400 group-hover:text-gray-300">
+                  <Save className="h-3.5 w-3.5 text-muted-foreground group-hover:text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground">
                     Spara också i mediabiblioteket
                   </span>
                 </label>
@@ -385,7 +385,7 @@ export function TextUploader({
                   onClick={handleSendToChat}
                   disabled={isSaving || disabled}
                   className={cn(
-                    "bg-brand-teal hover:bg-brand-teal/90 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium text-white transition-colors",
+                    "bg-primary hover:bg-primary/90 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium text-white transition-colors",
                     (isSaving || disabled) && "cursor-not-allowed opacity-70",
                   )}
                 >
@@ -402,7 +402,7 @@ export function TextUploader({
                   )}
                 </button>
 
-                <p className="text-center text-[11px] text-gray-600">
+                <p className="text-center text-[11px] text-muted-foreground">
                   Du kan ange var texten ska placeras i nästa meddelande
                 </p>
               </div>
@@ -421,7 +421,7 @@ export function TextUploader({
 
             {/* Help text */}
             {!pendingText && !isProcessing && (
-              <p className="text-center text-xs text-gray-500">
+              <p className="text-center text-xs text-muted-foreground">
                 AI:n analyserar texten och föreslår bästa platsen
               </p>
             )}

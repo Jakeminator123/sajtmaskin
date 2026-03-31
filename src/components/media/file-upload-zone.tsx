@@ -292,8 +292,8 @@ export function FileUploadZone({
                 key={file.id}
                 className={cn(
                   "flex items-center gap-2 rounded px-2 py-1 text-xs",
-                  file.status === "success" && "bg-brand-teal/20 text-brand-teal",
-                  file.status === "uploading" && "bg-gray-700 text-gray-400",
+                  file.status === "success" && "bg-primary/20 text-primary",
+                  file.status === "uploading" && "bg-muted text-muted-foreground",
                   file.status === "error" && "bg-red-500/20 text-red-400",
                 )}
               >
@@ -305,7 +305,7 @@ export function FileUploadZone({
                   <AlertCircle className="h-3 w-3" />
                 )}
                 <span className="max-w-[100px] truncate">{file.filename}</span>
-                <button onClick={() => removeFile(file.id)} className="hover:text-white">
+                <button onClick={() => removeFile(file.id)} className="hover:text-foreground">
                   <X className="h-3 w-3" />
                 </button>
               </div>
@@ -321,7 +321,7 @@ export function FileUploadZone({
             size="sm"
             onClick={handleClick}
             disabled={disabled}
-            className="h-7 gap-1 border-gray-700 text-xs text-gray-400 hover:bg-gray-800 hover:text-white"
+            className="h-7 gap-1 border-border text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <Upload className="h-3 w-3" />
             Lägg till media
@@ -354,25 +354,25 @@ export function FileUploadZone({
         onClick={handleClick}
         className={cn(
           "relative cursor-pointer rounded-lg border-2 border-dashed p-4 transition-colors",
-          isDragging && "border-brand-teal bg-brand-teal/10",
-          !isDragging && canAddMore && "border-gray-700 hover:border-gray-600 hover:bg-gray-800/50",
-          !canAddMore && "cursor-not-allowed border-gray-800 bg-gray-900/50 opacity-50",
+          isDragging && "border-primary bg-primary/10",
+          !isDragging && canAddMore && "border-border hover:border-border hover:bg-muted/50",
+          !canAddMore && "cursor-not-allowed border-border bg-muted/50 opacity-50",
         )}
       >
         <div className="flex flex-col items-center gap-2 text-center">
           <div
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-full",
-              isDragging ? "bg-brand-teal/20" : "bg-gray-800",
+              isDragging ? "bg-primary/20" : "bg-muted",
             )}
           >
-            <Upload className={cn("h-5 w-5", isDragging ? "text-brand-teal" : "text-gray-500")} />
+            <Upload className={cn("h-5 w-5", isDragging ? "text-primary" : "text-muted-foreground")} />
           </div>
           <div>
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-foreground">
               {isDragging ? "Släpp filer här" : "Dra filer hit eller klicka för att välja"}
             </p>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               JPG, PNG, GIF, WebP, SVG eller PDF • Max 4MB • Max {MAX_FILES} filer
             </p>
           </div>
@@ -394,7 +394,7 @@ export function FileUploadZone({
       {/* Uploaded files list */}
       {hasFiles && (
         <div className="space-y-2">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Uppladdade filer ({files.length}/{MAX_FILES})
           </p>
           <div className="space-y-2">
@@ -403,13 +403,13 @@ export function FileUploadZone({
                 key={file.id}
                 className={cn(
                   "flex items-center gap-3 rounded border p-2",
-                  file.status === "success" && "border-gray-700 bg-gray-800/50",
-                  file.status === "uploading" && "border-gray-700 bg-gray-800/30",
+                  file.status === "success" && "border-border bg-muted/50",
+                  file.status === "uploading" && "border-border bg-muted/30",
                   file.status === "error" && "border-red-500/30 bg-red-500/10",
                 )}
               >
                 {/* Preview or icon */}
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-gray-700">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
                   {file.status === "success" && file.mimeType.startsWith("image/") ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -418,7 +418,7 @@ export function FileUploadZone({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className={cn(file.status === "error" ? "text-red-400" : "text-gray-400")}>
+                    <div className={cn(file.status === "error" ? "text-red-400" : "text-muted-foreground")}>
                       {getFileIcon(file.mimeType)}
                     </div>
                   )}
@@ -426,16 +426,16 @@ export function FileUploadZone({
 
                 {/* File info */}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-gray-300">{file.filename}</p>
+                  <p className="truncate text-sm text-foreground">{file.filename}</p>
                   <div className="flex items-center gap-2 text-xs">
                     {file.status === "uploading" && (
-                      <span className="flex items-center gap-1 text-gray-500">
+                      <span className="flex items-center gap-1 text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         Laddar upp...
                       </span>
                     )}
                     {file.status === "success" && (
-                      <span className="text-gray-500">{formatSize(file.size)}</span>
+                      <span className="text-muted-foreground">{formatSize(file.size)}</span>
                     )}
                     {file.status === "error" && <span className="text-red-400">{file.error}</span>}
                   </div>
@@ -457,7 +457,7 @@ export function FileUploadZone({
                         placeholder="Syfte: t.ex. 'hero-bild', 'logotyp'..."
                         value={file.purpose || ""}
                         onChange={(e) => updatePurpose(file.id, e.target.value)}
-                        className="focus:border-brand-teal mt-1 w-full border-b border-gray-700 bg-transparent py-0.5 text-xs text-gray-400 outline-none placeholder:text-gray-600"
+                        className="focus:border-primary mt-1 w-full border-b border-border bg-transparent py-0.5 text-xs text-muted-foreground outline-none placeholder:text-muted-foreground"
                       />
                     </>
                   )}
@@ -469,7 +469,7 @@ export function FileUploadZone({
                     e.stopPropagation();
                     removeFile(file.id);
                   }}
-                  className="p-1 text-gray-500 transition-colors hover:text-red-400"
+                  className="p-1 text-muted-foreground transition-colors hover:text-red-400"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -480,7 +480,7 @@ export function FileUploadZone({
       )}
 
       {/* Help text */}
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted-foreground">
         💡 Bilder laddas upp till Vercel Blob för publika URLs som fungerar i preview.
       </p>
     </div>

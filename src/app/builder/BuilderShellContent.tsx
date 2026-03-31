@@ -49,6 +49,7 @@ import {
   readAutofixLocalStorageOnly,
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
+import { useBuilderHelpChat } from "@/lib/hooks/chat/useBuilderHelpChat";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -85,6 +86,7 @@ function toContextMessage(message: ChatMessage, maxChars: number): ContextMessag
 
 function buildRecentContextMessages(messages: ChatMessage[]): ContextMessage[] {
   return messages
+    .filter((m) => !m.isHelpMessage)
     .slice(-CONTEXT_RECENT_MESSAGE_COUNT)
     .map((message) => toContextMessage(message, CONTEXT_MESSAGE_MAX_CHARS));
 }
@@ -95,6 +97,7 @@ function getLatestCompletedAssistantMessage(messages: ChatMessage[]): ChatMessag
     if (
       message?.role === "assistant" &&
       !message.isStreaming &&
+      !message.isHelpMessage &&
       typeof message.content === "string" &&
       message.content.trim().length > 0
     ) {
@@ -109,6 +112,7 @@ function getLatestUserMessage(messages: ChatMessage[]): ChatMessage | null {
     const message = messages[i];
     if (
       message?.role === "user" &&
+      !message.isHelpMessage &&
       typeof message.content === "string" &&
       message.content.trim().length > 0
     ) {
@@ -134,8 +138,25 @@ function buildPlacementPromptMessage(
   };
 }
 
+async function classifyIntent(message: string): Promise<"build" | "help"> {
+  try {
+    const res = await fetch("/api/ai/classify-intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: message.slice(0, 500) }),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return "build";
+    const data = await res.json();
+    return data?.intent === "help" ? "help" : "build";
+  } catch {
+    return "build";
+  }
+}
+
 export function BuilderShellContent(vm: BuilderViewModel) {
-  const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt;
+  const { isHelpStreaming, sendHelpMessage, cancelHelp } = useBuilderHelpChat();
+  const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt || isHelpStreaming;
   const sendMessage = vm.sendMessage;
   const isDeployActionBusy =
     vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
@@ -646,6 +667,30 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     setEnableAutofix(next);
   }, []);
 
+  const smartSendMessage = useCallback(
+    async (message: string, options?: Record<string, unknown>) => {
+      const intent = await classifyIntent(message);
+      if (intent === "help") {
+        await sendHelpMessage(message, vm.setMessages);
+        return;
+      }
+      await vm.sendMessage(message, options);
+    },
+    [sendHelpMessage, vm.sendMessage, vm.setMessages],
+  );
+
+  const smartCreateChat = useCallback(
+    async (message: string, options?: Record<string, unknown>) => {
+      const intent = await classifyIntent(message);
+      if (intent === "help") {
+        await sendHelpMessage(message, vm.setMessages);
+        return false;
+      }
+      return vm.requestCreateChat(message, options);
+    },
+    [sendHelpMessage, vm.requestCreateChat, vm.setMessages],
+  );
+
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
@@ -730,33 +775,33 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           role="tab"
           aria-selected={mobileTab === "chat"}
           aria-controls="builder-chat-panel"
+          aria-label="Chat"
           onClick={() => setMobileTab("chat")}
           className={cn(
-            "flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors",
+            "flex flex-1 items-center justify-center px-4 py-2.5 transition-colors",
             mobileTab === "chat"
-              ? "border-brand-blue text-brand-blue border-b-2"
+              ? "border-primary text-primary border-b-2"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
           <MessageSquare className="h-4 w-4" />
-          Chat
         </button>
         <button
           role="tab"
           aria-selected={mobileTab === "preview"}
           aria-controls="builder-preview-panel"
+          aria-label="Preview"
           onClick={() => setMobileTab("preview")}
           className={cn(
-            "flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors",
+            "relative flex flex-1 items-center justify-center px-4 py-2.5 transition-colors",
             mobileTab === "preview"
-              ? "border-brand-blue text-brand-blue border-b-2"
+              ? "border-primary text-primary border-b-2"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Eye className="h-4 w-4" />
-          Preview
           {vm.currentDemoUrl && mobileTab !== "preview" && (
-            <span className="bg-brand-blue h-2 w-2 rounded-full" />
+            <span className="bg-primary absolute top-1.5 right-[calc(50%-12px)] h-1.5 w-1.5 rounded-full" />
           )}
         </button>
       </div>
@@ -804,8 +849,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           <ChatInterface
             chatId={vm.chatId}
             initialPrompt={vm.initialPrompt}
-            onCreateChat={vm.requestCreateChat}
-            onSendMessage={vm.sendMessage}
+            onCreateChat={smartCreateChat}
+            onSendMessage={smartSendMessage}
             onStartFromRegistry={vm.handleStartFromRegistry}
             onRequestPlacement={handleRequestPlacement}
             onStartFromTemplate={vm.handleStartFromTemplate}

@@ -243,7 +243,7 @@ export function LocationPicker({
           className="h-[220px] w-full bg-secondary/30"
           style={{ display: scriptLoaded ? "block" : "none" }}
         />
-        <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-[10px] text-gray-400">
+        <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1 rounded-md bg-muted/80 px-2 py-1 text-[10px] text-muted-foreground">
           <MapPin className="h-3 w-3" />
           Dra markören för att justera
         </div>

@@ -1,0 +1,51 @@
+FRONTEND REDESIGN ANALYSIS: Styling, Design System & Color Palette
+===================================================================
+
+CURRENT COLOR PALETTE (globals.css :root)
+- --background: 220 20% 3.5% (very dark blue-gray)
+- --foreground: 0 0% 95% (near-white)
+- --primary: 219 100% 60% (bright blue, ~#3b82f6)
+- --accent: 152 45% 50% (teal/green)
+- --brand-blue: 219 100% 60% (same as primary)
+- --brand-amber: 38 92% 60% (warm yellow)
+- --brand-warm: 12 84% 58% (orange-red)
+- --brand-teal: 152 45% 50% (same as accent)
+- --ring: 219 100% 60% (same blue)
+- --border: 220 10% 14%
+- html color-scheme: dark (always)
+
+TYPOGRAPHY
+- Geist Sans → font-sans (body default)
+- Geist Mono → font-mono
+- Inter → --font-body (loaded but UNUSED in classes)
+- Space Grotesk → --font-heading (used via arbitrary class)
+- No centralized type scale beyond Tailwind defaults
+
+TARGET PALETTE: Dark Blue + Orange + White
+- Background: deep navy (hue ~222-230, low lightness) aligned with #1a1f36
+- Primary/CTA: orange (#ff6b35 ≈ 14 90% 60%)
+- Foreground: white/near-white
+- Remove teal from accent, replace with muted orange or neutral
+- Ring/focus: orange to match primary
+
+SPECIFIC CSS CHANGES NEEDED
+1. globals.css: shift --background toward deep navy, --primary to orange
+2. Add --brand-orange / --brand-navy tokens
+3. Remove or remap --brand-teal / --accent from teal to neutral
+4. Sidebar tokens: darken :root sidebar to match navy shell
+5. landing-v2.css: replace teal rgba orbs/glows with navy+orange
+6. tailwind.config.cjs: add brand.orange, optional fontFamily.heading
+
+HARDCODED COLORS TO FIX (not using CSS variables)
+- Builder: sky-*, indigo-*, blue-*, slate-* classes in PreviewPanel, BuilderMessageTooling, VersionHistory
+- Landing 3D: teal/cyan hex (#5eead4, #2dd4bf) in how-it-works-scene, particle-orb, thinking-spinner
+- Shader: navy + neon blue #4F8BFF in shader-background.tsx
+- Cookie banner: #1a1aff, yellow/orange gradients
+- Beta banner: gradient #14b8a6, #3b82f6, #f59e0b
+- Email: inline #2563eb link blue
+- Forms: wizard defaults with blue hex presets
+
+FONT SIMPLIFICATION
+- Remove Inter (unused) or replace Geist with Inter
+- Add fontFamily.heading in tailwind.config.cjs for Space Grotesk
+- Consider single sans + single heading for Apple-like cleanliness

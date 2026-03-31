@@ -386,7 +386,7 @@ function RootLandingContent() {
 
   return (
     <>
-      <div className="flex h-screen min-h-0 w-full flex-col overflow-x-hidden bg-background supports-[height:100dvh]:h-dvh md:overflow-hidden">
+      <div className="relative flex h-screen min-h-0 w-full flex-col overflow-x-hidden bg-background supports-[height:100dvh]:h-dvh md:overflow-hidden">
         <Navbar
           onLoginClick={handleLoginClick}
           onRegisterClick={handleRegisterClick}

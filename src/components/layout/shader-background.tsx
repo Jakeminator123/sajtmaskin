@@ -18,10 +18,10 @@ export const SHADER_THEMES = {
     color: "#021522",
     name: "Deep Navy",
   },
-  // Neon blue accent
+  // Orange accent
   blue: {
-    color: "#4F8BFF",
-    name: "Blue",
+    color: "#E67E22",
+    name: "Orange",
   },
   // Warm neon accent
   warm: {
@@ -40,12 +40,12 @@ export type ShaderTheme = keyof typeof SHADER_THEMES;
 // Color cycle for shimmer effect
 const SHIMMER_COLORS = [
   "#01060C", // Noir base
-  "#021522", // Deep navy
-  "#4F8BFF", // Neon blue
+  "#0A1628", // Navy
+  "#E67E22", // Orange accent
   "#F0A070", // Amber glow
   "#F07050", // Warm accent
-  "#F08060", // Warm glow
-  "#021522", // Back to deep navy
+  "#D97706", // Deep orange
+  "#0A1628", // Back to navy
 ];
 
 interface ShaderBackgroundProps {

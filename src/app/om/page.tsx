@@ -1,73 +1,57 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Footer } from "@/components/layout";
+import { MinimalFooter } from "@/components/layout";
 
 export const metadata: Metadata = {
   title: "Om oss",
-  description:
-    "Om Sajtmaskin — AI-driven webbplattform för svenska företag. Pretty Good AB.",
+  description: "Om Sajtmaskin — AI-driven webbplattform för svenska företag.",
 };
 
 export default function OmPage() {
   return (
     <>
       <main className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto max-w-3xl px-6 py-16">
+        <div className="mx-auto max-w-2xl px-6 py-16">
           <Link
             href="/"
-            className="mb-8 inline-block text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="mb-8 inline-block text-sm text-muted-foreground hover:text-foreground"
           >
             &larr; Tillbaka
           </Link>
 
-          <h1 className="mb-2 text-3xl font-(--font-heading) tracking-tight">
-            Om Sajtmaskin
-          </h1>
+          <h1 className="mb-2 text-2xl font-semibold tracking-tight">Om Sajtmaskin</h1>
           <p className="mb-10 text-sm text-muted-foreground">
-            Sajtmaskin drivs av Pretty Good AB och bygger professionella webbplatser med modern
-            stack (React, Next.js, TypeScript) och AI-assisterade arbetsflöden.
+            AI-driven webbplattform av Pretty Good AB. React, Next.js, TypeScript.
           </p>
 
-          <div className="prose-sm space-y-8 text-muted-foreground">
-            <section className="space-y-3 text-sm leading-relaxed">
-              <h2 className="text-lg font-medium text-foreground">Vad vi gör</h2>
-              <p>
-                Vi hjälper företag att gå från idé till publicerad sajt snabbare — med tydlig
-                struktur, bra prestanda och verktyg som följer svensk kontext och språk där det
-                spelar roll.
-              </p>
-            </section>
-            <section className="space-y-3 text-sm leading-relaxed">
-              <h2 className="text-lg font-medium text-foreground">Kontakt</h2>
-              <p>
-                Frågor eller samarbete:{" "}
-                <a
-                  href="mailto:support@sajtmaskin.se"
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  support@sajtmaskin.se
-                </a>
-              </p>
-            </section>
-            <section className="space-y-3 text-sm leading-relaxed">
-              <h2 className="text-lg font-medium text-foreground">Mer att läsa</h2>
-              <ul className="list-disc space-y-1 pl-5">
-                <li>
-                  <Link href="/faq" className="text-primary underline-offset-4 hover:underline">
-                    Vanliga frågor
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/privacy" className="text-primary underline-offset-4 hover:underline">
-                    Integritetspolicy
-                  </Link>
-                </li>
-              </ul>
-            </section>
+          <div className="space-y-6 text-sm leading-relaxed text-muted-foreground">
+            <p>
+              Vi hjälper företag att gå från idé till publicerad sajt — med bra prestanda och
+              verktyg anpassade för svensk kontext.
+            </p>
+
+            <div>
+              <h2 className="mb-1 text-sm font-medium text-foreground">Kontakt</h2>
+              <a
+                href="mailto:support@sajtmaskin.se"
+                className="text-primary hover:underline underline-offset-4"
+              >
+                support@sajtmaskin.se
+              </a>
+            </div>
+
+            <div className="flex gap-4 text-xs">
+              <Link href="/faq" className="text-primary hover:underline underline-offset-4">
+                FAQ
+              </Link>
+              <Link href="/privacy" className="text-primary hover:underline underline-offset-4">
+                Integritetspolicy
+              </Link>
+            </div>
           </div>
         </div>
       </main>
-      <Footer />
+      <MinimalFooter />
     </>
   );
 }

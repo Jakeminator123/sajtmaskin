@@ -13,8 +13,8 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black p-4">
-      <div className="w-full max-w-md rounded-lg border border-gray-800 bg-gray-900 p-8 text-center">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center">
         <div className="mb-4 text-red-500">
           <svg className="mx-auto h-16 w-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -25,8 +25,8 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
             />
           </svg>
         </div>
-        <h2 className="mb-2 text-xl font-bold text-white">Något gick fel</h2>
-        <p className="mb-6 text-gray-400">Ett oväntat fel inträffade. Försök att ladda om sidan.</p>
+        <h2 className="mb-2 text-xl font-bold text-foreground">Något gick fel</h2>
+        <p className="mb-6 text-muted-foreground">Ett oväntat fel inträffade. Försök att ladda om sidan.</p>
         <div className="space-y-3">
           <button
             onClick={() => reset()}
@@ -36,17 +36,17 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
           </button>
           <button
             onClick={() => window.location.reload()}
-            className="w-full rounded-lg bg-gray-800 px-4 py-2 font-medium text-white transition-colors hover:bg-gray-700"
+            className="w-full rounded-lg bg-muted px-4 py-2 font-medium text-foreground transition-colors hover:bg-accent"
           >
             Ladda om sidan
           </button>
         </div>
         {process.env.NODE_ENV === "development" && (
           <details className="mt-6 text-left">
-            <summary className="cursor-pointer text-gray-500 hover:text-gray-400">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
               Teknisk information
             </summary>
-            <pre className="mt-2 max-h-40 overflow-auto rounded bg-gray-950 p-3 text-xs text-red-400">
+            <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted p-3 text-xs text-red-400">
               {error.message}
               {"\n\n"}
               {error.stack}

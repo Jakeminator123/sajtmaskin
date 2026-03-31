@@ -17,24 +17,24 @@ export default function ImprovementsList({ improvements }: ImprovementsListProps
       case "high":
         return "bg-brand-amber/20 text-brand-amber border-brand-amber/30";
       case "medium":
-        return "bg-brand-teal/20 text-brand-teal border-brand-teal/30";
+        return "bg-primary/20 text-primary border-primary/30";
       case "low":
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+        return "bg-muted/50 text-muted-foreground border-border";
       default:
-        return "bg-gray-500/20 text-gray-400";
+        return "bg-muted/50 text-muted-foreground";
     }
   };
 
   const getEffortColor = (effort: string) => {
     switch (effort) {
       case "low":
-        return "bg-brand-teal/20 text-brand-teal";
+        return "bg-primary/20 text-primary";
       case "medium":
         return "bg-brand-amber/20 text-brand-amber";
       case "high":
         return "bg-red-500/20 text-red-400";
       default:
-        return "bg-gray-500/20 text-gray-400";
+        return "bg-muted/50 text-muted-foreground";
     }
   };
 
@@ -52,11 +52,11 @@ export default function ImprovementsList({ improvements }: ImprovementsListProps
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="border border-gray-800 bg-black/50 p-6"
+        className="border border-border bg-card p-6"
       >
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-xl font-bold text-white">
-            <span className="text-brand-teal">✨</span> Förbättringsförslag
+          <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
+            <span className="text-primary">✨</span> Förbättringsförslag
           </h2>
 
           {/* Filter */}
@@ -67,8 +67,8 @@ export default function ImprovementsList({ improvements }: ImprovementsListProps
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1 text-xs transition-colors ${
                   filter === f
-                    ? "bg-brand-teal/20 text-brand-teal border-brand-teal/30 border"
-                    : "border border-gray-700 bg-black/30 text-gray-400 hover:border-gray-600"
+                    ? "bg-primary/20 text-primary border-primary/30 border"
+                    : "border border-border bg-muted/50 text-muted-foreground hover:border-border"
                 }`}
               >
                 {f === "all" ? "Alla" : f === "high" ? "Hög" : f === "medium" ? "Medium" : "Låg"}
@@ -85,15 +85,15 @@ export default function ImprovementsList({ improvements }: ImprovementsListProps
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={() => setSelectedImprovement(improvement)}
-              className="hover:border-brand-teal/30 group cursor-pointer border border-gray-800 bg-black/30 p-4 transition-all"
+              className="hover:border-primary/30 group cursor-pointer border border-border bg-muted/50 p-4 transition-all"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <h4 className="group-hover:text-brand-teal font-medium text-white transition-colors">
+                  <h4 className="group-hover:text-primary font-medium text-foreground transition-colors">
                     {improvement.item}
                   </h4>
                   {improvement.why && (
-                    <p className="mt-1 line-clamp-2 text-sm text-gray-400">{improvement.why}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{improvement.why}</p>
                   )}
                 </div>
 
@@ -118,14 +118,14 @@ export default function ImprovementsList({ improvements }: ImprovementsListProps
               </div>
 
               {improvement.estimated_time && (
-                <p className="mt-2 text-xs text-gray-500">⏱️ {improvement.estimated_time}</p>
+                <p className="mt-2 text-xs text-muted-foreground">⏱️ {improvement.estimated_time}</p>
               )}
             </motion.div>
           ))}
         </div>
 
         {sortedImprovements.length === 0 && (
-          <p className="py-8 text-center text-gray-500">
+          <p className="py-8 text-center text-muted-foreground">
             Inga förbättringsförslag med vald prioritet.
           </p>
         )}
@@ -145,14 +145,14 @@ export default function ImprovementsList({ improvements }: ImprovementsListProps
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="max-h-[80vh] w-full max-w-2xl overflow-y-auto border border-gray-800 bg-black p-6"
+              className="max-h-[80vh] w-full max-w-2xl overflow-y-auto border border-border bg-background p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-6 flex items-start justify-between">
-                <h3 className="pr-4 text-xl font-bold text-white">{selectedImprovement.item}</h3>
+                <h3 className="pr-4 text-xl font-bold text-foreground">{selectedImprovement.item}</h3>
                 <button
                   onClick={() => setSelectedImprovement(null)}
-                  className="p-1 text-gray-400 transition-colors hover:text-white"
+                  className="p-1 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -178,7 +178,7 @@ export default function ImprovementsList({ improvements }: ImprovementsListProps
                     Insats: {selectedImprovement.effort}
                   </span>
                   {selectedImprovement.estimated_time && (
-                    <span className="bg-brand-blue/20 text-brand-blue px-3 py-1.5 text-sm">
+                    <span className="bg-primary/20 text-primary px-3 py-1.5 text-sm">
                       ⏱️ {selectedImprovement.estimated_time}
                     </span>
                   )}
@@ -186,25 +186,25 @@ export default function ImprovementsList({ improvements }: ImprovementsListProps
 
                 {selectedImprovement.why && (
                   <div>
-                    <h4 className="text-brand-teal mb-2 text-sm font-semibold">Varför?</h4>
-                    <p className="text-sm text-gray-300">{selectedImprovement.why}</p>
+                    <h4 className="text-primary mb-2 text-sm font-semibold">Varför?</h4>
+                    <p className="text-sm text-foreground">{selectedImprovement.why}</p>
                   </div>
                 )}
 
                 {selectedImprovement.how && (
                   <div>
-                    <h4 className="text-brand-teal mb-2 text-sm font-semibold">Hur?</h4>
-                    <p className="text-sm text-gray-300">{selectedImprovement.how}</p>
+                    <h4 className="text-primary mb-2 text-sm font-semibold">Hur?</h4>
+                    <p className="text-sm text-foreground">{selectedImprovement.how}</p>
                   </div>
                 )}
 
                 {selectedImprovement.technologies &&
                   selectedImprovement.technologies.length > 0 && (
                     <div>
-                      <h4 className="text-brand-teal mb-2 text-sm font-semibold">Tekniker</h4>
+                      <h4 className="text-primary mb-2 text-sm font-semibold">Tekniker</h4>
                       <div className="flex flex-wrap gap-2">
                         {selectedImprovement.technologies.map((tech, i) => (
-                          <span key={i} className="bg-gray-800 px-2 py-1 text-xs text-gray-300">
+                          <span key={i} className="bg-muted px-2 py-1 text-xs text-foreground">
                             {tech}
                           </span>
                         ))}

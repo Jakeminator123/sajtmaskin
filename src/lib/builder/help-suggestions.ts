@@ -1,0 +1,67 @@
+export const HELP_SUGGESTIONS: { group: string; items: string[] }[] = [
+  {
+    group: "Komma igång",
+    items: [
+      "Skapa en restaurangsida",
+      "Bygg en konsultsajt",
+      "Gör en portfolio",
+      "Skapa en frisörsalong-sajt",
+      "Bygg en landningssida för en app",
+      "Gör en webbplats för en advokatbyrå",
+      "Skapa en sida för ett gym",
+      "Bygg en sajt för en fotograf",
+    ],
+  },
+  {
+    group: "Design & Layout",
+    items: [
+      "Byt färgtema",
+      "Lägg till en hero-sektion",
+      "Gör sidan mobilanpassad",
+      "Byt typsnitt",
+      "Lägg till en bildkarusell",
+      "Skapa en grid-layout",
+      "Lägg till en sticky navbar",
+      "Gör designen mer minimalistisk",
+    ],
+  },
+  {
+    group: "Innehåll",
+    items: [
+      "Skriv en Om oss-text",
+      "Skapa en FAQ-sektion",
+      "Lägg till prislista",
+      "Skriv en produktbeskrivning",
+      "Skapa en blogg-sektion",
+      "Skriv en CTA-text",
+      "Lägg till kundrecensioner",
+      "Skriv en introduktionstext",
+    ],
+  },
+  {
+    group: "Funktioner",
+    items: [
+      "Lägg till kontaktformulär",
+      "Integrera Google Maps",
+      "Lägg till nyhetsbrev",
+      "Skapa en bokningsfunktion",
+      "Lägg till sociala medier-länkar",
+      "Integrera en chattbot",
+      "Lägg till en sökfunktion",
+      "Skapa en inloggningssida",
+    ],
+  },
+  {
+    group: "Förbättra",
+    items: [
+      "Snabba upp laddningstiden",
+      "Förbättra SEO",
+      "Gör texten mer säljande",
+      "Förbättra tillgängligheten",
+      "Optimera bilderna",
+      "Gör navigeringen tydligare",
+      "Lägg till animationer",
+      "Förbättra kontrast och läsbarhet",
+    ],
+  },
+];

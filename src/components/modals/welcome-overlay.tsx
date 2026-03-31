@@ -41,32 +41,32 @@ export function WelcomeOverlay({ company, onContinue }: WelcomeOverlayProps) {
       <div className="animate-fadeInUp relative flex w-full max-w-2xl flex-col items-center gap-8">
 
         {/* ── Layer 1: Welcome banner ── */}
-        <div className="relative w-full overflow-hidden rounded-2xl border border-white/8 bg-[hsl(220,15%,7%)] p-8 text-center shadow-2xl">
+        <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-card p-8 text-center shadow-2xl">
           {/* Top accent */}
-          <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-blue/30 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-primary/30 to-transparent" />
 
-          <p className="mb-2 text-[13px] font-medium tracking-widest text-white/25 uppercase">
+          <p className="mb-2 text-[13px] font-medium tracking-widest text-muted-foreground uppercase">
             Din sajt är redo
           </p>
-          <h1 className="mb-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h1 className="mb-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Välkommen, {company}
           </h1>
-          <p className="mx-auto max-w-md text-[15px] leading-relaxed text-white/40">
+          <p className="mx-auto max-w-md text-[15px] leading-relaxed text-muted-foreground">
             Vi har autogenererat en sajt åt dig — helt gratis.
             Logga in för att ta del av den och göra den till din egen.
           </p>
         </div>
 
         {/* ── Layer 2: Demo video ── */}
-        <div className="group relative w-full overflow-hidden rounded-2xl border border-white/6 bg-black/60 shadow-2xl">
+        <div className="group relative w-full overflow-hidden rounded-2xl border border-border bg-muted/50 shadow-2xl">
           {/* Video placeholder — replace src with actual demo video */}
           <div className="relative aspect-video w-full">
             {/* Placeholder state (replace with <video> or <iframe> when video is ready) */}
-            <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-linear-to-b from-white/3 to-transparent">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all duration-300 group-hover:scale-105 group-hover:border-white/20 group-hover:bg-white/10">
-                <Play className="h-6 w-6 text-white/60" />
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-linear-to-b from-muted/50 to-transparent">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted/50 transition-all duration-300 group-hover:scale-105 group-hover:border-border group-hover:bg-muted">
+                <Play className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-[13px] text-white/25">Demo kommer snart</p>
+              <p className="text-[13px] text-muted-foreground">Demo kommer snart</p>
             </div>
 
             {/*
@@ -88,7 +88,7 @@ export function WelcomeOverlay({ company, onContinue }: WelcomeOverlayProps) {
             <AlertTriangle className="h-3.5 w-3.5 text-brand-amber/50" />
             <span className="text-[12px] font-semibold tracking-wide text-brand-amber/50 uppercase">Under uppbyggnad</span>
           </div>
-          <p className="text-[13px] leading-relaxed text-white/35">
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
             Den här tjänsten är under utveckling. Stöter du på problem hjälper
             våra utvecklare gärna till. Vill du bara ha en autogenererad sajt?
             Mejla oss med dina preferenser så skapar vi en gratis demo-URL åt dig.
@@ -105,7 +105,7 @@ export function WelcomeOverlay({ company, onContinue }: WelcomeOverlayProps) {
         {/* ── Layer 3: CTA ── */}
         <button
           onClick={onContinue}
-          className="group flex items-center gap-2.5 rounded-xl bg-white/10 px-8 py-4 text-[16px] font-semibold text-white transition-all duration-300 hover:bg-white/15 hover:shadow-lg hover:shadow-white/5"
+          className="group flex items-center gap-2.5 rounded-xl bg-primary px-8 py-4 text-[16px] font-semibold text-primary-foreground transition-all duration-300 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/5"
         >
           Fortsätt till din sajt
           <ArrowRight className="h-4.5 w-4.5 transition-transform duration-300 group-hover:translate-x-0.5" />
@@ -114,7 +114,7 @@ export function WelcomeOverlay({ company, onContinue }: WelcomeOverlayProps) {
         {/* Skip link */}
         <button
           onClick={onContinue}
-          className="text-[12px] text-white/15 transition-colors hover:text-white/30"
+          className="text-[12px] text-muted-foreground transition-colors hover:text-foreground"
         >
           Hoppa över
         </button>

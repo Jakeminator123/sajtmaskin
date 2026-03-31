@@ -338,33 +338,33 @@ export function VideoRecorder({
   if (!privacyAccepted) {
     return (
       <div className={`space-y-3 ${className}`}>
-        <div className="rounded-lg border border-gray-700/50 bg-gray-900/50 p-4 space-y-3">
+        <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
           <div className="flex items-start gap-3">
             <Shield className="mt-0.5 h-5 w-5 shrink-0 text-brand-blue" />
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-200">
+              <p className="text-sm font-medium text-foreground">
                 Sekretess vid videoinspelning
               </p>
-              <p className="text-xs leading-relaxed text-gray-400">
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 Din video bearbetas for att transkribera talet och ge konstruktiv
                 feedback pa din presentation. Vi analyserar ton, tydlighet, hallning och
                 blickkontakt -- allt for att hjalpa dig kommunicera battre.
               </p>
-              <ul className="space-y-1 text-xs text-gray-500">
+              <ul className="space-y-1 text-xs text-muted-foreground">
                 <li className="flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-brand-teal" />
+                  <span className="h-1 w-1 rounded-full bg-primary" />
                   Ljudet transkriberas via OpenAI Whisper
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-brand-teal" />
+                  <span className="h-1 w-1 rounded-full bg-primary" />
                   Ett fatal stillbilder analyseras av AI for kroppssprak och hallning
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-brand-teal" />
+                  <span className="h-1 w-1 rounded-full bg-primary" />
                   Ingen video sparas pa vara servrar
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-brand-teal" />
+                  <span className="h-1 w-1 rounded-full bg-primary" />
                   Max 3 minuters inspelning
                 </li>
               </ul>
@@ -375,7 +375,7 @@ export function VideoRecorder({
             onClick={() => setPrivacyAccepted(true)}
             variant="outline"
             size="sm"
-            className="w-full gap-2 border-brand-teal/30 text-brand-teal hover:bg-brand-teal/10"
+            className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
           >
             <Video className="h-4 w-4" />
             Jag forstar -- aktivera videoinspelning
@@ -392,7 +392,7 @@ export function VideoRecorder({
   return (
     <div className={`space-y-3 ${className}`}>
       {/* Video preview area */}
-      <div className="relative overflow-hidden rounded-lg border border-gray-700 bg-black">
+      <div className="relative overflow-hidden rounded-lg border border-border bg-background">
         <video
           ref={videoRef}
           className={`aspect-video w-full object-cover ${!isRecording && !showPreview ? "hidden" : ""}`}
@@ -401,11 +401,11 @@ export function VideoRecorder({
         />
 
         {!isRecording && !showPreview && (
-          <div className="flex aspect-video items-center justify-center bg-gray-900/50">
+          <div className="flex aspect-video items-center justify-center bg-muted/50">
             <div className="text-center">
-              <Video className="mx-auto mb-2 h-8 w-8 text-gray-600" />
-              <p className="text-xs text-gray-500">Spela in din elevator pitch</p>
-              <p className="text-[10px] text-gray-600">AI analyserar bade tal och kroppssprak</p>
+              <Video className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Spela in din elevator pitch</p>
+              <p className="text-[10px] text-muted-foreground">AI analyserar bade tal och kroppssprak</p>
             </div>
           </div>
         )}
@@ -418,7 +418,7 @@ export function VideoRecorder({
               REC {formatTime(recordingTime)}
             </div>
             <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              isNearLimit ? "bg-red-500/80 text-white" : "bg-black/50 text-gray-300"
+              isNearLimit ? "bg-red-500/80 text-white" : "bg-background/60 text-foreground"
             }`}>
               {formatTime(timeRemaining)} kvar
             </div>
@@ -429,9 +429,9 @@ export function VideoRecorder({
         {isProcessing && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
             <div className="max-w-[260px] text-center">
-              <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-brand-teal" />
-              <p className="text-sm font-medium text-white">{processingStep}</p>
-              <p className="mt-1 text-[10px] text-gray-400">
+              <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-primary" />
+              <p className="text-sm font-medium text-foreground">{processingStep}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
                 Resultatet inkluderas i din webbplats-brief
               </p>
             </div>
@@ -459,7 +459,7 @@ export function VideoRecorder({
           className={`gap-2 ${
             isRecording
               ? "border-red-600 bg-red-600 hover:bg-red-700"
-              : "border-brand-teal/50 text-brand-teal hover:bg-brand-teal/10"
+              : "border-primary/50 text-primary hover:bg-primary/10"
           }`}
         >
           {isProcessing ? (
@@ -481,15 +481,15 @@ export function VideoRecorder({
         </Button>
 
         {!isRecording && !isProcessing && (
-          <span className="text-xs text-gray-500">Max 3 min</span>
+          <span className="text-xs text-muted-foreground">Max 3 min</span>
         )}
       </div>
 
       {/* Analysis results card */}
       {analysis && (
-        <div className="rounded-lg border border-brand-teal/20 bg-brand-teal/5 p-4 space-y-3">
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium text-brand-teal">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
               <ThumbsUp className="h-4 w-4" />
               Presentationsanalys
             </div>
@@ -500,75 +500,75 @@ export function VideoRecorder({
                   className={`h-3.5 w-3.5 ${
                     i < Math.round((analysis.overallScore || 0) / 2)
                       ? "fill-brand-amber text-brand-amber"
-                      : "text-gray-600"
+                      : "text-muted-foreground"
                   }`}
                 />
               ))}
-              <span className="ml-1 text-xs text-gray-400">
+              <span className="ml-1 text-xs text-muted-foreground">
                 {analysis.overallScore}/10
               </span>
             </div>
           </div>
 
           {analysis.strengthHighlight && (
-            <div className="rounded-md bg-brand-teal/10 px-3 py-2 text-xs text-gray-200">
-              <strong className="text-brand-teal">Styrka:</strong> {analysis.strengthHighlight}
+            <div className="rounded-md bg-primary/10 px-3 py-2 text-xs text-foreground">
+              <strong className="text-primary">Styrka:</strong> {analysis.strengthHighlight}
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             {analysis.toneFeedback && (
               <div className="space-y-0.5">
-                <span className="text-gray-500">Ton & energi</span>
-                <p className="text-gray-300">{analysis.toneFeedback}</p>
+                <span className="text-muted-foreground">Ton & energi</span>
+                <p className="text-foreground">{analysis.toneFeedback}</p>
               </div>
             )}
             {analysis.clarityFeedback && (
               <div className="space-y-0.5">
-                <span className="text-gray-500">Tydlighet</span>
-                <p className="text-gray-300">{analysis.clarityFeedback}</p>
+                <span className="text-muted-foreground">Tydlighet</span>
+                <p className="text-foreground">{analysis.clarityFeedback}</p>
               </div>
             )}
             {analysis.pitchFeedback && (
               <div className="space-y-0.5">
-                <span className="text-gray-500">Elevator pitch</span>
-                <p className="text-gray-300">{analysis.pitchFeedback}</p>
+                <span className="text-muted-foreground">Elevator pitch</span>
+                <p className="text-foreground">{analysis.pitchFeedback}</p>
               </div>
             )}
             {analysis.confidenceFeedback && (
               <div className="space-y-0.5">
-                <span className="text-gray-500">Sjalvsakerhet</span>
-                <p className="text-gray-300">{analysis.confidenceFeedback}</p>
+                <span className="text-muted-foreground">Sjalvsakerhet</span>
+                <p className="text-foreground">{analysis.confidenceFeedback}</p>
               </div>
             )}
             {analysis.postureFeedback && (
               <div className="space-y-0.5">
-                <span className="text-gray-500">Hallning</span>
-                <p className="text-gray-300">{analysis.postureFeedback}</p>
+                <span className="text-muted-foreground">Hallning</span>
+                <p className="text-foreground">{analysis.postureFeedback}</p>
               </div>
             )}
             {analysis.eyeContactFeedback && (
               <div className="space-y-0.5">
-                <span className="text-gray-500">Blickkontakt</span>
-                <p className="text-gray-300">{analysis.eyeContactFeedback}</p>
+                <span className="text-muted-foreground">Blickkontakt</span>
+                <p className="text-foreground">{analysis.eyeContactFeedback}</p>
               </div>
             )}
           </div>
 
           {analysis.keyMessage && (
             <div className="text-xs">
-              <span className="text-gray-500">Huvudbudskap som nadde fram:</span>
-              <p className="mt-0.5 text-gray-200 italic">&quot;{analysis.keyMessage}&quot;</p>
+              <span className="text-muted-foreground">Huvudbudskap som nadde fram:</span>
+              <p className="mt-0.5 text-foreground italic">&quot;{analysis.keyMessage}&quot;</p>
             </div>
           )}
 
           {analysis.suggestions?.length > 0 && (
             <div className="text-xs">
-              <span className="text-gray-500">Tips for nasta gang:</span>
+              <span className="text-muted-foreground">Tips for nasta gang:</span>
               <ul className="mt-1 space-y-0.5">
                 {analysis.suggestions.map((s, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-gray-400">
-                    <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-brand-teal/60" />
+                  <li key={i} className="flex items-start gap-1.5 text-muted-foreground">
+                    <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary/60" />
                     {s}
                   </li>
                 ))}

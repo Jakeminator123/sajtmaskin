@@ -1,0 +1,36 @@
+FRONTEND REDESIGN ANALYSIS: Builder/Chat UI & Main Application
+===============================================================
+
+CURRENT STATE
+- Builder route: src/app/builder/page.tsx → BuilderShellContent.tsx
+- Component hierarchy: BuilderLayout > BuilderHeader + MessageList + ChatInterface + PreviewPanel + VersionHistory
+- Chat composer (ChatInterface.tsx): "Förfina innan du skickar" + chips (Skriv om, Plan, Element) + Figma block + inspect points + media/text/voice
+- Header (BuilderHeader.tsx): model dropdown, scaffold dropdown, settings dropdown (9+ toggles), Mer menu, Ny chat, Spara, Domän, Publicera
+- ThinkingOverlay: rotating company facts during generation
+- LaunchReadinessCard + ProjectEnvVarsPanel stack above chat
+- OpenClaw: data-openclaw-text-target on main prompt, /api/openclaw/tips for TipCard, global FAB panel
+
+COMPARED TO CHATGPT
+- Composer is busy by default (instructional line + 3 secondary actions + conditional blocks)
+- Header has many top-level buttons with verbose Swedish labels
+- ThinkingOverlay adds marketing-style narrative (opposite of minimal)
+- ChatGPT: one input, optional + menu, model in single control
+
+FILES TO CHANGE
+- src/app/builder/BuilderShellContent.tsx — reorder columns, collapse Launch+Env into drawers
+- src/components/builder/BuilderHeader.tsx — consolidate buttons into one primary + overflow
+- src/components/builder/ChatInterface.tsx — strip header, hide refine/plan/element behind one control
+- src/components/builder/MessageList.tsx — shorter pending-reply modal, calmer empty state
+- src/components/builder/TipCard.tsx — off by default or icon-only
+- src/components/builder/ThinkingOverlay.tsx — remove FACTS, use minimal spinner
+- src/components/builder/LaunchReadinessCard.tsx — collapsed strip with icon+badge
+- src/components/builder/ProjectEnvVarsPanel.tsx — default collapsed, full UI in sheet
+- src/components/builder/UnifiedElementPicker.tsx — keep as dialog, don't mirror in composer
+
+PROPOSED CHANGES
+1. Composer: textarea + send ONLY by default. Skriv om/Plan/Element → single "+" or "⋯" menu
+2. Media/Text/voice → ChatGPT-style attachment menu
+3. Header: one primary action + everything else in overflow menu
+4. ThinkingOverlay: silent spinner or one word, no company facts
+5. LaunchReadinessCard: icon + badge strip, expand on click
+6. ProjectEnvVarsPanel: hidden by default, accessible from header menu

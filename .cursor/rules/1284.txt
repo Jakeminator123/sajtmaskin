@@ -1,0 +1,35 @@
+FRONTEND REDESIGN ANALYSIS: Authentication & User Pages
+=========================================================
+
+CURRENT STATE
+- No dedicated auth routes (/login, /register, etc.) — auth is MODAL-DRIVEN
+- AuthModal (src/components/auth/auth-modal.tsx): Google OAuth + email/password, Swedish copy
+- RequireAuthModal (require-auth-modal.tsx): per-reason gate before opening AuthModal
+- Mounted on: page.tsx (landing), projects/page.tsx, buy-credits/page.tsx, BuilderShellContent.tsx
+- Email verification: /api/auth/verify-email → redirects with ?verified=success|error
+- No /account, /settings, or /profile route — "dashboard" is just /projects
+- Auth state: JWT cookie (sajtmaskin_auth, 7-day) + Zustand store (sajtmaskin-auth key)
+
+CURRENT NAV AUTH BUTTONS
+- Landing (landing-v2/navbar.tsx): "Logga in" text + "Kom igång gratis" 3D button (guest), "Mina projekt" + "Öppna builder" (authed)
+- App pages (layout/navbar.tsx): "Logga in" + "Skapa konto" teal button (guest), credits + user dropdown (authed)
+- Builder: "Logga ut" text+icon
+
+FILES TO CHANGE
+- src/components/auth/auth-modal.tsx — simplify forms, reduce copy
+- src/components/auth/require-auth-modal.tsx — shorten per-reason descriptions
+- src/components/landing-v2/navbar.tsx — login icon, subtle CTA
+- src/components/layout/navbar.tsx — same pattern
+
+PROPOSED CHANGES
+1. Login-as-icon: Button variant="ghost" size="icon" with User/LogIn icon + aria-label
+2. Logged in: avatar/icon → dropdown (Mina projekt, Credits, Logga ut) — no text CTA
+3. Guest: "Kom igång gratis" subtle outline button + login icon
+4. AuthModal simplification:
+   - One column, hide optional name behind "Mer" or remove
+   - Placeholder-first (no visible labels, use aria-label for a11y)
+   - One primary action per view
+   - Google vs email: single "Fortsätt" revealing email fields (progressive disclosure)
+   - Divider: "eller" only, or remove
+   - Errors: one line under form
+5. RequireAuthModal: one sentence + two buttons max

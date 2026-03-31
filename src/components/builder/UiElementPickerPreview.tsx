@@ -125,7 +125,7 @@ export function UiElementPickerPreview({
           <Button
             variant="outline"
             size="sm"
-            className={`h-7 gap-1.5 text-[11px] ${showCode ? "bg-brand-teal/10 text-brand-teal border-brand-teal/30" : ""}`}
+            className={`h-7 gap-1.5 text-[11px] ${showCode ? "bg-primary/10 text-primary border-primary/30" : ""}`}
             onClick={() => setShowCode((v) => !v)}
           >
             <Code2 className="size-3" /> Kod
@@ -136,7 +136,7 @@ export function UiElementPickerPreview({
       <div className="scrollbar-thin flex-1 overflow-y-auto p-5">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="size-6 animate-spin text-brand-teal/60" />
+            <Loader2 className="size-6 animate-spin text-primary/60" />
           </div>
         ) : (
           <>
@@ -260,10 +260,10 @@ export function UiElementPickerPreview({
               </div>
             )}
 
-            <div className="mt-5 flex items-start gap-3 rounded-xl border border-brand-teal/15 bg-brand-teal/5 p-4">
-              <Wand2 className="mt-0.5 size-4 shrink-0 text-brand-teal" />
+            <div className="mt-5 flex items-start gap-3 rounded-xl border border-primary/15 bg-primary/5 p-4">
+              <Wand2 className="mt-0.5 size-4 shrink-0 text-primary" />
               <p className="text-[13px] leading-relaxed text-muted-foreground">
-                <span className="font-medium text-brand-teal">Tips:</span> Du kan anpassa färger,
+                <span className="font-medium text-primary">Tips:</span> Du kan anpassa färger,
                 text och bilder efter att du lagt till komponenten — beskriv bara vad du vill ändra
                 i chatten!
               </p>
@@ -282,16 +282,16 @@ const COMPONENT_DETAIL_META: Record<
   inputs: {
     emoji: "⌨️",
     label: "Input",
-    iconClass: "bg-brand-blue/10 text-brand-blue",
-    badgeClass: "bg-brand-blue/10 text-brand-blue/80",
-    hintClass: "border-brand-blue/20 bg-brand-blue/5 text-brand-blue/90",
+    iconClass: "bg-primary/10 text-primary",
+    badgeClass: "bg-primary/10 text-primary/80",
+    hintClass: "border-primary/20 bg-primary/5 text-primary/90",
   },
   forms: {
     emoji: "📝",
     label: "Form",
-    iconClass: "bg-brand-amber/10 text-brand-amber",
-    badgeClass: "bg-brand-amber/10 text-brand-amber/80",
-    hintClass: "border-brand-amber/20 bg-brand-amber/5 text-brand-amber/90",
+    iconClass: "bg-primary/10 text-primary",
+    badgeClass: "bg-primary/10 text-primary/80",
+    hintClass: "border-primary/20 bg-primary/5 text-primary/90",
   },
   overlay: {
     emoji: "🪟",

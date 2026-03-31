@@ -193,3 +193,4 @@ STOR_MIGRATION
 .cursor/migration-archive/
 
 internt_jakob/
+.env*.local

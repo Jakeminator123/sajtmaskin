@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, CheckCircle2, ChevronDown, Loader2, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ChatReadiness, ChatReadinessItem } from "@/lib/chat-readiness";
@@ -42,9 +43,9 @@ function renderItem(item: ChatReadinessItem, missingEnvKeys: string[]) {
 }
 
 export function LaunchReadinessCard({ readiness, isLoading = false }: Props) {
-  if (!readiness && !isLoading) {
-    return null;
-  }
+  const [expanded, setExpanded] = useState(false);
+
+  if (!readiness && !isLoading) return null;
 
   const badge =
     readiness != null
@@ -54,42 +55,50 @@ export function LaunchReadinessCard({ readiness, isLoading = false }: Props) {
         }
       : null;
 
+  const StatusIcon = isLoading && !readiness
+    ? () => <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+    : readiness?.status === "blocked"
+      ? () => <AlertCircle className="h-3.5 w-3.5 text-red-400" />
+      : readiness?.status === "warning"
+        ? () => <TriangleAlert className="h-3.5 w-3.5 text-amber-400" />
+        : () => <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />;
+
   return (
-    <div className="border-border/70 bg-muted/10 border-b px-3 py-2 text-xs">
-      <div className="flex items-center justify-between gap-2">
+    <div className="border-border/70 border-b text-xs">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-1.5 hover:bg-muted/30 transition-colors"
+      >
         <div className="flex items-center gap-2">
-          {isLoading && !readiness ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : readiness?.status === "blocked" ? (
-            <AlertCircle className="h-4 w-4 text-red-400" />
-          ) : readiness?.status === "warning" ? (
-            <TriangleAlert className="h-4 w-4 text-amber-400" />
-          ) : (
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+          <StatusIcon />
+          <span className="font-medium text-foreground">Lansering</span>
+          {badge && (
+            <Badge variant="outline" className={cn("text-[10px]", badge.className)}>
+              {badge.label}
+            </Badge>
           )}
-          <span className="font-medium text-gray-200">Lansering</span>
         </div>
-        {badge ? (
-          <Badge variant="outline" className={cn("text-[10px]", badge.className)}>
-            {badge.label}
-          </Badge>
-        ) : null}
-      </div>
+        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+      </button>
 
-      {isLoading && !readiness ? (
-        <div className="mt-2 text-[11px] text-muted-foreground">Kontrollerar publiceringsstatus...</div>
-      ) : readiness ? (
-        <div className="mt-2 space-y-2">
-          {readiness.blockers.map((item) => renderItem(item, readiness.info.missingEnvKeys))}
-          {readiness.warnings.map((item) => renderItem(item, readiness.info.missingEnvKeys))}
-
-          {readiness.info.lifecycleStatus ? (
-            <div className="text-[11px] text-muted-foreground">
-              Versionsstatus: <span className="text-foreground">{readiness.info.lifecycleStatus}</span>
+      {expanded && (
+        <div className="px-3 pb-2">
+          {isLoading && !readiness ? (
+            <div className="text-[11px] text-muted-foreground">Kontrollerar...</div>
+          ) : readiness ? (
+            <div className="space-y-2">
+              {readiness.blockers.map((item) => renderItem(item, readiness.info.missingEnvKeys))}
+              {readiness.warnings.map((item) => renderItem(item, readiness.info.missingEnvKeys))}
+              {readiness.info.lifecycleStatus ? (
+                <div className="text-[11px] text-muted-foreground">
+                  Status: <span className="text-foreground">{readiness.info.lifecycleStatus}</span>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

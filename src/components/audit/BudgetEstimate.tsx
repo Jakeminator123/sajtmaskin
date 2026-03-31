@@ -76,10 +76,10 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="border border-gray-800 bg-black/50 p-6"
+      className="border border-border bg-card p-6"
     >
-      <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-white">
-        <span className="text-brand-teal">💰</span> Budgetuppskattning
+      <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-foreground">
+        <span className="text-primary">💰</span> Budgetuppskattning
       </h2>
 
       <div className="space-y-4">
@@ -89,12 +89,12 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="border border-gray-800 bg-black/30 p-4"
+            className="border border-border bg-muted/50 p-4"
           >
             <div className="mb-2 flex items-center justify-between">
               <div>
-                <h4 className="font-medium text-white">{range.label}</h4>
-                <p className="text-xs text-gray-500">{range.description}</p>
+                <h4 className="font-medium text-foreground">{range.label}</h4>
+                <p className="text-xs text-muted-foreground">{range.description}</p>
               </div>
               <div className="text-right">
                 <p
@@ -104,7 +104,7 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
                 >
                   {range.data?.low ? formatCurrency(range.data.low) : "–"}
                   {range.data?.high && range.data.low !== range.data.high && (
-                    <span className="text-gray-400"> – {formatCurrency(range.data.high)}</span>
+                    <span className="text-muted-foreground"> – {formatCurrency(range.data.high)}</span>
                   )}
                 </p>
               </div>
@@ -113,7 +113,7 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
             {/* Visual bar */}
             {range.data?.high && (
               <div className="mt-3">
-                <div className="h-2 w-full overflow-hidden bg-gray-800">
+                <div className="h-2 w-full overflow-hidden bg-muted">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: "100%" }}
@@ -130,15 +130,15 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
       </div>
 
       {paymentStructure && (
-        <div className="bg-brand-teal/10 border-brand-teal/30 mt-4 border p-3 text-sm">
-          <p className="text-brand-teal wrap-break-word whitespace-pre-wrap">
+        <div className="bg-primary/10 border-primary/30 mt-4 border p-3 text-sm">
+          <p className="text-primary wrap-break-word whitespace-pre-wrap">
             💡 <span className="font-medium">Rekommenderad betalningsplan:</span>{" "}
-            <span className="text-brand-teal/80">{paymentStructure}</span>
+            <span className="text-primary/80">{paymentStructure}</span>
           </p>
         </div>
       )}
 
-      <p className="mt-4 text-xs text-gray-500">
+      <p className="mt-4 text-xs text-muted-foreground">
         * Uppskattningar baserade på svenska marknadssnitt. Faktiska kostnader kan variera.
       </p>
     </motion.div>

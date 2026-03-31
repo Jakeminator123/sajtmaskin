@@ -8,6 +8,7 @@ import {
   FileText,
   Loader2,
   MessageCircleQuestion,
+  MoreHorizontal,
   MousePointer2,
   RefreshCw,
   Search,
@@ -27,6 +28,13 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
@@ -2312,8 +2320,8 @@ export function PreviewPanel({
       return {
         label: "Kodvy",
         detail: "Visar versionsfilerna direkt i buildern.",
-        className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
-        badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
+        className: "border-border bg-muted/50 text-foreground",
+        badgeClassName: "border-muted-foreground/30 bg-muted/50 text-foreground",
       };
     }
     if (isOwnEnginePreview) {
@@ -2321,8 +2329,8 @@ export function PreviewPanel({
         label: "Runtime preview",
         detail:
           "Primär sanningsyta under iteration. Renderas från den genererade koden i builderns egen runtime och fångar previewfel direkt.",
-        className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
-        badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
+        className: "border-primary/40 bg-primary/10 text-foreground",
+        badgeClassName: "border-primary/30 bg-primary/10 text-primary",
       };
     }
     if (isSandboxPreview) {
@@ -2346,72 +2354,33 @@ export function PreviewPanel({
     return {
       label: "Extern preview",
       detail: "Visar den aktuella preview-URL:en för vald version.",
-      className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
-      badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
+      className: "border-border bg-muted/50 text-foreground",
+      badgeClassName: "border-muted-foreground/30 bg-muted/50 text-foreground",
     };
   }, [viewMode, isOwnEnginePreview, isSandboxPreview, isV0Preview]);
   if (!demoUrl && !isCodeView) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
-    const normalizedAwaitingQuestion =
-      typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
-        ? awaitingInputQuestion.trim()
-        : null;
-    const normalizedAwaitingOptions = awaitingInputOptions
-      .map((option) => option.trim())
-      .filter(Boolean)
-      .slice(0, 6);
-    const title = awaitingInput
-      ? "AI väntar på ditt svar"
-      : isInitialEmpty
-        ? "Välkommen"
-        : "Ingen förhandsvisning ännu";
-    const subtitle = awaitingInput
-      ? "AI behöver ditt svar innan nästa preview kan genereras."
-      : externalLoading
-        ? "AI tänker... preview kommer strax."
-        : isInitialEmpty
-          ? "Skriv en prompt till vänster så genererar vi första preview."
-          : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
     const showFixAction = Boolean(
       onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput,
     );
-    const EmptyIcon = awaitingInput ? MessageCircleQuestion : isInitialEmpty ? Wand2 : AlertCircle;
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
-        <EmptyIcon className="mb-4 h-12 w-12" />
-        <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
-          {title}
-        </p>
-        <p className="text-sm" suppressHydrationWarning>
-          {subtitle}
-        </p>
-        {awaitingInput && normalizedAwaitingQuestion ? (
-          <div className="mt-4 max-w-xl space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">
-            <p className="text-sm font-semibold text-amber-100">{normalizedAwaitingQuestion}</p>
-            {normalizedAwaitingOptions.length > 0 ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                {normalizedAwaitingOptions.map((option) => (
-                  <Badge
-                    key={option}
-                    variant="secondary"
-                    className="border border-amber-500/20 bg-amber-500/10 text-amber-100"
-                  >
-                    {option}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-amber-200/80">
-                Svara i chatten till vänster för att fortsätta.
-              </p>
-            )}
-          </div>
-        ) : null}
-        {showFixAction && (
-          <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>
-            Försök reparera preview
-          </Button>
-        )}
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        <div className="text-center">
+          <p className="text-sm" suppressHydrationWarning>
+            {awaitingInput
+              ? "Svara i chatten för att fortsätta."
+              : externalLoading
+                ? "Genererar preview..."
+                : isInitialEmpty
+                  ? "Skriv en prompt så skapar vi en preview."
+                  : "Ingen preview. Generera igen."}
+          </p>
+          {showFixAction && (
+            <Button size="sm" className="mt-3" onClick={onFixPreview} disabled={externalLoading}>
+              Reparera
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -2445,125 +2414,75 @@ export function PreviewPanel({
   const showInspectOverlay = inspectMode && !showPlacementOverlay;
 
   return (
-    <div className="flex h-full flex-col bg-black/40">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold tracking-tight text-white">Preview</h3>
-          <Badge variant="outline" className={surfaceDescriptor.badgeClassName}>
-            {surfaceDescriptor.label}
-          </Badge>
-          {isOwnEnginePreview ? (
-            <Badge
-              variant="outline"
-              className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
-              title="Förhandsvisningen kör i builderns runtime med modul-shims (t.ex. 3D-paket). Det är inte samma isolerade miljö som en extern sandbox."
-            >
-              Shim-preview
-            </Badge>
-          ) : null}
-          {demoUrl && isSandboxPreview && !isOwnEnginePreview ? (
-            <Badge
-              variant="outline"
-              className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
-              title="Preview körs mot en separat sandbox-runtime. Beteende och miljö kan skilja sig från shim-preview och lokal build."
-            >
-              Sandbox-runtime
-            </Badge>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1">
-          {showWorkerLamp && (
-            <div
-              className="mr-1 inline-flex items-center gap-1 rounded border border-gray-700 bg-black/40 px-2 py-1 text-[11px] text-gray-400"
-              title={workerLampTitle}
-            >
-              <span className={cn("h-2 w-2 rounded-full", workerLampClass)} />
-              <span>Worker</span>
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleInspect}
-            disabled={!demoUrl || placementMode}
-            title={
-              placementMode
-                ? "Placering aktiv - avsluta placering först"
-                : "Markera punkt i preview och skicka till chatten"
-            }
-            className={cn(
-              "text-gray-400 hover:text-white",
-              inspectMode && "bg-emerald-900/50 text-emerald-300 hover:text-emerald-200",
-            )}
-          >
-            <Search className="mr-1 h-4 w-4" />
-            Inspektera preview
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleElementRegistry}
-            disabled={!canShowCode || isViewSwitchPending}
-            title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"}
-            className={cn(
-              "text-gray-400 hover:text-white",
-              showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100",
-            )}
-          >
-            <Code2 className="mr-1 h-4 w-4" />
-            Elementregister
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleCode}
-            disabled={!canShowCode || isViewSwitchPending}
-            title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"}
-            className={cn(
-              "text-gray-400 hover:text-white",
-              viewMode === "code" && "bg-gray-800 text-white hover:text-white",
-            )}
-          >
-            <FileText className="mr-1 h-4 w-4" />
-            Kodvy
-          </Button>
-          {demoUrl && onClear && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClear}
-              disabled={isLoading}
-              title="Rensa preview"
-              className="text-gray-400 hover:text-white"
-            >
-              Rensa
-            </Button>
-          )}
+    <div className="flex h-full flex-col bg-background">
+      <div className="flex h-10 items-center justify-between border-b border-border px-3">
+        <span className="text-sm font-medium text-foreground">Preview</span>
+        <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"
             onClick={handleRefresh}
             disabled={isLoading}
-            title="Uppdatera preview"
+            title="Uppdatera"
             aria-label="Uppdatera preview"
-            className="text-gray-400 hover:text-white"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={handleOpenInNewTab}
             title="Öppna i ny flik"
-            className="text-gray-400 hover:text-white"
+            aria-label="Öppna i ny flik"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
           >
-            <ExternalLink className="mr-1 h-4 w-4" />
-            Öppna
+            <ExternalLink className="h-3.5 w-3.5" />
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                aria-label="Preview-meny"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={handleToggleInspect}
+                disabled={!demoUrl || placementMode}
+              >
+                <Search className="mr-2 h-4 w-4" />
+                {inspectMode ? "Avsluta inspektera" : "Inspektera"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleToggleElementRegistry}
+                disabled={!canShowCode || isViewSwitchPending}
+              >
+                <Code2 className="mr-2 h-4 w-4" />
+                Elementregister
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleToggleCode}
+                disabled={!canShowCode || isViewSwitchPending}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                {viewMode === "code" ? "Stäng kodvy" : "Kodvy"}
+              </DropdownMenuItem>
+              {demoUrl && onClear && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleClear} disabled={isLoading}>
+                    Rensa preview
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
-      <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
-        {surfaceDescriptor.detail}
       </div>
       {sandboxBuildError ? (
         <Alert
@@ -2579,87 +2498,34 @@ export function PreviewPanel({
           </AlertDescription>
         </Alert>
       ) : null}
-      {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0) && (
-        <div className="border-b border-gray-800 bg-black/30 px-4 py-2">
-          <div className="mb-1 text-[11px] font-medium text-gray-300">Sidor i skapad preview</div>
-          <div className="flex flex-wrap gap-1.5">
-            {previewRoutesLoading && previewRoutes.length === 0 ? (
-              <span className="text-[11px] text-gray-500">
-                Läser routes från versionens filer...
-              </span>
-            ) : (
-              previewRoutes.map((route) => (
-                <Button
-                  key={route}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-6 border-gray-700 px-2 text-[11px] text-gray-300 hover:bg-gray-800 hover:text-white",
-                    activePreviewRoute === route && "border-sky-500/60 bg-sky-500/10 text-sky-200",
-                  )}
-                  onClick={() => handleNavigateRoute(route)}
-                  title={`Visa ${route}`}
-                >
-                  {route}
-                </Button>
-              ))
-            )}
-          </div>
+      {!isCodeView && !previewRoutesLoading && previewRoutes.length > 1 && (
+        <div className="flex items-center gap-2 border-b border-border px-3 py-1">
+          <span className="text-[11px] text-muted-foreground">Sida:</span>
+          <select
+            className="h-6 rounded border border-border bg-background px-2 text-[11px] text-foreground"
+            value={activePreviewRoute ?? "/"}
+            onChange={(e) => handleNavigateRoute(e.target.value)}
+          >
+            {previewRoutes.map((route) => (
+              <option key={route} value={route}>{route}</option>
+            ))}
+          </select>
         </div>
       )}
       {!isCodeView &&
         !isOwnEnginePreview &&
-        (showBlobWarning ||
-          showExternalWarning ||
-          showSandboxWarning ||
-          integrationError ||
-          showImagesDisabledWarning ||
-          showImagesUnsupportedWarning ||
-          showBlobConfigWarning) && (
-          <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
-            {showExternalWarning && (
-              <div>
-                Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan
-                ge 404 eller blockeras. Ladda upp media via mediabiblioteket för publika
-                Blob‑URL:er.
-              </div>
-            )}
-            {showSandboxWarning && (
-              <div>
-                Preview körs från sandbox. Sandbox har separat runtime och kan sakna samma
-                miljövariabler som din ordinarie miljö (t.ex. blob-token).
-              </div>
-            )}
-            {showBlobWarning && (
-              <div>
-                Vercel Blob saknas. AI‑bilder och uppladdningar visas inte i preview förrän
-                BLOB_READ_WRITE_TOKEN är konfigurerad.
-              </div>
-            )}
-            {showImagesDisabledWarning && (
-              <div>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</div>
-            )}
-            {showImagesUnsupportedWarning && (
-              <div>
-                Bildgenerering är inte tillgänglig just nu (saknad/ogiltig AI-konfiguration).
-              </div>
-            )}
-            {showBlobConfigWarning && (
-              <div>
-                Blob är inte aktivt. Bilder kan skapas av AI men saknas i preview tills blob är
-                konfigurerad.
-              </div>
-            )}
-            {integrationError && (
-              <div>Kunde inte hämta integrationsstatus. Media kan saknas i preview.</div>
-            )}
+        (showBlobWarning || showExternalWarning || showSandboxWarning || integrationError || showImagesDisabledWarning || showImagesUnsupportedWarning || showBlobConfigWarning) && (
+          <div className="flex items-center gap-2 border-b border-border px-3 py-1">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+            <span className="text-[11px] text-muted-foreground">
+              {showBlobWarning ? "Blob saknas." : showExternalWarning ? "Extern preview." : showSandboxWarning ? "Sandbox-runtime." : integrationError ? "Integrationsstatus ej tillgänglig." : showImagesDisabledWarning ? "AI-bilder av." : showImagesUnsupportedWarning ? "Bildgenerering ej tillgänglig." : "Blob ej aktivt."}
+            </span>
           </div>
         )}
 
       {isCodeView ? (
         <div className="flex flex-1 overflow-hidden">
-          <div className="w-64 border-r border-gray-800 bg-black/50">
+          <div className="w-64 border-r border-border bg-muted/50">
             {showElementRegistry ? (
               <ElementRegistry
                 items={elementRegistry}
@@ -2688,13 +2554,13 @@ export function PreviewPanel({
           </div>
           <div ref={codeScrollRef} className="flex-1 overflow-auto p-4">
             {!selectedFile ? (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                 Ingen fil vald
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm text-gray-300">{selectedFile.path}</div>
+                  <div className="text-sm text-foreground">{selectedFile.path}</div>
                   <div className="flex flex-wrap items-center gap-2">
                     {rawEditMode ? (
                       <>
@@ -3020,11 +2886,11 @@ export function PreviewPanel({
                   </div>
                 ) : null}
                 {testimonialItemsDraft && editableTestimonialItems ? (
-                  <div className="rounded-md border border-sky-500/30 bg-sky-500/10 p-3">
+                  <div className="rounded-md border border-primary/30 bg-primary/10 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <div>
-                        <div className="text-sm font-medium text-sky-100">Omdömeseditor</div>
-                        <div className="text-xs text-sky-200/80">
+                        <div className="text-sm font-medium text-foreground">Omdömeseditor</div>
+                        <div className="text-xs text-muted-foreground">
                           Uppdatera namn, roll och citat direkt i den aktiva versionen.
                         </div>
                       </div>
@@ -3041,15 +2907,15 @@ export function PreviewPanel({
                       {testimonialItemsDraft.map((item, index) => (
                         <div
                           key={`testimonial-item-${index}`}
-                          className="rounded-md border border-sky-500/20 bg-black/10 p-3"
+                          className="rounded-md border border-border/30 bg-muted/30 p-3"
                         >
-                          <div className="mb-2 text-xs font-medium text-sky-100">
+                          <div className="mb-2 text-xs font-medium text-foreground">
                             Omdöme {index + 1}
                           </div>
                           <div className="grid gap-3">
                             <div className="grid gap-1">
                               <label
-                                className="text-xs font-medium text-sky-100"
+                                className="text-xs font-medium text-foreground"
                                 htmlFor={`testimonial-name-${index}`}
                               >
                                 Namn
@@ -3072,7 +2938,7 @@ export function PreviewPanel({
                             </div>
                             <div className="grid gap-1">
                               <label
-                                className="text-xs font-medium text-sky-100"
+                                className="text-xs font-medium text-foreground"
                                 htmlFor={`testimonial-role-${index}`}
                               >
                                 Roll
@@ -3095,7 +2961,7 @@ export function PreviewPanel({
                             </div>
                             <div className="grid gap-1">
                               <label
-                                className="text-xs font-medium text-sky-100"
+                                className="text-xs font-medium text-foreground"
                                 htmlFor={`testimonial-quote-${index}`}
                               >
                                 Citat
@@ -3701,11 +3567,11 @@ export function PreviewPanel({
                   </div>
                 ) : null}
                 {navItemsDraft && editableNavItems ? (
-                  <div className="rounded-md border border-indigo-500/30 bg-indigo-500/10 p-3">
+                  <div className="rounded-md border border-primary/30 bg-primary/10 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <div>
-                        <div className="text-sm font-medium text-indigo-100">Navigationeditor</div>
-                        <div className="text-xs text-indigo-200/80">
+                        <div className="text-sm font-medium text-foreground">Navigationeditor</div>
+                        <div className="text-xs text-muted-foreground">
                           Uppdatera navigationsetiketter direkt i den aktiva versionen.
                         </div>
                       </div>
@@ -3722,14 +3588,14 @@ export function PreviewPanel({
                       {navItemsDraft.map((item, index) => (
                         <div
                           key={`nav-item-${index}`}
-                          className="rounded-md border border-indigo-500/20 bg-black/10 p-3"
+                          className="rounded-md border border-border/30 bg-muted/30 p-3"
                         >
-                          <div className="mb-2 text-xs font-medium text-indigo-100">
+                          <div className="mb-2 text-xs font-medium text-foreground">
                             Menyval {index + 1}
                           </div>
                           <div className="grid gap-1">
                             <label
-                              className="text-xs font-medium text-indigo-100"
+                              className="text-xs font-medium text-foreground"
                               htmlFor={`nav-label-${index}`}
                             >
                               Etikett
@@ -3901,11 +3767,11 @@ export function PreviewPanel({
                   </div>
                 ) : null}
                 {footerLinkGroupsDraft && editableFooterLinkGroups ? (
-                  <div className="rounded-md border border-slate-500/30 bg-slate-500/10 p-3">
+                  <div className="rounded-md border border-muted-foreground/30 bg-muted/30 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <div>
-                        <div className="text-sm font-medium text-slate-100">Footereditor</div>
-                        <div className="text-xs text-slate-200/80">
+                        <div className="text-sm font-medium text-foreground">Footereditor</div>
+                        <div className="text-xs text-muted-foreground">
                           Uppdatera footergrupper och länketiketter direkt i den aktiva versionen.
                         </div>
                       </div>
@@ -3922,12 +3788,12 @@ export function PreviewPanel({
                       {footerLinkGroupsDraft.map((group, groupIndex) => (
                         <div
                           key={`footer-group-${groupIndex}`}
-                          className="rounded-md border border-slate-500/20 bg-black/10 p-3"
+                          className="rounded-md border border-border/30 bg-muted/30 p-3"
                         >
                           <div className="grid gap-3">
                             <div className="grid gap-1">
                               <label
-                                className="text-xs font-medium text-slate-100"
+                                className="text-xs font-medium text-foreground"
                                 htmlFor={`footer-group-heading-${groupIndex}`}
                               >
                                 Gruppnamn
@@ -3954,7 +3820,7 @@ export function PreviewPanel({
                                 className="grid gap-1"
                               >
                                 <label
-                                  className="text-xs font-medium text-slate-100"
+                                  className="text-xs font-medium text-foreground"
                                   htmlFor={`footer-group-${groupIndex}-item-${itemIndex}`}
                                 >
                                   Länk {itemIndex + 1}
@@ -4066,7 +3932,7 @@ export function PreviewPanel({
                     language={getLanguageFromName(selectedFile.name)}
                     showLineNumbers
                   >
-                    <CodeBlockCopyButton className="text-gray-300 hover:text-white" />
+                    <CodeBlockCopyButton className="text-foreground hover:text-foreground" />
                   </CodeBlock>
                 )}
               </div>
@@ -4074,7 +3940,7 @@ export function PreviewPanel({
           </div>
         </div>
       ) : (
-        <div className="relative flex-1 overflow-hidden bg-gray-950">
+        <div className="relative flex-1 overflow-hidden bg-background">
           {isLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80">
               <div className="text-center">
@@ -4086,11 +3952,11 @@ export function PreviewPanel({
           {iframeError && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80 p-4">
               <AlertCircle className="mb-4 h-12 w-12 text-red-400" />
-              <p className="mb-2 text-center text-sm text-gray-400">
+              <p className="mb-2 text-center text-sm text-muted-foreground">
                 {iframeErrorMessage ||
                   "Preview kunde inte laddas i iframe. Öppna i ny flik istället."}
               </p>
-              <p className="mb-4 text-center text-xs text-gray-500">
+              <p className="mb-4 text-center text-xs text-muted-foreground">
                 Öppna i ny flik eller försök reparera previewn om felet kvarstår.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
@@ -4121,7 +3987,7 @@ export function PreviewPanel({
             <>
               <div
                 className={cn(
-                  "absolute inset-0 z-20 cursor-crosshair bg-sky-950/10",
+                  "absolute inset-0 z-20 cursor-crosshair bg-primary/10",
                   (iframeLoading || externalLoading) && "pointer-events-none",
                 )}
                 onClick={handlePlacementClick}
@@ -4130,27 +3996,27 @@ export function PreviewPanel({
               />
               {hoveredPlacement && (
                 <div
-                  className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-dashed border-sky-400"
+                  className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-dashed border-primary"
                   style={{ top: `${hoveredPlacement.lineYPercent}%` }}
                 >
-                  <div className="absolute -top-6 left-3 rounded bg-sky-950/90 px-2 py-1 text-[11px] text-sky-200 shadow-lg">
+                  <div className="absolute -top-6 left-3 rounded bg-foreground/90 px-2 py-1 text-[11px] text-background shadow-lg">
                     {hoveredPlacement.label}
                   </div>
                 </div>
               )}
-              <div className="absolute top-3 right-3 left-3 z-30 rounded border border-sky-700/70 bg-sky-950/85 px-3 py-2 text-xs text-sky-100 shadow-lg backdrop-blur-sm">
-                <div className="font-semibold tracking-tight text-sky-300">Placering aktiv</div>
+              <div className="absolute top-3 right-3 left-3 z-30 rounded border border-primary/40 bg-card/95 px-3 py-2 text-xs text-foreground shadow-lg backdrop-blur-sm">
+                <div className="font-semibold tracking-tight text-primary">Placering aktiv</div>
                 <div className="mt-1">
                   Klicka i previewn för att placera{" "}
-                  <span className="font-medium text-white">
+                  <span className="font-medium text-foreground">
                     {pendingPlacementItem?.title || "det valda elementet"}
                   </span>
                   .
                 </div>
                 {pendingPlacementItem?.description ? (
-                  <div className="mt-1 text-sky-200/85">{pendingPlacementItem.description}</div>
+                  <div className="mt-1 text-muted-foreground/85">{pendingPlacementItem.description}</div>
                 ) : null}
-                <div className="mt-1 text-[11px] text-sky-200/80">
+                <div className="mt-1 text-[11px] text-muted-foreground">
                   {elementMapLoading
                     ? "Laddar elementkarta för exakt placering..."
                     : `Identifierade zoner: ${sectionZones.length}`}
@@ -4209,7 +4075,7 @@ export function PreviewPanel({
                     height: `${hoveredMapElement.vpPercent.h}%`,
                   }}
                 >
-                  <div className="absolute bottom-full left-0 mb-1 max-w-64 truncate rounded bg-zinc-900/95 px-2 py-1 text-[11px] text-violet-200 shadow-lg">
+                  <div className="absolute bottom-full left-0 mb-1 max-w-64 truncate rounded bg-popover px-2 py-1 text-[11px] text-violet-200 shadow-lg">
                     &lt;{hoveredMapElement.tag}&gt;
                     {hoveredMapElement.text ? ` "${hoveredMapElement.text.slice(0, 40)}"` : ""}
                     {hoveredMapElement.className
@@ -4228,14 +4094,14 @@ export function PreviewPanel({
                   <span className="absolute inline-flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-500 shadow-[0_0_0_2px_rgba(0,0,0,0.35)] ring-2 ring-white/90" />
                 </div>
               )}
-              <div className="absolute right-0 bottom-0 left-0 z-30 border-t border-emerald-800/60 bg-zinc-950/95 px-4 py-3 text-xs text-gray-300 backdrop-blur-sm">
+              <div className="absolute right-0 bottom-0 left-0 z-30 border-t border-emerald-800/60 bg-card/95 px-4 py-3 text-xs text-foreground backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold tracking-tight text-emerald-400">
                         Inspektion aktiv
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-zinc-900/80 px-1.5 py-0.5 text-[10px]">
+                      <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px]">
                         <button
                           type="button"
                           onClick={() => setInspectEngine("playwright")}
@@ -4243,7 +4109,7 @@ export function PreviewPanel({
                             "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
                             inspectEngine === "playwright"
                               ? "bg-emerald-800 text-emerald-200"
-                              : "text-zinc-500 hover:text-zinc-300",
+                              : "text-muted-foreground hover:text-foreground",
                           )}
                           title="Playwright: headless browser (screenshot + DOM)"
                         >
@@ -4257,7 +4123,7 @@ export function PreviewPanel({
                             "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
                             inspectEngine === "ai"
                               ? "bg-purple-800 text-purple-200"
-                              : "text-zinc-500 hover:text-zinc-300",
+                              : "text-muted-foreground hover:text-foreground",
                           )}
                           title="AI: gpt-4o-mini analyserar koden"
                         >
@@ -4271,7 +4137,7 @@ export function PreviewPanel({
                             "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
                             inspectEngine === "map"
                               ? "bg-violet-800 text-violet-200"
-                              : "text-zinc-500 hover:text-zinc-300",
+                              : "text-muted-foreground hover:text-foreground",
                           )}
                           title="Map: forkompilerad elementkarta med hover"
                         >
@@ -4298,7 +4164,7 @@ export function PreviewPanel({
                         </span>
                       )}
                     </div>
-                    <div className="text-zinc-400">
+                    <div className="text-muted-foreground">
                       {inspectEngine === "map"
                         ? "Hovra för att markera element. Klicka för att välja."
                         : inspectEngine === "ai"
@@ -4306,12 +4172,12 @@ export function PreviewPanel({
                           : "Klicka i previewn — Playwright tar screenshot + hittar DOM-element."}
                     </div>
                     {inspectStatus && (
-                      <div className="mt-1 whitespace-pre-line text-zinc-500">{inspectStatus}</div>
+                      <div className="mt-1 whitespace-pre-line text-muted-foreground">{inspectStatus}</div>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     {isCapturePending && (
-                      <div className="rounded bg-zinc-800 px-2 py-1 text-[11px] text-zinc-300">
+                      <div className="rounded bg-muted px-2 py-1 text-[11px] text-foreground">
                         Skapar bild...
                       </div>
                     )}
@@ -4327,7 +4193,7 @@ export function PreviewPanel({
                             setSelectedPath(lastCodeMatch.item.filePath);
                           });
                         }}
-                        className="rounded bg-purple-900/60 px-2 py-1 text-[11px] font-medium text-purple-200 transition-colors hover:bg-purple-800/70 hover:text-white"
+                        className="rounded bg-purple-900/60 px-2 py-1 text-[11px] font-medium text-purple-200 transition-colors hover:bg-purple-800/70 hover:text-foreground"
                         title={`Visa ${lastCodeMatch.item.filePath}:${lastCodeMatch.item.lineNumber}`}
                       >
                         <span className="inline-flex items-center gap-1">
@@ -4339,7 +4205,7 @@ export function PreviewPanel({
                     <button
                       type="button"
                       onClick={handleToggleInspect}
-                      className="rounded bg-zinc-800 px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:text-white"
+                      className="rounded bg-muted px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:text-foreground"
                       title="Stäng inspektion"
                     >
                       <span className="inline-flex items-center gap-1">

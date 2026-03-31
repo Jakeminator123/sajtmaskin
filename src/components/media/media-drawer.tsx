@@ -332,25 +332,25 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
       <div
         ref={drawerRef}
         className={cn(
-          "fixed top-0 right-0 bottom-0 z-50 w-full max-w-md border-l border-gray-800 bg-gray-950",
+          "fixed top-0 right-0 bottom-0 z-50 w-full max-w-md border-l border-border bg-card",
           "animate-in slide-in-from-right duration-300 ease-out",
           "flex flex-col",
         )}
       >
         {/* Header - consistent with TextUploader */}
-        <div className="flex items-center justify-between border-b border-gray-800 p-4">
+        <div className="flex items-center justify-between border-b border-border p-4">
           <div className="flex items-center gap-2">
-            <div className="bg-brand-teal/20 rounded-lg p-1.5">
-              <ImageIcon className="text-brand-teal h-4 w-4" />
+            <div className="bg-primary/20 rounded-lg p-1.5">
+              <ImageIcon className="text-primary h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Mediabibliotek</h2>
-              <p className="text-xs text-gray-500">{items.length} filer uppladdade</p>
+              <h2 className="text-lg font-semibold text-foreground">Mediabibliotek</h2>
+              <p className="text-xs text-muted-foreground">{items.length} filer uppladdade</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Stäng mediabiblioteket"
             title="Stäng mediabiblioteket"
           >
@@ -365,7 +365,7 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="bg-brand-teal hover:bg-brand-teal/90 w-full text-white"
+              className="bg-primary hover:bg-primary/90 w-full text-white"
             >
               {isUploading ? (
                 <>
@@ -393,7 +393,7 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
             />
 
             {/* Limits */}
-            <div className="flex justify-between text-xs text-gray-500">
+            <div className="flex justify-between text-xs text-muted-foreground">
               <span className={cn(counts.images >= MAX_IMAGES && "text-brand-amber")}>
                 Bilder: {counts.images}/{MAX_IMAGES}
               </span>
@@ -422,7 +422,7 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
           {/* Search & Filter */}
           <div className="space-y-3">
             <div className="relative">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-500" />
+              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 id={resolvedSearchInputId}
                 name={resolvedSearchInputId}
@@ -431,12 +431,12 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
                 placeholder="Sök filer..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="focus:border-brand-teal w-full rounded-lg border border-gray-700 bg-gray-900 py-2 pr-10 pl-10 text-sm text-white focus:outline-none"
+                className="focus:border-primary w-full rounded-lg border border-border bg-muted py-2 pr-10 pl-10 text-sm text-foreground focus:outline-none"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 hover:text-white"
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label="Rensa sökningen"
                   title="Rensa sökningen"
                 >
@@ -454,8 +454,8 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors",
                     filterType === type.value
-                      ? "bg-brand-teal text-white"
-                      : "bg-gray-800 text-gray-400 hover:bg-gray-700",
+                      ? "bg-primary text-white"
+                      : "bg-muted text-muted-foreground hover:bg-muted",
                   )}
                 >
                   <type.icon className="h-3.5 w-3.5" />
@@ -468,10 +468,10 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
           {/* Media Grid */}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-brand-teal h-8 w-8 animate-spin" />
+              <Loader2 className="text-primary h-8 w-8 animate-spin" />
             </div>
           ) : filteredItems.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">
+            <div className="py-12 text-center text-muted-foreground">
               <ImageIcon className="mx-auto mb-3 h-12 w-12 opacity-50" />
               <p className="text-sm">
                 {searchQuery ? "Inga filer matchade sökningen" : "Inga filer än. Ladda upp!"}
@@ -508,8 +508,8 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
         </div>
 
         {/* Footer - helpful hint */}
-        <div className="border-t border-gray-800 bg-gray-900/50 p-4">
-          <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+        <div className="border-t border-border bg-muted/50 p-4">
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
             <ImageIcon className="h-3.5 w-3.5" />
             <span>Klicka på en fil för att använda den i din design</span>
           </div>
@@ -553,7 +553,7 @@ function MediaItemCard({
       onClick={onSelect}
       className={cn(
         "relative aspect-square cursor-grab overflow-hidden rounded-lg border transition-all",
-        isDragging ? "border-brand-teal opacity-50" : "border-gray-700 hover:border-gray-600",
+        isDragging ? "border-primary opacity-50" : "border-border hover:border-border",
         onSelect && "cursor-pointer",
       )}
     >
@@ -567,32 +567,32 @@ function MediaItemCard({
           draggable={false}
         />
       ) : item.fileType === "video" ? (
-        <div className="flex h-full w-full items-center justify-center bg-gray-800">
-          <Video className="h-8 w-8 text-gray-500" />
+        <div className="flex h-full w-full items-center justify-center bg-muted">
+          <Video className="h-8 w-8 text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center bg-gray-800 p-2">
-          <Icon className="mb-1 h-8 w-8 text-gray-500" />
-          <span className="w-full truncate px-2 text-left text-[10px] text-gray-500">
+        <div className="flex h-full w-full flex-col items-center justify-center bg-muted p-2">
+          <Icon className="mb-1 h-8 w-8 text-muted-foreground" />
+          <span className="w-full truncate px-2 text-left text-[10px] text-muted-foreground">
             {item.filename}
           </span>
         </div>
       )}
 
       {/* Drag handle */}
-      <div className="absolute top-1.5 left-1.5 rounded bg-black/60 p-1">
-        <GripVertical className="h-3 w-3 text-white/70" />
+      <div className="absolute top-1.5 left-1.5 rounded bg-background/60 p-1">
+        <GripVertical className="h-3 w-3 text-foreground/70" />
       </div>
 
       {/* Type badge */}
-      <div className="bg-brand-teal/90 absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-white">
+      <div className="bg-primary/90 absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-white">
         {item.fileType}
       </div>
 
       {/* Hover overlay */}
       {showActions && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 p-2">
-          <span className="w-full truncate px-2 text-left text-[11px] text-white">
+          <span className="w-full truncate px-2 text-left text-[11px] text-foreground">
             {item.filename}
           </span>
           <Button

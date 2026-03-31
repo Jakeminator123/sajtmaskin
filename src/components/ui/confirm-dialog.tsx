@@ -97,7 +97,7 @@ export function ConfirmDialog({
       {/* Dialog */}
       <div
         ref={dialogRef}
-        className="animate-in fade-in-0 zoom-in-95 relative z-10 mx-4 w-full max-w-md border border-gray-800 bg-gray-900 shadow-xl duration-200"
+        className="animate-in fade-in-0 zoom-in-95 relative z-10 mx-4 w-full max-w-md rounded-lg border border-border bg-card shadow-xl duration-200"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -106,7 +106,7 @@ export function ConfirmDialog({
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1 text-gray-500 transition-colors hover:text-gray-300"
+          className="absolute top-3 right-3 p-1 text-muted-foreground transition-colors hover:text-foreground"
           aria-label="Stäng"
         >
           <X className="h-4 w-4" />
@@ -115,15 +115,15 @@ export function ConfirmDialog({
         {/* Content */}
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div className={`bg-gray-800 p-2 ${styles.icon}`}>
+            <div className={`rounded-md bg-muted p-2 ${styles.icon}`}>
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div className="flex-1">
-              <h2 id={titleId} className="text-lg font-semibold text-white">
+              <h2 id={titleId} className="text-lg font-semibold text-foreground">
                 {title}
               </h2>
               {description && (
-                <p id={descriptionId} className="mt-2 text-sm text-gray-400">
+                <p id={descriptionId} className="mt-2 text-sm text-muted-foreground">
                   {description}
                 </p>
               )}
@@ -136,7 +136,7 @@ export function ConfirmDialog({
               variant="ghost"
               onClick={onClose}
               disabled={isLoading}
-              className="text-gray-400 hover:bg-gray-800 hover:text-white"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {cancelText}
             </Button>

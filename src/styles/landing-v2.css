@@ -3,14 +3,14 @@
   border-radius: 50%;
   filter: blur(100px);
   opacity: 0.4;
-  mix-blend-mode: screen;
+  mix-blend-mode: multiply;
   animation: landing-v2-shader-float 20s ease-in-out infinite;
 }
 
 .shader-orb-1 {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(45, 180, 180, 0.35) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(20, 40, 80, 0.06) 0%, transparent 70%);
   top: -100px;
   left: -100px;
   animation-duration: 25s;
@@ -19,7 +19,7 @@
 .shader-orb-2 {
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, rgba(30, 150, 160, 0.3) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(200, 90, 40, 0.06) 0%, transparent 70%);
   bottom: -150px;
   right: -150px;
   animation-duration: 30s;
@@ -29,7 +29,7 @@
 .shader-orb-3 {
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, rgba(50, 200, 190, 0.25) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(30, 50, 90, 0.05) 0%, transparent 70%);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -40,52 +40,51 @@
 
 .grid-background {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
   background-size: 50px 50px;
   animation: landing-v2-grid-move 20s linear infinite;
 }
 
-/* Landing page chat backdrop — semantic tint per category (see landing-background.tsx) */
+/* Landing page chat backdrop — semantic tint per category (navy/orange palette) */
 .landing-chat-bg [data-landing-bg="template"] .shader-orb-1 {
-  background: radial-gradient(circle, rgba(160, 110, 220, 0.34) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(30, 50, 100, 0.06) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="template"] .shader-orb-2 {
-  background: radial-gradient(circle, rgba(130, 90, 200, 0.28) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(200, 90, 40, 0.05) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="template"] .shader-orb-3 {
-  background: radial-gradient(circle, rgba(190, 140, 230, 0.26) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(25, 45, 85, 0.04) 0%, transparent 70%);
 }
 
 .landing-chat-bg [data-landing-bg="audit"] .shader-orb-1 {
-  background: radial-gradient(circle, rgba(220, 150, 70, 0.34) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(220, 130, 50, 0.06) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="audit"] .shader-orb-2 {
-  background: radial-gradient(circle, rgba(200, 120, 50, 0.3) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(200, 100, 35, 0.05) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="audit"] .shader-orb-3 {
-  background: radial-gradient(circle, rgba(240, 180, 90, 0.26) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(240, 160, 70, 0.04) 0%, transparent 70%);
 }
 
 .landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-1 {
-  background: radial-gradient(circle, rgba(100, 140, 230, 0.34) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(25, 45, 90, 0.06) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-2 {
-  background: radial-gradient(circle, rgba(80, 120, 210, 0.3) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(20, 38, 80, 0.05) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-3 {
-  background: radial-gradient(circle, rgba(120, 160, 240, 0.26) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(30, 55, 100, 0.04) 0%, transparent 70%);
 }
 
-/* Calmer default for freeform mode — distinct from teal template/audit/analyserad accents */
 .landing-chat-bg [data-landing-bg="fritext"] .shader-orb-1 {
-  background: radial-gradient(circle, rgba(100, 125, 130, 0.22) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(22, 40, 70, 0.04) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="fritext"] .shader-orb-2 {
-  background: radial-gradient(circle, rgba(88, 108, 112, 0.18) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(18, 35, 65, 0.03) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="fritext"] .shader-orb-3 {
-  background: radial-gradient(circle, rgba(92, 115, 118, 0.16) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(20, 38, 68, 0.03) 0%, transparent 70%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -105,91 +104,38 @@
   }
 }
 
+/* btn-3d and btn-glow removed in redesign — replaced with calm transitions */
 .btn-3d {
-  position: relative;
-  transform-style: preserve-3d;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.1),
-    0 2px 4px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-
-.btn-3d::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, transparent 50%, rgba(0, 0, 0, 0.05) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: -1;
-  filter: blur(8px);
+  transition: all 0.2s ease;
 }
 
 .btn-3d:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.12),
-    0 4px 8px rgba(0, 0, 0, 0.1),
-    0 0 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 0 0 1px rgba(255, 255, 255, 0.2),
-    0 0 16px rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
 }
 
 .btn-3d:active {
-  transform: translateY(1px) scale(0.98);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.1),
-    inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: translateY(0) scale(0.98);
   transition: all 0.1s ease;
 }
 
 .btn-glow {
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-glow::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 0, 0, 0.1) 0%, transparent 70%);
-  transform: translate(-50%, -50%);
-  transition:
-    width 0.6s ease,
-    height 0.6s ease;
-}
-
-.btn-glow:hover::after {
-  width: 300px;
-  height: 300px;
+  /* no-op — glow removed for minimalist design */
 }
 
 .card-3d {
   transform-style: preserve-3d;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .card-3d:hover {
-  transform: translateY(-8px) rotateX(2deg) scale(1.01);
+  transform: translateY(-4px) scale(1.01);
   box-shadow:
-    0 8px 16px rgba(0, 0, 0, 0.2),
-    0 16px 32px rgba(0, 0, 0, 0.15),
-    0 0 0 1px rgba(45, 212, 191, 0.15),
-    0 0 40px rgba(45, 212, 191, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 8px 16px rgba(0, 0, 0, 0.08),
+    0 16px 32px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(200, 100, 40, 0.12);
 }
 
 .input-3d {
@@ -197,21 +143,15 @@
   transform-style: preserve-3d;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.1),
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
 .input-3d:focus-within {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.12),
-    0 6px 16px rgba(0, 0, 0, 0.1),
-    0 0 20px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 0 0 1px rgba(255, 255, 255, 0.2),
-    0 0 32px rgba(255, 255, 255, 0.12);
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 0 0 2px hsl(18 90% 55% / 0.2);
 }
 
 .voice-wave-bar-horizontal {
@@ -225,6 +165,23 @@
 
 .animate-fade-up {
   animation: landing-v2-fade-up 0.7s ease-out both;
+}
+
+.animate-hero-pulse {
+  animation: landing-v2-hero-pulse 4s ease-in-out infinite;
+}
+
+@keyframes landing-v2-hero-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(229, 126, 34, 0),
+      0 20px 60px -15px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 40px 4px rgba(229, 126, 34, 0.06),
+      0 25px 70px -15px rgba(0, 0, 0, 0.12);
+  }
 }
 
 [data-scroll-container] {
@@ -328,10 +285,10 @@
 @keyframes rocket-glow-pulse {
   0%,
   100% {
-    filter: drop-shadow(0 0 6px rgba(45, 212, 191, 0.4));
+    filter: drop-shadow(0 0 6px rgba(220, 110, 50, 0.4));
   }
   50% {
-    filter: drop-shadow(0 0 14px rgba(45, 212, 191, 0.7));
+    filter: drop-shadow(0 0 14px rgba(220, 110, 50, 0.7));
   }
 }
 
@@ -423,9 +380,9 @@
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    oklch(0.72 0.15 192 / 0.04) 45%,
-    oklch(0.72 0.15 192 / 0.08) 50%,
-    oklch(0.72 0.15 192 / 0.04) 55%,
+    oklch(0.65 0.14 50 / 0.04) 45%,
+    oklch(0.65 0.14 50 / 0.08) 50%,
+    oklch(0.65 0.14 50 / 0.04) 55%,
     transparent 100%
   );
   animation: scan-line-kf 4s linear infinite;

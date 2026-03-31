@@ -1,0 +1,47 @@
+FRONTEND REDESIGN ANALYSIS: Marketing & Content Pages
+======================================================
+
+ROUTE MAP (all public pages)
+- / — Landing (hero + long scroll marketing)
+- /om — About (short: company, contact, links)
+- /blogg — Blog placeholder ("Inga inlägg ännu")
+- /faq — 6 Q&As with sidebar
+- /terms — 9 legal sections
+- /privacy — 9 legal sections
+- /templates — Category hub → /category/[type]
+- /category/[type] — Template grid + wizard + preview
+- /buy-credits — Pricing & services (credits + SajtStudio tiers)
+- /projects — User dashboard (auth-gated)
+
+MISSING ROUTES
+- No /priser (nav links to #priser on / and /buy-credits)
+- No /kontakt (mailto links only; /api/contact exists as backend)
+
+CONTENT DENSITY ISSUES
+- / (home): ~660 lines of scrollable marketing (trust, features, comparison, tech, journey, counters, integrations, pricing, CTA)
+- /buy-credits: Very long (tabs, cost matrix, wizard mailto form)
+- /terms, /privacy: Walls of legal text
+- /faq: Intro + sidebar + 6 items — could be more compact
+
+FILES TO CHANGE
+- src/components/landing-v2/chat-area.tsx — collapse sections
+- src/components/landing-v2/landing-chat-data.ts — central copy source
+- src/app/om/page.tsx — already short, minor text trim
+- src/app/blogg/page.tsx — simplify to "Kommer snart" or merge into /om
+- src/app/faq/page.tsx — compact sidebar, shorter intro
+- src/app/terms/page.tsx — accordion per section
+- src/app/privacy/page.tsx — accordion per section
+- src/app/templates/page.tsx — fewer words per card
+- src/app/buy-credits/page.tsx — progressive disclosure, separate credits vs agency
+- src/components/layout/footer.tsx — shared footer simplification
+- src/app/sitemap.ts — update if routes change
+
+PROPOSED CHANGES
+1. Home: collapse ALL below-fold into Tabs or Accordion (see 8351.txt)
+2. Legal pages: accordion per numbered section (collapsible, scannable)
+3. /blogg: single line "Kommer snart" + CTA, or merge into /om
+4. /faq: remove sidebar, compact intro to one line
+5. /buy-credits: stepper with progressive disclosure instead of long tabs
+6. Add /priser redirect → /buy-credits
+7. Consider /kontakt page using /api/contact with minimal form
+8. Two footers → one MinimalFooter (see 4729.txt)

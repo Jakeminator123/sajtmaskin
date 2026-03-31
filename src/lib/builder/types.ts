@@ -12,6 +12,7 @@ export type ChatMessage = {
   thinking?: string | null;
   isStreaming?: boolean;
   uiParts?: UiMessagePart[];
+  isHelpMessage?: boolean;
 };
 
 export interface FileNode {

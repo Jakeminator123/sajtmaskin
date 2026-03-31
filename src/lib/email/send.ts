@@ -117,7 +117,7 @@ function buildVerificationHtml(displayName: string, verifyUrl: string): string {
   </p>
   <p style="font-size:13px; color:#666;">
     Om knappen inte fungerar, kopiera denna länk till din webbläsare:<br/>
-    <a href="${verifyUrl}" style="color:#2563eb; word-break:break-all;">${verifyUrl}</a>
+    <a href="${verifyUrl}" style="color:#E67E22; word-break:break-all;">${verifyUrl}</a>
   </p>
   <p style="font-size:13px; color:#666;">Länken är giltig i 24 timmar.</p>
   <hr style="border:none; border-top:1px solid #e5e5e5; margin:24px 0;" />

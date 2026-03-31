@@ -253,508 +253,7 @@ export function BuilderHeader(props: {
       </div>
 
       <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isBusy}>
-                    <Bot className="h-4 w-4" />
-                    <span className="hidden max-w-[220px] truncate sm:inline">
-                      Modell: {modelButtonLabel}
-                    </span>
-                    {promptAssistDeep && isGatewayProvider && !isAssistOff && (
-                      <Wand2 className="text-primary h-3 w-3" />
-                    )}
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Byggmodell: {modelButtonLabel}</p>
-                <p>{assistStatusSummary}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <span>Byggmodell</span>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-muted-foreground ml-auto flex cursor-help items-center">
-                      <HelpCircle className="h-3 w-3" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="max-w-xs">
-                    <p className="text-xs">
-                      Byggprofiler: Snabb, Lagom, Tanker, Kod Max och Anthropic. Varje profil väljer en
-                      konkret modell i den egna motorn. Förbättra nedan är separat och används till
-                      promptförbättring, mallval och designbrief innan första bygget.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={selectedModelTier}
-              onValueChange={(v) => onSelectedModelTierChange(v as ModelTier)}
-            >
-              {MODEL_TIER_OPTIONS.map((option) => (
-                <DropdownMenuRadioItem key={option.value} value={option.value}>
-                  <span className="font-medium">{option.label}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">{option.description}</span>
-                  {option.hint && (
-                    <span className="text-primary ml-1 text-xs">({option.hint})</span>
-                  )}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <span>Förbättra</span>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-muted-foreground ml-auto flex cursor-help items-center">
-                      <HelpCircle className="h-3 w-3" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="max-w-xs">
-                    <p className="text-xs">
-                      Styr den tyngre förbättringen: djup brief, mallhjälp, designbrief och dynamiska
-                      instruktioner före första bygget. Snabbknappen «Skriv om prompt» använder oftast en
-                      lättare modell bara för texten i inmatningsrutan, men följer Anthropic-spåret när
-                      Claude är vald för jämförelse. För ren Anthropic-jämförelse: välj Anthropic som
-                      byggprofil och Claude under Förbättra, eller använd snabbknappen nedan.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={promptAssistModel}
-              onValueChange={(v) => onPromptAssistModelChange(v)}
-            >
-              {assistModelOptions.map((option, idx) => {
-                const isOff = option.value === PROMPT_ASSIST_OFF_VALUE;
-                const nextOption = assistModelOptions[idx + 1];
-                const needsSeparator = isOff && nextOption && nextOption.value !== PROMPT_ASSIST_OFF_VALUE;
-                return (
-                  <span key={option.value}>
-                    <DropdownMenuRadioItem value={option.value}>
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                    {needsSeparator && <DropdownMenuSeparator />}
-                  </span>
-                );
-              })}
-              {hasCustomAssistModel && (
-                <DropdownMenuRadioItem value={promptAssistModel}>
-                  Anpassad: {promptAssistModel}
-                </DropdownMenuRadioItem>
-              )}
-            </DropdownMenuRadioGroup>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={promptAssistDeep}
-                      onCheckedChange={onPromptAssistDeepChange}
-                      disabled={isDeepBriefDisabled}
-                    >
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Djup brief
-                      {!canUseDeepBrief && (
-                        <span className="text-muted-foreground ml-2 text-xs">(endast ny chat)</span>
-                      )}
-                      <HelpCircle className="text-muted-foreground ml-1 h-3 w-3" />
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    AI skapar först en detaljerad brief som sedan används för en bättre prompt. Tar
-                    längre tid men ger mer genomtänkta resultat. Gäller bara första prompten i en ny
-                    chat. Stöds för de gateway-modeller som listas här, inklusive Claude-alternativ.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                onApplyAnthropicComparePreset();
-              }}
-            >
-              <Bot className="mr-2 h-4 w-4" />
-              Anthropic-jämförelse
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isBusy}>
-                    <Layers className="h-4 w-4" />
-                    <span className="hidden max-w-[180px] truncate sm:inline">
-                      Mall: {scaffoldButtonLabel}
-                    </span>
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Hemsidemall — startpunkt för genererad kod</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Hemsidemall</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
-              onValueChange={(v) => {
-                if (v === "off" || v === "auto") {
-                  onScaffoldModeChange(v);
-                  onScaffoldIdChange(null);
-                } else if (v.startsWith("manual:")) {
-                  const id = v.slice("manual:".length);
-                  onScaffoldModeChange("manual");
-                  onScaffoldIdChange(id || null);
-                }
-              }}
-            >
-              <DropdownMenuRadioItem value="off">Av</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="auto">Auto</DropdownMenuRadioItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                Välj själv
-              </DropdownMenuLabel>
-              {getAllScaffolds().map((scaffold) => (
-                <DropdownMenuRadioItem
-                  key={scaffold.id}
-                  value={`manual:${scaffold.id}`}
-                >
-                  <span className="font-medium">{scaffold.label}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">
-                    {scaffold.description}
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isBusy}>
-              <Settings2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Inställningar</span>
-              <ChevronDown className="h-3 w-3 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Generering</DropdownMenuLabel>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={enableThinking}
-                      onCheckedChange={onEnableThinkingChange}
-                      disabled={isBusy || !isThinkingSupported}
-                    >
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Resonemang
-                      {!isThinkingSupported && (
-                        <span className="text-muted-foreground ml-2 text-xs">(ej tillgängligt)</span>
-                      )}
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    Aktiverar mer resonemang i AI-svaret. Ger högre kvalitet men kan ta längre tid.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={enableImageGenerations}
-                      onCheckedChange={onEnableImageGenerationsChange}
-                      disabled={!isImageGenerationsSupported || isBusy}
-                    >
-                      <ImageIcon className="mr-2 h-4 w-4" />
-                      AI-bilder
-                      {!isImageGenerationsSupported && (
-                        <span className="text-muted-foreground ml-2 text-xs">
-                          (ej tillgängligt)
-                        </span>
-                      )}
-                      {isImageGenerationsSupported && !isMediaEnabled && (
-                        <span className="text-muted-foreground ml-2 text-xs">(blob saknas)</span>
-                      )}
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    Slå på för att be AI om bilder. Om Blob saknas kan bilder saknas i förhandsvisningen.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={enableBlobMedia}
-                      onCheckedChange={onEnableBlobMediaChange}
-                      disabled={isBusy}
-                    >
-                      <ImageIcon className="mr-2 h-4 w-4" />
-                      Blob-bilder
-                      {!isMediaEnabled && (
-                        <span className="text-muted-foreground ml-2 text-xs">(blob saknas)</span>
-                      )}
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    Kopierar externa bildadresser till Vercel Blob vid publicering. Stäng av om du vill
-                    behålla externa länkar som de är.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={enableAutofix}
-                      onCheckedChange={onEnableAutofixChange}
-                      disabled={isBusy}
-                    >
-                      <Wrench className="mr-2 h-4 w-4" />
-                      Åtgärda fel automatiskt
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    När kvalitetskontrollen eller förhandsvisningen misslyckas skickas automatiskt en
-                    reparationsprompt. Stäng av om du vill styra allt manuellt. Parametrarna ?autofix och
-                    ?noautofix i URL:en åsidosätter tillfälligt.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={chatPrivacy === "unlisted"}
-                      onCheckedChange={(checked) =>
-                        onChatPrivacyChange(checked ? "unlisted" : "private")
-                      }
-                      disabled={isBusy}
-                    >
-                      <Globe className="mr-2 h-4 w-4" />
-                      Publik preview
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    Gör demosidan nåbar via länk (olistad). Krävs för inspektionsläget eftersom
-                    servern måste kunna läsa förhandsvisningen.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Inmatning</DropdownMenuLabel>
-            <DropdownMenuItem
-              disabled={isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                onToggleFigmaInput();
-              }}
-            >
-              <Link2 className="mr-2 h-4 w-4" />
-              {isFigmaInputOpen ? "Dölj Figma-länk" : "Visa Figma-länk"}
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Instruktioner</DropdownMenuLabel>
-            <DropdownMenuItem
-              disabled={isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                setIsInstructionsOpen(true);
-              }}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Egna instruktioner
-              {hasCustomInstructions && (
-                <span className="text-muted-foreground ml-2 text-xs">Aktiv</span>
-              )}
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Chattvy</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={showStructuredChat}
-              onCheckedChange={onShowStructuredChatChange}
-              disabled={isBusy}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Felsökningsvy (verktygsblock)
-            </DropdownMenuCheckboxItem>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-              Tips · 2 credits per hämtning
-            </DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={tipsEnabled}
-              onCheckedChange={(checked) => onTipsEnabledChange(Boolean(checked))}
-              disabled={isBusy}
-            >
-              <Lightbulb className="mr-2 h-4 w-4" />
-              Visa tips efter AI-svar
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isBusy}
-                    aria-label="Fler åtgärder: import, sandbox, nedladdning"
-                    title="Importera, sandbox eller ladda ner ZIP"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="hidden sm:inline">Mer</span>
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Importera från GitHub eller ZIP, öppna Vercel Sandbox, ladda ner projekt som ZIP</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-60">
-            <DropdownMenuLabel>Importera och exportera</DropdownMenuLabel>
-            <DropdownMenuItem
-              disabled={isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                runDeferredAction(onOpenImport);
-              }}
-            >
-              <FolderGit2 className="mr-2 h-4 w-4" />
-              Importera (GitHub eller ZIP)
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                runDeferredAction(onOpenSandbox);
-              }}
-            >
-              <TerminalSquare className="mr-2 h-4 w-4" />
-              Öppna Vercel Sandbox
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!chatId || !activeVersionId || isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                if (chatId && activeVersionId) {
-                  window.open(
-                    `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
-                    "_blank",
-                  );
-                }
-              }}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Ladda ner som ZIP
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => runDeferredAction(onNewChat)}
-          disabled={isBusy}
-          title="Starta en ny chat (nuvarande finns kvar i historiken)"
-        >
-          {isCreatingChat ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">Ny chat</span>
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            runDeferredAction(() => {
-              void onSaveProject();
-            })
-          }
-          disabled={!canSaveProject || isBusy || isSavingProject}
-          title="Spara projekt"
-        >
-          {isSavingProject ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">Spara</span>
-        </Button>
-
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => runDeferredAction(onDomainSearch)}
-          disabled={!canManageDomain || isBusy}
-          title="Sök & köp domän"
-        >
-          <Globe className="h-4 w-4" />
-          <span className="hidden sm:inline">Domän</span>
-        </Button>
-
+        {/* ── Primary action: Publicera ── */}
         {deploymentStatus === "building" ? (
           <Button size="sm" variant="outline" disabled>
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -801,6 +300,215 @@ export function BuilderHeader(props: {
             </Tooltip>
           </TooltipProvider>
         )}
+
+        {/* ── Overflow menu: everything else ── */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={isBusy} aria-label="Meny">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {/* ── Modell ── */}
+            <DropdownMenuLabel>Modell: {modelButtonLabel}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={selectedModelTier}
+              onValueChange={(v) => onSelectedModelTierChange(v as ModelTier)}
+            >
+              {MODEL_TIER_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  <span className="font-medium">{option.label}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{option.description}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+
+            <DropdownMenuSeparator />
+
+            {/* ── Förbättra ── */}
+            <DropdownMenuLabel>Förbättra: {assistProviderLabel}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={promptAssistModel}
+              onValueChange={(v) => onPromptAssistModelChange(v)}
+            >
+              {assistModelOptions.map((option, idx) => {
+                const isOff = option.value === PROMPT_ASSIST_OFF_VALUE;
+                const nextOption = assistModelOptions[idx + 1];
+                const needsSeparator = isOff && nextOption && nextOption.value !== PROMPT_ASSIST_OFF_VALUE;
+                return (
+                  <span key={option.value}>
+                    <DropdownMenuRadioItem value={option.value}>
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                    {needsSeparator && <DropdownMenuSeparator />}
+                  </span>
+                );
+              })}
+              {hasCustomAssistModel && (
+                <DropdownMenuRadioItem value={promptAssistModel}>
+                  Anpassad: {promptAssistModel}
+                </DropdownMenuRadioItem>
+              )}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuCheckboxItem
+              checked={promptAssistDeep}
+              onCheckedChange={onPromptAssistDeepChange}
+              disabled={isDeepBriefDisabled}
+            >
+              <Wand2 className="mr-2 h-4 w-4" />
+              Djup brief
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuItem
+              disabled={isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                onApplyAnthropicComparePreset();
+              }}
+            >
+              <Bot className="mr-2 h-4 w-4" />
+              Anthropic-jämförelse
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            {/* ── Mall ── */}
+            <DropdownMenuLabel>Mall: {scaffoldButtonLabel}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
+              onValueChange={(v) => {
+                if (v === "off" || v === "auto") {
+                  onScaffoldModeChange(v);
+                  onScaffoldIdChange(null);
+                } else if (v.startsWith("manual:")) {
+                  const id = v.slice("manual:".length);
+                  onScaffoldModeChange("manual");
+                  onScaffoldIdChange(id || null);
+                }
+              }}
+            >
+              <DropdownMenuRadioItem value="off">Av</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="auto">Auto</DropdownMenuRadioItem>
+              <DropdownMenuSeparator />
+              {getAllScaffolds().map((scaffold) => (
+                <DropdownMenuRadioItem
+                  key={scaffold.id}
+                  value={`manual:${scaffold.id}`}
+                >
+                  <span className="font-medium">{scaffold.label}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{scaffold.description}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+
+            <DropdownMenuSeparator />
+
+            {/* ── Inställningar ── */}
+            <DropdownMenuLabel>Inställningar</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={enableThinking}
+              onCheckedChange={onEnableThinkingChange}
+              disabled={isBusy || !isThinkingSupported}
+            >
+              <Wand2 className="mr-2 h-4 w-4" />
+              Resonemang
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={enableImageGenerations}
+              onCheckedChange={onEnableImageGenerationsChange}
+              disabled={!isImageGenerationsSupported || isBusy}
+            >
+              <ImageIcon className="mr-2 h-4 w-4" />
+              AI-bilder
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={enableBlobMedia}
+              onCheckedChange={onEnableBlobMediaChange}
+              disabled={isBusy}
+            >
+              <ImageIcon className="mr-2 h-4 w-4" />
+              Blob-bilder
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={enableAutofix}
+              onCheckedChange={onEnableAutofixChange}
+              disabled={isBusy}
+            >
+              <Wrench className="mr-2 h-4 w-4" />
+              Autofix
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={chatPrivacy === "unlisted"}
+              onCheckedChange={(checked) => onChatPrivacyChange(checked ? "unlisted" : "private")}
+              disabled={isBusy}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Publik preview
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={showStructuredChat}
+              onCheckedChange={onShowStructuredChatChange}
+              disabled={isBusy}
+            >
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Felsökningsvy
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={tipsEnabled}
+              onCheckedChange={(checked) => onTipsEnabledChange(Boolean(checked))}
+              disabled={isBusy}
+            >
+              <Lightbulb className="mr-2 h-4 w-4" />
+              Tips efter AI-svar
+            </DropdownMenuCheckboxItem>
+
+            <DropdownMenuSeparator />
+
+            {/* ── Actions ── */}
+            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); onToggleFigmaInput(); }}>
+              <Link2 className="mr-2 h-4 w-4" />
+              {isFigmaInputOpen ? "Dölj Figma-länk" : "Figma-länk"}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); setIsInstructionsOpen(true); }}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Instruktioner{hasCustomInstructions ? " (aktiv)" : ""}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onNewChat); }}>
+              <Plus className="mr-2 h-4 w-4" />
+              Ny chat
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canSaveProject || isBusy || isSavingProject} onSelect={(e) => { e.preventDefault(); runDeferredAction(() => { void onSaveProject(); }); }}>
+              <Save className="mr-2 h-4 w-4" />
+              Spara
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canManageDomain || isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onDomainSearch); }}>
+              <Globe className="mr-2 h-4 w-4" />
+              Domän
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onOpenImport); }}>
+              <FolderGit2 className="mr-2 h-4 w-4" />
+              Importera
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onOpenSandbox); }}>
+              <TerminalSquare className="mr-2 h-4 w-4" />
+              Sandbox
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!chatId || !activeVersionId || isBusy}
+              onSelect={(e) => {
+                e.preventDefault();
+                if (chatId && activeVersionId) {
+                  window.open(
+                    `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
+                    "_blank",
+                  );
+                }
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Ladda ner ZIP
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Dialog open={isInstructionsOpen} onOpenChange={setIsInstructionsOpen}>

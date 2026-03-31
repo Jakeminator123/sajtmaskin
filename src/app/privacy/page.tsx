@@ -1,176 +1,90 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { Footer } from "@/components/layout";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Integritetspolicy",
-  description:
-    "Integritetspolicy för Sajtmaskin – hur vi hanterar dina personuppgifter. Pretty Good AB.",
-};
+import Link from "next/link";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { MinimalFooter } from "@/components/layout";
+
+const sections = [
+  {
+    title: "1. Personuppgiftsansvarig",
+    content: "Pretty Good AB, org.nr DG97 är personuppgiftsansvarig. Kontakt: support@sajtmaskin.se",
+  },
+  {
+    title: "2. Vilka uppgifter samlar vi in?",
+    content: "Kontoinformation (e-post, namn via OAuth), betalningsuppgifter (hanteras av Stripe), användningsdata (sidvisningar, projekt) och teknisk data (IP, webbläsare).",
+  },
+  {
+    title: "3. Hur använder vi dina uppgifter?",
+    content: "Tillhandahålla och förbättra Tjänsten, hantera konto och credits, bearbeta betalningar, kommunicera om tjänsteändringar och analysera användningsmönster.",
+  },
+  {
+    title: "4. Tredjepartstjänster",
+    content: "Stripe (betalning), Vercel (hosting), Google OAuth (inloggning), GitHub OAuth (inloggning/import), AI-modeller (OpenAI/Anthropic via v0).",
+  },
+  {
+    title: "5. Cookies",
+    content: "Nödvändiga cookies för session/autentisering. Analyscookies (anonymiserad statistik) med ditt samtycke. Hantera via cookie-bannern.",
+  },
+  {
+    title: "6. Dina rättigheter (GDPR)",
+    content: "Tillgång, rättelse, radering, dataportabilitet, invändning mot behandling. Klagomål till Integritetsskyddsmyndigheten (IMY).",
+  },
+  {
+    title: "7. Lagring och säkerhet",
+    content: "Data lagras inom EU/EES med kryptering, åtkomstkontroll och regelbundna säkerhetsgranskningar.",
+  },
+  {
+    title: "8. Ändringar",
+    content: "Väsentliga ändringar meddelas via e-post eller i Tjänsten. Senaste versionen finns alltid på denna sida.",
+  },
+  {
+    title: "9. Kontakt",
+    content: "Pretty Good AB (DG97) — support@sajtmaskin.se",
+  },
+];
+
+function Accordion({ title, content }: { title: string; content: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-border/30 last:border-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-4 py-4 text-left"
+      >
+        <span className="text-sm font-medium text-foreground">{title}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      <div className={`overflow-hidden transition-all duration-200 ${open ? "max-h-60 pb-4 opacity-100" : "max-h-0 opacity-0"}`}>
+        <p className="text-sm leading-relaxed text-muted-foreground">{content}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function PrivacyPage() {
   return (
     <>
-    <main className="bg-background text-foreground min-h-screen">
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <Link
-          href="/"
-          className="text-muted-foreground hover:text-foreground mb-8 inline-block text-sm transition-colors"
-        >
-          &larr; Tillbaka
-        </Link>
+      <main className="bg-background text-foreground min-h-screen">
+        <div className="mx-auto max-w-2xl px-6 py-16">
+          <Link href="/" className="text-muted-foreground hover:text-foreground mb-8 inline-block text-sm">
+            &larr; Tillbaka
+          </Link>
 
-        <h1 className="text-foreground mb-2 text-3xl font-semibold tracking-tight">
-          Integritetspolicy
-        </h1>
-        <p className="text-muted-foreground mb-10 text-sm">
-          Senast uppdaterad: {new Date().toISOString().split("T")[0]}
-        </p>
+          <h1 className="mb-2 text-2xl font-semibold tracking-tight">Integritetspolicy</h1>
+          <p className="text-muted-foreground mb-8 text-xs">
+            Senast uppdaterad: {new Date().toISOString().split("T")[0]}
+          </p>
 
-        <div className="prose-sm space-y-8">
-          <Section title="1. Personuppgiftsansvarig">
-            <p>
-              Pretty Good AB, org.nr DG97 (&quot;vi&quot;, &quot;oss&quot;) är
-              personuppgiftsansvarig för behandlingen av dina personuppgifter i samband med
-              användningen av Sajtmaskin.
-            </p>
-            <p>
-              Kontakt:{" "}
-              <a href="mailto:support@sajtmaskin.se" className="text-primary hover:underline">
-                support@sajtmaskin.se
-              </a>
-            </p>
-          </Section>
-
-          <Section title="2. Vilka uppgifter samlar vi in?">
-            <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
-              <li>
-                <strong className="text-foreground">Kontoinformation:</strong> E-postadress, namn
-                (vid registrering via Google/GitHub OAuth)
-              </li>
-              <li>
-                <strong className="text-foreground">Betalningsuppgifter:</strong> Hanteras av Stripe
-                – vi lagrar inte kortnummer
-              </li>
-              <li>
-                <strong className="text-foreground">Användningsdata:</strong> Sidvisningar,
-                funktionsanvändning, genererade projekt
-              </li>
-              <li>
-                <strong className="text-foreground">Teknisk data:</strong> IP-adress, webbläsare,
-                enhet (via cookies och analysverktyg)
-              </li>
-            </ul>
-          </Section>
-
-          <Section title="3. Hur använder vi dina uppgifter?">
-            <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
-              <li>Tillhandahålla och förbättra Tjänsten</li>
-              <li>Hantera ditt konto och credits</li>
-              <li>Bearbeta betalningar via Stripe</li>
-              <li>Kommunicera om tjänsteändringar</li>
-              <li>Analysera användningsmönster för produktutveckling</li>
-            </ul>
-          </Section>
-
-          <Section title="4. Tredjepartstjänster">
-            <p>Vi delar uppgifter med följande tredjeparter:</p>
-            <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
-              <li>
-                <strong className="text-foreground">Stripe</strong> – betalningshantering
-              </li>
-              <li>
-                <strong className="text-foreground">Vercel</strong> – hosting och deployment
-              </li>
-              <li>
-                <strong className="text-foreground">Google OAuth</strong> – inloggning (valfritt)
-              </li>
-              <li>
-                <strong className="text-foreground">GitHub OAuth</strong> – inloggning och
-                repo-import (valfritt)
-              </li>
-              <li>
-                <strong className="text-foreground">AI-modeller</strong> (OpenAI/Anthropic via v0) –
-                för generering av webbinnehåll
-              </li>
-            </ul>
-          </Section>
-
-          <Section title="5. Cookies" id="cookies">
-            <p>Vi använder cookies för:</p>
-            <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
-              <li>
-                <strong className="text-foreground">Nödvändiga cookies:</strong> Sessionshantering
-                och autentisering
-              </li>
-              <li>
-                <strong className="text-foreground">Analyscookies:</strong> Anonymiserad
-                användningsstatistik (med ditt samtycke)
-              </li>
-            </ul>
-            <p>Du kan hantera dina cookieinställningar via vår cookie-banner.</p>
-          </Section>
-
-          <Section title="6. Dina rättigheter (GDPR)" id="gdpr">
-            <p>Du har rätt att:</p>
-            <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm">
-              <li>Begära tillgång till dina personuppgifter</li>
-              <li>Begära rättelse av felaktiga uppgifter</li>
-              <li>Begära radering av dina uppgifter</li>
-              <li>Begära dataportabilitet</li>
-              <li>Invända mot behandling</li>
-              <li>Lämna klagomål till Integritetsskyddsmyndigheten (IMY)</li>
-            </ul>
-          </Section>
-
-          <Section title="7. Lagring och säkerhet">
-            <p>
-              Personuppgifter lagras inom EU/EES. Vi vidtar lämpliga tekniska och organisatoriska
-              åtgärder för att skydda dina uppgifter, inklusive kryptering, åtkomstkontroll och
-              regelbundna säkerhetsgranskningar.
-            </p>
-          </Section>
-
-          <Section title="8. Ändringar">
-            <p>
-              Vi kan uppdatera denna policy. Väsentliga ändringar meddelas via e-post eller i
-              Tjänsten. Senaste versionen finns alltid tillgänglig på denna sida.
-            </p>
-          </Section>
-
-          <Section title="9. Kontakt">
-            <p>
-              Frågor om personuppgiftsbehandling:
-              <br />
-              Pretty Good AB (DG97)
-              <br />
-              E-post:{" "}
-              <a href="mailto:support@sajtmaskin.se" className="text-primary hover:underline">
-                support@sajtmaskin.se
-              </a>
-            </p>
-          </Section>
+          <div>
+            {sections.map((s) => (
+              <Accordion key={s.title} title={s.title} content={s.content} />
+            ))}
+          </div>
         </div>
-      </div>
-    </main>
-    <Footer />
+      </main>
+      <MinimalFooter />
     </>
-  );
-}
-
-function Section({
-  title,
-  id,
-  children,
-}: {
-  title: string;
-  id?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section id={id} className={id ? "scroll-mt-24" : undefined}>
-      <h2 className="text-foreground mb-3 text-lg font-medium tracking-tight">{title}</h2>
-      <div className="text-muted-foreground space-y-3 text-sm leading-relaxed">{children}</div>
-    </section>
   );
 }

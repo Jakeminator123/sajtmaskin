@@ -214,7 +214,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   placeholder="https://github.com/username/repo"
                   value={githubUrl}
                   onChange={(e) => setGithubUrl(e.target.value)}
-                  className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+                  className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
                   Public repos work without login. Private repos require a GitHub connection.
@@ -223,12 +223,12 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   hasGitHub ? (
                     <p className="mt-2 text-xs text-muted-foreground">
                       Connected as{" "}
-                      <span className="font-medium text-gray-700">@{user?.github_username}</span>
+                      <span className="font-medium text-foreground">@{user?.github_username}</span>
                     </p>
                   ) : (
                     <a
                       href={`/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`}
-                      className="text-brand-blue mt-2 inline-flex text-xs hover:underline"
+                      className="text-primary mt-2 inline-flex text-xs hover:underline"
                     >
                       Connect GitHub to import private repos
                     </a>
@@ -253,7 +253,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   placeholder="main"
                   value={branch}
                   onChange={(e) => setBranch(e.target.value)}
-                  className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+                  className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
                 />
               </div>
               <div className="flex items-start gap-3 rounded-lg border border-border p-3">
@@ -262,7 +262,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   type="checkbox"
                   checked={preferZip}
                   onChange={(e) => setPreferZip(e.target.checked)}
-                  className="text-brand-blue focus:ring-brand-blue/50 mt-1 rounded border-border"
+                  className="text-primary focus:ring-primary/50 mt-1 rounded border-border"
                 />
                 <label htmlFor="init-prefer-zip" className="text-sm text-muted-foreground">
                   Use ZIP import (helps when GitHub access is limited). Provide a branch if you
@@ -284,7 +284,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={2}
-                  className="focus:border-brand-blue focus:ring-brand-blue/50 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+                  className="focus:border-primary focus:ring-primary/50 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
                 />
               </div>
 
@@ -365,7 +365,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                       }
                     }
                   }}
-                  className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+                  className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
                   Use a public ZIP URL for larger projects to avoid upload limits.
@@ -386,7 +386,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={2}
-                  className="focus:border-brand-blue focus:ring-brand-blue/50 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+                  className="focus:border-primary focus:ring-primary/50 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
                 />
               </div>
 
@@ -417,7 +417,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
           >
             Cancel
           </button>
@@ -428,7 +428,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
               (sourceType === "github" && !githubUrl.trim()) ||
               (sourceType === "zip" && !zipContent && !zipUrl.trim())
             }
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? (
               <>

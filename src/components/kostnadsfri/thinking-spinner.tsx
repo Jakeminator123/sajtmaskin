@@ -49,14 +49,14 @@ export function ThinkingSpinner({ companyName }: ThinkingSpinnerProps) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
       {/* Animated gradient background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* Primary orb */}
         <div
           className="absolute left-1/2 top-1/2 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30 blur-[80px]"
           style={{
-            background: "radial-gradient(circle, #2dd4bf 0%, #6366f1 50%, #0f172a 100%)",
+            background: "radial-gradient(circle, #E67E22 0%, #0A1628 50%, #0f172a 100%)",
             animation: "morphOrb 8s ease-in-out infinite, rotateOrb 12s linear infinite",
           }}
         />
@@ -65,31 +65,31 @@ export function ThinkingSpinner({ companyName }: ThinkingSpinnerProps) {
         <div
           className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20 blur-[60px]"
           style={{
-            background: "radial-gradient(circle, #a78bfa 0%, #2dd4bf 60%, transparent 100%)",
+            background: "radial-gradient(circle, #F59E0B 0%, #E67E22 60%, transparent 100%)",
             animation: "morphOrb 6s ease-in-out infinite reverse, rotateOrb 10s linear infinite reverse",
           }}
         />
 
         {/* Particle ring */}
         <div
-          className="absolute left-1/2 top-1/2 h-[250px] w-[250px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-brand-teal/10 opacity-40"
+          className="absolute left-1/2 top-1/2 h-[250px] w-[250px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/10 opacity-40"
           style={{ animation: "rotateOrb 20s linear infinite" }}
         >
-          <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-brand-teal/60" />
-          <div className="absolute -bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-purple-400/60" />
-          <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-brand-teal/40" />
+          <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-primary/60" />
+          <div className="absolute -bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-primary/60" />
+          <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-primary/40" />
         </div>
       </div>
 
       {/* Content */}
       <div className="relative z-10 text-center">
         {/* Company name */}
-        <h2 className="mb-6 text-lg font-medium text-gray-400">{companyName}</h2>
+        <h2 className="mb-6 text-lg font-medium text-muted-foreground">{companyName}</h2>
 
         {/* Phase message */}
         <p
           key={messageIndex}
-          className="mb-10 text-xl font-light text-white"
+          className="mb-10 text-xl font-light text-foreground"
           style={{ animation: "fadeInUp 0.5s ease-out" }}
         >
           {PHASE_MESSAGES[messageIndex]}
@@ -97,9 +97,9 @@ export function ThinkingSpinner({ companyName }: ThinkingSpinnerProps) {
 
         {/* Progress bar */}
         <div className="mx-auto w-64">
-          <div className="h-1 overflow-hidden rounded-full bg-gray-800">
+          <div className="h-1 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-linear-to-r from-brand-teal to-purple-400 transition-all duration-300"
+              className="h-full rounded-full bg-primary transition-all duration-300"
               style={{ width: `${Math.min(progress, 95)}%` }}
             />
           </div>

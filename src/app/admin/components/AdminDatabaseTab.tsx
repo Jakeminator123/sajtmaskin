@@ -55,15 +55,15 @@ export function AdminDatabaseTab({
 
   return (
     <div className="space-y-6">
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-              <HardDrive className="text-brand-teal h-5 w-5" />
+            <div className="bg-primary/10 flex h-10 w-10 items-center justify-center">
+              <HardDrive className="text-primary h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Supabase Database</h2>
-              <p className="text-sm text-gray-500">Storlek: {dbStats?.dbFileSize || "..."}</p>
+              <h2 className="text-lg font-semibold text-foreground">Supabase Database</h2>
+              <p className="text-sm text-muted-foreground">Storlek: {dbStats?.dbFileSize || "..."}</p>
             </div>
           </div>
         </div>
@@ -81,8 +81,8 @@ export function AdminDatabaseTab({
           )}
         </div>
 
-        <div className="border-t border-gray-800 pt-4">
-          <h3 className="mb-3 text-sm font-medium text-gray-400">Rensa tabeller</h3>
+        <div className="border-t border-border pt-4">
+          <h3 className="mb-3 text-sm font-medium text-muted-foreground">Rensa tabeller</h3>
           <div className="flex flex-wrap gap-2">
             {[
               "page_views",
@@ -101,7 +101,7 @@ export function AdminDatabaseTab({
                 className={`gap-2 ${
                   confirmAction === table
                     ? "border-red-500 text-red-400"
-                    : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 {actionLoading === table ? (
@@ -118,23 +118,23 @@ export function AdminDatabaseTab({
         </div>
       </div>
 
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
               className={`flex h-10 w-10 items-center justify-center ${
-                dbStats?.redis?.connected ? "bg-brand-teal/10" : "bg-red-500/10"
+                dbStats?.redis?.connected ? "bg-primary/10" : "bg-red-500/10"
               }`}
             >
               <Server
                 className={`h-5 w-5 ${
-                  dbStats?.redis?.connected ? "text-brand-teal" : "text-red-400"
+                  dbStats?.redis?.connected ? "text-primary" : "text-red-400"
                 }`}
               />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Redis Cache</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-lg font-semibold text-foreground">Redis Cache</h2>
+              <p className="text-sm text-muted-foreground">
                 {dbStats?.redis?.connected ? (
                   <>
                     Ansluten • {dbStats.redis.memoryUsed} använt • {dbStats.redis.totalKeys} nycklar
@@ -154,7 +154,7 @@ export function AdminDatabaseTab({
               className={`gap-2 ${
                 confirmAction === "redis"
                   ? "border-red-500 text-red-400"
-                  : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               {actionLoading === "redis" ? (
@@ -177,15 +177,15 @@ export function AdminDatabaseTab({
         )}
       </div>
 
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-              <Wand2 className="text-brand-teal h-5 w-5" />
+            <div className="bg-primary/10 flex h-10 w-10 items-center justify-center">
+              <Wand2 className="text-primary h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Template Cache</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-lg font-semibold text-foreground">Template Cache</h2>
+              <p className="text-sm text-muted-foreground">
                 {templateCacheCount} templates cachade
                 {templateCacheExpiredCount > 0 ? (
                   <span className="text-brand-amber">
@@ -227,7 +227,7 @@ export function AdminDatabaseTab({
                 setActionLoading(null);
               }}
               disabled={actionLoading === "export-templates"}
-              className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+              className="gap-2 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {actionLoading === "export-templates" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -269,7 +269,7 @@ export function AdminDatabaseTab({
                 input.click();
               }}
               disabled={actionLoading === "import-templates"}
-              className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+              className="gap-2 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {actionLoading === "import-templates" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -303,7 +303,7 @@ export function AdminDatabaseTab({
                   setActionLoading(null);
                 }}
                 disabled={actionLoading === "trigger-template-sync"}
-                className="gap-2 border-brand-blue/50 text-brand-blue hover:bg-brand-blue/20 hover:text-white"
+                className="gap-2 border-brand-blue/50 text-brand-blue hover:bg-brand-blue/20 hover:text-foreground"
               >
                 {actionLoading === "trigger-template-sync" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -337,7 +337,7 @@ export function AdminDatabaseTab({
                 setActionLoading(null);
               }}
               disabled={actionLoading === "regenerate-embeddings"}
-              className="gap-2 border-brand-teal/50 text-brand-teal hover:bg-brand-teal/20 hover:text-white"
+              className="gap-2 border-primary/50 text-primary hover:bg-primary/20 hover:text-foreground"
             >
               {actionLoading === "regenerate-embeddings" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -368,7 +368,7 @@ export function AdminDatabaseTab({
                 setActionLoading(null);
               }}
               disabled={actionLoading === "extend-cache"}
-              className="border-brand-teal/50 text-brand-teal hover:bg-brand-teal/20 gap-2 hover:text-white"
+              className="border-primary/50 text-primary hover:bg-primary/20 gap-2 hover:text-foreground"
             >
               {actionLoading === "extend-cache" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -407,7 +407,7 @@ export function AdminDatabaseTab({
               className={`gap-2 ${
                 confirmAction === "clear-templates"
                   ? "border-red-500 text-red-400"
-                  : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               {actionLoading === "clear-templates" ? (
@@ -421,22 +421,22 @@ export function AdminDatabaseTab({
             </Button>
           </div>
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Spara templates lokalt för att undvika API-kostnader. Exportera → spara filen → importera
           på andra enheter. Knappen för att bygga om inbäddningar använder OPENAI_API_KEY och skriver
           vektorinbäddningar (embeddings) för v0-templates till vald lagring.
         </p>
       </div>
 
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-brand-blue/10 flex h-10 w-10 items-center justify-center">
               <HardDrive className="text-brand-blue h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Persistent Disk</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-lg font-semibold text-foreground">Persistent Disk</h2>
+              <p className="text-sm text-muted-foreground">
                 {dbStats?.dataDir || "Ej konfigurerad"} • {dbStats?.uploads?.fileCount || 0} filer •{" "}
                 {dbStats?.uploads?.totalSize || "0 B"}
               </p>
@@ -450,7 +450,7 @@ export function AdminDatabaseTab({
             className={`gap-2 ${
               confirmAction === "uploads"
                 ? "border-red-500 text-red-400"
-                : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             {actionLoading === "uploads" ? (
@@ -465,19 +465,19 @@ export function AdminDatabaseTab({
         </div>
 
         {dbStats?.uploads?.files && dbStats.uploads.files.length > 0 && (
-          <div className="border-t border-gray-800 pt-4">
-            <h3 className="mb-3 text-sm font-medium text-gray-400">
+          <div className="border-t border-border pt-4">
+            <h3 className="mb-3 text-sm font-medium text-muted-foreground">
               Uppladdade filer ({dbStats.uploads.fileCount} st)
             </h3>
             <div className="max-h-40 space-y-1 overflow-y-auto text-sm">
               {dbStats.uploads.files.map((file, i) => (
-                <div key={i} className="flex items-center justify-between py-1 text-gray-500">
+                <div key={i} className="flex items-center justify-between py-1 text-muted-foreground">
                   <span className="max-w-[250px] truncate">{file.name}</span>
                   <span className="font-mono text-xs">{file.size}</span>
                 </div>
               ))}
               {dbStats.uploads.fileCount > 20 && (
-                <p className="pt-2 text-xs text-gray-600">
+                <p className="pt-2 text-xs text-muted-foreground">
                   ...och {dbStats.uploads.fileCount - 20} filer till
                 </p>
               )}
@@ -493,12 +493,12 @@ export function AdminDatabaseTab({
         )}
       </div>
 
-      <div className="border border-red-500/30 bg-black/50 p-6">
+      <div className="border border-red-500/30 bg-card p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-red-400">
           <AlertTriangle className="h-5 w-5" />
           Farozon
         </h2>
-        <p className="mb-4 text-sm text-gray-400">
+        <p className="mb-4 text-sm text-muted-foreground">
           Dessa åtgärder raderar data permanent. Kan inte ångras!
         </p>
 
@@ -533,7 +533,7 @@ export function AdminDatabaseTab({
               className={`gap-2 ${
                 confirmAction === "v0-cleanup"
                   ? "border-brand-warm text-brand-warm"
-                  : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               {actionLoading === "v0-cleanup" ? (
@@ -575,7 +575,7 @@ export function AdminDatabaseTab({
               className={`gap-2 ${
                 confirmAction === "vercel-cleanup"
                   ? "border-brand-blue text-brand-blue"
-                  : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               {actionLoading === "vercel-cleanup" ? (
@@ -596,7 +596,7 @@ export function AdminDatabaseTab({
               className={`gap-2 ${
                 confirmAction === "reset-all"
                   ? "border-brand-blue text-brand-blue"
-                  : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               {actionLoading === "reset-all" ? (
@@ -657,7 +657,7 @@ export function AdminDatabaseTab({
                 ? "🔥 KLICKA IGEN FÖR ATT RADERA ALLT 🔥"
                 : "🔥 MEGA CLEANUP (v0 + Vercel + Databas + Redis)"}
             </Button>
-            <p className="mt-2 text-xs text-gray-600">
+            <p className="mt-2 text-xs text-muted-foreground">
               Raderar: v0-projekt, Vercel-projekt, alla databastabeller, Redis-cache, uppladdade
               filer
             </p>
@@ -670,9 +670,9 @@ export function AdminDatabaseTab({
 
 function DbStatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-gray-900/50 p-3">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-xl font-bold text-white">{value.toLocaleString()}</p>
+    <div className="bg-muted/50 p-3">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="text-xl font-bold text-foreground">{value.toLocaleString()}</p>
     </div>
   );
 }

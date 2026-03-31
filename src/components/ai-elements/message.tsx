@@ -52,7 +52,7 @@ export function MessageAvatar({ children, className, ...props }: MessageAvatarPr
     <div
       className={cn(
         "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-        "bg-zinc-800 text-sm font-medium text-zinc-300",
+        "bg-muted text-sm font-medium text-foreground",
         className,
       )}
       {...props}
@@ -98,9 +98,9 @@ export function MessageResponse({ children, className, ...props }: MessageRespon
     <div
       className={cn(
         "rounded-2xl px-4 py-3 text-sm leading-relaxed overflow-hidden wrap-break-word",
-        "group-data-[role=user]:bg-brand-blue group-data-[role=user]:text-white",
-        "group-data-[role=assistant]:bg-zinc-800 group-data-[role=assistant]:text-zinc-100",
-        "group-data-[role=system]:bg-zinc-900 group-data-[role=system]:text-xs group-data-[role=system]:text-zinc-400",
+        "group-data-[role=user]:bg-primary group-data-[role=user]:text-primary-foreground",
+        "group-data-[role=assistant]:bg-muted group-data-[role=assistant]:text-foreground",
+        "group-data-[role=system]:bg-card group-data-[role=system]:text-xs group-data-[role=system]:text-muted-foreground",
         className,
       )}
       {...props}
@@ -147,7 +147,7 @@ export function MessageAction({ icon, label, className, children, ...props }: Me
       type="button"
       title={label}
       className={cn(
-        "rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
+        "rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground",
         "transition-colors",
         className,
       )}
@@ -195,7 +195,7 @@ export function MessageTimestamp({
   };
 
   return (
-    <span className={cn("text-xs text-zinc-500", className)} {...props}>
+    <span className={cn("text-xs text-muted-foreground", className)} {...props}>
       {formatDate()}
     </span>
   );

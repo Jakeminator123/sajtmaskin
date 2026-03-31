@@ -44,10 +44,10 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="border border-gray-800 bg-black/50 p-6"
+      className="border border-border bg-card p-6"
     >
-      <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-white">
-        <span className="text-brand-teal">📊</span> Poängöversikt
+      <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-foreground">
+        <span className="text-primary">📊</span> Poängöversikt
       </h2>
 
       <div className="flex flex-col gap-8 lg:flex-row">
@@ -86,8 +86,8 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
                 transition={{ delay: 0.5, type: "spring" }}
                 className="text-center"
               >
-                <span className="text-4xl font-bold text-white">{Math.round(averageScore)}</span>
-                <span className="block text-sm text-gray-400">Snittpoäng</span>
+                <span className="text-4xl font-bold text-foreground">{Math.round(averageScore)}</span>
+                <span className="block text-sm text-muted-foreground">Snittpoäng</span>
                 <span
                   className="text-2xl font-bold"
                   style={{ color: getColorForScore(averageScore) }}
@@ -98,7 +98,7 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
             </div>
           </div>
 
-          <p className="mt-4 max-w-xs text-center text-sm text-gray-400">
+          <p className="mt-4 max-w-xs text-center text-sm text-muted-foreground">
             {averageScore >= 80 && "Utmärkt! Sajten presterar bra."}
             {averageScore >= 60 && averageScore < 80 && "Bra grund med förbättringsmöjligheter."}
             {averageScore < 60 && "Betydande förbättringsmöjligheter."}
@@ -118,22 +118,22 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
               className="relative"
             >
               <div
-                className={`border bg-black/30 p-4 transition-all ${
-                  hoveredMetric === key ? "border-brand-teal/50 bg-black/50" : "border-gray-800"
+                className={`border bg-muted/50 p-4 transition-all ${
+                  hoveredMetric === key ? "border-primary/50 bg-card" : "border-border"
                 }`}
               >
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-white">{metricLabels[key] || key}</h4>
+                  <h4 className="text-sm font-medium text-foreground">{metricLabels[key] || key}</h4>
                   <div className="flex items-center gap-2">
                     <span className="text-xl font-bold" style={{ color: getColorForScore(score) }}>
                       {score}
                     </span>
-                    <span className="text-xs text-gray-500">/100</span>
+                    <span className="text-xs text-muted-foreground">/100</span>
                   </div>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="h-1.5 w-full overflow-hidden bg-gray-800">
+                <div className="h-1.5 w-full overflow-hidden bg-muted">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${score}%` }}
@@ -149,7 +149,7 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.8 + index * 0.1, type: "spring" }}
-                    className="flex h-8 w-8 items-center justify-center text-sm font-bold text-white"
+                    className="flex h-8 w-8 items-center justify-center text-sm font-bold text-foreground"
                     style={{ backgroundColor: getColorForScore(score) }}
                   >
                     {getGradeForScore(score)}
@@ -162,24 +162,24 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
       </div>
 
       {/* Summary Stats */}
-      <div className="mt-6 grid grid-cols-3 gap-4 border-t border-gray-800 pt-6 text-center">
+      <div className="mt-6 grid grid-cols-3 gap-4 border-t border-border pt-6 text-center">
         <div>
           <p className="text-xl font-bold text-green-400">
             {Object.values(scores).filter((s) => s >= 80).length}
           </p>
-          <p className="text-xs text-gray-400">Utmärkta</p>
+          <p className="text-xs text-muted-foreground">Utmärkta</p>
         </div>
         <div>
-          <p className="text-brand-teal text-xl font-bold">
+          <p className="text-primary text-xl font-bold">
             {Object.values(scores).filter((s) => s >= 60 && s < 80).length}
           </p>
-          <p className="text-xs text-gray-400">Godkända</p>
+          <p className="text-xs text-muted-foreground">Godkända</p>
         </div>
         <div>
           <p className="text-xl font-bold text-red-400">
             {Object.values(scores).filter((s) => s < 60).length}
           </p>
-          <p className="text-xs text-gray-400">Kritiska</p>
+          <p className="text-xs text-muted-foreground">Kritiska</p>
         </div>
       </div>
     </motion.div>

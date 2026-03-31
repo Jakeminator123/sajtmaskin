@@ -65,7 +65,7 @@ const VIBE_OPTIONS = [
 ];
 
 const INPUT_CLASS =
-  "w-full rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:border-brand-teal focus:ring-1 focus:ring-brand-teal/50 focus:outline-none";
+  "w-full rounded-lg border border-border bg-muted/50 px-4 py-3 text-foreground placeholder:text-muted-foreground transition-all focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none";
 
 const TOTAL_STEPS = 3;
 
@@ -158,9 +158,9 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
   const handleCustomColorChange = useCallback(
     (type: "primary" | "secondary" | "accent", color: string) => {
       setCustomColors((prev) => ({
-        primary: prev?.primary || "#000000",
-        secondary: prev?.secondary || "#333333",
-        accent: prev?.accent || "#2dd4bf",
+        primary: prev?.primary || "#0A1628",
+        secondary: prev?.secondary || "#E67E22",
+        accent: prev?.accent || "#F59E0B",
         [type]: color,
       }));
     },
@@ -185,9 +185,9 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/90 px-4 py-8 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl rounded-2xl border border-gray-800/60 bg-gray-950 shadow-2xl">
+      <div className="relative w-full max-w-2xl rounded-2xl border border-border/60 bg-card shadow-2xl">
         {/* Progress bar */}
-        <div className="flex items-center justify-between border-b border-gray-800/60 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border/60 px-6 py-4">
           <div className="flex items-center gap-6">
             {stepConfig.map((s, i) => {
               const StepIcon = s.icon;
@@ -198,19 +198,19 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                   key={i}
                   className={`flex items-center gap-2 text-sm transition-colors ${
                     isActive
-                      ? "text-brand-teal"
+                      ? "text-primary"
                       : isDone
-                        ? "text-brand-teal/50"
-                        : "text-gray-600"
+                        ? "text-primary/50"
+                        : "text-muted-foreground"
                   }`}
                 >
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all ${
                       isActive
-                        ? "border-brand-teal bg-brand-teal/10"
+                        ? "border-primary bg-primary/10"
                         : isDone
-                          ? "border-brand-teal/30 bg-brand-teal/5"
-                          : "border-gray-700"
+                          ? "border-primary/30 bg-primary/5"
+                          : "border-border"
                     }`}
                   >
                     {isDone ? (
@@ -224,7 +224,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
               );
             })}
           </div>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             {step} / {TOTAL_STEPS}
           </span>
         </div>
@@ -243,15 +243,15 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <h2 className="mb-1 text-xl font-bold text-white">Om er</h2>
-                <p className="text-sm text-gray-400">
+                <h2 className="mb-1 text-xl font-bold text-foreground">Om er</h2>
+                <p className="text-sm text-muted-foreground">
                   Bekrafta och komplettera er foretagsinformation
                 </p>
               </div>
 
               {/* Company name (pre-filled, read-only) */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                <label className="mb-1.5 block text-sm font-medium text-foreground/80">
                   Foretagsnamn
                 </label>
                 <input
@@ -264,7 +264,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
 
               {/* Industry */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                <label className="mb-1.5 block text-sm font-medium text-foreground/80">
                   Bransch
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -274,8 +274,8 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                       onClick={() => setIndustry(opt.id)}
                       className={`rounded-full border px-3 py-1.5 text-sm transition-all ${
                         industry === opt.id
-                          ? "border-brand-teal bg-brand-teal/20 text-brand-teal"
-                          : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-white"
+                          ? "border-primary bg-primary/20 text-primary"
+                          : "border-border text-muted-foreground hover:border-border hover:text-foreground"
                       }`}
                     >
                       {opt.icon} {opt.label}
@@ -287,7 +287,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
               {/* Website (pre-filled if available) */}
               {website && (
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                  <label className="mb-1.5 block text-sm font-medium text-foreground/80">
                     Befintlig webbplats
                   </label>
                   <input
@@ -301,7 +301,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
 
               {/* Location */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                <label className="mb-1.5 block text-sm font-medium text-foreground/80">
                   Ort / Plats
                 </label>
                 <LocationPicker
@@ -313,7 +313,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
 
               {/* Business description */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                <label className="mb-1.5 block text-sm font-medium text-foreground/80">
                   Kort beskrivning av verksamheten
                 </label>
                 <textarea
@@ -331,15 +331,15 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
           {step === 2 && (
             <div className="space-y-5">
               <div>
-                <h2 className="mb-1 text-xl font-bold text-white">Era mal</h2>
-                <p className="text-sm text-gray-400">
+                <h2 className="mb-1 text-xl font-bold text-foreground">Era mal</h2>
+                <p className="text-sm text-muted-foreground">
                   Vad vill ni uppna med er nya webbplats?
                 </p>
               </div>
 
               {/* Purposes */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">
+                <label className="mb-2 block text-sm font-medium text-foreground/80">
                   Huvudsakligt syfte (valj en eller flera)
                 </label>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -351,13 +351,13 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                         onClick={() => togglePurpose(opt.id)}
                         className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition-all ${
                           isSelected
-                            ? "border-brand-teal bg-brand-teal/10 text-white"
-                            : "border-gray-800 text-gray-400 hover:border-gray-700 hover:text-white"
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border text-muted-foreground hover:border-border hover:text-foreground"
                         }`}
                       >
                         <span className="text-lg">{opt.icon}</span>
                         <span className="text-xs font-medium">{opt.label}</span>
-                        <span className="text-[10px] text-gray-500">{opt.desc}</span>
+                        <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
                       </button>
                     );
                   })}
@@ -366,7 +366,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
 
               {/* Target audience */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                <label className="mb-1.5 block text-sm font-medium text-foreground/80">
                   Malgrupp
                 </label>
                 <input
@@ -380,7 +380,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
 
               {/* USP */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                <label className="mb-1.5 block text-sm font-medium text-foreground/80">
                   Vad gor er unika? (USP)
                 </label>
                 <textarea
@@ -398,15 +398,15 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
           {step === 3 && (
             <div className="space-y-5">
               <div>
-                <h2 className="mb-1 text-xl font-bold text-white">Design</h2>
-                <p className="text-sm text-gray-400">
+                <h2 className="mb-1 text-xl font-bold text-foreground">Design</h2>
+                <p className="text-sm text-muted-foreground">
                   Valj stil och farger for er webbplats
                 </p>
               </div>
 
               {/* Design vibe */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">
+                <label className="mb-2 block text-sm font-medium text-foreground/80">
                   Designstil
                 </label>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -416,8 +416,8 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                       onClick={() => setSelectedVibe(opt.id)}
                       className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-all ${
                         selectedVibe === opt.id
-                          ? "border-brand-teal bg-brand-teal/10 text-white"
-                          : "border-gray-800 text-gray-400 hover:border-gray-700 hover:text-white"
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border text-muted-foreground hover:border-border hover:text-foreground"
                       }`}
                     >
                       <span className="text-xl">{opt.icon}</span>
@@ -429,7 +429,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
 
               {/* Color palette */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">
+                <label className="mb-2 block text-sm font-medium text-foreground/80">
                   Fargpalett
                 </label>
                 <ColorPalettePicker
@@ -445,11 +445,11 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
         </div>
 
         {/* Footer with navigation */}
-        <div className="flex items-center justify-between border-t border-gray-800/60 px-6 py-4">
+        <div className="flex items-center justify-between border-t border-border/60 px-6 py-4">
           <button
             onClick={handleBack}
             disabled={step === 1}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm text-gray-400 transition-colors hover:text-white disabled:invisible"
+            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:invisible"
           >
             <ArrowLeft className="h-4 w-4" />
             Tillbaka
@@ -459,7 +459,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
             <button
               onClick={handleNext}
               disabled={!canProceed()}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-semibold text-black transition-all hover:bg-brand-teal/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Nasta
               <ArrowRight className="h-4 w-4" />
@@ -467,7 +467,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
           ) : (
             <button
               onClick={handleComplete}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-teal px-5 py-2.5 text-sm font-semibold text-black transition-all hover:bg-brand-teal/90"
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90"
             >
               Skapa webbplats
               <ArrowRight className="h-4 w-4" />

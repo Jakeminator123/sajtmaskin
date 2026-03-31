@@ -65,7 +65,7 @@ export function AdminEnvironmentTab({
   return (
     <div className="space-y-6">
       {teamStatusLoading && (
-        <div className="flex items-center gap-2 border border-gray-800 bg-black/50 p-4 text-sm text-gray-400">
+        <div className="flex items-center gap-2 border border-border bg-card p-4 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Hämtar Vercel team-status...
         </div>
@@ -86,14 +86,14 @@ export function AdminEnvironmentTab({
       )}
 
       {teamStatus && teamStatus.teams.length > 0 && (
-        <div className="border border-gray-800 bg-black/50 p-6">
+        <div className="border border-border bg-card p-6">
           <div className="mb-4 flex items-center gap-3">
-            <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-              <Users className="text-brand-teal h-5 w-5" />
+            <div className="bg-primary/10 flex h-10 w-10 items-center justify-center">
+              <Users className="text-primary h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Vercel Teams</h2>
-              <p className="text-sm text-gray-500">Team-planer</p>
+              <h2 className="text-lg font-semibold text-foreground">Vercel Teams</h2>
+              <p className="text-sm text-muted-foreground">Team-planer</p>
             </div>
           </div>
 
@@ -105,17 +105,17 @@ export function AdminEnvironmentTab({
                   key={team.id}
                   className={`border p-3 text-sm ${
                     isConfigured
-                      ? "border-brand-teal/50 bg-brand-teal/5 ring-1 ring-brand-teal/30"
-                      : "border-gray-800 bg-black/30"
+                      ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border bg-muted/50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-200">{team.name}</span>
-                        {isConfigured && <span className="text-xs text-brand-teal">(konfigurerat)</span>}
+                        <span className="text-foreground">{team.name}</span>
+                        {isConfigured && <span className="text-xs text-primary">(konfigurerat)</span>}
                       </div>
-                      <div className="text-xs text-gray-500">{team.slug}</div>
+                      <div className="text-xs text-muted-foreground">{team.slug}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span
@@ -126,7 +126,7 @@ export function AdminEnvironmentTab({
                               ? "bg-green-500/20 text-green-400"
                               : team.isEnterprise
                                 ? "bg-purple-500/20 text-purple-400"
-                                : "bg-gray-500/20 text-gray-400"
+                                : "bg-gray-500/20 text-muted-foreground"
                         }`}
                       >
                         {team.plan === "hobby"
@@ -144,112 +144,112 @@ export function AdminEnvironmentTab({
 
       <EnvCompare />
 
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-6 flex items-center gap-3">
-          <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-            <Server className="text-brand-teal h-5 w-5" />
+          <div className="bg-primary/10 flex h-10 w-10 items-center justify-center">
+            <Server className="text-primary h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Runtime</h2>
-            <p className="text-sm text-gray-500">Aktiv miljö och bas-URL</p>
+            <h2 className="text-lg font-semibold text-foreground">Runtime</h2>
+            <p className="text-sm text-muted-foreground">Aktiv miljö och bas-URL</p>
           </div>
         </div>
 
-        {envLoading && <p className="text-sm text-gray-500">Laddar miljöstatus...</p>}
+        {envLoading && <p className="text-sm text-muted-foreground">Laddar miljöstatus...</p>}
         {envError && <p className="text-sm text-red-400">{envError}</p>}
 
         {envStatus && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="border border-gray-800 bg-black/30 p-4">
-              <div className="text-xs text-gray-500">NODE_ENV</div>
-              <div className="text-sm text-white">{envStatus.runtime.nodeEnv || "okänd"}</div>
+            <div className="border border-border bg-muted/50 p-4">
+              <div className="text-xs text-muted-foreground">NODE_ENV</div>
+              <div className="text-sm text-foreground">{envStatus.runtime.nodeEnv || "okänd"}</div>
             </div>
-            <div className="border border-gray-800 bg-black/30 p-4">
-              <div className="text-xs text-gray-500">VERCEL_ENV</div>
-              <div className="text-sm text-white">{envStatus.runtime.vercelEnv || "lokal"}</div>
+            <div className="border border-border bg-muted/50 p-4">
+              <div className="text-xs text-muted-foreground">VERCEL_ENV</div>
+              <div className="text-sm text-foreground">{envStatus.runtime.vercelEnv || "lokal"}</div>
             </div>
-            <div className="border border-gray-800 bg-black/30 p-4">
-              <div className="text-xs text-gray-500">Base URL</div>
-              <div className="text-sm text-white">{envStatus.runtime.baseUrl}</div>
+            <div className="border border-border bg-muted/50 p-4">
+              <div className="text-xs text-muted-foreground">Base URL</div>
+              <div className="text-sm text-foreground">{envStatus.runtime.baseUrl}</div>
             </div>
-            <div className="border border-gray-800 bg-black/30 p-4">
-              <div className="text-xs text-gray-500">Vercel URL</div>
-              <div className="text-sm text-white">{envStatus.runtime.vercelUrl || "ej tillgänglig"}</div>
+            <div className="border border-border bg-muted/50 p-4">
+              <div className="text-xs text-muted-foreground">Vercel URL</div>
+              <div className="text-sm text-foreground">{envStatus.runtime.vercelUrl || "ej tillgänglig"}</div>
             </div>
           </div>
         )}
       </div>
 
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-4 flex items-center gap-3">
-          <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-            <Wand2 className="text-brand-teal h-5 w-5" />
+          <div className="bg-primary/10 flex h-10 w-10 items-center justify-center">
+            <Wand2 className="text-primary h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Integrationer</h2>
-            <p className="text-sm text-gray-500">Status per integration</p>
+            <h2 className="text-lg font-semibold text-foreground">Integrationer</h2>
+            <p className="text-sm text-muted-foreground">Status per integration</p>
           </div>
         </div>
 
         {!integrationStatus ? (
-          <p className="text-sm text-gray-500">Laddar integrationsstatus...</p>
+          <p className="text-sm text-muted-foreground">Laddar integrationsstatus...</p>
         ) : (
           <div className="grid gap-2 md:grid-cols-2">
             {integrationStatus.items.map((item) => (
-              <div key={item.id} className="border border-gray-800 bg-black/30 p-3 text-sm">
+              <div key={item.id} className="border border-border bg-muted/50 p-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-200">{item.label}</span>
+                  <span className="text-foreground">{item.label}</span>
                   <span className={item.enabled ? "text-green-400" : "text-red-400"}>
                     {item.enabled ? "OK" : item.required ? "Saknas" : "Valfri"}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500">{item.affects}</div>
-                {item.notes && <div className="text-xs text-gray-600">Info: {item.notes}</div>}
+                <div className="text-xs text-muted-foreground">{item.affects}</div>
+                {item.notes && <div className="text-xs text-muted-foreground">Info: {item.notes}</div>}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-4 flex items-center gap-3">
-          <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-            <Key className="text-brand-teal h-5 w-5" />
+          <div className="bg-primary/10 flex h-10 w-10 items-center justify-center">
+            <Key className="text-primary h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Env-nycklar (runtime)</h2>
-            <p className="text-sm text-gray-500">Visar endast om nyckeln finns</p>
+            <h2 className="text-lg font-semibold text-foreground">Env-nycklar (runtime)</h2>
+            <p className="text-sm text-muted-foreground">Visar endast om nyckeln finns</p>
           </div>
         </div>
 
         {!envStatus ? (
-          <p className="text-sm text-gray-500">Laddar env-status...</p>
+          <p className="text-sm text-muted-foreground">Laddar env-status...</p>
         ) : (
           <div className="grid gap-2 md:grid-cols-2">
             {envStatus.keys.map((item) => (
-              <div key={item.key} className="border border-gray-800 bg-black/30 p-3 text-sm">
+              <div key={item.key} className="border border-border bg-muted/50 p-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs text-gray-300">{item.key}</span>
+                  <span className="font-mono text-xs text-foreground">{item.key}</span>
                   <span className={item.present ? "text-green-400" : "text-red-400"}>
                     {item.present ? "Satt" : item.required ? "Saknas" : "Valfri"}
                   </span>
                 </div>
-                {item.notes && <div className="text-xs text-gray-500">{item.notes}</div>}
+                {item.notes && <div className="text-xs text-muted-foreground">{item.notes}</div>}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-brand-blue/10 flex h-10 w-10 items-center justify-center">
               <FolderOpen className="text-brand-blue h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Vercel-projekt</h2>
-              <p className="text-sm text-gray-500">Lista och radera projekt</p>
+              <h2 className="text-lg font-semibold text-foreground">Vercel-projekt</h2>
+              <p className="text-sm text-muted-foreground">Lista och radera projekt</p>
             </div>
           </div>
           <Button
@@ -257,7 +257,7 @@ export function AdminEnvironmentTab({
             size="sm"
             onClick={() => void onRefreshVercelProjects()}
             disabled={vercelProjectsLoading}
-            className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+            className="gap-2 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <RefreshCw className={`h-4 w-4 ${vercelProjectsLoading ? "animate-spin" : ""}`} />
             Uppdatera
@@ -265,9 +265,9 @@ export function AdminEnvironmentTab({
         </div>
 
         {vercelProjectsError && <p className="text-sm text-red-400">{vercelProjectsError}</p>}
-        {vercelProjectsLoading && <p className="text-sm text-gray-500">Hämtar Vercel-projekt...</p>}
+        {vercelProjectsLoading && <p className="text-sm text-muted-foreground">Hämtar Vercel-projekt...</p>}
         {!vercelProjectsLoading && vercelProjects.length === 0 && (
-          <p className="text-sm text-gray-500">Inga projekt hittades.</p>
+          <p className="text-sm text-muted-foreground">Inga projekt hittades.</p>
         )}
 
         {vercelProjects.length > 0 && (
@@ -279,21 +279,21 @@ export function AdminEnvironmentTab({
               return (
                 <div
                   key={project.id}
-                  className={`border border-gray-800 bg-black/30 p-3 text-sm ${
-                    isSelected ? "ring-1 ring-brand-teal/60" : ""
+                  className={`border border-border bg-muted/50 p-3 text-sm ${
+                    isSelected ? "ring-1 ring-primary/60" : ""
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <div className="text-gray-200">{project.name}</div>
-                      <div className="text-xs text-gray-500">ID: {project.id}</div>
+                      <div className="text-foreground">{project.name}</div>
+                      <div className="text-xs text-muted-foreground">ID: {project.id}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setSelectedVercelProjectId(project.id)}
-                        className="border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                        className="border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
                         Visa env
                       </Button>
@@ -305,7 +305,7 @@ export function AdminEnvironmentTab({
                         className={`gap-2 ${
                           isConfirm
                             ? "border-red-500 text-red-400"
-                            : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                            : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                         }`}
                       >
                         {isLoading ? (
@@ -326,23 +326,23 @@ export function AdminEnvironmentTab({
         )}
       </div>
 
-      <div className="border border-gray-800 bg-black/50 p-6">
+      <div className="border border-border bg-card p-6">
         <div className="mb-4 flex items-center gap-3">
           <div className="bg-brand-blue/10 flex h-10 w-10 items-center justify-center">
             <Database className="text-brand-blue h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Vercel env-variabler</h2>
-            <p className="text-sm text-gray-500">Visar nycklar + targets</p>
+            <h2 className="text-lg font-semibold text-foreground">Vercel env-variabler</h2>
+            <p className="text-sm text-muted-foreground">Visar nycklar + targets</p>
           </div>
         </div>
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-gray-500">Projekt:</span>
+          <span className="text-xs text-muted-foreground">Projekt:</span>
           <select
             value={selectedVercelProjectId ?? ""}
             onChange={(e) => setSelectedVercelProjectId(e.target.value || null)}
-            className="border border-gray-700 bg-black/50 px-3 py-2 text-xs text-white"
+            className="border border-border bg-card px-3 py-2 text-xs text-foreground"
           >
             <option value="">Välj projekt</option>
             {vercelProjects.map((project) => (
@@ -353,22 +353,22 @@ export function AdminEnvironmentTab({
           </select>
         </div>
 
-        {vercelEnvLoading && <p className="text-sm text-gray-500">Hämtar env-variabler...</p>}
+        {vercelEnvLoading && <p className="text-sm text-muted-foreground">Hämtar env-variabler...</p>}
         {!vercelEnvLoading && selectedVercelProjectId && vercelEnvVars.length === 0 && (
-          <p className="text-sm text-gray-500">Inga env-variabler hittades.</p>
+          <p className="text-sm text-muted-foreground">Inga env-variabler hittades.</p>
         )}
 
         {vercelEnvVars.length > 0 && (
           <div className="grid gap-2 md:grid-cols-2">
             {vercelEnvVars.map((envVar) => (
-              <div key={envVar.id || envVar.key} className="border border-gray-800 bg-black/30 p-3 text-sm">
+              <div key={envVar.id || envVar.key} className="border border-border bg-muted/50 p-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs text-gray-300">{envVar.key}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="font-mono text-xs text-foreground">{envVar.key}</span>
+                  <span className="text-xs text-muted-foreground">
                     {envVar.target.length > 0 ? envVar.target.join(", ") : "ingen target"}
                   </span>
                 </div>
-                {envVar.type && <div className="text-xs text-gray-600">Typ: {envVar.type}</div>}
+                {envVar.type && <div className="text-xs text-muted-foreground">Typ: {envVar.type}</div>}
               </div>
             ))}
           </div>

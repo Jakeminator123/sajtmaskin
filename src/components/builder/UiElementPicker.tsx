@@ -332,12 +332,12 @@ export function UiElementPicker({
       <DialogContent className="flex max-h-[92vh] w-[min(96vw,1200px)] max-w-6xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl">
         {/* Header */}
         <div className="relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-teal/50 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-primary/50 to-transparent" />
           <DialogHeader className="px-6 pt-5 pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-brand-teal/20 via-brand-blue/15 to-brand-teal/10 ring-1 ring-brand-teal/20">
-                  <Blocks className="h-5 w-5 text-brand-teal" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-primary/20 via-primary/15 to-primary/10 ring-1 ring-primary/20">
+                  <Blocks className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
@@ -369,7 +369,7 @@ export function UiElementPicker({
                     onClick={() => setItemType(t)}
                     className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
                       itemType === t
-                        ? "bg-brand-teal/15 text-brand-teal shadow-sm ring-1 ring-brand-teal/20"
+                        ? "bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -383,14 +383,14 @@ export function UiElementPicker({
                   {itemType === "block" && (
                     <TabsTrigger
                       value="popular"
-                      className="h-auto rounded-md border-0 px-3 py-1.5 text-xs font-medium shadow-none transition-colors data-[state=active]:bg-brand-amber/10 data-[state=active]:text-brand-amber data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
+                      className="h-auto rounded-md border-0 px-3 py-1.5 text-xs font-medium shadow-none transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
                     >
                       Populära
                     </TabsTrigger>
                   )}
                   <TabsTrigger
                     value="all"
-                    className="h-auto rounded-md border-0 px-3 py-1.5 text-xs font-medium shadow-none transition-colors data-[state=active]:bg-brand-blue/10 data-[state=active]:text-brand-blue data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
+                    className="h-auto rounded-md border-0 px-3 py-1.5 text-xs font-medium shadow-none transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
                   >
                     Alla ({totalItemCount})
                   </TabsTrigger>
@@ -444,7 +444,7 @@ export function UiElementPicker({
             <div className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-3">
               {isLoadingCategories ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-16">
-                  <Loader2 className="h-6 w-6 animate-spin text-brand-teal/60" />
+                  <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
                   <span className="text-xs text-muted-foreground">Laddar katalog...</span>
                 </div>
               ) : error ? (
@@ -485,7 +485,7 @@ export function UiElementPicker({
                               onClick={() => setSelectedItem(item)}
                               className={`group w-full rounded-xl border p-2 text-left transition-all ${
                                 isSelected
-                                  ? "border-brand-teal/40 bg-brand-teal/5 shadow-sm shadow-brand-teal/5"
+                                  ? "border-primary/40 bg-primary/5 shadow-sm shadow-primary/5"
                                   : "border-transparent hover:border-border hover:bg-muted/30"
                               }`}
                             >
@@ -513,11 +513,11 @@ export function UiElementPicker({
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
-                                    <span className={`text-sm font-medium ${isSelected ? "text-brand-teal" : "text-foreground"}`}>
+                                    <span className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>
                                       {item.title}
                                     </span>
                                     <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium uppercase ${
-                                      item.type === "block" ? "bg-brand-blue/10 text-brand-blue/70" : "bg-brand-amber/10 text-brand-amber/70"
+                                      item.type === "block" ? "bg-primary/10 text-primary/70" : "bg-primary/10 text-primary/70"
                                     }`}>
                                       {item.type === "block" ? "Block" : "UI"}
                                     </span>
@@ -578,11 +578,11 @@ export function UiElementPicker({
                     <DropdownMenuItem
                       key={opt.value}
                       onClick={() => setPlacement(opt.value)}
-                      className={`flex cursor-pointer items-start gap-3 py-2 ${placement === opt.value ? "bg-brand-teal/10" : ""}`}
+                      className={`flex cursor-pointer items-start gap-3 py-2 ${placement === opt.value ? "bg-primary/10" : ""}`}
                     >
                       <span className="mt-0.5 shrink-0 text-muted-foreground">{opt.icon}</span>
                       <div>
-                        <div className={`text-sm font-medium ${placement === opt.value ? "text-brand-teal" : "text-foreground"}`}>
+                        <div className={`text-sm font-medium ${placement === opt.value ? "text-primary" : "text-foreground"}`}>
                           {opt.label}
                         </div>
                         <div className="text-xs text-muted-foreground">{opt.description}</div>
@@ -606,7 +606,7 @@ export function UiElementPicker({
                 size="sm"
                 onClick={() => handleConfirm("add")}
                 disabled={!canAct}
-                className="bg-brand-teal hover:bg-brand-teal/90 text-white shadow-sm shadow-brand-teal/20"
+                className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20"
               >
                 {isSubmitting && pendingAction === "add" ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -620,7 +620,7 @@ export function UiElementPicker({
                 size="sm"
                 onClick={() => handleConfirm("start")}
                 disabled={!canStartFromRegistry}
-                className="bg-brand-amber hover:bg-brand-amber/90 text-white shadow-sm shadow-brand-amber/20"
+                className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20"
               >
                 Starta från block
               </Button>
@@ -639,7 +639,7 @@ function CategoryPill({ active, onClick, label }: { active: boolean; onClick: ()
       onClick={onClick}
       className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
         active
-          ? "bg-brand-teal/15 text-brand-teal ring-1 ring-brand-teal/20"
+          ? "bg-primary/15 text-primary ring-1 ring-primary/20"
           : "bg-muted/40 text-muted-foreground hover:text-foreground"
       }`}
     >

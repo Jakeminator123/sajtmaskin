@@ -45,7 +45,7 @@ import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
-import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 interface MessageListProps {
@@ -158,20 +158,11 @@ const MessageListComponent = ({
     }
   };
 
-  if (!chatId && messages.length === 0) {
+  if ((!chatId && messages.length === 0) || messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-gray-500">
-        <MessageSquare className="mb-3 h-10 w-10" />
-        <p className="text-sm" suppressHydrationWarning>Ingen chat vald ännu</p>
-      </div>
-    );
-  }
-
-  if (messages.length === 0) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center text-gray-500">
-        <MessageSquare className="mb-3 h-10 w-10" />
-        <p className="text-sm" suppressHydrationWarning>Inga meddelanden ännu</p>
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        <MessageSquare className="mr-2 h-5 w-5" />
+        <p className="text-sm" suppressHydrationWarning>Beskriv vad du vill bygga</p>
       </div>
     );
   }
@@ -225,6 +216,12 @@ const MessageListComponent = ({
           return (
             <Message key={message.id} from={message.role}>
               <MessageContent>
+                {message.role === "assistant" && message.isHelpMessage && (
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-primary/70">
+                    <Bot className="h-3 w-3" />
+                    Sajtagenten
+                  </div>
+                )}
                 {message.role === "assistant" && reasoningPart && (
                   <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
                     <ReasoningTrigger />
@@ -336,7 +333,7 @@ const MessageListComponent = ({
                       </MessageResponse>
                     )
                   ) : message.isStreaming && !reasoningPart && !hasStructuredParts ? (
-                    <span className="text-sm text-gray-500">Ansluter...</span>
+                    <span className="text-sm text-muted-foreground">Ansluter...</span>
                   ) : null
                 ) : (
                   <CollapsibleUserMessage content={textContent} />
@@ -366,7 +363,7 @@ const MessageListComponent = ({
                     <VersionFeedback
                       chatId={chatId}
                       versionId={versionId}
-                      className="mt-2 pt-2 border-t border-zinc-700/50"
+                      className="mt-2 pt-2 border-t border-border"
                     />
                   )}
               </MessageContent>
@@ -382,12 +379,11 @@ const MessageListComponent = ({
           <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="font-semibold text-amber-300">
-                  Svar krävs för att fortsätta
+                <DialogTitle className="font-semibold text-amber-500">
+                  Svar krävs
                 </DialogTitle>
                 <DialogDescription>
-                  Buildern väntar på ditt svar innan nästa steg kan fortsätta. Det kan gälla till
-                  exempel integrationer, innehåll, designval eller planblockerare.
+                  Buildern väntar på ditt val.
                 </DialogDescription>
               </DialogHeader>
 
@@ -455,7 +451,7 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   const shouldCollapse = isTechnicalPrompt && (charCount > 500 || lineCount > 10);
 
   if (!shouldCollapse) {
-    return <p className="text-sm whitespace-pre-wrap text-white">{content}</p>;
+    return <p className="text-sm whitespace-pre-wrap text-foreground">{content}</p>;
   }
 
   // Extract summary line (first line before ---)
@@ -467,7 +463,7 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   if (isExpanded) {
     return (
       <div className="space-y-2">
-        <p className="text-sm whitespace-pre-wrap text-white">{content}</p>
+        <p className="text-sm whitespace-pre-wrap text-foreground">{content}</p>
         <button
           onClick={() => setIsExpanded(false)}
           className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
@@ -481,7 +477,7 @@ function CollapsibleUserMessage({ content }: { content: string }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm whitespace-pre-wrap text-white">{summary}</p>
+      <p className="text-sm whitespace-pre-wrap text-foreground">{summary}</p>
       <button
         onClick={() => setIsExpanded(true)}
         className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"

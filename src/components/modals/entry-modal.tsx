@@ -78,14 +78,14 @@ export function EntryModal({ mode, partner, onContinue, onClose }: EntryModalPro
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       {/* Modal */}
-      <div className="animate-fadeInUp relative w-full max-w-md overflow-hidden rounded-2xl border border-white/6 bg-[hsl(220,15%,7%)] shadow-2xl">
+      <div className="animate-fadeInUp relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         {/* Top accent line */}
-        <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-border to-transparent" />
 
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 rounded-lg p-1.5 text-white/25 transition-colors hover:bg-white/5 hover:text-white/50"
+          className="absolute top-4 right-4 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Stäng"
         >
           <X className="h-4 w-4" />
@@ -93,29 +93,29 @@ export function EntryModal({ mode, partner, onContinue, onClose }: EntryModalPro
 
         <div className="px-8 pt-10 pb-8">
           {/* Icon */}
-          <div className={`mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/5 ${config.accentClass}`}>
+          <div className={`mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 ${config.accentClass}`}>
             {config.icon}
           </div>
 
           {/* Partner badge */}
           {partner && (
-            <div className="mb-4 inline-flex items-center rounded-full border border-white/6 bg-white/3 px-3 py-1 text-[11px] font-medium text-white/40">
+            <div className="mb-4 inline-flex items-center rounded-full border border-border bg-muted/50 px-3 py-1 text-[11px] font-medium text-muted-foreground">
               Via {partner}
             </div>
           )}
 
           {/* Content */}
-          <h2 className="mb-3 text-2xl font-bold tracking-tight text-white">
+          <h2 className="mb-3 text-2xl font-bold tracking-tight text-foreground">
             {config.title}
           </h2>
-          <p className="mb-8 text-[15px] leading-relaxed text-white/40">
+          <p className="mb-8 text-[15px] leading-relaxed text-muted-foreground">
             {config.subtitle}
           </p>
 
           {/* CTA */}
           <button
             onClick={onContinue}
-            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-6 py-3.5 text-[15px] font-semibold text-white transition-all duration-300 hover:bg-white/15"
+            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-[15px] font-semibold text-primary-foreground transition-all duration-300 hover:bg-primary/90"
           >
             {config.cta}
             <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
@@ -124,7 +124,7 @@ export function EntryModal({ mode, partner, onContinue, onClose }: EntryModalPro
           {/* Skip link */}
           <button
             onClick={onClose}
-            className="mt-4 w-full text-center text-[12px] text-white/20 transition-colors hover:text-white/40"
+            className="mt-4 w-full text-center text-[12px] text-muted-foreground transition-colors hover:text-foreground"
           >
             Eller utforska själv
           </button>

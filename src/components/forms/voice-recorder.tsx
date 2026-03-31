@@ -285,7 +285,7 @@ export function VoiceRecorder({
           className={`relative min-w-[180px] gap-2 transition-all ${
             isRecording
               ? "border-red-600 bg-red-600 hover:bg-red-700"
-              : "border-brand-teal/50 text-brand-teal hover:bg-brand-teal/10 hover:text-brand-teal/80"
+              : "border-primary/50 text-primary hover:bg-primary/10 hover:text-primary/80"
           }`}
         >
           {isTranscribing ? (
@@ -338,7 +338,7 @@ export function VoiceRecorder({
 
       {/* Recording hint */}
       {!isRecording && !isTranscribing && !error && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           <Volume2 className="mr-1 inline h-3 w-3" />
           Beskriv din webbplats med rösten – vi transkriberar automatiskt
         </p>

@@ -67,7 +67,7 @@ export class ErrorBoundary extends Component<Props, State> {
               this.setState({ hasError: false, error: null });
               window.location.reload();
             }}
-            className="bg-brand-blue hover:bg-brand-blue/90 rounded px-4 py-2 text-white"
+            className="bg-primary hover:bg-primary/90 rounded px-4 py-2 text-primary-foreground"
           >
             Ladda om sidan
           </button>

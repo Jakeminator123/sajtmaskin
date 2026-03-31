@@ -689,9 +689,9 @@ export function ProjectEnvVarsPanel({
           ) : (
             <CheckCircle2 className="h-4 w-4 text-green-400" />
           )}
-          <span className="font-medium text-gray-200">{headerLabel}</span>
+          <span className="font-medium text-foreground">{headerLabel}</span>
         </div>
-        <span className="flex items-center gap-1 text-gray-400">
+        <span className="flex items-center gap-1 text-muted-foreground">
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </span>
       </button>
@@ -783,7 +783,7 @@ export function ProjectEnvVarsPanel({
                     {siteIntegrations.map((item) => (
                       <div key={item.key} className="border-border rounded-md border p-2 text-xs">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-gray-200">{item.name}</span>
+                          <span className="font-medium text-foreground">{item.name}</span>
                           <span
                             className={cn(
                               "text-[11px]",
@@ -865,7 +865,7 @@ export function ProjectEnvVarsPanel({
                         {trackerIntegrations.map((integration) => (
                           <div key={`tracker:${integration.key}`} className="border-border rounded-md border p-2">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="font-medium text-gray-200">{integration.name}</span>
+                              <span className="font-medium text-foreground">{integration.name}</span>
                               <span
                                 className={cn(
                                   "text-[11px]",
@@ -934,7 +934,7 @@ export function ProjectEnvVarsPanel({
                     {businessPackItems.map((pack) => (
                       <div key={pack.id} className="border-border rounded-md border p-2 text-xs">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-gray-200">{pack.label}</span>
+                          <span className="font-medium text-foreground">{pack.label}</span>
                           <span
                             className={cn(
                               "text-[11px]",
@@ -1024,7 +1024,7 @@ export function ProjectEnvVarsPanel({
                         className="border-border rounded-md border p-2 text-xs"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-gray-200">{item.label}</span>
+                          <span className="font-medium text-foreground">{item.label}</span>
                           <span className={stateColor}>{stateLabel}</span>
                         </div>
                         <div className="text-muted-foreground mt-0.5">{item.affects}</div>

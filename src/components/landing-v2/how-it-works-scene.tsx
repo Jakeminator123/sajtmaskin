@@ -28,7 +28,7 @@ const LOOK_AT_TARGETS = [
   new THREE.Vector3(2.1, 0.1, 0),
   new THREE.Vector3(4.2, 0.25, 0),
 ]
-const GLOW_COLOR = "#5eead4"
+const GLOW_COLOR = "#F59E0B"
 
 function StageFrame({
   x,
@@ -74,19 +74,19 @@ function CompanyStage({ activeStep }: { activeStep: number }) {
       </Float>
       <mesh position={[-0.55, -0.8, 0]}>
         <boxGeometry args={[0.55, 1.45, 0.55]} />
-        <meshStandardMaterial color="#0f172a" emissive="#164e63" emissiveIntensity={0.8} />
+        <meshStandardMaterial color="#0f172a" emissive="#1B2D4A" emissiveIntensity={0.8} />
       </mesh>
       <mesh position={[0, -0.45, 0]}>
         <boxGeometry args={[0.72, 2.1, 0.72]} />
-        <meshStandardMaterial color="#111827" emissive="#0f766e" emissiveIntensity={0.85} />
+        <meshStandardMaterial color="#111827" emissive="#2A4365" emissiveIntensity={0.85} />
       </mesh>
       <mesh position={[0.58, -0.95, 0]}>
         <boxGeometry args={[0.48, 1.1, 0.48]} />
-        <meshStandardMaterial color="#0f172a" emissive="#134e4a" emissiveIntensity={0.7} />
+        <meshStandardMaterial color="#0f172a" emissive="#1B2D4A" emissiveIntensity={0.7} />
       </mesh>
       <lineSegments>
         <edgesGeometry args={[new THREE.BoxGeometry(2.1, 3, 1.4)]} />
-        <lineBasicMaterial color="#2dd4bf" transparent opacity={0.45} />
+        <lineBasicMaterial color="#E67E22" transparent opacity={0.45} />
       </lineSegments>
     </StageFrame>
   )
@@ -111,7 +111,7 @@ function InputStage({ activeStep }: { activeStep: number }) {
             <boxGeometry args={[0.95, 0.55, 0.12]} />
             <meshStandardMaterial
               color={index % 2 === 0 ? "#0f172a" : "#111827"}
-              emissive={index === activeStep ? "#14b8a6" : "#155e75"}
+              emissive={index === activeStep ? "#E67E22" : "#1B2D4A"}
               emissiveIntensity={0.75}
             />
           </mesh>
@@ -119,7 +119,7 @@ function InputStage({ activeStep }: { activeStep: number }) {
       ))}
       <mesh position={[0, 0, -0.35]}>
         <ringGeometry args={[1.15, 1.27, 48]} />
-        <meshBasicMaterial color="#5eead4" transparent opacity={0.35} />
+        <meshBasicMaterial color="#F59E0B" transparent opacity={0.35} />
       </mesh>
     </StageFrame>
   )
@@ -144,13 +144,13 @@ function BuildStage({ activeStep }: { activeStep: number }) {
       <Float speed={1.4} rotationIntensity={0.3} floatIntensity={0.15}>
         <mesh>
           <icosahedronGeometry args={[0.8, 0]} />
-          <meshStandardMaterial color="#67e8f9" emissive="#0ea5e9" emissiveIntensity={1.2} wireframe />
+          <meshStandardMaterial color="#FCD34D" emissive="#E67E22" emissiveIntensity={1.2} wireframe />
         </mesh>
       </Float>
       {cubes.map((cube, index) => (
         <mesh key={index} position={cube.position} scale={cube.scale}>
           <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial color="#5eead4" emissive="#14b8a6" emissiveIntensity={0.8} />
+          <meshStandardMaterial color="#F59E0B" emissive="#D97706" emissiveIntensity={0.8} />
         </mesh>
       ))}
     </StageFrame>
@@ -163,18 +163,18 @@ function DeployStage({ activeStep }: { activeStep: number }) {
       <Float speed={1.8} rotationIntensity={0.18} floatIntensity={0.18}>
         <mesh>
           <sphereGeometry args={[0.95, 24, 24]} />
-          <meshStandardMaterial color="#0f172a" emissive="#0f766e" emissiveIntensity={0.65} wireframe />
+          <meshStandardMaterial color="#0f172a" emissive="#2A4365" emissiveIntensity={0.65} wireframe />
         </mesh>
       </Float>
       {[0, 1, 2].map((orbit) => (
         <group key={orbit} rotation={[orbit * 0.7, orbit * 0.85, orbit * 0.45]}>
           <mesh position={[1.3, 0, 0]} scale={0.12}>
             <sphereGeometry args={[1, 12, 12]} />
-            <meshStandardMaterial color="#99f6e4" emissive="#2dd4bf" emissiveIntensity={1.3} />
+            <meshStandardMaterial color="#FCD34D" emissive="#E67E22" emissiveIntensity={1.3} />
           </mesh>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[1.3, 0.01, 10, 80]} />
-            <meshBasicMaterial color="#5eead4" transparent opacity={0.35} />
+            <meshBasicMaterial color="#F59E0B" transparent opacity={0.35} />
           </mesh>
         </group>
       ))}
@@ -185,10 +185,10 @@ function DeployStage({ activeStep }: { activeStep: number }) {
 function ResultsStage({ activeStep }: { activeStep: number }) {
   const bars = useMemo(
     () => [
-      { x: -0.95, height: 0.8, color: "#0ea5e9" },
-      { x: -0.35, height: 1.35, color: "#14b8a6" },
-      { x: 0.25, height: 1.9, color: "#22c55e" },
-      { x: 0.85, height: 2.35, color: "#86efac" },
+      { x: -0.95, height: 0.8, color: "#D97706" },
+      { x: -0.35, height: 1.35, color: "#E67E22" },
+      { x: 0.25, height: 1.9, color: "#F59E0B" },
+      { x: 0.85, height: 2.35, color: "#FCD34D" },
     ],
     [],
   )
@@ -203,11 +203,11 @@ function ResultsStage({ activeStep }: { activeStep: number }) {
       ))}
       <mesh position={[0.1, 1.25, 0]}>
         <torusGeometry args={[0.75, 0.08, 10, 48, Math.PI * 1.35]} />
-        <meshStandardMaterial color="#86efac" emissive="#22c55e" emissiveIntensity={1.1} />
+        <meshStandardMaterial color="#FCD34D" emissive="#F59E0B" emissiveIntensity={1.1} />
       </mesh>
       <mesh position={[0.92, 1.72, 0.05]} rotation={[0, 0, -0.3]}>
         <coneGeometry args={[0.18, 0.42, 24]} />
-        <meshStandardMaterial color="#86efac" emissive="#22c55e" emissiveIntensity={1.15} />
+        <meshStandardMaterial color="#FCD34D" emissive="#F59E0B" emissiveIntensity={1.15} />
       </mesh>
     </StageFrame>
   )
@@ -225,13 +225,13 @@ function PipelineScene({ activeStep }: { activeStep: number }) {
     <>
       <PerspectiveCamera makeDefault position={CAMERA_TARGETS[0]} fov={34} />
       <ambientLight intensity={1.1} />
-      <pointLight position={[0, 4, 6]} intensity={20} color="#5eead4" />
-      <pointLight position={[4, -3, 4]} intensity={10} color="#60a5fa" />
-      <pointLight position={[-6, -2, 3]} intensity={7} color="#22c55e" />
+      <pointLight position={[0, 4, 6]} intensity={20} color="#F59E0B" />
+      <pointLight position={[4, -3, 4]} intensity={10} color="#E67E22" />
+      <pointLight position={[-6, -2, 3]} intensity={7} color="#FCD34D" />
 
       <mesh position={[0, -1.65, -0.45]} scale={[11.5, 0.05, 0.05]}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#0f172a" emissive="#0f766e" emissiveIntensity={0.8} />
+        <meshStandardMaterial color="#0f172a" emissive="#2A4365" emissiveIntensity={0.8} />
       </mesh>
 
       <CompanyStage activeStep={activeStep} />
@@ -277,7 +277,7 @@ export function HowItWorksScene({ steps }: { steps: JourneyStep[] }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,420px)]">
         <div className="lg:sticky lg:top-24">
           <div className="relative min-h-[420px] overflow-hidden rounded-[28px] border border-border/20 bg-secondary/20 md:min-h-[520px]">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(45,212,191,0.16),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_35%,rgba(34,197,94,0.04)_100%)]" />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(230,126,34,0.16),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_35%,rgba(245,158,11,0.04)_100%)]" />
             <Canvas gl={{ alpha: true, antialias: true }} dpr={[1, 1.5]}>
               <PipelineScene activeStep={activeStep} />
             </Canvas>

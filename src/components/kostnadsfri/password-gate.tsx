@@ -58,18 +58,18 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
     <div className="flex min-h-screen items-center justify-center px-4">
       {/* Ambient background glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-teal/5 blur-[120px]" />
+        <div className="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-[120px]" />
         <div className="absolute bottom-1/4 right-1/4 h-[300px] w-[300px] rounded-full bg-purple-500/5 blur-[100px]" />
       </div>
 
       <div className="relative w-full max-w-md">
         {/* Logo / brand */}
         <div className="mb-8 text-center">
-          <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-brand-teal/20 to-brand-teal/5 ring-1 ring-brand-teal/20">
-            <Lock className="h-7 w-7 text-brand-teal" />
+          <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
+            <Lock className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="mb-2 text-2xl font-bold text-white">{companyName}</h1>
-          <p className="text-sm text-gray-400">
+          <h1 className="mb-2 text-2xl font-bold text-foreground">{companyName}</h1>
+          <p className="text-sm text-muted-foreground">
             Ange lösenordet du fick i mailet för att komma igång
           </p>
         </div>
@@ -87,7 +87,7 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
               placeholder="Ange lösenord..."
               autoFocus
               disabled={isLoading}
-              className="w-full rounded-xl border border-gray-800 bg-gray-900/80 px-5 py-4 text-white placeholder-gray-500 backdrop-blur-sm transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 focus:outline-none disabled:opacity-50"
+              className="w-full rounded-xl border border-border bg-muted/80 px-5 py-4 text-foreground placeholder:text-muted-foreground backdrop-blur-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:opacity-50"
             />
           </div>
 
@@ -106,7 +106,7 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
           <button
             type="submit"
             disabled={!password.trim() || isLoading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-teal px-6 py-4 font-semibold text-black transition-all hover:bg-brand-teal/90 focus:ring-2 focus:ring-brand-teal/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 font-semibold text-primary-foreground transition-all hover:bg-primary/90 focus:ring-2 focus:ring-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? (
               <>
@@ -123,7 +123,7 @@ export function PasswordGate({ slug, companyName, onSuccess }: PasswordGateProps
         </form>
 
         {/* Footer */}
-        <p className="mt-8 text-center text-xs text-gray-600">
+        <p className="mt-8 text-center text-xs text-muted-foreground">
           Drivs av SajtMaskin — AI-driven webbdesign
         </p>
       </div>

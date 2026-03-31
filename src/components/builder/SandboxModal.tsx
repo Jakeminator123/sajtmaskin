@@ -226,7 +226,7 @@ export function SandboxModal({
                 placeholder="https://github.com/username/repo"
                 value={gitUrl}
                 onChange={(e) => setGitUrl(e.target.value)}
-                className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+                className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
               />
             </div>
             <div>
@@ -243,7 +243,7 @@ export function SandboxModal({
                 placeholder="main"
                 value={gitBranch}
                 onChange={(e) => setGitBranch(e.target.value)}
-                className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+                className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
               />
             </div>
           </div>
@@ -275,7 +275,7 @@ export function SandboxModal({
               name="runtime"
               value={runtime}
               onChange={(e) => setRuntime(e.target.value as SandboxRuntime)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+              className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
             >
               <option value="node24">Node 24</option>
               <option value="node22">Node 22</option>
@@ -292,7 +292,7 @@ export function SandboxModal({
               type="text"
               value={ports}
               onChange={(e) => setPorts(e.target.value)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+              className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
               placeholder="3000, 5173"
             />
           </div>
@@ -306,7 +306,7 @@ export function SandboxModal({
               type="text"
               value={timeout}
               onChange={(e) => setTimeout(e.target.value)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+              className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
               placeholder="5m"
             />
           </div>
@@ -322,7 +322,7 @@ export function SandboxModal({
               max={8}
               value={vcpus}
               onChange={(e) => setVcpus(Number(e.target.value))}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+              className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
             />
           </div>
           <div>
@@ -335,7 +335,7 @@ export function SandboxModal({
               type="text"
               value={installCommand}
               onChange={(e) => setInstallCommand(e.target.value)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+              className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
             />
           </div>
           <div>
@@ -348,7 +348,7 @@ export function SandboxModal({
               type="text"
               value={startCommand}
               onChange={(e) => setStartCommand(e.target.value)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
+              className="focus:border-primary focus:ring-primary/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
             />
           </div>
         </div>
@@ -362,7 +362,7 @@ export function SandboxModal({
         <button
           onClick={handleCreate}
           disabled={isCreating}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 font-medium text-white transition-colors hover:bg-primary/80 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80 disabled:opacity-50"
         >
           {isCreating ? (
             <Loader2 className="h-5 w-5 animate-spin" />

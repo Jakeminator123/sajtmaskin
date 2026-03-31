@@ -496,35 +496,35 @@ export default function AdminPage() {
       <div className="bg-background flex min-h-screen items-center justify-center p-4">
         <ShaderBackground theme="blue" speed={0.2} />
         <div className="relative z-10 w-full max-w-md">
-          <div className="border border-gray-800 bg-black/70 p-8">
+          <div className="border border-border bg-card p-8">
             <div className="mb-6 text-center">
-              <div className="bg-brand-teal/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center">
-                <Lock className="text-brand-teal h-6 w-6" />
+              <div className="bg-primary/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center">
+                <Lock className="text-primary h-6 w-6" />
               </div>
-              <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
-              <p className="mt-2 text-gray-500">Logga in med admin-kontot</p>
+              <h1 className="text-2xl font-bold text-foreground">Admin Panel</h1>
+              <p className="mt-2 text-muted-foreground">Logga in med admin-kontot</p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="relative">
-                <Mail className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                <Mail className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="email"
                   placeholder="E-post"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-11 border-gray-700 bg-black/50 pl-10 text-white"
+                  className="h-11 border-border bg-card pl-10 text-foreground"
                   required
                 />
               </div>
               <div className="relative">
-                <Lock className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                <Lock className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="password"
                   placeholder="Lösenord"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 border-gray-700 bg-black/50 pl-10 text-white"
+                  className="h-11 border-border bg-card pl-10 text-foreground"
                   required
                 />
               </div>
@@ -533,7 +533,7 @@ export default function AdminPage() {
 
               <Button
                 type="submit"
-                className="bg-brand-teal hover:bg-brand-teal/90 h-11 w-full"
+                className="bg-primary hover:bg-primary/90 h-11 w-full"
                 disabled={isLoading}
               >
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Logga in"}
@@ -541,7 +541,7 @@ export default function AdminPage() {
             </form>
 
             <div className="mt-6 text-center">
-              <Link href="/" className="text-sm text-gray-500 hover:text-gray-300">
+              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
                 ← Tillbaka till startsidan
               </Link>
             </div>
@@ -561,15 +561,15 @@ export default function AdminPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="gap-2 text-gray-400 hover:bg-gray-800 hover:text-white"
+                className="gap-2 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Tillbaka
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
-              <p className="text-gray-500">{email || "Admin"}</p>
+              <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+              <p className="text-muted-foreground">{email || "Admin"}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -577,7 +577,7 @@ export default function AdminPage() {
               variant="outline"
               size="sm"
               onClick={handlePrintCurrentTab}
-              className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+              className="gap-2 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <Printer className="h-4 w-4" />
               Skriv ut {ADMIN_TAB_LABELS[activeTab]}
@@ -586,7 +586,7 @@ export default function AdminPage() {
               variant="ghost"
               size="sm"
               onClick={handleLogout}
-              className="text-gray-400 hover:bg-gray-800 hover:text-white"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               Logga ut
             </Button>
@@ -594,8 +594,8 @@ export default function AdminPage() {
         </div>
 
         {message && (
-          <div className="bg-brand-teal/10 border-brand-teal/30 mb-4 rounded border p-4">
-            <p className="text-brand-teal text-sm">{message}</p>
+          <div className="bg-primary/10 border-primary/30 mb-4 rounded border p-4">
+            <p className="text-primary text-sm">{message}</p>
           </div>
         )}
 
@@ -603,28 +603,28 @@ export default function AdminPage() {
         <TabsList className="admin-print-hide mb-6 flex h-auto w-auto gap-2 bg-transparent p-0">
           <TabsTrigger
             value="analytics"
-            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
+            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:hover:bg-primary/90 data-[state=inactive]:border-border data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground"
           >
             <TrendingUp className="h-4 w-4" />
             Statistik
           </TabsTrigger>
           <TabsTrigger
             value="database"
-            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
+            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:hover:bg-primary/90 data-[state=inactive]:border-border data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground"
           >
             <Database className="h-4 w-4" />
             Databaser
           </TabsTrigger>
           <TabsTrigger
             value="environment"
-            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
+            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:hover:bg-primary/90 data-[state=inactive]:border-border data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground"
           >
             <Key className="h-4 w-4" />
             Miljö
           </TabsTrigger>
           <TabsTrigger
             value="frontlogs"
-            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
+            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:hover:bg-primary/90 data-[state=inactive]:border-border data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground"
           >
             <FileText className="h-4 w-4" />
             Frontloggar

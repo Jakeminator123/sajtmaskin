@@ -52,8 +52,8 @@ function DottedSphere({ radius = 1.2, dotCount = 800, dotSize = 0.035 }) {
       <instancedMesh ref={instancedRef} args={[undefined, undefined, dots.length]}>
         <sphereGeometry args={[dotSize, 8, 8]} />
         <meshStandardMaterial
-          color="#5eead4"
-          emissive="#2dd4bf"
+          color="#F59E0B"
+          emissive="#E67E22"
           emissiveIntensity={0.8}
           metalness={0.9}
           roughness={0.1}
@@ -77,8 +77,8 @@ function GlowingCore() {
     <mesh ref={meshRef}>
       <sphereGeometry args={[0.15, 32, 32]} />
       <meshStandardMaterial
-        color="#5eead4"
-        emissive="#2dd4bf"
+        color="#F59E0B"
+        emissive="#E67E22"
         emissiveIntensity={2}
         metalness={0.5}
         roughness={0.1}
@@ -91,9 +91,9 @@ function Scene() {
   return (
     <>
       <ambientLight intensity={0.6} />
-      <pointLight position={[5, 5, 5]} intensity={2} color="#5eead4" />
-      <pointLight position={[-5, -5, -5]} intensity={1} color="#2dd4bf" />
-      <pointLight position={[0, 0, 5]} intensity={1.5} color="#99f6e4" />
+      <pointLight position={[5, 5, 5]} intensity={2} color="#F59E0B" />
+      <pointLight position={[-5, -5, -5]} intensity={1} color="#E67E22" />
+      <pointLight position={[0, 0, 5]} intensity={1.5} color="#FCD34D" />
       <GlowingCore />
       <DottedSphere radius={1.2} dotCount={800} dotSize={0.035} />
     </>
@@ -106,7 +106,7 @@ function StaticOrbFallback() {
       className="absolute inset-0 flex items-center justify-center pointer-events-none"
       aria-hidden
     >
-      <div className="h-[70%] w-[70%] rounded-full border border-primary/25 bg-primary/15 shadow-[0_0_60px_rgba(45,212,191,0.25)]" />
+      <div className="h-[70%] w-[70%] rounded-full border border-primary/25 bg-primary/15 shadow-[0_0_60px_rgba(230,126,34,0.25)]" />
     </div>
   );
 }
@@ -121,7 +121,7 @@ export function ParticleOrb() {
         className="absolute inset-[-30%] rounded-full blur-3xl"
         style={{
           background:
-            "radial-gradient(circle, rgba(45,212,191,0.2) 0%, rgba(45,212,191,0.05) 40%, transparent 70%)",
+            "radial-gradient(circle, rgba(230,126,34,0.2) 0%, rgba(230,126,34,0.05) 40%, transparent 70%)",
         }}
       />
       {reducedMotion ? (

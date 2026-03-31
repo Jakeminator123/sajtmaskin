@@ -1,0 +1,49 @@
+FRONTEND REDESIGN ANALYSIS: UI Component Library
+==================================================
+
+SHADCN/UI SETUP
+- Style: new-york, base: slate, CSS variables: true
+- 57 components in src/components/ui/ (full new-york kit)
+- Primitives from radix-ui, Drawer from Vaul, Toasts from Sonner
+
+KEY COMPONENTS FOR REDESIGN
+- button.tsx — CVA variants (default, destructive, outline, secondary, ghost, link), sizes xs-lg + icon
+- tabs.tsx — "default" (pill track) + "line" (underline) variants
+- dialog.tsx — bg-black/50 overlay, rounded-lg, fade+zoom animation
+- dropdown-menu.tsx — rounded-md, shadow-md, slide/zoom animations
+- sheet.tsx — slide-in panel (good for hamburger nav)
+- drawer.tsx — Vaul-based bottom drawer (good for mobile)
+- accordion.tsx — collapsible sections (good for FAQ, legal, settings)
+- collapsible.tsx — single expand/collapse
+- popover.tsx — floating content
+- confirm-dialog.tsx — CUSTOM (hardcoded gray-900, not using tokens)
+
+ADDITIONAL COMPONENT SYSTEMS
+- src/components/ai-elements/ (30 files) — Vercel AI Elements chat UI: conversation, message, prompt-input, reasoning, suggestion, sources, code-block, tool, plan etc.
+- Builder components (src/components/builder/)
+- Landing components (src/components/landing-v2/)
+
+ANIMATION PATTERNS
+- framer-motion (^12.29.0) — used narrowly: audit-modal + SecurityReport/MetricsChart
+- Default motion: Tailwind animate-in/out + Radix data-[state=open]:zoom-in-95
+- Recommendation: rely on CSS transitions + Radix animations, framer-motion only for coordinated motion
+
+ICON USAGE
+- lucide-react (^0.563.0) — named imports throughout
+- UI primitives: XIcon, CheckIcon, chevrons, Loader2Icon, GripVerticalIcon
+- Feature components: hundreds of icons across src/
+
+COMPONENTS NEEDING REDESIGN (priority)
+1. button.tsx — quieter borders, calmer focus rings for Apple/Google feel
+2. tabs.tsx — already has "line" variant, good base for segmented controls
+3. dialog.tsx — may need softer overlay, tighter spacing
+4. dropdown-menu.tsx — items could be more spacious, icon-first
+5. confirm-dialog.tsx — unify with dialog.tsx, use tokens instead of hardcoded colors
+6. ai-elements/prompt-input — density, borders, attachment affordances
+
+NEW COMPONENTS TO CREATE
+- Segmented control / pill tabs — minimal variant of tabs for options
+- Spotlight/command palette — wrap command.tsx as keyboard-first search
+- IconButton — dedicated wrapper (currently Button size="icon")
+- Settings row — title + chevron + optional badge (Item + Collapsible)
+- Mobile nav — centralized Sheet/Drawer + hamburger for landing + builder

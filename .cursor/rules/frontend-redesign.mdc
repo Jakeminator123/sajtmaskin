@@ -1,0 +1,51 @@
+---
+description: Frontend redesign guidelines — Apple minimalism + Google simplicity + ChatGPT UX
+globs: src/**/*.tsx, src/**/*.ts, src/**/*.css
+alwaysApply: false
+---
+
+# Frontend Redesign: Sajtmaskin
+
+## Design Principles
+- **Super minimalist** — as few words as possible everywhere
+- **Apple + Google + ChatGPT** aesthetic: clean, generous whitespace, calm
+- **Proactive UX** — OpenClaw asks the user, not the other way around
+- **Progressive disclosure** — options behind elegant tabs/dropdowns, never visible by default
+
+## Color Palette
+- **Background:** Deep navy (~#1a1f36, HSL ~222 40% 15%)
+- **Primary/CTA:** Orange (~#ff6b35, HSL ~14 90% 60%)
+- **Foreground:** White / near-white
+- **No teal** — remove current accent color from UI
+- **Ring/focus:** Orange to match primary
+
+## Navigation Pattern (ALL pages)
+- Hamburger menu top-right (ALL breakpoints, not just mobile)
+- Login: icon-only (User/LogIn icon), never text
+- "Kom igång gratis": subtle outline button (guest only)
+- All nav links live INSIDE the hamburger menu
+- Unify landing-v2/navbar and layout/navbar into one shared pattern
+
+## Typography
+- Reduce to 2 fonts max (Geist Sans body + Space Grotesk headings)
+- Remove unused Inter font
+- Generous line-height, minimal font weights
+
+## Component Rules
+- Buttons: calm, no 3D/glow effects
+- Dialogs: softer overlays, tighter spacing
+- Empty states: one short line + single CTA
+- Loading: minimal spinner, no marketing narrative
+
+## Analysis Files (detailed per-area breakdowns)
+- 4729.txt — Layout, Navigation, Header, Footer
+- 8351.txt — Hero & Landing Page
+- 2067.txt — Builder/Chat UI
+- 5943.txt — Styling, Colors, Design System
+- 1284.txt — Authentication & User Pages
+- 7612.txt — Marketing & Content Pages
+- 3596.txt — UI Component Library
+- 9158.txt — Preview, Templates, Publish
+
+## Golden Rule
+Never change backend logic, API routes, or data flow. Frontend only.

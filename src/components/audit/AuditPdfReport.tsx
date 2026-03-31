@@ -844,9 +844,9 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
 
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-6 text-center">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 text-center">
         <div className="mb-4 flex items-center justify-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-teal/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
             <svg
               width="20"
               height="20"
@@ -856,7 +856,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="text-brand-teal"
+              className="text-primary"
             >
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
@@ -865,9 +865,9 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
               <polyline points="10 9 9 9 8 9" />
             </svg>
           </div>
-          <h3 className="text-xl font-bold text-white">Generera PDF-rapport</h3>
+          <h3 className="text-xl font-bold text-foreground">Generera PDF-rapport</h3>
         </div>
-        <p className="mb-6 text-sm text-gray-400">
+        <p className="mb-6 text-sm text-muted-foreground">
           En professionell rapport med diagram och analys oppnas i ett nytt fonster.
           Valj &quot;Spara som PDF&quot; i utskriftsdialogen.
         </p>
@@ -875,13 +875,13 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg bg-gray-800 px-4 py-3 text-gray-300 transition-colors hover:bg-gray-700"
+            className="flex-1 rounded-lg bg-muted px-4 py-3 text-foreground transition-colors hover:bg-muted"
           >
             Avbryt
           </button>
           <button
             onClick={handlePrint}
-            className="flex-1 rounded-lg bg-brand-teal px-4 py-3 font-medium text-white transition-colors hover:bg-brand-teal/90"
+            className="flex-1 rounded-lg bg-primary px-4 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Oppna rapport
           </button>

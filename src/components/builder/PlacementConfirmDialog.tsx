@@ -43,21 +43,21 @@ export function PlacementConfirmDialog({
         </DialogHeader>
 
         <div className="space-y-3 px-6 pb-6">
-          <div className="rounded border border-gray-800 bg-gray-950/60 p-3 text-sm">
-            <div className="text-gray-400">Valt element</div>
-            <div className="mt-1 font-medium text-white">{elementName}</div>
+          <div className="rounded border border-border bg-muted/50 p-3 text-sm">
+            <div className="text-muted-foreground">Valt element</div>
+            <div className="mt-1 font-medium text-foreground">{elementName}</div>
             {elementDescription ? (
-              <div className="mt-1 text-xs text-gray-400">{elementDescription}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{elementDescription}</div>
             ) : null}
           </div>
 
-          <div className="rounded border border-gray-800 bg-gray-950/60 p-3 text-sm">
-            <div className="text-gray-400">Placering</div>
-            <div className="mt-1 font-medium text-sky-300">{placementLabel}</div>
+          <div className="rounded border border-border bg-muted/50 p-3 text-sm">
+            <div className="text-muted-foreground">Placering</div>
+            <div className="mt-1 font-medium text-primary">{placementLabel}</div>
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="placement-customization" className="text-sm font-medium text-gray-200">
+            <label htmlFor="placement-customization" className="text-sm font-medium text-foreground">
               Extra instruktion (valfritt)
             </label>
             <Textarea

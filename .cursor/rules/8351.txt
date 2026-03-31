@@ -1,0 +1,32 @@
+FRONTEND REDESIGN ANALYSIS: Hero Section & Landing Page
+========================================================
+
+CURRENT STATE
+- Hero (landing-hero.tsx): pill badge, rotating H1, long subhead (91-98), 5 mode chips with descriptions
+- Chat-style input with voice/mic/video, stats row (30 sek, 95+, 100%, 0 kr), "Scrolla ned"
+- Below fold (chat-area.tsx): trust marquee, Funktioner, Jämförelse radar, Teknik + terminal,
+  Lanyard badge, Hur det fungerar (WebGL), Counters, Integrationer, Priser, Bottom CTA, Footer
+- Total: ~660 lines of scrollable marketing content
+- Copy source: landing-chat-data.ts (categories, features, techStack, journeySteps, stats, etc.)
+- OpenClaw: only data-openclaw-text-target attributes on inputs, not conversational PM
+
+FILES TO CHANGE
+- src/components/landing-v2/landing-hero.tsx — radical text reduction
+- src/components/landing-v2/chat-area.tsx — collapse sections into tabs/accordions
+- src/components/landing-v2/landing-chat-data.ts — simplify all copy
+- src/components/landing-v2/use-landing-controller.ts — change default mode
+- src/components/landing-v2/landing-background.tsx — align to navy/orange palette
+- src/components/landing-v2/landing-feature-blocks.tsx — keep cards, drop inline text
+- src/components/landing-v2/landing-how-it-works-lazy.tsx — simplify or remove
+- src/components/landing-v2/landing-comparison-radar.tsx — move behind tab
+- src/components/landing-v2/landing-tech-integration-cards.tsx — move behind tab
+- src/components/landing-v2/landing-lighthouse-gauges.tsx — move behind tab
+
+PROPOSED CHANGES
+1. Hero: ONE static headline + ONE supporting line (max ~12 words)
+2. Input-first: large textarea, NO stat row, mode as icon-only row or dropdown
+3. Remove or drastically shorten: pill badge, rotating types, subhead, stats, "Scrolla ned"
+4. Proactive framing: default to "Analyserad" mode, copy like "Vi börjar med några frågor"
+5. Below fold: collapse ALL sections into Tabs (Översikt | Funktioner | Teknik | Pris)
+6. Remove: trust marquee, counters, comparison radar from default view
+7. Keep FeatureCard modals as the primary "hidden detail" pattern
