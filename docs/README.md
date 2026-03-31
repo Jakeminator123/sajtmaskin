@@ -68,7 +68,7 @@ Important code sources of truth include:
 | `.env.production`        | No (gitignored) | Reference copy of production-like values.                                                                                          |
 | `scripts/env/manage_env.py` | Yes          | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. Root wrapper forwards. |
 | `scripts/env/model_trace_overlay.py` | Yes | Focused helper that syncs GUI-facing model env vars in `.env.local` and opens the builder model-trace overlay. Root wrapper forwards. |
-| `scripts/env/check_env.py` | Yes           | Backward-compatible wrapper that forwards to `manage_env.py audit`. Root wrapper forwards.                                         |
+| `check_env.py` (repo root) | Yes           | Forwards to `scripts/env/manage_env.py audit`.                                                                                  |
 
 When adding a new env var: add it to `src/lib/env.ts` (schema), then to
 `config/env-policy.json` (classification + target rules). Uppdatera `ENV.md` bara om nyckeln är **central för onboarding** (annars räcker kod + policy).

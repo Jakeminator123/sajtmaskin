@@ -1,5 +1,5 @@
 // Template catalog data: categories, quick prompts, and v0.app gallery items.
-// Data source is v0.app (synced via scripts/sync-v0-templates.mjs).
+// Data source is v0.app (synced via scripts/template-library/sync-v0-templates.mjs).
 
 import templatesData from "./templates.json";
 import templateCategoriesData from "./template-categories.json";

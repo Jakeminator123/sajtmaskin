@@ -307,7 +307,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 - [x] Notera nuvarande `git rev-parse HEAD` i PR-beskrivning om ni gör massradering *(2026-03-31: process i [`.cursor/rules/session-git-docs.mdc`](../../../.cursor/rules/session-git-docs.mdc) — massradering / bred städ-PR)*
 - [x] Bekräfta **vilken Postgres-URL** som gäller för nästa steg (lokal dev vs staging); **aldrig** anta prod utan explicit beslut *(2026-03-31: **Lokal utveckling och schema-insyn** använder `POSTGRES_URL` från `.env.local` enligt [`docs/ENV.md`](../../ENV.md) och `npm run db:*`-skript. **Staging/prod** får inte antas från planfilen — välj URL explicit i teamet före migrering/dataändring; Fas D kräver fortfarande backup + miljöbesked.)*
 
-**Insyn utan skrivning:** `npm run db:rows` (`[scripts/db-row-overview.mjs](../../../scripts/db-row-overview.mjs)`) — räknar rader per utvald tabell om `POSTGRES_URL` finns i `.env.local`. Används för att avgöra om legacy-tabeller är tomma innan städ; ersätter inte backup eller manuellt miljöbeslut (fas D).
+**Insyn utan skrivning:** `npm run db:rows` (`[scripts/db/db-row-overview.mjs](../../../scripts/db/db-row-overview.mjs)`) — räknar rader per utvald tabell om `POSTGRES_URL` finns i `.env.local`. Används för att avgöra om legacy-tabeller är tomma innan städ; ersätter inte backup eller manuellt miljöbeslut (fas D).
 
 ---
 

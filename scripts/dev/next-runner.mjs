@@ -55,7 +55,7 @@ if (env.NODE_OPTIONS) {
 
 // ── Inspector worker auto-management ──
 
-const WORKER_SCRIPT = resolve(__dirname, "..", "services", "inspector-worker", "server.mjs");
+const WORKER_SCRIPT = resolve(__dirname, "..", "..", "services", "inspector-worker", "server.mjs");
 const WORKER_URL = env.INSPECTOR_CAPTURE_WORKER_URL?.trim() || "";
 const WORKER_PORT = (() => {
   try { return new URL(WORKER_URL).port || "3310"; } catch { return "3310"; }
@@ -162,7 +162,7 @@ function printDevBanner() {
 await maybeStartWorker();
 printDevBanner();
 
-const nextBin = resolve(__dirname, "..", "node_modules", "next", "dist", "bin", "next");
+const nextBin = resolve(__dirname, "..", "..", "node_modules", "next", "dist", "bin", "next");
 const child = spawn(process.execPath, [nextBin, ...args], { stdio: "inherit", env });
 
 child.on("error", (error) => {

@@ -14,7 +14,7 @@
 | `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite). Se [`docs/ENV.md`](../ENV.md). Ofta gitignorerad innehållsmässigt. |
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
-| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Undermappar: `scripts/env/` (env-verktyg), `scripts/manual/` (manuell curation). |
+| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Undermappar: `db/`, `dev/`, `embeddings/`, `template-library/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `cli/`, `env/`, `manual/`. |
 | `archive/` | Icke-aktiva labb m.m. — [`archive/README.md`](../../archive/README.md) (t.ex. tidigare `scripts/labs/testning_scarf/`). |
 | `tools/` | Verktyg utanför runtime (t.ex. doc-browser) — [`tools/README.md`](../../tools/README.md). |
 | `infra/` | OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |
@@ -23,7 +23,7 @@
 | `isolated_tests/` | Vitest-integrationstester som kräver isolation från `src/`-trädets tsconfig. |
 | `.cursor/` | Cursor-regler, skills, README — [`.cursor/README.md`](../../.cursor/README.md). |
 
-**Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Python-filerna i roten (`manage_env.py`, `check_env.py`, `model_trace_overlay.py`, `vercel_template_cli.py`) är tunna **kompatibilitets-wrappers**; kanoniska entrypoints ligger under `scripts/env/` respektive `scripts/manual/`.
+**Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Python-filerna i roten (`manage_env.py`, `check_env.py`, `model_trace_overlay.py`) är tunna **kompatibilitets-wrappers**; kanoniska entrypoints ligger under `scripts/env/`.
 
 ## `.cursorignore` (varför vissa sökvägar “saknas” i index)
 

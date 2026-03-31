@@ -25,7 +25,7 @@ async function main() {
   console.info("Generating docs embeddings...");
   const result = await generateDocsEmbeddings({ apiKey });
 
-  const outPath = resolve(__dirname, "..", "src", "lib", "gen", "data", "docs-embeddings.json");
+  const outPath = resolve(__dirname, "..", "..", "src", "lib", "gen", "data", "docs-embeddings.json");
   writeFileSync(outPath, JSON.stringify(result, null, 2), "utf-8");
 
   console.info(`Done. ${result._meta.count} embeddings written to ${outPath}`);

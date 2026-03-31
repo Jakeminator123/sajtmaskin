@@ -7,7 +7,7 @@ Large generated JSON is cursorignored. Overview: [`../README.md`](../README.md) 
 | File | Size | What it is |
 |------|------|-----------|
 | `scaffold-embeddings.json` | ~2 MB | OpenAI vectors for each scaffold. Used by `matchScaffoldWithEmbeddings()` in auto mode. |
-| `scaffold-research.generated.json` | ~1 MB | Per-scaffold `qualityChecklist` and `research` (upgradeTargets, referenceTemplates). Generated from dossiers by `scripts/build-template-library.ts`. |
+| `scaffold-research.generated.json` | ~1 MB | Per-scaffold `qualityChecklist` and `research` (upgradeTargets, referenceTemplates). Generated from dossiers by `scripts/template-library/build-template-library.ts`. |
 
 ## Indexed files (readable by agents)
 
@@ -19,7 +19,7 @@ Large generated JSON is cursorignored. Overview: [`../README.md`](../README.md) 
 | `serialize.ts` | `serializeScaffoldForPrompt()` — turns a scaffold into system prompt text. |
 | `scaffold-search.ts` | Embedding-based `searchScaffolds()`; expands SV↔EN query hints. |
 | `scaffold-embedding-locale.ts` | Swedish mirrors (label, description, keywords) paired with English manifest text in embedding documents. |
-| `scaffold-embeddings-core.ts` | Builds bilingual text → OpenAI embeddings; run `npx tsx scripts/generate-scaffold-embeddings.ts` after locale/manifest changes. |
+| `scaffold-embeddings-core.ts` | Builds bilingual text → OpenAI embeddings; run `npx tsx scripts/embeddings/generate-scaffold-embeddings.ts` after locale/manifest changes. |
 | `scaffold-scoring.ts` | Telemetry-based boost/penalize for generic scaffolds. |
 | `scaffold-aware-retry.ts` | Picks alternative scaffold if generation fails. |
 | `scaffold-research.ts` | Loads `scaffold-research.generated.json` overrides. |
