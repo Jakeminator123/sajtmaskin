@@ -163,9 +163,3 @@ export function parseSSEBuffer(buffer: string): {
 
   return { events, remaining };
 }
-
-// ---------------------------------------------------------------------------
-// Re-export formatSSEEvent for convenience
-// ---------------------------------------------------------------------------
-
-export { formatSSEEvent } from "@/lib/streaming";

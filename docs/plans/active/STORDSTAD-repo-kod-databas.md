@@ -165,6 +165,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (m) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen `src/lib/templates/index.ts`; fyra call sites → `template-data` / `template-catalog` direkt. `PROJECT-STATE` uppdaterad (importmönster). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (n)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: liten preview-helper-städning + skriv in regel att LLM-/prompt-worktrees kan lämnas ostädade i spår A. |
 | **Efter** pass 2026-03-31 (n) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: `sandbox-preview` re-exporterar inte längre `httpStatusForSandboxPreviewFailure`; sandbox-preview-route importerar nu helpern direkt från `sandbox-preview-errors`. Docs: “Förenklad körprofil” + handoff förtydligar att LLM-/prompt-/orchestration-tunga worktrees/pass får lämnas ostädade när spår A annars kan hållas renare. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (o)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: `route-helpers` — oanvänd re-export av `formatSSEEvent` (alla call sites redan `@/lib/streaming`). |
+| **Efter** pass 2026-03-31 (o) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen död re-export `formatSSEEvent` ur `src/lib/gen/route-helpers.ts`. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 
 ---
 
