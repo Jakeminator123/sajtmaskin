@@ -52,16 +52,21 @@ const CRITICAL_PATH_PATTERNS = [
  * Detect whether the prompt describes a creative/unique theme that should
  * use inspirational (lightweight) scaffold injection instead of full files.
  */
+const CREATIVE_THEME_STRONG_MIN_LEN = 10;
+
 export function detectScaffoldMode(prompt: string, styleKeywords?: string[]): ScaffoldSerializeMode {
   const lower = prompt.toLowerCase();
   const kwHits = CREATIVE_THEME_KEYWORDS.filter((kw) => lower.includes(kw));
-  if (kwHits.length >= 1) return "inspirational";
+  const strongPromptHit = kwHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
+  if (strongPromptHit || kwHits.length >= 2) return "inspirational";
+
   if (styleKeywords && styleKeywords.length > 0) {
     const styleLower = styleKeywords.map((s) => s.toLowerCase());
     const styleHits = CREATIVE_THEME_KEYWORDS.filter((kw) =>
       styleLower.some((s) => s.includes(kw)),
     );
-    if (styleHits.length >= 1) return "inspirational";
+    const strongStyleHit = styleHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
+    if (strongStyleHit || styleHits.length >= 2) return "inspirational";
   }
   return "structural";
 }

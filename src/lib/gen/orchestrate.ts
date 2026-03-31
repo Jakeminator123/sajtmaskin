@@ -69,6 +69,11 @@ export interface OrchestrationInput {
    */
   generationMode?: "init" | "followUp";
   /**
+   * When true, do not lock scaffold selection to `persistedScaffoldId` — re-run auto/manual
+   * resolution (e.g. clear-redesign follow-ups where the chat scaffold may be stale).
+   */
+  ignorePersistedScaffoldForMatch?: boolean;
+  /**
    * When false, auto scaffold selection uses keyword matching only (no embedding API).
    * Default true. Used by CLI trace tools; production callers omit this.
    */
@@ -111,16 +116,20 @@ export async function resolveOrchestrationBase(
     embeddingScaffoldMatch = true,
     generationMode,
     promptStrategyMeta = null,
+    ignorePersistedScaffoldForMatch = false,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
+
+  const effectivePersistedScaffoldId =
+    ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
 
   if (scaffoldMode === "off") {
     resolvedScaffold = null;
   } else if (scaffoldMode === "manual" && scaffoldId) {
     resolvedScaffold = getScaffoldById(scaffoldId);
-  } else if (persistedScaffoldId) {
-    resolvedScaffold = getScaffoldById(persistedScaffoldId);
+  } else if (effectivePersistedScaffoldId) {
+    resolvedScaffold = getScaffoldById(effectivePersistedScaffoldId);
   } else if (scaffoldMode === "auto") {
     resolvedScaffold = embeddingScaffoldMatch
       ? await matchScaffoldWithEmbeddings(prompt, buildIntent)

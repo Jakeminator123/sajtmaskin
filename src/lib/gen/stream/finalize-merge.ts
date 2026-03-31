@@ -23,7 +23,9 @@ export function mergeGeneratedProjectFiles({
   const isFollowUp = Boolean(previousFiles && previousFiles.length > 0);
 
   if (isFollowUp) {
-    const mergeResult = mergeVersionFilesWithWarnings(previousFiles!, generatedFiles);
+    const mergeResult = mergeVersionFilesWithWarnings(previousFiles!, generatedFiles, {
+      rejectSignificantShrinks: true,
+    });
     const mergedFiles = mergeResult.files;
     if (mergeResult.warnings.length > 0) {
       devLogAppend("in-progress", {

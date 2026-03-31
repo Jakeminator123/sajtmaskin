@@ -432,6 +432,7 @@ describe("finalizeAndSaveVersion", () => {
           path: "src/app/page.tsx",
         }),
       ]),
+      { rejectSignificantShrinks: true },
     );
     expect(checkScaffoldImports).toHaveBeenCalled();
   });

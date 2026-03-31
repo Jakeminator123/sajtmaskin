@@ -37,6 +37,7 @@ export function useSendMessage(
 ) {
   const {
     chatId,
+    activeVersionId,
     appProjectId,
     selectedModelTier,
     enableImageGenerations,
@@ -237,6 +238,10 @@ export function useSendMessage(
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
         }
+        const trimmedVersionId = activeVersionId?.trim();
+        if (trimmedVersionId) {
+          promptMeta.engineBaseVersionId = trimmedVersionId;
+        }
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelTierId = canonicalTier;
         promptMeta.buildProfile = MODEL_LABELS[canonicalTier];
@@ -382,6 +387,7 @@ export function useSendMessage(
     },
     [
       chatId,
+      activeVersionId,
       appProjectId,
       createNewChat,
       enableImageGenerations,

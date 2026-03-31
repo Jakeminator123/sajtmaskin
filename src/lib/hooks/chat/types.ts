@@ -184,6 +184,8 @@ export type SetMessages = (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatM
 
 export type ChatMessagingParams = {
   chatId: string | null;
+  /** When set, follow-up stream sends `meta.engineBaseVersionId` so the server merges from that version. */
+  activeVersionId?: string | null;
   setChatId: (id: string | null) => void;
   chatIdParam: string | null;
   router: RouterLike;

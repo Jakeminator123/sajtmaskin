@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const sendMessageSchemaSafeParse = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
-const getLatestVersion = vi.hoisted(() => vi.fn());
+const resolveFollowUpPreviousFiles = vi.hoisted(() => vi.fn());
 const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
@@ -136,6 +136,12 @@ vi.mock("@/lib/gen/url-compress", () => ({
 
 vi.mock("@/lib/gen/orchestrate", () => ({
   prepareGenerationContext,
+  resolveOrchestrationBase: vi.fn(),
+  finalizeOrchestrationPrompts: vi.fn(),
+}));
+
+vi.mock("@/lib/gen/version-manager", () => ({
+  resolveFollowUpPreviousFiles,
 }));
 
 vi.mock("@/lib/gen/plan-prompt", () => ({
@@ -189,7 +195,6 @@ vi.mock("@/lib/gen/route-helpers", () => {
 });
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
-  getLatestVersion,
   updateChatProjectId,
   addMessage,
   createChat: vi.fn(),
@@ -269,15 +274,13 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       messages: [],
     });
     getChatByV0ChatIdForRequest.mockResolvedValue(null);
-    getLatestVersion.mockResolvedValue({
-      files_json: JSON.stringify([
-        {
-          path: "src/app/page.tsx",
-          content: "export default function Page() { return <div>Old</div>; }",
-          language: "tsx",
-        },
-      ]),
-    });
+    resolveFollowUpPreviousFiles.mockResolvedValue([
+      {
+        path: "src/app/page.tsx",
+        content: "export default function Page() { return <div>Old</div>; }",
+        language: "tsx",
+      },
+    ]);
     prepareGenerationContext.mockResolvedValue({
       resolvedScaffold: {
         id: "scaffold_1",

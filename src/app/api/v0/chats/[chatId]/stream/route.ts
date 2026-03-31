@@ -50,6 +50,7 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context/file-context-builder";
 import type { CodeFile } from "@/lib/gen/parser";
+import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
 import {
   buildOwnEngineGenerationStreamMeta,
   buildPreGenerationContractGateParams,
@@ -156,6 +157,10 @@ export async function handleMessageStreamRequest(
           (meta as { promptSourcePreservePayload?: unknown })?.promptSourcePreservePayload === true;
         const metaPlanMode =
           (meta as { planMode?: unknown })?.planMode === true;
+        const metaEngineBaseVersionId =
+          typeof (meta as { engineBaseVersionId?: unknown })?.engineBaseVersionId === "string"
+            ? (meta as { engineBaseVersionId: string }).engineBaseVersionId.trim()
+            : null;
         const metaAppProjectId = extractAppProjectIdFromMeta(meta);
         const { scaffoldMode: metaScaffoldMode, scaffoldId: metaScaffoldId } =
           extractScaffoldSettingsFromMeta(meta);
@@ -196,13 +201,10 @@ export async function handleMessageStreamRequest(
           engineChat.orchestration_snapshot ?? null,
         );
 
-        const latestEngineVersion = await chatRepo.getLatestVersion(chatId);
-        let previousFiles: CodeFile[] = [];
-        if (latestEngineVersion?.files_json) {
-          try {
-            previousFiles = JSON.parse(latestEngineVersion.files_json) as CodeFile[];
-          } catch { /* ignore malformed JSON */ }
-        }
+        const previousFiles = await resolveFollowUpPreviousFiles(
+          chatId,
+          metaEngineBaseVersionId,
+        );
 
         const skipIntentClassification =
           metaPromptSourcePreservePayload ||
@@ -451,6 +453,10 @@ export async function handleMessageStreamRequest(
             ? (metaBuildIntent as BuildIntent)
             : "website";
         const persistedScaffoldId = engineChat.scaffold_id;
+        const ignorePersistedScaffoldForMatch =
+          previousFiles.length > 0 &&
+          followUpIntent === "clear-redesign" &&
+          metaScaffoldMode === "auto";
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
         const orchestrationInput = {
           prompt: optimizedMessage,
@@ -467,6 +473,8 @@ export async function handleMessageStreamRequest(
           contractAnswers: contractAnswerContext.confirmedAnswers,
           customInstructions: trimmedSystem || undefined,
           promptStrategyMeta: promptOrchestration.strategyMeta,
+          generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
+          ignorePersistedScaffoldForMatch,
         };
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
         const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
@@ -474,7 +482,10 @@ export async function handleMessageStreamRequest(
           buildIntent: engineIntent,
           context: preGenerationContracts,
         });
-        if (resolvedScaffold && !persistedScaffoldId) {
+        if (
+          resolvedScaffold &&
+          (!persistedScaffoldId || ignorePersistedScaffoldForMatch)
+        ) {
           try {
             await chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
           } catch { /* best-effort persist */ }

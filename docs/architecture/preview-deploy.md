@@ -37,6 +37,7 @@
 
 **Praktisk tolkning:**
 
+- **Follow-up-generering** ska utgå från `engine_versions.files_json` för den version användaren redigerar (skickas som `meta.engineBaseVersionId` från buildern när en specifik version är vald), annars från **preferred** version (`selectPreferredEngineVersion` / `getPreferredVersion`) — inte från `project_data` och inte godtyckligt bara “senaste raden” om preferred skiljer sig från strict latest.
 - Under preview-/iterationsfasen ligger användarbyggen **i samma Postgres som plattformen**, men separeras **logiskt** via `app_projects`, `user_id` / `session_id` och tenant-gater.
 - Vi inför **inte** separat databas/blob per användare i detta skede.
 - Blob/filsystem är **sekundär lagring** för assets, materialiserade bilder, export och vissa backoffice-/template-artefakter; inte för den kanoniska own-engine-källkoden.
@@ -48,6 +49,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Område | Vad | Var i kod (vägledning) |
 |--------|-----|-------------------------|
 | Kanoniska filer | Sandbox bygger från **`filesJson`** efter finalize, inte primärt `contentForVersion` | `generation-stream.ts`, `sandbox-preview/route.ts` |
+| Follow-up underlag | `engine_versions.files_json` via `meta.engineBaseVersionId` (builder) eller annars **preferred** version | `[chatId]/stream/route.ts`, `resolveFollowUpPreviousFiles` i `version-manager.ts`, `useSendMessage.ts` |
 | `previewBlocked` | Betyder att ingen previewyta kan exponeras för versionen; shimfel ensamt ska inte längre stoppa tier-2 | `own-engine-sandbox-gate.ts`, `generation-stream.ts` |
 | Readiness | HTTP-probe efter `npm run dev` (2xx + dokumentlik `Content-Type`) | `runtime-url.ts` (`waitForSandboxDevServerReady`) |
 | Sandbox-only | Publika `done`-/GET-svar har `previewUrl: null` medan `sandboxPending` kan vara true; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` | `generation-stream.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |

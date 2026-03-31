@@ -40,6 +40,8 @@ const promptMetaSchema = z
     formattedLength: z.number().int().nonnegative().optional(),
     attachmentsCount: z.number().int().nonnegative().optional(),
     planMode: z.boolean().optional(),
+    /** Own-engine: edit base = this version's `files_json` (canonical store). */
+    engineBaseVersionId: z.string().min(1).max(128).optional(),
     promptSourceKind: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     promptSourceTechnical: z.boolean().optional(),
     promptSourcePreservePayload: z.boolean().optional(),

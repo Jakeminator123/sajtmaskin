@@ -324,6 +324,7 @@ export function useBuilderPageController() {
   const { isCreatingChat, createNewChat, sendMessage: rawSendMessage, cancelActiveGeneration } =
     useChatMessaging({
       chatId: state.chatId,
+      activeVersionId: derived.activeVersionId,
       setChatId: state.setChatId,
       chatIdParam: state.chatIdParam,
       router,

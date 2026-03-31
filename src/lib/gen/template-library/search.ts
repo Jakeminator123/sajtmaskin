@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { SECRETS } from "@/lib/config";
+import { debugLog } from "@/lib/utils/debug";
 import { getTemplateLibraryEntries } from "./catalog";
 import type {
   TemplateLibraryEmbeddingsFile,
@@ -13,6 +14,8 @@ import type {
 
 const DEFAULT_TOP_K = 3;
 const MIN_EMBEDDING_SCORE = 0.3;
+/** Below this, blend in keyword hits so weak semantic matches do not dominate. */
+const WEAK_EMBEDDING_TOP_SCORE = 0.4;
 const DEFAULT_MAX_REFERENCE_FILES = 20;
 const DEFAULT_MAX_EXCERPT_CHARS = 9_000;
 const DEFAULT_MAX_TOTAL_CHARS = 18_000;
@@ -175,7 +178,10 @@ export async function searchTemplateLibrary(
       dimensions: 1536,
     });
     queryEmbedding = response.data[0].embedding;
-  } catch {
+  } catch (err) {
+    debugLog("template-library", "Embedding query failed; using keyword fallback", {
+      message: err instanceof Error ? err.message : String(err),
+    });
     return fallbackResults;
   }
 
@@ -192,6 +198,32 @@ export async function searchTemplateLibrary(
     })
     .slice(0, topK);
 
-  if (results.length > 0) return results;
+  if (results.length > 0) {
+    const topScore = results[0]!.score;
+    if (topScore < WEAK_EMBEDDING_TOP_SCORE && fallbackResults.length > 0) {
+      debugLog("template-library", "Weak embedding match; blending keyword results", {
+        topScore,
+        keywordCount: fallbackResults.length,
+      });
+      const merged: TemplateLibrarySearchResult[] = [...results];
+      const seen = new Set(merged.map((r) => r.entry.id));
+      for (const fr of fallbackResults) {
+        if (seen.has(fr.entry.id)) continue;
+        merged.push({ entry: fr.entry, score: fr.score * 0.12 });
+        seen.add(fr.entry.id);
+        if (merged.length >= topK * 3) break;
+      }
+      return merged
+        .sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          return b.entry.qualityScore - a.entry.qualityScore;
+        })
+        .slice(0, topK);
+    }
+    return results;
+  }
+  debugLog("template-library", "No embedding hits above threshold; using keyword fallback", {
+    minScore: MIN_EMBEDDING_SCORE,
+  });
   return fallbackResults;
 }
