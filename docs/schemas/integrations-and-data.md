@@ -12,7 +12,7 @@ validation, database shape, and curated external-reference data.
 Primary code sources:
 
 - `src/lib/db/schema.ts`
-- `scripts/db-init.mjs`
+- `scripts/db/db-init.mjs`
 - `src/lib/validations/chatSchemas.ts`
 - `src/lib/gen/template-library/types.ts`
 - `research/external-templates/reference-library/schema.template-manifest.json`
@@ -25,8 +25,8 @@ The main application database source of truth is:
 
 Operational SQL/bootstrap behavior also exists in:
 
-- `scripts/db-init.mjs`
-- `scripts/check-dev-db.mjs` (lokal anslutningskoll via `npm run db:check`)
+- `scripts/db/db-init.mjs`
+- `scripts/db/check-dev-db.mjs` (lokal anslutningskoll via `npm run db:check`)
 
 Important rule:
 

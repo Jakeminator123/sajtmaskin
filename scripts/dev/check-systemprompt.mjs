@@ -1,13 +1,13 @@
 /**
  * Validates own-engine static prompt: manifest + fragments, or monolithic fallback.
- * Run from repo root: node scripts/check-systemprompt.mjs
+ * Run from repo root: node scripts/dev/check-systemprompt.mjs
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.join(__dirname, "..");
+const root = path.join(__dirname, "..", "..");
 const MIN_CHARS = 500;
 
 const manifestPath = path.join(root, "config", "codegen-static-prompt.json");

@@ -15,7 +15,7 @@ if (nextCommand === "dev" && !("SAJTMASKIN_DEV_LOG_STDOUT" in env)) {
 
 // Load .env.local so we can read INSPECTOR_CAPTURE_WORKER_URL before Next.js
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const envLocalPath = resolve(__dirname, "..", ".env.local");
+const envLocalPath = resolve(__dirname, "..", "..", ".env.local");
 if (existsSync(envLocalPath)) {
   try {
     const parsed = parseDotenv(readFileSync(envLocalPath, "utf-8"));

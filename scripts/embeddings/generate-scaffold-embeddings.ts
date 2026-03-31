@@ -2,14 +2,14 @@
  * Generate scaffold embeddings JSON file.
  *
  * Usage:
- *   npx tsx scripts/generate-scaffold-embeddings.ts
+ *   npx tsx scripts/embeddings/generate-scaffold-embeddings.ts
  *
  * Requires OPENAI_API_KEY in environment.
  */
 
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { generateScaffoldEmbeddings } from "../src/lib/gen/scaffolds/scaffold-embeddings-core";
+import { generateScaffoldEmbeddings } from "../../src/lib/gen/scaffolds/scaffold-embeddings-core";
 
 async function main() {
   const apiKey = process.env.OPENAI_API_KEY?.trim();

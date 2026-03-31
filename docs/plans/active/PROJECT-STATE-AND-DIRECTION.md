@@ -218,13 +218,13 @@ Detta är den operativa specen för nästa varv. Syftet är att höja kvaliteten
 
 ### 13.4 Intake från Vercel templates (när 13.2/13.3 är satta)
 
-`scripts/hamta_sidor_branch_emil.py` används som intake-verktyg, inte som direkt runtime-källa.
+`scripts/template-library/hamta_sidor_branch_emil.py` används som intake-verktyg, inte som direkt runtime-källa.
 
 Rekommenderad körning:
 
 1. metadata-only först (`--skip-download`) för brusfri triage
-2. normalisering via `scripts/import-template-discovery.ts`
-3. kurering/build via `scripts/build-template-library.ts`
+2. normalisering via `scripts/template-library/import-template-discovery.ts`
+3. kurering/build via `scripts/template-library/build-template-library.ts`
 4. först därefter ev. repo-hydrering för shortlist
 
 Kärnprincip: förbättra alltid befintliga 10 runtime-scaffolds före bred ny hämtning.

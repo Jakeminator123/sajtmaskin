@@ -23,7 +23,7 @@ builder **Mall** / v0 gallery templates (see `.cursor/rules/terminology.mdc`).
 | Tool | Mechanism | Default output | Canonical merge into `raw-discovery/current/` |
 |------|-----------|----------------|--------------------------------------------------|
 | **`e2e/vercel-templates/`** | Playwright spec + `npm run references:discover*` (tracked) | Writes under `raw-discovery/current/` when run | See `e2e/README.md`; legacy `vercel_templates_levels/` optional local |
-| **`scripts/hamta_sidor_branch_emil.py`** | Python (`requests` + BeautifulSoup), richer per-template folders + `summary.json` plus preferred `summary-cleaned.json`; flag `--legacy-wide-use-cases` reproduces the old wide category list | **Outside repo:** sibling dir `../vercel-scrape`, `../vercel-scrape-fresh`, or `SAJTMASKIN_VERCEL_SCRAPE_DIR` | Run `scripts/import-template-discovery.ts --from=<path/to/folder-or-summary>`; if both summaries exist, `summary-cleaned.json` wins |
+| **`scripts/template-library/hamta_sidor_branch_emil.py`** | Python (`requests` + BeautifulSoup), richer per-template folders + `summary.json` plus preferred `summary-cleaned.json`; flag `--legacy-wide-use-cases` reproduces the old wide category list | **Outside repo:** sibling dir `../vercel-scrape`, `../vercel-scrape-fresh`, or `SAJTMASKIN_VERCEL_SCRAPE_DIR` | Run `scripts/template-library/import-template-discovery.ts --from=<path/to/folder-or-summary>`; if both summaries exist, `summary-cleaned.json` wins |
 
 **Kanonisk Playwright-spec** = `e2e/vercel-templates/scrape-catalog.spec.ts` (tracked). **Legacy** `vercel_templates_levels/` i roten kan finnas **lokalt** (gitignored); ta bort om du inte behöver gamla anteckningar.
 
@@ -32,7 +32,7 @@ builder **Mall** / v0 gallery templates (see `.cursor/rules/terminology.mdc`).
 These must **not** drive builder/runtime behavior, embedding curation, or “how many categories Sajtmaskin has”:
 
 - **`vercel_templates_levels/`** — optional local legacy folder; **not** tracked; ignore for canonical pipelines.
-- **`--legacy-wide-use-cases`** on `scripts/hamta_sidor_branch_emil.py` — historical wide Vercel slug list (~25) for comparison/research only.
+- **`--legacy-wide-use-cases`** on `scripts/template-library/hamta_sidor_branch_emil.py` — historical wide Vercel slug list (~25) for comparison/research only.
 - **Removed** `scripts/hamta_sidor.py` — do not re-add a wrapper entrypoint.
 
 **Separate concepts (easy to confuse):** (1) Vercel Templates **scrape slugs** (`USE_CASES_CORE` = 12 + 2 extended), (2) **eval regression prompts** (`EVAL_PROMPTS` = 15 in `src/lib/gen/eval/prompts.ts`), (3) **scorecard dimensions** (5 in `src/lib/gen/eval/scorecard.ts`), (4) **internal runtime scaffolds** (`src/lib/gen/scaffolds/registry.ts` — `BASE_SCAFFOLDS`, unrelated to scrape slug count). Removing the old Python wrapper or ignoring `vercel_templates_levels/` does **not** change eval prompts or embeddings code paths.
@@ -47,7 +47,7 @@ These must **not** drive builder/runtime behavior, embedding curation, or “how
   `e2e/README.md` och [`scripts/README.md`](../../scripts/README.md) (template-library / discovery).
 - This lane is for public Vercel Templates research, not for product-facing v0
   gallery templates.
-- `scripts/import-template-discovery.ts` is the migration bridge from external
+- `scripts/template-library/import-template-discovery.ts` is the migration bridge from external
   scrape outputs (prefer `summary-cleaned.json`) and older legacy summary files
   into the canonical raw-discovery location.
 

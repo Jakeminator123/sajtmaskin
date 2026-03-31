@@ -61,6 +61,7 @@ const PORTFOLIO_KEYWORDS = [
   "designer",
   "developer",
   "photographer",
+  "photo studio",
   "creative",
   "creator",
   "personal",
@@ -78,9 +79,39 @@ const PORTFOLIO_KEYWORDS = [
   "videographer",
   "portfolio site",
   "fotograf",
+  "fotostudio",
   "kreatör",
   "personlig",
   "case",
+];
+
+const PORTFOLIO_MEDIA_KEYWORDS = [
+  "photo",
+  "photos",
+  "image",
+  "images",
+  "foto",
+  "foton",
+  "bild",
+  "bilder",
+  "fotografi",
+  "fotografier",
+  "photography",
+];
+
+const PORTFOLIO_ART_DIRECTION_KEYWORDS = [
+  "gallery",
+  "galleri",
+  "editorial",
+  "utställning",
+  "exhibition",
+  "visuell",
+  "visual",
+  "estetisk",
+  "harmonisk",
+  "poetisk",
+  "curated",
+  "kurerad",
 ];
 
 const BLOG_KEYWORDS = [
@@ -260,6 +291,18 @@ function countKeywordMatches(text: string, keywords: readonly string[]): number 
   }, 0);
 }
 
+function countPortfolioSignalBoost(text: string): number {
+  const creatorScore = countKeywordMatches(text, PORTFOLIO_KEYWORDS);
+  const mediaScore = countKeywordMatches(text, PORTFOLIO_MEDIA_KEYWORDS);
+  const artDirectionScore = countKeywordMatches(text, PORTFOLIO_ART_DIRECTION_KEYWORDS);
+
+  let boost = 0;
+  if (creatorScore > 0 && mediaScore > 0) boost += 2;
+  if (creatorScore > 0 && artDirectionScore > 0) boost += 1;
+  if (mediaScore > 0 && artDirectionScore > 0) boost += 1;
+  return boost;
+}
+
 /** Minimum score to prefer a specific scaffold over fallbacks */
 const MIN_SCORE = 2;
 
@@ -312,7 +355,9 @@ export function matchScaffold(
   }
 
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
-  const portfolioScore = countKeywordMatches(lower, PORTFOLIO_KEYWORDS);
+  const portfolioScore =
+    countKeywordMatches(lower, PORTFOLIO_KEYWORDS) +
+    countPortfolioSignalBoost(lower);
   const landingScore = countKeywordMatches(lower, LANDING_KEYWORDS);
   const blogScore = countKeywordMatches(lower, BLOG_KEYWORDS);
 

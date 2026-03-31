@@ -4,8 +4,8 @@
  * (scrapes may add extra fields — normalizeLegacySummary strips to the core contract).
  *
  * Usage (repo root):
- *   npx tsx scripts/verify-discovered-summary.ts
- *   npx tsx scripts/verify-discovered-summary.ts --path=scraped-vercel-scorefolds
+ *   npx tsx scripts/template-library/verify-discovered-summary.ts
+ *   npx tsx scripts/template-library/verify-discovered-summary.ts --path=scraped-vercel-scorefolds
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -41,7 +41,7 @@ function main(): void {
   console.info(`  Categories: ${categories.length} (${categories.slice(0, 5).join(", ")}${categories.length > 5 ? ", …" : ""})`);
   console.info(`  Template records after normalize: ${total}`);
   console.info(
-    `  Tip: run build with explicit source:\n    npx tsx scripts/build-template-library.ts --source="${path.dirname(summaryPath)}"`,
+    `  Tip: run build with explicit source:\n    npx tsx scripts/template-library/build-template-library.ts --source="${path.dirname(summaryPath)}"`,
   );
 }
 

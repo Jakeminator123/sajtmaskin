@@ -91,7 +91,7 @@
         "config/prompt-static/01-tech-stack.md"
       ],
       "codeReaders": [
-        "scripts/audit-shadcn-mirror-repos.mjs"
+        "scripts/audit/audit-shadcn-mirror-repos.mjs"
       ]
     },
     "user_degraded_env": {

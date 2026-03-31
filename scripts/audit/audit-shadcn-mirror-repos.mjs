@@ -2,12 +2,12 @@
  * Audit cloned template repos (e.g. shadcn-io-mirror/repos) against Sajtmaskin TCH.
  *
  * Usage (from repo root):
- *   node scripts/audit-shadcn-mirror-repos.mjs
- *   node scripts/audit-shadcn-mirror-repos.mjs --root "C:/path/to/shadcn-io-mirror/repos"
- *   SHADCN_MIRROR_REPOS=C:/path node scripts/audit-shadcn-mirror-repos.mjs
- *   node scripts/audit-shadcn-mirror-repos.mjs --json > report.json
- *   node scripts/audit-shadcn-mirror-repos.mjs --strict   # exit 1 if any repo is red
- *   node scripts/audit-shadcn-mirror-repos.mjs --verbose # full per-repo table (~200 lines)
+ *   node scripts/audit/audit-shadcn-mirror-repos.mjs
+ *   node scripts/audit/audit-shadcn-mirror-repos.mjs --root "C:/path/to/shadcn-io-mirror/repos"
+ *   SHADCN_MIRROR_REPOS=C:/path node scripts/audit/audit-shadcn-mirror-repos.mjs
+ *   node scripts/audit/audit-shadcn-mirror-repos.mjs --json > report.json
+ *   node scripts/audit/audit-shadcn-mirror-repos.mjs --strict   # exit 1 if any repo is red
+ *   node scripts/audit/audit-shadcn-mirror-repos.mjs --verbose # full per-repo table (~200 lines)
  *
  * Default (no --verbose): short summary only — use --json or --verbose when you need detail.
  *
@@ -18,7 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.join(__dirname, "..");
+const root = path.join(__dirname, "..", "..");
 
 function loadPolicy() {
   const p = path.join(root, "config", "shadcn-mirror-audit-policy.json");

@@ -2,7 +2,7 @@
 
 These `.md` files are **only** the fixed (“static”) half of the codegen system prompt. They are **concatenated in order** listed in `config/codegen-static-prompt.json` and sent as the **prefix** of the single `system` string to the **building** LLM.
 
-Do **not** use `config/systemprompt` (no file extension). It is **not** a supported path anymore — use this folder + `config/codegen-static-prompt.json` only (or temporary `config/systemprompt.md` if you are about to run the split script).
+Do **not** use `config/systemprompt` (no file extension). It is **not** a supported path anymore — use this folder + `config/codegen-static-prompt.json` only.
 
 ## What is **not** here (dynamic — built in TypeScript)
 
@@ -23,12 +23,6 @@ If you duplicate those topics here, the model gets **conflicting or stale** inst
 2. Edit the relevant `prompt-static/*.md` file.  
 3. To add a section: new file under `prompt-static/` + add its path to `fragments` in the JSON.  
 4. Re-run `npm run dev` / save — the loader uses file mtimes (no rebuild required for text changes).
-
-## Regenerate fragments from an old monolith
-
-If you restore a single `config/systemprompt.md`, you can re-split:
-
-`node scripts/split-codegen-static-prompt.mjs`
 
 ## Inspect generated **dynamic** prompts locally
 

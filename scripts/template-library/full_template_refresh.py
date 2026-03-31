@@ -3,7 +3,7 @@
 Full external-template refresh pipeline for Sajtmaskin.
 
 Purpose:
-1. Scrape fresh template research via `scripts/hamta_sidor_branch_emil.py`
+1. Scrape fresh template research via `scripts/template-library/hamta_sidor_branch_emil.py`
 2. Remove previously generated template/scaffold research artifacts
 3. Import the fresh scrape into canonical `raw-discovery/current/`
 4. Rebuild repo cache, dossiers, curated template library, and embeddings
@@ -27,9 +27,10 @@ from pathlib import Path
 from typing import Sequence
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCRIPTS_ROOT = REPO_ROOT / "scripts"
-SCRAPER_SCRIPT = SCRIPTS_ROOT / "hamta_sidor_branch_emil.py"
+TEMPLATE_LIB_SCRIPTS = SCRIPTS_ROOT / "template-library"
+SCRAPER_SCRIPT = TEMPLATE_LIB_SCRIPTS / "hamta_sidor_branch_emil.py"
 
 RAW_DISCOVERY_CURRENT = REPO_ROOT / "research" / "external-templates" / "raw-discovery" / "current"
 REFERENCE_LIBRARY_ROOT = REPO_ROOT / "research" / "external-templates" / "reference-library"
@@ -357,7 +358,7 @@ def import_canonical_summary(summary_file: Path, *, dry_run: bool) -> None:
         [
             "npx",
             "tsx",
-            "scripts/import-template-discovery.ts",
+            "scripts/template-library/import-template-discovery.ts",
             f"--from={summary_file}",
             "--label=external-scrape-dataset",
         ],
@@ -370,7 +371,7 @@ def hydrate_repo_cache(*, max_repos: int | None, dry_run: bool) -> None:
     cmd = [
         "npx",
         "tsx",
-        "scripts/hydrate-template-library-cache.ts",
+        "scripts/template-library/hydrate-template-library-cache.ts",
         f"--source={RAW_DISCOVERY_CURRENT}",
     ]
     if max_repos is not None:
@@ -384,7 +385,7 @@ def rebuild_template_artifacts(*, dry_run: bool) -> None:
         [
             "npx",
             "tsx",
-            "scripts/build-template-library.ts",
+            "scripts/template-library/build-template-library.ts",
             f"--source={RAW_DISCOVERY_CURRENT}",
         ],
         dry_run=dry_run,
@@ -395,14 +396,14 @@ def regenerate_embeddings(*, skip_template: bool, skip_scaffold: bool, dry_run: 
     if not skip_template:
         print_step("Generate template-library embeddings")
         run_command(
-            ["npx", "tsx", "scripts/generate-template-library-embeddings.ts"],
+            ["npx", "tsx", "scripts/embeddings/generate-template-library-embeddings.ts"],
             dry_run=dry_run,
         )
 
     if not skip_scaffold:
         print_step("Generate scaffold embeddings")
         run_command(
-            ["npx", "tsx", "scripts/generate-scaffold-embeddings.ts"],
+            ["npx", "tsx", "scripts/embeddings/generate-scaffold-embeddings.ts"],
             dry_run=dry_run,
         )
 
@@ -410,7 +411,7 @@ def regenerate_embeddings(*, skip_template: bool, skip_scaffold: bool, dry_run: 
 def run_optional_checks(*, db_check: bool, typecheck: bool, dry_run: bool) -> None:
     if db_check:
         print_step("Optional DB check")
-        run_command(["node", "scripts/check-dev-db.mjs"], dry_run=dry_run)
+        run_command(["node", "scripts/db/check-dev-db.mjs"], dry_run=dry_run)
 
     if typecheck:
         print_step("Optional typecheck")

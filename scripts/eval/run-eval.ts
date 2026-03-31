@@ -8,10 +8,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import type { CheckResult } from "../src/lib/gen/eval/checks";
-import { formatEvalReport } from "../src/lib/gen/eval/report";
-import { runEval, type EvalReport } from "../src/lib/gen/eval/runner";
-import { buildScorecard, formatScorecardReport } from "../src/lib/gen/eval/scorecard";
+import type { CheckResult } from "../../src/lib/gen/eval/checks";
+import { formatEvalReport } from "../../src/lib/gen/eval/report";
+import { runEval, type EvalReport } from "../../src/lib/gen/eval/runner";
+import { buildScorecard, formatScorecardReport } from "../../src/lib/gen/eval/scorecard";
 
 const OUTPUT_DIR = path.join(process.cwd(), "eval-output");
 const TARGET_SCORE = 0.7;

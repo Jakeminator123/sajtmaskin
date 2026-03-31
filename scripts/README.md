@@ -6,25 +6,41 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 
 - **Nav:** denna fil + `package.json` — se även [`docs/architecture/repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
 
+### Katalogstruktur (`scripts/`)
+
+| Mapp | Innehåll |
+|------|----------|
+| [`db/`](db/) | Postgres-init, migrationer, push, sanity (`db-target-guard.mjs` delas här) |
+| [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt` (npm `predev` / `dev` / `build`) |
+| [`embeddings/`](embeddings/) | Mall-, template-library-, scaffold- och docs-embeddings |
+| [`template-library/`](template-library/) | Extern mallkedja: discovery-import, build, hydrate, v0-sync, `hamta_sidor_branch_emil.py`, `full_template_refresh.py` |
+| [`scaffolds/`](scaffolds/) | Kandidatrapport, kurering, promote, `sync-scaffold-refs.mjs` |
+| [`eval/`](eval/) | `run-eval.ts` (eval-output) |
+| [`deps/`](deps/) | Baseline `package.json`-verifiering (peer/registry) |
+| [`audit/`](audit/) | Shadcn-mirror + runtime component-library snapshot |
+| [`cli/`](cli/) | `builder-generate.py` (batch mot own-engine API) |
+| [`env/`](env/) | `manage_env.py`, `model_trace_overlay.py` |
+| [`manual/`](manual/) | Övriga manuella verktyg (`vercel_template_cli.py`, `scaffold-pipeline.py`) |
+
 ### Next / dev-server (npm hooks)
 
 | Fil | `package.json` |
 |-----|------------------|
-| [`next-runner.mjs`](next-runner.mjs) | `dev`, `build`, `start` |
-| [`check-systemprompt.mjs`](check-systemprompt.mjs) | `predev`, `prebuild` |
-| [`refresh-token.mjs`](refresh-token.mjs) | `predev`, `refresh-token` |
-| [`db-init.mjs`](db-init.mjs) | `predev`, `db:init` |
+| [`dev/next-runner.mjs`](dev/next-runner.mjs) | `dev`, `build`, `start` |
+| [`dev/check-systemprompt.mjs`](dev/check-systemprompt.mjs) | `predev`, `prebuild` |
+| [`dev/refresh-token.mjs`](dev/refresh-token.mjs) | `predev`, `refresh-token` |
+| [`db/db-init.mjs`](db/db-init.mjs) | `predev`, `db:init` |
 
-**Mallflöde (v0-templates i repo):** [`sync-v0-templates.mjs`](sync-v0-templates.mjs), [`validate-templates.mjs`](validate-templates.mjs), [`generate-template-embeddings.ts`](generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:embeddings`.
-- **Delade TS-moduler (ingen egen CLI):** [`template-library-discovery.ts`](template-library-discovery.ts) (JSON/summary-hjälp) används av `build-template-library`, `hydrate-template-library-cache`, `import-template-discovery`, `promote-to-scaffold`, `verify-discovered-summary`, `template-library-discovery.test.ts` och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffold-candidate-report.ts`](scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via de npm-entrypoints som redan finns eller via `npx tsx` enligt respektive avsnitt nedan.
-- **Vercel use-case-skrapning (Python):** under `scripts/` (ingen kopia i repo-roten).
-  - **Kanonisk entrypoint:** [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (historisk bred lista, ~25 use cases), tierad utdata, rapporter. **Standard** för manuell inhämtning.
-  - **Tidigare:** `scripts/hamta_sidor.py` (borttagen) motsvaras av `python scripts/hamta_sidor_branch_emil.py --legacy-wide-use-cases` om du **medvetet** behöver jämföra mot historisk bred lista — **inte** som standard i produktions- eller kanon-researchflöden.
+**Mallflöde (v0-templates i repo):** [`template-library/sync-v0-templates.mjs`](template-library/sync-v0-templates.mjs), [`template-library/validate-templates.mjs`](template-library/validate-templates.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:embeddings`.
+- **Delade TS-moduler (ingen egen CLI):** [`template-library/template-library-discovery.ts`](template-library/template-library-discovery.ts) (JSON/summary-hjälp) används av build/hydrate/import/promote/verify, tester och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffolds/scaffold-candidate-report.ts`](scaffolds/scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via npm eller `npx tsx` enligt avsnitten nedan.
+- **Vercel use-case-skrapning (Python):**
+  - **Kanonisk entrypoint:** [`template-library/hamta_sidor_branch_emil.py`](template-library/hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (historisk bred lista, ~25 use cases), tierad utdata, rapporter. **Standard** för manuell inhämtning.
+  - **Tidigare:** `scripts/hamta_sidor.py` (borttagen) motsvaras av `python scripts/template-library/hamta_sidor_branch_emil.py --legacy-wide-use-cases` om du **medvetet** behöver jämföra mot historisk bred lista — **inte** som standard i produktions- eller kanon-researchflöden.
   - **Kärnlistan** i skriptet = **`USE_CASES_CORE` (12 Vercel-sluggar)** + valfritt **`USE_CASES_EXTENDED` (2)** med `--extended-scrape`. Det är **osammanhängande** med t.ex. **`EVAL_PROMPTS` (15 eval-promptar)** i `src/lib/gen/eval/prompts.ts` — olika domäner, räkna dem inte ihop.
   - **Icke-kanon:** lokal **`vercel_templates_levels/`** (gitignored); använd **inte** som källa för “hur många kategorier” produkten har. Spårat alternativ: **`e2e/vercel-templates/`**.
   - Se [`repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
   - Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
-- **Vercel template-katalog (Python, `scripts/manual/`):** `scripts/manual/vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan). Root-wrappern `vercel_template_cli.py` finns kvar för bakåtkompatibilitet.
+- **Vercel template-katalog (Python, `scripts/manual/`):** `scripts/manual/vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan). **Ingen** root-wrapper; kör alltid denna sökväg.
 
 ## Arkiverat labb (`archive/scripts-labs-testning_scarf/`)
 
@@ -39,7 +55,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 
 ## vercel_template_cli.py (`scripts/manual/`)
 
-Offline-verktyg som skrapar Vercels **template directory** (flera filterdimensioner: use case, framework, CSS, database, m.m.) och kan exportera GitHub-repo-länkar. **Körs inte i produktion**; det stödjer kurering av externa mallar innan de blir interna scaffolds. Root-wrapper finns för bakåtkompatibilitet.
+Offline-verktyg som skrapar Vercels **template directory** (flera filterdimensioner: use case, framework, CSS, database, m.m.) och kan exportera GitHub-repo-länkar. **Körs inte i produktion**; det stödjer kurering av externa mallar innan de blir interna scaffolds.
 
 ### Förutsättningar
 
@@ -54,15 +70,15 @@ python scripts/manual/vercel_template_cli.py --groups use-case,framework --slugs
 python scripts/manual/vercel_template_cli.py --candidates data/scaffold-candidates-vercel-cli.json
 ```
 
-Fullständig pipeline och flaggor beskrivs i filens modul-docstring. Därefter: `npm run scaffolds:curate` (eller er interna rapportkedja), manuell granskning, `sync-scaffold-refs.mjs`, arbeta i `src/lib/gen/scaffolds/`.
+Fullständig pipeline och flaggor beskrivs i filens modul-docstring. Därefter: `npm run scaffolds:curate` (eller er interna rapportkedja), manuell granskning, `scripts/scaffolds/sync-scaffold-refs.mjs`, arbeta i `src/lib/gen/scaffolds/`.
 
-## Builder batch-generering (`builder-generate.py`)
+## Builder batch-generering (`cli/builder-generate.py`)
 
 Interaktivt Python-skript som anropar Sajtmaskins API:er direkt (HTTP + SSE) utan Builder-UI:t. Används för att massproducera och jämföra genererade sidor.
 
 ```bash
 # Kräver npm run dev (eller SAJTMASKIN_URL=https://…)
-python scripts/builder-generate.py
+python scripts/cli/builder-generate.py
 ```
 
 **Menyval:** prompt, modell-tier (`fast`/`pro`/`max`/`codex`/`anthropic`), deep brief, scaffold-läge, build intent, thinking, image generations.
@@ -73,25 +89,24 @@ python scripts/builder-generate.py
 
 ## Env-verktyg (`scripts/env/`)
 
-Tidigare i repo-roten; nu under `scripts/env/`. Tunna root-wrappers finns kvar och vidarebefordrar.
+Tidigare i repo-roten; nu under `scripts/env/`. Repo-rotens `check_env.py` vidarebefordrar till `manage_env.py audit`.
 
 | Verktyg | Syfte |
 |---------|-------|
 | `scripts/env/manage_env.py` | Kanonisk env-CLI: status, add, set, push, pull, audit, reconcile |
 | `scripts/env/model_trace_overlay.py` | Synkar GUI-modell-envs i `.env.local` + öppnar trace-overlay |
-| `scripts/env/check_env.py` | Bakåtkompatibel wrapper som kör `manage_env.py audit` |
 
 ### Databas (lokal sanity + sync)
 
 | npm-script | Entry |
 |------------|--------|
-| `npm run db:init` | [`scripts/db-init.mjs`](db-init.mjs) — bootstrapar bas-tabeller + applicerar SQL-migrationer. **Skrivande**: vägrar mot prod-lik target om `.env.local` matchar `.env.vercel.production.pulled`, om inte `DB_ALLOW_PROD_LIKE_WRITE=1` satts. |
-| `npm run db:migrate` | [`scripts/run-migrations.ts`](run-migrations.ts) — kör SQL-filer i `src/lib/db/migrations/`. **Skrivande**: samma prod-lik guard som `db:init`. |
-| `npm run db:push` | [`scripts/db-push.mjs`](db-push.mjs) — guardad wrapper runt `drizzle-kit push`. **Skrivande**: samma prod-lik guard som `db:init`. |
-| `npm run db:check` | [`scripts/check-dev-db.mjs`](check-dev-db.mjs) — read-only sanity-koll av kärntabeller; varnar om targeten ser prod-lik ut. Valfri flagga `--allow-insecure-ssl`. |
-| `npm run db:rows` | [`scripts/db-row-overview.mjs`](db-row-overview.mjs) — read-only: `COUNT(*)` per utvald tabell (own-engine + app + legacy); varnar om targeten ser prod-lik ut. Samma env som `db:check`. |
+| `npm run db:init` | [`db/db-init.mjs`](db/db-init.mjs) — bootstrapar bas-tabeller + applicerar SQL-migrationer. **Skrivande**: vägrar mot prod-lik target om `.env.local` matchar `.env.vercel.production.pulled`, om inte `DB_ALLOW_PROD_LIKE_WRITE=1` satts. |
+| `npm run db:migrate` | [`db/run-migrations.ts`](db/run-migrations.ts) — kör SQL-filer i `src/lib/db/migrations/`. **Skrivande**: samma prod-lik guard som `db:init`. |
+| `npm run db:push` | [`db/db-push.mjs`](db/db-push.mjs) — guardad wrapper runt `drizzle-kit push`. **Skrivande**: samma prod-lik guard som `db:init`. |
+| `npm run db:check` | [`db/check-dev-db.mjs`](db/check-dev-db.mjs) — read-only sanity-koll av kärntabeller; varnar om targeten ser prod-lik ut. Valfri flagga `--allow-insecure-ssl`. |
+| `npm run db:rows` | [`db/db-row-overview.mjs`](db/db-row-overview.mjs) — read-only: `COUNT(*)` per utvald tabell (own-engine + app + legacy); varnar om targeten ser prod-lik ut. Samma env som `db:check`. |
 
-## sync-scaffold-refs.mjs
+## sync-scaffold-refs (`scaffolds/sync-scaffold-refs.mjs`)
 
 Hämtar externa GitHub-referenser till `_template_refs/` för scaffold- och hemsidemallsarbete.
 
@@ -100,9 +115,9 @@ Hämtar externa GitHub-referenser till `_template_refs/` för scaffold- och hems
 ### Användning
 
 ```bash
-node scripts/sync-scaffold-refs.mjs
-node scripts/sync-scaffold-refs.mjs --force
-node scripts/sync-scaffold-refs.mjs --only=nextjs-saas-starter,ibelick-nim
+node scripts/scaffolds/sync-scaffold-refs.mjs
+node scripts/scaffolds/sync-scaffold-refs.mjs --force
+node scripts/scaffolds/sync-scaffold-refs.mjs --only=nextjs-saas-starter,ibelick-nim
 ```
 
 ### Vad skriptet gör
@@ -128,7 +143,7 @@ Auditerar rå extern template-research och bygger ett kuraterat
 
 ```bash
 npm run template-library:build
-npx tsx scripts/build-template-library.ts --source="research/external-templates/raw-discovery/current"
+npx tsx scripts/template-library/build-template-library.ts --source="research/external-templates/raw-discovery/current"
 ```
 
 För **lokal** `scraped-vercel-scorefolds/` (gitignorerad): verifiera först `summary.json` med `npm run template-library:verify-summary`, bygg sedan med explicit `--source="<repo>/scraped-vercel-scorefolds"`. Utan `repo-cache`-kloning ger många poster låg `qualityScore` → `curatedTemplates: 0`; kör `template-library:hydrate-cache` med samma `--source=` (se [builder-generation.md](../docs/architecture/builder-generation.md) och template-library-avsnitt i [research/external-templates/README.md](../research/external-templates/README.md); äldre pipeline-narrativ i git-historik).
@@ -178,9 +193,9 @@ Normaliserar discovery-data till den kanoniska research-lagret under
 
 ```bash
 npm run template-library:import-legacy
-npx tsx scripts/import-template-discovery.ts --from="../vercel-scrape-fresh"
-npx tsx scripts/import-template-discovery.ts --from="<path-to>/vercel_usecase_next_react_templates/summary.json"
-npx tsx scripts/import-template-discovery.ts --from="research/external-templates/raw-discovery/current/playwright-catalog.json" --format=playwright-catalog
+npx tsx scripts/template-library/import-template-discovery.ts --from="../vercel-scrape-fresh"
+npx tsx scripts/template-library/import-template-discovery.ts --from="<path-to>/vercel_usecase_next_react_templates/summary.json"
+npx tsx scripts/template-library/import-template-discovery.ts --from="research/external-templates/raw-discovery/current/playwright-catalog.json" --format=playwright-catalog
 ```
 
 Om den valda mappen innehåller både `summary-cleaned.json` och `summary.json` används den
@@ -196,7 +211,7 @@ Gör shallow clones av GitHub-repon som refereras i den kanoniska raw-discoveryn
 
 ```bash
 npm run template-library:hydrate-cache
-npx tsx scripts/hydrate-template-library-cache.ts --max=20
+npx tsx scripts/template-library/hydrate-template-library-cache.ts --max=20
 ```
 
 ### Regler
@@ -250,8 +265,8 @@ kuraterade template-library-data som `build-template-library.ts` använder.
 
 ```bash
 npm run scaffolds:curate
-npx tsx scripts/curate-scaffold-candidates.ts
-npx tsx scripts/curate-scaffold-candidates.ts --input="src/lib/gen/template-library/template-library.generated.json"
+npx tsx scripts/scaffolds/curate-scaffold-candidates.ts
+npx tsx scripts/scaffolds/curate-scaffold-candidates.ts --input="src/lib/gen/template-library/template-library.generated.json"
 ```
 
 Behandla `npm run scaffolds:curate` och TypeScript-skriptet ovan som det
@@ -270,7 +285,7 @@ runtime scaffold under `src/lib/gen/scaffolds/`.
 
 ```bash
 npm run scaffolds:promote -- starter-image-gallery-starter --dry-run
-npx tsx scripts/promote-to-scaffold.ts starter-image-gallery-starter --id=image-gallery-pro --base=portfolio
+npx tsx scripts/scaffolds/promote-to-scaffold.ts starter-image-gallery-starter --id=image-gallery-pro --base=portfolio
 ```
 
 Skriptet:
@@ -297,14 +312,14 @@ build-time beteende även om den ligger i `.cursorignore` och normalt inte ska
 
 ```bash
 npm run scaffolds:embeddings
-npx tsx scripts/generate-scaffold-embeddings.ts
+npx tsx scripts/embeddings/generate-scaffold-embeddings.ts
 ```
 
 ## full_template_refresh.py
 
 Interaktivt "allt-i-ett"-skript for external-template-pipelinen:
 
-1. skrapa nytt material med `hamta_sidor_branch_emil.py`
+1. skrapa nytt material med `template-library/hamta_sidor_branch_emil.py`
 2. rensa tidigare genererade research-/embedding-artefakter
 3. importera kanonisk `summary-cleaned.json` / `summary.json`
 4. hydrera `repo-cache`
@@ -314,7 +329,7 @@ Interaktivt "allt-i-ett"-skript for external-template-pipelinen:
 Kör interaktivt:
 
 ```bash
-py scripts/full_template_refresh.py
+py scripts/template-library/full_template_refresh.py
 ```
 
 Med inga flaggor startar skriptet i interaktivt läge och pausar innan fönstret stängs, vilket gör det lämpligt även för dubbelklick i Windows om `.py` är kopplat till Python.
@@ -341,7 +356,7 @@ sist för att ge mer verifieringssignal även när repot redan har kända lintfe
 
 ## Eval (`npm run eval`)
 
-Kör eval-suite + scorecard via `scripts/run-eval.ts`. **Utdata:** katalogen `eval-output/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. *(Äldre körningar kan ligga i `EGEN_MOTOR_V2/` — byt till `eval-output/` eller flytta filer.)* Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
+Kör eval-suite + scorecard via `scripts/eval/run-eval.ts`. **Utdata:** katalogen `eval-output/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. *(Äldre körningar kan ligga i `EGEN_MOTOR_V2/` — byt till `eval-output/` eller flytta filer.)* Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
 
 ## references:discover / scaffolds:discover
 

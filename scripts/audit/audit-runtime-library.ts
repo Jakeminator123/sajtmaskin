@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createRuntimeLibrarySnapshot } from "../src/lib/builder/runtime-library-audit";
+import { createRuntimeLibrarySnapshot } from "../../src/lib/builder/runtime-library-audit";
 
 type PackageJsonShape = {
   dependencies?: Record<string, string>;

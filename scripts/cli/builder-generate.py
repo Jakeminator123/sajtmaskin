@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_BASE = "http://localhost:3000"
 MODEL_TIERS = ("fast", "pro", "max", "codex", "anthropic")
 SCAFFOLD_MODES = ("auto", "manual", "off")

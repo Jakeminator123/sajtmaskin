@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
  * Generate precomputed embeddings for docs snippets.
- * Run: npx tsx scripts/generate-docs-embeddings.ts
+ * Run: npx tsx scripts/embeddings/generate-docs-embeddings.ts
  *
  * Requires OPENAI_API_KEY in environment or .env.local.
  * Output: src/lib/gen/data/docs-embeddings.json
@@ -10,10 +10,10 @@ import { writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
-import { generateDocsEmbeddings } from "../src/lib/gen/data/docs-embeddings-core";
+import { generateDocsEmbeddings } from "../../src/lib/gen/data/docs-embeddings-core";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: resolve(__dirname, "..", ".env.local") });
+config({ path: resolve(__dirname, "..", "..", ".env.local") });
 
 async function main() {
   const apiKey = process.env.OPENAI_API_KEY;

@@ -340,7 +340,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
    - [ ] Bekräfta miljö: endast `.env.local` / staging-URL — **skriv aldrig** `TRUNCATE` mot prod i blindo
    - [ ] Dokumentera ordning (FK): antingen dedikerat skript i `scripts/` (ny fil vid behov) *eller* Supabase SQL editor med review
    - [ ] Efter tömning: `npm run db:init` om ni återskapar schema från scratch; annars bara rensad data
-   - [ ] Rök: `npm run db:check` ([`scripts/check-dev-db.mjs`](../../../scripts/check-dev-db.mjs)), logga in i appen, skapa ett minimalt projekt/chat
+   - [ ] Rök: `npm run db:check` ([`scripts/db/check-dev-db.mjs`](../../../scripts/db/check-dev-db.mjs)), logga in i appen, skapa ett minimalt projekt/chat
 3. **Prod:** endast schema/migrationer + observerad drift — **ingen** “rens allt” utan incident/change-protokoll.
 
 **Status vid arkivering av kod-/docs-epiken (2026-03-31):** Rutorna under punkt 2 ovan är **inte** bockade — ingen Postgres-tömning eller dedikerad backup-PR ingick i storstädsepiken. De ska fortfarande följas i ordning **nästa gång** ni medvetet rensar testdata. Vid epik-avslut kördes `npm run db:check` mot lokal `.env.local` med grönt utfall (kärntabeller OK).

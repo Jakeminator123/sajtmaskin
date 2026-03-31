@@ -7,7 +7,7 @@ write root is **outside** the repo (`../vercel-scrape` or `SAJTMASKIN_VERCEL_SCR
 
 To normalize into canonical raw discovery JSON under
 `research/external-templates/raw-discovery/current/`, pass the generated
-`summary.json` through `scripts/import-template-discovery.ts` (see
+`summary.json` through `scripts/template-library/import-template-discovery.ts` (see
 `research/external-templates/README.md` → Intake tools).
 
 Not related to product v0 gallery / builder Mall tab.

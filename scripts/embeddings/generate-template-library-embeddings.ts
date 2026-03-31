@@ -5,11 +5,11 @@ import {
   TEMPLATE_LIBRARY_EMBEDDING_DIMENSIONS,
   TEMPLATE_LIBRARY_EMBEDDING_MODEL,
   generateTemplateLibraryEmbeddings,
-} from "../src/lib/gen/template-library/embeddings-core";
+} from "../../src/lib/gen/template-library/embeddings-core";
 
 const OUTPUT_PATH = path.resolve(
   __dirname,
-  "../src/lib/gen/template-library/template-library-embeddings.json",
+  "../../src/lib/gen/template-library/template-library-embeddings.json",
 );
 
 async function main() {
