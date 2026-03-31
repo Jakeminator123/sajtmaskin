@@ -1,0 +1,754 @@
+import { NextResponse } from "next/server";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
+import { createSSEHeaders } from "@/lib/streaming";
+import { withRateLimit } from "@/lib/rateLimit";
+import { getEngineChatByIdForRequest } from "@/lib/tenant";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
+import { prepareCredits } from "@/lib/credits/server";
+import { devLogAppend } from "@/lib/logging/devLog";
+import { debugLog, errorLog } from "@/lib/utils/debug";
+import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
+import { sendMessageSchema } from "@/lib/validations/chatSchemas";
+import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { FEATURES } from "@/lib/config";
+import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
+import {
+  canonicalModelIdToOwnModelId,
+  DEFAULT_MODEL_ID,
+  MODEL_LABELS,
+  getBuildProfileId,
+} from "@/lib/models/catalog";
+import {
+  buildContractClarificationQuestion,
+  buildStoredContractClarificationUiPart,
+} from "@/lib/gen/contract-clarification";
+import { collectConfirmedContractAnswers } from "@/lib/gen/contract-answer-context";
+import { compressUrls } from "@/lib/gen/url-compress";
+import {
+  finalizeOrchestrationPrompts,
+  prepareGenerationContext,
+  resolveOrchestrationBase,
+} from "@/lib/gen/orchestrate";
+import { computeLineageHash } from "@/lib/gen/generation-input-package";
+import {
+  buildPlanSummaryMessage,
+  buildPlanUiPart,
+} from "@/lib/gen/plan-review";
+import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
+import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
+import {
+  extractAppProjectIdFromMeta,
+  extractBriefFromMeta,
+  extractDesignThemePresetFromMeta,
+  extractPaletteStateFromMeta,
+  extractScaffoldSettingsFromMeta,
+  extractThemeColorsFromMeta,
+  normalizeRequestAttachments,
+  summarizeDesignReferences,
+} from "@/lib/gen/request-metadata";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
+import type { BuildIntent } from "@/lib/builder/build-intent";
+import { buildFileContext } from "@/lib/gen/context/file-context-builder";
+import type { CodeFile } from "@/lib/gen/parser";
+import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
+import {
+  buildOwnEngineGenerationStreamMeta,
+  buildPreGenerationContractGateParams,
+} from "@/lib/own-engine/session/own-engine-build-session";
+import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
+import {
+  computePlanModePlannerPrompts,
+  createPlanModePipelineStream,
+  dumpPlanModePlannerPrompts,
+  logPlanModeGenerationStart,
+  resolvePlanModePlannerModelId,
+} from "@/lib/own-engine/session/own-engine-plan-mode";
+import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
+import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
+import {
+  buildAwaitingClarificationStream,
+  classifyFollowUpIntent,
+  persistFollowUpClarification,
+  resolveFollowUpClarification,
+} from "@/lib/providers/own-engine/follow-up-clarification";
+import { prependOrchestrationContinuityToFollowUp } from "@/lib/gen/orchestration-snapshot";
+import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
+import { createPromptLog } from "@/lib/db/services/prompt-logs";
+import { looksDesignHeavyMessage } from "@/lib/builder/promptOrchestration";
+import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
+
+/** Follow-up chat stream (own-engine). Route files set `runtime` / `maxDuration`. */
+
+export async function handleMessageStreamRequest(
+  req: Request,
+  ctx: { params: Promise<{ chatId: string }> },
+  options: { skipRateLimit?: boolean } = {},
+) {
+  const requestId = req.headers.get("x-vercel-id") || "unknown";
+  const session = ensureSessionIdFromRequest(req);
+  const sessionId = session.sessionId;
+  const attachSessionCookie = (response: Response) => {
+    if (session.setCookie) {
+      response.headers.set("Set-Cookie", session.setCookie);
+    }
+    return response;
+  };
+  const runHandler = async () => {
+    try {
+      const { chatId } = await ctx.params;
+      const body = await req.json().catch(() => ({}));
+      const validationResult = sendMessageSchema.safeParse(body);
+      if (!validationResult.success) {
+        return attachSessionCookie(
+          NextResponse.json(
+            { error: "Validation failed", details: validationResult.error.issues },
+            { status: 400 },
+          ),
+        );
+      }
+
+      const {
+        message,
+        attachments,
+        modelId,
+        thinking,
+        imageGenerations,
+        system,
+        designSystemId: _clientDesignSystemId,
+        meta,
+      } =
+        validationResult.data;
+      const requestAttachments = normalizeRequestAttachments(attachments);
+      const metaRequestedModelTier =
+        typeof (meta as { modelTier?: unknown })?.modelTier === "string"
+          ? String((meta as { modelTier?: string }).modelTier)
+          : null;
+      const modelSelection = resolveModelSelection({
+        requestedModelId: modelId,
+        requestedModelTier: metaRequestedModelTier,
+        fallbackTier: DEFAULT_MODEL_ID,
+      });
+      const engineChat = await getEngineChatByIdForRequest(req, chatId, { sessionId });
+      if (!engineChat) {
+        return attachSessionCookie(
+          NextResponse.json({ error: "Chat not found" }, { status: 404 }),
+        );
+      }
+
+      const resolvedModelId = modelSelection.modelId;
+        const resolvedModelTier = modelSelection.modelTier;
+        const buildProfileId = getBuildProfileId(resolvedModelTier);
+        const resolvedThinking = typeof thinking === "boolean" ? thinking : true;
+        const resolvedImageGenerations =
+          typeof imageGenerations === "boolean" ? imageGenerations : true;
+        const metaBuildMethod =
+          typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
+            ? (meta as { buildMethod?: string }).buildMethod
+            : null;
+        const metaBuildIntent =
+          typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
+            ? (meta as { buildIntent?: string }).buildIntent
+            : null;
+        const metaPromptSourceKind =
+          typeof (meta as { promptSourceKind?: unknown })?.promptSourceKind === "string"
+            ? (meta as { promptSourceKind?: string }).promptSourceKind
+            : null;
+        const metaPromptSourceTechnical =
+          (meta as { promptSourceTechnical?: unknown })?.promptSourceTechnical === true;
+        const metaPromptSourcePreservePayload =
+          (meta as { promptSourcePreservePayload?: unknown })?.promptSourcePreservePayload === true;
+        const metaPlanMode =
+          (meta as { planMode?: unknown })?.planMode === true;
+        const metaEngineBaseVersionId =
+          typeof (meta as { engineBaseVersionId?: unknown })?.engineBaseVersionId === "string"
+            ? (meta as { engineBaseVersionId: string }).engineBaseVersionId.trim()
+            : null;
+        const metaAppProjectId = extractAppProjectIdFromMeta(meta);
+        const { scaffoldMode: metaScaffoldMode, scaffoldId: metaScaffoldId } =
+          extractScaffoldSettingsFromMeta(meta);
+        const metaThemeColors = extractThemeColorsFromMeta(meta);
+        const metaBrief = extractBriefFromMeta(meta);
+        const metaDesignThemePreset = extractDesignThemePresetFromMeta(meta);
+        const metaPalette = extractPaletteStateFromMeta(meta);
+        const metaPromptAssistModel =
+          typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
+            ? String((meta as { promptAssistModel: string }).promptAssistModel).trim() || null
+            : null;
+        const metaPromptAssistDeep =
+          typeof (meta as { promptAssistDeep?: unknown })?.promptAssistDeep === "boolean"
+            ? Boolean((meta as { promptAssistDeep: boolean }).promptAssistDeep)
+            : null;
+        const metaPromptAssistModeRaw =
+          typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
+            ? String((meta as { promptAssistMode: string }).promptAssistMode).trim()
+            : null;
+        const metaPromptAssistMode =
+          metaPromptAssistModeRaw === "polish" || metaPromptAssistModeRaw === "rewrite"
+            ? metaPromptAssistModeRaw
+            : null;
+        const designReferences = summarizeDesignReferences(requestAttachments);
+        const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
+
+        if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
+          try {
+            await chatRepo.updateChatProjectId(engineChat.id, metaAppProjectId);
+            engineChat.project_id = metaAppProjectId;
+          } catch (error) {
+            console.warn("[API/engine/chats/:chatId/stream] Failed to repair chat project mapping", {
+              chatId,
+              currentProjectId: engineChat.project_id,
+              targetProjectId: metaAppProjectId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+
+        const promptOrchestration = orchestratePromptMessage({
+          message,
+          buildMethod: metaBuildMethod,
+          buildIntent: metaBuildIntent,
+          isFirstPrompt: false,
+          attachmentsCount: requestAttachments.length,
+          promptSourceKind: metaPromptSourceKind,
+          promptSourceTechnical: metaPromptSourceTechnical,
+          promptSourcePreservePayload: metaPromptSourcePreservePayload,
+        });
+        debugLog("orchestration", "Follow-up prompt assist + strategy (request meta)", {
+          chatId,
+          promptAssistModel: metaPromptAssistModel,
+          promptAssistDeep: metaPromptAssistDeep,
+          promptAssistMode: metaPromptAssistMode,
+          promptStrategy: promptOrchestration.strategyMeta.strategy,
+          promptType: promptOrchestration.strategyMeta.promptType,
+        });
+        let optimizedMessage = promptOrchestration.finalMessage;
+        optimizedMessage = prependOrchestrationContinuityToFollowUp(
+          optimizedMessage,
+          engineChat.orchestration_snapshot ?? null,
+        );
+
+        const previousFiles = await resolveFollowUpPreviousFiles(
+          chatId,
+          metaEngineBaseVersionId,
+        );
+
+        const skipIntentClassification =
+          metaPromptSourcePreservePayload ||
+          metaPromptSourceTechnical ||
+          contractAnswerContext.currentReplyWasConsumed;
+        const followUpIntent = previousFiles.length > 0 && !skipIntentClassification
+          ? classifyFollowUpIntent(message)
+          : "neutral";
+        const followUpClarification = previousFiles.length > 0 && !skipIntentClassification
+          ? resolveFollowUpClarification(message)
+          : null;
+        if (followUpClarification) {
+          devLogAppend("latest", {
+            type: "site.message.awaiting_input",
+            chatId,
+            reason: followUpClarification.reason,
+            promptPreview: message.slice(0, 160),
+          });
+          await persistFollowUpClarification({
+            chatId,
+            message,
+            clarification: followUpClarification,
+            addMessage: (targetChatId, role, content, _parentMessageId, uiParts) =>
+              chatRepo.addMessage(targetChatId, role, content, undefined, uiParts),
+          });
+          return attachSessionCookie(
+            new Response(
+              buildAwaitingClarificationStream({
+                chatId,
+                clarification: followUpClarification,
+              }),
+              { headers: createSSEHeaders() },
+            ),
+          );
+        }
+
+        if (previousFiles.length > 0) {
+          const useLightFollowUpContext =
+            FEATURES.useFollowUpLightContext &&
+            !skipIntentClassification &&
+            followUpIntent !== "clear-redesign" &&
+            !looksDesignHeavyMessage(message.trim());
+          const manyFiles = previousFiles.length > 14;
+          const fileCtx = buildFileContext({
+            files: previousFiles,
+            maxChars: useLightFollowUpContext ? 24_000 : 140_000,
+            includeContents: true,
+            maxFilesWithContent: useLightFollowUpContext ? (manyFiles ? 2 : 4) : 8,
+          });
+
+          if (skipIntentClassification) {
+            optimizedMessage = [
+              "## Existing Project Files (reference)",
+              "",
+              "Apply the requested change precisely. Do not modify unrelated sections or files.",
+              "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+              "",
+              fileCtx.summary,
+              "",
+              "---",
+              "",
+              optimizedMessage,
+            ].join("\n");
+          } else {
+            optimizedMessage = [
+              "## Follow-up Editing Mode",
+              "",
+              followUpIntent === "clear-redesign"
+                ? "The user wants a genuine redesign of the existing site, not a small refinement."
+                : "You are editing an existing project, not starting over.",
+              followUpIntent === "clear-redesign"
+                ? "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed."
+                : "Apply the user's requested changes directly to the current files below.",
+              followUpIntent === "clear-redesign"
+                ? "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files."
+                : "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
+              followUpIntent === "clear-redesign"
+                ? "Do not preserve the previous design language unless the user explicitly asked to keep parts of it."
+                : "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+              followUpIntent === "clear-redesign"
+                ? "You may still reuse useful content or information architecture from the current project when relevant."
+                : "",
+              "",
+              fileCtx.summary,
+              "",
+              "---",
+              "",
+              "## Requested Changes",
+              "",
+              optimizedMessage,
+            ].join("\n");
+          }
+        }
+
+        if (contractAnswerContext.currentReplyWasConsumed) {
+          const latestAnswer = contractAnswerContext.confirmedAnswers.at(-1);
+          if (latestAnswer) {
+            optimizedMessage = [
+              "## Contract Clarification Answer",
+              "",
+              "The user is answering the previous contract clarification question. Use this answer to continue the existing generation safely.",
+              `Question: ${latestAnswer.question}`,
+              `Answer: ${latestAnswer.answer}`,
+              "",
+              "Continue the existing implementation using this confirmed decision. Do not ask the same question again unless the answer is still genuinely insufficient.",
+              "",
+              "## User Reply",
+              "",
+              optimizedMessage,
+            ].join("\n");
+          }
+        }
+
+        optimizedMessage = await appendHydratedTextAttachmentExcerpts(
+          optimizedMessage,
+          requestAttachments,
+          { signal: req.signal },
+        );
+
+        const creditContext = {
+          modelId: resolvedModelId,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          attachmentsCount: requestAttachments.length,
+        };
+        const creditCheck = await prepareCredits(req, "prompt.refine", creditContext, {
+          sessionId,
+        });
+        if (!creditCheck.ok) {
+          return attachSessionCookie(creditCheck.response);
+        }
+        try {
+          const metaPayload =
+            meta && typeof meta === "object"
+              ? (() => {
+                  const copy = { ...(meta as Record<string, unknown>) };
+                  delete copy.promptOriginal;
+                  delete copy.promptFormatted;
+                  copy.promptStrategy = promptOrchestration.strategyMeta.strategy;
+                  copy.promptType = promptOrchestration.strategyMeta.promptType;
+                  copy.promptBudgetTarget = promptOrchestration.strategyMeta.budgetTarget;
+                  copy.promptOptimizedLength = promptOrchestration.strategyMeta.optimizedLength;
+                  copy.promptReductionRatio = promptOrchestration.strategyMeta.reductionRatio;
+                  copy.promptStrategyReason = promptOrchestration.strategyMeta.reason;
+                  copy.promptComplexityScore = promptOrchestration.strategyMeta.complexityScore;
+                  return Object.keys(copy).length > 0 ? copy : null;
+                })()
+              : {
+                  promptStrategy: promptOrchestration.strategyMeta.strategy,
+                  promptType: promptOrchestration.strategyMeta.promptType,
+                  promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
+                  promptOptimizedLength: promptOrchestration.strategyMeta.optimizedLength,
+                  promptReductionRatio: promptOrchestration.strategyMeta.reductionRatio,
+                  promptStrategyReason: promptOrchestration.strategyMeta.reason,
+                  promptComplexityScore: promptOrchestration.strategyMeta.complexityScore,
+                };
+          await createPromptLog({
+            event: "follow_up",
+            userId: creditCheck.user?.id ?? null,
+            sessionId,
+            appProjectId: metaAppProjectId || null,
+            v0ProjectId: engineChat.project_id ?? null,
+            chatId,
+            promptOriginal: message,
+            promptFormatted: optimizedMessage,
+            systemPrompt: typeof system === "string" ? system.trim() || null : null,
+            promptAssistModel: metaPromptAssistModel,
+            promptAssistDeep: metaPromptAssistDeep,
+            promptAssistMode: metaPromptAssistMode,
+            buildIntent: metaBuildIntent,
+            buildMethod: metaBuildMethod,
+            modelTier: resolvedModelTier,
+            imageGenerations: resolvedImageGenerations,
+            thinking: resolvedThinking,
+            attachmentsCount: requestAttachments.length,
+            meta: metaPayload,
+          });
+        } catch (error) {
+          console.warn("[prompt-log] Failed to record follow-up prompt log:", error);
+        }
+        let didChargeCredits = false;
+        const commitCreditsOnce = async () => {
+          if (didChargeCredits) return;
+          didChargeCredits = true;
+          try {
+            await creditCheck.commit();
+          } catch (error) {
+            console.error("[credits] Failed to charge refine:", error);
+          }
+        };
+
+        const persistedScaffoldId = engineChat.scaffold_id;
+        const ignorePersistedScaffoldForMatch =
+          previousFiles.length > 0 &&
+          followUpIntent === "clear-redesign" &&
+          metaScaffoldMode === "auto";
+
+        if (metaPlanMode) {
+          await chatRepo.addMessage(engineChat.id, "user", message);
+
+          const planEngineIntent: BuildIntent =
+            metaBuildIntent === "template" ||
+            metaBuildIntent === "website" ||
+            metaBuildIntent === "app"
+              ? (metaBuildIntent as BuildIntent)
+              : "website";
+          const planOrchestration = await prepareGenerationContext({
+            prompt: optimizedMessage,
+            buildIntent: planEngineIntent,
+            scaffoldMode: metaScaffoldMode,
+            scaffoldId: metaScaffoldId,
+            brief: metaBrief,
+            themeColors: metaThemeColors,
+            imageGenerations: resolvedImageGenerations,
+            componentPalette: metaPalette,
+            designThemePreset: metaDesignThemePreset,
+            designReferences,
+            persistedScaffoldId,
+            generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
+            ignorePersistedScaffoldForMatch,
+            promptStrategyMeta: promptOrchestration.strategyMeta,
+          });
+          const planResolvedScaffold = planOrchestration.resolvedScaffold;
+          if (
+            planResolvedScaffold &&
+            (!persistedScaffoldId || ignorePersistedScaffoldForMatch)
+          ) {
+            try {
+              await chatRepo.updateChatScaffoldId(chatId, planResolvedScaffold.id);
+            } catch {
+              /* best-effort persist */
+            }
+          }
+
+          const { planPreamble, planSystemPrompt } = computePlanModePlannerPrompts(planOrchestration);
+          dumpPlanModePlannerPrompts(
+            planPreamble,
+            planOrchestration,
+            planSystemPrompt,
+            "POST /api/engine/chats/[chatId]/stream",
+          );
+          const planChatHistory = engineChat.messages
+            .filter((m) => m.role === "user" || m.role === "assistant")
+            .map((m) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            }));
+          const planModel = resolvePlanModePlannerModelId(resolvedModelTier);
+          logPlanModeGenerationStart({
+            planModel,
+            promptLength: optimizedMessage.length,
+            scaffoldId: planResolvedScaffold?.id ?? null,
+            resolvedThinking,
+          });
+          const planPipelineStream = createPlanModePipelineStream({
+            optimizedMessage,
+            planSystemPrompt,
+            planModel,
+            resolvedThinking,
+            abortSignal: req.signal,
+            chatHistory: planChatHistory,
+            referenceAttachments: requestAttachments,
+          });
+
+          return attachSessionCookie(createOwnEnginePlanModeResponse({
+            pipelineStream: planPipelineStream,
+            chatId,
+            modelTier: resolvedModelTier,
+            buildProfileId,
+            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+            thinking: resolvedThinking,
+            promptStrategyMeta: promptOrchestration.strategyMeta,
+            buildSpec: planOrchestration.buildSpec,
+            resolvedScaffold: planResolvedScaffold,
+            scaffoldMode: metaScaffoldMode,
+            persistAssistantSummary: async (planData, hasBlockers) => {
+              try {
+                const storedPlanPart = buildPlanUiPart(planData);
+                await chatRepo.addMessage(
+                  chatId,
+                  "assistant",
+                  buildPlanSummaryMessage(planData, hasBlockers),
+                  undefined,
+                  storedPlanPart ? [storedPlanPart] : undefined,
+                );
+              } catch (error) {
+                console.warn("[plan] Failed to persist planner assistant summary:", error);
+              }
+            },
+            buildDonePayload: (planData, hasBlockers) => ({
+              chatId,
+              versionId: null,
+              messageId: null,
+              ...previewUrlField(null),
+              awaitingInput: hasBlockers,
+              planArtifact: planData,
+              planMode: true,
+            }),
+            commitCredits: commitCreditsOnce,
+            commitCreditsPosition: "before-done",
+            normalizeQuestionToolCallIds: true,
+          }));
+        }
+
+        await chatRepo.addMessage(engineChat.id, "user", message);
+
+        const promptForLlm = optimizedMessage;
+
+        const engineIntent: BuildIntent =
+          metaBuildIntent === "template" ||
+          metaBuildIntent === "website" ||
+          metaBuildIntent === "app"
+            ? (metaBuildIntent as BuildIntent)
+            : "website";
+        const trimmedSystem = typeof system === "string" ? system.trim() : "";
+        const orchestrationInput = {
+          prompt: optimizedMessage,
+          buildIntent: engineIntent,
+          scaffoldMode: metaScaffoldMode,
+          scaffoldId: metaScaffoldId,
+          brief: metaBrief,
+          themeColors: metaThemeColors,
+          imageGenerations: resolvedImageGenerations,
+          componentPalette: metaPalette,
+          designThemePreset: metaDesignThemePreset,
+          designReferences,
+          persistedScaffoldId,
+          contractAnswers: contractAnswerContext.confirmedAnswers,
+          customInstructions: trimmedSystem || undefined,
+          promptStrategyMeta: promptOrchestration.strategyMeta,
+          generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
+          ignorePersistedScaffoldForMatch,
+        };
+        const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
+        const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
+        const contractClarification = buildContractClarificationQuestion({
+          buildIntent: engineIntent,
+          context: preGenerationContracts,
+        });
+        if (
+          resolvedScaffold &&
+          (!persistedScaffoldId || ignorePersistedScaffoldForMatch)
+        ) {
+          try {
+            await chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
+          } catch { /* best-effort persist */ }
+        }
+        devLogAppend("in-progress", {
+          type: "contracts.inferred",
+          chatId,
+          dataMode: preGenerationContracts.contracts.dataMode,
+          databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+          authProvider: preGenerationContracts.contracts.authProvider ?? null,
+          paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+          integrations: preGenerationContracts.contracts.integrations.map((entry) => entry.provider),
+          envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
+          unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
+        });
+
+        const chatHistory = engineChat.messages
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          }));
+
+        const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        debugLog("build", "Follow-up chat stream request", {
+          chatId,
+          buildProfileId,
+          buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+          internalModelSelection: resolvedModelTier,
+          enginePath: "own-engine",
+          engineModel: canonicalModelIdToOwnModelId(resolvedModelTier),
+          promptLength: optimizedMessage.length,
+          originalPromptLength: message.length,
+          attachments: requestAttachments.length,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          promptStrategy: promptOrchestration.strategyMeta.strategy,
+          promptType: promptOrchestration.strategyMeta.promptType,
+        });
+        debugLog("engine", "Own engine model resolved", {
+          resolvedModelTier,
+          engineModel,
+          fallback: false,
+        });
+        if (contractClarification) {
+          const assistantQuestion = await chatRepo.addMessage(
+            chatId,
+            "assistant",
+            contractClarification.question,
+            undefined,
+            [buildStoredContractClarificationUiPart(contractClarification)],
+          ).catch(() => null);
+          devLogAppend("in-progress", {
+            type: "contracts.clarification-requested",
+            chatId,
+            kind: contractClarification.kind,
+            reason: contractClarification.reason,
+          });
+          const contractGateStream = createPreGenerationContractGateReadableStream(
+            buildPreGenerationContractGateParams({
+              routeVariant: "follow-up",
+              sseChatId: chatId,
+              assistantMessageId: assistantQuestion?.id ?? null,
+              contractClarification,
+              preGenerationContracts,
+              engineModel,
+              resolvedModelTier,
+              buildProfileId,
+              buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+              resolvedThinking,
+              resolvedImageGenerations,
+              resolvedScaffold,
+              strategyMeta: promptOrchestration.strategyMeta,
+              buildSpec: orchestrationBase.buildSpec,
+              metaBriefApplied: Boolean(metaBrief),
+              customInstructionsLength: trimmedSystem?.length ?? 0,
+            }),
+          );
+          return attachSessionCookie(new Response(contractGateStream, {
+            headers: createSSEHeaders(),
+          }));
+        }
+        const { engineSystemPrompt, templateLibrarySearchDiagnostics } =
+          await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const lineageHash = computeLineageHash({
+          userPrompt: optimizedMessage,
+          brief: metaBrief,
+          scaffoldMode: metaScaffoldMode ?? "auto",
+          scaffoldContext: orchestrationBase.scaffoldContext,
+          routePlan: orchestrationBase.routePlan,
+          preGenerationContracts: orchestrationBase.preGenerationContracts,
+          buildSpec: orchestrationBase.buildSpec,
+          capabilityHints: orchestrationBase.scaffoldAndCapability,
+        });
+        dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
+          route: "POST /api/engine/chats/[chatId]/stream",
+          planMode: false,
+        });
+        const promptLengths = getSystemPromptLengths(engineSystemPrompt);
+        debugLog("prompt-cache", "System prompt lengths", promptLengths);
+
+        const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
+        const engineStream = createOwnEnginePipelineAndGenerationStream({
+          chatId,
+          pipeline: {
+            prompt: enginePrompt,
+            systemPrompt: engineSystemPrompt,
+            model: engineModel,
+            chatHistory,
+            thinking: resolvedThinking,
+            abortSignal: req.signal,
+            maxSteps: resolveOwnEngineMaxSteps({
+              buildSpec: orchestrationBase.buildSpec,
+              userMessage: message,
+              isFollowUp: previousFiles.length > 0,
+            }),
+            referenceAttachments: requestAttachments,
+          },
+          meta: buildOwnEngineGenerationStreamMeta({
+            routeVariant: "follow-up",
+            engineModel,
+            resolvedModelTier,
+            buildProfileId,
+            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+            resolvedThinking,
+            resolvedImageGenerations,
+            strategyMeta: promptOrchestration.strategyMeta,
+            orchestrationBase,
+            buildSpec: orchestrationBase.buildSpec,
+            engineSystemPromptLength: engineSystemPrompt.length,
+            metaBriefApplied: Boolean(metaBrief),
+            customInstructionsLength: trimmedSystem?.length ?? 0,
+            scaffoldId: resolvedScaffold?.id ?? null,
+            scaffoldFamily: resolvedScaffold?.family ?? null,
+            templateLibrarySearchDiagnostics,
+          }),
+          engineModel,
+          optimizedMessage,
+          engineIntent,
+          buildSpec: orchestrationBase.buildSpec,
+          routePlan: routePlan ?? null,
+          resolvedScaffold: resolvedScaffold ?? null,
+          urlMap,
+          commitCredits: commitCreditsOnce,
+          previousFiles: previousFiles.length > 0 ? previousFiles : undefined,
+          lineageHash,
+        });
+
+        const engineHeaders = new Headers(createSSEHeaders());
+        return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
+    } catch (err) {
+      errorLog("engine", `Send message error (requestId=${requestId})`, err);
+      const normalized = normalizeProviderError(err);
+      devLogAppend("latest", {
+        type: "comm.error.send",
+        chatId: null,
+        message: normalized.message,
+        code: normalized.code,
+      });
+      return attachSessionCookie(
+        NextResponse.json(
+          {
+            error: normalized.message,
+            code: normalized.code,
+            retryAfter: normalized.retryAfter ?? null,
+          },
+          { status: normalized.status },
+        ),
+      );
+    }
+  };
+
+  return options.skipRateLimit ? runHandler() : withRateLimit(req, "message:send", runHandler);
+}
+
+export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  return handleMessageStreamRequest(req, ctx);
+}

@@ -18,7 +18,7 @@ const TARGET_SCORE = 0.7;
 
 const REPO_FILES = {
   createRoute: "src/app/api/v0/chats/stream/route.ts",
-  followupRoute: "src/app/api/v0/chats/[chatId]/stream/route.ts",
+  followupRoute: "src/lib/api/engine/chats/chat-message-stream-post.ts",
   streamHandlers: "src/lib/hooks/chat/stream-handlers.ts",
   agentTools: "src/lib/gen/agent-tools.ts",
   detectIntegrations: "src/lib/gen/detect-integrations.ts",

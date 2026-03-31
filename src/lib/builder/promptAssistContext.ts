@@ -203,7 +203,7 @@ export async function processPromptWithSpec(
 }
 
 // ── Spec file generation ────────────────────────────────────────────────
-// Converts a brief (from /api/ai/brief) into a structured JSON spec
+// Converts a brief (from `/api/ai/brief` or server auto-brief on create-chat) into a structured JSON spec
 // (sajtmaskin.spec.json) used by the code generation engine.
 
 import type { ThemeColors } from "./theme-presets";

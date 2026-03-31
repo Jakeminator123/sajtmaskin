@@ -19,6 +19,8 @@ const WEAK_EMBEDDING_TOP_SCORE = 0.4;
 const DEFAULT_MAX_REFERENCE_FILES = 20;
 const DEFAULT_MAX_EXCERPT_CHARS = 9_000;
 const DEFAULT_MAX_TOTAL_CHARS = 18_000;
+/** First slice keeps a larger cap so ranking does not zero out all code context. */
+const FIRST_FILE_EXCERPT_FLOOR = 1_400;
 const STOPWORDS = new Set([
   "en", "ett", "och", "med", "som", "för", "att", "jag", "vill", "ha", "den", "det", "är", "ska",
   "a", "an", "the", "and", "with", "for", "that", "this", "is", "it", "to", "of", "in", "my", "me",
@@ -153,7 +155,12 @@ export function selectTemplateReferenceFiles(
 
   for (const file of entry.selectedFiles) {
     if (selected.length >= maxFiles) break;
-    const excerpt = trimExcerpt(file.excerpt, maxExcerptChars);
+    const cap =
+      selected.length === 0
+        ? Math.max(maxExcerptChars, Math.min(FIRST_FILE_EXCERPT_FLOOR, maxTotalChars))
+        : maxExcerptChars;
+    const excerpt = trimExcerpt(file.excerpt, cap);
+    if (!excerpt.trim()) continue;
     const nextTotal = totalChars + excerpt.length;
     if (selected.length > 0 && nextTotal > maxTotalChars) break;
 
@@ -162,6 +169,19 @@ export function selectTemplateReferenceFiles(
       excerpt,
     });
     totalChars = nextTotal;
+  }
+
+  // Guarantee at least one non-empty slice when the dossier has any excerpt material.
+  if (selected.length === 0 && entry.selectedFiles?.length) {
+    for (const file of entry.selectedFiles) {
+      const raw = typeof file.excerpt === "string" ? file.excerpt.trim() : "";
+      if (!raw) continue;
+      const excerpt = trimExcerpt(raw, Math.min(FIRST_FILE_EXCERPT_FLOOR, maxTotalChars));
+      if (excerpt.trim()) {
+        selected.push({ ...file, excerpt });
+      }
+      break;
+    }
   }
 
   return selected;

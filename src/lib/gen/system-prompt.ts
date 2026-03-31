@@ -367,10 +367,10 @@ function resolveTemplateSnippetSelectionOptions(
   maxTotalChars: number;
 } {
   const isHeavy = buildSpec?.contextPolicy === "heavy";
-  const maxTotalChars = Math.max(1_200, Math.min(referenceBudget, isHeavy ? 4_000 : 2_200));
+  const maxTotalChars = Math.max(2_400, Math.min(referenceBudget, isHeavy ? 5_000 : 3_000));
   return {
     maxFiles: isHeavy ? 2 : 1,
-    maxExcerptChars: Math.min(maxTotalChars, isHeavy ? 1_800 : 1_200),
+    maxExcerptChars: Math.min(maxTotalChars, isHeavy ? 2_200 : 1_500),
     maxTotalChars,
   };
 }

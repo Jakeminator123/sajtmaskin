@@ -13,7 +13,6 @@ import {
 } from "@/lib/builder/promptAssist";
 import { DEFAULT_PROMPT_POLISH_MODEL } from "@/lib/builder/defaults";
 import { ASSIST_MODEL } from "@/lib/gen/defaults";
-import type { WebsiteSpec } from "@/lib/builder/promptAssistContext";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { debugLog } from "@/lib/utils/debug";
@@ -558,100 +557,5 @@ export function usePromptAssist(params: UsePromptAssistParams) {
     [model, deep, imageGenerations, buildIntent, themeColors],
   );
 
-  /**
-   * Generate a structured spec from the user prompt using the spec-first chain.
-   * This uses AI to analyze the prompt and create a detailed specification
-   * that results in higher quality code generation.
-   *
-   * @param originalPrompt - The user's original website request
-   * @returns Object containing spec and enhanced prompt, or null on failure
-   */
-  const generateSpecFromPrompt = useCallback(
-    async (
-      originalPrompt: string,
-    ): Promise<{ spec: WebsiteSpec; enhancedPrompt: string } | null> => {
-      const startedAt = Date.now();
-
-      debugLog("AI", "Spec-first chain started", {
-        promptLength: originalPrompt.length,
-      });
-
-      try {
-        toast.loading("Analyserar din förfrågan och skapar spec...", {
-          id: "sajtmaskin:spec-first",
-        });
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60_000);
-
-        let res: Response;
-        try {
-          const normalizedSpecModel = normalizeAssistModel(model);
-          const requestedSpecModel = isGatewayAssistModel(normalizedSpecModel)
-            ? normalizedSpecModel
-            : "openai/gpt-5.4";
-          res = await fetch("/api/ai/spec", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: controller.signal,
-            body: JSON.stringify({
-              prompt: originalPrompt,
-              model: requestedSpecModel,
-            }),
-          });
-        } finally {
-          clearTimeout(timeoutId);
-        }
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          const msg =
-            extractErrorMessage(err) ||
-            `Spec generation failed (HTTP ${res.status})`;
-          throw new Error(String(msg));
-        }
-
-        const data = await res.json();
-        if (!data.success || !data.spec || !data.enhancedPrompt) {
-          throw new Error("Invalid spec response");
-        }
-
-        debugLog("AI", "Spec-first chain completed", {
-          durationMs: Date.now() - startedAt,
-          specPages: data.spec.pages?.length ?? 0,
-          enhancedPromptLength: data.enhancedPrompt.length,
-        });
-
-        toast.success("Spec skapad - genererar kod...", { id: "sajtmaskin:spec-first" });
-
-        return {
-          spec: data.spec as WebsiteSpec,
-          enhancedPrompt: data.enhancedPrompt as string,
-        };
-      } catch (err) {
-        const rawMessage = err instanceof Error ? err.message : "Spec generation failed";
-        const isAbort = isAbortError(err);
-
-        debugLog("AI", "Spec-first chain failed", {
-          durationMs: Date.now() - startedAt,
-          error: rawMessage,
-        });
-
-        if (isAbort) {
-          toast.error("Spec-generering tog för lång tid (timeout)", {
-            id: "sajtmaskin:spec-first",
-          });
-        } else {
-          toast.error(`Spec-generering misslyckades: ${rawMessage}`, {
-            id: "sajtmaskin:spec-first",
-          });
-        }
-
-        return null;
-      }
-    },
-    [model],
-  );
-
-  return { maybeEnhanceInitialPrompt, generateSpecFromPrompt, generateDynamicInstructions };
+  return { maybeEnhanceInitialPrompt, generateDynamicInstructions };
 }

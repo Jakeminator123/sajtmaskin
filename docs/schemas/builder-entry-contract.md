@@ -117,6 +117,12 @@ type BlankBuilderBootstrap = {
 | After init/create response | `chatId` exists | `chatId` may already exist, `versionId` may also exist |
 | After first completed generation | `versionId` and preview available | preview may have been available earlier |
 
+## Server Deep Brief (create-chat)
+
+- On `POST /api/engine/chats/stream`, when the client does **not** send `meta.brief`, the server may run the same structured Deep Brief model as `/api/ai/brief` (unless disabled via `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1` or skipped for audit/technical-preserve paths).
+- UI-driven fetch to `/api/ai/brief` remains useful for previewing/editing the brief before send; if the client attaches `meta.brief`, the server does not regenerate it.
+- Response `meta` may include `serverAutoBriefGenerated` / `serverAutoBriefModel` for telemetry.
+
 ## Compatibility Notes
 
 - `source=audit` currently acts as a fallback when `buildMethod` is absent, but

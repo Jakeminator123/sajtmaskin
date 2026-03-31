@@ -7,6 +7,8 @@ import { prepareCredits } from "@/lib/credits/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { shouldRunServerAutoBrief } from "@/lib/builder/server-auto-brief-policy";
+import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/devLog";
@@ -187,6 +189,40 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         requestAttachments,
         { signal: req.signal },
       );
+
+      const clientBriefFromMeta = extractBriefFromMeta(meta);
+      const assistModelHint =
+        typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
+          ? String((meta as { promptAssistModel: string }).promptAssistModel).trim() || null
+          : null;
+      let serverAutoBrief: Record<string, unknown> | null = null;
+      let serverAutoBriefModel: string | null = null;
+      if (
+        shouldRunServerAutoBrief({
+          hasClientBrief: Boolean(clientBriefFromMeta),
+          promptSourceTechnical: metaPromptSourceTechnical,
+          promptSourcePreservePayload: metaPromptSourcePreservePayload,
+          promptType: strategyMeta.promptType,
+          orchestrationReason: strategyMeta.reason,
+        })
+      ) {
+        const generated = await tryGenerateServerAutoBrief({
+          prompt: optimizedMessage,
+          assistModelHint,
+          imageGenerations: resolvedImageGenerations,
+          signal: req.signal,
+        });
+        if (generated) {
+          serverAutoBrief = generated.brief;
+          serverAutoBriefModel = generated.modelUsed;
+          debugLog("orchestration", "Server auto brief applied", {
+            modelUsed: serverAutoBriefModel,
+            pages: Array.isArray(serverAutoBrief?.pages) ? serverAutoBrief.pages.length : 0,
+          });
+        }
+      }
+      const effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
+
       const creditUser = creditCheck.user;
       let didChargeCredits = false;
       const commitCreditsOnce = async () => {
@@ -213,6 +249,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 copy.promptReductionRatio = strategyMeta.reductionRatio;
                 copy.promptStrategyReason = strategyMeta.reason;
                 copy.promptComplexityScore = strategyMeta.complexityScore;
+                copy.serverAutoBriefGenerated = Boolean(serverAutoBrief);
+                if (serverAutoBriefModel) copy.serverAutoBriefModel = serverAutoBriefModel;
                 return Object.keys(copy).length > 0 ? copy : null;
               })()
             : {
@@ -223,6 +261,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 promptReductionRatio: strategyMeta.reductionRatio,
                 promptStrategyReason: strategyMeta.reason,
                 promptComplexityScore: strategyMeta.complexityScore,
+                serverAutoBriefGenerated: Boolean(serverAutoBrief),
+                ...(serverAutoBriefModel ? { serverAutoBriefModel } : {}),
               };
         const promptOriginal =
           typeof (meta as { promptOriginal?: unknown })?.promptOriginal === "string"
@@ -353,10 +393,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           scaffoldId: typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
             ? String((meta as Record<string, string>).scaffoldId)
             : null,
-          brief: (() => {
-            const raw = (meta as Record<string, unknown>)?.brief;
-            return raw && typeof raw === "object" ? raw as Record<string, unknown> : null;
-          })(),
+          brief: effectiveBrief,
           themeColors: (() => {
             const raw = (meta as Record<string, unknown>)?.themeColors;
             if (!raw || typeof raw !== "object") return null;
@@ -481,7 +518,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const { scaffoldMode: metaScaffoldMode, scaffoldId: metaScaffoldId } =
           extractScaffoldSettingsFromMeta(meta);
         const metaThemeColors = extractThemeColorsFromMeta(meta);
-        const metaBrief = extractBriefFromMeta(meta);
+        const metaBrief = effectiveBrief;
         const metaDesignThemePreset = extractDesignThemePresetFromMeta(meta);
         const metaPalette = extractPaletteStateFromMeta(meta);
         const designReferences = summarizeDesignReferences(requestAttachments);

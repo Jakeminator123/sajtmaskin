@@ -20,7 +20,7 @@ Large JSON is cursorignored. Context: [`../README.md`](../README.md), [`../../..
 2. That calls `searchTemplateLibraryWithDiagnostics()` (or keyword-only search when embedding enrichment is disabled).
 3. If the catalog is empty, runtime returns no prompt-driven template matches and does not load stale embeddings.
 4. Top matches are injected as structured "Relevant Template References" in the dynamic system prompt, with rule-oriented guidance (`style rules`, `section inventory`, `avoid patterns`, `world-class rubric`) before any code excerpts.
-5. A smaller subset can also inject `selectedFiles` as "Reference Code Snippets" when prompt budget allows.
+5. A smaller subset can also inject `selectedFiles` as "Reference Code Snippets" when prompt budget allows. `selectTemplateReferenceFiles()` reserves a higher excerpt cap for the **first** dossier file and falls back to at least one slice when any excerpt text exists, so weak budgets do not drop all code context.
 6. Search diagnostics are persisted in stream/build metadata as `templateLibrarySearch`, which helps explain whether runtime used embeddings, keyword fallback, or a hybrid blend.
 
 ## Important relationships

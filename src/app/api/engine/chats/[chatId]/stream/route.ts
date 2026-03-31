@@ -1,3 +1,7 @@
-export { POST, handleMessageStreamRequest } from "@/app/api/v0/chats/[chatId]/stream/route";
+export {
+  POST,
+  handleMessageStreamRequest,
+} from "@/lib/api/engine/chats/chat-message-stream-post";
+
 export const runtime = "nodejs";
 export const maxDuration = 800;

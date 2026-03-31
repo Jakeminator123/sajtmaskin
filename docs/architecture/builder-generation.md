@@ -13,7 +13,7 @@ Tre **lanes** + flaggor (detalj + mermaid i arkiv: `builder-model-routing-and-tr
 
 **Anthropic-jämförelse** — preset som linjerar build + produktlane mot Anthropic.
 
-Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `src/lib/models/catalog.ts`, `selection.ts`, stream routes under `src/app/api/v0/chats/...`.
+Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `src/lib/models/catalog.ts`, `selection.ts`, samt **`src/lib/api/engine/chats/`** (kanonisk stream-handlers) med tunna **`/api/v0/chats/...`-compat**-routes.
 
 ## Promptlager och träd
 
@@ -26,11 +26,12 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 ## Nuvarande kodflöde
 
 1. **Prompt in** via Builder eller `scripts/cli/builder-generate.py`.
-2. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
-3. **Scaffoldval i `auto`:** `matchScaffold()` är primär keyword-path; `matchScaffoldWithEmbeddings()` använder scaffold-embeddings bara när keyword-resultatet saknas eller blir generiskt (`landing-page` / `base-nextjs`).
-4. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, KB och template-library guidance. Template-library-diagnostik (`embedding`, `hybrid_keyword_blend`, `keyword_fallback`, `empty_catalog`) följer sedan med i `streamMeta.templateLibrarySearch`.
-5. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, parse/merge/preflight och sparar versionen innan sandbox följer upp.
-6. **Saved version** hämtas sedan via chat/version/files-routes; sandbox-start kan komma efter `done`.
+2. **Första prompten (create-chat SSE):** `orchestratePromptMessage()` körs alltid (budget/skydd). Om klienten **inte** skickat `meta.brief` kan servern fylla **`brief`** via samma Deep Brief-modell som `/api/ai/brief` (`src/lib/builder/site-brief-generation.ts`, styrt av `server-auto-brief-policy.ts`).
+3. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
+4. **Scaffoldval i `auto`:** `matchScaffold()` är primär keyword-path; `matchScaffoldWithEmbeddings()` använder scaffold-embeddings bara när keyword-resultatet saknas eller blir generiskt (`landing-page` / `base-nextjs`).
+5. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, KB och template-library guidance. Template-library-diagnostik (`embedding`, `hybrid_keyword_blend`, `keyword_fallback`, `empty_catalog`) följer sedan med i `streamMeta.templateLibrarySearch`.
+6. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, parse/merge/preflight och sparar versionen innan sandbox följer upp.
+7. **Saved version** hämtas sedan via chat/version/files-routes; sandbox-start kan komma efter `done`.
 
 Snabba lokala orienteringsfiler för nästa agent:
 
