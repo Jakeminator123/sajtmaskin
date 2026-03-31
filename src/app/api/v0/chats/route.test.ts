@@ -358,11 +358,21 @@ describe("POST /api/v0/chats", () => {
       verificationBlocked: false,
       primaryPreviewTarget: "sandbox",
     });
+    expect(json.meta).toMatchObject({
+      enginePath: "own-engine",
+      promptStrategy: "direct",
+      buildSpec: expect.objectContaining({
+        buildIntent: "website",
+        generationMode: "init",
+      }),
+    });
+    expect(json.sandboxPending).toBe(true);
     expect(json.latestVersion).toMatchObject({
       id: "ver_1",
       versionId: "ver_1",
       messageId: "msg_assistant",
       previewUrl: null,
+      sandboxPending: true,
       verificationState: "pending",
     });
     expect(json.previewBlocked).toBe(false);

@@ -260,6 +260,9 @@ export function useCreateChat(
         const latestVersion = data.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
           data.versionId || latestVersion?.id || latestVersion?.versionId || null;
+        const sandboxPending =
+          data?.sandboxPending === true ||
+          latestVersion?.sandboxPending === true;
         const fromLatestSandbox = normalizePreviewUrl(
           typeof latestVersion?.sandboxUrl === "string" ? latestVersion.sandboxUrl : null,
         );
@@ -298,11 +301,13 @@ export function useCreateChat(
           setCurrentPreviewUrl(resolvedDemoUrl);
           onPreviewRefresh?.();
         }
+        setSandboxPending?.(sandboxPending);
         onGenerationComplete?.({
           chatId: String(newChatId),
           versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
           previewUrl: resolvedDemoUrl ?? undefined,
         });
+        mutateVersions();
         if (resolvedVersionId) {
           void triggerImageMaterialization({
             chatId: String(newChatId),
