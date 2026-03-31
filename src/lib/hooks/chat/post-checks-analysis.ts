@@ -59,7 +59,7 @@ export type SeoReview = {
   };
 };
 
-export type AnalyticsIssue = {
+type AnalyticsIssue = {
   severity: "warning" | "error";
   code:
     | "missing-analytics-tracker"
@@ -132,7 +132,7 @@ export type PostCheckBaseline = {
   previewBlockingReason: string | null;
 };
 
-export function extractDesignTokens(files: FileEntry[]): DesignTokenSummary | null {
+function extractDesignTokens(files: FileEntry[]): DesignTokenSummary | null {
   const candidate = files.find((file) =>
     DESIGN_TOKEN_FILES.some((path) => file.name.endsWith(path)),
   );
@@ -149,7 +149,7 @@ export function extractDesignTokens(files: FileEntry[]): DesignTokenSummary | nu
   return { source: candidate.name, tokens };
 }
 
-export function findSuspiciousUseCalls(files: FileEntry[]): SuspiciousUseCall[] {
+function findSuspiciousUseCalls(files: FileEntry[]): SuspiciousUseCall[] {
   const results: SuspiciousUseCall[] = [];
   const pattern = /\b(?:React\.)?use\s*\(/g;
   files.forEach((file) => {
@@ -186,7 +186,7 @@ function normalizeInternalHref(value: string): string | null {
   return cleaned === "" ? "/" : cleaned;
 }
 
-export function extractStaticInternalLinks(files: FileEntry[]): string[] {
+function extractStaticInternalLinks(files: FileEntry[]): string[] {
   const results = new Set<string>();
   const hrefRegex = /href\s*=\s*(?:"([^"]+)"|'([^']+)'|\{\s*["']([^"']+)["']\s*\})/g;
   for (const file of files) {
@@ -228,13 +228,13 @@ function routePatternToRegex(route: string): RegExp {
   return new RegExp(pattern);
 }
 
-export function findMissingRoutes(links: string[], routes: string[]): string[] {
+function findMissingRoutes(links: string[], routes: string[]): string[] {
   if (routes.length === 0) return links;
   const matchers = routes.map(routePatternToRegex);
   return links.filter((link) => !matchers.some((matcher) => matcher.test(link)));
 }
 
-export function findLucideLinkMisuse(files: FileEntry[]): string[] {
+function findLucideLinkMisuse(files: FileEntry[]): string[] {
   const affected = new Set<string>();
   const lucideLinkImport =
     /import\s*\{[^}]*\bLink\b[^}]*\}\s*from\s*["']lucide-react["'];?/;
@@ -277,7 +277,7 @@ function hasBrokenHeadingHierarchy(content: string): boolean {
   return false;
 }
 
-export function buildSeoReview(files: FileEntry[]): SeoReview {
+function buildSeoReview(files: FileEntry[]): SeoReview {
   const layoutFile = findFileBySuffix(files, ["app/layout.tsx", "src/app/layout.tsx"]);
   const homePageFile = findFileBySuffix(files, ["app/page.tsx", "src/app/page.tsx"]);
   const robotsFile = findFileBySuffix(files, ["app/robots.ts", "src/app/robots.ts"]);
@@ -508,7 +508,7 @@ export function buildAnalyticsReview(files: FileEntry[]): AnalyticsReview {
   };
 }
 
-export function buildEditorialReview(files: FileEntry[]): EditorialReview {
+function buildEditorialReview(files: FileEntry[]): EditorialReview {
   const combined = files.map((file) => file.content ?? "").join("\n\n");
   const routeNames = files.map((file) => file.name).join("\n");
   const packs: EditorialPack[] = [];
@@ -593,7 +593,7 @@ export function buildEditorialReview(files: FileEntry[]): EditorialReview {
   };
 }
 
-export function buildBusinessWorkflowReview(files: FileEntry[]): BusinessWorkflowReview {
+function buildBusinessWorkflowReview(files: FileEntry[]): BusinessWorkflowReview {
   const combined = files.map((file) => file.content ?? "").join("\n\n");
   const packs = detectBusinessWorkflowPacks(combined);
   return {

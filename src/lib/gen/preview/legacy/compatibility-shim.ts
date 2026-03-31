@@ -43,7 +43,7 @@ export function hasSandboxPreviewUrl(url: string | null | undefined): boolean {
   return isSandboxPreviewUrl(url);
 }
 
-export function previewUrlsEquivalent(
+function previewUrlsEquivalent(
   a: string | null | undefined,
   b: string | null | undefined,
 ): boolean {
