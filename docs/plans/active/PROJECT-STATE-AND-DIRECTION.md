@@ -126,15 +126,15 @@ Status mot den ursprungliga 6-fasplanen (`.cursor/plans/llm_pipeline_lift_c393f8
 |-----|-------|--------|
 | Fas 1 | BuildSpec som styrlager | [x] Levererad |
 | Fas 2 | Promptbudgetering / lättare follow-up-kontext | [x] Levererad |
-| Fas 3 | Dossier/runtime-rubric + taxonomy-drift | delvis [x] (runtime guidance + validering), kvar: full verifiering av produktutfall |
-| Fas 4 | Separat `qualityTarget` / `previewPolicy` / `verificationPolicy` | delvis [x] (policyobjekt i drift), kvar: skarpa trösklar och mätning mot latency/kvalitet |
+| Fas 3 | Dossier/runtime-rubric + taxonomy-drift | [x] Levererad — runtime guidance primär signal före snippets; diagnostik för tom/fallback template-library; taxonomy-validering i build + test |
+| Fas 4 | Separat `qualityTarget` / `previewPolicy` / `verificationPolicy` | [x] Levererad — policy i drift, trösklar verifierade med edge-case-tester, sandbox-mode-resolution testad (strict/fidelity3/null-fallback), telemetri sparar policy-meta |
 | Fas 5 | Finalize fast/deep path med explicit kontrakt | [x] Levererad |
-| Fas 6 | Cleanup + produktnära acceptans/verifiering | [ ] Kvar |
+| Fas 6 | Cleanup + produktnära acceptans/verifiering | delvis [x] — follow-up happy-path och scaffold-lock-test på route-nivå; generation-telemetri med BuildSpec/finalize-path; sandbox lifecycle med policy-aware timing; kvar: bredare produkt-/visuell acceptans utanför automatiserade tester |
 
-Praktiskt kvar i LLM-spåret (utan scaffold-omtag) bedöms till cirka **25–35%** och ligger främst i:
+Praktiskt kvar i LLM-spåret (utan scaffold-omtag) bedöms till cirka **10–20%** och ligger främst i:
 
-- mätbar time-to-first-preview och repair-rate per policyläge
-- produktnära kvalitetsacceptans (init + follow-up, visuellt premiumutfall)
+- bredare produktnära kvalitetsacceptans (visuellt premiumutfall, manuell/halvautomatisk granskning)
+- iterativ finjustering av policytrösklar baserat på faktisk telemetridata
 - kvarvarande K-019-polish som påverkar kontinuitet/UX i fler flöden
 
 ---
