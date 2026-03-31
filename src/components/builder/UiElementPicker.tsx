@@ -44,7 +44,7 @@ import {
   buildRegistryItemUrl,
   buildPreviewImageUrl,
   FEATURED_BLOCKS,
-} from "@/lib/shadcn-registry-service";
+} from "@/lib/shadcn/registry-service";
 import {
   getRegistryBaseUrl,
   getRegistryStyle,

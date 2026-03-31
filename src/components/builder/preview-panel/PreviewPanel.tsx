@@ -36,7 +36,7 @@ import {
   buildAlternatePreviewBannerState,
   isCompatibilityShimPreviewUrl,
   isSandboxPreviewUrl,
-} from "@/lib/gen/preview";
+} from "@/lib/gen/preview/legacy/compatibility-shim";
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview-diagnostics";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";

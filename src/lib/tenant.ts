@@ -4,7 +4,7 @@ import { chats, projects } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
 import { getCurrentUser, getTokenFromRequest } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getProjectByIdForOwner } from "@/lib/db/services";
+import { getProjectByIdForOwner } from "@/lib/db/services/projects";
 import {
   getChat as getEngineChat,
   getVersionById as getEngineVersionById,

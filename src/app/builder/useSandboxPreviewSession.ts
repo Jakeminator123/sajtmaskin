@@ -2,11 +2,9 @@
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useRef } from "react";
-import {
-  fetchSandboxStatus,
-  logSandboxLifecycleTelemetry,
-} from "@/lib/builder/preview-session";
-import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
+import { fetchSandboxStatus } from "@/lib/builder/preview-session/api";
+import { logSandboxLifecycleTelemetry } from "@/lib/builder/preview-session/telemetry";
+import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export type UseSandboxPreviewSessionParams = {
   chatId: string | null;

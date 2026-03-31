@@ -30,7 +30,7 @@ import {
   isOwnEnginePostStreamPhaseId,
   ownEnginePostStreamStepLabelSv,
 } from "@/lib/gen/stream/finalize-pipeline-contract";
-import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
+import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 
 function effectivePreviewUrlFromDonePayload(done: Record<string, unknown>): string | null {

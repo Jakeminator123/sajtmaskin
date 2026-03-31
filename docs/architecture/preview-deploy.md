@@ -28,7 +28,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Kanoniska filer | Sandbox bygger från **`filesJson`** efter finalize, inte primärt `contentForVersion` | `generation-stream.ts`, `sandbox-preview/route.ts` |
 | `previewBlocked` | Betyder att ingen previewyta kan exponeras för versionen; shimfel ensamt ska inte längre stoppa tier-2 | `own-engine-sandbox-gate.ts`, `generation-stream.ts` |
 | Readiness | HTTP-probe efter `npm run dev` (2xx + dokumentlik `Content-Type`) | `runtime-url.ts` (`waitForSandboxDevServerReady`) |
-| Sandbox-only | `done` har `demoUrl: null` medan `sandboxPending` kan vara true; UI visar live-preview-status tills `sandbox-ready` | `generation-stream.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |
+| Sandbox-only | Publika `done`-/GET-svar har `previewUrl: null` medan `sandboxPending` kan vara true; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` | `generation-stream.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |
 | HTTP API | Meningsfulla statuskoder + `retryable` för `/sandbox-preview` | `sandbox-preview-errors.ts`, route |
 | Bootstrap-retry | Klienten respekterar `retryable`, **500** med `retryable: true`, `Retry-After` | `sandbox-bootstrap-retry.ts`, `useBuilderPageController.ts` |
 | Session / lease | `POST sandbox-heartbeat` — vid `no_session` / `session_mismatch` triggar klienten `handlePreviewSessionSuspect`; `GET sandbox-status` med `running` men annan URL än iframe → uppdatera preview-URL + refresh (telemetri `sandbox_url_resync`). Klient-API: `preview-session/api.ts`. | `sandbox-heartbeat/route.ts`, `sandbox-status/route.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `useSandboxPreviewSession.ts`, `useBuilderSandboxPreview.ts` |
@@ -54,14 +54,14 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 **Produktintent:** **sandbox-URL** är den enda iframe-källan för live-preview. Fel (`502`, HMR-brus) och sekvens: följ `generation-stream.ts` → `sandbox-preview.ts` → `PreviewPanel.tsx`.
 
-## Demo-URL-kedja
+## Preview-URL-kedja (legacy `demoUrl` finns kvar internt)
 
-1. Efter `done` i SSE är **sandbox** den enda previewytan. `demoUrl` och `shimPreviewUrl` är **`null`**; klienten väntar på `sandbox-ready` eller visar fel.
+1. Efter `done` i SSE är **sandbox** den enda previewytan. I publika event/svar är `previewUrl` och `legacyShimPreviewUrl` **`null`** tills sandbox är redo; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl`.
 2. Kanoniska filer för sandbox är **`filesJson` efter finalize** (merge + preflight), inte rå `contentForVersion`.
 3. Om sandbox konfigurerad och inte `previewBlocked`: `startSandboxPreview` → `sandbox-ready` / `build-error`. Efter `npm run dev` körs en **readiness probe** mot preview-URL: **2xx** och dokumentlik `Content-Type` (t.ex. `text/html`), inte bara att undvika 5xx (se `waitForSandboxDevServerReady` i `runtime-url.ts`; timeout: `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` i `src/lib/env.ts`).
 4. `engine_versions.sandbox_url` uppdateras vid lyckad sandbox.
 
-**HTTP GET `/api/v0/chats/[chatId]` och `.../versions` (own-engine, 2026-03-30):** `demoUrl` är **`null`** som huvudsignal — live-preview är **`sandboxUrl`**. Shim till `/api/preview-render` exponeras som **`legacyShimPreviewUrl`** (när `canExposeEnginePreview` tillåter), inte som primär `demoUrl`. Klienten (`useBuilderCallbacks` vid versionsval, `pickVersionPreviewUrl` vid sync) använder **sandbox först** och **null + bootstrap** när sandbox saknas, i stället för att låsa iframe till shim som standard. Varje GET till `/api/preview-render` loggas med prefix **`[telemetry:legacy-preview-render]`** för uppföljning innan ev. borttagning.
+**HTTP GET `/api/v0/chats/[chatId]` och `.../versions` (own-engine, 2026-03-30):** publikt fält är `previewUrl`; för own-engine är det **`null`** som huvudsignal tills sandbox finns. Live-preview ligger i **`sandboxUrl`**. Shim till `/api/preview-render` exponeras som **`legacyShimPreviewUrl`** (när `canExposeEnginePreview` tillåter), inte som primär preview-signal. DB-kolumnen är fortfarande `demo_url`, och inbound legacy-payloads tolkas via `resolveInboundPreviewUrl()`. Klienten (`useBuilderCallbacks` vid versionsval, `pickVersionPreviewUrl` vid sync) använder **sandbox först** och **null + bootstrap** när sandbox saknas, i stället för att låsa iframe till shim som standard. Varje GET till `/api/preview-render` loggas med prefix **`[telemetry:legacy-preview-render]`** för uppföljning innan ev. borttagning.
 
 **Typer / kontrakt:** `src/lib/gen/preview-contract.ts` (SSE-fält). **HTTP:** `/api/v0/chats/[chatId]/sandbox-preview` returnerar meningsfulla statuskoder (`422` repair, `503`/`504` runtime) och fältet `retryable` (bootstrap retry:ar bara när `retryable !== false`; **500** kräver `retryable: true` för auto-retry) — se `httpStatusForSandboxPreviewFailure`. Svar kan innehålla **`startOutcome`**: `resumed` (VM återanvänd från session) eller `recreated` (ny provisioning).
 

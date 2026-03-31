@@ -1,6 +1,6 @@
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
-import type { AlternatePreviewUrls } from "@/lib/gen/preview";
+import type { AlternatePreviewUrls } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
 
 export type CaptureResponse = {

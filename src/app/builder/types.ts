@@ -1,6 +1,6 @@
 "use client";
 
-import type { V0UserFileAttachment } from "@/components/media";
+import type { V0UserFileAttachment } from "@/components/media/file-upload-zone";
 import { QUALITY_TO_MODEL, type CanonicalModelId, type QualityLevel } from "@/lib/models/catalog";
 
 export type CreateChatOptions = {

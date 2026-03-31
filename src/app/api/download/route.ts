@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildZipBufferFromEngineVersion } from "@/lib/gen/engine-version-zip";
 import JSZip from "jszip";
-import { extractContent, generateBackofficeFiles } from "@/lib/backoffice";
+import { extractContent } from "@/lib/backoffice/content-extractor";
+import { generateBackofficeFiles } from "@/lib/backoffice/template-generator";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";

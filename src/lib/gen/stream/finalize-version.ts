@@ -14,10 +14,8 @@ import {
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { runPolishPass, isPolishPassEnabled } from "@/lib/gen/polish-pass";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import {
-  createEngineVersionErrorLogs,
-  createGenerationTelemetryRecord,
-} from "@/lib/db/services";
+import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
+import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { getPhaseRoutingSummary } from "@/lib/models/phase-routing";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";

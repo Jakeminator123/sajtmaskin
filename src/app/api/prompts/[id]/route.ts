@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { deletePromptHandoffCache, getCachedPromptHandoff } from "@/lib/data/redis";
-import { consumePromptHandoffForOwner, getPromptHandoffByIdForOwner } from "@/lib/db/services";
+import {
+  consumePromptHandoffForOwner,
+  getPromptHandoffByIdForOwner,
+} from "@/lib/db/services/projects";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 

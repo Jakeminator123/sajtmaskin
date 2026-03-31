@@ -51,7 +51,7 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
   materializeImages,
 }));
 
-vi.mock("@/lib/gen/preview", () => ({
+vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewHtml,
   buildPreviewUrl,
 }));
@@ -74,8 +74,11 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
 }));
 
-vi.mock("@/lib/db/services", () => ({
+vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs,
+}));
+
+vi.mock("@/lib/db/services/generation-telemetry", () => ({
   createGenerationTelemetryRecord: vi.fn().mockResolvedValue({}),
 }));
 

@@ -1,22 +1,3 @@
-export {
-  createSuspenseTransform,
-  type SuspenseRule,
-  type StreamContext,
-} from "./transform";
-
-export { shadcnImportFix } from "./rules/shadcn-import-fix";
-export { lucideIconFix } from "./rules/lucide-icon-fix";
-export { urlAliasExpand } from "./rules/url-alias-expand";
-export { typeAnnotationFix } from "./rules/type-annotation-fix";
-export { tailwindClassFix } from "./rules/tailwind-class-fix";
-export { createDuplicateImportRule } from "./rules/duplicate-import-fix";
-export { missingExportFix } from "./rules/missing-export-fix";
-export { nextOgStrip } from "./rules/next-og-strip";
-export { imageSrcFix } from "./rules/image-src-fix";
-export { forbiddenImportStrip } from "./rules/forbidden-import-strip";
-export { jsxAttributeFix } from "./rules/jsx-attribute-fix";
-export { relativeImportFix } from "./rules/relative-import-fix";
-
 import { createSuspenseTransform, type StreamContext } from "./transform";
 import type { SuspenseRule } from "./transform";
 import { shadcnImportFix } from "./rules/shadcn-import-fix";
@@ -55,12 +36,6 @@ export function createDefaultRules(): SuspenseRule[] {
 
 /**
  * Creates a TransformStream pre-configured with all standard rules.
- *
- * Usage in a route handler:
- * ```ts
- * const transform = createDefaultSuspenseTransform({ urlMap });
- * const processed = rawStream.pipeThrough(transform);
- * ```
  */
 export function createDefaultSuspenseTransform(
   context: StreamContext = {},

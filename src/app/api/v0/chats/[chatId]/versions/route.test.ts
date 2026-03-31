@@ -23,7 +23,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateVersionSandboxUrl,
 }));
 
-vi.mock("@/lib/gen/preview", () => ({
+vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewUrl,
 }));
 

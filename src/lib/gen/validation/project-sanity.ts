@@ -1,4 +1,4 @@
-import type { PreflightIssueCategory } from "@/lib/gen/preview";
+import type { PreflightIssueCategory } from "@/lib/gen/stream/preflight-contract";
 import type { CodeFile } from "@/lib/gen/parser";
 
 export interface SanityIssue {

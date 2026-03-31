@@ -13,7 +13,7 @@ import {
   getVersionsByChat,
   updateVersionSandboxUrl,
 } from "@/lib/db/chat-repository-pg";
-import { buildPreviewUrl } from "@/lib/gen/preview";
+import { buildPreviewUrl } from "@/lib/gen/preview/build-preview-document";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 

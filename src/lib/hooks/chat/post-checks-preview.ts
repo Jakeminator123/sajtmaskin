@@ -1,5 +1,5 @@
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
-import type { PreflightIssueCategory, SandboxPrimaryPreviewTarget } from "@/lib/gen/preview";
+import type { PreflightIssueCategory, SandboxPrimaryPreviewTarget } from "@/lib/gen/stream/preflight-contract";
 import type { VersionErrorLogPayload } from "./types";
 
 function isSandboxPrimaryPreviewTarget(value: unknown): value is SandboxPrimaryPreviewTarget {

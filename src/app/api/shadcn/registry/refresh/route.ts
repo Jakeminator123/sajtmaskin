@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDefaultRegistryScopes, refreshRegistryCache } from "@/lib/shadcn-registry-cache";
+import { getDefaultRegistryScopes, refreshRegistryCache } from "@/lib/shadcn/registry-cache";
 import { getRegistryBaseUrl } from "@/lib/shadcn/registry-url";
 
 export const runtime = "nodejs";

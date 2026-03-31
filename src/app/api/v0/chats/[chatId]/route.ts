@@ -4,7 +4,7 @@ import { versions } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
-import { buildPreviewUrl } from "@/lib/gen/preview";
+import { buildPreviewUrl } from "@/lib/gen/preview/build-preview-document";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { previewUrlField } from "@/lib/api/preview-url-contract";

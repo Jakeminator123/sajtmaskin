@@ -6,7 +6,7 @@ import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { MODEL_TIER_TO_QUALITY } from "./types";
-import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
+import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 
 type UseBuilderEffectsArgs = {

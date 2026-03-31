@@ -1,11 +1,8 @@
 import path from "path";
 import { PATHS } from "@/lib/config";
-import {
-  LocalFsProvider,
-  VercelBlobProvider,
-  type StorageObjectInfo,
-  type StorageProvider,
-} from "@/lib/storage";
+import { LocalFsProvider } from "@/lib/storage/local-fs-provider";
+import type { StorageObjectInfo, StorageProvider } from "@/lib/storage/types";
+import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 
 export interface BlobUploadResult {
   url: string;

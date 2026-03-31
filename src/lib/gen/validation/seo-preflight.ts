@@ -1,5 +1,5 @@
 import type { CodeFile } from "@/lib/gen/parser";
-import type { PreflightIssueCategory } from "@/lib/gen/preview";
+import type { PreflightIssueCategory } from "@/lib/gen/stream/preflight-contract";
 
 export type SeoPreflightIssue = {
   file: string;

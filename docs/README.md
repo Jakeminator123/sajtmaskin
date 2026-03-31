@@ -7,7 +7,7 @@
 | Block | Innehåll | Börja här |
 |-------|----------|-----------|
 | **Arkitektur** | Kanonisk systembeskrivning, preview/sandbox, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
-| **Aktiva planer** | Backlog, beslut | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/README.md`](plans/README.md) · arkiverad städlista: [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md) |
+| **Aktiva planer** | Backlog, beslut, **pågående storstäd** | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/active/STORDSTAD-repo-kod-databas.md`](plans/active/STORDSTAD-repo-kod-databas.md) · [`plans/README.md`](plans/README.md) · arkiverad städlista: [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md) |
 | **Arkiv** | Avklarade planer, handoffs-pekare; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) (`docs/notes/` om du skapar den lokalt) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) · [`handoffs/README.md`](handoffs/README.md) |
 
 ## Terminology (two layers — do not duplicate)

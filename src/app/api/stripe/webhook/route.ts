@@ -7,7 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createTransaction, getTransactionByStripeSession, getUserById } from "@/lib/db/services";
+import { createTransaction, getTransactionByStripeSession } from "@/lib/db/services/transactions";
+import { getUserById } from "@/lib/db/services/users";
 import { SECRETS } from "@/lib/config";
 import Stripe from "stripe";
 

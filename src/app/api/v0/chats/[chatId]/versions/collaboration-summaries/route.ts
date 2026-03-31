@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
-import { getApprovalStatus, getUnresolvedCommentCount } from "@/lib/db/services";
+import { getApprovalStatus, getUnresolvedCommentCount } from "@/lib/db/services/collaboration";
 
 type RouteParams = {
   params: Promise<{ chatId: string }>;

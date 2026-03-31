@@ -31,7 +31,7 @@ import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { DomainManager } from "@/components/builder/DomainManager";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
-import { RequireAuthModal } from "@/components/auth";
+import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import {

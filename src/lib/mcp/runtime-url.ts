@@ -1,5 +1,5 @@
 import { Sandbox } from "@vercel/sandbox";
-import { buildPreviewUrl } from "@/lib/gen/preview";
+import { buildPreviewUrl } from "@/lib/gen/preview/build-preview-document";
 import {
   isUsableVercelOidcToken,
   pickVercelAccessTokenFromEnv,

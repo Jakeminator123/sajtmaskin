@@ -12,7 +12,7 @@ const prepareCredits = vi.hoisted(() => vi.fn());
 const commitCredits = vi.hoisted(() => vi.fn());
 const resolveAppProjectIdForRequest = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/db/services", () => ({
+vi.mock("@/lib/db/services/projects", () => ({
   createProject,
   saveProjectData,
 }));

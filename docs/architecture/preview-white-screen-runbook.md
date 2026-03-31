@@ -11,8 +11,8 @@
 
 | Lager | Vad | När det syns |
 |--------|-----|----------------|
-| **Kompatibilitetsvy — Shim** | Statisk HTML + React 18 från **CDN** (unpkg) + Tailwind från **cdn.tailwindcss.com** | `shimPreviewUrl` eller `demoUrl` pekar på `/api/preview-render?...` |
-| **Primär preview — Sandbox** | Riktig `npm run dev` i Vercel Sandbox | `demoUrl` är `*.vercel.run` / sandbox-host; `engine_versions.sandbox_url` satt |
+| **Kompatibilitetsvy — Shim** | Statisk HTML + React 18 från **CDN** (unpkg) + Tailwind från **cdn.tailwindcss.com** | `legacyShimPreviewUrl` eller äldre `demoUrl` pekar på `/api/preview-render?...` |
+| **Primär preview — Sandbox** | Riktig `npm run dev` i Vercel Sandbox | `previewUrl` / faktisk iframe-URL är `*.vercel.run` / sandbox-host; `engine_versions.sandbox_url` satt |
 
 **Preflight grön** (`previewBlocked: false`) betyder inte längre “shim funkar”, utan att den aktiva versionen fortfarande kan exponeras. Sandbox kräver fortfarande **server-miljö** (`VERCEL_OIDC_TOKEN` eller `VERCEL_TOKEN` + team + project). Se [`preview-deploy.md`](./preview-deploy.md) och [`docs/ENV.md`](../ENV.md).
 
@@ -27,7 +27,7 @@
 2. **Komponent returnerar `null`** eller kraschar innan första paint.
    - **Bekräfta:** Console i iframe; ev. `preview-error` postMessage till parent (loggas via `reportOwnEngineRenderFailure`).
 3. **Sandbox:** Next-appen kraschar eller visar tom sida.
-   - **Bekräfta:** Öppna **samma** `demoUrl` i ny flik; läs Next/overlay-fel.
+   - **Bekräfta:** Öppna **samma** `previewUrl` / iframe-URL i ny flik; läs Next/overlay-fel.
 
 ### B. Toast / röd overlay efter ~10 s: "Previewn laddade inte klart innan timeout"
 
@@ -55,7 +55,7 @@
 | SSE egen motor | `sandbox-ready`, `build-error`, `progress` step `sandbox` (`generation-stream.ts`) |
 | Agent-/versionsloggar i UI | Er befintliga loggvy som läser version error-log / agent events |
 
-**Rekommendation:** Vid support, alltid samla **chatId**, **versionId**, **demoUrl** (shim vs sandbox), och **screenshot av iframe-console**.
+**Rekommendation:** Vid support, alltid samla **chatId**, **versionId**, **aktuell preview-URL** (shim vs sandbox; äldre spår kan fortfarande heta `demoUrl`), och **screenshot av iframe-console**.
 
 ---
 

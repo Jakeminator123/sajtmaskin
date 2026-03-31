@@ -2,7 +2,7 @@ import JSZip from "jszip";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { z } from "zod/v4";
-import { createProject as createAppProject, saveProjectData } from "@/lib/db/services";
+import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";

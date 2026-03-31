@@ -1,12 +1,10 @@
 "use client";
 
-import {
-  AuditPdfReport,
-  BudgetEstimate,
-  ImprovementsList,
-  MetricsChart,
-  SecurityReport,
-} from "@/components/audit";
+import { AuditPdfReport } from "@/components/audit/AuditPdfReport";
+import BudgetEstimate from "@/components/audit/BudgetEstimate";
+import ImprovementsList from "@/components/audit/ImprovementsList";
+import MetricsChart from "@/components/audit/MetricsChart";
+import SecurityReport from "@/components/audit/SecurityReport";
 import type { AuditResult } from "@/types/audit";
 import { AnimatePresence, motion } from "framer-motion";
 import {

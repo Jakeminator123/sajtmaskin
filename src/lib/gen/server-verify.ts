@@ -20,7 +20,7 @@ import { buildExportableProject } from "@/lib/gen/build-exportable-project";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { createEngineVersionErrorLogs } from "@/lib/db/services";
+import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import {
   isSandboxConfigured,
   resolveSandboxAccessCredentials,

@@ -5,7 +5,7 @@ import {
   getPreferredVersion,
 } from "@/lib/db/chat-repository-pg";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
-import { getEngineVersionErrorLogs } from "@/lib/db/services";
+import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import {
   describePreviewDiagnosticCode,
   readPreviewDiagnosticMeta,

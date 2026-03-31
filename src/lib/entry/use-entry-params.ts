@@ -43,7 +43,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import type { EntryMode } from "@/components/modals";
+import type { EntryMode } from "@/components/modals/entry-modal";
 import {
   saveEntryToken,
   type EntryToken,

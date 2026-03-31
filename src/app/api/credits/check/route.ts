@@ -6,7 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getOrCreateGuestUsage, isTestUser } from "@/lib/db/services";
+import { getOrCreateGuestUsage } from "@/lib/db/services/guests";
+import { isTestUser } from "@/lib/db/services/users";
 import {
   getCreditCost,
   type CreditAction,

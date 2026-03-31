@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Footer } from "@/components/layout";
+import { Footer } from "@/components/layout/footer";
 
 export const metadata: Metadata = {
   title: "Integritetspolicy",

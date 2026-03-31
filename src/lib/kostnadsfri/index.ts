@@ -7,7 +7,7 @@
  */
 
 import crypto from "crypto";
-import type { KostnadsfriPage } from "@/lib/db/services";
+import type { KostnadsfriPage } from "@/lib/db/services/shared";
 import { companyNameFromSlug } from "./company-name";
 import {
   extractKostnadsfriOpenClawConfig,

@@ -13,11 +13,11 @@ import {
   FileUploadZone,
   filesToAttachments,
   filesToPromptText,
-  MediaDrawer,
-  TextUploader,
   type UploadedFile,
   type V0UserFileAttachment,
-} from "@/components/media";
+} from "@/components/media/file-upload-zone";
+import { MediaDrawer } from "@/components/media/media-drawer";
+import { TextUploader } from "@/components/media/text-uploader";
 import {
   type ShadcnBlockAction,
   type ShadcnBlockSelection,

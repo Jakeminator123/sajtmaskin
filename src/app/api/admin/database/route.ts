@@ -24,7 +24,7 @@ import {
   transactions,
   users,
 } from "@/lib/db/schema";
-import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services";
+import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services/shared";
 import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
 import { PATHS } from "@/lib/config";
 import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";

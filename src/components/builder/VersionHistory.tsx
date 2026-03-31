@@ -5,7 +5,7 @@ import {
   resolveEngineVersionDisplayStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
-import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
+import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   AlertCircle,
   CheckCircle,

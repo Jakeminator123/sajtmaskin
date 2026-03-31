@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { postSandboxHeartbeat } from "@/lib/builder/preview-session";
-import { isSandboxPreviewUrl } from "@/lib/gen/preview";
+import { postSandboxHeartbeat } from "@/lib/builder/preview-session/api";
+import { isSandboxPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 
 export function usePreviewHeartbeat(params: {

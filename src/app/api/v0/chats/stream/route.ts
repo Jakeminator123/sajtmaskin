@@ -11,7 +11,7 @@ import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
-import { createPromptLog } from "@/lib/db/services";
+import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import {
   canonicalModelIdToOwnModelId,

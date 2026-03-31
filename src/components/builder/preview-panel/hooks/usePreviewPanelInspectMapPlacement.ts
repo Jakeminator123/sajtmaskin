@@ -11,7 +11,7 @@ import {
   type InsertionPoint,
 } from "@/lib/builder/sectionAnalyzer";
 import type { ElementMapItem, ElementMapResponse } from "@/lib/builder/types";
-import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { InspectEngine } from "../preview-panel-types";
 import {
   useCallback,

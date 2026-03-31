@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
-import { isSandboxPreviewUrl } from "@/lib/gen/preview";
+import { isSandboxPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   detectOwnEnginePreviewIssue,
   type PreviewIssuePayload,

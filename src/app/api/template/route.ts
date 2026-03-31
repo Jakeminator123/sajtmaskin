@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
+import { cacheTemplateResult, getCachedTemplate } from "@/lib/db/services/templates";
 import {
-  cacheTemplateResult,
   createProject as createAppProject,
-  getCachedTemplate,
   saveProjectData,
-} from "@/lib/db/services";
+} from "@/lib/db/services/projects";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";

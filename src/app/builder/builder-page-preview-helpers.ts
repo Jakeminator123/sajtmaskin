@@ -1,5 +1,5 @@
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
-import { hasSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
+import { hasSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { VersionSummary } from "./useBuilderDerivedState";
 
 /** Sandbox (fidelity 2) only; legacy `demoUrl` shim URLs are ignored. */

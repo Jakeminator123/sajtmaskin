@@ -7,7 +7,7 @@ import {
   isCompatibilityShimPreviewUrl,
   isSandboxPreviewUrl,
   normalizePreviewUrl,
-} from "@/lib/gen/preview";
+} from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export type VersionLike = {
   versionId?: string | null;

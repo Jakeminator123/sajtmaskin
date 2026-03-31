@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import {
-  createTransaction,
-  getOrCreateGuestUsage,
-  incrementGuestUsage,
-  isTestUser,
-  type User,
-} from "@/lib/db/services";
+import { createTransaction } from "@/lib/db/services/transactions";
+import { getOrCreateGuestUsage, incrementGuestUsage } from "@/lib/db/services/guests";
+import { isTestUser } from "@/lib/db/services/users";
+import type { User } from "@/lib/db/services/shared";
 import {
   getActionLabel,
   getCreditCost,

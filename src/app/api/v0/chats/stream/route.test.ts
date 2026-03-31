@@ -107,7 +107,7 @@ vi.mock("@/lib/sanitize/sanitize-metadata", () => ({
   sanitizeMetadata: vi.fn(),
 }));
 
-vi.mock("@/lib/db/services", () => ({
+vi.mock("@/lib/db/services/prompt-logs", () => ({
   createPromptLog,
 }));
 
@@ -133,6 +133,13 @@ vi.mock("@/lib/models/catalog", () => ({
 vi.mock("@/lib/config", () => ({
   AI: {
     designSystemId: null,
+  },
+  SECRETS: {
+    testUserEmail: "",
+    superadminEmail: "",
+  },
+  PATHS: {
+    uploads: "/tmp/uploads",
   },
   /** Required when `@/lib/data/redis` loads (module-level prefixes use this). */
   REDIS_KEY_PREFIX: "dev:",

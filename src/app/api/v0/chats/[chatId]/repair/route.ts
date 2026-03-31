@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { createEngineVersionErrorLogs } from "@/lib/db/services";
+import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {

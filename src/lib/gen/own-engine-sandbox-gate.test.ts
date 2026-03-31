@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { shouldRunOwnEngineSandbox } from "./own-engine-sandbox-gate";
-import type { SandboxStartContract } from "./preview";
+import type { SandboxStartContract } from "@/lib/gen/stream/preflight-contract";
 
 function sandboxContract(overrides?: Partial<SandboxStartContract>): SandboxStartContract {
   return {

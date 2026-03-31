@@ -1,4 +1,4 @@
-import { getProjectData, saveProjectData } from "@/lib/db/services";
+import { getProjectData, saveProjectData } from "@/lib/db/services/projects";
 import {
   DecryptionError,
   decryptValue,

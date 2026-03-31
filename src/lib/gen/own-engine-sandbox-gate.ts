@@ -1,4 +1,4 @@
-import type { SandboxStartContract } from "./preview";
+import type { SandboxStartContract } from "@/lib/gen/stream/preflight-contract";
 
 /**
  * Own-engine: whether tier-2 sandbox ska startas efter finalize (SSE `done` / sandbox-block).

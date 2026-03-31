@@ -10,7 +10,7 @@ import {
 import {
   buildShadcnBlockPrompt,
   buildShadcnComponentPrompt,
-} from "@/lib/shadcn-registry-utils";
+} from "@/lib/shadcn/registry-utils";
 import { buildApprovedPlanExecutionPrompt } from "@/lib/gen/plan-review";
 
 export type PromptSourceKind =

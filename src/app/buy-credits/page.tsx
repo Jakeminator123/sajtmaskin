@@ -3,8 +3,9 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Navbar, ShaderBackground } from "@/components/layout";
-import { AuthModal } from "@/components/auth";
+import { Navbar } from "@/components/layout/navbar";
+import { ShaderBackground } from "@/components/layout/shader-background";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

@@ -47,7 +47,7 @@ import {
 } from "@/lib/gen/request-metadata";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { buildFileContext } from "@/lib/gen/context";
+import { buildFileContext } from "@/lib/gen/context/file-context-builder";
 import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildOwnEngineGenerationStreamMeta,

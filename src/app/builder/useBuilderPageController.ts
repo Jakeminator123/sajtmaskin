@@ -22,7 +22,7 @@ import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
 import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
 import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
-import { useChatMessaging } from "@/lib/hooks/chat";
+import { useChatMessaging } from "@/lib/hooks/chat/useChatMessaging";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { useChatReadiness } from "@/lib/hooks/useChatReadiness";
 import { useAuth } from "@/lib/auth/auth-store";
@@ -53,7 +53,7 @@ import {
   isShimOrMissingPreviewUrl,
   normalizePreviewUrl,
   resolveAlternatePreviewUrls,
-} from "@/lib/gen/preview";
+} from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   asRecord,
   parsePreviewOverride,

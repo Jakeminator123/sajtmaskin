@@ -197,7 +197,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
 }));
 
-vi.mock("@/lib/gen/context", () => ({
+vi.mock("@/lib/gen/context/file-context-builder", () => ({
   buildFileContext: vi.fn(),
 }));
 

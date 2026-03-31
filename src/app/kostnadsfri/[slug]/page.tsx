@@ -1,4 +1,4 @@
-import { getKostnadsfriPageBySlug } from "@/lib/db/services";
+import { getKostnadsfriPageBySlug } from "@/lib/db/services/kostnadsfri";
 import { isPageAccessible } from "@/lib/kostnadsfri";
 import { companyNameFromSlug } from "@/lib/kostnadsfri/company-name";
 import {

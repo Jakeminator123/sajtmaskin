@@ -16,7 +16,7 @@ import { runPostGenerationChecks, triggerImageMaterialization } from "./post-che
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
-import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview";
+import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export function useSendMessage(
   params: ChatMessagingParams,

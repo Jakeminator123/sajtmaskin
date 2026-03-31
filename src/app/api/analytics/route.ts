@@ -5,7 +5,8 @@
  */
 
 import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL, getAnalyticsStats, recordPageView } from "@/lib/db/services";
+import { getAnalyticsStats, recordPageView } from "@/lib/db/services/analytics";
+import { TEST_USER_EMAIL } from "@/lib/db/services/shared";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { after, NextRequest, NextResponse } from "next/server";
 

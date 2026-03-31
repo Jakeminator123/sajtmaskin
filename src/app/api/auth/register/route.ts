@@ -13,7 +13,7 @@ import {
   isAdminEmail,
   markEmailVerified,
   setUserDiamonds,
-} from "@/lib/db/services";
+} from "@/lib/db/services/users";
 import { sendVerificationEmail } from "@/lib/email/send";
 import { withRateLimit } from "@/lib/rateLimit";
 import { URLS } from "@/lib/config";

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import {
-  createEngineVersionErrorLogs,
-  getTelemetryForVersion,
-  updateTelemetryRecord,
-} from "@/lib/db/services";
+import { getTelemetryForVersion, updateTelemetryRecord } from "@/lib/db/services/generation-telemetry";
+import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };

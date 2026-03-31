@@ -2,7 +2,7 @@
 
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
-import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   INITIAL_PREVIEW_RENDER_OUTCOME_STATE,
   describePreviewDiagnosticCode,

@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Navbar, ShaderBackground } from "@/components/layout";
-import { AuthModal } from "@/components/auth";
+import { Navbar } from "@/components/layout/navbar";
+import { ShaderBackground } from "@/components/layout/shader-background";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { Loader2, Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
 import { getProjects, deleteProject, Project } from "@/lib/project-client";
 import {

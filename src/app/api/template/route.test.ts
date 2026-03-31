@@ -12,9 +12,12 @@ const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const resolveAppProjectIdForRequest = vi.hoisted(() => vi.fn());
 const chatRepoGetChat = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/db/services", () => ({
+vi.mock("@/lib/db/services/templates", () => ({
   getCachedTemplate,
   cacheTemplateResult,
+}));
+
+vi.mock("@/lib/db/services/projects", () => ({
   createProject,
   saveProjectData,
 }));

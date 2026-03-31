@@ -1,4 +1,4 @@
-import { buildPreviewHtml } from "@/lib/gen/preview";
+import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import type { CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type RoutePlan } from "@/lib/gen/route-plan";

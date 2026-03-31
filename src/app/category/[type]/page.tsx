@@ -4,8 +4,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { HelpTooltip, ShaderBackground } from "@/components/layout";
-import { PromptWizardModalV2, type WizardData } from "@/components/modals";
+import { HelpTooltip } from "@/components/layout/help-tooltip";
+import { ShaderBackground } from "@/components/layout/shader-background";
+import { PromptWizardModalV2, type WizardData } from "@/components/modals/prompt-wizard-modal-v2";
 import {
   ArrowLeft,
   Rocket,
@@ -35,7 +36,7 @@ import {
 import { createProject } from "@/lib/project-client";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import Image from "next/image";
-import { PreviewModal } from "@/components/templates";
+import { PreviewModal } from "@/components/templates/preview-modal";
 import { toast } from "sonner";
 
 // Icon mapping - includes all icons used in V0_CATEGORIES and legacy CATEGORIES

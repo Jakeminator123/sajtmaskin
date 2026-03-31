@@ -14,7 +14,7 @@ vi.mock("@/lib/gen/autofix/pipeline", () => ({
   runAutoFix,
 }));
 
-vi.mock("@/lib/gen/preview", () => ({
+vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewHtml,
 }));
 

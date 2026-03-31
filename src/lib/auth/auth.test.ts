@@ -10,7 +10,7 @@ vi.mock("next/headers", () => ({
   })),
 }));
 
-vi.mock("@/lib/db/services", () => ({
+vi.mock("@/lib/db/services/users", () => ({
   getUserById: vi.fn(),
   getUserByEmail: vi.fn(),
   createUser: vi.fn(),

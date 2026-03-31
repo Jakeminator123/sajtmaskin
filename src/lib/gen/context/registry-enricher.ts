@@ -53,7 +53,7 @@ export async function enrichWithRegistry(
   for (const name of registryNames) {
     if (!REGISTRY_ENRICHABLE.has(name)) continue;
     try {
-      const { fetchRegistryItem } = await import("@/lib/shadcn-registry-service");
+      const { fetchRegistryItem } = await import("@/lib/shadcn/registry-service");
       const item = await fetchRegistryItem(name, "new-york-v4");
       if (!item?.files?.length) continue;
 

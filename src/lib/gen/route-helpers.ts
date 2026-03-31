@@ -4,8 +4,8 @@ import {
   isBuilderStreamEventName,
   type BuilderStreamEvent,
 } from "@/lib/gen/stream/builder-stream-contract";
-import type { SuspenseRule, StreamContext } from "@/lib/gen/suspense";
-import { createDefaultRules } from "@/lib/gen/suspense";
+import type { SuspenseRule, StreamContext } from "@/lib/gen/suspense/transform";
+import { createDefaultRules } from "@/lib/gen/suspense/default-rules";
 
 // ---------------------------------------------------------------------------
 // SSE Response builder

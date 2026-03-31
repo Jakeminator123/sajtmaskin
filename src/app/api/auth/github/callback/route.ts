@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { updateUserGitHub } from "@/lib/db/services";
+import { updateUserGitHub } from "@/lib/db/services/users";
 import { SECRETS, FEATURES, URLS } from "@/lib/config";
 
 /**

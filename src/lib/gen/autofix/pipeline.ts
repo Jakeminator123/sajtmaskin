@@ -20,7 +20,7 @@ import {
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
-import { runSecurityChecks } from "../security";
+import { runSecurityChecks } from "../security/run-security-checks";
 
 // ---------------------------------------------------------------------------
 // Types

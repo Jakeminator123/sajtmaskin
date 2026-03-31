@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { createComment, getCommentsForVersion, resolveComment } from "@/lib/db/services";
+import { createComment, getCommentsForVersion, resolveComment } from "@/lib/db/services/collaboration";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 

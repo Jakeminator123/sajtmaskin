@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
-import { getProjectByIdForOwner } from "@/lib/db/services";
+import { getProjectByIdForOwner } from "@/lib/db/services/projects";
 import {
   deleteStoredProjectEnvVars,
   getStoredProjectEnvVars,

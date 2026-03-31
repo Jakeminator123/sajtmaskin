@@ -7,16 +7,16 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import {
-  getUserById,
-  getUserByEmail,
-  createUser,
   createGoogleUser,
-  updateUserLastLogin,
+  createUser,
+  getUserByEmail,
+  getUserById,
   isAdminEmail,
-  setUserDiamonds,
   markEmailVerified,
-  type User,
-} from "@/lib/db/services";
+  setUserDiamonds,
+  updateUserLastLogin,
+} from "@/lib/db/services/users";
+import type { User } from "@/lib/db/services/shared";
 import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
 
 /** Default diamond balance for admin/superuser accounts. */

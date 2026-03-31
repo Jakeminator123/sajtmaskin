@@ -41,7 +41,7 @@ Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/st
 
 ## UX-kontrakt och projektinställningar
 
-- **Preview/iframe-kontrakt** (toast, laddning, demoUrl): `builder-ux-contracts-and-preview.md` i arkivet + `PreviewPanel.tsx`.
+- **Preview/iframe-kontrakt** (toast, laddning, `previewUrl`, legacy `demoUrl`): `builder-ux-contracts-and-preview.md` i arkivet + `PreviewPanel.tsx`.
 - **Projektfrågor / inställningar** som styr builder: `project-settings-and-builder-questions.md` i arkivet.
 
 ## Meritmind / särskilda flöden
@@ -52,7 +52,7 @@ Om du letar efter domänspecifika byggflöden, se `meritmind-build-flows.md` i a
 
 *Gäller **allt** som genereras från prompt (egen motor): jämförelse mellan **tier‑1** `/api/preview-render` (snabb kompatibilitetsvy) och **Fidelity 2 / sandbox** (`next dev` i VM), som är **primär** previewväg när sandbox är konfigurerad och lyckas.*
 
-**Kontrakt (2026-03-30):** För own-engine returnerar chat- och versions-API `demoUrl: null` och sätter ev. shim i **`legacyShimPreviewUrl`**; byggaren väljer **sandbox-URL** vid versionsbyte och visar quality-tier «preview» först när **sandbox** finns, inte när bara shim finns.
+**Kontrakt (2026-03-30):** För own-engine returnerar chat- och versions-API `previewUrl: null` och sätter ev. shim i **`legacyShimPreviewUrl`**; `demoUrl` finns kvar bara i vissa legacy-/inboundlager. Byggaren väljer **sandbox-URL** vid versionsbyte och visar quality-tier «preview» först när **sandbox** finns, inte när bara shim finns.
 
 | # | Problemtyp | Kort beskrivning |
 |---|------------|------------------|

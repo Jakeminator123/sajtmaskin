@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
-import { getRecentPromptLogs } from "@/lib/db/services";
+import { getRecentPromptLogs } from "@/lib/db/services/prompt-logs";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdminAccess(req);

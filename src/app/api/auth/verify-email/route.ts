@@ -8,13 +8,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createTransaction, hasSignupBonusTransaction } from "@/lib/db/services/transactions";
 import {
-  createTransaction,
   getUserByVerificationToken,
-  hasSignupBonusTransaction,
   isAdminEmail,
   markEmailVerified,
-} from "@/lib/db/services";
+} from "@/lib/db/services/users";
 import { URLS } from "@/lib/config";
 
 const SIGNUP_BONUS_CREDITS = 50;

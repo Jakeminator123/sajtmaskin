@@ -22,7 +22,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getLatestVersion,
 }));
 
-vi.mock("@/lib/gen/preview", () => ({
+vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewUrl,
 }));
 

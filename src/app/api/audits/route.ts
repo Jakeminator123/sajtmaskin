@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getUserAudits, saveUserAudit, getUserAuditCount } from "@/lib/db/services";
+import { getUserAuditCount, getUserAudits, saveUserAudit } from "@/lib/db/services/audits";
 import { getCachedUserAuditList, cacheUserAuditList, cacheAudit } from "@/lib/data/redis";
 
 // Maximum audits per user (to prevent abuse)

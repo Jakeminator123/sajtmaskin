@@ -5,7 +5,7 @@ const { getProjectData, saveProjectData } = vi.hoisted(() => ({
   saveProjectData: vi.fn(),
 }));
 
-vi.mock("@/lib/db/services", () => ({
+vi.mock("@/lib/db/services/projects", () => ({
   getProjectData,
   saveProjectData,
 }));

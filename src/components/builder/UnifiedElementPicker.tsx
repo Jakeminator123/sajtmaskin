@@ -43,7 +43,7 @@ import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
 import type {
   ComponentCategory,
   ComponentItem,
-} from "@/lib/shadcn-registry-service";
+} from "@/lib/shadcn/registry-service";
 import {
   getBlocksByCategory,
   getComponentsByCategory,
@@ -54,7 +54,7 @@ import {
   buildRegistryItemUrl,
   buildPreviewImageUrl,
   FEATURED_BLOCKS,
-} from "@/lib/shadcn-registry-service";
+} from "@/lib/shadcn/registry-service";
 import {
   getRegistryBaseUrl,
   getRegistryStyle,

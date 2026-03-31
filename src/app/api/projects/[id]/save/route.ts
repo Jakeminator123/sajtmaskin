@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectByIdForOwner, getProjectData, saveProjectData } from "@/lib/db/services";
+import { getProjectByIdForOwner, getProjectData, saveProjectData } from "@/lib/db/services/projects";
 import { deleteCache } from "@/lib/data/redis";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";

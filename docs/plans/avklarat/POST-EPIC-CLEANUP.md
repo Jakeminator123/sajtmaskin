@@ -48,7 +48,7 @@ Följande **allmänna** `docs/`-ytor ändrades i leveransen (exakt diff: `git lo
 
 ## Eventuellt ta bort senare (parking lot — inte del av epikens scope)
 
-- [x] Shim-kod samlad under `src/lib/gen/preview/legacy/` (importer fortfarande via `@/lib/gen/preview`)
+- [x] Shim-kod samlad under `src/lib/gen/preview/legacy/` (importera `@/lib/gen/preview/legacy/compatibility-shim` eller `build-preview-document`; ingen barrel-`index` under `gen/preview`)
 - `/api/preview-render` och shim-kedjan — efter att telemetri visar att legacy-trafik är försumbar
 - Dubbla eller föråldrade planfiler (lita på git + `docs/plans/avklarat/`)
 - Döda helpervägar som grep/typcheck avslöjar

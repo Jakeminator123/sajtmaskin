@@ -1,5 +1,6 @@
 import path from "path";
-import { LocalFsProvider, VercelBlobProvider } from "@/lib/storage";
+import { LocalFsProvider } from "@/lib/storage/local-fs-provider";
+import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 import type { EmbeddingsFile } from "./template-embeddings-core";
 
 export type TemplateEmbeddingsStorageMode = "local" | "blob";

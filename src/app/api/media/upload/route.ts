@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import {
-  saveMediaLibraryItem,
   canUserUploadFile,
-  getMediaLibraryCounts,
   getMediaLibraryByUser,
-} from "@/lib/db/services";
+  getMediaLibraryCounts,
+  saveMediaLibraryItem,
+} from "@/lib/db/services/media";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 import { withRateLimit } from "@/lib/rateLimit";
 import { errorLog, warnLog } from "@/lib/utils/debug";

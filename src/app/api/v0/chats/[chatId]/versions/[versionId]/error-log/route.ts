@@ -5,7 +5,7 @@ import {
   createEngineVersionErrorLog,
   createEngineVersionErrorLogs,
   getEngineVersionErrorLogs,
-} from "@/lib/db/services";
+} from "@/lib/db/services/version-errors";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 

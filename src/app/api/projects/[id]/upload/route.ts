@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectByIdForOwner, saveImage } from "@/lib/db/services";
+import { getProjectByIdForOwner } from "@/lib/db/services/projects";
+import { saveImage } from "@/lib/db/services/media";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 

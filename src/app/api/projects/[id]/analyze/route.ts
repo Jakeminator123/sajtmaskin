@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getProjectData, getProjectByIdForOwner } from "@/lib/db/services";
+import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
 import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import OpenAI from "openai";
 
