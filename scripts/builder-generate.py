@@ -155,12 +155,10 @@ def stream_sse(
     resp = opener.open(req, timeout=None)
     try:
         dec_buf = ""
-        raw = b""
         while True:
             chunk = resp.read(4096)
             if not chunk:
                 break
-            raw += chunk
             dec_buf += chunk.decode("utf-8", errors="replace")
             events, dec_buf = parse_sse_blocks(dec_buf)
             for ev, data in events:
@@ -313,6 +311,7 @@ def run_once(base: str) -> None:
         "modelTier": model_tier,
         "buildIntent": build_intent,
         "scaffoldMode": scaffold_mode,
+        "appProjectId": project_id,
     }
     if scaffold_id:
         meta["scaffoldId"] = scaffold_id
