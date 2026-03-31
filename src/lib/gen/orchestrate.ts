@@ -88,8 +88,6 @@ export interface OrchestrationBase {
   scaffoldAndCapability: string;
 }
 
-export { type GenerationInputPackage } from "./generation-input-package";
-
 /**
  * Resolve scaffold, route plan, and contracts without building the full system prompt.
  * Use before a pre-generation contract gate so clarification does not pay for STATIC_CORE + KB.

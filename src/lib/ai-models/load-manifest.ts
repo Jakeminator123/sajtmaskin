@@ -187,5 +187,3 @@ export function getGeneratedSiteIntegrationPlaceholdersMeta():
   | undefined {
   return getAiModelsManifest().generatedSiteIntegrationPlaceholders;
 }
-
-export { buildProfileIdSchema, qualityLevelSchema };

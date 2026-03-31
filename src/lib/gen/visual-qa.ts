@@ -220,5 +220,3 @@ function checkSectionVariety(content?: string): VisualQACheckResult {
     detail: `${sections.length} sections, ${bgChanges.length} background variations.`,
   };
 }
-
-export { PASS_THRESHOLD, MAX_DESIGN_PATCH_ATTEMPTS };

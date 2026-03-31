@@ -127,6 +127,8 @@ Det finns inget exakt datum: **nöjd** = när [exit-kriterierna](#exit-kriterier
 
 Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *Kod / notis* så spåret syns ändå.
 
+**Varför %-värdet ofta “fastnar” kring hälften:** fem rutor tillhör **Fas D** (databas — körs sällan i samma svep som kodstäd), två är **exit** (DB-rad + flytta planfil), två **Fas A**-rutor är process/miljö (HEAD i PR, Postgres-URL), och **Fas B** har kvar duplicerad logik + legacy 0-reach som kräver egen verifiering. Många lyckade barrel-pass ger därför **fler loggradar** än **nya bockar** — det är väntat, inte att städspåret “stannat”.
+
 ### Pass-logg (före → efter varje pass)
 
 **Praktik:** Många zoner får ligga i **samma PR / samma agentkörning** — tabellen är *spårbarhet*, inte ett krav på “ett pass per rad”. Samla gärna flera barrel-flyttar + en `typecheck`/`test:ci` i ett svep.
@@ -179,6 +181,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (t) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen alias-export; `isDebugEnabled` kvar. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (u)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: skript-nav — delade `scripts/*.ts` utan tydlig README-pekare i översikten. |
 | **Efter** pass 2026-03-31 (u) | 2026-03-31 | 10/21   | 48%     | 52%    | Docs: `scripts/README.md` översikt pekar ut `template-library-discovery.ts` + `scaffold-candidate-report.ts` och vilka entrypoints som importerar dem. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (v)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: oanvända re-export-rader (ingen ny publik yta); Fas A massradering-HEAD som process i cursor-regel. |
+| **Efter** pass 2026-03-31 (v) | 2026-03-31 | 11/21   | 52%     | 48%    | Kod: borttagna döda `export { … }` i `orchestrate.ts` (`GenerationInputPackage`), `visual-qa.ts` (`PASS_THRESHOLD`, `MAX_DESIGN_PATCH_ATTEMPTS`), `load-manifest.ts` (`buildProfileIdSchema`, `qualityLevelSchema`) — inga externa importörer. Docs/process: `.cursor/rules/session-git-docs.mdc` — vid massradering, nämn `git rev-parse HEAD` i PR (länk STORDSTAD Fas A). Bock: Fas A ruta 3. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 
 ---
 
@@ -234,7 +238,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 
 - [x] `npm run typecheck`
 - [x] `npm run test:ci` (Vitest; motsvarar bred `vitest run` i CI-läge)
-- [ ] Notera nuvarande `git rev-parse HEAD` i PR-beskrivning om ni gör massradering
+- [x] Notera nuvarande `git rev-parse HEAD` i PR-beskrivning om ni gör massradering *(2026-03-31: process i [`.cursor/rules/session-git-docs.mdc`](../../../.cursor/rules/session-git-docs.mdc) — massradering / bred städ-PR)*
 - [ ] Bekräfta **vilken Postgres-URL** som gäller för nästa steg (lokal dev vs staging); **aldrig** anta prod utan explicit beslut
 
 **Insyn utan skrivning:** `npm run db:rows` (`[scripts/db-row-overview.mjs](../../../scripts/db-row-overview.mjs)`) — räknar rader per utvald tabell om `POSTGRES_URL` finns i `.env.local`. Används för att avgöra om legacy-tabeller är tomma innan städ; ersätter inte backup eller manuellt miljöbeslut (fas D).
@@ -288,7 +292,8 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 *(Räknas som “antecknat” för exit-rutan **Fas A–D genomförda eller nedprioriterade**.)*
 
 - **Fas D (Postgres-data):** Körs **inte** i barrel-pass; kräver backup, miljöbeslut och egen PR enligt [Fas D](#fas-d--databas-försiktig-synk--städ--ägs-explicit-här).
-- **Fas A (rutor 3–4):** Vid större massdiff: notera `git rev-parse HEAD` i **PR-beskrivning** (referens vid pass i: `436395ab98afba32d3aca00fb1af615cf0309e68`). Postgres-URL bekräftas alltid före schema/data-steg — uppdatera inte denna fil med rullande hash som “sanning”.
+- **Fas A ruta 3 (massradering HEAD):** Bockad 2026-03-31; process i `.cursor/rules/session-git-docs.mdc` (länk till denna plans Fas A).
+- **Fas A ruta 4 (Postgres-URL):** Bekräftas alltid före schema/data-steg — uppdatera inte denna fil med rullande `git rev-parse HEAD` som “sanning”; exempelreferens vid tidigare pass: `436395ab98afba32d3aca00fb1af615cf0309e68`.
 - **STORDSTAD-filens livscykel:** Så länge städspåret är aktivt ligger planen kvar i `active/`; när [exit nedan](#exit-kriterier-epiken-klar) är uppfyllt flyttas filen till `avklarat/` per befintlig katalogpolicy.
 
 ## Exit-kriterier (epiken klar)
