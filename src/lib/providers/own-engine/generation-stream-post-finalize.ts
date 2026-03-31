@@ -1,5 +1,6 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
+import type { BuildSpec } from "@/lib/gen/build-spec";
 import { shouldRunOwnEngineSandbox } from "@/lib/gen/own-engine-sandbox-gate";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
@@ -31,6 +32,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
   toolSignaledProviders: Set<string>;
   engineStartedAt: number;
   commitCredits: () => Promise<void>;
+  buildSpec: BuildSpec;
 }): Promise<void> {
   const {
     sse: { enc, safeEnqueue },
@@ -40,6 +42,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     toolSignaledProviders,
     engineStartedAt,
     commitCredits,
+    buildSpec,
   } = params;
 
   const newDetected = getUnsignaledDetectedIntegrations(
@@ -143,6 +146,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
       const sandboxResult = await startSandboxPreview(parsedForSandbox, {
         appProjectId,
         chatId,
+        previewPolicy: buildSpec.previewPolicy,
+        verificationPolicy: buildSpec.verificationPolicy,
         versionIdForSession: finalized.version.id,
         skipRepair: parsedFromFinalizeFilesJson,
       });

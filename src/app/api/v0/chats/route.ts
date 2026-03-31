@@ -225,6 +225,7 @@ export async function POST(req: Request) {
             componentPalette: extractPaletteStateFromMeta(meta),
             designThemePreset: extractDesignThemePresetFromMeta(meta),
             designReferences: summarizeDesignReferences(requestAttachments),
+            promptStrategyMeta: strategyMeta,
           });
           const ownSystemPrompt = ownOrchestration.engineSystemPrompt;
           dumpOwnEngineCodegenFromFullSystem(ownSystemPrompt, {

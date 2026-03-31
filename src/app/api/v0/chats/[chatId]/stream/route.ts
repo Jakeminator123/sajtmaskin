@@ -10,6 +10,7 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { FEATURES } from "@/lib/config";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import {
   canonicalModelIdToOwnModelId,
@@ -239,11 +240,15 @@ export async function handleMessageStreamRequest(
         }
 
         if (previousFiles.length > 0) {
+          const useLightFollowUpContext =
+            FEATURES.useFollowUpLightContext &&
+            !skipIntentClassification &&
+            followUpIntent !== "clear-redesign";
           const fileCtx = buildFileContext({
             files: previousFiles,
-            maxChars: 140_000,
+            maxChars: useLightFollowUpContext ? 24_000 : 140_000,
             includeContents: true,
-            maxFilesWithContent: 8,
+            maxFilesWithContent: useLightFollowUpContext ? 4 : 8,
           });
 
           if (skipIntentClassification) {
@@ -354,6 +359,7 @@ export async function handleMessageStreamRequest(
             designThemePreset: metaDesignThemePreset,
             designReferences,
             persistedScaffoldId,
+            promptStrategyMeta: promptOrchestration.strategyMeta,
           });
           const planResolvedScaffold = planOrchestration.resolvedScaffold;
           if (planResolvedScaffold && !persistedScaffoldId) {
@@ -402,6 +408,7 @@ export async function handleMessageStreamRequest(
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],
             thinking: resolvedThinking,
             promptStrategyMeta: promptOrchestration.strategyMeta,
+            buildSpec: planOrchestration.buildSpec,
             resolvedScaffold: planResolvedScaffold,
             scaffoldMode: metaScaffoldMode,
             persistAssistantSummary: async (planData, hasBlockers) => {
@@ -459,6 +466,7 @@ export async function handleMessageStreamRequest(
           persistedScaffoldId,
           contractAnswers: contractAnswerContext.confirmedAnswers,
           customInstructions: trimmedSystem || undefined,
+          promptStrategyMeta: promptOrchestration.strategyMeta,
         };
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
         const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
@@ -540,6 +548,7 @@ export async function handleMessageStreamRequest(
               resolvedImageGenerations,
               resolvedScaffold,
               strategyMeta: promptOrchestration.strategyMeta,
+              buildSpec: orchestrationBase.buildSpec,
               metaBriefApplied: Boolean(metaBrief),
               customInstructionsLength: trimmedSystem?.length ?? 0,
             }),
@@ -559,6 +568,7 @@ export async function handleMessageStreamRequest(
           scaffoldContext: orchestrationBase.scaffoldContext,
           routePlan: orchestrationBase.routePlan,
           preGenerationContracts: orchestrationBase.preGenerationContracts,
+          buildSpec: orchestrationBase.buildSpec,
           capabilityHints: orchestrationBase.scaffoldAndCapability,
         });
         dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
@@ -591,6 +601,7 @@ export async function handleMessageStreamRequest(
             resolvedImageGenerations,
             strategyMeta: promptOrchestration.strategyMeta,
             orchestrationBase,
+            buildSpec: orchestrationBase.buildSpec,
             engineSystemPromptLength: engineSystemPrompt.length,
             metaBriefApplied: Boolean(metaBrief),
             customInstructionsLength: trimmedSystem?.length ?? 0,
@@ -600,6 +611,7 @@ export async function handleMessageStreamRequest(
           engineModel,
           optimizedMessage,
           engineIntent,
+          buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,
           resolvedScaffold: resolvedScaffold ?? null,
           urlMap,

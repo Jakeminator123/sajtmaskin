@@ -9,6 +9,7 @@
 import { createHash } from "node:crypto";
 
 import type { OrchestrationBase, OrchestrationInput } from "./orchestrate";
+import type { BuildSpec } from "./build-spec";
 
 export interface GenerationInputPackage extends OrchestrationBase {
   /** User's original prompt text. */
@@ -37,6 +38,7 @@ export function computeLineageHash(pkg: {
   scaffoldContext: string | undefined;
   routePlan: unknown;
   preGenerationContracts: unknown;
+  buildSpec?: BuildSpec | null;
   capabilityHints: string;
 }): string {
   const h = createHash("sha256");
@@ -46,6 +48,7 @@ export function computeLineageHash(pkg: {
   h.update(pkg.scaffoldContext ?? "");
   h.update(JSON.stringify(pkg.routePlan ?? null));
   h.update(JSON.stringify(pkg.preGenerationContracts ?? null));
+  h.update(JSON.stringify(pkg.buildSpec ?? null));
   h.update(pkg.capabilityHints);
   return h.digest("hex");
 }
@@ -65,6 +68,7 @@ export function serializePackageForDump(
     scaffoldMode: pkg.scaffoldMode,
     scaffoldId: pkg.resolvedScaffold?.id ?? null,
     scaffoldFamily: pkg.resolvedScaffold?.family ?? null,
+    buildSpec: pkg.buildSpec,
     routePlan: pkg.routePlan,
     contracts: pkg.preGenerationContracts,
     capabilityHints: pkg.scaffoldAndCapability,

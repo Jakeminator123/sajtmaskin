@@ -6,6 +6,7 @@
  * needed so that callers never diverge in what signals reach the model.
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -42,6 +43,7 @@ import {
   computeLineageHash,
   serializePackageForDump,
 } from "./generation-input-package";
+import { deriveBuildSpec, type BuildSpec } from "./build-spec";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -76,6 +78,8 @@ export interface OrchestrationInput {
    * Default true. Used for offline CLI traces.
    */
   embeddingEnrichment?: boolean;
+  /** Optional prompt strategy metadata from builder orchestration. */
+  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
 }
 
 export interface OrchestrationBase {
@@ -84,6 +88,7 @@ export interface OrchestrationBase {
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
+  buildSpec: BuildSpec;
   /** Combined scaffold + capability hints string for dynamic context */
   scaffoldAndCapability: string;
 }
@@ -104,6 +109,8 @@ export async function resolveOrchestrationBase(
     persistedScaffoldId = null,
     contractAnswers = [],
     embeddingScaffoldMatch = true,
+    generationMode,
+    promptStrategyMeta = null,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
@@ -139,16 +146,6 @@ export async function resolveOrchestrationBase(
     }
   }
 
-  let scaffoldContext: string | undefined;
-  if (resolvedScaffold) {
-    const briefStyleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords)
-      ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords
-          ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
-      : undefined;
-    const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
-    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode);
-  }
-
   const capabilities = inferCapabilities(prompt);
   const capabilityHints = buildCapabilityHints(capabilities);
   const routePlan = buildRoutePlan({
@@ -164,6 +161,28 @@ export async function resolveOrchestrationBase(
     capabilities,
     contractAnswers,
   });
+  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
+  const buildSpec = deriveBuildSpec({
+    prompt,
+    buildIntent,
+    generationMode: resolvedMode,
+    resolvedScaffold,
+    routePlan,
+    preGenerationContracts,
+    promptStrategyMeta,
+  });
+  let scaffoldContext: string | undefined;
+  if (resolvedScaffold) {
+    const briefStyleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords)
+      ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords
+          ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
+      : undefined;
+    const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
+    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode, {
+      maxChars: buildSpec.tokenBudgets.scaffoldChars,
+      contextPolicy: buildSpec.contextPolicy,
+    });
+  }
 
   const scaffoldAndCapability = [scaffoldContext, capabilityHints]
     .filter(Boolean)
@@ -175,6 +194,7 @@ export async function resolveOrchestrationBase(
     routePlan,
     preGenerationContracts,
     capabilities,
+    buildSpec,
     scaffoldAndCapability,
   };
 }
@@ -215,6 +235,7 @@ export async function finalizeOrchestrationPrompts(
     componentPalette,
     designThemePreset,
     designReferences,
+    buildSpec: base.buildSpec,
     customInstructions,
     embeddingEnrichment,
     generationMode: resolvedMode,
@@ -251,6 +272,7 @@ export async function prepareGenerationContext(
     scaffoldContext: base.scaffoldContext,
     routePlan: base.routePlan,
     preGenerationContracts: base.preGenerationContracts,
+    buildSpec: base.buildSpec,
     capabilityHints,
   });
 
@@ -279,6 +301,9 @@ export async function prepareGenerationContext(
       buildIntent: input.buildIntent,
       scaffoldId: base.resolvedScaffold?.id ?? null,
       scaffoldFamily: base.resolvedScaffold?.family ?? null,
+      buildSpecChangeScope: base.buildSpec.changeScope,
+      buildSpecContextPolicy: base.buildSpec.contextPolicy,
+      buildSpecPreviewPolicy: base.buildSpec.previewPolicy,
       promptLength: input.prompt.length,
     },
   );

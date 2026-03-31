@@ -1,5 +1,6 @@
 import type { BuildProfileId, CanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { isBuildSpecEnabled, type BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { createSSEHeaders } from "@/lib/streaming";
 import { parsePlanResponse } from "@/lib/gen/plan-prompt";
@@ -27,6 +28,7 @@ export function createOwnEnginePlanModeResponse(params: {
   buildProfileLabel: string;
   thinking: boolean;
   promptStrategyMeta: PromptStrategyMetaLike;
+  buildSpec: BuildSpec;
   resolvedScaffold?: ScaffoldManifest | null;
   scaffoldMode: "auto" | "manual" | "off";
   persistAssistantSummary: (planData: PlanArtifact, hasBlockers: boolean) => Promise<void>;
@@ -48,6 +50,7 @@ export function createOwnEnginePlanModeResponse(params: {
     buildProfileLabel,
     thinking,
     promptStrategyMeta,
+    buildSpec,
     resolvedScaffold,
     scaffoldMode,
     persistAssistantSummary,
@@ -79,6 +82,8 @@ export function createOwnEnginePlanModeResponse(params: {
       promptReductionRatio: promptStrategyMeta.reductionRatio ?? null,
       promptStrategyReason: promptStrategyMeta.reason ?? null,
       promptComplexityScore: promptStrategyMeta.complexityScore ?? null,
+      buildSpecEnabled: isBuildSpecEnabled(),
+      buildSpec,
     },
     enrichPlanArtifact: (toolArgs) =>
       enrichPlanArtifactForReview(toolArgs, {

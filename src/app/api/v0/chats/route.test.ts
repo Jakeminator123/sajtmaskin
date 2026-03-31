@@ -185,6 +185,21 @@ describe("POST /api/v0/chats", () => {
     prepareGenerationContext.mockResolvedValue({
       engineSystemPrompt: "own-system-prompt",
       resolvedScaffold: null,
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldFamily: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: { scaffoldChars: 20000, refsChars: 8000, systemContextChars: 28000 },
+      },
     });
     getOpenAIModel.mockReturnValue("openai-model");
     streamText.mockReturnValue({

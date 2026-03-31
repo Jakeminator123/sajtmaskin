@@ -125,11 +125,30 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const appProjectId =
         typeof chat.project_id === "string" && chat.project_id.trim() ? chat.project_id.trim() : null;
+      const persistedBuildSpec =
+        chat.orchestration_snapshot &&
+        typeof chat.orchestration_snapshot === "object" &&
+        (chat.orchestration_snapshot as Record<string, unknown>).buildSpec &&
+        typeof (chat.orchestration_snapshot as Record<string, unknown>).buildSpec === "object"
+          ? ((chat.orchestration_snapshot as Record<string, unknown>).buildSpec as Record<string, unknown>)
+          : null;
+      const previewPolicy =
+        persistedBuildSpec?.previewPolicy === "fidelity2" || persistedBuildSpec?.previewPolicy === "fidelity3"
+          ? persistedBuildSpec.previewPolicy
+          : null;
+      const verificationPolicy =
+        persistedBuildSpec?.verificationPolicy === "fast" ||
+        persistedBuildSpec?.verificationPolicy === "standard" ||
+        persistedBuildSpec?.verificationPolicy === "strict"
+          ? persistedBuildSpec.verificationPolicy
+          : null;
 
       const started = await startSandboxPreview(files, {
         chatId,
         appProjectId,
         forceRestart: parsed.data.forceRestart === true,
+        previewPolicy,
+        verificationPolicy,
         versionIdForSession: versionRow.id,
         skipRepair: true,
       });

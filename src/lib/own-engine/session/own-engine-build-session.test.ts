@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
 import {
   buildOwnEngineGenerationStreamMeta,
@@ -17,6 +18,26 @@ const strategyMeta: PromptStrategyMeta = {
   phaseHints: [],
   complexityScore: 0,
   wasChanged: false,
+};
+
+const buildSpec: BuildSpec = {
+  buildIntent: "website",
+  generationMode: "init",
+  changeScope: "redesign",
+  scaffoldFamily: null,
+  routePlanSummary: "prompt:one-page:/",
+  stylePack: "brand-led",
+  qualityTarget: "standard",
+  previewPolicy: "fidelity2",
+  verificationPolicy: "standard",
+  contextPolicy: "normal",
+  referenceCategories: ["marketing-sites"],
+  forbiddenPatterns: ["leave_bracket_placeholders"],
+  tokenBudgets: {
+    scaffoldChars: 20_000,
+    refsChars: 8_000,
+    systemContextChars: 28_000,
+  },
 };
 
 function minimalOrchestrationBase(): OrchestrationBase {
@@ -46,6 +67,7 @@ function minimalOrchestrationBase(): OrchestrationBase {
       needsCarousel: false,
       needsPremiumVisuals: false,
     },
+    buildSpec,
     scaffoldAndCapability: "",
   };
 }
@@ -60,6 +82,7 @@ const common = {
   strategyMeta,
   orchestrationBase: minimalOrchestrationBase(),
   engineSystemPromptLength: 42,
+  buildSpec,
   metaBriefApplied: false,
   customInstructionsLength: 0,
   scaffoldId: "sc1",
@@ -91,6 +114,7 @@ describe("buildPreGenerationContractGateParams", () => {
       resolvedImageGenerations: true,
       resolvedScaffold: null,
       strategyMeta,
+      buildSpec,
       metaBriefApplied: false,
       customInstructionsLength: 0,
       chatPrivacy: "private",
@@ -119,6 +143,7 @@ describe("buildPreGenerationContractGateParams", () => {
       resolvedImageGenerations: true,
       resolvedScaffold: null,
       strategyMeta,
+      buildSpec,
       metaBriefApplied: false,
       customInstructionsLength: 0,
     });
@@ -140,6 +165,7 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
     expect(meta.scaffoldLabel).toBe("Label");
     expect(meta.enginePath).toBe("own-engine");
     expect(meta.contractDataMode).toBe("none");
+    expect(meta.buildSpec).toEqual(buildSpec);
   });
 
   it("omits chatPrivacy and scaffoldLabel for follow-up", () => {

@@ -49,10 +49,17 @@ describe("prependOrchestrationContinuityToFollowUp", () => {
       scaffoldId: "sc_1",
       buildIntent: "landing_page",
       lastVersionId: "ver_9",
+      buildSpec: {
+        changeScope: "local-layout",
+        contextPolicy: "light",
+        previewPolicy: "fidelity2",
+      },
     });
     expect(next).toContain("Continuity");
     expect(next).toContain("max");
     expect(next).toContain("landing_page");
+    expect(next).toContain("local-layout");
+    expect(next).toContain("light");
     expect(next).toContain("Change the hero");
   });
 

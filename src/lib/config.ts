@@ -373,6 +373,11 @@ export const AI = {
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
 
+  useBuildSpec: env.SAJTMASKIN_BUILD_SPEC_ENABLED !== "false",
+  useLightweightScaffoldSerialization:
+    env.SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION !== "false",
+  useFollowUpLightContext: env.SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT !== "false",
+
   useGoogleAuth: Boolean(SECRETS.googleClientId && SECRETS.googleClientSecret),
 
   useGitHubAuth: Boolean(SECRETS.githubClientId && SECRETS.githubClientSecret),

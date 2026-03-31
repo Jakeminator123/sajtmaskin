@@ -1,4 +1,8 @@
 import { Sandbox } from "@vercel/sandbox";
+import type {
+  BuildSpecPreviewPolicy,
+  BuildSpecVerificationPolicy,
+} from "@/lib/gen/build-spec";
 import { buildPreviewUrl } from "@/lib/gen/preview/build-preview-document";
 import {
   isUsableVercelOidcToken,
@@ -74,6 +78,16 @@ export function resolveSandboxPreviewModeFromEnv(): SandboxPreviewMode {
   const raw = process.env.SAJTMASKIN_SANDBOX_PREVIEW_MODE?.trim().toLowerCase().replace(/-/g, "_");
   if (raw && SANDBOX_PREVIEW_MODE_VALUES.has(raw as SandboxPreviewMode)) {
     return raw as SandboxPreviewMode;
+  }
+  return "dev_only";
+}
+
+export function resolveSandboxPreviewModeFromPolicies(params: {
+  previewPolicy?: BuildSpecPreviewPolicy | null;
+  verificationPolicy?: BuildSpecVerificationPolicy | null;
+}): SandboxPreviewMode {
+  if (params.previewPolicy === "fidelity3" || params.verificationPolicy === "strict") {
+    return "dev_then_build";
   }
   return "dev_only";
 }

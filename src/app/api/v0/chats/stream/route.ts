@@ -338,6 +338,7 @@ export async function POST(req: Request) {
             }
             return null;
           })(),
+          promptStrategyMeta: strategyMeta,
         });
 
         const { planPreamble, planSystemPrompt } = computePlanModePlannerPrompts(planOrchestration);
@@ -394,6 +395,7 @@ export async function POST(req: Request) {
           buildProfileLabel: MODEL_LABELS[resolvedModelTier],
           thinking: resolvedThinking,
           promptStrategyMeta: strategyMeta,
+          buildSpec: planOrchestration.buildSpec,
           resolvedScaffold: planOrchestration.resolvedScaffold,
           scaffoldMode: planScaffoldMode,
           onResolved: (planData, hasBlockers, accumulatedContent) => {
@@ -468,6 +470,7 @@ export async function POST(req: Request) {
           designThemePreset: metaDesignThemePreset,
           designReferences,
           customInstructions: trimmedSystemPrompt || undefined,
+          promptStrategyMeta: strategyMeta,
         };
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
         const {
@@ -551,6 +554,7 @@ export async function POST(req: Request) {
               resolvedImageGenerations,
               resolvedScaffold,
               strategyMeta,
+              buildSpec: orchestrationBase.buildSpec,
               metaBriefApplied: Boolean(metaBrief),
               customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
               chatPrivacy: resolvedChatPrivacy,
@@ -573,6 +577,7 @@ export async function POST(req: Request) {
           scaffoldContext: orchestrationBase.scaffoldContext,
           routePlan: orchestrationBase.routePlan,
           preGenerationContracts: orchestrationBase.preGenerationContracts,
+          buildSpec: orchestrationBase.buildSpec,
           capabilityHints: orchestrationBase.scaffoldAndCapability,
         });
         dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
@@ -624,6 +629,7 @@ export async function POST(req: Request) {
             resolvedImageGenerations,
             strategyMeta,
             orchestrationBase,
+            buildSpec: orchestrationBase.buildSpec,
             engineSystemPromptLength: engineSystemPrompt.length,
             metaBriefApplied: Boolean(metaBrief),
             customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
@@ -633,6 +639,7 @@ export async function POST(req: Request) {
           engineModel,
           optimizedMessage,
           engineIntent,
+          buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,
           resolvedScaffold: resolvedScaffold ?? null,
           lineageHash,

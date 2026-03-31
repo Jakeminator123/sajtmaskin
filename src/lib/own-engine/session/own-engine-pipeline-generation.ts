@@ -3,6 +3,7 @@
  * Kept separate from `own-engine-build-session.ts` so unit tests can import meta/contract helpers without loading `generation-stream` → DB-backed finalize chain.
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { PipelineOptions } from "@/lib/gen/generation-pipeline";
@@ -33,6 +34,7 @@ export type OwnEnginePipelineAndGenerationInput = {
   engineModel: string;
   optimizedMessage: string;
   engineIntent: BuildIntent;
+  buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: Record<string, string>;
@@ -68,6 +70,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     engineModel: input.engineModel,
     optimizedMessage: input.optimizedMessage,
     engineIntent: input.engineIntent,
+    buildSpec: input.buildSpec,
     routePlan: input.routePlan,
     resolvedScaffold: input.resolvedScaffold,
     urlMap: input.urlMap,

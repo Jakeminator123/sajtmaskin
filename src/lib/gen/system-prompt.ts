@@ -19,6 +19,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -184,6 +185,7 @@ export interface DynamicContextOptions {
   embeddingEnrichment?: boolean;
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
+  buildSpec?: BuildSpec | null;
 }
 
 function str(v: unknown): string {
@@ -241,10 +243,11 @@ async function rankTemplateReferences(
   originalPrompt: string,
   resolvedScaffold: ScaffoldManifest | null | undefined,
   useEmbeddingSearch = true,
+  topK = 6,
 ): Promise<RankedTemplateReference[]> {
   const promptMatches = useEmbeddingSearch
-    ? await searchTemplateLibrary(originalPrompt, 6)
-    : searchTemplateLibraryKeywordsOnly(originalPrompt, 6);
+    ? await searchTemplateLibrary(originalPrompt, topK)
+    : searchTemplateLibraryKeywordsOnly(originalPrompt, topK);
   const candidates = new Map<string, RankedTemplateReference>();
   const scaffoldLabel = resolvedScaffold?.label ?? "the selected scaffold";
 
@@ -309,9 +312,15 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     customInstructions,
     embeddingEnrichment = true,
     generationMode,
+    buildSpec,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
+  const useLightFollowUpContext =
+    isFollowUp &&
+    buildSpec?.contextPolicy === "light" &&
+    (buildSpec.changeScope === "copy" || buildSpec.changeScope === "local-layout");
+  const referenceBudget = buildSpec?.tokenBudgets.refsChars ?? 8_000;
 
   const parts: string[] = [];
 
@@ -616,7 +625,7 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
   }
 
   // ── Relevant Documentation (KB search + registry enrichment) ────────────
-  if (originalPrompt) {
+  if (originalPrompt && !useLightFollowUpContext) {
     const kbMatches = await searchKnowledgeBaseAsync({
       query: originalPrompt,
       maxResults: 7,
@@ -640,13 +649,17 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     }
   }
 
-  if (originalPrompt) {
+  if (originalPrompt && !useLightFollowUpContext) {
     const templateMatches = await rankTemplateReferences(
       originalPrompt,
       resolvedScaffold,
       embeddingEnrichment,
+      buildSpec?.contextPolicy === "heavy" ? 6 : 4,
     );
-    const usefulTemplateMatches = templateMatches.slice(0, 3);
+    const usefulTemplateMatches = templateMatches.slice(
+      0,
+      buildSpec?.contextPolicy === "heavy" ? 3 : 2,
+    );
     if (usefulTemplateMatches.length > 0) {
       parts.push("## Relevant Template References", "");
       for (const match of usefulTemplateMatches) {
@@ -671,7 +684,11 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
         .slice(0, 2)
         .map((match) => ({
           match,
-          files: selectTemplateReferenceFiles(match.entry),
+          files: selectTemplateReferenceFiles(match.entry, {
+            maxFiles: buildSpec?.contextPolicy === "heavy" ? 2 : 1,
+            maxExcerptChars: Math.max(1_500, Math.floor(referenceBudget / 2)),
+            maxTotalChars: referenceBudget,
+          }),
         }))
         .filter((item) => item.files.length > 0);
 
@@ -728,6 +745,7 @@ export interface BuildSystemPromptOptions {
   customInstructions?: string;
   embeddingEnrichment?: boolean;
   generationMode?: "init" | "followUp";
+  buildSpec?: BuildSpec | null;
 }
 
 /**
@@ -752,6 +770,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     componentPalette: options.componentPalette,
     designThemePreset: options.designThemePreset,
     designReferences: options.designReferences,
+    buildSpec: options.buildSpec,
     customInstructions: options.customInstructions,
     embeddingEnrichment: options.embeddingEnrichment,
     generationMode: options.generationMode,

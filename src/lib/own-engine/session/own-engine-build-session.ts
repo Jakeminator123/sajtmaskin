@@ -3,6 +3,7 @@
  * Routes keep auth, credits, and persistence; this module keeps generation SSE meta consistent.
  */
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import { isBuildSpecEnabled, type BuildSpec } from "@/lib/gen/build-spec";
 import type { ContractClarificationQuestion } from "@/lib/gen/contract-clarification";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
@@ -25,6 +26,7 @@ type OwnEngineContractGateCommon = {
   resolvedImageGenerations: boolean;
   resolvedScaffold: ScaffoldManifest | null;
   strategyMeta: PromptStrategyMeta;
+  buildSpec: BuildSpec;
   metaBriefApplied: boolean;
   customInstructionsLength: number;
 };
@@ -60,6 +62,7 @@ export function buildPreGenerationContractGateParams(
     resolvedImageGenerations,
     resolvedScaffold,
     strategyMeta,
+    buildSpec,
     metaBriefApplied,
     customInstructionsLength,
   } = input;
@@ -77,6 +80,7 @@ export function buildPreGenerationContractGateParams(
     resolvedImageGenerations,
     resolvedScaffold,
     strategyMeta,
+    buildSpec,
     metaBriefApplied,
     customInstructionsLength,
   };
@@ -102,6 +106,7 @@ export type OwnEngineGenerationStreamMetaInput = {
   resolvedImageGenerations: boolean;
   strategyMeta: PromptStrategyMeta;
   orchestrationBase: OrchestrationBase;
+  buildSpec: BuildSpec;
   engineSystemPromptLength: number;
   metaBriefApplied: boolean;
   customInstructionsLength: number;
@@ -146,6 +151,8 @@ export function buildOwnEngineGenerationStreamMeta(
     promptReductionRatio: sm.reductionRatio,
     promptStrategyReason: sm.reason,
     promptComplexityScore: sm.complexityScore,
+    buildSpecEnabled: isBuildSpecEnabled(),
+    buildSpec: input.buildSpec,
     systemPromptLength: input.engineSystemPromptLength,
     briefApplied: input.metaBriefApplied,
     customInstructionsLength: input.customInstructionsLength,

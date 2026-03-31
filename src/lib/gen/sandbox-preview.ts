@@ -1,4 +1,8 @@
 import type { CodeFile } from "./parser";
+import type {
+  BuildSpecPreviewPolicy,
+  BuildSpecVerificationPolicy,
+} from "./build-spec";
 import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox-env-local";
 import { buildCompleteProject } from "./project-scaffold";
 import { repairGeneratedFiles } from "./repair-generated-files";
@@ -9,6 +13,7 @@ import {
 } from "@/lib/gen/sandbox-session-store";
 import {
   createSandboxRuntimeFromFiles,
+  resolveSandboxPreviewModeFromPolicies,
   resolveSandboxPreviewModeFromEnv,
   SandboxReadinessTimeoutError,
   tryResumeSandboxById,
@@ -50,6 +55,8 @@ export type StartSandboxPreviewOptions = {
   appProjectId?: string | null;
   chatId?: string | null;
   previewMode?: SandboxPreviewMode;
+  previewPolicy?: BuildSpecPreviewPolicy | null;
+  verificationPolicy?: BuildSpecVerificationPolicy | null;
   /**
    * Ignore any resumable sandbox session and build a fresh VM.
    * Used when project env vars changed and the old sandbox would keep stale `.env.local`.
@@ -108,7 +115,15 @@ async function runStartSandboxPreview(
   generatedFiles: CodeFile[],
   options?: StartSandboxPreviewOptions,
 ): Promise<StartSandboxPreviewOutcome> {
-  const resolvedMode = options?.previewMode ?? resolveSandboxPreviewModeFromEnv();
+  const resolvedMode = options?.previewMode
+    ?? (
+      options?.previewPolicy || options?.verificationPolicy
+        ? resolveSandboxPreviewModeFromPolicies({
+            previewPolicy: options?.previewPolicy ?? null,
+            verificationPolicy: options?.verificationPolicy ?? null,
+          })
+        : resolveSandboxPreviewModeFromEnv()
+    );
   const verifyBuild = resolvedMode === "dev_then_build";
 
   const cid =

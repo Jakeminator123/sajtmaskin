@@ -97,12 +97,25 @@ export function prependOrchestrationContinuityToFollowUp(
   const scid = typeof snapshot.scaffoldId === "string" ? snapshot.scaffoldId : null;
   const lastV = typeof snapshot.lastVersionId === "string" ? snapshot.lastVersionId : null;
   const buildIntent = typeof snapshot.buildIntent === "string" ? snapshot.buildIntent : null;
+  const buildSpec =
+    snapshot.buildSpec && typeof snapshot.buildSpec === "object"
+      ? (snapshot.buildSpec as Record<string, unknown>)
+      : null;
   const lines: string[] = [];
   if (tier) lines.push(`- Previous model tier: ${tier}`);
   if (strat) lines.push(`- Previous prompt strategy: ${strat}`);
   if (scid) lines.push(`- Previous scaffold id: ${scid}`);
   if (buildIntent) lines.push(`- Previous build intent: ${buildIntent}`);
   if (lastV) lines.push(`- Last saved version id: ${lastV}`);
+  if (typeof buildSpec?.changeScope === "string") {
+    lines.push(`- Previous change scope: ${buildSpec.changeScope}`);
+  }
+  if (typeof buildSpec?.contextPolicy === "string") {
+    lines.push(`- Previous context policy: ${buildSpec.contextPolicy}`);
+  }
+  if (typeof buildSpec?.previewPolicy === "string") {
+    lines.push(`- Previous preview policy: ${buildSpec.previewPolicy}`);
+  }
   if (lines.length === 0) return message;
   return [
     "## Continuity (from previous generation)",

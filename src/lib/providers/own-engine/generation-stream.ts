@@ -5,6 +5,7 @@ import {
   EmptyGenerationError,
   type FinalizeResult,
 } from "@/lib/gen/stream/finalize-version";
+import type { BuildSpec } from "@/lib/gen/build-spec";
 import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
@@ -36,6 +37,7 @@ export interface GenerationStreamParams {
   engineModel: string;
   optimizedMessage: string;
   engineIntent: BuildIntent;
+  buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: UrlMap;
@@ -56,6 +58,7 @@ export function createOwnEngineGenerationStream(
     engineModel,
     optimizedMessage,
     engineIntent,
+    buildSpec,
     routePlan,
     resolvedScaffold,
     urlMap,
@@ -226,6 +229,7 @@ export function createOwnEngineGenerationStream(
           toolSignaledProviders,
           engineStartedAt,
           commitCredits,
+          buildSpec,
         });
       };
 
