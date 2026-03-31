@@ -8,7 +8,7 @@
  */
 
 import { type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 
 // ============================================================================
 // MESSAGE ROOT

@@ -34,7 +34,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 
 // Accepted file types
 const ACCEPTED_IMAGE_TYPES = [
