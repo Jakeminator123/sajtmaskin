@@ -80,6 +80,7 @@
 - **Preview / sandbox / deploy / stream** utöver ren docs- eller importstädning runt dem.
 - **`previewUrl` vs `demoUrl`** utöver att följa begreppsvakten.
 - **`src/lib/gen/*` med dynamiska importer eller svår reach**, särskilt där scaffold-, prompt- eller runtimekedjor blandas.
+- **LLM-/prompt-/orchestration-fokuserade worktrees eller pass:** om ytan mest handlar om promptning och modellkontext fram och tillbaka, är städ där **låg prio** i spår A; ta hellre en annan zon först.
 - **Env/policy, latent infra och DB-fas** (`file-logger`, `local-engine`, `SAJTMASKIN_LOG`, `env.ts`, `env-policy.json`, Postgres-steg).
 - **Allt under `src/lib/gen/scaffolds/*`** och angränsande kuraterat generationsmaterial.
 
@@ -162,6 +163,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (l) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen `src/lib/gen/preview/index.ts`; `buildPreviewHtml` / `buildSandboxFiles` / `buildPreviewUrl` i `build-preview-document.ts`; URL-helpers → `preview/legacy/compatibility-shim`; preflight-typer → `stream/preflight-contract`; sandbox API-typer → `preview-contract`. Interna grepp + Vitest-mocks uppdaterade; `legacy/README.md` beskriver nya sökvägar. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (m)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: `src/lib/templates/index.ts` som barrel för `template-data` + `template-catalog`. |
 | **Efter** pass 2026-03-31 (m) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen `src/lib/templates/index.ts`; fyra call sites → `template-data` / `template-catalog` direkt. `PROJECT-STATE` uppdaterad (importmönster). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (n)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: liten preview-helper-städning + skriv in regel att LLM-/prompt-worktrees kan lämnas ostädade i spår A. |
+| **Efter** pass 2026-03-31 (n) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: `sandbox-preview` re-exporterar inte längre `httpStatusForSandboxPreviewFailure`; sandbox-preview-route importerar nu helpern direkt från `sandbox-preview-errors`. Docs: “Förenklad körprofil” + handoff förtydligar att LLM-/prompt-/orchestration-tunga worktrees/pass får lämnas ostädade när spår A annars kan hållas renare. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 
 ---
 
@@ -175,6 +178,7 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 4. **`src/lib/gen/scaffolds/*`:** ingen massradering eller “städ” där i samma pass som repo-städ; vid minsta ändring: motivera + tester.
 5. **Arkiv:** när en *del* av planen är historisk (t.ex. avslutad delspår), flytta till `docs/plans/avklarat/` och uppdatera [`../README.md`](../README.md) — duplicera inte samma sanning i två aktiva filer.
 6. **Commit-bredd:** en logisk zon per commit när möjligt; separera `db/services`, preview och builder/API enligt [§ Commit-bredd och zoner](#commit-bredd-och-zoner-extern-review) — särskilt efter stora svep som `d554dea63c2fc3b36eb09d8e4361097d26caeff8`.
+7. **LLM-/prompt-worktrees:** om ett parallellt worktree/pass mest bär promptkedja, orchestration eller modellkontext, behöver spår A inte “städa ikapp” där; prioritera andra repo-zoner först.
 
 ### Särskild granskning före borttagning (inte “bara skräp”)
 
@@ -201,7 +205,7 @@ Kontext: Fas A baseline och delar av Fas B/C är påbörjade; pass-loggen visar 
 
 Gör så här:
 1. Läs AGENTS.md + docs/README.md (nav) och repo-tree.md om du behöver orientering.
-2. Arbeta zon-för-zon: grep/import-graph, ta bara bort det som är verifierat oanvänt; börja gärna med “Förenklad körprofil” (små barrels/root-shims/docs-nav) och undvik src/lib/gen/scaffolds/* och preview/deploy-pipelines i samma svep som massstäd.
+2. Arbeta zon-för-zon: grep/import-graph, ta bara bort det som är verifierat oanvänt; börja gärna med “Förenklad körprofil” (små barrels/root-shims/docs-nav) och undvik src/lib/gen/scaffolds/* och preview/deploy-pipelines i samma svep som massstäd. Om worktreet mest gäller LLM/prompt/orchestration: hoppa gärna över städ där och ta en annan zon.
 3. Håll nästa pass **smalt**: blanda inte db/services-, preview- och builder/API-zoner i samma commit om du kan undvika det (se § “Commit-bredd och zoner” i STORDSTAD).
 4. Om du tar bort filer under src/components/ui/, justera RUNTIME_LIBRARY_MINIMUMS i runtime-library-audit.ts medvetet i samma PR om CI kräver det.
 5. Efter ändringar: npm run typecheck && npm run test:ci; efter push ska GitHub CI bekräfta.
