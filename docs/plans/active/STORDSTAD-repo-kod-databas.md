@@ -123,7 +123,7 @@ Det finns inget exakt datum: **nöjd** = när [exit-kriterierna](#exit-kriterier
 - **% klart** = avrundat heltal: `round(100 × bockade / N)`.
 - **% kvar** = `100 − % klart`.
 
-**Viktigt:** %-värdet mäter **endast** hur många av de **21** checklistrutorna som är bockade — det är *inte* en proxy för “hur mycket kod som städats”. Faktisk barrel-/shim-flytt syns i [pass-loggen](#pass-logg-före--efter-varje-pass); när kodstäd motsvarar en färdig checklistpunkt (t.ex. nav eller döda exports-zon), ska motsvarande ruta bockas så att %-spårningen följer leveransen.
+**Viktigt:** %-värdet mäter **endast** hur många av de **21** checklistrutorna som är bockade — det är *inte* en proxy för “hur mycket kod som städats”. Ren dokumentationsstäd utan ny bock **ändrar inte** %-värdet (det är avsiktligt). Faktisk barrel-/shim-flytt syns i [pass-loggen](#pass-logg-före--efter-varje-pass); när kodstäd motsvarar en färdig checklistpunkt (t.ex. nav, döda exports-zon eller verifierad 0-reach), ska motsvarande ruta bockas så att %-spårningen följer leveransen.
 
 Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *Kod / notis* så spåret syns ändå.
 
@@ -207,6 +207,10 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (ag) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `agent-workflows.md` pekar på tillfällig “Aktiv spår B-batch” under STORDSTAD handoff (konkret fillista); spår A fortsätter i docs/env/ignore utan att röra den listan. Verifierat: endast markdown (ingen kodändring i detta pass). |
 | **Före** pass 2026-03-31 (ah)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: arkiv-länkar + skript-nav — `POST-EPIC-CLEANUP.md` använder fel `../`-djup mot `docs/`; `scripts/README` saknar next/predev/template-rader. |
 | **Efter** pass 2026-03-31 (ah) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `docs/plans/avklarat/POST-EPIC-CLEANUP.md` länkar till `docs/README`, `docs/architecture/*`, `archive/`, `handoffs/`, `notes/`, `old/` med `../../…` från `avklarat/`; `scripts/README.md` ny § *Next / dev-server* + v0-template-skript. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Spår B-filer orörda. |
+| **Före** pass 2026-03-31 (ai)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: 0-reach moduler utanför spår B — knip + grep pekar på orphan-filer; %-mätaren står still om bara docs ändras. |
+| **Efter** pass 2026-03-31 (ai) | 2026-03-31 | 12/21   | 57%     | 43%    | Kod: bort `src/lib/backoffice/types.ts`, `src/lib/db/services/domains.ts` (inga importörer). Bock: Fas B *Legacy 0-reach*. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. `src/lib/gen/scaffolds/*` orört. |
+| **Före** pass 2026-03-31 (aj)  | 2026-03-31 | 12/21   | 57%     | 43%    | Zon: handoff — tillfällig “Aktiv spår B-batch” fanns kvar trots att finalize/post-finalize redan har commits på `master`. |
+| **Efter** pass 2026-03-31 (aj) | 2026-03-31 | 12/21   | 57%     | 43%    | Docs: borttagen “Aktiv spår B-batch” från § Handoff nedan och från `docs/contributing/agent-workflows.md`. Verifierat: `npm run typecheck` + `npm run test:ci` grönt (samma kodbas som pass ai). |
 
 ---
 
@@ -221,7 +225,6 @@ Tidigare sidospår för LLM-pipeline och STORDSTAD-städ är nu mergade till `ma
 - **När spår B inte kör samtidigt:** smala kodstädpass kan åter ta `src/lib/hooks/chat/`, `env*` och `config.ts` enligt [Förenklad körprofil](#förenklad-körprofil-aktiv-tills-vidare) och pass-loggen — fortfarande utan `src/lib/gen/scaffolds/*` och utan bred preview/deploy/DB i samma svep.
 - **Zoner jag inte tänker bredröra utan separat scope:** `src/lib/gen/scaffolds/*`, stora preview/deploy-/builder-pipelines och DB-fas.
 - **Parallell agent (spår B):** kan köra på `master` samtidigt som spår A när konfliktzonlistan följs — se [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md) § *Flera agenter*.
-- **Aktiv spår B-batch (checkpoint — ta bort hela denna punkt när committat/pushat på `master`):** spår A ska **inte** redigera, `git add` eller committa: `src/lib/gen/stream/finalize-version.ts`, `src/lib/providers/own-engine/generation-stream-post-finalize.ts`, `src/lib/providers/own-engine/generation-stream-post-finalize.test.ts`. Spår B äger den checkpointen.
 
 ### Cursor: var du arbetar (en git-root åt gången)
 
@@ -298,7 +301,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 
 - [x] Döda exports / oanvända filer — **små barrels & root-shims** *(2026-03-31: zonpass enligt [pass-logg](#pass-logg-före--efter-varje-pass) (a)–(h), (i)–(j), bulk (k) (`db/services` + shim `db/services.ts`), (l) (`gen/preview/index` bort), (m) (`lib/templates/index` bort): rena re-export-barrels bort; kvar under samma rubrik: bredare oanvända helpers, `src/components/ui/`-tröskel-justeringar, större refaktorer — se [Två spår](#två-spår-viktigt--blanda-inte-ihop).)*
 - [ ] Duplicerade helpers: slå ihop endast när tester finns eller beteende är trivialt identiskt
-- [ ] Legacy-grenar som grep/typecheck visar som 0-reach (dokumentera i commit *vad* som togs bort)
+- [x] Legacy-grenar som grep/typecheck visar som 0-reach (dokumentera i commit *vad* som togs bort) *(2026-03-31: pass ai — bort `src/lib/backoffice/types.ts` (inga importörer; delvis dubblett mot `template-generator`); bort `src/lib/db/services/domains.ts` (inga importörer av `saveDomainOrder`/`updateDomainOrderStatus`; tabell `domain_orders` + typer i `shared.ts` + admin wipe kvar.)*
 - [x] Uppdatera [`docs/architecture/repo-tree.md`](../../architecture/repo-tree.md) när toppnivåmappar försvinner eller byter roll *(2026-03-31: `ai-elements` per-fil + DB-zon beskriver `db/services/*` utan barrel; inga rotmappar borttagna)*
 
 ---
@@ -348,7 +351,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ah)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass aj)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)
