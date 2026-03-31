@@ -3,7 +3,7 @@
 **En fil** = operativ sanning för *vad som är kvar*, *hur vi tänker*, och *var kod/docs finns*. Uppdatera här när du levererar eller stänger en rad.  
 **Verifiering efter kod:** `npm run typecheck` && `npx vitest run` · valfritt deploy-smoke: `e2e/README.md`.
 
-**Senast:** 2026-03-30 · **Gamla planhandoff:ar / %-historik:** `git log`, `docs/plans/avklarat/README.md` · *LLM-pipeline runbook (Del B) ligger arkiverad under [`avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md).*
+**Senast:** 2026-03-31 · **Gamla planhandoff:ar / %-historik:** `git log`, `docs/plans/avklarat/README.md` · *LLM-pipeline runbook (Del B) ligger arkiverad under [`avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md).*
 
 ---
 
@@ -118,6 +118,25 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 
 **LLM-pipeline (runbook Del B):** **Stängd** 2026-03-30 (B1–B4), dokument i [`avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](../avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md). Kod/detaljer: [`builder-generation.md`](../../architecture/builder-generation.md), `finalize-pipeline-contract.ts`, `builder-stream-contract.ts`.
 
+### 9.1 LLM Pipeline Lift (ursprungsplan) — kvarvarande utan scaffold-spåret
+
+Status mot den ursprungliga 6-fasplanen (`.cursor/plans/llm_pipeline_lift_c393f886.plan.md`), med användarens önskemål att hantera scaffold-spåret separat:
+
+| Fas | Fokus | Status |
+|-----|-------|--------|
+| Fas 1 | BuildSpec som styrlager | [x] Levererad |
+| Fas 2 | Promptbudgetering / lättare follow-up-kontext | [x] Levererad |
+| Fas 3 | Dossier/runtime-rubric + taxonomy-drift | delvis [x] (runtime guidance + validering), kvar: full verifiering av produktutfall |
+| Fas 4 | Separat `qualityTarget` / `previewPolicy` / `verificationPolicy` | delvis [x] (policyobjekt i drift), kvar: skarpa trösklar och mätning mot latency/kvalitet |
+| Fas 5 | Finalize fast/deep path med explicit kontrakt | [x] Levererad |
+| Fas 6 | Cleanup + produktnära acceptans/verifiering | [ ] Kvar |
+
+Praktiskt kvar i LLM-spåret (utan scaffold-omtag) bedöms till cirka **25–35%** och ligger främst i:
+
+- mätbar time-to-first-preview och repair-rate per policyläge
+- produktnära kvalitetsacceptans (init + follow-up, visuellt premiumutfall)
+- kvarvarande K-019-polish som påverkar kontinuitet/UX i fler flöden
+
 ---
 
 ## 10. Beslut att minnas
@@ -152,3 +171,56 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 - Nav i `docs/`: [`docs/README.md`](../../README.md)  
 - Preview / sandbox (kanon): [`docs/architecture/preview-deploy.md`](../../architecture/preview-deploy.md)  
 - Agentflöden: [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md)
+
+---
+
+## 13. Scaffold-harmonisering (10 runtime-scaffolds, agent-spec)
+
+Detta är den operativa specen för nästa varv. Syftet är att höja kvaliteten i den faktiska runtime-ytan innan ny intake från externa mallar.
+
+### 13.1 Prioritet och ordning
+
+1. Skärp rollgränser i runtime: `landing-page` vs `content-site`, `dashboard` vs `app-shell`.
+2. Synka claim vs filbas: särskilt `ecommerce`.
+3. Lägg till interna scaffold-dossiers (generationsbrief) per scaffold.
+4. Kör extern intake (`hamta_sidor_branch_emil.py`) först efter att dossier-formatet är satt.
+
+### 13.2 Checklista per scaffold
+
+| Scaffold | Behåll | Justera nu |
+|----------|--------|------------|
+| `base-nextjs` | Minimal App Router-bas | Markera tydligt som fallback/scaffold-of-last-resort i promptning och urval |
+| `landing-page` | Stark konverteringsrytm | Lägg till style-modes + rikare section-recipes; minska överlapp mot `content-site` |
+| `saas-landing` | Produktledd struktur (hero/proof/pricing/FAQ) | Fler visuella lägen, mindre "default SaaS-blå" |
+| `portfolio` | Bra personlig/creative-bas | Lägg till tydlig case-study-vokabulär och varianter för image/editorial/studio |
+| `blog` | Starkast strukturellt (`/blog`, `/blog/[slug]`) | Lägg till taxonomi/author/newsletter/related-posts |
+| `dashboard` | Tydlig analytics-intent | Äg metrics/charts/tables/filter-density; separera från `app-shell` |
+| `auth-pages` | Full authflow (`login/signup/forgot`) | Lägg till OAuth/passkey/statusytor (error/success/verify) |
+| `ecommerce` | Bra intention/checklist | Synka beskrivning mot faktiska filer; lägg till verklig product/cart/checkout-bas |
+| `content-site` | Flexibel content-bas | Smalna av rollen till content-first site; inte "catch-all landing" |
+| `app-shell` | Återanvändbar app-shell | Äg workspace/settings/billing/team-nav; lämna analytics-heavy till `dashboard` |
+
+### 13.3 Dossier-policy (internt + externt)
+
+- Externa dossiers behålls som research (`reference-library`) men ska klassas tydligt:
+  - `structure-reference`
+  - `style-reference`
+  - `stack-mismatch` (får inte styra komponentnivå)
+- Internt scaffold-dossier-format ska vara primär runtime-styrning och innehålla:
+  - `designIntent`, `bestFor`, `notFor`
+  - `styleModes`, `sectionRecipes`, `componentAllowlist`
+  - `interactionRecipes`, `antiPatterns`, `requiredOutcomes`
+- Promotion-regel: inga nya runtime-signalvärden utan att scaffold-taxonomi och runtime-guidance validerar dem.
+
+### 13.4 Intake från Vercel templates (när 13.2/13.3 är satta)
+
+`scripts/hamta_sidor_branch_emil.py` används som intake-verktyg, inte som direkt runtime-källa.
+
+Rekommenderad körning:
+
+1. metadata-only först (`--skip-download`) för brusfri triage
+2. normalisering via `scripts/import-template-discovery.ts`
+3. kurering/build via `scripts/build-template-library.ts`
+4. först därefter ev. repo-hydrering för shortlist
+
+Kärnprincip: förbättra alltid befintliga 10 runtime-scaffolds före bred ny hämtning.
