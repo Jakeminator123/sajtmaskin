@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PreviewPanel } from "./preview-panel";
+import { PreviewPanel } from "./preview-panel/PreviewPanel";
 
 vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
   useIntegrationStatus: () => ({

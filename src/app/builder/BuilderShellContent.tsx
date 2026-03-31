@@ -9,7 +9,7 @@ import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/com
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
-import { PreviewPanel } from "@/components/builder/preview-panel";
+import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
 import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
