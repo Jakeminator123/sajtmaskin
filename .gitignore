@@ -60,6 +60,9 @@ archive/scripts-labs-testning_scarf/output_first_llm_underlag/
 # Legacy (före samlad output-mapp)
 scripts/output_test_scaffold/
 
+# scripts/builder-generate.py — lokala jämförelsekörningar
+output/generations/
+
 # Local generated reports (recreate from scripts when needed)
 data/scaffold-candidates-curated.json
 
