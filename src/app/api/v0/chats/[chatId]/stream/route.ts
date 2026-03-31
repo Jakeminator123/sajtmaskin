@@ -339,6 +339,12 @@ export async function handleMessageStreamRequest(
           }
         };
 
+        const persistedScaffoldId = engineChat.scaffold_id;
+        const ignorePersistedScaffoldForMatch =
+          previousFiles.length > 0 &&
+          followUpIntent === "clear-redesign" &&
+          metaScaffoldMode === "auto";
+
         if (metaPlanMode) {
           await chatRepo.addMessage(engineChat.id, "user", message);
 
@@ -348,7 +354,6 @@ export async function handleMessageStreamRequest(
             metaBuildIntent === "app"
               ? (metaBuildIntent as BuildIntent)
               : "website";
-          const persistedScaffoldId = engineChat.scaffold_id;
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
             buildIntent: planEngineIntent,
@@ -361,10 +366,15 @@ export async function handleMessageStreamRequest(
             designThemePreset: metaDesignThemePreset,
             designReferences,
             persistedScaffoldId,
+            generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
+            ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
           });
           const planResolvedScaffold = planOrchestration.resolvedScaffold;
-          if (planResolvedScaffold && !persistedScaffoldId) {
+          if (
+            planResolvedScaffold &&
+            (!persistedScaffoldId || ignorePersistedScaffoldForMatch)
+          ) {
             try {
               await chatRepo.updateChatScaffoldId(chatId, planResolvedScaffold.id);
             } catch {
@@ -452,11 +462,6 @@ export async function handleMessageStreamRequest(
           metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
-        const persistedScaffoldId = engineChat.scaffold_id;
-        const ignorePersistedScaffoldForMatch =
-          previousFiles.length > 0 &&
-          followUpIntent === "clear-redesign" &&
-          metaScaffoldMode === "auto";
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
         const orchestrationInput = {
           prompt: optimizedMessage,

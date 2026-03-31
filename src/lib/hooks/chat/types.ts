@@ -28,6 +28,8 @@ export type MessageOptions = {
   promptSourceMeta?: PromptSourceMeta;
   scaffoldModeOverride?: ScaffoldMode;
   scaffoldIdOverride?: string | null;
+  /** Override the follow-up base version instead of using current builder selection. */
+  engineBaseVersionIdOverride?: string | null;
 };
 
 export type CreateChatLock = {

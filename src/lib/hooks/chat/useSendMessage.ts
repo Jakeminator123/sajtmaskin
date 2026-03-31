@@ -238,7 +238,10 @@ export function useSendMessage(
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
         }
-        const trimmedVersionId = activeVersionId?.trim();
+        const trimmedVersionId =
+          typeof options.engineBaseVersionIdOverride === "string"
+            ? options.engineBaseVersionIdOverride.trim()
+            : activeVersionId?.trim();
         if (trimmedVersionId) {
           promptMeta.engineBaseVersionId = trimmedVersionId;
         }

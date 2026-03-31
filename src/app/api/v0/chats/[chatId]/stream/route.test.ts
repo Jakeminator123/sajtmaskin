@@ -409,6 +409,39 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     });
   });
 
+  it("passes engineBaseVersionId from meta into follow-up base resolution", async () => {
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          engineBaseVersionId: "ver_selected",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/v0/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Kan du förbättra den lite?",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveFollowUpPreviousFiles).toHaveBeenCalledWith("chat_1", "ver_selected");
+  });
+
   it("still persists the assistant clarification when user message persistence fails", async () => {
     addMessage
       .mockRejectedValueOnce(new Error("write user failed"))

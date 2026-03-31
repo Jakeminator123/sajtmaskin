@@ -50,6 +50,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 |--------|-----|-------------------------|
 | Kanoniska filer | Sandbox bygger från **`filesJson`** efter finalize, inte primärt `contentForVersion` | `generation-stream.ts`, `sandbox-preview/route.ts` |
 | Follow-up underlag | `engine_versions.files_json` via `meta.engineBaseVersionId` (builder) eller annars **preferred** version | `[chatId]/stream/route.ts`, `resolveFollowUpPreviousFiles` i `version-manager.ts`, `useSendMessage.ts` |
+| Autofix / retry-bas | Klientautofix som skickar en reparationsprompt pinnas till **den felande versionen** via `engineBaseVersionId`, så retry inte hoppar till en annan vald version i buildern | `useAutoFix.ts`, `useSendMessage.ts`, `[chatId]/stream/route.ts` |
 | `previewBlocked` | Betyder att ingen previewyta kan exponeras för versionen; shimfel ensamt ska inte längre stoppa tier-2 | `own-engine-sandbox-gate.ts`, `generation-stream.ts` |
 | Readiness | HTTP-probe efter `npm run dev` (2xx + dokumentlik `Content-Type`) | `runtime-url.ts` (`waitForSandboxDevServerReady`) |
 | Sandbox-only | Publika `done`-/GET-svar har `previewUrl: null` medan `sandboxPending` kan vara true; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` | `generation-stream.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |

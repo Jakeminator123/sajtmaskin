@@ -390,14 +390,16 @@ export function useAutoFix(
             if (pendingPayloadKeyRef.current !== reasonKey) return;
             if (!(await isLatestVersionPayload(payload))) return;
             pendingPayloadKeyRef.current = null;
+            const messageOptions: MessageOptions = {
+              engineBaseVersionIdOverride: payload.versionId,
+            };
+            if (retryScaffoldId) {
+              messageOptions.scaffoldModeOverride = "manual";
+              messageOptions.scaffoldIdOverride = retryScaffoldId;
+            }
             await sendMessage(
               prompt,
-              retryScaffoldId
-                ? {
-                    scaffoldModeOverride: "manual",
-                    scaffoldIdOverride: retryScaffoldId,
-                  }
-                : undefined,
+              messageOptions,
             );
           })();
         }, delayMs);
