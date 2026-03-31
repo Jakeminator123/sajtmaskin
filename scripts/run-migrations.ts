@@ -2,6 +2,7 @@ import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { Pool } from "pg";
 import { config } from "dotenv";
+import { assertSafeWriteTarget } from "./db-target-guard.mjs";
 
 config({ path: ".env.local" });
 
@@ -17,7 +18,16 @@ function resolveConnectionString(): string {
   return url;
 }
 
+function resolveSsl() {
+  const raw = process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase();
+  if (raw === "false") {
+    return { rejectUnauthorized: false };
+  }
+  return { rejectUnauthorized: true };
+}
+
 async function main() {
+  assertSafeWriteTarget({ commandName: "db:migrate", env: process.env });
   const connStr = resolveConnectionString();
   const cleanUrl = (() => {
     try {
@@ -31,7 +41,7 @@ async function main() {
   })();
   const pool = new Pool({
     connectionString: cleanUrl,
-    ssl: { rejectUnauthorized: false },
+    ssl: resolveSsl(),
   });
 
   try {

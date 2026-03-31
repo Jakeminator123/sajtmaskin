@@ -65,7 +65,7 @@
     "eval:gate": "npx tsx src/lib/gen/eval/cli.ts --gate",
     "eval:baseline": "npx tsx src/lib/gen/eval/cli.ts --save-baseline",
     "db:migrate": "npx tsx scripts/run-migrations.ts",
-    "db:push": "npx drizzle-kit push",
+    "db:push": "node scripts/db-push.mjs",
     "db:generate": "npx drizzle-kit generate",
     "codegen:split-static-prompt": "node scripts/split-codegen-static-prompt.mjs",
     "mirror:audit": "node scripts/audit-shadcn-mirror-repos.mjs",

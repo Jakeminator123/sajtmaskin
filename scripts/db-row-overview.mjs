@@ -9,23 +9,21 @@
  */
 import { config } from "dotenv";
 import pg from "pg";
+import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
 
 config({ path: ".env.local" });
+warnIfProdLikeReadTarget({ commandName: "db:rows" });
 
 const allowInsecureSsl = process.argv.includes("--allow-insecure-ssl");
 
-function normalizeEnvUrl(value) {
-  if (!value) return undefined;
-  const t = String(value).trim();
-  if (!t) return undefined;
-  if (/^\$\{[A-Z0-9_]+\}$/.test(t)) return undefined;
-  if (/^\$[A-Z0-9_]+$/.test(t)) return undefined;
-  return t;
-}
-
-const cs = normalizeEnvUrl(process.env.POSTGRES_URL);
+const cs = normalizeEnvUrl(
+  process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.DATABASE_URL,
+);
 if (!cs) {
-  console.error("POSTGRES_URL saknas (.env.local).");
+  console.error("Databas-URL saknas (.env.local / pulled env).");
   process.exit(1);
 }
 
@@ -47,6 +45,9 @@ const TABLES = [
   "engine_messages",
   "engine_versions",
   "engine_generation_logs",
+  "generation_telemetry",
+  "version_comments",
+  "version_approvals",
   "app_projects",
   "project_data",
   "project_files",

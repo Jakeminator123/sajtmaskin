@@ -66,12 +66,15 @@ Tidigare i repo-roten; nu under `scripts/env/`. Tunna root-wrappers finns kvar o
 | `scripts/env/model_trace_overlay.py` | Synkar GUI-modell-envs i `.env.local` + öppnar trace-overlay |
 | `scripts/env/check_env.py` | Bakåtkompatibel wrapper som kör `manage_env.py audit` |
 
-### Databas (lokal sanity)
+### Databas (lokal sanity + sync)
 
 | npm-script | Entry |
 |------------|--------|
-| `npm run db:check` | [`scripts/check-dev-db.mjs`](check-dev-db.mjs) — läser `POSTGRES_URL` från `.env.local`, enkel anslutningskoll (ej CI). Valfri flagga `--allow-insecure-ssl`. |
-| `npm run db:rows` | [`scripts/db-row-overview.mjs`](db-row-overview.mjs) — read-only: `COUNT(*)` per utvald tabell (own-engine + app + legacy). Samma env som `db:check`. |
+| `npm run db:init` | [`scripts/db-init.mjs`](db-init.mjs) — bootstrapar bas-tabeller + applicerar SQL-migrationer. **Skrivande**: vägrar mot prod-lik target om `.env.local` matchar `.env.vercel.production.pulled`, om inte `DB_ALLOW_PROD_LIKE_WRITE=1` satts. |
+| `npm run db:migrate` | [`scripts/run-migrations.ts`](run-migrations.ts) — kör SQL-filer i `src/lib/db/migrations/`. **Skrivande**: samma prod-lik guard som `db:init`. |
+| `npm run db:push` | [`scripts/db-push.mjs`](db-push.mjs) — guardad wrapper runt `drizzle-kit push`. **Skrivande**: samma prod-lik guard som `db:init`. |
+| `npm run db:check` | [`scripts/check-dev-db.mjs`](check-dev-db.mjs) — read-only sanity-koll av kärntabeller; varnar om targeten ser prod-lik ut. Valfri flagga `--allow-insecure-ssl`. |
+| `npm run db:rows` | [`scripts/db-row-overview.mjs`](db-row-overview.mjs) — read-only: `COUNT(*)` per utvald tabell (own-engine + app + legacy); varnar om targeten ser prod-lik ut. Samma env som `db:check`. |
 
 ## sync-scaffold-refs.mjs
 

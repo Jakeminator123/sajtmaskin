@@ -1,23 +1,23 @@
+import { readdir, readFile } from "fs/promises";
+import { join } from "path";
 import { Pool } from "pg";
 import { config } from "dotenv";
+import { assertSafeWriteTarget, normalizeEnvUrl } from "./db-target-guard.mjs";
 
-// Load .env.local for local development
 config({ path: ".env.local" });
 
-function normalizeEnvUrl(value) {
-  if (!value) return undefined;
-  const trimmed = String(value).trim();
-  if (!trimmed) return undefined;
-  if (/^\$\{[A-Z0-9_]+\}$/.test(trimmed)) return undefined;
-  if (/^\$[A-Z0-9_]+$/.test(trimmed)) return undefined;
-  return trimmed;
-}
+assertSafeWriteTarget({ commandName: "db:init" });
 
-const connectionString = normalizeEnvUrl(process.env.POSTGRES_URL);
+const connectionString = normalizeEnvUrl(
+  process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.DATABASE_URL,
+);
 
 if (!connectionString) {
   console.error("Missing database connection URL.");
-  console.error("Set POSTGRES_URL.");
+  console.error("Set POSTGRES_URL or POSTGRES_URL_NON_POOLING.");
   process.exit(1);
 }
 
@@ -34,6 +34,7 @@ const pool = new Pool({
       process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
   },
 });
+const MIGRATIONS_DIR = join(process.cwd(), "src/lib/db/migrations");
 
 const setupQueries = [
   `CREATE TABLE IF NOT EXISTS projects (
@@ -494,6 +495,8 @@ const updatedAtTriggers = [
   `CREATE TRIGGER set_updated_at_project_data BEFORE UPDATE ON project_data FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
   `DROP TRIGGER IF EXISTS set_updated_at_user_integrations ON user_integrations`,
   `CREATE TRIGGER set_updated_at_user_integrations BEFORE UPDATE ON user_integrations FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
+  `DROP TRIGGER IF EXISTS set_updated_at_version_comments ON version_comments`,
+  `CREATE TRIGGER set_updated_at_version_comments BEFORE UPDATE ON version_comments FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
 ];
 
 const guestUsageRepairQueries = [
@@ -577,7 +580,21 @@ const ALL_TABLES = [
   "engine_versions",
   "engine_generation_logs",
   "engine_version_error_logs",
+  "generation_telemetry",
+  "version_comments",
+  "version_approvals",
 ];
+
+async function applySqlMigrations() {
+  const files = (await readdir(MIGRATIONS_DIR))
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
+
+  for (const file of files) {
+    const sql = await readFile(join(MIGRATIONS_DIR, file), "utf-8");
+    await pool.query(sql);
+  }
+}
 
 function buildRlsQueries() {
   const queries = [];
@@ -605,6 +622,7 @@ async function run() {
     for (const q of setupQueries) await pool.query(q);
     for (const q of schemaQueries) await pool.query(q);
     for (const q of cascadeQueries) await pool.query(q);
+    await applySqlMigrations();
     await pool.query(updatedAtFunction);
     for (const q of updatedAtTriggers) await pool.query(q);
 

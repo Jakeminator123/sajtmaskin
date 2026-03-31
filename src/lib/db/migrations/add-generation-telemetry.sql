@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS generation_telemetry (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_gen_telemetry_chat ON generation_telemetry(chat_id);
-CREATE INDEX idx_gen_telemetry_version ON generation_telemetry(version_id);
-CREATE INDEX idx_gen_telemetry_scaffold ON generation_telemetry(scaffold_id);
-CREATE INDEX idx_gen_telemetry_created ON generation_telemetry(created_at);
+CREATE INDEX IF NOT EXISTS idx_gen_telemetry_chat ON generation_telemetry(chat_id);
+CREATE INDEX IF NOT EXISTS idx_gen_telemetry_version ON generation_telemetry(version_id);
+CREATE INDEX IF NOT EXISTS idx_gen_telemetry_scaffold ON generation_telemetry(scaffold_id);
+CREATE INDEX IF NOT EXISTS idx_gen_telemetry_created ON generation_telemetry(created_at);

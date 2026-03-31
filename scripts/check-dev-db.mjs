@@ -1,22 +1,20 @@
 import { config } from "dotenv";
 import pg from "pg";
+import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
 
 config({ path: ".env.local" });
+warnIfProdLikeReadTarget({ commandName: "db:check" });
 
 const allowInsecureSsl = process.argv.includes("--allow-insecure-ssl");
 
-function normalizeEnvUrl(value) {
-  if (!value) return undefined;
-  const trimmed = String(value).trim();
-  if (!trimmed) return undefined;
-  if (/^\$\{[A-Z0-9_]+\}$/.test(trimmed)) return undefined;
-  if (/^\$[A-Z0-9_]+$/.test(trimmed)) return undefined;
-  return trimmed;
-}
-
-const cs = normalizeEnvUrl(process.env.POSTGRES_URL);
+const cs = normalizeEnvUrl(
+  process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.DATABASE_URL,
+);
 if (!cs) {
-  console.log("POSTGRES_URL: missing");
+  console.log("Database URL: missing");
   process.exit(1);
 }
 
@@ -44,6 +42,9 @@ const checks = [
   "engine_messages",
   "engine_versions",
   "engine_generation_logs",
+  "generation_telemetry",
+  "version_comments",
+  "version_approvals",
 ];
 
 try {

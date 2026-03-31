@@ -24,7 +24,7 @@ Utan dessa brukar kärnan inte vara användbar i **preview + production**:
 
 | Variabel | Kommentar |
 |----------|-----------|
-| `POSTGRES_URL` | Postgres (t.ex. Supabase). |
+| `POSTGRES_URL` | Postgres (t.ex. Supabase). Lokalt ska `.env.local` peka på separat dev/staging-target, inte samma target som production. |
 | `JWT_SECRET` | Session / auth. |
 | `OPENAI_API_KEY` | Own-engine codegen + OpenAI-spår i prompt-assist (se kod). |
 | `NEXT_PUBLIC_APP_URL` | Publik bas-URL för appen (default i schema: `http://localhost:3000`). |
@@ -56,6 +56,18 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | **Vercel-managed** | Nycklar som plattformen eller Next sätter (t.ex. `NODE_ENV`, `VERCEL_URL`) — **pusha inte** egna värden från laptop om policyn säger motsatsen; se `classification: vercel_managed` i `env-policy.json`. |
 
 `.vercel/.env.*.local` från `vercel env pull` är **snapshot**, inte kanon.
+
+---
+
+## Databasskript och skyddsräcken
+
+`npm run db:init`, `npm run db:migrate` och `npm run db:push` är **skrivande** kommandon. De jämför aktuell DB-target i `.env.local` mot `.env.vercel.production.pulled` när den filen finns. Om host/port/databas matchar vägrar de köra som standard.
+
+Om du **medvetet** måste skriva mot en sådan target krävs explicit override:
+
+- `DB_ALLOW_PROD_LIKE_WRITE=1`
+
+`npm run db:check` och `npm run db:rows` är read-only men varnar om targeten ser production-lik ut, så att “lokal sanity” inte råkar betyda “produktion”.
 
 ---
 
