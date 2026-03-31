@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { shouldTriggerPostFinalizeServerVerify } from "./generation-stream-post-finalize";
+import { shouldTriggerPostFinalizeServerVerify } from "@/lib/gen/stream/post-finalize-policies";
 
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
 

@@ -42,6 +42,7 @@ import {
   SANDBOX_MAX_LIFETIME_MS,
   sandboxDevServerResponseLooksReady,
 } from "@/lib/mcp/runtime-url";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
 /** Standardprompt om `SCAFFOLD_EMBED_TEST_PROMPT` inte är satt. */
 const DEFAULT_EMBED_TEST_PROMPT =
@@ -84,22 +85,13 @@ function logPromptAndMatches(
   console.log("");
 }
 
-function inferLanguage(path: string): string {
-  const p = path.toLowerCase();
-  if (p.endsWith(".tsx")) return "tsx";
-  if (p.endsWith(".ts")) return "ts";
-  if (p.endsWith(".css")) return "css";
-  if (p.endsWith(".json")) return "json";
-  return "text";
-}
-
 function scaffoldFilesToCodeFiles(
   files: ReadonlyArray<{ path: string; content: string }>,
 ): CodeFile[] {
   return files.map((f) => ({
     path: f.path,
     content: f.content,
-    language: inferLanguage(f.path),
+    language: inferFileLanguage(f.path),
   }));
 }
 

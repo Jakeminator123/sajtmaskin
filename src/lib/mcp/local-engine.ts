@@ -1,5 +1,6 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { getLatestVersionFiles, getVersionFiles } from "@/lib/gen/version-manager";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import {
   buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
@@ -53,21 +54,6 @@ async function getOwnEngineProjectId(chatId: string): Promise<string | null> {
     : null;
 }
 
-function inferLanguage(fileName: string): string {
-  const ext = fileName.toLowerCase().split(".").pop() ?? "";
-  const map: Record<string, string> = {
-    tsx: "tsx",
-    ts: "ts",
-    jsx: "jsx",
-    js: "js",
-    css: "css",
-    json: "json",
-    md: "md",
-    html: "html",
-  };
-  return map[ext] ?? "text";
-}
-
 async function resolveGeneratedFiles(
   chatId: string,
   versionId?: string | null,
@@ -85,7 +71,7 @@ async function resolveGeneratedFiles(
     files: raw.map((file) => ({
       name: file.path,
       content: file.content,
-      language: file.language ?? inferLanguage(file.path),
+      language: file.language ?? inferFileLanguage(file.path),
       bytes: file.content.length,
     })),
     resolvedVersionId: versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null,

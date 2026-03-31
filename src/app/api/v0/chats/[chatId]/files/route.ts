@@ -20,6 +20,7 @@ import {
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
 import { deriveSetupContract, buildEnvExampleContent } from "@/lib/gen/setup-contract";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
 function v0ErrorResponse(err: unknown, fallbackMessage: string) {
   const info = normalizeProviderError(err);
@@ -41,19 +42,6 @@ const updateFilesSchema = z.object({
     )
     .min(1, "At least one file is required"),
 });
-
-function inferLanguage(fileName: string): string {
-  const normalized = fileName.toLowerCase();
-  if (normalized.endsWith(".tsx")) return "tsx";
-  if (normalized.endsWith(".ts")) return "ts";
-  if (normalized.endsWith(".jsx")) return "jsx";
-  if (normalized.endsWith(".js")) return "js";
-  if (normalized.endsWith(".css")) return "css";
-  if (normalized.endsWith(".json")) return "json";
-  if (normalized.endsWith(".md")) return "md";
-  if (normalized.endsWith(".html")) return "html";
-  return "text";
-}
 
 async function loadOwnEngineFilesForChat(req: Request, chatId: string, versionId: string) {
   const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
@@ -220,7 +208,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
         content: file.content,
         language:
           existingFiles.find((existing) => existing.path === file.name)?.language ??
-          inferLanguage(file.name),
+          inferFileLanguage(file.name),
       };
       const existingIndex = nextFiles.findIndex((existing) => existing.path === file.name);
       if (existingIndex >= 0) {
@@ -281,7 +269,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
         return {
           ...file,
           content,
-          language: file.language ?? inferLanguage(fileName),
+          language: file.language ?? inferFileLanguage(fileName),
         };
       }
       return file;
@@ -291,7 +279,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
       nextFiles.push({
         path: fileName,
         content,
-        language: inferLanguage(fileName),
+        language: inferFileLanguage(fileName),
       });
     }
 

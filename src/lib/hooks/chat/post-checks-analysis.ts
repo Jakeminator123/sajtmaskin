@@ -12,6 +12,7 @@ import {
 import { DESIGN_TOKEN_FILES } from "./constants";
 import { diffFiles, type FileDiff } from "./post-checks-diff";
 import { getPreviewBlockingReason } from "./post-checks-preview";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import type { DesignTokenSummary, FileEntry, VersionEntry } from "./types";
 
 export type SuspiciousUseCall = {
@@ -130,17 +131,6 @@ export type PostCheckBaseline = {
   resolvedDemoUrl: string | null;
   previewBlockingReason: string | null;
 };
-
-export function inferLanguage(fileName: string): string {
-  const normalized = fileName.toLowerCase();
-  if (normalized.endsWith(".tsx")) return "tsx";
-  if (normalized.endsWith(".ts")) return "ts";
-  if (normalized.endsWith(".jsx")) return "jsx";
-  if (normalized.endsWith(".js")) return "js";
-  if (normalized.endsWith(".css")) return "css";
-  if (normalized.endsWith(".json")) return "json";
-  return "text";
-}
 
 export function extractDesignTokens(files: FileEntry[]): DesignTokenSummary | null {
   const candidate = files.find((file) =>
@@ -656,7 +646,7 @@ export function buildPostCheckBaseline(params: {
     currentFiles.map((file) => ({
       path: file.name,
       content: file.content ?? "",
-      language: inferLanguage(file.name),
+      language: inferFileLanguage(file.name),
     })),
   );
   const sanityIssues = sanity.issues;

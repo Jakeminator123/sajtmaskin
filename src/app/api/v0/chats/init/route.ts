@@ -13,6 +13,7 @@ import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import { resolveEngineModelId } from "@/lib/models/selection";
 import type { CodeFile } from "@/lib/gen/parser";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
 export const runtime = "nodejs";
 
@@ -209,20 +210,6 @@ async function downloadGithubZipBuffer(params: {
   });
 }
 
-function inferLanguage(fileName: string): string {
-  const normalized = fileName.toLowerCase();
-  if (normalized.endsWith(".tsx")) return "tsx";
-  if (normalized.endsWith(".ts")) return "ts";
-  if (normalized.endsWith(".jsx")) return "jsx";
-  if (normalized.endsWith(".js")) return "js";
-  if (normalized.endsWith(".css")) return "css";
-  if (normalized.endsWith(".json")) return "json";
-  if (normalized.endsWith(".md")) return "md";
-  if (normalized.endsWith(".html")) return "html";
-  if (normalized.endsWith(".svg")) return "svg";
-  return "text";
-}
-
 function normalizeImportedPath(rawPath: string): string | null {
   const normalized = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
   if (!normalized || normalized.includes("\0")) return null;
@@ -300,7 +287,7 @@ async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeFile[]> 
     files.push({
       path: safePath,
       content: contentBuffer.toString("utf8"),
-      language: inferLanguage(safePath),
+      language: inferFileLanguage(safePath),
     });
   }
 

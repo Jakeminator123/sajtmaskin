@@ -15,6 +15,7 @@ import {
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import type { CodeFile } from "@/lib/gen/parser";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
 const createSandboxSchema = z.object({
   source: z.discriminatedUnion("type", [
@@ -39,23 +40,11 @@ const createSandboxSchema = z.object({
 const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
 
-function inferLanguage(fileName: string): string {
-  const normalized = fileName.toLowerCase();
-  if (normalized.endsWith(".tsx")) return "tsx";
-  if (normalized.endsWith(".ts")) return "ts";
-  if (normalized.endsWith(".jsx")) return "jsx";
-  if (normalized.endsWith(".js")) return "js";
-  if (normalized.endsWith(".css")) return "css";
-  if (normalized.endsWith(".json")) return "json";
-  if (normalized.endsWith(".md")) return "md";
-  return "text";
-}
-
 function buildSandboxProjectFiles(sourceFiles: Record<string, string>): Array<[string, string]> {
   const codeFiles: CodeFile[] = Object.entries(sourceFiles).map(([path, content]) => ({
     path,
     content: String(content ?? ""),
-    language: inferLanguage(path),
+    language: inferFileLanguage(path),
   }));
 
   const completedFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;

@@ -221,6 +221,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (an) | 2026-03-31 | 12/21   | 57%     | 43%    | Kod: avexporterade (export bort) `resolveToolLabels` (`BuilderMessageTooling`), `chatVersionFilesUrl` (`chat-version-files-fetch`), `PREVIEW_READY_*` (`usePreviewIframe`), `buildChatGenerationSettingsKey` (`chat-generation-settings`), `RUNTIME_LIBRARY_FAMILIES` (`runtime-library-audit`). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. `src/lib/gen/scaffolds/*` orört; WIP under `api/v0/chats` + `useCreateChat` orörd. |
 | **Före** pass 2026-03-31 (ao)  | 2026-03-31 | 12/21   | 57%     | 43%    | Zon: brett knip-uppföljning — död kod, oanvända zod-scheman, v0-alias, oanvänd suspense-transform, död finalize-state; ärlig Fas A Postgres-policy. |
 | **Efter** pass 2026-03-31 (ao) | 2026-03-31 | 13/21   | 62%     | 38%    | Kod: bort oanvända exports i `chatSchemas` (`modelTiers`, `acceptedModelIds`, `chatIdSchema`, `messageIdSchema`, `versionIdSchema`, `createDeploymentSchema`), v0-alias i `promptAssist`, oanvänd `OPENCLAW_ACTION_TAGS`, oanvända `getEntryToken`/`clearEntryToken`/`hasEntryToken`, död `buildSandboxFiles`, oanvänd `normalizePlannedRoutePath`, oanvänd `createSuspenseTransform`+`applyRules` (typer kvar i `suspense/transform`), oanvänd `_lastMaterializedUrls`/`getLastMaterializedUrls` i `finalize-version`; avexporterade modulinterna helpers i `promptAssistContext`, `post-checks-preview`, `request-metadata`, `preflight-contract`, `image-validator`. Docs: `ENTRY-SYSTEM.md` uppdaterad. Bock: [Fas A ruta 4](#fas-a--baseline-innan-radering) — standard nästa steg = `POSTGRES_URL` i `.env.local` per [`docs/ENV.md`](../../ENV.md); staging/prod kräver explicit beslut före data-ingrepp. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. `src/lib/gen/scaffolds/*` orört (endast delad typfil `suspense/transform`, inget index). |
+| **Före** pass 2026-03-31 (ap)  | 2026-03-31 | 13/21   | 62%     | 38%    | Zon: Fas B — sammanslagning av upprepade `inferLanguage`-kopior till en helper + Vitest. |
+| **Efter** pass 2026-03-31 (ap) | 2026-03-31 | 14/21   | 67%     | 33%    | Kod: ny `src/lib/utils/infer-file-language.ts` + `infer-file-language.test.ts`; sju call sites (bl.a. `chats/init`, `chats/.../files`, `sandbox/route`, `project-scaffold`, `local-engine`, `post-checks-analysis`, `isolated_tests/scaffold-embed-sandbox`) importerar `inferFileLanguage`. Bock: [Fas B — duplicerade helpers](#fas-b--kod-och-moduler-grep--import). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Ingen ändring under `src/lib/gen/scaffolds/*` (endast import från scaffold-export i `project-scaffold`). |
 
 ---
 
@@ -310,7 +312,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Fas B — Kod och moduler (grep + import)
 
 - [x] Döda exports / oanvända filer — **små barrels & root-shims** *(2026-03-31: zonpass enligt [pass-logg](#pass-logg-före--efter-varje-pass) (a)–(h), (i)–(j), bulk (k) (`db/services` + shim `db/services.ts`), (l) (`gen/preview/index` bort), (m) (`lib/templates/index` bort): rena re-export-barrels bort; kvar under samma rubrik: bredare oanvända helpers, `src/components/ui/`-tröskel-justeringar, större refaktorer — se [Två spår](#två-spår-viktigt--blanda-inte-ihop).)*
-- [ ] Duplicerade helpers: slå ihop endast när tester finns eller beteende är trivialt identiskt
+- [x] Duplicerade helpers: slå ihop endast när tester finns eller beteende är trivialt identiskt *(2026-03-31: pass ap — `inferFileLanguage` i `src/lib/utils/infer-file-language.ts` med `infer-file-language.test.ts`; ersätter sju kopior av extension→språk-logik.)*
 - [x] Legacy-grenar som grep/typecheck visar som 0-reach (dokumentera i commit *vad* som togs bort) *(2026-03-31: pass ai — bort `src/lib/backoffice/types.ts` (inga importörer; delvis dubblett mot `template-generator`); bort `src/lib/db/services/domains.ts` (inga importörer av `saveDomainOrder`/`updateDomainOrderStatus`; tabell `domain_orders` + typer i `shared.ts` + admin wipe kvar.)*
 - [x] Uppdatera [`docs/architecture/repo-tree.md`](../../architecture/repo-tree.md) när toppnivåmappar försvinner eller byter roll *(2026-03-31: `ai-elements` per-fil + DB-zon beskriver `db/services/*` utan barrel; inga rotmappar borttagna)*
 
@@ -361,7 +363,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ao)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ap)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)

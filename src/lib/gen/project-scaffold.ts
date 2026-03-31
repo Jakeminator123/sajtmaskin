@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import nodePath from "node:path";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
 import { loadPlaceholderRecord, formatDotenvBody } from "./sandbox-env-local";
@@ -346,7 +347,7 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
       continue;
     }
     if (!generatedPaths.has(filePath)) {
-      result.push({ path: filePath, content, language: inferLanguage(filePath) });
+      result.push({ path: filePath, content, language: inferFileLanguage(filePath) });
     }
   }
 
@@ -427,13 +428,3 @@ function readUiComponent(name: string, searchDirs: string[]): string | null {
   return null;
 }
 
-function inferLanguage(filePath: string): string {
-  if (filePath.endsWith(".tsx")) return "tsx";
-  if (filePath.endsWith(".ts")) return "ts";
-  if (filePath.endsWith(".jsx")) return "jsx";
-  if (filePath.endsWith(".js")) return "js";
-  if (filePath.endsWith(".css")) return "css";
-  if (filePath.endsWith(".json")) return "json";
-  if (filePath.endsWith(".mjs")) return "js";
-  return "text";
-}
