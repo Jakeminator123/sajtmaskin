@@ -3,7 +3,7 @@
 import { Blocks, Code2, ExternalLink, Loader2, RefreshCw, Wand2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
+import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import type { ComponentItem } from "@/lib/shadcn/registry-service";
 import { buildPreviewImageUrl } from "@/lib/shadcn/registry-service";
 import {

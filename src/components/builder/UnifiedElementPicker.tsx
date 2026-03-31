@@ -39,7 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
+import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import type {
   ComponentCategory,
   ComponentItem,

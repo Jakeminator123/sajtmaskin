@@ -171,6 +171,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (p) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagna shims; `api.ts` → `@/lib/gen/preview-contract`; `useSandboxPreviewSession` / `useBuilderSandboxPreview` → `@/lib/gen/sandbox-lifecycle-telemetry`. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (q)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: `components/builder/preview-panel/index.tsx` barrel (2 importörer). |
 | **Efter** pass 2026-03-31 (q) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen barrel; `BuilderShellContent` + `PreviewPanel.test.tsx` importerar `./PreviewPanel` / `@/components/builder/preview-panel/PreviewPanel`. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (r)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: root-shim `src/lib/shadcn-registry-types.ts` (4 importörer). |
+| **Efter** pass 2026-03-31 (r) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen shim; builder-pickers + `prompt-builder` importerar `@/lib/shadcn/registry-types` direkt. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 
 ---
 

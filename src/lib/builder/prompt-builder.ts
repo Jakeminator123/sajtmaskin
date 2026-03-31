@@ -1,4 +1,4 @@
-import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
+import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import type { PlacementOption } from "@/lib/builder/placement-utils";
 import { getPlacementLabel } from "@/lib/builder/placement-utils";
