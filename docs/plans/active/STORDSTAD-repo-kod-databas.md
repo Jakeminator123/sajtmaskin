@@ -299,7 +299,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass m)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass v)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)
