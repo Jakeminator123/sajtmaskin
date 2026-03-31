@@ -11,14 +11,26 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 
 1. **API-versionering**: Sajtmaskins egna routes under `/api/v0/`. Det har inget med leverantören v0 att göra.
 2. **Naming debt**: gamla symbolnamn eller payload-nycklar från tidigare v0-baserad codegen.
-3. **Template-källa**: builderns mallgalleri hämtar data från v0-ekosystemet via `src/lib/templates/`.
+3. **Builderns Mallar-tab / mallgalleri**: användarvänd startyta med data synkad från `v0.app` via `src/lib/templates/`. Detta är **inte** runtime `template-library`, **inte** Vercel template research och **inte** scaffold.
 
 `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` är borttagna ur runtime. **own-engine** är den enda aktiva codegen-vägen.
 
+### Namnge det som faktiskt händer
+
+- Säg **own-engine** när du menar den aktiva generationmotorn.
+- Säg **`/api/v0/`-route** eller **API-versionering** när du menar egna serverroutes.
+- Säg **builderns Mallar-tab**, **mallgalleri** eller **mallkatalog** när du menar den användarvända katalogen i `src/lib/templates/`.
+- Säg **`template-library`** när du menar runtime referensbiblioteket i `src/lib/gen/template-library`.
+- Säg **Vercel template research** eller **`research/external-templates`** när du menar research-/importspåret.
+- Säg **inte** "v0-provider", "v0-engine", "v0-generation" eller liknande om nuvarande runtime.
+- Säg helst inte bara **"template"** eller **"mall"** utan förtydligande i tekniska resonemang; välj den specifika ytan ovan.
+- Hitta inte på nya produktnamn för samma sak. Om du är osäker: använd repoets befintliga ord `own-engine`, `scaffold`, `template-library`, `preview`, `sandbox`.
+
 ## Mall, preview, sandbox
 
-- **v0-templates / "Mall"**: builderns mallgalleri i `src/lib/templates/`.
-- **Vercel-mall /Templates**: research-material i `research/external-templates/`. Inte samma sak som builderns mallgalleri.
+- **Builderns Mallar-tab / mallgalleri**: den användarvända katalogen i `src/lib/templates/`, med kategorier och startpunkter synkade från `v0.app`. Inte samma sak som `template-library`, Vercel template research eller scaffold.
+- **`template-library`**: internt runtime referensbibliotek i `src/lib/gen/template-library` som används för prompt guidance och retrieval. Inte samma sak som builderns Mallar-tab.
+- **Vercel-mall / external-template research**: research-material i `research/external-templates/`. Inte samma sak som builderns Mallar-tab eller runtime `template-library`.
 - **Preview**: det användaren ser i buildern.
 - **Sandbox**: kör ett genererat Next-projekt, typiskt `npm run dev`, för högre preview-fidelity.
 - **demoUrl**: legacy-namn för URL eller preview-mål; tolka efter kontext.

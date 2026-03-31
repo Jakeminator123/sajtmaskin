@@ -18,7 +18,7 @@ Fyra kärnregler är tänkta att vara alltid på. `platform-quirks.mdc` är medv
 
 | Regel | Syfte (kort) |
 |--------|----------------|
-| [terminology.mdc](rules/terminology.mdc) | Stack, lager, kod vs UI, scaffold/v0-templates, lanes |
+| [terminology.mdc](rules/terminology.mdc) | Stack, lager, kod vs UI, scaffold/builderns Mallar/runtime `template-library`, lanes |
 | [session-git-docs.mdc](rules/session-git-docs.mdc) | Git-hygien, parallellt arbete, docs/plans-livscykel |
 | [repo-env-indexing.mdc](rules/repo-env-indexing.mdc) | Workspace, `.env*`, cursorignored paths |
 | [platform-quirks.mdc](rules/platform-quirks.mdc) | PowerShell, Sandbox, Playwright, streams, git-commit |
@@ -45,4 +45,4 @@ Valfria **plattforms-MCP** (v0, Vercel, OpenAI-docs; ev. `openclaw-docs` på anv
 
 **GitHub:** `.cursor/mcp.json` är **ignorerad**; kopiera `.cursor/mcp.json.example` → `.cursor/mcp.json`.
 
-**OBS:** **v0-templates** (`src/lib/templates/`) är *inte* samma som **runtime scaffolds** — se `terminology.mdc`.
+**OBS:** builderns **Mallar** (`src/lib/templates/`) är *inte* samma som runtime **`template-library`** eller runtime **scaffolds** — se `terminology.mdc`.

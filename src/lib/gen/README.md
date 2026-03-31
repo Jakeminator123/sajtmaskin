@@ -1,6 +1,6 @@
 # gen/ — Code Generation Module
 
-**Product terms (v0-templates vs Vercel-mall, own-engine, buildern):** [`.cursor/rules/terminology.mdc`](../../../.cursor/rules/terminology.mdc). **Repo map:** [`docs/architecture/repo-tree.md`](../../../docs/architecture/repo-tree.md). **Static prompts / manifest:** [`config/README.md`](../../../config/README.md).
+**Product terms (builderns Mallar-tab vs runtime `template-library` vs Vercel-mall, own-engine, buildern):** [`.cursor/rules/terminology.mdc`](../../../.cursor/rules/terminology.mdc). **Repo map:** [`docs/architecture/repo-tree.md`](../../../docs/architecture/repo-tree.md). **Static prompts / manifest:** [`config/README.md`](../../../config/README.md).
 
 Human architecture overview: [`docs/architecture/README.md`](../../../docs/architecture/README.md) · [`builder-generation.md`](../../../docs/architecture/builder-generation.md).
 

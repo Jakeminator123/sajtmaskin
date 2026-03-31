@@ -14,7 +14,7 @@
 
 | Audience / topic | Canonical location | What it covers |
 |------------------|-------------------|----------------|
-| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | v0-templates («Mall») vs **Vercel-mall** (research), **buildern**, **fidelity**, **own-engine**, demo/preview, m.m.; **V0-mapp vs v0-SDK vs V0 Platform API** (zip/egen kod vs extern leverantör). **Hur du öppnar:** `.cursor/README.md`. |
+| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | builderns **Mallar** (`src/lib/templates`) vs runtime **`template-library`** vs **Vercel-mall** (research), **buildern**, **fidelity**, **own-engine**, demo/preview, m.m.; **V0-mapp vs v0-SDK vs V0 Platform API** (zip/egen kod vs extern leverantör). **Hur du öppnar:** `.cursor/README.md`. |
 | **Repo layout & research pipeline** | `docs/architecture/repository-and-platform.md` | Mappar, skript, integrationer; mermaid där det behövs. |
 | **Dokumentationspolicy (var saker ska ligga)** | `docs/architecture/documentation-lifecycle.md` | Planstatus, rensning, varför policy ligger i `docs/` inte bara i `.cursor/rules/`. |
 

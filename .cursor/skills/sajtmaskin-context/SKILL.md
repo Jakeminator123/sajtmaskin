@@ -16,7 +16,7 @@ Use this skill to stay aligned with Sajtmaskin's domain language and canonical d
 ## Core guardrails
 
 - Keep Sajtmaskin terminology consistent.
-- Do not confuse `v0-templates` / "Mall" in the builder with Vercel template research under `research/external-templates/`.
+- Do not confuse builderns `Mallar` / mallgalleri in `src/lib/templates` with runtime `template-library` in `src/lib/gen/template-library` or with Vercel template research under `research/external-templates/`.
 - Do not confuse runtime scaffolds under `src/lib/gen/scaffolds/` with either of those template sources.
 - `/api/v0/` is API versioning, not automatically the external v0 provider.
 - Own-engine behavior should be understood from repo code and canonical docs, not guessed.
@@ -40,7 +40,8 @@ Use this skill to stay aligned with Sajtmaskin's domain language and canonical d
 - fidelity
 - own-engine
 - scaffold
-- v0-template
+- mallgalleri
+- template-library
 - Vercel template
 - deploy
 - demoUrl
