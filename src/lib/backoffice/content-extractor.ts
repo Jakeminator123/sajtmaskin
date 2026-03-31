@@ -381,20 +381,3 @@ export function extractContent(
   };
 }
 
-/**
- * Validate and sanitize content manifest
- */
-export function validateManifest(manifest: ContentManifest): boolean {
-  if (!manifest.version || !manifest.siteType || !manifest.content) {
-    return false;
-  }
-
-  // Ensure all content items have required fields
-  for (const item of manifest.content) {
-    if (!item.id || !item.type || item.value === undefined) {
-      return false;
-    }
-  }
-
-  return true;
-}

@@ -135,7 +135,7 @@ function fallbackKeywordSearch(query: string, topK: number): TemplateSearchResul
     .slice(0, topK);
 }
 
-export function cosineSimilarity(a: number[], b: number[]): number {
+function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length) return 0;
   let dot = 0;
   let normA = 0;

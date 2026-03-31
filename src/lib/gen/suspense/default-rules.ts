@@ -1,4 +1,3 @@
-import { createSuspenseTransform, type StreamContext } from "./transform";
 import type { SuspenseRule } from "./transform";
 import { shadcnImportFix } from "./rules/shadcn-import-fix";
 import { lucideIconFix } from "./rules/lucide-icon-fix";
@@ -34,11 +33,3 @@ export function createDefaultRules(): SuspenseRule[] {
   ];
 }
 
-/**
- * Creates a TransformStream pre-configured with all standard rules.
- */
-export function createDefaultSuspenseTransform(
-  context: StreamContext = {},
-): TransformStream<string, string> {
-  return createSuspenseTransform(createDefaultRules(), context);
-}

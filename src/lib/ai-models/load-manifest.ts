@@ -164,10 +164,6 @@ export function getQualityToOwnEngineModels(): Record<QualityLevelFromManifest, 
   return q;
 }
 
-export function getPromptAssistDefaultsFromManifest(): { assist: string; polish: string } {
-  return { ...getAiModelsManifest().promptAssist.defaults };
-}
-
 export function getPromptAssistAllowedFromManifest(): {
   gatewayClassModels: readonly string[];
   anthropicDirectModels: readonly string[];

@@ -316,22 +316,6 @@ export function placementToInstruction(placement: string, sections: DetectedSect
   return "Add it as a new section on the homepage below existing content.";
 }
 
-/**
- * Quick check if code has any detectable sections
- */
-export function hasDetectableSections(code: string): boolean {
-  if (!code || code.length < 100) return false;
-
-  for (const pattern of SECTION_PATTERNS) {
-    for (const regex of pattern.patterns) {
-      if (regex.test(code)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
 
 /**
  * Build coarse top-level zones from inspector element maps.

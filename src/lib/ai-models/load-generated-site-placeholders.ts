@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
-  getAiModelsManifest,
   getGeneratedSiteIntegrationPlaceholdersMeta,
 } from "@/lib/ai-models/load-manifest";
 
@@ -48,7 +47,3 @@ export function parseGeneratedSitePlaceholderLines(text: string): Array<{ key: s
   return out;
 }
 
-/** True if manifest declares the placeholders block (for diagnostics). */
-export function hasGeneratedSitePlaceholdersInManifest(): boolean {
-  return Boolean(getAiModelsManifest().generatedSiteIntegrationPlaceholders);
-}

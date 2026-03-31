@@ -30,7 +30,7 @@ export function normalizeRoutePath(routePath?: string | null): string {
   return pathname || "/";
 }
 
-export function toPascalCase(value: string): string {
+function toPascalCase(value: string): string {
   return value
     .split(/[^A-Za-z0-9]+/)
     .filter(Boolean)
