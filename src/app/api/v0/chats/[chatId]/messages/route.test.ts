@@ -2,8 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const handleMessageStreamRequest = vi.hoisted(() => vi.fn());
 
-vi.mock("../stream/route", () => ({
+vi.mock("@/lib/api/engine/chats/chat-message-stream-post", () => ({
   handleMessageStreamRequest,
+  POST: handleMessageStreamRequest,
+}));
+vi.mock("@/app/api/engine/chats/[chatId]/stream/route", () => ({
+  handleMessageStreamRequest,
+  POST: handleMessageStreamRequest,
 }));
 
 import { POST } from "./route";

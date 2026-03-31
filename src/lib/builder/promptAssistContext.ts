@@ -3,7 +3,7 @@
  * =========================================
  *
  * Implements the "spec-first" pattern:
- * 1. Use an LLM via AI Gateway to generate a structured spec from user prompt
+ * 1. Use an LLM (OpenAI / Anthropic direct) to generate a structured spec from user prompt
  * 2. Use that spec for higher-quality code generation
  *
  * The spec contains:
@@ -92,7 +92,7 @@ Be specific and concrete. If details are missing, make reasonable assumptions ba
 Output a JSON object matching the schema exactly. Do not include any explanations or markdown.`;
 
 /**
- * Generate a website spec from user prompt using AI Gateway.
+ * Generate a website spec from user prompt (OpenAI / Anthropic direct).
  *
  * @param userPrompt - The user's original website request
  * @returns A structured WebsiteSpec
