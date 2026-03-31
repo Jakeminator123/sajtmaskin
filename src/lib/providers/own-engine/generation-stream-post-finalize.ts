@@ -1,15 +1,19 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import type { BuildSpec } from "@/lib/gen/build-spec";
-import { shouldRunOwnEngineSandbox } from "@/lib/gen/own-engine-sandbox-gate";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
 import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
+import {
+  getPostFinalizeSandboxContract,
+  shouldTriggerPostFinalizeSandbox,
+  shouldTriggerPostFinalizeServerVerify,
+} from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
-import { isServerVerifyEligible, triggerServerVerification } from "@/lib/gen/server-verify";
+import { triggerServerVerification } from "@/lib/gen/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
@@ -19,19 +23,6 @@ export type PostFinalizeSse = {
   enc: TextEncoder;
   safeEnqueue: (data: Uint8Array) => void;
 };
-
-export function shouldTriggerPostFinalizeServerVerify(params: {
-  buildSpec: BuildSpec;
-  finalized: FinalizeResult;
-}): boolean {
-  const { buildSpec, finalized } = params;
-  if (buildSpec.verificationPolicy === "fast") return false;
-  return (
-    isServerVerifyEligible(finalized.version.id) &&
-    !finalized.preflight.previewBlocked &&
-    !finalized.preflight.verificationBlocked
-  );
-}
 
 /**
  * After `finalizeAndSaveVersion`: integration hints, `done` SSE, credits, sandbox boot,
@@ -94,27 +85,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
     }
   }
 
-  const sandboxContract = finalized.preflight.sandbox ?? {
-    canStartSandbox: false,
-    primaryPreviewTarget: "none" as const,
-    shimBlocked: false,
-    requiresEnvConfig: false,
-    hasCriticalInstallRisk: false,
-    hasCriticalCodeFailure: false,
-    compatibilityShimAllowed: false,
-    issueCounts: {
-      code_structure_failure: 0,
-      dependency_install_failure: 0,
-      env_config_missing: 0,
-      shim_preview_failure: 0,
-      non_blocking_quality_warning: 0,
-    },
-    blockingCategories: [],
-  };
+  const sandboxContract = getPostFinalizeSandboxContract(finalized);
   const previewBlocked = finalized.preflight.previewBlocked;
-  const sandboxWillRun = shouldRunOwnEngineSandbox({
-    isSandboxConfigured: isSandboxConfigured(),
-    sandbox: sandboxContract,
+  const sandboxWillRun = shouldTriggerPostFinalizeSandbox({
+    finalized,
     parsedFileCount: parsedForSandbox.length,
   });
 

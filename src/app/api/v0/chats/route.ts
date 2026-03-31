@@ -23,15 +23,17 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
-import { shouldRunOwnEngineSandbox } from "@/lib/gen/own-engine-sandbox-gate";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
+import {
+  shouldTriggerPostFinalizeSandbox,
+  shouldTriggerPostFinalizeServerVerify,
+} from "@/lib/gen/stream/post-finalize-policies";
 import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
-import { isServerVerifyEligible, triggerServerVerification } from "@/lib/gen/server-verify";
+import { triggerServerVerification } from "@/lib/gen/server-verify";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { streamText } from "ai";
 import { getOpenAIModel } from "@/lib/gen/models";
-import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
 import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
 import {
   buildUserPromptContent,
@@ -329,11 +331,10 @@ export async function POST(req: Request) {
             console.error("[credits] Failed to charge prompt:", error);
           }
 
-          const shouldBackgroundVerify =
-            ownOrchestration.buildSpec.verificationPolicy !== "fast" &&
-            isServerVerifyEligible(latestVersion.id) &&
-            !finalized.preflight.previewBlocked &&
-            !finalized.preflight.verificationBlocked;
+          const shouldBackgroundVerify = shouldTriggerPostFinalizeServerVerify({
+            buildSpec: ownOrchestration.buildSpec,
+            finalized,
+          });
           if (shouldBackgroundVerify) {
             triggerServerVerification({
               chatId: chat.id,
@@ -346,26 +347,8 @@ export async function POST(req: Request) {
           const parsedForSandbox = finalized.filesJson?.trim()
             ? (parseCodeFilesFromFilesJson(finalized.filesJson) ?? [])
             : [];
-          const sandboxContract = finalized.preflight.sandbox ?? {
-            canStartSandbox: false,
-            primaryPreviewTarget: "none" as const,
-            shimBlocked: false,
-            requiresEnvConfig: false,
-            hasCriticalInstallRisk: false,
-            hasCriticalCodeFailure: false,
-            compatibilityShimAllowed: false,
-            issueCounts: {
-              code_structure_failure: 0,
-              dependency_install_failure: 0,
-              env_config_missing: 0,
-              shim_preview_failure: 0,
-              non_blocking_quality_warning: 0,
-            },
-            blockingCategories: [],
-          };
-          const shouldBackgroundSandbox = shouldRunOwnEngineSandbox({
-            isSandboxConfigured: isSandboxConfigured(),
-            sandbox: sandboxContract,
+          const shouldBackgroundSandbox = shouldTriggerPostFinalizeSandbox({
+            finalized,
             parsedFileCount: parsedForSandbox.length,
           });
           if (shouldBackgroundSandbox) {
