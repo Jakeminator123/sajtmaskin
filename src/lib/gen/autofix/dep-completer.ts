@@ -1,6 +1,11 @@
 import type { AutoFixEntry } from "./pipeline";
 
-const IMPORT_SOURCE_RE = /from\s+["']([^"'./@][^"']*)["']/g;
+/**
+ * Static `import … from "pkg"` sources. Supports scoped npm packages (`@scope/name`);
+ * excludes path aliases like `@/…` (no slash after scope segment).
+ */
+const IMPORT_SOURCE_RE =
+  /from\s+["']((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))["']/g;
 
 /**
  * Packages the sandbox already ships (Next.js, React, tailwind, etc.).
@@ -30,21 +35,23 @@ const BUILTIN_PACKAGES = new Set([
 
 /**
  * Third-party packages frequently used by LLM-generated code.
- * Maps npm package name to latest known compatible version.
- * Used to auto-complete dependencies so npm install succeeds in @vercel/sandbox.
+ * Maps npm package name to latest known compatible version range.
+ *
+ * Keep majors aligned with `project-scaffold.ts` PACKAGE_JSON baseline —
+ * `dep-completer.test.ts` enforces this automatically for all overlapping keys.
  */
-const KNOWN_PACKAGES: Record<string, string> = {
+export const KNOWN_PACKAGES: Record<string, string> = {
   "recharts": "^2",
   "framer-motion": "^12",
   "motion": "^12",
   "@tanstack/react-table": "^8",
   "@tanstack/react-query": "^5",
   "date-fns": "^4",
-  "zod": "^3",
+  "zod": "^4",
   "zustand": "^5",
   "jotai": "^2",
   "react-hook-form": "^7",
-  "@hookform/resolvers": "^3",
+  "@hookform/resolvers": "^5",
   "lucide-react": "^0.460",
   "@radix-ui/react-icons": "^1",
   "@radix-ui/react-slot": "^1",
@@ -66,12 +73,12 @@ const KNOWN_PACKAGES: Record<string, string> = {
   "@radix-ui/react-toggle": "^1",
   "@radix-ui/react-toggle-group": "^1",
   "cmdk": "^1",
-  "sonner": "^1",
+  "sonner": "^2",
   "vaul": "^1",
   "embla-carousel-react": "^8",
   "react-day-picker": "^9",
   "input-otp": "^1",
-  "react-resizable-panels": "^2",
+  "react-resizable-panels": "^4",
   "next-themes": "^0.4",
   "nuqs": "^2",
   "swr": "^2",

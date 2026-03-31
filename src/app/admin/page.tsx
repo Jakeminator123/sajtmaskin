@@ -15,7 +15,7 @@ import {
   Printer,
   TrendingUp,
 } from "lucide-react";
-import { ShaderBackground } from "@/components/layout";
+import { ShaderBackground } from "@/components/layout/shader-background";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";

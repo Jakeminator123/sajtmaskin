@@ -11,15 +11,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import {
-  saveCompanyProfile,
-  getCompanyProfileByProjectId,
-  getCompanyProfileByName,
   getAllCompanyProfiles,
-  searchCompanyProfiles,
+  getCompanyProfileByName,
+  getCompanyProfileByProjectId,
   linkCompanyProfileToProject,
-  getProjectByIdForOwner,
-  type CompanyProfile,
-} from "@/lib/db/services";
+  saveCompanyProfile,
+  searchCompanyProfiles,
+} from "@/lib/db/services/company-profiles";
+import { getProjectByIdForOwner } from "@/lib/db/services/projects";
+import type { CompanyProfile } from "@/lib/db/services/shared";
 
 // GET - Retrieve company profiles
 export async function GET(req: NextRequest) {

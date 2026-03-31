@@ -34,6 +34,7 @@ export default function Layout({ children }) { return children; }
     const missingMetadata = issues.find((i) => i.code === "missing-metadata");
     expect(missingMetadata).toBeDefined();
     expect(missingMetadata!.severity).toBe("error");
+    expect(missingMetadata!.category).toBe("non_blocking_quality_warning");
   });
 
   it("generates error when metadata exists but title is missing", () => {
@@ -50,6 +51,7 @@ export default function Layout({ children }) { return children; }
     const missingTitle = issues.find((i) => i.code === "missing-title");
     expect(missingTitle).toBeDefined();
     expect(missingTitle!.severity).toBe("error");
+    expect(missingTitle!.category).toBe("non_blocking_quality_warning");
   });
 
   it("generates warning when robots.ts is missing", () => {

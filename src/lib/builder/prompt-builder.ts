@@ -1,4 +1,4 @@
-import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
+import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import type { PlacementOption } from "@/lib/builder/placement-utils";
 import { getPlacementLabel } from "@/lib/builder/placement-utils";
@@ -10,8 +10,8 @@ import {
 import {
   buildShadcnBlockPrompt,
   buildShadcnComponentPrompt,
-} from "@/lib/shadcn-registry-utils";
-import { buildApprovedPlanExecutionPrompt } from "@/lib/gen/plan-review";
+} from "@/lib/shadcn/registry-utils";
+import { buildApprovedPlanExecutionPrompt } from "@/lib/gen/plan/review";
 
 export type PromptSourceKind =
   | "inline"

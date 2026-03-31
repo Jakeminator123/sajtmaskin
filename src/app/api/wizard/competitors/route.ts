@@ -17,6 +17,7 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { prepareCredits } from "@/lib/credits/server";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { braveWebSearch } from "@/lib/brave-search";
+import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 export const runtime = "nodejs";
 export const maxDuration = 25;
@@ -124,10 +125,7 @@ export async function POST(req: Request) {
       if (!creditCheck.ok) return creditCheck.response;
 
       if (!FEATURES.useResponsesApi) {
-        const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
-        const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
-        const onVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
-        if (!hasGatewayApiKey && !hasOidcToken && !onVercel) {
+        if (!pickAiGatewayKeyFromEnv() && !isVercelHostedRuntime()) {
           return NextResponse.json({ error: "AI Gateway auth missing", ...EMPTY }, { status: 503 });
         }
       }

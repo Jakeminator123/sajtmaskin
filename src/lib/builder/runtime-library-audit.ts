@@ -1,5 +1,5 @@
 import { AI_ELEMENT_CATEGORIES, AI_ELEMENT_ITEMS } from "./ai-elements-catalog";
-import { CURATED_UI_COLLECTIONS, FEATURED_BLOCKS } from "../shadcn-registry-service";
+import { CURATED_UI_COLLECTIONS, FEATURED_BLOCKS } from "../shadcn/registry-service";
 
 export type RuntimeLibraryFamilyId =
   | "headers"
@@ -27,7 +27,7 @@ export const RUNTIME_LIBRARY_MINIMUMS = {
   featuredBlockGroups: 10,
 } as const;
 
-export const RUNTIME_LIBRARY_FAMILIES: RuntimeLibraryFamilyDefinition[] = [
+const RUNTIME_LIBRARY_FAMILIES: RuntimeLibraryFamilyDefinition[] = [
   {
     id: "headers",
     label: "Headers & Navigation",

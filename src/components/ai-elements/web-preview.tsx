@@ -4,14 +4,13 @@
  * AI Elements - Web Preview Component
  * ====================================
  *
- * Komponent för att visa v0-genererade previews med:
+ * Komponent för att visa genererade previews med:
  * - Navigation controls (back/forward)
  * - URL-bar
  * - Responsive preview
  * - Console logging
  *
- * FUNGERAR MED v0 PREVIEW-SAJTER!
- * Används tillsammans med v0-sdk för att visa genererade UI:er.
+ * Fungerar som generell iframe-baserad previewyta för buildern.
  *
  * @see https://ai-sdk.dev/elements/components/web-preview
  */
@@ -20,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 import { ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";

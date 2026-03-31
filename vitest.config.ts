@@ -17,7 +17,6 @@ export default defineConfig({
       "node_modules/**",
       ".next/**",
       "old/**",
-      "docs/old/**",
       "e2e/**",
       "vercel_templates_levels/**",
       "research/**",

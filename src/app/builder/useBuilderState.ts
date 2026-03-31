@@ -43,7 +43,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const hasEntryParams = Boolean(promptParam || promptId || templateId || source === "audit");
 
   const [chatId, setChatId] = useState<string | null>(chatIdParam);
-  const [currentDemoUrl, setCurrentDemoUrl] = useState<string | null>(null);
+  const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
   const [previewRefreshToken, setPreviewRefreshToken] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -80,7 +80,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const [customInstructions, setCustomInstructions] = useState("");
   const [applyInstructionsOnce, setApplyInstructionsOnce] = useState(false);
-  const featureWarnedRef = useRef({ v0: false, blob: false });
+  const featureWarnedRef = useRef({ imageGen: false, blob: false });
   const hasLoadedInstructions = useRef(false);
   const pendingInstructionsRef = useRef<string | null>(null);
   const hasLoadedInstructionsOnce = useRef(false);
@@ -169,8 +169,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     hasEntryParams,
     chatId,
     setChatId,
-    currentDemoUrl,
-    setCurrentDemoUrl,
+    currentPreviewUrl,
+    setCurrentPreviewUrl,
     previewRefreshToken,
     setPreviewRefreshToken,
     messages,

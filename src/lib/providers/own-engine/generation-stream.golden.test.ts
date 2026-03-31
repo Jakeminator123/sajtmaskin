@@ -22,7 +22,6 @@ vi.mock("@/lib/gen/stream/finalize-version", () => ({
     }
   },
   finalizeAndSaveVersion: finalizeAndSaveVersionMock,
-  getLastMaterializedUrls: vi.fn(() => new Set()),
 }));
 
 vi.mock("@/lib/mcp/runtime-url", () => ({
@@ -79,6 +78,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
   const mockFinalizeResult: FinalizeResult = {
     version: { id: "ver_golden_1" } as FinalizeResult["version"],
     messageId: "msg_golden_1",
+    telemetryRecordId: null,
     previewUrl: "https://preview.example/golden",
     sandboxUrl: null,
     filesJson: "{}",
@@ -87,6 +87,24 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       previewBlocked: false,
       verificationBlocked: false,
       previewBlockingReason: null,
+      primaryPreviewTarget: "none",
+      sandbox: {
+        canStartSandbox: false,
+        primaryPreviewTarget: "none",
+        shimBlocked: false,
+        requiresEnvConfig: false,
+        hasCriticalInstallRisk: false,
+        hasCriticalCodeFailure: false,
+        compatibilityShimAllowed: false,
+        issueCounts: {
+          code_structure_failure: 0,
+          dependency_install_failure: 0,
+          env_config_missing: 0,
+          shim_preview_failure: 0,
+          non_blocking_quality_warning: 0,
+        },
+        blockingCategories: [],
+      },
       issueCount: 0,
       errorCount: 0,
       warningCount: 0,
@@ -123,6 +141,25 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       engineModel: "gpt-5.4",
       optimizedMessage: "build me a page",
       engineIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldFamily: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 20_000,
+          refsChars: 8_000,
+          systemContextChars: 28_000,
+        },
+      },
       routePlan: null,
       resolvedScaffold: null,
       urlMap: {},
@@ -148,7 +185,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(doneData.chatId).toBe("chat_golden");
     expect(doneData.versionId).toBe("ver_golden_1");
     expect(doneData.messageId).toBe("msg_golden_1");
-    expect(doneData.demoUrl).toBe("https://preview.example/golden");
+    expect(doneData.previewUrl).toBeNull();
     expect(doneData.previewBlocked).toBe(false);
     expect(doneData.verificationBlocked).toBe(false);
 

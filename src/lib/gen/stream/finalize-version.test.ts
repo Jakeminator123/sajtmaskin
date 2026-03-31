@@ -7,16 +7,21 @@ const checkCrossFileImports = vi.hoisted(() => vi.fn());
 const runProjectSanityChecks = vi.hoisted(() => vi.fn());
 const expandUrls = vi.hoisted(() => vi.fn());
 const materializeImages = vi.hoisted(() => vi.fn());
+const runPolishPass = vi.hoisted(() => vi.fn());
+const isPolishPassEnabled = vi.hoisted(() => vi.fn());
 const buildPreviewHtml = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
+const updateChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
+const getChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const deleteEngineMessage = vi.hoisted(() => vi.fn());
 const logGeneration = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+const createGenerationTelemetryRecord = vi.hoisted(() => vi.fn());
 const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
@@ -49,7 +54,12 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
   materializeImages,
 }));
 
-vi.mock("@/lib/gen/preview", () => ({
+vi.mock("@/lib/gen/polish-pass", () => ({
+  runPolishPass,
+  isPolishPassEnabled,
+}));
+
+vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewHtml,
   buildPreviewUrl,
 }));
@@ -64,15 +74,20 @@ vi.mock("@/lib/gen/project-scaffold", () => ({
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
+  updateChatOrchestrationSnapshot,
+  getChatOrchestrationSnapshot,
   addMessage,
   deleteEngineMessage,
   logGeneration,
   failVersionVerification,
 }));
 
-vi.mock("@/lib/db/services", () => ({
+vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs,
-  createGenerationTelemetryRecord: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock("@/lib/db/services/generation-telemetry", () => ({
+  createGenerationTelemetryRecord,
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
@@ -117,16 +132,21 @@ describe("finalizeAndSaveVersion", () => {
     runProjectSanityChecks.mockReset();
     expandUrls.mockReset();
     materializeImages.mockReset();
+    runPolishPass.mockReset();
+    isPolishPassEnabled.mockReset();
     buildPreviewHtml.mockReset();
     buildPreviewUrl.mockReset();
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
     addAssistantMessageAndCreateDraftVersion.mockReset();
+    updateChatOrchestrationSnapshot.mockReset();
+    getChatOrchestrationSnapshot.mockReset();
     addMessage.mockReset();
     deleteEngineMessage.mockReset();
     logGeneration.mockReset();
     failVersionVerification.mockReset();
     createEngineVersionErrorLogs.mockReset();
+    createGenerationTelemetryRecord.mockReset();
     parseFilesFromContent.mockReset();
     mergeVersionFilesWithWarnings.mockReset();
     validateGeneratedCode.mockReset();
@@ -151,6 +171,12 @@ describe("finalizeAndSaveVersion", () => {
       resolvedUrls: new Set<string>(),
       queries: [],
     });
+    runPolishPass.mockResolvedValue({
+      applied: false,
+      polishedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      filesChanged: [],
+    });
+    isPolishPassEnabled.mockReturnValue(true);
     parseFilesFromContent.mockReturnValue(
       JSON.stringify([
         {
@@ -190,11 +216,14 @@ describe("finalizeAndSaveVersion", () => {
       message: { id: "msg_1" },
       version: { id: "ver_1" },
     });
+    updateChatOrchestrationSnapshot.mockResolvedValue(true);
+    getChatOrchestrationSnapshot.mockResolvedValue(null);
     addMessage.mockResolvedValue({ id: "orphan_msg" });
     deleteEngineMessage.mockResolvedValue(true);
     logGeneration.mockResolvedValue({});
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
+    createGenerationTelemetryRecord.mockResolvedValue({ id: "telemetry_1" });
     buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
   });
 
@@ -211,6 +240,47 @@ describe("finalizeAndSaveVersion", () => {
 
     expect(addMessage).not.toHaveBeenCalled();
     expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalledTimes(1);
+    expect(updateChatOrchestrationSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("persists orchestration snapshot when orchestrationStreamMeta is provided", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      buildIntent: "website",
+      orchestrationStreamMeta: { modelTier: "max", promptStrategy: "compress" },
+    });
+    expect(updateChatOrchestrationSnapshot).toHaveBeenCalledTimes(1);
+    const arg = updateChatOrchestrationSnapshot.mock.calls[0];
+    expect(arg?.[0]).toBe("chat_1");
+    expect((arg?.[1] as Record<string, unknown>)?.lastVersionId).toBe("ver_1");
+  });
+
+  it("merges orchestration snapshot with previous chat row (K-019)", async () => {
+    getChatOrchestrationSnapshot.mockResolvedValueOnce({
+      scaffoldId: "scaffold_prev",
+      modelTier: "pro",
+    });
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      orchestrationStreamMeta: { promptStrategy: "deep" },
+    });
+    expect(getChatOrchestrationSnapshot).toHaveBeenCalledWith("chat_1");
+    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(saved?.scaffoldId).toBe("scaffold_prev");
+    expect(saved?.promptStrategy).toBe("deep");
+    expect(saved?.lastVersionId).toBe("ver_1");
   });
 
   it("propagates when transactional assistant+draft persist fails (no manual message delete)", async () => {
@@ -256,7 +326,7 @@ describe("finalizeAndSaveVersion", () => {
     });
   });
 
-  it("keeps preview URLs when verification blockers do not prevent preview rendering", async () => {
+  it("emits no preview URL when sandbox is blocked and shim path is removed", async () => {
     runProjectSanityChecks.mockReturnValue({
       valid: false,
       issues: [
@@ -279,21 +349,21 @@ describe("finalizeAndSaveVersion", () => {
       logNote: "unit-test",
     });
 
-    expect(result.previewUrl).toBe("https://preview.example/chat_1/ver_1");
-    expect(result.preflight.previewBlocked).toBe(false);
+    expect(result.previewUrl).toBeNull();
+    expect(result.preflight.previewBlocked).toBe(true);
     expect(result.preflight.verificationBlocked).toBe(true);
-    expect(buildPreviewUrl).toHaveBeenCalledWith("chat_1", "ver_1");
+    expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",
       { prompt: undefined, completion: undefined },
       expect.any(Number),
       false,
-      "Automatic preflight found verification-blocking issues.",
+      "Automatic preflight found preview-blocking issues.",
     );
     expect(failVersionVerification).toHaveBeenCalledWith(
       "ver_1",
-      "Automatic preflight found verification-blocking issues.",
+      "Automatic preflight found preview-blocking issues.",
     );
   });
 
@@ -311,23 +381,22 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(result.previewUrl).toBeNull();
-    expect(result.preflight.previewBlocked).toBe(true);
+    expect(result.preflight.previewBlocked).toBe(false);
+    expect(result.preflight.verificationBlocked).toBe(false);
     expect(result.preflight.previewBlockingReason).toBe(
       "Automatic preflight could not build a renderable own-engine preview entrypoint.",
     );
+    expect(result.preflight.primaryPreviewTarget).toBe("sandbox");
     expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",
       { prompt: undefined, completion: undefined },
       expect.any(Number),
-      false,
-      "Automatic preflight found preview-blocking issues.",
+      true,
+      undefined,
     );
-    expect(failVersionVerification).toHaveBeenCalledWith(
-      "ver_1",
-      "Automatic preflight found preview-blocking issues.",
-    );
+    expect(failVersionVerification).not.toHaveBeenCalled();
   });
 
   it("uses previousFiles as the merge base for follow-up generations", async () => {
@@ -366,6 +435,7 @@ describe("finalizeAndSaveVersion", () => {
           path: "src/app/page.tsx",
         }),
       ]),
+      { rejectSignificantShrinks: true },
     );
     expect(checkScaffoldImports).toHaveBeenCalled();
   });
@@ -410,20 +480,188 @@ describe("finalizeAndSaveVersion", () => {
         expect.objectContaining({
           category: "preflight:summary",
           meta: expect.objectContaining({
-            previewBlocked: true,
-            verificationBlocked: true,
+            previewBlocked: false,
+            verificationBlocked: false,
+            sandbox: expect.objectContaining({
+              canStartSandbox: true,
+              primaryPreviewTarget: "sandbox",
+            }),
           }),
         }),
         expect.objectContaining({
           category: "preview",
-          level: "error",
+          level: "warning",
           meta: expect.objectContaining({
-            previewCode: "preflight_preview_blocked",
-            previewBlocked: true,
-            verificationBlocked: true,
+            previewCode: "compatibility_shim_blocked",
+            previewBlocked: false,
+            verificationBlocked: false,
           }),
         }),
       ]),
     );
+  });
+
+  it("skips deep-path image materialization and polish for light follow-up finalize", async () => {
+    const progressEvents: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "copy",
+        scaffoldFamily: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 12_000,
+          refsChars: 4_000,
+          systemContextChars: 18_000,
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      onProgress: (event, data) => progressEvents.push({ event, data }),
+    });
+
+    expect(materializeImages).not.toHaveBeenCalled();
+    expect(runPolishPass).not.toHaveBeenCalled();
+    expect(result.telemetryRecordId).toBe("telemetry_1");
+    expect(progressEvents).toContainEqual({
+      event: "materialize_images",
+      data: { phase: "skipped", reason: "light_followup_fast_policy" },
+    });
+    expect(progressEvents).toContainEqual({
+      event: "polish",
+      data: { phase: "skipped", reason: "light_followup_fast_policy" },
+    });
+    expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        qualityGateResult: "preflight_passed",
+        retryCount: 0,
+        meta: expect.objectContaining({
+          finalizePath: "fast-only",
+          finalizePathReason: "light_followup_fast_policy",
+          repairPassIndex: 0,
+          buildSpec: expect.objectContaining({
+            generationMode: "followUp",
+            changeScope: "copy",
+            previewPolicy: "fidelity2",
+            verificationPolicy: "fast",
+            contextPolicy: "light",
+          }),
+          autofix: expect.objectContaining({
+            fixCount: 0,
+            warningCount: 0,
+          }),
+          preflight: expect.objectContaining({
+            previewBlocked: false,
+            verificationBlocked: false,
+          }),
+        }),
+      }),
+    );
+  });
+
+  describe("finalize telemetry and persistence", () => {
+    it("init with premium quality target records preflight_passed and fast+deep default telemetry", async () => {
+      const result = await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "premium",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: ["marketing-sites"],
+          forbiddenPatterns: ["leave_bracket_placeholders"],
+          tokenBudgets: {
+            scaffoldChars: 12_000,
+            refsChars: 4_000,
+            systemContextChars: 18_000,
+          },
+        },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          qualityGateResult: "preflight_passed",
+          meta: expect.objectContaining({
+            buildSpec: expect.objectContaining({
+              qualityTarget: "premium",
+              previewPolicy: "fidelity2",
+            }),
+            finalizePath: "fast+deep",
+            finalizePathReason: "default",
+          }),
+        }),
+      );
+      expect(result.telemetryRecordId).not.toBeNull();
+    });
+
+    it("follow-up with fast verification skips materializeImages and records fast-only light_followup telemetry", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "copy",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "fast",
+          contextPolicy: "light",
+          referenceCategories: ["marketing-sites"],
+          forbiddenPatterns: ["leave_bracket_placeholders"],
+          tokenBudgets: {
+            scaffoldChars: 12_000,
+            refsChars: 4_000,
+            systemContextChars: 18_000,
+          },
+        },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(materializeImages).not.toHaveBeenCalled();
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            finalizePath: "fast-only",
+            finalizePathReason: "light_followup_fast_policy",
+          }),
+        }),
+      );
+    });
   });
 });

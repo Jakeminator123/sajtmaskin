@@ -4,12 +4,9 @@ const shouldUseV0Fallback = vi.hoisted(() => vi.fn(() => false));
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
-const getProjectByIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
 const updateVersionSandboxUrl = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
-const assertV0Key = vi.hoisted(() => vi.fn());
-const v0ChatsGetById = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/generation-pipeline", () => ({
   shouldUseV0Fallback,
@@ -19,7 +16,6 @@ vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
   getChatByV0ChatIdForRequest,
-  getProjectByIdForRequest,
 }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -27,17 +23,8 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateVersionSandboxUrl,
 }));
 
-vi.mock("@/lib/gen/preview", () => ({
+vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewUrl,
-}));
-
-vi.mock("@/lib/v0", () => ({
-  assertV0Key,
-  v0: {
-    chats: {
-      getById: v0ChatsGetById,
-    },
-  },
 }));
 
 vi.mock("@/lib/db/client", () => ({
@@ -81,12 +68,9 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     getEngineChatByIdForRequest.mockReset();
     getEngineVersionForChatByIdForRequest.mockReset();
     getChatByV0ChatIdForRequest.mockReset();
-    getProjectByIdForRequest.mockReset();
     getVersionsByChat.mockReset();
     updateVersionSandboxUrl.mockReset();
     buildPreviewUrl.mockReset();
-    assertV0Key.mockReset();
-    v0ChatsGetById.mockReset();
   });
 
   it("returns failed own-engine versions without a preview URL", async () => {
@@ -112,21 +96,45 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
 
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
-    expect(json.versions[0].demoUrl).toBeNull();
+    expect(json.versions[0].previewUrl).toBeNull();
+    expect(json.versions[0].legacyShimPreviewUrl).toBeNull();
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
-  it("does not leak raw v0 fallback versions for unowned projects", async () => {
+  it("returns legacyShimPreviewUrl but null previewUrl when own-engine preview may be exposed", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_ok",
+        created_at: "2026-03-13T10:01:00.000Z",
+        version_number: 3,
+        message_id: "msg_1",
+        sandbox_url: "https://sandbox.example",
+        release_state: "draft",
+        verification_state: "passed",
+        verification_summary: null,
+        promoted_at: null,
+      },
+    ]);
+    buildPreviewUrl.mockReturnValue("/api/preview-render?chatId=chat_1&versionId=ver_ok");
+
+    const response = await GET(new Request("https://example.com/api/v0/chats/chat_1/versions"), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.versions).toHaveLength(1);
+    expect(json.versions[0].previewUrl).toBeNull();
+    expect(json.versions[0].legacyShimPreviewUrl).toBe(
+      "/api/preview-render?chatId=chat_1&versionId=ver_ok",
+    );
+    expect(buildPreviewUrl).toHaveBeenCalledWith("chat_1", "ver_ok");
+  });
+
+  it("returns empty versions when chat is not engine-backed and has no legacy DB mapping", async () => {
     getEngineChatByIdForRequest.mockResolvedValue(null);
     getChatByV0ChatIdForRequest.mockResolvedValue(null);
-    v0ChatsGetById.mockResolvedValue({
-      projectId: "v0_proj_1",
-      latestVersion: {
-        id: "ver_v0",
-        demoUrl: "https://demo.example",
-      },
-    });
-    getProjectByIdForRequest.mockResolvedValue(null);
 
     const response = await GET(
       new Request("https://example.com/api/v0/chats/chat_external/versions"),

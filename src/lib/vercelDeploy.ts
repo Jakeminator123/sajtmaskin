@@ -54,7 +54,7 @@ function extractVercelErrorMessage(payload: unknown): string | null {
   return readStringField(root, "message");
 }
 
-export function getVercelTeamId(): string | null {
+function getVercelTeamId(): string | null {
   const teamId = process.env.VERCEL_TEAM_ID;
   return teamId && teamId.trim().length > 0 ? teamId.trim() : null;
 }

@@ -28,6 +28,8 @@ export type MessageOptions = {
   promptSourceMeta?: PromptSourceMeta;
   scaffoldModeOverride?: ScaffoldMode;
   scaffoldIdOverride?: string | null;
+  /** Override the follow-up base version instead of using current builder selection. */
+  engineBaseVersionIdOverride?: string | null;
 };
 
 export type CreateChatLock = {
@@ -36,10 +38,40 @@ export type CreateChatLock = {
   chatId?: string | null;
 };
 
+export type QualityGateFailure = {
+  check: "typecheck" | "build" | "lint";
+  exitCode: number;
+  /** Truncated check output (max ~4000 chars). */
+  output: string;
+  errorCount?: number;
+};
+
+export type RepairScaffoldRetry = {
+  /** New compact form for prompts. */
+  labels?: string[];
+  /** Legacy / preview-preflight shape still used in runtime metadata. */
+  currentScaffoldId?: string;
+  currentScaffoldLabel?: string;
+  suggestedScaffoldId?: string;
+  suggestedScaffoldLabel?: string;
+  reason: string;
+};
+
+export type RepairContext = {
+  qualityGate?: QualityGateFailure[];
+  visualQA?: { check: string; score: number; detail: string }[];
+  previousVersionErrors?: string[];
+  currentVersionErrors?: string[];
+  scaffoldRetry?: RepairScaffoldRetry | null;
+};
+
 export type AutoFixPayload = {
   chatId: string;
   versionId: string;
   reasons: string[];
+  /** Structured repair context from quality gate / post-checks. */
+  repair?: RepairContext;
+  /** General metadata — kept for backward compat with preview/diagnostics callers. */
   meta?: Record<string, unknown>;
 };
 
@@ -62,6 +94,8 @@ export type StreamDebugStats = {
   didReceiveDone: boolean;
   chatId?: string | null;
   versionId?: string | null;
+  /** True when the fetch/stream was aborted (user cancel or navigation). */
+  abortedByClient?: boolean;
 };
 
 export type StreamQualitySignal = {
@@ -72,6 +106,8 @@ export type StreamQualitySignal = {
 export type VersionEntry = {
   versionId?: string | null;
   id?: string | null;
+  previewUrl?: string | null;
+  /** @deprecated Prefer `previewUrl` from API responses. */
   demoUrl?: string | null;
   createdAt?: string | null;
   versionNumber?: number | null;
@@ -96,6 +132,7 @@ export type ModelInfoData = {
   promptAssistProvider?: string | null;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean | null;
+  promptAssistMode?: "polish" | "rewrite" | null;
   scaffoldId?: string | null;
   scaffoldFamily?: string | null;
   scaffoldLabel?: string | null;
@@ -133,6 +170,12 @@ export type SandboxBuildErrorPayload = {
   message: string;
 };
 
+/** `npm run build` in Vercel sandbox after dev. */
+export type SandboxProdBuildPayload = {
+  verified: boolean;
+  logSnippet?: string;
+};
+
 export type VersionErrorLogPayload = {
   level: "info" | "warning" | "error";
   category?: string | null;
@@ -144,18 +187,21 @@ export type SetMessages = (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatM
 
 export type ChatMessagingParams = {
   chatId: string | null;
+  /** When set, follow-up stream sends `meta.engineBaseVersionId` so the server merges from that version. */
+  activeVersionId?: string | null;
   setChatId: (id: string | null) => void;
   chatIdParam: string | null;
   router: RouterLike;
   appProjectId?: string | null;
-  v0ProjectId?: string | null;
+  /** Maps to API `projectId` / legacy `v0ProjectId` in responses. */
+  linkedProjectId?: string | null;
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
   enableImageMaterialization?: boolean;
   enableThinking: boolean;
   chatPrivacy?: "private" | "unlisted";
-  /** External v0 registry-backed design system identifier. */
-  v0DesignSystemId?: string;
+  /** Registry / external design system id (request `designSystemId`). */
+  registryDesignSystemId?: string;
   /** Internal Sajtmaskin theme preset used to derive theme colors. */
   designThemePreset?: DesignTheme;
   systemPrompt?: string;
@@ -170,12 +216,21 @@ export type ChatMessagingParams = {
   paletteState?: PaletteState | null;
   pendingBriefRef?: MutableRefObject<Record<string, unknown> | null>;
   mutateVersions: () => void;
-  setCurrentDemoUrl: (url: string | null) => void;
+  setCurrentPreviewUrl: (url: string | null) => void;
   /** Cleared on sandbox-ready; set on SSE build-error for inline preview UI. */
   setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
+  setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
+  setSandboxPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
-  onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
-  onV0ProjectId?: (projectId: string) => void;
+  onGenerationComplete?: (data: {
+    chatId: string;
+    versionId?: string;
+    previewUrl?: string;
+    onlySelectVersionIfWasLatest?: boolean;
+  }) => void;
+  /** SSE sandbox-ready: bind sandboxId to the current stream version for heartbeat/status. */
+  onSandboxSessionMeta?: (meta: { sandboxId: string; versionId: string | null } | null) => void;
+  onLinkedProjectId?: (projectId: string) => void;
   setMessages: SetMessages;
   resetBeforeCreateChat: () => void;
 };

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PreGenerationContractContext } from "@/lib/gen/pre-generation-contracts";
-import type { ContractClarificationQuestion } from "@/lib/gen/contract-clarification";
+import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
+import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import { createPreGenerationContractGateReadableStream } from "./pre-generation-contract-gate";
@@ -93,6 +94,26 @@ const capabilities: InferredCapabilities = {
   needsPremiumVisuals: false,
 };
 
+const buildSpec: BuildSpec = {
+  buildIntent: "website",
+  generationMode: "followUp",
+  changeScope: "integration",
+  scaffoldFamily: "saas-landing",
+  routePlanSummary: "prompt:brochure:/,/pricing",
+  stylePack: "saas",
+  qualityTarget: "premium",
+  previewPolicy: "fidelity2",
+  verificationPolicy: "standard",
+  contextPolicy: "heavy",
+  referenceCategories: ["saas", "marketing-sites", "backend"],
+  forbiddenPatterns: ["leave_bracket_placeholders", "tier1_static_preview_primary"],
+  tokenBudgets: {
+    scaffoldChars: 25_000,
+    refsChars: 12_000,
+    systemContextChars: 36_000,
+  },
+};
+
 describe("createPreGenerationContractGateReadableStream (golden SSE)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -117,6 +138,7 @@ describe("createPreGenerationContractGateReadableStream (golden SSE)", () => {
       resolvedImageGenerations: false,
       resolvedScaffold: scaffold,
       strategyMeta,
+      buildSpec,
       metaBriefApplied: true,
       customInstructionsLength: 0,
     });
@@ -142,6 +164,7 @@ describe("createPreGenerationContractGateReadableStream (golden SSE)", () => {
     expect(meta.contractDataMode).toBe("persisted");
     expect(meta.scaffoldId).toBe("sc_1");
     expect(meta.scaffoldFamily).toBe("saas-landing");
+    expect(meta.buildSpec).toEqual(buildSpec);
 
     const toolCall = events[2]?.data as { toolName?: string; toolCallId?: string };
     expect(toolCall.toolName).toBe("askClarifyingQuestion");
@@ -153,7 +176,7 @@ describe("createPreGenerationContractGateReadableStream (golden SSE)", () => {
       chatId: "chat_followup",
       versionId: null,
       messageId: "msg_a",
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       awaitingInputPrompt: "Vilken auth?",
       reason: "pre_generation_contracts",
@@ -174,6 +197,7 @@ describe("createPreGenerationContractGateReadableStream (golden SSE)", () => {
       resolvedImageGenerations: true,
       resolvedScaffold: scaffold,
       strategyMeta,
+      buildSpec,
       metaBriefApplied: false,
       customInstructionsLength: 12,
       chatPrivacy: "team",

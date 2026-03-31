@@ -1,53 +1,47 @@
 ---
 name: sajtmaskin-context
-description: Apply Sajtmaskin project context, terminology, and MCP routing rules for v0, Vercel, OpenAI, and OpenClaw questions. Use when tasks mention builder flow, generation architecture, scaffolds, v0-templates, deployments, demoUrl, chats, versions, or external docs lookup.
+description: Quick domain/context skill for Sajtmaskin. Use when working on builder, preview, scaffolds, own-engine, templates, sandbox, deploy, or terminology-sensitive tasks.
 ---
 
 # Sajtmaskin Context
 
-Use this skill to align decisions and wording with this repository's domain model.
+Use this skill to stay aligned with Sajtmaskin's domain language and canonical docs.
 
-## Quick start
+## Read first
 
-1. Read these project rules first:
-   - `.cursor/rules/terminology.mdc`
-   - `.cursor/rules/mcp-docs-routing.mdc`
-   - `.cursor/rules/react-node-skill-routing.mdc`
-2. Keep canonical product terminology in all reasoning and responses.
-3. Route external platform/documentation questions to the correct MCP server before generic web search.
+1. `.cursor/rules/terminology.mdc` - canonical product/code terminology
+2. `docs/README.md` - canonical doc navigation
+3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` - active backlog and decisions
 
-## Terminology guardrails
+## Core guardrails
 
-**Canonical detail:** `.cursor/rules/terminology.mdc` (always loaded). Keep **Vercel**, **v0**, **Sajtmaskin**, and **demo sites** as separate layers.
+- Keep Sajtmaskin terminology consistent.
+- Do not confuse builderns `Mallar` / mallgalleri in `src/lib/templates` with runtime `template-library` in `src/lib/gen/template-library` or with Vercel template research under `research/external-templates/`.
+- Do not confuse runtime scaffolds under `src/lib/gen/scaffolds/` with either of those template sources.
+- `/api/v0/` is API versioning, not automatically the external v0 provider.
+- Own-engine behavior should be understood from repo code and canonical docs, not guessed.
 
-Summary: **scaffold-driven** runtime (`src/lib/gen/scaffolds/`); **v0-templates** = product gallery (`src/lib/templates/`, landing **Template**); **Vercel mall** = research/dossiers/artifacts, not the gallery tab. No “operational lanes” triad. **Inbäddningar** (ML) ≠ **semantik** (HTML/a11y) — see terminology § embeddings vs semantics.
+## Preview / generation guardrails
 
-## MCP routing defaults
-
-Route by domain:
-
-- v0 API or generation behavior -> `v0` MCP server
-- Vercel platform/deployments/env vars/docs -> `Vercel` MCP server
-- OpenAI API/models/docs -> `openaiDeveloperDocs`
-- Own engine runtime/manifests/generated files -> `sajtmaskin-engine`
-- Internal scaffolds/manifests/comparison -> `sajtmaskin-scaffolds`
-- OpenClaw install/config/channels/CLI -> `openclaw-docs`
-
-Prefer MCP docs/tools first. Use web search as fallback.
-
-## React/Next tasks
-
-For React/Next/Node/performance tasks, proactively apply `vercel-react-best-practices`.
+- Sandbox / Fidelity 2 is the primary live-preview path for own-engine.
+- Legacy shim preview is fallback or diagnostic only unless explicitly required.
+- Runtime truth lives in code; docs explain structure and intent.
 
 ## Response behavior
 
-- If the user writes Swedish, respond in Swedish unless they ask otherwise.
-- Normalize common aliases to canonical names (`Varicell` -> `Vercel`, `Veenol` -> `v0`).
+- Reply in Swedish if the user writes Swedish, unless they ask otherwise.
+- Normalize common aliases carefully: `Varicell` -> `Vercel`, `Veenol` -> `v0`.
 
-## Example trigger phrases
+## Typical triggers
 
-- "hur fungerar buildern"
-- "vad är skillnaden på mall och scaffold"
-- "varför använder vi demoUrl"
-- "hur deployar vi till Vercel"
-- "hur ska vi routa docs frågor"
+- builder
+- sandbox
+- preview
+- fidelity
+- own-engine
+- scaffold
+- mallgalleri
+- template-library
+- Vercel template
+- deploy
+- demoUrl

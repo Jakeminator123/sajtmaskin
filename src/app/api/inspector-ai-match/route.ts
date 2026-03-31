@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import OpenAI from "openai";
+import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,8 +14,7 @@ const INPUT_COST_PER_M = 0.15;
 const OUTPUT_COST_PER_M = 0.6;
 
 function getGatewayApiKey(): string | null {
-  const key = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
-  return key?.trim() || null;
+  return pickAiGatewayKeyFromEnv();
 }
 
 function getDirectApiKey(): string | null {
@@ -62,6 +63,13 @@ function truncateCode(files: Array<{ name: string; content: string }>): string {
 }
 
 export async function POST(req: Request) {
+  if (!isBuilderInspectorEnabled()) {
+    return NextResponse.json(
+      { success: false, error: getBuilderInspectorDisabledMessage() },
+      { status: 503 },
+    );
+  }
+
   const client = createClient();
   if (!client) {
     return NextResponse.json(
@@ -86,7 +94,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const systemPrompt = `Du är en expert på React/Next.js-layouter. 
+  const systemPrompt = `Du är en expert på React/Next.js-layouter.
 Användaren klickade på en punkt i en preview-vy. Utifrån koordinaterna och källkoden, identifiera EXAKT vilken JSX-komponent/element som troligast ligger vid den punkten.
 
 Svara ALLTID med ett JSON-objekt (inga markdown-backticks):

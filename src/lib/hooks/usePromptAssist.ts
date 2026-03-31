@@ -9,9 +9,10 @@ import {
   isPromptAssistOff,
   normalizeAssistModel,
   resolvePromptAssistProvider,
+  type PromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import { DEFAULT_PROMPT_POLISH_MODEL } from "@/lib/builder/defaults";
-import type { WebsiteSpec } from "@/lib/builder/promptAssistContext";
+import { ASSIST_MODEL } from "@/lib/gen/defaults";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { debugLog } from "@/lib/utils/debug";
@@ -40,21 +41,33 @@ type UsePromptAssistParams = {
 };
 
 // maxTokens is intentionally NOT sent from the client.
-// The gateway/model uses its own maximum when omitted, avoiding
-// validation failures when the gateway cap is lower than expected.
-// 10 minutes to accommodate slow models or gateway delays
+// The model uses its own maximum when omitted, avoiding validation failures when the cap is lower than expected.
+// 10 minutes to accommodate slow models or upstream delays
 const PROMPT_ASSIST_TIMEOUT_MS = 600_000;
 
 type PromptAssistMode = "rewrite" | "polish";
 
 type PromptAssistOptions = {
   forceShallow?: boolean;
+  /** First-chat path: always run structured brief (OpenAI brief path + ASSIST_MODEL if assist tier is non–OpenAI-class). */
+  forceDeepBrief?: boolean;
   mode?: PromptAssistMode;
   forceEnglish?: boolean;
   modelOverride?: string;
   /** Called with the raw brief object when deep brief is generated (for spec file) */
   onBrief?: (brief: Record<string, unknown>) => void;
 };
+
+/**
+ * Internal `PromptAssistProvider` still uses the label `"gateway"` for OpenAI-class models.
+ * Server routes call OpenAI/Anthropic directly (`createDirectModel` + API keys) — not Vercel AI Gateway.
+ */
+function promptAssistDebugFields(provider: PromptAssistProvider) {
+  return {
+    assistLane: provider === "gateway" ? "openai" : "anthropic",
+    apiRouting: "direct_provider" as const,
+  };
+}
 
 const STOPWORDS = new Set([
   "och",
@@ -208,7 +221,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
       };
 
       debugLog("AI", "Prompt assist started", {
-        provider,
+        ...promptAssistDebugFields(provider),
         model: normalizedModel,
         deep: useDeep,
         imageGenerations,
@@ -342,7 +355,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
         debugLog("AI", "Prompt assist failed", {
           durationMs: Date.now() - startedAt,
-          provider,
+          ...promptAssistDebugFields(provider),
           model: normalizedModel,
           deep: useDeep,
           error: rawMessage,
@@ -403,18 +416,20 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
       const provider = resolvePromptAssistProvider(normalizedModel);
       const startedAt = Date.now();
-      const resolvedDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
-      const useDeep = resolvedDeep && !options.forceShallow;
+      const resolvedGatewayDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
+      const useDeepBrief =
+        !options.forceShallow &&
+        (options.forceDeepBrief === true || resolvedGatewayDeep);
 
       debugLog("AI", "Dynamic instructions started", {
-        provider,
+        ...promptAssistDebugFields(provider),
         model: normalizedModel,
-        deep: useDeep,
+        deep: useDeepBrief,
         imageGenerations,
         promptLength: originalPrompt.length,
       });
 
-      if (!useDeep) {
+      if (!useDeepBrief) {
         return buildDynamicInstructionAddendumFromPrompt({
           originalPrompt,
           imageGenerations,
@@ -423,10 +438,21 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         });
       }
 
+      const briefUsesGateway =
+        options.forceDeepBrief === true && !isGatewayAssistModel(normalizedModel)
+          ? true
+          : provider !== "anthropic";
+      const briefProvider = briefUsesGateway ? "gateway" : "anthropic";
+      const briefModel = briefUsesGateway
+        ? isGatewayAssistModel(normalizedModel)
+          ? normalizedModel
+          : normalizeAssistModel(ASSIST_MODEL)
+        : normalizedModel;
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
       try {
-        toast.loading("Skapar dynamiska instruktioner...", {
+        toast.loading("Skapar brief och dynamiska instruktioner innan own-engine startar...", {
           id: "sajtmaskin:dynamic-instructions",
         });
 
@@ -435,8 +461,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           headers: { "Content-Type": "application/json" },
           signal: controller.signal,
           body: JSON.stringify({
-            provider,
-            model: normalizedModel,
+            provider: briefProvider,
+            model: briefModel,
             temperature: 0.2,
             prompt: originalPrompt,
             imageGenerations,
@@ -477,7 +503,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           outputLength: addendum.length,
         });
 
-        toast.success("Instruktioner uppdaterade", {
+        toast.success("Brief klar — own-engine kan starta.", {
           id: "sajtmaskin:dynamic-instructions",
         });
 
@@ -504,7 +530,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         });
 
         if (isAbort) {
-          toast.error("Instruktions‑generering tog för lång tid (timeout)", {
+          toast.error("Brief/instruktions-generering tog för lång tid (timeout)", {
             id: "sajtmaskin:dynamic-instructions",
           });
         } else if (isParseError) {
@@ -531,100 +557,5 @@ export function usePromptAssist(params: UsePromptAssistParams) {
     [model, deep, imageGenerations, buildIntent, themeColors],
   );
 
-  /**
-   * Generate a structured spec from the user prompt using the spec-first chain.
-   * This uses AI to analyze the prompt and create a detailed specification
-   * that results in higher quality code generation.
-   *
-   * @param originalPrompt - The user's original website request
-   * @returns Object containing spec and enhanced prompt, or null on failure
-   */
-  const generateSpecFromPrompt = useCallback(
-    async (
-      originalPrompt: string,
-    ): Promise<{ spec: WebsiteSpec; enhancedPrompt: string } | null> => {
-      const startedAt = Date.now();
-
-      debugLog("AI", "Spec-first chain started", {
-        promptLength: originalPrompt.length,
-      });
-
-      try {
-        toast.loading("Analyserar din förfrågan och skapar spec...", {
-          id: "sajtmaskin:spec-first",
-        });
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60_000);
-
-        let res: Response;
-        try {
-          const normalizedSpecModel = normalizeAssistModel(model);
-          const requestedSpecModel = isGatewayAssistModel(normalizedSpecModel)
-            ? normalizedSpecModel
-            : "openai/gpt-5.4";
-          res = await fetch("/api/ai/spec", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: controller.signal,
-            body: JSON.stringify({
-              prompt: originalPrompt,
-              model: requestedSpecModel,
-            }),
-          });
-        } finally {
-          clearTimeout(timeoutId);
-        }
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          const msg =
-            extractErrorMessage(err) ||
-            `Spec generation failed (HTTP ${res.status})`;
-          throw new Error(String(msg));
-        }
-
-        const data = await res.json();
-        if (!data.success || !data.spec || !data.enhancedPrompt) {
-          throw new Error("Invalid spec response");
-        }
-
-        debugLog("AI", "Spec-first chain completed", {
-          durationMs: Date.now() - startedAt,
-          specPages: data.spec.pages?.length ?? 0,
-          enhancedPromptLength: data.enhancedPrompt.length,
-        });
-
-        toast.success("Spec skapad - genererar kod...", { id: "sajtmaskin:spec-first" });
-
-        return {
-          spec: data.spec as WebsiteSpec,
-          enhancedPrompt: data.enhancedPrompt as string,
-        };
-      } catch (err) {
-        const rawMessage = err instanceof Error ? err.message : "Spec generation failed";
-        const isAbort = isAbortError(err);
-
-        debugLog("AI", "Spec-first chain failed", {
-          durationMs: Date.now() - startedAt,
-          error: rawMessage,
-        });
-
-        if (isAbort) {
-          toast.error("Spec-generering tog för lång tid (timeout)", {
-            id: "sajtmaskin:spec-first",
-          });
-        } else {
-          toast.error(`Spec-generering misslyckades: ${rawMessage}`, {
-            id: "sajtmaskin:spec-first",
-          });
-        }
-
-        return null;
-      }
-    },
-    [model],
-  );
-
-  return { maybeEnhanceInitialPrompt, generateSpecFromPrompt, generateDynamicInstructions };
+  return { maybeEnhanceInitialPrompt, generateDynamicInstructions };
 }

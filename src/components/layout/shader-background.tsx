@@ -2,12 +2,12 @@
 
 import { memo, useState, useEffect } from "react";
 import { Dithering } from "@paper-design/shaders-react";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 
 const MemoizedDithering = memo(Dithering);
 
 // Sajtstudio palette themes (noir base + neon accents)
-export const SHADER_THEMES = {
+const SHADER_THEMES = {
   // Noir base
   default: {
     color: "#01060C",

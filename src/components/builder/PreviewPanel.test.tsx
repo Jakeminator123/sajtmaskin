@@ -1,18 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PreviewPanel } from "./PreviewPanel";
+import { PreviewPanel } from "./preview-panel/PreviewPanel";
 
 vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
   useIntegrationStatus: () => ({
     integrationStatus: null,
     integrationError: null,
-  }),
-}));
-
-vi.mock("@/lib/hooks/useInspectorWorkerStatus", () => ({
-  useInspectorWorkerStatus: () => ({
-    inspectorWorkerStatus: "idle",
-    inspectorWorkerMessage: null,
   }),
 }));
 
@@ -24,17 +17,21 @@ vi.mock("sonner", () => ({
   },
 }));
 
+function buildPreviewPanelProps(
+  overrides?: Partial<React.ComponentProps<typeof PreviewPanel>>,
+): React.ComponentProps<typeof PreviewPanel> {
+  return {
+    chatId: "chat_1",
+    versionId: "ver_1",
+    previewUrl: "https://preview.example/ver_1",
+    onNavigatePreviewUrl: vi.fn(),
+    onFilesSaved: vi.fn(),
+    ...overrides,
+  };
+}
+
 function renderPreviewPanel(overrides?: Partial<React.ComponentProps<typeof PreviewPanel>>) {
-  return render(
-    <PreviewPanel
-      chatId="chat_1"
-      versionId="ver_1"
-      demoUrl="https://preview.example/ver_1"
-      onNavigatePreviewUrl={vi.fn()}
-      onFilesSaved={vi.fn()}
-      {...overrides}
-    />,
-  );
+  return render(<PreviewPanel {...buildPreviewPanelProps(overrides)} />);
 }
 
 describe("PreviewPanel", () => {
@@ -44,7 +41,7 @@ describe("PreviewPanel", () => {
 
   it("shows the actual awaiting-input question in the empty preview state", async () => {
     renderPreviewPanel({
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       awaitingInputQuestion: "Vilken del vill du att jag fokuserar på först?",
       awaitingInputOptions: ["Design", "Innehåll"],
@@ -60,12 +57,31 @@ describe("PreviewPanel", () => {
     expect(screen.getByText("Innehåll")).toBeTruthy();
   });
 
+  it("keeps hook order stable when preview URL appears after the empty state", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, files: [], routes: [], elements: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    const props = buildPreviewPanelProps({ previewUrl: null });
+    const { rerender } = render(<PreviewPanel {...props} />);
+
+    expect(() => {
+      rerender(<PreviewPanel {...props} previewUrl="https://preview.example/ver_1" />);
+    }).not.toThrow();
+  });
+
   it("shows the footer editor and not the nav editor for footer link files", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+        if (url.includes("/api/engine/chats/chat_1/files?versionId=ver_1")) {
           return new Response(
             JSON.stringify({
               files: [
@@ -112,7 +128,7 @@ describe("PreviewPanel", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+        if (url.includes("/api/engine/chats/chat_1/files?versionId=ver_1")) {
           return new Response(
             JSON.stringify({
               files: [
@@ -151,7 +167,7 @@ describe("PreviewPanel", () => {
     const onFilesSaved = vi.fn();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+      if (url.includes("/api/engine/chats/chat_1/files?versionId=ver_1")) {
         return new Response(
           JSON.stringify({
             files: [
@@ -177,7 +193,7 @@ describe("PreviewPanel", () => {
         );
       }
 
-      if (url.endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH") {
+      if (url.endsWith("/api/engine/chats/chat_1/files") && init?.method === "PATCH") {
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -206,7 +222,7 @@ describe("PreviewPanel", () => {
 
     const patchCall = fetchMock.mock.calls.find(
       ([input, init]) =>
-        String(input).endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH",
+        String(input).endsWith("/api/engine/chats/chat_1/files") && init?.method === "PATCH",
     );
     expect(patchCall).toBeTruthy();
 
@@ -224,7 +240,7 @@ describe("PreviewPanel", () => {
     const onFilesSaved = vi.fn();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+      if (url.includes("/api/engine/chats/chat_1/files?versionId=ver_1")) {
         return new Response(
           JSON.stringify({
             files: [
@@ -244,7 +260,7 @@ describe("PreviewPanel", () => {
         );
       }
 
-      if (url.endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH") {
+      if (url.endsWith("/api/engine/chats/chat_1/files") && init?.method === "PATCH") {
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -273,7 +289,7 @@ describe("PreviewPanel", () => {
 
     const patchCall = fetchMock.mock.calls.find(
       ([input, init]) =>
-        String(input).endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH",
+        String(input).endsWith("/api/engine/chats/chat_1/files") && init?.method === "PATCH",
     );
     expect(patchCall).toBeTruthy();
 

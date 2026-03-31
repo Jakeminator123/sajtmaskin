@@ -5,7 +5,8 @@
  */
 
 import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL, getAnalyticsStats, recordPageView } from "@/lib/db/services";
+import { getAnalyticsStats, recordPageView } from "@/lib/db/services/analytics";
+import { TEST_USER_EMAIL } from "@/lib/db/services/shared";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { after, NextRequest, NextResponse } from "next/server";
 
@@ -68,12 +69,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const days = parseInt(req.nextUrl.searchParams.get("days") || "30");
+    const rawDays = parseInt(req.nextUrl.searchParams.get("days") || "30", 10);
+    const days =
+      Number.isFinite(rawDays) && rawDays >= 1 && rawDays <= 366 ? rawDays : 30;
     const stats = await getAnalyticsStats(days);
 
     return NextResponse.json({
       success: true,
       stats,
+      daysUsed: days,
     });
   } catch (error) {
     console.error("[API/analytics] Error getting stats:", error);

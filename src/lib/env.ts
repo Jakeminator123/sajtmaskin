@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { isAffirmativeEnvValue, sanitizeEnvString } from "./env-affirmative";
-
-export { isAffirmativeEnvValue } from "./env-affirmative";
+import { sanitizeEnvString } from "./env-affirmative";
 
 function sanitizeProcessEnv(): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
@@ -25,7 +23,6 @@ export const serverSchema = z.object({
 
   // Database
   POSTGRES_URL: z.string().optional(),
-  POSTGRES_PRISMA_URL: z.string().optional(),
   POSTGRES_URL_NON_POOLING: z.string().optional(),
 
   // Redis
@@ -49,7 +46,6 @@ export const serverSchema = z.object({
   INBOUND_WEBHOOK_SHARED_SECRET: z.string().optional(),
 
   // API keys
-  V0_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   VERCEL_TOKEN: z.string().optional(),
   VERCEL_TEAM_ID: z.string().optional(),
@@ -120,6 +116,13 @@ export const serverSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
+  /** Vercel Sandbox: `dev_only`, `dev_then_build` (default), `build_only`. See `resolveSandboxPreviewModeFromEnv`. */
+  /** `dev_only` (default i kod om unset), `dev_then_build`, eller `build_only` — se `resolveSandboxPreviewModeFromEnv`. */
+  SAJTMASKIN_SANDBOX_PREVIEW_MODE: z.string().optional(),
+  /** Optional git URL for sandbox VM template (default: vercel/sandbox-example-next). Pin in production. */
+  SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL: z.string().optional(),
+  /** Max ms to wait for dev server HTTP after `npm run` dev in sandbox (digits only). Default 90000. */
+  SAJTMASKIN_SANDBOX_READINESS_MAX_MS: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
@@ -144,8 +147,10 @@ export const serverSchema = z.object({
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),
   AUDIT_WEB_SEARCH: z.string().optional(),
-  V0_STREAMING_ENABLED: z.string().optional(),
-  V0_FALLBACK_BUILDER: z.string().optional(),
+  SAJTMASKIN_BUILD_SPEC_ENABLED: z.string().optional(),
+  SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION: z.string().optional(),
+  SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT: z.string().optional(),
+  SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
@@ -156,6 +161,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_DEV_LOG: z.string().optional(),
   SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS: z.string().optional(),
   CRON_SECRET: z.string().optional(),
+  SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
 
   // Inspector / capture worker
   INSPECTOR_CAPTURE_WORKER_URL: z.string().optional(),
@@ -178,6 +184,7 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_AVATAR_CLIENT_KEY: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
+  NEXT_PUBLIC_SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
@@ -210,12 +217,3 @@ export function getServerEnv(): ServerEnv {
   return _cached;
 }
 
-/**
- * Opt-in: prefer v0-hosted preview URLs in the builder when both sandbox and
- * `*.vusercontent.net` demo URLs exist. Does not enable v0 Platform API for codegen
- * (`createGenerationPipeline` is own-engine only). Off unless value is affirmative
- * (`y`, `yes`, `true`, `1`, `on`); `n` / `no` / `false` / empty → off.
- */
-export function isV0BuilderPreviewFallbackEnabled(): boolean {
-  return isAffirmativeEnvValue(getServerEnv().V0_FALLBACK_BUILDER);
-}

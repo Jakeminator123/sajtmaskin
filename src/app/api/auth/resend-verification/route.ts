@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createVerificationToken, getUserByEmail } from "@/lib/db/services";
+import { createVerificationToken, getUserByEmail } from "@/lib/db/services/users";
 import { sendVerificationEmail } from "@/lib/email/send";
 import { withRateLimit } from "@/lib/rateLimit";
 import { URLS } from "@/lib/config";

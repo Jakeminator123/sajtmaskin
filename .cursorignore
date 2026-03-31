@@ -1,5 +1,7 @@
-﻿
-# Build/cache
+# Cursor index — hålls borta från semantisk sökning; öppna med @ eller Read vid behov.
+# Ignorera INTE docs/plans/avklarat/ (historik ska kunna indexeras).
+
+# --- Build & cache ---
 node_modules
 .next
 out
@@ -12,153 +14,98 @@ test-results
 __pycache__
 *.log
 
-# Git metadata / generated lockfiles
+# --- Git / lockfile (versioner i package.json) ---
 .git
 tsconfig.tsbuildinfo
 package-lock.json
 
-# Local env / secrets: keep real values off-index. For NAMES + workflow see
-# docs/ENV.md, src/lib/env.ts, config/env-policy.json (not ignored).
-.env
-.env.local
-.env.production
-.env.development
-.env.test
-.env.*
-!.env.example
-!.env.*.example
-.token-status.json
+# --- Hemligheter & lokala env (docs/ENV.md, src/lib/env.ts) ---
+#.env
+#.env.local
+#.env.production
+#.env.development
+#.env.test
+#.env.*
+#!.env.example
+#!.env.*.example
+#.token-status.json
+#OLD.env.local
+#OLD.env.production
+#ENV_JAMFORRELSE.txt
+#di-d.txt
 
-# Opt-in prompt dumps (can be huge; see data/prompt-dumps/README.md)
+# --- Data & prompt-dumpar ---
 data/prompt-dumps/*
 !data/prompt-dumps/README.md
-
-# Local Vercel template scrape (gitignored research tree)
 scraped-vercel-scorefolds
 
-# testning_scarf / legacy scaffold lab output (stora, ofta återgenererbara)
-scripts/labs/testning_scarf/output/
-scripts/labs/testning_scarf/output_test_scaffold/
-scripts/labs/testning_scarf/output_first_llm_underlag/
+archive/scripts-labs-testning_scarf/output/
+archive/scripts-labs-testning_scarf/output_test_scaffold/
+archive/scripts-labs-testning_scarf/output_first_llm_underlag/
 scripts/output_test_scaffold/
 
-# Local MCP (copy mcp.json.example → mcp.json)
+# --- MCP & lokal config ---
 .cursor/mcp.json
-
-# Bug scratch — local only
-pot_buggs/
-
-# Local browser / automation config
 config.browser.txt
 config.txt
-config.example.txt
-sajtmaskin.code-workspace
 
-# Large media
+# --- Media ---
 public/video/
 public/images/
 *.mp4
 *.webm
 
-# ---------------------------------------------------------------------------
-# Stable code that rarely changes (read via explicit path when needed)
-# ---------------------------------------------------------------------------
+# --- Research (tungt); undantag: små indexfiler i raw-discovery & repo-cache ---
+#research/external-templates/raw-discovery/**
+#!research/external-templates/raw-discovery/README.md
+#!research/external-templates/raw-discovery/SCHEMA.md
+#!research/external-templates/raw-discovery/schema.summary.json
+#research/external-templates/repo-cache/**
+#!research/external-templates/repo-cache/README.md
+#research/external-templates/reference-library/
 
-# shadcn/ui primitives — generated, not hand-edited
-#src/components/ui/
+## --- Genererade artefakter (stora JSON) ---
+#data/scaffold-candidates-curated.json
+#src/lib/gen/data/docs-embeddings.json
+#src/lib/gen/scaffolds/scaffold-embeddings.json
+#src/lib/gen/scaffolds/scaffold-research.generated.json
+#src/lib/gen/template-library/template-library-embeddings.json
+#src/lib/gen/template-library/template-library.generated.json
 
-# Static assets
-#public/
-
-# One-off scripts — keep commented so scripts/ stays indexed (see
-# docs/architecture/scripts-scaffolds-inventory.md). If you uncomment scripts/,
-# add exceptions e.g. !scripts/README.md and !scripts/*.ts.
-#scripts/
-
-# Admin dashboard routes
-#src/app/api/admin/
-
-# Payment routes (sensitive, rarely changed)
-#src/app/api/stripe/
-
-# Auth routes (stable, rarely changed)
-#src/app/api/auth/
-
-# Landing page components (stable after design)
-#src/components/landing-v2/
-
-# ---------------------------------------------------------------------------
-# Research and generated artifacts (tunga för indexering — öppna med @ vid behov)
-# ---------------------------------------------------------------------------
-
-research/external-templates/raw-discovery/
-research/external-templates/repo-cache/
-research/external-templates/reference-library/
-#_template_refs/
-#_sidor/
-#research/_sidor/
-#vercel_usecase_next_react_templates/
-
-data/scaffold-candidates-curated.json
-src/lib/gen/data/docs-embeddings.json
-src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
-
-# Recovery package
-#world-class-recovery/
-
-services/mpc/docs/docgrab__*/
-services/mpc/docs/local/
-services/mpc/docs/*llms*
-services/mpc/docs/shad/
-services/mpc/logs/
-
-# ---------------------------------------------------------------------------
-# Session state and legacy
-# ---------------------------------------------------------------------------
-
-# Local Cursor session state
+# --- Cursor session / automation / migration ---
 .cursor/plans/
 .cursor/documents/
 .cursor/automation/runs/
 .cursor/automation/archive/
 .cursor/automation/input/
-
-# Archived or low-signal docs
-docs/old/
-docs/plans/archived/
-#docs/analyses/
-
-# Migration archive (moved from STOR_MIGRATION/ to .cursor/migration-archive/)
 .cursor/migration-archive/
 
-# Temporary / local dev folders
-old/
-skrapning/
-ovrigt/
-.preprompt_history.json
-.vercel/
+# --- Vercel CLI (lokal länk) ---
+#.vercel/
+
+# --- Loggar & skrot i roten ---
 logs/*
-!logs/README.md
 manual_log/
 input_files_for_cursor/
+.preprompt_history.json
 DOM_dev_tols.txt
 chat_till_vanster.txt
 
-# Misc legacy folders
-#.j_to_agent/
-#vercel_templates_levels/
-
-# Orchestrator run folders
-#.cursor/orchestrator/run/*/
-.cursor/orchestrator/archive/*
-!.cursor/orchestrator/archive/README.md
-
-tests/openclaw/
-
+# --- Övrigt lokalt ---
+pot_buggs/
 internt_jakob/
+old/
+skrapning/
+ovrigt/
 
-# Addressed kritik snapshots (large; open with @ path when needed)
-.j_to_agent/archive/kritik-addressed/
+eval-output/
+EGEN_MOTOR_V2/
+_template_refs/
+vercel_templates_levels/
+_sidor/
+research/_sidor/
+services/mpc/docs/**
+services/mpc/logs/
+next-env.d.ts
+archive\scripts-labs-testning_scarf
+files_envars

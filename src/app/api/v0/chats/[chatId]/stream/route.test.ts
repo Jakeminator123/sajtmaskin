@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const sendMessageSchemaSafeParse = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
-const getLatestVersion = vi.hoisted(() => vi.fn());
+const resolveFollowUpPreviousFiles = vi.hoisted(() => vi.fn());
 const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createGenerationPipeline = vi.hoisted(() => vi.fn());
@@ -11,22 +11,17 @@ const addMessage = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const commitCredits = vi.hoisted(() => vi.fn());
 const prepareGenerationContext = vi.hoisted(() => vi.fn());
+const resolveOrchestrationBase = vi.hoisted(() => vi.fn());
+const finalizeOrchestrationPrompts = vi.hoisted(() => vi.fn());
 const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
+const buildFileContext = vi.hoisted(() => vi.fn());
+const parseSSEBuffer = vi.hoisted(() => vi.fn());
+const createPromptLog = vi.hoisted(() => vi.fn());
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
   return actual;
 });
-
-vi.mock("@/lib/v0", () => ({
-  assertV0Key: vi.fn(),
-  v0: {
-    chats: {
-      sendMessage: vi.fn(),
-      getById: vi.fn(),
-    },
-  },
-}));
 
 vi.mock("@/lib/streaming", () => ({
   createSSEHeaders: () => ({ "Content-Type": "text/event-stream" }),
@@ -36,6 +31,7 @@ vi.mock("@/lib/streaming", () => ({
 
 vi.mock("@/lib/db/client", () => ({
   db: {},
+  dbConfigured: false,
 }));
 
 vi.mock("@/lib/db/schema", () => ({
@@ -46,22 +42,6 @@ vi.mock("@/lib/db/schema", () => ({
 vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   eq: vi.fn(),
-}));
-
-vi.mock("@/lib/v0Stream", () => ({
-  extractContentText: vi.fn(),
-  extractDemoUrl: vi.fn(),
-  extractIntegrationSignals: vi.fn(),
-  extractMessageId: vi.fn(),
-  extractThinkingText: vi.fn(),
-  extractUiParts: vi.fn(),
-  extractVersionId: vi.fn(),
-  shouldSuppressContentForEvent: vi.fn(),
-  safeJsonParse: vi.fn(),
-}));
-
-vi.mock("@/lib/v0/resolve-latest-version", () => ({
-  resolveLatestVersion: vi.fn(),
 }));
 
 vi.mock("@/lib/rateLimit", () => ({
@@ -83,6 +63,7 @@ vi.mock("@/lib/credits/server", () => ({
 
 vi.mock("@/lib/logging/devLog", () => ({
   devLogAppend: vi.fn(),
+  devLogFinalizeSite: vi.fn(),
 }));
 
 vi.mock("@/lib/utils/debug", () => ({
@@ -91,12 +72,12 @@ vi.mock("@/lib/utils/debug", () => ({
   warnLog: vi.fn(),
 }));
 
-vi.mock("@/lib/v0/sanitize-metadata", () => ({
-  sanitizeV0Metadata: vi.fn(),
+vi.mock("@/lib/sanitize/sanitize-metadata", () => ({
+  sanitizeMetadata: vi.fn(),
 }));
 
-vi.mock("@/lib/v0/errors", () => ({
-  normalizeV0Error: (error: unknown) => ({
+vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
+  normalizeProviderError: (error: unknown) => ({
     message: error instanceof Error ? error.message : "Unknown error",
     status: 500,
     code: null,
@@ -129,6 +110,11 @@ vi.mock("@/lib/builder/promptOrchestration", () => ({
       complexityScore: 0,
     },
   }),
+  looksDesignHeavyMessage: () => false,
+}));
+
+vi.mock("@/lib/db/services/prompt-logs", () => ({
+  createPromptLog,
 }));
 
 vi.mock("@/lib/models/selection", () => ({
@@ -141,6 +127,7 @@ vi.mock("@/lib/models/selection", () => ({
 
 vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_MODEL_ID: "test-model-id",
+  DEFAULT_OWN_MODEL_ID: "gpt-5.4",
   MODEL_LABELS: {
     "test-tier": "Test Tier",
   },
@@ -161,20 +148,27 @@ vi.mock("@/lib/gen/url-compress", () => ({
 
 vi.mock("@/lib/gen/orchestrate", () => ({
   prepareGenerationContext,
+  resolveOrchestrationBase,
+  finalizeOrchestrationPrompts,
 }));
 
-vi.mock("@/lib/gen/plan-prompt", () => ({
+vi.mock("@/lib/gen/version-manager", () => ({
+  resolveFollowUpPreviousFiles,
+}));
+
+vi.mock("@/lib/gen/plan/prompt", () => ({
   buildPlannerSystemPrompt: vi.fn(),
   parsePlanResponse: vi.fn(),
 }));
 
-vi.mock("@/lib/gen/plan-review", () => ({
+vi.mock("@/lib/gen/plan/review", () => ({
   buildPlanSummaryMessage: vi.fn(),
   buildPlanUiPart: vi.fn(),
   enrichPlanArtifactForReview: vi.fn(),
 }));
 
 vi.mock("@/lib/gen/system-prompt", () => ({
+  SYSTEM_PROMPT_SEPARATOR: "\n\n---\n\n# Request-Specific Context\n\n",
   getSystemPromptLengths: () => ({ prompt: 10 }),
 }));
 
@@ -209,12 +203,11 @@ vi.mock("@/lib/gen/route-helpers", () => {
 
   return {
     SuspenseLineProcessor,
-    parseSSEBuffer: vi.fn(),
+    parseSSEBuffer,
   };
 });
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
-  getLatestVersion,
   updateChatProjectId,
   addMessage,
   createChat: vi.fn(),
@@ -222,8 +215,8 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
 }));
 
-vi.mock("@/lib/gen/context", () => ({
-  buildFileContext: vi.fn(),
+vi.mock("@/lib/gen/context/file-context-builder", () => ({
+  buildFileContext,
 }));
 
 vi.mock("@/lib/gen/stream/finalize-version", () => ({
@@ -259,11 +252,29 @@ async function readSseEvents(response: Response) {
   });
 }
 
+function buildPipelineStream(events: Array<{ event: string; data: unknown }>) {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const evt of events) {
+        controller.enqueue(
+          encoder.encode(`event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`),
+        );
+      }
+      controller.close();
+    },
+  });
+}
+
 describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     addMessage.mockResolvedValue(null);
     failVersionVerification.mockResolvedValue(null);
+    createPromptLog.mockResolvedValue(undefined);
+    buildFileContext.mockReset();
+    parseSSEBuffer.mockReset();
     commitCredits.mockResolvedValue(undefined);
     prepareCredits.mockResolvedValue({
       ok: true,
@@ -294,15 +305,13 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       messages: [],
     });
     getChatByV0ChatIdForRequest.mockResolvedValue(null);
-    getLatestVersion.mockResolvedValue({
-      files_json: JSON.stringify([
-        {
-          path: "src/app/page.tsx",
-          content: "export default function Page() { return <div>Old</div>; }",
-          language: "tsx",
-        },
-      ]),
-    });
+    resolveFollowUpPreviousFiles.mockResolvedValue([
+      {
+        path: "src/app/page.tsx",
+        content: "export default function Page() { return <div>Old</div>; }",
+        language: "tsx",
+      },
+    ]);
     prepareGenerationContext.mockResolvedValue({
       resolvedScaffold: {
         id: "scaffold_1",
@@ -320,9 +329,80 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
           envVars: [],
         },
         unresolvedDecisions: [],
+        confirmedAnswers: [],
+      },
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "local-layout",
+        scaffoldFamily: "landing-page",
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: { scaffoldChars: 12000, refsChars: 4000, systemContextChars: 18000 },
       },
       engineSystemPrompt: "SYSTEM",
-      v0EnrichmentContext: "V0",
+      dynamicContext: "V0",
+    });
+    resolveOrchestrationBase.mockResolvedValue({
+      resolvedScaffold: {
+        id: "scaffold_1",
+        family: "marketing",
+        label: "Marketing",
+      },
+      scaffoldContext: undefined,
+      routePlan: null,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          databaseProvider: null,
+          authProvider: null,
+          paymentProvider: null,
+          integrations: [],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+        confirmedAnswers: [],
+      },
+      capabilities: {
+        needsMotion: false,
+        needs3D: false,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: false,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: false,
+        needsEcommerce: false,
+        needsCarousel: false,
+        needsPremiumVisuals: false,
+      },
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "local-layout",
+        scaffoldFamily: "landing-page",
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: { scaffoldChars: 12000, refsChars: 4000, systemContextChars: 18000 },
+      },
+      scaffoldAndCapability: "",
+    });
+    finalizeOrchestrationPrompts.mockResolvedValue({
+      engineSystemPrompt: "SYSTEM",
+      dynamicContext: "V0",
+      templateLibrarySearchDiagnostics: null,
     });
     finalizeOrHandleEmptyGeneration.mockResolvedValue({
       version: { id: "ver_2" },
@@ -334,6 +414,26 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         previewBlockingReason: null,
       },
       contentForVersion: "<main>Updated follow-up</main>",
+    });
+    buildFileContext.mockReturnValue({
+      summary: "## Existing Project Files\n\n- src/app/page.tsx",
+    });
+    parseSSEBuffer.mockImplementation((buffer: string) => {
+      const chunks = buffer.split("\n\n");
+      const remaining = chunks.pop() ?? "";
+      const events = chunks.flatMap((chunk) => {
+        const lines = chunk.split("\n");
+        const eventLine = lines.find((line) => line.startsWith("event:"));
+        const dataLine = lines.find((line) => line.startsWith("data:"));
+        if (!eventLine || !dataLine) return [];
+        const event = eventLine.slice("event:".length).trim();
+        const rawData = dataLine.slice("data:".length).trim();
+        return [{
+          event,
+          data: JSON.parse(rawData),
+        }];
+      });
+      return { events, remaining };
     });
   });
 
@@ -370,7 +470,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       chatId: "chat_1",
       versionId: null,
       messageId: null,
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       awaitingInputPrompt:
         "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?",
@@ -409,11 +509,147 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       chatId: "chat_1",
       versionId: null,
       messageId: null,
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       awaitingInputPrompt: "Vad vill du att jag fokuserar på i nästa ändring?",
       reason: "followup_edit_underspecified",
     });
+  });
+
+  it("passes engineBaseVersionId from meta into follow-up base resolution", async () => {
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          engineBaseVersionId: "ver_selected",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/v0/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Kan du förbättra den lite?",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveFollowUpPreviousFiles).toHaveBeenCalledWith("chat_1", "ver_selected");
+  });
+
+  it("finalizes a follow-up generation and emits done output for a scoped edit", async () => {
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        {
+          event: "content",
+          data: { text: "<main>Updated follow-up</main>" },
+        },
+        {
+          event: "done",
+          data: { promptTokens: 7, completionTokens: 13 },
+        },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/v0/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        abortSignal: expect.any(AbortSignal),
+      }),
+    );
+
+    const events = await readSseEvents(response);
+    const doneEvent = events.find((event) => event.event === "done");
+
+    expect(doneEvent?.data).toMatchObject({
+      chatId: "chat_1",
+      versionId: "ver_2",
+      messageId: "msg_2",
+      previewUrl: null,
+      previewBlocked: false,
+      verificationBlocked: false,
+      previewBlockingReason: null,
+    });
+    expect(finalizeOrHandleEmptyGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emptyGenerationReason: "done_empty_output",
+        finalizeParams: expect.objectContaining({
+          chatId: "chat_1",
+          accumulatedContent: "<main>Updated follow-up</main>",
+          model: "gpt-5.4",
+          previousFiles: [
+            expect.objectContaining({
+              path: "src/app/page.tsx",
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("ignores persisted scaffold lock for clear-redesign follow-ups in auto mode", async () => {
+    getEngineChatByIdForRequest.mockResolvedValueOnce({
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "scaffold_locked",
+      messages: [],
+      orchestration_snapshot: null,
+    });
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        {
+          event: "content",
+          data: { text: "<main>Redesigned follow-up</main>" },
+        },
+        {
+          event: "done",
+          data: { promptTokens: 9, completionTokens: 15 },
+        },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/v0/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Gör om från grunden med mörk editorial stil och ny layout.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveOrchestrationBase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        persistedScaffoldId: "scaffold_locked",
+        generationMode: "followUp",
+        ignorePersistedScaffoldForMatch: true,
+      }),
+    );
   });
 
   it("still persists the assistant clarification when user message persistence fails", async () => {

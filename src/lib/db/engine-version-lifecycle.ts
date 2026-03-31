@@ -4,6 +4,7 @@ export type EngineVersionReleaseState = (typeof ENGINE_VERSION_RELEASE_STATES)[n
 export const ENGINE_VERSION_VERIFICATION_STATES = [
   "pending",
   "verifying",
+  "repairing",
   "passed",
   "failed",
 ] as const;
@@ -20,7 +21,7 @@ export type EngineVersionLifecycleLike = {
   verification_state?: string | null;
 };
 
-export type EngineVersionLifecycleStatus = "draft" | "verifying" | "failed" | "promoted";
+export type EngineVersionLifecycleStatus = "draft" | "verifying" | "repairing" | "failed" | "promoted";
 
 export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
 
@@ -28,7 +29,7 @@ export type QualityTier = "none" | "preview" | "sandbox" | "production";
 
 export function resolveQualityTier(
   version: EngineVersionLifecycleLike | null | undefined,
-  opts?: { hasDemoUrl?: boolean; sandboxPassed?: boolean },
+  opts?: { hasDemoUrl?: boolean; hasSandboxUrl?: boolean; sandboxPassed?: boolean },
 ): QualityTier {
   if (!version) return "none";
   const lifecycle = resolveEngineVersionLifecycleStatus(version);
@@ -36,6 +37,9 @@ export function resolveQualityTier(
 
   if (opts?.sandboxPassed) return "sandbox";
   if (lifecycle === "promoted") return "sandbox";
+  if (opts && "hasSandboxUrl" in opts && opts.hasSandboxUrl !== undefined) {
+    return opts.hasSandboxUrl ? "preview" : "none";
+  }
   if (opts?.hasDemoUrl !== false) return "preview";
   return "none";
 }
@@ -50,6 +54,9 @@ export function resolveEngineVersionLifecycleStatus(
   }
   if (verificationState === "pending" || verificationState === "verifying") {
     return "verifying";
+  }
+  if (verificationState === "repairing") {
+    return "repairing";
   }
   if (verificationState === "failed") {
     return "failed";

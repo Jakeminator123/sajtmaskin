@@ -2,11 +2,14 @@ import type { CanonicalModelId, OwnModelId } from "./catalog";
 import { canonicalModelIdToOwnModelId } from "./catalog";
 
 /**
- * For OpenAI-family build profiles (pro / max / codex), fixer / verifier /
- * deploy-assistant use a smaller default model to cut cost and latency while
- * planner + generator stay on the profile’s primary model. Fast tier is unchanged
- * (already on gpt-4.1). Anthropic profile keeps one model across phases — catalog
- * has no lighter sibling in `OWN_MODEL_IDS`.
+ * For OpenAI-family build profiles (pro / max / codex), **fixer** uses the same
+ * model as **generator** — it runs `runLlmFixer` / syntax repair and must not
+ * downgrade quality vs the main CodeProject pass (users saw weak `gpt-4.1-mini`
+ * edits next to `gpt-5.4` main + AUTO-FIX).
+ *
+ * **Verifier** and **deploy-assistant** still use a smaller model for cost/latency
+ * until those phases are wired to substantive codegen. Fast tier is unchanged.
+ * Anthropic profile keeps one model across phases.
  */
 const OPENAI_AUXILIARY_PHASE_MODEL: OwnModelId = "gpt-4.1-mini";
 
@@ -37,8 +40,12 @@ export function resolvePhaseModel(
     return { phase, modelId: baseModel, reason: "anthropic-tier-unified" };
   }
 
-  if (phase === "planner" || phase === "generator") {
-    return { phase, modelId: baseModel, reason: "full-tier" };
+  if (phase === "planner" || phase === "generator" || phase === "fixer") {
+    return {
+      phase,
+      modelId: baseModel,
+      reason: phase === "fixer" ? "fixer-tier-primary" : "full-tier",
+    };
   }
 
   return {

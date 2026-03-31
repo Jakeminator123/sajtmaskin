@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getProjectByIdForOwner,
-  updateProject,
   deleteProject,
+  getProjectByIdForOwner,
   getProjectData,
-  type Project,
-  type ProjectData,
-} from "@/lib/db/services";
+  updateProject,
+} from "@/lib/db/services/projects";
+import type { Project, ProjectData } from "@/lib/db/services/shared";
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";

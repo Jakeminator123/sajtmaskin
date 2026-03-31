@@ -61,28 +61,30 @@ export function checkRequiredFiles(
 }
 
 export function checkExports(files: CodeFile[]): CheckResult {
-  const componentFiles = files.filter(
-    (f) => f.language === "tsx" || f.language === "jsx",
+  const routeFiles = files.filter(
+    (f) =>
+      (f.language === "tsx" || f.language === "jsx") &&
+      /(^|\/)(page|layout)\.(tsx|jsx)$/.test(f.path),
   );
 
-  if (componentFiles.length === 0) {
-    return { name: "exports", passed: true, message: "No component files to check", score: 1 };
+  if (routeFiles.length === 0) {
+    return { name: "exports", passed: true, message: "No route files to check", score: 1 };
   }
 
   const DEFAULT_EXPORT_RE = /export\s+default\b/;
-  const missing = componentFiles.filter((f) => !DEFAULT_EXPORT_RE.test(f.content));
-  const found = componentFiles.length - missing.length;
+  const missing = routeFiles.filter((f) => !DEFAULT_EXPORT_RE.test(f.content));
+  const found = routeFiles.length - missing.length;
 
   if (missing.length > 0) {
     return {
       name: "exports",
       passed: false,
-      message: `Missing default export: ${missing.map((f) => f.path).join(", ")}`,
-      score: found / componentFiles.length,
+      message: `Missing default export in route file: ${missing.map((f) => f.path).join(", ")}`,
+      score: found / routeFiles.length,
     };
   }
 
-  return { name: "exports", passed: true, message: "All components have default exports", score: 1 };
+  return { name: "exports", passed: true, message: "All route files have default exports", score: 1 };
 }
 
 export function checkImports(

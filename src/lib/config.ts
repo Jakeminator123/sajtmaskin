@@ -4,8 +4,10 @@
  */
 
 import path from "path";
+import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 import { getAppBaseUrl } from "./app-url";
-import { getServerEnv, isAffirmativeEnvValue } from "./env";
+import { getServerEnv } from "./env";
+import { isAffirmativeEnvValue } from "./env-affirmative";
 
 const env = getServerEnv();
 
@@ -166,12 +168,8 @@ export const SECRETS = {
     return "dev-secret-do-not-use-in-prod";
   },
 
-  get v0ApiKey() {
-    return env.V0_API_KEY ?? "";
-  },
-
   get vercelApiToken() {
-    return env.VERCEL_TOKEN ?? "";
+    return pickVercelAccessTokenFromEnv();
   },
 
   get stripeSecretKey() {
@@ -362,7 +360,7 @@ export const OPENCLAW = {
 } as const;
 
 /**
- * AI / v0 configuration
+ * AI configuration
  */
 export const AI = {
   get designSystemId(): string | undefined {
@@ -376,6 +374,12 @@ export const AI = {
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
 
+  useBuildSpec: env.SAJTMASKIN_BUILD_SPEC_ENABLED !== "false",
+  useLightweightScaffoldSerialization:
+    env.SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION !== "false",
+  useFollowUpLightContext: env.SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT !== "false",
+  useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
+
   useGoogleAuth: Boolean(SECRETS.googleClientId && SECRETS.googleClientSecret),
 
   useGitHubAuth: Boolean(SECRETS.githubClientId && SECRETS.githubClientSecret),
@@ -387,7 +391,8 @@ export const FEATURES = {
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
   useFigmaApi: Boolean(SECRETS.figmaAccessToken),
 
-  useV0Api: Boolean(SECRETS.v0ApiKey),
+  /** Builder prompt “image generations” toggle — own-engine uses OpenAI. */
+  useBuilderImageGenerations: Boolean(SECRETS.openaiApiKey),
 
   useVercelApi: Boolean(SECRETS.vercelApiToken),
 
@@ -401,14 +406,13 @@ export const FEATURES = {
 
   useOpenClawSurface: OPENCLAW.surfaceEnabled,
 
-  // CRITICAL for AI-generated images in v0 preview
+  // Required for asset materialization and sandbox/shared preview flows
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),
 } as const;
 
 function resolveDbLogLabel(): string {
   const dbEnvCandidates = [
     "POSTGRES_URL",
-    "POSTGRES_PRISMA_URL",
     "POSTGRES_URL_NON_POOLING",
   ] as const;
   for (const key of dbEnvCandidates) {

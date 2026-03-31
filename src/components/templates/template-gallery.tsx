@@ -16,7 +16,7 @@ import {
 import {
   getAllV0Categories,
   getTemplatesByCategory,
-} from "@/lib/templates/template-data";
+} from "@/lib/templates/client";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Wand2, Zap, Puzzle, Lock, FileText, Palette, Layout, Globe, Gamepad2, HelpCircle,

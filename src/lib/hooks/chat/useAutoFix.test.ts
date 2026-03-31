@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { summarizeVersionLogsForAutoFix } from "./useAutoFix";
+import { summarizeVersionLogsForAutoFix, useAutoFix } from "./useAutoFix";
 
 describe("summarizeVersionLogsForAutoFix", () => {
   it("prioritizes blocking diagnostics and removes noisy success/info logs", () => {
@@ -49,5 +50,73 @@ describe("summarizeVersionLogsForAutoFix", () => {
     expect(diagnostics).toContain("[preview:stage] preview-script");
     expect(diagnostics.some((entry) => entry.includes("Preview rendered successfully"))).toBe(false);
     expect(diagnostics.some((entry) => entry.startsWith("[seo]"))).toBe(false);
+  });
+});
+
+describe("useAutoFix", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/versions")) {
+          return new Response(
+            JSON.stringify({
+              versions: [{ id: "ver_failed", createdAt: "2026-03-31T00:00:00.000Z" }],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        if (url.includes("/error-log")) {
+          return new Response(JSON.stringify({ logs: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("pins autofix follow-ups to the failing version and preserves scaffold retry overrides", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+        repair: {
+          scaffoldRetry: {
+            suggestedScaffoldId: "landing-page",
+            reason: "repair suggested scaffold swap",
+          },
+        },
+      });
+    });
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        engineBaseVersionIdOverride: "ver_failed",
+        scaffoldModeOverride: "manual",
+        scaffoldIdOverride: "landing-page",
+      }),
+    );
   });
 });

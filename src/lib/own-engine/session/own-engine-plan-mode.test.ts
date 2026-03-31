@@ -4,7 +4,7 @@ import { computePlanModePlannerPrompts } from "./own-engine-plan-mode";
 describe("computePlanModePlannerPrompts", () => {
   it("concatenates preamble, separator, and enrichment context", () => {
     const { planPreamble, planSystemPrompt } = computePlanModePlannerPrompts({
-      v0EnrichmentContext: "DYNAMIC_CTX",
+      dynamicContext: "DYNAMIC_CTX",
       resolvedScaffold: null,
     });
     expect(planPreamble.length).toBeGreaterThan(20);

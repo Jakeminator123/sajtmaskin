@@ -1,9 +1,7 @@
 import {
-  createVersion,
   getPreferredVersion,
   getLatestVersion,
   getVersionById,
-  type Version,
 } from "@/lib/db/chat-repository-pg";
 import { parseCodeProject, type CodeFile } from "./parser";
 
@@ -16,20 +14,14 @@ export function parseFilesFromContent(content: string): string {
   return JSON.stringify(project.files);
 }
 
-/**
- * Creates a new version from assistant-generated content.
- *
- * Parses the content into individual files, stores them as files_json,
- * and auto-increments the version number within the chat.
- */
-export async function createVersionFromContent(
-  chatId: string,
-  messageId: string | null,
-  content: string,
-  sandboxUrl?: string,
-): Promise<Version> {
-  const filesJson = parseFilesFromContent(content);
-  return createVersion(chatId, messageId, filesJson, sandboxUrl);
+/** Parse `versions.files_json` into code files (e.g. sandbox bootstrap when markdown parse yields nothing). */
+export function parseCodeFilesFromFilesJson(filesJson: string): CodeFile[] | null {
+  try {
+    const parsed = JSON.parse(filesJson);
+    return Array.isArray(parsed) ? (parsed as CodeFile[]) : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseStoredVersionFiles(
@@ -75,6 +67,37 @@ export async function getLatestVersionFiles(chatId: string): Promise<CodeFile[] 
   });
 }
 
+/**
+ * Canonical follow-up base: `engine_versions.files_json` for the explicitly selected version
+ * (`engineBaseVersionId` from builder meta), else preferred lifecycle version, else latest.
+ */
+export async function resolveFollowUpPreviousFiles(
+  chatId: string,
+  engineBaseVersionId?: string | null,
+): Promise<CodeFile[]> {
+  const id = typeof engineBaseVersionId === "string" ? engineBaseVersionId.trim() : "";
+  if (id) {
+    const version = await getVersionById(id);
+    if (version && version.chat_id === chatId) {
+      const parsed = parseStoredVersionFiles(version.files_json, {
+        versionId: version.id,
+        chatId: version.chat_id,
+      });
+      if (parsed && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  }
+  const version = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
+  if (!version?.files_json) return [];
+  return (
+    parseStoredVersionFiles(version.files_json, {
+      versionId: version.id,
+      chatId: version.chat_id,
+    }) ?? []
+  );
+}
+
 export interface MergeWarning {
   type: "significant-shrink" | "scaffold-file-dropped";
   file: string;
@@ -95,18 +118,12 @@ export interface MergeResult {
  * Warns when a generated file is significantly smaller than the scaffold
  * original (potential token truncation).
  */
-export function mergeVersionFiles(
-  previousFiles: CodeFile[],
-  newFiles: CodeFile[],
-): CodeFile[] {
-  const { files } = mergeVersionFilesWithWarnings(previousFiles, newFiles);
-  return files;
-}
-
 export function mergeVersionFilesWithWarnings(
   previousFiles: CodeFile[],
   newFiles: CodeFile[],
+  options?: { rejectSignificantShrinks?: boolean },
 ): MergeResult {
+  const rejectShrinks = options?.rejectSignificantShrinks === true;
   const merged = new Map<string, CodeFile>();
   const warnings: MergeWarning[] = [];
 
@@ -122,6 +139,9 @@ export function mergeVersionFilesWithWarnings(
         previousSize: prev.content.length,
         newSize: f.content.length,
       });
+      if (rejectShrinks) {
+        continue;
+      }
     }
     merged.set(f.path, f);
   }

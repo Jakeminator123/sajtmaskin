@@ -83,6 +83,63 @@ function buildArtifacts(params: {
 }
 
 describe("post-checks-results", () => {
+  it("keeps scaffold retry and planned routes as warnings when preview already exists", () => {
+    const artifacts = buildPostCheckArtifacts({
+      currentFileCount: 4,
+      versionId: "ver_test",
+      changes: null,
+      warnings: [],
+      preflight: {
+        previewBlocked: false,
+        verificationBlocked: true,
+        previewBlockingReason: null,
+        scaffoldRetry: {
+          currentScaffoldId: "ecommerce",
+          currentScaffoldLabel: "E-handel",
+          suggestedScaffoldId: "saas-landing",
+          suggestedScaffoldLabel: "SaaS Landing",
+          suggestedScaffoldFamily: "saas-landing",
+          failureType: "blocking-preflight",
+          reason: "Preflight-blockeringen tyder på att E-handel kan vara en svag scaffold-fit.",
+          source: "heuristic",
+          confidence: "medium",
+        },
+        routePlan: {
+          source: "brief",
+          siteType: "brochure",
+          reason: "Prompten antydde flera routes.",
+          routes: [
+            { path: "/butik", name: "Butik", intent: "shop", required: true },
+          ],
+        },
+      },
+      previousVersionId: null,
+      streamQuality: undefined,
+      missingRoutes: [],
+      missingPlannedRoutes: [{ path: "/butik", name: "Butik", intent: "shop", required: true }],
+      lucideLinkMisuse: [],
+      suspiciousUseCalls: [],
+      designTokens: null,
+      seoReview: emptySeoReview,
+      analyticsReview: emptyAnalyticsReview,
+      editorialReview: { packs: [], signals: { hasBlogCollection: false, hasContactFlow: false } },
+      businessWorkflowReview: {
+        packs: [],
+        signals: { hasLeadCapture: false, hasBookingFlow: false, hasCrmSync: false },
+      },
+      sanityIssues: [],
+      sanityErrors: [],
+      sanityWarnings: [],
+      imageValidation: null,
+      resolvedDemoUrl: "https://preview.example/ver_test",
+    });
+
+    expect(artifacts.autoFixReasons).toEqual([]);
+    expect(artifacts.warningReasons).toEqual(
+      expect.arrayContaining(["misstänkt scaffold-mismatch", "planerade routes saknas"]),
+    );
+  });
+
   it("limits editorial labels and suggested prompts to the same top 4 packs", () => {
     const artifacts = buildArtifacts({
       editorialReview: {

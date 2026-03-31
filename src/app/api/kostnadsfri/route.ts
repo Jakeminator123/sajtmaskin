@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { hashPassword } from "@/lib/auth/auth";
-import { createKostnadsfriPage, getKostnadsfriPageBySlug } from "@/lib/db/services";
+import { createKostnadsfriPage, getKostnadsfriPageBySlug } from "@/lib/db/services/kostnadsfri";
 import { generateSlug, generatePassword } from "@/lib/kostnadsfri";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { normalizeKostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";

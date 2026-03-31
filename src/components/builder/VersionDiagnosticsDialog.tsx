@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, KeyRound, Loader2, RefreshCw, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { describePreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import {
   Dialog,
@@ -92,7 +93,7 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
       setError(null);
       try {
         const response = await fetch(
-          `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+          `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
           { signal: controller.signal },
         );
         const data = (await response.json().catch(() => null)) as DiagnosticsResponse | null;

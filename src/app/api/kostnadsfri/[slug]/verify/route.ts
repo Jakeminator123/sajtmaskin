@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { verifyPassword } from "@/lib/auth/auth";
-import { getKostnadsfriPageBySlug } from "@/lib/db/services";
+import { getKostnadsfriPageBySlug } from "@/lib/db/services/kostnadsfri";
 import {
   extractCompanyData,
   companyDataFromSlug,

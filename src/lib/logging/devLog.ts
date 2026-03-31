@@ -294,7 +294,10 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
     case "site.done":
     case "site.message.done":
       if (readNumber(entry, "durationMs") !== null) details.push(`durationMs=${readNumber(entry, "durationMs")}`);
-      if (readString(entry, "demoUrl")) details.push(`preview=${truncateInline(readString(entry, "demoUrl")!, 70)}`);
+      {
+        const p = readString(entry, "previewUrl") ?? readString(entry, "demoUrl");
+        if (p) details.push(`preview=${truncateInline(p, 70)}`);
+      }
       if (readBoolean(entry, "awaitingInput") !== null) details.push(`awaitingInput=${readBoolean(entry, "awaitingInput")}`);
       break;
     default:

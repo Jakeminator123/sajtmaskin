@@ -1,9 +1,11 @@
+import type { PreflightIssueCategory } from "@/lib/gen/stream/preflight-contract";
 import type { CodeFile } from "@/lib/gen/parser";
 
 export interface SanityIssue {
   file: string;
   severity: "error" | "warning";
   message: string;
+  category?: PreflightIssueCategory;
 }
 
 export interface SanityResult {
@@ -20,6 +22,15 @@ const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
 const USE_CLIENT_RE = /^["']use client["'];?\s*$/m;
 const METADATA_EXPORT_RE =
   /\bexport\s+(?:const\s+metadata\b|(?:async\s+)?function\s+generateMetadata\b)/;
+
+function createSanityIssue(
+  file: string,
+  severity: "error" | "warning",
+  message: string,
+  category: PreflightIssueCategory,
+): SanityIssue {
+  return { file, severity, message, category };
+}
 
 function fileExists(fileMap: Map<string, CodeFile>, basePath: string): boolean {
   if (fileMap.has(basePath)) return true;
@@ -68,11 +79,14 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
 
       const projectPath = normalizeToProjectPath(source, file.path);
       if (!fileExists(fileMap, projectPath)) {
-        issues.push({
-          file: file.path,
-          severity: "warning",
-          message: `Unresolved local import: ${source}`,
-        });
+        issues.push(
+          createSanityIssue(
+            file.path,
+            "warning",
+            `Unresolved local import: ${source}`,
+            "code_structure_failure",
+          ),
+        );
       }
     }
 
@@ -80,31 +94,40 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     if (file.path.includes("layout")) {
       const fontMatch = file.content.match(FONT_USAGE_RE);
       if (fontMatch && !FONT_IMPORT_RE.test(file.content)) {
-        issues.push({
-          file: file.path,
-          severity: "error",
-          message: `Font ${fontMatch[1]} is used but not imported from next/font/google`,
-        });
+        issues.push(
+          createSanityIssue(
+            file.path,
+            "error",
+            `Font ${fontMatch[1]} is used but not imported from next/font/google`,
+            "code_structure_failure",
+          ),
+        );
       }
     }
 
     // 2b. Preview-only stripped imports must never leak into saved/exported code
     if (file.content.includes("(stripped for preview compatibility)")) {
-      issues.push({
-        file: file.path,
-        severity: "error",
-        message: "Preview-only stripped import leaked into saved project files",
-      });
+      issues.push(
+        createSanityIssue(
+          file.path,
+          "error",
+          "Preview-only stripped import leaked into saved project files",
+          "code_structure_failure",
+        ),
+      );
     }
 
     // 3. Default export check for page/layout files
     if (file.path.match(/\/(page|layout)\.(tsx|jsx)$/)) {
       if (!file.content.includes("export default")) {
-        issues.push({
-          file: file.path,
-          severity: "error",
-          message: "Page/layout file is missing a default export",
-        });
+        issues.push(
+          createSanityIssue(
+            file.path,
+            "error",
+            "Page/layout file is missing a default export",
+            "code_structure_failure",
+          ),
+        );
       }
     }
 
@@ -114,52 +137,86 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
       USE_CLIENT_RE.test(file.content) &&
       METADATA_EXPORT_RE.test(file.content)
     ) {
-      issues.push({
-        file: file.path,
-        severity: "error",
-        message: 'Client component exports metadata/generateMetadata, which Next.js App Router disallows',
-      });
+      issues.push(
+        createSanityIssue(
+          file.path,
+          "error",
+          'Client component exports metadata/generateMetadata, which Next.js App Router disallows',
+          "code_structure_failure",
+        ),
+      );
     }
   }
 
   // 4. globals.css must exist and contain @theme
   const globalsCss = fileMap.get("app/globals.css") ?? fileMap.get("src/app/globals.css");
   if (!globalsCss) {
-    issues.push({
-      file: "app/globals.css",
-      severity: "warning",
-      message: "globals.css is missing from generated files",
-    });
+    issues.push(
+      createSanityIssue(
+        "app/globals.css",
+        "warning",
+        "globals.css is missing from generated files",
+        "non_blocking_quality_warning",
+      ),
+    );
   } else if (!globalsCss.content.includes("@theme")) {
-    issues.push({
-      file: globalsCss.path,
-      severity: "warning",
-      message: "globals.css does not contain @theme inline color tokens",
-    });
+    issues.push(
+      createSanityIssue(
+        globalsCss.path,
+        "warning",
+        "globals.css does not contain @theme inline color tokens",
+        "non_blocking_quality_warning",
+      ),
+    );
   }
 
   // 5. layout.tsx must exist
   const layout = fileMap.get("app/layout.tsx") ?? fileMap.get("src/app/layout.tsx");
   if (!layout) {
-    issues.push({
-      file: "app/layout.tsx",
-      severity: "warning",
-      message: "layout.tsx is missing from generated files",
-    });
+    issues.push(
+      createSanityIssue(
+        "app/layout.tsx",
+        "warning",
+        "layout.tsx is missing from generated files",
+        "code_structure_failure",
+      ),
+    );
   }
 
-  // 6. Duplicate route detection
+  // 6. Known bad peer-dependency pairs in package.json
+  const pkgFile = fileMap.get("package.json") ?? fileMap.get("src/package.json");
+  if (pkgFile) {
+    try {
+      const pkgJson = JSON.parse(pkgFile.content) as { dependencies?: Record<string, string> };
+      const deps = pkgJson.dependencies ?? {};
+      checkKnownBadPeers(deps, issues);
+    } catch {
+      issues.push(
+        createSanityIssue(
+          pkgFile.path,
+          "error",
+          "package.json could not be parsed, so dependency readiness cannot be verified",
+          "dependency_install_failure",
+        ),
+      );
+    }
+  }
+
+  // 7. Duplicate route detection
   const routes = new Set<string>();
   for (const file of files) {
     const routeMatch = file.path.match(/^(?:src\/)?app(\/.*)\/(page|layout)\.(tsx|jsx|ts|js)$/);
     if (routeMatch) {
       const route = `${routeMatch[1]}/${routeMatch[2]}`;
       if (routes.has(route)) {
-        issues.push({
-          file: file.path,
-          severity: "warning",
-          message: `Duplicate route file: ${route}`,
-        });
+        issues.push(
+          createSanityIssue(
+            file.path,
+            "warning",
+            `Duplicate route file: ${route}`,
+            "code_structure_failure",
+          ),
+        );
       }
       routes.add(route);
     }
@@ -169,4 +226,70 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     issues,
     valid: issues.filter((i) => i.severity === "error").length === 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Known bad peer-dependency pairs
+// ---------------------------------------------------------------------------
+
+function extractMajor(version: string): number | null {
+  const m = version.match(/\d+/);
+  return m ? Number.parseInt(m[0], 10) : null;
+}
+
+/**
+ * Lightweight heuristic checks for version combos that are known to cause
+ * `npm install` ERESOLVE failures. Add new rules as they surface in logs.
+ */
+function checkKnownBadPeers(
+  deps: Record<string, string>,
+  issues: SanityIssue[],
+): void {
+  const reactMajor = deps.react ? extractMajor(deps.react) : null;
+
+  // @react-three/fiber <9 requires react <19
+  if (deps["@react-three/fiber"] && reactMajor !== null && reactMajor >= 19) {
+    const fiberMajor = extractMajor(deps["@react-three/fiber"]);
+    if (fiberMajor !== null && fiberMajor < 9) {
+      issues.push(
+        createSanityIssue(
+          "package.json",
+          "error",
+          `@react-three/fiber ${deps["@react-three/fiber"]} requires react <19 but react is ${deps.react} — use fiber >=9`,
+          "dependency_install_failure",
+        ),
+      );
+    }
+  }
+
+  // @react-three/drei <10 requires fiber <9
+  if (deps["@react-three/drei"] && deps["@react-three/fiber"]) {
+    const dreiMajor = extractMajor(deps["@react-three/drei"]);
+    const fiberMajor = extractMajor(deps["@react-three/fiber"]);
+    if (dreiMajor !== null && dreiMajor < 10 && fiberMajor !== null && fiberMajor >= 9) {
+      issues.push(
+        createSanityIssue(
+          "package.json",
+          "error",
+          `@react-three/drei ${deps["@react-three/drei"]} is incompatible with fiber ${deps["@react-three/fiber"]} — use drei >=10`,
+          "dependency_install_failure",
+        ),
+      );
+    }
+  }
+
+  // next 16+ requires react 19+
+  if (deps.next && reactMajor !== null) {
+    const nextMajor = extractMajor(deps.next);
+    if (nextMajor !== null && nextMajor >= 16 && reactMajor < 19) {
+      issues.push(
+        createSanityIssue(
+          "package.json",
+          "error",
+          `next ${deps.next} requires react >=19 but react is ${deps.react}`,
+          "dependency_install_failure",
+        ),
+      );
+    }
+  }
 }

@@ -22,7 +22,7 @@
 
 import { useState, useRef, useCallback, useMemo } from "react";
 import { FileText, Upload, Loader2, X, AlertCircle, Wand2, Save } from "lucide-react";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 
 // ============================================================================
 // TYPES

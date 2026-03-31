@@ -1,15 +1,16 @@
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
 import {
   describePreviewDiagnosticCode,
   readPreviewDiagnosticMeta,
-} from "@/lib/gen/preview-diagnostics";
+} from "@/lib/gen/preview/diagnostics";
 import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events";
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
-export const AUTOFIX_LOCAL_STORAGE_KEY = "sajtmaskin:autofix-enabled";
+const AUTOFIX_LOCAL_STORAGE_KEY = "sajtmaskin:autofix-enabled";
 
 /** Persisted opt-out only; default is on when key is unset. */
 export function readAutofixLocalStorageOnly(): boolean {
@@ -39,7 +40,7 @@ export function writeAutofixLocalStorage(enabled: boolean): void {
  * localStorage `sajtmaskin:autofix-enabled` = `"false"`, or URL `?noautofix`.
  * `?autofix` forces on for that page load.
  */
-export function readAutofixClientPreference(): boolean {
+function readAutofixClientPreference(): boolean {
   if (typeof window === "undefined") return true;
   try {
     const params = new URLSearchParams(window.location.search);
@@ -69,6 +70,12 @@ function notifyAutofixSkipped(reasons: string[]) {
 const MAX_ATTEMPTS_PER_REASON = 1;
 const MAX_AUTOFIX_PER_CHAT = 2;
 const DEDUPE_TTL_MS = 5 * 60 * 1000;
+const SOFT_ONLY_AUTOFIX_REASONS = new Set([
+  "misstänkt scaffold-mismatch",
+  "planerade routes saknas",
+  "saknade routes",
+  "route-plan mismatch",
+]);
 
 type AttemptEntry = { count: number; ts: number };
 
@@ -261,7 +268,7 @@ export function summarizeVersionLogsForAutoFix(logs: PersistedVersionLog[]): str
 async function loadVersionErrorSummary(chatId: string, versionId: string): Promise<string[]> {
   try {
     const response = await fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+      `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
       { method: "GET" },
     );
     if (!response.ok) return [];
@@ -290,8 +297,8 @@ async function enrichAutoFixPayload(payload: AutoFixPayload): Promise<AutoFixPay
 
   return {
     ...payload,
-    meta: {
-      ...(payload.meta ?? {}),
+    repair: {
+      ...(payload.repair ?? {}),
       currentVersionErrors,
       previousVersionErrors,
     },
@@ -300,7 +307,7 @@ async function enrichAutoFixPayload(payload: AutoFixPayload): Promise<AutoFixPay
 
 async function getLatestChatVersionId(chatId: string): Promise<string | null> {
   try {
-    const response = await fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/versions`, {
+    const response = await fetch(`${engineChatBaseUrl(chatId)}/versions`, {
       method: "GET",
     });
     if (!response.ok) return null;
@@ -336,6 +343,12 @@ export function useAutoFix(
         notifyAutofixSkipped(payload.reasons);
         return;
       }
+      if (
+        payload.reasons.length > 0 &&
+        payload.reasons.every((reason) => SOFT_ONLY_AUTOFIX_REASONS.has(reason))
+      ) {
+        return;
+      }
       void (async () => {
         const now = Date.now();
         pruneStale(autoFixAttemptsRef.current, now);
@@ -356,9 +369,10 @@ export function useAutoFix(
         const enrichedPayload = await enrichAutoFixPayload(payload);
         const prompt = buildAutoFixPrompt(enrichedPayload);
         const scaffoldRetry =
-          enrichedPayload.meta?.scaffoldRetry && typeof enrichedPayload.meta.scaffoldRetry === "object"
+          enrichedPayload.repair?.scaffoldRetry
+          ?? (enrichedPayload.meta?.scaffoldRetry && typeof enrichedPayload.meta.scaffoldRetry === "object"
             ? (enrichedPayload.meta.scaffoldRetry as Record<string, unknown>)
-            : null;
+            : null);
         const retryScaffoldId =
           scaffoldRetry && typeof scaffoldRetry.suggestedScaffoldId === "string"
             ? scaffoldRetry.suggestedScaffoldId
@@ -377,14 +391,16 @@ export function useAutoFix(
             if (pendingPayloadKeyRef.current !== reasonKey) return;
             if (!(await isLatestVersionPayload(payload))) return;
             pendingPayloadKeyRef.current = null;
+            const messageOptions: MessageOptions = {
+              engineBaseVersionIdOverride: payload.versionId,
+            };
+            if (retryScaffoldId) {
+              messageOptions.scaffoldModeOverride = "manual";
+              messageOptions.scaffoldIdOverride = retryScaffoldId;
+            }
             await sendMessage(
               prompt,
-              retryScaffoldId
-                ? {
-                    scaffoldModeOverride: "manual",
-                    scaffoldIdOverride: retryScaffoldId,
-                  }
-                : undefined,
+              messageOptions,
             );
           })();
         }, delayMs);

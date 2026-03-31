@@ -1,20 +1,22 @@
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/route-helpers";
-import { EmptyGenerationError } from "@/lib/gen/stream/finalize-version";
 import {
-  finalizeOrHandleEmptyGeneration,
-  getUnsignaledDetectedIntegrations,
-} from "@/lib/gen/stream/shared-own-engine-helpers";
+  EmptyGenerationError,
+  type FinalizeResult,
+} from "@/lib/gen/stream/finalize-version";
+import type { BuildSpec } from "@/lib/gen/build-spec";
+import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
-import { debugLog, warnLog } from "@/lib/utils/debug";
+import { warnLog } from "@/lib/utils/debug";
+import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
+import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
-import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
+import type { CodeFile } from "@/lib/gen/parser";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
-import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
 
 type UrlMap = Record<string, string>;
 
@@ -25,6 +27,14 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
   buildProfileLabel: string;
   enginePath: string;
   thinking: boolean;
+  /** Structured template-library retrieval diagnostics when search ran. */
+  templateLibrarySearch?: {
+    mode: string;
+    reason: string | null;
+    topScore: number | null;
+    catalogSize: number;
+    usedEmbeddings: boolean;
+  };
 }
 
 export interface GenerationStreamParams {
@@ -35,11 +45,14 @@ export interface GenerationStreamParams {
   engineModel: string;
   optimizedMessage: string;
   engineIntent: BuildIntent;
+  buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: UrlMap;
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
+  /** SHA-256 of deterministic generation inputs (prompt lineage). */
+  lineageHash?: string | null;
 }
 
 export function createOwnEngineGenerationStream(
@@ -53,11 +66,13 @@ export function createOwnEngineGenerationStream(
     engineModel,
     optimizedMessage,
     engineIntent,
+    buildSpec,
     routePlan,
     resolvedScaffold,
     urlMap,
     commitCredits,
     previousFiles,
+    lineageHash,
   } = params;
 
   const engineStartedAt = Date.now();
@@ -121,6 +136,10 @@ export function createOwnEngineGenerationStream(
         didSendDone = true;
         const toolCalls = Array.from(toolCallNames);
         const awaitingInput = options?.awaitingInput ?? sawBlockingToolCall;
+        emitProgress("generation", {
+          phase: awaitingInput ? "awaiting-input" : "empty-output",
+          reason,
+        });
 
         if (options?.userMessage) {
           safeEnqueue(enc.encode(formatSSEEvent("content", options.userMessage)));
@@ -132,7 +151,7 @@ export function createOwnEngineGenerationStream(
               chatId,
               versionId: null,
               messageId: null,
-              demoUrl: null,
+              ...previewUrlField(null),
               awaitingInput,
               toolCalls,
               reason,
@@ -172,6 +191,7 @@ export function createOwnEngineGenerationStream(
 
       safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
       safeEnqueue(enc.encode(formatSSEEvent("meta", meta)));
+      emitProgress("generation", { phase: "start" });
 
       enginePingTimer = setInterval(() => {
         if (engineControllerClosed) return;
@@ -192,113 +212,38 @@ export function createOwnEngineGenerationStream(
         resolvedTier,
         originalPrompt: optimizedMessage,
         buildIntent: engineIntent,
+        buildSpec,
         routePlan,
         resolvedScaffold,
         urlMap,
         startedAt: engineStartedAt,
+        orchestrationStreamMeta: meta as Record<string, unknown>,
         tokenUsage: {
           prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
           completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
         },
         previousFiles,
         onProgress: emitProgress,
+        lineageHash,
         ...extra,
       });
 
-      const emitDoneWithVersion = async (finalized: {
-        version: { id: string };
-        messageId: string | null;
-        previewUrl: string | null;
-        preflight: {
-          previewBlocked: boolean;
-          verificationBlocked: boolean;
-          previewBlockingReason: string | null;
-        };
-        contentForVersion?: string;
-      }) => {
+      const emitDoneWithVersion = async (
+        finalized: FinalizeResult,
+        options?: { recoveredAfterStreamAbort?: boolean },
+      ) => {
         didSendDone = true;
-
-        const newDetected = getUnsignaledDetectedIntegrations(
+        await runOwnEngineStreamPostFinalize({
+          sse: { enc, safeEnqueue },
+          chatId,
+          finalized,
           accumulatedContent,
           toolSignaledProviders,
-        );
-        if (newDetected.length > 0) {
-          safeEnqueue(
-            enc.encode(formatSSEEvent("integration", { items: newDetected })),
-          );
-          devLogAppend("in-progress", {
-            type: "engine.integration_signals",
-            chatId,
-            integrations: newDetected.map((d) => d.key),
-            envVars: newDetected.flatMap((d) => d.envVars),
-          });
-        }
-
-        safeEnqueue(
-          enc.encode(
-            formatSSEEvent("done", {
-              chatId,
-              versionId: finalized.version.id,
-              messageId: finalized.messageId,
-              demoUrl: finalized.previewUrl,
-              preflight: finalized.preflight,
-              previewBlocked: finalized.preflight.previewBlocked,
-              verificationBlocked: finalized.preflight.verificationBlocked,
-              previewBlockingReason: finalized.preflight.previewBlockingReason,
-            }),
-          ),
-        );
-
-        devLogAppend("in-progress", {
-          type: "site.done",
-          chatId,
-          versionId: finalized.version.id,
-          demoUrl: finalized.previewUrl,
-          durationMs: Date.now() - engineStartedAt,
+          engineStartedAt,
+          commitCredits,
+          buildSpec,
+          recoveredAfterStreamAbort: options?.recoveredAfterStreamAbort === true,
         });
-        devLogFinalizeSite();
-        await commitCredits();
-
-        if (isSandboxConfigured() && finalized.contentForVersion) {
-          let parsedFiles: CodeFile[] = [];
-          try {
-            parsedFiles = parseCodeProject(finalized.contentForVersion).files;
-          } catch {
-            /* best-effort */
-          }
-
-          if (parsedFiles.length > 0) {
-            safeEnqueue(enc.encode(formatSSEEvent("progress", { stage: "sandbox-starting" })));
-
-            try {
-              const sandboxResult = await startSandboxPreview(parsedFiles);
-              if (sandboxResult.ok) {
-                safeEnqueue(
-                  enc.encode(
-                    formatSSEEvent("sandbox-ready", {
-                      sandboxUrl: sandboxResult.result.sandboxUrl,
-                      sandboxId: sandboxResult.result.sandboxId,
-                    }),
-                  ),
-                );
-                chatRepo
-                  .updateVersionSandboxUrl(finalized.version.id, sandboxResult.result.sandboxUrl)
-                  .catch(() => {});
-              } else {
-                safeEnqueue(enc.encode(formatSSEEvent("build-error", sandboxResult.error)));
-              }
-            } catch (err) {
-              safeEnqueue(
-                enc.encode(
-                  formatSSEEvent("build-error", {
-                    stage: "sandbox-create" as const,
-                    message: err instanceof Error ? err.message : "Sandbox failed",
-                  }),
-                ),
-              );
-            }
-          }
-        }
       };
 
       try {
@@ -343,53 +288,38 @@ export function createOwnEngineGenerationStream(
 
               case "tool-call": {
                 const toolData = evt.data as Record<string, unknown>;
-                const toolName = typeof toolData?.toolName === "string" ? toolData.toolName : "";
-                const toolArgs = (toolData?.args as Record<string, unknown>) ?? {};
-                if (toolName) toolCallNames.add(toolName);
+                emitOwnEngineToolCallSse(
+                  {
+                    enc,
+                    safeEnqueue,
+                    toolCallNames,
+                    toolSignaledProviders,
+                    setBlockingToolCall: () => {
+                      sawBlockingToolCall = true;
+                    },
+                  },
+                  toolData,
+                );
+                safeEnqueue(
+                  enc.encode(
+                    formatSSEEvent("progress", {
+                      step: "generation",
+                      phase: "tool",
+                      toolName:
+                        typeof toolData?.toolName === "string" ? toolData.toolName : undefined,
+                    }),
+                  ),
+                );
+                break;
+              }
 
-                if (toolName === "suggestIntegration") {
-                  sawBlockingToolCall = true;
-                  const envVars = Array.isArray(toolArgs.envVars) ? toolArgs.envVars as string[] : [];
-                  safeEnqueue(enc.encode(formatSSEEvent("integration", {
-                    items: [{
-                      key: typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown",
-                      name: typeof toolArgs.name === "string" ? toolArgs.name : "Integration",
-                      provider: typeof toolArgs.provider === "string" ? toolArgs.provider : undefined,
-                      intent: "env_vars" as const,
-                      envVars,
-                      status: "Kräver konfiguration",
-                      reason: typeof toolArgs.reason === "string" ? toolArgs.reason : undefined,
-                      setupHint: typeof toolArgs.setupHint === "string" ? toolArgs.setupHint : undefined,
-                    }],
-                  })));
-                  const providerKey = typeof toolArgs.provider === "string" ? toolArgs.provider : "unknown";
-                  toolSignaledProviders.add(providerKey);
-                  debugLog("engine", "Tool: suggestIntegration", { provider: providerKey });
-                } else if (toolName === "requestEnvVar") {
-                  sawBlockingToolCall = true;
-                  safeEnqueue(enc.encode(formatSSEEvent("integration", {
-                    items: [{
-                      key: "custom-env",
-                      name: "Miljövariabel",
-                      intent: "env_vars" as const,
-                      envVars: [typeof toolArgs.key === "string" ? toolArgs.key : "UNKNOWN"],
-                      status: typeof toolArgs.description === "string" ? toolArgs.description : "Kräver konfiguration",
-                    }],
-                  })));
-                } else if (toolName === "askClarifyingQuestion") {
-                  sawBlockingToolCall = true;
-                  safeEnqueue(enc.encode(formatSSEEvent("tool-call", {
-                    toolName: "askClarifyingQuestion",
-                    toolCallId: typeof toolData.toolCallId === "string" ? toolData.toolCallId : `q-${Date.now()}`,
-                    args: toolArgs,
-                  })));
-                } else if (toolName === "emitPlanArtifact") {
-                  safeEnqueue(enc.encode(formatSSEEvent("tool-call", {
-                    toolName: "emitPlanArtifact",
-                    toolCallId: typeof toolData.toolCallId === "string" ? toolData.toolCallId : `plan-${Date.now()}`,
-                    args: toolArgs,
-                  })));
-                }
+              case "progress": {
+                const progressData = evt.data as Record<string, unknown>;
+                const step =
+                  typeof progressData?.step === "string" ? progressData.step : "generation";
+                const phase =
+                  typeof progressData?.phase === "string" ? progressData.phase : "streaming";
+                emitProgress(step, { ...progressData, phase });
                 break;
               }
 
@@ -508,7 +438,9 @@ export function createOwnEngineGenerationStream(
                     fallbackVerificationSummary,
                   )
                   .catch(() => null);
-                await emitDoneWithVersion(fallbackFinalized);
+                await emitDoneWithVersion(fallbackFinalized, {
+                  recoveredAfterStreamAbort: true,
+                });
               }
             } catch {
               /* ignore persistence errors in cleanup */
@@ -522,7 +454,7 @@ export function createOwnEngineGenerationStream(
                   chatId,
                   versionId: null,
                   messageId: null,
-                  demoUrl: null,
+                  ...previewUrlField(null),
                 }),
               ),
             );

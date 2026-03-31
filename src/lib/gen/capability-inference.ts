@@ -128,28 +128,6 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
 }
 
 /**
- * Returns doc snippet category filters based on inferred capabilities,
- * so that the knowledge base search prioritizes relevant docs.
- */
-export function capabilitiesToDocCategories(
-  caps: InferredCapabilities,
-): string[] {
-  const hints: string[] = [];
-  if (caps.needsMotion) hints.push("animation", "motion", "framer", "transition");
-  if (caps.needs3D) hints.push("3d", "three", "webgl", "canvas", "react-three");
-  if (caps.needsCharts) hints.push("chart", "recharts", "analytics", "graph");
-  if (caps.needsDatabase) hints.push("database", "postgres", "supabase", "sqlite", "prisma");
-  if (caps.needsAuth) hints.push("auth", "login", "password", "session");
-  if (caps.needsAppShell) hints.push("dashboard", "sidebar", "admin");
-  if (caps.needsDataUI) hints.push("data-table", "tanstack", "sorting", "pagination");
-  if (caps.needsForms) hints.push("form", "validation", "zod", "react-hook-form");
-  if (caps.needsEcommerce) hints.push("ecommerce", "cart", "checkout", "product");
-  if (caps.needsCarousel) hints.push("carousel", "embla", "slider");
-  if (caps.needsPremiumVisuals) hints.push("gradient", "glass", "blur", "premium");
-  return hints;
-}
-
-/**
  * Build a short capability hint string for inclusion in the system prompt
  * dynamic context, so the model knows which libraries/patterns to use.
  */

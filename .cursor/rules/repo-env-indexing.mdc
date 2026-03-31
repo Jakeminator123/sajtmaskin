@@ -1,0 +1,25 @@
+---
+description: Var env-sanningen bor och hur ignorerade sökvägar läses
+alwaysApply: true
+---
+
+# Repo, env, and indexing
+
+## Canonical env sources
+
+- Börja med `docs/ENV.md`, `src/lib/env.ts` och `config/env-policy.json`.
+- `.env.example` och `.env.*.example` visar mallar; `.env.local` och andra riktiga `.env*` får läsas vid felsökning eller setup.
+- Sammanfatta nycklar och mismatchar i chatten; klistra inte in secret-värden om det inte efterfrågas uttryckligen.
+
+## Practical policy
+
+- Ändra `.env*` minimalt och committa aldrig hemligheter.
+- Läs `.vercel/` när deploy, projektlänkning eller env-kopplingar behöver felsökas. Committa inte lokal state därifrån.
+- Läs eller uppdatera `.gitignore`, `.cursorignore` och workspace-ignores när uppgiften kräver det.
+
+## Ignored and cursorignored paths
+
+- Sökverktyg missar ibland ignorerade sökvägar. Läs dem direkt när du vet var sanningen finns.
+- Vanliga exempel: `research/external-templates/reference-library/`, `docs/plans/avklarat/`, `.cursor/migration-archive/` och `scripts/`.
+- För stora genererade JSON-filer: börja i närmaste `README.md`, manifest eller katalogöversikt i stället för att läsa hela filen.
+- Om `package-lock.json` är ignorerad: läs den bara när exakta versioner eller `npm ci` verkligen är relevanta.

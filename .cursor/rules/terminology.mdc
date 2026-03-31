@@ -1,285 +1,77 @@
 ---
-description: Product terminology and concepts
+description: Kanoniska begrepp som agenter ofta blandar ihop
 alwaysApply: true
 ---
 
-# Sajtmaskin Terminology
+# Terminology
 
-## Site layers (top to bottom)
+Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines: `docs/architecture/repository-and-platform.md` och `docs/architecture/repo-tree.md`.
 
-| Layer | What it is | URL pattern |
-|-------|-----------|-------------|
-| **Vercel** | Hosting platform. Deploys, domains, env vars, CDN. | vercel.com |
-| **Sajtmaskin** | Our app. Own code-generation engine (default), manages projects, users, deploy flow. | sajtmaskin.se |
-| **v0** (soft-deprecated) | v0 Platform API + `v0-sdk` still used for templates, registry, zip, deploy-related calls — **not** for builder codegen streams. Optional `V0_FALLBACK_BUILDER` (affirmative only) prefers v0-hosted `demoUrl` in preview when both sandbox and v0 URLs exist. | v0.dev, *.vusercontent.net |
-| **Demo sites** | User-generated sites. Built by own engine, previewed in-app (full Next.js stack in iframe when that path is active), deployed to Vercel. In conversation, **demo URL** often means this preview/deploy URL for the user site — not the legacy v0-hosted preview. | *.vercel.app, preview/sandbox URL, or custom domain |
+## `v0` betyder tre olika saker
 
-## Pages in our app
+1. **API-versionering**: Sajtmaskins egna routes under `/api/v0/`. Det har inget med leverantören v0 att göra.
+2. **Naming debt**: gamla symbolnamn eller payload-nycklar från tidigare v0-baserad codegen.
+3. **Builderns Mallar-tab / mallgalleri**: användarvänd startyta med data synkad från `v0.app` via `src/lib/templates/`. Detta är **inte** runtime `template-library`, **inte** Vercel template research och **inte** scaffold.
 
-### Start page (`/`)
+`v0-sdk`, `src/lib/v0/` och `V0_API_KEY` är borttagna ur runtime. **own-engine** är den enda aktiva codegen-vägen.
 
-The landing page with 4 entry modes shown as tabs/cards:
+### Namnge det som faktiskt händer
 
-| Mode | Code name | Component | What it does |
-|------|-----------|-----------|-------------|
-| **Analyserad** (Wizard) | `wizard` | `PromptWizardModalV2` | 5-step guided questionnaire that builds a detailed prompt |
-| **Template** (v0-templates) | `category` | `TemplateGallery` | Browse **v0-templates** from `src/lib/templates/`, pick a starting point. Landing tab id `template` (legacy query/deep links: `kategori`, `mall`). |
-| **Audit** | `audit` | `SiteAuditSection` + `AuditModal` | Analyze an existing website URL, show improvement suggestions |
-| **Fritext** (Freeform) | `freeform` | `PromptInput` | Type a free-text description directly |
+- Säg **own-engine** när du menar den aktiva generationmotorn.
+- Säg **`/api/v0/`-route** eller **API-versionering** när du menar egna serverroutes.
+- Säg **builderns Mallar-tab**, **mallgalleri** eller **mallkatalog** när du menar den användarvända katalogen i `src/lib/templates/`.
+- Säg **`template-library`** när du menar runtime referensbiblioteket i `src/lib/gen/template-library`.
+- Säg **Vercel template research** eller **`research/external-templates`** när du menar research-/importspåret.
+- Säg **inte** "v0-provider", "v0-engine", "v0-generation" eller liknande om nuvarande runtime.
+- Säg helst inte bara **"template"** eller **"mall"** utan förtydligande i tekniska resonemang; välj den specifika ytan ovan.
+- Hitta inte på nya produktnamn för samma sak. Om du är osäker: använd repoets befintliga ord `own-engine`, `scaffold`, `template-library`, `preview`, `sandbox`.
 
-All 4 modes lead to the **builder** via `/builder?buildMethod=<mode>&...`
+## Mall, preview, sandbox
 
-Important language rule:
-- Use **`Fritext`** in Swedish product/UI copy.
-- Use **`freeform`** as the canonical code/query/API value.
+- **Builderns Mallar-tab / mallgalleri**: den användarvända katalogen i `src/lib/templates/`, med kategorier och startpunkter synkade från `v0.app`. Inte samma sak som `template-library`, Vercel template research eller scaffold.
+- **`template-library`**: internt runtime referensbibliotek i `src/lib/gen/template-library` som används för prompt guidance och retrieval. Inte samma sak som builderns Mallar-tab.
+- **Vercel-mall / external-template research**: research-material i `research/external-templates/`. Inte samma sak som builderns Mallar-tab eller runtime `template-library`.
+- **Preview**: det användaren ser i buildern.
+- **Sandbox**: kör ett genererat Next-projekt, typiskt `npm run dev`, för högre preview-fidelity.
+- **demoUrl**: legacy-namn för URL eller preview-mål; tolka efter kontext.
 
-### Builder (`/builder`)
+## Fidelity
 
-The main workspace where the user iterates on their site:
-- Left panel: chat interface (prompt, AI responses, version history)
-- Right panel: live preview (iframe or app preview route)
-- Header: model selection, scaffold mode, custom instructions, deploy button
+- **1**: enklare eller statisk preview (kan också vara legacy).
+- **2**: (VI JOBBAR I 90% AV FALLEN MOT DETTA) sandbox-körbar Next-app med fokus på visuell trohet. Denna typ av nivå är det som projektet i allmänhet strävar efter att ge användaren.
+- **3**: byggbar och deploybar produktionstro version.
 
-### Admin (`/admin`)
+`docs/architecture/preview-deploy.md` är kanonisk källa för den faktiska preview-kedjan.
 
-Internal dashboard with tabs: Database, Environment, Analytics, Prompts.
+## Env: flera lager (blanda inte ihop)
 
-## Key concepts
+1. **Sajtmaskin-plattformen (detta repo)**
+   - Filer i **repo-roten**: `.env.local`, `.env.production`, `.env.*` — **gitignorade** och ofta **`.cursorignore`** (agenter ser dem inte i index; öppna med `@` / Read om användaren delar).
+   - **Vercel Environment Variables** för den deployade Sajtmaskin-appen. Tre Vercel-targets: **development** (= `vercel dev`), **preview** (PR-deploys), **production** (live). I praktiken: **development = lokal dev** (via `.env.local` + `npm run dev`), **production = Vercel** (deployer från `master`), **preview = speglar production** (samma env-värden; sällan använt). Sätt preview-variabler identiskt med production.
+   - **Kanon för *namn* som appen läser:** `src/lib/env.ts` (Zod `serverSchema`). **Klassificering / audit:** `config/env-policy.json`. Människotext: `docs/ENV.md`.
 
-### Three-word cheat sheet (scaffold / dossier / artifact)
+2. **Användarens genererade sajt (Next-projekt i sandbox eller efter export)**
+   - En **egen** `.env.local` (eller motsvarande) **inne i sandlådans / byggprojektets filträd** — inte samma fil som i Sajtmaskin-roten.
+   - Byggs/mergas i kod (`src/lib/gen/sandbox-env-local.ts`): placeholders från `config/ai_models/`, ev. `project_data.meta.projectEnvVars`, m.m.
+   - När någon säger **"användarens .env"**, **"kundprojektets env"** eller **"genererad sajts nycklar"** → mena detta lager, inte Sajtmaskins `.env.local`.
 
-Use these **one meaning per word** in docs and agent answers (details below still apply):
+3. **Driftordning**
+   - Felsök **preview/sandbox**: börja med plattforms-env (`VERCEL_OIDC_TOKEN`, m.m.) och `docs/architecture/preview-deploy.md`.
+   - Felsök **"saknas API_KEY i byggd sajt"**: användarprojektets env / deploy-precheck, inte automatiskt Sajtmaskins rot-env.
 
-| Word | Means | Typical location |
-|------|--------|------------------|
-| **Scaffold** | Runtime **starting point** the generator can use (internal starters). | `src/lib/gen/scaffolds/` |
-| **Dossier** | Curated **research package** about an external template (not the live codegen base). | `research/external-templates/.../dossiers/` |
-| **Artifact** | **Generated data** consumed by code (JSON, embeddings, ranked lists). | `src/lib/gen/template-library/`, `scaffold-research.generated.json`, etc. |
+Agenter: säg explicit vilket lager du menar om det kan misstolkas.
 
-Folder-level narrative: [`docs/architecture/structure-and-terminology.md`](../../docs/architecture/structure-and-terminology.md). Cursor vs product workflows: [`docs/contributing/agent-workflows.md`](../../docs/contributing/agent-workflows.md).
+## own-engine, `src/lib/gen/`, `src/lib/mcp/`
 
-### v0-templates, scaffolds, and Vercel mall (research)
+- **own-engine**: produktens kanoniska genereringsbana.
+- **`src/lib/gen/`**: delad genereringskärna och verktyg som own-engine bygger på.
+- **`src/lib/mcp/`**: adapterlager för att använda befintliga flöden programmässigt; inte en separat motor.
 
-Do **not** use the old “operational lanes” triad. One mental model:
+## Integrationer och källor
 
-| Layer | Where | Role |
-|-------|--------|------|
-| **Runtime generation** | `src/lib/gen/scaffolds/`, matcher, stream, preview/deploy | **Scaffold-driven** — not driven by gallery rows at generation time. |
-| **v0-templates** | `src/lib/templates/`, `TemplateGallery` | Product browse/search; `buildMethod=category`; landing **Template** tab. |
-| **Vercel mall** (research) | `research/external-templates/`, dossiers, `src/lib/gen/template-library/`, scaffold research JSON | Curated reference + artifacts that **inform scaffolds** and ranking — not the landing Template label. |
+- Provider- och integrationsnamn ska följa repoets faktiska källor, främst `sajtmaskin.integration-manifest.json` om den finns, pre-generation contracts, `config/env-policy.json`, `src/lib/env.ts` och `docs/ENV.md`.
+- Hitta inte på nya providernamn i copy eller frågor när projektets befintliga konfiguration redan visar vad som gäller.
 
-#### Builder picker **Mall** / **Mallar** vs **Vercel-mall** (research)
+## Aliaser
 
-These sound alike in Swedish but are **different products**:
-
-| Surface | Code / location | What the user sees | Runtime / source |
-|--------|------------------|--------------------|------------------|
-| **Mall** tab in the builder | `UnifiedElementPicker` → `activeTab === "mall"` → `TemplateGallery` | Previews and starts from **v0 community templates** (gallery IDs in `src/lib/templates/`). | **v0 Platform** — `v0.chats.init({ type: "template", templateId })` and v0-hosted previews where applicable. |
-| **Vercel Template** / **Vercel-mall** (research lane) | `vercel.com/templates` intake, `e2e/vercel-templates/` (tracked Playwright spec), `research/external-templates/`; legacy `vercel_templates_levels/` may exist locally (ignored) | **Not** exposed as this gallery. Feeds **raw discovery → dossiers → generated artifacts → scaffold research**. | **Offline research** and curation scripts — **not** the builder Mall tab. |
-
-Rules of thumb:
-
-- If the user opened **Mall / Mallar** inside the builder, they are interacting with **v0-templates** only.
-- **Vercel mallar** (public catalog) are how we **learn and rank** external starters to improve **runtime scaffolds** and enrichment — users do **not** pick those rows from the Mall tab today.
-- Do not describe the Mall tab as “Vercel templates” or imply it lists `vercel.com/templates`.
-
-| Term | Swedish / UI | Meaning |
-|------|--------------|---------|
-| **v0-templates** | **Template** / **Templates** (nav) | Gallery entries from `src/lib/templates/`; not the runtime codegen base. |
-| **Runtime scaffold** | `grundmall` | Internal starters in `src/lib/gen/scaffolds/`; own-engine generation base (auto / manual / off). |
-| **Vercel mall** | disambiguate when needed | Vercel ecosystem + **reference dossiers** + **generated research artifacts** — not the v0-templates tab. |
-| **Vercel Template** | `extern Vercel-template` | One public starter from vercel.com/templates. |
-| **Reference dossier** | `referensdossier` | Curated package under `.../dossiers/`; feeds build scripts, not runtime directly. |
-| **Generated research artifact** | — | Committed JSON/embeddings in `template-library/`, `scaffold-research.generated.json`; consumed for ranking / enrichment. |
-| **Raw discovery** | `rå upptäckt` | Noisy scrape under `raw-discovery/`; gitignored. |
-| **Multi-tenant** | `delad plattform` | One app serving many tenants. |
-| **Multi-project** | `separata kundprojekt` | One Vercel project per customer site. |
-
-Rules: **scaffold** vs **v0-template** — never call runtime scaffolds plain “templates”. **Mall** in the **builder picker** = **v0-templates** (v0 runtime), **not** Vercel.com catalog rows. **Vercel mall** (research) → dossiers and scaffolds, not the Mall tab inventory. Dossiers are research input, not a second scaffold registry; only **generated artifacts** matter at runtime. Do not mix this block with **builder model lanes** (below).
-
-### Builder model lanes (user-facing)
-
-When discussing model selection inside the builder, use this lane vocabulary:
-
-| Lane | Swedish label | What it controls | Where user picks it |
-|------|---------------|------------------|---------------------|
-| **Model lane** | `bygg-lane` | Main generation model for the actual build/refine stream | `Byggmodell` (`modelId` / `modelTier`) |
-| **Product lane** | `prompt-lane` | Prompt-assist model used before build (rewrite/brief/spec support) | `Förbättra` + `Djup brief` (UI) |
-| **Polish lane** | `billig/snabb/latt lane` | Low-cost text-only rewrite of the prompt input | `Skriv om` (`SAJTMASKIN_POLISH_MODEL`) |
-| **Thinking flag** | `tankeflagga` | Extra reasoning behavior in generation metadata | `Resonemang` (UI) |
-
-Important rules:
-- Do NOT mix up **scaffold / Vercel-mall research** concerns with `builder model lanes`.
-- `Anthropic` can be selected in the **model lane** (build profile `anthropic`) and also in the **product lane** (`anthropic/*` assist model strings).
-- The **Anthropic-jämförelse** preset (UI; code may still say `AnthropicCompare`) aligns both model lane and product lane to Anthropic for apples-to-apples comparison.
-- **Resonemang** is not a lane and does not replace model or product lane selection.
-
-### Common chat aliases
-
-Treat common misspellings and spoken-style aliases as canonical platform names:
-
-| Alias in chat | Canonical term |
-|---------------|----------------|
-| `Varicell`, `Vericell` | `Vercel` |
-| `Veenol`, `Venol` | `v0` |
-
-When answering, prefer canonical names (`Vercel`, `v0`) even if user writes an alias.
-
-### Embeddings vs semantics (English ↔ Swedish)
-
-These English words look similar but mean different things. Match Swedish copy to the right concept:
-
-| English (code, logs, filenames) | Meaning | Swedish in product/admin UI | Do not confuse with |
-|---------------------------------|---------|------------------------------|---------------------|
-| **semantics**, **semantic HTML** | Correct HTML elements and roles (structure, a11y) | **semantik**, **semantisk HTML**, **semantiska element** | ML “semantic” |
-| **semantic search** (docs, KB, templates) | Similarity search using vectors | **semantisk sökning**; when clarifying for admins: **sökning med vektorinbäddningar** | HTML semantics |
-| **embedding** / **embeddings** | Numeric vector from an embedding model (e.g. OpenAI `text-embedding-3-small`) | **inbäddning** / **inbäddningar** (optional: *embeddings* in parens for devs) | HTML semantics |
-
-Identifiers (`semantic-search.ts`, API paths) stay English; Swedish for UI copy only. **Tailwind semantic tokens** (`bg-primary`, …) = **tematokens** / design tokens — not HTML semantics and not ML embeddings.
-
-### Orchestrator terms
-
-Use this vocabulary consistently for automation work:
-
-- `orchestrator run` - the full dated execution folder under `.cursor/orchestrator/run/`
-- `orchestrator agent` - the coordinator that plans, delegates, validates, and performs minor fixes
-- `run roadmap` - the per-run `ROADMAP.md`
-- `track plan` - an intermediate tier-2 plan for one broader workstream inside an orchestrator run
-- `agent log` - a per-workload execution note written by the delegated agent
-- `final sweep` - the closing cleanup and audit pass for dead code, ghost routes, stale files, and doc drift
-
-Treat `/orchestrator` and `/automation` as the compact startup aliases for the
-orchestrator-run system.
-
-### Generation pipeline
-
-The own engine generation flow:
-
-1. **Prompt assist** (optional) — rewrites/briefs the user prompt before generation
-2. **Prompt orchestration** — budget/strategy for the message (`direct`, `summarize`, `phase_plan_build_polish`)
-3. **Scaffold resolution** — auto-match, manual pick, or off
-4. **Context orchestration** (`orchestrate.ts`) — builds scaffold context, route plan, capability inference, contract inference
-5. **System prompt** (`system-prompt.ts`) — STATIC_CORE (~6-8K tokens, cached) + dynamic context (custom instructions, build intent, scaffold, brief, theme, references, KB matches, template references)
-6. **Generation stream** — own engine via OpenAI, or v0 fallback
-7. **Post-generation** — autofix, esbuild validation, URL expansion, file parsing, scaffold merge
-
-### Custom instructions
-
-Two tiers in `src/lib/builder/defaults.ts`:
-
-- **CORE_CUSTOM_INSTRUCTIONS** — always active: tech stack, shadcn setup, language, accessibility
-- **EXTENDED_CUSTOM_INSTRUCTIONS** — only when scaffold is `off`: design system execution, component usage, Tailwind, visual identity, layout, motion, images, Figma workflow
-
-Selection: `getDefaultCustomInstructions(scaffoldMode)`:
-- scaffold `auto` or `manual` → CORE only (scaffold + STATIC_CORE covers design)
-- scaffold `off` → CORE + EXTENDED (no scaffold, needs full design guidance)
-
-The user can edit these in the builder header dialog. `isDefaultCustomInstructions()` detects manual edits.
-
-### Research pipeline (order)
-
-`raw discovery` → (optional raw datasets) → **reference dossier** → **generated research artifacts** → consumed for search/ranking; **runtime scaffold** remains the codegen base. Paths: `docs/architecture/structure-and-terminology.md`.
-
-### Build method (`BuildMethod`)
-
-How the user entered the builder. One of:
-`wizard` | `category` | `audit` | `freeform` | `kostnadsfri`
-
-### Engine path naming
-
-- **`own-engine`** and **`egen motor`** are the **same** product concept: the default Sajtmaskin code-generation path (not v0 fallback).
-- Use **`own-engine`** as the canonical technical string in metadata, routes, and logs.
-- Use **`egen motor`** only as the Swedish display label in UI copy.
-
-### Build intent (`BuildIntent`)
-
-What the user wants to build:
-- `website` - standard multi-page website (default)
-- `app` - interactive app with logic/flows
-- `template` - compact 1-2 page scope (UI label **Kompakt** — not “Mall”, to avoid clashing with **Vercel mall** / scaffold vocabulary)
-
-### Internal theme vs Figma vs v0 design system
-
-These concepts are also different and should NOT be mixed:
-
-| Term | Variable/type name | Meaning | Scope |
-|------|--------------------|---------|-------|
-| **Internal theme preset** | `designTheme` / `themeColors` | Sajtmaskin's own theme preset and derived semantic colors used to steer the own engine's output. | Internal builder + own engine |
-| **Figma reference** | attachment with `purpose: "figma-reference"` | A visual reference used to guide hierarchy, spacing, composition, and styling. Not a reusable component system by itself. | Prompt/reference concept |
-| **v0 Design System** | `designSystemId` / `v0DesignSystemId` | External registry-backed design system for v0 — not the same as `designTheme` or a Figma file. Prefer `v0DesignSystemId` in code talk. | External v0 integration |
-
-Do not call **`designTheme`** a “design system” without qualifier; Figma ≠ registry-backed `designSystemId`.
-
-### Project
-
-A sajtmaskin project that groups chats, versions, and deployments together.
-Stored in our database. Has an `appProjectId` (ours) and optionally a
-`v0ProjectId` (legacy, from v0 fallback era).
-
-### Chat
-
-A conversation in the builder. Each chat produces versions. With own engine
-the chat is stored locally; with v0 fallback it maps to a v0 chat ID.
-
-### Version
-
-A snapshot of generated code from one generation turn. Contains files
-(the actual React/Next.js code) and optionally a preview URL.
-
-### Preview
-
-**User-site preview** (own engine): generated Next.js project is shown in-app
-(iframe / dedicated preview surface). Product language may use **demo URL** for
-this URL even though it is not the old v0 preview host.
-
-**v0-hosted demo URL** (`*.vusercontent.net`): may appear as `demoUrl` on a version.
-When `V0_FALLBACK_BUILDER` is affirmative, the builder can **prefer** this URL
-over sandbox in the preview iframe; codegen remains own-engine.
-
-**Degraded preview env:** placeholder values for third-party keys so preview
-can start without real integrations; canonical KEY=value fragment
-`config/ai_models/40-generated-site-integration-placeholders.env.txt` (see
-`config/ai_models/manifest.json`), policy text `config/user_degraded_env.txt`.
-Generated sites should degrade gracefully (mock / no-op) per
-`config/prompt-static/11-behavioral-rules.md`.
-
-The **Sandbox** (`@vercel/sandbox` via `SandboxModal`) is opt-in for testing
-server-side behavior before deploying.
-
-### Deployment
-
-When the user clicks "Deploy":
-1. Fetch the version's files
-2. Process images (upload to Vercel Blob if needed)
-3. Create a Vercel deployment via Vercel REST API
-4. Return a permanent URL on the user's Vercel project
-
-## Builder picker components
-
-The builder toolbar now centers on a unified picker flow:
-
-| Component | File | What it does |
-|-----------|------|-------------|
-| `UnifiedElementPicker` | `UnifiedElementPicker.tsx` | Main builder picker surface that consolidates insertion flows |
-| `UiElementPicker` | `UiElementPicker.tsx` | Underlying shadcn/ui block and component browser used by the unified picker |
-| `UiElementPickerPreview` | `UiElementPickerPreview.tsx` | Preview/support surface for picker-driven insertion |
-
-## Naming conventions in code
-
-| Concept | Variable/type name | Example value |
-|---------|-------------------|---------------|
-| Our project ID | `appProjectId` | `"proj_abc123"` |
-| v0 project ID | `v0ProjectId` | `"prj_xyz"` |
-| v0 chat ID | `v0ChatId` / `chatId` | `"chat_abc"` |
-| User-site preview URL | `previewUrl` / internal preview base (naming in code may vary) | In-app full-stack preview |
-| Legacy v0 preview URL | `demoUrl` / `currentDemoUrl` | `"https://v0-abc.vusercontent.net"` (v0 fallback only) |
-| Deployed URL | `url` (in deployment) | `"https://my-site.vercel.app"` |
-| Entry mode | `buildMethod` | `"wizard"` |
-| Build type | `buildIntent` | `"website"` |
-
-## See also (human docs in `docs/`)
-
-- **Folder layout, research pipeline, gallery vs scaffold paths:** `docs/architecture/structure-and-terminology.md`
-- **Schema contracts index:** `docs/schemas/README.md`
-- **Docs hub + navigation:** `docs/README.md`
-- **Plans lifecycle:** `docs/plans/README.md`
+Varicell / Vericell → **Vercel**. Veenol / Venol → **v0**.

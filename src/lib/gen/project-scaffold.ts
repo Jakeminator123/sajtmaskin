@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import nodePath from "node:path";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
+import { loadPlaceholderRecord, formatDotenvBody } from "./sandbox/env-local";
 
 /**
  * Download/export scaffold.
@@ -20,59 +22,62 @@ const PACKAGE_JSON = `{
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "^16.1.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "radix-ui": "^1.4.3",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^3.3.0",
-    "lucide-react": "^0.513.0",
-    "next-themes": "^0.4.6",
-    "sonner": "^2.0.7",
-    "recharts": "^2.15.4",
-    "cmdk": "^1.1.1",
-    "vaul": "^1.1.2",
-    "input-otp": "^1.4.2",
-    "embla-carousel-react": "^8.6.0",
-    "react-day-picker": "^9.14.0",
-    "react-resizable-panels": "^4.7.2",
-    "react-hook-form": "^7.71.2",
-    "@hookform/resolvers": "^5.2.2",
-    "zod": "^4.3.6",
-    "framer-motion": "^12.12.1",
-    "three": "^0.176.0",
-    "@react-three/fiber": "^9.1.2",
-    "@react-three/drei": "^10.1.5",
-    "date-fns": "^4.1.0",
-    "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-dropdown-menu": "^2.1.15",
-    "@radix-ui/react-tabs": "^1.1.12",
-    "@radix-ui/react-tooltip": "^1.1.14",
-    "@radix-ui/react-accordion": "^1.2.8",
-    "@radix-ui/react-collapsible": "^1.1.12",
-    "@radix-ui/react-select": "^2.1.15",
-    "@radix-ui/react-switch": "^1.1.8",
-    "@radix-ui/react-checkbox": "^1.1.9",
-    "@radix-ui/react-label": "^2.1.6",
-    "@radix-ui/react-scroll-area": "^1.2.9",
-    "@radix-ui/react-separator": "^1.1.6",
-    "@radix-ui/react-slot": "^1.2.0",
-    "@radix-ui/react-avatar": "^1.1.8",
-    "@radix-ui/react-popover": "^1.1.15"
+    "next": "16.2.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "radix-ui": "1.4.3",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "tailwind-merge": "3.3.0",
+    "lucide-react": "0.513.0",
+    "next-themes": "0.4.6",
+    "sonner": "2.0.7",
+    "recharts": "2.15.4",
+    "cmdk": "1.1.1",
+    "vaul": "1.1.2",
+    "input-otp": "1.4.2",
+    "embla-carousel-react": "8.6.0",
+    "react-day-picker": "9.14.0",
+    "react-resizable-panels": "4.7.2",
+    "react-hook-form": "7.71.2",
+    "@hookform/resolvers": "5.2.2",
+    "zod": "4.3.6",
+    "framer-motion": "12.12.1",
+    "three": "0.176.0",
+    "@react-three/fiber": "9.1.2",
+    "@react-three/drei": "10.7.7",
+    "date-fns": "4.1.0",
+    "@radix-ui/react-dialog": "1.1.15",
+    "@radix-ui/react-dropdown-menu": "2.1.15",
+    "@radix-ui/react-tabs": "1.1.12",
+    "@radix-ui/react-tooltip": "1.2.8",
+    "@radix-ui/react-accordion": "1.2.8",
+    "@radix-ui/react-collapsible": "1.1.12",
+    "@radix-ui/react-select": "2.2.6",
+    "@radix-ui/react-switch": "1.2.6",
+    "@radix-ui/react-checkbox": "1.3.3",
+    "@radix-ui/react-label": "2.1.6",
+    "@radix-ui/react-scroll-area": "1.2.9",
+    "@radix-ui/react-separator": "1.1.6",
+    "@radix-ui/react-slot": "1.2.0",
+    "@radix-ui/react-avatar": "1.1.8",
+    "@radix-ui/react-popover": "1.1.15"
   },
   "devDependencies": {
-    "typescript": "^5.8.3",
-    "@types/node": "^22.15.18",
-    "@types/react": "^19.1.2",
-    "@types/react-dom": "^19.1.2",
-    "@tailwindcss/postcss": "^4.1.5",
-    "tailwindcss": "^4.1.5"
+    "typescript": "5.8.3",
+    "@types/node": "22.15.18",
+    "@types/react": "19.1.2",
+    "@types/react-dom": "19.1.2",
+    "@tailwindcss/postcss": "4.1.5",
+    "tailwindcss": "4.1.5"
   }
 }`;
+
+/** Parsed once — baseline for merge when the model emits a partial `package.json`. */
+const BASELINE_PACKAGE_JSON = JSON.parse(PACKAGE_JSON) as Record<string, unknown>;
 
 const TSCONFIG = `{
   "compilerOptions": {
@@ -106,8 +111,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.pexels.com" },
       { protocol: "https", hostname: "*.blob.vercel-storage.com" },
       { protocol: "https", hostname: "api.dicebear.com" },
-      { protocol: "https", hostname: "picsum.photos" },
-      { protocol: "https", hostname: "via.placeholder.com" },
     ],
   },
 };
@@ -253,6 +256,71 @@ const SCAFFOLD_FILES: Record<string, string> = {
   "lib/utils.ts": LIB_UTILS,
 };
 
+const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for local development (not production secrets)
+# Same keys as sandbox preview; override with real values when deploying.
+`;
+
+/**
+ * Dependencies where the scaffold baseline must always win over the model.
+ * The LLM sometimes pins older majors that conflict with peer requirements
+ * (e.g. fiber 8 + React 19, or React 18 + Next 16).  Keep this list short
+ * and only add packages whose version is load-bearing for the whole tree.
+ */
+const BASELINE_PINNED_DEPS = [
+  "react",
+  "react-dom",
+  "next",
+  "three",
+  "@react-three/fiber",
+  "@react-three/drei",
+] as const;
+
+/**
+ * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
+ * and core tooling survive thin LLM output (zip export / sandbox use the same merge).
+ */
+export function mergePackageJsonWithBaseline(
+  model: Record<string, unknown>,
+  detected: { dependencies: Record<string, string> },
+): Record<string, unknown> {
+  const b = BASELINE_PACKAGE_JSON;
+  const bScripts = (b.scripts as Record<string, string> | undefined) ?? {};
+  const bDep = (b.dependencies as Record<string, string> | undefined) ?? {};
+  const bDevDep = (b.devDependencies as Record<string, string> | undefined) ?? {};
+  const mScripts = (model.scripts as Record<string, string> | undefined) ?? {};
+  const mDep = (model.dependencies as Record<string, string> | undefined) ?? {};
+  const mDevDep = (model.devDependencies as Record<string, string> | undefined) ?? {};
+
+  const dependencies: Record<string, string> = {
+    ...bDep,
+    ...mDep,
+    ...detected.dependencies,
+  };
+  for (const key of BASELINE_PINNED_DEPS) {
+    if (bDep[key] !== undefined) {
+      dependencies[key] = bDep[key];
+    }
+  }
+
+  return {
+    ...b,
+    ...model,
+    scripts: { ...bScripts, ...mScripts },
+    dependencies,
+    devDependencies: { ...bDevDep, ...mDevDep },
+  };
+}
+
+function buildPlaceholderEnvLocalBody(): string | null {
+  try {
+    const record = loadPlaceholderRecord();
+    if (Object.keys(record).length === 0) return null;
+    return `${GENERATED_ENV_LOCAL_HEADER}\n${formatDotenvBody(record)}\n`;
+  } catch {
+    return null;
+  }
+}
+
 export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   const result: CodeFile[] = [];
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
@@ -260,19 +328,26 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   const allCode = generatedFiles.map((f) => f.content).join("\n");
   const detected = runDepCompleter(allCode);
 
+  const mergeModelPackageJson = (file: CodeFile): CodeFile => {
+    if (file.path !== "package.json") return file;
+    try {
+      const model = JSON.parse(file.content) as Record<string, unknown>;
+      const merged = mergePackageJsonWithBaseline(model, detected);
+      return { ...file, content: JSON.stringify(merged, null, 2) };
+    } catch {
+      const merged = mergePackageJsonWithBaseline({}, detected);
+      return { ...file, content: JSON.stringify(merged, null, 2) };
+    }
+  };
+
   for (const [filePath, content] of Object.entries(SCAFFOLD_FILES)) {
     if (filePath === "package.json" && !generatedPaths.has(filePath)) {
-      try {
-        const pkg = JSON.parse(content);
-        pkg.dependencies = { ...pkg.dependencies, ...detected.dependencies };
-        result.push({ path: filePath, content: JSON.stringify(pkg, null, 2), language: "json" });
-      } catch {
-        result.push({ path: filePath, content, language: "json" });
-      }
+      const merged = mergePackageJsonWithBaseline({}, detected);
+      result.push({ path: filePath, content: JSON.stringify(merged, null, 2), language: "json" });
       continue;
     }
     if (!generatedPaths.has(filePath)) {
-      result.push({ path: filePath, content, language: inferLanguage(filePath) });
+      result.push({ path: filePath, content, language: inferFileLanguage(filePath) });
     }
   }
 
@@ -284,7 +359,15 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
     }
   }
 
-  result.push(...generatedFiles);
+  result.push(...generatedFiles.map(mergeModelPackageJson));
+
+  if (!result.some((f) => f.path === ".env.local")) {
+    const envBody = buildPlaceholderEnvLocalBody();
+    if (envBody) {
+      result.push({ path: ".env.local", content: envBody, language: "text" });
+    }
+  }
+
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }
 
@@ -345,13 +428,3 @@ function readUiComponent(name: string, searchDirs: string[]): string | null {
   return null;
 }
 
-function inferLanguage(filePath: string): string {
-  if (filePath.endsWith(".tsx")) return "tsx";
-  if (filePath.endsWith(".ts")) return "ts";
-  if (filePath.endsWith(".jsx")) return "jsx";
-  if (filePath.endsWith(".js")) return "js";
-  if (filePath.endsWith(".css")) return "css";
-  if (filePath.endsWith(".json")) return "json";
-  if (filePath.endsWith(".mjs")) return "js";
-  return "text";
-}

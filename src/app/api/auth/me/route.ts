@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getOrCreateGuestUsage } from "@/lib/db/services";
+import { getOrCreateGuestUsage } from "@/lib/db/services/guests";
 
 export async function GET(req: NextRequest) {
   try {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CodeFile } from "./parser";
-import { buildPreviewHtml } from "./preview";
+import { buildPreviewHtml } from "./preview/build-preview-document";
 
 function file(path: string, content: string, language = "tsx"): CodeFile {
   return { path, content, language };

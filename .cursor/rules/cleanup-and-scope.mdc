@@ -1,0 +1,29 @@
+---
+description: Utför efterfrågad städning; radera brus och verifiera smart
+alwaysApply: true
+---
+
+# Cleanup and scope
+
+När användaren ber om att **städa**, **ta bort**, **flytta** eller göra en tydligt riktad refaktor ska agenten **utföra jobbet**, inte bara lista vad som borde göras.
+
+## Grundprincip
+
+- Radera duplicat, död kod och historiskt brus hellre än att skapa nya arkivnivåer.
+- Skapa inte nya docs för att förklara gamla docs.
+- Fixera brutna importer, länkar, script- eller env-referenser i samma svep.
+
+## Gör så här
+
+1. Spåra beroenden: importer, dynamiska strängar, script, CI och docs-länkar.
+2. Utför borttagning, flytt eller refaktor inom begärt scope.
+3. Uppdatera referenser som annars blir fel.
+4. Verifiera med `npm run typecheck` plus relevant test-, build- eller områdesspecifikt kommando för det som ändrats. Vid ren docs-städning räcker målgranskad länk- och referenskoll.
+
+## Fortfarande försiktighet
+
+- Radera inte secrets, `.env*`-innehåll eller produktionsdata.
+- Ta inte bort uppenbart runtime-kritiska delar utan uttryckligt scope eller verifierad ersättning.
+- Stage:a inte andras filer; följ `session-git-docs.mdc` om parallellt arbete syns.
+
+Den här regeln överstyr bara en försiktig "minsta möjliga diff"-tolkning när användaren faktiskt vill ha städning eller tydlig refaktor.

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getRegistryIndexWithCache } from "@/lib/shadcn-registry-cache";
-import { getRegistryBaseUrl } from "@/lib/v0/v0-url-parser";
+import { getRegistryIndexWithCache } from "@/lib/shadcn/registry-cache";
+import { getRegistryBaseUrl } from "@/lib/shadcn/registry-url";
 
 export const runtime = "nodejs";
 export const revalidate = 300;

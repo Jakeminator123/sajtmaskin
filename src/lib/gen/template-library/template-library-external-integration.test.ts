@@ -2,12 +2,17 @@
  * Integration checks for curated external templates (Vercel scrape → template-library).
  * Committed artifacts: template-library.generated.json + template-library-embeddings.json.
  *
- * If entries.length === 0, run hydrate + build + embeddings (see docs/architecture/scraped-scorefolds-pipeline.md).
+ * If entries.length === 0, run hydrate + build + embeddings (see research/external-templates/README.md and scripts/README.md).
  */
 import { describe, expect, it } from "vitest";
+import { getScaffoldFamilies } from "@/lib/gen/scaffolds";
 import catalogJson from "./template-library.generated.json";
 import embeddingsJson from "./template-library-embeddings.json";
-import { getTemplateLibraryEntries, getTemplateLibraryEntryById } from "./catalog";
+import {
+  getTemplateLibraryCatalog,
+  getTemplateLibraryEntries,
+  getTemplateLibraryEntryById,
+} from "./catalog";
 import {
   searchTemplateLibrary,
   searchTemplateLibraryKeywordsOnly,
@@ -17,6 +22,7 @@ import {
 const entries = getTemplateLibraryEntries();
 const catalogIds = new Set(entries.map((e) => e.id));
 const embeddingIds = new Set(embeddingsJson.embeddings.map((e) => e.id));
+const knownScaffoldFamilies = new Set(getScaffoldFamilies());
 
 describe("template-library external templates (committed catalog)", () => {
   it("has at least one curated entry (rebuild pipeline if zero)", () => {
@@ -43,7 +49,19 @@ describe("template-library external templates (committed catalog)", () => {
       expect(e.summary?.trim().length).toBeGreaterThan(0);
       expect(e.recommendedScaffoldFamilies?.length).toBeGreaterThan(0);
       expect(e.qualityScore).toBeGreaterThanOrEqual(45);
+      expect(e.runtimeGuidance?.styleRules?.length ?? 0).toBeGreaterThan(0);
+      expect(e.runtimeGuidance?.sectionInventory?.length ?? 0).toBeGreaterThan(0);
+      expect(e.runtimeGuidance?.avoidPatterns?.length ?? 0).toBeGreaterThan(0);
+      expect(e.runtimeGuidance?.worldClassRubric?.length ?? 0).toBeGreaterThan(0);
       expect(Array.isArray(e.selectedFiles)).toBe(true);
+    }
+  });
+
+  it("only references known runtime scaffold families", () => {
+    for (const entry of entries) {
+      for (const family of entry.recommendedScaffoldFamilies) {
+        expect(knownScaffoldFamilies.has(family), `unknown scaffold family ${family} on ${entry.id}`).toBe(true);
+      }
     }
   });
 
@@ -96,5 +114,16 @@ describe("template-library.generated.json snapshot contract", () => {
 
   it("declares curatedTemplates consistent with entries", () => {
     expect(catalogJson.curatedTemplates).toBe(catalogJson.entries?.length ?? 0);
+  });
+
+  it("runtime catalog strips machine-absolute paths", () => {
+    const runtimeCatalog = getTemplateLibraryCatalog();
+    const absolutePathRe = /^(?:[a-z]:[\\/]|\/)/i;
+
+    expect(absolutePathRe.test(runtimeCatalog.sourceRoot)).toBe(false);
+    for (const entry of runtimeCatalog.entries) {
+      if (!entry.repo.clonePath) continue;
+      expect(absolutePathRe.test(entry.repo.clonePath)).toBe(false);
+    }
   });
 });

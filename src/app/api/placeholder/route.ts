@@ -12,14 +12,14 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const width = Math.min(
     Math.max(
-      parseInt(params.get("width") || params.get("w") || "600") || 600,
+      parseInt(params.get("width") || params.get("w") || "600", 10) || 600,
       1,
     ),
     2000,
   );
   const height = Math.min(
     Math.max(
-      parseInt(params.get("height") || params.get("h") || "400") || 400,
+      parseInt(params.get("height") || params.get("h") || "400", 10) || 400,
       1,
     ),
     2000,

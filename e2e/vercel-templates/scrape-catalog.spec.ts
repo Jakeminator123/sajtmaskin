@@ -27,7 +27,7 @@ import {
   writeCanonicalDiscoveryDataset,
   type PlaywrightCatalogFile,
   type PlaywrightTemplateEntry,
-} from "../../scripts/template-library-discovery";
+} from "../../scripts/template-library/template-library-discovery";
 
 const BASE_URL = "https://vercel.com/templates";
 const OUTPUT_DIR = RAW_DISCOVERY_CURRENT_ROOT;

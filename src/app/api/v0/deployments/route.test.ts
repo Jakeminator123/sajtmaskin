@@ -115,6 +115,35 @@ describe("POST /api/v0/deployments", () => {
     expect(json.deployReadiness?.missingEnv).toContain("STRIPE_SECRET_KEY");
   });
 
+  it("precheckOnly runs auto-fix by default (K-007): removes pnpm-lock, no skip message in fixesApplied", async () => {
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: '{"name":"demo","private":true}' },
+      { path: "pnpm-lock.yaml", content: "lockfile:\n" },
+    ]);
+
+    const req = new Request("http://localhost/api/v0/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        precheckOnly: true,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      precheckOnly?: boolean;
+      fixesApplied?: string[];
+      fileCount?: number;
+    };
+    expect(json.precheckOnly).toBe(true);
+    expect(json.fileCount).toBe(1);
+    expect(json.fixesApplied?.some((f) => /Removed lockfiles|pnpm/i.test(f))).toBe(true);
+    expect(json.fixesApplied?.some((f) => /skip|hoppats|skipped/i.test(f))).toBe(false);
+  });
+
   it("precheckOnly with skipAutoFix skips applyPreDeployFixes and records skip in fixesApplied", async () => {
     getVersionFiles.mockResolvedValue([
       { path: "package.json", content: '{"name":"demo","private":true}' },

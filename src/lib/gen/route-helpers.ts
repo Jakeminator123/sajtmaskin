@@ -1,72 +1,10 @@
-import { createSSEHeaders } from "@/lib/streaming";
 import {
   createBuilderStreamEvent,
   isBuilderStreamEventName,
   type BuilderStreamEvent,
 } from "@/lib/gen/stream/builder-stream-contract";
-import type { SuspenseRule, StreamContext } from "@/lib/gen/suspense";
-import { createDefaultRules } from "@/lib/gen/suspense";
-
-// ---------------------------------------------------------------------------
-// SSE Response builder
-// ---------------------------------------------------------------------------
-
-export function buildSseResponse(
-  stream: ReadableStream<Uint8Array>,
-  sessionCookie?: string,
-): Response {
-  const headers = new Headers(createSSEHeaders());
-  if (sessionCookie) {
-    headers.set("Set-Cookie", sessionCookie);
-  }
-  return new Response(stream, { headers });
-}
-
-// ---------------------------------------------------------------------------
-// Request parser
-// ---------------------------------------------------------------------------
-
-export interface ParsedGenerationRequest {
-  message: string;
-  attachments?: Array<{ url: string }>;
-  system?: string;
-  projectId?: string;
-  modelId?: string;
-  thinking?: boolean;
-  imageGenerations?: boolean;
-  chatPrivacy?: string;
-  designSystemId?: string;
-  meta?: Record<string, unknown>;
-}
-
-export function parseGenerationRequest(
-  body: Record<string, unknown>,
-): ParsedGenerationRequest {
-  return {
-    message: typeof body.message === "string" ? body.message : "",
-    attachments: Array.isArray(body.attachments)
-      ? (body.attachments as Array<{ url: string }>)
-      : undefined,
-    system: typeof body.system === "string" ? body.system : undefined,
-    projectId: typeof body.projectId === "string" ? body.projectId : undefined,
-    modelId: typeof body.modelId === "string" ? body.modelId : undefined,
-    thinking: typeof body.thinking === "boolean" ? body.thinking : undefined,
-    imageGenerations:
-      typeof body.imageGenerations === "boolean"
-        ? body.imageGenerations
-        : undefined,
-    chatPrivacy:
-      typeof body.chatPrivacy === "string" ? body.chatPrivacy : undefined,
-    designSystemId:
-      typeof body.designSystemId === "string"
-        ? body.designSystemId
-        : undefined,
-    meta:
-      typeof body.meta === "object" && body.meta !== null
-        ? (body.meta as Record<string, unknown>)
-        : undefined,
-  };
-}
+import type { SuspenseRule, StreamContext } from "@/lib/gen/suspense/transform";
+import { createDefaultRules } from "@/lib/gen/suspense/default-rules";
 
 // ---------------------------------------------------------------------------
 // Line-level suspense processor
@@ -163,9 +101,3 @@ export function parseSSEBuffer(buffer: string): {
 
   return { events, remaining };
 }
-
-// ---------------------------------------------------------------------------
-// Re-export formatSSEEvent for convenience
-// ---------------------------------------------------------------------------
-
-export { formatSSEEvent } from "@/lib/streaming";

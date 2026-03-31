@@ -23,6 +23,7 @@ import {
   getBuildProfileId,
   type CanonicalModelId,
 } from "@/lib/models/catalog";
+import { isUsableVercelOidcToken } from "@/lib/vercel";
 
 export type ModelProviderFamily = "openai" | "anthropic" | "v0" | "off" | "unknown";
 
@@ -91,7 +92,6 @@ export interface ModelTraceSnapshot {
   auth: {
     openai: boolean;
     anthropic: boolean;
-    v0: boolean;
     aiGatewayApiKey: boolean;
     vercelOidcToken: boolean;
     onVercel: boolean;
@@ -137,7 +137,7 @@ function hasProviderKey(provider: ModelProviderFamily): boolean {
     case "anthropic":
       return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
     case "v0":
-      return Boolean(process.env.V0_API_KEY?.trim());
+      return true;
     default:
       return true;
   }
@@ -217,9 +217,8 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
   const auth = {
     openai: Boolean(process.env.OPENAI_API_KEY?.trim()),
     anthropic: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
-    v0: Boolean(process.env.V0_API_KEY?.trim()),
     aiGatewayApiKey: Boolean(process.env.AI_GATEWAY_API_KEY?.trim()),
-    vercelOidcToken: Boolean(process.env.VERCEL_OIDC_TOKEN?.trim()),
+    vercelOidcToken: isUsableVercelOidcToken(),
     onVercel: isProbablyOnVercel(),
   };
 
@@ -227,14 +226,14 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     {
       key: "create-build",
       label: "Ny build",
-      route: "/api/v0/chats/stream",
+      route: "/api/engine/chats/stream",
       purpose: "First builder generation using the selected build profile.",
       active: canUseDeepBrief,
     },
     {
       key: "follow-up-build",
       label: "Fortsatt build",
-      route: "/api/v0/chats/[chatId]/stream",
+      route: "/api/engine/chats/[chatId]/stream",
       purpose: "Follow-up iterations against the same chat/project.",
       active: !canUseDeepBrief,
     },

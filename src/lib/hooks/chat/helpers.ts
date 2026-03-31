@@ -29,7 +29,7 @@ function getSessionStorage(): Storage | null {
   }
 }
 
-export function readCreateChatLock(): CreateChatLock | null {
+function readCreateChatLock(): CreateChatLock | null {
   const storage = getSessionStorage();
   if (!storage) return null;
   try {
@@ -86,7 +86,7 @@ export function updateCreateChatLockChatId(key: string, chatId: string) {
 // String utilities
 // ---------------------------------------------------------------------------
 
-export function normalizePrompt(value: string): string {
+function normalizePrompt(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
@@ -238,6 +238,7 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
     versionId: stats.versionId ?? null,
     durationMs,
     didReceiveDone: stats.didReceiveDone,
+    abortedByClient: Boolean(stats.abortedByClient),
     contentEvents: stats.contentEvents,
     contentChars: stats.contentChars,
     contentNoopEvents: stats.contentNoopEvents,
@@ -277,9 +278,31 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
     criticalReasons.push("thinking_empty_after_events");
   }
 
+  const onlyDoneMissingOnAbort =
+    stats.abortedByClient &&
+    criticalReasons.length === 1 &&
+    criticalReasons[0] === "done_event_missing" &&
+    stats.errorEvents === 0;
+
+  if (onlyDoneMissingOnAbort) {
+    reasons.push("client_abort_expected");
+    debugLog(
+      "build",
+      `Stream ended before done (client abort): reasons=[${reasons.join(", ")}]`,
+      summary,
+    );
+    return { hasCriticalAnomaly: false, reasons };
+  }
+
   const hasCriticalAnomaly = criticalReasons.length > 0;
+  const inlineCritical = criticalReasons.join(", ");
+  const inlineReasons = reasons.join(", ");
   if (hasCriticalAnomaly) {
-    warnLog("build", "Stream anomaly detected", { ...summary, reasons, criticalReasons });
+    warnLog(
+      "build",
+      `Stream anomaly detected — critical=[${inlineCritical}] reasons=[${inlineReasons}]`,
+      { ...summary, reasons, criticalReasons },
+    );
   } else if (stats.errorEvents > 0) {
     debugLog("build", "Stream recovered after error", { ...summary, reasons });
   }
@@ -322,6 +345,32 @@ export function coerceUiParts(data: unknown): UiMessagePart[] {
   return [];
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+/** Merge engine progress `output` so repeated SSE updates dedupe consecutive `steps` lines. */
+function mergeEngineProgressOutput(
+  prev: Record<string, unknown>,
+  next: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...prev, ...next };
+  const ps = prev.steps;
+  const ns = next.steps;
+  if (Array.isArray(ps) && Array.isArray(ns)) {
+    const flat: string[] = [];
+    for (const x of [...ps, ...ns]) {
+      if (typeof x === "string") flat.push(x);
+    }
+    const deduped: string[] = [];
+    for (const s of flat) {
+      if (deduped.length === 0 || deduped[deduped.length - 1] !== s) deduped.push(s);
+    }
+    out.steps = deduped;
+  }
+  return out;
+}
+
 function getUiPartKey(part: UiMessagePart): string | null {
   const type = typeof part.type === "string" ? part.type : "";
   if (type.startsWith("tool")) {
@@ -360,6 +409,20 @@ function mergeUiPart(current: UiMessagePart, next: UiMessagePart): UiMessagePart
   ]);
   Object.entries(next).forEach(([key, value]) => {
     if (value !== undefined) {
+      if (
+        key === "output" &&
+        isPlainRecord(value) &&
+        isPlainRecord((merged as Record<string, unknown>)[key])
+      ) {
+        const partType = typeof merged.type === "string" ? merged.type : "";
+        if (partType.startsWith("tool:") && partType.includes("engine-")) {
+          (merged as Record<string, unknown>)[key] = mergeEngineProgressOutput(
+            (merged as Record<string, unknown>)[key] as Record<string, unknown>,
+            value,
+          );
+          return;
+        }
+      }
       if (
         typeof value === "string" &&
         streamKeys.has(key) &&
@@ -462,6 +525,23 @@ const KNOWN_PROVIDERS = [
   "prisma", "convex", "appwrite", "sanity", "contentful",
 ];
 
+function stableIntegrationSignalKey(signal: IntegrationSseSignal): string {
+  const payload = JSON.stringify({
+    key: signal.key,
+    name: signal.name,
+    provider: signal.provider,
+    status: signal.status,
+    intent: signal.intent,
+    envVars: signal.envVars,
+  });
+  let h = 2166136261;
+  for (let i = 0; i < payload.length; i++) {
+    h ^= payload.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
 function deriveProviderKey(signal: IntegrationSseSignal): string {
   const provider = signal.provider?.toLowerCase().trim();
   if (provider) {
@@ -485,7 +565,7 @@ function deriveProviderKey(signal: IntegrationSseSignal): string {
   if (signal.envVars && signal.envVars.length > 0) {
     return `env:${signal.envVars.sort().join(",")}`;
   }
-  return `signal:${Math.random().toString(36).slice(2, 8)}`;
+  return `signal:${stableIntegrationSignalKey(signal)}`;
 }
 
 function mergeIntegrationSignalsByProvider(
@@ -657,6 +737,9 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
   if (typeof info.promptAssistDeep === "boolean") {
     steps.push(`Deep brief: ${info.promptAssistDeep ? "på" : "av"}`);
   }
+  if (info.promptAssistMode === "polish" || info.promptAssistMode === "rewrite") {
+    steps.push(`Assist mode: ${info.promptAssistMode}`);
+  }
   if (info.scaffoldId) {
     const label = info.scaffoldLabel || info.scaffoldId;
     const family = info.scaffoldFamily && info.scaffoldFamily !== info.scaffoldId
@@ -751,6 +834,24 @@ export function appendModelInfoPart(
   });
 }
 
+function formatPromptStrategyReason(reason: string): string {
+  const map: Record<string, string> = {
+    within_budget:
+      "Under mjuk orkestreringsgräns — prompten skickas direkt (ingen sammandragning)",
+    empty_prompt: "Tom prompt",
+    preserve_registry_payload: "Registry-data bevarad oförändrad",
+    technical_content_preserved: "Tekniskt innehåll bevarat",
+    force_phase_threshold: "Mycket lång prompt — fasadläge (Plan → Build → Polish)",
+    high_complexity: "Hög komplexitet — fasadläge",
+    over_budget_summarized: "Över mjuk gräns — prompt sammandragen",
+    over_budget_summarized_design_safe: "Över mjuk gräns — sammandragning (designsäker)",
+  };
+  if (reason.endsWith("_hard_cap")) {
+    return "Hård teckengräns — extra sammandragning";
+  }
+  return map[reason] ?? reason;
+}
+
 function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
   const strategyLabel =
     meta.strategy === "phase_plan_build_polish"
@@ -758,14 +859,16 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
       : meta.strategy === "summarize"
         ? "sammanfattad"
         : "redo";
+  // budgetTarget = soft ceiling (ORCHESTRATION_SOFT_TARGET_*); NOT a goal length for the user prompt.
   const lengthLine =
     meta.originalLength !== meta.optimizedLength
-      ? `Langd: ${meta.originalLength} -> ${meta.optimizedLength} (mal ~${meta.budgetTarget})`
-      : `Langd: ${meta.originalLength} (mal ~${meta.budgetTarget})`;
+      ? `Langd: ${meta.originalLength} → ${meta.optimizedLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget})`
+      : `Langd: ${meta.originalLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget} innan ev. sammandragning)`;
 
   const steps = [`Prompt optimerad: ${strategyLabel}`, `Typ: ${meta.promptType}`, lengthLine];
-  if (meta.reason) steps.push(`Orsak: ${meta.reason}`);
-  steps.push("Genererar innehåll och filer från prompten.");
+  if (meta.reason) steps.push(`Orsak: ${formatPromptStrategyReason(meta.reason)}`);
+  // Do not duplicate "Genererar innehåll och filer…" here — the engine progress tool
+  // (generation / streaming) already emits the same line when output starts.
   return steps;
 }
 
@@ -805,7 +908,7 @@ function getRetryAfterSeconds(
   return header ? toNumber(header) : null;
 }
 
-export function looksLikeUnsupportedModelError(message: string | null | undefined): boolean {
+function looksLikeUnsupportedModelError(message: string | null | undefined): boolean {
   const normalized = String(message ?? "").toLowerCase();
   if (!normalized) return false;
   return (
@@ -832,7 +935,15 @@ export function buildApiErrorMessage(params: {
     const suffix = retryAfter ? ` Prova igen om ${retryAfter}s.` : "";
     return `Rate limit: för många förfrågningar.${suffix}`;
   }
-  if (status === 402 || code === "quota_exceeded") {
+  if (status === 402) {
+    const serverError =
+      (typeof errorData?.error === "string" && errorData.error) ||
+      (typeof errorData?.message === "string" && errorData.message) ||
+      "";
+    if (serverError) return serverError;
+    return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
+  }
+  if (code === "quota_exceeded") {
     return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
   }
   if (status === 401 || code === "unauthorized") {
@@ -946,16 +1057,44 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
 
 export function buildAutoFixPrompt(payload: AutoFixPayload): string {
   const reasons = payload.reasons.length > 0 ? payload.reasons.join(", ") : "unknown issues";
-  const currentVersionErrors = Array.isArray(payload.meta?.currentVersionErrors)
-    ? payload.meta.currentVersionErrors.filter((value): value is string => typeof value === "string")
-    : [];
-  const previousVersionErrors = Array.isArray(payload.meta?.previousVersionErrors)
-    ? payload.meta.previousVersionErrors.filter((value): value is string => typeof value === "string")
-    : [];
-  const scaffoldRetry =
-    payload.meta?.scaffoldRetry && typeof payload.meta.scaffoldRetry === "object"
-      ? (payload.meta.scaffoldRetry as Record<string, unknown>)
+  const repair = payload.repair;
+
+  const currentVersionErrors = repair?.currentVersionErrors
+    ?? (Array.isArray(payload.meta?.currentVersionErrors)
+      ? payload.meta!.currentVersionErrors.filter((value): value is string => typeof value === "string")
+      : []);
+  const previousVersionErrors = repair?.previousVersionErrors
+    ?? (Array.isArray(payload.meta?.previousVersionErrors)
+      ? payload.meta!.previousVersionErrors.filter((value): value is string => typeof value === "string")
+      : []);
+
+  const scaffoldRetry = repair?.scaffoldRetry
+    ?? (payload.meta?.scaffoldRetry && typeof payload.meta.scaffoldRetry === "object"
+      ? (payload.meta.scaffoldRetry as {
+          labels?: string[];
+          currentScaffoldLabel?: string;
+          suggestedScaffoldLabel?: string;
+          reason?: string;
+        })
+      : null);
+
+  const scaffoldRetryReason =
+    scaffoldRetry && typeof scaffoldRetry.reason === "string" ? scaffoldRetry.reason : null;
+  const scaffoldRetryLabels =
+    scaffoldRetry && Array.isArray(scaffoldRetry.labels) && scaffoldRetry.labels.length >= 2
+      ? scaffoldRetry.labels
       : null;
+  const currentScaffoldLabel =
+    scaffoldRetryLabels?.[0]
+    ?? (scaffoldRetry && typeof scaffoldRetry.currentScaffoldLabel === "string"
+      ? scaffoldRetry.currentScaffoldLabel
+      : null);
+  const suggestedScaffoldLabel =
+    scaffoldRetryLabels?.[1]
+    ?? (scaffoldRetry && typeof scaffoldRetry.suggestedScaffoldLabel === "string"
+      ? scaffoldRetry.suggestedScaffoldLabel
+      : null);
+
   const lines = [
     "AUTO-FIX REQUEST — TARGETED REPAIR",
     "",
@@ -966,6 +1105,7 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     "2. Do NOT change layout, naming, styling, or architecture unless required by the fix.",
     "3. You MAY add a missing dependency import or install if the error requires it.",
     "4. Return ONLY the changed files with minimal edits.",
+    "5. NEVER ask the user questions, request confirmation, or wait for input. Fix immediately and silently.",
     "",
     "Acceptance criteria (the fix MUST pass all):",
     "- TypeScript typecheck (tsc --noEmit) passes.",
@@ -974,28 +1114,50 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     "- All internal links resolve to existing routes.",
     "- No broken images or invalid React use() calls.",
   ];
+
   if (currentVersionErrors.length > 0) {
     lines.push("", "Persisted errors for this version:", ...currentVersionErrors.map((entry) => `- ${entry}`));
   }
   if (previousVersionErrors.length > 0) {
     lines.push("", "Related unresolved errors from previous version:", ...previousVersionErrors.map((entry) => `- ${entry}`));
   }
+
   if (
     scaffoldRetry &&
-    typeof scaffoldRetry.currentScaffoldLabel === "string" &&
-    typeof scaffoldRetry.suggestedScaffoldLabel === "string" &&
-    typeof scaffoldRetry.reason === "string"
+    scaffoldRetryReason &&
+    currentScaffoldLabel &&
+    suggestedScaffoldLabel
   ) {
     lines.push(
       "",
       "Scaffold-aware retry guidance:",
-      `- Current scaffold: ${scaffoldRetry.currentScaffoldLabel}`,
-      `- Suggested repair scaffold: ${scaffoldRetry.suggestedScaffoldLabel}`,
-      `- Why: ${scaffoldRetry.reason}`,
-      "- If the current structure keeps fighting the fix, pivot toward the suggested scaffold while still making the smallest viable repair.",
+      `- Current scaffold: ${currentScaffoldLabel}`,
+      `- Suggested repair scaffold: ${suggestedScaffoldLabel}`,
+      `- Why: ${scaffoldRetryReason}`,
+      "- Treat this as a hint only. Preserve the current scaffold unless the listed errors make the existing structure impossible to repair with a small change.",
     );
   }
-  if (payload.meta) {
+
+  if (repair?.qualityGate?.length) {
+    for (const failure of repair.qualityGate) {
+      const trimmed = failure.output.trim();
+      if (trimmed) {
+        lines.push(
+          "",
+          `## ${failure.check} output (exit ${failure.exitCode})`,
+          trimmed.slice(0, 4000),
+        );
+      }
+    }
+    if (repair.qualityGate.every((f) => !f.output.trim())) {
+      lines.push(
+        "",
+        "NOTE: Quality gate failed but no error output was captured.",
+        "Likely causes: missing type imports, undeclared variables, JSX errors, or missing dependencies.",
+        "Review the generated files for obvious TypeScript and build errors.",
+      );
+    }
+  } else if (payload.meta) {
     const qualityGate = payload.meta.qualityGate as Record<string, string> | undefined;
     if (qualityGate && typeof qualityGate === "object") {
       const hasOutput = Object.values(qualityGate).some((v) => typeof v === "string" && v.trim().length > 0);
@@ -1014,9 +1176,20 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
         );
       }
     }
+  }
+
+  if (repair?.visualQA?.length) {
+    lines.push("", "Visual QA failures:");
+    for (const vq of repair.visualQA) {
+      lines.push(`- ${vq.check}: score ${vq.score}/100 — ${vq.detail}`);
+    }
+  }
+
+  if (payload.meta && !repair) {
     const metaStr = JSON.stringify(payload.meta, null, 2);
     const truncated = metaStr.length > 3000 ? metaStr.slice(0, 3000) + "\n..." : metaStr;
     lines.push("", "Diagnostic context:", truncated);
   }
+
   return lines.join("\n");
 }

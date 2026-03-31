@@ -115,6 +115,9 @@ export async function saveProjectData(
   projectId: string,
   data: {
     chatId?: string;
+    /** Canonical preview URL (preferred over deprecated `demoUrl`). */
+    previewUrl?: string;
+    /** @deprecated Prefer `previewUrl` in new code. */
     demoUrl?: string;
     currentCode?: string;
     files?: PersistedFile[];

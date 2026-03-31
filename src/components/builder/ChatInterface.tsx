@@ -13,11 +13,11 @@ import {
   FileUploadZone,
   filesToAttachments,
   filesToPromptText,
-  MediaDrawer,
-  TextUploader,
   type UploadedFile,
   type V0UserFileAttachment,
-} from "@/components/media";
+} from "@/components/media/file-upload-zone";
+import { MediaDrawer } from "@/components/media/media-drawer";
+import { TextUploader } from "@/components/media/text-uploader";
 import {
   type ShadcnBlockAction,
   type ShadcnBlockSelection,
@@ -729,11 +729,10 @@ export function ChatInterface({
         if (onStartFromRegistry) {
           try {
             const startedDirectly = await onStartFromRegistry(selection);
-            if (startedDirectly !== false) {
+            if (startedDirectly === true || typeof startedDirectly === "undefined") {
               setPickerTab(null);
               return;
             }
-            toast.error("Kunde inte starta direkt från registry. Fortsätter via fallback-läge.");
           } catch (error) {
             const message =
               error instanceof Error ? error.message : "Kunde inte starta direkt från registry";

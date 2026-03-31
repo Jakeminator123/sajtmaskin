@@ -32,6 +32,9 @@
  *
  * Preview Cache:
  *   {prefix}preview:{templateId}        → CachedPreview JSON (TTL: 24 hours)
+ *
+ * Sandbox preview session (optional cross-instance reuse; `docs/architecture/preview-deploy.md`):
+ *   {prefix}sandbox-preview:session:{chatId} → SandboxSessionEntry JSON (TTL: hard-cap, ~2 h)
  */
 
 import Redis from "ioredis";
@@ -844,7 +847,7 @@ export async function updateVideoJob(
 }
 
 // ============ Preview Cache ============
-// For template preview caching (reduces v0 API calls)
+// For template preview caching (reduces repeated generation calls)
 
 const PREVIEW_CACHE_PREFIX = `${REDIS_KEY_PREFIX}preview:`;
 const PREVIEW_CACHE_TTL = 60 * 60 * 24; // 24 hours

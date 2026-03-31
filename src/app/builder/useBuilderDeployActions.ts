@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
 import type { ChatReadiness } from "@/lib/chat-readiness";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
@@ -7,8 +8,11 @@ import { saveProjectData, updateProject } from "@/lib/project-client";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
+import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 
 type Args = {
+  selectedVersionIdRef: MutableRefObject<string | null>;
+  latestVersionIdRef: MutableRefObject<string | null>;
   chatId: string | null;
   activeVersionId: string | null;
   deployReadiness: ChatReadiness | null;
@@ -45,11 +49,13 @@ type Args = {
   validateCss: (chatId: string, versionId: string) => Promise<{
     issues: Array<{ fileName: string; issues: Array<{ severity: string }> }>;
     fixed?: boolean;
-    demoUrl?: string | null;
+    previewUrl?: string | null;
   } | null>;
 };
 
 export function useBuilderDeployActions({
+  selectedVersionIdRef,
+  latestVersionIdRef,
   chatId,
   activeVersionId,
   deployReadiness,
@@ -125,7 +131,7 @@ export function useBuilderDeployActions({
       if (!logs.length) return;
       try {
         await fetch(
-          `/api/v0/chats/${encodeURIComponent(errChatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+          `${engineChatBaseUrl(errChatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -318,11 +324,23 @@ export function useBuilderDeployActions({
   }, []);
 
   const handleGenerationComplete = useCallback(
-    async (data: { chatId: string; versionId?: string; demoUrl?: string }) => {
+    async (data: {
+      chatId: string;
+      versionId?: string;
+      previewUrl?: string;
+      onlySelectVersionIfWasLatest?: boolean;
+    }) => {
       const normalized = pendingInstructionsRef.current?.trim() || "";
       const shouldApplyOnce = pendingInstructionsOnceRef.current ?? applyInstructionsOnce;
       if (data.versionId) {
-        setSelectedVersionId(data.versionId);
+        if (data.onlySelectVersionIfWasLatest) {
+          const sel = selectedVersionIdRef.current;
+          const latest = latestVersionIdRef.current;
+          const wasOnLatest = !sel || sel === latest;
+          if (wasOnLatest) setSelectedVersionId(data.versionId);
+        } else {
+          setSelectedVersionId(data.versionId);
+        }
       }
       if (data.chatId) {
         if (normalized && !shouldApplyOnce) {
@@ -364,7 +382,7 @@ export function useBuilderDeployActions({
         try {
           const specContent = JSON.stringify(pendingSpecRef.current, null, 2);
           pendingSpecRef.current = null;
-          fetch(`/api/v0/chats/${encodeURIComponent(data.chatId)}/files`, {
+          fetch(`${engineChatBaseUrl(data.chatId)}/files`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -403,7 +421,7 @@ export function useBuilderDeployActions({
                     errorCount,
                     warningCount,
                     fixed: Boolean(result.fixed),
-                    demoUrl: result.demoUrl ?? null,
+                    previewUrl: result.previewUrl ?? null,
                     files: result.issues.map((f) => ({ fileName: f.fileName, issueCount: f.issues.length })),
                   },
                 },
@@ -429,7 +447,7 @@ export function useBuilderDeployActions({
               },
             ]);
           });
-        fetch(`/api/v0/chats/${encodeURIComponent(completedChatId)}/normalize-text`, {
+        fetch(`${engineChatBaseUrl(completedChatId)}/normalize-text`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ versionId, autoFix: true }),
@@ -441,7 +459,7 @@ export function useBuilderDeployActions({
               changedFiles?: number;
               replacements?: number;
               fixed?: boolean;
-              demoUrl?: string | null;
+              previewUrl?: string | null;
               error?: string;
             } | null;
             if (!res.ok) throw new Error(payload?.error || "Unicode normalization failed");
@@ -455,7 +473,7 @@ export function useBuilderDeployActions({
                     changedFiles: payload.changedFiles ?? 0,
                     replacements: payload.replacements ?? 0,
                     fixed: Boolean(payload.fixed),
-                    demoUrl: payload.demoUrl ?? null,
+                    previewUrl: payload.previewUrl ?? null,
                   },
                 },
               ]);
@@ -472,7 +490,8 @@ export function useBuilderDeployActions({
               },
             ]);
           });
-        if (!data.demoUrl) {
+        const donePreview = readPreviewUrl(data);
+        if (!donePreview) {
           setTimeout(() => {
             mutateChat();
             mutateVersions();
@@ -480,9 +499,10 @@ export function useBuilderDeployActions({
         }
       }
       if (appProjectId && data.chatId) {
+        const persistedPreview = readPreviewUrl(data);
         saveProjectData(appProjectId, {
           chatId: data.chatId,
-          demoUrl: data.demoUrl ?? undefined,
+          ...(persistedPreview ? { previewUrl: persistedPreview } : {}),
         }).catch((error) => {
           console.warn("[Builder] Failed to save project chat mapping:", error);
         });
@@ -502,6 +522,8 @@ export function useBuilderDeployActions({
       setSelectedVersionId,
       setCustomInstructions,
       setApplyInstructionsOnce,
+      selectedVersionIdRef,
+      latestVersionIdRef,
     ],
   );
 
@@ -509,12 +531,19 @@ export function useBuilderDeployActions({
     const res = await fetch("/api/health", { signal });
     if (!res.ok) return null;
     const data = (await res.json().catch(() => null)) as {
-      features?: { vercelBlob?: boolean; v0?: boolean };
-      featureReasons?: { vercelBlob?: string | null; v0?: string | null };
+      features?: { vercelBlob?: boolean; v0?: boolean; imageGenerations?: boolean };
+      featureReasons?: {
+        vercelBlob?: string | null;
+        v0?: string | null;
+        imageGenerations?: string | null;
+      };
     } | null;
     return {
       blobEnabled: Boolean(data?.features?.vercelBlob),
-      v0Enabled: Boolean(data?.features?.v0),
+      /** Own-engine: OPENAI_API_KEY — prompt image-generation instructions. */
+      imageGenerationsEnabled: Boolean(data?.features?.imageGenerations),
+      /** @deprecated V0 Platform key no longer used for codegen; kept for compat. */
+      v0PlatformConfigured: Boolean(data?.features?.v0),
       reasons: data?.featureReasons ?? {},
     };
   }, []);

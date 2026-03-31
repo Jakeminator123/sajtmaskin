@@ -1,11 +1,8 @@
 import path from "path";
 import { PATHS } from "@/lib/config";
-import {
-  LocalFsProvider,
-  VercelBlobProvider,
-  type StorageObjectInfo,
-  type StorageProvider,
-} from "@/lib/storage";
+import { LocalFsProvider } from "@/lib/storage/local-fs-provider";
+import type { StorageObjectInfo, StorageProvider } from "@/lib/storage/types";
+import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 
 export interface BlobUploadResult {
   url: string;
@@ -22,23 +19,7 @@ export interface BlobUploadOptions {
   category?: "media" | "ai-images" | "project-files";
 }
 
-let _blobWarningLogged = false;
 const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
-
-export function isBlobConfigured(): boolean {
-  const configured = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-
-  if (!configured && !_blobWarningLogged) {
-    _blobWarningLogged = true;
-    console.warn(
-      "[BlobService] ⚠️ BLOB_READ_WRITE_TOKEN not configured.\n" +
-        "  → Falling back to local filesystem storage for user uploads\n" +
-        "  → Preview/share flows that need public blob URLs should still use Vercel Blob",
-    );
-  }
-
-  return configured;
-}
 
 function getExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
@@ -46,7 +27,7 @@ function getExtension(filename: string): string {
   return filename.substring(lastDot);
 }
 
-export function buildBlobPath(
+function buildBlobPath(
   userId: string,
   filename: string,
   options?: {
@@ -111,28 +92,6 @@ export async function uploadBlob(options: BlobUploadOptions): Promise<BlobUpload
   }
 }
 
-export async function uploadBlobFromBase64(
-  userId: string,
-  base64: string,
-  options?: {
-    projectId?: string;
-    filenamePrefix?: string;
-    contentType?: string;
-  },
-): Promise<BlobUploadResult | null> {
-  const buffer = Buffer.from(base64, "base64");
-  const filename = generateUniqueFilename(".png", options?.filenamePrefix || "ai");
-
-  return uploadBlob({
-    userId,
-    filename,
-    buffer,
-    contentType: options?.contentType || "image/png",
-    projectId: options?.projectId,
-    category: "ai-images",
-  });
-}
-
 export async function deleteBlob(target: string): Promise<boolean> {
   const provider = getDeleteProvider(target);
   if (!provider) {
@@ -155,28 +114,7 @@ export async function deleteBlob(target: string): Promise<boolean> {
   }
 }
 
-export async function listUserBlobs(
-  userId: string,
-  options?: { prefix?: string; limit?: number },
-): Promise<string[]> {
-  const provider = getDefaultUploadProvider();
-  const prefix = options?.prefix ? `${userId}/${options.prefix}` : userId;
-
-  try {
-    const items = await provider.list({
-      prefix,
-      limit: options?.limit || 1000,
-    });
-    return items
-      .filter((item) => matchesPathBoundary(item, prefix))
-      .map((item) => item.url ?? item.fsPath ?? item.pathname);
-  } catch (error) {
-    console.error("[BlobService] ❌ List failed:", error);
-    return [];
-  }
-}
-
-export function isVercelBlobUrl(url: string): boolean {
+function isVercelBlobUrl(url: string): boolean {
   return url.includes(".blob.vercel-storage.com");
 }
 

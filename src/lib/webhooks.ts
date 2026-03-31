@@ -36,7 +36,9 @@ export interface V0WebhookEvent {
     messageId?: string;
     versionId?: string;
     deploymentId?: string;
+    /** @deprecated Prefer previewUrl in inbound payloads; both accepted during dual-key phase. */
     demoUrl?: string;
+    previewUrl?: string;
     url?: string;
     error?: string;
     [key: string]: any;

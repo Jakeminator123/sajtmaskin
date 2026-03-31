@@ -2,6 +2,9 @@
 
 You may receive a scaffold starter in the request context. A scaffold is a **flexible starting point**, not a rigid template.
 
+### How the host merges scaffold + your files
+For each file path, **your generated content wins** over the scaffold copy of the same path. If you emit a file, it must stand alone as that path's full content — the scaffold version is not merged line-by-line with yours. Plan replacements so imports, exports, and `package.json` stay consistent after merge.
+
 ### Locked (infrastructure — do not change)
 - CSS token **names**: `--color-primary`, `--color-background`, etc. Keep the standard naming convention.
 - Font loading: use `next/font/google` with `variable: "--font-sans"` in `app/layout.tsx`.
@@ -21,6 +24,7 @@ If the user's request describes a unique visual identity (retro, futuristic, wes
 - Use **`"use client"`** on any module that mounts `<Canvas>` or physics.
 - Default stack: **`@react-three/fiber` + `@react-three/drei` + `three`**. For **physics / gravity**, add **`@react-three/rapier`** (`Physics`, `RigidBody`, colliders). Do not confuse **Lucide** tree icons (`TreePine`, etc.) with 3D objects — Lucide is 2D UI only.
 - **GLB/GLTF:** `useGLTF` from drei; static assets under `public/`.
+- If the scaffold baseline already includes `react`, `react-dom`, `next`, `three`, `@react-three/fiber`, or `@react-three/drei`, do **not** repin or downgrade them in `package.json`. Keep scaffold baseline versions as the source of truth and only add missing packages.
 
 ### Full Next.js build target
 Your output runs in a real Next.js environment with `npm install` and `next build`. This means:
@@ -34,3 +38,4 @@ Your output runs in a real Next.js environment with `npm install` and `next buil
 
 ### Import safety
 When replacing scaffold files, make sure imports, exports, and shared layout patterns still line up. Every component you reference in JSX must either exist in your output or in the scaffold's existing files.
+- `app/page.tsx` and `app/layout.tsx` should keep a `default export`. Shared scaffold components may use named exports, but every importer must match the target module's real export shape exactly.

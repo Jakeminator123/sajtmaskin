@@ -18,9 +18,13 @@ import {
   updateCreateChatLockChatId,
   writeCreateChatLock,
 } from "./helpers";
-import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import { runPostGenerationChecks } from "./post-checks";
+import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
+import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
+import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export function useCreateChat(
   params: ChatMessagingParams,
@@ -40,13 +44,13 @@ export function useCreateChat(
     chatIdParam,
     router,
     appProjectId,
-    v0ProjectId,
+    linkedProjectId,
     selectedModelTier,
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
     chatPrivacy,
-    v0DesignSystemId,
+    registryDesignSystemId,
     designThemePreset,
     systemPrompt,
     promptAssistModel,
@@ -60,11 +64,14 @@ export function useCreateChat(
     paletteState,
     pendingBriefRef,
     mutateVersions,
-    setCurrentDemoUrl,
+    setCurrentPreviewUrl,
     setSandboxBuildError,
+    setSandboxProdBuild,
+    setSandboxPending,
     onPreviewRefresh,
     onGenerationComplete,
-    onV0ProjectId,
+    onSandboxSessionMeta,
+    onLinkedProjectId,
     setMessages,
     resetBeforeCreateChat,
   } = params;
@@ -249,14 +256,26 @@ export function useCreateChat(
         }
         const newChatId =
           data.id || data.chatId || data.v0ChatId || (data.chat as Record<string, unknown>)?.id;
-        const newV0ProjectId = data.v0ProjectId || data.v0_project_id || null;
+        const newLinkedProjectId = data.v0ProjectId || data.v0_project_id || null;
         const preflight = readPreviewPreflight(data);
         const latestVersion = data.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
           data.versionId || latestVersion?.id || latestVersion?.versionId || null;
+        const sandboxPending =
+          data?.sandboxPending === true ||
+          latestVersion?.sandboxPending === true;
+        const fromLatestSandbox = normalizePreviewUrl(
+          typeof latestVersion?.sandboxUrl === "string" ? latestVersion.sandboxUrl : null,
+        );
+        const sandboxLive =
+          fromLatestSandbox && isSandboxPreviewUrl(fromLatestSandbox) ? fromLatestSandbox : null;
+        const fromDual =
+          resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown }) ||
+          resolveInboundPreviewUrl(latestVersion as { previewUrl?: unknown; demoUrl?: unknown } | undefined);
         const resolvedDemoUrl =
-          (typeof data.demoUrl === "string" && data.demoUrl) ||
-          (typeof latestVersion?.demoUrl === "string" && latestVersion.demoUrl) ||
+          sandboxLive ||
+          fromDual ||
+          (typeof latestVersion?.legacyShimPreviewUrl === "string" && latestVersion.legacyShimPreviewUrl) ||
           null;
 
         if (!newChatId) {
@@ -264,8 +283,8 @@ export function useCreateChat(
         }
 
         setChatId(String(newChatId));
-        if (newV0ProjectId) {
-          onV0ProjectId?.(String(newV0ProjectId));
+        if (newLinkedProjectId) {
+          onLinkedProjectId?.(String(newLinkedProjectId));
         }
         {
           const p = buildBuilderParams({
@@ -280,14 +299,16 @@ export function useCreateChat(
         toast.success("Sajt skapad!");
 
         if (resolvedDemoUrl) {
-          setCurrentDemoUrl(resolvedDemoUrl);
+          setCurrentPreviewUrl(resolvedDemoUrl);
           onPreviewRefresh?.();
         }
+        setSandboxPending?.(sandboxPending);
         onGenerationComplete?.({
           chatId: String(newChatId),
           versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-          demoUrl: resolvedDemoUrl ?? undefined,
+          previewUrl: resolvedDemoUrl ?? undefined,
         });
+        mutateVersions();
         if (resolvedVersionId) {
           void triggerImageMaterialization({
             chatId: String(newChatId),
@@ -356,7 +377,7 @@ export function useCreateChat(
         }
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
-          pendingBriefRef.current = null;
+          promptMeta.promptAssistDeep = true;
         }
         promptMeta.modelId = engineModel;
         promptMeta.modelTier = selectedModelTier;
@@ -372,8 +393,8 @@ export function useCreateChat(
           chatPrivacy: chatPrivacy || "private",
           meta: promptMeta,
         };
-        if (v0DesignSystemId) requestBody.designSystemId = v0DesignSystemId;
-        if (v0ProjectId) requestBody.projectId = v0ProjectId;
+        if (registryDesignSystemId) requestBody.designSystemId = registryDesignSystemId;
+        if (linkedProjectId) requestBody.projectId = linkedProjectId;
         if (trimmedSystemPrompt) {
           requestBody.system = trimmedSystemPrompt;
           lastSentSystemPromptRef.current = trimmedSystemPrompt;
@@ -389,7 +410,7 @@ export function useCreateChat(
         streamAbortRef.current = streamController;
         startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
-        const response = await fetch("/api/v0/chats/stream", {
+        const response = await fetch(`${ENGINE_CHATS_API_PREFIX}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
@@ -425,16 +446,20 @@ export function useCreateChat(
               router,
               appProjectId,
               pendingCreateKeyRef,
-              onV0ProjectId,
-              setCurrentDemoUrl,
+              onLinkedProjectId,
+              setCurrentPreviewUrl,
               setSandboxBuildError,
+              setSandboxProdBuild,
+              setSandboxPending,
               onPreviewRefresh,
               onGenerationComplete,
+              onSandboxSessionMeta,
               mutateVersions,
               enableImageMaterialization,
               autoFixHandlerRef,
               promptAssistModel,
               promptAssistDeep,
+              promptAssistMode,
             },
             streamController.signal,
           );
@@ -451,7 +476,7 @@ export function useCreateChat(
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
           try {
-            const fallbackRes = await fetch("/api/v0/chats", {
+            const fallbackRes = await fetch(ENGINE_CHATS_API_PREFIX, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(requestBody),
@@ -488,8 +513,14 @@ export function useCreateChat(
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMessageId && !m.content
-              ? { ...m, content: `Varning: ${message}`, isStreaming: false }
+            m.id === assistantMessageId
+              ? {
+                  ...m,
+                  content: m.content?.trim()
+                    ? `${m.content}\n\nVarning: ${message}`
+                    : `Varning: ${message}`,
+                  isStreaming: false,
+                }
               : m,
           ),
         );
@@ -511,7 +542,7 @@ export function useCreateChat(
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
-      v0DesignSystemId,
+      registryDesignSystemId,
       designThemePreset,
       systemPrompt,
       setMessages,
@@ -519,12 +550,14 @@ export function useCreateChat(
       chatIdParam,
       router,
       appProjectId,
-      v0ProjectId,
-      setCurrentDemoUrl,
+      linkedProjectId,
+      setCurrentPreviewUrl,
       setSandboxBuildError,
+      setSandboxProdBuild,
       onPreviewRefresh,
       onGenerationComplete,
-      onV0ProjectId,
+      onSandboxSessionMeta,
+      onLinkedProjectId,
       mutateVersions,
       buildBuilderParams,
       buildIntent,

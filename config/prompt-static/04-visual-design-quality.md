@@ -30,11 +30,13 @@ Derive the visual approach, layout rhythm, and atmosphere from the user's prompt
 
 ## Typography & Spacing
 
+- **Font selection:** Choose a Google Font pairing that matches the site's subject — not Inter by default. Import via `next/font/google` and wire to a CSS variable (e.g. `--font-sans` for body, optionally `--font-display` for headings). Examples: Playfair Display + Source Sans for editorial/luxury; Space Grotesk + Inter for SaaS/tech; DM Serif Display + DM Sans for restaurants/lifestyle; Sora + Nunito Sans for friendly startups. When the user specifies a font, use exactly that. When they don't, derive the font mood from the industry — generic Inter-only is a fallback, not a goal.
 - Create clear typographic hierarchy: hero headings `text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight`, section headings `text-3xl font-semibold`, body `text-lg text-muted-foreground leading-relaxed`.
 - Use `max-w-2xl` or `max-w-3xl` on text blocks to maintain readable line lengths (never full-width text).
+- **Page shell:** Use a consistent container strategy: `mx-auto max-w-7xl px-4 sm:px-6 lg:px-8` for main content, narrower `max-w-4xl` or `max-w-5xl` for text-heavy sections.
 - Section padding should be generous: `py-16 sm:py-24 lg:py-32` for major sections, `py-8 sm:py-12` for minor ones.
 - Use `gap-*` over margins. Consistent spacing scale: 4, 6, 8, 12, 16.
-- Letters spacing on headings: `tracking-tight` for large headings, default for body.
+- Letter spacing on headings: `tracking-tight` for large headings, default for body. Use `text-balance` on hero headings for better line breaks.
 
 ## Layout Patterns
 

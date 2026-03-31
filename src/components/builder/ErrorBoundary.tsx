@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { Component, ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 
@@ -30,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
     const { chatId, versionId } = this.props;
     if (!chatId || !versionId) return;
     fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+      `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -67,7 +68,7 @@ export class ErrorBoundary extends Component<Props, State> {
               this.setState({ hasError: false, error: null });
               window.location.reload();
             }}
-            className="bg-primary hover:bg-primary/90 rounded px-4 py-2 text-primary-foreground"
+            className="bg-brand-blue hover:bg-brand-blue/90 rounded px-4 py-2 text-white"
           >
             Ladda om sidan
           </button>

@@ -680,9 +680,6 @@ export function formatPrompt(prompt: string): string {
   return parts.join("\n\n");
 }
 
-/** @deprecated Use `formatPrompt` instead. */
-export const formatPromptForV0 = formatPrompt;
-
 export function buildRewriteSystemPrompt(params: {
   codeContext?: string | null;
   buildIntent?: BuildIntent;
@@ -709,9 +706,6 @@ export function buildRewriteSystemPrompt(params: {
   );
 }
 
-/** @deprecated Use `buildRewriteSystemPrompt` instead. */
-export const buildV0RewriteSystemPrompt = buildRewriteSystemPrompt;
-
 export function buildPolishSystemPrompt(params: {
   buildIntent?: BuildIntent;
   forceEnglish?: boolean;
@@ -730,9 +724,6 @@ export function buildPolishSystemPrompt(params: {
     `Build intent: ${intentLine}`
   );
 }
-
-/** @deprecated Use `buildPolishSystemPrompt` instead. */
-export const buildV0PolishSystemPrompt = buildPolishSystemPrompt;
 
 type Brief = any;
 
@@ -881,9 +872,6 @@ export function buildPromptFromBrief(params: {
     .join("\n");
 }
 
-/** @deprecated Use `buildPromptFromBrief` instead. */
-export const buildV0PromptFromBrief = buildPromptFromBrief;
-
 export function buildDynamicInstructionAddendumFromBrief(params: {
   brief: Brief;
   originalPrompt: string;
@@ -972,7 +960,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
     "",
     "## Coding Direction",
     "- Output complete files in CodeProject format: ```tsx file=\"path/file.tsx\"",
-    "- Every React component file uses a default export. Use kebab-case for all filenames.",
+    "- Route files like app/page.tsx and app/layout.tsx use default exports. Shared components may use named exports, but imports and exports must match exactly. Use kebab-case for filenames.",
     "- Import shadcn/ui from @/components/ui/* — never regenerate these components.",
     "- Import all icons from lucide-react — never use inline SVG or other icon libraries.",
     "- Use Tailwind semantic tokens (bg-primary, text-muted-foreground, etc.) — avoid hardcoded colors.",

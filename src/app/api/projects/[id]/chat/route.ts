@@ -4,7 +4,7 @@ import { db } from "@/lib/db/client";
 import { chats } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services";
+import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
 import {
   getChat as getEngineChat,
   listChatsByProject as listEngineChatsByProject,

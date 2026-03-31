@@ -39,11 +39,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
+import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import type {
   ComponentCategory,
   ComponentItem,
-} from "@/lib/shadcn-registry-service";
+} from "@/lib/shadcn/registry-service";
 import {
   getBlocksByCategory,
   getComponentsByCategory,
@@ -54,8 +54,12 @@ import {
   buildRegistryItemUrl,
   buildPreviewImageUrl,
   FEATURED_BLOCKS,
-} from "@/lib/shadcn-registry-service";
-import { getRegistryBaseUrl, getRegistryStyle, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
+} from "@/lib/shadcn/registry-service";
+import {
+  getRegistryBaseUrl,
+  getRegistryStyle,
+  resolveRegistryStyle,
+} from "@/lib/shadcn/registry-url";
 import {
   analyzeSections,
   generatePlacementOptions,
@@ -80,7 +84,7 @@ import {
   getTemplatesByCategory,
   type CategoryInfo,
   type Template,
-} from "@/lib/templates/template-data";
+} from "@/lib/templates/client";
 
 import {
   DESIGN_THEME_OPTIONS,

@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { SECRETS } from "@/lib/config";
+import { debugLog } from "@/lib/utils/debug";
 import { getTemplateLibraryEntries } from "./catalog";
 import type {
   TemplateLibraryEmbeddingsFile,
@@ -13,9 +14,13 @@ import type {
 
 const DEFAULT_TOP_K = 3;
 const MIN_EMBEDDING_SCORE = 0.3;
+/** Below this, blend in keyword hits so weak semantic matches do not dominate. */
+const WEAK_EMBEDDING_TOP_SCORE = 0.4;
 const DEFAULT_MAX_REFERENCE_FILES = 20;
 const DEFAULT_MAX_EXCERPT_CHARS = 9_000;
 const DEFAULT_MAX_TOTAL_CHARS = 18_000;
+/** First slice keeps a larger cap so ranking does not zero out all code context. */
+const FIRST_FILE_EXCERPT_FLOOR = 1_400;
 const STOPWORDS = new Set([
   "en", "ett", "och", "med", "som", "för", "att", "jag", "vill", "ha", "den", "det", "är", "ska",
   "a", "an", "the", "and", "with", "for", "that", "this", "is", "it", "to", "of", "in", "my", "me",
@@ -23,6 +28,29 @@ const STOPWORDS = new Set([
 ]);
 
 let cachedEmbeddings: TemplateLibraryEmbeddingEntry[] | null = null;
+
+export interface TemplateLibrarySearchDiagnostics {
+  mode:
+    | "empty_catalog"
+    | "embedding"
+    | "hybrid_keyword_blend"
+    | "keyword_fallback"
+    | "keyword_only";
+  catalogSize: number;
+  usedEmbeddings: boolean;
+  reason?:
+    | "embedding_query_failed"
+    | "missing_api_key"
+    | "missing_embeddings"
+    | "no_embedding_hits"
+    | "weak_embedding_match";
+  topScore?: number;
+}
+
+export interface TemplateLibrarySearchResponse {
+  results: TemplateLibrarySearchResult[];
+  diagnostics: TemplateLibrarySearchDiagnostics;
+}
 
 function normalize(value: string): string {
   return value
@@ -127,7 +155,12 @@ export function selectTemplateReferenceFiles(
 
   for (const file of entry.selectedFiles) {
     if (selected.length >= maxFiles) break;
-    const excerpt = trimExcerpt(file.excerpt, maxExcerptChars);
+    const cap =
+      selected.length === 0
+        ? Math.max(maxExcerptChars, Math.min(FIRST_FILE_EXCERPT_FLOOR, maxTotalChars))
+        : maxExcerptChars;
+    const excerpt = trimExcerpt(file.excerpt, cap);
+    if (!excerpt.trim()) continue;
     const nextTotal = totalChars + excerpt.length;
     if (selected.length > 0 && nextTotal > maxTotalChars) break;
 
@@ -136,6 +169,19 @@ export function selectTemplateReferenceFiles(
       excerpt,
     });
     totalChars = nextTotal;
+  }
+
+  // Guarantee at least one non-empty slice when the dossier has any excerpt material.
+  if (selected.length === 0 && entry.selectedFiles?.length) {
+    for (const file of entry.selectedFiles) {
+      const raw = typeof file.excerpt === "string" ? file.excerpt.trim() : "";
+      if (!raw) continue;
+      const excerpt = trimExcerpt(raw, Math.min(FIRST_FILE_EXCERPT_FLOOR, maxTotalChars));
+      if (excerpt.trim()) {
+        selected.push({ ...file, excerpt });
+      }
+      break;
+    }
   }
 
   return selected;
@@ -149,22 +195,51 @@ export function searchTemplateLibraryKeywordsOnly(
   return keywordSearch(query, topK);
 }
 
-export async function searchTemplateLibrary(
+export async function searchTemplateLibraryWithDiagnostics(
   query: string,
   topK: number = DEFAULT_TOP_K,
-): Promise<TemplateLibrarySearchResult[]> {
+): Promise<TemplateLibrarySearchResponse> {
+  const catalogEntries = getTemplateLibraryEntries();
+  const catalogSize = catalogEntries.length;
   // Stale template-library-embeddings.json must not load, call OpenAI, or rank
   // phantom IDs when curated entries[] is empty (common after catalog resets).
-  if (getTemplateLibraryEntries().length === 0) {
-    return [];
+  if (catalogSize === 0) {
+    return {
+      results: [],
+      diagnostics: {
+        mode: "empty_catalog",
+        catalogSize,
+        usedEmbeddings: false,
+      },
+    };
   }
 
   const fallbackResults = keywordSearch(query, topK);
   const apiKey = SECRETS.openaiApiKey;
-  if (!apiKey) return fallbackResults;
+  if (!apiKey) {
+    return {
+      results: fallbackResults,
+      diagnostics: {
+        mode: "keyword_fallback",
+        catalogSize,
+        usedEmbeddings: false,
+        reason: "missing_api_key",
+      },
+    };
+  }
 
   const embeddings = loadEmbeddings();
-  if (embeddings.length === 0) return fallbackResults;
+  if (embeddings.length === 0) {
+    return {
+      results: fallbackResults,
+      diagnostics: {
+        mode: "keyword_fallback",
+        catalogSize,
+        usedEmbeddings: false,
+        reason: "missing_embeddings",
+      },
+    };
+  }
 
   let queryEmbedding: number[];
   try {
@@ -175,11 +250,22 @@ export async function searchTemplateLibrary(
       dimensions: 1536,
     });
     queryEmbedding = response.data[0].embedding;
-  } catch {
-    return fallbackResults;
+  } catch (err) {
+    debugLog("template-library", "Embedding query failed; using keyword fallback", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return {
+      results: fallbackResults,
+      diagnostics: {
+        mode: "keyword_fallback",
+        catalogSize,
+        usedEmbeddings: true,
+        reason: "embedding_query_failed",
+      },
+    };
   }
 
-  const entryLookup = new Map(getTemplateLibraryEntries().map((entry) => [entry.id, entry]));
+  const entryLookup = new Map(catalogEntries.map((entry) => [entry.id, entry]));
   const results = embeddings
     .map((entry) => ({
       entry: entryLookup.get(entry.id),
@@ -192,6 +278,65 @@ export async function searchTemplateLibrary(
     })
     .slice(0, topK);
 
-  if (results.length > 0) return results;
-  return fallbackResults;
+  if (results.length > 0) {
+    const topScore = results[0]!.score;
+    if (topScore < WEAK_EMBEDDING_TOP_SCORE && fallbackResults.length > 0) {
+      debugLog("template-library", "Weak embedding match; blending keyword results", {
+        topScore,
+        keywordCount: fallbackResults.length,
+      });
+      const merged: TemplateLibrarySearchResult[] = [...results];
+      const seen = new Set(merged.map((r) => r.entry.id));
+      for (const fr of fallbackResults) {
+        if (seen.has(fr.entry.id)) continue;
+        merged.push({ entry: fr.entry, score: fr.score * 0.12 });
+        seen.add(fr.entry.id);
+        if (merged.length >= topK * 3) break;
+      }
+      return {
+        results: merged
+          .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.entry.qualityScore - a.entry.qualityScore;
+          })
+          .slice(0, topK),
+        diagnostics: {
+          mode: "hybrid_keyword_blend",
+          catalogSize,
+          usedEmbeddings: true,
+          reason: "weak_embedding_match",
+          topScore,
+        },
+      };
+    }
+    return {
+      results,
+      diagnostics: {
+        mode: "embedding",
+        catalogSize,
+        usedEmbeddings: true,
+        topScore,
+      },
+    };
+  }
+  debugLog("template-library", "No embedding hits above threshold; using keyword fallback", {
+    minScore: MIN_EMBEDDING_SCORE,
+  });
+  return {
+    results: fallbackResults,
+    diagnostics: {
+      mode: "keyword_fallback",
+      catalogSize,
+      usedEmbeddings: true,
+      reason: "no_embedding_hits",
+    },
+  };
+}
+
+export async function searchTemplateLibrary(
+  query: string,
+  topK: number = DEFAULT_TOP_K,
+): Promise<TemplateLibrarySearchResult[]> {
+  const { results } = await searchTemplateLibraryWithDiagnostics(query, topK);
+  return results;
 }

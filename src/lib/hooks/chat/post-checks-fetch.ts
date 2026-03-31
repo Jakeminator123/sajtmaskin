@@ -1,10 +1,11 @@
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { FileEntry, VersionEntry } from "./types";
 
 export async function fetchChatVersions(
   chatId: string,
   signal?: AbortSignal,
 ): Promise<VersionEntry[]> {
-  const response = await fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/versions`, { signal });
+  const response = await fetch(`${engineChatBaseUrl(chatId)}/versions`, { signal });
   const data = (await response.json().catch(() => null)) as { versions?: VersionEntry[] } | null;
   if (!response.ok) {
     throw new Error(
@@ -23,9 +24,7 @@ export async function fetchChatFiles(
 ): Promise<FileEntry[]> {
   const waitParam = waitForReady ? "&wait=1" : "";
   const response = await fetch(
-    `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
-      versionId,
-    )}${waitParam}`,
+    `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(versionId)}${waitParam}`,
     { signal },
   );
   const data = (await response.json().catch(() => null)) as {
@@ -46,9 +45,7 @@ export async function triggerImageMaterialization(params: {
   if (!params.enabled) return;
   const { chatId, versionId } = params;
   try {
-    const url = `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
-      versionId,
-    )}&materialize=1`;
+    const url = `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(versionId)}&materialize=1`;
     await fetch(url, { method: "GET" });
   } catch {
     // best-effort only

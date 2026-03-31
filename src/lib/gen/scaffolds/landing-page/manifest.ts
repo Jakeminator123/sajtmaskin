@@ -22,6 +22,24 @@ export const landingPageManifest: ScaffoldManifest = {
     "Keep the overall rhythm: strong hero, trust signals, offer sections, testimonial, and CTA.",
     "Modify copy, sections, and imagery to fit the user's business instead of rewriting the whole structure.",
   ],
+  qualityChecklist: [
+    "Hero headline is specific to user's business — not generic marketing filler.",
+    "All bracket placeholders replaced with real, relevant content.",
+    "CTA button text matches what the business actually offers.",
+    "Testimonial section uses realistic names/roles, not [Kundens namn].",
+    "Color palette adapted from neutral grays to a vivid, brand-appropriate scheme.",
+    "At least 3 distinct content sections with alternating visual rhythm.",
+  ],
+  research: {
+    upgradeTargets: [
+      "Add a stats/social-proof row with concrete numbers relevant to the user's industry.",
+      "Include a sticky CTA or floating action when the user scrolls past the hero.",
+      "Add smooth scroll-to-section behavior for in-page navigation links.",
+      "Use next/image with proper sizing for all hero and section images.",
+      "Generate metadata with title, description, and OG tags matching the user's business.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",

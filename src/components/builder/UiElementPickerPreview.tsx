@@ -3,9 +3,9 @@
 import { Blocks, Code2, ExternalLink, Loader2, RefreshCw, Wand2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
-import type { ComponentItem } from "@/lib/shadcn-registry-service";
-import { buildPreviewImageUrl } from "@/lib/shadcn-registry-service";
+import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
+import type { ComponentItem } from "@/lib/shadcn/registry-service";
+import { buildPreviewImageUrl } from "@/lib/shadcn/registry-service";
 import {
   getShadcnComponentCategoryLabelSv,
   type ComponentPreviewKind,
@@ -14,7 +14,7 @@ import {
   buildRegistryMarkdownPreview,
   buildShadcnDocsUrl,
   buildShadcnPreviewUrl,
-} from "@/lib/shadcn-registry-utils";
+} from "@/lib/shadcn/registry-utils";
 
 interface Props {
   selectedItem: ComponentItem | null;

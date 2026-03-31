@@ -12,7 +12,7 @@ validation, database shape, and curated external-reference data.
 Primary code sources:
 
 - `src/lib/db/schema.ts`
-- `scripts/db-init.mjs`
+- `scripts/db/db-init.mjs`
 - `src/lib/validations/chatSchemas.ts`
 - `src/lib/gen/template-library/types.ts`
 - `research/external-templates/reference-library/schema.template-manifest.json`
@@ -25,7 +25,8 @@ The main application database source of truth is:
 
 Operational SQL/bootstrap behavior also exists in:
 
-- `scripts/db-init.mjs`
+- `scripts/db/db-init.mjs`
+- `scripts/db/check-dev-db.mjs` (lokal anslutningskoll via `npm run db:check`)
 
 Important rule:
 
@@ -38,7 +39,7 @@ These tables are used by the own-engine build path and are fully integrated:
 
 - `engine_chats` — chat sessions, scaffold choice, model
 - `engine_messages` — message history
-- `engine_versions` — generated code (`files_json`), release state, optional **`sandbox_url`** (URL till `@vercel/sandbox` när full Next-preview lyckats; tom tills dess). Första `demoUrl` i UI kan fortfarande vara HTML-shim (`/api/preview-render`) — se [preview-and-sandbox-flow.md](../architecture/preview-and-sandbox-flow.md).
+- `engine_versions` — generated code (`files_json`), release state, optional **`sandbox_url`** (kanonisk live-preview för own-engine när sandbox lyckats; tom tills dess). HTTP-API för own-engine annonserar inte shim som primär `demoUrl`; shim finns som **`legacyShimPreviewUrl`** vid behov (2026-03-30) — se [preview-deploy.md](../architecture/preview-deploy.md).
 - `engine_generation_logs` — token usage, duration, errors
 - `engine_version_error_logs` — per-version error diagnostics
 
@@ -52,8 +53,8 @@ These tables are used by the own-engine build path and are fully integrated:
 
 ### Preview vs persisted URL
 
-- **Shim:** ingen separat kolumn — `demo_url` i `project_data` / builder-state kan peka på preview-render tills något annat uppdateras.
-- **Sandbox:** `engine_versions.sandbox_url` när servern sparat lyckad sandbox-start ([preview-and-sandbox-flow.md](../architecture/preview-and-sandbox-flow.md)).
+- **Shim / legacy:** ingen egen DB-kolumn för shim; `/api/preview-render` används via **`legacyShimPreviewUrl`** i API när det behövs. `project_data.demo_url` kan fortfarande bära äldre värden i vissa flöden.
+- **Sandbox (Fidelity 2):** `engine_versions.sandbox_url` när servern sparat lyckad sandbox-start — [preview-deploy.md](../architecture/preview-deploy.md).
 
 ## Request validation
 

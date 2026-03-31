@@ -46,6 +46,13 @@ type BuildIntent = "website" | "app" | "template";
 | `v0ProjectId` | server/client state | non-entry state | External v0 project identity, not part of builder entry URL |
 | `sandboxUrl` | server/client version state | non-entry state | Version-level sandbox runtime URL, not part of builder entry |
 
+## HTTP JSON (chats / template / project save)
+
+| Field | Status | Meaning |
+|-------|--------|---------|
+| `previewUrl` | **canonical** | Iframe/live preview URL for a chat or version (svar och normal klientpayload). |
+| `demoUrl` | **legacy inbound only** | Inte längre i API-svar. Fortfarande accepterad i vissa bodies (t.ex. `POST .../save`) och webhooks; tolkas via `resolveInboundPreviewUrl` server-side. DB-kolumn `demo_url` oförändrad. |
+
 ## Canonical Entry Shapes
 
 ### Prompt-Driven Entry
@@ -109,6 +116,12 @@ type BlankBuilderBootstrap = {
 | First builder render | `appProjectId` exists, `chatId` absent | `appProjectId` exists or is adopted, `chatId` may still be pending |
 | After init/create response | `chatId` exists | `chatId` may already exist, `versionId` may also exist |
 | After first completed generation | `versionId` and preview available | preview may have been available earlier |
+
+## Server Deep Brief (create-chat)
+
+- On `POST /api/engine/chats/stream`, when the client does **not** send `meta.brief`, the server may run the same structured Deep Brief model as `/api/ai/brief` (unless disabled via `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1` or skipped for audit/technical-preserve paths).
+- UI-driven fetch to `/api/ai/brief` remains useful for previewing/editing the brief before send; if the client attaches `meta.brief`, the server does not regenerate it.
+- Response `meta` may include `serverAutoBriefGenerated` / `serverAutoBriefModel` for telemetry.
 
 ## Compatibility Notes
 

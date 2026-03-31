@@ -21,6 +21,7 @@ import { scrapeWebsite } from "@/lib/webscraper";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { prepareCredits } from "@/lib/credits/server";
 import { FEATURES, SECRETS } from "@/lib/config";
+import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -305,11 +306,10 @@ export async function POST(req: Request) {
       }
 
       if (!FEATURES.useResponsesApi) {
-        const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
-        const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
-        const onVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
+        const hasGateway =
+          Boolean(pickAiGatewayKeyFromEnv()) || isVercelHostedRuntime();
 
-        if (!hasGatewayApiKey && !hasOidcToken && !onVercel) {
+        if (!hasGateway) {
           return NextResponse.json(
             { error: "AI Gateway auth missing" },
             { status: 503 },

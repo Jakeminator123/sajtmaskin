@@ -31,7 +31,30 @@ export type BuilderToolCallPayload = {
 export type BuilderProgressPayload = Record<string, unknown>;
 export type BuilderPingPayload = { ts: number } & Record<string, unknown>;
 export type BuilderUiPartsPayload = Array<Record<string, unknown>>;
-export type BuilderIntegrationPayload = Array<Record<string, unknown>>;
+
+/** One row inside `integration` SSE `items` (tool suggestions + post-finalize detection). */
+export type BuilderIntegrationItemPayload = {
+  key?: string;
+  name?: string;
+  provider?: string;
+  intent?: "install" | "connect" | "configure" | "env_vars";
+  envVars?: string[];
+  status?: string;
+  reason?: string;
+  setupHint?: string;
+  setupGuide?: string;
+  marketplaceUrl?: string;
+  sourceEvent?: string;
+};
+
+/**
+ * Own-engine `integration` SSE data. Server emits `{ items: [...] }`; a bare array
+ * is still accepted when coercing legacy or proxied payloads.
+ */
+export type BuilderIntegrationEnvelope = { items: BuilderIntegrationItemPayload[] };
+export type BuilderIntegrationPayload =
+  | BuilderIntegrationEnvelope
+  | BuilderIntegrationItemPayload[];
 export type BuilderChatIdPayload = { id?: string; chatId?: string } | string;
 export type BuilderProjectIdPayload =
   | { v0ProjectId?: string; v0_project_id?: string }
@@ -46,9 +69,18 @@ export type BuilderTextPayload =
       reasoning?: string;
     };
 
+export type BuilderSandboxPreviewMode = "dev_only" | "build_only" | "dev_then_build";
+
 export type BuilderSandboxReadyPayload = {
+  /** Empty when `sandboxPreviewMode` is `build_only` without a dev URL. */
   sandboxUrl: string;
   sandboxId: string;
+  sandboxPreviewMode?: BuilderSandboxPreviewMode;
+  /** 2 = dev preview path without prod build step; 3 = build step ran in sandbox. */
+  fidelityTier?: 2 | 3;
+  /** Present when sandbox ran `npm run build` (after dev or `build_only`). */
+  prodBuildVerified?: boolean;
+  prodBuildLogSnippet?: string;
 };
 
 export type BuilderBuildErrorPayload = {

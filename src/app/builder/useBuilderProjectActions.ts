@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { ChatMessage } from "@/lib/builder/types";
 import type { PaletteState } from "@/lib/builder/palette";
 import {
@@ -27,12 +28,14 @@ type Args = {
   isSavingProject: boolean;
   messages: ChatMessage[];
   resolvedPrompt: string | null;
-  currentDemoUrl: string | null;
+  currentPreviewUrl: string | null;
   activeVersionId: string | null;
   mediaEnabled: boolean;
   paletteState: PaletteState;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
+  pendingBriefRef: MutableRefObject<Record<string, unknown> | null>;
+  pendingSpecRef: MutableRefObject<object | null>;
   hasLoadedInstructions: MutableRefObject<boolean>;
   hasLoadedInstructionsOnce: MutableRefObject<boolean>;
   router: { replace: (url: string) => void; push: (url: string) => void };
@@ -42,7 +45,7 @@ type Args = {
   setAppProjectId: Dispatch<SetStateAction<string | null>>;
   setAppProjectName: Dispatch<SetStateAction<string | null>>;
   setPendingProjectName: Dispatch<SetStateAction<string | null>>;
-  setCurrentDemoUrl: Dispatch<SetStateAction<string | null>>;
+  setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
   setPreviewRefreshToken: Dispatch<SetStateAction<number>>;
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   setIsImportModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -75,12 +78,14 @@ export function useBuilderProjectActions({
   isSavingProject,
   messages,
   resolvedPrompt,
-  currentDemoUrl,
+  currentPreviewUrl,
   activeVersionId,
   mediaEnabled,
   paletteState,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
+  pendingBriefRef,
+  pendingSpecRef,
   hasLoadedInstructions,
   hasLoadedInstructionsOnce,
   router,
@@ -90,7 +95,7 @@ export function useBuilderProjectActions({
   setAppProjectId,
   setAppProjectName,
   setPendingProjectName,
-  setCurrentDemoUrl,
+  setCurrentPreviewUrl,
   setPreviewRefreshToken,
   setMessages,
   setIsImportModalOpen,
@@ -179,9 +184,7 @@ export function useBuilderProjectActions({
       if (activeVersionId) {
         const materializeParam = mediaEnabled ? "&materialize=1" : "";
         const response = await fetch(
-          `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
-            activeVersionId,
-          )}${materializeParam}`,
+          `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}${materializeParam}`,
         );
         const data = (await response.json().catch(() => null)) as {
           files?: Array<{ name: string; content: string }>;
@@ -193,7 +196,7 @@ export function useBuilderProjectActions({
 
       await saveProjectData(targetProjectId, {
         chatId,
-        demoUrl: currentDemoUrl ?? undefined,
+        ...(currentPreviewUrl ? { previewUrl: currentPreviewUrl } : {}),
         files,
         messages,
         meta: { palette: paletteState },
@@ -209,7 +212,7 @@ export function useBuilderProjectActions({
     chatId,
     appProjectId,
     activeVersionId,
-    currentDemoUrl,
+    currentPreviewUrl,
     mediaEnabled,
     messages,
     paletteState,
@@ -232,12 +235,14 @@ export function useBuilderProjectActions({
     }
     pendingInstructionsRef.current = null;
     pendingInstructionsOnceRef.current = null;
+    pendingBriefRef.current = null;
+    pendingSpecRef.current = null;
     hasLoadedInstructions.current = false;
     hasLoadedInstructionsOnce.current = false;
 
     setChatId(null);
     setMessages([]);
-    setCurrentDemoUrl(null);
+    setCurrentPreviewUrl(null);
     setAppProjectId(null);
 
     router.replace("/builder");
@@ -248,7 +253,7 @@ export function useBuilderProjectActions({
       setDeployNameInput("");
       setDeployNameDialogOpen(false);
       setV0ProjectId(null);
-      setCurrentDemoUrl(null);
+      setCurrentPreviewUrl(null);
       setPreviewRefreshToken(0);
       setMessages([]);
       setIsImportModalOpen(false);
@@ -269,6 +274,8 @@ export function useBuilderProjectActions({
     startUiTransition,
     pendingInstructionsRef,
     pendingInstructionsOnceRef,
+    pendingBriefRef,
+    pendingSpecRef,
     hasLoadedInstructions,
     hasLoadedInstructionsOnce,
     setChatId,
@@ -278,7 +285,7 @@ export function useBuilderProjectActions({
     setDeployNameInput,
     setDeployNameDialogOpen,
     setV0ProjectId,
-    setCurrentDemoUrl,
+    setCurrentPreviewUrl,
     setPreviewRefreshToken,
     setMessages,
     setIsImportModalOpen,

@@ -2,15 +2,12 @@ import { z } from "zod";
 import { MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import {
   ACCEPTED_MODEL_IDS,
-  CANONICAL_MODEL_IDS,
   DEFAULT_MODEL_ID,
   type CanonicalModelId,
 } from "@/lib/models/catalog";
 
-export const modelTiers = CANONICAL_MODEL_IDS;
 export type ModelTier = CanonicalModelId;
 
-export const acceptedModelIds = ACCEPTED_MODEL_IDS;
 const MAX_ATTACHMENTS_PER_MESSAGE = 24;
 
 const attachmentSchema = z.object({
@@ -43,6 +40,8 @@ const promptMetaSchema = z
     formattedLength: z.number().int().nonnegative().optional(),
     attachmentsCount: z.number().int().nonnegative().optional(),
     planMode: z.boolean().optional(),
+    /** Own-engine: edit base = this version's `files_json` (canonical store). */
+    engineBaseVersionId: z.string().min(1).max(128).optional(),
     promptSourceKind: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     promptSourceTechnical: z.boolean().optional(),
     promptSourcePreservePayload: z.boolean().optional(),
@@ -80,24 +79,4 @@ export const sendMessageSchema = z.object({
   imageGenerations: z.boolean().optional(),
   designSystemId: z.string().optional(),
   meta: promptMetaSchema.optional(),
-});
-
-export const chatIdSchema = z.object({
-  chatId: z.string().min(1, "Chat ID is required"),
-});
-
-export const messageIdSchema = z.object({
-  chatId: z.string().min(1, "Chat ID is required"),
-  messageId: z.string().min(1, "Message ID is required"),
-});
-
-export const versionIdSchema = z.object({
-  chatId: z.string().min(1, "Chat ID is required"),
-  versionId: z.string().min(1, "Version ID is required"),
-});
-
-export const createDeploymentSchema = z.object({
-  projectId: z.string().min(1, "Project ID is required"),
-  chatId: z.string().min(1, "Chat ID is required"),
-  versionId: z.string().min(1, "Version ID is required"),
 });

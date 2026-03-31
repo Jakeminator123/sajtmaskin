@@ -1,11 +1,12 @@
 /**
  * Shared generation orchestration — single source of truth for context
- * preparation that both the own engine and v0 fallback consume.
+ * preparation that own-engine consumers use.
  *
  * Resolves scaffold, builds system prompt context, and returns everything
  * needed so that callers never diverge in what signals reach the model.
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -19,11 +20,12 @@ import {
   detectScaffoldMode,
 } from "./scaffolds/serialize";
 import {
-  buildSystemPrompt,
   buildDynamicContext,
+  composeEngineSystemPrompt,
   type DesignReferenceAsset,
   type DynamicContextOptions,
 } from "./system-prompt";
+import type { TemplateLibrarySearchDiagnostics } from "./template-library/search";
 import {
   inferCapabilities,
   buildCapabilityHints,
@@ -35,8 +37,14 @@ import {
   type ConfirmedContractAnswer,
   inferPreGenerationContracts,
   type PreGenerationContractContext,
-} from "./pre-generation-contracts";
+} from "./contract/pre-generation-contracts";
 import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "./prompt-dump";
+import {
+  type GenerationInputPackage,
+  computeLineageHash,
+  serializePackageForDump,
+} from "./generation-input-package";
+import { deriveBuildSpec, type BuildSpec } from "./build-spec";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -56,6 +64,17 @@ export interface OrchestrationInput {
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
   /**
+   * `init` = first generation (Deep Brief, full scaffold selection).
+   * `followUp` = editing/refining an existing generation.
+   * Default: inferred from persistedScaffoldId presence.
+   */
+  generationMode?: "init" | "followUp";
+  /**
+   * When true, do not lock scaffold selection to `persistedScaffoldId` — re-run auto/manual
+   * resolution (e.g. clear-redesign follow-ups where the chat scaffold may be stale).
+   */
+  ignorePersistedScaffoldForMatch?: boolean;
+  /**
    * When false, auto scaffold selection uses keyword matching only (no embedding API).
    * Default true. Used by CLI trace tools; production callers omit this.
    */
@@ -65,6 +84,8 @@ export interface OrchestrationInput {
    * Default true. Used for offline CLI traces.
    */
   embeddingEnrichment?: boolean;
+  /** Optional prompt strategy metadata from builder orchestration. */
+  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
 }
 
 export interface OrchestrationBase {
@@ -73,15 +94,9 @@ export interface OrchestrationBase {
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
+  buildSpec: BuildSpec;
   /** Combined scaffold + capability hints string for dynamic context */
   scaffoldAndCapability: string;
-}
-
-export interface OrchestrationResult extends OrchestrationBase {
-  /** Full system prompt (STATIC_CORE + dynamic) for own engine */
-  engineSystemPrompt: string;
-  /** Dynamic-only context suitable for injecting into v0 fallback `system` */
-  v0EnrichmentContext: string;
 }
 
 /**
@@ -100,16 +115,22 @@ export async function resolveOrchestrationBase(
     persistedScaffoldId = null,
     contractAnswers = [],
     embeddingScaffoldMatch = true,
+    generationMode,
+    promptStrategyMeta = null,
+    ignorePersistedScaffoldForMatch = false,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
+
+  const effectivePersistedScaffoldId =
+    ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
 
   if (scaffoldMode === "off") {
     resolvedScaffold = null;
   } else if (scaffoldMode === "manual" && scaffoldId) {
     resolvedScaffold = getScaffoldById(scaffoldId);
-  } else if (persistedScaffoldId) {
-    resolvedScaffold = getScaffoldById(persistedScaffoldId);
+  } else if (effectivePersistedScaffoldId) {
+    resolvedScaffold = getScaffoldById(effectivePersistedScaffoldId);
   } else if (scaffoldMode === "auto") {
     resolvedScaffold = embeddingScaffoldMatch
       ? await matchScaffoldWithEmbeddings(prompt, buildIntent)
@@ -135,16 +156,6 @@ export async function resolveOrchestrationBase(
     }
   }
 
-  let scaffoldContext: string | undefined;
-  if (resolvedScaffold) {
-    const briefStyleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords)
-      ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords
-          ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
-      : undefined;
-    const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
-    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode);
-  }
-
   const capabilities = inferCapabilities(prompt);
   const capabilityHints = buildCapabilityHints(capabilities);
   const routePlan = buildRoutePlan({
@@ -160,6 +171,28 @@ export async function resolveOrchestrationBase(
     capabilities,
     contractAnswers,
   });
+  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
+  const buildSpec = deriveBuildSpec({
+    prompt,
+    buildIntent,
+    generationMode: resolvedMode,
+    resolvedScaffold,
+    routePlan,
+    preGenerationContracts,
+    promptStrategyMeta,
+  });
+  let scaffoldContext: string | undefined;
+  if (resolvedScaffold) {
+    const briefStyleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords)
+      ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords
+          ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
+      : undefined;
+    const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
+    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode, {
+      maxChars: buildSpec.tokenBudgets.scaffoldChars,
+      contextPolicy: buildSpec.contextPolicy,
+    });
+  }
 
   const scaffoldAndCapability = [scaffoldContext, capabilityHints]
     .filter(Boolean)
@@ -171,17 +204,22 @@ export async function resolveOrchestrationBase(
     routePlan,
     preGenerationContracts,
     capabilities,
+    buildSpec,
     scaffoldAndCapability,
   };
 }
 
 /**
- * Build full system prompt and v0 enrichment from a resolved orchestration base.
+ * Build full system prompt from a resolved orchestration base.
  */
 export async function finalizeOrchestrationPrompts(
   base: OrchestrationBase,
   input: OrchestrationInput,
-): Promise<{ engineSystemPrompt: string; v0EnrichmentContext: string }> {
+): Promise<{
+  engineSystemPrompt: string;
+  dynamicContext: string;
+  templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null;
+}> {
   const {
     prompt,
     buildIntent,
@@ -193,7 +231,10 @@ export async function finalizeOrchestrationPrompts(
     designReferences = [],
     customInstructions,
     embeddingEnrichment = true,
+    generationMode,
   } = input;
+
+  const resolvedMode = generationMode ?? (input.persistedScaffoldId ? "followUp" : "init");
 
   const dynamicOpts: DynamicContextOptions = {
     intent: buildIntent,
@@ -208,47 +249,89 @@ export async function finalizeOrchestrationPrompts(
     componentPalette,
     designThemePreset,
     designReferences,
+    buildSpec: base.buildSpec,
     customInstructions,
     embeddingEnrichment,
+    generationMode: resolvedMode,
   };
 
-  const engineSystemPrompt = await buildSystemPrompt({
-    ...dynamicOpts,
-  });
+  const dynamic = await buildDynamicContext(dynamicOpts);
+  const engineSystemPrompt = composeEngineSystemPrompt(dynamic.context);
 
-  const v0EnrichmentContext = await buildDynamicContext(dynamicOpts);
-
-  writeLatestPromptDump(
-    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
-    { "latest.md": v0EnrichmentContext },
-    {
-      buildIntent,
-      scaffoldId: base.resolvedScaffold?.id ?? null,
-      scaffoldFamily: base.resolvedScaffold?.family ?? null,
-      promptLength: prompt.length,
-    },
-  );
-
-  return { engineSystemPrompt, v0EnrichmentContext };
+  return {
+    engineSystemPrompt,
+    dynamicContext: dynamic.context,
+    templateLibrarySearchDiagnostics: dynamic.templateLibrarySearchDiagnostics,
+  };
 }
 
 /**
- * Prepare all generation context in one place.
+ * Prepare all generation context in one place so that scaffold, brief,
+ * theme, and intent flow identically across all own-engine callers.
  *
- * Both the own engine path and the v0 fallback path should call this
- * so that scaffold, brief, theme, and intent flow identically.
+ * Returns a `GenerationInputPackage` — the canonical fan-in artifact
+ * that captures every signal used to shape generation.
  */
 export async function prepareGenerationContext(
   input: OrchestrationInput,
-): Promise<OrchestrationResult> {
+): Promise<GenerationInputPackage> {
   const base = await resolveOrchestrationBase(input);
-  const { engineSystemPrompt, v0EnrichmentContext } = await finalizeOrchestrationPrompts(
-    base,
-    input,
-  );
-  return {
+  const { engineSystemPrompt, dynamicContext, templateLibrarySearchDiagnostics } =
+    await finalizeOrchestrationPrompts(base, input);
+
+  const capabilityHints = base.scaffoldAndCapability;
+  const lineageHash = computeLineageHash({
+    userPrompt: input.prompt,
+    brief: input.brief,
+    scaffoldMode: input.scaffoldMode ?? "auto",
+    scaffoldContext: base.scaffoldContext,
+    routePlan: base.routePlan,
+    preGenerationContracts: base.preGenerationContracts,
+    buildSpec: base.buildSpec,
+    capabilityHints,
+  });
+
+  const pkg: GenerationInputPackage = {
     ...base,
+    userPrompt: input.prompt,
+    brief: (input.brief as Record<string, unknown>) ?? null,
+    scaffoldMode: input.scaffoldMode ?? "auto",
     engineSystemPrompt,
-    v0EnrichmentContext,
+    dynamicContext,
+    templateLibrarySearchDiagnostics,
+    lineageHash,
   };
+
+  writeLatestPromptDump(
+    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
+    {
+      "latest.md": dynamicContext,
+      "generation-input-package.json": JSON.stringify(
+        serializePackageForDump(pkg),
+        null,
+        2,
+      ),
+    },
+    {
+      lineageHash,
+      buildIntent: input.buildIntent,
+      scaffoldId: base.resolvedScaffold?.id ?? null,
+      scaffoldFamily: base.resolvedScaffold?.family ?? null,
+      buildSpecChangeScope: base.buildSpec.changeScope,
+      buildSpecContextPolicy: base.buildSpec.contextPolicy,
+      buildSpecPreviewPolicy: base.buildSpec.previewPolicy,
+      promptLength: input.prompt.length,
+      templateLibrarySearch: templateLibrarySearchDiagnostics
+        ? {
+            mode: templateLibrarySearchDiagnostics.mode,
+            reason: templateLibrarySearchDiagnostics.reason ?? null,
+            topScore: templateLibrarySearchDiagnostics.topScore ?? null,
+            catalogSize: templateLibrarySearchDiagnostics.catalogSize,
+            usedEmbeddings: templateLibrarySearchDiagnostics.usedEmbeddings,
+          }
+        : null,
+    },
+  );
+
+  return pkg;
 }

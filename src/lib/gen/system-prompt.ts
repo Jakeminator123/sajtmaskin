@@ -19,30 +19,30 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
-import type { PreGenerationContractContext } from "./pre-generation-contracts";
+import type { BuildSpec } from "./build-spec";
+import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import { searchKnowledgeBaseAsync } from "./context/knowledge-base";
 import { enrichWithRegistry } from "./context/registry-enricher";
 import { getTemplateLibraryEntryById } from "./template-library/catalog";
 import {
-  searchTemplateLibrary,
+  searchTemplateLibraryWithDiagnostics,
   searchTemplateLibraryKeywordsOnly,
   selectTemplateReferenceFiles,
+  type TemplateLibrarySearchDiagnostics,
 } from "./template-library/search";
+import {
+  deriveTemplateRuntimeGuidance,
+  isStarterOrBoilerplateReference,
+} from "./template-library/runtime-guidance";
 import type { TemplateLibraryEntry } from "./template-library/types";
+import { looksDesignHeavyMessage } from "@/lib/builder/promptOrchestration";
 import { getStaticCoreFromWorkspace } from "./static-core-loader";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
 // ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Static system prompt (~6–8K tokens). Edit config/prompt-static/ + codegen-static-prompt.json.
- */
-export function getStaticCore(): string {
-  return getStaticCoreFromWorkspace();
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DYNAMIC CONTEXT — varies per request
@@ -74,6 +74,8 @@ const BUILD_INTENT_GUIDANCE: Record<
       "Add social proof: testimonial quotes with names/titles, client logos (as placeholder images), star ratings.",
       "Match scope to the request: short prompt = polished one-pager; detailed prompt = multi-page site.",
       "SEO baseline is required by default: include metadata with title/description, Open Graph/Twitter data, canonical strategy, sitemap, robots, and at least one sensible JSON-LD/schema.org block for company-style sites unless the user explicitly says otherwise.",
+      "Scroll-reveal animations (fade-in, slide-up) must NEVER be applied to hero sections or other above-the-fold content — that content must render instantly without any opacity/blur/transform transition. Only use reveal on sections that appear below the fold on scroll. Never use CSS blur as part of reveal transitions on text — it makes content unreadable during the transition. Prefer opacity + translateY only.",
+      "Never use the Tailwind arbitrary class `font-[family-name:var(--x)]` — it produces corrupt CSS in Turbopack. Instead, use inline `style={{ fontFamily: 'var(--font-serif)' }}` or define a utility class in globals.css.",
     ],
   },
   app: {
@@ -180,6 +182,9 @@ export interface DynamicContextOptions {
    * Default true. Used by offline CLI traces; production omits this.
    */
   embeddingEnrichment?: boolean;
+  /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
+  generationMode?: "init" | "followUp";
+  buildSpec?: BuildSpec | null;
 }
 
 function str(v: unknown): string {
@@ -200,12 +205,28 @@ interface RankedTemplateReference {
   reasons: string[];
 }
 
+interface RankedTemplateReferenceResponse {
+  matches: RankedTemplateReference[];
+  diagnostics: TemplateLibrarySearchDiagnostics | null;
+}
+
 function intersectsScaffoldFamilies(
   entry: TemplateLibraryEntry,
   resolvedScaffold: ScaffoldManifest | null | undefined,
 ): boolean {
   if (!resolvedScaffold) return false;
   return entry.recommendedScaffoldFamilies.includes(resolvedScaffold.family);
+}
+
+function starterReferencePenalty(
+  entry: TemplateLibraryEntry,
+  resolvedScaffold: ScaffoldManifest | null | undefined,
+): number {
+  if (!isStarterOrBoilerplateReference(entry)) return 0;
+  // Keep starter references for structure in base-nextjs mode, but strongly
+  // downrank them as style references for richer scaffolds.
+  if (resolvedScaffold?.family === "base-nextjs") return 8;
+  return 24;
 }
 
 function addTemplateReferenceCandidate(
@@ -237,22 +258,31 @@ async function rankTemplateReferences(
   originalPrompt: string,
   resolvedScaffold: ScaffoldManifest | null | undefined,
   useEmbeddingSearch = true,
-): Promise<RankedTemplateReference[]> {
-  const promptMatches = useEmbeddingSearch
-    ? await searchTemplateLibrary(originalPrompt, 6)
-    : searchTemplateLibraryKeywordsOnly(originalPrompt, 6);
+  topK = 6,
+): Promise<RankedTemplateReferenceResponse> {
+  const templateSearch = useEmbeddingSearch
+    ? await searchTemplateLibraryWithDiagnostics(originalPrompt, topK)
+    : {
+        results: searchTemplateLibraryKeywordsOnly(originalPrompt, topK),
+        diagnostics: null,
+      };
+  const promptMatches = templateSearch.results;
   const candidates = new Map<string, RankedTemplateReference>();
   const scaffoldLabel = resolvedScaffold?.label ?? "the selected scaffold";
 
   for (const match of promptMatches) {
     const fitBoost = intersectsScaffoldFamilies(match.entry, resolvedScaffold) ? 16 : 0;
+    const starterPenalty = starterReferencePenalty(match.entry, resolvedScaffold);
+    const starterHint = isStarterOrBoilerplateReference(match.entry)
+      ? " Tolkas som strukturreferens, inte stilfacit."
+      : "";
     addTemplateReferenceCandidate(
       candidates,
       match.entry,
-      match.score * 100 + fitBoost + match.entry.qualityScore / 10,
+      match.score * 100 + fitBoost + match.entry.qualityScore / 10 - starterPenalty,
       fitBoost > 0
-        ? "Prompten matchar och referensen passar vald runtime scaffold."
-        : "Prompten matchar denna kuraterade referens.",
+        ? `Prompten matchar och referensen passar vald runtime scaffold.${starterHint}`
+        : `Prompten matchar denna kuraterade referens.${starterHint}`,
       "prompt",
     );
   }
@@ -261,33 +291,103 @@ async function rankTemplateReferences(
     const entry = getTemplateLibraryEntryById(reference.id);
     if (!entry) continue;
     const fitBoost = intersectsScaffoldFamilies(entry, resolvedScaffold) ? 20 : 0;
+    const starterPenalty = starterReferencePenalty(entry, resolvedScaffold);
+    const starterHint = isStarterOrBoilerplateReference(entry)
+      ? " Referensen används som strukturhjälp, inte visuell facit."
+      : "";
     addTemplateReferenceCandidate(
       candidates,
       entry,
-      35 + fitBoost + entry.qualityScore / 10,
-      `Scaffoldens research pekar ut denna referens för ${scaffoldLabel}.`,
+      35 + fitBoost + entry.qualityScore / 10 - starterPenalty,
+      `Scaffoldens research pekar ut denna referens för ${scaffoldLabel}.${starterHint}`,
       "scaffold",
     );
   }
 
-  return [...candidates.values()]
-    .filter((candidate) => {
-      if (candidate.source === "scaffold" || candidate.source === "hybrid") {
-        return candidate.entry.qualityScore >= MIN_SCAFFOLD_REFERENCE_QUALITY;
-      }
-      return candidate.entry.qualityScore >= MIN_TEMPLATE_REFERENCE_QUALITY;
-    })
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return b.entry.qualityScore - a.entry.qualityScore;
-    });
+  return {
+    matches: [...candidates.values()]
+      .filter((candidate) => {
+        if (candidate.source === "scaffold" || candidate.source === "hybrid") {
+          return candidate.entry.qualityScore >= MIN_SCAFFOLD_REFERENCE_QUALITY;
+        }
+        return candidate.entry.qualityScore >= MIN_TEMPLATE_REFERENCE_QUALITY;
+      })
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.entry.qualityScore - a.entry.qualityScore;
+      }),
+    diagnostics: templateSearch.diagnostics,
+  };
 }
+
+function describeTemplateSearchDiagnostics(
+  diagnostics: TemplateLibrarySearchDiagnostics | null,
+): string | null {
+  if (!diagnostics) return null;
+  switch (diagnostics.mode) {
+    case "empty_catalog":
+      return "Committed template library is empty, so runtime should rely on scaffold research and the user's request.";
+    case "hybrid_keyword_blend":
+      return "Semantic template retrieval was weak, so keyword fallback was blended in to keep references conservative.";
+    case "keyword_fallback":
+      switch (diagnostics.reason) {
+        case "missing_api_key":
+          return "Semantic template retrieval is unavailable in this environment, so references came from keyword fallback only.";
+        case "missing_embeddings":
+          return "Template embeddings are unavailable, so references came from keyword fallback only.";
+        case "embedding_query_failed":
+          return "Template embedding lookup failed at runtime, so references came from keyword fallback only.";
+        case "no_embedding_hits":
+          return "Semantic template search found no strong hits, so references came from keyword fallback only.";
+        default:
+          return "Template references came from keyword fallback only.";
+      }
+    default:
+      return null;
+  }
+}
+
+function shouldIncludeTemplateCodeSnippets(buildSpec: BuildSpec | null | undefined): boolean {
+  if (!buildSpec) return true;
+  if (buildSpec.contextPolicy === "light") return false;
+  return (
+    buildSpec.contextPolicy === "heavy" ||
+    buildSpec.changeScope === "redesign" ||
+    buildSpec.changeScope === "page-addition" ||
+    buildSpec.changeScope === "integration"
+  );
+}
+
+function resolveTemplateSnippetSelectionOptions(
+  referenceBudget: number,
+  buildSpec: BuildSpec | null | undefined,
+): {
+  maxFiles: number;
+  maxExcerptChars: number;
+  maxTotalChars: number;
+} {
+  const isHeavy = buildSpec?.contextPolicy === "heavy";
+  const maxTotalChars = Math.max(2_400, Math.min(referenceBudget, isHeavy ? 5_000 : 3_000));
+  return {
+    maxFiles: isHeavy ? 2 : 1,
+    maxExcerptChars: Math.min(maxTotalChars, isHeavy ? 2_200 : 1_500),
+    maxTotalChars,
+  };
+}
+
+export type BuildDynamicContextResult = {
+  context: string;
+  /** Set when template-library retrieval ran (skipped in light follow-up mode). */
+  templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null;
+};
 
 /**
  * Builds the dynamic (per-request) portion of the system prompt.
  * Contains build intent guidance, project context, visual identity, and media catalog.
  */
-export async function buildDynamicContext(options: DynamicContextOptions): Promise<string> {
+export async function buildDynamicContext(
+  options: DynamicContextOptions,
+): Promise<BuildDynamicContextResult> {
   const {
     intent,
     brief,
@@ -304,9 +404,31 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     designReferences,
     customInstructions,
     embeddingEnrichment = true,
+    generationMode,
+    buildSpec,
   } = options;
 
+  const isFollowUp = generationMode === "followUp";
+  const originalPromptTrimmed = (originalPrompt ?? "").trim();
+  const useLightFollowUpContext =
+    isFollowUp &&
+    buildSpec?.contextPolicy === "light" &&
+    (buildSpec.changeScope === "copy" || buildSpec.changeScope === "local-layout") &&
+    !looksDesignHeavyMessage(originalPromptTrimmed);
+  const referenceBudget = buildSpec?.tokenBudgets.refsChars ?? 8_000;
+
   const parts: string[] = [];
+  let templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null = null;
+
+  // ── Generation Mode ────────────────────────────────────────────────────
+  if (isFollowUp) {
+    parts.push(
+      "## Generation Mode: Follow-Up",
+      "",
+      "You are editing/refining an existing generation. The scaffold, brief, and route plan below were established in the initial generation. Apply only the user's requested changes.",
+      "",
+    );
+  }
 
   // ── Custom Instructions (user-supplied from builder UI) ────────────────
   const trimmedCustom = customInstructions?.trim();
@@ -322,6 +444,27 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     ...guidance.rules.map((r) => `- ${r}`),
     "",
   );
+
+  if (buildSpec) {
+    const referenceFamilies =
+      buildSpec.referenceCategories.length > 0
+        ? buildSpec.referenceCategories.join(", ")
+        : "general";
+    const profileLines: string[] = [
+      "## Generation Profile",
+      "",
+      `- **Style direction:** ${buildSpec.stylePack}`,
+      `- **Quality tier:** ${buildSpec.qualityTarget}`,
+      `- **Reference families:** ${referenceFamilies}`,
+    ];
+    if (buildSpec.forbiddenPatterns.length > 0) {
+      profileLines.push(
+        `- **Forbidden patterns:** ${buildSpec.forbiddenPatterns.join(", ")}`,
+      );
+    }
+    profileLines.push("");
+    parts.push(...profileLines);
+  }
 
   // ── Scaffold ───────────────────────────────────────────────────────────
   if (scaffoldContext) {
@@ -404,12 +547,16 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
             .map((envVar) => `  - ${envVar.key} — ${envVar.reason}${envVar.required ? " (required)" : ""}`),
         );
       }
+      parts.push(
+        "",
+        "- **Placeholder policy (mandatory for runnable preview):** If **Auth** is NextAuth/Auth.js, use **Credentials** (password/demo user) only — **no OAuth** providers unless the user explicitly asked for one by name. If **Stripe/payment** appears, use test-mode keys and/or `process.env` fallbacks so the app never throws at import time. The preview/sandbox merges non-secret placeholder `.env.local` values; your code must still run when those are absent.",
+        "",
+      );
       if (unresolvedDecisions.length > 0) {
         parts.push("", "- **Unresolved decisions:**");
         parts.push(...unresolvedDecisions.map((entry) => `  - ${entry.kind}: ${entry.reason}`));
         parts.push(
-          "  - If these decisions matter for backend/runtime behavior, ask a clarifying question before generating provider-specific code.",
-          "  - If the user has not chosen the provider yet, use a sensible default (e.g. Drizzle + SQLite) with mock data. State your choice so the user can override it.",
+          "  - Prefer **non-blocking** defaults: Auth.js Credentials, SQLite or mock data, Stripe test placeholders. Do not stall generation on provider choice; ship runnable code first.",
         );
       }
       if (preGenerationContracts.confirmedAnswers.length > 0) {
@@ -478,6 +625,15 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
       parts.push("## Avoid", "", ...avoid.map((a) => `- ${a}`), "");
     }
   }
+
+  parts.push(
+    "## Preview vs CodeProject parity",
+    "",
+    "- A tier-1 HTML preview in the product may appear before this stream finishes. Treat it as a rough layout approximation only, not the final design system.",
+    "- Your emitted files are the **source of truth**: they must reflect the **user message**, any **Project Context / brief** above, **Visual Identity**, and the **scaffold** (structure hints only). Do not replace a specific user topic, language, or palette with an unrelated generic marketing template.",
+    "- When a structured brief exists, major copy, sections, palette, and tone should be traceable to that brief or the prompt — **extend and refine**, do not reset to a generic narrative.",
+    "",
+  );
 
   // ── Visual Identity ─────────────────────────────────────────────────────
   const hasTheme = themeOverride && (themeOverride.primary || themeOverride.secondary || themeOverride.accent);
@@ -586,7 +742,7 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
   }
 
   // ── Relevant Documentation (KB search + registry enrichment) ────────────
-  if (originalPrompt) {
+  if (originalPrompt && !useLightFollowUpContext) {
     const kbMatches = await searchKnowledgeBaseAsync({
       query: originalPrompt,
       maxResults: 7,
@@ -610,46 +766,82 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     }
   }
 
-  if (originalPrompt) {
-    const templateMatches = await rankTemplateReferences(
+  if (originalPrompt && !useLightFollowUpContext) {
+    const templateReferenceSearch = await rankTemplateReferences(
       originalPrompt,
       resolvedScaffold,
       embeddingEnrichment,
+      buildSpec?.contextPolicy === "heavy" ? 6 : 4,
     );
-    const usefulTemplateMatches = templateMatches.slice(0, 3);
+    templateLibrarySearchDiagnostics = templateReferenceSearch.diagnostics;
+    const usefulTemplateMatches = templateReferenceSearch.matches.slice(
+      0,
+      buildSpec?.contextPolicy === "heavy" ? 3 : 2,
+    );
+    const templateSearchStatus = describeTemplateSearchDiagnostics(
+      templateReferenceSearch.diagnostics,
+    );
     if (usefulTemplateMatches.length > 0) {
       parts.push("## Relevant Template References", "");
+      parts.push(
+        "- Treat the structured guidance in this section as the primary runtime signal. If small code excerpts appear below, use them only as narrow structural inspiration.",
+      );
+      parts.push(
+        "- Never let a reference override the user's brief, route plan, selected scaffold, current project files, or follow-up scope.",
+      );
+      if (templateSearchStatus) {
+        parts.push(`- Retrieval status: ${templateSearchStatus}`);
+      }
+      parts.push("");
       for (const match of usefulTemplateMatches) {
+        const guidance = deriveTemplateRuntimeGuidance(match.entry);
         parts.push(`### ${match.entry.title}`, "");
         parts.push(`- Category: ${match.entry.categoryName}`);
         parts.push(`- Scaffold fit: ${match.entry.recommendedScaffoldFamilies.join(", ")}`);
         parts.push(`- Quality score: ${match.entry.qualityScore}`);
         parts.push(`- Why this reference: ${match.reasons.join(" ")}`);
         parts.push(`- Summary: ${match.entry.summary}`);
-        if (match.entry.selectedFiles.length > 0) {
-          parts.push(
-            `- Reference files: ${match.entry.selectedFiles
-              .slice(0, 4)
-              .map((file) => file.path)
-              .join(", ")}`,
-          );
+        if (isStarterOrBoilerplateReference(match.entry)) {
+          parts.push("- Reference mode: structure-only (starter/boilerplate).");
+        }
+        if (guidance.styleRules.length > 0) {
+          parts.push(`- Style rules: ${guidance.styleRules.join(" | ")}`);
+        }
+        if (guidance.sectionInventory.length > 0) {
+          parts.push(`- Section inventory: ${guidance.sectionInventory.join(" | ")}`);
+        }
+        if (guidance.avoidPatterns.length > 0) {
+          parts.push(`- Avoid: ${guidance.avoidPatterns.join(" | ")}`);
+        }
+        if (guidance.worldClassRubric.length > 0) {
+          parts.push(`- World-class rubric: ${guidance.worldClassRubric.join(" | ")}`);
         }
         parts.push("");
       }
 
-      const snippetMatches = usefulTemplateMatches
-        .slice(0, 2)
-        .map((match) => ({
-          match,
-          files: selectTemplateReferenceFiles(match.entry),
-        }))
-        .filter((item) => item.files.length > 0);
+      const allowTemplateCodeSnippets = shouldIncludeTemplateCodeSnippets(buildSpec);
+      const snippetSelectionOptions = resolveTemplateSnippetSelectionOptions(
+        referenceBudget,
+        buildSpec,
+      );
+      const snippetMatches = allowTemplateCodeSnippets
+        ? usefulTemplateMatches
+          .slice(0, 2)
+          .map((match) => ({
+            match,
+            files: selectTemplateReferenceFiles(match.entry, snippetSelectionOptions),
+          }))
+          .filter(
+            (item) =>
+              item.files.length > 0 && !isStarterOrBoilerplateReference(item.match.entry),
+          )
+        : [];
 
-      if (snippetMatches.length > 0) {
+      if (allowTemplateCodeSnippets && snippetMatches.length > 0) {
         parts.push(
           "## Reference Code Snippets",
           "",
-          "Use these as structural inspiration only. Adapt them to the selected scaffold, prompt, and current project constraints.",
+          "Use these as structural inspiration only when they directly unblock a component or layout pattern. Keep them secondary to the guidance above.",
           "",
         );
         for (const { match, files } of snippetMatches) {
@@ -662,6 +854,14 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
           }
         }
       }
+    } else if (templateSearchStatus) {
+      parts.push(
+        "## Template Reference Retrieval",
+        "",
+        `- ${templateSearchStatus}`,
+        "- No curated template references were injected, so scaffold guidance and the user's request should stay primary.",
+        "",
+      );
     }
   }
 
@@ -670,7 +870,10 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     parts.push("## Original Request (for reference)", "", originalPrompt.trim(), "");
   }
 
-  return parts.join("\n").trim();
+  return {
+    context: parts.join("\n").trim(),
+    templateLibrarySearchDiagnostics,
+  };
 }
 
 
@@ -697,6 +900,8 @@ export interface BuildSystemPromptOptions {
   designReferences?: DesignReferenceAsset[];
   customInstructions?: string;
   embeddingEnrichment?: boolean;
+  generationMode?: "init" | "followUp";
+  buildSpec?: BuildSpec | null;
 }
 
 /**
@@ -707,7 +912,7 @@ export interface BuildSystemPromptOptions {
  * OpenAI's prompt prefix caching to kick in after the first request.
  */
 export async function buildSystemPrompt(options: BuildSystemPromptOptions): Promise<string> {
-  const dynamicContext = await buildDynamicContext({
+  const { context } = await buildDynamicContext({
     intent: options.intent,
     brief: options.brief,
     themeOverride: options.themeOverride,
@@ -721,11 +926,18 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     componentPalette: options.componentPalette,
     designThemePreset: options.designThemePreset,
     designReferences: options.designReferences,
+    buildSpec: options.buildSpec,
     customInstructions: options.customInstructions,
     embeddingEnrichment: options.embeddingEnrichment,
+    generationMode: options.generationMode,
   });
 
-  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContext}`;
+  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${context}`;
+}
+
+/** Compose static codegen core + dynamic context without re-running retrieval. */
+export function composeEngineSystemPrompt(dynamicContextText: string): string {
+  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContextText}`;
 }
 
 /**

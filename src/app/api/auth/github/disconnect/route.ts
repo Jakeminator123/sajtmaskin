@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { clearUserGitHub } from "@/lib/db/services";
+import { clearUserGitHub } from "@/lib/db/services/users";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser(request);

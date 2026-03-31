@@ -1,29 +1,62 @@
 # gen/ — Code Generation Module
 
-Sajtmaskin's own code generation engine. Uses OpenAI models (gpt-5.3-codex default, gpt-5.4 max) via AI SDK to generate Next.js/React sites from prompts. Builder **codegen** uses this own-engine path only; v0 Platform API is not used for `createGenerationPipeline`.
+**Product terms (builderns Mallar-tab vs runtime `template-library` vs Vercel-mall, own-engine, buildern):** [`.cursor/rules/terminology.mdc`](../../../.cursor/rules/terminology.mdc). **Repo map:** [`docs/architecture/repo-tree.md`](../../../docs/architecture/repo-tree.md). **Static prompts / manifest:** [`config/README.md`](../../../config/README.md).
 
-## Architecture
+Human architecture overview: [`docs/architecture/README.md`](../../../docs/architecture/README.md) · [`builder-generation.md`](../../../docs/architecture/builder-generation.md).
+
+Sajtmaskin's own code generation engine. Uses OpenAI models via AI SDK to
+generate Next.js/React sites from prompts. Builder **codegen** uses this
+own-engine path only; v0 Platform API is not used for `createGenerationPipeline`.
+
+## Current Flow
 
 ```
-createGenerationPipeline()  (fallback.ts)
+Builder/API prompt
     │
-    └─ engine.ts (streamText + createCodeGenSSEStream)
+    ├─ orchestratePromptMessage()  (promptOrchestration.ts) — alltid
+    ├─ (create-chat) ev. server Deep Brief → meta.brief  (site-brief-generation.ts)
+    │
+    └─ prepareGenerationContext()  (orchestrate.ts)
            │
-           ├─ system-prompt.ts (buildSystemPrompt)
-           ├─ url-compress.ts (compress before LLM, expand after)
-           ├─ stream-format.ts (SSE events)
-           └─ suspense/ (TransformStream post-processing)
+           ├─ resolveOrchestrationBase()
+           │    ├─ scaffold selection (manual / persisted / auto)
+           │    ├─ route plan + pre-generation contracts
+           │    └─ BuildSpec / token budgets / policy
+           │
+           └─ finalizeOrchestrationPrompts()
+                └─ buildDynamicContext()  (system-prompt.ts)
+                     ├─ scaffold context
+                     ├─ template-library guidance
+                     ├─ knowledge-base enrichment
+                     └─ final engine system prompt
+
+own-engine stream
+    │
+    └─ finalizeAndSaveVersion()  (stream/finalize-version.ts)
+           ├─ autofix + URL expansion
+           ├─ optional deep path (image materialize / polish)
+           ├─ syntax validate/fix
+           ├─ parse + merge + preflight
+           ├─ save assistant + version
+           └─ sandbox / verification follow-up
 ```
 
-v0 Platform API remains in use elsewhere (templates, registry init, zip download, deploy helpers) via `@/lib/v0/v0-generator` and related API routes — not through this module's stream entrypoint.
+This module is the canonical generation path (own-engine). If you need the
+actual scaffold/template lookup behavior, read `scaffolds/README.md` and
+`template-library/README.md` before opening the generated JSON blobs.
 
 ## Key Files
 
 | File | Role |
 |------|------|
-| `fallback.ts` | Entry point. `createGenerationPipeline()` delegates to the own-engine (`engine.ts`) only. |
+| `orchestrate.ts` | Canonical fan-in for scaffold selection, route planning, contract inference, BuildSpec derivation, and prompt assembly inputs. |
+| `system-prompt.ts` | Builds dynamic prompt context (scaffold, KB, template-library guidance) and composes the final engine system prompt. |
+| `scaffolds/` | Runtime scaffold manifests, matcher/search/serialize logic, and generated scaffold research/embeddings. |
+| `template-library/` | Curated external-template guidance used by prompt ranking and reference injection. |
+| `stream/finalize-version.ts` | Shared post-stream pipeline: autofix, deep-path steps, parse/merge/preflight, persistence, telemetry, and scaffold-retry suggestions. |
+| `generation-input-package.ts` | `GenerationInputPackage` type, `computeLineageHash()`, and dump serialization. |
+| `server-verify.ts` | Server-side verify+repair loop triggered after finalize. |
 | `engine.ts` | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
-| `system-prompt.ts` | Builds the system prompt (static core + dynamic context). |
 | `stream-format.ts` | Converts AI SDK stream to SSE events (`meta`, `thinking`, `content`, `done`, `error`). |
 | `url-compress.ts` | Compresses long URLs to aliases before LLM (saves tokens), expands after. |
 | `suspense/` | TransformStream rules that fix code during streaming (shadcn imports, Lucide icons, URL expansion). |
@@ -31,10 +64,6 @@ v0 Platform API remains in use elsewhere (templates, registry init, zip download
 | `parser.ts` | Parses fenced code blocks from streamed content. |
 | `preview/` | Preview runtime modules. `preview/index.ts` exposes `buildPreviewHtml()` and `buildPreviewUrl()`, while sibling files split resolution, CSS, transpilation, script assembly, and shims. |
 | `version-manager.ts` | Creates versions from content, parses files. |
-
-## Preview flag `V0_FALLBACK_BUILDER` (optional)
-
-This env var does **not** switch codegen to v0. When set to an affirmative value (`y`, `yes`, `true`, `1`, `on`), the **builder UI** may prefer a v0-hosted `demoUrl` (`*.vusercontent.net`) over a sandbox URL when both exist. Values like `n`, `no`, `false`, or empty leave that behavior off. See `docs/ENV.md` and `src/lib/builder/v0-preview-priority.ts`.
 
 ## Generated Artifacts And Indexing
 
@@ -48,6 +77,7 @@ when they are excluded from normal Cursor indexing.
 | `scaffolds/scaffold-embeddings.json` | Embeddings for the internal runtime scaffolds. | Generated, committed, direct-read only when debugging scaffold search/matching. |
 | `template-library/template-library.generated.json` | Curated template-library artifact used for runtime search and prompt support. | Generated, committed, large enough to keep out of default indexing. |
 | `template-library/template-library-embeddings.json` | Embeddings for the curated template-library artifact. | Generated, committed, usually only needed for targeted debugging or rebuild validation. |
+| `../../data/scaffold-candidates-curated.json` | Ranked scaffold candidate report from the external template pipeline. | Generated, not a runtime dependency, useful for curation and agent orientation only. |
 
 Guidelines:
 
@@ -58,7 +88,7 @@ Guidelines:
   forbidding access. Read them directly when a task actually depends on their
   structure or contents.
 - When you only need orientation, prefer this README plus
-  `docs/architecture/repo-hygiene.md` over opening the full JSON artifacts.
+  `docs/architecture/repository-and-platform.md` over opening the full JSON artifacts.
 
 Common regeneration entry points:
 
@@ -67,7 +97,23 @@ npm run template-library:build
 npm run template-library:embeddings
 npm run scaffolds:embeddings
 npm run scaffolds:curate
+npm run scaffolds:validate
 ```
+
+## Practical Smoke Test
+
+For a real prompt-driven dry run against the local dev server, use:
+
+```bash
+python scripts/cli/builder-generate.py
+```
+
+That script calls the same own-engine HTTP/SSE routes as Builder and writes the
+captured result under `output/generations/<timestamp>-<slug>/` with:
+
+- `metadata.json` (`streamMeta`, `templateLibrarySearch`, route plan, preflight)
+- `brief.json` when deep brief was used
+- `files/` with the saved version payload
 
 ## Adding suspense stream rules
 

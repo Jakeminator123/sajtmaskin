@@ -12,9 +12,13 @@ import {
   isAbortLikeError,
   isNetworkError,
 } from "./helpers";
-import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import { runPostGenerationChecks } from "./post-checks";
+import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export function useSendMessage(
   params: ChatMessagingParams,
@@ -34,16 +38,18 @@ export function useSendMessage(
 ) {
   const {
     chatId,
+    activeVersionId,
     appProjectId,
     selectedModelTier,
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
-    v0DesignSystemId,
+    registryDesignSystemId,
     designThemePreset,
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
+    promptAssistMode,
     buildIntent,
     buildMethod,
     scaffoldMode,
@@ -52,10 +58,13 @@ export function useSendMessage(
     paletteState,
     pendingBriefRef,
     mutateVersions,
-    setCurrentDemoUrl,
+    setCurrentPreviewUrl,
     setSandboxBuildError,
+    setSandboxProdBuild,
+    setSandboxPending,
     onPreviewRefresh,
     onGenerationComplete,
+    onSandboxSessionMeta,
     setMessages,
   } = params;
 
@@ -95,6 +104,7 @@ export function useSendMessage(
       });
 
       setSandboxBuildError?.(null);
+      setSandboxProdBuild?.(null);
       setMessages((prev) => [
         ...prev,
         { id: userMessageId, role: "user", content: messageText },
@@ -109,14 +119,18 @@ export function useSendMessage(
       ]);
 
       const handleNonStreamingSend = async (data: Record<string, unknown>) => {
-        const demoUrl =
-          (data?.demoUrl as string) ||
-          ((data?.latestVersion as Record<string, unknown>)?.demoUrl as string) ||
-          null;
-        const preflight = readPreviewPreflight(data);
-        if (demoUrl) setCurrentDemoUrl(demoUrl);
-        onPreviewRefresh?.();
         const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
+        const previewResolved =
+          resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown }) ||
+          resolveInboundPreviewUrl(latestVersion);
+        const preflight = readPreviewPreflight(data);
+        if (previewResolved) {
+          const n = normalizePreviewUrl(previewResolved);
+          if (n && !isCompatibilityShimPreviewUrl(n)) {
+            setCurrentPreviewUrl(n);
+          }
+        }
+        onPreviewRefresh?.();
         const resolvedVersionId =
           data?.versionId || latestVersion?.id || latestVersion?.versionId || null;
         const responseText =
@@ -165,7 +179,7 @@ export function useSendMessage(
         onGenerationComplete?.({
           chatId: chatId || "",
           versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-          demoUrl: demoUrl ?? undefined,
+          previewUrl: previewResolved ?? undefined,
         });
         if (chatId && resolvedVersionId) {
           void triggerImageMaterialization({
@@ -178,7 +192,7 @@ export function useSendMessage(
           void runPostGenerationChecks({
             chatId: String(chatId),
             versionId: String(resolvedVersionId),
-            demoUrl: demoUrl ?? null,
+            demoUrl: previewResolved ?? null,
             preflight,
             assistantMessageId,
             setMessages,
@@ -222,9 +236,20 @@ export function useSendMessage(
           promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
         }
+        if (promptAssistModel) promptMeta.promptAssistModel = promptAssistModel;
+        if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
-          pendingBriefRef.current = null;
+          promptMeta.promptAssistDeep = true;
+        } else if (typeof promptAssistDeep === "boolean") {
+          promptMeta.promptAssistDeep = promptAssistDeep;
+        }
+        const trimmedVersionId =
+          typeof options.engineBaseVersionIdOverride === "string"
+            ? options.engineBaseVersionIdOverride.trim()
+            : activeVersionId?.trim();
+        if (trimmedVersionId) {
+          promptMeta.engineBaseVersionId = trimmedVersionId;
         }
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelTierId = canonicalTier;
@@ -240,7 +265,7 @@ export function useSendMessage(
           imageGenerations: enableImageGenerations,
           meta: promptMeta,
         };
-        if (v0DesignSystemId) requestBody.designSystemId = v0DesignSystemId;
+        if (registryDesignSystemId) requestBody.designSystemId = registryDesignSystemId;
         const trimmedSystem = systemPrompt?.trim();
         const shouldSendSystem =
           Boolean(trimmedSystem) && trimmedSystem !== lastSentSystemPromptRef.current;
@@ -257,7 +282,7 @@ export function useSendMessage(
         streamAbortRef.current = streamController;
         startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
-        const response = await fetch(`/api/v0/chats/${chatId}/stream`, {
+        const response = await fetch(`${engineChatBaseUrl(chatId)}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
@@ -289,15 +314,19 @@ export function useSendMessage(
             chatId,
             setMessages,
             touchStreamSafetyTimer,
-            setCurrentDemoUrl,
+            setCurrentPreviewUrl,
             setSandboxBuildError,
+            setSandboxProdBuild,
+            setSandboxPending,
             onPreviewRefresh,
             onGenerationComplete,
+            onSandboxSessionMeta,
             mutateVersions,
             enableImageMaterialization,
             autoFixHandlerRef,
             promptAssistModel,
             promptAssistDeep,
+            promptAssistMode,
           },
           streamController.signal,
         );
@@ -310,7 +339,7 @@ export function useSendMessage(
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
           try {
-            const fallbackRes = await fetch(`/api/v0/chats/${chatId}/messages`, {
+            const fallbackRes = await fetch(`${engineChatBaseUrl(chatId)}/messages`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(requestBody),
@@ -348,8 +377,14 @@ export function useSendMessage(
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMessageId && !m.content
-              ? { ...m, content: `Varning: ${message}`, isStreaming: false }
+            m.id === assistantMessageId
+              ? {
+                  ...m,
+                  content: m.content?.trim()
+                    ? `${m.content}\n\nVarning: ${message}`
+                    : `Varning: ${message}`,
+                  isStreaming: false,
+                }
               : m,
           ),
         );
@@ -362,19 +397,22 @@ export function useSendMessage(
     },
     [
       chatId,
+      activeVersionId,
       appProjectId,
       createNewChat,
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
-      v0DesignSystemId,
+      registryDesignSystemId,
       designThemePreset,
       systemPrompt,
       setMessages,
-      setCurrentDemoUrl,
+      setCurrentPreviewUrl,
       setSandboxBuildError,
+      setSandboxProdBuild,
       onPreviewRefresh,
       onGenerationComplete,
+      onSandboxSessionMeta,
       selectedModelTier,
       buildIntent,
       buildMethod,
@@ -385,6 +423,7 @@ export function useSendMessage(
       pendingBriefRef,
       promptAssistModel,
       promptAssistDeep,
+      promptAssistMode,
       mutateVersions,
       startStreamSafetyTimer,
       touchStreamSafetyTimer,

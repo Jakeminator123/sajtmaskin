@@ -11,7 +11,6 @@
     "GOOGLE_REDIRECT_URI",
     "GITHUB_REDIRECT_URI",
     "DATA_DIR",
-    "POSTGRES_PRISMA_URL",
     "POSTGRES_URL_NON_POOLING",
     "REGISTRY_BASE_URL",
     "REGISTRY_AUTH_TOKEN",
@@ -22,6 +21,10 @@
     "TEST_USER_PASSWORD",
     "AUTH_DEBUG",
     "DEBUG",
+    "SAJTMASKIN_BUILD_SPEC_ENABLED",
+    "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
+    "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
+    "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
     "LOOPIA_API_USER",
     "LOOPIA_API_PASSWORD",
     "INSPECTOR_CAPTURE_WORKER_TOKEN",
@@ -54,7 +57,8 @@
     "V0_WARN_PROMPT_LENGTH",
     "ENABLE_PEXELS",
     "LEGACY_EMAIL_AUTO_VERIFY_BEFORE",
-    "EMAIL_FROM"
+    "EMAIL_FROM",
+    "SAJTMASKIN_SANDBOX_PREVIEW_MODE"
   ],
   "extraKnownKeys": [
     "ADMIN_EMAILS",
@@ -134,8 +138,12 @@
     "SANITY_API_TOKEN",
     "SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
+    "SAJTMASKIN_BUILD_SPEC_ENABLED",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
+    "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
+    "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
+    "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
     "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
     "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
@@ -152,6 +160,8 @@
     "SAJTMASKIN_SOFT_TARGET_TECHNICAL_CHARS",
     "SAJTMASKIN_SOFT_TARGET_TEMPLATE_CHARS",
     "SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS",
+    "SAJTMASKIN_SANDBOX_PREVIEW_MODE",
+    "SAJTMASKIN_SANDBOX_READINESS_MAX_MS",
     "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
     "SAJTMASKIN_WARN_SYSTEM_LENGTH",
     "STORAGE_BACKEND",
@@ -176,8 +186,6 @@
     "UPSTASH_REDIS_REST_TOKEN",
     "UPSTASH_REDIS_REST_URL",
     "USE_RESPONSES_API",
-    "V0_FALLBACK_BUILDER",
-    "V0_STREAMING_ENABLED",
     "VERCEL",
     "VERCEL_ENV",
     "VERCEL_URL",
@@ -210,12 +218,6 @@
       "notes": "Primary database connection for the app."
     },
     {
-      "key": "POSTGRES_PRISMA_URL",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Alternate pooled database URL."
-    },
-    {
       "key": "POSTGRES_URL_NON_POOLING",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
@@ -226,12 +228,6 @@
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required for auth and session integrity."
-    },
-    {
-      "key": "V0_API_KEY",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Required when v0 fallback is enabled, and also used by v0-backed prompt assist and related integrations."
     },
     {
       "key": "OPENAI_API_KEY",
@@ -246,6 +242,30 @@
       "notes": "Optional flag for OpenAI-backed audit web search."
     },
     {
+      "key": "SAJTMASKIN_BUILD_SPEC_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Feature flag for additive BuildSpec derivation and rollout in the generation pipeline."
+    },
+    {
+      "key": "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Feature flag for budgeted scaffold serialization instead of broad scaffold file dumps."
+    },
+    {
+      "key": "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Feature flag for lighter follow-up context and reduced reference retrieval on narrow edits."
+    },
+    {
+      "key": "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Feature flag for deep-path finalize steps such as image materialization and polish on non-light flows."
+    },
+    {
       "key": "AI_GATEWAY_API_KEY",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
@@ -255,13 +275,13 @@
       "key": "VERCEL_TOKEN",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). See docs/architecture/vercel-sandbox-credentials.md."
+      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). See docs/architecture/preview-deploy.md and docs/ENV.md."
     },
     {
       "key": "VERCEL_TOKEN_FULL",
-      "classification": "environment_specific",
+      "classification": "local_only",
       "recommendedVercelTargets": [],
-      "notes": "Optional local alias for VERCEL_TOKEN only (Sajtmaskin). Prefer VERCEL_TOKEN; never commit either."
+      "notes": "Deprecated — consolidated into VERCEL_TOKEN (vcp_ format). Remove from .env.local if present."
     },
     {
       "key": "VERCEL_TEAM_ID",
@@ -484,18 +504,6 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "CSP enforce-mode toggle."
-    },
-    {
-      "key": "V0_STREAMING_ENABLED",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "v0 streaming feature flag. Only used by v0-fallback path (v0-generator.ts). Candidate for removal when v0-fallback is deprecated."
-    },
-    {
-      "key": "V0_FALLBACK_BUILDER",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": ["development"],
-      "notes": "Affirmative only (y/yes/true/1/on): prefer v0-hosted demoUrl in builder preview when sandbox also exists. Does not enable v0 API codegen. Inlined to NEXT_PUBLIC_V0_BUILDER_PREVIEW_FALLBACK at build (next.config)."
     },
     {
       "key": "LOOPIA_API_USER",

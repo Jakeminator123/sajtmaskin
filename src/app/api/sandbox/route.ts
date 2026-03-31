@@ -5,12 +5,17 @@ import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
 import {
+  getSandboxCommandTextOutput,
+  isSafeRelativePath,
   isSandboxConfigured,
   resolveSandboxAccessCredentials,
+  resolveSandboxTemplateGitUrl,
+  SANDBOX_SETUP_HINT,
 } from "@/lib/mcp/runtime-url";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import type { CodeFile } from "@/lib/gen/parser";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
 const createSandboxSchema = z.object({
   source: z.discriminatedUnion("type", [
@@ -35,30 +40,11 @@ const createSandboxSchema = z.object({
 const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
 
-function isSafeRelativePath(path: string): boolean {
-  if (!path || path.includes("\0")) return false;
-  if (path.startsWith("/") || path.startsWith("\\")) return false;
-  if (path.includes("..")) return false;
-  return /^[A-Za-z0-9._/-]+$/.test(path);
-}
-
-function inferLanguage(fileName: string): string {
-  const normalized = fileName.toLowerCase();
-  if (normalized.endsWith(".tsx")) return "tsx";
-  if (normalized.endsWith(".ts")) return "ts";
-  if (normalized.endsWith(".jsx")) return "jsx";
-  if (normalized.endsWith(".js")) return "js";
-  if (normalized.endsWith(".css")) return "css";
-  if (normalized.endsWith(".json")) return "json";
-  if (normalized.endsWith(".md")) return "md";
-  return "text";
-}
-
 function buildSandboxProjectFiles(sourceFiles: Record<string, string>): Array<[string, string]> {
   const codeFiles: CodeFile[] = Object.entries(sourceFiles).map(([path, content]) => ({
     path,
     content: String(content ?? ""),
-    language: inferLanguage(path),
+    language: inferFileLanguage(path),
   }));
 
   const completedFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
@@ -75,8 +61,9 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error: "Sandbox requires authentication",
-            setup:
-              "Run `vercel link` then `vercel env pull` (OIDC), or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID and pass them to Sandbox.create (see docs/architecture/vercel-sandbox-credentials.md).",
+            code: "sandbox_disabled",
+            setup: SANDBOX_SETUP_HINT,
+            hint: SANDBOX_SETUP_HINT,
           },
           { status: 401 },
         );
@@ -134,7 +121,7 @@ export async function POST(req: Request) {
       } else {
         sourceConfig = {
           type: "git",
-          url: "https://github.com/vercel/sandbox-example-next.git",
+          url: resolveSandboxTemplateGitUrl(),
         };
       }
 
@@ -166,7 +153,12 @@ export async function POST(req: Request) {
         });
 
         if (installResult.exitCode !== 0) {
-          console.error("Install failed with exit code:", installResult.exitCode);
+          const log = await getSandboxCommandTextOutput(installResult);
+          console.error(
+            "Install failed with exit code:",
+            installResult.exitCode,
+            log ? `\n${log.slice(0, 8000)}` : "",
+          );
           try {
             await sandbox.stop();
           } catch (stopError) {
@@ -176,6 +168,7 @@ export async function POST(req: Request) {
             {
               success: false,
               error: `npm install failed (exit ${installResult.exitCode})`,
+              log: log.slice(0, 12_000) || undefined,
             },
             { status: 502 },
           );

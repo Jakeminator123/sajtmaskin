@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-03-24T12:55:25.569Z",
-  "source": "scripts/build-template-library.ts",
+  "generatedAt": "2026-03-31T16:06:53.261Z",
+  "source": "scripts/template-library/build-template-library.ts",
   "scaffolds": {
     "base-nextjs": {
       "qualityChecklist": [
@@ -14,10 +14,10 @@
         ],
         "referenceTemplates": [
           {
-            "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
-            "title": "Modernize Next.js Admin Dashboard Template",
-            "categorySlug": "admin-dashboard",
-            "qualityScore": 94,
+            "id": "saas-next-js-saas-starter",
+            "title": "Next.js SaaS Starter",
+            "categorySlug": "saas",
+            "qualityScore": 96,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
@@ -26,46 +26,51 @@
             ]
           },
           {
-            "id": "realtime-apps-anycable-real-time-starter-kit",
-            "title": "AnyCable Real-time Starter Kit",
-            "categorySlug": "realtime-apps",
-            "qualityScore": 86,
+            "id": "starter-next-js-contentlayer-blog-starter",
+            "title": "Next.js Contentlayer Blog Starter",
+            "categorySlug": "starter",
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
-              "App Router structure"
+              "App Router structure",
+              "editorial content hierarchy",
+              "portfolio or gallery presentation"
             ]
           },
           {
-            "id": "marketing-sites-basehub-marketing-website",
-            "title": "BaseHub Marketing Website",
-            "categorySlug": "marketing-sites",
-            "qualityScore": 86,
+            "id": "starter-next-js-app-router-playground",
+            "title": "Next.js App Router Playground",
+            "categorySlug": "starter",
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
-              "App Router structure"
+              "App Router structure",
+              "pricing or billing structure",
+              "storefront or checkout patterns"
             ]
           },
           {
-            "id": "ecommerce-builder-io-shopify-commerce",
-            "title": "Builder.io Shopify Commerce",
-            "categorySlug": "ecommerce",
-            "qualityScore": 80,
+            "id": "portfolio-magic-portfolio-for-next-js",
+            "title": "Magic Portfolio for Next.js",
+            "categorySlug": "portfolio",
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
-              "dashboard shell patterns",
-              "storefront or checkout patterns",
-              "CMS integration hints"
+              "App Router structure",
+              "editorial content hierarchy",
+              "portfolio or gallery presentation"
             ]
           },
           {
-            "id": "cms-builder-io-shopify-commerce",
-            "title": "Builder.io Shopify Commerce",
-            "categorySlug": "cms",
-            "qualityScore": 78,
+            "id": "blog-next-js-contentlayer-blog-starter",
+            "title": "Next.js Contentlayer Blog Starter",
+            "categorySlug": "blog",
+            "qualityScore": 92,
             "strengths": [
               "verified Next.js codebase",
-              "dashboard shell patterns",
-              "CMS integration hints"
+              "App Router structure",
+              "editorial content hierarchy",
+              "portfolio or gallery presentation"
             ]
           }
         ]
@@ -83,13 +88,15 @@
         ],
         "referenceTemplates": [
           {
-            "id": "realtime-apps-anycable-real-time-starter-kit",
-            "title": "AnyCable Real-time Starter Kit",
-            "categorySlug": "realtime-apps",
-            "qualityScore": 86,
+            "id": "marketing-sites-router-so-headless-forms-and-lead-routing",
+            "title": "Router.so - Headless Forms and Lead Routing",
+            "categorySlug": "marketing-sites",
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
-              "App Router structure"
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
             ]
           },
           {
@@ -115,7 +122,54 @@
           "Better pricing and product proof",
           "More convincing product preview patterns"
         ],
-        "referenceTemplates": []
+        "referenceTemplates": [
+          {
+            "id": "saas-next-js-saas-starter",
+            "title": "Next.js SaaS Starter",
+            "categorySlug": "saas",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "saas-stripe-subscription-starter",
+            "title": "Stripe Subscription Starter",
+            "categorySlug": "saas",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "pricing or billing structure"
+            ]
+          },
+          {
+            "id": "saas-platforms-starter-kit",
+            "title": "Platforms Starter Kit",
+            "categorySlug": "saas",
+            "qualityScore": 90,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "multi-tenant or workspace patterns"
+            ]
+          },
+          {
+            "id": "multi-tenant-apps-platforms-starter-kit",
+            "title": "Platforms Starter Kit",
+            "categorySlug": "multi-tenant-apps",
+            "qualityScore": 90,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "multi-tenant or workspace patterns"
+            ]
+          }
+        ]
       }
     },
     "portfolio": {
@@ -128,7 +182,44 @@
           "Richer project storytelling",
           "More image-forward layout options"
         ],
-        "referenceTemplates": []
+        "referenceTemplates": [
+          {
+            "id": "portfolio-magic-portfolio-for-next-js",
+            "title": "Magic Portfolio for Next.js",
+            "categorySlug": "portfolio",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "portfolio or gallery presentation"
+            ]
+          },
+          {
+            "id": "starter-next-js-contentlayer-blog-starter",
+            "title": "Next.js Contentlayer Blog Starter",
+            "categorySlug": "starter",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "portfolio or gallery presentation"
+            ]
+          },
+          {
+            "id": "blog-next-js-contentlayer-blog-starter",
+            "title": "Next.js Contentlayer Blog Starter",
+            "categorySlug": "blog",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "portfolio or gallery presentation"
+            ]
+          }
+        ]
       }
     },
     "blog": {
@@ -141,7 +232,20 @@
           "Better article and archive patterns",
           "Stronger editorial hierarchy"
         ],
-        "referenceTemplates": []
+        "referenceTemplates": [
+          {
+            "id": "cms-prismic-blog",
+            "title": "Prismic Blog",
+            "categorySlug": "cms",
+            "qualityScore": 86,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "CMS integration hints"
+            ]
+          }
+        ]
       }
     },
     "dashboard": {
@@ -156,6 +260,30 @@
         ],
         "referenceTemplates": [
           {
+            "id": "authentication-chatbot",
+            "title": "Chatbot",
+            "categorySlug": "authentication",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "ai-chatbot",
+            "title": "Chatbot",
+            "categorySlug": "ai",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
             "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
             "title": "Modernize Next.js Admin Dashboard Template",
             "categorySlug": "admin-dashboard",
@@ -168,26 +296,27 @@
             ]
           },
           {
-            "id": "ecommerce-builder-io-shopify-commerce",
-            "title": "Builder.io Shopify Commerce",
-            "categorySlug": "ecommerce",
-            "qualityScore": 80,
+            "id": "ai-morphic-ai-powered-answer-engine",
+            "title": "Morphic: AI-powered answer engine",
+            "categorySlug": "ai",
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
-              "dashboard shell patterns",
-              "storefront or checkout patterns",
-              "CMS integration hints"
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
             ]
           },
           {
-            "id": "cms-builder-io-shopify-commerce",
-            "title": "Builder.io Shopify Commerce",
-            "categorySlug": "cms",
-            "qualityScore": 78,
+            "id": "marketing-sites-router-so-headless-forms-and-lead-routing",
+            "title": "Router.so - Headless Forms and Lead Routing",
+            "categorySlug": "marketing-sites",
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
-              "dashboard shell patterns",
-              "CMS integration hints"
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
             ]
           }
         ]
@@ -205,9 +334,57 @@
         ],
         "referenceTemplates": [
           {
+            "id": "authentication-chatbot",
+            "title": "Chatbot",
+            "categorySlug": "authentication",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "ai-chatbot",
+            "title": "Chatbot",
+            "categorySlug": "ai",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
             "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
             "title": "Modernize Next.js Admin Dashboard Template",
             "categorySlug": "admin-dashboard",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "ai-morphic-ai-powered-answer-engine",
+            "title": "Morphic: AI-powered answer engine",
+            "categorySlug": "ai",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "marketing-sites-router-so-headless-forms-and-lead-routing",
+            "title": "Router.so - Headless Forms and Lead Routing",
+            "categorySlug": "marketing-sites",
             "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
@@ -230,6 +407,53 @@
           "Clearer storefront information architecture"
         ],
         "referenceTemplates": [
+          {
+            "id": "ecommerce-stripe-subscription-starter",
+            "title": "Stripe Subscription Starter",
+            "categorySlug": "ecommerce",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "pricing or billing structure"
+            ]
+          },
+          {
+            "id": "authentication-stripe-subscription-starter",
+            "title": "Stripe Subscription Starter",
+            "categorySlug": "authentication",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "pricing or billing structure"
+            ]
+          },
+          {
+            "id": "starter-next-js-app-router-playground",
+            "title": "Next.js App Router Playground",
+            "categorySlug": "starter",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "pricing or billing structure",
+              "storefront or checkout patterns"
+            ]
+          },
+          {
+            "id": "ecommerce-next-js-commerce",
+            "title": "Next.js Commerce",
+            "categorySlug": "ecommerce",
+            "qualityScore": 88,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "storefront or checkout patterns"
+            ]
+          },
           {
             "id": "ecommerce-builder-io-shopify-commerce",
             "title": "Builder.io Shopify Commerce",
@@ -257,13 +481,14 @@
         ],
         "referenceTemplates": [
           {
-            "id": "cms-builder-io-shopify-commerce",
-            "title": "Builder.io Shopify Commerce",
+            "id": "cms-prismic-blog",
+            "title": "Prismic Blog",
             "categorySlug": "cms",
-            "qualityScore": 78,
+            "qualityScore": 86,
             "strengths": [
               "verified Next.js codebase",
-              "dashboard shell patterns",
+              "App Router structure",
+              "editorial content hierarchy",
               "CMS integration hints"
             ]
           }
@@ -282,6 +507,30 @@
         ],
         "referenceTemplates": [
           {
+            "id": "authentication-chatbot",
+            "title": "Chatbot",
+            "categorySlug": "authentication",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "ai-chatbot",
+            "title": "Chatbot",
+            "categorySlug": "ai",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
             "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
             "title": "Modernize Next.js Admin Dashboard Template",
             "categorySlug": "admin-dashboard",
@@ -294,26 +543,26 @@
             ]
           },
           {
-            "id": "ecommerce-builder-io-shopify-commerce",
-            "title": "Builder.io Shopify Commerce",
-            "categorySlug": "ecommerce",
-            "qualityScore": 80,
+            "id": "ai-morphic-ai-powered-answer-engine",
+            "title": "Morphic: AI-powered answer engine",
+            "categorySlug": "ai",
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
-              "dashboard shell patterns",
-              "storefront or checkout patterns",
-              "CMS integration hints"
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
             ]
           },
           {
-            "id": "cms-builder-io-shopify-commerce",
-            "title": "Builder.io Shopify Commerce",
-            "categorySlug": "cms",
-            "qualityScore": 78,
+            "id": "admin-dashboard-visactor-next-js-template",
+            "title": "VisActor Next.js Template",
+            "categorySlug": "admin-dashboard",
+            "qualityScore": 90,
             "strengths": [
               "verified Next.js codebase",
-              "dashboard shell patterns",
-              "CMS integration hints"
+              "App Router structure",
+              "dashboard shell patterns"
             ]
           }
         ]

@@ -293,6 +293,77 @@ describe("runPostGenerationChecks", () => {
     expect(body.logs[0]?.meta?.previewCode).toBe("preview_missing_url");
   });
 
+  it("does not queue autofix while live-preview is still starting in sandbox", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Sandbox not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: null,
+      preflight: {
+        previewBlocked: false,
+        verificationBlocked: false,
+        previewBlockingReason: "Automatic preflight could not build a renderable own-engine preview entrypoint.",
+        primaryPreviewTarget: "sandbox",
+        sandbox: {
+          canStartSandbox: true,
+          primaryPreviewTarget: "sandbox",
+          shimBlocked: true,
+          requiresEnvConfig: false,
+          hasCriticalInstallRisk: false,
+          hasCriticalCodeFailure: false,
+          compatibilityShimAllowed: true,
+          issueCounts: {
+            code_structure_failure: 0,
+            dependency_install_failure: 0,
+            env_config_missing: 0,
+            shim_preview_failure: 1,
+            non_blocking_quality_warning: 0,
+          },
+          blockingCategories: [],
+        },
+      },
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+
+    const postCheck = getToolPart("Post-check", store);
+    expect((postCheck?.output as Record<string, unknown>).demoUrl).toBeNull();
+    expect(((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>).failures).not.toContain(
+      "missing_preview_url",
+    );
+    expect(((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>).failures).not.toContain(
+      "preflight_preview_blocked",
+    );
+    expect(onAutoFix).not.toHaveBeenCalled();
+  });
+
   it("keeps preview available when only verification is blocked", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
@@ -417,10 +488,14 @@ describe("runPostGenerationChecks", () => {
     expect(onAutoFix).toHaveBeenCalledWith(
       expect.objectContaining({
         reasons: ["build failed"],
-        meta: {
-          qualityGate: {
-            build: "Build failed: missing export",
-          },
+        repair: {
+          qualityGate: [
+            {
+              check: "build",
+              exitCode: 1,
+              output: "Build failed: missing export",
+            },
+          ],
         },
       }),
     );

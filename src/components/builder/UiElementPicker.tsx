@@ -31,7 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
+import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import {
   type ComponentCategory,
   type ComponentItem,
@@ -44,8 +44,12 @@ import {
   buildRegistryItemUrl,
   buildPreviewImageUrl,
   FEATURED_BLOCKS,
-} from "@/lib/shadcn-registry-service";
-import { getRegistryBaseUrl, getRegistryStyle, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
+} from "@/lib/shadcn/registry-service";
+import {
+  getRegistryBaseUrl,
+  getRegistryStyle,
+  resolveRegistryStyle,
+} from "@/lib/shadcn/registry-url";
 import {
   analyzeSections,
   generatePlacementOptions,

@@ -2,8 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const handleMessageStreamRequest = vi.hoisted(() => vi.fn());
 
-vi.mock("../stream/route", () => ({
+vi.mock("@/lib/api/engine/chats/chat-message-stream-post", () => ({
   handleMessageStreamRequest,
+  POST: handleMessageStreamRequest,
+}));
+vi.mock("@/app/api/engine/chats/[chatId]/stream/route", () => ({
+  handleMessageStreamRequest,
+  POST: handleMessageStreamRequest,
 }));
 
 import { POST } from "./route";
@@ -42,7 +47,7 @@ describe("POST /api/v0/chats/[chatId]/messages", () => {
               chatId: "chat_1",
               messageId: "msg_1",
               versionId: "ver_1",
-              demoUrl: "https://preview.example/chat_1/ver_1",
+              previewUrl: "https://preview.example/chat_1/ver_1",
             },
           },
         ],
@@ -61,12 +66,12 @@ describe("POST /api/v0/chats/[chatId]/messages", () => {
       chatId: "chat_1",
       messageId: "msg_1",
       versionId: "ver_1",
-      demoUrl: "https://preview.example/chat_1/ver_1",
+      previewUrl: "https://preview.example/chat_1/ver_1",
       text: "Uppdaterad hemsida",
       latestVersion: {
         id: "ver_1",
         versionId: "ver_1",
-        demoUrl: "https://preview.example/chat_1/ver_1",
+        previewUrl: "https://preview.example/chat_1/ver_1",
         messageId: "msg_1",
       },
     });
@@ -93,7 +98,7 @@ describe("POST /api/v0/chats/[chatId]/messages", () => {
           data: {
             chatId: "chat_1",
             versionId: null,
-            demoUrl: null,
+            previewUrl: null,
             messageId: null,
             awaitingInput: true,
             reason: "followup_redesign_ambiguous",
@@ -111,7 +116,7 @@ describe("POST /api/v0/chats/[chatId]/messages", () => {
     await expect(response.json()).resolves.toMatchObject({
       chatId: "chat_1",
       versionId: null,
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       awaitingInputPrompt: {
         question: "Vad vill du att jag fokuserar på i nästa ändring?",

@@ -43,8 +43,17 @@ export function parseCodeProject(content: string): CodeProject {
     if (!rawPath || !fileContent.trim()) continue;
 
     const validation = validateFilePath(rawPath);
-    const path = validation.valid ? rawPath : sanitizeFilePath(rawPath);
-    if (!path || path === "unnamed-file.txt") continue;
+    let path: string | null = null;
+    if (validation.valid) {
+      path = rawPath;
+    } else {
+      const sanitized = sanitizeFilePath(rawPath);
+      if (!sanitized || sanitized === "unnamed-file.txt") continue;
+      const again = validateFilePath(sanitized);
+      if (!again.valid) continue;
+      path = sanitized;
+    }
+    if (!path) continue;
 
     if (seen.has(path)) continue;
     seen.add(path);

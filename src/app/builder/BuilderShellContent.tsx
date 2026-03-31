@@ -9,7 +9,7 @@ import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/com
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
-import { PreviewPanel } from "@/components/builder/PreviewPanel";
+import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
 import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
@@ -31,7 +31,8 @@ import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { DomainManager } from "@/components/builder/DomainManager";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
-import { RequireAuthModal } from "@/components/auth";
+import { RequireAuthModal } from "@/components/auth/require-auth-modal";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import {
@@ -157,6 +158,11 @@ async function classifyIntent(message: string): Promise<"build" | "help"> {
 export function BuilderShellContent(vm: BuilderViewModel) {
   const { isHelpStreaming, sendHelpMessage, cancelHelp } = useBuilderHelpChat();
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt || isHelpStreaming;
+  const isPreviewLoading =
+    vm.isCreatingChat ||
+    vm.sandboxPending ||
+    vm.previewLifecycle === "recovering" ||
+    (!vm.currentPreviewUrl && vm.isAnyStreaming);
   const sendMessage = vm.sendMessage;
   const isDeployActionBusy =
     vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
@@ -233,7 +239,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               projectId: vm.appProjectId,
               chatId: vm.chatId,
               activeVersionId: vm.activeVersionId,
-              demoUrl: vm.currentDemoUrl,
+              demoUrl: vm.currentPreviewUrl,
               uiSurfaces: [
                 "vänster chatpanel",
                 "Lanseringskortet",
@@ -298,7 +304,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       vm.activeVersionId,
       vm.appProjectId,
       vm.chatId,
-      vm.currentDemoUrl,
+      vm.currentPreviewUrl,
       vm.currentPageCode,
       vm.messages,
     ],
@@ -399,7 +405,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       chatId: vm.chatId,
       buildMethod: vm.buildMethod,
       activeVersionId: vm.activeVersionId,
-      demoUrl: vm.currentDemoUrl,
+      demoUrl: vm.currentPreviewUrl,
       selectedModelTier: vm.selectedModelTier,
       selectedModelLabel,
       promptAssistModel: vm.promptAssistModel,
@@ -419,7 +425,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.chatId,
     vm.buildMethod,
     vm.activeVersionId,
-    vm.currentDemoUrl,
+    vm.currentPreviewUrl,
     vm.selectedModelTier,
     vm.promptAssistModel,
     vm.promptAssistDeep,
@@ -451,13 +457,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   useEffect(() => {
     if (!pendingPlacementRequest) return;
-    if (vm.chatId && vm.currentDemoUrl) return;
+    if (vm.chatId && vm.currentPreviewUrl) return;
     resolvePlacementFlow("cancelled");
-  }, [pendingPlacementRequest, resolvePlacementFlow, vm.chatId, vm.currentDemoUrl]);
+  }, [pendingPlacementRequest, resolvePlacementFlow, vm.chatId, vm.currentPreviewUrl]);
 
   const handleRequestPlacement = useCallback(
     async (request: VisualPlacementRequest) => {
-      if (!vm.chatId || !vm.currentDemoUrl) return "fallback";
+      if (!vm.chatId || !vm.currentPreviewUrl) return "fallback";
 
       const existingResolver = placementResolverRef.current;
       if (existingResolver) {
@@ -473,7 +479,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         placementResolverRef.current = resolve;
       });
     },
-    [vm.chatId, vm.currentDemoUrl],
+    [vm.chatId, vm.currentPreviewUrl],
   );
 
   const handlePlacementComplete = useCallback(
@@ -578,17 +584,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     async (url: string) => {
       if (!vm.chatId || !vm.activeVersionId) return;
       try {
-        const response = await fetch(
-          `/api/v0/chats/${encodeURIComponent(vm.chatId)}/versions`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              versionId: vm.activeVersionId,
-              sandboxUrl: url,
-            }),
-          },
-        );
+        const response = await fetch(`${engineChatBaseUrl(vm.chatId)}/versions`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            versionId: vm.activeVersionId,
+            sandboxUrl: url,
+          }),
+        });
         if (!response.ok) {
           const data = (await response.json().catch(() => null)) as { error?: string } | null;
           console.warn(
@@ -608,14 +611,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const handleUseSandboxInPreview = useCallback(
     (url: string) => {
       vm.setClearedPreviewVersionId(null);
-      vm.setCurrentDemoUrl(url);
+      vm.setCurrentPreviewUrl(url);
       void persistPreviewOverride(url, vm.activeVersionId);
       void persistSandboxUrlForVersion(url);
     },
     [
       vm.activeVersionId,
       vm.setClearedPreviewVersionId,
-      vm.setCurrentDemoUrl,
+      vm.setCurrentPreviewUrl,
       persistPreviewOverride,
       persistSandboxUrlForVersion,
     ],
@@ -623,12 +626,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   const handleClearPreview = useCallback(() => {
     vm.setClearedPreviewVersionId(vm.activeVersionId ?? null);
-    vm.setCurrentDemoUrl(null);
+    vm.setCurrentPreviewUrl(null);
     void persistPreviewOverride(null, null);
   }, [
     vm.activeVersionId,
     vm.setClearedPreviewVersionId,
-    vm.setCurrentDemoUrl,
+    vm.setCurrentPreviewUrl,
     persistPreviewOverride,
   ]);
 
@@ -750,6 +753,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onGoHome={vm.handleGoHome}
         onNewChat={vm.resetToNewChat}
         onSaveProject={vm.handleSaveProject}
+        onCancelGeneration={vm.cancelActiveGeneration}
         isDeploying={vm.isDeploying}
         isCreatingChat={vm.isCreatingChat || vm.isTemplateLoading}
         isAnyStreaming={vm.isAnyStreaming}
@@ -800,7 +804,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           )}
         >
           <Eye className="h-4 w-4" />
-          {vm.currentDemoUrl && mobileTab !== "preview" && (
+          {vm.currentPreviewUrl && mobileTab !== "preview" && (
             <span className="bg-primary absolute top-1.5 right-[calc(50%-12px)] h-1.5 w-1.5 rounded-full" />
           )}
         </button>
@@ -940,10 +944,19 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <PreviewPanel
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
-              demoUrl={vm.currentDemoUrl}
+              previewUrl={vm.currentPreviewUrl}
+              alternatePreviewUrls={vm.activeVersionAlternatePreview}
               sandboxBuildError={vm.sandboxBuildError}
-              onNavigatePreviewUrl={(url) => vm.setCurrentDemoUrl(url)}
-              isLoading={vm.isAnyStreaming || vm.isCreatingChat}
+              sandboxProdBuild={vm.sandboxProdBuild}
+              sandboxPending={vm.sandboxPending}
+              activeSandboxId={vm.activeSandboxId}
+              previewLifecycle={vm.previewLifecycle}
+              onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
+              onNavigatePreviewUrl={(url) => {
+                vm.setCurrentPreviewUrl(url);
+                vm.bumpPreviewRefreshToken();
+              }}
+              isLoading={isPreviewLoading}
               imageGenerationsEnabled={vm.enableImageGenerations}
               imageGenerationsSupported={vm.isImageGenerationsSupported}
               isBlobConfigured={vm.isMediaEnabled}
@@ -1010,7 +1023,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             vm.router.replace(`/builder?${params.toString()}`);
           }
           vm.setMessages([]);
-          vm.setCurrentDemoUrl(null);
+          vm.setCurrentPreviewUrl(null);
         }}
       />
 

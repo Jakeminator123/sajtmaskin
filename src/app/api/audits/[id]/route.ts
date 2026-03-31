@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getUserAuditById, deleteUserAudit } from "@/lib/db/services";
+import { deleteUserAudit, getUserAuditById } from "@/lib/db/services/audits";
 import { getCachedAudit, invalidateUserAuditCache } from "@/lib/data/redis";
 
 interface RouteContext {

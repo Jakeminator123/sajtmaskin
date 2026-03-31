@@ -7,8 +7,7 @@
  * Build Models:
  *   - The first group represents build profiles, not prompt-assist models.
  *   - Profiles map to the own engine's provider model IDs (codegen is own-engine only).
- *   - `V0_FALLBACK_BUILDER` does not change build models; it only affects optional
- *     preview URL preference when a v0-hosted demo exists.
+ *   - own-engine is the canonical codegen path.
  *   - Prompt Assist models are listed separately below and are only used to
  *     rewrite/brief the prompt before generation.
  *
@@ -57,13 +56,15 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "max",
     label: "Tanker",
-    description: "Stor/dyrare profil. GPT-5.4 för komplexare jobb och mer resonemang.",
+    description:
+      "GPT-5.4 — resonemang/thinking som standard i strömmen (inte samma profil som «Kod Max»/codex nedan).",
     hint: "dyr",
   },
   {
     value: "codex",
     label: "Kod Max",
-    description: "Specialiserad kodprofil. GPT-5.1 Codex Max för längre och tyngre kodarbete.",
+    description:
+      "Separat tung kodmodell (gpt-5.1-codex-max). Använd när du uttryckligen vill codex-varianten — vardagsläge för stark modell är «Tanker» ovan.",
   },
   {
     value: "anthropic",
@@ -141,9 +142,6 @@ export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
   deep: true,
 };
 
-/** Whether prompt assist is enabled by default (kept in sync with provider) */
-export const DEFAULT_PROMPT_ASSIST_ENABLED = true;
-
 // ============================================
 // OTHER DEFAULTS
 // ============================================
@@ -161,7 +159,7 @@ export const DEFAULT_SPEC_MODE = true;
  * Core instructions — always relevant regardless of scaffold/engine.
  * Covers tech stack, shadcn setup, language, and accessibility basics.
  */
-export const CORE_CUSTOM_INSTRUCTIONS = `## Tech Stack
+const CORE_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Next.js App Router with TypeScript (React 19)
 - Tailwind CSS v4 for styling (utility classes)
 - shadcn/ui components (\`@/components/ui/*\`, style "new-york-v4")
@@ -192,7 +190,7 @@ export const CORE_CUSTOM_INSTRUCTIONS = `## Tech Stack
  * Only useful when NO scaffold is active, since scaffolds (and the engine's
  * STATIC_CORE) already provide comprehensive design guidance.
  */
-export const EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
+const EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
 - Treat theme tokens as source of truth. Do not drift into ad-hoc colors if a theme is selected.
 - Build in this order: small reusable components -> section blocks -> full page composition.
 - Reuse existing UI primitives/components before adding new ones.
@@ -285,9 +283,6 @@ const ALL_DEFAULTS = new Set([
 export function isDefaultCustomInstructions(value: string): boolean {
   return ALL_DEFAULTS.has(value.trim());
 }
-
-/** Legacy constant — full instructions (scaffold off). Prefer getDefaultCustomInstructions(). */
-export const DEFAULT_CUSTOM_INSTRUCTIONS = `${CORE_CUSTOM_INSTRUCTIONS}\n\n${EXTENDED_CUSTOM_INSTRUCTIONS}`;
 
 /** Spec file reference to append to system prompt when spec mode is active */
 export const SPEC_FILE_INSTRUCTION = `\n\n## Spec File

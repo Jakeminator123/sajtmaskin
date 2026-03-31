@@ -22,6 +22,24 @@ export const saasLandingManifest: ScaffoldManifest = {
     "Keep the product narrative: problem, product value, feature panels, pricing, FAQ, and final CTA.",
     "The right-side hero card is a product preview slot and should stay visually product-led.",
   ],
+  qualityChecklist: [
+    "Replace every {{PRODUCT_NAME}} placeholder with the real product name from the brief (header, footer, metadata, visible strings) — never ship the literal token.",
+    "Pricing tiers have realistic names, prices, and feature lists matching the prompt.",
+    "FAQ answers are specific to the user's product, not generic scaffold text.",
+    "Hero dashboard preview card reflects the actual product's metrics/domain.",
+    "Feature icons and descriptions match the product's value proposition.",
+    "Dark theme colors adapted to the product's brand, not left as default blue.",
+  ],
+  research: {
+    upgradeTargets: [
+      "Add a product screenshot or animated preview in the hero dashboard card.",
+      "Include a trust bar with customer logos or integration partner badges.",
+      "Add toggle for monthly/annual pricing with discount indicator.",
+      "Include comparison table for pricing tiers on larger screens.",
+      "Generate structured data (JSON-LD SoftwareApplication) for SEO.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",
@@ -336,7 +354,8 @@ export function MarketingHeader() {
     <header className="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <a href="/" className="font-semibold tracking-tight">
-          Orbit OS
+          {/* REPLACE: product name from user brief — do not leave placeholder in output */}
+          {"{{PRODUCT_NAME}}"}
         </a>
 
         <nav className="hidden items-center gap-7 md:flex">
@@ -442,7 +461,10 @@ export function MarketingFooter() {
     <footer className="px-6 py-12 sm:px-8">
       <div className="mx-auto grid max-w-6xl gap-10 rounded-4xl border bg-card/75 p-8 lg:grid-cols-[1.15fr_0.8fr_0.8fr_0.8fr]">
         <div className="space-y-4">
-          <p className="text-lg font-semibold tracking-tight">Orbit OS</p>
+          <p className="text-lg font-semibold tracking-tight">
+            {/* REPLACE: product name from user brief */}
+            {"{{PRODUCT_NAME}}"}
+          </p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
             Product-led SaaS starter for sharper launches, clearer pricing, and a stronger marketing baseline.
           </p>

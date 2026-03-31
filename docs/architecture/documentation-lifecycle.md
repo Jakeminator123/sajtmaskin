@@ -1,64 +1,48 @@
-# Documentation Lifecycle
+# Dokumentationslivscykel
 
-**Navigation hub:** [`docs/README.md`](../README.md) (terminology layers, env table, key links).
+**Varför den här filen ligger i `docs/architecture/` (inte i `.cursor/rules/`):** Den beskriver **vad som får ligga var i `docs/`** och hur planfiler åldras. Det är **innehållspolicy** för dokumentationen. Projektregler i `.cursor/rules/` ska **länka hit** — inte duplicera samma policy ordagrant (en sanning, ett ställe).
 
-This document defines how planning docs, schema notes, and handoff material
-should be routed in this repository so they do not pile up as one flat archive.
+**Översikt över hur hela projektet hänger ihop (hög nivå):** [`docs/architecture/README.md`](./README.md) och [`system-overview.md`](./system-overview.md). Uppdatera dem vid **strukturella eller stora beteendeändringar** — inte för varje liten bugfix. Små ändringar hör hemma i commit/PR och kod; skapa inte nya översiktsfiler för kosmetik.
 
-## Status model
+**Nav:** [`docs/README.md`](../README.md) · planer: [`docs/plans/README.md`](../plans/README.md) · backlog: [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) · rot-träd: [`repo-tree.md`](./repo-tree.md).
 
-Use these three states consistently:
+## Status för planfiler
 
-| Status | Meaning | Canonical location |
-|------|---------|--------------------|
-| `active` | Current, execution-ready material that should guide work now | `docs/plans/active/` |
-| `review-needed` | Older, partial, uncertain, or stale material that must be truth-checked before reuse | `docs/plans/review-needed/` |
-| `archived` | Completed, superseded, or purely historical material | `docs/plans/archived/` |
+| Status | Betydelse | Var |
+|--------|-----------|-----|
+| `active` | Styr arbete nu | `docs/plans/active/` |
+| `avklarat` | Avklarat / historik (ofta bara i git) | `docs/plans/avklarat/` |
 
-## Directory rules
+Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts.
 
-| Area | What belongs here | What does not |
-|------|-------------------|---------------|
-| `docs/architecture/` | Canonical overviews, lifecycle policy, structural decisions, agent handoff docs | Temporary scratch notes or stale plans |
-| `docs/schemas/` | Stable human-readable schema docs backed by runtime code | Draft or uncertain schema proposals |
-| `docs/architecture/engine-status.md` | Own engine status, model tiers, scaffold system, generation capabilities | Temporary scratch notes or stale plans |
-| `docs/plans/active/` | Plans that are still supposed to drive implementation | Completed or doubtful plans |
-| `docs/plans/review-needed/` | Older plans that need a reality check | Canonical architecture docs |
-| `docs/old/` | Archived historical material outside the plan lifecycle buckets | Active guidance |
+## Regler (kort)
 
-## Plan workflow
+| Område | Här hör | Hit hör inte |
+|--------|---------|--------------|
+| `docs/architecture/` | Kanoniska översikter (fyra huvuddokument + denna fil) | Tillfälliga scratch |
+| `docs/schemas/` | Stabila schema-beskrivningar (sanning i kod) | Osäkra utkast |
+| `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
+| `docs/handoffs/` | [`README.md`](../handoffs/README.md) som pekare; tidigare handoff-`*.md` borttagna (fulltext i git-historik). **Binära diagramfiler** under `handoffs/bilder/` rensades i samma städspår som post-epic-merge (återställ via git om du behöver en gammal PNG). Lägg inte till nya binärer här om inget kanoniskt doc uttryckligen länkar till dem | Kanonisk arkitektur, `PROJECT-STATE-AND-DIRECTION.md`, eller nytt scope under `docs/architecture/` |
+| `docs/notes/` | Scratch / sessionsloggar — rensa periodiskt | Stabil referens |
+| `docs/archive/` | Kort pekare / tillfälligt arkivmaterial — inte kanon; flytta viktigt till backlog eller arkitektur | Ny aktiv planering som enda sanning |
+| `docs/old/` | [`README.md`](../old/README.md) — pekare; tidigare innehåll i git-historik | Nytt arbetsmaterial |
 
-1. Create new execution plans in `docs/plans/active/`.
-2. If implementation drifts, gets blocked, or becomes uncertain, move the plan to
-   `docs/plans/review-needed/`.
-3. When the work is completed or the plan is superseded, move it to
-   `docs/plans/archived/`.
-4. Update `docs/plans/README.md` and
-   `docs/architecture/agent-roadmap-and-handoff.md` whenever a plan changes
-   state.
+**Navigering:** `docs/README.md` är enda fulla navtabellen. `AGENTS.md` och `.cursor/README.md` ska vara tunna pekare — inga duplicerade orienteringstabeller.
 
-## Current classification
+**Plan-flöde:** nya planer i `active/` → när klart eller ersatt, flytta till `avklarat/` eller lita på git-historik. Uppdatera [`docs/plans/README.md`](../plans/README.md) vid större ändring.
 
-Do **not** duplicate the plan inventory here — it goes stale quickly. Use:
+**Rensa:** när du uppdaterar en kanonisk fil, ta bort **föråldrat** innehåll i samma fil i stället för att lägga parallella «nya sanningar».
 
-- `docs/plans/README.md` — bucket list and short status map (authoritative file list)
-- `docs/architecture/agent-roadmap-and-handoff.md` — read order, working rules, and narrative (not a duplicate plan table)
+## Schema
 
-## Schema rule
+Utforskande schema-anteckningar: håll i `active/` tills de kan flyttas till `schemas/` eller `avklarat/`.
 
-`docs/schemas/` should contain only canonical, reasonably stable schema docs.
+## Större strukturändringar
 
-If a schema note is exploratory, partially true, or comparing alternatives:
+1. Uppdatera **kanonisk** fil under `docs/architecture/`, inte parallella kopior.  
+2. Uppdatera relevant README i samma veva.  
+3. Markera planstatus tydligt.
 
-- put it under **`docs/old/analyses/`** while it is active thinking (standard bucket; update [`docs/README.md`](../README.md) if you add a new index there)
-- put it in **`docs/old/schemas/`** if it is historical or superseded schema material
+## Historik
 
-## Update checklist
-
-When making a large structural or documentation change:
-
-1. Update the canonical doc in `docs/architecture/` instead of creating a
-   parallel note.
-2. Update the relevant README or index in the same turn.
-3. Make the lifecycle status explicit if the document is a plan.
-4. Avoid leaving root-level notes whose status is unclear.
+Hela `docs/architecture/archive/` (inkl. tidigare `pre-2026-03-consolidation/`) finns **inte** i trädet längre. Återställ vid behov med `git log` / `git show` på historiska sökvägar under `docs/architecture/archive/`.

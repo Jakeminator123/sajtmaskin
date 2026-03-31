@@ -130,45 +130,6 @@ export async function domainIsFree(domain: string): Promise<DomainFreeStatus> {
 }
 
 /**
- * Get available TLDs for a domain name via Loopia.
- * Returns an array of TLDs (e.g. ["se", "nu", "com"]).
- */
-export async function getAvailableTlds(domainBase: string): Promise<string[]> {
-  const { user, password } = getCredentials();
-
-  try {
-    const xml = await callRpc("getAvailableTLDs", [user, password, domainBase]);
-    return extractAllStringValues(xml).filter((v) => !v.startsWith("OK") && v.length < 10);
-  } catch (error) {
-    console.error("[Loopia] getAvailableTlds failed:", error);
-    return [];
-  }
-}
-
-/**
- * Batch-check multiple .se/.nu domains.
- * Returns a map of domain -> available (true/false/null for error).
- */
-export async function checkMultipleDomains(
-  domains: string[],
-): Promise<Map<string, boolean | null>> {
-  const results = new Map<string, boolean | null>();
-
-  const checks = domains.map(async (domain, index) => {
-    // Stagger to respect 15 searches/min limit
-    await new Promise((resolve) => setTimeout(resolve, index * 250));
-    const status = await domainIsFree(domain);
-    results.set(
-      domain,
-      status === "OK" ? true : status === "DOMAIN_OCCUPIED" ? false : null,
-    );
-  });
-
-  await Promise.all(checks);
-  return results;
-}
-
-/**
  * Add a DNS zone record (e.g. CNAME for Vercel).
  * Used after purchasing a domain to point it to Vercel.
  */

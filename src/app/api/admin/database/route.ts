@@ -24,9 +24,10 @@ import {
   transactions,
   users,
 } from "@/lib/db/schema";
-import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services";
+import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services/shared";
 import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
 import { PATHS } from "@/lib/config";
+import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 
 async function countTable(table: unknown): Promise<number> {
   const rows = await db.select({ count: sql<number>`count(*)` }).from(table as never);
@@ -356,57 +357,21 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // MEGA CLEANUP - Clear v0, Vercel, Postgres, and Redis
+    // MEGA CLEANUP - Clear Vercel, Postgres, and Redis
     // ═══════════════════════════════════════════════════════════════════════════
 
     if (action === "mega-cleanup") {
       const results: {
-        v0: { deleted: number; errors: string[] };
         vercel: { deleted: number; errors: string[] };
         database: { deleted: number };
         redis: { success: boolean };
       } = {
-        v0: { deleted: 0, errors: [] },
         vercel: { deleted: 0, errors: [] },
         database: { deleted: 0 },
         redis: { success: false },
       };
 
-      const v0ApiKey = process.env.V0_API_KEY;
-      if (v0ApiKey) {
-        try {
-          const projectsRes = await fetch("https://api.v0.dev/v1/projects", {
-            headers: { Authorization: `Bearer ${v0ApiKey}` },
-          });
-
-          if (projectsRes.ok) {
-            const projectsData = await projectsRes.json();
-            const v0Projects = projectsData.data || [];
-
-            for (const proj of v0Projects) {
-              try {
-                const delRes = await fetch(`https://api.v0.dev/v1/projects/${proj.id}`, {
-                  method: "DELETE",
-                  headers: { Authorization: `Bearer ${v0ApiKey}` },
-                });
-                if (delRes.ok) {
-                  results.v0.deleted++;
-                }
-              } catch (err) {
-                results.v0.errors.push(
-                  `Failed to delete ${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`,
-                );
-              }
-            }
-          }
-        } catch (err) {
-          results.v0.errors.push(
-            `Failed to fetch v0 projects: ${err instanceof Error ? err.message : "Unknown"}`,
-          );
-        }
-      }
-
-      const vercelToken = process.env.VERCEL_TOKEN;
+      const vercelToken = pickVercelAccessTokenFromEnv();
       if (vercelToken) {
         try {
           const projectsRes = await fetch("https://api.vercel.com/v9/projects", {
@@ -467,74 +432,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         results,
-        message: `Mega cleanup: ${results.v0.deleted} v0, ${results.vercel.deleted} Vercel, ${results.database.deleted} DB rows`,
+        message: `Mega cleanup: ${results.vercel.deleted} Vercel, ${results.database.deleted} DB rows`,
       });
     }
 
-    if (action === "cleanup-v0-projects") {
-      const v0ApiKey = process.env.V0_API_KEY;
-      if (!v0ApiKey) {
-        return NextResponse.json({
-          success: false,
-          error: "V0_API_KEY not configured",
-        });
-      }
-
-      const deleted: string[] = [];
-      const errors: string[] = [];
-
-      try {
-        const projectsRes = await fetch("https://api.v0.dev/v1/projects", {
-          headers: { Authorization: `Bearer ${v0ApiKey}` },
-        });
-
-        if (!projectsRes.ok) {
-          return NextResponse.json({
-            success: false,
-            error: `Failed to fetch v0 projects: ${projectsRes.status}`,
-          });
-        }
-
-        const projectsData = await projectsRes.json();
-        const v0Projects = projectsData.data || [];
-
-        for (const proj of v0Projects) {
-          try {
-            const delRes = await fetch(`https://api.v0.dev/v1/projects/${proj.id}`, {
-              method: "DELETE",
-              headers: { Authorization: `Bearer ${v0ApiKey}` },
-            });
-            if (delRes.ok) {
-              deleted.push(proj.id);
-            } else {
-              errors.push(`${proj.id}: ${delRes.status}`);
-            }
-          } catch (err) {
-            errors.push(`${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`);
-          }
-        }
-
-        return NextResponse.json({
-          success: true,
-          deleted: deleted.length,
-          total: v0Projects.length,
-          errors,
-          message: `Deleted ${deleted.length}/${v0Projects.length} v0 projects`,
-        });
-      } catch (err) {
-        return NextResponse.json({
-          success: false,
-          error: err instanceof Error ? err.message : "Unknown error",
-        });
-      }
-    }
-
     if (action === "cleanup-vercel-projects") {
-      const vercelToken = process.env.VERCEL_TOKEN;
+      const vercelToken = pickVercelAccessTokenFromEnv();
       if (!vercelToken) {
         return NextResponse.json({
           success: false,
-          error: "VERCEL_TOKEN not configured",
+          error: "VERCEL_TOKEN (or VERCEL_TOKEN_FULL) not configured",
         });
       }
 

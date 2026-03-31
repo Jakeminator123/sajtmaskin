@@ -2,13 +2,25 @@ import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
-import { fixFontImport } from "./rules/font-import-fixer";
+import { fixReactHookImports } from "./react-hook-import-fixer";
+import {
+  buildProjectExportIndex,
+  fixMissingLocalSymbolImports,
+  fixMissingReactTypeImports,
+  fixNextImageImport,
+} from "./common-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
-import { fixMissingMetadataImport, fixMissingMetadataRouteImport, fixMissingCnImport } from "./rules/metadata-import-fixer";
+import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
+import {
+  fixCnImportConflict,
+  fixMissingMetadataImport,
+  fixMissingMetadataRouteImport,
+  fixMissingCnImport,
+} from "./rules/metadata-import-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
-import { runSecurityChecks } from "../security";
+import { runSecurityChecks } from "../security/run-security-checks";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,9 +59,14 @@ export interface AutoFixContext {
  *  1. use-client-fixer  — prepend "use client" when client APIs detected
  *  2. import-validator   — fix shadcn import paths
  *  3. react-import-fixer — add missing `import React`
- *  4. syntax-validator   — esbuild transform check (async)
- *  5. jsx-checker        — tag matching warnings
- *  6. dep-completer      — collect third-party dependencies
+ *  4. metadata/cn/lucide-image import fixers
+ *  5. syntax-validator   — esbuild transform check (async)
+ *  6. jsx-checker        — tag matching warnings
+ *  7. dep-completer      — collect third-party dependencies
+ *  8. security checks    — sanitize suspicious payloads
+ *
+ * Note: font import repair is owned by `repairGeneratedFiles()` so deterministic
+ * font fixes run in one canonical place.
  *
  * Fail-safe: if any fixer throws, it is skipped and a warning is logged.
  */
@@ -73,6 +90,7 @@ export async function runAutoFix(
   }
 
   const fixedFiles: CodeFile[] = [];
+  const exportIndex = buildProjectExportIndex(project.files);
 
   for (const file of project.files) {
     const isTsxOrJsx =
@@ -134,22 +152,75 @@ export async function runAutoFix(
         );
       }
 
-      // 3b. font-import-fixer (layout files only)
+      // 3b. react-hook-import-fixer — add missing named React hook imports (useState etc.)
       try {
-        const fontResult = fixFontImport(currentCode, file.path);
-        if (fontResult.fixed) {
-          currentCode = fontResult.code;
-          for (const fix of fontResult.fixes) {
-            allFixes.push({ ...fix, file: file.path });
-          }
+        const hookResult = fixReactHookImports(currentCode);
+        if (hookResult.fixed) {
+          currentCode = hookResult.code;
+          allFixes.push({
+            fixer: "react-hook-import-fixer",
+            description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
+            file: file.path,
+          });
         }
       } catch (err) {
         allWarnings.push(
-          `[${file.path}] font-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+          `[${file.path}] react-hook-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
-      // 3c. metadata-import-fixer — add missing Metadata type import in page/layout files
+      // 3c. react-type-import-fixer — add missing ReactNode / common type-only imports
+      try {
+        const reactTypeResult = fixMissingReactTypeImports(currentCode);
+        if (reactTypeResult.fixed) {
+          currentCode = reactTypeResult.code;
+          allFixes.push({
+            fixer: "react-type-import-fixer",
+            description: `Added missing React type imports: ${reactTypeResult.addedTypes.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] react-type-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3d. next-image-import-fixer — add next/image when Image JSX is used without import
+      try {
+        const nextImageResult = fixNextImageImport(currentCode);
+        if (nextImageResult.fixed) {
+          currentCode = nextImageResult.code;
+          allFixes.push({
+            fixer: "next-image-import-fixer",
+            description: 'Added missing `import Image from "next/image"`',
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] next-image-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3e. local-symbol-import-fixer — import shared local config/data symbols when uniquely exported
+      try {
+        const symbolResult = fixMissingLocalSymbolImports(currentCode, file.path, exportIndex);
+        if (symbolResult.fixed) {
+          currentCode = symbolResult.code;
+          allFixes.push({
+            fixer: "local-symbol-import-fixer",
+            description: `Added missing local symbol imports: ${symbolResult.addedSymbols.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] local-symbol-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 4a. metadata-import-fixer — add missing Metadata type import in page/layout files
       try {
         const metaResult = fixMissingMetadataImport(currentCode, file.path);
         if (metaResult.fixed) {
@@ -166,7 +237,7 @@ export async function runAutoFix(
         );
       }
 
-      // 3c2. MetadataRoute import fixer
+      // 4b. MetadataRoute import fixer
       try {
         const mrResult = fixMissingMetadataRouteImport(currentCode, file.path);
         if (mrResult.fixed) {
@@ -183,9 +254,18 @@ export async function runAutoFix(
         );
       }
 
-      // 3c3. cn import fixer — add missing cn import from @/lib/utils
+      // 4c. cn import fixer — add missing cn import from @/lib/utils
       try {
-        const cnResult = fixMissingCnImport(currentCode);
+        const cnConflictResult = fixCnImportConflict(currentCode, file.path);
+        if (cnConflictResult.fixed) {
+          currentCode = cnConflictResult.code;
+          allFixes.push({
+            fixer: "cn-import-conflict-fixer",
+            description: "Removed conflicting local cn import from @/lib/utils",
+            file: file.path,
+          });
+        }
+        const cnResult = fixMissingCnImport(currentCode, file.path);
         if (cnResult.fixed) {
           currentCode = cnResult.code;
           allFixes.push({
@@ -200,7 +280,7 @@ export async function runAutoFix(
         );
       }
 
-      // 3d. lucide-image-fixer — fix Image imported from lucide-react when used as next/image
+      // 4d. lucide-image-fixer — fix Image imported from lucide-react when used as next/image
       try {
         const imgResult = fixLucideImageMisuse(currentCode, file.path);
         if (imgResult.fixed) {
@@ -217,7 +297,24 @@ export async function runAutoFix(
         );
       }
 
-      // 4. syntax-validator (async, dynamically imported to avoid Turbopack bundling esbuild)
+      // 4e. tailwind-font-arbitrary-fixer — replace font-[family-name:var(--x)] with inline style
+      try {
+        const fontResult = fixTailwindFontArbitrary(currentCode);
+        if (fontResult.fixed) {
+          currentCode = fontResult.code;
+          allFixes.push({
+            fixer: "tailwind-font-arbitrary-fixer",
+            description: `Replaced ${fontResult.count} Tailwind font-[family-name:...] class(es) with inline style`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] tailwind-font-arbitrary-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 5. syntax-validator (async, dynamically imported to avoid Turbopack bundling esbuild)
       try {
         const { validateSyntax } = await import("./syntax-validator");
         const syntaxResult: SyntaxValidation = await validateSyntax(currentCode, file.path);
@@ -234,7 +331,7 @@ export async function runAutoFix(
         );
       }
 
-      // 5. jsx-checker (fix missing imports & default export)
+      // 6. jsx-checker (fix missing imports & default export)
       try {
         const jsxResult = runJsxChecker(currentCode);
         currentCode = jsxResult.code;
@@ -250,7 +347,7 @@ export async function runAutoFix(
         );
       }
 
-      // 6. dep-completer
+      // 7. dep-completer
       try {
         const depResult = runDepCompleter(currentCode);
         for (const fix of depResult.fixes) {
@@ -272,7 +369,7 @@ export async function runAutoFix(
 
   let fixedContent = rebuildContent(content, project.files, fixedFiles);
 
-  // 7. security checks (last step)
+  // 8. security checks (last step)
   try {
     const securityResult = runSecurityChecks(fixedContent);
     fixedContent = securityResult.sanitizedContent;

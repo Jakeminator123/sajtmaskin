@@ -62,7 +62,7 @@ function findAtRuleBlockEnd(lines: string[], startIndex: number): number {
 /**
  * Validate CSS content for common issues that cause Tailwind v4 errors
  */
-export function validateCss(content: string): CssIssue[] {
+function validateCss(content: string): CssIssue[] {
   const issues: CssIssue[] = [];
   const lines = content.split("\n");
 

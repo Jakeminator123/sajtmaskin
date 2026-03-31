@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services";
+import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import JSZip from "jszip";
 

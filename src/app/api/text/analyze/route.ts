@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import OpenAI from "openai";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
+import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 /**
  * Text Analysis API
@@ -49,8 +50,7 @@ const TEXT_ANALYZE_SCHEMA = {
 };
 
 function getGatewayApiKey(): string | null {
-  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
-  return apiKey && apiKey.trim() ? apiKey : null;
+  return pickAiGatewayKeyFromEnv();
 }
 
 export async function POST(request: NextRequest) {

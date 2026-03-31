@@ -1,5 +1,5 @@
 export const INSPECT_CAPTURE_EVENT = "sajtmaskin:inspect-capture";
-export const PLACEMENT_SELECT_EVENT = "sajtmaskin:placement-select";
+const PLACEMENT_SELECT_EVENT = "sajtmaskin:placement-select";
 
 export type InspectCapturedElement = {
   tag: string;

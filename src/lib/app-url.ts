@@ -11,7 +11,7 @@ function stripWrappingQuotes(value: string): string {
   return trimmed;
 }
 
-export function normalizeAppBaseUrl(value?: string | null): string {
+function normalizeAppBaseUrl(value?: string | null): string {
   const candidate = value ? stripWrappingQuotes(value).replace(/\/+$/, "") : "";
   if (!candidate) return DEFAULT_APP_BASE_URL;
 

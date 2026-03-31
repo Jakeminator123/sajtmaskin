@@ -1,5 +1,17 @@
 import type { CodeFile } from "@/lib/gen/parser";
+import {
+  buildProjectExportIndex,
+  buildProjectModuleExportIndex,
+  fixLocalDefaultImportMismatches,
+  fixMissingLocalSymbolImports,
+  fixMissingReactTypeImports,
+  fixNextImageImport,
+} from "@/lib/gen/autofix/common-import-fixer";
+import { fixCnImportConflict } from "@/lib/gen/autofix/rules/metadata-import-fixer";
+import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
+import { fixReactHookImports } from "@/lib/gen/autofix/react-hook-import-fixer";
+import { fixLucideImageMisuse } from "@/lib/gen/autofix/rules/lucide-image-fixer";
 
 type RepairEntry = {
   fixer: string;
@@ -172,6 +184,8 @@ export function repairGeneratedFiles(files: CodeFile[]): {
   fixes: RepairEntry[];
 } {
   const fixes: RepairEntry[] = [];
+  const exportIndex = buildProjectExportIndex(files);
+  const moduleExportIndex = buildProjectModuleExportIndex(files);
 
   const repairedFiles = files.map((file) => {
     if (!/\.(tsx?|jsx?)$/i.test(file.path)) {
@@ -179,6 +193,16 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     }
 
     let content = file.content;
+
+    const defaultImportResult = fixLocalDefaultImportMismatches(content, file.path, files, moduleExportIndex);
+    if (defaultImportResult.fixed) {
+      content = defaultImportResult.code;
+      fixes.push({
+        fixer: "local-default-import-fixer",
+        description: `Rewired local default imports to named imports: ${defaultImportResult.rewiredImports.join(", ")}`,
+        file: file.path,
+      });
+    }
 
     const fontResult = fixFontImport(content, file.path);
     if (fontResult.fixed) {
@@ -198,10 +222,76 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       fixes.push(...linkResult.fixes);
     }
 
+    const cnConflictResult = fixCnImportConflict(content, file.path);
+    if (cnConflictResult.fixed) {
+      content = cnConflictResult.code;
+      fixes.push({
+        fixer: "cn-import-conflict-fixer",
+        description: "Removed conflicting local cn import from @/lib/utils",
+        file: file.path,
+      });
+    }
+
+    const lucideImageResult = fixLucideImageMisuse(content, file.path);
+    if (lucideImageResult.fixed) {
+      content = lucideImageResult.code;
+      fixes.push({
+        fixer: "lucide-image-fixer",
+        description: "Replaced lucide-react Image with next/image",
+        file: file.path,
+      });
+    }
+
     const metadataConflictResult = fixMetadataClientConflict(content, file.path);
     if (metadataConflictResult.fixed) {
       content = metadataConflictResult.code;
       fixes.push(...metadataConflictResult.fixes);
+    }
+
+    const asConstKeysResult = fixAsConstBooleanKeys(content, file.path);
+    if (asConstKeysResult.fixed) {
+      content = asConstKeysResult.code;
+      fixes.push(...asConstKeysResult.fixes);
+    }
+
+    const hookResult = fixReactHookImports(content);
+    if (hookResult.fixed) {
+      content = hookResult.code;
+      fixes.push({
+        fixer: "react-hook-import-fixer",
+        description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
+        file: file.path,
+      });
+    }
+
+    const reactTypeResult = fixMissingReactTypeImports(content);
+    if (reactTypeResult.fixed) {
+      content = reactTypeResult.code;
+      fixes.push({
+        fixer: "react-type-import-fixer",
+        description: `Added missing React type imports: ${reactTypeResult.addedTypes.join(", ")}`,
+        file: file.path,
+      });
+    }
+
+    const nextImageResult = fixNextImageImport(content);
+    if (nextImageResult.fixed) {
+      content = nextImageResult.code;
+      fixes.push({
+        fixer: "next-image-import-fixer",
+        description: 'Added missing `import Image from "next/image"`',
+        file: file.path,
+      });
+    }
+
+    const symbolResult = fixMissingLocalSymbolImports(content, file.path, exportIndex);
+    if (symbolResult.fixed) {
+      content = symbolResult.code;
+      fixes.push({
+        fixer: "local-symbol-import-fixer",
+        description: `Added missing local symbol imports: ${symbolResult.addedSymbols.join(", ")}`,
+        file: file.path,
+      });
     }
 
     return content === file.content ? file : { ...file, content };

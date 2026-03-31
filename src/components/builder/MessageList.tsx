@@ -211,6 +211,8 @@ const MessageListComponent = ({
           const hasStructuredParts =
             showStructuredParts &&
             (toolParts.length > 0 || planParts.length > 0 || sources.length > 0);
+          const hasVisibleTooling =
+            agentLogItems.length > 0 || compactToolParts.length > 0 || toolParts.length > 0;
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
 
           return (
@@ -332,7 +334,7 @@ const MessageListComponent = ({
                         </Streamdown>
                       </MessageResponse>
                     )
-                  ) : message.isStreaming && !reasoningPart && !hasStructuredParts ? (
+                  ) : message.isStreaming && !reasoningPart && !hasStructuredParts && !hasVisibleTooling ? (
                     <span className="text-sm text-muted-foreground">Ansluter...</span>
                   ) : null
                 ) : (

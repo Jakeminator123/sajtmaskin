@@ -1,13 +1,27 @@
 # Cursor-konfiguration i detta repo
 
+## Agent: var börja?
+
+Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordning: `docs/README.md` → `docs/architecture/repo-tree.md` → `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` → `rules/terminology.mdc`.
+
 ## Workspace (en rot, samma verktygsinställningar)
 
-- Öppna projektet med **`sajtmaskin.code-workspace`** i repots rot (en mapp: `.`), eller öppna själva **`sajtmaskin`**-mappen. Filen är **gitignorerad** (lokala inställningar); efter klon: kopiera **`sajtmaskin.code-workspace.example`** → **`sajtmaskin.code-workspace`**. Lägg inte till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`, worktrees) som extra workspace-mappar om du vill undvika brus i Problems (markdownlint, sökning, m.m.).
+- Öppna projektet med **`sajtmaskin.code-workspace`** i repots rot (en mapp: `.`), eller öppna själva **`sajtmaskin`**-mappen. Workspace-filen är **gitignorerad** (lokala inställningar). Om repot har en mall **`sajtmaskin.code-workspace.example`**, kopiera den till **`sajtmaskin.code-workspace`**; annars räcker det att öppna mappen eller skapa en enkel workspace-fil som pekar på **``.`**. Lägg inte till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`, worktrees) som extra workspace-mappar om du vill undvika brus i Problems (markdownlint, sökning, m.m.).
+- **Standard nu:** öppna huvudcheckouten `…\sajtmaskin` på `master` i ett eget fönster. Om du **medvetet** skapar ett separat worktree för isolering, öppna bara den checkouten i sitt eget fönster och ta bort worktreet när det inte längre bär unikt arbete. Se `docs/plans/avklarat/STORDSTAD-repo-kod-databas.md` § Handoff → *Cursor: var du arbetar* (arkiverad körplan).
 - **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`**. **`sajtmaskin.code-workspace`** innehåller samma `settings`-block så att beteendet matchar oavsett om du öppnar mappen eller workspace-filen.
 - **Endast Cursor**: **`.cursor/settings.json`** (t.ex. Vercel-plugin). Den ersätter inte `.vscode` för vanliga tillägg; håll verktygsignorer synkade mellan **`.vscode/settings.json`** och **`sajtmaskin.code-workspace`**.
 - Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer *utanför* repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
 
-Agentregel (always-on): [rules/workspace-hygiene.mdc](rules/workspace-hygiene.mdc).
+## Projektregler (`.cursor/rules/*.mdc`)
+
+Fyra kärnregler är tänkta att vara alltid på. `platform-quirks.mdc` är medvetet svagare och ska bara laddas när uppgiften faktiskt är plattforms- eller shell-känslig. I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
+
+| Regel | Syfte (kort) |
+|--------|----------------|
+| [terminology.mdc](rules/terminology.mdc) | Stack, lager, kod vs UI, scaffold/builderns Mallar/runtime `template-library`, lanes |
+| [session-git-docs.mdc](rules/session-git-docs.mdc) | Git-hygien, parallellt arbete, docs/plans-livscykel |
+| [repo-env-indexing.mdc](rules/repo-env-indexing.mdc) | Workspace, `.env*`, cursorignored paths |
+| [platform-quirks.mdc](rules/platform-quirks.mdc) | PowerShell, Sandbox, Playwright, streams, git-commit |
 
 ## Terminologidokument (produkt- och kodnamn)
 
@@ -16,28 +30,19 @@ Agentregel (always-on): [rules/workspace-hygiene.mdc](rules/workspace-hygiene.md
 **Så hittar du den i Cursor:**
 
 1. **Projektfilträdet:** öppna `.cursor/rules/terminology.mdc`.
-2. **Cursor Settings → Rules / Project rules:** regeln laddas som `alwaysApply` (beskrivning: *Product terminology and concepts*).
+2. **Cursor Settings → Rules / Project rules:** regeln kan laddas som kärnregel för produkttermer.
 3. I chat kan du skriva **`@terminology`** eller **`@.cursor/rules/terminology.mdc`** för att bifoga filen.
 
-För **mappar, Vercel-mall/research och v0-templates vs scaffold** (inte hela produktordlistan), se
-`docs/architecture/structure-and-terminology.md` och `docs/README.md` § Terminology.
+För **mappar och research-flöde** utöver själva ordlistan, se `docs/architecture/repository-and-platform.md` och `docs/README.md` § Terminology. **Dokumentationspolicy:** `docs/architecture/documentation-lifecycle.md`.
 
-För **Djup brief vs orchestrator-run**, **runtime vs MCP** och **scaffold/dossier/artifact** i en sida: `docs/contributing/agent-workflows.md`.
+**Aktiv backlog / K-rader / Plan 17:** `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`.
 
-## MCP-servrar (`mcp.json`)
+För **Djup brief vs större arbets­paket**, **runtime vs MCP** och **scaffold/dossier/artifact** i en sida: `docs/contributing/agent-workflows.md`.
 
-**GitHub:** `.cursor/mcp.json` är **ignorerad** i git (kan få hemligheter vid URL-auth eller framtida fält). Kopiera mallen:
+## MCP (`mcp.json`)
 
-```bash
-cp .cursor/mcp.json.example .cursor/mcp.json
-```
+Valfria **plattforms-MCP** (v0, Vercel, OpenAI-docs; ev. `openclaw-docs` på användarnivå). **Hur Sajtmaskin fungerar** läses i **`docs/`**, `.cursor/rules/` och `sajtmaskin-context`-skillen; repoets egen motor förstås via koden, inte via en separat routing-regel.
 
-| Server | Typ | Syfte |
-|--------|-----|--------|
-| `v0`, `Vercel`, `openaiDeveloperDocs` | Remote (URL) | Plattforms-API resp. officiell OpenAI-docs. |
-| **`sajtmaskin-engine`** | Lokal stdio | Own engine **utan** att gå via Next.js HTTP: generera sajt, läsa manifest/filer, skapa preview/sandbox-runtime. Start: `npx tsx tools/mcp/engine-server.ts`. |
-| **`sajtmaskin-scaffolds`** | Lokal stdio | De **interna runtime-scaffolds** (~10 st): lista, detaljer, filinnehåll, sök taggar, jämför två scaffolds. Start: `npx tsx tools/mcp/scaffold-server.ts`. |
+**GitHub:** `.cursor/mcp.json` är **ignorerad**; kopiera `.cursor/mcp.json.example` → `.cursor/mcp.json`.
 
-Mer routingregler för agenter: `rules/MCP-Servers.mdc` och `rules/mcp-docs-routing.mdc`.
-
-**OBS:** **v0-templates** (`src/lib/templates/`) är *inte* samma sak som **runtime scaffolds** — se terminologidokumentet (inkl. särskiljning *inbäddningar* vs *semantik*).
+**OBS:** builderns **Mallar** (`src/lib/templates/`) är *inte* samma som runtime **`template-library`** eller runtime **scaffolds** — se `terminology.mdc`.

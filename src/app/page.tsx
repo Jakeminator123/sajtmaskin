@@ -2,22 +2,18 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AuthModal } from "@/components/auth";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { Navbar } from "@/components/landing-v2/navbar";
 import { ChatArea } from "@/components/landing-v2/chat-area";
-import {
-  OnboardingModal,
-  useOnboarding,
-  AuditModal,
-  PromptWizardModalV2,
-  EntryModal,
-  WelcomeOverlay,
-  type WizardData,
-} from "@/components/modals";
-import { useEntryParams } from "@/lib/entry";
+import { AuditModal } from "@/components/modals/audit-modal";
+import { EntryModal } from "@/components/modals/entry-modal";
+import { OnboardingModal, useOnboarding } from "@/components/modals/onboarding-modal";
+import { PromptWizardModalV2, type WizardData } from "@/components/modals/prompt-wizard-modal-v2";
+import { WelcomeOverlay } from "@/components/modals/welcome-overlay";
+import { useEntryParams } from "@/lib/entry/use-entry-params";
 import { useAuth } from "@/lib/auth/auth-store";
-import { TemplateGallery } from "@/components/templates";
-import { SiteAuditSection } from "@/components/layout";
+import { TemplateGallery } from "@/components/templates/template-gallery";
+import { SiteAuditSection } from "@/components/layout/site-audit-section";
 import {
   resolveBuildIntentForMethod,
   DEFAULT_BUILD_INTENT,

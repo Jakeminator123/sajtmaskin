@@ -27,26 +27,3 @@ export function saveEntryToken(token: EntryToken): void {
     // sessionStorage unavailable (SSR, private browsing, etc.)
   }
 }
-
-/** Read token from sessionStorage (returns null if not set) */
-export function getEntryToken(): EntryToken | null {
-  try {
-    return sessionStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-/** Clear token from sessionStorage */
-export function clearEntryToken(): void {
-  try {
-    sessionStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // ignore
-  }
-}
-
-/** Check if a token is currently stored */
-export function hasEntryToken(): boolean {
-  return getEntryToken() !== null;
-}

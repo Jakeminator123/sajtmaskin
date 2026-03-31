@@ -1,0 +1,25 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+# Sign up to Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+
+# Create a new Clerk webhook (user.created event) with your app URL and append /webhooks/clerk
+# Set the webhook secret below provided by Clerk
+CLERK_WEBHOOK_SECRET=
+
+# turso auth api-tokens mint clerk
+TURSO_API_TOKEN=
+
+# your personal or organization name
+TURSO_ORG=
+
+# turso db create [database-name]
+TURSO_DATABASE_NAME=
+
+# turso group tokens create <group-name>
+TURSO_GROUP_AUTH_TOKEN=
+```

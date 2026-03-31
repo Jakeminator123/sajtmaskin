@@ -1,4 +1,8 @@
 import { SECRETS, FEATURES } from "@/lib/config";
+import {
+  buildUnsplashSearchCandidates,
+  chooseUnsplashOrientation,
+} from "@/lib/images/unsplash-query-fallback";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 
 const _PLACEHOLDER_RE =
@@ -71,6 +75,17 @@ function buildUnsplashUrl(rawUrl: string, width: number, height: number): string
   return `${base}?w=${width}&h=${height}&fit=crop&q=80`;
 }
 
+const FALLBACK_PHOTOS: Record<"landscape" | "portrait" | "squarish", string> = {
+  landscape: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4",
+  portrait: "https://images.unsplash.com/photo-1469474968028-56623f02e42e",
+  squarish: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05",
+};
+
+function buildFallbackImageUrl(width: number, height: number): string {
+  const orientation = chooseOrientation(width, height);
+  return `${FALLBACK_PHOTOS[orientation]}?w=${width}&h=${height}&fit=crop&q=80`;
+}
+
 function chooseOrientation(
   w: number,
   h: number,
@@ -89,8 +104,17 @@ const FILLER_WORDS = new Set([
   "that", "is", "are", "was", "has", "very", "really", "also", "some",
 ]);
 
+function sanitizeQuery(raw: string): string {
+  return raw
+    .replace(/\$\{[^}]*\}/g, "")
+    .replace(/`/g, "")
+    .replace(/encodeURIComponent/gi, "")
+    .replace(/\([^)]*\)/g, "")
+    .trim();
+}
+
 function normalizeSearchQuery(raw: string, maxWords = 6): string {
-  const words = raw
+  const words = sanitizeQuery(raw)
     .replace(/[+_-]/g, " ")
     .split(/\s+/)
     .filter((w) => w.length > 1 && !FILLER_WORDS.has(w.toLowerCase()));
@@ -370,10 +394,11 @@ export async function materializeImages(content: string): Promise<MaterializeRes
   const re = new RegExp(PLACEHOLDER_FULL_RE.source, "g");
   while ((m = re.exec(content)) !== null) {
     const params = parseParams(m[1]);
-    if (!params.text) continue;
+    const rawText = sanitizeQuery(params.text ?? "");
+    if (!rawText) continue;
     matches.push({
       fullMatch: m[0],
-      text: params.text,
+      text: rawText,
       width: parseInt(params.width || "800", 10),
       height: parseInt(params.height || "600", 10),
     });
@@ -396,8 +421,8 @@ export async function materializeImages(content: string): Promise<MaterializeRes
     let queryUsed = match.text;
 
     if (!url) {
-      const orientation = chooseOrientation(match.width, match.height);
-      const candidates = buildSearchCandidates(match.text);
+      const orientation = chooseUnsplashOrientation(match.width, match.height);
+      const candidates = buildUnsplashSearchCandidates(match.text);
       for (const candidate of candidates) {
         const hit = await searchUnsplash(candidate, accessKey, orientation);
         if (!hit) continue;
@@ -411,16 +436,18 @@ export async function materializeImages(content: string): Promise<MaterializeRes
       }
     }
 
-    if (url) {
-      result = result.replace(match.fullMatch, url);
-      replaced++;
-      queries.push(queryUsed);
-    } else {
-      warnLog("images", "No Unsplash result", {
+    if (!url) {
+      url = buildFallbackImageUrl(match.width, match.height);
+      seen.set(cacheKey, url);
+      warnLog("images", "Unsplash miss, using fallback", {
         originalQuery: match.text,
-        attemptedQueries: buildSearchCandidates(match.text),
+        fallbackUrl: url,
       });
     }
+
+    result = result.replace(match.fullMatch, url);
+    replaced++;
+    queries.push(queryUsed);
   }
 
   debugLog("images", `Materialized ${replaced}/${matches.length} images`);

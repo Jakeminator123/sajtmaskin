@@ -15,7 +15,7 @@
     "url": "https://github.com/anycable/vercel-anycable-demo",
     "normalizedUrl": "https://github.com/anycable/vercel-anycable-demo",
     "subpath": null,
-    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\anycable-vercel-anycable-demo",
+    "clonePath": "research/external-templates/repo-cache/anycable-vercel-anycable-demo",
     "packageManager": "pnpm",
     "hasNext": true,
     "hasReact": true,
@@ -104,5 +104,29 @@
       "reason": "Useful structural reference",
       "excerpt": "import { cookies } from \"next/headers\";\nimport { RoomActions } from \"./room-actions\";\nimport { redirect } from \"next/navigation\";\nimport { nanoid } from \"nanoid\";\nimport { AvatarActions } from \"./avatar-actions\";\n\nexport function Header({ roomLabel }: { roomLabel: string }) {\n  const username = cookies().get(\"username\")?.value!;\n\n  async function signOut() {\n    \"use server\";\n\n    cookies().delete(\"token\");\n    cookies().delete(\"username\");\n    return redirect(\"/auth\");\n  }\n\n  return (\n    <div className=\"rounded-b-lg border-gray-200 bg-white p-4 shadow-md\">\n      <div className=\"flex items-center justify-between\">\n        <div className=\"flex items-center gap-3\">\n          <RoomActions newRoomId={nanoid()} />\n          <div className=\"flex flex-col\">\n            <div className=\"text-2xs uppercase text-gray-500\">Room</div>\n            <div className=\"truncate font-semibold\">{roomLabel}</div>\n          </div>\n        </div>\n        <div>\n          <AvatarActions usernameOrEmail={username} signOutAction={signOut} />\n        </div>\n      </div>\n    </div>\n  );\n}"
     }
-  ]
+  ],
+  "runtimeGuidance": {
+    "styleRules": [
+      "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+      "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+      "Treat starter/boilerplate references as structural baselines, not final visual direction.",
+      "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+    ],
+    "sectionInventory": [
+      "primary entry section",
+      "supporting content section"
+    ],
+    "avoidPatterns": [
+      "Do not paste large reference code blocks verbatim into the generated site.",
+      "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+      "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy)."
+    ],
+    "worldClassRubric": [
+      "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+      "Reusable sections with believable content, not generic lorem-style filler.",
+      "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+      "Final output should feel custom and production-grade, not like a renamed starter.",
+      "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+    ]
+  }
 }

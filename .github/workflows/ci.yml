@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # origin/HEAD is master; keep main for forks/branches that still use it
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -35,6 +36,12 @@ jobs:
 
       - name: Test
         run: npm run test:ci
+
+      - name: Verify baseline dependency versions
+        run: npm run baseline-deps:verify
+
+      - name: Verify baseline dependency tree
+        run: npm run baseline-deps:tree
 
       - name: Build
         run: npm run build

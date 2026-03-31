@@ -37,7 +37,7 @@ export const integrationRegistry: IntegrationDefinition[] = [
     key: "stripe",
     name: "Stripe",
     category: "payments",
-    envVars: ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY"],
+    envVars: ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
     setupGuide:
       "Logga in på dashboard.stripe.com. Kopiera nycklar från Developers > API keys. Använd test-nycklar under utveckling.",
     runtime: "server",

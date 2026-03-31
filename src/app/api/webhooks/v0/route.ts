@@ -5,7 +5,8 @@ import { chats, versions, deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
-import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { sanitizeMetadata } from "@/lib/sanitize/sanitize-metadata";
+import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 
 export async function POST(req: Request) {
   return withRateLimit(req, "webhook:v0", async () => {
@@ -67,8 +68,10 @@ async function handleChatCreated(data: any) {
 }
 
 async function handleMessageCompleted(data: any) {
-  const { chatId, messageId, versionId, demoUrl } = data;
+  const { chatId, messageId, versionId } = data;
   if (!chatId || !messageId) return;
+
+  const previewResolved = resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown });
 
   const chat = await db.select().from(chats).where(eq(chats.v0ChatId, chatId)).limit(1);
   if (chat.length === 0) return;
@@ -85,13 +88,13 @@ async function handleMessageCompleted(data: any) {
       chatId: chat[0].id,
       v0VersionId: versionId || messageId,
       v0MessageId: messageId,
-      demoUrl: demoUrl || null,
-      metadata: sanitizeV0Metadata(data),
+      demoUrl: previewResolved,
+      metadata: sanitizeMetadata(data),
     });
-  } else if (demoUrl && !existingVersion[0].demoUrl) {
+  } else if (previewResolved && !existingVersion[0].demoUrl) {
     await db
       .update(versions)
-      .set({ demoUrl, metadata: sanitizeV0Metadata(data) })
+      .set({ demoUrl: previewResolved, metadata: sanitizeMetadata(data) })
       .where(eq(versions.id, existingVersion[0].id));
   }
 }

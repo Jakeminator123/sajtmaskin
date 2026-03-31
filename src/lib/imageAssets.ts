@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { VercelBlobProvider } from "@/lib/storage";
+import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 
 export type ImageAssetStrategy = "external" | "blob";
 

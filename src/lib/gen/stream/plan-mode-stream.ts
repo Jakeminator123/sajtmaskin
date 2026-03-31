@@ -62,15 +62,19 @@ export function createPlanModeStream(params: {
     normalizeQuestionToolCallIds = false,
   } = params;
 
+  let pipelineReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+
   return new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
-      const reader = pipelineStream.getReader();
+      pipelineReader = pipelineStream.getReader();
+      const reader = pipelineReader;
       const decoder = new TextDecoder();
       let sseBuffer = "";
       let accumulatedContent = "";
       let controllerClosed = false;
       let toolPlanArtifact: PlanArtifact | null = null;
+      let upstreamErrorMessage: string | null = null;
 
       const safeEnqueue = (streamEvent: BuilderStreamEvent) => {
         if (controllerClosed) return;
@@ -94,6 +98,7 @@ export function createPlanModeStream(params: {
           const { events, remaining } = parseSSEBuffer(sseBuffer);
           sseBuffer = remaining;
 
+          let haltAfterEvents = false;
           for (const evt of events) {
             if (controllerClosed) break;
 
@@ -172,10 +177,35 @@ export function createPlanModeStream(params: {
                 }
                 break;
               }
+              case "error": {
+                const raw = evt.data as Record<string, unknown> | string | null | undefined;
+                const message =
+                  raw && typeof raw === "object" && typeof raw.message === "string"
+                    ? raw.message
+                    : typeof raw === "string"
+                      ? raw
+                      : "Plan pipeline error";
+                upstreamErrorMessage = message;
+                safeEnqueue(
+                  createBuilderStreamEvent("error", {
+                    message,
+                  }),
+                );
+                haltAfterEvents = true;
+                break;
+              }
               case "done":
-              case "error":
+                haltAfterEvents = true;
                 break;
             }
+
+            if (haltAfterEvents) {
+              break;
+            }
+          }
+
+          if (haltAfterEvents || upstreamErrorMessage) {
+            break;
           }
         }
       } catch (error) {
@@ -197,18 +227,21 @@ export function createPlanModeStream(params: {
 
       const planData = resolvePlanArtifact(accumulatedContent, toolPlanArtifact) ?? {};
       const hasBlockers =
-        Array.isArray(planData?.blockers) && (planData.blockers as unknown[]).length > 0;
+        upstreamErrorMessage !== null ||
+        (Array.isArray(planData?.blockers) && (planData.blockers as unknown[]).length > 0);
 
       await onResolved?.(planData, hasBlockers, accumulatedContent);
       await persistAssistantSummary(planData, hasBlockers);
 
-      if (commitCreditsPosition === "before-done") {
+      const shouldCommitCredits = upstreamErrorMessage === null;
+
+      if (shouldCommitCredits && commitCreditsPosition === "before-done") {
         await commitCredits();
       }
 
       safeEnqueue(createBuilderStreamEvent("done", buildDonePayload(planData, hasBlockers)));
 
-      if (commitCreditsPosition === "after-done") {
+      if (shouldCommitCredits && commitCreditsPosition === "after-done") {
         await commitCredits();
       }
 
@@ -219,6 +252,10 @@ export function createPlanModeStream(params: {
           // already closed
         }
       }
+    },
+
+    cancel(reason) {
+      return pipelineReader?.cancel(reason);
     },
   });
 }

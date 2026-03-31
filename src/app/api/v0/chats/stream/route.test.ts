@@ -23,20 +23,12 @@ vi.mock("@/lib/streaming", () => ({
 
 vi.mock("@/lib/db/client", () => ({
   db: {},
+  dbConfigured: false,
 }));
 
 vi.mock("@/lib/db/schema", () => ({
   chats: {},
   versions: {},
-}));
-
-vi.mock("@/lib/v0", () => ({
-  assertV0Key: vi.fn(),
-  v0: {
-    chats: {
-      create: vi.fn(),
-    },
-  },
 }));
 
 vi.mock("@/lib/validations/chatSchemas", () => ({
@@ -45,16 +37,12 @@ vi.mock("@/lib/validations/chatSchemas", () => ({
   },
 }));
 
-vi.mock("@/lib/v0/resolve-latest-version", () => ({
-  resolveLatestVersion: vi.fn(),
-}));
-
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
-vi.mock("@/lib/v0/errors", () => ({
-  normalizeV0Error: (error: unknown) => ({
+vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
+  normalizeProviderError: (error: unknown) => ({
     message: error instanceof Error ? error.message : "Unknown error",
     status: 500,
     code: null,
@@ -115,11 +103,11 @@ vi.mock("@/lib/utils/debug", () => ({
   warnLog: vi.fn(),
 }));
 
-vi.mock("@/lib/v0/sanitize-metadata", () => ({
-  sanitizeV0Metadata: vi.fn(),
+vi.mock("@/lib/sanitize/sanitize-metadata", () => ({
+  sanitizeMetadata: vi.fn(),
 }));
 
-vi.mock("@/lib/db/services", () => ({
+vi.mock("@/lib/db/services/prompt-logs", () => ({
   createPromptLog,
 }));
 
@@ -133,6 +121,7 @@ vi.mock("@/lib/models/selection", () => ({
 
 vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_MODEL_ID: "test-model-id",
+  DEFAULT_OWN_MODEL_ID: "gpt-5.4",
   MODEL_LABELS: {
     "test-tier": "Test Tier",
   },
@@ -144,6 +133,26 @@ vi.mock("@/lib/models/catalog", () => ({
 vi.mock("@/lib/config", () => ({
   AI: {
     designSystemId: null,
+  },
+  SECRETS: {
+    testUserEmail: "",
+    superadminEmail: "",
+  },
+  PATHS: {
+    uploads: "/tmp/uploads",
+  },
+  /** Required when `@/lib/data/redis` loads (module-level prefixes use this). */
+  REDIS_KEY_PREFIX: "dev:",
+  REDIS_CONFIG: {
+    url: "",
+    host: "",
+    port: 6379,
+    password: "",
+    username: "default",
+    enabled: false,
+  },
+  FEATURES: {
+    useRedisCache: false,
   },
 }));
 
@@ -159,7 +168,7 @@ vi.mock("@/lib/gen/orchestrate", () => ({
   finalizeOrchestrationPrompts,
 }));
 
-vi.mock("@/lib/gen/plan-prompt", () => ({
+vi.mock("@/lib/gen/plan/prompt", () => ({
   buildPlannerSystemPrompt: () => "planner-system-prompt",
   parsePlanResponse: vi.fn(),
 }));
@@ -172,7 +181,7 @@ vi.mock("@/lib/gen/url-compress", () => ({
   compressUrls: (value: string) => ({ compressed: value, urlMap: {} }),
 }));
 
-vi.mock("@/lib/gen/plan-review", () => ({
+vi.mock("@/lib/gen/plan/review", () => ({
   buildPlanSummaryMessage: vi.fn(),
   buildPlanUiPart: vi.fn(),
   enrichPlanArtifactForReview: vi.fn(),
@@ -357,10 +366,25 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         needsCarousel: false,
         needsPremiumVisuals: false,
       },
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldFamily: "landing-page",
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: { scaffoldChars: 20000, refsChars: 8000, systemContextChars: 28000 },
+      },
       scaffoldContext: undefined,
       scaffoldAndCapability: "",
       engineSystemPrompt: "SYSTEM",
-      v0EnrichmentContext: "V0",
+      dynamicContext: "V0",
     });
     resolveOrchestrationBase.mockResolvedValue({
       resolvedScaffold: {
@@ -395,11 +419,27 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         needsCarousel: false,
         needsPremiumVisuals: false,
       },
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldFamily: "landing-page",
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: { scaffoldChars: 20000, refsChars: 8000, systemContextChars: 28000 },
+      },
       scaffoldAndCapability: "",
     });
     finalizeOrchestrationPrompts.mockResolvedValue({
+      templateLibrarySearchDiagnostics: null,
       engineSystemPrompt: "SYSTEM",
-      v0EnrichmentContext: "V0",
+      dynamicContext: "V0",
     });
     createChat.mockResolvedValue({ id: "engine_chat_1" });
     addMessage.mockResolvedValue(undefined);
@@ -451,7 +491,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
       chatId: "engine_chat_1",
       versionId: "ver_1",
       messageId: "msg_1",
-      demoUrl: "https://preview.example/chat_1/ver_1",
+      previewUrl: null,
       previewBlocked: false,
       verificationBlocked: false,
       previewBlockingReason: null,
@@ -537,7 +577,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
       chatId: "engine_chat_1",
       versionId: null,
       messageId: null,
-      demoUrl: null,
+      previewUrl: null,
       awaitingInput: true,
       reason: "done_empty_output",
       toolCalls: ["suggestIntegration"],

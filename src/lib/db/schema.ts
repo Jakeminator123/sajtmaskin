@@ -28,7 +28,7 @@ export const projects = pgTable(
 
 export const chats = pgTable("chats", {
   id: text("id").primaryKey(),
-  projectId: text("project_id").references(() => projects.id),
+  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
   v0ChatId: text("v0_chat_id").notNull().unique(),
   v0ProjectId: text("v0_project_id").notNull(),
   webUrl: text("web_url"),
@@ -41,7 +41,7 @@ export const versions = pgTable(
   {
     id: text("id").primaryKey(),
     chatId: text("chat_id")
-      .references(() => chats.id)
+      .references(() => chats.id, { onDelete: "cascade" })
       .notNull(),
     v0VersionId: text("v0_version_id").notNull(),
     v0MessageId: text("v0_message_id"),
@@ -60,7 +60,7 @@ export const versions = pgTable(
 export const versionErrorLogs = pgTable("version_error_logs", {
   id: text("id").primaryKey(),
   chat_id: text("chat_id")
-    .references(() => chats.id)
+    .references(() => chats.id, { onDelete: "cascade" })
     .notNull(),
   version_id: text("version_id")
     .references(() => versions.id, { onDelete: "cascade" })
@@ -75,12 +75,12 @@ export const versionErrorLogs = pgTable("version_error_logs", {
 
 export const deployments = pgTable("deployments", {
   id: text("id").primaryKey(),
-  projectId: text("project_id").references(() => projects.id),
+  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
   chatId: text("chat_id")
-    .references(() => chats.id)
+    .references(() => chats.id, { onDelete: "cascade" })
     .notNull(),
   versionId: text("version_id")
-    .references(() => versions.id)
+    .references(() => versions.id, { onDelete: "cascade" })
     .notNull(),
   v0DeploymentId: text("v0_deployment_id"),
   vercelDeploymentId: text("vercel_deployment_id"),
@@ -410,13 +410,15 @@ export const engineChats = pgTable("engine_chats", {
   model: text("model").notNull().default("gpt-5.4"),
   systemPrompt: text("system_prompt"),
   scaffoldId: text("scaffold_id"),
+  /** Last successful generation: sanitized SSE meta + version id for follow-up continuity (K-019). */
+  orchestrationSnapshot: jsonb("orchestration_snapshot").$type<Record<string, unknown> | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const engineMessages = pgTable("engine_messages", {
   id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
   role: text("role").notNull(),
   content: text("content").notNull(),
   uiParts: jsonb("ui_parts").$type<Record<string, unknown>[] | null>(),
@@ -426,7 +428,7 @@ export const engineMessages = pgTable("engine_messages", {
 
 export const engineVersions = pgTable("engine_versions", {
   id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
   messageId: text("message_id"),
   versionNumber: integer("version_number").notNull(),
   filesJson: text("files_json").notNull(),
@@ -440,7 +442,7 @@ export const engineVersions = pgTable("engine_versions", {
 
 export const engineGenerationLogs = pgTable("engine_generation_logs", {
   id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
   model: text("model").notNull(),
   promptTokens: integer("prompt_tokens"),
   completionTokens: integer("completion_tokens"),

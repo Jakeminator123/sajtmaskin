@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
-import { createPromptHandoff } from "@/lib/db/services";
+import { createPromptHandoff } from "@/lib/db/services/projects";
 import { cachePromptHandoff } from "@/lib/data/redis";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 

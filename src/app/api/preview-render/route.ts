@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
-import { buildPreviewHtml } from "@/lib/gen/preview";
+import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
-import type { PreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
+import type { PreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 
 export const runtime = "nodejs";
 
@@ -26,6 +26,11 @@ export async function GET(req: Request) {
   if (!chatId) {
     return NextResponse.json({ error: "chatId is required" }, { status: 400 });
   }
+
+  console.info("[telemetry:legacy-preview-render]", {
+    chatId,
+    versionId: versionId ?? "latest",
+  });
 
   if (versionId) {
     const version = await getVersionById(versionId);
@@ -73,7 +78,7 @@ export async function GET(req: Request) {
     return new Response(
       errorPage(
         "Ingen renderbar komponent",
-        "Kunde inte hitta en React-komponent att rendera bland filerna.",
+        "Tier-1-previewn behöver en default-exportad React-komponent (t.ex. i app/page.tsx). Kontrollera att filerna innehåller giltig JSX och att huvudsidan exporteras. För full Next.js-körning, använd sandbox-preview (tier 2) i byggaren.",
         "render_route_no_renderable_component",
       ),
       { status: 422, headers: { "Content-Type": "text/html; charset=utf-8" } },

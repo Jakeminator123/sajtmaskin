@@ -1,6 +1,7 @@
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { UiMessagePart } from "@/lib/builder/types";
-import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
-import { appendToolPartToMessage } from "./helpers";
+import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
+import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import {
   buildPostCheckBaseline,
   type PostCheckBaseline,
@@ -9,7 +10,6 @@ import { resolvePreviousVersionId } from "./post-checks-diff";
 import {
   fetchChatFiles,
   fetchChatVersions,
-  triggerImageMaterialization,
 } from "./post-checks-fetch";
 import {
   buildPostCheckArtifacts,
@@ -21,6 +21,7 @@ import {
 } from "./post-checks-summary";
 import type {
   AutoFixPayload,
+  RepairContext,
   SetMessages,
   StreamQualitySignal,
   VersionErrorLogPayload,
@@ -35,7 +36,7 @@ async function persistVersionErrorLogs(params: {
   if (!logs.length) return;
   try {
     await fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+      `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -55,7 +56,7 @@ async function validateImages(params: {
   const { chatId, versionId, signal } = params;
   try {
     const response = await fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/validate-images`,
+      `${engineChatBaseUrl(chatId)}/validate-images`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,6 +69,38 @@ async function validateImages(params: {
   } catch {
     return null;
   }
+}
+
+const ENV_LOOKUP_RE = /\b[A-Z][A-Z0-9_]{2,}\b/g;
+const ENV_ERROR_HINTS = [
+  "environment variable",
+  "environment variables",
+  "env var",
+  "env vars",
+  "missing env",
+  "missing required",
+  "must be set",
+  "process.env",
+  "saknas fortfarande",
+  "saknad",
+];
+
+function extractMissingEnvKeysFromQualityGate(checks: QualityGateCheckResult[]): string[] {
+  const keys = new Set<string>();
+  for (const check of checks) {
+    const output = typeof check.output === "string" ? check.output : "";
+    if (!output.trim()) continue;
+    const lower = output.toLowerCase();
+    if (!ENV_ERROR_HINTS.some((hint) => lower.includes(hint))) continue;
+    for (const match of output.matchAll(ENV_LOOKUP_RE)) {
+      const candidate = match[0];
+      if (!candidate) continue;
+      if (candidate.includes("_") || candidate.endsWith("URL")) {
+        keys.add(candidate);
+      }
+    }
+  }
+  return Array.from(keys).sort((a, b) => a.localeCompare(b));
 }
 
 function buildAutoFixMeta(
@@ -88,8 +121,6 @@ function buildAutoFixMeta(
     scaffoldRetry: preflight?.scaffoldRetry ?? null,
   };
 }
-
-export { triggerImageMaterialization };
 
 export async function runPostGenerationChecks(params: {
   chatId: string;
@@ -276,16 +307,16 @@ async function runSandboxQualityGate(params: {
     toolName: "Quality gate",
     toolCallId,
     state: "input-streaming",
-    input: { chatId, versionId, checks: ["typecheck", "build"] },
+    input: { chatId, versionId, checks: ["typecheck", "build", "lint"] },
   } as UiMessagePart);
 
   try {
     const res = await fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/quality-gate`,
+      `${engineChatBaseUrl(chatId)}/quality-gate`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, checks: ["typecheck", "build"] }),
+        body: JSON.stringify({ versionId, checks: ["typecheck", "build", "lint"] }),
       },
     );
 
@@ -305,6 +336,11 @@ async function runSandboxQualityGate(params: {
       checks?: QualityGateCheckResult[];
       sandboxDurationMs?: number;
       error?: string;
+      visualQA?: {
+        overallScore: number;
+        passed: boolean;
+        checks: Array<{ check: string; passed: boolean; score: number; detail: string }>;
+      };
     } | null;
 
     if (!res.ok || !data) {
@@ -342,16 +378,79 @@ async function runSandboxQualityGate(params: {
       },
     } as UiMessagePart);
 
-    if (!data.passed && failedChecks.length > 0 && onAutoFix) {
-      const failedOutputs: Record<string, string> = {};
-      for (const check of data.checks ?? []) {
-        if (!check.passed) failedOutputs[check.check] = check.output.slice(0, 2000);
+    if (data.visualQA) {
+      const vqaSteps = data.visualQA.checks.map(
+        (c) => `visual:${c.check}: ${c.passed ? "PASS" : "FAIL"} (${c.score}/100) — ${c.detail}`,
+      );
+      steps.push(`Visual QA: ${data.visualQA.overallScore}/100 ${data.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}`);
+      steps.push(...vqaSteps);
+    }
+
+    if (!data.passed && failedChecks.length > 0) {
+      const missingEnvKeys = extractMissingEnvKeysFromQualityGate(data.checks ?? []);
+      if (missingEnvKeys.length > 0) {
+        appendToolPartToMessage(
+          setMessages,
+          assistantMessageId,
+          integrationSignalToToolPart(
+            {
+              key: `quality-gate-env:${versionId}`,
+              name: "Miljövariabler",
+              intent: "env_vars",
+              envVars: missingEnvKeys,
+              status:
+                "Bygget kräver miljövariabler innan live-preview kan nå Fidelity 2. Lägg in nycklarna och starta om previewn i stället för att generera om sajten.",
+              sourceEvent: "quality-gate",
+            },
+            versionId,
+          ),
+        );
+        return;
       }
+
+      const repair: RepairContext = {
+        qualityGate: (data.checks ?? [])
+          .filter((c) => !c.passed)
+          .map((c) => ({
+            check: c.check as "typecheck" | "build" | "lint",
+            exitCode: c.exitCode,
+            output: c.output.slice(0, 4000),
+          })),
+      };
+
+      const serverRepaired = await tryServerRepair(chatId, versionId, repair);
+      if (serverRepaired) {
+        appendToolPartToMessage(setMessages, assistantMessageId, {
+          type: "tool:quality-gate",
+          toolName: "Server repair",
+          toolCallId: `server-repair:${versionId}`,
+          state: "output-available",
+          output: {
+            repaired: true,
+            method: serverRepaired.deterministic ? "deterministic" : "llm",
+            newVersionId: serverRepaired.newVersionId,
+          },
+        } as UiMessagePart);
+      } else {
+        onAutoFix?.({
+          chatId,
+          versionId,
+          reasons: failedChecks.map((check) => `${check} failed`),
+          repair,
+        });
+      }
+    } else if (data.passed && data.visualQA && !data.visualQA.passed && onAutoFix) {
+      const repair: RepairContext = {
+        visualQA: data.visualQA.checks
+          .filter((c) => !c.passed)
+          .map((c) => ({ check: c.check, score: c.score, detail: c.detail }))
+          .slice(0, 4),
+      };
       onAutoFix({
         chatId,
         versionId,
-        reasons: failedChecks.map((check) => `${check} failed`),
-        meta: { qualityGate: failedOutputs },
+        reasons: [`Visual QA score ${data.visualQA.overallScore}/100 below threshold`],
+        repair,
       });
     }
   } catch {
@@ -362,5 +461,45 @@ async function runSandboxQualityGate(params: {
       state: "output-error",
       errorText: "Quality gate request failed (network error)",
     } as UiMessagePart);
+  }
+}
+
+function isServerRepairDisabled(): boolean {
+  try {
+    return typeof window !== "undefined" &&
+      (window as unknown as Record<string, unknown>).__SAJTMASKIN_SKIP_SERVER_REPAIR__ === true;
+  } catch {
+    return false;
+  }
+}
+
+type ServerRepairResult = {
+  repaired: boolean;
+  deterministic: boolean;
+  newVersionId?: string | null;
+  remainingErrors?: number;
+};
+
+async function tryServerRepair(
+  chatId: string,
+  versionId: string,
+  repair: RepairContext,
+): Promise<ServerRepairResult | null> {
+  if (isServerRepairDisabled()) return null;
+  try {
+    const res = await fetch(
+      `${engineChatBaseUrl(chatId)}/repair`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId, repairContext: repair }),
+      },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as ServerRepairResult | null;
+    if (!data?.repaired) return null;
+    return data;
+  } catch {
+    return null;
   }
 }

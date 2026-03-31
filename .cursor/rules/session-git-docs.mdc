@@ -1,0 +1,35 @@
+---
+description: Stage bara ditt arbete; håll docs kanoniska och korta
+alwaysApply: true
+---
+
+# Session, git, and docs
+
+## Git hygiene
+
+- Vid **massradering** eller mycket bred städ-PR (t.ex. >~40 filer / hel epik-svep): nämn `git rev-parse HEAD` i PR-beskrivningen som referens — se `docs/plans/avklarat/STORDSTAD-repo-kod-databas.md` Fas A.
+- Stage och commit:a bara filer som hör till den aktuella uppgiften.
+- Om delade filer redan har oväntade diffar eller parallellt arbete syns: smalna av scope, läs om och fråga innan du skriver över något tvetydigt.
+- Commit eller push bara när användaren faktiskt ber om det.
+
+## Docs hygiene
+
+- Uppdatera docs bara när beteende, publik yta, struktur, terminologi eller verklig arbetsstatus har ändrats.
+- Uppdatera den kanoniska filen i samma vända; lämna inte parallell och gammal text kvar.
+- Ta bort obsolete text hellre än att lägga till ett nytt lager förklaring.
+- Skapa inte nya processfiler, handoffs eller meta-dokument om scope inte verkligen är nytt.
+- Återuppliva inte gamla loggar eller arkiv som aktiv sanningskälla.
+
+## Canonical places
+
+- System och struktur: `docs/architecture/`
+- Stabil mänsklig schemaförklaring: `docs/schemas/`
+- Aktiv backlog och planer: `docs/plans/active/`
+- Full dokumentationspolicy: `docs/architecture/documentation-lifecycle.md`
+- Env- och ignore-policy: `repo-env-indexing.mdc`
+
+## Guiding principles
+
+- En sanning, ett ställe.
+- Ta bort > lägg till när text blivit inaktuell.
+- Om beteendet inte ändrats, rör inte docs.

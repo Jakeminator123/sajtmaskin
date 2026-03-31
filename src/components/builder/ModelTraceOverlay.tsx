@@ -264,9 +264,6 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                     >
                       Anthropic key: {snapshot.auth.anthropic ? "set" : "missing"}
                     </span>
-                    <span className={cn("rounded-full border px-2 py-1", statusChipClass(snapshot.auth.v0))}>
-                      v0 key: {snapshot.auth.v0 ? "set" : "missing"}
-                    </span>
                     <span
                       className={cn(
                         "rounded-full border px-2 py-1",

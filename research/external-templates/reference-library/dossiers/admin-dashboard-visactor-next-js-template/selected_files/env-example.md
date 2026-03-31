@@ -1,0 +1,9 @@
+# .env.example
+
+Reason: Useful structural reference
+
+```text
+# This is the data visualization template with mock data
+# Therefore, you can run it locally without any environment variables
+# Feel free to add any environment variables you need here later
+```

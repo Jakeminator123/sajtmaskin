@@ -62,8 +62,8 @@ Ingen speciell hantering. Normal startsida.
 https://sajtmaskin.vercel.app?token=demo-kzmpc9tk45vsovp4cme1
 ```
 
-Token sparas i `sessionStorage` under nyckeln `sajtmaskin_entry_token`.
-Kan läsas var som helst med `getEntryToken()` från `@/lib/entry`.
+Token sparas i `sessionStorage` under nyckeln `sajtmaskin_entry_token` via `saveEntryToken()` i `@/lib/entry/entry-token`.
+Konsumenter läser värdet via `useEntryParams()` (`@/lib/entry/use-entry-params`), som läser `sessionStorage` på klienten.
 
 Token-format: `demo-` + alfanumerisk sträng.
 

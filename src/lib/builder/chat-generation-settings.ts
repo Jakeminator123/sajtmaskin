@@ -13,7 +13,7 @@ export type ChatGenerationSettings = {
 const CHAT_GENERATION_SETTINGS_PREFIX = "sajtmaskin:chatGenerationSettings:";
 const MODEL_TIER_SET = new Set<ModelTier>(MODEL_TIER_OPTIONS.map((option) => option.value));
 
-export function buildChatGenerationSettingsKey(chatId: string): string {
+function buildChatGenerationSettingsKey(chatId: string): string {
   return `${CHAT_GENERATION_SETTINGS_PREFIX}${chatId}`;
 }
 

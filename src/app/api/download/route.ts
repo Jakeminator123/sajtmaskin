@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { downloadVersionAsZip } from "@/lib/v0/v0-generator";
+import { buildZipBufferFromEngineVersion } from "@/lib/gen/engine-version-zip";
 import JSZip from "jszip";
-import { extractContent, generateBackofficeFiles } from "@/lib/backoffice";
+import { extractContent } from "@/lib/backoffice/content-extractor";
+import { generateBackofficeFiles } from "@/lib/backoffice/template-generator";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
+import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 
 /**
  * Download endpoint with optional backoffice injection
@@ -21,15 +23,25 @@ async function processDownload(
   password?: string,
 ): Promise<NextResponse> {
   try {
-    let zipBuffer: ArrayBuffer;
+    let zipBuffer: ArrayBuffer | null;
     try {
-      zipBuffer = await downloadVersionAsZip(chatId, versionId);
+      zipBuffer = await buildZipBufferFromEngineVersion(chatId, versionId);
     } catch (downloadError) {
       const errorMessage = downloadError instanceof Error ? downloadError.message : "Okänt fel";
-      console.error("[API/download] Failed to download ZIP:", errorMessage);
+      console.error("[API/download] Failed to build ZIP:", errorMessage);
       return NextResponse.json(
         { success: false, error: `Kunde inte ladda ner ZIP: ${errorMessage}` },
         { status: 500 },
+      );
+    }
+    if (!zipBuffer) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Version hittades inte eller saknar sparade filer (own-engine). Kontrollera chatId och versionId.",
+        },
+        { status: 404 },
       );
     }
 
@@ -58,18 +70,24 @@ async function processDownload(
     const filePromises: Promise<void>[] = [];
 
     zip.forEach((relativePath, file) => {
+      const normalizedZipPath = relativePath.split("\\").join("/");
+      const safeName = sanitizeProjectPath(normalizedZipPath);
+      if (!safeName) {
+        console.warn(`[API/download] Skipping unsafe zip path: ${relativePath}`);
+        return;
+      }
       if (
         !file.dir &&
-        (relativePath.endsWith(".tsx") ||
-          relativePath.endsWith(".ts") ||
-          relativePath.endsWith(".jsx") ||
-          relativePath.endsWith(".js"))
+        (safeName.endsWith(".tsx") ||
+          safeName.endsWith(".ts") ||
+          safeName.endsWith(".jsx") ||
+          safeName.endsWith(".js"))
       ) {
         filePromises.push(
           file
             .async("string")
             .then((content) => {
-              codeFiles.push({ name: relativePath, content });
+              codeFiles.push({ name: safeName, content });
             })
             .catch((error) => {
               console.warn(`[API/download] Failed to read file ${relativePath}:`, error);

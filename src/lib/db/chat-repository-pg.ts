@@ -26,6 +26,7 @@ export interface Chat {
   model: string;
   system_prompt: string | null;
   scaffold_id: string | null;
+  orchestration_snapshot?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -306,6 +307,30 @@ export async function updateChatScaffoldId(chatId: string, scaffoldId: string | 
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function getChatOrchestrationSnapshot(
+  chatId: string,
+): Promise<Record<string, unknown> | null> {
+  const rows = await db
+    .select({ orchestrationSnapshot: engineChats.orchestrationSnapshot })
+    .from(engineChats)
+    .where(eq(engineChats.id, chatId))
+    .limit(1);
+  if (rows.length === 0) return null;
+  const v = rows[0].orchestrationSnapshot;
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+export async function updateChatOrchestrationSnapshot(
+  chatId: string,
+  snapshot: Record<string, unknown> | null,
+): Promise<boolean> {
+  const result = await db
+    .update(engineChats)
+    .set({ orchestrationSnapshot: snapshot, updatedAt: new Date() })
+    .where(eq(engineChats.id, chatId));
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function getVersionsByChat(chatId: string): Promise<Version[]> {
   const rows = await db
     .select()
@@ -352,6 +377,25 @@ export async function markVersionVerifying(
     .set({
       releaseState: "draft",
       verificationState: "verifying",
+      verificationSummary,
+      promotedAt: null,
+    })
+    .where(eq(engineVersions.id, versionId));
+  if ((result.rowCount ?? 0) === 0) {
+    return null;
+  }
+  return getStoredVersion(versionId);
+}
+
+export async function markVersionRepairing(
+  versionId: string,
+  verificationSummary: string | null = "Server-side repair in progress.",
+): Promise<Version | null> {
+  const result = await db
+    .update(engineVersions)
+    .set({
+      releaseState: "draft",
+      verificationState: "repairing",
       verificationSummary,
       promotedAt: null,
     })

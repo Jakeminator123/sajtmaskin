@@ -1,3 +1,8 @@
+import {
+  buildUnsplashSearchCandidates,
+  inferUnsplashOrientationFromUrl,
+} from "@/lib/images/unsplash-query-fallback";
+
 /**
  * Image URL Validator
  * ═══════════════════════════════════════════════════════════════
@@ -193,7 +198,7 @@ async function headCheck(url: string): Promise<number | "error"> {
  * Runs checks in parallel with a concurrency limit.
  * @param skipUrls URLs known to be valid (e.g. freshly materialized from Unsplash)
  */
-export async function findBrokenImages(
+async function findBrokenImages(
   refs: ImageRef[],
   skipUrls?: Set<string>,
 ): Promise<BrokenImage[]> {
@@ -272,11 +277,12 @@ interface UnsplashSearchResult {
 async function searchUnsplashReplacement(
   query: string,
   accessKey: string,
+  orientation: "landscape" | "portrait" | "squarish" = "landscape",
 ): Promise<string | null> {
   if (!query.trim() || !accessKey) return null;
   try {
     const res = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=${orientation}`,
       {
         headers: {
           Authorization: `Client-ID ${accessKey}`,
@@ -301,7 +307,7 @@ async function searchUnsplashReplacement(
  * Attempt to find Unsplash replacements for broken images.
  * Only replaces broken Unsplash URLs (not other hosts).
  */
-export async function findReplacements(
+async function findReplacements(
   broken: BrokenImage[],
   unsplashAccessKey: string | null,
 ): Promise<BrokenImage[]> {
@@ -310,10 +316,13 @@ export async function findReplacements(
   const updated = [...broken];
   for (const entry of updated) {
     if (!isUnsplashUrl(entry.url)) continue;
-    const query = entry.alt || "nature landscape";
-    const photoPath = await searchUnsplashReplacement(query, unsplashAccessKey);
-    if (photoPath) {
+    const orientation = inferUnsplashOrientationFromUrl(entry.url);
+    const candidates = buildUnsplashSearchCandidates(entry.alt || "nature landscape");
+    for (const query of candidates) {
+      const photoPath = await searchUnsplashReplacement(query, unsplashAccessKey, orientation);
+      if (!photoPath) continue;
       entry.replacementUrl = preserveUnsplashParams(entry.url, photoPath);
+      break;
     }
   }
   return updated;
@@ -327,7 +336,7 @@ export async function findReplacements(
  * Replace broken image URLs in file contents with their replacements.
  * Returns updated files and count of replacements made.
  */
-export function applyReplacements(
+function applyReplacements(
   files: TextFile[],
   broken: BrokenImage[],
 ): { files: TextFile[]; replacedCount: number } {

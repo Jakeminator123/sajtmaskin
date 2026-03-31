@@ -7,7 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getUserTransactions, getOrCreateGuestUsage } from "@/lib/db/services";
+import { getOrCreateGuestUsage } from "@/lib/db/services/guests";
+import { getUserTransactions } from "@/lib/db/services/transactions";
 
 /**
  * GET: Get current credit balance and usage info

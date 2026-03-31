@@ -10,6 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -60,7 +61,9 @@ export function VersionCollaboration({
 
   const fetchComments = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/comments`);
+      const res = await fetch(
+        `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/comments`,
+      );
       if (!res.ok) return;
       const data = (await res.json()) as { comments?: Comment[] };
       setComments(Array.isArray(data.comments) ? data.comments : []);
@@ -71,7 +74,9 @@ export function VersionCollaboration({
 
   const fetchApproval = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/approval`);
+      const res = await fetch(
+        `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/approval`,
+      );
       if (!res.ok) return;
       const data = (await res.json()) as { approval?: Approval };
       setApproval(data.approval ?? null);
@@ -95,7 +100,7 @@ export function VersionCollaboration({
     if (!content || submittingComment) return;
     setSubmittingComment(true);
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/comments`, {
+      const res = await fetch(`${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
@@ -114,7 +119,7 @@ export function VersionCollaboration({
 
   const handleResolveComment = useCallback(async (commentId: string) => {
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/comments`, {
+      const res = await fetch(`${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/comments`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ commentId }),
@@ -131,7 +136,7 @@ export function VersionCollaboration({
     if (submittingApproval) return;
     setSubmittingApproval(action);
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/approval`, {
+      const res = await fetch(`${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/approval`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

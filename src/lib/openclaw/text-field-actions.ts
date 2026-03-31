@@ -292,8 +292,3 @@ function setNativeFormValue(
   }
   element.value = value;
 }
-
-export const OPENCLAW_ACTION_TAGS = {
-  open: OPENCLAW_ACTION_OPEN_TAG,
-  close: OPENCLAW_ACTION_CLOSE_TAG,
-};

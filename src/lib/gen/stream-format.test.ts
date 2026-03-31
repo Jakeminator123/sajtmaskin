@@ -7,6 +7,8 @@ type StreamPart = {
   type: string;
   text?: string;
   textDelta?: string;
+  reasoning?: string;
+  reasoningDelta?: string;
   toolName?: string;
   toolCallId?: string;
   args?: Record<string, unknown>;
@@ -121,5 +123,44 @@ describe("createCodeGenSSEStream", () => {
 
     const doneEvent = events.at(-1);
     expect(doneEvent?.event).toBe("done");
+  });
+
+  it("emits progress and an explicit silent-output error when no text events arrive", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "reasoning-start" },
+      { type: "reasoning-end" },
+      { type: "finish" },
+    ]);
+
+    expect(
+      events.some(
+        (event) =>
+          event.event === "progress" &&
+          typeof event.data === "object" &&
+          event.data !== null &&
+          (event.data as Record<string, unknown>).step === "generation" &&
+          (event.data as Record<string, unknown>).phase === "start",
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.event === "progress" &&
+          typeof event.data === "object" &&
+          event.data !== null &&
+          (event.data as Record<string, unknown>).phase === "empty-output",
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.event === "error" &&
+          typeof event.data === "object" &&
+          event.data !== null &&
+          String((event.data as Record<string, unknown>).message).includes("no text events"),
+      ),
+    ).toBe(true);
+    expect(events.at(-1)?.event).toBe("done");
   });
 });

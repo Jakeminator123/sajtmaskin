@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { diffFiles, diffFileContents, resolvePreviousVersionId, type FileDiff, type FileContentDiff } from "@/lib/hooks/chat/post-checks-diff";
 import type { FileEntry } from "@/lib/hooks/chat/types";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,7 @@ function normalizeVersionId(version: VersionSummary): string | null {
 
 async function fetchVersionFiles(chatId: string, versionId: string, signal: AbortSignal): Promise<FileEntry[]> {
   const response = await fetch(
-    `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}&wait=1`,
+    `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(versionId)}&wait=1`,
     { signal },
   );
   const data = (await response.json().catch(() => null)) as { files?: FileEntry[]; error?: string } | null;

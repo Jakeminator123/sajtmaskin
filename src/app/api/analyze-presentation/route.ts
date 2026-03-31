@@ -15,6 +15,7 @@ import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
+import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
@@ -71,6 +72,41 @@ Regler for visuell analys:
 - overallScore: 1-10 (generos)
 - Alla texter pa svenska, korta (1-2 meningar per falt)
 - suggestions: max 3`;
+
+
+/** First balanced `{ ... }` slice — avoids greedy `/\{[\s\S]*\}/` grabbing multiple JSON-like blocks. */
+function extractFirstJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (c === "\\") {
+        escape = true;
+        continue;
+      }
+      if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
 
 function buildFallbackAnalysis(
   transcript: string,
@@ -169,8 +205,8 @@ export async function POST(req: Request) {
     // Parse JSON
     let analysis;
     try {
-      const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-      analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      const jsonBlob = extractFirstJsonObject(analysisText);
+      analysis = jsonBlob ? JSON.parse(jsonBlob) : null;
     } catch {
       analysis = null;
     }
@@ -236,9 +272,7 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
 /** Text-only analysis via AI Gateway */
 async function analyzeTextOnly(userText: string): Promise<string> {
   const hasGatewayAuth =
-    Boolean(process.env.AI_GATEWAY_API_KEY?.trim()) ||
-    Boolean(process.env.VERCEL_OIDC_TOKEN?.trim()) ||
-    process.env.VERCEL === "1";
+    Boolean(pickAiGatewayKeyFromEnv()) || isVercelHostedRuntime();
 
   if (hasGatewayAuth) {
     try {

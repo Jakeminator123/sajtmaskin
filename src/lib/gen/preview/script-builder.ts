@@ -3,7 +3,7 @@ import { PREVIEW_TRANSPILE_ERROR_LIMIT, isPreviewBuiltinImportSource } from "./c
 import { escapeInlineScript, resolveLocalImportPath } from "./utils";
 import { buildCodeFileMap, buildPreparedModuleMap } from "./file-resolution";
 import { prepareModules } from "./transpile";
-import { buildPreviewPrelude } from "./shims";
+import { buildPreviewPrelude } from "./legacy/shims";
 
 export function buildLocalImportAliases(modules: PreparedModule[]): string {
   const fileMap = buildCodeFileMap(modules.map((module) => module.file));

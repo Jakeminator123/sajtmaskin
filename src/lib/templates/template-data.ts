@@ -1,5 +1,5 @@
-// Category data with quick prompts
-// V0 Templates integration
+// Template catalog data: categories, quick prompts, and v0.app gallery items.
+// Data source is v0.app (synced via scripts/template-library/sync-v0-templates.mjs).
 
 import templatesData from "./templates.json";
 import templateCategoriesData from "./template-categories.json";
@@ -26,7 +26,7 @@ export interface CategoryInfo {
   quickPrompts: QuickPrompt[];
 }
 
-// Template interface for v0.app templates
+// Template interface for gallery items (data sourced from v0.app)
 export interface Template {
   id: string;
   title: string;
@@ -38,8 +38,7 @@ export interface Template {
   category: string;
 }
 
-// Import and normalize templates from JSON
-// Filter out category placeholder templates that are not real v0 templates
+// Filter out category placeholder entries that are not real templates
 const rawTemplates = (
   templatesData as Array<{
     id: string;
@@ -93,7 +92,7 @@ export function getTemplateCategoryId(template: Template): string {
     return mappedCategory;
   }
 
-  // Available V0 categories to distribute templates across
+  // Available gallery categories to distribute templates across
   const availableCategories = [
     "ai",
     "animations",
@@ -120,7 +119,7 @@ export function getTemplateCategoryId(template: Template): string {
   return "uncategorized";
 }
 
-// V0.app category metadata
+// Gallery category metadata (data sourced from v0.app)
 export const V0_CATEGORIES: Record<string, CategoryInfo> = {
   ai: {
     id: "ai",

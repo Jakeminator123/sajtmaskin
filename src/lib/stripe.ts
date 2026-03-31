@@ -16,7 +16,7 @@ function normalizeStripePriceId(value: string | undefined): string | undefined {
 }
 
 // Credit packages available for purchase
-export const DIAMOND_PACKAGES = [
+const DIAMOND_PACKAGES = [
   {
     id: "10_credits",
     name: "Starter",
@@ -50,15 +50,3 @@ export function getPackageById(id: string) {
   return DIAMOND_PACKAGES.find((p) => p.id === id);
 }
 
-// Get package by Stripe Price ID
-export function getPackageByPriceId(priceId: string) {
-  return DIAMOND_PACKAGES.find((p) => p.priceId === priceId);
-}
-
-// Calculate savings percentage vs base rate (starter package rate)
-export function getSavingsPercent(packageData: (typeof DIAMOND_PACKAGES)[number]) {
-  const baseRatePerCredit = 4.9; // Starter: 49/10 = 4.9 SEK per credit
-  const actualPricePerCredit = packageData.price / packageData.diamonds;
-  const savings = ((baseRatePerCredit - actualPricePerCredit) / baseRatePerCredit) * 100;
-  return Math.round(savings);
-}

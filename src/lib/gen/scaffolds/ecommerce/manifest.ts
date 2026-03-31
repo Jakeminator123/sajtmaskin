@@ -22,6 +22,24 @@ export const ecommerceManifest: ScaffoldManifest = {
     "The cart drawer is a client-side sheet — keep product data in a simple array or context for now.",
     "Adapt product categories, imagery, and pricing to the user's niche. Replace all placeholder names.",
   ],
+  qualityChecklist: [
+    "Store name replaces [Butiksnamn] everywhere — header, hero badge, footer, metadata.",
+    "Product names, categories, and prices are specific to the user's niche.",
+    "Category and product images use descriptive placeholder text matching the niche.",
+    "Hero section communicates the store's unique selling proposition, not generic copy.",
+    "Navigation includes relevant links for the store type (not generic Hem/Produkter).",
+    "Color scheme adapted from neutral to match the product category's visual identity.",
+  ],
+  research: {
+    upgradeTargets: [
+      "Add a product detail page template with image gallery and add-to-cart button.",
+      "Include a cart drawer/sheet component with item count badge in header.",
+      "Add product filtering by category with URL-based state.",
+      "Include a newsletter/email signup section in the footer.",
+      "Generate structured data (JSON-LD Product) for product cards.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",

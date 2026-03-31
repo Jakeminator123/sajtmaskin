@@ -5,6 +5,7 @@ import {
   resolveEngineVersionDisplayStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
+import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   AlertCircle,
   CheckCircle,
@@ -21,6 +22,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import useSWR from "swr";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,6 +47,8 @@ type VersionSummary = {
   id?: string | null;
   versionId?: string | null;
   demoUrl?: string | null;
+  legacyShimPreviewUrl?: string | null;
+  sandboxUrl?: string | null;
   createdAt?: string | Date | null;
   versionNumber?: number | null;
   releaseState?: string | null;
@@ -75,6 +79,7 @@ type RestoreVersionResponse = {
   success?: boolean;
   versionId?: string | null;
   demoUrl?: string | null;
+  legacyShimPreviewUrl?: string | null;
   error?: string;
 };
 
@@ -125,7 +130,7 @@ export function VersionHistory({
     .filter((id): id is string => !!id);
   const { data: collaborationData } = useSWR<{ summaries?: Record<string, { approvalStatus: string | null; unresolvedCount: number }> }>(
     chatId && collaborationVersionIds.length > 0
-      ? `/api/v0/chats/${chatId}/versions/collaboration-summaries?versionIds=${encodeURIComponent(collaborationVersionIds.join(","))}`
+      ? `${engineChatBaseUrl(chatId)}/versions/collaboration-summaries?versionIds=${encodeURIComponent(collaborationVersionIds.join(","))}`
       : null,
     async (url) => {
       const res = await fetch(url);
@@ -182,7 +187,7 @@ export function VersionHistory({
     setDownloadingVersionId(versionId);
 
     try {
-      window.open(`/api/v0/chats/${chatId}/versions/${versionId}/download?format=zip`, "_blank");
+      window.open(`${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/download?format=zip`, "_blank");
       toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
@@ -201,9 +206,10 @@ export function VersionHistory({
     setExportingVersionId(versionId);
 
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/export?format=zip`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/export?format=zip`,
+        { method: "POST" },
+      );
       const data = (await res.json().catch(() => null)) as BlobExportResponse | null;
       if (!res.ok) {
         const message = data?.error || `Export failed (HTTP ${res.status})`;
@@ -284,7 +290,7 @@ export function VersionHistory({
     const nextPinned = !version.pinned;
     setPinningVersionId(versionId);
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions`, {
+      const res = await fetch(`${engineChatBaseUrl(chatId)}/versions`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ versionId, pinned: nextPinned }),
@@ -311,7 +317,7 @@ export function VersionHistory({
       version.releaseState === "promoted" || version.verificationState === "passed";
     setRestoringVersionId(versionId);
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions`, {
+      const res = await fetch(`${engineChatBaseUrl(chatId)}/versions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: rollbackMode ? "rollback" : "restore", versionId }),
@@ -321,7 +327,7 @@ export function VersionHistory({
         throw new Error(data?.error || `Restore failed (HTTP ${res.status})`);
       }
       if (data?.versionId) {
-        onVersionSelect(String(data.versionId), data.demoUrl ?? undefined);
+        onVersionSelect(String(data.versionId));
       }
       toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version restored som ny draftversion");
       mutate();
@@ -508,30 +514,46 @@ export function VersionHistory({
                 ? "Promoted"
                 : lifecycleStatus === "verifying"
                   ? "Verifying"
-                  : lifecycleStatus === "retrying"
-                    ? "Omtag"
-                    : lifecycleStatus === "failed"
-                      ? "Fel"
-                      : "Draft";
+                  : lifecycleStatus === "repairing"
+                    ? "Repairing"
+                    : lifecycleStatus === "retrying"
+                      ? "Omtag"
+                      : lifecycleStatus === "failed"
+                        ? "Fel"
+                        : "Draft";
             const lifecycleBadgeVariant =
               lifecycleStatus === "failed"
                 ? "destructive"
                 : lifecycleStatus === "promoted"
                   ? "default"
-                  : lifecycleStatus === "retrying"
+                  : lifecycleStatus === "retrying" || lifecycleStatus === "repairing"
                     ? "outline"
                     : "secondary";
             const lifecycleBadgeClassName =
               lifecycleStatus === "retrying"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                : undefined;
+                : lifecycleStatus === "repairing"
+                  ? "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300"
+                  : undefined;
+            const isEngineVersionRow =
+              version.canPin === false || typeof version.versionNumber === "number";
+            const sandboxNorm = normalizePreviewUrl(version.sandboxUrl);
+            const hasSandboxForTier = Boolean(
+              sandboxNorm && isSandboxPreviewUrl(sandboxNorm),
+            );
             const qualityTier = resolveQualityTier(
               {
                 releaseState: version.releaseState,
                 verificationState: version.verificationState,
               },
-              { hasDemoUrl: Boolean(version.demoUrl) },
+              isEngineVersionRow
+                ? { hasSandboxUrl: hasSandboxForTier }
+                : { hasDemoUrl: Boolean(version.demoUrl) },
             );
+            const listPreviewUrl =
+              (sandboxNorm && isSandboxPreviewUrl(sandboxNorm) ? sandboxNorm : null) ??
+              normalizePreviewUrl(version.legacyShimPreviewUrl) ??
+              normalizePreviewUrl(version.demoUrl);
             const qualityTierLabel =
               qualityTier === "production"
                 ? "Produktionsklar"
@@ -588,7 +610,7 @@ export function VersionHistory({
                           variant={lifecycleBadgeVariant}
                           className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadgeClassName)}
                         >
-                          {lifecycleStatus === "verifying" && (
+                          {(lifecycleStatus === "verifying" || lifecycleStatus === "repairing") && (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           )}
                           {lifecycleStatus === "retrying" && <RotateCcw className="h-3 w-3" />}
@@ -644,18 +666,18 @@ export function VersionHistory({
                           {lifecycleSummary}
                         </p>
                       )}
-                      {version.demoUrl && (
+                      {listPreviewUrl && (
                         <p
                           className="text-muted-foreground truncate text-xs"
-                          title={version.demoUrl}
+                          title={listPreviewUrl}
                         >
-                          {version.demoUrl}
+                          {listPreviewUrl}
                         </p>
                       )}
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-1">
-                    {version.demoUrl && (
+                    {listPreviewUrl && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -663,7 +685,7 @@ export function VersionHistory({
                         onClick={(e) => e.stopPropagation()}
                         className="h-7 px-2 text-xs"
                       >
-                        <a href={version.demoUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={listPreviewUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="mr-1 h-3 w-3" />
                           View
                         </a>

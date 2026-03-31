@@ -3,14 +3,16 @@
  * Routes keep auth, credits, and persistence; this module keeps generation SSE meta consistent.
  */
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
-import type { ContractClarificationQuestion } from "@/lib/gen/contract-clarification";
+import { isBuildSpecEnabled, type BuildSpec } from "@/lib/gen/build-spec";
+import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
-import type { PreGenerationContractContext } from "@/lib/gen/pre-generation-contracts";
+import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { GenerationStreamMeta } from "@/lib/providers/own-engine/generation-stream";
 import type { PreGenerationContractGateReadableParams } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import type { CanonicalModelId } from "@/lib/models/catalog";
+import type { TemplateLibrarySearchDiagnostics } from "@/lib/gen/template-library/search";
 
 type OwnEngineContractGateCommon = {
   sseChatId: string;
@@ -25,6 +27,7 @@ type OwnEngineContractGateCommon = {
   resolvedImageGenerations: boolean;
   resolvedScaffold: ScaffoldManifest | null;
   strategyMeta: PromptStrategyMeta;
+  buildSpec: BuildSpec;
   metaBriefApplied: boolean;
   customInstructionsLength: number;
 };
@@ -60,6 +63,7 @@ export function buildPreGenerationContractGateParams(
     resolvedImageGenerations,
     resolvedScaffold,
     strategyMeta,
+    buildSpec,
     metaBriefApplied,
     customInstructionsLength,
   } = input;
@@ -77,6 +81,7 @@ export function buildPreGenerationContractGateParams(
     resolvedImageGenerations,
     resolvedScaffold,
     strategyMeta,
+    buildSpec,
     metaBriefApplied,
     customInstructionsLength,
   };
@@ -102,11 +107,14 @@ export type OwnEngineGenerationStreamMetaInput = {
   resolvedImageGenerations: boolean;
   strategyMeta: PromptStrategyMeta;
   orchestrationBase: OrchestrationBase;
+  buildSpec: BuildSpec;
   engineSystemPromptLength: number;
   metaBriefApplied: boolean;
   customInstructionsLength: number;
   scaffoldId: string | null;
   scaffoldFamily: string | null;
+  /** Present when template-library retrieval ran for this generation (omitted when skipped). */
+  templateLibrarySearchDiagnostics?: TemplateLibrarySearchDiagnostics | null;
 } & (
   | { routeVariant: "new-chat"; chatPrivacy: string; scaffoldLabel: string | null }
   | { routeVariant: "follow-up" }
@@ -146,10 +154,22 @@ export function buildOwnEngineGenerationStreamMeta(
     promptReductionRatio: sm.reductionRatio,
     promptStrategyReason: sm.reason,
     promptComplexityScore: sm.complexityScore,
+    buildSpecEnabled: isBuildSpecEnabled(),
+    buildSpec: input.buildSpec,
     systemPromptLength: input.engineSystemPromptLength,
     briefApplied: input.metaBriefApplied,
     customInstructionsLength: input.customInstructionsLength,
   };
+  const diag = input.templateLibrarySearchDiagnostics;
+  if (diag) {
+    (meta as Record<string, unknown>).templateLibrarySearch = {
+      mode: diag.mode,
+      reason: diag.reason ?? null,
+      topScore: diag.topScore ?? null,
+      catalogSize: diag.catalogSize,
+      usedEmbeddings: diag.usedEmbeddings,
+    };
+  }
   if (input.routeVariant === "new-chat") {
     (meta as Record<string, unknown>).chatPrivacy = input.chatPrivacy;
     (meta as Record<string, unknown>).scaffoldLabel = input.scaffoldLabel;

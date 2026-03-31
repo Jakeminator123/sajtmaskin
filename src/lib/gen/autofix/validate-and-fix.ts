@@ -4,6 +4,8 @@ import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 
+type ValidateFixStatus = "passed" | "partial" | "failed" | "pipeline-error";
+
 export interface ValidateFixResult {
   content: string;
   hadErrors: boolean;
@@ -12,6 +14,8 @@ export interface ValidateFixResult {
   errorsBefore: number;
   errorsAfter: number;
   passes: number;
+  status: ValidateFixStatus;
+  pipelineError: string | null;
 }
 
 export type ValidateFixProgressCallback = (event: {
@@ -83,6 +87,8 @@ export async function validateAndFix(
           errorsBefore: initialErrorCount,
           errorsAfter: 0,
           passes: passCount,
+          status: "passed",
+          pipelineError: null,
         };
       }
 
@@ -116,7 +122,7 @@ export async function validateAndFix(
       }
 
       const errorSummary = validation.errors.map(
-        (e) => `${e.file}:${e.line} ${e.message}`,
+        (e) => `${e.file}:${e.line}:${e.column} ${e.message}`,
       );
       console.warn(`[engine] Pass ${pass}: ${validation.errors.length} syntax errors, attempting LLM fixer`);
 
@@ -133,11 +139,25 @@ export async function validateAndFix(
         const fixerModel = opts.resolvedTier
           ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
           : undefined;
+        const brokenFiles = [
+          ...new Set(validation.errors.map((error) => error.file).filter(Boolean)),
+        ];
         const fixerResult = await runLlmFixer(currentContent, errorSummary, {
           model: fixerModel,
+          requiredFiles: brokenFiles,
         });
-        if (fixerResult.success) {
+        const canRetryWithFixedOutput = fixerResult.success || fixerResult.partial;
+        if (canRetryWithFixedOutput) {
           fixerUsed = true;
+          if (fixerResult.partial) {
+            devLogAppend("in-progress", {
+              type: "syntax-validation.fixer.partial",
+              chatId: opts.chatId,
+              pass,
+              missingFiles: fixerResult.missingFiles,
+              fixedFiles: fixerResult.fixedFiles,
+            });
+          }
           onProgress?.({ pass, phase: "retrying", errorCount: validation.errors.length });
 
           const reFixed = await runAutoFix(fixerResult.fixedContent, {
@@ -174,6 +194,8 @@ export async function validateAndFix(
               errorsBefore: initialErrorCount,
               errorsAfter: 0,
               passes: passCount,
+              status: "passed",
+              pipelineError: null,
             };
           }
 
@@ -206,22 +228,31 @@ export async function validateAndFix(
       errorsBefore: initialErrorCount,
       errorsAfter: bestErrorCount === Infinity ? initialErrorCount : bestErrorCount,
       passes: passCount,
+      status:
+        bestErrorCount === Infinity || bestErrorCount >= initialErrorCount
+          ? "failed"
+          : "partial",
+      pipelineError: null,
     };
   } catch (err) {
-    console.warn("[engine] Validation pipeline error, using original content", err);
+    const pipelineErrorMessage =
+      err instanceof Error ? err.message : "Unknown validation pipeline error";
+    console.warn("[engine] Validation pipeline error, returning explicit failure state", err);
     devLogAppend("in-progress", {
       type: "syntax-validation.pipeline-error",
       chatId: opts.chatId,
-      message: err instanceof Error ? err.message : "Unknown validation pipeline error",
+      message: pipelineErrorMessage,
     });
     return {
       content,
-      hadErrors: false,
+      hadErrors: true,
       fixerUsed: false,
       fixerImproved: false,
       errorsBefore: 0,
       errorsAfter: 0,
       passes: 0,
+      status: "pipeline-error",
+      pipelineError: pipelineErrorMessage,
     };
   }
 }
