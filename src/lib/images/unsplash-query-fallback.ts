@@ -36,8 +36,17 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function sanitizeQuery(raw: string): string {
+  return raw
+    .replace(/\$\{[^}]*\}/g, "")
+    .replace(/`/g, "")
+    .replace(/encodeURIComponent/gi, "")
+    .replace(/\([^)]*\)/g, "")
+    .trim();
+}
+
 function normalizeSearchQuery(raw: string, maxWords = 6): string {
-  const words = raw
+  const words = sanitizeQuery(raw)
     .replace(/[+_-]/g, " ")
     .split(/\s+/)
     .filter((word) => word.length > 1 && !FILLER_WORDS.has(word.toLowerCase()));
