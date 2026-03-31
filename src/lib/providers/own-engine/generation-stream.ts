@@ -220,7 +220,10 @@ export function createOwnEngineGenerationStream(
         ...extra,
       });
 
-      const emitDoneWithVersion = async (finalized: FinalizeResult) => {
+      const emitDoneWithVersion = async (
+        finalized: FinalizeResult,
+        options?: { recoveredAfterStreamAbort?: boolean },
+      ) => {
         didSendDone = true;
         await runOwnEngineStreamPostFinalize({
           sse: { enc, safeEnqueue },
@@ -231,6 +234,7 @@ export function createOwnEngineGenerationStream(
           engineStartedAt,
           commitCredits,
           buildSpec,
+          recoveredAfterStreamAbort: options?.recoveredAfterStreamAbort === true,
         });
       };
 
@@ -426,7 +430,9 @@ export function createOwnEngineGenerationStream(
                     fallbackVerificationSummary,
                   )
                   .catch(() => null);
-                await emitDoneWithVersion(fallbackFinalized);
+                await emitDoneWithVersion(fallbackFinalized, {
+                  recoveredAfterStreamAbort: true,
+                });
               }
             } catch {
               /* ignore persistence errors in cleanup */

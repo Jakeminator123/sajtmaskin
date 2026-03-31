@@ -37,6 +37,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
   engineStartedAt: number;
   commitCredits: () => Promise<void>;
   buildSpec: BuildSpec;
+  /** Stream ended without a normal `done` event; prefer parsing raw accumulated SSE text for sandbox files. */
+  recoveredAfterStreamAbort?: boolean;
 }): Promise<void> {
   const {
     sse: { enc, safeEnqueue },
@@ -47,6 +49,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     engineStartedAt,
     commitCredits,
     buildSpec,
+    recoveredAfterStreamAbort = false,
   } = params;
 
   const newDetected = getUnsignaledDetectedIntegrations(
@@ -82,6 +85,17 @@ export async function runOwnEngineStreamPostFinalize(params: {
       parsedForSandbox = parseCodeProject(finalized.contentForVersion).files;
     } catch {
       /* no sandbox files */
+    }
+  }
+  if (
+    recoveredAfterStreamAbort &&
+    parsedForSandbox.length === 0 &&
+    accumulatedContent.trim()
+  ) {
+    try {
+      parsedForSandbox = parseCodeProject(accumulatedContent).files;
+    } catch {
+      /* still no sandbox files */
     }
   }
 
