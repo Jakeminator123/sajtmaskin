@@ -39,6 +39,30 @@ describe("mergePersistedOrchestrationSnapshots", () => {
     const out = mergePersistedOrchestrationSnapshots(null, { x: "y" });
     expect(out).toEqual({ x: "y" });
   });
+
+  it("deep-merges buildSpec so partial next preserves keys from previous", () => {
+    const out = mergePersistedOrchestrationSnapshots(
+      {
+        modelTier: "max",
+        buildSpec: {
+          changeScope: "local-layout",
+          contextPolicy: "light",
+          previewPolicy: "fidelity2",
+        },
+      },
+      {
+        buildSpec: {
+          changeScope: "global",
+        },
+      },
+    );
+    expect(out.modelTier).toBe("max");
+    expect(out.buildSpec).toEqual({
+      changeScope: "global",
+      contextPolicy: "light",
+      previewPolicy: "fidelity2",
+    });
+  });
 });
 
 describe("prependOrchestrationContinuityToFollowUp", () => {

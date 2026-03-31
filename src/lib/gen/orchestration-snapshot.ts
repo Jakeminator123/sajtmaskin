@@ -77,6 +77,10 @@ export function buildPersistedOrchestrationSnapshot(params: {
   return base;
 }
 
+function isPlainObjectRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
 /** Shallow merge: new finalize wins on key collision; keeps prior keys omitted from latest stream (K-019). */
 export function mergePersistedOrchestrationSnapshots(
   previous: Record<string, unknown> | null | undefined,
@@ -84,7 +88,13 @@ export function mergePersistedOrchestrationSnapshots(
 ): Record<string, unknown> {
   const base =
     previous && typeof previous === "object" && !Array.isArray(previous) ? { ...previous } : {};
-  return { ...base, ...next };
+  const merged = { ...base, ...next };
+  const prevBuildSpec = base.buildSpec;
+  const nextBuildSpec = next.buildSpec;
+  if (isPlainObjectRecord(prevBuildSpec) && isPlainObjectRecord(nextBuildSpec)) {
+    merged.buildSpec = { ...prevBuildSpec, ...nextBuildSpec };
+  }
+  return merged;
 }
 
 export function prependOrchestrationContinuityToFollowUp(

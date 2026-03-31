@@ -350,4 +350,62 @@ describe("buildDynamicContext", () => {
       "Retrieval status: Semantic template search found no strong hits, so references came from keyword fallback only.",
     );
   });
+
+  describe("Generation Profile", () => {
+    it("still includes Generation Profile for light follow-up when buildSpec is present", async () => {
+      const context = await buildDynamicContext({
+        intent: "website",
+        originalPrompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
+        generationMode: "followUp",
+        buildSpec: lightFollowUpSpec,
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("## Generation Profile");
+      expect(context).toContain("- **Style direction:** brand-led");
+      expect(context).toContain("- **Quality tier:** standard");
+      expect(context).toContain("- **Reference families:** marketing-sites");
+      expect(context).not.toContain("## Relevant Documentation");
+      expect(context).not.toContain("## Relevant Template References");
+    });
+
+    it("omits Generation Profile when buildSpec is absent", async () => {
+      const context = await buildDynamicContext({
+        intent: "website",
+        originalPrompt: "Build a landing page.",
+        generationMode: "init",
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).not.toContain("## Generation Profile");
+    });
+
+    it("lists forbiddenPatterns when non-empty", async () => {
+      const context = await buildDynamicContext({
+        intent: "website",
+        originalPrompt: "Tweak hero copy only.",
+        generationMode: "followUp",
+        buildSpec: {
+          ...lightFollowUpSpec,
+          forbiddenPatterns: ["no-lorem", "no-stock-photos"],
+        },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("- **Forbidden patterns:** no-lorem, no-stock-photos");
+    });
+
+    it("omits the Forbidden patterns line when forbiddenPatterns is empty", async () => {
+      const context = await buildDynamicContext({
+        intent: "website",
+        originalPrompt: "Tweak hero copy only.",
+        generationMode: "followUp",
+        buildSpec: { ...lightFollowUpSpec, forbiddenPatterns: [] },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("## Generation Profile");
+      expect(context).not.toContain("**Forbidden patterns:**");
+    });
+  });
 });
