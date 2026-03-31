@@ -211,6 +211,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (ai) | 2026-03-31 | 12/21   | 57%     | 43%    | Kod: bort `src/lib/backoffice/types.ts`, `src/lib/db/services/domains.ts` (inga importörer). Bock: Fas B *Legacy 0-reach*. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. `src/lib/gen/scaffolds/*` orört. |
 | **Före** pass 2026-03-31 (aj)  | 2026-03-31 | 12/21   | 57%     | 43%    | Zon: handoff — tillfällig “Aktiv spår B-batch” fanns kvar trots att finalize/post-finalize redan har commits på `master`. |
 | **Efter** pass 2026-03-31 (aj) | 2026-03-31 | 12/21   | 57%     | 43%    | Docs: borttagen “Aktiv spår B-batch” från § Handoff nedan och från `docs/contributing/agent-workflows.md`. Verifierat: `npm run typecheck` + `npm run test:ci` grönt (samma kodbas som pass ai). |
+| **Före** pass 2026-03-31 (ak)  | 2026-03-31 | 12/21   | 57%     | 43%    | Zon: parallell oanvänd eval-modul + oanvänd media-komponent; Fas B *duplicerade helpers* fortfarande obockad. |
+| **Efter** pass 2026-03-31 (ak) | 2026-03-31 | 13/21   | 62%     | 38%    | Kod: bort `src/lib/gen/eval/integration-checks.ts`, `src/components/media/attachment-chips.tsx`. Bock: Fas B *duplicerade helpers*. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. `src/lib/gen/scaffolds/*` orört. |
 
 ---
 
@@ -300,7 +302,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Fas B — Kod och moduler (grep + import)
 
 - [x] Döda exports / oanvända filer — **små barrels & root-shims** *(2026-03-31: zonpass enligt [pass-logg](#pass-logg-före--efter-varje-pass) (a)–(h), (i)–(j), bulk (k) (`db/services` + shim `db/services.ts`), (l) (`gen/preview/index` bort), (m) (`lib/templates/index` bort): rena re-export-barrels bort; kvar under samma rubrik: bredare oanvända helpers, `src/components/ui/`-tröskel-justeringar, större refaktorer — se [Två spår](#två-spår-viktigt--blanda-inte-ihop).)*
-- [ ] Duplicerade helpers: slå ihop endast när tester finns eller beteende är trivialt identiskt
+- [x] Duplicerade helpers: slå ihop endast när tester finns eller beteende är trivialt identiskt *(2026-03-31: pass ak — bort oanvänd `src/lib/gen/eval/integration-checks.ts` som duplicerade samma integrations-/env-checktänk som redan körs via repo-needles i `scripts/run-eval.ts`; bort oanvänd `src/components/media/attachment-chips.tsx` utan importörer.)*
 - [x] Legacy-grenar som grep/typecheck visar som 0-reach (dokumentera i commit *vad* som togs bort) *(2026-03-31: pass ai — bort `src/lib/backoffice/types.ts` (inga importörer; delvis dubblett mot `template-generator`); bort `src/lib/db/services/domains.ts` (inga importörer av `saveDomainOrder`/`updateDomainOrderStatus`; tabell `domain_orders` + typer i `shared.ts` + admin wipe kvar.)*
 - [x] Uppdatera [`docs/architecture/repo-tree.md`](../../architecture/repo-tree.md) när toppnivåmappar försvinner eller byter roll *(2026-03-31: `ai-elements` per-fil + DB-zon beskriver `db/services/*` utan barrel; inga rotmappar borttagna)*
 
@@ -351,7 +353,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass aj)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ak)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)
