@@ -136,6 +136,11 @@ function buildPlacementPromptMessage(
 
 export function BuilderShellContent(vm: BuilderViewModel) {
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt;
+  const isPreviewLoading =
+    vm.isCreatingChat ||
+    vm.sandboxPending ||
+    vm.previewLifecycle === "recovering" ||
+    (!vm.currentPreviewUrl && vm.isAnyStreaming);
   const sendMessage = vm.sendMessage;
   const isDeployActionBusy =
     vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
@@ -705,6 +710,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onGoHome={vm.handleGoHome}
         onNewChat={vm.resetToNewChat}
         onSaveProject={vm.handleSaveProject}
+        onCancelGeneration={vm.cancelActiveGeneration}
         isDeploying={vm.isDeploying}
         isCreatingChat={vm.isCreatingChat || vm.isTemplateLoading}
         isAnyStreaming={vm.isAnyStreaming}
@@ -907,7 +913,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 vm.setCurrentPreviewUrl(url);
                 vm.bumpPreviewRefreshToken();
               }}
-              isLoading={vm.isAnyStreaming || vm.isCreatingChat}
+              isLoading={isPreviewLoading}
               imageGenerationsEnabled={vm.enableImageGenerations}
               imageGenerationsSupported={vm.isImageGenerationsSupported}
               isBlobConfigured={vm.isMediaEnabled}

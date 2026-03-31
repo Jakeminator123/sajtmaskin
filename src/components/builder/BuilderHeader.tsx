@@ -54,6 +54,7 @@ import {
   Wand2,
   Wrench,
   TerminalSquare,
+  X,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
@@ -113,6 +114,7 @@ export function BuilderHeader(props: {
   onGoHome: () => void;
   onNewChat: () => void;
   onSaveProject: () => void;
+  onCancelGeneration: () => void;
 
   isDeploying: boolean;
   isCreatingChat: boolean;
@@ -170,6 +172,7 @@ export function BuilderHeader(props: {
     onGoHome,
     onNewChat,
     onSaveProject,
+    onCancelGeneration,
     isDeploying,
     isCreatingChat,
     isAnyStreaming,
@@ -709,6 +712,18 @@ export function BuilderHeader(props: {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {isBusy ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runDeferredAction(onCancelGeneration)}
+            title="Avbryt pågående generering"
+          >
+            <X className="h-4 w-4" />
+            <span className="hidden sm:inline">Avbryt</span>
+          </Button>
+        ) : null}
 
         <Button
           variant="outline"

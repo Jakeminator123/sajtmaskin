@@ -1542,6 +1542,7 @@ export function useBuilderPageController() {
     // Messaging
     isCreatingChat,
     sendMessage,
+    cancelActiveGeneration,
 
     // Project actions
     applyAppProjectId: projectActions.applyAppProjectId,
