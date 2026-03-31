@@ -56,6 +56,21 @@ python scripts/manual/vercel_template_cli.py --candidates data/scaffold-candidat
 
 Fullständig pipeline och flaggor beskrivs i filens modul-docstring. Därefter: `npm run scaffolds:curate` (eller er interna rapportkedja), manuell granskning, `sync-scaffold-refs.mjs`, arbeta i `src/lib/gen/scaffolds/`.
 
+## Builder batch-generering (`builder-generate.py`)
+
+Interaktivt Python-skript som anropar Sajtmaskins API:er direkt (HTTP + SSE) utan Builder-UI:t. Används för att massproducera och jämföra genererade sidor.
+
+```bash
+# Kräver npm run dev (eller SAJTMASKIN_URL=https://…)
+python scripts/builder-generate.py
+```
+
+**Menyval:** prompt, modell-tier (`fast`/`pro`/`max`/`codex`/`anthropic`), deep brief, scaffold-läge, build intent, thinking, image generations.
+
+**Output:** `output/generations/{timestamp}-{slug}/` med `metadata.json`, `files/`, och `brief.json` (vid deep brief). Output-mappen är gitignored.
+
+**Beroenden:** Python 3.10+, inga pip-paket (stdlib only).
+
 ## Env-verktyg (`scripts/env/`)
 
 Tidigare i repo-roten; nu under `scripts/env/`. Tunna root-wrappers finns kvar och vidarebefordrar.
@@ -163,9 +178,15 @@ Normaliserar discovery-data till den kanoniska research-lagret under
 
 ```bash
 npm run template-library:import-legacy
-npx tsx scripts/import-template-discovery.ts --from="C:\\Users\\jakem\\Desktop\\_sidor\\vercel_usecase_next_react_templates\\summary.json"
+npx tsx scripts/import-template-discovery.ts --from="../vercel-scrape-fresh"
+npx tsx scripts/import-template-discovery.ts --from="<path-to>/vercel_usecase_next_react_templates/summary.json"
 npx tsx scripts/import-template-discovery.ts --from="research/external-templates/raw-discovery/current/playwright-catalog.json" --format=playwright-catalog
 ```
+
+Om den valda mappen innehåller både `summary-cleaned.json` och `summary.json` används den
+städade filen först. Standardkommandot `template-library:import-legacy` prioriterar
+`SAJTMASKIN_VERCEL_SCRAPE_DIR`, sedan syskonmappar som `../vercel-scrape-fresh` / `../vercel-scrape`,
+och faller därefter tillbaka till äldre `_sidor`-dataset.
 
 ## hydrate-template-library-cache.ts
 
@@ -278,6 +299,25 @@ build-time beteende även om den ligger i `.cursorignore` och normalt inte ska
 npm run scaffolds:embeddings
 npx tsx scripts/generate-scaffold-embeddings.ts
 ```
+
+## full_template_refresh.py
+
+Interaktivt "allt-i-ett"-skript for external-template-pipelinen:
+
+1. skrapa nytt material med `hamta_sidor_branch_emil.py`
+2. rensa tidigare genererade research-/embedding-artefakter
+3. importera kanonisk `summary-cleaned.json` / `summary.json`
+4. hydrera `repo-cache`
+5. bygga dossiers + `template-library.generated.json` + `scaffold-research.generated.json`
+6. generera template/scaffold embeddings
+
+Kör interaktivt:
+
+```bash
+py scripts/full_template_refresh.py
+```
+
+Med inga flaggor startar skriptet i interaktivt läge och pausar innan fönstret stängs, vilket gör det lämpligt även för dubbelklick i Windows om `.py` är kopplat till Python.
 
 ## devtest
 
