@@ -148,10 +148,11 @@ Praktiskt kvar i LLM-spåret (utan scaffold-omtag) bedöms till cirka **25–35%
 - **Export-pipeline** kanoniserad via `buildExportableProject()` — alla nedladdnings-/verifieringsvägar går genom samma funktion.  
 - **Sandbox-policy** centraliserad i `src/lib/mcp/runtime-url.ts` — quality-gate och sandbox-routes delar helpers (`isSafeRelativePath`, `resolveSandboxTemplateGitUrl`).  
 - **Template-katalog:** server/pages importerar `@/lib/templates/template-data` och/eller `@/lib/templates/template-catalog`; klient säkra exports via `@/lib/templates/client` (ingen gemensam `index`-barrel).  
-- **Template-library runtime guidance:** system prompt bygger nu regelstyrd reference guidance (`style rules`, `section inventory`, `avoid patterns`, `world-class rubric`) från template-katalogen före kodsnippets, och scaffold/template-taxonomy valideras hårdare i test/runtime.  
+- **Template-library runtime guidance:** system prompt bygger nu regelstyrd reference guidance (`style rules`, `section inventory`, `avoid patterns`, `world-class rubric`) från template-katalogen före kodsnippets, signalerar när template-retrieval faller tillbaka eller saknar katalog, och trycker ned snippets för mer scoped edits; scaffold/template-taxonomy valideras hårdare i test/runtime.  
 - **Bildpolicy** synkad: genererad `next.config` vitlistar inte längre hosts som prompten förbjuder.  
 - **Generation fan-in** kanoniserad via `GenerationInputPackage` + `computeLineageHash()` i `src/lib/gen/generation-input-package.ts`.  
 - **BuildSpec** bär nu ett litet styrande lager i orchestration (`src/lib/gen/build-spec.ts`) för `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`; narrow follow-ups kan därför köra lättare kontext och snabbare finalize.  
+- **Generation-/preview-telemetri:** `generation_telemetry.meta` sparar nu `BuildSpec`-policy och finalize-path, och sandbox-lifecycle-loggarna bär policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start för mätning av preview-latens och utfall per policyläge.  
 - **Server-verify** (`src/lib/gen/server-verify.ts`) triggas automatiskt efter finalize; kör quality gate + capped repair (max 2 pass). Verification state `repairing` synlig i UI.  
 - **Server repair** är default efter quality-gate-fel; klientautofix fallback. `__SAJTMASKIN_SKIP_SERVER_REPAIR__` opt-out ersätter gammal opt-in.  
 - **v0Stream.ts** och **gen/fallback.ts** borttagna (inga runtime-konsumenter).  

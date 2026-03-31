@@ -59,6 +59,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Session / lease | `POST sandbox-heartbeat` — vid `no_session` / `session_mismatch` triggar klienten `handlePreviewSessionSuspect`; `GET sandbox-status` med `running` men annan URL än iframe → uppdatera preview-URL + refresh (telemetri `sandbox_url_resync`). Klient-API: `preview-session/api.ts`. | `sandbox-heartbeat/route.ts`, `sandbox-status/route.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `useSandboxPreviewSession.ts`, `useBuilderSandboxPreview.ts` |
 | Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `sandbox-preview.ts` |
 | Per-generation previewpolicy | `BuildSpec.previewPolicy` / `verificationPolicy` kan lyfta sandbox från `dev_only` till `dev_then_build` utan att ändra global env-default | `build-spec.ts`, `runtime-url.ts`, `sandbox-preview.ts`, `generation-stream-post-finalize.ts` |
+| Policy-/preview-telemetri | generation-telemetri sparar nu `BuildSpec`/finalize-path-meta; sandbox-lifecycle loggar policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start | `finalize-version.ts`, `generation-telemetry.ts`, `generation-stream-post-finalize.ts`, `sandbox-lifecycle-telemetry.ts` |
 | Finalize fast/deep path | Lätta follow-ups kan stanna på finalize fast path och hoppa över deep-path-steg som bildmaterialisering + polish | `finalize-version.ts`, `finalize-pipeline-contract.ts` |
 | VM-resume | Session återanvänds **före** `buildCompleteProject` när session matchar | `sandbox-preview.ts` |
 | Scaffold | Pinnade versioner i standard-`package.json` (minimal `^`-drift) | `project-scaffold.ts` |
@@ -99,7 +100,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 - **Klient:** `PreviewPanel` pingar heartbeat ca var 25s (synlig flik) när livscykel är `live`; `sandboxId` hålls i builder-state från lyckad `sandbox-preview` och SSE `sandbox-ready`.
 - **Recover:** Misstanke från iframe (t.ex. transportfel, ready-timeout) → status-GET; om inte `running` → tvingad `sandbox-preview` med `forceRestart`, debounce och maxförsök (se `useBuilderPageController`).
 - **Livscykel-UI:** `PreviewLifecycleState` i `src/lib/builder/preview-lifecycle.ts` — `idle` \| `bootstrapping` \| `live` \| `recovering` \| `failed`.
-- **Telemetri:** loggprefix **`[telemetry:sandbox-lifecycle]`** — heartbeat, `sandbox_status`, recover-faser, `sandbox_start_outcome`.
+- **Telemetri:** loggprefix **`[telemetry:sandbox-lifecycle]`** — heartbeat, `sandbox_status`, recover-faser, `sandbox_start_outcome`, samt policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start.
 - **Repair / versionsbyte:** Om SSE `done` sätter **`onlySelectVersionIfWasLatest`: true** uppdateras vald version i byggaren **endast** om användaren redan var på föregående server-«latest» (annars behålls manuellt vald äldre version). Normal egen generering skickar inte flaggan — standard är att följa streamens `versionId`.
 
 **Bootstrap (klient):** `src/lib/builder/sandbox-bootstrap-retry.ts` — samma semantik som ovan; vid `503`/`504` kan servern skicka `Retry-After` (sekunder) som klienten använder som delay före retry (fallback ~6 s).

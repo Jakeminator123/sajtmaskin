@@ -20,6 +20,7 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 - **Statisk kärna** + dynamisk kontext (scaffold, brief, tema, KB) byggs i `system-prompt.ts` m.m.
 - **Fan-in före modellen:** `prepareGenerationContext()` / `resolveOrchestrationBase()` bygger nu ett litet **`BuildSpec`** (`src/lib/gen/build-spec.ts`) som bär styrsignaler som `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`. Det används för att hålla scaffold-/referensbudget, follow-up-policy och previewpolicy deterministiska.
 - **Narrow follow-up policy:** när `BuildSpec` landar i `followUp + light + fast` hålls dynamisk kontext märkbart smalare: scaffold serialiseras lättare och bred KB/template-retrieval hoppas över för lokala copy/layout-ändringar.
+- **Template-library i prompten:** runtime-guidance (`style rules`, `section inventory`, `avoid patterns`, `world-class rubric`) är nu uttryckligen primär signal före kodsnippets. Prompten kan också signalera när template-libraryn är tom eller när retrieval faller tillbaka till keyword/hybrid-läge, och snippets trycks ned för mer scoped edits.
 - **Prompt tree** (alla lager och parametrar): se arkiv `prompt-tree.md` och kod: `config/prompt-static/`, `codegen-static-prompt.json`.
 
 ## SSE / stream-scope (W3)
