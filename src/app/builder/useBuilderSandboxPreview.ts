@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { logSandboxLifecycleTelemetry } from "@/lib/builder/preview-session/telemetry";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
 import {
   parseRetryAfterMs,
   SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS,

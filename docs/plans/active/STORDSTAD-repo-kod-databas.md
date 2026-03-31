@@ -167,6 +167,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (n) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: `sandbox-preview` re-exporterar inte längre `httpStatusForSandboxPreviewFailure`; sandbox-preview-route importerar nu helpern direkt från `sandbox-preview-errors`. Docs: “Förenklad körprofil” + handoff förtydligar att LLM-/prompt-/orchestration-tunga worktrees/pass får lämnas ostädade när spår A annars kan hållas renare. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (o)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: `route-helpers` — oanvänd re-export av `formatSSEEvent` (alla call sites redan `@/lib/streaming`). |
 | **Efter** pass 2026-03-31 (o) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen död re-export `formatSSEEvent` ur `src/lib/gen/route-helpers.ts`. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (p)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: `preview-session/telemetry.ts` + `preview-session/types.ts` som tunna re-exporter mot `gen/`. |
+| **Efter** pass 2026-03-31 (p) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagna shims; `api.ts` → `@/lib/gen/preview-contract`; `useSandboxPreviewSession` / `useBuilderSandboxPreview` → `@/lib/gen/sandbox-lifecycle-telemetry`. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 
 ---
 

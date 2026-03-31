@@ -1,4 +1,4 @@
-import type { SandboxHeartbeatApiJson, SandboxStatusApiJson } from "./types";
+import type { SandboxHeartbeatApiJson, SandboxStatusApiJson } from "@/lib/gen/preview-contract";
 
 /** Browser `fetch` mot sandbox-status; returnerar null vid nätverksfel eller icke-ok svar. */
 export async function fetchSandboxStatus(params: {

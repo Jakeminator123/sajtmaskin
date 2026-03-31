@@ -3,7 +3,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useRef } from "react";
 import { fetchSandboxStatus } from "@/lib/builder/preview-session/api";
-import { logSandboxLifecycleTelemetry } from "@/lib/builder/preview-session/telemetry";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
 import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export type UseSandboxPreviewSessionParams = {
