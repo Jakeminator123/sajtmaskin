@@ -4,87 +4,87 @@ import {
   readContactDetailsDraft,
   updateContactDetailsDraft,
   type ContactDetailsDraft,
-} from "@/lib/builder/contact-editor";
+} from "@/lib/builder/editors/contact-editor";
 import {
   readHeroContentDraft,
   updateHeroContentDraft,
   type HeroContentDraft,
-} from "@/lib/builder/hero-editor";
+} from "@/lib/builder/editors/hero-editor";
 import {
   readServiceItemsDraft,
   updateServiceItemsDraft,
   type ServiceItemDraft,
-} from "@/lib/builder/services-editor";
+} from "@/lib/builder/editors/services-editor";
 import {
   readFaqItemsDraft,
   updateFaqItemsDraft,
   type FaqItemDraft,
-} from "@/lib/builder/faq-editor";
+} from "@/lib/builder/editors/faq-editor";
 import {
   readTestimonialItemsDraft,
   updateTestimonialItemsDraft,
   type TestimonialItemDraft,
-} from "@/lib/builder/testimonials-editor";
+} from "@/lib/builder/editors/testimonials-editor";
 import {
   readTeamMembers,
   updateTeamMembersDraft,
   type TeamMemberDraft,
-} from "@/lib/builder/team-editor";
+} from "@/lib/builder/editors/team-editor";
 import {
   readStatItemsDraft,
   updateStatItemsDraft,
   type StatItemDraft,
-} from "@/lib/builder/stats-editor";
+} from "@/lib/builder/editors/stats-editor";
 import {
   readProcessStepsDraft,
   updateProcessStepsDraft,
   type ProcessStepDraft,
-} from "@/lib/builder/process-editor";
+} from "@/lib/builder/editors/process-editor";
 import {
   readProductItemsDraft,
   updateProductItemsDraft,
   type ProductItemDraft,
-} from "@/lib/builder/product-editor";
+} from "@/lib/builder/editors/product-editor";
 import {
   readPricingCardsDraft,
   updatePricingCardsDraft,
   type PricingCardDraft,
-} from "@/lib/builder/pricing-editor";
+} from "@/lib/builder/editors/pricing-editor";
 import {
   readPricingFeatureCardsDraft,
   updatePricingFeatureCardsDraft,
   type PricingFeatureCardDraft,
-} from "@/lib/builder/pricing-features-editor";
+} from "@/lib/builder/editors/pricing-features-editor";
 import {
   readCategoryItemsDraft,
   updateCategoryItemsDraft,
   type CategoryItemDraft,
-} from "@/lib/builder/category-editor";
+} from "@/lib/builder/editors/category-editor";
 import {
   readNavItemsDraft,
   updateNavItemsDraft,
   type NavItemDraft,
-} from "@/lib/builder/nav-items-editor";
+} from "@/lib/builder/editors/nav-items-editor";
 import {
   readButtonLabelsDraft,
   updateButtonLabelsDraft,
   type ButtonLabelDraft,
-} from "@/lib/builder/button-label-editor";
+} from "@/lib/builder/editors/button-label-editor";
 import {
   readBlogPostsDraft,
   updateBlogPostsDraft,
   type BlogPostDraft,
-} from "@/lib/builder/blog-posts-editor";
+} from "@/lib/builder/editors/blog-posts-editor";
 import {
   readFooterLinkGroupsDraft,
   updateFooterLinkGroupsDraft,
   type FooterLinkGroupDraft,
-} from "@/lib/builder/footer-links-editor";
+} from "@/lib/builder/editors/footer-links-editor";
 import {
   readStaticMetadataDraft,
   updateStaticMetadataDraft,
   type StaticMetadataDraft,
-} from "@/lib/builder/metadata-editor";
+} from "@/lib/builder/editors/metadata-editor";
 import type { FileNode } from "@/lib/builder/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
