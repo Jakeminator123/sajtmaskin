@@ -1,0 +1,132 @@
+{
+  "id": "portfolio-nim-minimalist-personal-site",
+  "slug": "portfolio-nim-minimalist-personal-site",
+  "title": "Nim: Minimalist Personal Site",
+  "categorySlug": "portfolio",
+  "categoryName": "Portfolio",
+  "templateUrl": "https://vercel.com/templates/portfolio/nim-minimalist-personal-site",
+  "demoUrl": "#",
+  "description": "A minimalist personal website template built with Next.js 15, React 19, Tailwind CSS v4, and Motion-Primitives.",
+  "frameworkReason": "Next.js, React",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 88,
+  "repo": {
+    "url": "https://github.com/ibelick/nim",
+    "normalizedUrl": "https://github.com/ibelick/nim",
+    "subpath": null,
+    "clonePath": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\repo-cache\\ibelick-nim",
+    "packageManager": "npm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Related Templates",
+    "Products",
+    "AI",
+    "Enterprise",
+    "Fluid Compute"
+  ],
+  "usefulLines": [
+    "AI workflows in live environments",
+    "Deploy for every idea",
+    "Deploy",
+    "https://nim-fawn.vercel.app",
+    "Features",
+    "Getting Started",
+    "For detailed setup instructions, refer to the",
+    "Installation Guide",
+    "npm",
+    "install",
+    "http://localhost:3000",
+    "Deployment"
+  ],
+  "noiseLines": [
+    "Vercel Agent",
+    "Vercel documentation",
+    "Deploy at the speed of AI",
+    "Ship features, not infrastructure",
+    "SDKs by Vercel"
+  ],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "portfolio or gallery presentation"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "portfolio"
+  ],
+  "signals": {
+    "auth": false,
+    "dashboard": false,
+    "pricing": false,
+    "blog": false,
+    "portfolio": true,
+    "ecommerce": false,
+    "docs": false,
+    "ai": true,
+    "multiTenant": false,
+    "cms": false
+  },
+  "summary": "Nim: Minimalist Personal Site is a Portfolio reference with verified Next.js codebase, App Router structure, portfolio or gallery presentation. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<img src=\"/public/cover.jpg\" alt=\"Cover image representing Nim, a personal website template\" width=\"100%\" />\n\nNim is a free and open-source personal website template built with Next.js 15, React 19, Tailwind CSS v4, and Motion. Designed for developers, designers, and founders, it combines minimalism with delightful animated components powered by [Motion-Primitives](https://motion-primitives.com).\n\nLive demo: [https://nim-fawn.vercel.app](https://nim-fawn.vercel.app)\n\n## Features\n\n- Minimal one-page portfolio layout.\n- Blog support with MDX.\n- Responsive and accessible design.\n- Easy to use\n- [Motion-Primitives](https://motion-primitives.com) for animated components.\n\n## Getting Started\n\nFor detailed setup instructions, refer to the [Installation Guide](./INSTALLATION.md).\n\n```bash\ngit clone https://github.com/ibelick/nim.git\ncd nim\nnpm install\nnpm run dev\n```\n\nOpen [http://localhost:3000](http://localhost:3000) with your browser to see the result.\n\n## Contributing\n\nContributions are welcome! Feel free to open issues or submit pull requests to improve Nim.\n\n## Deployment\n\nYou can deploy your site to any hosting platform that supports Next.js. For the easiest deployment experience, consider using Vercel:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fibelick%2Fnim&env=NEXT_PUBLIC_SITE_URL&project-name=nim&repository-name=nim&redirect-url=https%3A%2F%2Ftwitter.com%2Fibelick&demo-title=Nim&demo-description=Nim%20is%20a%20free%20and%20open-source%20minimal%20personal%20website%20template%20built%20with%20Next.js%2015%2C%20React%2019%2C%20and%20Motion-Primitives.&demo-url=https%3A%2F%2Fnim.vercel.app&demo-image=https%3A%2F%2Fraw.githubusercontent.com%2Fibelick%2Fnim%2Frefs%2Fheads%2Fmain%2F.github%2Fassets%2Freadme.png&teamSlug=ibelick)\n\n## About\n\nNim is designed to make personal branding effortless and beautiful. If you enjoy it, consider sharing it and exploring [Motion-Primitives Pro](https://pro.motion-primitives.com/)."
+    },
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"nim\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@mdx-js/loader\": \"^3.0.1\",\n    \"@mdx-js/react\": \"^3.0.1\",\n    \"@next/mdx\": \"^14.2.13\",\n    \"@tailwindcss/typography\": \"^0.5.15\",\n    \"@types/mdx\": \"^2.0.13\",\n    \"clsx\": \"^2.1.1\",\n    \"lucide-react\": \"^0.468.0\",\n    \"motion\": \"^11.15.0\",\n    \"next\": \"15.1.10\",\n    \"next-themes\": \"^0.4.4\",\n    \"react\": \"^19.0.0\",\n    \"react-dom\": \"^19.0.0\",\n    \"sugar-high\": \"^0.9.3\",\n    \"tailwind-merge\": \"^2.5.5\"\n  },\n  \"devDependencies\": {\n    \"@eslint/eslintrc\": \"^3\",\n    \"@tailwindcss/postcss\": \"^4.0.0\",\n    \"@types/node\": \"^20\",\n    \"@types/react\": \"^19\",\n    \"@types/react-dom\": \"^19\",\n    \"eslint\": \"^9\",\n    \"eslint-config-next\": \"15.1.1\",\n    \"postcss\": \"^8\",\n    \"prettier\": \"^3.4.2\",\n    \"prettier-plugin-tailwindcss\": \"^0.6.10\",\n    \"tailwindcss\": \"^4.0.0\",\n    \"typescript\": \"^5\"\n  }\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import type { Metadata, Viewport } from 'next'\nimport { Geist, Geist_Mono } from 'next/font/google'\nimport './globals.css'\nimport { Header } from './header'\nimport { Footer } from './footer'\nimport { ThemeProvider } from 'next-themes'\n\nexport const viewport: Viewport = {\n  width: 'device-width',\n  initialScale: 1,\n  themeColor: '#ffffff',\n}\n\nexport const metadata: Metadata = {\n  metadataBase: new URL('https://nim-fawn.vercel.app/'),\n  alternates: {\n    canonical: '/'\n  },\n  title: {\n    default: 'Nim - Personal website template',\n    template: '%s | Nim'\n  },\n  description:  'Nim is a free and open-source personal website template built with Next.js 15, React 19 and Motion-Primitives.',\n};\n\nconst geist = Geist({\n  variable: '--font-geist',\n  subsets: ['latin'],\n})\n\nconst geistMono = Geist_Mono({\n  variable: '--font-geist-mono',\n  subsets: ['latin'],\n})\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode\n}>) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body\n        className={`${geist.variable} ${geistMono.variable} bg-white tracking-tight antialiased dark:bg-zinc-950`}\n      >\n        <ThemeProvider\n          enableSystem={true}\n          attribute=\"class\"\n          storageKey=\"theme\"\n          defaultTheme=\"system\"\n        >\n          <div className=\"flex min-h-screen w-full flex-col font-[family-name:var(--font-inter-tight)]\">\n            <div className=\"relative mx-auto w-full max-w-screen-sm flex-1 px-4 pt-20\">\n              <Header />\n              {children}\n              <Footer />\n            </div>\n          </div>\n        </ThemeProvider>\n      </body>\n    </html>\n  )\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client'\nimport { motion } from 'motion/react'\nimport { XIcon } from 'lucide-react'\nimport { Spotlight } from '@/components/ui/spotlight'\nimport { Magnetic } from '@/components/ui/magnetic'\nimport {\n  MorphingDialog,\n  MorphingDialogTrigger,\n  MorphingDialogContent,\n  MorphingDialogClose,\n  MorphingDialogContainer,\n} from '@/components/ui/morphing-dialog'\nimport Link from 'next/link'\nimport { AnimatedBackground } from '@/components/ui/animated-background'\nimport {\n  PROJECTS,\n  WORK_EXPERIENCE,\n  BLOG_POSTS,\n  EMAIL,\n  SOCIAL_LINKS,\n} from './data'\n\nconst VARIANTS_CONTAINER = {\n  hidden: { opacity: 0 },\n  visible: {\n    opacity: 1,\n    transition: {\n      staggerChildren: 0.15,\n    },\n  },\n}\n\nconst VARIANTS_SECTION = {\n  hidden: { opacity: 0, y: 20, filter: 'blur(8px)' },\n  visible: { opacity: 1, y: 0, filter: 'blur(0px)' },\n}\n\nconst TRANSITION_SECTION = {\n  duration: 0.3,\n}\n\ntype ProjectVideoProps = {\n  src: string\n}\n\nfunction ProjectVideo({ src }: ProjectVideoProps) {\n  return (\n    <MorphingDialog\n      transition={{\n        type: 'spring',\n        bounce: 0,\n        duration: 0.3,\n      }}\n    >\n      <MorphingDialogTrigger>\n        <video\n          src={src}\n          autoPlay\n          loop\n          muted\n          className=\"aspect-video w-full cursor-zoom-in rounded-xl\"\n        />\n      </MorphingDialogTrigger>\n      <MorphingDialogContainer>\n        <MorphingDialogContent className=\"relative aspect-video rounded-2xl bg-zinc-50 p-1 ring-1 ring-zinc-200/50 ring-inset dark:bg-zinc-950 dark:ring-zinc-800/50\">\n          <video\n            src={src}\n            autoPlay\n            loop\n            muted\n            className=\"aspect-video h-[50vh] w-full rounded-xl md:h-[70vh]\"\n          />\n        </MorphingDialogContent>\n        <MorphingDialogClose\n          className=\"fixed top-6 right-6 h-fit w-fit rounded-full bg-white p-1\"\n          variants={{\n            initial: { opacity: 0 },\n            animate: {\n              opacity: 1,\n              transition: { delay: 0.3, duration: 0.1 },\n            },\n            exit: { opacity: 0, transition: { duration: 0 } },\n          }}\n        >\n          <XIcon className=\"h-5 w-5 text-zinc-500\" />\n        </MorphingDialogClose>\n      </MorphingDialogContainer>\n    </MorphingDialog>\n  )\n}\n\nfunction MagneticSocialLi\n\n// ... truncated"
+    },
+    {
+      "path": "app/header.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "'use client'\nimport { TextEffect } from '@/components/ui/text-effect'\nimport Link from 'next/link'\n\nexport function Header() {\n  return (\n    <header className=\"mb-8 flex items-center justify-between\">\n      <div>\n        <Link href=\"/\" className=\"font-medium text-black dark:text-white\">\n          Julien Nim\n        </Link>\n        <TextEffect\n          as=\"p\"\n          preset=\"fade\"\n          per=\"char\"\n          className=\"text-zinc-600 dark:text-zinc-500\"\n          delay={0.5}\n        >\n          Design Engineer\n        </TextEffect>\n      </div>\n    </header>\n  )\n}"
+    }
+  ],
+  "runtimeGuidance": {
+    "styleRules": [
+      "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+      "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+      "Let the work itself dominate through imagery, spacing, and case-study framing.",
+      "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+    ],
+    "sectionInventory": [
+      "primary entry section",
+      "supporting content section",
+      "project showcase",
+      "case study detail",
+      "bio or credibility block"
+    ],
+    "avoidPatterns": [
+      "Do not paste large reference code blocks verbatim into the generated site.",
+      "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+      "Avoid burying the portfolio behind excessive product-marketing sections."
+    ],
+    "worldClassRubric": [
+      "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+      "Reusable sections with believable content, not generic lorem-style filler.",
+      "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+      "Visual presentation should feel curated rather than theme-default.",
+      "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+    ]
+  }
+}

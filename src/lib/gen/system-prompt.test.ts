@@ -157,4 +157,78 @@ describe("buildDynamicContext", () => {
     expect(searchKnowledgeBaseAsync).toHaveBeenCalled();
     expect(searchTemplateLibrary).toHaveBeenCalled();
   });
+
+  it("treats starter references as structure-only and skips snippet injection", async () => {
+    searchTemplateLibrary.mockResolvedValueOnce([
+      {
+        entry: {
+          id: "starter-ref",
+          slug: "starter-ref",
+          title: "Next.js Boilerplate Starter",
+          categorySlug: "starter",
+          categoryName: "Starter",
+          templateUrl: "https://example.com/starter",
+          demoUrl: null,
+          description: "Starter baseline",
+          frameworkReason: "reason",
+          frameworkMatch: 1,
+          verdict: "valid",
+          qualityScore: 86,
+          repo: {
+            url: null,
+            normalizedUrl: null,
+            subpath: null,
+            clonePath: null,
+            packageManager: "unknown",
+            hasNext: true,
+            hasReact: true,
+            isMonorepo: false,
+            hasAppDir: true,
+            hasSrcAppDir: false,
+          },
+          stackTags: [],
+          usefulLines: [],
+          noiseLines: [],
+          strengths: ["starter shell"],
+          weaknesses: [],
+          recommendedScaffoldFamilies: ["base-nextjs"],
+          signals: {
+            auth: false,
+            dashboard: false,
+            pricing: false,
+            blog: false,
+            portfolio: false,
+            ecommerce: false,
+            docs: false,
+            ai: false,
+            multiTenant: false,
+            cms: false,
+          },
+          summary: "starter summary",
+          selectedFiles: [
+            { path: "app/page.tsx", reason: "reference", excerpt: "STARTER_SNIPPET" },
+          ],
+        },
+        score: 0.95,
+      },
+    ]);
+
+    const context = await buildDynamicContext({
+      intent: "website",
+      originalPrompt: "Build a polished agency website.",
+      generationMode: "init",
+      buildSpec: {
+        ...lightFollowUpSpec,
+        generationMode: "init",
+        changeScope: "redesign",
+        contextPolicy: "normal",
+        verificationPolicy: "standard",
+      },
+      scaffoldContext: "Scaffold context",
+    });
+
+    expect(context).toContain("## Relevant Template References");
+    expect(context).toContain("Reference mode: structure-only (starter/boilerplate).");
+    expect(context).not.toContain("## Reference Code Snippets");
+  });
 });

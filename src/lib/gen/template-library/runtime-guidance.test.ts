@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { deriveTemplateRuntimeGuidance } from "./runtime-guidance";
+import {
+  deriveTemplateRuntimeGuidance,
+  isStarterOrBoilerplateReference,
+} from "./runtime-guidance";
 import type { TemplateLibraryEntry } from "./types";
 
 function makeEntry(
@@ -82,5 +85,18 @@ describe("deriveTemplateRuntimeGuidance", () => {
       avoidPatterns: ["Custom avoid"],
       worldClassRubric: ["Custom rubric"],
     });
+  });
+
+  it("treats starter/boilerplate references as structure-first", () => {
+    const entry = makeEntry({
+      categorySlug: "starter",
+      title: "Next.js Boilerplate Starter",
+      description: "A starter repo for quick setup.",
+    });
+
+    expect(isStarterOrBoilerplateReference(entry)).toBe(true);
+    const guidance = deriveTemplateRuntimeGuidance(entry);
+    expect(guidance.styleRules.join(" ")).toContain("starter/boilerplate");
+    expect(guidance.avoidPatterns.join(" ")).toContain("starter-like");
   });
 });

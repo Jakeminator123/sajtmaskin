@@ -96,6 +96,39 @@ ARTIFACT_TIER_MONOREPO = "monorepo-examples"
 # Framework-filter: bara Next.js/React-mallar hämtas.
 FRAMEWORK_FILTER: List[str] = ["next.js", "react"]
 
+# Titel-/slug-blocklist: templates som passerar framework-filtret men saknar
+# värde som generationsreferens (nisch-AI-demos, infra-demos, Slack-bots, etc.).
+# Matchas case-insensitivt mot template-titel.
+TITLE_BLOCKLIST_PATTERNS: List[str] = [
+    "Express on Bun",
+    "Hono on Bun",
+    "Slack Bolt",
+    "Slack Agent",
+    "Static Tweets",
+    "On-Demand ISR",
+    "Preview Mode",
+    "EnvShare",
+    "Paint by Text",
+    "Inpainter",
+    "qrGPT",
+    "AI Headshot Generator",
+    "AI Emoji Generator",
+    "Alt Text Generator",
+    "Replicache Starter",
+    "Statsig Experimentation",
+    "Optimizely Feature",
+    "TanStack Start",
+    "Rollbar",
+    "Customer Reviews AI Summary",
+]
+
+
+def is_title_blocklisted(title: str) -> bool:
+    """Return True if the template title matches a known low-value pattern."""
+    t = title.lower()
+    return any(pat.lower() in t for pat in TITLE_BLOCKLIST_PATTERNS)
+
+
 # CSS-tekniker att spara som metadata-signal per mall (inte ett filter-gate).
 CSS_TAGS_OF_INTEREST: List[str] = [
     "tailwind",
@@ -1335,6 +1368,20 @@ def run_scrape(args: argparse.Namespace) -> int:
                 )
                 continue
 
+            if is_title_blocklisted(template.title):
+                print(f"  [SKIP] Blocklisted (nisch/infra-demo) -> {template.title}")
+                report_entries.append(
+                    {
+                        "template_url": url,
+                        "title": template.title,
+                        "repo_url": template.repo_url,
+                        "framework_match": True,
+                        "skip_reason": "title_blocklisted",
+                        "clone_attempted": False,
+                    }
+                )
+                continue
+
             assign_artifact_tier(template)
             direct_slug_by_url[url] = tmpl_slug
             print(f"  [OK] {template.title} ({template.framework_reason}) [{template.artifact_tier}]")
@@ -1391,6 +1438,21 @@ def run_scrape(args: argparse.Namespace) -> int:
                             "category_slug": category_slug,
                             "framework_match": False,
                             "skip_reason": "framework_mismatch",
+                            "clone_attempted": False,
+                        }
+                    )
+                    continue
+
+                if is_title_blocklisted(template.title):
+                    print(f"  [SKIP] Blocklisted (nisch/infra-demo) -> {template.title}")
+                    report_entries.append(
+                        {
+                            "template_url": template_url,
+                            "title": template.title,
+                            "repo_url": template.repo_url,
+                            "category_slug": category_slug,
+                            "framework_match": True,
+                            "skip_reason": "title_blocklisted",
                             "clone_attempted": False,
                         }
                     )

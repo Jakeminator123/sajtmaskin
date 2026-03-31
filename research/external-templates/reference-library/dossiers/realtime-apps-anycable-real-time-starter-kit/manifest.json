@@ -109,8 +109,8 @@
     "styleRules": [
       "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
       "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-      "AI-facing sections should feel native to the product, not like pasted chatbot chrome.",
-      "Keep navigation structure explicit and reusable across routes."
+      "Treat starter/boilerplate references as structural baselines, not final visual direction.",
+      "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
     ],
     "sectionInventory": [
       "primary entry section",
@@ -118,12 +118,14 @@
     ],
     "avoidPatterns": [
       "Do not paste large reference code blocks verbatim into the generated site.",
-      "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+      "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+      "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy)."
     ],
     "worldClassRubric": [
       "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
       "Reusable sections with believable content, not generic lorem-style filler.",
       "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+      "Final output should feel custom and production-grade, not like a renamed starter.",
       "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
     ]
   }

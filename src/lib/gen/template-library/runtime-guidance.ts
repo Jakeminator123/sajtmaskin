@@ -11,6 +11,14 @@ function limit(values: string[], max: number): string[] {
   return unique(values).slice(0, max);
 }
 
+const STARTER_OR_BOILERPLATE_RE = /\b(starter|boilerplate)\b/i;
+
+export function isStarterOrBoilerplateReference(entry: TemplateLibraryEntry): boolean {
+  if (entry.categorySlug === "starter") return true;
+  const text = `${entry.title} ${entry.description} ${entry.summary}`;
+  return STARTER_OR_BOILERPLATE_RE.test(text);
+}
+
 export function deriveTemplateRuntimeGuidance(
   entry: TemplateLibraryEntry,
 ): TemplateLibraryRuntimeGuidance {
@@ -40,6 +48,12 @@ export function deriveTemplateRuntimeGuidance(
     "Reusable sections with believable content, not generic lorem-style filler.",
     "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
   ];
+
+  if (isStarterOrBoilerplateReference(entry)) {
+    styleRules.push("Treat starter/boilerplate references as structural baselines, not final visual direction.");
+    avoidPatterns.push("Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).");
+    worldClassRubric.push("Final output should feel custom and production-grade, not like a renamed starter.");
+  }
 
   if (entry.signals.dashboard || entry.recommendedScaffoldFamilies.includes("dashboard")) {
     styleRules.push("Preserve clear information density with persistent navigation and scannable panels.");

@@ -31,7 +31,10 @@ import {
   searchTemplateLibraryKeywordsOnly,
   selectTemplateReferenceFiles,
 } from "./template-library/search";
-import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
+import {
+  deriveTemplateRuntimeGuidance,
+  isStarterOrBoilerplateReference,
+} from "./template-library/runtime-guidance";
 import type { TemplateLibraryEntry } from "./template-library/types";
 import { getStaticCoreFromWorkspace } from "./static-core-loader";
 
@@ -208,6 +211,17 @@ function intersectsScaffoldFamilies(
   return entry.recommendedScaffoldFamilies.includes(resolvedScaffold.family);
 }
 
+function starterReferencePenalty(
+  entry: TemplateLibraryEntry,
+  resolvedScaffold: ScaffoldManifest | null | undefined,
+): number {
+  if (!isStarterOrBoilerplateReference(entry)) return 0;
+  // Keep starter references for structure in base-nextjs mode, but strongly
+  // downrank them as style references for richer scaffolds.
+  if (resolvedScaffold?.family === "base-nextjs") return 8;
+  return 24;
+}
+
 function addTemplateReferenceCandidate(
   candidates: Map<string, RankedTemplateReference>,
   entry: TemplateLibraryEntry,
@@ -247,13 +261,17 @@ async function rankTemplateReferences(
 
   for (const match of promptMatches) {
     const fitBoost = intersectsScaffoldFamilies(match.entry, resolvedScaffold) ? 16 : 0;
+    const starterPenalty = starterReferencePenalty(match.entry, resolvedScaffold);
+    const starterHint = isStarterOrBoilerplateReference(match.entry)
+      ? " Tolkas som strukturreferens, inte stilfacit."
+      : "";
     addTemplateReferenceCandidate(
       candidates,
       match.entry,
-      match.score * 100 + fitBoost + match.entry.qualityScore / 10,
+      match.score * 100 + fitBoost + match.entry.qualityScore / 10 - starterPenalty,
       fitBoost > 0
-        ? "Prompten matchar och referensen passar vald runtime scaffold."
-        : "Prompten matchar denna kuraterade referens.",
+        ? `Prompten matchar och referensen passar vald runtime scaffold.${starterHint}`
+        : `Prompten matchar denna kuraterade referens.${starterHint}`,
       "prompt",
     );
   }
@@ -262,11 +280,15 @@ async function rankTemplateReferences(
     const entry = getTemplateLibraryEntryById(reference.id);
     if (!entry) continue;
     const fitBoost = intersectsScaffoldFamilies(entry, resolvedScaffold) ? 20 : 0;
+    const starterPenalty = starterReferencePenalty(entry, resolvedScaffold);
+    const starterHint = isStarterOrBoilerplateReference(entry)
+      ? " Referensen används som strukturhjälp, inte visuell facit."
+      : "";
     addTemplateReferenceCandidate(
       candidates,
       entry,
-      35 + fitBoost + entry.qualityScore / 10,
-      `Scaffoldens research pekar ut denna referens för ${scaffoldLabel}.`,
+      35 + fitBoost + entry.qualityScore / 10 - starterPenalty,
+      `Scaffoldens research pekar ut denna referens för ${scaffoldLabel}.${starterHint}`,
       "scaffold",
     );
   }
@@ -664,6 +686,9 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
         parts.push(`- Quality score: ${match.entry.qualityScore}`);
         parts.push(`- Why this reference: ${match.reasons.join(" ")}`);
         parts.push(`- Summary: ${match.entry.summary}`);
+        if (isStarterOrBoilerplateReference(match.entry)) {
+          parts.push("- Reference mode: structure-only (starter/boilerplate).");
+        }
         if (guidance.styleRules.length > 0) {
           parts.push(`- Style rules: ${guidance.styleRules.join(" | ")}`);
         }
@@ -689,7 +714,10 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
             maxTotalChars: referenceBudget,
           }),
         }))
-        .filter((item) => item.files.length > 0);
+        .filter(
+          (item) =>
+            item.files.length > 0 && !isStarterOrBoilerplateReference(item.match.entry),
+        );
 
       if (snippetMatches.length > 0) {
         parts.push(

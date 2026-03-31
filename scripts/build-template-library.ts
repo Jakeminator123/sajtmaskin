@@ -2,7 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { getScaffoldFamilies } from "../src/lib/gen/scaffolds";
 import type { ScaffoldFamily } from "../src/lib/gen/scaffolds/types";
-import { deriveTemplateRuntimeGuidance } from "../src/lib/gen/template-library/runtime-guidance";
+import {
+  deriveTemplateRuntimeGuidance,
+  isStarterOrBoilerplateReference,
+} from "../src/lib/gen/template-library/runtime-guidance";
 import type {
   TemplateLibraryCatalogFile,
   TemplateLibraryEntry,
@@ -472,7 +475,8 @@ function recommendScaffoldFamilies(
   if (signals.docs || signals.cms) add("content-site", 4);
   if (categorySlug === "cms" || categorySlug === "security" || categorySlug === "cdn") add("content-site", 3);
 
-  if (categorySlug === "marketing-sites" || categorySlug === "starter") add("landing-page", 6);
+  if (categorySlug === "marketing-sites") add("landing-page", 6);
+  if (categorySlug === "starter") add("base-nextjs", 6);
   if (!signals.dashboard && !signals.auth && !signals.ecommerce && !signals.blog && !signals.portfolio) {
     add("landing-page", 2);
   }
@@ -753,8 +757,9 @@ function pickBaseNextjsReferences(entries: TemplateLibraryEntry[]): TemplateLibr
     .filter((entry) => entry.verdict === "valid")
     .map((entry) => {
       let score = entry.qualityScore;
-      if (entry.categorySlug === "starter") score += 20;
-      if (/starter/i.test(entry.title)) score += 10;
+      if (entry.categorySlug === "starter") score += 12;
+      if (/\bstarter\b/i.test(entry.title)) score += 4;
+      if (/\bboilerplate\b/i.test(entry.title)) score -= 8;
       if (entry.repo.hasAppDir || entry.repo.hasSrcAppDir) score += 8;
       if (entry.recommendedScaffoldFamilies.includes("landing-page")) score += 4;
       if (entry.recommendedScaffoldFamilies.includes("content-site")) score += 4;
@@ -783,7 +788,16 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
   ]));
 
   for (const family of families) {
-    const references = family === "base-nextjs" ? pickBaseNextjsReferences(entries) : (grouped.get(family) ?? []);
+    const groupedReferences = grouped.get(family) ?? [];
+    const filteredReferences = groupedReferences.filter(
+      (entry) => !isStarterOrBoilerplateReference(entry),
+    );
+    const references =
+      family === "base-nextjs"
+        ? pickBaseNextjsReferences(entries)
+        : filteredReferences.length > 0
+          ? filteredReferences
+          : groupedReferences;
     scaffolds[family] = {
       qualityChecklist: SCAFFOLD_CHECKLISTS[family] ?? [],
       research: {
