@@ -27,6 +27,29 @@ const STOPWORDS = new Set([
 
 let cachedEmbeddings: TemplateLibraryEmbeddingEntry[] | null = null;
 
+export interface TemplateLibrarySearchDiagnostics {
+  mode:
+    | "empty_catalog"
+    | "embedding"
+    | "hybrid_keyword_blend"
+    | "keyword_fallback"
+    | "keyword_only";
+  catalogSize: number;
+  usedEmbeddings: boolean;
+  reason?:
+    | "embedding_query_failed"
+    | "missing_api_key"
+    | "missing_embeddings"
+    | "no_embedding_hits"
+    | "weak_embedding_match";
+  topScore?: number;
+}
+
+export interface TemplateLibrarySearchResponse {
+  results: TemplateLibrarySearchResult[];
+  diagnostics: TemplateLibrarySearchDiagnostics;
+}
+
 function normalize(value: string): string {
   return value
     .toLowerCase()
@@ -152,22 +175,51 @@ export function searchTemplateLibraryKeywordsOnly(
   return keywordSearch(query, topK);
 }
 
-export async function searchTemplateLibrary(
+export async function searchTemplateLibraryWithDiagnostics(
   query: string,
   topK: number = DEFAULT_TOP_K,
-): Promise<TemplateLibrarySearchResult[]> {
+): Promise<TemplateLibrarySearchResponse> {
+  const catalogEntries = getTemplateLibraryEntries();
+  const catalogSize = catalogEntries.length;
   // Stale template-library-embeddings.json must not load, call OpenAI, or rank
   // phantom IDs when curated entries[] is empty (common after catalog resets).
-  if (getTemplateLibraryEntries().length === 0) {
-    return [];
+  if (catalogSize === 0) {
+    return {
+      results: [],
+      diagnostics: {
+        mode: "empty_catalog",
+        catalogSize,
+        usedEmbeddings: false,
+      },
+    };
   }
 
   const fallbackResults = keywordSearch(query, topK);
   const apiKey = SECRETS.openaiApiKey;
-  if (!apiKey) return fallbackResults;
+  if (!apiKey) {
+    return {
+      results: fallbackResults,
+      diagnostics: {
+        mode: "keyword_fallback",
+        catalogSize,
+        usedEmbeddings: false,
+        reason: "missing_api_key",
+      },
+    };
+  }
 
   const embeddings = loadEmbeddings();
-  if (embeddings.length === 0) return fallbackResults;
+  if (embeddings.length === 0) {
+    return {
+      results: fallbackResults,
+      diagnostics: {
+        mode: "keyword_fallback",
+        catalogSize,
+        usedEmbeddings: false,
+        reason: "missing_embeddings",
+      },
+    };
+  }
 
   let queryEmbedding: number[];
   try {
@@ -182,10 +234,18 @@ export async function searchTemplateLibrary(
     debugLog("template-library", "Embedding query failed; using keyword fallback", {
       message: err instanceof Error ? err.message : String(err),
     });
-    return fallbackResults;
+    return {
+      results: fallbackResults,
+      diagnostics: {
+        mode: "keyword_fallback",
+        catalogSize,
+        usedEmbeddings: true,
+        reason: "embedding_query_failed",
+      },
+    };
   }
 
-  const entryLookup = new Map(getTemplateLibraryEntries().map((entry) => [entry.id, entry]));
+  const entryLookup = new Map(catalogEntries.map((entry) => [entry.id, entry]));
   const results = embeddings
     .map((entry) => ({
       entry: entryLookup.get(entry.id),
@@ -213,17 +273,50 @@ export async function searchTemplateLibrary(
         seen.add(fr.entry.id);
         if (merged.length >= topK * 3) break;
       }
-      return merged
-        .sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score;
-          return b.entry.qualityScore - a.entry.qualityScore;
-        })
-        .slice(0, topK);
+      return {
+        results: merged
+          .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.entry.qualityScore - a.entry.qualityScore;
+          })
+          .slice(0, topK),
+        diagnostics: {
+          mode: "hybrid_keyword_blend",
+          catalogSize,
+          usedEmbeddings: true,
+          reason: "weak_embedding_match",
+          topScore,
+        },
+      };
     }
-    return results;
+    return {
+      results,
+      diagnostics: {
+        mode: "embedding",
+        catalogSize,
+        usedEmbeddings: true,
+        topScore,
+      },
+    };
   }
   debugLog("template-library", "No embedding hits above threshold; using keyword fallback", {
     minScore: MIN_EMBEDDING_SCORE,
   });
-  return fallbackResults;
+  return {
+    results: fallbackResults,
+    diagnostics: {
+      mode: "keyword_fallback",
+      catalogSize,
+      usedEmbeddings: true,
+      reason: "no_embedding_hits",
+    },
+  };
+}
+
+export async function searchTemplateLibrary(
+  query: string,
+  topK: number = DEFAULT_TOP_K,
+): Promise<TemplateLibrarySearchResult[]> {
+  const { results } = await searchTemplateLibraryWithDiagnostics(query, topK);
+  return results;
 }

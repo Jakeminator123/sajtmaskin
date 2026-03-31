@@ -3,7 +3,7 @@ import type { BuildSpec } from "./build-spec";
 
 const searchKnowledgeBaseAsync = vi.hoisted(() => vi.fn());
 const enrichWithRegistry = vi.hoisted(() => vi.fn());
-const searchTemplateLibrary = vi.hoisted(() => vi.fn());
+const searchTemplateLibraryWithDiagnostics = vi.hoisted(() => vi.fn());
 const searchTemplateLibraryKeywordsOnly = vi.hoisted(() => vi.fn());
 const selectTemplateReferenceFiles = vi.hoisted(() => vi.fn());
 const getTemplateLibraryEntryById = vi.hoisted(() => vi.fn());
@@ -18,7 +18,7 @@ vi.mock("./context/registry-enricher", () => ({
 }));
 
 vi.mock("./template-library/search", () => ({
-  searchTemplateLibrary,
+  searchTemplateLibraryWithDiagnostics,
   searchTemplateLibraryKeywordsOnly,
   selectTemplateReferenceFiles,
 }));
@@ -57,7 +57,7 @@ describe("buildDynamicContext", () => {
   beforeEach(() => {
     searchKnowledgeBaseAsync.mockReset();
     enrichWithRegistry.mockReset();
-    searchTemplateLibrary.mockReset();
+    searchTemplateLibraryWithDiagnostics.mockReset();
     searchTemplateLibraryKeywordsOnly.mockReset();
     selectTemplateReferenceFiles.mockReset();
     getTemplateLibraryEntryById.mockReset();
@@ -66,59 +66,67 @@ describe("buildDynamicContext", () => {
       { title: "KB", content: "Knowledge base match" },
     ]);
     enrichWithRegistry.mockResolvedValue("Registry enrichment");
-    searchTemplateLibrary.mockResolvedValue([
-      {
-        entry: {
-          id: "ref-1",
-          slug: "ref-1",
-          title: "Reference One",
-          categorySlug: "saas",
-          categoryName: "SaaS",
-          templateUrl: "https://example.com/template",
-          demoUrl: null,
-          description: "desc",
-          frameworkReason: "reason",
-          frameworkMatch: 1,
-          verdict: "valid",
-          qualityScore: 88,
-          repo: {
-            url: null,
-            normalizedUrl: null,
-            subpath: null,
-            clonePath: null,
-            packageManager: "unknown",
-            hasNext: true,
-            hasReact: true,
-            isMonorepo: false,
-            hasAppDir: true,
-            hasSrcAppDir: false,
+    searchTemplateLibraryWithDiagnostics.mockResolvedValue({
+      results: [
+        {
+          entry: {
+            id: "ref-1",
+            slug: "ref-1",
+            title: "Reference One",
+            categorySlug: "saas",
+            categoryName: "SaaS",
+            templateUrl: "https://example.com/template",
+            demoUrl: null,
+            description: "desc",
+            frameworkReason: "reason",
+            frameworkMatch: 1,
+            verdict: "valid",
+            qualityScore: 88,
+            repo: {
+              url: null,
+              normalizedUrl: null,
+              subpath: null,
+              clonePath: null,
+              packageManager: "unknown",
+              hasNext: true,
+              hasReact: true,
+              isMonorepo: false,
+              hasAppDir: true,
+              hasSrcAppDir: false,
+            },
+            stackTags: [],
+            usefulLines: [],
+            noiseLines: [],
+            strengths: ["layout"],
+            weaknesses: [],
+            recommendedScaffoldFamilies: ["landing-page"],
+            signals: {
+              auth: false,
+              dashboard: false,
+              pricing: false,
+              blog: false,
+              portfolio: false,
+              ecommerce: false,
+              docs: false,
+              ai: false,
+              multiTenant: false,
+              cms: false,
+            },
+            summary: "summary",
+            selectedFiles: [
+              { path: "app/page.tsx", reason: "reference", excerpt: "REFERENCE_SNIPPET" },
+            ],
           },
-          stackTags: [],
-          usefulLines: [],
-          noiseLines: [],
-          strengths: ["layout"],
-          weaknesses: [],
-          recommendedScaffoldFamilies: ["landing-page"],
-          signals: {
-            auth: false,
-            dashboard: false,
-            pricing: false,
-            blog: false,
-            portfolio: false,
-            ecommerce: false,
-            docs: false,
-            ai: false,
-            multiTenant: false,
-            cms: false,
-          },
-          summary: "summary",
-          selectedFiles: [
-            { path: "app/page.tsx", reason: "reference", excerpt: "REFERENCE_SNIPPET" },
-          ],
+          score: 0.91,
         },
-        score: 0.91,
+      ],
+      diagnostics: {
+        mode: "embedding",
+        catalogSize: 12,
+        usedEmbeddings: true,
+        topScore: 0.91,
       },
-    ]);
+    });
     searchTemplateLibraryKeywordsOnly.mockReturnValue([]);
     selectTemplateReferenceFiles.mockReturnValue([
       { path: "app/page.tsx", reason: "reference", excerpt: "REFERENCE_SNIPPET" },
@@ -139,7 +147,7 @@ describe("buildDynamicContext", () => {
     expect(context).not.toContain("## Relevant Template References");
     expect(context).not.toContain("## Reference Code Snippets");
     expect(searchKnowledgeBaseAsync).not.toHaveBeenCalled();
-    expect(searchTemplateLibrary).not.toHaveBeenCalled();
+    expect(searchTemplateLibraryWithDiagnostics).not.toHaveBeenCalled();
   });
 
   it("keeps richer reference retrieval outside light follow-up mode", async () => {
@@ -155,63 +163,71 @@ describe("buildDynamicContext", () => {
     expect(context).toContain("## Relevant Template References");
     expect(context).toContain("## Reference Code Snippets");
     expect(searchKnowledgeBaseAsync).toHaveBeenCalled();
-    expect(searchTemplateLibrary).toHaveBeenCalled();
+    expect(searchTemplateLibraryWithDiagnostics).toHaveBeenCalled();
   });
 
   it("treats starter references as structure-only and skips snippet injection", async () => {
-    searchTemplateLibrary.mockResolvedValueOnce([
-      {
-        entry: {
-          id: "starter-ref",
-          slug: "starter-ref",
-          title: "Next.js Boilerplate Starter",
-          categorySlug: "starter",
-          categoryName: "Starter",
-          templateUrl: "https://example.com/starter",
-          demoUrl: null,
-          description: "Starter baseline",
-          frameworkReason: "reason",
-          frameworkMatch: 1,
-          verdict: "valid",
-          qualityScore: 86,
-          repo: {
-            url: null,
-            normalizedUrl: null,
-            subpath: null,
-            clonePath: null,
-            packageManager: "unknown",
-            hasNext: true,
-            hasReact: true,
-            isMonorepo: false,
-            hasAppDir: true,
-            hasSrcAppDir: false,
+    searchTemplateLibraryWithDiagnostics.mockResolvedValueOnce({
+      results: [
+        {
+          entry: {
+            id: "starter-ref",
+            slug: "starter-ref",
+            title: "Next.js Boilerplate Starter",
+            categorySlug: "starter",
+            categoryName: "Starter",
+            templateUrl: "https://example.com/starter",
+            demoUrl: null,
+            description: "Starter baseline",
+            frameworkReason: "reason",
+            frameworkMatch: 1,
+            verdict: "valid",
+            qualityScore: 86,
+            repo: {
+              url: null,
+              normalizedUrl: null,
+              subpath: null,
+              clonePath: null,
+              packageManager: "unknown",
+              hasNext: true,
+              hasReact: true,
+              isMonorepo: false,
+              hasAppDir: true,
+              hasSrcAppDir: false,
+            },
+            stackTags: [],
+            usefulLines: [],
+            noiseLines: [],
+            strengths: ["starter shell"],
+            weaknesses: [],
+            recommendedScaffoldFamilies: ["base-nextjs"],
+            signals: {
+              auth: false,
+              dashboard: false,
+              pricing: false,
+              blog: false,
+              portfolio: false,
+              ecommerce: false,
+              docs: false,
+              ai: false,
+              multiTenant: false,
+              cms: false,
+            },
+            summary: "starter summary",
+            selectedFiles: [
+              { path: "app/page.tsx", reason: "reference", excerpt: "STARTER_SNIPPET" },
+            ],
           },
-          stackTags: [],
-          usefulLines: [],
-          noiseLines: [],
-          strengths: ["starter shell"],
-          weaknesses: [],
-          recommendedScaffoldFamilies: ["base-nextjs"],
-          signals: {
-            auth: false,
-            dashboard: false,
-            pricing: false,
-            blog: false,
-            portfolio: false,
-            ecommerce: false,
-            docs: false,
-            ai: false,
-            multiTenant: false,
-            cms: false,
-          },
-          summary: "starter summary",
-          selectedFiles: [
-            { path: "app/page.tsx", reason: "reference", excerpt: "STARTER_SNIPPET" },
-          ],
+          score: 0.95,
         },
-        score: 0.95,
+      ],
+      diagnostics: {
+        mode: "embedding",
+        catalogSize: 12,
+        usedEmbeddings: true,
+        topScore: 0.95,
       },
-    ]);
+    });
 
     const context = await buildDynamicContext({
       intent: "website",
@@ -230,5 +246,106 @@ describe("buildDynamicContext", () => {
     expect(context).toContain("## Relevant Template References");
     expect(context).toContain("Reference mode: structure-only (starter/boilerplate).");
     expect(context).not.toContain("## Reference Code Snippets");
+  });
+
+  it("keeps structured reference guidance but skips snippets for scoped follow-up edits", async () => {
+    const context = await buildDynamicContext({
+      intent: "website",
+      originalPrompt: "Tighten spacing and make the hero calmer without changing the site structure.",
+      generationMode: "followUp",
+      buildSpec: {
+        ...lightFollowUpSpec,
+        generationMode: "followUp",
+        changeScope: "local-layout",
+        contextPolicy: "normal",
+        verificationPolicy: "standard",
+      },
+      scaffoldContext: "Scaffold context",
+    });
+
+    expect(context).toContain("## Relevant Template References");
+    expect(context).not.toContain("## Reference Code Snippets");
+  });
+
+  it("surfaces template retrieval fallback status when semantic search falls back", async () => {
+    searchTemplateLibraryWithDiagnostics.mockResolvedValueOnce({
+      results: [
+        {
+          entry: {
+            id: "ref-1",
+            slug: "ref-1",
+            title: "Reference One",
+            categorySlug: "saas",
+            categoryName: "SaaS",
+            templateUrl: "https://example.com/template",
+            demoUrl: null,
+            description: "desc",
+            frameworkReason: "reason",
+            frameworkMatch: 1,
+            verdict: "valid",
+            qualityScore: 88,
+            repo: {
+              url: null,
+              normalizedUrl: null,
+              subpath: null,
+              clonePath: null,
+              packageManager: "unknown",
+              hasNext: true,
+              hasReact: true,
+              isMonorepo: false,
+              hasAppDir: true,
+              hasSrcAppDir: false,
+            },
+            stackTags: [],
+            usefulLines: [],
+            noiseLines: [],
+            strengths: ["layout"],
+            weaknesses: [],
+            recommendedScaffoldFamilies: ["landing-page"],
+            signals: {
+              auth: false,
+              dashboard: false,
+              pricing: false,
+              blog: false,
+              portfolio: false,
+              ecommerce: false,
+              docs: false,
+              ai: false,
+              multiTenant: false,
+              cms: false,
+            },
+            summary: "summary",
+            selectedFiles: [
+              { path: "app/page.tsx", reason: "reference", excerpt: "REFERENCE_SNIPPET" },
+            ],
+          },
+          score: 0.35,
+        },
+      ],
+      diagnostics: {
+        mode: "keyword_fallback",
+        catalogSize: 12,
+        usedEmbeddings: true,
+        reason: "no_embedding_hits",
+      },
+    });
+
+    const context = await buildDynamicContext({
+      intent: "website",
+      originalPrompt: "Build a modern marketing site with strong conversion flow.",
+      generationMode: "init",
+      buildSpec: {
+        ...lightFollowUpSpec,
+        generationMode: "init",
+        changeScope: "redesign",
+        contextPolicy: "normal",
+        verificationPolicy: "standard",
+      },
+      scaffoldContext: "Scaffold context",
+    });
+
+    expect(context).toContain(
+      "Retrieval status: Semantic template search found no strong hits, so references came from keyword fallback only.",
+    );
   });
 });

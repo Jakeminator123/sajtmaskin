@@ -21,6 +21,7 @@ const deleteEngineMessage = vi.hoisted(() => vi.fn());
 const logGeneration = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+const createGenerationTelemetryRecord = vi.hoisted(() => vi.fn());
 const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
@@ -86,7 +87,7 @@ vi.mock("@/lib/db/services/version-errors", () => ({
 }));
 
 vi.mock("@/lib/db/services/generation-telemetry", () => ({
-  createGenerationTelemetryRecord: vi.fn().mockResolvedValue({}),
+  createGenerationTelemetryRecord,
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
@@ -145,6 +146,7 @@ describe("finalizeAndSaveVersion", () => {
     logGeneration.mockReset();
     failVersionVerification.mockReset();
     createEngineVersionErrorLogs.mockReset();
+    createGenerationTelemetryRecord.mockReset();
     parseFilesFromContent.mockReset();
     mergeVersionFilesWithWarnings.mockReset();
     validateGeneratedCode.mockReset();
@@ -221,6 +223,7 @@ describe("finalizeAndSaveVersion", () => {
     logGeneration.mockResolvedValue({});
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
+    createGenerationTelemetryRecord.mockResolvedValue({ id: "telemetry_1" });
     buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
   });
 
@@ -501,7 +504,7 @@ describe("finalizeAndSaveVersion", () => {
   it("skips deep-path image materialization and polish for light follow-up finalize", async () => {
     const progressEvents: Array<{ event: string; data: Record<string, unknown> }> = [];
 
-    await finalizeAndSaveVersion({
+    const result = await finalizeAndSaveVersion({
       accumulatedContent:
         '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
       chatId: "chat_1",
@@ -534,6 +537,7 @@ describe("finalizeAndSaveVersion", () => {
 
     expect(materializeImages).not.toHaveBeenCalled();
     expect(runPolishPass).not.toHaveBeenCalled();
+    expect(result.telemetryRecordId).toBe("telemetry_1");
     expect(progressEvents).toContainEqual({
       event: "materialize_images",
       data: { phase: "skipped", reason: "light_followup_fast_policy" },
@@ -542,5 +546,31 @@ describe("finalizeAndSaveVersion", () => {
       event: "polish",
       data: { phase: "skipped", reason: "light_followup_fast_policy" },
     });
+    expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        qualityGateResult: "passed",
+        retryCount: 0,
+        meta: expect.objectContaining({
+          finalizePath: "fast-only",
+          finalizePathReason: "light_followup_fast_policy",
+          repairPassIndex: 0,
+          buildSpec: expect.objectContaining({
+            generationMode: "followUp",
+            changeScope: "copy",
+            previewPolicy: "fidelity2",
+            verificationPolicy: "fast",
+            contextPolicy: "light",
+          }),
+          autofix: expect.objectContaining({
+            fixCount: 0,
+            warningCount: 0,
+          }),
+          preflight: expect.objectContaining({
+            previewBlocked: false,
+            verificationBlocked: false,
+          }),
+        }),
+      }),
+    );
   });
 });

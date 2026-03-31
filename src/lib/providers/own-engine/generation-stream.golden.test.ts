@@ -78,6 +78,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
   const mockFinalizeResult: FinalizeResult = {
     version: { id: "ver_golden_1" } as FinalizeResult["version"],
     messageId: "msg_golden_1",
+    telemetryRecordId: null,
     previewUrl: "https://preview.example/golden",
     sandboxUrl: null,
     filesJson: "{}",

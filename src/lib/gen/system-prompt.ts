@@ -27,9 +27,10 @@ import { searchKnowledgeBaseAsync } from "./context/knowledge-base";
 import { enrichWithRegistry } from "./context/registry-enricher";
 import { getTemplateLibraryEntryById } from "./template-library/catalog";
 import {
-  searchTemplateLibrary,
+  searchTemplateLibraryWithDiagnostics,
   searchTemplateLibraryKeywordsOnly,
   selectTemplateReferenceFiles,
+  type TemplateLibrarySearchDiagnostics,
 } from "./template-library/search";
 import {
   deriveTemplateRuntimeGuidance,
@@ -203,6 +204,11 @@ interface RankedTemplateReference {
   reasons: string[];
 }
 
+interface RankedTemplateReferenceResponse {
+  matches: RankedTemplateReference[];
+  diagnostics: TemplateLibrarySearchDiagnostics | null;
+}
+
 function intersectsScaffoldFamilies(
   entry: TemplateLibraryEntry,
   resolvedScaffold: ScaffoldManifest | null | undefined,
@@ -252,10 +258,14 @@ async function rankTemplateReferences(
   resolvedScaffold: ScaffoldManifest | null | undefined,
   useEmbeddingSearch = true,
   topK = 6,
-): Promise<RankedTemplateReference[]> {
-  const promptMatches = useEmbeddingSearch
-    ? await searchTemplateLibrary(originalPrompt, topK)
-    : searchTemplateLibraryKeywordsOnly(originalPrompt, topK);
+): Promise<RankedTemplateReferenceResponse> {
+  const templateSearch = useEmbeddingSearch
+    ? await searchTemplateLibraryWithDiagnostics(originalPrompt, topK)
+    : {
+        results: searchTemplateLibraryKeywordsOnly(originalPrompt, topK),
+        diagnostics: null,
+      };
+  const promptMatches = templateSearch.results;
   const candidates = new Map<string, RankedTemplateReference>();
   const scaffoldLabel = resolvedScaffold?.label ?? "the selected scaffold";
 
@@ -293,17 +303,75 @@ async function rankTemplateReferences(
     );
   }
 
-  return [...candidates.values()]
-    .filter((candidate) => {
-      if (candidate.source === "scaffold" || candidate.source === "hybrid") {
-        return candidate.entry.qualityScore >= MIN_SCAFFOLD_REFERENCE_QUALITY;
+  return {
+    matches: [...candidates.values()]
+      .filter((candidate) => {
+        if (candidate.source === "scaffold" || candidate.source === "hybrid") {
+          return candidate.entry.qualityScore >= MIN_SCAFFOLD_REFERENCE_QUALITY;
+        }
+        return candidate.entry.qualityScore >= MIN_TEMPLATE_REFERENCE_QUALITY;
+      })
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.entry.qualityScore - a.entry.qualityScore;
+      }),
+    diagnostics: templateSearch.diagnostics,
+  };
+}
+
+function describeTemplateSearchDiagnostics(
+  diagnostics: TemplateLibrarySearchDiagnostics | null,
+): string | null {
+  if (!diagnostics) return null;
+  switch (diagnostics.mode) {
+    case "empty_catalog":
+      return "Committed template library is empty, so runtime should rely on scaffold research and the user's request.";
+    case "hybrid_keyword_blend":
+      return "Semantic template retrieval was weak, so keyword fallback was blended in to keep references conservative.";
+    case "keyword_fallback":
+      switch (diagnostics.reason) {
+        case "missing_api_key":
+          return "Semantic template retrieval is unavailable in this environment, so references came from keyword fallback only.";
+        case "missing_embeddings":
+          return "Template embeddings are unavailable, so references came from keyword fallback only.";
+        case "embedding_query_failed":
+          return "Template embedding lookup failed at runtime, so references came from keyword fallback only.";
+        case "no_embedding_hits":
+          return "Semantic template search found no strong hits, so references came from keyword fallback only.";
+        default:
+          return "Template references came from keyword fallback only.";
       }
-      return candidate.entry.qualityScore >= MIN_TEMPLATE_REFERENCE_QUALITY;
-    })
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return b.entry.qualityScore - a.entry.qualityScore;
-    });
+    default:
+      return null;
+  }
+}
+
+function shouldIncludeTemplateCodeSnippets(buildSpec: BuildSpec | null | undefined): boolean {
+  if (!buildSpec) return true;
+  if (buildSpec.contextPolicy === "light") return false;
+  return (
+    buildSpec.contextPolicy === "heavy" ||
+    buildSpec.changeScope === "redesign" ||
+    buildSpec.changeScope === "page-addition" ||
+    buildSpec.changeScope === "integration"
+  );
+}
+
+function resolveTemplateSnippetSelectionOptions(
+  referenceBudget: number,
+  buildSpec: BuildSpec | null | undefined,
+): {
+  maxFiles: number;
+  maxExcerptChars: number;
+  maxTotalChars: number;
+} {
+  const isHeavy = buildSpec?.contextPolicy === "heavy";
+  const maxTotalChars = Math.max(1_200, Math.min(referenceBudget, isHeavy ? 4_000 : 2_200));
+  return {
+    maxFiles: isHeavy ? 2 : 1,
+    maxExcerptChars: Math.min(maxTotalChars, isHeavy ? 1_800 : 1_200),
+    maxTotalChars,
+  };
 }
 
 /**
@@ -666,18 +734,31 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
   }
 
   if (originalPrompt && !useLightFollowUpContext) {
-    const templateMatches = await rankTemplateReferences(
+    const templateReferenceSearch = await rankTemplateReferences(
       originalPrompt,
       resolvedScaffold,
       embeddingEnrichment,
       buildSpec?.contextPolicy === "heavy" ? 6 : 4,
     );
-    const usefulTemplateMatches = templateMatches.slice(
+    const usefulTemplateMatches = templateReferenceSearch.matches.slice(
       0,
       buildSpec?.contextPolicy === "heavy" ? 3 : 2,
     );
+    const templateSearchStatus = describeTemplateSearchDiagnostics(
+      templateReferenceSearch.diagnostics,
+    );
     if (usefulTemplateMatches.length > 0) {
       parts.push("## Relevant Template References", "");
+      parts.push(
+        "- Treat the structured guidance in this section as the primary runtime signal. If small code excerpts appear below, use them only as narrow structural inspiration.",
+      );
+      parts.push(
+        "- Never let a reference override the user's brief, route plan, selected scaffold, current project files, or follow-up scope.",
+      );
+      if (templateSearchStatus) {
+        parts.push(`- Retrieval status: ${templateSearchStatus}`);
+      }
+      parts.push("");
       for (const match of usefulTemplateMatches) {
         const guidance = deriveTemplateRuntimeGuidance(match.entry);
         parts.push(`### ${match.entry.title}`, "");
@@ -704,26 +785,29 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
         parts.push("");
       }
 
-      const snippetMatches = usefulTemplateMatches
-        .slice(0, 2)
-        .map((match) => ({
-          match,
-          files: selectTemplateReferenceFiles(match.entry, {
-            maxFiles: buildSpec?.contextPolicy === "heavy" ? 2 : 1,
-            maxExcerptChars: Math.max(1_500, Math.floor(referenceBudget / 2)),
-            maxTotalChars: referenceBudget,
-          }),
-        }))
-        .filter(
-          (item) =>
-            item.files.length > 0 && !isStarterOrBoilerplateReference(item.match.entry),
-        );
+      const allowTemplateCodeSnippets = shouldIncludeTemplateCodeSnippets(buildSpec);
+      const snippetSelectionOptions = resolveTemplateSnippetSelectionOptions(
+        referenceBudget,
+        buildSpec,
+      );
+      const snippetMatches = allowTemplateCodeSnippets
+        ? usefulTemplateMatches
+          .slice(0, 2)
+          .map((match) => ({
+            match,
+            files: selectTemplateReferenceFiles(match.entry, snippetSelectionOptions),
+          }))
+          .filter(
+            (item) =>
+              item.files.length > 0 && !isStarterOrBoilerplateReference(item.match.entry),
+          )
+        : [];
 
-      if (snippetMatches.length > 0) {
+      if (allowTemplateCodeSnippets && snippetMatches.length > 0) {
         parts.push(
           "## Reference Code Snippets",
           "",
-          "Use these as structural inspiration only. Adapt them to the selected scaffold, prompt, and current project constraints.",
+          "Use these as structural inspiration only when they directly unblock a component or layout pattern. Keep them secondary to the guidance above.",
           "",
         );
         for (const { match, files } of snippetMatches) {
@@ -736,6 +820,14 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
           }
         }
       }
+    } else if (templateSearchStatus) {
+      parts.push(
+        "## Template Reference Retrieval",
+        "",
+        `- ${templateSearchStatus}`,
+        "- No curated template references were injected, so scaffold guidance and the user's request should stay primary.",
+        "",
+      );
     }
   }
 

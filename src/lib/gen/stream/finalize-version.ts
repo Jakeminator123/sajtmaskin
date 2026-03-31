@@ -73,6 +73,7 @@ export interface FinalizeParams {
 export interface FinalizeResult {
   version: Awaited<ReturnType<typeof chatRepo.createDraftVersion>>;
   messageId: string;
+  telemetryRecordId: string | null;
   previewUrl: string | null;
   /** Sandbox URL when full Next.js preview is started (null until sandbox boots). */
   sandboxUrl: string | null;
@@ -402,6 +403,10 @@ export async function finalizeAndSaveVersion(
 
   let contentForVersion = accumulatedContent;
   const finalizePath = resolveFinalizePathPolicy({ buildSpec, repairPassIndex });
+  let autoFixFixCount = 0;
+  let autoFixWarningCount = 0;
+  let autoFixDependencyCount = 0;
+  let telemetryRecordId: string | null = null;
 
   devLogAppend("in-progress", {
     type: "finalize.pipeline",
@@ -421,6 +426,9 @@ export async function finalizeAndSaveVersion(
         model,
       });
       contentForVersion = autoFixResult.fixedContent;
+      autoFixFixCount = autoFixResult.fixes.length;
+      autoFixWarningCount = autoFixResult.warnings.length;
+      autoFixDependencyCount = Object.keys(autoFixResult.dependencies).length;
 
       if (autoFixResult.fixes.length > 0 || autoFixResult.warnings.length > 0) {
         devLogAppend("in-progress", {
@@ -566,7 +574,39 @@ export async function finalizeAndSaveVersion(
   }
 
   try {
-    await createGenerationTelemetryRecord({
+    const telemetryMeta: Record<string, unknown> = {
+      finalizePath: finalizePath.runDeepPath ? "fast+deep" : "fast-only",
+      finalizePathReason: finalizePath.reason,
+      repairPassIndex,
+      autofix: {
+        fixCount: autoFixFixCount,
+        warningCount: autoFixWarningCount,
+        dependencyCount: autoFixDependencyCount,
+      },
+      preflight: {
+        previewBlocked: hasPreviewBlockingPreflightErrors,
+        verificationBlocked: hasVerificationBlockingPreflightErrors,
+        issueCount: preflightIssues.length,
+        previewFileCount: finalizedFilesForPreview.length,
+      },
+    };
+    if (buildSpec) {
+      telemetryMeta.buildSpec = {
+        generationMode: buildSpec.generationMode,
+        changeScope: buildSpec.changeScope,
+        qualityTarget: buildSpec.qualityTarget,
+        previewPolicy: buildSpec.previewPolicy,
+        verificationPolicy: buildSpec.verificationPolicy,
+        contextPolicy: buildSpec.contextPolicy,
+        scaffoldFamily: buildSpec.scaffoldFamily,
+        stylePack: buildSpec.stylePack,
+      };
+    }
+    if (resolvedTier && isCanonicalModelId(resolvedTier)) {
+      telemetryMeta.phaseRouting = getPhaseRoutingSummary(resolvedTier);
+    }
+
+    const telemetryRecord = await createGenerationTelemetryRecord({
       chatId,
       versionId: version.id,
       scaffoldId: resolvedScaffold?.id ?? null,
@@ -579,17 +619,19 @@ export async function finalizeAndSaveVersion(
       preflightWarningCount: preflightWarnings.length,
       previewSuccess: !hasPreviewBlockingPreflightErrors,
       previewBlockingReason,
+      qualityGateResult: hasVerificationBlockingPreflightErrors ? "failed" : "passed",
       durationMs: Date.now() - startedAt,
       promptTokens: tokenUsage?.prompt ?? null,
       completionTokens: tokenUsage?.completion ?? null,
       fileCount: preflightFileCount,
       scaffoldRetryUsed: false,
       scaffoldRetrySuggested: scaffoldRetry?.suggestedScaffoldId ?? null,
-      meta:
-        resolvedTier && isCanonicalModelId(resolvedTier)
-          ? { phaseRouting: getPhaseRoutingSummary(resolvedTier) }
-          : undefined,
+      meta: telemetryMeta,
     });
+    telemetryRecordId =
+      telemetryRecord && typeof telemetryRecord.id === "string"
+        ? telemetryRecord.id
+        : null;
   } catch (telemetryErr) {
     console.warn("[telemetry] Failed to write generation telemetry:", telemetryErr);
   }
@@ -668,6 +710,7 @@ export async function finalizeAndSaveVersion(
   return {
     version,
     messageId: assistantMsg.id,
+    telemetryRecordId,
     previewUrl: null,
     sandboxUrl: null,
     filesJson,

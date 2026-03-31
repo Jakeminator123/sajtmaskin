@@ -159,6 +159,21 @@ export async function runOwnEngineStreamPostFinalize(params: {
           chatId,
           versionId: finalized.version.id,
           outcome: sr.startOutcome,
+          previewPolicy: buildSpec.previewPolicy,
+          verificationPolicy: buildSpec.verificationPolicy,
+        });
+        logSandboxLifecycleTelemetry({
+          kind: "sandbox_preview_ready",
+          chatId,
+          versionId: finalized.version.id,
+          sandboxId: sr.sandboxId,
+          sandboxPreviewMode: sr.sandboxPreviewMode,
+          fidelityTier: sr.fidelityTier,
+          prodBuildVerified: sr.prodBuildVerified,
+          startOutcome: sr.startOutcome,
+          previewPolicy: buildSpec.previewPolicy,
+          verificationPolicy: buildSpec.verificationPolicy,
+          msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
         });
         safeEnqueue(
           enc.encode(
@@ -176,6 +191,17 @@ export async function runOwnEngineStreamPostFinalize(params: {
           chatRepo.updateVersionSandboxUrl(finalized.version.id, sr.sandboxUrl).catch(() => {});
         }
       } else {
+        logSandboxLifecycleTelemetry({
+          kind: "sandbox_preview_failed",
+          chatId,
+          versionId: finalized.version.id,
+          stage: sandboxResult.error.stage,
+          failureCode: sandboxResult.error.failureCode,
+          detail: sandboxResult.error.message,
+          previewPolicy: buildSpec.previewPolicy,
+          verificationPolicy: buildSpec.verificationPolicy,
+          msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
+        });
         warnLog("engine", "sandbox_preview_failed", {
           chatId,
           versionId: finalized.version.id,
@@ -186,6 +212,16 @@ export async function runOwnEngineStreamPostFinalize(params: {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sandbox failed";
+      logSandboxLifecycleTelemetry({
+        kind: "sandbox_preview_failed",
+        chatId,
+        versionId: finalized.version.id,
+        stage: "sandbox-create",
+        detail: message,
+        previewPolicy: buildSpec.previewPolicy,
+        verificationPolicy: buildSpec.verificationPolicy,
+        msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
+      });
       warnLog("engine", "sandbox_preview_failed", {
         chatId,
         versionId: finalized.version.id,

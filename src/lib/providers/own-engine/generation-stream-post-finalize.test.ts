@@ -3,13 +3,19 @@ import { shouldTriggerPostFinalizeServerVerify } from "@/lib/gen/stream/post-fin
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
+const getChat = vi.hoisted(() => vi.fn());
+const updateVersionSandboxUrl = vi.hoisted(() => vi.fn());
 const parseCodeProjectMock = vi.hoisted(() =>
   vi.fn((_src: string) => ({ files: [] as Array<{ path: string; content: string }> })),
 );
+const shouldRunOwnEngineSandbox = vi.hoisted(() => vi.fn(() => false));
+const logSandboxLifecycleTelemetry = vi.hoisted(() => vi.fn());
+const startSandboxPreview = vi.hoisted(() => vi.fn());
+const isSandboxConfigured = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
-  getChat: vi.fn(),
-  updateVersionSandboxUrl: vi.fn(),
+  getChat,
+  updateVersionSandboxUrl,
 }));
 
 vi.mock("@/lib/logging/devLog", () => ({
@@ -18,7 +24,7 @@ vi.mock("@/lib/logging/devLog", () => ({
 }));
 
 vi.mock("@/lib/gen/own-engine-sandbox-gate", () => ({
-  shouldRunOwnEngineSandbox: vi.fn(() => false),
+  shouldRunOwnEngineSandbox,
 }));
 
 vi.mock("@/lib/gen/parser", () => ({
@@ -26,11 +32,11 @@ vi.mock("@/lib/gen/parser", () => ({
 }));
 
 vi.mock("@/lib/gen/sandbox-lifecycle-telemetry", () => ({
-  logSandboxLifecycleTelemetry: vi.fn(),
+  logSandboxLifecycleTelemetry,
 }));
 
 vi.mock("@/lib/gen/sandbox-preview", () => ({
-  startSandboxPreview: vi.fn(),
+  startSandboxPreview,
 }));
 
 vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
@@ -42,7 +48,7 @@ vi.mock("@/lib/gen/version-manager", () => ({
 }));
 
 vi.mock("@/lib/mcp/runtime-url", () => ({
-  isSandboxConfigured: vi.fn(() => false),
+  isSandboxConfigured,
 }));
 
 vi.mock("@/lib/gen/server-verify", () => ({
@@ -91,8 +97,16 @@ const finalized = {
 
 describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
   beforeEach(() => {
+    getChat.mockReset();
+    updateVersionSandboxUrl.mockReset();
     parseCodeProjectMock.mockReset();
     parseCodeProjectMock.mockImplementation(() => ({ files: [] }));
+    shouldRunOwnEngineSandbox.mockReset();
+    shouldRunOwnEngineSandbox.mockReturnValue(false);
+    logSandboxLifecycleTelemetry.mockReset();
+    startSandboxPreview.mockReset();
+    isSandboxConfigured.mockReset();
+    isSandboxConfigured.mockReturnValue(false);
   });
 
   it("parses accumulatedContent when recovery flag is set and saved files are empty", async () => {
@@ -134,6 +148,89 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     });
 
     expect(parseCodeProjectMock.mock.calls.some((c) => String(c[0]).includes(marker))).toBe(true);
+  });
+
+  it("logs structured sandbox readiness telemetry with policy context", async () => {
+    shouldRunOwnEngineSandbox.mockReturnValue(true);
+    isSandboxConfigured.mockReturnValue(true);
+    getChat.mockResolvedValue({ project_id: "proj_1" });
+    startSandboxPreview.mockResolvedValue({
+      ok: true,
+      result: {
+        sandboxUrl: "https://sandbox.example",
+        sandboxId: "sbx_1",
+        sandboxPreviewMode: "dev_then_build",
+        fidelityTier: 3,
+        prodBuildVerified: true,
+        startOutcome: "recreated",
+      },
+    });
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now() - 250,
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldFamily: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "release-candidate",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "strict",
+        contextPolicy: "heavy",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 25_000,
+          refsChars: 12_000,
+          systemContextChars: 36_000,
+        },
+      },
+    });
+
+    expect(startSandboxPreview).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({
+        appProjectId: "proj_1",
+        chatId: "chat_1",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "strict",
+        versionIdForSession: "ver_1",
+      }),
+    );
+    expect(logSandboxLifecycleTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "sandbox_start_outcome",
+        chatId: "chat_1",
+        versionId: "ver_1",
+        outcome: "recreated",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "strict",
+      }),
+    );
+    expect(logSandboxLifecycleTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "sandbox_preview_ready",
+        chatId: "chat_1",
+        versionId: "ver_1",
+        sandboxId: "sbx_1",
+        sandboxPreviewMode: "dev_then_build",
+        fidelityTier: 3,
+        prodBuildVerified: true,
+        previewPolicy: "fidelity3",
+        verificationPolicy: "strict",
+        startOutcome: "recreated",
+        msSinceEngineStart: expect.any(Number),
+      }),
+    );
+    expect(updateVersionSandboxUrl).toHaveBeenCalledWith("ver_1", "https://sandbox.example");
   });
 });
 

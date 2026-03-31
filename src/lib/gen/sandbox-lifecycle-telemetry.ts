@@ -30,6 +30,32 @@ export type SandboxLifecycleTelemetryEvent =
       chatId: string;
       versionId?: string | null;
       outcome: "resumed" | "recreated";
+      previewPolicy?: string | null;
+      verificationPolicy?: string | null;
+    }
+  | {
+      kind: "sandbox_preview_ready";
+      chatId: string;
+      versionId?: string | null;
+      sandboxId?: string | null;
+      sandboxPreviewMode: string;
+      fidelityTier: 2 | 3;
+      prodBuildVerified: boolean;
+      startOutcome: "resumed" | "recreated";
+      previewPolicy?: string | null;
+      verificationPolicy?: string | null;
+      msSinceEngineStart: number;
+    }
+  | {
+      kind: "sandbox_preview_failed";
+      chatId: string;
+      versionId?: string | null;
+      stage: string;
+      failureCode?: string;
+      detail?: string;
+      previewPolicy?: string | null;
+      verificationPolicy?: string | null;
+      msSinceEngineStart: number;
     }
   | {
       kind: "sandbox_url_resync";
