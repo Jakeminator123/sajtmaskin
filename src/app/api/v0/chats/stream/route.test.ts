@@ -89,9 +89,6 @@ vi.mock("@/lib/builder/site-brief-generation", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  ensureProjectForRequest: vi.fn(),
-  resolveV0ProjectId: vi.fn(),
-  generateProjectName: vi.fn(),
   getChatByV0ChatIdForRequest: vi.fn(),
   resolveAppProjectIdForRequest,
 }));

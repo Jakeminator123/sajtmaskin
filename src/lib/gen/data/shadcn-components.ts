@@ -225,12 +225,3 @@ export const SHADCN_COMPONENTS: Record<string, string> = {
   TooltipProvider: "tooltip",
   TooltipTrigger: "tooltip",
 };
-
-/**
- * Reverse lookup: subpath → list of exported names.
- * E.g. "card" → ["Card", "CardContent", "CardDescription", "CardFooter", "CardHeader", "CardTitle"]
- */
-export const SHADCN_SUBPATH_TO_EXPORTS: Record<string, string[]> = {};
-for (const [name, subpath] of Object.entries(SHADCN_COMPONENTS)) {
-  (SHADCN_SUBPATH_TO_EXPORTS[subpath] ??= []).push(name);
-}

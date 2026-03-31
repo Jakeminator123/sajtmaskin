@@ -58,16 +58,6 @@ export function previewUrlsEquivalent(
   }
 }
 
-export function resolveCompatibilityShimPreviewUrl(_params: {
-  chatId?: string | null;
-  versionId?: string | null;
-  demoUrl?: string | null;
-  sandboxUrl?: string | null;
-  projectId?: string | null;
-}): string | null {
-  return null;
-}
-
 export function resolveAlternatePreviewUrls(params: {
   chatId?: string | null;
   versionId?: string | null;
@@ -77,7 +67,7 @@ export function resolveAlternatePreviewUrls(params: {
 }): AlternatePreviewUrls {
   const sandboxUrl = normalizePreviewUrl(params.sandboxUrl);
   return {
-    shimUrl: resolveCompatibilityShimPreviewUrl(params),
+    shimUrl: null,
     sandboxUrl,
   };
 }

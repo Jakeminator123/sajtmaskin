@@ -378,10 +378,3 @@ export interface AuditRequest {
   url: string;
   auditMode?: AuditMode;
 }
-
-// API response
-export interface AuditResponse {
-  success: boolean;
-  result?: AuditResult;
-  error?: string;
-}

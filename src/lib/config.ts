@@ -271,30 +271,6 @@ export const SECRETS = {
   },
 } as const;
 
-type SecretName = Exclude<keyof typeof SECRETS, "prototype">;
-
-/**
- * Check if a secret is configured (without exposing value)
- */
-export function isSecretConfigured(secretName: SecretName): boolean {
-  const value = SECRETS[secretName];
-  return typeof value === "string" && value.length > 0;
-}
-
-/**
- * Validate required secrets at startup
- * Returns list of missing secret names
- */
-export function validateRequiredSecrets(requiredSecrets: SecretName[]): string[] {
-  const missing: string[] = [];
-  for (const secret of requiredSecrets) {
-    if (!isSecretConfigured(secret)) {
-      missing.push(String(secret));
-    }
-  }
-  return missing;
-}
-
 /**
  * Redis configuration
  */
@@ -360,15 +336,6 @@ export const OPENCLAW = {
 } as const;
 
 /**
- * AI configuration
- */
-export const AI = {
-  get designSystemId(): string | undefined {
-    return env.DESIGN_SYSTEM_ID || undefined;
-  },
-} as const;
-
-/**
  * Feature flags
  */
 export const FEATURES = {
@@ -409,69 +376,3 @@ export const FEATURES = {
   // Required for asset materialization and sandbox/shared preview flows
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),
 } as const;
-
-function resolveDbLogLabel(): string {
-  const dbEnvCandidates = [
-    "POSTGRES_URL",
-    "POSTGRES_URL_NON_POOLING",
-  ] as const;
-  for (const key of dbEnvCandidates) {
-    if (env[key]) return key;
-  }
-  return "not-configured";
-}
-
-function resolveStorageLogLabel(): string {
-  return "postgres";
-}
-
-declare global {
-  var __configLogged: boolean | undefined;
-}
-
-/**
- * Log configuration on startup (call once)
- * Uses globalThis to prevent duplicate logs during hot reload
- * SECURITY: Never log actual secret values!
- */
-export function logConfig(): void {
-  if (globalThis.__configLogged) return;
-  globalThis.__configLogged = true;
-
-  const features = Object.entries(FEATURES)
-    .filter(([, v]) => v)
-    .map(([k]) =>
-      k
-        .replace("use", "")
-        .replace(/([A-Z])/g, " $1")
-        .trim(),
-    )
-    .join(", ");
-
-  console.info(
-    `[Config] ${IS_PRODUCTION ? "PROD" : "DEV"} | Storage: ${resolveStorageLogLabel()} | DB: ${resolveDbLogLabel()} | Features: ${
-      features || "none"
-    }`,
-  );
-}
-
-/**
- * Validate required environment variables
- * Call this at app startup to fail fast if critical config is missing
- */
-export function validateEnv(): { valid: boolean; missing: string[] } {
-  const coreSecrets: SecretName[] = IS_PRODUCTION
-    ? ["jwtSecret", "openaiApiKey"]
-    : [];
-  const missing = validateRequiredSecrets(coreSecrets);
-  const dbConfigured = resolveDbLogLabel() !== "not-configured";
-  if (!dbConfigured) {
-    missing.push("POSTGRES_URL");
-  }
-
-  if (missing.length > 0 && IS_PRODUCTION) {
-    console.error("[Config] CRITICAL: Missing required environment variables:", missing);
-  }
-
-  return { valid: missing.length === 0, missing };
-}
