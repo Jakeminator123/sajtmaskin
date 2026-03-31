@@ -169,6 +169,3 @@ export function logFinalPrompt(prompt: string, model: string): void {
   console.info(`${COLORS.magenta}${prompt}${COLORS.reset}`);
   console.info(`${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}\n`);
 }
-
-// Legacy export for backward compatibility
-export { isDebugEnabled as isDebugEnabledLegacy };
