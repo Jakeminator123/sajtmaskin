@@ -5,6 +5,17 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 ## Översikt och inventering
 
 - **Nav:** denna fil + `package.json` — se även [`docs/architecture/repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
+
+### Next / dev-server (npm hooks)
+
+| Fil | `package.json` |
+|-----|------------------|
+| [`next-runner.mjs`](next-runner.mjs) | `dev`, `build`, `start` |
+| [`check-systemprompt.mjs`](check-systemprompt.mjs) | `predev`, `prebuild` |
+| [`refresh-token.mjs`](refresh-token.mjs) | `predev`, `refresh-token` |
+| [`db-init.mjs`](db-init.mjs) | `predev`, `db:init` |
+
+**Mallflöde (v0-templates i repo):** [`sync-v0-templates.mjs`](sync-v0-templates.mjs), [`validate-templates.mjs`](validate-templates.mjs), [`generate-template-embeddings.ts`](generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:embeddings`.
 - **Delade TS-moduler (ingen egen CLI):** [`template-library-discovery.ts`](template-library-discovery.ts) (JSON/summary-hjälp) används av `build-template-library`, `hydrate-template-library-cache`, `import-template-discovery`, `promote-to-scaffold`, `verify-discovered-summary`, `template-library-discovery.test.ts` och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffold-candidate-report.ts`](scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via de npm-entrypoints som redan finns eller via `npx tsx` enligt respektive avsnitt nedan.
 - **Vercel use-case-skrapning (Python):** under `scripts/` (ingen kopia i repo-roten).
   - **Kanonisk entrypoint:** [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (historisk bred lista, ~25 use cases), tierad utdata, rapporter. **Standard** för manuell inhämtning.

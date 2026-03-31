@@ -205,6 +205,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (af) | 2026-03-31 | 11/21   | 52%     | 48%    | `files_envvars/` tillagd i `.gitignore` och `.cursorignore` (lokal scratch, ej kanon). `di-d.txt` borttagen från aktiv cursorignore-rad (rad kommenterad). API: `POST /api/v0/chats` synkväg skickar `orchestrationStreamMeta` via `buildOwnEngineGenerationStreamMeta`; `route.test.ts`-mock utökad. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (ag)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: handoff — spår B har aktiv checkpoint över finalize/post-finalize; spår A dokumenterar att dessa filer inte tas av städagenten. |
 | **Efter** pass 2026-03-31 (ag) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `agent-workflows.md` pekar på tillfällig “Aktiv spår B-batch” under STORDSTAD handoff (konkret fillista); spår A fortsätter i docs/env/ignore utan att röra den listan. Verifierat: endast markdown (ingen kodändring i detta pass). |
+| **Före** pass 2026-03-31 (ah)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: arkiv-länkar + skript-nav — `POST-EPIC-CLEANUP.md` använder fel `../`-djup mot `docs/`; `scripts/README` saknar next/predev/template-rader. |
+| **Efter** pass 2026-03-31 (ah) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `docs/plans/avklarat/POST-EPIC-CLEANUP.md` länkar till `docs/README`, `docs/architecture/*`, `archive/`, `handoffs/`, `notes/`, `old/` med `../../…` från `avklarat/`; `scripts/README.md` ny § *Next / dev-server* + v0-template-skript. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Spår B-filer orörda. |
 
 ---
 
@@ -346,7 +348,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass af)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ah)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)
