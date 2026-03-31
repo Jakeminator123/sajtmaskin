@@ -183,6 +183,10 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (u) | 2026-03-31 | 10/21   | 48%     | 52%    | Docs: `scripts/README.md` översikt pekar ut `template-library-discovery.ts` + `scaffold-candidate-report.ts` och vilka entrypoints som importerar dem. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (v)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: oanvända re-export-rader (ingen ny publik yta); Fas A massradering-HEAD som process i cursor-regel. |
 | **Efter** pass 2026-03-31 (v) | 2026-03-31 | 11/21   | 52%     | 48%    | Kod: borttagna döda `export { … }` i `orchestrate.ts` (`GenerationInputPackage`), `visual-qa.ts` (`PASS_THRESHOLD`, `MAX_DESIGN_PATCH_ATTEMPTS`), `load-manifest.ts` (`buildProfileIdSchema`, `qualityLevelSchema`) — inga externa importörer. Docs/process: `.cursor/rules/session-git-docs.mdc` — vid massradering, nämn `git rev-parse HEAD` i PR (länk STORDSTAD Fas A). Bock: Fas A ruta 3. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (w)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: `env.ts` — oanvänd import av `isAffirmativeEnvValue` (redan re-export från `env-affirmative`). |
+| **Efter** pass 2026-03-31 (w) | 2026-03-31 | 11/21   | 52%     | 48%    | Kod: `env.ts` importerar bara `sanitizeEnvString`; `isAffirmativeEnvValue` exponeras kvar via `export { … } from "./env-affirmative"` för `config.ts`. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (x)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: `config.ts` är ensam extern användare av `isAffirmativeEnvValue` via `env.ts`; gör helpern direkt i `env-affirmative`. |
+| **Efter** pass 2026-03-31 (x) | 2026-03-31 | 11/21   | 52%     | 48%    | Kod: `config.ts` importerar `isAffirmativeEnvValue` direkt från `env-affirmative`; `env.ts` re-exporterar inte längre helpern. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
 
 ---
 
@@ -299,7 +303,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass v)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass x)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)

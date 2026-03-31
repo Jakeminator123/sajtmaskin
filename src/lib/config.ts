@@ -6,7 +6,8 @@
 import path from "path";
 import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 import { getAppBaseUrl } from "./app-url";
-import { getServerEnv, isAffirmativeEnvValue } from "./env";
+import { getServerEnv } from "./env";
+import { isAffirmativeEnvValue } from "./env-affirmative";
 
 const env = getServerEnv();
 
