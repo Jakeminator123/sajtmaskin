@@ -199,6 +199,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (ac) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `docs/ENV.md`, `repo-tree.md`, `repository-and-platform.md` och `scripts/README.md` pekar nu ut `scripts/env/*` och `scripts/manual/*` som kanoniska entrypoints; root-wrapperfilerna beskrivs uttryckligen som bakåtkompatibilitet. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (ad)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: parallellt arbete — tydlig A/B-fördelning i contributing-docs; `tools/README` saknade pekare till kanonisk env-CLI. |
 | **Efter** pass 2026-03-31 (ad) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `agent-workflows.md` beskriver spår A vs B och när spår B säkert kan köra i `gen`/own-engine; `contributing/README.md` länkar nav + agent-workflows; `tools/README.md` rad till `scripts/env/manage_env.py` + `docs/ENV.md`; `AGENTS.md` pekar på samma §. Handoff nedan nämner parallell B-yta. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (ae)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: parallell samordning — explicit lista på kod-/doc-sökvägar där spår A ska stämma av med spår B; handoff ska inte längre antyda att städ “som standard” tar `hooks/chat`/`env.ts`/`config.ts` samtidigt som B kör. |
+| **Efter** pass 2026-03-31 (ae) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `agent-workflows.md` har konfliktzon-lista + att grön `master` inte kräver paus; STORDSTAD-handoff/startrad skiljer **parallell** städ (docs/scripts/AGENTS/.cursor m.m.) från kodstäd i B-zoner när B är aktivt; `AGENTS.md` pekar på konfliktzoner. Bekräftat från spår B: repo friskt på `master` (typecheck + full Vitest). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
 
 ---
 
@@ -209,9 +211,10 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 Tidigare sidospår för LLM-pipeline och STORDSTAD-städ är nu mergade till `master`. Tills nytt beslut tas är **`master` i huvudcheckouten `...\sajtmaskin`** den gemensamma arbetslinjen och den branch som ska pushas till `origin/master`. Tillfälliga worktrees eller brancher är bara isoleringsytor och bör tas bort när de inte längre bär unikt arbete.
 
 - **Utgå från detta dokument:** `docs/plans/active/STORDSTAD-repo-kod-databas.md` för städspår A; komplettera med `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` när frågan gäller own-engine/generation snarare än repo-städ.
-- **Förväntade ändringszoner från denna agent framåt:** `docs/plans/active/`, `AGENTS.md`, `.cursor/README.md`, `src/lib/hooks/chat/` och smala import-/env-städpass i `src/lib/` såsom `env*` och `config.ts`.
+- **Parallellt med spår B (LLM/generation aktivt):** prioritera `docs/`, `docs/plans/active/`, `docs/ENV.md`, `scripts/README.md`, `AGENTS.md`, `.cursor/README.md`, `tools/README.md`, `docs/architecture/repo-tree.md` m.m. **Rör inte** konfliktzonerna i [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md) § *Flera agenter* (kod under `gen`, `own-engine`, `hooks/chat`, `env.ts`, `config.ts`, vissa arkitekturdocs) **utan att stämma av** med den som kör B.
+- **När spår B inte kör samtidigt:** smala kodstädpass kan åter ta `src/lib/hooks/chat/`, `env*` och `config.ts` enligt [Förenklad körprofil](#förenklad-körprofil-aktiv-tills-vidare) och pass-loggen — fortfarande utan `src/lib/gen/scaffolds/*` och utan bred preview/deploy/DB i samma svep.
 - **Zoner jag inte tänker bredröra utan separat scope:** `src/lib/gen/scaffolds/*`, stora preview/deploy-/builder-pipelines och DB-fas.
-- **Parallell agent (spår B):** efter att aktuell docs-/städbatch är på `origin/master` kan en annan agent arbeta i `src/lib/gen/*` (med reservation för scaffolds), `src/lib/providers/own-engine/*` och prompt/runtime/orchestration med låg konfliktrisk mot spår A — se [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md) § *Flera agenter*.
+- **Parallell agent (spår B):** kan köra på `master` samtidigt som spår A när konfliktzonlistan följs — se [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md) § *Flera agenter*.
 
 ### Cursor: var du arbetar (en git-root åt gången)
 
@@ -258,7 +261,7 @@ Kontext: Fas A baseline och delar av Fas B/C är påbörjade; pass-loggen visar 
 
 Utgångsläge: tidigare sidospår är mergade till `master`. Standard nu = arbeta i huvudcheckouten på `master` och hålla **en** git-root öppen. Skapa nytt worktree bara om du uttryckligen behöver isolering, och håll det då i eget fönster.
 
-Förväntade ändringszoner från denna agent framåt: `docs/plans/active/`, `AGENTS.md`, `.cursor/README.md`, `src/lib/hooks/chat/` och smala import-/env-städpass i `src/lib/` (`env*`, `config.ts`). Undvik `src/lib/gen/scaffolds/*`, bred preview/deploy/builder och DB-zoner utan separat scope. En **parallell** agent kan köra own-engine/generation i `src/lib/gen/*` (med reservation för scaffolds), `src/lib/providers/own-engine/*` och prompt/runtime — se `docs/contributing/agent-workflows.md` § *Flera agenter*.
+Parallellt med spår B: håll dig till docs/scripts/AGENTS/.cursor/plan-nav — se konfliktzoner i `docs/contributing/agent-workflows.md` § *Flera agenter* (rör inte `gen`, `own-engine`, `hooks/chat`, `env.ts`, `config.ts`, eller generation/preview-arkitekturdocs utan samordning). När B inte kör: smala pass kan åter röra `hooks/chat`, `env*`, `config.ts`. Undvik alltid `src/lib/gen/scaffolds/*`, bred preview/deploy/builder och DB utan separat scope. Spår B — se samma §.
 
 Gör så här:
 1. Läs AGENTS.md + docs/README.md (nav) och repo-tree.md om du behöver orientering.
@@ -338,7 +341,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ad)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ae)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)
