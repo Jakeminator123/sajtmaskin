@@ -75,3 +75,11 @@ Agenter: säg explicit vilket lager du menar om det kan misstolkas.
 ## Aliaser
 
 Varicell / Vericell → **Vercel**. Veenol / Venol → **v0**.
+
+## Överlappande ord och när den här filen uppdateras
+
+Samma vardagsord (**preview**, **mall**, **template**, **v0**, …) förekommer ofta i **flera olika betydelser** i repo och produkt. Den här ordlistan kan inte fånga allt; den ska bara täcka det som **faktiskt** brukar bli fel.
+
+- **Uppdatera sällan men ibland:** lägg till eller skärp en rad här när samma begreppsförvirring **återkommer** (t.ex. två agenter eller två issues blandar ihop samma par). Undvik att växa listan för varje engångsfråga eller för varje nytt internnamn i kod.
+- **Varför:** andra agenter ska veta att överlapp finns och var de ska leta — inte att varje ny synonym måste in här direkt.
+- **Var:** håll tillägg korta; koppla till befintlig sektion (t.ex. mall/preview) hellre än nya långa stycken.
