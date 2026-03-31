@@ -8,8 +8,8 @@ import {
   type PreviewIssuePayload,
 } from "../iframe-diagnostics";
 
-export const PREVIEW_READY_TIMEOUT_MS = 10_000;
-export const PREVIEW_READY_POLL_MS = 250;
+const PREVIEW_READY_TIMEOUT_MS = 10_000;
+const PREVIEW_READY_POLL_MS = 250;
 
 export function usePreviewIframe(params: {
   previewUrl: string | null;

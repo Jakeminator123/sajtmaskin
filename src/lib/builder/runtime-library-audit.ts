@@ -27,7 +27,7 @@ export const RUNTIME_LIBRARY_MINIMUMS = {
   featuredBlockGroups: 10,
 } as const;
 
-export const RUNTIME_LIBRARY_FAMILIES: RuntimeLibraryFamilyDefinition[] = [
+const RUNTIME_LIBRARY_FAMILIES: RuntimeLibraryFamilyDefinition[] = [
   {
     id: "headers",
     label: "Headers & Navigation",

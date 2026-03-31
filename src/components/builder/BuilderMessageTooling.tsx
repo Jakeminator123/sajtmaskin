@@ -964,7 +964,7 @@ export function CompactToolParts({
   );
 }
 
-export function resolveToolLabels(tool: Partial<ToolUIPart> & { type?: string }) {
+function resolveToolLabels(tool: Partial<ToolUIPart> & { type?: string }) {
   const rawToolType = typeof tool.type === "string" ? `${tool.type}` : "";
   const toolType = (() => {
     if (!rawToolType || rawToolType === "tool") return "tool-unknown";

@@ -13,7 +13,7 @@ export type ChatVersionFilesApiResponse = {
   error?: string;
 };
 
-export function chatVersionFilesUrl(chatId: string, versionId: string): string {
+function chatVersionFilesUrl(chatId: string, versionId: string): string {
   return `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`;
 }
 
