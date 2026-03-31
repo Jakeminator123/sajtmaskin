@@ -38,6 +38,7 @@
   ],
   "exclude": [
     "node_modules",
+    "output",
     "src/templates",
     "drizzle.config.ts",
     "old",

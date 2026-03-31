@@ -59,6 +59,43 @@ function isImageAttachment(attachment: RequestAttachment): boolean {
   return (getAttachmentMediaType(attachment) || "").startsWith("image/");
 }
 
+/** MIME type for an attachment (filename/url fallback). */
+export function getRequestAttachmentMediaType(
+  attachment: RequestAttachment,
+): string | undefined {
+  return getAttachmentMediaType(attachment);
+}
+
+export function isImageRequestAttachment(attachment: RequestAttachment): boolean {
+  return isImageAttachment(attachment);
+}
+
+function formatNonImageAttachmentDescriptors(attachments: RequestAttachment[]): string {
+  const nonVisual = attachments.filter((a) => !isImageAttachment(a));
+  if (nonVisual.length === 0) return "";
+
+  const lines: string[] = [
+    "## Non-image attachments (user-provided)",
+    "",
+    "The user attached the following files. Use their names and purposes when relevant; text excerpts may appear below this block in the prompt.",
+    "",
+  ];
+  for (const a of nonVisual) {
+    const name =
+      asTrimmedString(a.filename) || getFilenameFromUrl(a.url) || "attachment";
+    const mime = getAttachmentMediaType(a) || "unknown";
+    const purpose = asTrimmedString(a.purpose);
+    const size =
+      typeof a.size === "number" && Number.isFinite(a.size) ? `${a.size} bytes` : null;
+    lines.push(
+      `- **${name}** (${mime})${purpose ? ` — purpose: ${purpose}` : ""}${size ? ` — size: ${size}` : ""}`,
+      `  - URL: ${a.url}`,
+    );
+  }
+  lines.push("");
+  return lines.join("\n").trimEnd();
+}
+
 export function normalizeRequestAttachments(input: unknown): RequestAttachment[] {
   if (!Array.isArray(input)) return [];
   return input
@@ -104,12 +141,16 @@ export function buildUserPromptContent(
   prompt: string,
   attachments?: RequestAttachment[],
 ): UserPromptContent {
-  const visualAttachments = getVisualReferenceAttachments(attachments ?? []);
-  if (visualAttachments.length === 0) return prompt;
+  const list = attachments ?? [];
+  const descriptorBlock = formatNonImageAttachmentDescriptors(list);
+  const textPrompt = descriptorBlock ? `${prompt.trimEnd()}\n\n${descriptorBlock}` : prompt;
+
+  const visualAttachments = getVisualReferenceAttachments(list);
+  if (visualAttachments.length === 0) return textPrompt;
 
   const parts: Array<
     { type: "text"; text: string } | { type: "image"; image: string; mediaType?: string }
-  > = [{ type: "text", text: prompt }];
+  > = [{ type: "text", text: textPrompt }];
 
   for (const attachment of visualAttachments) {
     parts.push({

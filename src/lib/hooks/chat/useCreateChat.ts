@@ -459,6 +459,7 @@ export function useCreateChat(
               autoFixHandlerRef,
               promptAssistModel,
               promptAssistDeep,
+              promptAssistMode,
             },
             streamController.signal,
           );

@@ -605,6 +605,10 @@ export async function finalizeAndSaveVersion(
     if (resolvedTier && isCanonicalModelId(resolvedTier)) {
       telemetryMeta.phaseRouting = getPhaseRoutingSummary(resolvedTier);
     }
+    const tls = orchestrationStreamMeta?.templateLibrarySearch;
+    if (tls && typeof tls === "object") {
+      telemetryMeta.templateLibrarySearch = tls;
+    }
 
     const telemetryRecord = await createGenerationTelemetryRecord({
       chatId,

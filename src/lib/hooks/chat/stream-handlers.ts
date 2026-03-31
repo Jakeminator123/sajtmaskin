@@ -79,6 +79,7 @@ export type StreamContext = {
   autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;
+  promptAssistMode?: "polish" | "rewrite" | null;
 };
 
 import { updateCreateChatLockChatId } from "./helpers";
@@ -327,6 +328,7 @@ export async function handleSseStream(
                 : null,
               promptAssistModel: paModel,
               promptAssistDeep: ctx.promptAssistDeep ?? null,
+              promptAssistMode: ctx.promptAssistMode ?? null,
               scaffoldId: typeof meta.scaffoldId === "string" ? meta.scaffoldId : null,
               scaffoldFamily: typeof meta.scaffoldFamily === "string" ? meta.scaffoldFamily : null,
               scaffoldLabel: typeof meta.scaffoldLabel === "string" ? meta.scaffoldLabel : null,

@@ -135,7 +135,7 @@ describe("buildDynamicContext", () => {
   });
 
   it("skips KB and template references for narrow follow-up context", async () => {
-    const context = await buildDynamicContext({
+    const { context } = await buildDynamicContext({
       intent: "website",
       originalPrompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
       generationMode: "followUp",
@@ -151,7 +151,7 @@ describe("buildDynamicContext", () => {
   });
 
   it("keeps richer reference retrieval outside light follow-up mode", async () => {
-    const context = await buildDynamicContext({
+    const { context } = await buildDynamicContext({
       intent: "website",
       originalPrompt: "Build a SaaS website with product storytelling.",
       generationMode: "init",
@@ -231,7 +231,7 @@ describe("buildDynamicContext", () => {
       },
     });
 
-    const context = await buildDynamicContext({
+    const { context } = await buildDynamicContext({
       intent: "website",
       originalPrompt: "Build a polished agency website.",
       generationMode: "init",
@@ -251,7 +251,7 @@ describe("buildDynamicContext", () => {
   });
 
   it("keeps structured reference guidance but skips snippets for scoped follow-up edits", async () => {
-    const context = await buildDynamicContext({
+    const { context } = await buildDynamicContext({
       intent: "website",
       originalPrompt: "Tighten spacing and make the hero calmer without changing the site structure.",
       generationMode: "followUp",
@@ -332,7 +332,7 @@ describe("buildDynamicContext", () => {
       },
     });
 
-    const context = await buildDynamicContext({
+    const { context } = await buildDynamicContext({
       intent: "website",
       originalPrompt: "Build a modern marketing site with strong conversion flow.",
       generationMode: "init",
@@ -353,7 +353,7 @@ describe("buildDynamicContext", () => {
 
   describe("Generation Profile", () => {
     it("still includes Generation Profile for light follow-up when buildSpec is present", async () => {
-      const context = await buildDynamicContext({
+      const { context } = await buildDynamicContext({
         intent: "website",
         originalPrompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
         generationMode: "followUp",
@@ -370,7 +370,7 @@ describe("buildDynamicContext", () => {
     });
 
     it("omits Generation Profile when buildSpec is absent", async () => {
-      const context = await buildDynamicContext({
+      const { context } = await buildDynamicContext({
         intent: "website",
         originalPrompt: "Build a landing page.",
         generationMode: "init",
@@ -381,7 +381,7 @@ describe("buildDynamicContext", () => {
     });
 
     it("lists forbiddenPatterns when non-empty", async () => {
-      const context = await buildDynamicContext({
+      const { context } = await buildDynamicContext({
         intent: "website",
         originalPrompt: "Tweak hero copy only.",
         generationMode: "followUp",
@@ -396,7 +396,7 @@ describe("buildDynamicContext", () => {
     });
 
     it("omits the Forbidden patterns line when forbiddenPatterns is empty", async () => {
-      const context = await buildDynamicContext({
+      const { context } = await buildDynamicContext({
         intent: "website",
         originalPrompt: "Tweak hero copy only.",
         generationMode: "followUp",
@@ -411,7 +411,7 @@ describe("buildDynamicContext", () => {
 
   describe("prompt assembly integration", () => {
     it("init website with brief surfaces intent, profile, project context, and original request in order", async () => {
-      const context = await buildDynamicContext({
+      const { context } = await buildDynamicContext({
         intent: "website",
         generationMode: "init",
         originalPrompt: "Build a professional law firm website",
@@ -461,7 +461,7 @@ describe("buildDynamicContext", () => {
         ],
       };
 
-      const context = await buildDynamicContext({
+      const { context } = await buildDynamicContext({
         intent: "app",
         generationMode: "init",
         originalPrompt: "Build an internal admin application",
@@ -492,7 +492,7 @@ describe("buildDynamicContext", () => {
     });
 
     it("follow-up light context omits doc and template sections but keeps mode and profile", async () => {
-      const context = await buildDynamicContext({
+      const { context } = await buildDynamicContext({
         intent: "website",
         originalPrompt: "Tweak hero copy only; keep layout.",
         generationMode: "followUp",
@@ -505,6 +505,21 @@ describe("buildDynamicContext", () => {
       expect(context).not.toContain("## Reference Code Snippets");
       expect(context).toContain("## Generation Mode: Follow-Up");
       expect(context).toContain("## Generation Profile");
+    });
+
+    it("design-heavy follow-up with light buildSpec still runs KB + template retrieval", async () => {
+      const { context, templateLibrarySearchDiagnostics } = await buildDynamicContext({
+        intent: "website",
+        originalPrompt: "Complete redesign: new hero, animations, and color system for the landing page.",
+        generationMode: "followUp",
+        buildSpec: lightFollowUpSpec,
+      });
+
+      expect(searchKnowledgeBaseAsync).toHaveBeenCalled();
+      expect(searchTemplateLibraryWithDiagnostics).toHaveBeenCalled();
+      expect(context).toContain("## Relevant Documentation");
+      expect(context).toContain("## Relevant Template References");
+      expect(templateLibrarySearchDiagnostics?.mode).toBe("embedding");
     });
   });
 });

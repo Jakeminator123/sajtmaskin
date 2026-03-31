@@ -72,6 +72,10 @@ import {
   resolveFollowUpClarification,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import { prependOrchestrationContinuityToFollowUp } from "@/lib/gen/orchestration-snapshot";
+import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
+import { createPromptLog } from "@/lib/db/services/prompt-logs";
+import { looksDesignHeavyMessage } from "@/lib/builder/promptOrchestration";
+import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 
 export const runtime = "nodejs";
 /** Server stream ceiling (seconds). Client-side stream safety timeout (`streamSafetyTimeoutMs` in manifest) is separate; if it fires first, the UI may abort before `done` while the server could still run. */
@@ -168,6 +172,22 @@ export async function handleMessageStreamRequest(
         const metaBrief = extractBriefFromMeta(meta);
         const metaDesignThemePreset = extractDesignThemePresetFromMeta(meta);
         const metaPalette = extractPaletteStateFromMeta(meta);
+        const metaPromptAssistModel =
+          typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
+            ? String((meta as { promptAssistModel: string }).promptAssistModel).trim() || null
+            : null;
+        const metaPromptAssistDeep =
+          typeof (meta as { promptAssistDeep?: unknown })?.promptAssistDeep === "boolean"
+            ? Boolean((meta as { promptAssistDeep: boolean }).promptAssistDeep)
+            : null;
+        const metaPromptAssistModeRaw =
+          typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
+            ? String((meta as { promptAssistMode: string }).promptAssistMode).trim()
+            : null;
+        const metaPromptAssistMode =
+          metaPromptAssistModeRaw === "polish" || metaPromptAssistModeRaw === "rewrite"
+            ? metaPromptAssistModeRaw
+            : null;
         const designReferences = summarizeDesignReferences(requestAttachments);
         const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
 
@@ -194,6 +214,14 @@ export async function handleMessageStreamRequest(
           promptSourceKind: metaPromptSourceKind,
           promptSourceTechnical: metaPromptSourceTechnical,
           promptSourcePreservePayload: metaPromptSourcePreservePayload,
+        });
+        debugLog("orchestration", "Follow-up prompt assist + strategy (request meta)", {
+          chatId,
+          promptAssistModel: metaPromptAssistModel,
+          promptAssistDeep: metaPromptAssistDeep,
+          promptAssistMode: metaPromptAssistMode,
+          promptStrategy: promptOrchestration.strategyMeta.strategy,
+          promptType: promptOrchestration.strategyMeta.promptType,
         });
         let optimizedMessage = promptOrchestration.finalMessage;
         optimizedMessage = prependOrchestrationContinuityToFollowUp(
@@ -245,12 +273,14 @@ export async function handleMessageStreamRequest(
           const useLightFollowUpContext =
             FEATURES.useFollowUpLightContext &&
             !skipIntentClassification &&
-            followUpIntent !== "clear-redesign";
+            followUpIntent !== "clear-redesign" &&
+            !looksDesignHeavyMessage(message.trim());
+          const manyFiles = previousFiles.length > 14;
           const fileCtx = buildFileContext({
             files: previousFiles,
             maxChars: useLightFollowUpContext ? 24_000 : 140_000,
             includeContents: true,
-            maxFilesWithContent: useLightFollowUpContext ? 4 : 8,
+            maxFilesWithContent: useLightFollowUpContext ? (manyFiles ? 2 : 4) : 8,
           });
 
           if (skipIntentClassification) {
@@ -316,6 +346,12 @@ export async function handleMessageStreamRequest(
           }
         }
 
+        optimizedMessage = await appendHydratedTextAttachmentExcerpts(
+          optimizedMessage,
+          requestAttachments,
+          { signal: req.signal },
+        );
+
         const creditContext = {
           modelId: resolvedModelId,
           thinking: resolvedThinking,
@@ -327,6 +363,55 @@ export async function handleMessageStreamRequest(
         });
         if (!creditCheck.ok) {
           return attachSessionCookie(creditCheck.response);
+        }
+        try {
+          const metaPayload =
+            meta && typeof meta === "object"
+              ? (() => {
+                  const copy = { ...(meta as Record<string, unknown>) };
+                  delete copy.promptOriginal;
+                  delete copy.promptFormatted;
+                  copy.promptStrategy = promptOrchestration.strategyMeta.strategy;
+                  copy.promptType = promptOrchestration.strategyMeta.promptType;
+                  copy.promptBudgetTarget = promptOrchestration.strategyMeta.budgetTarget;
+                  copy.promptOptimizedLength = promptOrchestration.strategyMeta.optimizedLength;
+                  copy.promptReductionRatio = promptOrchestration.strategyMeta.reductionRatio;
+                  copy.promptStrategyReason = promptOrchestration.strategyMeta.reason;
+                  copy.promptComplexityScore = promptOrchestration.strategyMeta.complexityScore;
+                  return Object.keys(copy).length > 0 ? copy : null;
+                })()
+              : {
+                  promptStrategy: promptOrchestration.strategyMeta.strategy,
+                  promptType: promptOrchestration.strategyMeta.promptType,
+                  promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
+                  promptOptimizedLength: promptOrchestration.strategyMeta.optimizedLength,
+                  promptReductionRatio: promptOrchestration.strategyMeta.reductionRatio,
+                  promptStrategyReason: promptOrchestration.strategyMeta.reason,
+                  promptComplexityScore: promptOrchestration.strategyMeta.complexityScore,
+                };
+          await createPromptLog({
+            event: "follow_up",
+            userId: creditCheck.user?.id ?? null,
+            sessionId,
+            appProjectId: metaAppProjectId || null,
+            v0ProjectId: engineChat.project_id ?? null,
+            chatId,
+            promptOriginal: message,
+            promptFormatted: optimizedMessage,
+            systemPrompt: typeof system === "string" ? system.trim() || null : null,
+            promptAssistModel: metaPromptAssistModel,
+            promptAssistDeep: metaPromptAssistDeep,
+            promptAssistMode: metaPromptAssistMode,
+            buildIntent: metaBuildIntent,
+            buildMethod: metaBuildMethod,
+            modelTier: resolvedModelTier,
+            imageGenerations: resolvedImageGenerations,
+            thinking: resolvedThinking,
+            attachmentsCount: requestAttachments.length,
+            meta: metaPayload,
+          });
+        } catch (error) {
+          console.warn("[prompt-log] Failed to record follow-up prompt log:", error);
         }
         let didChargeCredits = false;
         const commitCreditsOnce = async () => {
@@ -573,10 +658,8 @@ export async function handleMessageStreamRequest(
             headers: createSSEHeaders(),
           }));
         }
-        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(
-          orchestrationBase,
-          orchestrationInput,
-        );
+        const { engineSystemPrompt, templateLibrarySearchDiagnostics } =
+          await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
         const lineageHash = computeLineageHash({
           userPrompt: optimizedMessage,
           brief: metaBrief,
@@ -604,7 +687,11 @@ export async function handleMessageStreamRequest(
             chatHistory,
             thinking: resolvedThinking,
             abortSignal: req.signal,
-            maxSteps: 2,
+            maxSteps: resolveOwnEngineMaxSteps({
+              buildSpec: orchestrationBase.buildSpec,
+              userMessage: message,
+              isFollowUp: previousFiles.length > 0,
+            }),
             referenceAttachments: requestAttachments,
           },
           meta: buildOwnEngineGenerationStreamMeta({
@@ -623,6 +710,7 @@ export async function handleMessageStreamRequest(
             customInstructionsLength: trimmedSystem?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
             scaffoldFamily: resolvedScaffold?.family ?? null,
+            templateLibrarySearchDiagnostics,
           }),
           engineModel,
           optimizedMessage,

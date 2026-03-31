@@ -49,6 +49,7 @@ export function useSendMessage(
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
+    promptAssistMode,
     buildIntent,
     buildMethod,
     scaffoldMode,
@@ -235,9 +236,13 @@ export function useSendMessage(
           promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
         }
+        if (promptAssistModel) promptMeta.promptAssistModel = promptAssistModel;
+        if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
         if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
+        } else if (typeof promptAssistDeep === "boolean") {
+          promptMeta.promptAssistDeep = promptAssistDeep;
         }
         const trimmedVersionId =
           typeof options.engineBaseVersionIdOverride === "string"
@@ -321,6 +326,7 @@ export function useSendMessage(
             autoFixHandlerRef,
             promptAssistModel,
             promptAssistDeep,
+            promptAssistMode,
           },
           streamController.signal,
         );
@@ -417,6 +423,7 @@ export function useSendMessage(
       pendingBriefRef,
       promptAssistModel,
       promptAssistDeep,
+      promptAssistMode,
       mutateVersions,
       startStreamSafetyTimer,
       touchStreamSafetyTimer,

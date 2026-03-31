@@ -46,6 +46,8 @@ import {
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
+import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
+import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import {
@@ -148,7 +150,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         promptSourcePreservePayload: metaPromptSourcePreservePayload,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
-      const optimizedMessage = promptOrchestration.finalMessage;
+      let optimizedMessage = promptOrchestration.finalMessage;
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking =
@@ -180,6 +182,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       if (!creditCheck.ok) {
         return attachSessionCookie(creditCheck.response);
       }
+      optimizedMessage = await appendHydratedTextAttachmentExcerpts(
+        optimizedMessage,
+        requestAttachments,
+        { signal: req.signal },
+      );
       const creditUser = creditCheck.user;
       let didChargeCredits = false;
       const commitCreditsOnce = async () => {
@@ -296,6 +303,26 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         reductionRatio: strategyMeta.reductionRatio,
         strategyReason: strategyMeta.reason,
         attachmentsCount: requestAttachments.length,
+      });
+
+      debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
+        promptAssistModel:
+          typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
+            ? String((meta as { promptAssistModel: string }).promptAssistModel).trim() || null
+            : null,
+        promptAssistDeep:
+          typeof (meta as { promptAssistDeep?: unknown })?.promptAssistDeep === "boolean"
+            ? Boolean((meta as { promptAssistDeep: boolean }).promptAssistDeep)
+            : null,
+        promptAssistMode: (() => {
+          const raw =
+            typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
+              ? String((meta as { promptAssistMode: string }).promptAssistMode).trim()
+              : null;
+          return raw === "polish" || raw === "rewrite" ? raw : null;
+        })(),
+        promptStrategy: strategyMeta.strategy,
+        promptType: strategyMeta.promptType,
       });
 
       devLogStartNewSite({
@@ -567,10 +594,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             headers: createSSEHeaders(),
           }));
         }
-        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(
-          orchestrationBase,
-          orchestrationInput,
-        );
+        const { engineSystemPrompt, templateLibrarySearchDiagnostics } =
+          await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
         const lineageHash = computeLineageHash({
           userPrompt: optimizedMessage,
           brief: metaBrief,
@@ -615,7 +640,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             model: engineModel,
             thinking: resolvedThinking,
             abortSignal: req.signal,
-            maxSteps: 2,
+            maxSteps: resolveOwnEngineMaxSteps({
+              buildSpec: orchestrationBase.buildSpec,
+              userMessage: message,
+              isFollowUp: false,
+            }),
             referenceAttachments: requestAttachments,
           },
           meta: buildOwnEngineGenerationStreamMeta({
@@ -636,6 +665,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
             scaffoldFamily: resolvedScaffold?.family ?? null,
+            templateLibrarySearchDiagnostics,
           }),
           engineModel,
           optimizedMessage,

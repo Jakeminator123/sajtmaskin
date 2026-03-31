@@ -175,7 +175,8 @@ function mustPreserveTechnicalContent(message: string): boolean {
   return false;
 }
 
-function looksDesignHeavyMessage(message: string): boolean {
+/** Exported for follow-up context policy and file-context heuristics. */
+export function looksDesignHeavyMessage(message: string): boolean {
   const lower = toSafeLower(message);
   return DESIGN_MARKERS.reduce((count, marker) => count + (lower.includes(marker) ? 1 : 0), 0) >= 3;
 }

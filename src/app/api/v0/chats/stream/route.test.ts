@@ -437,6 +437,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
       scaffoldAndCapability: "",
     });
     finalizeOrchestrationPrompts.mockResolvedValue({
+      templateLibrarySearchDiagnostics: null,
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
     });

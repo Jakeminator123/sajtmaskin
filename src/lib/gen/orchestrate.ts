@@ -20,11 +20,12 @@ import {
   detectScaffoldMode,
 } from "./scaffolds/serialize";
 import {
-  buildSystemPrompt,
   buildDynamicContext,
+  composeEngineSystemPrompt,
   type DesignReferenceAsset,
   type DynamicContextOptions,
 } from "./system-prompt";
+import type { TemplateLibrarySearchDiagnostics } from "./template-library/search";
 import {
   inferCapabilities,
   buildCapabilityHints,
@@ -214,7 +215,11 @@ export async function resolveOrchestrationBase(
 export async function finalizeOrchestrationPrompts(
   base: OrchestrationBase,
   input: OrchestrationInput,
-): Promise<{ engineSystemPrompt: string; dynamicContext: string }> {
+): Promise<{
+  engineSystemPrompt: string;
+  dynamicContext: string;
+  templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null;
+}> {
   const {
     prompt,
     buildIntent,
@@ -250,13 +255,14 @@ export async function finalizeOrchestrationPrompts(
     generationMode: resolvedMode,
   };
 
-  const engineSystemPrompt = await buildSystemPrompt({
-    ...dynamicOpts,
-  });
+  const dynamic = await buildDynamicContext(dynamicOpts);
+  const engineSystemPrompt = composeEngineSystemPrompt(dynamic.context);
 
-  const dynamicContext = await buildDynamicContext(dynamicOpts);
-
-  return { engineSystemPrompt, dynamicContext };
+  return {
+    engineSystemPrompt,
+    dynamicContext: dynamic.context,
+    templateLibrarySearchDiagnostics: dynamic.templateLibrarySearchDiagnostics,
+  };
 }
 
 /**
@@ -270,7 +276,7 @@ export async function prepareGenerationContext(
   input: OrchestrationInput,
 ): Promise<GenerationInputPackage> {
   const base = await resolveOrchestrationBase(input);
-  const { engineSystemPrompt, dynamicContext } =
+  const { engineSystemPrompt, dynamicContext, templateLibrarySearchDiagnostics } =
     await finalizeOrchestrationPrompts(base, input);
 
   const capabilityHints = base.scaffoldAndCapability;
@@ -292,6 +298,7 @@ export async function prepareGenerationContext(
     scaffoldMode: input.scaffoldMode ?? "auto",
     engineSystemPrompt,
     dynamicContext,
+    templateLibrarySearchDiagnostics,
     lineageHash,
   };
 
@@ -314,6 +321,15 @@ export async function prepareGenerationContext(
       buildSpecContextPolicy: base.buildSpec.contextPolicy,
       buildSpecPreviewPolicy: base.buildSpec.previewPolicy,
       promptLength: input.prompt.length,
+      templateLibrarySearch: templateLibrarySearchDiagnostics
+        ? {
+            mode: templateLibrarySearchDiagnostics.mode,
+            reason: templateLibrarySearchDiagnostics.reason ?? null,
+            topScore: templateLibrarySearchDiagnostics.topScore ?? null,
+            catalogSize: templateLibrarySearchDiagnostics.catalogSize,
+            usedEmbeddings: templateLibrarySearchDiagnostics.usedEmbeddings,
+          }
+        : null,
     },
   );
 

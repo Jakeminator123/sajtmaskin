@@ -737,6 +737,9 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
   if (typeof info.promptAssistDeep === "boolean") {
     steps.push(`Deep brief: ${info.promptAssistDeep ? "på" : "av"}`);
   }
+  if (info.promptAssistMode === "polish" || info.promptAssistMode === "rewrite") {
+    steps.push(`Assist mode: ${info.promptAssistMode}`);
+  }
   if (info.scaffoldId) {
     const label = info.scaffoldLabel || info.scaffoldId;
     const family = info.scaffoldFamily && info.scaffoldFamily !== info.scaffoldId

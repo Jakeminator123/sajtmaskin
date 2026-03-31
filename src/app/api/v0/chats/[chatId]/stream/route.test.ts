@@ -16,6 +16,7 @@ const finalizeOrchestrationPrompts = vi.hoisted(() => vi.fn());
 const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
 const buildFileContext = vi.hoisted(() => vi.fn());
 const parseSSEBuffer = vi.hoisted(() => vi.fn());
+const createPromptLog = vi.hoisted(() => vi.fn());
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
@@ -30,6 +31,7 @@ vi.mock("@/lib/streaming", () => ({
 
 vi.mock("@/lib/db/client", () => ({
   db: {},
+  dbConfigured: false,
 }));
 
 vi.mock("@/lib/db/schema", () => ({
@@ -108,6 +110,11 @@ vi.mock("@/lib/builder/promptOrchestration", () => ({
       complexityScore: 0,
     },
   }),
+  looksDesignHeavyMessage: () => false,
+}));
+
+vi.mock("@/lib/db/services/prompt-logs", () => ({
+  createPromptLog,
 }));
 
 vi.mock("@/lib/models/selection", () => ({
@@ -265,6 +272,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     vi.clearAllMocks();
     addMessage.mockResolvedValue(null);
     failVersionVerification.mockResolvedValue(null);
+    createPromptLog.mockResolvedValue(undefined);
     buildFileContext.mockReset();
     parseSSEBuffer.mockReset();
     commitCredits.mockResolvedValue(undefined);
@@ -394,6 +402,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     finalizeOrchestrationPrompts.mockResolvedValue({
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
+      templateLibrarySearchDiagnostics: null,
     });
     finalizeOrHandleEmptyGeneration.mockResolvedValue({
       version: { id: "ver_2" },

@@ -132,6 +132,7 @@ export type ModelInfoData = {
   promptAssistProvider?: string | null;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean | null;
+  promptAssistMode?: "polish" | "rewrite" | null;
   scaffoldId?: string | null;
   scaffoldFamily?: string | null;
   scaffoldLabel?: string | null;

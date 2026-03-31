@@ -37,6 +37,7 @@ import {
   isStarterOrBoilerplateReference,
 } from "./template-library/runtime-guidance";
 import type { TemplateLibraryEntry } from "./template-library/types";
+import { looksDesignHeavyMessage } from "@/lib/builder/promptOrchestration";
 import { getStaticCoreFromWorkspace } from "./static-core-loader";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -374,11 +375,19 @@ function resolveTemplateSnippetSelectionOptions(
   };
 }
 
+export type BuildDynamicContextResult = {
+  context: string;
+  /** Set when template-library retrieval ran (skipped in light follow-up mode). */
+  templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null;
+};
+
 /**
  * Builds the dynamic (per-request) portion of the system prompt.
  * Contains build intent guidance, project context, visual identity, and media catalog.
  */
-export async function buildDynamicContext(options: DynamicContextOptions): Promise<string> {
+export async function buildDynamicContext(
+  options: DynamicContextOptions,
+): Promise<BuildDynamicContextResult> {
   const {
     intent,
     brief,
@@ -400,13 +409,16 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
   } = options;
 
   const isFollowUp = generationMode === "followUp";
+  const originalPromptTrimmed = (originalPrompt ?? "").trim();
   const useLightFollowUpContext =
     isFollowUp &&
     buildSpec?.contextPolicy === "light" &&
-    (buildSpec.changeScope === "copy" || buildSpec.changeScope === "local-layout");
+    (buildSpec.changeScope === "copy" || buildSpec.changeScope === "local-layout") &&
+    !looksDesignHeavyMessage(originalPromptTrimmed);
   const referenceBudget = buildSpec?.tokenBudgets.refsChars ?? 8_000;
 
   const parts: string[] = [];
+  let templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null = null;
 
   // ── Generation Mode ────────────────────────────────────────────────────
   if (isFollowUp) {
@@ -761,6 +773,7 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
       embeddingEnrichment,
       buildSpec?.contextPolicy === "heavy" ? 6 : 4,
     );
+    templateLibrarySearchDiagnostics = templateReferenceSearch.diagnostics;
     const usefulTemplateMatches = templateReferenceSearch.matches.slice(
       0,
       buildSpec?.contextPolicy === "heavy" ? 3 : 2,
@@ -857,7 +870,10 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     parts.push("## Original Request (for reference)", "", originalPrompt.trim(), "");
   }
 
-  return parts.join("\n").trim();
+  return {
+    context: parts.join("\n").trim(),
+    templateLibrarySearchDiagnostics,
+  };
 }
 
 
@@ -896,7 +912,7 @@ export interface BuildSystemPromptOptions {
  * OpenAI's prompt prefix caching to kick in after the first request.
  */
 export async function buildSystemPrompt(options: BuildSystemPromptOptions): Promise<string> {
-  const dynamicContext = await buildDynamicContext({
+  const { context } = await buildDynamicContext({
     intent: options.intent,
     brief: options.brief,
     themeOverride: options.themeOverride,
@@ -916,7 +932,12 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     generationMode: options.generationMode,
   });
 
-  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContext}`;
+  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${context}`;
+}
+
+/** Compose static codegen core + dynamic context without re-running retrieval. */
+export function composeEngineSystemPrompt(dynamicContextText: string): string {
+  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContextText}`;
 }
 
 /**

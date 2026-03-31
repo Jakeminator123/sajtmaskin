@@ -23,6 +23,21 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 - **Template-library i prompten:** runtime-guidance (`style rules`, `section inventory`, `avoid patterns`, `world-class rubric`) är nu uttryckligen primär signal före kodsnippets. Prompten kan också signalera när template-libraryn är tom eller när retrieval faller tillbaka till keyword/hybrid-läge, och snippets trycks ned för mer scoped edits.
 - **Prompt tree** (alla lager och parametrar): se arkiv `prompt-tree.md` och kod: `config/prompt-static/`, `codegen-static-prompt.json`.
 
+## Nuvarande kodflöde
+
+1. **Prompt in** via Builder eller `scripts/cli/builder-generate.py`.
+2. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
+3. **Scaffoldval i `auto`:** `matchScaffold()` är primär keyword-path; `matchScaffoldWithEmbeddings()` använder scaffold-embeddings bara när keyword-resultatet saknas eller blir generiskt (`landing-page` / `base-nextjs`).
+4. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, KB och template-library guidance. Template-library-diagnostik (`embedding`, `hybrid_keyword_blend`, `keyword_fallback`, `empty_catalog`) följer sedan med i `streamMeta.templateLibrarySearch`.
+5. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, parse/merge/preflight och sparar versionen innan sandbox följer upp.
+6. **Saved version** hämtas sedan via chat/version/files-routes; sandbox-start kan komma efter `done`.
+
+Snabba lokala orienteringsfiler för nästa agent:
+
+- `src/lib/gen/README.md`
+- `src/lib/gen/scaffolds/README.md`
+- `src/lib/gen/template-library/README.md`
+
 ## SSE / stream-scope (W3)
 
 Builder **egen motor** använder SSE på engine-routes — det är **kanon** för chat/generation. Övriga SSE-ytor (admin, observability) är **inte** samma backlog som W3; K-009 är stängd — nya behov = ny planrad (tidigare `own-engine-sse-scope.md` i arkivet).
