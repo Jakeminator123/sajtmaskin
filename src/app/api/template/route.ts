@@ -12,12 +12,12 @@ import { generateOwnEngineSiteFromPrompt } from "@/lib/own-engine/generate-site-
 import { withRateLimit } from "@/lib/rateLimit";
 import { QUALITY_TO_MODEL, type QualityLevel } from "@/lib/models/catalog";
 import {
-  getTemplateCatalogItemById,
   getTemplateById,
   getTemplateCategoryId,
   getTemplateCategoryTitle,
   type Template,
-} from "@/lib/templates";
+} from "@/lib/templates/template-data";
+import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
 import { getEngineChatByIdForRequest, resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 

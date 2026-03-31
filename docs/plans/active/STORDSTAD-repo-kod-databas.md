@@ -87,6 +87,15 @@
 
 - Om en kandidat inte blir tydligt verifierad med grep/importbild inom ett kort pass: **låt den vara**, uppdatera loggen och välj en enklare zon i stället.
 
+### Commit-bredd och zoner (extern review)
+
+Riktningen för städen bedöms som rätt (direkta importer, tydligare kanon, bättre handoff), men **breda commits** som blandar många ytor ökar risk för regress i importkedjor.
+
+- **Föredra flera smala commits/PR:ar** framför en enda stor importrefaktor.
+- **Fortsätt gärna** med små barrels och root-shims **isolat per pass** när call sites är få.
+- **Blanda inte** i samma pass/commit om du kan undvika det: `src/lib/db/services/*` · `src/lib/gen/preview*` / preview-runtime · builder-hooks · `app/api`-routes — välj **en känslig zon åt gången** när importvägar ändras där.
+- **Loggraden “typecheck + test:ci grönt”** i pass-loggen är **spårbarhet i git**; efter push gäller fortfarande **CI på GitHub** som separat bekräftelse (reviewern läser inte alltid check-status härifrån).
+
 ---
 
 ## Tidsuppskattning — när är vi “klara nog”?
@@ -151,6 +160,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** bulk-pass 2026-03-31 (k) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagna `src/lib/db/services/index.ts` och dublett-shim `src/lib/db/services.ts`; ~45 call sites + Vitest-mocks pekar på `@/lib/db/services/<modul>`. `stream/route.test.ts`: `vi.mock(@/lib/config)` utökad med `SECRETS`/`PATHS` så `shared.ts` kan laddas vid indirekta kedjor. Docs: `repo-tree.md` (DB-zon + importmönster) uppdaterad. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (l)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: `src/lib/gen/preview/index.ts` som barrel för preview-HTML, URL-hjälpare, typer och re-exports. |
 | **Efter** pass 2026-03-31 (l) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen `src/lib/gen/preview/index.ts`; `buildPreviewHtml` / `buildSandboxFiles` / `buildPreviewUrl` i `build-preview-document.ts`; URL-helpers → `preview/legacy/compatibility-shim`; preflight-typer → `stream/preflight-contract`; sandbox API-typer → `preview-contract`. Interna grepp + Vitest-mocks uppdaterade; `legacy/README.md` beskriver nya sökvägar. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (m)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: `src/lib/templates/index.ts` som barrel för `template-data` + `template-catalog`. |
+| **Efter** pass 2026-03-31 (m) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen `src/lib/templates/index.ts`; fyra call sites → `template-data` / `template-catalog` direkt. `PROJECT-STATE` uppdaterad (importmönster). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 
 ---
 
@@ -159,10 +170,11 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 ### Efter varje städpass (människa eller agent)
 
 1. **Uppdatera pass-loggen** ovan med **Före** / **Efter** (datum, ev. nya bockar → uppdatera %-raden om N ändrats).
-2. **Kör** `npm run typecheck` och `npm run test:ci`; notera i loggrad om något är rött.
+2. **Kör** `npm run typecheck` och `npm run test:ci`; notera i loggrad om något är rött. Efter push: lita på **GitHub Actions** som slutlig signal, inte bara på loggtext.
 3. **Konfliktzon-check:** om du rört builder/stream/deploy/gen — nämn det i logg eller PR; undvik att blanda massstäd där utan separat PR (se `PROJECT-STATE` §8).
 4. **`src/lib/gen/scaffolds/*`:** ingen massradering eller “städ” där i samma pass som repo-städ; vid minsta ändring: motivera + tester.
 5. **Arkiv:** när en *del* av planen är historisk (t.ex. avslutad delspår), flytta till `docs/plans/avklarat/` och uppdatera [`../README.md`](../README.md) — duplicera inte samma sanning i två aktiva filer.
+6. **Commit-bredd:** en logisk zon per commit när möjligt; separera `db/services`, preview och builder/API enligt [§ Commit-bredd och zoner](#commit-bredd-och-zoner-extern-review) — särskilt efter stora svep som `d554dea63c2fc3b36eb09d8e4361097d26caeff8`.
 
 ### Särskild granskning före borttagning (inte “bara skräp”)
 
@@ -190,9 +202,10 @@ Kontext: Fas A baseline och delar av Fas B/C är påbörjade; pass-loggen visar 
 Gör så här:
 1. Läs AGENTS.md + docs/README.md (nav) och repo-tree.md om du behöver orientering.
 2. Arbeta zon-för-zon: grep/import-graph, ta bara bort det som är verifierat oanvänt; börja gärna med “Förenklad körprofil” (små barrels/root-shims/docs-nav) och undvik src/lib/gen/scaffolds/* och preview/deploy-pipelines i samma svep som massstäd.
-3. Om du tar bort filer under src/components/ui/, justera RUNTIME_LIBRARY_MINIMUMS i runtime-library-audit.ts medvetet i samma PR om CI kräver det.
-4. Efter ändringar: npm run typecheck && npm run test:ci.
-5. Uppdatera STORDSTAD pass-logg (Före/Efter) och eventuella checklistrutor; om något arkiveras, flytta till docs/plans/avklarat/ och uppdatera plans/README.md.
+3. Håll nästa pass **smalt**: blanda inte db/services-, preview- och builder/API-zoner i samma commit om du kan undvika det (se § “Commit-bredd och zoner” i STORDSTAD).
+4. Om du tar bort filer under src/components/ui/, justera RUNTIME_LIBRARY_MINIMUMS i runtime-library-audit.ts medvetet i samma PR om CI kräver det.
+5. Efter ändringar: npm run typecheck && npm run test:ci; efter push ska GitHub CI bekräfta.
+6. Uppdatera STORDSTAD pass-logg (Före/Efter) och eventuella checklistrutor; om något arkiveras, flytta till docs/plans/avklarat/ och uppdatera plans/README.md.
 
 Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-only om allt ligger i samma working tree, och bekräftelse att scaffolds/ inte rörts om du lovat det.
 ```
@@ -212,7 +225,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 
 ## Fas B — Kod och moduler (grep + import)
 
-- [x] Döda exports / oanvända filer — **små barrels & root-shims** *(2026-03-31: zonpass enligt [pass-logg](#pass-logg-före--efter-varje-pass) (a)–(h), (i)–(j), bulk (k) (`db/services` + shim `db/services.ts`), (l) (`gen/preview/index` bort): rena re-export-barrels bort; kvar under samma rubrik: bredare oanvända helpers, `src/components/ui/`-tröskel-justeringar, större refaktorer — se [Två spår](#två-spår-viktigt--blanda-inte-ihop).)*
+- [x] Döda exports / oanvända filer — **små barrels & root-shims** *(2026-03-31: zonpass enligt [pass-logg](#pass-logg-före--efter-varje-pass) (a)–(h), (i)–(j), bulk (k) (`db/services` + shim `db/services.ts`), (l) (`gen/preview/index` bort), (m) (`lib/templates/index` bort): rena re-export-barrels bort; kvar under samma rubrik: bredare oanvända helpers, `src/components/ui/`-tröskel-justeringar, större refaktorer — se [Två spår](#två-spår-viktigt--blanda-inte-ihop).)*
 - [ ] Duplicerade helpers: slå ihop endast när tester finns eller beteende är trivialt identiskt
 - [ ] Legacy-grenar som grep/typecheck visar som 0-reach (dokumentera i commit *vad* som togs bort)
 - [x] Uppdatera [`docs/architecture/repo-tree.md`](../../architecture/repo-tree.md) när toppnivåmappar försvinner eller byter roll *(2026-03-31: `ai-elements` per-fil + DB-zon beskriver `db/services/*` utan barrel; inga rotmappar borttagna)*
@@ -263,7 +276,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 bulk-pass k)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass m)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)

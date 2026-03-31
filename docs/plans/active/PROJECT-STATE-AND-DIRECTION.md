@@ -128,7 +128,7 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 - **ENV-städ** periodiskt när K-019 / Plan 17-punkter rör env-policy.
 - **Export-pipeline** kanoniserad via `buildExportableProject()` — alla nedladdnings-/verifieringsvägar går genom samma funktion.  
 - **Sandbox-policy** centraliserad i `src/lib/mcp/runtime-url.ts` — quality-gate och sandbox-routes delar helpers (`isSafeRelativePath`, `resolveSandboxTemplateGitUrl`).  
-- **Template-katalog** har en stabil barrel (`src/lib/templates/index.ts`) — externa konsumenter importerar från `@/lib/templates`.  
+- **Template-katalog:** server/pages importerar `@/lib/templates/template-data` och/eller `@/lib/templates/template-catalog`; klient säkra exports via `@/lib/templates/client` (ingen gemensam `index`-barrel).  
 - **Bildpolicy** synkad: genererad `next.config` vitlistar inte längre hosts som prompten förbjuder.  
 - **Generation fan-in** kanoniserad via `GenerationInputPackage` + `computeLineageHash()` i `src/lib/gen/generation-input-package.ts`.  
 - **Server-verify** (`src/lib/gen/server-verify.ts`) triggas automatiskt efter finalize; kör quality gate + capped repair (max 2 pass). Verification state `repairing` synlig i UI.  
