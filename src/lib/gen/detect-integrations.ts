@@ -49,7 +49,7 @@ type DetectionRule =
  * from `integrationRegistry`; inline rows keep local metadata (patterns only
  * in this module).
  */
-export const DETECTION_PIPELINE: DetectionRule[] = [
+const DETECTION_PIPELINE: DetectionRule[] = [
   {
     source: "registry",
     pattern: /(?:@supabase\/|createClient.*supabase|SUPABASE_)/i,

@@ -29,7 +29,7 @@ function getSessionStorage(): Storage | null {
   }
 }
 
-export function readCreateChatLock(): CreateChatLock | null {
+function readCreateChatLock(): CreateChatLock | null {
   const storage = getSessionStorage();
   if (!storage) return null;
   try {
@@ -86,7 +86,7 @@ export function updateCreateChatLockChatId(key: string, chatId: string) {
 // String utilities
 // ---------------------------------------------------------------------------
 
-export function normalizePrompt(value: string): string {
+function normalizePrompt(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
@@ -905,7 +905,7 @@ function getRetryAfterSeconds(
   return header ? toNumber(header) : null;
 }
 
-export function looksLikeUnsupportedModelError(message: string | null | undefined): boolean {
+function looksLikeUnsupportedModelError(message: string | null | undefined): boolean {
   const normalized = String(message ?? "").toLowerCase();
   if (!normalized) return false;
   return (

@@ -47,31 +47,3 @@ export function sanitizeProjectPath(p: string): string | null {
   return normalized;
 }
 
-/**
- * Browser-safe version of sanitizeProjectPath (no Node.js path module).
- * Used in client-side components like WebcontainerPreview.
- *
- * @param p - The raw file path
- * @returns The sanitized path, or null if invalid
- */
-export function sanitizeProjectPathClient(p: string): string | null {
-  if (!p || typeof p !== "string") return null;
-
-  // Strip leading slashes
-  const trimmed = p.replace(/^[/\\]+/, "");
-  if (!trimmed) return null;
-
-  // Split into segments and filter
-  const segments = trimmed.split(/[/\\]/).filter(Boolean);
-
-  // Reject if any segment is ".." or starts with drive letter
-  if (segments.some((seg) => seg === ".." || /^[a-zA-Z]:$/.test(seg))) {
-    return null;
-  }
-
-  // Rejoin with forward slashes
-  const safe = segments.join("/");
-  if (!safe) return null;
-
-  return safe;
-}

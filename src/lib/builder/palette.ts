@@ -21,7 +21,7 @@ export type PaletteSpec = {
 
 const MAX_PALETTE_ITEMS = 16;
 
-export const DEFAULT_PALETTE_SELECTIONS: PaletteSelection[] = [
+const DEFAULT_PALETTE_SELECTIONS: PaletteSelection[] = [
   {
     id: "dialog",
     label: "Dialog",

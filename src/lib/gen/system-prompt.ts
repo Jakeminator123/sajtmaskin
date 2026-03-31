@@ -39,13 +39,6 @@ import { getStaticCoreFromWorkspace } from "./static-core-loader";
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Static system prompt (~6–8K tokens). Edit config/prompt-static/ + codegen-static-prompt.json.
- */
-export function getStaticCore(): string {
-  return getStaticCoreFromWorkspace();
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // DYNAMIC CONTEXT — varies per request
 // ═══════════════════════════════════════════════════════════════════════════

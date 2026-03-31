@@ -17,7 +17,6 @@ function readStringEnv(name: string, fallback: string): string {
 }
 
 const manifest = getAiModelsManifest();
-const bp = manifest.buildProfiles.defaults;
 const tb = manifest.tokenBudgets;
 const rt = manifest.routeTimeouts;
 const pa = manifest.promptAssist;
@@ -43,12 +42,6 @@ const pa = manifest.promptAssist;
 //   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=62768
 //
 // ============================================================================
-
-/** Generation models — defaults from config/ai_models/manifest.json */
-export const MODEL_FAST = readStringEnv(manifest.buildProfiles.envKeys.fast, bp.fast);
-export const MODEL_PRO = readStringEnv(manifest.buildProfiles.envKeys.pro, bp.pro);
-export const MODEL_MAX = readStringEnv(manifest.buildProfiles.envKeys.max, bp.max);
-export const MODEL_CODEX = readStringEnv(manifest.buildProfiles.envKeys.codex, bp.codex);
 
 /** Prompt assist default model string (provider/model) */
 export const ASSIST_MODEL = readStringEnv(pa.envKeys.assist, pa.defaults.assist);
@@ -84,20 +77,6 @@ export const ASSIST_MAX_OUTPUT_TOKENS = readIntEnv(
 // ============================================================================
 // TIMEOUTS
 // ============================================================================
-
-export const ENGINE_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
-  rt.engineRouteMaxDurationSeconds.envKey,
-  rt.engineRouteMaxDurationSeconds.default,
-  rt.engineRouteMaxDurationSeconds.min,
-  rt.engineRouteMaxDurationSeconds.max,
-);
-
-export const ASSIST_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
-  rt.assistRouteMaxDurationSeconds.envKey,
-  rt.assistRouteMaxDurationSeconds.default,
-  rt.assistRouteMaxDurationSeconds.min,
-  rt.assistRouteMaxDurationSeconds.max,
-);
 
 export const STREAM_SAFETY_TIMEOUT_DEFAULT_MS = readIntEnv(
   rt.streamSafetyTimeoutMs.envKey,

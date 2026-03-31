@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 const MemoizedDithering = memo(Dithering);
 
 // Sajtstudio palette themes (noir base + neon accents)
-export const SHADER_THEMES = {
+const SHADER_THEMES = {
   // Noir base
   default: {
     color: "#01060C",

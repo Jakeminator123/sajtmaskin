@@ -1,6 +1,6 @@
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 
-export function useLocalStorageSync<T extends string | boolean>(
+function useLocalStorageSync<T extends string | boolean>(
   key: string,
   value: T,
   setValue: Dispatch<SetStateAction<T>>,

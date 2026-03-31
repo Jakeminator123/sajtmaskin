@@ -6,7 +6,7 @@
  * plan artifact — never code.
  */
 
-export const PLAN_SYSTEM_PROMPT = `You are a senior web-project planner for a website builder called Sajtmaskin.
+const PLAN_SYSTEM_PROMPT = `You are a senior web-project planner for a website builder called Sajtmaskin.
 
 When the user describes a website or app they want to build, you produce a **structured plan** — never code.
 

@@ -19,9 +19,6 @@ const MONOLITH_CANDIDATES = [
   ["scripts", "systemprompt"],
 ] as const;
 
-/** Entry config for docs / tooling (manifest when present). */
-export const STATIC_CORE_FILE_RELATIVE = "config/codegen-static-prompt.json";
-
 type ManifestJson = {
   fragmentSeparator?: string;
   fragments?: unknown;
@@ -139,7 +136,3 @@ export function getStaticCoreFromWorkspace(): string {
   );
 }
 
-/** Test hook: invalidate cache */
-export function clearStaticCoreCache(): void {
-  cache = null;
-}

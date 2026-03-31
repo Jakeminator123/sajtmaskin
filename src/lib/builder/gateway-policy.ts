@@ -42,22 +42,7 @@ export function createDirectModel(model: string): LanguageModel {
   return createOpenAI({ apiKey })(modelId);
 }
 
-export function getPreferredProvider(model: string): string {
-  return parseModelString(model).provider;
-}
-
-export function defaultFallbackModels(primaryModel: string): string[] {
-  const ordered = [
-    "openai/gpt-5.4",
-    "openai/gpt-5.3-codex",
-    "anthropic/claude-opus-4.6",
-    "anthropic/claude-sonnet-4.6",
-    "openai/gpt-5.2",
-  ];
-  return ordered.filter((m) => m !== primaryModel);
-}
-
-export function isReasoningModel(model: string): boolean {
+function isReasoningModel(model: string): boolean {
   const normalized = model.trim().toLowerCase();
   return (
     REASONING_MODEL_RE.test(normalized) ||

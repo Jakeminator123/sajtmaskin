@@ -4,28 +4,6 @@ export type BuildMethod = "wizard" | "category" | "audit" | "freeform" | "kostna
 
 export const DEFAULT_BUILD_INTENT: BuildIntent = "website";
 
-export const BUILD_INTENT_OPTIONS: Array<{
-  value: BuildIntent;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: "template",
-    label: "Kompakt",
-    description: "Snabb start, liten scope (1–2 sidor)",
-  },
-  {
-    value: "website",
-    label: "Webbplats",
-    description: "Valfri modern webbplats",
-  },
-  {
-    value: "app",
-    label: "App",
-    description: "State, flöden, data",
-  },
-];
-
 export function normalizeBuildIntent(raw?: string | null): BuildIntent {
   const value = String(raw || "").toLowerCase();
   if (value === "template" || value === "website" || value === "app") {

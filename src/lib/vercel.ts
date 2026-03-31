@@ -79,14 +79,6 @@ export function hasVercelRestToken(): boolean {
   return Boolean(pickVercelAccessTokenFromEnv());
 }
 
-export function assertVercelToken(): void {
-  if (!pickVercelAccessTokenFromEnv()) {
-    throw new Error(
-      "Missing VERCEL_TOKEN (or VERCEL_TOKEN_FULL). Set it in your environment variables.",
-    );
-  }
-}
-
 export function getVercelToken(): string {
   const token = pickVercelAccessTokenFromEnv();
   if (!token) {

@@ -109,7 +109,7 @@ function readStoredProjectEnvVarsFromMeta(meta: unknown): StoredProjectEnvVarIte
   );
 }
 
-export function readProjectEnvVarsFromMeta(meta: unknown): ProjectEnvVarItem[] {
+function readProjectEnvVarsFromMeta(meta: unknown): ProjectEnvVarItem[] {
   return readStoredProjectEnvVarsFromMeta(meta).map((item) => toDisplayProjectEnvVarItem(item));
 }
 

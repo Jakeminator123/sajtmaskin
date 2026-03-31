@@ -1,9 +1,7 @@
 import {
-  createVersion,
   getPreferredVersion,
   getLatestVersion,
   getVersionById,
-  type Version,
 } from "@/lib/db/chat-repository-pg";
 import { parseCodeProject, type CodeFile } from "./parser";
 
@@ -14,22 +12,6 @@ import { parseCodeProject, type CodeFile } from "./parser";
 export function parseFilesFromContent(content: string): string {
   const project = parseCodeProject(content);
   return JSON.stringify(project.files);
-}
-
-/**
- * Creates a new version from assistant-generated content.
- *
- * Parses the content into individual files, stores them as files_json,
- * and auto-increments the version number within the chat.
- */
-export async function createVersionFromContent(
-  chatId: string,
-  messageId: string | null,
-  content: string,
-  sandboxUrl?: string,
-): Promise<Version> {
-  const filesJson = parseFilesFromContent(content);
-  return createVersion(chatId, messageId, filesJson, sandboxUrl);
 }
 
 /** Parse `versions.files_json` into code files (e.g. sandbox bootstrap when markdown parse yields nothing). */
@@ -105,14 +87,6 @@ export interface MergeResult {
  * Warns when a generated file is significantly smaller than the scaffold
  * original (potential token truncation).
  */
-export function mergeVersionFiles(
-  previousFiles: CodeFile[],
-  newFiles: CodeFile[],
-): CodeFile[] {
-  const { files } = mergeVersionFilesWithWarnings(previousFiles, newFiles);
-  return files;
-}
-
 export function mergeVersionFilesWithWarnings(
   previousFiles: CodeFile[],
   newFiles: CodeFile[],

@@ -10,7 +10,6 @@
 
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import {
-  detectIntegrations,
   detectIntegrationsFromVersionFiles,
   type DetectedIntegration,
 } from "@/lib/gen/detect-integrations";
@@ -60,14 +59,6 @@ export async function resolveProjectEnv(
 
 function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
-}
-
-export function resolveEnvRequirements(
-  code: string,
-  env: ResolvedProjectEnv,
-): ResolvedProjectEnvRequirements {
-  const detectedIntegrations = detectIntegrations(code);
-  return resolveEnvRequirementsFromDetected(detectedIntegrations, env);
 }
 
 function resolveEnvRequirementsFromDetected(

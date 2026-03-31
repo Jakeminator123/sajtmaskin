@@ -68,7 +68,7 @@ export type CreditsEvaluation = {
   currentBalance?: number;
 };
 
-export async function evaluateCredits(
+async function evaluateCredits(
   req: Request,
   action: CreditAction,
   context: PricingContext = {},

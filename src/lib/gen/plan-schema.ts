@@ -100,37 +100,14 @@ export type PlanArtifact = {
   updatedAt: number;
 };
 
-export function createEmptyPlan(id: string, goal: string): PlanArtifact {
-  return {
-    id,
-    goal,
-    scope: [],
-    pages: [],
-    steps: [],
-    blockers: [],
-    assumptions: [],
-    currentPhase: "plan",
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
 export function hasUnresolvedBlockers(plan: PlanArtifact): boolean {
   return plan.blockers.some((b) => !b.resolved);
-}
-
-export function unresolvedBlockers(plan: PlanArtifact): PlanBlocker[] {
-  return plan.blockers.filter((b) => !b.resolved);
 }
 
 export function advancePhase(plan: PlanArtifact): PlanPhase {
   const order: PlanPhase[] = ["plan", "build", "polish", "verify", "done"];
   const idx = order.indexOf(plan.currentPhase);
   return idx < order.length - 1 ? order[idx + 1] : "done";
-}
-
-export function isPlanComplete(plan: PlanArtifact): boolean {
-  return plan.currentPhase === "done";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -54,22 +54,19 @@ const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
 // imported from @/lib/models/catalog (single source of truth).
 
 // ─── Feature costs ────────────────────────────────────────────────
-export const WIZARD_COST = 11;
+const WIZARD_COST = 11;
 
 export const AUDIT_COSTS = {
   basic: 15,
   advanced: 25,
 } as const;
 
-export const DEPLOY_COSTS = {
+const DEPLOY_COSTS = {
   preview: 20,
   production: 20,
 } as const;
 
-export const OPENCLAW_TIP_COST = 2;
-
-/** Monthly hosting cost per active deployment (credits/month) */
-export const HOSTING_MONTHLY_COST = 10;
+const OPENCLAW_TIP_COST = 2;
 
 // ─── Action classification ────────────────────────────────────────
 const PROMPT_CREATE_ACTIONS = new Set<CreditAction>([
@@ -81,7 +78,7 @@ const PROMPT_CREATE_ACTIONS = new Set<CreditAction>([
 
 const PROMPT_REFINE_ACTIONS = new Set<CreditAction>(["prompt.refine"]);
 
-export function resolveModelTier(context: PricingContext = {}): ModelTier {
+function resolveModelTier(context: PricingContext = {}): ModelTier {
   const canonical = canonicalizeModelId(context.modelId);
   if (canonical) return canonical;
   if (context.quality && QUALITY_TO_MODEL[context.quality]) {

@@ -186,7 +186,7 @@ function cleanupExpiredEntries(): void {
   }
 }
 
-export function createRateLimitHeaders(result: {
+function createRateLimitHeaders(result: {
   remaining: number;
   resetAt: number;
 }): Record<string, string> {

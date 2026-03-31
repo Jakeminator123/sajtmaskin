@@ -1,7 +1,7 @@
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import { normalizePlanArtifact, serializePlanForPrompt } from "./plan-schema";
 
-export function inferPlanSiteType(planData: Record<string, unknown>): string | undefined {
+function inferPlanSiteType(planData: Record<string, unknown>): string | undefined {
   const existing = typeof planData.siteType === "string" ? planData.siteType.trim() : "";
   if (existing) return existing;
 

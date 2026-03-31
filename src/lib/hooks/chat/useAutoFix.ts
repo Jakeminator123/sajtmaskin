@@ -9,7 +9,7 @@ import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events"
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
-export const AUTOFIX_LOCAL_STORAGE_KEY = "sajtmaskin:autofix-enabled";
+const AUTOFIX_LOCAL_STORAGE_KEY = "sajtmaskin:autofix-enabled";
 
 /** Persisted opt-out only; default is on when key is unset. */
 export function readAutofixLocalStorageOnly(): boolean {
@@ -39,7 +39,7 @@ export function writeAutofixLocalStorage(enabled: boolean): void {
  * localStorage `sajtmaskin:autofix-enabled` = `"false"`, or URL `?noautofix`.
  * `?autofix` forces on for that page load.
  */
-export function readAutofixClientPreference(): boolean {
+function readAutofixClientPreference(): boolean {
   if (typeof window === "undefined") return true;
   try {
     const params = new URLSearchParams(window.location.search);

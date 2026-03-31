@@ -141,17 +141,6 @@ export function deriveSetupContract(
   };
 }
 
-export function isSetupReadyForPublish(setup: SetupContract): boolean {
-  return setup.status === "configured";
-}
-
-export function getSetupMissingEnvKeys(
-  setup: SetupContract,
-  configuredEnvKeys: Set<string>,
-): string[] {
-  return setup.requiredEnvKeys.filter((key) => !configuredEnvKeys.has(key));
-}
-
 export function buildEnvExampleContent(
   setup: SetupContract,
 ): string {

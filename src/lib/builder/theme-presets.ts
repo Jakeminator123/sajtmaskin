@@ -83,11 +83,6 @@ export function getThemeColors(theme: DesignTheme): ThemeColors | null {
   return THEME_PRESETS[theme] ?? null;
 }
 
-/** Check if a design theme is active (not "off") */
-export function isDesignThemeActive(theme: DesignTheme): boolean {
-  return theme !== "off";
-}
-
 export function normalizeDesignTheme(raw?: string | null): DesignTheme {
   const value = String(raw || "").toLowerCase();
   if (DESIGN_THEME_OPTIONS.some((opt) => opt.value === value)) {

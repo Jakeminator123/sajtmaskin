@@ -86,7 +86,7 @@ export const PREDEFINED_PALETTES: ColorPalette[] = [
 ];
 
 // Industry-specific palettes
-export const INDUSTRY_PALETTES: ColorPalette[] = [
+const INDUSTRY_PALETTES: ColorPalette[] = [
   // Café/Coffee shop
   {
     id: "cafe-warm-brown",

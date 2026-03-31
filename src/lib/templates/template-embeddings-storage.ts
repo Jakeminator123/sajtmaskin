@@ -29,7 +29,7 @@ function normalizePreference(
   return "auto";
 }
 
-export function getTemplateEmbeddingsBlobPath(): string {
+function getTemplateEmbeddingsBlobPath(): string {
   const key = process.env.TEMPLATE_EMBEDDINGS_BLOB_KEY?.trim();
   return key || DEFAULT_BLOB_PATH;
 }
@@ -109,6 +109,3 @@ export async function saveTemplateEmbeddingsToLocalFile(
   return { path: stored.fsPath ?? LOCAL_PATH };
 }
 
-export function getTemplateEmbeddingsLocalPath(): string {
-  return LOCAL_PATH;
-}

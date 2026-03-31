@@ -1,4 +1,4 @@
-export function getBotScore(req: Request): { score: number | null; type: string | null } {
+function getBotScore(req: Request): { score: number | null; type: string | null } {
   const scoreHeader = req.headers.get("x-vercel-bot-score");
   const type = req.headers.get("x-vercel-bot-type");
   const score = scoreHeader ? Number.parseInt(scoreHeader, 10) : null;
@@ -9,7 +9,7 @@ export function getBotScore(req: Request): { score: number | null; type: string 
   };
 }
 
-export function isLikelyBot(req: Request, threshold: number = 90): boolean {
+function isLikelyBot(req: Request, threshold: number = 90): boolean {
   const { score } = getBotScore(req);
   if (typeof score !== "number") return false;
   return score >= threshold;
