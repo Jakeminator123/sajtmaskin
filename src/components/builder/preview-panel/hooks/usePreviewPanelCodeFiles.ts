@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import type { FileNode } from "@/lib/builder/types";
 import type { Dispatch, SetStateAction } from "react";
@@ -93,7 +94,7 @@ export function usePreviewPanelCodeFiles(options: {
       if (nextContent === currentContent) return false;
 
       try {
-        const response = await fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/files`, {
+        const response = await fetch(`${engineChatBaseUrl(chatId)}/files`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

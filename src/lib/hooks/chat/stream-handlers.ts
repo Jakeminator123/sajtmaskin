@@ -59,7 +59,7 @@ export type StreamContext = {
   router?: { replace: (href: string) => void };
   appProjectId?: string | null;
   pendingCreateKeyRef?: React.MutableRefObject<string | null>;
-  onV0ProjectId?: (projectId: string) => void;
+  onLinkedProjectId?: (projectId: string) => void;
 
   setCurrentPreviewUrl: (url: string | null) => void;
   setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
@@ -90,7 +90,7 @@ export async function handleSseStream(
 ): Promise<{ streamQuality: StreamQualitySignal; chatIdFromStream: string | null }> {
   let chatIdFromStream: string | null = null;
   let versionIdFromStream: string | null = null;
-  let v0ProjectIdFromStream: string | null = null;
+  let linkedProjectIdFromStream: string | null = null;
   let accumulatedThinking = "";
   let accumulatedContent = "";
   let progressivePreviewFired = false;
@@ -118,7 +118,7 @@ export async function handleSseStream(
     router,
     appProjectId,
     pendingCreateKeyRef,
-    onV0ProjectId,
+    onLinkedProjectId,
     onSandboxSessionMeta,
     setCurrentPreviewUrl,
     setSandboxBuildError,
@@ -622,10 +622,10 @@ export async function handleSseStream(
                 : (data as Record<string, unknown>)?.v0ProjectId ||
                   (data as Record<string, unknown>)?.v0_project_id ||
                   null;
-            if (nextV0ProjectId && !v0ProjectIdFromStream) {
+            if (nextV0ProjectId && !linkedProjectIdFromStream) {
               const id = String(nextV0ProjectId);
-              v0ProjectIdFromStream = id;
-              onV0ProjectId?.(id);
+              linkedProjectIdFromStream = id;
+              onLinkedProjectId?.(id);
             }
             break;
           }
@@ -718,9 +718,9 @@ export async function handleSseStream(
               typeof data === "object" && data ? (data as Record<string, unknown>) : {};
             const donePreflight = parseDonePreflight(doneData);
             const doneV0ProjectId = doneData.v0ProjectId || doneData.v0_project_id || null;
-            if (doneV0ProjectId && !v0ProjectIdFromStream) {
-              v0ProjectIdFromStream = String(doneV0ProjectId);
-              onV0ProjectId?.(v0ProjectIdFromStream);
+            if (doneV0ProjectId && !linkedProjectIdFromStream) {
+              linkedProjectIdFromStream = String(doneV0ProjectId);
+              onLinkedProjectId?.(linkedProjectIdFromStream);
             }
             const effectiveDoneDemo = effectivePreviewUrlFromDonePayload(doneData);
             if (effectiveDoneDemo) {

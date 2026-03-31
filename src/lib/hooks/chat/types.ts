@@ -192,14 +192,15 @@ export type ChatMessagingParams = {
   chatIdParam: string | null;
   router: RouterLike;
   appProjectId?: string | null;
-  v0ProjectId?: string | null;
+  /** Maps to API `projectId` / legacy `v0ProjectId` in responses. */
+  linkedProjectId?: string | null;
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
   enableImageMaterialization?: boolean;
   enableThinking: boolean;
   chatPrivacy?: "private" | "unlisted";
-  /** External v0 registry-backed design system identifier. */
-  v0DesignSystemId?: string;
+  /** Registry / external design system id (request `designSystemId`). */
+  registryDesignSystemId?: string;
   /** Internal Sajtmaskin theme preset used to derive theme colors. */
   designThemePreset?: DesignTheme;
   systemPrompt?: string;
@@ -228,7 +229,7 @@ export type ChatMessagingParams = {
   }) => void;
   /** SSE sandbox-ready: bind sandboxId to the current stream version for heartbeat/status. */
   onSandboxSessionMeta?: (meta: { sandboxId: string; versionId: string | null } | null) => void;
-  onV0ProjectId?: (projectId: string) => void;
+  onLinkedProjectId?: (projectId: string) => void;
   setMessages: SetMessages;
   resetBeforeCreateChat: () => void;
 };

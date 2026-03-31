@@ -19,7 +19,9 @@ export type PlanModePlannerOrchestrationSlice = {
 };
 
 export type PlanModeDumpRoute =
+  | "POST /api/engine/chats/stream"
   | "POST /api/v0/chats/stream"
+  | "POST /api/engine/chats/[chatId]/stream"
   | "POST /api/v0/chats/[chatId]/stream";
 
 export function computePlanModePlannerPrompts(

@@ -1,6 +1,7 @@
 "use client";
 
 import { ExternalLink, FileCode, GithubIcon, Loader2, TerminalSquare, X } from "lucide-react";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -94,7 +95,7 @@ export function SandboxModal({
         };
       } else {
         const filesRes = await fetch(
-          `/api/v0/chats/${chatId}/files?versionId=${encodeURIComponent(versionId!)}`,
+          `${engineChatBaseUrl(chatId!)}/files?versionId=${encodeURIComponent(versionId!)}`,
           { method: "GET" },
         );
         const filesData = (await filesRes.json().catch(() => null)) as {

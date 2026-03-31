@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { isGatewayAssistModel, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
@@ -701,7 +702,7 @@ export function BuilderHeader(props: {
                 event.preventDefault();
                 if (chatId && activeVersionId) {
                   window.open(
-                    `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
+                    `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
                     "_blank",
                   );
                 }

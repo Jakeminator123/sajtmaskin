@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
 import type { ChatReadiness } from "@/lib/chat-readiness";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
@@ -130,7 +131,7 @@ export function useBuilderDeployActions({
       if (!logs.length) return;
       try {
         await fetch(
-          `/api/v0/chats/${encodeURIComponent(errChatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+          `${engineChatBaseUrl(errChatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -381,7 +382,7 @@ export function useBuilderDeployActions({
         try {
           const specContent = JSON.stringify(pendingSpecRef.current, null, 2);
           pendingSpecRef.current = null;
-          fetch(`/api/v0/chats/${encodeURIComponent(data.chatId)}/files`, {
+          fetch(`${engineChatBaseUrl(data.chatId)}/files`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -446,7 +447,7 @@ export function useBuilderDeployActions({
               },
             ]);
           });
-        fetch(`/api/v0/chats/${encodeURIComponent(completedChatId)}/normalize-text`, {
+        fetch(`${engineChatBaseUrl(completedChatId)}/normalize-text`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ versionId, autoFix: true }),

@@ -16,6 +16,7 @@ import { runPostGenerationChecks } from "./post-checks";
 import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
@@ -43,7 +44,7 @@ export function useSendMessage(
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
-    v0DesignSystemId,
+    registryDesignSystemId,
     designThemePreset,
     systemPrompt,
     promptAssistModel,
@@ -259,7 +260,7 @@ export function useSendMessage(
           imageGenerations: enableImageGenerations,
           meta: promptMeta,
         };
-        if (v0DesignSystemId) requestBody.designSystemId = v0DesignSystemId;
+        if (registryDesignSystemId) requestBody.designSystemId = registryDesignSystemId;
         const trimmedSystem = systemPrompt?.trim();
         const shouldSendSystem =
           Boolean(trimmedSystem) && trimmedSystem !== lastSentSystemPromptRef.current;
@@ -276,7 +277,7 @@ export function useSendMessage(
         streamAbortRef.current = streamController;
         startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
-        const response = await fetch(`/api/v0/chats/${chatId}/stream`, {
+        const response = await fetch(`${engineChatBaseUrl(chatId)}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
@@ -332,7 +333,7 @@ export function useSendMessage(
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
           try {
-            const fallbackRes = await fetch(`/api/v0/chats/${chatId}/messages`, {
+            const fallbackRes = await fetch(`${engineChatBaseUrl(chatId)}/messages`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(requestBody),
@@ -396,7 +397,7 @@ export function useSendMessage(
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
-      v0DesignSystemId,
+      registryDesignSystemId,
       designThemePreset,
       systemPrompt,
       setMessages,

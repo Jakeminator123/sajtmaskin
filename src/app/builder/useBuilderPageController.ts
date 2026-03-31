@@ -16,6 +16,7 @@ import {
   writeChatGenerationSettings,
 } from "@/lib/builder/chat-generation-settings";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getProject, saveProjectData } from "@/lib/project-client";
 import { useChat } from "@/lib/hooks/useChat";
@@ -329,13 +330,13 @@ export function useBuilderPageController() {
       chatIdParam: state.chatIdParam,
       router,
       appProjectId: state.appProjectId,
-      v0ProjectId: state.v0ProjectId,
+      linkedProjectId: state.v0ProjectId,
       selectedModelTier: state.selectedModelTier,
       enableImageGenerations: state.enableImageGenerations,
       enableImageMaterialization: derived.mediaEnabled,
       enableThinking: state.effectiveThinking,
       chatPrivacy: state.chatPrivacy,
-      v0DesignSystemId: state.designSystemId || undefined,
+      registryDesignSystemId: state.designSystemId || undefined,
       designThemePreset: state.designTheme,
       systemPrompt: state.customInstructions,
       promptAssistModel: state.promptAssistModel,
@@ -355,7 +356,7 @@ export function useBuilderPageController() {
       onPreviewRefresh: bumpPreviewRefreshToken,
       onGenerationComplete: deployActions.handleGenerationComplete,
       onSandboxSessionMeta,
-      onV0ProjectId: (nextId) => state.setV0ProjectId(nextId),
+      onLinkedProjectId: (nextId) => state.setV0ProjectId(nextId),
       setMessages: state.setMessages,
       resetBeforeCreateChat,
     });
@@ -988,7 +989,7 @@ export function useBuilderPageController() {
       })
       .catch((error) => {
         if (error instanceof Error && error.name === "AbortError") return;
-        debugLog("v0", "Failed to sync project instructions", {
+        debugLog("builder", "Failed to sync project instructions", {
           projectId: v0ProjectId,
           error: error instanceof Error ? error.message : "Unknown error",
         });
@@ -1329,9 +1330,7 @@ export function useBuilderPageController() {
           return;
         }
         const response = await fetch(
-          `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
-            derived.activeVersionId,
-          )}`,
+          `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(derived.activeVersionId)}`,
           { signal: controller.signal },
         );
         const data = (await response.json().catch(() => null)) as {

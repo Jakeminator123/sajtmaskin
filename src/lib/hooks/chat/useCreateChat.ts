@@ -22,6 +22,7 @@ import { runPostGenerationChecks } from "./post-checks";
 import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
+import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
@@ -43,13 +44,13 @@ export function useCreateChat(
     chatIdParam,
     router,
     appProjectId,
-    v0ProjectId,
+    linkedProjectId,
     selectedModelTier,
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
     chatPrivacy,
-    v0DesignSystemId,
+    registryDesignSystemId,
     designThemePreset,
     systemPrompt,
     promptAssistModel,
@@ -70,7 +71,7 @@ export function useCreateChat(
     onPreviewRefresh,
     onGenerationComplete,
     onSandboxSessionMeta,
-    onV0ProjectId,
+    onLinkedProjectId,
     setMessages,
     resetBeforeCreateChat,
   } = params;
@@ -255,7 +256,7 @@ export function useCreateChat(
         }
         const newChatId =
           data.id || data.chatId || data.v0ChatId || (data.chat as Record<string, unknown>)?.id;
-        const newV0ProjectId = data.v0ProjectId || data.v0_project_id || null;
+        const newLinkedProjectId = data.v0ProjectId || data.v0_project_id || null;
         const preflight = readPreviewPreflight(data);
         const latestVersion = data.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
@@ -282,8 +283,8 @@ export function useCreateChat(
         }
 
         setChatId(String(newChatId));
-        if (newV0ProjectId) {
-          onV0ProjectId?.(String(newV0ProjectId));
+        if (newLinkedProjectId) {
+          onLinkedProjectId?.(String(newLinkedProjectId));
         }
         {
           const p = buildBuilderParams({
@@ -392,8 +393,8 @@ export function useCreateChat(
           chatPrivacy: chatPrivacy || "private",
           meta: promptMeta,
         };
-        if (v0DesignSystemId) requestBody.designSystemId = v0DesignSystemId;
-        if (v0ProjectId) requestBody.projectId = v0ProjectId;
+        if (registryDesignSystemId) requestBody.designSystemId = registryDesignSystemId;
+        if (linkedProjectId) requestBody.projectId = linkedProjectId;
         if (trimmedSystemPrompt) {
           requestBody.system = trimmedSystemPrompt;
           lastSentSystemPromptRef.current = trimmedSystemPrompt;
@@ -409,7 +410,7 @@ export function useCreateChat(
         streamAbortRef.current = streamController;
         startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
-        const response = await fetch("/api/v0/chats/stream", {
+        const response = await fetch(`${ENGINE_CHATS_API_PREFIX}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
@@ -445,7 +446,7 @@ export function useCreateChat(
               router,
               appProjectId,
               pendingCreateKeyRef,
-              onV0ProjectId,
+              onLinkedProjectId,
               setCurrentPreviewUrl,
               setSandboxBuildError,
               setSandboxProdBuild,
@@ -474,7 +475,7 @@ export function useCreateChat(
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
           try {
-            const fallbackRes = await fetch("/api/v0/chats", {
+            const fallbackRes = await fetch(ENGINE_CHATS_API_PREFIX, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(requestBody),
@@ -540,7 +541,7 @@ export function useCreateChat(
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
-      v0DesignSystemId,
+      registryDesignSystemId,
       designThemePreset,
       systemPrompt,
       setMessages,
@@ -548,14 +549,14 @@ export function useCreateChat(
       chatIdParam,
       router,
       appProjectId,
-      v0ProjectId,
+      linkedProjectId,
       setCurrentPreviewUrl,
       setSandboxBuildError,
       setSandboxProdBuild,
       onPreviewRefresh,
       onGenerationComplete,
       onSandboxSessionMeta,
-      onV0ProjectId,
+      onLinkedProjectId,
       mutateVersions,
       buildBuilderParams,
       buildIntent,

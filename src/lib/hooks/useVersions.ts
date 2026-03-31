@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -47,7 +48,7 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
         : idleRefreshIntervalMs;
 
   const { data, error, isLoading, mutate } = useSWR(
-    enabled && chatId ? `/api/v0/chats/${chatId}/versions` : null,
+    enabled && chatId ? `${engineChatBaseUrl(chatId)}/versions` : null,
     fetcher,
     {
       revalidateOnFocus: false,

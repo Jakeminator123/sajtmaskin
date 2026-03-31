@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { ChatMessage } from "@/lib/builder/types";
 import type { PaletteState } from "@/lib/builder/palette";
 import {
@@ -183,9 +184,7 @@ export function useBuilderProjectActions({
       if (activeVersionId) {
         const materializeParam = mediaEnabled ? "&materialize=1" : "";
         const response = await fetch(
-          `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
-            activeVersionId,
-          )}${materializeParam}`,
+          `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}${materializeParam}`,
         );
         const data = (await response.json().catch(() => null)) as {
           files?: Array<{ name: string; content: string }>;

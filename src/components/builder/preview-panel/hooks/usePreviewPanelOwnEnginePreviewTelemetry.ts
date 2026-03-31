@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { reportRenderOutcome } from "@/lib/gen/eval/render-telemetry";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
@@ -97,7 +98,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
 
       try {
         await fetch(
-          `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+          `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

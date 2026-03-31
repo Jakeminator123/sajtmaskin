@@ -22,6 +22,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import useSWR from "swr";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -129,7 +130,7 @@ export function VersionHistory({
     .filter((id): id is string => !!id);
   const { data: collaborationData } = useSWR<{ summaries?: Record<string, { approvalStatus: string | null; unresolvedCount: number }> }>(
     chatId && collaborationVersionIds.length > 0
-      ? `/api/v0/chats/${chatId}/versions/collaboration-summaries?versionIds=${encodeURIComponent(collaborationVersionIds.join(","))}`
+      ? `${engineChatBaseUrl(chatId)}/versions/collaboration-summaries?versionIds=${encodeURIComponent(collaborationVersionIds.join(","))}`
       : null,
     async (url) => {
       const res = await fetch(url);
@@ -186,7 +187,7 @@ export function VersionHistory({
     setDownloadingVersionId(versionId);
 
     try {
-      window.open(`/api/v0/chats/${chatId}/versions/${versionId}/download?format=zip`, "_blank");
+      window.open(`${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/download?format=zip`, "_blank");
       toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
@@ -205,9 +206,10 @@ export function VersionHistory({
     setExportingVersionId(versionId);
 
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/export?format=zip`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/export?format=zip`,
+        { method: "POST" },
+      );
       const data = (await res.json().catch(() => null)) as BlobExportResponse | null;
       if (!res.ok) {
         const message = data?.error || `Export failed (HTTP ${res.status})`;
@@ -288,7 +290,7 @@ export function VersionHistory({
     const nextPinned = !version.pinned;
     setPinningVersionId(versionId);
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions`, {
+      const res = await fetch(`${engineChatBaseUrl(chatId)}/versions`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ versionId, pinned: nextPinned }),
@@ -315,7 +317,7 @@ export function VersionHistory({
       version.releaseState === "promoted" || version.verificationState === "passed";
     setRestoringVersionId(versionId);
     try {
-      const res = await fetch(`/api/v0/chats/${chatId}/versions`, {
+      const res = await fetch(`${engineChatBaseUrl(chatId)}/versions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: rollbackMode ? "rollback" : "restore", versionId }),

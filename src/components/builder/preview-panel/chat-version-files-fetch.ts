@@ -1,5 +1,7 @@
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+
 /**
- * Shared GET for `/api/v0/chats/:id/files?versionId=` used by code view, registry preload, and route list.
+ * Shared GET for `/api/engine/chats/:id/files?versionId=` used by code view, registry preload, and route list.
  */
 
 export type ChatVersionFilesApiRow = {
@@ -14,7 +16,7 @@ export type ChatVersionFilesApiResponse = {
 };
 
 function chatVersionFilesUrl(chatId: string, versionId: string): string {
-  return `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`;
+  return `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(versionId)}`;
 }
 
 export async function fetchChatVersionFilesJson(

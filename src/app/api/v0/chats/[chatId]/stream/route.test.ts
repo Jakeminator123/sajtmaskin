@@ -11,7 +11,11 @@ const addMessage = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const commitCredits = vi.hoisted(() => vi.fn());
 const prepareGenerationContext = vi.hoisted(() => vi.fn());
+const resolveOrchestrationBase = vi.hoisted(() => vi.fn());
+const finalizeOrchestrationPrompts = vi.hoisted(() => vi.fn());
 const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
+const buildFileContext = vi.hoisted(() => vi.fn());
+const parseSSEBuffer = vi.hoisted(() => vi.fn());
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
@@ -57,6 +61,7 @@ vi.mock("@/lib/credits/server", () => ({
 
 vi.mock("@/lib/logging/devLog", () => ({
   devLogAppend: vi.fn(),
+  devLogFinalizeSite: vi.fn(),
 }));
 
 vi.mock("@/lib/utils/debug", () => ({
@@ -136,8 +141,8 @@ vi.mock("@/lib/gen/url-compress", () => ({
 
 vi.mock("@/lib/gen/orchestrate", () => ({
   prepareGenerationContext,
-  resolveOrchestrationBase: vi.fn(),
-  finalizeOrchestrationPrompts: vi.fn(),
+  resolveOrchestrationBase,
+  finalizeOrchestrationPrompts,
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
@@ -156,6 +161,7 @@ vi.mock("@/lib/gen/plan-review", () => ({
 }));
 
 vi.mock("@/lib/gen/system-prompt", () => ({
+  SYSTEM_PROMPT_SEPARATOR: "\n\n---\n\n# Request-Specific Context\n\n",
   getSystemPromptLengths: () => ({ prompt: 10 }),
 }));
 
@@ -190,7 +196,7 @@ vi.mock("@/lib/gen/route-helpers", () => {
 
   return {
     SuspenseLineProcessor,
-    parseSSEBuffer: vi.fn(),
+    parseSSEBuffer,
   };
 });
 
@@ -203,7 +209,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 }));
 
 vi.mock("@/lib/gen/context/file-context-builder", () => ({
-  buildFileContext: vi.fn(),
+  buildFileContext,
 }));
 
 vi.mock("@/lib/gen/stream/finalize-version", () => ({
@@ -239,11 +245,28 @@ async function readSseEvents(response: Response) {
   });
 }
 
+function buildPipelineStream(events: Array<{ event: string; data: unknown }>) {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const evt of events) {
+        controller.enqueue(
+          encoder.encode(`event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`),
+        );
+      }
+      controller.close();
+    },
+  });
+}
+
 describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     addMessage.mockResolvedValue(null);
     failVersionVerification.mockResolvedValue(null);
+    buildFileContext.mockReset();
+    parseSSEBuffer.mockReset();
     commitCredits.mockResolvedValue(undefined);
     prepareCredits.mockResolvedValue({
       ok: true,
@@ -298,6 +321,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
           envVars: [],
         },
         unresolvedDecisions: [],
+        confirmedAnswers: [],
       },
       buildSpec: {
         buildIntent: "website",
@@ -317,6 +341,60 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
     });
+    resolveOrchestrationBase.mockResolvedValue({
+      resolvedScaffold: {
+        id: "scaffold_1",
+        family: "marketing",
+        label: "Marketing",
+      },
+      scaffoldContext: undefined,
+      routePlan: null,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          databaseProvider: null,
+          authProvider: null,
+          paymentProvider: null,
+          integrations: [],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+        confirmedAnswers: [],
+      },
+      capabilities: {
+        needsMotion: false,
+        needs3D: false,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: false,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: false,
+        needsEcommerce: false,
+        needsCarousel: false,
+        needsPremiumVisuals: false,
+      },
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "local-layout",
+        scaffoldFamily: "landing-page",
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: { scaffoldChars: 12000, refsChars: 4000, systemContextChars: 18000 },
+      },
+      scaffoldAndCapability: "",
+    });
+    finalizeOrchestrationPrompts.mockResolvedValue({
+      engineSystemPrompt: "SYSTEM",
+      dynamicContext: "V0",
+    });
     finalizeOrHandleEmptyGeneration.mockResolvedValue({
       version: { id: "ver_2" },
       messageId: "msg_2",
@@ -327,6 +405,26 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         previewBlockingReason: null,
       },
       contentForVersion: "<main>Updated follow-up</main>",
+    });
+    buildFileContext.mockReturnValue({
+      summary: "## Existing Project Files\n\n- src/app/page.tsx",
+    });
+    parseSSEBuffer.mockImplementation((buffer: string) => {
+      const chunks = buffer.split("\n\n");
+      const remaining = chunks.pop() ?? "";
+      const events = chunks.flatMap((chunk) => {
+        const lines = chunk.split("\n");
+        const eventLine = lines.find((line) => line.startsWith("event:"));
+        const dataLine = lines.find((line) => line.startsWith("data:"));
+        if (!eventLine || !dataLine) return [];
+        const event = eventLine.slice("event:".length).trim();
+        const rawData = dataLine.slice("data:".length).trim();
+        return [{
+          event,
+          data: JSON.parse(rawData),
+        }];
+      });
+      return { events, remaining };
     });
   });
 
@@ -440,6 +538,67 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
 
     expect(response.status).toBe(200);
     expect(resolveFollowUpPreviousFiles).toHaveBeenCalledWith("chat_1", "ver_selected");
+  });
+
+  it("finalizes a follow-up generation and emits done output for a scoped edit", async () => {
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        {
+          event: "content",
+          data: { text: "<main>Updated follow-up</main>" },
+        },
+        {
+          event: "done",
+          data: { promptTokens: 7, completionTokens: 13 },
+        },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/v0/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(createGenerationPipeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        abortSignal: expect.any(AbortSignal),
+      }),
+    );
+
+    const events = await readSseEvents(response);
+    const doneEvent = events.find((event) => event.event === "done");
+
+    expect(doneEvent?.data).toMatchObject({
+      chatId: "chat_1",
+      versionId: "ver_2",
+      messageId: "msg_2",
+      previewUrl: null,
+      previewBlocked: false,
+      verificationBlocked: false,
+      previewBlockingReason: null,
+    });
+    expect(finalizeOrHandleEmptyGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emptyGenerationReason: "done_empty_output",
+        finalizeParams: expect.objectContaining({
+          chatId: "chat_1",
+          accumulatedContent: "<main>Updated follow-up</main>",
+          model: "gpt-5.4",
+          previousFiles: [
+            expect.objectContaining({
+              path: "src/app/page.tsx",
+            }),
+          ],
+        }),
+      }),
+    );
   });
 
   it("still persists the assistant clarification when user message persistence fails", async () => {

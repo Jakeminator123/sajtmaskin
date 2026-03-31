@@ -15,6 +15,7 @@ import {
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import type { SandboxPreviewPostApiJson } from "@/lib/gen/preview-contract";
 import type { SandboxProdBuildPayload } from "@/lib/hooks/chat/types";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { ChatData, VersionSummary } from "./useBuilderDerivedState";
 
 function isLegacyMappedChatRecord(chat: unknown): boolean {
@@ -219,7 +220,7 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
 
         try {
           setSandboxPending(true);
-          const res = await fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/sandbox-preview`, {
+          const res = await fetch(`${engineChatBaseUrl(chatId)}/sandbox-preview`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
@@ -58,7 +59,7 @@ export function useCssValidation(options: UseCssValidationOptions = {}) {
       setIsValidating(true);
 
       try {
-        const response = await fetch(`/api/v0/chats/${chatId}/validate-css`, {
+        const response = await fetch(`${engineChatBaseUrl(chatId)}/validate-css`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ versionId, autoFix }),

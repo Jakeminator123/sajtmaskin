@@ -32,6 +32,7 @@ import { DomainManager } from "@/components/builder/DomainManager";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import {
@@ -562,17 +563,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     async (url: string) => {
       if (!vm.chatId || !vm.activeVersionId) return;
       try {
-        const response = await fetch(
-          `/api/v0/chats/${encodeURIComponent(vm.chatId)}/versions`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              versionId: vm.activeVersionId,
-              sandboxUrl: url,
-            }),
-          },
-        );
+        const response = await fetch(`${engineChatBaseUrl(vm.chatId)}/versions`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            versionId: vm.activeVersionId,
+            sandboxUrl: url,
+          }),
+        });
         if (!response.ok) {
           const data = (await response.json().catch(() => null)) as { error?: string } | null;
           console.warn(

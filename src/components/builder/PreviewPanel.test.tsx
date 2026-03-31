@@ -81,7 +81,7 @@ describe("PreviewPanel", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+        if (url.includes("/api/engine/chats/chat_1/files?versionId=ver_1")) {
           return new Response(
             JSON.stringify({
               files: [
@@ -128,7 +128,7 @@ describe("PreviewPanel", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+        if (url.includes("/api/engine/chats/chat_1/files?versionId=ver_1")) {
           return new Response(
             JSON.stringify({
               files: [
@@ -167,7 +167,7 @@ describe("PreviewPanel", () => {
     const onFilesSaved = vi.fn();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+      if (url.includes("/api/engine/chats/chat_1/files?versionId=ver_1")) {
         return new Response(
           JSON.stringify({
             files: [
@@ -193,7 +193,7 @@ describe("PreviewPanel", () => {
         );
       }
 
-      if (url.endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH") {
+      if (url.endsWith("/api/engine/chats/chat_1/files") && init?.method === "PATCH") {
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -222,7 +222,7 @@ describe("PreviewPanel", () => {
 
     const patchCall = fetchMock.mock.calls.find(
       ([input, init]) =>
-        String(input).endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH",
+        String(input).endsWith("/api/engine/chats/chat_1/files") && init?.method === "PATCH",
     );
     expect(patchCall).toBeTruthy();
 
@@ -240,7 +240,7 @@ describe("PreviewPanel", () => {
     const onFilesSaved = vi.fn();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes("/api/v0/chats/chat_1/files?versionId=ver_1")) {
+      if (url.includes("/api/engine/chats/chat_1/files?versionId=ver_1")) {
         return new Response(
           JSON.stringify({
             files: [
@@ -260,7 +260,7 @@ describe("PreviewPanel", () => {
         );
       }
 
-      if (url.endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH") {
+      if (url.endsWith("/api/engine/chats/chat_1/files") && init?.method === "PATCH") {
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -289,7 +289,7 @@ describe("PreviewPanel", () => {
 
     const patchCall = fetchMock.mock.calls.find(
       ([input, init]) =>
-        String(input).endsWith("/api/v0/chats/chat_1/files") && init?.method === "PATCH",
+        String(input).endsWith("/api/engine/chats/chat_1/files") && init?.method === "PATCH",
     );
     expect(patchCall).toBeTruthy();
 

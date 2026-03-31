@@ -1,3 +1,4 @@
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
@@ -267,7 +268,7 @@ export function summarizeVersionLogsForAutoFix(logs: PersistedVersionLog[]): str
 async function loadVersionErrorSummary(chatId: string, versionId: string): Promise<string[]> {
   try {
     const response = await fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+      `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
       { method: "GET" },
     );
     if (!response.ok) return [];
@@ -306,7 +307,7 @@ async function enrichAutoFixPayload(payload: AutoFixPayload): Promise<AutoFixPay
 
 async function getLatestChatVersionId(chatId: string): Promise<string | null> {
   try {
-    const response = await fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/versions`, {
+    const response = await fetch(`${engineChatBaseUrl(chatId)}/versions`, {
       method: "GET",
     });
     if (!response.ok) return null;

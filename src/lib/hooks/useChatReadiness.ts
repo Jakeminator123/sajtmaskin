@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { ChatReadiness } from "@/lib/chat-readiness";
 
 const fetcher = async (url: string) => {
@@ -26,7 +27,7 @@ export function useChatReadiness(
   const refreshInterval =
     !versionId || (pauseWhileGenerating && isGenerating) ? 0 : 10000;
   const { data, error, isLoading, mutate } = useSWR(
-    chatId ? `/api/v0/chats/${chatId}/readiness${query}` : null,
+    chatId ? `${engineChatBaseUrl(chatId)}/readiness${query}` : null,
     fetcher,
     {
       revalidateOnFocus: false,

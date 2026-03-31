@@ -1,3 +1,4 @@
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { SandboxHeartbeatApiJson, SandboxStatusApiJson } from "@/lib/gen/preview-contract";
 
 /** Browser `fetch` mot sandbox-status; returnerar null vid nätverksfel eller icke-ok svar. */
@@ -11,9 +12,7 @@ export async function fetchSandboxStatus(params: {
     q.set("sandboxId", params.sandboxId.trim());
   }
   try {
-    const res = await fetch(
-      `/api/v0/chats/${encodeURIComponent(params.chatId)}/sandbox-status?${q.toString()}`,
-    );
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/sandbox-status?${q.toString()}`);
     const data = (await res.json()) as SandboxStatusApiJson;
     if (!res.ok || !data || data.ok !== true) return null;
     return data;
@@ -30,7 +29,7 @@ export async function postSandboxHeartbeat(params: {
   viewerId: string;
 }): Promise<SandboxHeartbeatApiJson | null> {
   try {
-    const res = await fetch(`/api/v0/chats/${encodeURIComponent(params.chatId)}/sandbox-heartbeat`, {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/sandbox-heartbeat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

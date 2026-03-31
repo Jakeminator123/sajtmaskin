@@ -7,6 +7,7 @@
  * so it can be queried per version for quality metrics.
  */
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
 
 export interface RenderOutcome {
@@ -28,7 +29,7 @@ export interface RenderOutcome {
 export async function reportRenderOutcome(outcome: RenderOutcome): Promise<void> {
   try {
     await fetch(
-      `/api/v0/chats/${encodeURIComponent(outcome.chatId)}/versions/${encodeURIComponent(outcome.versionId)}/error-log`,
+      `${engineChatBaseUrl(outcome.chatId)}/versions/${encodeURIComponent(outcome.versionId)}/error-log`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

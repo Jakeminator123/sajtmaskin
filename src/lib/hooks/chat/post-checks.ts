@@ -1,3 +1,4 @@
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { UiMessagePart } from "@/lib/builder/types";
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
@@ -35,7 +36,7 @@ async function persistVersionErrorLogs(params: {
   if (!logs.length) return;
   try {
     await fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+      `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -55,7 +56,7 @@ async function validateImages(params: {
   const { chatId, versionId, signal } = params;
   try {
     const response = await fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/validate-images`,
+      `${engineChatBaseUrl(chatId)}/validate-images`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -311,7 +312,7 @@ async function runSandboxQualityGate(params: {
 
   try {
     const res = await fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/quality-gate`,
+      `${engineChatBaseUrl(chatId)}/quality-gate`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -487,7 +488,7 @@ async function tryServerRepair(
   if (isServerRepairDisabled()) return null;
   try {
     const res = await fetch(
-      `/api/v0/chats/${encodeURIComponent(chatId)}/repair`,
+      `${engineChatBaseUrl(chatId)}/repair`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

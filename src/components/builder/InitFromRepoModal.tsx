@@ -3,6 +3,7 @@
 import { FolderArchive, GithubIcon, Loader2, Lock, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { useAuth } from "@/lib/auth/auth-store";
 
 interface InitFromRepoModalProps {
@@ -116,7 +117,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
         body.message = message.trim();
       }
 
-      const response = await fetch("/api/v0/chats/init", {
+      const response = await fetch(`${ENGINE_CHATS_API_PREFIX}/init`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { cn } from "@/lib/utils";
 
 const FEEDBACK_CATEGORIES: { key: string; label: string }[] = [
@@ -45,7 +46,7 @@ export function VersionFeedback({ chatId, versionId, className }: VersionFeedbac
     setIsSubmitting(true);
     try {
       const res = await fetch(
-        `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/feedback`,
+        `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/feedback`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

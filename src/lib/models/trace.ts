@@ -226,14 +226,14 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     {
       key: "create-build",
       label: "Ny build",
-      route: "/api/v0/chats/stream",
+      route: "/api/engine/chats/stream",
       purpose: "First builder generation using the selected build profile.",
       active: canUseDeepBrief,
     },
     {
       key: "follow-up-build",
       label: "Fortsatt build",
-      route: "/api/v0/chats/[chatId]/stream",
+      route: "/api/engine/chats/[chatId]/stream",
       purpose: "Follow-up iterations against the same chat/project.",
       active: !canUseDeepBrief,
     },

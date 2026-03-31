@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -350,7 +351,7 @@ export function ProjectEnvVarsPanel({
     setDetectedIntegrationsError(null);
     try {
       const response = await fetch(
-        `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}`,
+        `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}`,
       );
       const data = (await response.json().catch(() => null)) as VersionFilesResponse | null;
       if (!response.ok) {
