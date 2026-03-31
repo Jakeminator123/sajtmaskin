@@ -58,16 +58,6 @@ export function previewUrlsEquivalent(
   }
 }
 
-export function buildCompatibilityShimPreviewUrl(
-  chatId: string,
-  versionId: string,
-  projectId?: string | null,
-): string {
-  const params = new URLSearchParams({ chatId, versionId });
-  if (projectId) params.set("projectId", projectId);
-  return `${OWN_ENGINE_PREVIEW_PATH}?${params.toString()}`;
-}
-
 export function resolveCompatibilityShimPreviewUrl(_params: {
   chatId?: string | null;
   versionId?: string | null;

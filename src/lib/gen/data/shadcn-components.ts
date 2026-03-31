@@ -227,30 +227,10 @@ export const SHADCN_COMPONENTS: Record<string, string> = {
 };
 
 /**
- * Set of unique import subpaths (e.g. "button", "card", "dialog").
- * Useful for quick membership checks during post-processing.
- */
-export const SHADCN_SUBPATHS = new Set(Object.values(SHADCN_COMPONENTS));
-
-/**
  * Reverse lookup: subpath → list of exported names.
  * E.g. "card" → ["Card", "CardContent", "CardDescription", "CardFooter", "CardHeader", "CardTitle"]
  */
 export const SHADCN_SUBPATH_TO_EXPORTS: Record<string, string[]> = {};
 for (const [name, subpath] of Object.entries(SHADCN_COMPONENTS)) {
   (SHADCN_SUBPATH_TO_EXPORTS[subpath] ??= []).push(name);
-}
-
-/**
- * Builds a condensed component list for the system prompt.
- * Groups exports by subpath to keep token count low.
- *
- * Example output line: `{ Button } from "@/components/ui/button"`
- */
-export function buildShadcnPromptBlock(): string {
-  const lines: string[] = [];
-  for (const [subpath, names] of Object.entries(SHADCN_SUBPATH_TO_EXPORTS)) {
-    lines.push(`{ ${names.join(", ")} } from "@/components/ui/${subpath}"`);
-  }
-  return lines.join("\n");
 }

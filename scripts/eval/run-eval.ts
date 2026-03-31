@@ -24,7 +24,7 @@ const REPO_FILES = {
   detectIntegrations: "src/lib/gen/detect-integrations.ts",
   integrationRegistry: "src/lib/integrations/registry.ts",
   planPrompt: "src/lib/gen/plan-prompt.ts",
-  planExecution: "src/lib/gen/plan-execution.ts",
+  planExecution: "src/lib/gen/plan/schema.ts",
   validateAndFix: "src/lib/gen/autofix/validate-and-fix.ts",
   orchestrate: "src/lib/gen/orchestrate.ts",
   generateSite: "src/lib/mcp/generate-site.ts",

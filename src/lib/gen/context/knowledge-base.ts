@@ -71,28 +71,6 @@ function keywordSearch(
 }
 
 /**
- * Search the knowledge base using keyword matching first, with semantic
- * embedding search as fallback when keyword results are weak.
- */
-export function searchKnowledgeBase(options: KBSearchOptions): KBMatch[] {
-  const { query, maxResults = 5, maxChars = 3000, categories } = options;
-
-  const kwResults = keywordSearch(query, maxResults, maxChars, categories);
-  const bestScore = kwResults[0]?.score ?? 0;
-
-  if (bestScore >= KEYWORD_MIN_QUALITY_SCORE) {
-    return kwResults;
-  }
-
-  // Keyword results are weak — try semantic search in the background.
-  // Since this is called from a sync context in buildDynamicContext,
-  // we return keyword results immediately but schedule a semantic
-  // enrichment for future calls. The embeddings file must exist.
-  // For the synchronous path, return what we have from keywords.
-  return kwResults;
-}
-
-/**
  * Async version that combines keyword + semantic search.
  * Use this when you can afford the async overhead (e.g. in orchestrate.ts).
  */

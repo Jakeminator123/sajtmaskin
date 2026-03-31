@@ -41,6 +41,3 @@ export function getScaffoldResearchOverrides(
   return loadScaffoldResearch().scaffolds[scaffoldId] ?? {};
 }
 
-export function invalidateScaffoldResearchCache(): void {
-  cachedScaffoldResearch = null;
-}

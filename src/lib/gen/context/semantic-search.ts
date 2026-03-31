@@ -122,6 +122,3 @@ export async function searchKnowledgeBaseSemantic(
   return results;
 }
 
-export function invalidateDocsEmbeddingsCache(): void {
-  cachedEmbeddings = null;
-}
