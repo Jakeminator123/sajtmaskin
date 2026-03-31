@@ -89,7 +89,7 @@ python scripts/cli/builder-generate.py
 
 ## Env-verktyg (`scripts/env/`)
 
-Tidigare i repo-roten; nu under `scripts/env/`. Repo-rotens `check_env.py` vidarebefordrar till `manage_env.py audit`.
+Kanonisk plats: `scripts/env/`.
 
 | Verktyg | Syfte |
 |---------|-------|

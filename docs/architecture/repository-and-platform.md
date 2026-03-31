@@ -28,7 +28,7 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 - **NPM**-skript: se rot `package.json` och [`scripts/README.md`](../../scripts/README.md).
 - **Hjälpverktyg utanför runtime** (doc-browser, m.m.): [`tools/README.md`](../../tools/README.md).
 - **Research-skript** (`scripts/template-library/hamta_sidor_branch_emil.py`, `scripts/manual/vercel_template_cli.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
-- **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`, `scripts/env/check_env.py`): dessa sökvägar är kanoniska; root-wrappers finns kvar bara för bakåtkompatibilitet.
+- **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`): kanoniska entrypoints.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
 
 ## Kända fel och autofix
