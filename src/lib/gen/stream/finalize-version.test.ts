@@ -548,7 +548,7 @@ describe("finalizeAndSaveVersion", () => {
     });
     expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
       expect.objectContaining({
-        qualityGateResult: "passed",
+        qualityGateResult: "preflight_passed",
         retryCount: 0,
         meta: expect.objectContaining({
           finalizePath: "fast-only",

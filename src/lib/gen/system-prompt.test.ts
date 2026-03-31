@@ -162,6 +162,8 @@ describe("buildDynamicContext", () => {
     expect(context).toContain("## Relevant Documentation");
     expect(context).toContain("## Relevant Template References");
     expect(context).toContain("## Reference Code Snippets");
+    expect(context).toContain("## Generation Profile");
+    expect(context).toContain("Style direction:");
     expect(searchKnowledgeBaseAsync).toHaveBeenCalled();
     expect(searchTemplateLibraryWithDiagnostics).toHaveBeenCalled();
   });

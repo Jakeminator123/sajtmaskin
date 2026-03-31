@@ -433,6 +433,27 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     "",
   );
 
+  if (buildSpec) {
+    const referenceFamilies =
+      buildSpec.referenceCategories.length > 0
+        ? buildSpec.referenceCategories.join(", ")
+        : "general";
+    const profileLines: string[] = [
+      "## Generation Profile",
+      "",
+      `- **Style direction:** ${buildSpec.stylePack}`,
+      `- **Quality tier:** ${buildSpec.qualityTarget}`,
+      `- **Reference families:** ${referenceFamilies}`,
+    ];
+    if (buildSpec.forbiddenPatterns.length > 0) {
+      profileLines.push(
+        `- **Forbidden patterns:** ${buildSpec.forbiddenPatterns.join(", ")}`,
+      );
+    }
+    profileLines.push("");
+    parts.push(...profileLines);
+  }
+
   // ── Scaffold ───────────────────────────────────────────────────────────
   if (scaffoldContext) {
     parts.push("## Scaffold", "", scaffoldContext.trim(), "");

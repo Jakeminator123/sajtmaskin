@@ -619,7 +619,9 @@ export async function finalizeAndSaveVersion(
       preflightWarningCount: preflightWarnings.length,
       previewSuccess: !hasPreviewBlockingPreflightErrors,
       previewBlockingReason,
-      qualityGateResult: hasVerificationBlockingPreflightErrors ? "failed" : "passed",
+      qualityGateResult: hasVerificationBlockingPreflightErrors
+        ? "preflight_failed"
+        : "preflight_passed",
       durationMs: Date.now() - startedAt,
       promptTokens: tokenUsage?.prompt ?? null,
       completionTokens: tokenUsage?.completion ?? null,

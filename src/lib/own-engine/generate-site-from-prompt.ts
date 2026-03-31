@@ -233,6 +233,16 @@ export async function generateOwnEngineSiteFromPrompt(
     urlMap,
     startedAt,
     tokenUsage,
+    orchestrationStreamMeta: {
+      modelId: String(engineModel),
+      modelTier: modelSelection.modelTier,
+      enginePath: "own-engine",
+      thinking,
+      imageGenerations,
+      scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+      scaffoldFamily: orchestrationBase.resolvedScaffold?.family ?? null,
+      buildSpec: orchestrationBase.buildSpec,
+    },
   });
 
   let files: Array<{ path: string; content: string }>;
