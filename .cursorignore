@@ -56,11 +56,11 @@ public/images/
 *.webm
 
 # --- Research (tungt); undantag: små indexfiler i raw-discovery & repo-cache ---
-research/external-templates/raw-discovery/**
+#research/external-templates/raw-discovery/**
 #!research/external-templates/raw-discovery/README.md
 #!research/external-templates/raw-discovery/SCHEMA.md
 #!research/external-templates/raw-discovery/schema.summary.json
-research/external-templates/repo-cache/**
+#research/external-templates/repo-cache/**
 #!research/external-templates/repo-cache/README.md
 #research/external-templates/reference-library/
 

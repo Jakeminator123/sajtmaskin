@@ -120,7 +120,8 @@ def step_discover():
 
 def step_import_legacy():
     print(f"\n{BOLD}Steg: Importera legacy-dataset{RESET}")
-    print("Importerar från Desktop/_sidor/ till raw-discovery/current/")
+    print("Importerar till raw-discovery/current/ från prioriterad extern källa.")
+    print("Ordning: SAJTMASKIN_VERCEL_SCRAPE_DIR -> ../vercel-scrape-fresh -> ../vercel-scrape -> _sidor/")
     run("npm run template-library:import-legacy")
 
 

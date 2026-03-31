@@ -23,7 +23,7 @@ builder **Mall** / v0 gallery templates (see `.cursor/rules/terminology.mdc`).
 | Tool | Mechanism | Default output | Canonical merge into `raw-discovery/current/` |
 |------|-----------|----------------|--------------------------------------------------|
 | **`e2e/vercel-templates/`** | Playwright spec + `npm run references:discover*` (tracked) | Writes under `raw-discovery/current/` when run | See `e2e/README.md`; legacy `vercel_templates_levels/` optional local |
-| **`scripts/hamta_sidor_branch_emil.py`** | Python (`requests` + BeautifulSoup), richer per-template folders + `summary.json`; flag `--legacy-wide-use-cases` reproduces the old wide category list | **Outside repo:** sibling dir `../vercel-scrape`, or `SAJTMASKIN_VERCEL_SCRAPE_DIR` | Run `scripts/import-template-discovery.ts --from=<path/to/summary.json>` (legacy-summary → canonical dataset) |
+| **`scripts/hamta_sidor_branch_emil.py`** | Python (`requests` + BeautifulSoup), richer per-template folders + `summary.json` plus preferred `summary-cleaned.json`; flag `--legacy-wide-use-cases` reproduces the old wide category list | **Outside repo:** sibling dir `../vercel-scrape`, `../vercel-scrape-fresh`, or `SAJTMASKIN_VERCEL_SCRAPE_DIR` | Run `scripts/import-template-discovery.ts --from=<path/to/folder-or-summary>`; if both summaries exist, `summary-cleaned.json` wins |
 
 **Kanonisk Playwright-spec** = `e2e/vercel-templates/scrape-catalog.spec.ts` (tracked). **Legacy** `vercel_templates_levels/` i roten kan finnas **lokalt** (gitignored); ta bort om du inte behöver gamla anteckningar.
 
@@ -47,9 +47,9 @@ These must **not** drive builder/runtime behavior, embedding curation, or “how
   `e2e/README.md` och [`scripts/README.md`](../../scripts/README.md) (template-library / discovery).
 - This lane is for public Vercel Templates research, not for product-facing v0
   gallery templates.
-- `scripts/import-template-discovery.ts` is the migration bridge from legacy
-  summary files (including Python `summary.json` runs) into the canonical
-  raw-discovery location.
+- `scripts/import-template-discovery.ts` is the migration bridge from external
+  scrape outputs (prefer `summary-cleaned.json`) and older legacy summary files
+  into the canonical raw-discovery location.
 
 ## Important boundary
 

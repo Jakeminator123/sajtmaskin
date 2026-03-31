@@ -72,13 +72,30 @@ export const REPO_CACHE_ROOT = path.resolve(
   "external-templates",
   "repo-cache",
 );
+const SUMMARY_FILE_CANDIDATES = ["summary-cleaned.json", "summary.json"] as const;
+
+function resolveWorkspaceRelativePath(value: string): string {
+  return path.isAbsolute(value) ? value : path.resolve(WORKSPACE_ROOT, value);
+}
+
+/** Preferred external scrape roots for Python intake before older `_sidor` fallbacks. */
+const externalScrapeRootFromEnv = process.env.SAJTMASKIN_VERCEL_SCRAPE_DIR?.trim();
 /** Optional extra root (must exist on disk). Replaces former machine-specific paths in repo. */
 const legacyRootFromEnv = process.env.SAJTMASKIN_LEGACY_SUMMARY_ROOT?.trim();
-export const LEGACY_SOURCE_ROOT_CANDIDATES = [
-  path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
-  path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
-  ...(legacyRootFromEnv && fs.existsSync(legacyRootFromEnv) ? [legacyRootFromEnv] : []),
-];
+export const LEGACY_SOURCE_ROOT_CANDIDATES = Array.from(
+  new Set(
+    [
+      ...(externalScrapeRootFromEnv
+        ? [resolveWorkspaceRelativePath(externalScrapeRootFromEnv)]
+        : []),
+      path.resolve(WORKSPACE_ROOT, "..", "vercel-scrape-fresh"),
+      path.resolve(WORKSPACE_ROOT, "..", "vercel-scrape"),
+      path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
+      path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
+      ...(legacyRootFromEnv ? [resolveWorkspaceRelativePath(legacyRootFromEnv)] : []),
+    ].filter((candidate) => fs.existsSync(candidate)),
+  ),
+);
 export const CANONICAL_USE_CASE_SLUGS = new Set([
   "ai",
   "starter",
@@ -332,18 +349,26 @@ export function flattenRawSummary(summary: RawSummary): RawTemplateRecord[] {
   return Object.values(summary).flat();
 }
 
+function resolveSummaryFileInDirectory(targetDirectory: string): string | null {
+  for (const candidate of SUMMARY_FILE_CANDIDATES) {
+    const candidatePath = path.join(targetDirectory, candidate);
+    if (fs.existsSync(candidatePath)) return candidatePath;
+  }
+  return null;
+}
+
 export function resolveSummaryPath(target: string): string {
   if (!target) return path.join(RAW_DISCOVERY_CURRENT_ROOT, "summary.json");
   if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
-    return path.join(target, "summary.json");
+    return resolveSummaryFileInDirectory(target) ?? path.join(target, "summary.json");
   }
   return target;
 }
 
 export function resolveExistingLegacySummaryPath(): string | null {
   for (const root of LEGACY_SOURCE_ROOT_CANDIDATES) {
-    const summaryPath = path.join(root, "summary.json");
-    if (fs.existsSync(summaryPath)) return summaryPath;
+    const summaryPath = resolveSummaryFileInDirectory(root);
+    if (summaryPath) return summaryPath;
   }
   return null;
 }

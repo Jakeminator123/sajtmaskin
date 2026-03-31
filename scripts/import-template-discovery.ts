@@ -15,6 +15,12 @@ import {
 
 type InputFormat = "auto" | "legacy-summary" | "playwright-catalog";
 
+function inferSourceLabel(from: string): string {
+  const normalized = from.replace(/\\/g, "/").toLowerCase();
+  if (normalized.includes("/vercel-scrape")) return "external-scrape-dataset";
+  return "legacy-external-dataset";
+}
+
 function parseArgs(): {
   from: string;
   format: InputFormat;
@@ -38,7 +44,7 @@ function parseArgs(): {
     from: fromArg ? fromArg.slice("--from=".length) : defaultSource!,
     format: (formatArg?.slice("--format=".length) as InputFormat | undefined) ?? "auto",
     outputRoot: outputArg ? outputArg.slice("--output=".length) : RAW_DISCOVERY_CURRENT_ROOT,
-    sourceLabel: labelArg?.slice("--label=".length) ?? "legacy-external-dataset",
+    sourceLabel: labelArg?.slice("--label=".length) ?? inferSourceLabel(fromArg ? fromArg.slice("--from=".length) : defaultSource!),
   };
 }
 

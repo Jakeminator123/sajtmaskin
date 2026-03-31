@@ -8,7 +8,11 @@ import { describe, expect, it } from "vitest";
 import { getScaffoldFamilies } from "@/lib/gen/scaffolds";
 import catalogJson from "./template-library.generated.json";
 import embeddingsJson from "./template-library-embeddings.json";
-import { getTemplateLibraryEntries, getTemplateLibraryEntryById } from "./catalog";
+import {
+  getTemplateLibraryCatalog,
+  getTemplateLibraryEntries,
+  getTemplateLibraryEntryById,
+} from "./catalog";
 import {
   searchTemplateLibrary,
   searchTemplateLibraryKeywordsOnly,
@@ -110,5 +114,16 @@ describe("template-library.generated.json snapshot contract", () => {
 
   it("declares curatedTemplates consistent with entries", () => {
     expect(catalogJson.curatedTemplates).toBe(catalogJson.entries?.length ?? 0);
+  });
+
+  it("runtime catalog strips machine-absolute paths", () => {
+    const runtimeCatalog = getTemplateLibraryCatalog();
+    const absolutePathRe = /^(?:[a-z]:[\\/]|\/)/i;
+
+    expect(absolutePathRe.test(runtimeCatalog.sourceRoot)).toBe(false);
+    for (const entry of runtimeCatalog.entries) {
+      if (!entry.repo.clonePath) continue;
+      expect(absolutePathRe.test(entry.repo.clonePath)).toBe(false);
+    }
   });
 });

@@ -1,7 +1,43 @@
 import rawCatalog from "./template-library.generated.json";
 import type { TemplateLibraryCatalogFile, TemplateLibraryEntry } from "./types";
 
-const catalog = rawCatalog as TemplateLibraryCatalogFile;
+const EXTERNAL_TEMPLATES_ROOT_MARKER = "/research/external-templates/";
+const DEFAULT_SOURCE_ROOT = "research/external-templates/raw-discovery/current";
+
+function sanitizeCatalogPath(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim().replace(/\\/g, "/");
+  if (!normalized) return null;
+
+  const markerIndex = normalized.toLowerCase().indexOf(EXTERNAL_TEMPLATES_ROOT_MARKER);
+  if (markerIndex >= 0) {
+    return normalized.slice(markerIndex + 1);
+  }
+
+  const isAbsolute = /^[a-z]:\//i.test(normalized) || normalized.startsWith("/");
+  if (isAbsolute) return null;
+  return normalized.replace(/^\.\//, "");
+}
+
+function sanitizeEntry(entry: TemplateLibraryEntry): TemplateLibraryEntry {
+  return {
+    ...entry,
+    repo: {
+      ...entry.repo,
+      clonePath: sanitizeCatalogPath(entry.repo.clonePath),
+    },
+  };
+}
+
+function sanitizeCatalog(catalog: TemplateLibraryCatalogFile): TemplateLibraryCatalogFile {
+  return {
+    ...catalog,
+    sourceRoot: sanitizeCatalogPath(catalog.sourceRoot) ?? DEFAULT_SOURCE_ROOT,
+    entries: (catalog.entries ?? []).map(sanitizeEntry),
+  };
+}
+
+const catalog = sanitizeCatalog(rawCatalog as TemplateLibraryCatalogFile);
 const entryById = new Map((catalog.entries ?? []).map((entry) => [entry.id, entry]));
 
 export function getTemplateLibraryCatalog(): TemplateLibraryCatalogFile {

@@ -57,6 +57,39 @@ const SOURCE_ROOT_CANDIDATES = [
   path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
   ...(LEGACY_SUMMARY_PATH ? [path.dirname(LEGACY_SUMMARY_PATH)] : []),
 ];
+const DEFAULT_PORTABLE_SOURCE_ROOT = "research/external-templates/raw-discovery/current";
+
+function toPortableWorkspacePath(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const absolute = path.resolve(trimmed);
+  const relative = path.relative(WORKSPACE_ROOT, absolute);
+  if (
+    relative &&
+    !relative.startsWith("..") &&
+    !path.isAbsolute(relative)
+  ) {
+    return relative.replace(/\\/g, "/");
+  }
+
+  return null;
+}
+
+function sanitizeSourceRootForCatalog(value: string): string {
+  return toPortableWorkspacePath(value) ?? DEFAULT_PORTABLE_SOURCE_ROOT;
+}
+
+function sanitizeEntryForCatalogOutput(entry: TemplateLibraryEntry): TemplateLibraryEntry {
+  return {
+    ...entry,
+    repo: {
+      ...entry.repo,
+      clonePath: toPortableWorkspacePath(entry.repo.clonePath),
+    },
+  };
+}
 
 const NOISE_LINE_RE =
   /\b(Vercel Agent|Vercel documentation|Deploy at the speed of AI|Ship features, not infrastructure|SDKs by Vercel)\b/i;
@@ -543,7 +576,10 @@ function resolveLinkedLegacyDatasetRoot(sourceRoot: string): string | null {
     const sourcePath = metadata.sourcePath?.trim();
     if (!sourcePath) return null;
 
-    const candidateRoot = sourcePath.endsWith(".json") ? path.dirname(sourcePath) : sourcePath;
+    const candidateRootRaw = sourcePath.endsWith(".json") ? path.dirname(sourcePath) : sourcePath;
+    const candidateRoot = path.isAbsolute(candidateRootRaw)
+      ? candidateRootRaw
+      : path.resolve(WORKSPACE_ROOT, candidateRootRaw);
     return fs.existsSync(path.join(candidateRoot, "summary.json")) ? candidateRoot : null;
   } catch {
     return null;
@@ -893,13 +929,15 @@ function main(): void {
   validateTemplateLibraryEntries(curatedEntries);
   const scaffoldResearch = buildScaffoldResearch(curatedEntries);
   validateScaffoldResearchAgainstCatalog(scaffoldResearch, curatedEntries);
+  const sanitizedEntries = entries.map(sanitizeEntryForCatalogOutput);
+  const sanitizedCuratedEntries = curatedEntries.map(sanitizeEntryForCatalogOutput);
 
   const catalog: TemplateLibraryCatalogFile = {
     generatedAt: new Date().toISOString(),
-    sourceRoot: sourceDir,
+    sourceRoot: sanitizeSourceRootForCatalog(sourceDir),
     totalTemplates: entries.length,
     curatedTemplates: curatedEntries.length,
-    entries,
+    entries: sanitizedEntries,
   };
 
   ensureDir(TEMPLATE_LIBRARY_ROOT);
@@ -909,7 +947,7 @@ function main(): void {
     sourceRoot: catalog.sourceRoot,
     totalTemplates: catalog.totalTemplates,
     curatedTemplates: catalog.curatedTemplates,
-    entries: curatedEntries,
+    entries: sanitizedCuratedEntries,
   });
   writeJson(GENERATED_SCAFFOLD_RESEARCH_PATH, scaffoldResearch);
   writeScaffoldCandidateReport(curatedEntries, {
