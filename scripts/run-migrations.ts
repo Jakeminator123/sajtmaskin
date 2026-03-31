@@ -11,7 +11,6 @@ const MIGRATIONS_DIR = join(process.cwd(), "src/lib/db/migrations");
 function resolveConnectionString(): string {
   const url =
     process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
     "";
   if (!url) throw new Error("No POSTGRES_URL configured");

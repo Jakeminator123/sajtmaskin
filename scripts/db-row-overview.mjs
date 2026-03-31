@@ -18,7 +18,6 @@ const allowInsecureSsl = process.argv.includes("--allow-insecure-ssl");
 
 const cs = normalizeEnvUrl(
   process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
     process.env.DATABASE_URL,
 );

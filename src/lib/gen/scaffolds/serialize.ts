@@ -25,6 +25,14 @@ export interface ScaffoldSerializeOptions {
   forceFullDump?: boolean;
 }
 
+const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
+  "**CRITICAL — Replace ALL placeholders before shipping.**",
+  "Bracket placeholders like `[Butiksnamn]`, `[Företagsnamn]`, `[Produktnamn]`, `[Pris]`, `[Kundens namn]`, `[Roll]`, `[Företag]` MUST be replaced with real content derived from the user's prompt.",
+  "Template tokens like `{{PRODUCT_NAME}}` MUST be replaced with the actual product/brand name from the brief.",
+  "Scaffold sample data (demo person names, `example.com` emails, generic author names like \"Alex\", placeholder stats) should be rewritten to match the user's domain.",
+  "Never leave literal brackets, curly-brace tokens, or obvious scaffold boilerplate in the final output.",
+].join(" ");
+
 const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 25_000;
 const CRITICAL_PATH_PATTERNS = [
   /^app\/layout\.tsx$/,
@@ -76,7 +84,7 @@ export function serializeScaffoldForPrompt(
       Math.min(maxChars, 10_000),
     );
 
-    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely. Replace ALL bracket placeholders (\`[Butiksnamn]\`, \`[Företagsnamn]\`, etc.) with real, prompt-specific content — never ship brackets to the user.\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Critical Structure Files (adapt these, don't ignore)\n\n${criticalBlocks}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` uses deliberately neutral gray tokens (hue 0, no color). You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks gray/neutral, you forgot to adapt the colors.${hints}`;
+    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Critical Structure Files (adapt these, don't ignore)\n\n${criticalBlocks}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` uses deliberately neutral gray tokens (hue 0, no color). You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks gray/neutral, you forgot to adapt the colors.${hints}`;
   }
 
   if (!FEATURES.useLightweightScaffoldSerialization || options.forceFullDump) {
@@ -89,7 +97,7 @@ export function serializeScaffoldForPrompt(
 
     const fileBlocks = renderScaffoldFiles(scaffold, maxChars);
 
-    return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as a flexible starting point — not a rigid template. Adapt structure, pages, and components freely to match what the user actually asked for. If the user wants two pages, create two pages even if the scaffold only has one. Rewrite scaffold placeholder copy to reflect the user's actual topic, tone, language, and visual identity. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n**CRITICAL — Replace ALL bracket placeholders** like \`[Butiksnamn]\`, \`[Företagsnamn]\`, \`[Produktnamn]\`, \`[Pris]\`, \`[Kundens namn]\`, etc. with real, prompt-specific content. Never leave brackets in output.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` contains deliberately neutral gray placeholder tokens (hue 0). You MUST replace them with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted \`@theme inline\` color tokens. Gray/neutral output means you forgot.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
+    return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as a flexible starting point — not a rigid template. Adapt structure, pages, and components freely to match what the user actually asked for. If the user wants two pages, create two pages even if the scaffold only has one. Rewrite scaffold placeholder copy to reflect the user's actual topic, tone, language, and visual identity. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` contains deliberately neutral gray placeholder tokens (hue 0). You MUST replace them with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted \`@theme inline\` color tokens. Gray/neutral output means you forgot.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
   }
 
   const contextPolicy = options.contextPolicy ?? "normal";
@@ -102,7 +110,7 @@ export function serializeScaffoldForPrompt(
   const fileTree = buildScaffoldFileTree(scaffold);
   const criticalFiles = selectCriticalScaffoldFiles(scaffold, contextPolicy);
   const usedBeforeCritical =
-    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n**CRITICAL — Replace ALL bracket placeholders** like \`[Butiksnamn]\`, \`[Företagsnamn]\`, \`[Produktnamn]\`, \`[Pris]\`, \`[Kundens namn]\` with real, prompt-specific content. Never leave brackets in output.\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n`;
+    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n`;
   const criticalBudget = Math.max(3_000, maxChars - usedBeforeCritical.length - hints.length);
   const criticalBlocks = renderSelectedScaffoldFiles(criticalFiles, criticalBudget);
 

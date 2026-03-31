@@ -57,7 +57,7 @@ export async function GET() {
       required: true,
       requiredEnv: [...DB_ENV_VARS],
       affects:
-        "Chattar, versioner, projekt — själva Sajtmaskin-databasen. Supabase funkar om anslutningssträngen ligger i POSTGRES_URL (eller POSTGRES_PRISMA_URL). Det är inte samma sak som slutanvändarens Supabase i en genererad sajt.",
+        "Chattar, versioner, projekt — själva Sajtmaskin-databasen. Supabase funkar om anslutningssträngen ligger i POSTGRES_URL. Det är inte samma sak som slutanvändarens Supabase i en genererad sajt.",
       notes: postgres.notes,
       layer: "platform",
     },

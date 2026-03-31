@@ -105,6 +105,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         );
       }
 
+      if (
+        !parsed.data.forceRestart &&
+        typeof versionRow.sandbox_url === "string" &&
+        versionRow.sandbox_url.trim()
+      ) {
+        return NextResponse.json({
+          ok: true,
+          sandboxUrl: versionRow.sandbox_url.trim(),
+          sandboxId: null,
+          sandboxPreviewMode: null,
+          fidelityTier: 2,
+          prodBuildVerified: false,
+          startOutcome: "reused_url",
+        });
+      }
+
       let files = (await getVersionFiles(versionRow.id)) ?? [];
       if (files.length === 0 && versionRow.files_json?.trim()) {
         const fromJson = parseCodeFilesFromFilesJson(versionRow.files_json);

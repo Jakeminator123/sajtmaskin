@@ -1,6 +1,5 @@
 export const DB_ENV_VARS = [
   "POSTGRES_URL",
-  "POSTGRES_PRISMA_URL",
   "POSTGRES_URL_NON_POOLING",
 ] as const;
 

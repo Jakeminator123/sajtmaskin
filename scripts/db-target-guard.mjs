@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from "fs";
 
 const CONNECTION_KEYS = [
   "POSTGRES_URL",
-  "POSTGRES_PRISMA_URL",
   "POSTGRES_URL_NON_POOLING",
   "DATABASE_URL",
 ];
@@ -80,7 +79,7 @@ export function inspectExplicitDbTargets(currentUrl, productionUrl) {
 
 export function inspectDbTarget(env = process.env) {
   return inspectExplicitDbTargets(
-    env.POSTGRES_URL || env.POSTGRES_PRISMA_URL || env.POSTGRES_URL_NON_POOLING || env.DATABASE_URL,
+    env.POSTGRES_URL || env.POSTGRES_URL_NON_POOLING || env.DATABASE_URL,
     readConnectionStringFromEnvFile(".env.vercel.production.pulled"),
   );
 }

@@ -87,12 +87,16 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
   const onSandboxSessionMeta = useCallback(
     (meta: { sandboxId: string; versionId: string | null } | null) => {
       if (!meta?.sandboxId?.trim() || !meta.versionId?.trim()) return;
+      const vid = meta.versionId.trim();
       setActiveSandboxMeta({
         sandboxId: meta.sandboxId.trim(),
-        versionId: meta.versionId.trim(),
+        versionId: vid,
       });
+      if (chatId && vid) {
+        sandboxBootstrapDoneKeysRef.current.add(`${chatId}:${vid}`);
+      }
     },
-    [],
+    [chatId],
   );
 
   const clearSandboxBuildError = useCallback(() => {
@@ -167,6 +171,15 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
     const key = `${chatId}:${activeVersionId}`;
     const isForcedRestart = forcedSandboxRestartKey === key;
     if (sandboxBootstrapDoneKeysRef.current.has(key) && !isForcedRestart) return;
+
+    if (
+      !isForcedRestart &&
+      activeSandboxMeta?.versionId === activeVersionId &&
+      activeSandboxMeta.sandboxId
+    ) {
+      sandboxBootstrapDoneKeysRef.current.add(key);
+      return;
+    }
 
     const activeMatch = effectiveVersionsList.find(
       (v) => (v.versionId || v.id) === activeVersionId,
@@ -327,6 +340,7 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
     isAuthenticated,
     chatId,
     activeVersionId,
+    activeSandboxMeta,
     effectiveVersionsList,
     chat,
     isAnyStreamingEarly,

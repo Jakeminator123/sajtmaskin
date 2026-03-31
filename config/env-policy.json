@@ -11,7 +11,6 @@
     "GOOGLE_REDIRECT_URI",
     "GITHUB_REDIRECT_URI",
     "DATA_DIR",
-    "POSTGRES_PRISMA_URL",
     "POSTGRES_URL_NON_POOLING",
     "REGISTRY_BASE_URL",
     "REGISTRY_AUTH_TOKEN",
@@ -217,12 +216,6 @@
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Primary database connection for the app."
-    },
-    {
-      "key": "POSTGRES_PRISMA_URL",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Alternate pooled database URL."
     },
     {
       "key": "POSTGRES_URL_NON_POOLING",

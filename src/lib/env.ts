@@ -23,7 +23,6 @@ export const serverSchema = z.object({
 
   // Database
   POSTGRES_URL: z.string().optional(),
-  POSTGRES_PRISMA_URL: z.string().optional(),
   POSTGRES_URL_NON_POOLING: z.string().optional(),
 
   // Redis

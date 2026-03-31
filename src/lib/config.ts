@@ -413,7 +413,6 @@ export const FEATURES = {
 function resolveDbLogLabel(): string {
   const dbEnvCandidates = [
     "POSTGRES_URL",
-    "POSTGRES_PRISMA_URL",
     "POSTGRES_URL_NON_POOLING",
   ] as const;
   for (const key of dbEnvCandidates) {
