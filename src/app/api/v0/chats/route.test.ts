@@ -10,6 +10,8 @@ const finalizeAndSaveVersion = vi.hoisted(() => vi.fn());
 const prepareGenerationContext = vi.hoisted(() => vi.fn());
 const streamText = vi.hoisted(() => vi.fn());
 const getOpenAIModel = vi.hoisted(() => vi.fn());
+const isServerVerifyEligible = vi.hoisted(() => vi.fn());
+const triggerServerVerification = vi.hoisted(() => vi.fn());
 
 vi.mock("ai", () => ({
   streamText,
@@ -58,6 +60,11 @@ vi.mock("@/lib/gen/orchestrate", () => ({
 
 vi.mock("@/lib/gen/models", () => ({
   getOpenAIModel,
+}));
+
+vi.mock("@/lib/gen/server-verify", () => ({
+  isServerVerifyEligible,
+  triggerServerVerification,
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -163,6 +170,8 @@ describe("POST /api/v0/chats", () => {
     prepareGenerationContext.mockReset();
     streamText.mockReset();
     getOpenAIModel.mockReset();
+    isServerVerifyEligible.mockReset();
+    triggerServerVerification.mockReset();
 
     createChatSchemaSafeParse.mockReturnValue({
       success: true,
@@ -238,6 +247,8 @@ describe("POST /api/v0/chats", () => {
       text: Promise.resolve('```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```'),
       usage: Promise.resolve({ inputTokens: 12, outputTokens: 34 }),
     });
+    isServerVerifyEligible.mockReturnValue(true);
+    triggerServerVerification.mockResolvedValue(undefined);
   });
 
   it("returns sync own-engine preflight metadata from finalizeAndSaveVersion", async () => {
@@ -310,6 +321,11 @@ describe("POST /api/v0/chats", () => {
         }),
       }),
     );
+    expect(isServerVerifyEligible).toHaveBeenCalledWith("ver_1");
+    expect(triggerServerVerification).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "ver_1",
+    });
     expect(commitCredits).toHaveBeenCalled();
   });
 });

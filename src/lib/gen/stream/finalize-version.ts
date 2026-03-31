@@ -97,6 +97,21 @@ interface FinalizePathPolicy {
   reason: "default" | "deep_path_disabled" | "repair_pass" | "light_followup_fast_policy";
 }
 
+type FinalizeSyntaxResult = Awaited<ReturnType<typeof validateAndFix>>;
+type FinalizePreflightResult = Awaited<ReturnType<typeof runFinalizePreflight>>;
+
+interface FinalizeFastPathResult {
+  contentForVersion: string;
+  syntaxResult: FinalizeSyntaxResult;
+  filesJson: string;
+  preflightResult: FinalizePreflightResult;
+  preflightIssues: FinalizePreflightIssue[];
+  preflightFileCount: number;
+  previewBlockingReason: string | null;
+  finalizedFilesForPreview: CodeFile[];
+  scaffoldRetry: ScaffoldRetrySuggestion | null;
+}
+
 export class EmptyGenerationError extends Error {
   readonly chatId: string;
   readonly scaffoldId: string | null;
@@ -129,6 +144,240 @@ function resolveFinalizePathPolicy(params: {
     return { runDeepPath: false, reason: "light_followup_fast_policy" };
   }
   return { runDeepPath: true, reason: "default" };
+}
+
+function ensureNonEmptyGenerationContent(params: {
+  contentForVersion: string;
+  chatId: string;
+  resolvedScaffold: ScaffoldManifest | null;
+  previousFiles?: CodeFile[];
+  stage: "before_validation" | "after_validation";
+}): void {
+  const { contentForVersion, chatId, resolvedScaffold, previousFiles, stage } = params;
+  if (contentForVersion.trim()) return;
+  warnLog(
+    "engine",
+    stage === "before_validation"
+      ? "Skipping empty generation output"
+      : "Skipping empty generation output after validation",
+    {
+      chatId,
+      scaffold: resolvedScaffold?.id ?? null,
+      hadPreviousFiles: Boolean(previousFiles && previousFiles.length > 0),
+    },
+  );
+  throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
+}
+
+async function runFinalizeDeepPath(params: {
+  chatId: string;
+  model: string;
+  repairPassIndex: number;
+  onProgress?: FinalizeProgressCallback;
+  contentForVersion: string;
+  finalizePath: FinalizePathPolicy;
+}): Promise<string> {
+  const {
+    chatId,
+    model,
+    repairPassIndex,
+    onProgress,
+    finalizePath,
+  } = params;
+  let contentForVersion = params.contentForVersion;
+
+  if (finalizePath.runDeepPath) {
+    onProgress?.("materialize_images", { phase: "start" });
+    try {
+      const imgResult = await materializeImages(contentForVersion);
+      // Always refresh so validators never reuse URLs from a previous generation (review: staleness).
+      _lastMaterializedUrls = imgResult.resolvedUrls;
+      if (imgResult.replacedCount > 0) {
+        contentForVersion = imgResult.content;
+        devLogAppend("in-progress", {
+          type: "image-materialization",
+          chatId,
+          replacedCount: imgResult.replacedCount,
+          queries: imgResult.queries.slice(0, 10),
+        });
+      }
+      onProgress?.("materialize_images", {
+        phase: "done",
+        replacedCount: imgResult.replacedCount,
+      });
+    } catch (imgErr) {
+      _lastMaterializedUrls = new Set();
+      console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
+      onProgress?.("materialize_images", { phase: "error" });
+    }
+  } else {
+    _lastMaterializedUrls = new Set();
+    onProgress?.("materialize_images", { phase: "skipped", reason: finalizePath.reason });
+  }
+
+  if (finalizePath.runDeepPath && isPolishPassEnabled() && repairPassIndex === 0) {
+    onProgress?.("polish", { phase: "start" });
+    try {
+      const polishResult = await runPolishPass(contentForVersion, { model });
+      if (polishResult.applied) {
+        contentForVersion = polishResult.polishedContent;
+        devLogAppend("in-progress", {
+          type: "polish-pass",
+          chatId,
+          filesChanged: polishResult.filesChanged,
+          applied: true,
+        });
+      }
+      onProgress?.("polish", {
+        phase: "done",
+        applied: polishResult.applied,
+        filesChanged: polishResult.filesChanged,
+      });
+    } catch (polishErr) {
+      console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
+      onProgress?.("polish", { phase: "error" });
+    }
+  } else if (!finalizePath.runDeepPath) {
+    onProgress?.("polish", { phase: "skipped", reason: finalizePath.reason });
+  }
+
+  return contentForVersion;
+}
+
+async function runFinalizeFastPath(params: {
+  chatId: string;
+  model: string;
+  resolvedTier?: CanonicalModelId;
+  originalPrompt?: string;
+  buildIntent?: BuildIntent;
+  resolvedScaffold: ScaffoldManifest | null;
+  routePlan?: RoutePlan | null;
+  previousFiles?: CodeFile[];
+  onProgress?: FinalizeProgressCallback;
+  contentForVersion: string;
+}): Promise<FinalizeFastPathResult> {
+  const {
+    chatId,
+    model,
+    resolvedTier,
+    originalPrompt,
+    buildIntent,
+    resolvedScaffold,
+    routePlan,
+    previousFiles,
+    onProgress,
+  } = params;
+  let contentForVersion = params.contentForVersion;
+
+  ensureNonEmptyGenerationContent({
+    contentForVersion,
+    chatId,
+    resolvedScaffold,
+    previousFiles,
+    stage: "before_validation",
+  });
+
+  onProgress?.("validate_syntax", { phase: "start" });
+  const syntaxResult = await validateAndFix(contentForVersion, {
+    chatId,
+    model,
+    resolvedTier,
+    onProgress: (evt) => {
+      onProgress?.("validate_syntax", {
+        pass: evt.pass,
+        phase: evt.phase,
+        errorCount: evt.errorCount,
+      });
+    },
+  });
+  contentForVersion = syntaxResult.content;
+
+  if (syntaxResult.fixerUsed || syntaxResult.status !== "passed") {
+    devLogAppend("in-progress", {
+      type: "syntax-validation.result",
+      chatId,
+      fixerImproved: syntaxResult.fixerImproved,
+      errorsBefore: syntaxResult.errorsBefore,
+      errorsAfter: syntaxResult.errorsAfter,
+      status: syntaxResult.status,
+      pipelineError: syntaxResult.pipelineError,
+    });
+  }
+
+  ensureNonEmptyGenerationContent({
+    contentForVersion,
+    chatId,
+    resolvedScaffold,
+    previousFiles,
+    stage: "after_validation",
+  });
+
+  onProgress?.("parse_merge_preflight", { phase: "start" });
+
+  let filesJson = parseFilesFromContent(contentForVersion);
+  const generatedFiles = (
+    JSON.parse(filesJson) as Array<{
+      path: string;
+      content: string;
+      language?: string;
+    }>
+  ).map((f) => ({ ...f, language: f.language || "tsx" }));
+
+  filesJson = mergeGeneratedProjectFiles({
+    chatId,
+    originalFilesJson: filesJson,
+    generatedFiles,
+    resolvedScaffold,
+    previousFiles,
+  });
+
+  const preflightResult = await runFinalizePreflight({
+    chatId,
+    model,
+    filesJson,
+    routePlan,
+  });
+  filesJson = preflightResult.filesJson;
+  filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
+  const finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
+  const preflightFileCount = preflightResult.preflightFileCount;
+  const preflightIssues = preflightResult.preflightIssues;
+  const previewBlockingReason = preflightResult.previewBlockingReason;
+
+  let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
+  if (resolvedScaffold && originalPrompt && buildIntent) {
+    scaffoldRetry = await inferScaffoldRetrySuggestion({
+      prompt: originalPrompt,
+      buildIntent,
+      resolvedScaffold,
+      preflightIssues,
+      previewBlockingReason,
+      finalizedFilesForPreview,
+    });
+    if (scaffoldRetry) {
+      devLogAppend("in-progress", {
+        type: "scaffold-retry.suggested",
+        chatId,
+        currentScaffoldId: scaffoldRetry.currentScaffoldId,
+        suggestedScaffoldId: scaffoldRetry.suggestedScaffoldId,
+        failureType: scaffoldRetry.failureType,
+        source: scaffoldRetry.source,
+        confidence: scaffoldRetry.confidence,
+      });
+    }
+  }
+
+  return {
+    contentForVersion,
+    syntaxResult,
+    filesJson,
+    preflightResult,
+    preflightIssues,
+    preflightFileCount,
+    previewBlockingReason,
+    finalizedFilesForPreview,
+    scaffoldRetry,
+  };
 }
 
 /**
@@ -167,11 +416,6 @@ export async function finalizeAndSaveVersion(
   } = params;
 
   let contentForVersion = accumulatedContent;
-  let preflightIssues: FinalizePreflightIssue[] = [];
-  let preflightFileCount = 0;
-  let previewBlockingReason: string | null = null;
-  let finalizedFilesForPreview: CodeFile[] = [];
-  let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
   const finalizePath = resolveFinalizePathPolicy({ buildSpec, repairPassIndex });
 
   devLogAppend("in-progress", {
@@ -218,160 +462,38 @@ export async function finalizeAndSaveVersion(
   contentForVersion = expandUrls(contentForVersion, urlMap);
   onProgress?.("url_expand", { phase: "done" });
 
-  // 3. Deep path — image materialization and polish are skipped for light follow-up edits.
-  if (finalizePath.runDeepPath) {
-    onProgress?.("materialize_images", { phase: "start" });
-    try {
-      const imgResult = await materializeImages(contentForVersion);
-      // Always refresh so validators never reuse URLs from a previous generation (review: staleness).
-      _lastMaterializedUrls = imgResult.resolvedUrls;
-      if (imgResult.replacedCount > 0) {
-        contentForVersion = imgResult.content;
-        devLogAppend("in-progress", {
-          type: "image-materialization",
-          chatId,
-          replacedCount: imgResult.replacedCount,
-          queries: imgResult.queries.slice(0, 10),
-        });
-      }
-      onProgress?.("materialize_images", {
-        phase: "done",
-        replacedCount: imgResult.replacedCount,
-      });
-    } catch (imgErr) {
-      _lastMaterializedUrls = new Set();
-      console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
-      onProgress?.("materialize_images", { phase: "error" });
-    }
-  } else {
-    _lastMaterializedUrls = new Set();
-    onProgress?.("materialize_images", { phase: "skipped", reason: finalizePath.reason });
-  }
+  contentForVersion = await runFinalizeDeepPath({
+    chatId,
+    model,
+    repairPassIndex,
+    onProgress,
+    contentForVersion,
+    finalizePath,
+  });
 
-  if (!contentForVersion.trim()) {
-    warnLog("engine", "Skipping empty generation output", {
-      chatId,
-      scaffold: resolvedScaffold?.id ?? null,
-      hadPreviousFiles: Boolean(previousFiles && previousFiles.length > 0),
-    });
-    throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
-  }
-
-  // 4. Polish pass — deep path only; runs before syntax validation so esbuild + fix rounds cover post-polish code
-  if (finalizePath.runDeepPath && isPolishPassEnabled() && repairPassIndex === 0) {
-    onProgress?.("polish", { phase: "start" });
-    try {
-      const polishResult = await runPolishPass(contentForVersion, { model });
-      if (polishResult.applied) {
-        contentForVersion = polishResult.polishedContent;
-        devLogAppend("in-progress", {
-          type: "polish-pass",
-          chatId,
-          filesChanged: polishResult.filesChanged,
-          applied: true,
-        });
-      }
-      onProgress?.("polish", { phase: "done", applied: polishResult.applied, filesChanged: polishResult.filesChanged });
-    } catch (polishErr) {
-      console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
-      onProgress?.("polish", { phase: "error" });
-    }
-  } else if (!finalizePath.runDeepPath) {
-    onProgress?.("polish", { phase: "skipped", reason: finalizePath.reason });
-  }
-
-  // 5. Syntax validation + multi-pass fix
-  onProgress?.("validate_syntax", { phase: "start" });
-  const syntaxResult = await validateAndFix(contentForVersion, {
+  const {
+    contentForVersion: fastPathContent,
+    syntaxResult,
+    filesJson,
+    preflightResult,
+    preflightIssues,
+    preflightFileCount,
+    previewBlockingReason,
+    finalizedFilesForPreview,
+    scaffoldRetry,
+  } = await runFinalizeFastPath({
     chatId,
     model,
     resolvedTier,
-    onProgress: (evt) => {
-      onProgress?.("validate_syntax", {
-        pass: evt.pass,
-        phase: evt.phase,
-        errorCount: evt.errorCount,
-      });
-    },
-  });
-  contentForVersion = syntaxResult.content;
-
-  if (syntaxResult.fixerUsed || syntaxResult.status !== "passed") {
-    devLogAppend("in-progress", {
-      type: "syntax-validation.result",
-      chatId,
-      fixerImproved: syntaxResult.fixerImproved,
-      errorsBefore: syntaxResult.errorsBefore,
-      errorsAfter: syntaxResult.errorsAfter,
-      status: syntaxResult.status,
-      pipelineError: syntaxResult.pipelineError,
-    });
-  }
-
-  if (!contentForVersion.trim()) {
-    warnLog("engine", "Skipping empty generation output after validation", {
-      chatId,
-      scaffold: resolvedScaffold?.id ?? null,
-      hadPreviousFiles: Boolean(previousFiles && previousFiles.length > 0),
-    });
-    throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
-  }
-
-  onProgress?.("parse_merge_preflight", { phase: "start" });
-
-  // 4. Parse files + merge (scaffold-based for first gen, previousFiles-based for follow-up)
-  let filesJson = parseFilesFromContent(contentForVersion);
-
-  const generatedFiles = (
-    JSON.parse(filesJson) as Array<{
-      path: string;
-      content: string;
-      language?: string;
-    }>
-  ).map((f) => ({ ...f, language: f.language || "tsx" }));
-
-  filesJson = mergeGeneratedProjectFiles({
-    chatId,
-    originalFilesJson: filesJson,
-    generatedFiles,
+    originalPrompt,
+    buildIntent,
     resolvedScaffold,
-    previousFiles,
-  });
-
-  const preflightResult = await runFinalizePreflight({
-    chatId,
-    model,
-    filesJson,
     routePlan,
+    previousFiles,
+    onProgress,
+    contentForVersion,
   });
-  filesJson = preflightResult.filesJson;
-  filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
-  finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
-  preflightFileCount = preflightResult.preflightFileCount;
-  preflightIssues = preflightResult.preflightIssues;
-  previewBlockingReason = preflightResult.previewBlockingReason;
-
-  if (resolvedScaffold && originalPrompt && buildIntent) {
-    scaffoldRetry = await inferScaffoldRetrySuggestion({
-      prompt: originalPrompt,
-      buildIntent,
-      resolvedScaffold,
-      preflightIssues,
-      previewBlockingReason,
-      finalizedFilesForPreview,
-    });
-    if (scaffoldRetry) {
-      devLogAppend("in-progress", {
-        type: "scaffold-retry.suggested",
-        chatId,
-        currentScaffoldId: scaffoldRetry.currentScaffoldId,
-        suggestedScaffoldId: scaffoldRetry.suggestedScaffoldId,
-        failureType: scaffoldRetry.failureType,
-        source: scaffoldRetry.source,
-        confidence: scaffoldRetry.confidence,
-      });
-    }
-  }
+  contentForVersion = fastPathContent;
 
   // 5–6. Persist assistant + draft version atomically after merge/preflight.
   const { message: assistantMsg, version: initialVersion } =

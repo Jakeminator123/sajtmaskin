@@ -24,6 +24,7 @@ import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
+import { isServerVerifyEligible, triggerServerVerification } from "@/lib/gen/server-verify";
 import { streamText } from "ai";
 import { getOpenAIModel } from "@/lib/gen/models";
 import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
@@ -321,6 +322,20 @@ export async function POST(req: Request) {
             await creditCheck.commit();
           } catch (error) {
             console.error("[credits] Failed to charge prompt:", error);
+          }
+
+          const shouldBackgroundVerify =
+            ownOrchestration.buildSpec.verificationPolicy !== "fast" &&
+            isServerVerifyEligible(latestVersion.id) &&
+            !finalized.preflight.previewBlocked &&
+            !finalized.preflight.verificationBlocked;
+          if (shouldBackgroundVerify) {
+            triggerServerVerification({
+              chatId: chat.id,
+              versionId: latestVersion.id,
+            }).catch((error) => {
+              console.warn("[sync-create] Background server verification failed:", error);
+            });
           }
 
           devLogAppend("latest", {

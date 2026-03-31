@@ -20,6 +20,19 @@ export type PostFinalizeSse = {
   safeEnqueue: (data: Uint8Array) => void;
 };
 
+export function shouldTriggerPostFinalizeServerVerify(params: {
+  buildSpec: BuildSpec;
+  finalized: FinalizeResult;
+}): boolean {
+  const { buildSpec, finalized } = params;
+  if (buildSpec.verificationPolicy === "fast") return false;
+  return (
+    isServerVerifyEligible(finalized.version.id) &&
+    !finalized.preflight.previewBlocked &&
+    !finalized.preflight.verificationBlocked
+  );
+}
+
 /**
  * After `finalizeAndSaveVersion`: integration hints, `done` SSE, credits, sandbox boot,
  * background server verification. Keeps `generation-stream.ts` readable.
@@ -202,11 +215,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     }
   }
 
-  if (
-    isServerVerifyEligible(finalized.version.id) &&
-    !finalized.preflight.previewBlocked &&
-    !finalized.preflight.verificationBlocked
-  ) {
+  if (shouldTriggerPostFinalizeServerVerify({ buildSpec, finalized })) {
     triggerServerVerification({
       chatId,
       versionId: finalized.version.id,
