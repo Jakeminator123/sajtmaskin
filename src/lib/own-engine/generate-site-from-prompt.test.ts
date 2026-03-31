@@ -220,6 +220,13 @@ describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {
     expect(telemetryArg.meta).toBeDefined();
     expect(telemetryArg.meta.buildSpec).toBeDefined();
     expect(telemetryArg.meta.buildSpec.previewPolicy).toBe("fidelity2");
+
+    const filePaths = result.files.map((f) => f.path);
+    expect(filePaths).toContain("app/page.tsx");
+    expect(filePaths).toContain("app/globals.css");
+    expect(filePaths).toContain("app/layout.tsx");
+    expect(result.files.some((f) => f.path.includes("site-header"))).toBe(true);
+    expect(result.files.some((f) => f.path.includes("site-footer"))).toBe(true);
   }, 30_000);
 
   it("generates a site for 'Build a SaaS landing page with pricing'", async () => {
