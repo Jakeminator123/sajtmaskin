@@ -34,9 +34,17 @@ Historiska planhandoff finns i **git-historik** (`docs/plans/avklarat/`, äldre 
 
 **Worktree:** `git fetch` + `git pull` innan du jämför med `origin/master`.
 
-## Flera agenter / säker merge till `master`
+## Flera agenter / håll arbetslinjen ren
 
-För att slå ihop parallellt arbete utan att blanda staging: skapa en **tillfällig branch** (t.ex. `chore/…`), `git restore --staged .` om index är blandat, **separata commits** (docs vs tooling vs kod — inte `git add .` i en klump), `npm run typecheck` + riktade tester, sedan `git merge --no-ff` in i `master` och `git push origin master`. När allt ligger på `master`: ta bort den tillfälliga branchen lokalt (`git branch -d …`) och på origin (`git push origin --delete …`) så historiken förblir enkel. Vilka doc-filer som rörts i en större städvåg kan spåras i den arkiverade [`POST-EPIC-CLEANUP.md`](../plans/avklarat/POST-EPIC-CLEANUP.md) § *Dokumentation som berörts*.
+När flera agenter delar samma repo är den största risken ofta **arbetsyta och staging**, inte själva Git-mergen.
+
+- **Standard:** jobba i huvudcheckouten på `master` med **en git-root per fönster**.
+- **Isolering vid behov:** skapa en **tillfällig branch eller worktree** bara när du faktiskt behöver en separat yta för större eller känsligare ändringar.
+- **Separera commits:** håll docs, tooling och kod i egna commits; undvik `git add .` när flera spår blandas.
+- **Verifiera före push:** `git fetch`, synka mot fjärr enligt teamets vana, kör `npm run typecheck` och `npx vitest run` (plus riktade tester vid behov).
+- **Städa efter merge:** när ett sidospår är uppätet av `master`, ta bort tillfällig branch/worktree så Cursor inte fortsätter visa gamla arbetslinjer.
+
+Vilka doc-filer som rörts i en större städvåg kan spåras i den arkiverade [`POST-EPIC-CLEANUP.md`](../plans/avklarat/POST-EPIC-CLEANUP.md) § *Dokumentation som berörts*.
 
 ## Verifiering före större merge
 

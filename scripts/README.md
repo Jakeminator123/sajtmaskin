@@ -13,7 +13,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
   - **Icke-kanon:** lokal **`vercel_templates_levels/`** (gitignored); använd **inte** som källa för “hur många kategorier” produkten har. Spårat alternativ: **`e2e/vercel-templates/`**.
   - Se [`repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
   - Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
-- **Vercel template-katalog (Python, repo root):** `vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan).
+- **Vercel template-katalog (Python, `scripts/manual/`):** `scripts/manual/vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan). Root-wrappern `vercel_template_cli.py` finns kvar för bakåtkompatibilitet.
 
 ## Arkiverat labb (`archive/scripts-labs-testning_scarf/`)
 

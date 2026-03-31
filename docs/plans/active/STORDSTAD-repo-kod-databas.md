@@ -193,6 +193,10 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (z) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: ny § Handoff *Cursor: var du arbetar*; startrad + `AGENTS.md` + `.cursor/README.md` pekar på en-root-praxis; rot `stordstad-only.code-workspace` (en folder) för tydlig etikett. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (aa) | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: branch-handoff — planen utgår fortfarande från separat STORDSTAD-worktree trots att `llm-pipeline-upgrade` och `stordstad-master-resume` nu ska samlas på `master`. |
 | **Efter** pass 2026-03-31 (aa) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: Handoff säger nu att `master` i huvudcheckouten är gemensam linje; förväntade framtida edit-zoner och källdokument är utskrivna för nästa agent. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (ab) | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: docs-nav efter branch/worktree-rensning — kvarvarande agent-/workspace-texter pekar delvis fortfarande på bortstädade worktree-exempel eller extra README-hopp. |
+| **Efter** pass 2026-03-31 (ab) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `.cursor/README.md` använder nu `master` i huvudcheckouten som standard i stället för borttagen STORDSTAD-worktree; `docs/README.md` länkar direkt till `contributing/agent-workflows.md`; `agent-workflows.md` beskriver delad `master` + tillfällig isolering utan gammal merge-rutin-text. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (ac) | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: env-/wrapper-nav — docs blandar fortfarande root-wrapperfiler med kanoniska script-entrypoints, särskilt för `manage_env.py` och `vercel_template_cli.py`. |
+| **Efter** pass 2026-03-31 (ac) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `docs/ENV.md`, `repo-tree.md`, `repository-and-platform.md` och `scripts/README.md` pekar nu ut `scripts/env/*` och `scripts/manual/*` som kanoniska entrypoints; root-wrapperfilerna beskrivs uttryckligen som bakåtkompatibilitet. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
 
 ---
 
@@ -200,7 +204,7 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 
 ### Gemensam baslinje efter merge till `master` (2026-03-31)
 
-`llm-pipeline-upgrade` och `stordstad-master-resume` är nu mergade till `master`. Tills nytt beslut tas är **`master` i huvudcheckouten `...\sajtmaskin`** den gemensamma arbetslinjen och den branch som ska pushas till `origin/master`. Äldre worktrees eller tillfälliga brancher kan finnas kvar lokalt en stund, men de är inte längre kanoniskt arbetsläge.
+Tidigare sidospår för LLM-pipeline och STORDSTAD-städ är nu mergade till `master`. Tills nytt beslut tas är **`master` i huvudcheckouten `...\sajtmaskin`** den gemensamma arbetslinjen och den branch som ska pushas till `origin/master`. Tillfälliga worktrees eller brancher är bara isoleringsytor och bör tas bort när de inte längre bär unikt arbete.
 
 - **Utgå från detta dokument:** `docs/plans/active/STORDSTAD-repo-kod-databas.md` för städspår A; komplettera med `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` när frågan gäller own-engine/generation snarare än repo-städ.
 - **Förväntade ändringszoner från denna agent framåt:** `docs/plans/active/`, `AGENTS.md`, `.cursor/README.md`, `src/lib/hooks/chat/` och smala import-/env-städpass i `src/lib/` såsom `env*` och `config.ts`.
@@ -208,7 +212,7 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 
 ### Cursor: var du arbetar (en git-root åt gången)
 
-Om statusraden visar **två** projektnamn (t.ex. `sajtmaskin-stordstad-master` och `sajtmaskin`) har du ett **multi-root workspace** i Cursor/VS Code. Varje rot är en **egen** mapp med **egen** `.git` (eller worktree) och kan ligga på **olika branch** — det är inte att Git är inkonsistent, men det blir lätt fel jämförelse mot “den andra agenten” som jobbar i huvudklonen.
+Om statusraden visar **två** projektnamn (t.ex. huvudcheckouten och en separat worktree) har du ett **multi-root workspace** i Cursor/VS Code. Varje rot är en **egen** mapp med **egen** `.git` (eller worktree) och kan ligga på **olika branch** — det är inte att Git är inkonsistent, men det blir lätt fel jämförelse mot “den andra agenten” som jobbar i huvudklonen.
 
 - **Standard nu:** arbeta i huvudcheckouten `…\sajtmaskin` på `master`. Öppna **bara den mappen** (*File → Open Folder*) eller repoets vanliga workspace-fil om du använder sådan.
 - **Separat worktree bara vid behov:** om du uttryckligen skapar ett nytt worktree för isolering, håll det i **eget** Cursor-fönster och blanda det inte med huvudklonen i samma multi-root workspace.
@@ -249,7 +253,7 @@ Du fortsätter storstädningsspår A i Sajtmaskin enligt docs/plans/active/STORD
 
 Kontext: Fas A baseline och delar av Fas B/C är påbörjade; pass-loggen visar senaste läget. `file-logger.ts`, `local-engine.ts` och SAJTMASKIN_LOG är medvetet kvar som latent infra — radera dem inte utan explicit beslut. Publika API/SSE-svar använder `previewUrl`; `demoUrl` finns kvar som legacy i inbound payloads, vissa interna typer och DB-namn. Gör ingen blanket-rename av detta i städspåret.
 
-Utgångsläge: `llm-pipeline-upgrade` och `stordstad-master-resume` är mergade till `master`. Standard nu = arbeta i huvudcheckouten på `master` och hålla **en** git-root öppen. Skapa nytt worktree bara om du uttryckligen behöver isolering, och håll det då i eget fönster.
+Utgångsläge: tidigare sidospår är mergade till `master`. Standard nu = arbeta i huvudcheckouten på `master` och hålla **en** git-root öppen. Skapa nytt worktree bara om du uttryckligen behöver isolering, och håll det då i eget fönster.
 
 Förväntade ändringszoner från denna agent framåt: `docs/plans/active/`, `AGENTS.md`, `.cursor/README.md`, `src/lib/hooks/chat/` och smala import-/env-städpass i `src/lib/` (`env*`, `config.ts`). Undvik `src/lib/gen/scaffolds/*`, bred preview/deploy/builder och DB-zoner utan separat scope.
 
@@ -331,7 +335,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass aa)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ac)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)

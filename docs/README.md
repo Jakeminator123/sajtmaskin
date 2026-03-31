@@ -109,7 +109,7 @@ Not runtime dependencies:
 | Backlog & beslut (kanonisk) | [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
 | Storstädning (kod, docs, DB-fas, %-spårning i planen) | [`STORDSTAD-repo-kod-databas.md`](plans/active/STORDSTAD-repo-kod-databas.md) |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
-| Agent workflows (deep brief, runtime vs MCP) | [`docs/contributing/README.md`](contributing/README.md) |
+| Agent workflows (deep brief, runtime vs MCP, fler agenter) | [`docs/contributing/agent-workflows.md`](contributing/agent-workflows.md) |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Terminology (folders + research flow) | [`repository-and-platform.md`](architecture/repository-and-platform.md) |
 | Vercel Templates discovery + Playwright + scaffolds | [`research/external-templates/README.md`](../research/external-templates/README.md), [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md) |

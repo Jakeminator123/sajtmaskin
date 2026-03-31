@@ -8,7 +8,7 @@
 |--------|------|
 | [`src/lib/env.ts`](../src/lib/env.ts) | Alla namn som appen faktiskt läser (Zod `serverSchema`). |
 | [`config/env-policy.json`](../config/env-policy.json) | Klassificering per nyckel (`shared_runtime`, `optional_runtime`, `vercel_managed`, …), rekommenderade Vercel-miljöer, `knownEmptyOk`, m.m. |
-| [`manage_env.py`](../manage_env.py) (wrapper → `scripts/env/manage_env.py`) | Audit / status / sync mot lokala filer och Vercel (CLI). |
+| [`scripts/env/manage_env.py`](../scripts/env/manage_env.py) | Kanonisk env-CLI för audit / status / sync mot lokala filer och Vercel. Root-wrappern [`manage_env.py`](../manage_env.py) finns kvar för bakåtkompatibilitet. |
 
 **Djupare ämnesdokument** (lägg inte in backlog eller långa tabeller här):
 
@@ -64,7 +64,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 1. Lägg till i [`src/lib/env.ts`](../src/lib/env.ts) (`serverSchema`).
 2. Uppdatera [`config/env-policy.json`](../config/env-policy.json) (regel + ev. `extraKnownKeys` / targets).
 3. Sätt värde i `.env.local` och i Vercel.
-4. Kör `python manage_env.py audit` (eller `--strict` enligt er vana).
+4. Kör `python scripts/env/manage_env.py audit` (eller `--strict` enligt er vana). Root-wrappern `python manage_env.py audit` fungerar fortfarande om någon gammal rutin använder den.
 
 ---
 

@@ -23,7 +23,7 @@
 | `isolated_tests/` | Vitest-integrationstester som kräver isolation från `src/`-trädets tsconfig. |
 | `.cursor/` | Cursor-regler, skills, README — [`.cursor/README.md`](../../.cursor/README.md). |
 
-**Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Python-wrappers i roten (`manage_env.py`, `check_env.py`, `model_trace_overlay.py`, `vercel_template_cli.py`) vidarebefordrar till `scripts/env/` resp. `scripts/manual/`.
+**Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Python-filerna i roten (`manage_env.py`, `check_env.py`, `model_trace_overlay.py`, `vercel_template_cli.py`) är tunna **kompatibilitets-wrappers**; kanoniska entrypoints ligger under `scripts/env/` respektive `scripts/manual/`.
 
 ## `.cursorignore` (varför vissa sökvägar “saknas” i index)
 
