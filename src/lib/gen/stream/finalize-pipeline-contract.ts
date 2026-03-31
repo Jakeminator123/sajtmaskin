@@ -42,6 +42,18 @@ export const OWN_ENGINE_POST_STREAM_PIPELINE = [
 
 export type OwnEnginePostStreamPhaseId = (typeof OWN_ENGINE_POST_STREAM_PIPELINE)[number]["id"];
 
+export const OWN_ENGINE_FINALIZE_FAST_PATH_PHASES: OwnEnginePostStreamPhaseId[] = [
+  "autofix",
+  "url_expand",
+  "validate_syntax",
+  "parse_merge_preflight",
+];
+
+export const OWN_ENGINE_FINALIZE_DEEP_PATH_PHASES: OwnEnginePostStreamPhaseId[] = [
+  "materialize_images",
+  "polish",
+];
+
 const POST_STREAM_PHASE_ID_SET = new Set<string>(
   OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id),
 );

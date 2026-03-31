@@ -25,6 +25,7 @@
     "SAJTMASKIN_BUILD_SPEC_ENABLED",
     "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
+    "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
     "LOOPIA_API_USER",
     "LOOPIA_API_PASSWORD",
     "INSPECTOR_CAPTURE_WORKER_TOKEN",
@@ -142,6 +143,7 @@
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
+    "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
     "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
     "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
@@ -263,6 +265,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Feature flag for lighter follow-up context and reduced reference retrieval on narrow edits."
+    },
+    {
+      "key": "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Feature flag for deep-path finalize steps such as image materialization and polish on non-light flows."
     },
     {
       "key": "AI_GATEWAY_API_KEY",

@@ -153,6 +153,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_BUILD_SPEC_ENABLED: z.string().optional(),
   SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION: z.string().optional(),
   SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT: z.string().optional(),
+  SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),

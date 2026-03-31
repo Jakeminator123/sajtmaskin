@@ -377,6 +377,7 @@ export const FEATURES = {
   useLightweightScaffoldSerialization:
     env.SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION !== "false",
   useFollowUpLightContext: env.SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT !== "false",
+  useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
 
   useGoogleAuth: Boolean(SECRETS.googleClientId && SECRETS.googleClientSecret),
 

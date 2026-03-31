@@ -7,6 +7,8 @@ const checkCrossFileImports = vi.hoisted(() => vi.fn());
 const runProjectSanityChecks = vi.hoisted(() => vi.fn());
 const expandUrls = vi.hoisted(() => vi.fn());
 const materializeImages = vi.hoisted(() => vi.fn());
+const runPolishPass = vi.hoisted(() => vi.fn());
+const isPolishPassEnabled = vi.hoisted(() => vi.fn());
 const buildPreviewHtml = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
@@ -49,6 +51,11 @@ vi.mock("@/lib/gen/url-compress", () => ({
 
 vi.mock("@/lib/gen/post-process/image-materializer", () => ({
   materializeImages,
+}));
+
+vi.mock("@/lib/gen/polish-pass", () => ({
+  runPolishPass,
+  isPolishPassEnabled,
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
@@ -124,6 +131,8 @@ describe("finalizeAndSaveVersion", () => {
     runProjectSanityChecks.mockReset();
     expandUrls.mockReset();
     materializeImages.mockReset();
+    runPolishPass.mockReset();
+    isPolishPassEnabled.mockReset();
     buildPreviewHtml.mockReset();
     buildPreviewUrl.mockReset();
     repairGeneratedFiles.mockReset();
@@ -160,6 +169,12 @@ describe("finalizeAndSaveVersion", () => {
       resolvedUrls: new Set<string>(),
       queries: [],
     });
+    runPolishPass.mockResolvedValue({
+      applied: false,
+      polishedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      filesChanged: [],
+    });
+    isPolishPassEnabled.mockReturnValue(true);
     parseFilesFromContent.mockReturnValue(
       JSON.stringify([
         {
@@ -480,5 +495,51 @@ describe("finalizeAndSaveVersion", () => {
         }),
       ]),
     );
+  });
+
+  it("skips deep-path image materialization and polish for light follow-up finalize", async () => {
+    const progressEvents: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "copy",
+        scaffoldFamily: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 12_000,
+          refsChars: 4_000,
+          systemContextChars: 18_000,
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      onProgress: (event, data) => progressEvents.push({ event, data }),
+    });
+
+    expect(materializeImages).not.toHaveBeenCalled();
+    expect(runPolishPass).not.toHaveBeenCalled();
+    expect(progressEvents).toContainEqual({
+      event: "materialize_images",
+      data: { phase: "skipped", reason: "light_followup_fast_policy" },
+    });
+    expect(progressEvents).toContainEqual({
+      event: "polish",
+      data: { phase: "skipped", reason: "light_followup_fast_policy" },
+    });
   });
 });

@@ -227,6 +227,7 @@ export async function generateOwnEngineSiteFromPrompt(
     resolvedTier: modelSelection.modelTier,
     originalPrompt: prompt,
     buildIntent,
+    buildSpec: orchestrationBase.buildSpec,
     routePlan: orchestrationBase.routePlan,
     resolvedScaffold: orchestrationBase.resolvedScaffold,
     urlMap,

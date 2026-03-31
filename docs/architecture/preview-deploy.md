@@ -1,6 +1,6 @@
 # Preview, sandbox och deploy
 
-**Senast uppdaterad:** 2026-03-30
+**Senast uppdaterad:** 2026-03-31
 
 **Operativt kördokument** för own-engine → finalize → sandbox → iframe. Intent, leveranser och kodpekare: denna fil + [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) (backlog/beslut).
 
@@ -12,10 +12,10 @@
 
 1. `POST /api/v0/chats/stream` skapar/uppdaterar engine-chatt och strömmar own-engine-generering.
 2. **Finalize** (`finalize-version.ts`) kör autofix, validering, merge, preflight och sparar **`files_json`** på versionen.
-3. `startSandboxPreview` (`sandbox-preview.ts`) bygger fullt projekt, kör `npm install` + `npm run dev` i Vercel Sandbox (standardläge **`dev_only`** — primärt Fidelity 2).
+3. `startSandboxPreview` (`sandbox-preview.ts`) bygger fullt projekt, kör `npm install` + `npm run dev` i Vercel Sandbox. Standardläge är fortfarande **`dev_only`** (primärt Fidelity 2), men läget kan nu också lösas per generation från `BuildSpec.previewPolicy` + `BuildSpec.verificationPolicy` innan env-fallback används.
 4. Vid lyckad readiness: **`engine_versions.sandbox_url`** sätts; klienten visar **Fidelity 2** — `fidelityTier: 2` i `SandboxPreviewResult` (riktig Next dev-server i VM). **Enda** produktpreviewvägen är sandbox; **tier-1 shim** (`/api/preview-render`) är borttagen ur flödet (routen kan finnas kvar för bakåtkompatibilitet men länkas inte från buildern).
 
-**Fidelity 3** (`prodBuildVerified`, `fidelityTier: 3`) när du sätter `SAJTMASKIN_SANDBOX_PREVIEW_MODE=dev_then_build` och byggsteget i VM lyckas — se `runtime-url.ts`.
+**Fidelity 3** (`prodBuildVerified`, `fidelityTier: 3`) när sandbox körs i `dev_then_build` och byggsteget i VM lyckas — antingen via global env (`SAJTMASKIN_SANDBOX_PREVIEW_MODE=dev_then_build`) eller via per-generation policy från `BuildSpec` — se `runtime-url.ts`.
 
 **V0 Platform** (npm `v0-sdk`, `V0_API_KEY`) ska inte vara del av denna kedja; HTTP-prefixet `/api/v0/` är **API-version 0**, inte leverantören V0.
 
@@ -33,6 +33,8 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Bootstrap-retry | Klienten respekterar `retryable`, **500** med `retryable: true`, `Retry-After` | `sandbox-bootstrap-retry.ts`, `useBuilderPageController.ts` |
 | Session / lease | `POST sandbox-heartbeat` — vid `no_session` / `session_mismatch` triggar klienten `handlePreviewSessionSuspect`; `GET sandbox-status` med `running` men annan URL än iframe → uppdatera preview-URL + refresh (telemetri `sandbox_url_resync`). Klient-API: `preview-session/api.ts`. | `sandbox-heartbeat/route.ts`, `sandbox-status/route.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `useSandboxPreviewSession.ts`, `useBuilderSandboxPreview.ts` |
 | Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `sandbox-preview.ts` |
+| Per-generation previewpolicy | `BuildSpec.previewPolicy` / `verificationPolicy` kan lyfta sandbox från `dev_only` till `dev_then_build` utan att ändra global env-default | `build-spec.ts`, `runtime-url.ts`, `sandbox-preview.ts`, `generation-stream-post-finalize.ts` |
+| Finalize fast/deep path | Lätta follow-ups kan stanna på finalize fast path och hoppa över deep-path-steg som bildmaterialisering + polish | `finalize-version.ts`, `finalize-pipeline-contract.ts` |
 | VM-resume | Session återanvänds **före** `buildCompleteProject` när session matchar | `sandbox-preview.ts` |
 | Scaffold | Pinnade versioner i standard-`package.json` (minimal `^`-drift) | `project-scaffold.ts` |
 | Mall | Git-bas + `writeFiles` + `removeSandboxTemplateLeftovers` | `runtime-url.ts` |
@@ -78,6 +80,8 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 **Bootstrap (klient):** `src/lib/builder/sandbox-bootstrap-retry.ts` — samma semantik som ovan; vid `503`/`504` kan servern skicka `Retry-After` (sekunder) som klienten använder som delay före retry (fallback ~6 s).
 
 **Repair en gång:** Filer från `files_json` efter finalize är redan repairade i preflight. `startSandboxPreview` anropas med `skipRepair: true` från own-engine-strömmen (när underlaget kommer från `filesJson`) och från sandbox-preview-API:et, så tier-2 inte kör ett andra repair-varv i onödan.
+
+**Finalize fast/deep path:** `finalize-version.ts` bär nu ett explicit fast/deep-path-kontrakt. Defaultflödet är fortfarande samma produktkedja, men lätta follow-ups (`BuildSpec` med `verificationPolicy: fast`) kan hoppa över deep-path-steg som bildmaterialisering och polish innan versionen sparas. Parse/merge/preflight/persist ligger kvar i fast path.
 
 **Sandbox `.env.local`:** Både **`startSandboxPreview`** (builder UI) och **`generateOwnEngineSiteFromPrompt`** (MCP/own-engine) anropar `buildSandboxEnvLocalContents` (`src/lib/gen/sandbox-env-local.ts`) som bygger merged `.env.local` i VM — globala placeholders från `config/ai_models/40-generated-site-integration-placeholders.env.txt`, projekt-preview-token, lagrade projekt-env, sist genererad `.env.local` om modellen skrev en (senare vinner). Se `config/user_degraded_env.txt` och avsnittet *Genererade användarsajter* i [`docs/ENV.md`](../ENV.md).
 

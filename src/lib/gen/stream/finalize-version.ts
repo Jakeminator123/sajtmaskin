@@ -1,4 +1,6 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import type { BuildSpec } from "@/lib/gen/build-spec";
+import { FEATURES } from "@/lib/config";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
@@ -59,6 +61,7 @@ export interface FinalizeParams {
   resolvedTier?: CanonicalModelId;
   originalPrompt?: string;
   buildIntent?: BuildIntent;
+  buildSpec?: BuildSpec | null;
   routePlan?: RoutePlan | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: Record<string, string>;
@@ -89,6 +92,11 @@ export interface FinalizeResult {
   preflight: PreviewPreflightSummary;
 }
 
+interface FinalizePathPolicy {
+  runDeepPath: boolean;
+  reason: "default" | "deep_path_disabled" | "repair_pass" | "light_followup_fast_policy";
+}
+
 export class EmptyGenerationError extends Error {
   readonly chatId: string;
   readonly scaffoldId: string | null;
@@ -99,6 +107,28 @@ export class EmptyGenerationError extends Error {
     this.chatId = chatId;
     this.scaffoldId = scaffoldId;
   }
+}
+
+function resolveFinalizePathPolicy(params: {
+  buildSpec?: BuildSpec | null;
+  repairPassIndex: number;
+}): FinalizePathPolicy {
+  const { buildSpec, repairPassIndex } = params;
+  if (!FEATURES.useFinalizeDeepPath) {
+    return { runDeepPath: true, reason: "deep_path_disabled" };
+  }
+  if (repairPassIndex > 0) {
+    return { runDeepPath: true, reason: "repair_pass" };
+  }
+  const isLightFollowUp =
+    buildSpec?.generationMode === "followUp" &&
+    buildSpec?.verificationPolicy === "fast" &&
+    buildSpec?.contextPolicy === "light" &&
+    (buildSpec?.changeScope === "copy" || buildSpec?.changeScope === "local-layout");
+  if (isLightFollowUp) {
+    return { runDeepPath: false, reason: "light_followup_fast_policy" };
+  }
+  return { runDeepPath: true, reason: "default" };
 }
 
 /**
@@ -121,6 +151,7 @@ export async function finalizeAndSaveVersion(
     resolvedTier,
     originalPrompt,
     buildIntent,
+    buildSpec,
     routePlan,
     resolvedScaffold,
     urlMap,
@@ -141,12 +172,15 @@ export async function finalizeAndSaveVersion(
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
   let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
+  const finalizePath = resolveFinalizePathPolicy({ buildSpec, repairPassIndex });
 
   devLogAppend("in-progress", {
     type: "finalize.pipeline",
     chatId,
     phases: OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id),
     repairPassIndex,
+    finalizePath: finalizePath.runDeepPath ? "fast+deep" : "fast-only",
+    finalizePathReason: finalizePath.reason,
   });
 
   // 1. Autofix
@@ -184,29 +218,34 @@ export async function finalizeAndSaveVersion(
   contentForVersion = expandUrls(contentForVersion, urlMap);
   onProgress?.("url_expand", { phase: "done" });
 
-  // 3. Image materialization (replace /placeholder.svg?text=... with real Unsplash URLs)
-  onProgress?.("materialize_images", { phase: "start" });
-  try {
-    const imgResult = await materializeImages(contentForVersion);
-    // Always refresh so validators never reuse URLs from a previous generation (review: staleness).
-    _lastMaterializedUrls = imgResult.resolvedUrls;
-    if (imgResult.replacedCount > 0) {
-      contentForVersion = imgResult.content;
-      devLogAppend("in-progress", {
-        type: "image-materialization",
-        chatId,
+  // 3. Deep path — image materialization and polish are skipped for light follow-up edits.
+  if (finalizePath.runDeepPath) {
+    onProgress?.("materialize_images", { phase: "start" });
+    try {
+      const imgResult = await materializeImages(contentForVersion);
+      // Always refresh so validators never reuse URLs from a previous generation (review: staleness).
+      _lastMaterializedUrls = imgResult.resolvedUrls;
+      if (imgResult.replacedCount > 0) {
+        contentForVersion = imgResult.content;
+        devLogAppend("in-progress", {
+          type: "image-materialization",
+          chatId,
+          replacedCount: imgResult.replacedCount,
+          queries: imgResult.queries.slice(0, 10),
+        });
+      }
+      onProgress?.("materialize_images", {
+        phase: "done",
         replacedCount: imgResult.replacedCount,
-        queries: imgResult.queries.slice(0, 10),
       });
+    } catch (imgErr) {
+      _lastMaterializedUrls = new Set();
+      console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
+      onProgress?.("materialize_images", { phase: "error" });
     }
-    onProgress?.("materialize_images", {
-      phase: "done",
-      replacedCount: imgResult.replacedCount,
-    });
-  } catch (imgErr) {
+  } else {
     _lastMaterializedUrls = new Set();
-    console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
-    onProgress?.("materialize_images", { phase: "error" });
+    onProgress?.("materialize_images", { phase: "skipped", reason: finalizePath.reason });
   }
 
   if (!contentForVersion.trim()) {
@@ -218,8 +257,8 @@ export async function finalizeAndSaveVersion(
     throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
   }
 
-  // 4. Polish pass — runs before syntax validation so esbuild + fix rounds cover post-polish code
-  if (isPolishPassEnabled() && repairPassIndex === 0) {
+  // 4. Polish pass — deep path only; runs before syntax validation so esbuild + fix rounds cover post-polish code
+  if (finalizePath.runDeepPath && isPolishPassEnabled() && repairPassIndex === 0) {
     onProgress?.("polish", { phase: "start" });
     try {
       const polishResult = await runPolishPass(contentForVersion, { model });
@@ -237,6 +276,8 @@ export async function finalizeAndSaveVersion(
       console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
       onProgress?.("polish", { phase: "error" });
     }
+  } else if (!finalizePath.runDeepPath) {
+    onProgress?.("polish", { phase: "skipped", reason: finalizePath.reason });
   }
 
   // 5. Syntax validation + multi-pass fix

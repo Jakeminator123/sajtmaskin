@@ -1,6 +1,6 @@
 # Builder — generering, modeller, prompt och SSE
 
-**Senast uppdaterad:** 2026-03-30
+**Senast uppdaterad:** 2026-03-31
 
 ## Modellbanor (UI ↔ API)
 
@@ -18,6 +18,8 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 ## Promptlager och träd
 
 - **Statisk kärna** + dynamisk kontext (scaffold, brief, tema, KB) byggs i `system-prompt.ts` m.m.
+- **Fan-in före modellen:** `prepareGenerationContext()` / `resolveOrchestrationBase()` bygger nu ett litet **`BuildSpec`** (`src/lib/gen/build-spec.ts`) som bär styrsignaler som `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`. Det används för att hålla scaffold-/referensbudget, follow-up-policy och previewpolicy deterministiska.
+- **Narrow follow-up policy:** när `BuildSpec` landar i `followUp + light + fast` hålls dynamisk kontext märkbart smalare: scaffold serialiseras lättare och bred KB/template-retrieval hoppas över för lokala copy/layout-ändringar.
 - **Prompt tree** (alla lager och parametrar): se arkiv `prompt-tree.md` och kod: `config/prompt-static/`, `codegen-static-prompt.json`.
 
 ## SSE / stream-scope (W3)
@@ -37,6 +39,7 @@ Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/st
 ## Generationsloop och felminne
 
 - Efter stream: `finalizeAndSaveVersion`, autofix-pipeline, ev. kvalitetsgrind — se `generation-loop-and-error-memory.md` i arkivet.
+- **Finalize-path policy:** finalize kör nu ett tydligare **fast path / deep path**-kontrakt. För lätta follow-ups (`verificationPolicy: fast`) kan deep-path-delar som bildmaterialisering och polish hoppas över, medan parse/merge/preflight/persist fortfarande sker innan `done`.
 - **Agentlogg** / replay av fel: `runtime-lane-refactor-and-log-viewer.md` i arkivet.
 
 ## UX-kontrakt och projektinställningar

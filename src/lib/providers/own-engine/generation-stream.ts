@@ -204,6 +204,7 @@ export function createOwnEngineGenerationStream(
         resolvedTier,
         originalPrompt: optimizedMessage,
         buildIntent: engineIntent,
+        buildSpec,
         routePlan,
         resolvedScaffold,
         urlMap,

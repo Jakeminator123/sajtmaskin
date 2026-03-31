@@ -270,6 +270,7 @@ export async function POST(req: Request) {
             accumulatedContent: fullContent,
             chatId: chat.id,
             model: engineModel,
+            buildSpec: ownOrchestration.buildSpec,
             resolvedScaffold: ownOrchestration.resolvedScaffold,
             urlMap: {},
             startedAt: genStartedAt,

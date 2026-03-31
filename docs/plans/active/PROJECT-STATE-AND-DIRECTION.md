@@ -131,6 +131,7 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 - **Template-katalog:** server/pages importerar `@/lib/templates/template-data` och/eller `@/lib/templates/template-catalog`; klient säkra exports via `@/lib/templates/client` (ingen gemensam `index`-barrel).  
 - **Bildpolicy** synkad: genererad `next.config` vitlistar inte längre hosts som prompten förbjuder.  
 - **Generation fan-in** kanoniserad via `GenerationInputPackage` + `computeLineageHash()` i `src/lib/gen/generation-input-package.ts`.  
+- **BuildSpec** bär nu ett litet styrande lager i orchestration (`src/lib/gen/build-spec.ts`) för `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`; narrow follow-ups kan därför köra lättare kontext och snabbare finalize.  
 - **Server-verify** (`src/lib/gen/server-verify.ts`) triggas automatiskt efter finalize; kör quality gate + capped repair (max 2 pass). Verification state `repairing` synlig i UI.  
 - **Server repair** är default efter quality-gate-fel; klientautofix fallback. `__SAJTMASKIN_SKIP_SERVER_REPAIR__` opt-out ersätter gammal opt-in.  
 - **v0Stream.ts** och **gen/fallback.ts** borttagna (inga runtime-konsumenter).  
