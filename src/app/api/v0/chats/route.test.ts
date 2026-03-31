@@ -123,6 +123,9 @@ vi.mock("@/lib/config", () => ({
   AI: {
     designSystemId: null,
   },
+  FEATURES: {
+    useBuildSpec: true,
+  },
 }));
 
 vi.mock("@/lib/db/client", () => ({
@@ -185,6 +188,35 @@ describe("POST /api/v0/chats", () => {
     prepareGenerationContext.mockResolvedValue({
       engineSystemPrompt: "own-system-prompt",
       resolvedScaffold: null,
+      routePlan: {
+        source: "prompt",
+        siteType: "one-page",
+        reason: "test",
+        routes: [],
+      },
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          integrations: [],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+        confirmedAnswers: [],
+      },
+      capabilities: {
+        needsMotion: false,
+        needs3D: false,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: false,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: false,
+        needsEcommerce: false,
+        needsCarousel: false,
+        needsPremiumVisuals: false,
+      },
+      scaffoldAndCapability: "",
       buildSpec: {
         buildIntent: "website",
         generationMode: "init",
@@ -264,6 +296,18 @@ describe("POST /api/v0/chats", () => {
         chatId: "chat_1",
         model: "gpt-5.4",
         startedAt: expect.any(Number),
+        buildSpec: expect.objectContaining({
+          buildIntent: "website",
+          generationMode: "init",
+        }),
+        orchestrationStreamMeta: expect.objectContaining({
+          enginePath: "own-engine",
+          promptStrategy: "direct",
+          buildSpec: expect.objectContaining({
+            buildIntent: "website",
+            generationMode: "init",
+          }),
+        }),
       }),
     );
     expect(commitCredits).toHaveBeenCalled();

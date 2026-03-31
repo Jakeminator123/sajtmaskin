@@ -38,6 +38,7 @@ import {
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
+import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own-engine-build-session";
 
 export async function GET(req: Request) {
   try {
@@ -214,17 +215,23 @@ export async function POST(req: Request) {
         try {
           const intent =
             (metaBuildIntent as "template" | "website" | "app") || DEFAULT_BUILD_INTENT;
+          const ownBrief = extractBriefFromMeta(meta);
+          const ownThemeColors = extractThemeColorsFromMeta(meta);
+          const ownPalette = extractPaletteStateFromMeta(meta);
+          const ownDesignThemePreset = extractDesignThemePresetFromMeta(meta);
+          const ownScaffoldSettings = extractScaffoldSettingsFromMeta(meta);
+          const ownDesignReferences = summarizeDesignReferences(requestAttachments);
           const ownOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
             buildIntent: intent,
-            scaffoldMode: extractScaffoldSettingsFromMeta(meta).scaffoldMode,
-            scaffoldId: extractScaffoldSettingsFromMeta(meta).scaffoldId,
-            brief: extractBriefFromMeta(meta),
-            themeColors: extractThemeColorsFromMeta(meta),
+            scaffoldMode: ownScaffoldSettings.scaffoldMode,
+            scaffoldId: ownScaffoldSettings.scaffoldId,
+            brief: ownBrief,
+            themeColors: ownThemeColors,
             imageGenerations: resolvedImageGenerations,
-            componentPalette: extractPaletteStateFromMeta(meta),
-            designThemePreset: extractDesignThemePresetFromMeta(meta),
-            designReferences: summarizeDesignReferences(requestAttachments),
+            componentPalette: ownPalette,
+            designThemePreset: ownDesignThemePreset,
+            designReferences: ownDesignReferences,
             promptStrategyMeta: strategyMeta,
           });
           const ownSystemPrompt = ownOrchestration.engineSystemPrompt;
@@ -266,11 +273,31 @@ export async function POST(req: Request) {
             ownOrchestration.resolvedScaffold?.id,
           );
           await addMessage(chat.id, "user", message);
+          const orchestrationMeta = buildOwnEngineGenerationStreamMeta({
+            routeVariant: "new-chat",
+            chatPrivacy: resolvedChatPrivacy,
+            scaffoldLabel: ownOrchestration.resolvedScaffold?.label ?? null,
+            engineModel,
+            resolvedModelTier,
+            buildProfileId,
+            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+            resolvedThinking,
+            resolvedImageGenerations,
+            strategyMeta,
+            orchestrationBase: ownOrchestration,
+            buildSpec: ownOrchestration.buildSpec,
+            engineSystemPromptLength: ownSystemPrompt.length,
+            metaBriefApplied: Boolean(ownBrief),
+            customInstructionsLength: trimmedSystemPrompt.length,
+            scaffoldId: ownOrchestration.resolvedScaffold?.id ?? null,
+            scaffoldFamily: ownOrchestration.resolvedScaffold?.family ?? null,
+          });
           const finalized = await finalizeAndSaveVersion({
             accumulatedContent: fullContent,
             chatId: chat.id,
             model: engineModel,
             buildSpec: ownOrchestration.buildSpec,
+            orchestrationStreamMeta: orchestrationMeta,
             resolvedScaffold: ownOrchestration.resolvedScaffold,
             urlMap: {},
             startedAt: genStartedAt,
