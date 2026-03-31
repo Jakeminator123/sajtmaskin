@@ -9,7 +9,6 @@ import { resolvePreviousVersionId } from "./post-checks-diff";
 import {
   fetchChatFiles,
   fetchChatVersions,
-  triggerImageMaterialization,
 } from "./post-checks-fetch";
 import {
   buildPostCheckArtifacts,
@@ -121,8 +120,6 @@ function buildAutoFixMeta(
     scaffoldRetry: preflight?.scaffoldRetry ?? null,
   };
 }
-
-export { triggerImageMaterialization };
 
 export async function runPostGenerationChecks(params: {
   chatId: string;

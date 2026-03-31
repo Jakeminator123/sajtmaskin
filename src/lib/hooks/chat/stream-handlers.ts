@@ -24,7 +24,8 @@ import {
   recordStreamText,
 } from "./helpers";
 import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
-import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import { runPostGenerationChecks } from "./post-checks";
+import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";
 import {
   isOwnEnginePostStreamPhaseId,

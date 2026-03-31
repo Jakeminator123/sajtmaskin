@@ -12,7 +12,8 @@ import {
   isAbortLikeError,
   isNetworkError,
 } from "./helpers";
-import { runPostGenerationChecks, triggerImageMaterialization } from "./post-checks";
+import { runPostGenerationChecks } from "./post-checks";
+import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";

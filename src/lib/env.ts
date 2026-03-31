@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { isAffirmativeEnvValue, sanitizeEnvString } from "./env-affirmative";
-
-export { isAffirmativeEnvValue } from "./env-affirmative";
+import { sanitizeEnvString } from "./env-affirmative";
 
 function sanitizeProcessEnv(): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};

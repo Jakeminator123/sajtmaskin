@@ -183,10 +183,28 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (u) | 2026-03-31 | 10/21   | 48%     | 52%    | Docs: `scripts/README.md` översikt pekar ut `template-library-discovery.ts` + `scaffold-candidate-report.ts` och vilka entrypoints som importerar dem. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (v)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: oanvända re-export-rader (ingen ny publik yta); Fas A massradering-HEAD som process i cursor-regel. |
 | **Efter** pass 2026-03-31 (v) | 2026-03-31 | 11/21   | 52%     | 48%    | Kod: borttagna döda `export { … }` i `orchestrate.ts` (`GenerationInputPackage`), `visual-qa.ts` (`PASS_THRESHOLD`, `MAX_DESIGN_PATCH_ATTEMPTS`), `load-manifest.ts` (`buildProfileIdSchema`, `qualityLevelSchema`) — inga externa importörer. Docs/process: `.cursor/rules/session-git-docs.mdc` — vid massradering, nämn `git rev-parse HEAD` i PR (länk STORDSTAD Fas A). Bock: Fas A ruta 3. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (w)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: `env.ts` — oanvänd import av `isAffirmativeEnvValue` (redan re-export från `env-affirmative`). |
+| **Efter** pass 2026-03-31 (w) | 2026-03-31 | 11/21   | 52%     | 48%    | Kod: `env.ts` importerar bara `sanitizeEnvString`; `isAffirmativeEnvValue` exponeras kvar via `export { … } from "./env-affirmative"` för `config.ts`. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (x)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: `config.ts` är ensam extern användare av `isAffirmativeEnvValue` via `env.ts`; gör helpern direkt i `env-affirmative`. |
+| **Efter** pass 2026-03-31 (x) | 2026-03-31 | 11/21   | 52%     | 48%    | Kod: `config.ts` importerar `isAffirmativeEnvValue` direkt från `env-affirmative`; `env.ts` re-exporterar inte längre helpern. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (y)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: `hooks/chat` — `triggerImageMaterialization` re-exporteras via `post-checks.ts` trots att den redan kommer från `post-checks-fetch.ts`. |
+| **Efter** pass 2026-03-31 (y) | 2026-03-31 | 11/21   | 52%     | 48%    | Kod: `useCreateChat`, `useSendMessage` och `stream-handlers` importerar `triggerImageMaterialization` direkt från `post-checks-fetch`; re-exporten i `post-checks.ts` borttagen och `stream-handlers.test.ts` mockar nu rätt modul. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (z)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: Cursor multi-root — två workspace-rötter (`sajtmaskin-stordstad-master` + `sajtmaskin`) ger två branch-rader och förvirring mot parallellt arbete i huvudklonen. |
+| **Efter** pass 2026-03-31 (z) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: ny § Handoff *Cursor: var du arbetar*; startrad + `AGENTS.md` + `.cursor/README.md` pekar på en-root-praxis; rot `stordstad-only.code-workspace` (en folder) för tydlig etikett. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 
 ---
 
 ## Handoff-rutin och ny agent (läs före du fortsätter städ)
+
+### Cursor: var du arbetar (en git-root åt gången)
+
+Om statusraden visar **två** projektnamn (t.ex. `sajtmaskin-stordstad-master` och `sajtmaskin`) har du ett **multi-root workspace** i Cursor/VS Code. Varje rot är en **egen** mapp med **egen** `.git` (eller worktree) och kan ligga på **olika branch** — det är inte att Git är inkonsistent, men det blir lätt fel jämförelse mot “den andra agenten” som jobbar i huvudklonen.
+
+- **Städspår A (denna plan):** arbeta i checkouten som följer `stordstad-master-resume` (vanligt: mappen `…\sajtmaskin-stordstad-master` om du använder worktree). Öppna **bara den mappen** (*File → Open Folder*) **eller** öppna workspace-filen **`stordstad-only.code-workspace`** i samma rot (en folder, tydlig etikett i sidopanelen). **Lägg inte** till huvudklonen `…\sajtmaskin` som andra rot i samma fönster om du vill undvika dubbel branch-rad.
+- **Annat spår** (t.ex. `llm-pipeline-upgrade`, template-library, orchestration): använd **ett separat** Cursor-fönster med **endast** `…\sajtmaskin`.
+- **Redan råkat få två rötter:** högerklicka på den extra mappen i explorer → *Remove Folder from Workspace*, eller stäng fönstret och öppna enbart STORDSTAD-mappen / `stordstad-only.code-workspace`.
+
+Se också [§ Två spår](#två-spår-viktigt--blanda-inte-ihop) (produktspår A vs B) — det är **relaterat men inte samma sak** som två workspace-rötter.
 
 ### Efter varje städpass (människa eller agent)
 
@@ -220,6 +238,8 @@ Ta bort dessa **bara** efter uttryckligt beslut + diff i PR, inte som del av “
 Du fortsätter storstädningsspår A i Sajtmaskin enligt docs/plans/active/STORDSTAD-repo-kod-databas.md (läs hela filen, särskilt § Två spår, Fas B–C, .cursorignore och § Handoff-rutin).
 
 Kontext: Fas A baseline och delar av Fas B/C är påbörjade; pass-loggen visar senaste läget. `file-logger.ts`, `local-engine.ts` och SAJTMASKIN_LOG är medvetet kvar som latent infra — radera dem inte utan explicit beslut. Publika API/SSE-svar använder `previewUrl`; `demoUrl` finns kvar som legacy i inbound payloads, vissa interna typer och DB-namn. Gör ingen blanket-rename av detta i städspåret.
+
+Workspace: om du jobbar i en dedikerad worktree för städ (t.ex. branch `stordstad-master-resume`), öppna **en** git-root — se § Handoff → “Cursor: var du arbetar”. Lägg inte in huvudklonen som andra workspace-mapp i samma fönster; annat spår (LLM/template) = separat fönster.
 
 Gör så här:
 1. Läs AGENTS.md + docs/README.md (nav) och repo-tree.md om du behöver orientering.
@@ -299,7 +319,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass v)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass z)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)
