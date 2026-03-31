@@ -7,8 +7,8 @@
 | Block | Innehåll | Börja här |
 |-------|----------|-----------|
 | **Arkitektur** | Kanonisk systembeskrivning, preview/sandbox, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
-| **Aktiva planer** | Backlog, beslut, **pågående storstäd** | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/active/STORDSTAD-repo-kod-databas.md`](plans/active/STORDSTAD-repo-kod-databas.md) · [`plans/README.md`](plans/README.md) · arkiverad städlista: [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md) |
-| **Arkiv** | Avklarade planer, handoffs-pekare; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) (`docs/notes/` om du skapar den lokalt) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · [`archive/README.md`](archive/README.md) · [`handoffs/README.md`](handoffs/README.md) |
+| **Aktiva planer** | Backlog, beslut | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/README.md`](plans/README.md) |
+| **Arkiv** | Avklarade planer, handoffs-pekare; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) (`docs/notes/` om du skapar den lokalt) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · storstäd (historik + Fas D-checklista): [`plans/avklarat/STORDSTAD-repo-kod-databas.md`](plans/avklarat/STORDSTAD-repo-kod-databas.md) · post-epic: [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md) · [`archive/README.md`](archive/README.md) · [`handoffs/README.md`](handoffs/README.md) |
 
 ## Terminology (two layers — do not duplicate)
 
@@ -107,7 +107,7 @@ Not runtime dependencies:
 | Plans (all buckets) | `docs/plans/README.md` |
 | Plan / agent handoff (historik) | Tidigare `docs/handoffs/*.md` → **git-historik**; pekare [`handoffs/README.md`](handoffs/README.md). Operativt: [`PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
 | Backlog & beslut (kanonisk) | [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
-| Storstädning (kod, docs, DB-fas, %-spårning i planen) | [`STORDSTAD-repo-kod-databas.md`](plans/active/STORDSTAD-repo-kod-databas.md) |
+| Storstädning (historik, pass-logg, Fas D vid datastäd) | [`STORDSTAD-repo-kod-databas.md`](plans/avklarat/STORDSTAD-repo-kod-databas.md) (arkiverad 2026-03-31) |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
 | Agent workflows (deep brief, runtime vs MCP, fler agenter) | [`docs/contributing/agent-workflows.md`](contributing/agent-workflows.md) |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |

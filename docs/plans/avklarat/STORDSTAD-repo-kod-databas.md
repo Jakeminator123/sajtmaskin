@@ -1,13 +1,13 @@
-# Storstädning: repo, kod, databas (aktiv plan)
+# Storstädning: repo, kod, databas (arkiverad plan)
 
-**Ägare / process:** Denna fil styr *hur* storstädningen görs; den ersätter inte `[PROJECT-STATE-AND-DIRECTION.md](./PROJECT-STATE-AND-DIRECTION.md)` som kanonisk backlog, men **länkas därifrån** när städspåret pågår.  
-**Status:** aktiv tills exit-kriterierna nedan är uppfyllda; därefter flytta till `docs/plans/avklarat/` (eller ersätt med kort rad i `avklarat/README.md`) och uppdatera `[../README.md](../README.md)`.
+**Ägare / process:** Denna fil var körplan för storstädning (kod, docs, process); den ersätter inte [`PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) som kanonisk backlog.  
+**Status:** **arkiverad 2026-03-31** — kod-/docs-epiken är avslutad enligt [exit-kriterierna](#exit-kriterier-epiken-klar). **Fas D:s fem data-rutor** (backup → rök) är *inte* genomförda här; de finns kvar som **operativ checklista** nästa gång ni medvetet tömmer dev/staging.
 
 **Mål:** färre filer och mindre kodvägar som inte används, tydligare struktur, **utan** att tappa kanon (preview/own-engine, `src/lib/env.ts`, migreringar, tester som skyddar beteende).
 
 **Icke-mål:** lägga backlog eller planfulltext *i* Postgres (operativ sanning för planer = **git**, se § Databas).
 
-**Var planen hör hemma:** denna fil ligger under `docs/plans/active/` som **städ- och DB-fas-process**. Kanonisk produktbacklogg och arkitekturbeslut förblir [`PROJECT-STATE-AND-DIRECTION.md`](./PROJECT-STATE-AND-DIRECTION.md) och `docs/architecture/*`.
+**Var planen hör hemma:** filen ligger under `docs/plans/avklarat/` som **historik + återanvändbar DB-checklista** (Fas D). Aktiv backlog: [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) och `docs/architecture/*`.
 
 **Snabbläsning (~1 min):** kör smala pass enligt [Förenklad körprofil](#förenklad-körprofil-aktiv-tills-vidare) → uppdatera [pass-logg](#pass-logg-före--efter-varje-pass) → `npm run typecheck` + `npm run test:ci`. DB-fas ([Fas D](#fas-d--databas-försiktig-synk--städ--ägs-explicit-här)) **sist och separat**. Kopieringsbar startrad: [§ Handoff](#handoff-rutin-och-ny-agent-läs-före-du-fortsätter-städ).
 
@@ -223,6 +223,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (ao) | 2026-03-31 | 13/21   | 62%     | 38%    | Kod: bort oanvända exports i `chatSchemas` (`modelTiers`, `acceptedModelIds`, `chatIdSchema`, `messageIdSchema`, `versionIdSchema`, `createDeploymentSchema`), v0-alias i `promptAssist`, oanvänd `OPENCLAW_ACTION_TAGS`, oanvända `getEntryToken`/`clearEntryToken`/`hasEntryToken`, död `buildSandboxFiles`, oanvänd `normalizePlannedRoutePath`, oanvänd `createSuspenseTransform`+`applyRules` (typer kvar i `suspense/transform`), oanvänd `_lastMaterializedUrls`/`getLastMaterializedUrls` i `finalize-version`; avexporterade modulinterna helpers i `promptAssistContext`, `post-checks-preview`, `request-metadata`, `preflight-contract`, `image-validator`. Docs: `ENTRY-SYSTEM.md` uppdaterad. Bock: [Fas A ruta 4](#fas-a--baseline-innan-radering) — standard nästa steg = `POSTGRES_URL` i `.env.local` per [`docs/ENV.md`](../../ENV.md); staging/prod kräver explicit beslut före data-ingrepp. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. `src/lib/gen/scaffolds/*` orört (endast delad typfil `suspense/transform`, inget index). |
 | **Före** pass 2026-03-31 (ap)  | 2026-03-31 | 13/21   | 62%     | 38%    | Zon: Fas B — sammanslagning av upprepade `inferLanguage`-kopior till en helper + Vitest. |
 | **Efter** pass 2026-03-31 (ap) | 2026-03-31 | 14/21   | 67%     | 33%    | Kod: ny `src/lib/utils/infer-file-language.ts` + `infer-file-language.test.ts`; sju call sites (bl.a. `chats/init`, `chats/.../files`, `sandbox/route`, `project-scaffold`, `local-engine`, `post-checks-analysis`, `isolated_tests/scaffold-embed-sandbox`) importerar `inferFileLanguage`. Bock: [Fas B — duplicerade helpers](#fas-b--kod-och-moduler-grep--import). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Ingen ändring under `src/lib/gen/scaffolds/*` (endast import från scaffold-export i `project-scaffold`). |
+| **Före** pass 2026-03-31 (aq)  | 2026-03-31 | 14/21   | 67%     | 33%    | Mål: avsluta epiken ärligt — exit DB + arkivflytt; Fas D-datastäd kvar som separat kö. |
+| **Efter** pass 2026-03-31 (aq) | 2026-03-31 | 16/21   | 76%     | 24%    | Bock: [exit](#exit-kriterier-epiken-klar) *Databas* (schema/`db:check` OK lokalt 2026-03-31; ingen bulk-tömning ingick i epiken) + *Flytta plan*. Plan flyttad till `docs/plans/avklarat/`; [`plans/README.md`](../README.md) uppdaterad. **Fas D** (5 rutor): medvetet **obockade** — följ dem vid framtida data-PR med backup. `npm run typecheck` + `npm run test:ci` grönt före commit. |
 
 ---
 
@@ -232,7 +234,7 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 
 Tidigare sidospår för LLM-pipeline och STORDSTAD-städ är nu mergade till `master`. Tills nytt beslut tas är **`master` i huvudcheckouten `...\sajtmaskin`** den gemensamma arbetslinjen och den branch som ska pushas till `origin/master`. Tillfälliga worktrees eller brancher är bara isoleringsytor och bör tas bort när de inte längre bär unikt arbete.
 
-- **Utgå från detta dokument:** `docs/plans/active/STORDSTAD-repo-kod-databas.md` för städspår A; komplettera med `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` när frågan gäller own-engine/generation snarare än repo-städ.
+- **Historik:** denna plan ligger arkiverad under `docs/plans/avklarat/STORDSTAD-repo-kod-databas.md`. Fortsatt arbete: `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` (own-engine/generation).
 - **Parallellt med spår B (LLM/generation aktivt):** prioritera `docs/`, `docs/plans/active/`, `docs/ENV.md`, `scripts/README.md`, `AGENTS.md`, `.cursor/README.md`, `tools/README.md`, `docs/architecture/repo-tree.md` m.m. **Rör inte** konfliktzonerna i [`docs/contributing/agent-workflows.md`](../../contributing/agent-workflows.md) § *Flera agenter* (kod under `gen`, `own-engine`, `hooks/chat`, `env.ts`, `config.ts`, vissa arkitekturdocs) **utan att stämma av** med den som kör B.
 - **När spår B inte kör samtidigt:** smala kodstädpass kan åter ta `src/lib/hooks/chat/`, `env*` och `config.ts` enligt [Förenklad körprofil](#förenklad-körprofil-aktiv-tills-vidare) och pass-loggen — fortfarande utan `src/lib/gen/scaffolds/*` och utan bred preview/deploy/DB i samma svep.
 - **Zoner jag inte tänker bredröra utan separat scope:** `src/lib/gen/scaffolds/*`, stora preview/deploy-/builder-pipelines och DB-fas.
@@ -277,7 +279,7 @@ Ta bort dessa **bara** efter uttryckligt beslut + diff i PR, inte som del av “
 ### Startrad till ny LLM (kopiera hela blocket nedan)
 
 ```text
-Du fortsätter storstädningsspår A i Sajtmaskin enligt docs/plans/active/STORDSTAD-repo-kod-databas.md (läs hela filen, särskilt § Två spår, Fas B–C, .cursorignore och § Handoff-rutin).
+Storstädsepiken är arkiverad — se `docs/plans/avklarat/STORDSTAD-repo-kod-databas.md` för historik, pass-logg och Fas D-checklista. Ny städ: följ `PROJECT-STATE` + små zoner; duplicera inte hela epiken utan beslut.
 
 Kontext: Fas A baseline och delar av Fas B/C är påbörjade; pass-loggen visar senaste läget. `file-logger.ts`, `local-engine.ts` och SAJTMASKIN_LOG är medvetet kvar som latent infra — radera dem inte utan explicit beslut. Publika API/SSE-svar använder `previewUrl`; `demoUrl` finns kvar som legacy i inbound payloads, vissa interna typer och DB-namn. Gör ingen blanket-rename av detta i städspåret.
 
@@ -320,8 +322,8 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 
 ## Fas C — Dokumentation och skript
 
-- [x] En nav/pekare per ämne (undvik parallella “nya sanningar” i samma fil — se `documentation-lifecycle.md`) *(2026-03-31: `docs/README.md` “Aktiva planer” pekar uttryckligen på STORDSTAD + befintlig plans/README / PROJECT-STATE; fortsatt policy = länka kanon, duplicera inte fulltext.)*
-- [x] Arkiv: flytta färdig historik till `avklarat/`, inte duplicera i `active/` *(2026-03-31: [`plans/README.md`](../README.md) skiljer `active/` vs `avklarat/` med pekare; ingen dubbel STORDSTAD-kopia i `avklarat/` medan epiken pågår — pass-logg i denna fil är *en* aktiv historik, inte parallell kanon.)*
+- [x] En nav/pekare per ämne (undvik parallella “nya sanningar” i samma fil — se `documentation-lifecycle.md`) *(2026-03-31: `docs/README.md` + `plans/README.md` pekar kanon mot PROJECT-STATE; STORDSTAD länkas från arkiv-block / key navigation — länka kanon, duplicera inte fulltext.)*
+- [x] Arkiv: flytta färdig historik till `avklarat/`, inte duplicera i `active/` *(2026-03-31 pass aq: denna fil ligger nu i `avklarat/`; `active/` har ingen STORDSTAD-kopia. [`plans/README.md`](../README.md) uppdaterad.)*
 - [x] Skript under `scripts/`: ta bort eller markera deprecated om inga `package.json`-scripts refererar dem *(2026-03-31: zon granskad; inga orphan-entrypoints som saknar `package.json`/`scripts/README`/e2e — inget att radera i detta pass)*
 
 ---
@@ -341,7 +343,9 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
    - [ ] Rök: `npm run db:check` ([`scripts/check-dev-db.mjs`](../../../scripts/check-dev-db.mjs)), logga in i appen, skapa ett minimalt projekt/chat
 3. **Prod:** endast schema/migrationer + observerad drift — **ingen** “rens allt” utan incident/change-protokoll.
 
-**Leverans:** när fas D är klar ska det finnas **en commit eller PR** som nämner: miljö, backup, skript/SQL-sökväg, och verifieringssteg.
+**Status vid arkivering av kod-/docs-epiken (2026-03-31):** Rutorna under punkt 2 ovan är **inte** bockade — ingen Postgres-tömning eller dedikerad backup-PR ingick i storstädsepiken. De ska fortfarande följas i ordning **nästa gång** ni medvetet rensar testdata. Vid epik-avslut kördes `npm run db:check` mot lokal `.env.local` med grönt utfall (kärntabeller OK).
+
+**Leverans:** när fas D *data-läge* verkligen körs ska det finnas **en commit eller PR** som nämner: miljö, backup, skript/SQL-sökväg, och verifieringssteg.
 
 ---
 
@@ -358,21 +362,21 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 - **Fas D (Postgres-data):** Körs **inte** i barrel-pass; kräver backup, miljöbeslut och egen PR enligt [Fas D](#fas-d--databas-försiktig-synk--städ--ägs-explicit-här).
 - **Fas A ruta 3 (massradering HEAD):** Bockad 2026-03-31; process i `.cursor/rules/session-git-docs.mdc` (länk till denna plans Fas A).
 - **Fas A ruta 4 (Postgres-URL):** Bockad 2026-03-31 i [Fas A](#fas-a--baseline-innan-radering) med policy: lokal/städ nästa steg = `.env.local` + `docs/ENV.md`; staging/prod endast efter explicit beslut. Ändra inte denna fil med rullande `git rev-parse HEAD` som URL-“sanning”.
-- **STORDSTAD-filens livscykel:** Så länge städspåret är aktivt ligger planen kvar i `active/`; när [exit nedan](#exit-kriterier-epiken-klar) är uppfyllt flyttas filen till `avklarat/` per befintlig katalogpolicy.
+- **STORDSTAD-filens livscykel:** Denna körplan är flyttad till `avklarat/` (2026-03-31). Återöppna inte samma fil i `active/` — skapa vid behov en ny, smal plan.
 
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ap)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass aq)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
-- [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
-- [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)
+- [x] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts *(2026-03-31: **Schema** följer `src/lib/db/schema.ts` + Drizzle; `npm run db:check` kördes lokalt mot `.env.local` med OK på kärntabeller. **Ingen** bulk-tömning/TRUNCATE-sekvens genomfördes som del av denna epik — N/A. Framtida datastäd: följ [Fas D](#fas-d--databas-försiktig-synk--städ--ägs-explicit-här).)*
+- [x] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md) *(2026-03-31: utfört i pass aq.)*
 
 ---
 
 ## Relaterat
 
 - `[documentation-lifecycle.md](../../architecture/documentation-lifecycle.md)`  
-- `[PROJECT-STATE-AND-DIRECTION.md](./PROJECT-STATE-AND-DIRECTION.md)` §5 (massstädning), §8 (konfliktrisk)  
+- [`PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) §5 (massstädning), §8 (konfliktrisk)  
 - `[docs/ENV.md](../../ENV.md)`
 

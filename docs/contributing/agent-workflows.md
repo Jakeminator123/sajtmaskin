@@ -27,7 +27,7 @@ Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverkty
 
 - **Preview / sandbox / deploy:** [`preview-deploy.md`](../architecture/preview-deploy.md) — inkl. § *Levererat* och länkar till kod.
 - **Backlog / beslut:** [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
-- **Aktiv storstädning (repo + DB-fas):** [`STORDSTAD-repo-kod-databas.md`](../plans/active/STORDSTAD-repo-kod-databas.md).
+- **Storstädsepik (arkiverad; pass-logg + Fas D vid datastäd):** [`STORDSTAD-repo-kod-databas.md`](../plans/avklarat/STORDSTAD-repo-kod-databas.md).
 - **Preview-URL i JSON/SSE (klar):** [`KORPLAN-preview-url-api.md`](../plans/avklarat/KORPLAN-preview-url-api.md) (arkiverad körplan).
 
 Historiska planhandoff finns i **git-historik** (`docs/plans/avklarat/`, äldre commits). **Aktuell drift:** tabellen *Operativa dokument* ovan — inga separata numrerade kördokument i repo-trädet.
@@ -44,7 +44,7 @@ När flera agenter delar samma repo är den största risken ofta **arbetsyta och
 - **Verifiera före push:** `git fetch`, synka mot fjärr enligt teamets vana, kör `npm run typecheck` och `npx vitest run` (plus riktade tester vid behov).
 - **Städa efter merge:** när ett sidospår är uppätet av `master`, ta bort tillfällig branch/worktree så Cursor inte fortsätter visa gamla arbetslinjer.
 
-**Två spår samtidigt (låg konfliktrisk):** i [`STORDSTAD-repo-kod-databas.md`](../plans/active/STORDSTAD-repo-kod-databas.md) kallas **spår A** repo-städ (docs-nav, barrels, env-*dokumentation*, scripts) och **spår B** own-engine / generation. **Ingen paus behövs av tekniska skäl** så länge `master` är grön (`npm run typecheck`, `npm run test:ci`) och zonerna nedan respekteras.
+**Två spår samtidigt (låg konfliktrisk):** zonmodellen (spår A = repo/docs vs spår B = own-engine/generation) finns i den arkiverade [`STORDSTAD-repo-kod-databas.md`](../plans/avklarat/STORDSTAD-repo-kod-databas.md). **Ingen paus behövs av tekniska skäl** så länge `master` är grön (`npm run typecheck`, `npm run test:ci`) och zonerna nedan respekteras.
 
 **Konfliktzoner — stäm av innan spår A rör här parallellt med spår B:** `src/lib/gen/*`, `src/lib/providers/own-engine/*`, `src/lib/own-engine/*`, `src/lib/hooks/chat/*`, `src/lib/env.ts`, `src/lib/config.ts`, samt kanoniska generation/preview-arkitekturdocs (`docs/architecture/builder-generation.md`, `preview-deploy.md`; vid modell/stream-frågor även `system-overview.md`). Spår A kan fortsätta fritt i t.ex. `docs/` (undantag: de arkitekturfiler som listas om B jobbar där), `docs/ENV.md`, `scripts/README.md`, dokumentation kring `scripts/env/*` (utan att röra `src/lib/env.ts` utan samordning), `AGENTS.md`, `.cursor/README.md`, `tools/README.md`, `docs/plans/active/`, `repo-tree.md` när det inte krockar med B.
 

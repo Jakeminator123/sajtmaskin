@@ -62,7 +62,7 @@ Kärnan preview/sandbox är **levererad** (se `preview-deploy.md`). Detta är **
 | Adapters / «degraded preview» för vissa integrationer (mer än placeholders) | [ ] |
 | GitHub-export som **sekundär** väg (persistens = fortfarande Postgres / `files_json`) | [ ] |
 | Ev. kallstarts-heuristik för VM / session | delvis |
-| Massstädning efter warm-sandbox / preview-lifecycle (död kod, planfiler, docs, DB-fas) | [ ] — körplan: [`STORDSTAD-repo-kod-databas.md`](./STORDSTAD-repo-kod-databas.md) |
+| Massstädning efter warm-sandbox / preview-lifecycle (död kod, planfiler, docs) | [x] 2026-03-31 — historik + pass-logg: [`STORDSTAD-repo-kod-databas.md`](../avklarat/STORDSTAD-repo-kod-databas.md). **Separat:** medveten Postgres-tömning/dev-städ följer **Fas D** i samma fil (ej körd som del av epiken). |
 | API-kontrakt: publika svar med `previewUrl` endast; inbound legacy via `resolveInboundPreviewUrl` | [x] 2026-03-30 — [`KORPLAN-preview-url-api.md`](../avklarat/KORPLAN-preview-url-api.md) (arkiverad) |
 
 Tier-modell (preflight / dev / build) och förenklad fasöversikt finns i [`preview-deploy.md`](../../architecture/preview-deploy.md) under **Begrepp**.

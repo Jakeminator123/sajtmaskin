@@ -9,12 +9,12 @@
 Löpande ska **primärt** dessa ligga här:
 
 - [`PROJECT-STATE-AND-DIRECTION.md`](./active/PROJECT-STATE-AND-DIRECTION.md) — kanonisk operativ backlog (K-rader, Plan 17, beslut).
-- [`STORDSTAD-repo-kod-databas.md`](./active/STORDSTAD-repo-kod-databas.md) — aktiv storstädning (kod/filer + **fas D: försiktig DB-synk**).
 
 Nya tillfälliga planer skapas under **`docs/plans/active/`** och flyttas till **`avklarat/`** när spåret är avslutat. **Använd git-trackade filer här** i stället för Cursor-interna planfiler utanför repot — en sanning för teamet och CI.
 
 ## Arkiv (`avklarat/`)
 
+- [`STORDSTAD-repo-kod-databas.md`](./avklarat/STORDSTAD-repo-kod-databas.md) — storstädning repo/kod/docs (arkiverad 2026-03-31); pass-logg + **Fas D** som kvarstående DB-checklista vid medveten datastäd.
 - [`POST-EPIC-CLEANUP.md`](./avklarat/POST-EPIC-CLEANUP.md) — post preview/sandbox-städ (avslutad 2026-03-30); historik + doc-register över berörda filer.
 - [`KORPLAN-preview-url-api.md`](./avklarat/KORPLAN-preview-url-api.md) — preview-URL API/SSE (fas A+B avslutad 2026-03-30).
 - [`CONSOLIDATED-own-engine-platform-and-quality-v2.md`](./avklarat/CONSOLIDATED-own-engine-platform-and-quality-v2.md) — stor historisk roadmap (plattform + kvalitet); operativ sanning = PROJECT-STATE + arkitekturdocs.
