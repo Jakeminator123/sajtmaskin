@@ -19,14 +19,19 @@ import {
   createChat as createSqliteChat,
   addMessage,
   listChatsByProject,
+  updateVersionSandboxUrl,
 } from "@/lib/db/chat-repository-pg";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
+import { shouldRunOwnEngineSandbox } from "@/lib/gen/own-engine-sandbox-gate";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
+import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
 import { isServerVerifyEligible, triggerServerVerification } from "@/lib/gen/server-verify";
+import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { streamText } from "ai";
 import { getOpenAIModel } from "@/lib/gen/models";
+import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
 import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
 import {
   buildUserPromptContent,
@@ -335,6 +340,48 @@ export async function POST(req: Request) {
               versionId: latestVersion.id,
             }).catch((error) => {
               console.warn("[sync-create] Background server verification failed:", error);
+            });
+          }
+
+          const parsedForSandbox = finalized.filesJson?.trim()
+            ? (parseCodeFilesFromFilesJson(finalized.filesJson) ?? [])
+            : [];
+          const sandboxContract = finalized.preflight.sandbox ?? {
+            canStartSandbox: false,
+            primaryPreviewTarget: "none" as const,
+            shimBlocked: false,
+            requiresEnvConfig: false,
+            hasCriticalInstallRisk: false,
+            hasCriticalCodeFailure: false,
+            compatibilityShimAllowed: false,
+            issueCounts: {
+              code_structure_failure: 0,
+              dependency_install_failure: 0,
+              env_config_missing: 0,
+              shim_preview_failure: 0,
+              non_blocking_quality_warning: 0,
+            },
+            blockingCategories: [],
+          };
+          const shouldBackgroundSandbox = shouldRunOwnEngineSandbox({
+            isSandboxConfigured: isSandboxConfigured(),
+            sandbox: sandboxContract,
+            parsedFileCount: parsedForSandbox.length,
+          });
+          if (shouldBackgroundSandbox) {
+            startSandboxPreview(parsedForSandbox, {
+              appProjectId: resolvedProjectId,
+              chatId: chat.id,
+              previewPolicy: ownOrchestration.buildSpec.previewPolicy,
+              verificationPolicy: ownOrchestration.buildSpec.verificationPolicy,
+              versionIdForSession: latestVersion.id,
+              skipRepair: true,
+            }).then((result) => {
+              if (result.ok && result.result.sandboxUrl.trim()) {
+                updateVersionSandboxUrl(latestVersion.id, result.result.sandboxUrl).catch(() => {});
+              }
+            }).catch((error) => {
+              console.warn("[sync-create] Background sandbox start failed:", error);
             });
           }
 

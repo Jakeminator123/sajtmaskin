@@ -12,6 +12,11 @@ const streamText = vi.hoisted(() => vi.fn());
 const getOpenAIModel = vi.hoisted(() => vi.fn());
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
 const triggerServerVerification = vi.hoisted(() => vi.fn());
+const updateVersionSandboxUrl = vi.hoisted(() => vi.fn());
+const parseCodeFilesFromFilesJson = vi.hoisted(() => vi.fn());
+const shouldRunOwnEngineSandbox = vi.hoisted(() => vi.fn());
+const startSandboxPreview = vi.hoisted(() => vi.fn());
+const isSandboxConfigured = vi.hoisted(() => vi.fn());
 
 vi.mock("ai", () => ({
   streamText,
@@ -48,6 +53,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat: createSqliteChat,
   addMessage,
   listChatsByProject: vi.fn(),
+  updateVersionSandboxUrl,
 }));
 
 vi.mock("@/lib/gen/stream/finalize-version", () => ({
@@ -65,6 +71,22 @@ vi.mock("@/lib/gen/models", () => ({
 vi.mock("@/lib/gen/server-verify", () => ({
   isServerVerifyEligible,
   triggerServerVerification,
+}));
+
+vi.mock("@/lib/gen/version-manager", () => ({
+  parseCodeFilesFromFilesJson,
+}));
+
+vi.mock("@/lib/gen/own-engine-sandbox-gate", () => ({
+  shouldRunOwnEngineSandbox,
+}));
+
+vi.mock("@/lib/gen/sandbox-preview", () => ({
+  startSandboxPreview,
+}));
+
+vi.mock("@/lib/mcp/runtime-url", () => ({
+  isSandboxConfigured,
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -172,6 +194,11 @@ describe("POST /api/v0/chats", () => {
     getOpenAIModel.mockReset();
     isServerVerifyEligible.mockReset();
     triggerServerVerification.mockReset();
+    updateVersionSandboxUrl.mockReset();
+    parseCodeFilesFromFilesJson.mockReset();
+    shouldRunOwnEngineSandbox.mockReset();
+    startSandboxPreview.mockReset();
+    isSandboxConfigured.mockReset();
 
     createChatSchemaSafeParse.mockReturnValue({
       success: true,
@@ -249,6 +276,27 @@ describe("POST /api/v0/chats", () => {
     });
     isServerVerifyEligible.mockReturnValue(true);
     triggerServerVerification.mockResolvedValue(undefined);
+    parseCodeFilesFromFilesJson.mockReturnValue([
+      {
+        path: "src/app/page.tsx",
+        content: "export default function Page() { return <div>Hello</div>; }",
+        language: "tsx",
+      },
+    ]);
+    shouldRunOwnEngineSandbox.mockReturnValue(true);
+    isSandboxConfigured.mockReturnValue(true);
+    startSandboxPreview.mockResolvedValue({
+      ok: true,
+      result: {
+        sandboxUrl: "https://sandbox.example/ver_1",
+        sandboxId: "sandbox_1",
+        sandboxPreviewMode: "dev_only",
+        fidelityTier: 2,
+        prodBuildVerified: false,
+        startOutcome: "recreated",
+      },
+    });
+    updateVersionSandboxUrl.mockResolvedValue(true);
   });
 
   it("returns sync own-engine preflight metadata from finalizeAndSaveVersion", async () => {
@@ -274,6 +322,23 @@ describe("POST /api/v0/chats", () => {
         errorCount: 1,
         warningCount: 0,
         primaryPreviewTarget: "sandbox",
+        sandbox: {
+          canStartSandbox: true,
+          primaryPreviewTarget: "sandbox",
+          shimBlocked: false,
+          requiresEnvConfig: false,
+          hasCriticalInstallRisk: false,
+          hasCriticalCodeFailure: false,
+          compatibilityShimAllowed: false,
+          issueCounts: {
+            code_structure_failure: 0,
+            dependency_install_failure: 0,
+            env_config_missing: 0,
+            shim_preview_failure: 0,
+            non_blocking_quality_warning: 0,
+          },
+          blockingCategories: [],
+        },
       },
     });
 
@@ -326,6 +391,19 @@ describe("POST /api/v0/chats", () => {
       chatId: "chat_1",
       versionId: "ver_1",
     });
+    expect(startSandboxPreview).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "src/app/page.tsx",
+        }),
+      ]),
+      expect.objectContaining({
+        appProjectId: "app_proj_1",
+        chatId: "chat_1",
+        versionIdForSession: "ver_1",
+        skipRepair: true,
+      }),
+    );
     expect(commitCredits).toHaveBeenCalled();
   });
 });
