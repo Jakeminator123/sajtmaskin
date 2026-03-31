@@ -601,6 +601,48 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     );
   });
 
+  it("ignores persisted scaffold lock for clear-redesign follow-ups in auto mode", async () => {
+    getEngineChatByIdForRequest.mockResolvedValueOnce({
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "scaffold_locked",
+      messages: [],
+      orchestration_snapshot: null,
+    });
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        {
+          event: "content",
+          data: { text: "<main>Redesigned follow-up</main>" },
+        },
+        {
+          event: "done",
+          data: { promptTokens: 9, completionTokens: 15 },
+        },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/v0/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Gör om från grunden med mörk editorial stil och ny layout.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveOrchestrationBase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        persistedScaffoldId: "scaffold_locked",
+        generationMode: "followUp",
+        ignorePersistedScaffoldForMatch: true,
+      }),
+    );
+  });
+
   it("still persists the assistant clarification when user message persistence fails", async () => {
     addMessage
       .mockRejectedValueOnce(new Error("write user failed"))
