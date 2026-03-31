@@ -160,6 +160,7 @@ export const serverSchema = z.object({
   DEBUG: z.string().optional(),
   SAJTMASKIN_DEV_LOG: z.string().optional(),
   SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS: z.string().optional(),
+  GENERATIONSLOGG: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
 

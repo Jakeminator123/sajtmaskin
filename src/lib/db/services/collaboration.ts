@@ -111,18 +111,3 @@ export async function getUnresolvedCommentCount(versionId: string): Promise<numb
   return rows.length;
 }
 
-export async function getPendingApprovals(chatId?: string | null) {
-  assertDbConfigured();
-  if (chatId) {
-    return db
-      .select()
-      .from(versionApprovals)
-      .where(and(eq(versionApprovals.chatId, chatId), eq(versionApprovals.status, "pending")))
-      .orderBy(desc(versionApprovals.createdAt));
-  }
-  return db
-    .select()
-    .from(versionApprovals)
-    .where(eq(versionApprovals.status, "pending"))
-    .orderBy(desc(versionApprovals.createdAt));
-}

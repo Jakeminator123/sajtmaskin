@@ -67,10 +67,6 @@ import {
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 
-export const runtime = "nodejs";
-/** Server stream ceiling (seconds). Client stream safety timeout is separate — see `[chatId]/stream` route comment. */
-export const maxDuration = 800;
-
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
   return withRateLimit(req, "chat:create", async () => {
@@ -332,7 +328,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       devLogAppend("in-progress", {
         type: "comm.request.create",
         modelId: resolvedModelId,
+        modelTier: resolvedModelTier,
+        buildProfileId,
+        buildProfileLabel: MODEL_LABELS[resolvedModelTier],
         chatPrivacy: resolvedChatPrivacy,
+        buildIntent: metaBuildIntent,
+        buildMethod: metaBuildMethod,
         message: optimizedMessage,
         slug: metaBuildMethod || metaBuildIntent || undefined,
         promptType: strategyMeta.promptType,
@@ -343,6 +344,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         reductionRatio: strategyMeta.reductionRatio,
         strategyReason: strategyMeta.reason,
         attachmentsCount: requestAttachments.length,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
       });
 
       debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {

@@ -2,7 +2,6 @@ import { dbConfigured } from "@/lib/db/client";
 import {
   appProjects,
   companyProfiles,
-  domainOrders,
   kostnadsfriPages,
   mediaLibrary,
   projectData,
@@ -39,7 +38,6 @@ export type PromptLog = typeof promptLogs.$inferSelect;
 export type VersionErrorLog = typeof versionErrorLogs.$inferSelect;
 export type MediaLibraryItem = typeof mediaLibrary.$inferSelect;
 export type CompanyProfile = typeof companyProfiles.$inferSelect;
-export type DomainOrder = typeof domainOrders.$inferSelect;
 export type KostnadsfriPage = typeof kostnadsfriPages.$inferSelect;
 export type UserAudit = typeof userAudits.$inferSelect;
 

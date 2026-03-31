@@ -1,5 +1,3 @@
-export type RightPanelTab = "versions" | "files" | "deployments" | "preview" | "recommendations";
-
 export type UiMessagePart = {
   type?: string;
   [key: string]: unknown;
@@ -22,14 +20,6 @@ export interface FileNode {
   content?: string;
   locked?: boolean;
 }
-
-export type InspectorSelection = {
-  tag: string;
-  id: string | null;
-  className: string | null;
-  text: string | null;
-  selector: string;
-};
 
 export type ElementMapItem = {
   tag: string;

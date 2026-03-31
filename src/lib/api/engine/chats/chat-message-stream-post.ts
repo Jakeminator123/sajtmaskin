@@ -5,7 +5,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
@@ -617,6 +617,40 @@ export async function handleMessageStreamRequest(
           resolvedModelTier,
           engineModel,
           fallback: false,
+        });
+        devLogAppend("in-progress", {
+          type: "comm.request.followup",
+          chatId,
+          modelId: resolvedModelId,
+          modelTier: resolvedModelTier,
+          buildProfileId,
+          buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+          buildIntent: metaBuildIntent,
+          buildMethod: metaBuildMethod,
+          message: optimizedMessage,
+          slug: metaBuildMethod || metaBuildIntent || undefined,
+          promptType: promptOrchestration.strategyMeta.promptType,
+          promptStrategy: promptOrchestration.strategyMeta.strategy,
+          promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
+          originalLength: promptOrchestration.strategyMeta.originalLength,
+          optimizedLength: promptOrchestration.strategyMeta.optimizedLength,
+          reductionRatio: promptOrchestration.strategyMeta.reductionRatio,
+          strategyReason: promptOrchestration.strategyMeta.reason,
+          attachmentsCount: requestAttachments.length,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          followUpIntent,
+          baseVersionId: metaEngineBaseVersionId,
+        });
+        devLogStartGeneration({
+          message: optimizedMessage,
+          modelId: resolvedModelId,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          projectId: engineChat.project_id ?? undefined,
+          slug: metaBuildMethod || metaBuildIntent || undefined,
+          chatId,
+          generationKind: "followup",
         });
         if (contractClarification) {
           const assistantQuestion = await chatRepo.addMessage(

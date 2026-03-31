@@ -51,6 +51,7 @@
     "SAJTMASKIN_LOG",
     "SAJTMASKIN_DEV_LOG",
     "SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS",
+    "GENERATIONSLOGG",
     "AI_BRIEF_MAX_TOKENS",
     "AI_CHAT_MAX_TOKENS",
     "V0_MAX_PROMPT_LENGTH",
@@ -90,6 +91,7 @@
     "GOOGLE_CLIENT_ID_DEV",
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CLIENT_SECRET_DEV",
+    "GENERATIONSLOGG",
     "INBOUND_WEBHOOK_SHARED_SECRET",
     "INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS",
     "INSPECTOR_CAPTURE_WORKER_URL",
@@ -372,6 +374,12 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "Development-only logging tuning."
+    },
+    {
+      "key": "GENERATIONSLOGG",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "Opt-in local generation timeline writer under logs/generationslogg/."
     },
     {
       "key": "TEST_USER_EMAIL",

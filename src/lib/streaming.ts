@@ -1,17 +1,3 @@
-export interface StreamEvent {
-  type:
-    | "meta"
-    | "thinking"
-    | "content"
-    | "parts"
-    | "integration"
-    | "done"
-    | "error"
-    | "chatId"
-    | "projectId";
-  data: unknown;
-}
-
 export function createSSEHeaders(): HeadersInit {
   return {
     "Content-Type": "text/event-stream",

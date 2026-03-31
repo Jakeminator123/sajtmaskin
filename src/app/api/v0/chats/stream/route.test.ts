@@ -61,6 +61,7 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/builder/promptLimits", () => ({
   WARN_CHAT_MESSAGE_CHARS: 20_000,
   WARN_CHAT_SYSTEM_CHARS: 20_000,
+  MAX_AI_BRIEF_PROMPT_CHARS: 20_000,
 }));
 
 vi.mock("@/lib/builder/promptOrchestration", () => ({
@@ -77,6 +78,14 @@ vi.mock("@/lib/builder/promptOrchestration", () => ({
       complexityScore: 0,
     },
   }),
+}));
+
+vi.mock("@/lib/builder/server-auto-brief-policy", () => ({
+  shouldRunServerAutoBrief: () => false,
+}));
+
+vi.mock("@/lib/builder/site-brief-generation", () => ({
+  tryGenerateServerAutoBrief: vi.fn(async () => null),
 }));
 
 vi.mock("@/lib/tenant", () => ({

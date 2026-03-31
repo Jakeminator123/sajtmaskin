@@ -32,8 +32,6 @@ export const briefRequestSchema = z.object({
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
 });
 
-export type BriefRequestInput = z.infer<typeof briefRequestSchema>;
-
 function resolveMaxTokens(requested: number | undefined): number {
   const base = typeof requested === "number" ? requested : ASSIST_MAX_OUTPUT_TOKENS;
   const capped = Math.min(base, ENV_MAX_TOKENS);

@@ -1,22 +1,9 @@
 import { db } from "@/lib/db/client";
-import { deployments, versions, chats } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { deployments } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 export type DeploymentStatus = "pending" | "building" | "ready" | "error" | "cancelled";
-
-export interface DeploymentInfo {
-  id: string;
-  chatId: string;
-  versionId: string;
-  status: DeploymentStatus;
-  vercelProjectId?: string | null;
-  url?: string | null;
-  domain?: string | null;
-  inspectorUrl?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export async function createDeploymentRecord(params: {
   chatId: string;
@@ -74,74 +61,6 @@ export async function updateDeploymentStatus(
     .where(eq(deployments.id, deploymentId));
 }
 
-export async function getDeployment(deploymentId: string): Promise<DeploymentInfo | null> {
-  const result = await db
-    .select()
-    .from(deployments)
-    .where(eq(deployments.id, deploymentId))
-    .limit(1);
-
-  if (result.length === 0) return null;
-
-  return {
-    id: result[0].id,
-    chatId: result[0].chatId,
-    versionId: result[0].versionId,
-    status: result[0].status as DeploymentStatus,
-    vercelProjectId: result[0].vercelProjectId,
-    url: result[0].url,
-    domain: result[0].domain,
-    inspectorUrl: result[0].inspectorUrl,
-    createdAt: result[0].createdAt,
-    updatedAt: result[0].updatedAt,
-  };
-}
-
-export async function getDeploymentsForChat(chatId: string): Promise<DeploymentInfo[]> {
-  const result = await db
-    .select()
-    .from(deployments)
-    .where(eq(deployments.chatId, chatId))
-    .orderBy(desc(deployments.createdAt));
-
-  return result.map((d) => ({
-    id: d.id,
-    chatId: d.chatId,
-    versionId: d.versionId,
-    status: d.status as DeploymentStatus,
-    vercelProjectId: d.vercelProjectId,
-    url: d.url,
-    domain: d.domain,
-    inspectorUrl: d.inspectorUrl,
-    createdAt: d.createdAt,
-    updatedAt: d.updatedAt,
-  }));
-}
-
-export async function getLatestDeployment(chatId: string): Promise<DeploymentInfo | null> {
-  const result = await db
-    .select()
-    .from(deployments)
-    .where(eq(deployments.chatId, chatId))
-    .orderBy(desc(deployments.createdAt))
-    .limit(1);
-
-  if (result.length === 0) return null;
-
-  return {
-    id: result[0].id,
-    chatId: result[0].chatId,
-    versionId: result[0].versionId,
-    status: result[0].status as DeploymentStatus,
-    vercelProjectId: result[0].vercelProjectId,
-    url: result[0].url,
-    domain: result[0].domain,
-    inspectorUrl: result[0].inspectorUrl,
-    createdAt: result[0].createdAt,
-    updatedAt: result[0].updatedAt,
-  };
-}
-
 export async function setDeploymentDomain(
   deploymentId: string,
   domain: string,
@@ -150,16 +69,4 @@ export async function setDeploymentDomain(
     .update(deployments)
     .set({ domain, updatedAt: new Date() })
     .where(eq(deployments.id, deploymentId));
-}
-
-export async function getVersionForDeployment(versionId: string) {
-  const result = await db.select().from(versions).where(eq(versions.id, versionId)).limit(1);
-
-  return result[0] || null;
-}
-
-export async function getChatById(chatId: string) {
-  const result = await db.select().from(chats).where(eq(chats.id, chatId)).limit(1);
-
-  return result[0] || null;
 }

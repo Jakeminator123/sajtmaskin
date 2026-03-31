@@ -2,7 +2,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
-import { engineChats, engineVersionErrorLogs, versionErrorLogs } from "@/lib/db/schema";
+import { engineChats, engineVersionErrorLogs } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { VersionErrorLog } from "./shared";
 
@@ -96,38 +96,6 @@ async function enrichEnginePayloads(
     ...payload,
     meta: mergeScaffoldContext(payload.meta, byChatId.get(payload.chatId) ?? null),
   }));
-}
-
-export async function createVersionErrorLog(payload: VersionErrorLogPayload): Promise<VersionErrorLog> {
-  assertDbConfigured();
-  const now = new Date();
-  const rows = await db
-    .insert(versionErrorLogs)
-    .values(mapLogPayload(payload, now))
-    .returning();
-  return rows[0];
-}
-
-export async function createVersionErrorLogs(
-  payloads: VersionErrorLogPayload[],
-): Promise<VersionErrorLog[]> {
-  assertDbConfigured();
-  if (payloads.length === 0) return [];
-  const now = new Date();
-  const rows = await db
-    .insert(versionErrorLogs)
-    .values(payloads.map((payload) => mapLogPayload(payload, now)))
-    .returning();
-  return rows;
-}
-
-export async function getVersionErrorLogs(versionId: string): Promise<VersionErrorLog[]> {
-  assertDbConfigured();
-  return db
-    .select()
-    .from(versionErrorLogs)
-    .where(eq(versionErrorLogs.version_id, versionId))
-    .orderBy(desc(versionErrorLogs.created_at));
 }
 
 export async function createEngineVersionErrorLog(

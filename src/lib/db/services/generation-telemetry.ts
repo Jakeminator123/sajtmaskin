@@ -89,15 +89,6 @@ export async function updateTelemetryRecord(
   return rows[0];
 }
 
-export async function getTelemetryForChat(chatId: string) {
-  assertDbConfigured();
-  return db
-    .select()
-    .from(generationTelemetry)
-    .where(eq(generationTelemetry.chatId, chatId))
-    .orderBy(desc(generationTelemetry.createdAt));
-}
-
 export async function getTelemetryForVersion(versionId: string) {
   assertDbConfigured();
   return db
