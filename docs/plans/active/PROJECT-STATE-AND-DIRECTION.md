@@ -156,6 +156,9 @@ Praktiskt kvar i LLM-spåret (utan scaffold-omtag) bedöms till cirka **25–35%
 - **Server repair** är default efter quality-gate-fel; klientautofix fallback. `__SAJTMASKIN_SKIP_SERVER_REPAIR__` opt-out ersätter gammal opt-in.  
 - **v0Stream.ts** och **gen/fallback.ts** borttagna (inga runtime-konsumenter).  
 - **Builder preview-URL i klientstate:** `currentPreviewUrl` / `setCurrentPreviewUrl` (`useBuilderState`, stream-handlers, VM) — inte `currentDemoUrl`. Publika API-svar använder `previewUrl` (ingen `demoUrl` i svar); se [`KORPLAN-preview-url-api.md`](../avklarat/KORPLAN-preview-url-api.md).  
+- **Persistens för sparade builds:** `engine_versions.files_json` är kanonisk own-engine-artifact; `project_data` är builder-/app-snapshot och ägarbro, inte parallell source of truth för sparad kod. Se [`preview-deploy.md`](../../architecture/preview-deploy.md) § *Persistensmodell*.  
+- **Användarbyggen under preview-fasen:** ligger kvar i Sajtmaskins plattforms-Postgres med logisk tenant-separation (`app_projects`, `user_id` / `session_id`, tenant-gater). Ingen separat DB/blob per användare innan export/deploy kräver det.  
+- **AI-nyckelpolicy i praktiken:** own-engine och prompt-assist går primärt via direkta `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`; `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` behövs fortfarande för vissa analys-/audit-rutter tills P17-3 stängs.  
 - **Handoff-dokument** under `docs/handoffs/*.md` är **borttagna**; fulltext finns i **git-historik**. Pekare: [`docs/handoffs/README.md`](../../handoffs/README.md). Öppna gap och nästa steg styrs här (§4–§7) och i [`preview-deploy.md`](../../architecture/preview-deploy.md).
 
 ---

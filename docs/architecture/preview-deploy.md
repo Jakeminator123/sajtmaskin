@@ -19,6 +19,28 @@
 
 **V0 Platform** (npm `v0-sdk`, `V0_API_KEY`) ska inte vara del av denna kedja; HTTP-prefixet `/api/v0/` är **API-version 0**, inte leverantören V0.
 
+## Persistensmodell (beslut 2026-03-31)
+
+**Beslut:** den **kanoniska sparade builden** för own-engine är:
+
+- `engine_chats` / `engine_messages` för chatt- och körmetadata
+- `engine_versions.files_json` för det genererade filträdet
+- `engine_versions.sandbox_url` för senaste lyckade sandbox-preview
+
+`project_data` finns kvar som **app-/builder-snapshot** (t.ex. `chat_id`, legacy `demo_url`, UI-meta, vissa importerade filer/messages), men ska **inte** behandlas som primär källa för sparad own-engine-kod när en version redan finns i `engine_versions`.
+
+**Varför detta valdes:**
+
+1. `finalize-version.ts` sparar assistant-meddelande + draft-version atomiskt via `chat-repository-pg`, så own-engine-flödet har redan en tydlig och testad persistpunkt.
+2. `sandbox-preview` bygger från `filesJson` efter finalize, så preview-kedjan blir enklare om samma artifact är kanon hela vägen.
+3. `project_data` duplicerar annars filer/messages och ökar risken för drift mellan builder-UI och engine-store.
+
+**Praktisk tolkning:**
+
+- Under preview-/iterationsfasen ligger användarbyggen **i samma Postgres som plattformen**, men separeras **logiskt** via `app_projects`, `user_id` / `session_id` och tenant-gater.
+- Vi inför **inte** separat databas/blob per användare i detta skede.
+- Blob/filsystem är **sekundär lagring** för assets, materialiserade bilder, export och vissa backoffice-/template-artefakter; inte för den kanoniska own-engine-källkoden.
+
 ## Levererat (preview-kedjan)
 
 Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i `src/lib/env.ts` och [`docs/ENV.md`](../ENV.md) (kort översikt):

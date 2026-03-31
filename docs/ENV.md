@@ -38,7 +38,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | Område | Exempel på variabler | Kommentar |
 |--------|----------------------|-----------|
 | Cache / rate limit | `REDIS_URL`, `UPSTASH_REDIS_REST_URL` + token | Utan Redis: cache/rate limit degradar (se kod). |
-| Blob / uppladdning | `BLOB_READ_WRITE_TOKEN` | Vercel Blob; lokalt kan vissa flöden falla tillbart till filsystem (`DATA_DIR`). |
+| Blob / uppladdning | `BLOB_READ_WRITE_TOKEN` | Vercel Blob; lokalt kan vissa flöden falla tillbaka till filsystem (`DATA_DIR`). |
 | Betalning | `STRIPE_*` | Om credits/betalning används. |
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
 | Sandbox (live preview i VM) | `VERCEL_OIDC_TOKEN` eller `VERCEL_TOKEN` + team/project | Detaljer: `vercel-sandbox-credentials.md` + `preview-deploy.md`. |
@@ -68,6 +68,15 @@ Om du **medvetet** måste skriva mot en sådan target krävs explicit override:
 - `DB_ALLOW_PROD_LIKE_WRITE=1`
 
 `npm run db:check` och `npm run db:rows` är read-only men varnar om targeten ser production-lik ut, så att “lokal sanity” inte råkar betyda “produktion”.
+
+---
+
+## Lokal isolering: Blob och Redis
+
+Om du vill att lokal utveckling ska vara mer isolerad från production:
+
+- **Blob / bilder / filer:** kommentera ut `BLOB_READ_WRITE_TOKEN`, sätt `STORAGE_BACKEND=fs`, och använd `TEMPLATE_EMBEDDINGS_STORAGE=local`. Då sparas lokala mediafiler via appens uploads-API och embeddings i lokal fil i stället för delad Vercel Blob.
+- **Redis:** kan delas tillfälligt mellan local/preview/production eftersom koden prefixes nycklar per miljö (`dev:`, `preview:`, `prod:`). Separat dev-Redis är bra för renare drift/observability, men inte lika akut som separat DB eller Blob.
 
 ---
 

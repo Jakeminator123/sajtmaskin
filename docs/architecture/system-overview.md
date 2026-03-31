@@ -1,6 +1,6 @@
 # Systemöversikt — egen motor och builder-entry
 
-**Senast uppdaterad:** 2026-03-27
+**Senast uppdaterad:** 2026-03-31
 
 ## Vad som är «Sajtmaskin» i det här dokumentet
 
@@ -16,7 +16,7 @@ Användarprompt
   → Orkestrering: scaffold, route-plan, kontrakt, systemprompt
   → Generering (build profile: fast / pro / max / codex m.fl.)
   → Post: autofix, esbuild, URL/expansion, filparsning, scaffold-merge
-  → Version sparad → preview (shim) → valfritt sandbox → deploy (Vercel API)
+  → Version sparad i Postgres (`engine_versions.files_json`) → preview (shim/sandbox) → deploy (Vercel API)
 ```
 
 Mer detaljerad runtime-mermaid och modul-lista: [builder-generation.md](./builder-generation.md).
@@ -41,7 +41,8 @@ Canonical tabell och manifest: [`docs/schemas/model-build-profiles.md`](../schem
 | Område | Nyckel / flagga |
 |--------|------------------|
 | Kodgenerering | `OPENAI_API_KEY` |
-| Prompt assist / gateway | `AI_GATEWAY_API_KEY` |
+| Prompt assist (direkt) | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
+| Audit / analys / vissa sido-routes | `AI_GATEWAY_API_KEY` eller giltig `VERCEL_OIDC_TOKEN` |
 
 ## Scaffold-system
 
