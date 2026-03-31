@@ -5,6 +5,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 ## Översikt och inventering
 
 - **Nav:** denna fil + `package.json` — se även [`docs/architecture/repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
+- **Delade TS-moduler (ingen egen CLI):** [`template-library-discovery.ts`](template-library-discovery.ts) (JSON/summary-hjälp) används av `build-template-library`, `hydrate-template-library-cache`, `import-template-discovery`, `promote-to-scaffold`, `verify-discovered-summary`, `template-library-discovery.test.ts` och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffold-candidate-report.ts`](scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via de npm-entrypoints som redan finns eller via `npx tsx` enligt respektive avsnitt nedan.
 - **Vercel use-case-skrapning (Python):** under `scripts/` (ingen kopia i repo-roten).
   - **Kanonisk entrypoint:** [`scripts/hamta_sidor_branch_emil.py`](hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (historisk bred lista, ~25 use cases), tierad utdata, rapporter. **Standard** för manuell inhämtning.
   - **Tidigare:** `scripts/hamta_sidor.py` (borttagen) motsvaras av `python scripts/hamta_sidor_branch_emil.py --legacy-wide-use-cases` om du **medvetet** behöver jämföra mot historisk bred lista — **inte** som standard i produktions- eller kanon-researchflöden.

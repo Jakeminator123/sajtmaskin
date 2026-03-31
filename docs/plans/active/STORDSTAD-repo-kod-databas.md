@@ -177,6 +177,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (s) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: `ai-elements`, `media`, `layout/shader-background` importerar `cn` från `@/lib/utils` (samma re-export mot `utils/utils`). Inget kontrakts- eller DB-steg. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (t)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: oanvänd legacy-export `isDebugEnabledLegacy` i `utils/debug.ts`. |
 | **Efter** pass 2026-03-31 (t) | 2026-03-31 | 10/21   | 48%     | 52%    | Kod: borttagen alias-export; `isDebugEnabled` kvar. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (u)  | 2026-03-31 | 10/21   | 48%     | 52%    | Zon: skript-nav — delade `scripts/*.ts` utan tydlig README-pekare i översikten. |
+| **Efter** pass 2026-03-31 (u) | 2026-03-31 | 10/21   | 48%     | 52%    | Docs: `scripts/README.md` översikt pekar ut `template-library-discovery.ts` + `scaffold-candidate-report.ts` och vilka entrypoints som importerar dem. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inget under `src/lib/gen/scaffolds/*`. |
 
 ---
 
