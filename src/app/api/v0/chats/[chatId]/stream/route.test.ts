@@ -156,12 +156,12 @@ vi.mock("@/lib/gen/version-manager", () => ({
   resolveFollowUpPreviousFiles,
 }));
 
-vi.mock("@/lib/gen/plan-prompt", () => ({
+vi.mock("@/lib/gen/plan/prompt", () => ({
   buildPlannerSystemPrompt: vi.fn(),
   parsePlanResponse: vi.fn(),
 }));
 
-vi.mock("@/lib/gen/plan-review", () => ({
+vi.mock("@/lib/gen/plan/review", () => ({
   buildPlanSummaryMessage: vi.fn(),
   buildPlanUiPart: vi.fn(),
   enrichPlanArtifactForReview: vi.fn(),

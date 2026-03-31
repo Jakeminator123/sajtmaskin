@@ -10,9 +10,9 @@ import {
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
-import { httpStatusForSandboxPreviewFailure } from "@/lib/gen/sandbox-preview-errors";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
+import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
+import { httpStatusForSandboxPreviewFailure } from "@/lib/gen/sandbox/preview-errors";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
 import { isSandboxConfigured, SANDBOX_SETUP_HINT } from "@/lib/mcp/runtime-url";
 
 const postBodySchema = z.object({

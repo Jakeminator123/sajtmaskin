@@ -21,8 +21,8 @@ import {
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
-} from "@/lib/gen/contract-clarification";
-import { collectConfirmedContractAnswers } from "@/lib/gen/contract-answer-context";
+} from "@/lib/gen/contract/clarification";
+import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   finalizeOrchestrationPrompts,
@@ -33,7 +33,7 @@ import { computeLineageHash } from "@/lib/gen/generation-input-package";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
-} from "@/lib/gen/plan-review";
+} from "@/lib/gen/plan/review";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {

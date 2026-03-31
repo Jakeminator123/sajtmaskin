@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
 import {
   parseRetryAfterMs,
   SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS,
@@ -13,7 +13,7 @@ import {
   readProjectEnvVarsUpdatedDetail,
 } from "@/lib/builder/project-env-events";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
-import type { SandboxPreviewPostApiJson } from "@/lib/gen/preview-contract";
+import type { SandboxPreviewPostApiJson } from "@/lib/gen/preview/preview-contract";
 import type { SandboxProdBuildPayload } from "@/lib/hooks/chat/types";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { ChatData, VersionSummary } from "./useBuilderDerivedState";

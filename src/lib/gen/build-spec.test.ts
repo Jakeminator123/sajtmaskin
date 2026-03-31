@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveBuildSpec } from "./build-spec";
-import type { PreGenerationContractContext } from "./pre-generation-contracts";
+import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 

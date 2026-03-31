@@ -23,7 +23,7 @@ import {
   recordStreamParts,
   recordStreamText,
 } from "./helpers";
-import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
+import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { runPostGenerationChecks } from "./post-checks";
 import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";

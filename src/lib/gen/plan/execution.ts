@@ -10,11 +10,11 @@ import type {
   PlanArtifact,
   PlanBlocker,
   PlanPhase,
-} from "./plan-schema";
+} from "./schema";
 import {
   advancePhase,
   hasUnresolvedBlockers,
-} from "./plan-schema";
+} from "./schema";
 
 export type PhaseResult = {
   phase: PlanPhase;

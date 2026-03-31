@@ -23,7 +23,7 @@ vi.mock("@/lib/logging/devLog", () => ({
   devLogFinalizeSite: vi.fn(),
 }));
 
-vi.mock("@/lib/gen/own-engine-sandbox-gate", () => ({
+vi.mock("@/lib/gen/sandbox/own-engine-sandbox-gate", () => ({
   shouldRunOwnEngineSandbox,
 }));
 
@@ -31,11 +31,11 @@ vi.mock("@/lib/gen/parser", () => ({
   parseCodeProject: (src: string) => parseCodeProjectMock(src),
 }));
 
-vi.mock("@/lib/gen/sandbox-lifecycle-telemetry", () => ({
+vi.mock("@/lib/gen/sandbox/lifecycle-telemetry", () => ({
   logSandboxLifecycleTelemetry,
 }));
 
-vi.mock("@/lib/gen/sandbox-preview", () => ({
+vi.mock("@/lib/gen/sandbox/sandbox-preview", () => ({
   startSandboxPreview,
 }));
 

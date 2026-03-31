@@ -1,4 +1,4 @@
-import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
+import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import type { PreflightIssueCategory, SandboxPrimaryPreviewTarget } from "@/lib/gen/stream/preflight-contract";
 import type { VersionErrorLogPayload } from "./types";
 

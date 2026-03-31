@@ -7,7 +7,7 @@ import {
   type PlanArtifact,
   type PlanPage,
   normalizePlanArtifact,
-} from "@/lib/gen/plan-schema";
+} from "@/lib/gen/plan/schema";
 
 type Props = {
   rawPlan?: Record<string, unknown>;

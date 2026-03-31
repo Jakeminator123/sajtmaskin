@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { httpStatusForSandboxPreviewFailure } from "./sandbox-preview-errors";
+import { httpStatusForSandboxPreviewFailure } from "./preview-errors";
 
 describe("httpStatusForSandboxPreviewFailure", () => {
   it("maps repair to 422", () => {

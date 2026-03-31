@@ -1,7 +1,7 @@
 /**
  * Shared plan-mode planner wiring for POST /chats/stream and POST /chats/[chatId]/stream.
  */
-import { buildPlannerSystemPrompt } from "@/lib/gen/plan-prompt";
+import { buildPlannerSystemPrompt } from "@/lib/gen/plan/prompt";
 import {
   createGenerationPipeline,
   type PipelineOptions,

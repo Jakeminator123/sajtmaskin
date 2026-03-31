@@ -2,8 +2,8 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
-import { startSandboxPreview } from "@/lib/gen/sandbox-preview";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
+import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
   getPostFinalizeSandboxContract,

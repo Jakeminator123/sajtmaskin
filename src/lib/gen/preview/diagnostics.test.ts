@@ -10,7 +10,7 @@ import {
   readPreviewDiagnosticMeta,
   shouldAutoFixPreviewDiagnostic,
   shouldReportPreviewOutcome,
-} from "./preview-diagnostics";
+} from "./diagnostics";
 
 describe("preview diagnostics helpers", () => {
   it("maps iframe preview kinds to stable diagnostic codes and stages", () => {

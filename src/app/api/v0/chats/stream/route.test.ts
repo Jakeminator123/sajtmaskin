@@ -168,7 +168,7 @@ vi.mock("@/lib/gen/orchestrate", () => ({
   finalizeOrchestrationPrompts,
 }));
 
-vi.mock("@/lib/gen/plan-prompt", () => ({
+vi.mock("@/lib/gen/plan/prompt", () => ({
   buildPlannerSystemPrompt: () => "planner-system-prompt",
   parsePlanResponse: vi.fn(),
 }));
@@ -181,7 +181,7 @@ vi.mock("@/lib/gen/url-compress", () => ({
   compressUrls: (value: string) => ({ compressed: value, urlMap: {} }),
 }));
 
-vi.mock("@/lib/gen/plan-review", () => ({
+vi.mock("@/lib/gen/plan/review", () => ({
   buildPlanSummaryMessage: vi.fn(),
   buildPlanUiPart: vi.fn(),
   enrichPlanArtifactForReview: vi.fn(),

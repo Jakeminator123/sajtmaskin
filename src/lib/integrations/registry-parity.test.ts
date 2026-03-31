@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { integrationRegistry } from "./registry";
-import { loadPlaceholderRecord } from "@/lib/gen/sandbox-env-local";
+import { loadPlaceholderRecord } from "@/lib/gen/sandbox/env-local";
 
 describe("integrationRegistry parity", () => {
   it("has unique definition keys", () => {

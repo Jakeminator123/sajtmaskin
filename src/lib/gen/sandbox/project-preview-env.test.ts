@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildProjectPreviewPlaceholderRecord } from "./sandbox-project-preview-env";
+import { buildProjectPreviewPlaceholderRecord } from "./project-preview-env";
 
 describe("buildProjectPreviewPlaceholderRecord", () => {
   it("returns empty record for blank id", () => {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { readPreviewDiagnosticMeta } from "@/lib/gen/preview-diagnostics";
+import { readPreviewDiagnosticMeta } from "@/lib/gen/preview/diagnostics";
 import {
   createEngineVersionErrorLog,
   createEngineVersionErrorLogs,

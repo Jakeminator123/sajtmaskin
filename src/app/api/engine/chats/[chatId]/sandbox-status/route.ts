@@ -6,10 +6,10 @@ import {
   SANDBOX_SESSION_HARD_CAP_MS,
   SANDBOX_SESSION_IDLE_MS,
   type SandboxSessionEntry,
-} from "@/lib/gen/sandbox-session-store";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
+} from "@/lib/gen/sandbox/session-store";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
 import { isSandboxConfigured, tryResumeSandboxById } from "@/lib/mcp/runtime-url";
-import type { SandboxStatusApiJson } from "@/lib/gen/preview-contract";
+import type { SandboxStatusApiJson } from "@/lib/gen/preview/preview-contract";
 
 function sessionSoftExpiryAt(entry: SandboxSessionEntry, now: number): number {
   return Math.min(entry.createdAt + SANDBOX_SESSION_HARD_CAP_MS, entry.lastUsedAt + SANDBOX_SESSION_IDLE_MS);

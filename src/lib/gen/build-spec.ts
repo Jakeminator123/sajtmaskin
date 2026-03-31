@@ -1,7 +1,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import { FEATURES } from "@/lib/config";
-import type { PreGenerationContractContext } from "./pre-generation-contracts";
+import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldFamily, ScaffoldManifest } from "./scaffolds/types";
 

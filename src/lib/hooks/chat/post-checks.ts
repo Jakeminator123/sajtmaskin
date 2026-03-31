@@ -1,6 +1,6 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { UiMessagePart } from "@/lib/builder/types";
-import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
+import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import {
   buildPostCheckBaseline,

@@ -1,5 +1,5 @@
 import type { Message } from "@/lib/db/chat-repository-pg";
-import type { ContractClarificationQuestion } from "./contract-clarification";
+import type { ContractClarificationQuestion } from "./clarification";
 import type { ConfirmedContractAnswer } from "./pre-generation-contracts";
 
 type AwaitingInputOutput = {

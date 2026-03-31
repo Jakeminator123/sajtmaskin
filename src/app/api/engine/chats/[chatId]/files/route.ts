@@ -19,7 +19,7 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
-import { deriveSetupContract, buildEnvExampleContent } from "@/lib/gen/setup-contract";
+import { deriveSetupContract, buildEnvExampleContent } from "@/lib/gen/contract/setup-contract";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
 function v0ErrorResponse(err: unknown, fallbackMessage: string) {

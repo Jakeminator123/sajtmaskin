@@ -1,4 +1,4 @@
-import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
+import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import type { PlannedRoute } from "@/lib/gen/route-plan";
 import type { SanityIssue } from "@/lib/gen/validation/project-sanity";
 import { formatChangeSteps } from "./post-checks-summary";

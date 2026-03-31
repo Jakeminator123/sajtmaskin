@@ -1,7 +1,7 @@
 import {
   previewDiagnosticCodeFromKind,
   previewDiagnosticStageFromKind,
-} from "@/lib/gen/preview-diagnostics";
+} from "@/lib/gen/preview/diagnostics";
 
 export type PreviewIssuePayload = {
   message?: string | null;

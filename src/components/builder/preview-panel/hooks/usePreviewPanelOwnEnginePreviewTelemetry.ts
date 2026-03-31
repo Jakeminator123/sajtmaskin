@@ -12,7 +12,7 @@ import {
   previewDiagnosticStageFromKind,
   shouldAutoFixPreviewDiagnostic,
   shouldReportPreviewOutcome,
-} from "@/lib/gen/preview-diagnostics";
+} from "@/lib/gen/preview/diagnostics";
 import {
   useCallback,
   useEffect,

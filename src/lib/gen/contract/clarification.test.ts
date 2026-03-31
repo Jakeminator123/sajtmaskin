@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildContractClarificationQuestion } from "./contract-clarification";
+import { buildContractClarificationQuestion } from "./clarification";
 import type { PreGenerationContractContext } from "./pre-generation-contracts";
 
 describe("buildContractClarificationQuestion", () => {

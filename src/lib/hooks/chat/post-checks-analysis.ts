@@ -1,4 +1,4 @@
-import type { PreviewPreflightState } from "@/lib/gen/preview-diagnostics";
+import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type PlannedRoute } from "@/lib/gen/route-plan";
 import {
   detectBusinessWorkflowPacks,

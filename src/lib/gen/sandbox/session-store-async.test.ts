@@ -25,7 +25,7 @@ import {
   getActiveSandboxSessionAsync,
   resetSandboxSessionStoreForTests,
   touchSandboxSessionAsync,
-} from "./sandbox-session-store";
+} from "./session-store";
 
 afterEach(() => {
   resetSandboxSessionStoreForTests();

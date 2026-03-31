@@ -37,7 +37,7 @@ import {
   type ConfirmedContractAnswer,
   inferPreGenerationContracts,
   type PreGenerationContractContext,
-} from "./pre-generation-contracts";
+} from "./contract/pre-generation-contracts";
 import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "./prompt-dump";
 import {
   type GenerationInputPackage,

@@ -5,7 +5,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { expandUrls } from "@/lib/gen/url-compress";
-import type { PreviewPreflightSummary } from "@/lib/gen/preview-diagnostics";
+import type { PreviewPreflightSummary } from "@/lib/gen/preview/diagnostics";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { RoutePlan } from "@/lib/gen/route-plan";

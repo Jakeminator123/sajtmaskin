@@ -14,7 +14,7 @@ import {
   buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
 } from "@/lib/mcp/runtime-url";
-import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox-env-local";
+import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox/env-local";
 
 export type GenerateOwnEngineSiteFromPromptParams = {
   prompt: string;

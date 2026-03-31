@@ -3,7 +3,7 @@ import nodePath from "node:path";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
-import { loadPlaceholderRecord, formatDotenvBody } from "./sandbox-env-local";
+import { loadPlaceholderRecord, formatDotenvBody } from "./sandbox/env-local";
 
 /**
  * Download/export scaffold.

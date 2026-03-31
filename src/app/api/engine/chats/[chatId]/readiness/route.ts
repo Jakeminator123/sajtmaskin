@@ -9,7 +9,7 @@ import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import {
   describePreviewDiagnosticCode,
   readPreviewDiagnosticMeta,
-} from "@/lib/gen/preview-diagnostics";
+} from "@/lib/gen/preview/diagnostics";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   buildChatReadiness,

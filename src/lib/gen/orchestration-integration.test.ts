@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import { deriveBuildSpec } from "@/lib/gen/build-spec";
-import type { PreGenerationContractContext } from "@/lib/gen/pre-generation-contracts";
-import { inferPreGenerationContracts } from "@/lib/gen/pre-generation-contracts";
+import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
+import { inferPreGenerationContracts } from "@/lib/gen/contract/pre-generation-contracts";
 import { buildRoutePlan } from "@/lib/gen/route-plan";
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
 

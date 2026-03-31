@@ -24,7 +24,7 @@ import {
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
-} from "@/lib/gen/contract-clarification";
+} from "@/lib/gen/contract/clarification";
 import {
   finalizeOrchestrationPrompts,
   prepareGenerationContext,
@@ -35,7 +35,7 @@ import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
-} from "@/lib/gen/plan-review";
+} from "@/lib/gen/plan/review";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {

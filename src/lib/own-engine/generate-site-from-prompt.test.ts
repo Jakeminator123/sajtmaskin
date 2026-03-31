@@ -60,7 +60,7 @@ vi.mock("@/lib/mcp/runtime-url", () => ({
   isSandboxConfigured: () => false,
 }));
 
-vi.mock("@/lib/gen/sandbox-env-local", () => ({
+vi.mock("@/lib/gen/sandbox/env-local", () => ({
   buildSandboxEnvLocalContents: buildSandboxEnvLocalContentsMock,
 }));
 

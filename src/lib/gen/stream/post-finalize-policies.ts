@@ -1,5 +1,5 @@
 import type { BuildSpec } from "@/lib/gen/build-spec";
-import { shouldRunOwnEngineSandbox } from "@/lib/gen/own-engine-sandbox-gate";
+import { shouldRunOwnEngineSandbox } from "@/lib/gen/sandbox/own-engine-sandbox-gate";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import type { SandboxStartContract } from "@/lib/gen/stream/preflight-contract";
 import { isServerVerifyEligible } from "@/lib/gen/server-verify";

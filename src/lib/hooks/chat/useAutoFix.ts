@@ -5,7 +5,7 @@ import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle
 import {
   describePreviewDiagnosticCode,
   readPreviewDiagnosticMeta,
-} from "@/lib/gen/preview-diagnostics";
+} from "@/lib/gen/preview/diagnostics";
 import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events";
 import type { AutoFixPayload, MessageOptions } from "./types";
 import { buildAutoFixPrompt } from "./helpers";

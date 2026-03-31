@@ -10,7 +10,7 @@
  * This module owns the *requirement* side, not the *value* side.
  */
 
-import type { PlanContracts, PlanIntegrationContract } from "./plan-schema";
+import type { PlanContracts, PlanIntegrationContract } from "../plan/schema";
 
 export type SetupStatus =
   | "unresolved"

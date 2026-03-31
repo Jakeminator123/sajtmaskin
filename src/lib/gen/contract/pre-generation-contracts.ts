@@ -7,12 +7,12 @@
  * structured provider metadata from the manifest.
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import type { InferredCapabilities } from "./capability-inference";
+import type { InferredCapabilities } from "../capability-inference";
 import type {
   PlanContracts,
   PlanEnvVarContract,
   PlanIntegrationContract,
-} from "./plan-schema";
+} from "../plan/schema";
 
 type ContractDecisionKind = "database" | "auth" | "payment" | "integration" | "env";
 

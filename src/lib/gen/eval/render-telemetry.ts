@@ -8,7 +8,7 @@
  */
 
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { describePreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
+import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 
 export interface RenderOutcome {
   chatId: string;

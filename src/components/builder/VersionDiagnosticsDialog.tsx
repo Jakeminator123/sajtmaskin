@@ -5,7 +5,7 @@ import { AlertCircle, KeyRound, Loader2, RefreshCw, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { describePreviewDiagnosticCode } from "@/lib/gen/preview-diagnostics";
+import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import {
   Dialog,

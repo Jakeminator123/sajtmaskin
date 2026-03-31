@@ -5,10 +5,10 @@ import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import {
   getActiveSandboxSessionAsync,
   touchSandboxSessionAsync,
-} from "@/lib/gen/sandbox-session-store";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox-lifecycle-telemetry";
+} from "@/lib/gen/sandbox/session-store";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
 import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
-import type { SandboxHeartbeatApiJson } from "@/lib/gen/preview-contract";
+import type { SandboxHeartbeatApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
   versionId: z.string().min(1),

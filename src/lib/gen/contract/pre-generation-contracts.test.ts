@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { inferPreGenerationContracts } from "./pre-generation-contracts";
-import type { InferredCapabilities } from "./capability-inference";
+import type { InferredCapabilities } from "../capability-inference";
 
 const baseCaps = (over: Partial<InferredCapabilities> = {}): InferredCapabilities => ({
   needsMotion: false,

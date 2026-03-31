@@ -4,7 +4,7 @@ vi.mock("@/lib/project-env-vars", () => ({
   getStoredProjectEnvVarMap: vi.fn(async () => ({})),
 }));
 
-import { buildSandboxEnvLocalContents, mergeSandboxEnvRecords } from "./sandbox-env-local";
+import { buildSandboxEnvLocalContents, mergeSandboxEnvRecords } from "./env-local";
 
 describe("mergeSandboxEnvRecords", () => {
   it("later layers override earlier keys", () => {

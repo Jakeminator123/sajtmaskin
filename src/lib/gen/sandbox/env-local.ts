@@ -10,7 +10,7 @@ import {
   parseGeneratedSitePlaceholderLines,
   readGeneratedSitePlaceholdersEnvText,
 } from "@/lib/ai-models/load-generated-site-placeholders";
-import { buildProjectPreviewPlaceholderRecord } from "@/lib/gen/sandbox-project-preview-env";
+import { buildProjectPreviewPlaceholderRecord } from "@/lib/gen/sandbox/project-preview-env";
 
 const FILE_HEADER = `# Sajtmaskin sandbox preview — merged env (global → project preview → user project → generated)
 # Do not use in production; values are for preview only unless you set them in the project.

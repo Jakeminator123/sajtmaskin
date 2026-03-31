@@ -13,9 +13,9 @@ vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
 }));
 
-vi.mock("@/lib/gen/sandbox-session-store", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/gen/sandbox-session-store")>(
-    "@/lib/gen/sandbox-session-store",
+vi.mock("@/lib/gen/sandbox/session-store", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/gen/sandbox/session-store")>(
+    "@/lib/gen/sandbox/session-store",
   );
   return {
     ...actual,
@@ -32,7 +32,7 @@ vi.mock("@/lib/mcp/runtime-url", async () => {
   };
 });
 
-vi.mock("@/lib/gen/sandbox-lifecycle-telemetry", () => ({
+vi.mock("@/lib/gen/sandbox/lifecycle-telemetry", () => ({
   logSandboxLifecycleTelemetry: vi.fn(),
 }));
 

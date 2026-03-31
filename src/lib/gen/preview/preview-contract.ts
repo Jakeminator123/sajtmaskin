@@ -2,7 +2,7 @@
  * Contract for own-engine SSE `done` and related preview events.
  * Canonical file payload for sandbox is `filesJson` after `finalizeAndSaveVersion` — see `generation-stream.ts`.
  */
-import type { PreviewPreflightSummary } from "@/lib/gen/preview-diagnostics";
+import type { PreviewPreflightSummary } from "@/lib/gen/preview/diagnostics";
 
 export type OwnEngineDoneSsePayload = {
   chatId: string;

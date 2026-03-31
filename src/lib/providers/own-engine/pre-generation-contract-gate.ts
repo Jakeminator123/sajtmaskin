@@ -3,8 +3,8 @@ import { formatSSEEvent } from "@/lib/streaming";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import { isBuildSpecEnabled, type BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
-import type { PreGenerationContractContext } from "@/lib/gen/pre-generation-contracts";
-import type { ContractClarificationQuestion } from "@/lib/gen/contract-clarification";
+import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
+import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 

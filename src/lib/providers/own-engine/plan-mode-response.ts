@@ -3,8 +3,8 @@ import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { isBuildSpecEnabled, type BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { createSSEHeaders } from "@/lib/streaming";
-import { parsePlanResponse } from "@/lib/gen/plan-prompt";
-import { enrichPlanArtifactForReview } from "@/lib/gen/plan-review";
+import { parsePlanResponse } from "@/lib/gen/plan/prompt";
+import { enrichPlanArtifactForReview } from "@/lib/gen/plan/review";
 import { createPlanModeStream } from "@/lib/gen/stream/plan-mode-stream";
 
 type PlanArtifact = Record<string, unknown>;

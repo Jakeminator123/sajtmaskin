@@ -4,10 +4,10 @@
  */
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import { isBuildSpecEnabled, type BuildSpec } from "@/lib/gen/build-spec";
-import type { ContractClarificationQuestion } from "@/lib/gen/contract-clarification";
+import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
-import type { PreGenerationContractContext } from "@/lib/gen/pre-generation-contracts";
+import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { GenerationStreamMeta } from "@/lib/providers/own-engine/generation-stream";
 import type { PreGenerationContractGateReadableParams } from "@/lib/providers/own-engine/pre-generation-contract-gate";

@@ -20,7 +20,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildSpec } from "./build-spec";
-import type { PreGenerationContractContext } from "./pre-generation-contracts";
+import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import { searchKnowledgeBaseAsync } from "./context/knowledge-base";

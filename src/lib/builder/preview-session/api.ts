@@ -1,5 +1,5 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import type { SandboxHeartbeatApiJson, SandboxStatusApiJson } from "@/lib/gen/preview-contract";
+import type { SandboxHeartbeatApiJson, SandboxStatusApiJson } from "@/lib/gen/preview/preview-contract";
 
 /** Browser `fetch` mot sandbox-status; returnerar null vid nätverksfel eller icke-ok svar. */
 export async function fetchSandboxStatus(params: {

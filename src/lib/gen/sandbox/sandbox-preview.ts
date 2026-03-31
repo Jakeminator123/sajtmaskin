@@ -1,16 +1,16 @@
-import type { CodeFile } from "./parser";
+import type { CodeFile } from "../parser";
 import type {
   BuildSpecPreviewPolicy,
   BuildSpecVerificationPolicy,
-} from "./build-spec";
-import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox-env-local";
-import { buildCompleteProject } from "./project-scaffold";
-import { repairGeneratedFiles } from "./repair-generated-files";
+} from "../build-spec";
+import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox/env-local";
+import { buildCompleteProject } from "../project-scaffold";
+import { repairGeneratedFiles } from "../repair-generated-files";
 import {
   clearSandboxSessionAsync,
   getActiveSandboxSessionAsync,
   touchSandboxSessionAsync,
-} from "@/lib/gen/sandbox-session-store";
+} from "@/lib/gen/sandbox/session-store";
 import {
   createSandboxRuntimeFromFiles,
   resolveSandboxPreviewModeFromPolicies,

@@ -5,7 +5,7 @@ import {
   getActiveSandboxSession,
   resetSandboxSessionStoreForTests,
   touchSandboxSession,
-} from "./sandbox-session-store";
+} from "./session-store";
 
 afterEach(() => {
   resetSandboxSessionStoreForTests();

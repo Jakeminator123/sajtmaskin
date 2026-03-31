@@ -1,4 +1,4 @@
-import type { RoutePlan } from "./route-plan";
+import type { RoutePlan } from "../route-plan";
 import type { PreflightIssueCategory, SandboxStartContract } from "@/lib/gen/stream/preflight-contract";
 
 export type PreviewDiagnosticCode =
