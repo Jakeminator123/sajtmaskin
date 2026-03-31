@@ -201,6 +201,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (ad) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `agent-workflows.md` beskriver spår A vs B och när spår B säkert kan köra i `gen`/own-engine; `contributing/README.md` länkar nav + agent-workflows; `tools/README.md` rad till `scripts/env/manage_env.py` + `docs/ENV.md`; `AGENTS.md` pekar på samma §. Handoff nedan nämner parallell B-yta. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
 | **Före** pass 2026-03-31 (ae)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: parallell samordning — explicit lista på kod-/doc-sökvägar där spår A ska stämma av med spår B; handoff ska inte längre antyda att städ “som standard” tar `hooks/chat`/`env.ts`/`config.ts` samtidigt som B kör. |
 | **Efter** pass 2026-03-31 (ae) | 2026-03-31 | 11/21   | 52%     | 48%    | Docs: `agent-workflows.md` har konfliktzon-lista + att grön `master` inte kräver paus; STORDSTAD-handoff/startrad skiljer **parallell** städ (docs/scripts/AGENTS/.cursor m.m.) från kodstäd i B-zoner när B är aktivt; `AGENTS.md` pekar på konfliktzoner. Bekräftat från spår B: repo friskt på `master` (typecheck + full Vitest). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
+| **Före** pass 2026-03-31 (af)  | 2026-03-31 | 11/21   | 52%     | 48%    | Zon: lokal env-notes-mapp + sync chat-create meta; två commits (ignore + API). |
+| **Efter** pass 2026-03-31 (af) | 2026-03-31 | 11/21   | 52%     | 48%    | `files_envvars/` tillagd i `.gitignore` och `.cursorignore` (lokal scratch, ej kanon). `di-d.txt` borttagen från aktiv cursorignore-rad (rad kommenterad). API: `POST /api/v0/chats` synkväg skickar `orchestrationStreamMeta` via `buildOwnEngineGenerationStreamMeta`; `route.test.ts`-mock utökad. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. Inga ändringar under `src/lib/gen/scaffolds/*`. |
 
 ---
 
@@ -341,7 +343,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ae)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass af)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)
