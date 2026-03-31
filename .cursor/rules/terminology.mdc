@@ -26,7 +26,7 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 ## Fidelity
 
 - **1**: enklare eller statisk preview (kan också vara legacy).
-- **2**: sandbox-körbar Next-app med fokus på visuell trohet. Denna typ av nivå är det som projektet i allmänhet strävar efter att ge användaren.
+- **2**: (VI JOBBAR I 90% AV FALLEN MOT DETTA) sandbox-körbar Next-app med fokus på visuell trohet. Denna typ av nivå är det som projektet i allmänhet strävar efter att ge användaren.
 - **3**: byggbar och deploybar produktionstro version.
 
 `docs/architecture/preview-deploy.md` är kanonisk källa för den faktiska preview-kedjan.
@@ -35,7 +35,7 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 
 1. **Sajtmaskin-plattformen (detta repo)**
    - Filer i **repo-roten**: `.env.local`, `.env.production`, `.env.*` — **gitignorade** och ofta **`.cursorignore`** (agenter ser dem inte i index; öppna med `@` / Read om användaren delar).
-   - **Vercel Environment Variables** för den deployade Sajtmaskin-appen (production / preview / development).
+   - **Vercel Environment Variables** för den deployade Sajtmaskin-appen. Tre Vercel-targets: **development** (= `vercel dev`), **preview** (PR-deploys), **production** (live). I praktiken: **development = lokal dev** (via `.env.local` + `npm run dev`), **production = Vercel** (deployer från `master`), **preview = speglar production** (samma env-värden; sällan använt). Sätt preview-variabler identiskt med production.
    - **Kanon för *namn* som appen läser:** `src/lib/env.ts` (Zod `serverSchema`). **Klassificering / audit:** `config/env-policy.json`. Människotext: `docs/ENV.md`.
 
 2. **Användarens genererade sajt (Next-projekt i sandbox eller efter export)**
