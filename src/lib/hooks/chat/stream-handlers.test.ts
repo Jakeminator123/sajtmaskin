@@ -35,6 +35,9 @@ vi.mock("sonner", () => ({
 
 vi.mock("./post-checks", () => ({
   runPostGenerationChecks,
+}));
+
+vi.mock("./post-checks-fetch", () => ({
   triggerImageMaterialization,
 }));
 
