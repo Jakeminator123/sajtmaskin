@@ -279,9 +279,9 @@
     },
     {
       "key": "VERCEL_TOKEN_FULL",
-      "classification": "environment_specific",
+      "classification": "local_only",
       "recommendedVercelTargets": [],
-      "notes": "Optional local alias for VERCEL_TOKEN only (Sajtmaskin). Prefer VERCEL_TOKEN; never commit either."
+      "notes": "Deprecated — consolidated into VERCEL_TOKEN (vcp_ format). Remove from .env.local if present."
     },
     {
       "key": "VERCEL_TEAM_ID",
