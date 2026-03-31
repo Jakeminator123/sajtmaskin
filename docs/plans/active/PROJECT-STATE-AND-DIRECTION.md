@@ -129,6 +129,7 @@ Extern granskning och remediation är **införlivad** i kod och i [`preview-depl
 - **Export-pipeline** kanoniserad via `buildExportableProject()` — alla nedladdnings-/verifieringsvägar går genom samma funktion.  
 - **Sandbox-policy** centraliserad i `src/lib/mcp/runtime-url.ts` — quality-gate och sandbox-routes delar helpers (`isSafeRelativePath`, `resolveSandboxTemplateGitUrl`).  
 - **Template-katalog:** server/pages importerar `@/lib/templates/template-data` och/eller `@/lib/templates/template-catalog`; klient säkra exports via `@/lib/templates/client` (ingen gemensam `index`-barrel).  
+- **Template-library runtime guidance:** system prompt bygger nu regelstyrd reference guidance (`style rules`, `section inventory`, `avoid patterns`, `world-class rubric`) från template-katalogen före kodsnippets, och scaffold/template-taxonomy valideras hårdare i test/runtime.  
 - **Bildpolicy** synkad: genererad `next.config` vitlistar inte längre hosts som prompten förbjuder.  
 - **Generation fan-in** kanoniserad via `GenerationInputPackage` + `computeLineageHash()` i `src/lib/gen/generation-input-package.ts`.  
 - **BuildSpec** bär nu ett litet styrande lager i orchestration (`src/lib/gen/build-spec.ts`) för `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`; narrow follow-ups kan därför köra lättare kontext och snabbare finalize.  

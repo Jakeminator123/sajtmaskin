@@ -31,6 +31,7 @@ import {
   searchTemplateLibraryKeywordsOnly,
   selectTemplateReferenceFiles,
 } from "./template-library/search";
+import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
 import type { TemplateLibraryEntry } from "./template-library/types";
 import { getStaticCoreFromWorkspace } from "./static-core-loader";
 
@@ -663,19 +664,24 @@ export async function buildDynamicContext(options: DynamicContextOptions): Promi
     if (usefulTemplateMatches.length > 0) {
       parts.push("## Relevant Template References", "");
       for (const match of usefulTemplateMatches) {
+        const guidance = deriveTemplateRuntimeGuidance(match.entry);
         parts.push(`### ${match.entry.title}`, "");
         parts.push(`- Category: ${match.entry.categoryName}`);
         parts.push(`- Scaffold fit: ${match.entry.recommendedScaffoldFamilies.join(", ")}`);
         parts.push(`- Quality score: ${match.entry.qualityScore}`);
         parts.push(`- Why this reference: ${match.reasons.join(" ")}`);
         parts.push(`- Summary: ${match.entry.summary}`);
-        if (match.entry.selectedFiles.length > 0) {
-          parts.push(
-            `- Reference files: ${match.entry.selectedFiles
-              .slice(0, 4)
-              .map((file) => file.path)
-              .join(", ")}`,
-          );
+        if (guidance.styleRules.length > 0) {
+          parts.push(`- Style rules: ${guidance.styleRules.join(" | ")}`);
+        }
+        if (guidance.sectionInventory.length > 0) {
+          parts.push(`- Section inventory: ${guidance.sectionInventory.join(" | ")}`);
+        }
+        if (guidance.avoidPatterns.length > 0) {
+          parts.push(`- Avoid: ${guidance.avoidPatterns.join(" | ")}`);
+        }
+        if (guidance.worldClassRubric.length > 0) {
+          parts.push(`- World-class rubric: ${guidance.worldClassRubric.join(" | ")}`);
         }
         parts.push("");
       }

@@ -41,6 +41,13 @@ export interface TemplateLibrarySignals {
   cms: boolean;
 }
 
+export interface TemplateLibraryRuntimeGuidance {
+  styleRules: string[];
+  sectionInventory: string[];
+  avoidPatterns: string[];
+  worldClassRubric: string[];
+}
+
 export interface TemplateLibraryEntry {
   id: string;
   slug: string;
@@ -63,6 +70,7 @@ export interface TemplateLibraryEntry {
   recommendedScaffoldFamilies: ScaffoldFamily[];
   signals: TemplateLibrarySignals;
   summary: string;
+  runtimeGuidance?: TemplateLibraryRuntimeGuidance;
   selectedFiles: TemplateLibrarySelectedFile[];
 }
 

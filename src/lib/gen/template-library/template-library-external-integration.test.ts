@@ -5,6 +5,7 @@
  * If entries.length === 0, run hydrate + build + embeddings (see research/external-templates/README.md and scripts/README.md).
  */
 import { describe, expect, it } from "vitest";
+import { getScaffoldFamilies } from "@/lib/gen/scaffolds";
 import catalogJson from "./template-library.generated.json";
 import embeddingsJson from "./template-library-embeddings.json";
 import { getTemplateLibraryEntries, getTemplateLibraryEntryById } from "./catalog";
@@ -17,6 +18,7 @@ import {
 const entries = getTemplateLibraryEntries();
 const catalogIds = new Set(entries.map((e) => e.id));
 const embeddingIds = new Set(embeddingsJson.embeddings.map((e) => e.id));
+const knownScaffoldFamilies = new Set(getScaffoldFamilies());
 
 describe("template-library external templates (committed catalog)", () => {
   it("has at least one curated entry (rebuild pipeline if zero)", () => {
@@ -44,6 +46,14 @@ describe("template-library external templates (committed catalog)", () => {
       expect(e.recommendedScaffoldFamilies?.length).toBeGreaterThan(0);
       expect(e.qualityScore).toBeGreaterThanOrEqual(45);
       expect(Array.isArray(e.selectedFiles)).toBe(true);
+    }
+  });
+
+  it("only references known runtime scaffold families", () => {
+    for (const entry of entries) {
+      for (const family of entry.recommendedScaffoldFamilies) {
+        expect(knownScaffoldFamilies.has(family), `unknown scaffold family ${family} on ${entry.id}`).toBe(true);
+      }
     }
   });
 
