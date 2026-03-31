@@ -20,18 +20,18 @@ tsconfig.tsbuildinfo
 package-lock.json
 
 # --- Hemligheter & lokala env (docs/ENV.md, src/lib/env.ts) ---
-.env
-.env.local
-.env.production
-.env.development
-.env.test
-.env.*
-!.env.example
-!.env.*.example
-.token-status.json
-OLD.env.local
-OLD.env.production
-ENV_JAMFORRELSE.txt
+#.env
+#.env.local
+#.env.production
+#.env.development
+#.env.test
+#.env.*
+#!.env.example
+#!.env.*.example
+#.token-status.json
+#OLD.env.local
+#OLD.env.production
+#ENV_JAMFORRELSE.txt
 #di-d.txt
 
 # --- Data & prompt-dumpar ---
@@ -108,4 +108,4 @@ services/mpc/docs/**
 services/mpc/logs/
 next-env.d.ts
 archive\scripts-labs-testning_scarf
-files_envvars
+files_envars
